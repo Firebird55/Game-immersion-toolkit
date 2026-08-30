@@ -13,7 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Untitled site',
+  title: 'Proxy Transcript — ZZZ Companion',
+  description: 'A local bilingual transcript companion for Zenless Zone Zero.',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({

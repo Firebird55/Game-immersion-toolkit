@@ -35,4 +35,16 @@ next-env.d.ts
 /dist/
 /.wrangler/
 /outputs/
+/output/
 /work/
+
+# local companion runtime
+/.venv/
+/data/settings.json
+/data/transcript.db*
+/data/textmaps/
+/data/processes.json
+/data/capture-preview.jpg
+__pycache__/
+*.pyc
+.pytest_cache/
