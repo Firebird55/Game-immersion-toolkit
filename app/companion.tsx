@@ -128,6 +128,16 @@ function StableText({ text, className, lang }: { text: string; className?: strin
   return <p ref={element} className={className} lang={lang} />;
 }
 
+function StableInline({ text, className }: { text: string; className?: string }) {
+  const element = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (element.current && element.current.textContent !== text) {
+      element.current.replaceChildren(document.createTextNode(text));
+    }
+  }, [text]);
+  return <span ref={element} className={className} />;
+}
+
 function CompanionClient() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
@@ -324,7 +334,7 @@ function CompanionClient() {
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
           <span className="live-pulse" />
-          <span>{online ? phaseLabel(capture?.phase ?? 'starting') : 'Service offline'}</span>
+          <StableInline text={online ? phaseLabel(capture?.phase ?? 'starting') : 'Service offline'} />
         </div>
       </header>
 
@@ -332,17 +342,17 @@ function CompanionClient() {
         <div>
           <Radio size={17} />
           <span>3-zone OCR + voice</span>
-          <strong>{capture?.running ? phaseLabel(capture.phase) : 'Paused'}</strong>
+          <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : 'Paused'} /></strong>
         </div>
         <div>
           <Database size={17} />
           <span>TextMaps</span>
-          <strong>{mapStatus?.ready ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'}</strong>
+          <strong><StableInline text={mapStatus?.ready ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'} /></strong>
         </div>
         <div>
           <Activity size={17} />
           <span>This session</span>
-          <strong>{currentCount} {currentCount === 1 ? 'line' : 'lines'}</strong>
+          <strong><StableInline text={`${currentCount} ${currentCount === 1 ? 'line' : 'lines'}`} /></strong>
         </div>
       </section>
 
@@ -350,9 +360,10 @@ function CompanionClient() {
         <div className="section-label">
           <span id="current-heading"><Crosshair size={16} /> Current line</span>
           {latestLine ? (
-            <span className="match-label">
-              {latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : 'Dialogue'} · {latestLine.voiced ? 'Voiced' : 'Text'} · {Math.round(latestLine.score)}%
-            </span>
+            <StableInline
+              className="match-label"
+              text={`${latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Text'} · ${Math.round(latestLine.score)}%`}
+            />
           ) : null}
         </div>
         {latestLine ? (
@@ -422,7 +433,7 @@ function CompanionClient() {
 
       <footer className="capture-footer">
         <span className={capture?.phase === 'error' ? 'has-error' : ''}>
-          <span className="live-pulse" /> {capture?.message ?? 'Connecting to local capture service'}
+          <span className="live-pulse" /> <StableInline text={capture?.message ?? 'Connecting to local capture service'} />
         </span>
         <div className="footer-actions">
           <Button
@@ -513,17 +524,17 @@ function CompanionClient() {
 
           <div className="ocr-readout">
             <span>Latest OCR</span>
-            <p>{(setupChannel === 'tip' ? capture?.last_tip_ocr : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr : capture?.last_ocr) || 'No English text detected in the current region.'}</p>
-            <small>{(setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ? `${Math.round((setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ?? 0)}% OCR confidence` : 'Waiting for text'}</small>
+            <StableText text={(setupChannel === 'tip' ? capture?.last_tip_ocr : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr : capture?.last_ocr) || 'No English text detected in the current region.'} />
+            <small><StableInline text={(setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ? `${Math.round((setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ?? 0)}% OCR confidence` : 'Waiting for text'} /></small>
           </div>
 
           <div className="setup-actions">
             <Button variant="outline" onClick={refreshTextMaps} disabled={refreshingMaps}>
               <RefreshCw className={refreshingMaps ? 'is-spinning' : ''} />
-              {refreshingMaps ? 'Updating…' : 'Update TextMaps'}
+              <StableInline text={refreshingMaps ? 'Updating…' : 'Update TextMaps'} />
             </Button>
             <Button onClick={saveSettings} disabled={!draftSettings || saving}>
-              {saving ? 'Saving…' : 'Save both regions'}
+              <StableInline text={saving ? 'Saving…' : 'Save both regions'} />
             </Button>
           </div>
         </DialogContent>
