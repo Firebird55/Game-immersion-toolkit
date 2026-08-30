@@ -60,6 +60,7 @@ def test_visible_full_line_rejects_later_suffix_match() -> None:
     full = "But that's not important. We should start looking for the prototype."
     ocr = f"Ben {full}"
     assert service._is_redundant_visible_match("dialogue", full, ocr) is False
+    assert service._is_redundant_visible_match("dialogue", full, ocr) is False
     assert service._is_redundant_visible_match("dialogue", "The prototype?", ocr) is True
     assert service._is_redundant_visible_match(
         "dialogue", "The prototype?", "Belle The prototype?"

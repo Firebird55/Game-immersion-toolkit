@@ -430,7 +430,9 @@ class CaptureService:
         previous = self._last_visible_match_by_channel.get(channel)
         redundant = bool(
             previous
-            and len(matched) <= len(previous)
+            # Equal frames are required to confirm typewriter completion. Only
+            # a genuinely shorter match is a stale suffix of the full subtitle.
+            and len(matched) < len(previous)
             and matched in previous
             and previous in visible
         )
