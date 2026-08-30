@@ -26,6 +26,15 @@ TAG_RE = re.compile(r"<[^>]+>")
 FORMAT_RE = re.compile(r"\{[^{}]*\}|\[[^\[\]]*\]")
 NON_ALNUM_RE = re.compile(r"[^0-9a-z]+")
 DIALOGUE_ID_MARKERS = ("chat", "galgame", "dialog", "talk", "voice")
+TIP_ID_MARKERS = ("tips", "autoevent", "guide", "unlockdes", "toast")
+CINEMATIC_ID_MARKERS = (
+    "comic",
+    "video",
+    "voice",
+    "subtitle",
+    "caption",
+)
+GENDER_VARIANT_RE = re.compile(r"\{[MF]#(.*?)\}", re.DOTALL)
 TERMINAL_PUNCTUATION_RE = re.compile(r"[.!?…][\"')\]}]*$")
 
 
@@ -43,6 +52,12 @@ def normalize_english(value: str) -> str:
     return NON_ALNUM_RE.sub("", text)
 
 
+def localized_variants(value: str) -> list[str]:
+    variants = [display_text(item) for item in GENDER_VARIANT_RE.findall(str(value or ""))]
+    variants = [item for item in variants if item]
+    return list(dict.fromkeys(variants)) or [display_text(value)]
+
+
 @dataclass(frozen=True, slots=True)
 class _Record:
     text_id: str
@@ -58,7 +73,7 @@ class TextMapIndex:
         self._records_by_normalized: dict[str, list[_Record]] = {}
         self._choices: list[str] = []
         self._blocked_labels: set[str] = set()
-        self._cache: dict[tuple[str, int, bool], TextMatch | None] = {}
+        self._cache: dict[tuple[str, int, bool, str], TextMatch | None] = {}
         self.ready = False
         self.state = "not_ready"
         self.message = "TextMaps have not been loaded"
@@ -119,20 +134,22 @@ class TextMapIndex:
                 chinese_value = chinese.get(text_id)
                 if not chinese_value:
                     continue
-                english_text = display_text(english_value)
-                chinese_text = display_text(chinese_value)
-                normalized = normalize_english(english_text)
-                if len(normalized) < 2 or not chinese_text:
-                    continue
+                english_variants = localized_variants(english_value)
+                chinese_variants = localized_variants(chinese_value)
                 # ZZZ repeats character names across thousands of TextMap keys.
                 # Harvest those official label records up front so a name cannot
                 # leak through via a second, less-obvious key with the same text.
                 lowered_id = text_id.casefold()
-                if "name" in lowered_id or "speaker" in lowered_id:
-                    blocked_labels.add(normalized)
-                index.setdefault(normalized, []).append(
-                    _Record(text_id=text_id, english=english_text, chinese=chinese_text)
-                )
+                for variant_index, english_text in enumerate(english_variants):
+                    chinese_text = chinese_variants[min(variant_index, len(chinese_variants) - 1)]
+                    normalized = normalize_english(english_text)
+                    if len(normalized) < 2 or not chinese_text:
+                        continue
+                    if "name" in lowered_id or "speaker" in lowered_id:
+                        blocked_labels.add(normalized)
+                    index.setdefault(normalized, []).append(
+                        _Record(text_id=text_id, english=english_text, chinese=chinese_text)
+                    )
             with self._lock:
                 self._records_by_normalized = index
                 self._choices = list(index)
@@ -171,7 +188,7 @@ class TextMapIndex:
     def _candidate_strings(cls, lines: Iterable[str]) -> list[tuple[str, bool]]:
         cleaned = [display_text(line) for line in lines if display_text(line)]
         candidates: list[tuple[str, bool]] = []
-        has_speaker_context = len(cleaned) > 1 and cls._looks_like_label(cleaned[0])
+        has_speaker_context = 2 <= len(cleaned) <= 3 and cls._looks_like_label(cleaned[0])
 
         def add(value: str, allow_short: bool = False) -> None:
             value = " ".join(value.split()).strip()
@@ -190,10 +207,25 @@ class TextMapIndex:
                 add(" ".join(cleaned[start:end]), has_speaker_context and start > 0)
         return candidates
 
-    def match_lines(self, lines: Iterable[str], threshold: float = 82) -> TextMatch | None:
+    def match_lines(
+        self,
+        lines: Iterable[str],
+        threshold: float = 82,
+        *,
+        channel: str = "dialogue",
+    ) -> TextMatch | None:
+        source_lines = list(lines)
+        crowded = len([line for line in source_lines if display_text(line)]) > 4
         best: TextMatch | None = None
-        for candidate, allow_short in self._candidate_strings(lines):
-            result = self.match_text(candidate, threshold=threshold, allow_short=allow_short)
+        for candidate, allow_short in self._candidate_strings(source_lines):
+            if crowded and len(display_text(candidate).split()) < 4:
+                continue
+            result = self.match_text(
+                candidate,
+                threshold=threshold,
+                allow_short=allow_short,
+                channel=channel,
+            )
             if result is None:
                 continue
             if best is None or (result.score, len(normalize_english(result.source_ocr))) > (
@@ -211,6 +243,7 @@ class TextMapIndex:
         threshold: float = 82,
         *,
         allow_short: bool = False,
+        channel: str = "dialogue",
     ) -> TextMatch | None:
         if not self.ready:
             return None
@@ -224,6 +257,8 @@ class TextMapIndex:
             if normalized in self._blocked_labels:
                 return None
         words = display_text(source_ocr).split()
+        if channel == "tip" and (len(words) < 4 or len(normalized) < 15):
+            return None
         if (
             not allow_short
             and len(words) <= 2
@@ -231,7 +266,7 @@ class TextMapIndex:
             and not TERMINAL_PUNCTUATION_RE.search(display_text(source_ocr))
         ):
             return None
-        cache_key = (normalized, round(threshold), allow_short)
+        cache_key = (normalized, round(threshold), allow_short, channel)
         with self._lock:
             if cache_key in self._cache:
                 cached = self._cache[cache_key]
@@ -257,7 +292,7 @@ class TextMapIndex:
                 records = self._records_by_normalized[matched_normalized]
                 kind = "fuzzy"
 
-            records = [record for record in records if self._is_dialogue_record(record)]
+            records = [record for record in records if self._is_allowed_record(record, channel)]
             if not records:
                 self._cache[cache_key] = None
                 return None
@@ -285,3 +320,17 @@ class TextMapIndex:
         if "name" in text_id or "speaker" in text_id:
             return False
         return any(marker in text_id for marker in DIALOGUE_ID_MARKERS)
+
+    @classmethod
+    def _is_allowed_record(cls, record: _Record, channel: str) -> bool:
+        if channel == "tip":
+            text_id = record.text_id.casefold()
+            if "name" in text_id or "speaker" in text_id:
+                return False
+            return any(marker in text_id for marker in TIP_ID_MARKERS)
+        if channel == "cinematic":
+            text_id = record.text_id.casefold()
+            if "name" in text_id or "speaker" in text_id:
+                return False
+            return any(marker in text_id for marker in CINEMATIC_ID_MARKERS)
+        return cls._is_dialogue_record(record)

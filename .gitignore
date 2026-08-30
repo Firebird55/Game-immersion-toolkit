@@ -45,6 +45,7 @@ next-env.d.ts
 /data/textmaps/
 /data/processes.json
 /data/capture-preview.jpg
+/data/audio/
 __pycache__/
 *.pyc
 .pytest_cache/

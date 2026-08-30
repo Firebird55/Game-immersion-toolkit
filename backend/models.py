@@ -27,8 +27,14 @@ class AppSettings(BaseModel):
         default_factory=lambda: ["Zenless Zone Zero", "ZenlessZoneZero"]
     )
     region: CaptureRegion = Field(default_factory=CaptureRegion)
-    scan_interval_ms: int = Field(default=650, ge=250, le=5000)
-    stable_frames: int = Field(default=2, ge=1, le=8)
+    tip_region: CaptureRegion = Field(
+        default_factory=lambda: CaptureRegion(left=0.62, top=0.015, width=0.37, height=0.19)
+    )
+    cinematic_region: CaptureRegion = Field(
+        default_factory=lambda: CaptureRegion(left=0.04, top=0.06, width=0.92, height=0.88)
+    )
+    scan_interval_ms: int = Field(default=250, ge=100, le=5000)
+    stable_frames: int = Field(default=1, ge=1, le=8)
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)
     auto_start: bool = True
     save_unmatched: bool = False
@@ -60,6 +66,9 @@ class TranscriptLine(BaseModel):
     score: float
     match_kind: str
     ambiguous: bool = False
+    channel: Literal["dialogue", "tip", "cinematic"] = "dialogue"
+    voiced: bool = False
+    has_audio: bool = False
 
 
 class CaptureSnapshot(BaseModel):
@@ -69,8 +78,16 @@ class CaptureSnapshot(BaseModel):
     window_title: str | None = None
     window_bounds: tuple[int, int, int, int] | None = None
     crop_bounds: tuple[int, int, int, int] | None = None
+    tip_crop_bounds: tuple[int, int, int, int] | None = None
+    cinematic_crop_bounds: tuple[int, int, int, int] | None = None
     last_ocr: str = ""
     last_ocr_confidence: float | None = None
+    last_tip_ocr: str = ""
+    last_tip_ocr_confidence: float | None = None
+    last_tip_match_score: float | None = None
+    last_cinematic_ocr: str = ""
+    last_cinematic_ocr_confidence: float | None = None
+    last_cinematic_match_score: float | None = None
     last_match_score: float | None = None
     last_scan_at: datetime | None = None
     last_error: str | None = None

@@ -5,12 +5,14 @@ import {
   Activity,
   Crosshair,
   Database,
+  MessageSquareText,
   Pause,
   Play,
   Radio,
   RefreshCw,
   ScanLine,
   Settings2,
+  Volume2,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -30,6 +32,8 @@ type Settings = {
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
+  tip_region: CaptureRegion;
+  cinematic_region: CaptureRegion;
   scan_interval_ms: number;
   stable_frames: number;
   fuzzy_threshold: number;
@@ -43,8 +47,16 @@ type CaptureStatus = {
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
+  tip_crop_bounds: [number, number, number, number] | null;
+  cinematic_crop_bounds: [number, number, number, number] | null;
   last_ocr: string;
   last_ocr_confidence: number | null;
+  last_tip_ocr: string;
+  last_tip_ocr_confidence: number | null;
+  last_tip_match_score: number | null;
+  last_cinematic_ocr: string;
+  last_cinematic_ocr_confidence: number | null;
+  last_cinematic_match_score: number | null;
   last_match_score: number | null;
   last_scan_at: string | null;
   last_error: string | null;
@@ -61,10 +73,14 @@ type TranscriptLine = {
   score: number;
   match_kind: string;
   ambiguous: boolean;
+  channel: 'dialogue' | 'tip' | 'cinematic';
+  voiced: boolean;
+  has_audio: boolean;
 };
 type StatusPayload = {
   capture: CaptureStatus;
   textmaps: TextMapStatus;
+  audio: { ready: boolean; message: string };
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
@@ -85,6 +101,7 @@ function phaseLabel(phase: string) {
     loading_textmaps: 'Loading TextMaps',
     listening: 'Listening',
     unmatched: 'Reading subtitle',
+    excluded_screen: 'History UI ignored',
     matched: 'Matched',
     error: 'Retrying',
     stopped: 'Paused',
@@ -99,9 +116,11 @@ export function Companion() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draftSettings, setDraftSettings] = useState<Settings | null>(null);
   const [previewTick, setPreviewTick] = useState(0);
+  const [setupChannel, setSetupChannel] = useState<'dialogue' | 'tip' | 'cinematic'>('dialogue');
   const [saving, setSaving] = useState(false);
   const [refreshingMaps, setRefreshingMaps] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const knownLineIds = useRef(new Set<number>());
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -113,7 +132,9 @@ export function Companion() {
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
       setDraftSettings(nextStatus.settings);
-      setLines((await linesResponse.json()) as TranscriptLine[]);
+      const nextLines = (await linesResponse.json()) as TranscriptLine[];
+      knownLineIds.current = new Set(nextLines.map((line) => line.id));
+      setLines(nextLines);
       setOnline(true);
     } catch {
       setOnline(false);
@@ -152,15 +173,20 @@ export function Companion() {
         }
         if (event.type === 'line') {
           const line = event.line as TranscriptLine;
-          setLines((current) => current.some((item) => item.id === line.id)
-            ? current
-            : [line, ...current].slice(0, 500));
+          const isNew = !knownLineIds.current.has(line.id);
+          knownLineIds.current.add(line.id);
+          setLines((current) => {
+            const existing = current.some((item) => item.id === line.id);
+            return existing
+              ? current.map((item) => item.id === line.id ? line : item)
+              : [line, ...current].slice(0, 500);
+          });
           setStatus((current) => current ? {
             ...current,
             session: {
               ...current.session,
-              line_count: current.session.line_count + 1,
-              total_line_count: current.session.total_line_count + 1,
+              line_count: current.session.line_count + (isNew ? 1 : 0),
+              total_line_count: current.session.total_line_count + (isNew ? 1 : 0),
             },
           } : current);
         }
@@ -203,13 +229,16 @@ export function Companion() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
+      const regionKey = setupChannel === 'tip'
+        ? 'tip_region'
+        : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
-      const nextRegion = { ...current.region, [field]: value };
+      const nextRegion = { ...current[regionKey], [field]: value };
       if (field === 'left') nextRegion.width = Math.min(nextRegion.width, 1 - value);
       if (field === 'top') nextRegion.height = Math.min(nextRegion.height, 1 - value);
       if (field === 'width') nextRegion.width = Math.min(value, 1 - nextRegion.left);
       if (field === 'height') nextRegion.height = Math.min(value, 1 - nextRegion.top);
-      return { ...current, region: nextRegion };
+      return { ...current, [regionKey]: nextRegion };
     });
   }
 
@@ -241,12 +270,17 @@ export function Companion() {
   const capture = status?.capture;
   const mapStatus = status?.textmaps;
   const currentCount = status?.session.line_count ?? sessionLines.length;
+  const activeRegion = draftSettings
+    ? (setupChannel === 'tip'
+        ? draftSettings.tip_region
+        : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
+    : null;
   const previewRegionQuery = draftSettings
     ? new URLSearchParams({
-        left: String(draftSettings.region.left),
-        top: String(draftSettings.region.top),
-        width: String(draftSettings.region.width),
-        height: String(draftSettings.region.height),
+        left: String(activeRegion?.left),
+        top: String(activeRegion?.top),
+        width: String(activeRegion?.width),
+        height: String(activeRegion?.height),
         t: String(previewTick),
       }).toString()
     : `t=${previewTick}`;
@@ -267,7 +301,7 @@ export function Companion() {
       <section className="status-strip" aria-label="Companion status">
         <div>
           <Radio size={17} />
-          <span>English OCR</span>
+          <span>3-zone OCR + voice</span>
           <strong>{capture?.running ? phaseLabel(capture.phase) : 'Paused'}</strong>
         </div>
         <div>
@@ -287,7 +321,7 @@ export function Companion() {
           <span id="current-heading"><Crosshair size={16} /> Current line</span>
           {latestLine ? (
             <span className="match-label">
-              {latestLine.match_kind === 'exact' ? 'Official match' : 'Fuzzy match'} · {Math.round(latestLine.score)}%
+              {latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : 'Dialogue'} · {latestLine.voiced ? 'Voiced' : 'Text'} · {Math.round(latestLine.score)}%
             </span>
           ) : null}
         </div>
@@ -295,6 +329,11 @@ export function Companion() {
           <div className="current-pair">
             <p className="current-english">{latestLine.english}</p>
             <p className="current-chinese" lang="zh-Hans">{latestLine.chinese}</p>
+            {latestLine.has_audio ? (
+              <audio className="current-audio" controls preload="none" src={`${API_URL}/api/lines/${latestLine.id}/audio`}>
+                Your browser does not support audio playback.
+              </audio>
+            ) : null}
           </div>
         ) : (
           <div className="current-empty">
@@ -317,15 +356,23 @@ export function Companion() {
         </div>
 
         <div className="column-labels" aria-hidden="true">
-          <span>Time</span><span>English</span><span>中文</span><span>Match</span>
+          <span>Time / type</span><span>English</span><span>中文</span><span>Match</span>
         </div>
         <div className="line-list">
           {lines.length ? lines.map((line) => (
             <article className="transcript-line" key={line.id}>
-              <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
+              <div className="line-time">
+                <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
+                <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : 'DIALOGUE'}</small>
+              </div>
               <p>{line.english}</p>
               <p lang="zh-Hans">{line.chinese}</p>
-              <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
+              <div className="line-meta">
+                <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
+                {line.has_audio ? (
+                  <audio controls preload="none" src={`${API_URL}/api/lines/${line.id}/audio`} aria-label={`Play voice line: ${line.english}`} />
+                ) : line.voiced ? <Volume2 size={15} aria-label="Voice clip processing" /> : null}
+              </div>
             </article>
           )) : (
             <div className="transcript-empty">
@@ -356,21 +403,45 @@ export function Companion() {
           <DialogHeader>
             <DialogTitle>Capture setup</DialogTitle>
             <DialogDescription>
-              Keep the subtitle region tight: include dialogue, but exclude dialogue choices and HUD text.
+              Tune the bottom dialogue box and the upper-right tutorial banner independently.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="capture-tabs" role="tablist" aria-label="Capture region">
+            <button
+              type="button"
+              className={setupChannel === 'dialogue' ? 'is-active' : ''}
+              onClick={() => setSetupChannel('dialogue')}
+            >
+              <MessageSquareText size={16} /> Dialogue
+            </button>
+            <button
+              type="button"
+              className={setupChannel === 'tip' ? 'is-active' : ''}
+              onClick={() => setSetupChannel('tip')}
+            >
+              <ScanLine size={16} /> Top-right tips
+            </button>
+            <button
+              type="button"
+              className={setupChannel === 'cinematic' ? 'is-active' : ''}
+              onClick={() => setSetupChannel('cinematic')}
+            >
+              <Volume2 size={16} /> Cutscenes & comics
+            </button>
+          </div>
+
           <div className="capture-preview">
-            {capture?.crop_bounds ? (
+            {(setupChannel === 'tip' ? capture?.tip_crop_bounds : setupChannel === 'cinematic' ? capture?.cinematic_crop_bounds : capture?.crop_bounds) ? (
               <img
                 key={previewTick}
                 src={`${API_URL}/api/capture/preview.jpg?${previewRegionQuery}`}
-                alt="Live preview of the game subtitle capture region"
+                alt={`Live preview of the ${setupChannel === 'tip' ? 'top-right tip' : setupChannel === 'cinematic' ? 'cinematic and comic' : 'dialogue'} capture region`}
               />
             ) : (
               <div className="preview-placeholder"><ScanLine /> Start ZZZ to see the capture preview.</div>
             )}
-            <span>Live crop</span>
+            <span>{setupChannel === 'tip' ? 'Top-right live crop' : setupChannel === 'cinematic' ? 'Cutscene / comic live crop' : 'Dialogue live crop'}</span>
           </div>
 
           {draftSettings ? (
@@ -382,13 +453,13 @@ export function Companion() {
                 ['height', 'Height'],
               ] as const).map(([field, label]) => (
                 <label key={field}>
-                  <span>{label}<strong>{Math.round(draftSettings.region[field] * 100)}%</strong></span>
+                  <span>{label}<strong>{Math.round((setupChannel === 'tip' ? draftSettings.tip_region : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)[field] * 100)}%</strong></span>
                   <input
                     type="range"
                     min={field === 'width' || field === 'height' ? 5 : 0}
                     max={100}
                     step={1}
-                    value={Math.round(draftSettings.region[field] * 100)}
+                    value={Math.round((setupChannel === 'tip' ? draftSettings.tip_region : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)[field] * 100)}
                     onChange={(event) => updateRegion(field, Number(event.target.value))}
                   />
                 </label>
@@ -398,8 +469,8 @@ export function Companion() {
 
           <div className="ocr-readout">
             <span>Latest OCR</span>
-            <p>{capture?.last_ocr || 'No English text detected in the current region.'}</p>
-            <small>{capture?.last_ocr_confidence ? `${Math.round(capture.last_ocr_confidence)}% OCR confidence` : 'Waiting for text'}</small>
+            <p>{(setupChannel === 'tip' ? capture?.last_tip_ocr : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr : capture?.last_ocr) || 'No English text detected in the current region.'}</p>
+            <small>{(setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ? `${Math.round((setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ?? 0)}% OCR confidence` : 'Waiting for text'}</small>
           </div>
 
           <div className="setup-actions">
@@ -408,7 +479,7 @@ export function Companion() {
               {refreshingMaps ? 'Updating…' : 'Update TextMaps'}
             </Button>
             <Button onClick={saveSettings} disabled={!draftSettings || saving}>
-              {saving ? 'Saving…' : 'Save capture region'}
+              {saving ? 'Saving…' : 'Save both regions'}
             </Button>
           </div>
         </DialogContent>

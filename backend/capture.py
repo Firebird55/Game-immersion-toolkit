@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import io
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ import mss
 from oneocr import OcrEngine
 from PIL import Image
 
+from .audio import AudioCaptureService
 from .config import SettingsStore
 from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
@@ -56,7 +58,7 @@ class StableMatchTracker:
 
 @dataclass(slots=True)
 class _ScanOutcome:
-    emitted_line: TranscriptLine | None = None
+    emitted_lines: list[TranscriptLine] | None = None
 
 
 class CaptureService:
@@ -67,12 +69,14 @@ class CaptureService:
         transcript: TranscriptStore,
         on_line: Callable[[TranscriptLine], Awaitable[None]],
         on_status: Callable[[CaptureSnapshot], Awaitable[None]],
+        audio: AudioCaptureService,
     ):
         self.settings = settings
         self.textmaps = textmaps
         self.transcript = transcript
         self.on_line = on_line
         self.on_status = on_status
+        self.audio = audio
         self.session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
         self._snapshot = CaptureSnapshot()
         self._snapshot_lock = threading.RLock()
@@ -81,7 +85,14 @@ class CaptureService:
         self._task: asyncio.Task[None] | None = None
         self._engine: OcrEngine | None = None
         self._tracker = StableMatchTracker()
+        self._tip_tracker = StableMatchTracker()
+        self._cinematic_tracker = StableMatchTracker()
+        self._event_loop: asyncio.AbstractEventLoop | None = None
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+        self._scan_index = 0
+        self._last_emitted_at: dict[str, float] = {}
+        self._last_emitted_key_by_channel: dict[str, str] = {}
+        self._excluded_screen: str | None = None
 
     def snapshot(self) -> CaptureSnapshot:
         with self._snapshot_lock:
@@ -106,7 +117,8 @@ class CaptureService:
     def start(self) -> bool:
         if self._task and not self._task.done():
             return False
-        self._update_snapshot(running=True, phase="starting", message="Starting English OCR")
+        self._event_loop = asyncio.get_running_loop()
+        self._update_snapshot(running=True, phase="starting", message="Starting English OCR and audio")
         self._task = asyncio.create_task(self._run(), name="zzz-capture")
         return True
 
@@ -132,14 +144,17 @@ class CaptureService:
         loop = asyncio.get_running_loop()
         try:
             while True:
+                scan_started = loop.time()
                 settings = self.settings.get()
                 self._tracker.configure(settings.stable_frames)
+                self._tip_tracker.configure(settings.stable_frames)
+                self._cinematic_tracker.configure(settings.stable_frames)
                 try:
                     outcome = await loop.run_in_executor(self._executor, self._scan_once)
                     snapshot = self.snapshot()
                     await self.on_status(snapshot)
-                    if outcome.emitted_line is not None:
-                        await self.on_line(outcome.emitted_line)
+                    for line in outcome.emitted_lines or []:
+                        await self.on_line(line)
                 except Exception as error:
                     snapshot = self._update_snapshot(
                         running=True,
@@ -148,16 +163,20 @@ class CaptureService:
                         last_error=str(error),
                     )
                     await self.on_status(snapshot)
-                await asyncio.sleep(settings.scan_interval_ms / 1000)
+                elapsed = loop.time() - scan_started
+                await asyncio.sleep(max(0.01, settings.scan_interval_ms / 1000 - elapsed))
         except asyncio.CancelledError:
             raise
 
     def _scan_once(self) -> _ScanOutcome:
+        self._scan_index += 1
         settings = self.settings.get()
         window = find_game_window(settings)
         now = datetime.now(timezone.utc).astimezone()
         if window is None:
             self._tracker.observe(None)
+            self._tip_tracker.observe(None)
+            self._cinematic_tracker.observe(None)
             self._update_snapshot(
                 running=True,
                 phase="waiting_for_game",
@@ -165,14 +184,35 @@ class CaptureService:
                 window_title=None,
                 window_bounds=None,
                 crop_bounds=None,
+                tip_crop_bounds=None,
+                cinematic_crop_bounds=None,
                 last_scan_at=now,
                 last_error=None,
             )
-            return _ScanOutcome()
+            return _ScanOutcome([])
 
         crop_bounds = self._region_bounds(window, settings.region)
+        if self._scan_index % 4 == 1:
+            header_bounds = self._region_bounds(
+                window, CaptureRegion(left=0, top=0, width=0.48, height=0.15)
+            )
+            header_image = self._capture(header_bounds)
+            if header_image.width > 1200:
+                header_image.thumbnail((1200, 260), Image.Resampling.LANCZOS)
+            if self._engine is None:
+                self._engine = OcrEngine()
+            header_response = self._engine.recognize_pil(header_image)
+            header_lines = [
+                line.get("text", "").strip()
+                for line in header_response.get("lines", [])
+                if line.get("text", "").strip()
+            ]
+            self._excluded_screen = self._classify_screen_header(header_lines)
+
         image = self._capture(crop_bounds)
         self._set_preview(image)
+        if image.width > 1600:
+            image.thumbnail((1600, 400), Image.Resampling.LANCZOS)
         if self._engine is None:
             self._engine = OcrEngine()
         response = self._engine.recognize_pil(image)
@@ -196,10 +236,15 @@ class CaptureService:
                 last_scan_at=now,
                 last_error=None,
             )
-            return _ScanOutcome()
+            return _ScanOutcome([])
 
-        match = self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
-        emitted_line: TranscriptLine | None = None
+        phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
+        excluded_screen = phone_screen or self._excluded_screen == "story_recap"
+        match = None if excluded_screen or len(lines) > 4 else self.textmaps.match_lines(
+            lines, threshold=settings.fuzzy_threshold
+        )
+        monotonic_now = time.monotonic()
+        emitted_lines: list[TranscriptLine] = []
         if match is None:
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
             phase = "unmatched" if raw_text else "listening"
@@ -207,11 +252,107 @@ class CaptureService:
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
-            if self._tracker.observe(key):
-                emitted_line = self.transcript.add(match, self.session_id, created_at=now)
+            if self._tracker.observe(key) and self._can_emit(f"dialogue\0{key}", monotonic_now):
+                line, _ = self.transcript.add_or_upgrade_recent(
+                    match, self.session_id, created_at=now, channel="dialogue"
+                )
+                if line is not None:
+                    emitted_lines.append(line)
+                    self.audio.schedule_clip(line.id, monotonic_now, self._audio_ready)
             phase = "matched"
             message = "Official bilingual line matched"
             match_score = match.score
+
+        tip_bounds = self._region_bounds(window, settings.tip_region)
+        previous_snapshot = self.snapshot()
+        tip_raw_text = previous_snapshot.last_tip_ocr
+        tip_confidence = previous_snapshot.last_tip_ocr_confidence
+        tip_match = None
+        tip_match_score: float | None = None
+        speech_active = self.audio.speech_recent(2.2)
+        scan_tip = self._scan_index % 4 == 1
+        if scan_tip:
+            tip_image = self._capture(tip_bounds)
+            tip_response = self._engine.recognize_pil(tip_image)
+            tip_lines = [line.get("text", "").strip() for line in tip_response.get("lines", [])]
+            tip_lines = [line for line in tip_lines if line]
+            tip_raw_text = " ".join(tip_lines).strip()
+            tip_confidence = self._confidence(tip_response)
+            tip_match = None if excluded_screen else self.textmaps.match_lines(
+                tip_lines, threshold=settings.fuzzy_threshold, channel="tip"
+            )
+            if tip_match is None or not speech_active:
+                self._tip_tracker.observe(None if not tip_raw_text else f"unmatched:{tip_raw_text.casefold()}")
+            else:
+                tip_key = f"tip\0{tip_match.text_id}\0{tip_match.english}"
+                if self._tip_tracker.observe(tip_key) and self._can_emit(tip_key, monotonic_now):
+                    line, _ = self.transcript.add_or_upgrade_recent(
+                        tip_match, self.session_id, created_at=now, channel="tip"
+                    )
+                    if line is not None:
+                        emitted_lines.append(line)
+                        self.audio.schedule_clip(line.id, monotonic_now, self._audio_ready)
+                tip_match_score = tip_match.score
+                if match is None:
+                    phase = "matched"
+                    message = "Official top-right tip matched"
+
+        cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
+        cinematic_raw_text = ""
+        cinematic_confidence: float | None = None
+        cinematic_match_score: float | None = None
+        scan_cinematic = self._scan_index % 2 == 1
+        if speech_active and not excluded_screen and match is None and tip_match is None and scan_cinematic:
+            cinematic_image = self._capture(cinematic_bounds)
+            if cinematic_image.width > 1920:
+                cinematic_image.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
+            cinematic_response = self._engine.recognize_pil(cinematic_image)
+            cinematic_lines = [
+                line.get("text", "").strip() for line in cinematic_response.get("lines", [])
+            ]
+            cinematic_lines = [line for line in cinematic_lines if line]
+            cinematic_raw_text = " ".join(cinematic_lines).strip()
+            cinematic_confidence = self._confidence(cinematic_response)
+            cinematic_match = self.textmaps.match_lines(
+                cinematic_lines,
+                threshold=max(settings.fuzzy_threshold, 88),
+                channel="cinematic",
+            )
+            already_matched = {
+                item.text_id for item in (match, tip_match) if item is not None
+            }
+            if cinematic_match is not None and cinematic_match.text_id not in already_matched:
+                cinematic_key = f"cinematic\0{cinematic_match.text_id}\0{cinematic_match.english}"
+                if self._cinematic_tracker.observe(cinematic_key) and self._can_emit(
+                    cinematic_key, monotonic_now
+                ):
+                    line, _ = self.transcript.add_or_upgrade_recent(
+                        cinematic_match,
+                        self.session_id,
+                        created_at=now,
+                        channel="cinematic",
+                    )
+                    if line is not None:
+                        emitted_lines.append(line)
+                        self.audio.schedule_clip(line.id, monotonic_now, self._audio_ready)
+                cinematic_match_score = cinematic_match.score
+                if match is None and tip_match is None:
+                    phase = "matched"
+                    message = "Voiced cinematic/comic line matched"
+            else:
+                self._cinematic_tracker.observe(
+                    None if not cinematic_raw_text else f"unmatched:{cinematic_raw_text.casefold()}"
+                )
+        else:
+            self._cinematic_tracker.observe(None)
+
+        if excluded_screen:
+            phase = "excluded_screen"
+            message = (
+                "Story Recap ignored"
+                if self._excluded_screen == "story_recap"
+                else "Phone screen ignored"
+            )
 
         self._update_snapshot(
             running=True,
@@ -220,13 +361,68 @@ class CaptureService:
             window_title=window.title,
             window_bounds=window.bounds,
             crop_bounds=crop_bounds,
+            tip_crop_bounds=tip_bounds,
+            cinematic_crop_bounds=cinematic_bounds,
             last_ocr=raw_text,
             last_ocr_confidence=confidence,
+            last_tip_ocr=tip_raw_text,
+            last_tip_ocr_confidence=tip_confidence,
+            last_tip_match_score=tip_match_score,
+            last_cinematic_ocr=cinematic_raw_text,
+            last_cinematic_ocr_confidence=cinematic_confidence,
+            last_cinematic_match_score=cinematic_match_score,
             last_match_score=match_score,
             last_scan_at=now,
             last_error=None,
         )
-        return _ScanOutcome(emitted_line=emitted_line)
+        return _ScanOutcome(emitted_lines=emitted_lines)
+
+    def _audio_ready(self, line_id: int, audio_path: str | None, voiced: bool) -> None:
+        line = self.transcript.update_audio(line_id, audio_path, voiced)
+        # A no-speech result only updates storage. Broadcasting it would make the
+        # frontend treat the existing row as a newly captured subtitle again.
+        if line is None or (not voiced and not audio_path) or self._event_loop is None:
+            return
+        asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+
+    def _can_emit(self, key: str, now: float, cooldown_seconds: float = 60.0) -> bool:
+        channel = key.split("\0", 1)[0]
+        if self._last_emitted_key_by_channel.get(channel) == key:
+            return False
+        # The same subtitle can be visible in both the dialogue and cinematic
+        # regions. Cool down its official TextMap key globally, not per region.
+        content_key = key.split("\0", 1)[1] if "\0" in key else key
+        previous = self._last_emitted_at.get(content_key)
+        if previous is not None and now - previous < cooldown_seconds:
+            return False
+        self._last_emitted_at[content_key] = now
+        self._last_emitted_key_by_channel[channel] = key
+        if len(self._last_emitted_at) > 2048:
+            cutoff = now - cooldown_seconds
+            self._last_emitted_at = {
+                item_key: timestamp
+                for item_key, timestamp in self._last_emitted_at.items()
+                if timestamp >= cutoff
+            }
+        return True
+
+    @staticmethod
+    def _is_phone_screen(lines: list[str]) -> bool:
+        text = " ".join(lines).casefold()
+        strong_markers = ("daily info", "latest messages displayed above", "knock knock")
+        if len(lines) >= 3 and any(marker in text for marker in strong_markers):
+            return True
+        secondary_markers = ("reply", "completed", "latest messages")
+        return len(lines) >= 4 and sum(marker in text for marker in secondary_markers) >= 2
+
+    @staticmethod
+    def _classify_screen_header(lines: list[str]) -> str | None:
+        text = " ".join(lines).casefold()
+        if "story recap" in text:
+            return "story_recap"
+        if "knock knock" in text:
+            return "phone"
+        return None
 
     @staticmethod
     def _region_bounds(window: WindowInfo, region: object) -> tuple[int, int, int, int]:

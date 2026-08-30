@@ -27,6 +27,8 @@ def make_index(tmp_path) -> TextMapIndex:
             "ManualQTEDialog_Select": "Select",
             "Chat_999": "Nicole",
             "Avatar_Name_Nicole": "Nicole",
+            "Tips_1228010012": "To unlock it, you need to obtain an <color=#FFAF2C>S</color>-Rank in the previous battle.",
+            "Comic_test": "{M#What's going on? My eyes just...}{F#What's going on? My eyes just...}",
         },
     )
     write_map(
@@ -44,6 +46,8 @@ def make_index(tmp_path) -> TextMapIndex:
             "ManualQTEDialog_Select": "选择",
             "Chat_999": "妮可",
             "Avatar_Name_Nicole": "妮可",
+            "Tips_1228010012": "需于上次战斗中取得<color=#FFAF2C>「S级」评价</color>，方能解锁据点入口",
+            "Comic_test": "{M#怎么回事？我的眼睛…}{F#怎么回事？我的眼睛…}",
         },
     )
     write_map(index, "en_overwrite", {"dialogue_old": "The current localization."})
@@ -104,3 +108,21 @@ def test_short_hud_fragments_are_ignored(tmp_path) -> None:
     assert index.match_text("Danger ahead!") is None
     assert index.match_text("Select") is None
     assert index.match_text("Nicole") is None
+
+
+def test_top_right_tip_uses_separate_safe_channel(tmp_path) -> None:
+    index = make_index(tmp_path)
+    text = "To unlock it, you need to obtain an S-Rank in the previous battle."
+    assert index.match_text(text) is None
+    match = index.match_text(text, channel="tip")
+    assert match is not None
+    assert match.text_id == "Tips_1228010012"
+    assert match.chinese.startswith("需于上次战斗中取得")
+
+
+def test_comic_gender_variants_match_in_cinematic_channel(tmp_path) -> None:
+    index = make_index(tmp_path)
+    match = index.match_text("What's going on? My eyes just...", channel="cinematic")
+    assert match is not None
+    assert match.text_id == "Comic_test"
+    assert match.chinese == "怎么回事？我的眼睛…"

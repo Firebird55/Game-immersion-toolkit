@@ -6,9 +6,10 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
+from .audio import AudioCaptureService
 from .capture import CaptureService
 from .config import SettingsStore
 from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
@@ -60,12 +61,14 @@ class Runtime:
         self.settings = SettingsStore(DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
+        self.audio = AudioCaptureService(DATA_DIR / "audio")
         self.capture = CaptureService(
             settings=self.settings,
             textmaps=self.textmaps,
             transcript=self.transcript,
             on_line=self.on_line,
             on_status=self.on_capture_status,
+            audio=self.audio,
         )
         self.map_task: asyncio.Task[None] | None = None
 
@@ -79,6 +82,7 @@ class Runtime:
         return {
             "capture": self.capture.snapshot().model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
+            "audio": self.audio.status(),
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -114,6 +118,7 @@ runtime: Runtime
 async def lifespan(_app: FastAPI):
     global runtime
     runtime = Runtime()
+    runtime.audio.start()
     runtime.start_map_prepare()
     if runtime.settings.get().auto_start:
         runtime.capture.start()
@@ -121,6 +126,7 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         await runtime.capture.close()
+        runtime.audio.stop()
         if runtime.map_task and not runtime.map_task.done():
             runtime.map_task.cancel()
             try:
@@ -172,6 +178,19 @@ def get_lines(
     before_id: int | None = Query(default=None, ge=1),
 ) -> list[TranscriptLine]:
     return runtime.transcript.list(limit=limit, before_id=before_id)
+
+
+@app.get("/api/lines/{line_id}/audio")
+def get_line_audio(line_id: int) -> FileResponse:
+    filename = runtime.transcript.audio_path(line_id)
+    if not filename:
+        raise HTTPException(status_code=404, detail="This line has no captured voice clip")
+    audio_dir = (DATA_DIR / "audio").resolve()
+    path = (audio_dir / filename).resolve()
+    if path.parent != audio_dir or not path.is_file():
+        raise HTTPException(status_code=404, detail="Audio file is unavailable")
+    media_type = "audio/mpeg" if path.suffix.casefold() == ".mp3" else "audio/wav"
+    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
 @app.post("/api/capture/start")
