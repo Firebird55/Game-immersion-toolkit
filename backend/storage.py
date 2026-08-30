@@ -130,6 +130,7 @@ class TranscriptStore:
         cooldown_seconds: float = 180.0,
         upgrade_seconds: float = 5.0,
         fragment_seconds: float = 30.0,
+        adjacent_seconds: float = 20.0,
     ) -> tuple[TranscriptLine | None, bool]:
         """Store a line, or upgrade a just-captured prefix to its complete form.
 
@@ -140,6 +141,20 @@ class TranscriptStore:
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
         cutoff = timestamp - timedelta(seconds=max(0.0, cooldown_seconds))
         with self._connect() as connection:
+            adjacent_cutoff = timestamp - timedelta(seconds=max(0.0, adjacent_seconds))
+            adjacent = connection.execute(
+                """
+                SELECT * FROM transcript_lines
+                WHERE datetime(created_at) >= datetime(?)
+                ORDER BY id DESC LIMIT 1
+                """,
+                (adjacent_cutoff.isoformat(),),
+            ).fetchone()
+            if adjacent and self._prefix_text(adjacent["english"]) == self._prefix_text(
+                match.english
+            ):
+                return None, False
+
             duplicate = connection.execute(
                 """
                 SELECT 1 FROM transcript_lines
@@ -156,10 +171,10 @@ class TranscriptStore:
             recent_rows = connection.execute(
                 """
                 SELECT * FROM transcript_lines
-                WHERE session_id = ? AND datetime(created_at) >= datetime(?)
+                WHERE datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 8
                 """,
-                (session_id, fragment_cutoff.isoformat()),
+                (fragment_cutoff.isoformat(),),
             ).fetchall()
             incoming_text = self._prefix_text(match.english)
             for recent in recent_rows:
@@ -184,9 +199,9 @@ class TranscriptStore:
                 previous_text = self._prefix_text(previous["english"])
                 complete_text = self._prefix_text(match.english)
                 is_completion = (
-                    len(previous_text) >= 15
+                    len(previous_text) >= 8
                     and len(complete_text) >= len(previous_text) + 10
-                    and complete_text.startswith(previous_text)
+                    and previous_text in complete_text
                 )
                 if is_completion:
                     connection.execute(

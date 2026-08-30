@@ -114,3 +114,61 @@ def test_suffix_fragment_after_complete_line_is_skipped(tmp_path) -> None:
     )
     assert skipped is None and upgraded is False
     assert store.count() == 1
+
+
+def test_suffix_seen_first_is_replaced_by_complete_line(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    started = datetime(2026, 8, 30, 18, 0, tzinfo=timezone.utc)
+    fragment = TextMatch(
+        text_id="fragment",
+        english="The prototype?",
+        chinese="「原型机」？",
+        source_ocr="the prototype.  ?",
+        score=100,
+        kind="exact",
+    )
+    complete = TextMatch(
+        text_id="complete",
+        english="But that's not important. We should start looking for the prototype.",
+        chinese="不过现在就不说这些了，我们还是赶快开始找原型机吧。",
+        source_ocr="But that's not important. We should start looking for the prototype.",
+        score=92,
+        kind="fuzzy",
+    )
+    first, upgraded = store.add_or_upgrade_recent(fragment, "session-a", created_at=started)
+    assert first is not None and upgraded is False
+    replacement, upgraded = store.add_or_upgrade_recent(
+        complete, "session-a", created_at=started + timedelta(seconds=2)
+    )
+    assert replacement is not None and upgraded is True
+    assert replacement.id == first.id
+    assert replacement.english == complete.english
+    assert store.count() == 1
+
+
+def test_adjacent_duplicate_ignores_punctuation_and_spacing(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    started = datetime(2026, 8, 30, 18, 0, tzinfo=timezone.utc)
+    first = TextMatch(
+        text_id="variant-a",
+        english="The prototype?",
+        chinese="「原型机」？",
+        source_ocr="The prototype?",
+        score=100,
+        kind="exact",
+    )
+    punctuation_variant = TextMatch(
+        text_id="variant-b",
+        english="The prototype.  ?",
+        chinese="「原型机」？",
+        source_ocr="The prototype.  ?",
+        score=100,
+        kind="exact",
+    )
+    line, _ = store.add_or_upgrade_recent(first, "session-a", created_at=started)
+    assert line is not None
+    duplicate, upgraded = store.add_or_upgrade_recent(
+        punctuation_variant, "session-a", created_at=started + timedelta(seconds=3)
+    )
+    assert duplicate is None and upgraded is False
+    assert store.count() == 1

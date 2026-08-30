@@ -30,6 +30,8 @@ def make_index(tmp_path) -> TextMapIndex:
             "Tips_1228010012": "To unlock it, you need to obtain an <color=#FFAF2C>S</color>-Rank in the previous battle.",
             "Comic_test": "{M#What's going on? My eyes just...}{F#What's going on? My eyes just...}",
             "GalGame_Chapter02_16_03": "Don't forget, although the upcoming metro renovation project also goes through this area, Public Security has yet to approve any units or individuals to enter.",
+            "GalGame_Chapter02_16_08": "But that's not important. We should start looking for the prototype.",
+            "unrelated_short": "The prototype?",
         },
     )
     write_map(
@@ -50,6 +52,8 @@ def make_index(tmp_path) -> TextMapIndex:
             "Tips_1228010012": "需于上次战斗中取得<color=#FFAF2C>「S级」评价</color>，方能解锁据点入口",
             "Comic_test": "{M#怎么回事？我的眼睛…}{F#怎么回事？我的眼睛…}",
             "GalGame_Chapter02_16_03": "别忘了，即使地铁改建项目也经过这里，治安局仍未批准任何单位或个人进入。",
+            "GalGame_Chapter02_16_08": "不过现在就不说这些了，我们还是赶快开始找原型机吧。",
+            "unrelated_short": "「原型机」？",
         },
     )
     write_map(index, "en_overwrite", {"dialogue_old": "The current localization."})
@@ -143,3 +147,17 @@ def test_crowded_dialogue_crop_can_match_three_subtitle_rows(tmp_path) -> None:
     )
     assert match is not None
     assert match.text_id == "GalGame_Chapter02_16_03"
+
+
+def test_full_fuzzy_line_beats_exact_short_suffix(tmp_path) -> None:
+    index = make_index(tmp_path)
+    match = index.match_lines(
+        [
+            "Ben",
+            "But that's not important. We should start looking for t",
+            "The prototype.  ?",
+        ],
+        threshold=82,
+    )
+    assert match is not None
+    assert match.text_id == "GalGame_Chapter02_16_08"

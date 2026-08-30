@@ -216,7 +216,7 @@ class TextMapIndex:
     ) -> TextMatch | None:
         source_lines = list(lines)
         crowded = len([line for line in source_lines if display_text(line)]) > 4
-        best: TextMatch | None = None
+        matches: list[TextMatch] = []
         for candidate, allow_short in self._candidate_strings(source_lines):
             if crowded and len(display_text(candidate).split()) < 4:
                 continue
@@ -228,13 +228,31 @@ class TextMapIndex:
             )
             if result is None:
                 continue
-            if best is None or (result.score, len(normalize_english(result.source_ocr))) > (
-                best.score,
-                len(normalize_english(best.source_ocr)),
-            ):
-                best = result
-            if result.score >= 100:
-                break
+            matches.append(result)
+        if not matches:
+            return None
+
+        best = max(
+            matches,
+            key=lambda item: (item.score, len(normalize_english(item.source_ocr))),
+        )
+        best_text = normalize_english(best.english)
+        # OCR often exposes the final subtitle row as a perfect short match while
+        # the joined rows form the correct full sentence at a slightly lower fuzzy
+        # score. Prefer that fuller official line when it contains the short match
+        # and is still within a conservative score margin.
+        fuller_matches = [
+            item
+            for item in matches
+            if len(normalize_english(item.english)) >= len(best_text) + 8
+            and best_text in normalize_english(item.english)
+            and item.score >= best.score - 15
+        ]
+        if fuller_matches:
+            best = max(
+                fuller_matches,
+                key=lambda item: (len(normalize_english(item.english)), item.score),
+            )
         return best
 
     def match_text(

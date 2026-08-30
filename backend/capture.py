@@ -424,7 +424,7 @@ class CaptureService:
     def _is_redundant_visible_match(
         self, channel: str, matched_english: str, current_ocr: str
     ) -> bool:
-        """Reject a shorter/identical match while the fuller subtitle remains visible."""
+        """Reject a shorter match while the fuller subtitle remains visible."""
         matched = normalize_english(matched_english)
         visible = normalize_english(current_ocr)
         previous = self._last_visible_match_by_channel.get(channel)
