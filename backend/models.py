@@ -34,7 +34,7 @@ class AppSettings(BaseModel):
         default_factory=lambda: CaptureRegion(left=0.04, top=0.06, width=0.92, height=0.88)
     )
     scan_interval_ms: int = Field(default=250, ge=100, le=5000)
-    stable_frames: int = Field(default=1, ge=1, le=8)
+    stable_frames: int = Field(default=2, ge=1, le=8)
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)
     auto_start: bool = True
     save_unmatched: bool = False

@@ -52,3 +52,15 @@ def test_screen_header_classifier_excludes_history_interfaces() -> None:
     assert CaptureService._classify_screen_header(["Knock Knock", "Anton"]) == "phone"
     assert CaptureService._classify_screen_header(["NEW!", "Story Commission", "70%"]) == "hdd"
     assert CaptureService._classify_screen_header(["Belobog Industries", "Ben"]) is None
+
+
+def test_visible_full_line_rejects_later_suffix_match() -> None:
+    service = object.__new__(CaptureService)
+    service._last_visible_match_by_channel = {}
+    full = "But that's not important. We should start looking for the prototype."
+    ocr = f"Ben {full}"
+    assert service._is_redundant_visible_match("dialogue", full, ocr) is False
+    assert service._is_redundant_visible_match("dialogue", "The prototype?", ocr) is True
+    assert service._is_redundant_visible_match(
+        "dialogue", "The prototype?", "Belle The prototype?"
+    ) is False

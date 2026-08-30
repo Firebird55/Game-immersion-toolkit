@@ -127,8 +127,9 @@ class TranscriptStore:
         session_id: str,
         created_at: datetime | None = None,
         channel: str = "dialogue",
-        cooldown_seconds: float = 60.0,
+        cooldown_seconds: float = 180.0,
         upgrade_seconds: float = 5.0,
+        fragment_seconds: float = 30.0,
     ) -> tuple[TranscriptLine | None, bool]:
         """Store a line, or upgrade a just-captured prefix to its complete form.
 
@@ -150,6 +151,25 @@ class TranscriptStore:
             ).fetchone()
             if duplicate:
                 return None, False
+
+            fragment_cutoff = timestamp - timedelta(seconds=max(0.0, fragment_seconds))
+            recent_rows = connection.execute(
+                """
+                SELECT * FROM transcript_lines
+                WHERE session_id = ? AND datetime(created_at) >= datetime(?)
+                ORDER BY id DESC LIMIT 8
+                """,
+                (session_id, fragment_cutoff.isoformat()),
+            ).fetchall()
+            incoming_text = self._prefix_text(match.english)
+            for recent in recent_rows:
+                recent_text = self._prefix_text(recent["english"])
+                if (
+                    len(incoming_text) >= 4
+                    and len(incoming_text) + 8 <= len(recent_text)
+                    and incoming_text in recent_text
+                ):
+                    return None, False
 
             upgrade_cutoff = timestamp - timedelta(seconds=max(0.0, upgrade_seconds))
             previous = connection.execute(

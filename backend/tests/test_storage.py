@@ -86,3 +86,31 @@ def test_partial_line_is_upgraded_and_recent_duplicates_are_skipped(tmp_path) ->
     )
     assert duplicate is None and upgraded is False
     assert store.count() == 1
+
+
+def test_suffix_fragment_after_complete_line_is_skipped(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    started = datetime(2026, 8, 30, 18, 0, tzinfo=timezone.utc)
+    complete = TextMatch(
+        text_id="complete",
+        english="But that's not important. We should start looking for the prototype.",
+        chinese="不过现在就不说这些了，我们还是赶快开始找原型机吧。",
+        source_ocr="Ben But that's not important. We should start looking for the prototype.",
+        score=100,
+        kind="exact",
+    )
+    fragment = TextMatch(
+        text_id="fragment",
+        english="The prototype?",
+        chinese="「原型机」？",
+        source_ocr="the prototype.",
+        score=100,
+        kind="exact",
+    )
+    line, _ = store.add_or_upgrade_recent(complete, "session-a", created_at=started)
+    assert line is not None
+    skipped, upgraded = store.add_or_upgrade_recent(
+        fragment, "session-a", created_at=started + timedelta(seconds=12)
+    )
+    assert skipped is None and upgraded is False
+    assert store.count() == 1

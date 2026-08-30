@@ -110,6 +110,25 @@ function phaseLabel(phase: string) {
 }
 
 export function Companion() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <main className="companion-shell" aria-busy="true" />;
+  return <CompanionClient />;
+}
+
+function StableText({ text, className, lang }: { text: string; className?: string; lang?: string }) {
+  const element = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (element.current && element.current.textContent !== text) {
+      // Migaku rewrites target-language text into its own spans. React must not
+      // reconcile those injected children or it can crash on the next update.
+      element.current.replaceChildren(document.createTextNode(text));
+    }
+  }, [text]);
+  return <p ref={element} className={className} lang={lang} />;
+}
+
+function CompanionClient() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
@@ -119,8 +138,10 @@ export function Companion() {
   const [setupChannel, setSetupChannel] = useState<'dialogue' | 'tip' | 'cinematic'>('dialogue');
   const [saving, setSaving] = useState(false);
   const [refreshingMaps, setRefreshingMaps] = useState(false);
+  const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownLineIds = useRef(new Set<number>());
+  const historyList = useRef<HTMLDivElement>(null);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -132,17 +153,18 @@ export function Companion() {
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
       setDraftSettings(nextStatus.settings);
-      const nextLines = (await linesResponse.json()) as TranscriptLine[];
+      const nextLines = ((await linesResponse.json()) as TranscriptLine[]).reverse();
       knownLineIds.current = new Set(nextLines.map((line) => line.id));
       setLines(nextLines);
       setOnline(true);
+      setSnapshotLoaded(true);
     } catch {
       setOnline(false);
     }
   }, []);
 
   useEffect(() => {
-    loadSnapshot();
+    void loadSnapshot();
     const poll = window.setInterval(loadSnapshot, 10000);
     return () => window.clearInterval(poll);
   }, [loadSnapshot]);
@@ -179,7 +201,7 @@ export function Companion() {
             const existing = current.some((item) => item.id === line.id);
             return existing
               ? current.map((item) => item.id === line.id ? line : item)
-              : [line, ...current].slice(0, 500);
+              : [...current, line].slice(-500);
           });
           setStatus((current) => current ? {
             ...current,
@@ -213,11 +235,15 @@ export function Companion() {
     return () => window.clearInterval(timer);
   }, [settingsOpen]);
 
-  const latestLine = lines[0] ?? null;
+  const latestLine = lines.at(-1) ?? null;
+  const historyLines = useMemo(() => lines.slice(0, -1), [lines]);
   const sessionLines = useMemo(
     () => lines.filter((line) => !status || line.session_id === status.session.id),
     [lines, status],
   );
+  useEffect(() => {
+    if (historyList.current) historyList.current.scrollTop = historyList.current.scrollHeight;
+  }, [historyLines.length]);
 
   async function toggleCapture() {
     if (!status) return;
@@ -252,7 +278,7 @@ export function Companion() {
         body: JSON.stringify(draftSettings),
       });
       if (!response.ok) throw new Error('Could not save capture settings');
-      const saved = await response.json();
+      const saved = (await response.json()) as Settings;
       setDraftSettings(saved);
       setStatus((current) => current ? { ...current, settings: saved } : current);
       setSettingsOpen(false);
@@ -284,6 +310,10 @@ export function Companion() {
         t: String(previewTick),
       }).toString()
     : `t=${previewTick}`;
+
+  // The first visible render already has the correct controls and transcript
+  // structure. This avoids a large reconciliation while Migaku parses the page.
+  if (!snapshotLoaded) return <main className="companion-shell" aria-busy="true" />;
 
   return (
     <main className="companion-shell">
@@ -327,13 +357,15 @@ export function Companion() {
         </div>
         {latestLine ? (
           <div className="current-pair">
-            <p className="current-english">{latestLine.english}</p>
-            <p className="current-chinese" lang="zh-Hans">{latestLine.chinese}</p>
-            {latestLine.has_audio ? (
-              <audio className="current-audio" controls preload="none" src={`${API_URL}/api/lines/${latestLine.id}/audio`}>
-                Your browser does not support audio playback.
-              </audio>
-            ) : null}
+            <StableText className="current-english" text={latestLine.english} />
+            <StableText className="current-chinese" lang="zh-Hans" text={latestLine.chinese} />
+            <audio
+              className={`current-audio ${latestLine.has_audio ? '' : 'is-unavailable'}`}
+              controls={latestLine.has_audio}
+              preload="none"
+              src={latestLine.has_audio ? `${API_URL}/api/lines/${latestLine.id}/audio?v=${latestLine.id}` : undefined}
+              aria-label={latestLine.has_audio ? `Play voice line: ${latestLine.english}` : undefined}
+            />
           </div>
         ) : (
           <div className="current-empty">
@@ -350,28 +382,33 @@ export function Companion() {
         <div className="transcript-heading">
           <div>
             <p className="eyebrow">Persistent local history</p>
-            <h2 id="transcript-heading">Transcript</h2>
+            <h2 id="transcript-heading">Earlier lines</h2>
           </div>
-          <p>Newest first · English and Chinese stay paired</p>
+          <p>Chronological · click Chinese text with Migaku</p>
         </div>
 
         <div className="column-labels" aria-hidden="true">
           <span>Time / type</span><span>English</span><span>中文</span><span>Match</span>
         </div>
-        <div className="line-list">
-          {lines.length ? lines.map((line) => (
+        <div className="line-list" ref={historyList}>
+          {historyLines.length ? historyLines.map((line) => (
             <article className="transcript-line" key={line.id}>
               <div className="line-time">
                 <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
                 <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : 'DIALOGUE'}</small>
               </div>
-              <p>{line.english}</p>
-              <p lang="zh-Hans">{line.chinese}</p>
+              <StableText text={line.english} />
+              <StableText lang="zh-Hans" text={line.chinese} />
               <div className="line-meta">
                 <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
-                {line.has_audio ? (
-                  <audio controls preload="none" src={`${API_URL}/api/lines/${line.id}/audio`} aria-label={`Play voice line: ${line.english}`} />
-                ) : line.voiced ? <Volume2 size={15} aria-label="Voice clip processing" /> : null}
+                <audio
+                  className={line.has_audio ? '' : 'is-unavailable'}
+                  controls={line.has_audio}
+                  preload="none"
+                  src={line.has_audio ? `${API_URL}/api/lines/${line.id}/audio?v=${line.id}` : undefined}
+                  aria-label={line.has_audio ? `Play voice line: ${line.english}` : undefined}
+                />
+                {!line.has_audio && line.voiced ? <Volume2 size={15} aria-label="Voice clip processing" /> : null}
               </div>
             </article>
           )) : (
@@ -388,9 +425,16 @@ export function Companion() {
           <span className="live-pulse" /> {capture?.message ?? 'Connecting to local capture service'}
         </span>
         <div className="footer-actions">
-          <Button variant="outline" onClick={toggleCapture} disabled={!online || !status}>
-            {capture?.running ? <Pause /> : <Play />}
-            {capture?.running ? 'Pause' : 'Start'}
+          <Button
+            variant="outline"
+            className={capture?.running ? 'capture-toggle is-running' : 'capture-toggle'}
+            onClick={toggleCapture}
+            disabled={!online || !status}
+          >
+            <Pause className="capture-pause-icon" />
+            <Play className="capture-play-icon" />
+            <span className="capture-pause-label">Pause</span>
+            <span className="capture-play-label">Start</span>
           </Button>
           <Button onClick={() => setSettingsOpen(true)} disabled={!online || !draftSettings}>
             <Settings2 /> Capture setup

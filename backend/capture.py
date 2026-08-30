@@ -17,7 +17,7 @@ from .audio import AudioCaptureService
 from .config import SettingsStore
 from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
-from .textmaps import TextMapIndex
+from .textmaps import TextMapIndex, normalize_english
 from .windows import WindowInfo, find_game_window
 
 
@@ -92,6 +92,7 @@ class CaptureService:
         self._scan_index = 0
         self._last_emitted_at: dict[str, float] = {}
         self._last_emitted_key_by_channel: dict[str, str] = {}
+        self._last_visible_match_by_channel: dict[str, str] = {}
         self._excluded_screen: str | None = None
 
     def snapshot(self) -> CaptureSnapshot:
@@ -147,8 +148,10 @@ class CaptureService:
                 scan_started = loop.time()
                 settings = self.settings.get()
                 self._tracker.configure(settings.stable_frames)
-                self._tip_tracker.configure(settings.stable_frames)
-                self._cinematic_tracker.configure(settings.stable_frames)
+                # These regions are brief and already have strict layout filters. Waiting
+                # for two sparse region scans would make us miss short spoken prompts.
+                self._tip_tracker.configure(1)
+                self._cinematic_tracker.configure(1)
                 try:
                     outcome = await loop.run_in_executor(self._executor, self._scan_once)
                     snapshot = self.snapshot()
@@ -256,7 +259,14 @@ class CaptureService:
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
-            if self._tracker.observe(key) and self._can_emit(f"dialogue\0{key}", monotonic_now):
+            redundant_visible_match = self._is_redundant_visible_match(
+                "dialogue", match.english, raw_text
+            )
+            if (
+                self._tracker.observe(key)
+                and not redundant_visible_match
+                and self._can_emit(f"dialogue\0{key}", monotonic_now)
+            ):
                 line, _ = self.transcript.add_or_upgrade_recent(
                     match, self.session_id, created_at=now, channel="dialogue"
                 )
@@ -410,6 +420,23 @@ class CaptureService:
                 if timestamp >= cutoff
             }
         return True
+
+    def _is_redundant_visible_match(
+        self, channel: str, matched_english: str, current_ocr: str
+    ) -> bool:
+        """Reject a shorter/identical match while the fuller subtitle remains visible."""
+        matched = normalize_english(matched_english)
+        visible = normalize_english(current_ocr)
+        previous = self._last_visible_match_by_channel.get(channel)
+        redundant = bool(
+            previous
+            and len(matched) <= len(previous)
+            and matched in previous
+            and previous in visible
+        )
+        if not redundant:
+            self._last_visible_match_by_channel[channel] = matched
+        return redundant
 
     @staticmethod
     def _is_phone_screen(lines: list[str]) -> bool:

@@ -3,9 +3,23 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $dataDir = Join-Path $projectRoot 'data'
 $python = Join-Path $projectRoot '.venv\Scripts\python.exe'
 $processFile = Join-Path $dataDir 'processes.json'
+$productionConfig = Join-Path $projectRoot 'dist\server\wrangler.json'
 
 if (-not (Test-Path -LiteralPath $python)) {
     throw 'Setup has not been run. Run scripts\setup.ps1 first.'
+}
+
+if (-not (Test-Path -LiteralPath $productionConfig)) {
+    Push-Location -LiteralPath $projectRoot
+    try {
+        npm run build
+        if ($LASTEXITCODE -ne 0) {
+            throw 'The Proxy Transcript production build failed.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
 }
 
 New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
@@ -33,7 +47,7 @@ if (-not (Test-LocalEndpoint 'http://127.0.0.1:8766/api/health')) {
 
 if (-not (Test-LocalEndpoint 'http://localhost:3000/')) {
     $frontend = Start-Process -FilePath 'cmd.exe' `
-        -ArgumentList '/d', '/c', 'npm run dev' `
+        -ArgumentList '/d', '/c', 'npm run start' `
         -WorkingDirectory $projectRoot `
         -WindowStyle Hidden `
         -PassThru
@@ -72,22 +86,25 @@ if (-not $portrait) {
     $portrait = $primary
 }
 
-$edgeCandidates = @(
-    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'),
-    (Join-Path $env:ProgramFiles 'Microsoft\Edge\Application\msedge.exe')
+$chromeCandidates = @(
+    (Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Google\Chrome\Application\chrome.exe'),
+    (Join-Path $env:LOCALAPPDATA 'Google\Chrome\Application\chrome.exe')
 )
-$edge = $edgeCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+$chrome = $chromeCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 
-if ($edge) {
+if ($chrome) {
     $area = $portrait.WorkingArea
     $arguments = @(
-        '--app=http://localhost:3000/',
         '--new-window',
         "--window-position=$($area.X),$($area.Y)",
-        "--window-size=$($area.Width),$($area.Height)"
+        "--window-size=$($area.Width),$($area.Height)",
+        'http://localhost:3000/'
     )
-    Start-Process -FilePath $edge -ArgumentList $arguments -WindowStyle Normal
+    # A normal Chrome window keeps the Migaku toolbar button and uses the
+    # user's existing Chrome profile, where the extension is installed.
+    Start-Process -FilePath $chrome -ArgumentList $arguments -WindowStyle Normal
 }
 else {
-    Start-Process 'http://localhost:3000/'
+    throw 'Google Chrome was not found. Install Chrome or update scripts\start-companion.ps1 with its location.'
 }

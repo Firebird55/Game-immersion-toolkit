@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Proxy Transcript — ZZZ Companion',
   description: 'A local bilingual transcript companion for Zenless Zone Zero.',
-  icons: { icon: '/favicon.svg' },
+  icons: {
+    icon: '/proxy-transcript.png',
+    apple: '/proxy-transcript.png',
+  },
 };
 
 export default function RootLayout({
@@ -24,8 +27,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
