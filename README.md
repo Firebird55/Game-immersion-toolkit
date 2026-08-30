@@ -4,7 +4,7 @@ A local, gameplay-first bilingual transcript companion for Zenless Zone Zero.
 
 It captures English text from the running game, recognizes it with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
 
-Three independent regions cover the normal dialogue box, upper-right spoken prompts, and voiced cutscene/comic panels. The last region only activates while speech is detected. The Knock Knock phone interface and Story Recap screen are explicitly excluded.
+Three independent regions cover the normal dialogue box, upper-right spoken prompts, and voiced cutscene/comic panels. The last region only activates while speech is detected. The Knock Knock phone interface, Story Recap, and HDD commission-selection screen are explicitly excluded.
 
 Windows loopback audio is kept only in a short in-memory rolling buffer. When a matched line contains speech, the companion uses GameSentenceMiner's local FireRedVAD model to trim away the music-only lead-in and tail, saves a compact MP3 clip, and adds playback controls to that row in the web interface. It does not make a continuous recording.
 

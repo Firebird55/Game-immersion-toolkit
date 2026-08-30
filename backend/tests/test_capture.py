@@ -50,4 +50,5 @@ def test_same_textmap_id_has_emission_cooldown() -> None:
 def test_screen_header_classifier_excludes_history_interfaces() -> None:
     assert CaptureService._classify_screen_header(["51 FPS", "Story Recap"]) == "story_recap"
     assert CaptureService._classify_screen_header(["Knock Knock", "Anton"]) == "phone"
+    assert CaptureService._classify_screen_header(["NEW!", "Story Commission", "70%"]) == "hdd"
     assert CaptureService._classify_screen_header(["Belobog Industries", "Ben"]) is None

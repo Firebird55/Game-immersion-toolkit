@@ -193,12 +193,14 @@ class CaptureService:
 
         crop_bounds = self._region_bounds(window, settings.region)
         if self._scan_index % 4 == 1:
+            # One inexpensive upper-screen signature pass covers the left-side
+            # Story Recap header, centered Knock Knock panel, and the HDD hub.
             header_bounds = self._region_bounds(
-                window, CaptureRegion(left=0, top=0, width=0.48, height=0.15)
+                window, CaptureRegion(left=0, top=0, width=0.72, height=0.42)
             )
             header_image = self._capture(header_bounds)
-            if header_image.width > 1200:
-                header_image.thumbnail((1200, 260), Image.Resampling.LANCZOS)
+            if header_image.width > 1400:
+                header_image.thumbnail((1400, 700), Image.Resampling.LANCZOS)
             if self._engine is None:
                 self._engine = OcrEngine()
             header_response = self._engine.recognize_pil(header_image)
@@ -239,9 +241,11 @@ class CaptureService:
             return _ScanOutcome([])
 
         phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
-        excluded_screen = phone_screen or self._excluded_screen == "story_recap"
-        match = None if excluded_screen or len(lines) > 4 else self.textmaps.match_lines(
-            lines, threshold=settings.fuzzy_threshold
+        excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd"}
+        match = (
+            None
+            if excluded_screen
+            else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
         monotonic_now = time.monotonic()
         emitted_lines: list[TranscriptLine] = []
@@ -348,11 +352,12 @@ class CaptureService:
 
         if excluded_screen:
             phase = "excluded_screen"
-            message = (
-                "Story Recap ignored"
-                if self._excluded_screen == "story_recap"
-                else "Phone screen ignored"
-            )
+            messages = {
+                "story_recap": "Story Recap ignored",
+                "hdd": "HDD commission screen ignored",
+                "phone": "Phone screen ignored",
+            }
+            message = messages.get(self._excluded_screen, "Phone screen ignored")
 
         self._update_snapshot(
             running=True,
@@ -422,6 +427,8 @@ class CaptureService:
             return "story_recap"
         if "knock knock" in text:
             return "phone"
+        if "story commission" in text or "combat commission" in text:
+            return "hdd"
         return None
 
     @staticmethod
