@@ -96,6 +96,7 @@ class CaptureService:
         self._last_emitted_at: dict[str, float] = {}
         self._last_emitted_key_by_channel: dict[str, str] = {}
         self._last_visible_match_by_channel: dict[str, str] = {}
+        self._visible_match_started: dict[str, tuple[str, float]] = {}
         self._cinematic_seen_ids: set[str] = set()
         self._cinematic_panel_text = ""
         self._excluded_screen: str | None = None
@@ -265,12 +266,13 @@ class CaptureService:
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
+            fresh_match = self._is_fresh_match("dialogue", key, monotonic_now)
             redundant_visible_match = self._is_redundant_visible_match(
                 "dialogue", match.english, raw_text
             )
             if not speech_active:
                 self._tracker.observe(None)
-            elif (
+            elif fresh_match and (
                 self._tracker.observe(key)
                 and not redundant_visible_match
                 and self._can_emit(f"dialogue\0{key}", monotonic_now)
@@ -302,11 +304,22 @@ class CaptureService:
             tip_match = None if excluded_screen else self.textmaps.match_lines(
                 tip_lines, threshold=settings.fuzzy_threshold, channel="tip"
             )
+            tip_key = (
+                f"tip\0{tip_match.text_id}\0{tip_match.english}"
+                if tip_match is not None
+                else ""
+            )
+            fresh_tip = bool(tip_key) and self._is_fresh_match(
+                "tip", tip_key, monotonic_now
+            )
             if tip_match is None or not speech_active:
                 self._tip_tracker.observe(None if not tip_raw_text else f"unmatched:{tip_raw_text.casefold()}")
             else:
-                tip_key = f"tip\0{tip_match.text_id}\0{tip_match.english}"
-                if self._tip_tracker.observe(tip_key) and self._can_emit(tip_key, monotonic_now):
+                if (
+                    fresh_tip
+                    and self._tip_tracker.observe(tip_key)
+                    and self._can_emit(tip_key, monotonic_now)
+                ):
                     line, _ = self.transcript.add_or_upgrade_recent(
                         tip_match, self.session_id, created_at=now, channel="tip"
                     )
@@ -480,6 +493,15 @@ class CaptureService:
         if not redundant:
             self._last_visible_match_by_channel[channel] = matched
         return redundant
+
+    def _is_fresh_match(
+        self, channel: str, key: str, now: float, max_age: float = 3.0
+    ) -> bool:
+        previous = self._visible_match_started.get(channel)
+        if previous is None or previous[0] != key:
+            self._visible_match_started[channel] = (key, now)
+            return True
+        return now - previous[1] <= max_age
 
     @staticmethod
     def _same_cinematic_panel(previous: str, current: str) -> bool:

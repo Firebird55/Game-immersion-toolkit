@@ -73,3 +73,12 @@ def test_cinematic_panel_comparison_accepts_growth_and_detects_clear() -> None:
     next_panel = "Meanwhile back at Random Play"
     assert CaptureService._same_cinematic_panel(first, grown) is True
     assert CaptureService._same_cinematic_panel(grown, next_panel) is False
+
+
+def test_static_match_is_not_paired_with_much_later_speech() -> None:
+    service = object.__new__(CaptureService)
+    service._visible_match_started = {}
+    assert service._is_fresh_match("tip", "tip-a", 100.0) is True
+    assert service._is_fresh_match("tip", "tip-a", 102.9) is True
+    assert service._is_fresh_match("tip", "tip-a", 103.1) is False
+    assert service._is_fresh_match("tip", "tip-b", 110.0) is True

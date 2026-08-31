@@ -379,6 +379,8 @@ class TextMapIndex:
             text_id = record.text_id.casefold()
             if "name" in text_id or "speaker" in text_id:
                 return False
+            if FORMAT_RE.search(record.english):
+                return False
             return any(marker in text_id for marker in TIP_ID_MARKERS)
         if channel == "cinematic":
             text_id = record.text_id.casefold()

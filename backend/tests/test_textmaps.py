@@ -24,6 +24,7 @@ def make_index(tmp_path) -> TextMapIndex:
             "Activity_Chat_Test_Name01": "Roland",
             "hud_percent": "20%",
             "Tips_123": "Danger ahead!",
+            "Tips_Control": "Press to launch a Basic Attack {0}.",
             "ManualQTEDialog_Select": "Select",
             "Chat_999": "Nicole",
             "Avatar_Name_Nicole": "Nicole",
@@ -48,6 +49,7 @@ def make_index(tmp_path) -> TextMapIndex:
             "Activity_Chat_Test_Name01": "罗兰",
             "hud_percent": "20%",
             "Tips_123": "前方危险！",
+            "Tips_Control": "按下{0}发动普通攻击。",
             "ManualQTEDialog_Select": "选择",
             "Chat_999": "妮可",
             "Avatar_Name_Nicole": "妮可",
@@ -128,6 +130,7 @@ def test_top_right_tip_uses_separate_safe_channel(tmp_path) -> None:
     assert match is not None
     assert match.text_id == "Tips_1228010012"
     assert match.chinese.startswith("需于上次战斗中取得")
+    assert index.match_text("Press to launch a Basic Attack.", channel="tip") is None
 
 
 def test_comic_gender_variants_match_in_cinematic_channel(tmp_path) -> None:
