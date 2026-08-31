@@ -222,6 +222,44 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .transcript-heading { align-items: flex-end; margin-bottom: 13px; }
 .transcript-heading > p { margin: 0; color: var(--muted-foreground); font-size: 12px; }
 
+.transcript-tabs {
+  display: flex;
+  gap: 5px;
+  margin: -2px 0 13px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  background: #0c1014;
+}
+.transcript-tabs button {
+  min-height: 34px;
+  padding: 6px 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 12px;
+}
+.transcript-tabs button:hover { color: var(--foreground); }
+.transcript-tabs button.is-active {
+  border-color: #56632f;
+  background: rgb(201 255 52 / 9%);
+  color: var(--acid);
+}
+.transcript-tabs button span {
+  min-width: 19px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #252c33;
+  color: currentColor;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  text-align: center;
+}
+
 .column-labels, .transcript-line {
   display: grid;
   grid-template-columns: 74px minmax(0, 1fr) minmax(0, 1fr) 82px;

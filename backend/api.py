@@ -197,6 +197,11 @@ def get_lines(
     return runtime.transcript.list(limit=limit, before_id=before_id)
 
 
+@app.get("/api/favorites", response_model=list[TranscriptLine])
+def get_favorites() -> list[TranscriptLine]:
+    return runtime.transcript.list_favorites()
+
+
 @app.get("/api/lines/{line_id}/audio")
 def get_line_audio(line_id: int) -> FileResponse:
     filename = runtime.transcript.audio_path(line_id)

@@ -86,6 +86,7 @@ type StatusPayload = {
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
+type TranscriptTab = 'history' | 'favorites';
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -167,6 +168,7 @@ function CompanionClient() {
   const [saving, setSaving] = useState(false);
   const [refreshingMaps, setRefreshingMaps] = useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
+  const [transcriptTab, setTranscriptTab] = useState<TranscriptTab>('history');
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
@@ -174,15 +176,22 @@ function CompanionClient() {
 
   const loadSnapshot = useCallback(async () => {
     try {
-      const [statusResponse, linesResponse] = await Promise.all([
+      const [statusResponse, linesResponse, favoritesResponse] = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=250`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/lines?limit=50`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/favorites`, { cache: 'no-store' }),
       ]);
-      if (!statusResponse.ok || !linesResponse.ok) throw new Error('Companion service unavailable');
+      if (!statusResponse.ok || !linesResponse.ok || !favoritesResponse.ok) {
+        throw new Error('Companion service unavailable');
+      }
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
       setDraftSettings(nextStatus.settings);
-      const nextLines = (await linesResponse.json()) as TranscriptLine[];
+      const recentLines = (await linesResponse.json()) as TranscriptLine[];
+      const favoriteLines = (await favoritesResponse.json()) as TranscriptLine[];
+      const nextLines = Array.from(
+        new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
+      ).sort((left, right) => right.id - left.id);
       knownLineIds.current = new Set(nextLines.map((line) => line.id));
       setLines(nextLines);
       setOnline(true);
@@ -228,9 +237,10 @@ function CompanionClient() {
           knownLineIds.current.add(line.id);
           setLines((current) => {
             const existing = current.some((item) => item.id === line.id);
-            return existing
+            return (existing
               ? current.map((item) => item.id === line.id ? line : item)
-              : [line, ...current].slice(0, 250);
+              : [line, ...current]
+            ).sort((left, right) => right.id - left.id);
           });
           setStatus((current) => current ? {
             ...current,
@@ -279,15 +289,18 @@ function CompanionClient() {
     return () => window.clearInterval(timer);
   }, [settingsOpen]);
 
-  const latestLine = lines[0] ?? null;
-  const historyLines = useMemo(() => lines.slice(1), [lines]);
+  const recentLines = useMemo(() => lines.slice(0, 50), [lines]);
+  const latestLine = recentLines[0] ?? null;
+  const historyLines = useMemo(() => recentLines.slice(1), [recentLines]);
+  const favoriteLines = useMemo(() => lines.filter((line) => line.favorite), [lines]);
+  const visibleTranscriptLines = transcriptTab === 'favorites' ? favoriteLines : historyLines;
   const sessionLines = useMemo(
     () => lines.filter((line) => !status || line.session_id === status.session.id),
     [lines, status],
   );
   useEffect(() => {
     if (historyList.current) historyList.current.scrollTop = 0;
-  }, [historyLines.length]);
+  }, [historyLines.length, favoriteLines.length, transcriptTab]);
 
   async function toggleCapture() {
     if (!status) return;
@@ -446,17 +459,39 @@ function CompanionClient() {
       <section className="transcript" aria-labelledby="transcript-heading">
         <div className="transcript-heading">
           <div>
-            <p className="eyebrow">Favorite-aware history</p>
-            <h2 id="transcript-heading">Earlier lines</h2>
+            <p className="eyebrow">Saved transcript</p>
+            <h2 id="transcript-heading">{transcriptTab === 'favorites' ? 'Favorites' : 'Earlier lines'}</h2>
           </div>
-          <p>Newest first · 50 recent + favorites</p>
+          <p>{transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : 'Newest first · 50 recent lines'}</p>
+        </div>
+
+        <div className="transcript-tabs" role="tablist" aria-label="Transcript view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={transcriptTab === 'history'}
+            className={transcriptTab === 'history' ? 'is-active' : ''}
+            onClick={() => setTranscriptTab('history')}
+          >
+            History
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={transcriptTab === 'favorites'}
+            className={transcriptTab === 'favorites' ? 'is-active' : ''}
+            onClick={() => setTranscriptTab('favorites')}
+          >
+            <Star size={14} fill={transcriptTab === 'favorites' ? 'currentColor' : 'none'} />
+            Favorites <span>{favoriteLines.length}</span>
+          </button>
         </div>
 
         <div className="column-labels" aria-hidden="true">
           <span>Time / type</span><span>English</span><span>中文</span><span>Match</span>
         </div>
         <div className="line-list" ref={historyList}>
-          {historyLines.length ? historyLines.map((line) => (
+          {visibleTranscriptLines.length ? visibleTranscriptLines.map((line) => (
             <article className="transcript-line" key={line.id}>
               <div className="line-time">
                 <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
@@ -474,8 +509,10 @@ function CompanionClient() {
             </article>
           )) : (
             <div className="transcript-empty">
-              <Database size={24} />
-              <p>Your matched lines will accumulate here and remain after a restart.</p>
+              {transcriptTab === 'favorites' ? <Star size={24} /> : <Database size={24} />}
+              <p>{transcriptTab === 'favorites'
+                ? 'Favorite a line with the star button and it will stay here between sessions.'
+                : 'Your matched lines will accumulate here and remain after a restart.'}</p>
             </div>
           )}
         </div>

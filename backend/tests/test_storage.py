@@ -202,6 +202,28 @@ def test_prune_keeps_favorites_plus_fifty_recent_lines(tmp_path) -> None:
     assert store.count() == 51
 
 
+def test_list_favorites_returns_all_favorites_newest_first(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    match = TextMatch(
+        text_id="favorite",
+        english="Keep this spoken line.",
+        chinese="保存这句台词。",
+        source_ocr="Keep this spoken line.",
+        score=100,
+        kind="exact",
+    )
+    first = store.add(match.model_copy(update={"text_id": "favorite-a"}), "session-a")
+    store.add(match.model_copy(update={"text_id": "ordinary"}), "session-a")
+    last = store.add(match.model_copy(update={"text_id": "favorite-b"}), "session-b")
+    store.set_favorite(first.id, True)
+    store.set_favorite(last.id, True)
+
+    favorites = store.list_favorites()
+
+    assert [line.id for line in favorites] == [last.id, first.id]
+    assert all(line.favorite for line in favorites)
+
+
 def test_purge_unvoiced_keeps_only_confirmed_audio(tmp_path) -> None:
     store = TranscriptStore(tmp_path / "transcript.db")
     match = TextMatch(

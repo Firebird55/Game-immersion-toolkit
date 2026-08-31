@@ -65,6 +65,10 @@ class TranscriptStore:
                 "CREATE INDEX IF NOT EXISTS idx_transcript_session_id_created_at "
                 "ON transcript_lines(session_id, created_at DESC)"
             )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_transcript_favorites_id "
+                "ON transcript_lines(id DESC) WHERE favorite = 1"
+            )
             connection.execute("PRAGMA optimize")
 
     @staticmethod
@@ -334,6 +338,18 @@ class TranscriptStore:
         parameters.append(limit)
         with self._connect() as connection:
             rows = connection.execute(query, parameters).fetchall()
+        return [self._row_to_line(row) for row in rows]
+
+    def list_favorites(self) -> list[TranscriptLine]:
+        """Return every saved favorite, newest first."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM transcript_lines
+                WHERE favorite = 1
+                ORDER BY id DESC
+                """
+            ).fetchall()
         return [self._row_to_line(row) for row in rows]
 
     def count(self, session_id: str | None = None) -> int:
