@@ -180,7 +180,27 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .current-pair { margin-top: 15px; display: grid; gap: 9px; }
 .current-english { max-width: 880px; margin-bottom: 0; font-size: clamp(20px, 2.5vw, 28px); line-height: 1.24; letter-spacing: -.018em; }
 .current-chinese { margin-bottom: 0; color: #f2f5f7; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.42; }
-.current-audio { width: min(100%, 420px); height: 38px; margin-top: 2px; filter: invert(.9) hue-rotate(35deg); }
+.current-chinese-host { min-height: 1.45em; }
+.current-actions { display: flex; gap: 8px; margin-top: 3px; }
+.current-actions button,
+.line-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #3b444d;
+  border-radius: 3px;
+  background: #0d1115;
+  color: #d7dde2;
+  cursor: pointer;
+}
+.current-actions button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
+.current-actions button:hover:not(:disabled),
+.line-actions button:hover:not(:disabled) { border-color: var(--acid); color: var(--acid); }
+.current-actions button:disabled,
+.line-actions button:disabled { cursor: default; opacity: .3; }
+.current-actions button.is-favorite,
+.line-actions button.is-favorite { border-color: #b99635; color: #ffd86a; }
 
 .current-line.is-empty { border-color: var(--border); }
 .current-empty { min-height: 126px; display: flex; align-items: center; gap: 18px; color: var(--muted-foreground); }
@@ -204,7 +224,7 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 
 .column-labels, .transcript-line {
   display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) minmax(0, 1fr) 54px;
+  grid-template-columns: 74px minmax(0, 1fr) minmax(0, 1fr) 82px;
   gap: clamp(12px, 2vw, 26px);
 }
 
@@ -247,19 +267,14 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .line-meta { min-width: 0; display: grid; justify-items: end; gap: 8px; color: var(--cyan); }
 .line-meta > span { color: var(--cyan); text-align: right; }
 .line-meta > span.is-low-score { color: #ffbf69; }
-.line-meta audio { width: 46px; height: 32px; }
-.line-meta audio.is-unavailable, .current-audio.is-unavailable { display: none; }
+.line-actions { display: flex; gap: 5px; }
+.line-actions button { width: 32px; height: 30px; padding: 0; }
 .capture-toggle .capture-pause-icon,
 .capture-toggle .capture-pause-label { display: none; }
 .capture-toggle.is-running .capture-pause-icon,
 .capture-toggle.is-running .capture-pause-label { display: inline-flex; }
 .capture-toggle.is-running .capture-play-icon,
 .capture-toggle.is-running .capture-play-label { display: none; }
-.line-meta audio::-webkit-media-controls-timeline,
-.line-meta audio::-webkit-media-controls-current-time-display,
-.line-meta audio::-webkit-media-controls-time-remaining-display,
-.line-meta audio::-webkit-media-controls-volume-slider,
-.line-meta audio::-webkit-media-controls-mute-button { display: none; }
 .transcript-line p { margin-bottom: 0; font-size: 15px; line-height: 1.48; }
 .transcript-line p[lang] { color: #f2f5f7; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: 19px; line-height: 1.58; }
 

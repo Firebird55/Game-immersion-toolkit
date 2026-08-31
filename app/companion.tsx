@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ScanLine,
   Settings2,
+  Star,
   Volume2,
 } from 'lucide-react';
 
@@ -76,6 +77,7 @@ type TranscriptLine = {
   channel: 'dialogue' | 'tip' | 'cinematic';
   voiced: boolean;
   has_audio: boolean;
+  favorite: boolean;
 };
 type StatusPayload = {
   capture: CaptureStatus;
@@ -138,6 +140,22 @@ function StableInline({ text, className }: { text: string; className?: string })
   return <span ref={element} className={className} />;
 }
 
+function MigakuCurrentText({ text, lineId }: { text: string; lineId: number }) {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!host.current) return;
+    const paragraph = document.createElement('p');
+    paragraph.className = 'current-chinese';
+    paragraph.lang = 'zh-Hans';
+    paragraph.dataset.migakuLineId = String(lineId);
+    paragraph.textContent = text;
+    // A fresh node is important: Migaku processes newly inserted transcript
+    // nodes, but does not reliably revisit text replaced inside an old node.
+    host.current.replaceChildren(paragraph);
+  }, [lineId, text]);
+  return <div className="current-chinese-host" ref={host} />;
+}
+
 function CompanionClient() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
@@ -152,18 +170,19 @@ function CompanionClient() {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
+  const playback = useRef<HTMLAudioElement | null>(null);
 
   const loadSnapshot = useCallback(async () => {
     try {
       const [statusResponse, linesResponse] = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=500`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/lines?limit=250`, { cache: 'no-store' }),
       ]);
       if (!statusResponse.ok || !linesResponse.ok) throw new Error('Companion service unavailable');
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
       setDraftSettings(nextStatus.settings);
-      const nextLines = ((await linesResponse.json()) as TranscriptLine[]).reverse();
+      const nextLines = (await linesResponse.json()) as TranscriptLine[];
       knownLineIds.current = new Set(nextLines.map((line) => line.id));
       setLines(nextLines);
       setOnline(true);
@@ -211,7 +230,7 @@ function CompanionClient() {
             const existing = current.some((item) => item.id === line.id);
             return existing
               ? current.map((item) => item.id === line.id ? line : item)
-              : [...current, line].slice(-500);
+              : [line, ...current].slice(0, 250);
           });
           setStatus((current) => current ? {
             ...current,
@@ -221,6 +240,21 @@ function CompanionClient() {
               total_line_count: current.session.total_line_count + (isNew ? 1 : 0),
             },
           } : current);
+        }
+        if (event.type === 'line_deleted') {
+          const lineId = Number(event.line_id);
+          const existed = knownLineIds.current.delete(lineId);
+          setLines((current) => current.filter((item) => item.id !== lineId));
+          if (existed) {
+            setStatus((current) => current ? {
+              ...current,
+              session: {
+                ...current.session,
+                line_count: Math.max(0, current.session.line_count - 1),
+                total_line_count: Math.max(0, current.session.total_line_count - 1),
+              },
+            } : current);
+          }
         }
       };
       socket.onclose = () => {
@@ -245,14 +279,14 @@ function CompanionClient() {
     return () => window.clearInterval(timer);
   }, [settingsOpen]);
 
-  const latestLine = lines.at(-1) ?? null;
-  const historyLines = useMemo(() => lines.slice(0, -1), [lines]);
+  const latestLine = lines[0] ?? null;
+  const historyLines = useMemo(() => lines.slice(1), [lines]);
   const sessionLines = useMemo(
     () => lines.filter((line) => !status || line.session_id === status.session.id),
     [lines, status],
   );
   useEffect(() => {
-    if (historyList.current) historyList.current.scrollTop = historyList.current.scrollHeight;
+    if (historyList.current) historyList.current.scrollTop = 0;
   }, [historyLines.length]);
 
   async function toggleCapture() {
@@ -301,6 +335,25 @@ function CompanionClient() {
     setRefreshingMaps(true);
     await fetch(`${API_URL}/api/textmaps/update`, { method: 'POST' });
     await loadSnapshot();
+  }
+
+  async function toggleFavorite(line: TranscriptLine) {
+    const favorite = !line.favorite;
+    setLines((current) => current.map((item) => item.id === line.id ? { ...item, favorite } : item));
+    const response = await fetch(`${API_URL}/api/lines/${line.id}/favorite`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ favorite }),
+    });
+    if (!response.ok) await loadSnapshot();
+  }
+
+  function playLine(line: TranscriptLine) {
+    if (!line.has_audio) return;
+    playback.current?.pause();
+    const audio = new Audio(`${API_URL}/api/lines/${line.id}/audio?v=${line.id}`);
+    playback.current = audio;
+    void audio.play();
   }
 
   const capture = status?.capture;
@@ -362,21 +415,22 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={`${latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Text'} · ${Math.round(latestLine.score)}%`}
+              text={`${latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
         {latestLine ? (
           <div className="current-pair">
             <StableText className="current-english" text={latestLine.english} />
-            <StableText className="current-chinese" lang="zh-Hans" text={latestLine.chinese} />
-            <audio
-              className={`current-audio ${latestLine.has_audio ? '' : 'is-unavailable'}`}
-              controls={latestLine.has_audio}
-              preload="none"
-              src={latestLine.has_audio ? `${API_URL}/api/lines/${latestLine.id}/audio?v=${latestLine.id}` : undefined}
-              aria-label={latestLine.has_audio ? `Play voice line: ${latestLine.english}` : undefined}
-            />
+            <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />
+            <div className="current-actions">
+              <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label="Play current voice line" title="Play voice line">
+                <Volume2 size={18} /> Play voice
+              </button>
+              <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
+                <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="current-empty">
@@ -392,10 +446,10 @@ function CompanionClient() {
       <section className="transcript" aria-labelledby="transcript-heading">
         <div className="transcript-heading">
           <div>
-            <p className="eyebrow">Persistent local history</p>
+            <p className="eyebrow">Favorite-aware history</p>
             <h2 id="transcript-heading">Earlier lines</h2>
           </div>
-          <p>Chronological · click Chinese text with Migaku</p>
+          <p>Newest first · 50 recent + favorites</p>
         </div>
 
         <div className="column-labels" aria-hidden="true">
@@ -412,14 +466,10 @@ function CompanionClient() {
               <StableText lang="zh-Hans" text={line.chinese} />
               <div className="line-meta">
                 <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
-                <audio
-                  className={line.has_audio ? '' : 'is-unavailable'}
-                  controls={line.has_audio}
-                  preload="none"
-                  src={line.has_audio ? `${API_URL}/api/lines/${line.id}/audio?v=${line.id}` : undefined}
-                  aria-label={line.has_audio ? `Play voice line: ${line.english}` : undefined}
-                />
-                {!line.has_audio && line.voiced ? <Volume2 size={15} aria-label="Voice clip processing" /> : null}
+                <div className="line-actions">
+                  <button type="button" onClick={() => playLine(line)} disabled={!line.has_audio} aria-label={`Play voice line: ${line.english}`} title="Play voice line"><Volume2 size={16} /></button>
+                  <button type="button" className={line.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(line)} aria-label={line.favorite ? 'Remove from favorites' : 'Favorite line'} title={line.favorite ? 'Remove favorite' : 'Keep forever'}><Star size={16} fill={line.favorite ? 'currentColor' : 'none'} /></button>
+                </div>
               </div>
             </article>
           )) : (

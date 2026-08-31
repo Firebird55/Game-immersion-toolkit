@@ -255,6 +255,40 @@ class TextMapIndex:
             )
         return best
 
+    def match_line_groups(
+        self,
+        lines: Iterable[str],
+        threshold: float = 88,
+        *,
+        channel: str = "cinematic",
+    ) -> list[TextMatch]:
+        """Return every distinct official line represented in cumulative screen text."""
+        source_lines = list(lines)
+        joined = normalize_english(" ".join(source_lines))
+        by_id: dict[str, TextMatch] = {}
+        for candidate, allow_short in self._candidate_strings(source_lines):
+            result = self.match_text(
+                candidate,
+                threshold=threshold,
+                allow_short=allow_short,
+                channel=channel,
+            )
+            if result is None:
+                continue
+            previous = by_id.get(result.text_id)
+            if previous is None or (result.score, len(normalize_english(result.source_ocr))) > (
+                previous.score,
+                len(normalize_english(previous.source_ocr)),
+            ):
+                by_id[result.text_id] = result
+
+        def screen_position(item: TextMatch) -> tuple[int, int]:
+            source = normalize_english(item.source_ocr)
+            position = joined.find(source)
+            return (position if position >= 0 else -1, len(source))
+
+        return sorted(by_id.values(), key=screen_position)
+
     def match_text(
         self,
         source_ocr: str,

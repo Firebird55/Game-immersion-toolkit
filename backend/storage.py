@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS transcript_lines (
     ambiguous INTEGER NOT NULL DEFAULT 0,
     channel TEXT NOT NULL DEFAULT 'dialogue',
     voiced INTEGER NOT NULL DEFAULT 0,
-    audio_path TEXT
+    audio_path TEXT,
+    favorite INTEGER NOT NULL DEFAULT 0
 )
 """
 
@@ -52,6 +53,10 @@ class TranscriptStore:
                 )
             if "audio_path" not in columns:
                 connection.execute("ALTER TABLE transcript_lines ADD COLUMN audio_path TEXT")
+            if "favorite" not in columns:
+                connection.execute(
+                    "ALTER TABLE transcript_lines ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0"
+                )
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_transcript_created_at "
                 "ON transcript_lines(created_at DESC)"
@@ -78,6 +83,7 @@ class TranscriptStore:
             channel=row["channel"],
             voiced=bool(row["voiced"]),
             has_audio=bool(row["audio_path"]),
+            favorite=bool(row["favorite"]),
         )
 
     def add(
@@ -93,8 +99,8 @@ class TranscriptStore:
                 """
                 INSERT INTO transcript_lines (
                     created_at, session_id, source_ocr, english, chinese,
-                    text_id, score, match_kind, ambiguous, channel, voiced, audio_path
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    text_id, score, match_kind, ambiguous, channel, voiced, audio_path, favorite
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     timestamp.isoformat(),
@@ -109,6 +115,7 @@ class TranscriptStore:
                     channel,
                     0,
                     None,
+                    0,
                 ),
             )
             row = connection.execute(
@@ -248,6 +255,66 @@ class TranscriptStore:
                 "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
             ).fetchone()
         return self._row_to_line(row) if row else None
+
+    def set_favorite(self, line_id: int, favorite: bool) -> TranscriptLine | None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE transcript_lines SET favorite = ? WHERE id = ?",
+                (int(favorite), line_id),
+            )
+            row = connection.execute(
+                "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
+            ).fetchone()
+        return self._row_to_line(row) if row else None
+
+    def delete(self, line_id: int) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT audio_path FROM transcript_lines WHERE id = ?", (line_id,)
+            ).fetchone()
+            connection.execute("DELETE FROM transcript_lines WHERE id = ?", (line_id,))
+        return str(row["audio_path"]) if row and row["audio_path"] else None
+
+    def prune(self, keep_nonfavorite: int = 50) -> list[tuple[int, str | None]]:
+        """Keep favorites plus only the newest non-favorite transcript rows."""
+        keep_nonfavorite = max(0, keep_nonfavorite)
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, audio_path FROM transcript_lines
+                WHERE favorite = 0
+                ORDER BY id DESC LIMIT -1 OFFSET ?
+                """,
+                (keep_nonfavorite,),
+            ).fetchall()
+            if rows:
+                connection.executemany(
+                    "DELETE FROM transcript_lines WHERE id = ?",
+                    [(row["id"],) for row in rows],
+                )
+        return [
+            (int(row["id"]), str(row["audio_path"]) if row["audio_path"] else None)
+            for row in rows
+        ]
+
+    def purge_unvoiced(self) -> list[tuple[int, str | None]]:
+        """Remove non-favorite rows that never produced a confirmed voice clip."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, audio_path FROM transcript_lines
+                WHERE favorite = 0 AND (voiced = 0 OR audio_path IS NULL)
+                """
+            ).fetchall()
+            if rows:
+                connection.executemany(
+                    "DELETE FROM transcript_lines WHERE id = ?",
+                    [(row["id"],) for row in rows],
+                )
+        return [
+            (int(row["id"]), str(row["audio_path"]) if row["audio_path"] else None)
+            for row in rows
+        ]
 
     def audio_path(self, line_id: int) -> str | None:
         with self._connect() as connection:

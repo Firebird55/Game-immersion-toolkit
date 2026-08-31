@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from difflib import SequenceMatcher
 import io
 import threading
 import time
@@ -68,6 +69,7 @@ class CaptureService:
         textmaps: TextMapIndex,
         transcript: TranscriptStore,
         on_line: Callable[[TranscriptLine], Awaitable[None]],
+        on_delete: Callable[[int], Awaitable[None]],
         on_status: Callable[[CaptureSnapshot], Awaitable[None]],
         audio: AudioCaptureService,
     ):
@@ -75,6 +77,7 @@ class CaptureService:
         self.textmaps = textmaps
         self.transcript = transcript
         self.on_line = on_line
+        self.on_delete = on_delete
         self.on_status = on_status
         self.audio = audio
         self.session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
@@ -93,6 +96,8 @@ class CaptureService:
         self._last_emitted_at: dict[str, float] = {}
         self._last_emitted_key_by_channel: dict[str, str] = {}
         self._last_visible_match_by_channel: dict[str, str] = {}
+        self._cinematic_seen_ids: set[str] = set()
+        self._cinematic_panel_text = ""
         self._excluded_screen: str | None = None
 
     def snapshot(self) -> CaptureSnapshot:
@@ -251,6 +256,7 @@ class CaptureService:
             else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
         monotonic_now = time.monotonic()
+        speech_active = self.audio.speech_recent(1.8)
         emitted_lines: list[TranscriptLine] = []
         if match is None:
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
@@ -262,7 +268,9 @@ class CaptureService:
             redundant_visible_match = self._is_redundant_visible_match(
                 "dialogue", match.english, raw_text
             )
-            if (
+            if not speech_active:
+                self._tracker.observe(None)
+            elif (
                 self._tracker.observe(key)
                 and not redundant_visible_match
                 and self._can_emit(f"dialogue\0{key}", monotonic_now)
@@ -283,7 +291,6 @@ class CaptureService:
         tip_confidence = previous_snapshot.last_tip_ocr_confidence
         tip_match = None
         tip_match_score: float | None = None
-        speech_active = self.audio.speech_recent(2.2)
         scan_tip = self._scan_index % 4 == 1
         if scan_tip:
             tip_image = self._capture(tip_bounds)
@@ -316,7 +323,7 @@ class CaptureService:
         cinematic_confidence: float | None = None
         cinematic_match_score: float | None = None
         scan_cinematic = self._scan_index % 2 == 1
-        if speech_active and not excluded_screen and match is None and tip_match is None and scan_cinematic:
+        if speech_active and not excluded_screen and tip_match is None and scan_cinematic:
             cinematic_image = self._capture(cinematic_bounds)
             if cinematic_image.width > 1920:
                 cinematic_image.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
@@ -327,19 +334,35 @@ class CaptureService:
             cinematic_lines = [line for line in cinematic_lines if line]
             cinematic_raw_text = " ".join(cinematic_lines).strip()
             cinematic_confidence = self._confidence(cinematic_response)
-            cinematic_match = self.textmaps.match_lines(
+            cinematic_matches = self.textmaps.match_line_groups(
                 cinematic_lines,
                 threshold=max(settings.fuzzy_threshold, 88),
                 channel="cinematic",
             )
+            normalized_panel = normalize_english(cinematic_raw_text)
+            if (
+                normalized_panel
+                and self._cinematic_panel_text
+                and not self._same_cinematic_panel(self._cinematic_panel_text, normalized_panel)
+            ):
+                self._cinematic_seen_ids.clear()
+            if normalized_panel:
+                self._cinematic_panel_text = normalized_panel
+
             already_matched = {
                 item.text_id for item in (match, tip_match) if item is not None
             }
-            if cinematic_match is not None and cinematic_match.text_id not in already_matched:
+            new_cinematic_matches = [
+                item
+                for item in cinematic_matches
+                if item.text_id not in self._cinematic_seen_ids
+                and item.text_id not in already_matched
+            ]
+            self._cinematic_seen_ids.update(item.text_id for item in cinematic_matches)
+            cinematic_match = new_cinematic_matches[-1] if new_cinematic_matches else None
+            if cinematic_match is not None:
                 cinematic_key = f"cinematic\0{cinematic_match.text_id}\0{cinematic_match.english}"
-                if self._cinematic_tracker.observe(cinematic_key) and self._can_emit(
-                    cinematic_key, monotonic_now
-                ):
+                if self._can_emit(cinematic_key, monotonic_now):
                     line, _ = self.transcript.add_or_upgrade_recent(
                         cinematic_match,
                         self.session_id,
@@ -354,8 +377,8 @@ class CaptureService:
                     phase = "matched"
                     message = "Voiced cinematic/comic line matched"
             else:
-                self._cinematic_tracker.observe(
-                    None if not cinematic_raw_text else f"unmatched:{cinematic_raw_text.casefold()}"
+                cinematic_match_score = max(
+                    (item.score for item in cinematic_matches), default=None
                 )
         else:
             self._cinematic_tracker.observe(None)
@@ -393,12 +416,30 @@ class CaptureService:
         return _ScanOutcome(emitted_lines=emitted_lines)
 
     def _audio_ready(self, line_id: int, audio_path: str | None, voiced: bool) -> None:
-        line = self.transcript.update_audio(line_id, audio_path, voiced)
-        # A no-speech result only updates storage. Broadcasting it would make the
-        # frontend treat the existing row as a newly captured subtitle again.
-        if line is None or (not voiced and not audio_path) or self._event_loop is None:
+        if self._event_loop is None:
+            return
+        if not voiced or not audio_path:
+            removed_audio = self.transcript.delete(line_id)
+            self._remove_audio_file(removed_audio)
+            asyncio.run_coroutine_threadsafe(self.on_delete(line_id), self._event_loop)
+            return
+
+        line = self.transcript.update_audio(line_id, audio_path, True)
+        if line is None:
+            self._remove_audio_file(audio_path)
             return
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+        for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
+            self._remove_audio_file(removed_audio)
+            asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)
+
+    def _remove_audio_file(self, filename: str | None) -> None:
+        if not filename:
+            return
+        audio_dir = self.audio.output_dir.resolve()
+        path = (audio_dir / filename).resolve()
+        if path.parent == audio_dir:
+            path.unlink(missing_ok=True)
 
     def _can_emit(self, key: str, now: float, cooldown_seconds: float = 60.0) -> bool:
         channel = key.split("\0", 1)[0]
@@ -439,6 +480,14 @@ class CaptureService:
         if not redundant:
             self._last_visible_match_by_channel[channel] = matched
         return redundant
+
+    @staticmethod
+    def _same_cinematic_panel(previous: str, current: str) -> bool:
+        if not previous or not current:
+            return False
+        if previous in current or current in previous:
+            return True
+        return SequenceMatcher(None, previous, current).ratio() >= 0.48
 
     @staticmethod
     def _is_phone_screen(lines: list[str]) -> bool:

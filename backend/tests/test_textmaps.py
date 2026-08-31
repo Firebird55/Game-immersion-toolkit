@@ -29,6 +29,8 @@ def make_index(tmp_path) -> TextMapIndex:
             "Avatar_Name_Nicole": "Nicole",
             "Tips_1228010012": "To unlock it, you need to obtain an <color=#FFAF2C>S</color>-Rank in the previous battle.",
             "Comic_test": "{M#What's going on? My eyes just...}{F#What's going on? My eyes just...}",
+            "Comic_line_1": "We finally made it inside.",
+            "Comic_line_2": "Keep moving before they catch us.",
             "GalGame_Chapter02_16_03": "Don't forget, although the upcoming metro renovation project also goes through this area, Public Security has yet to approve any units or individuals to enter.",
             "GalGame_Chapter02_16_08": "But that's not important. We should start looking for the prototype.",
             "unrelated_short": "The prototype?",
@@ -51,6 +53,8 @@ def make_index(tmp_path) -> TextMapIndex:
             "Avatar_Name_Nicole": "妮可",
             "Tips_1228010012": "需于上次战斗中取得<color=#FFAF2C>「S级」评价</color>，方能解锁据点入口",
             "Comic_test": "{M#怎么回事？我的眼睛…}{F#怎么回事？我的眼睛…}",
+            "Comic_line_1": "我们终于进来了。",
+            "Comic_line_2": "在他们追上前继续走。",
             "GalGame_Chapter02_16_03": "别忘了，即使地铁改建项目也经过这里，治安局仍未批准任何单位或个人进入。",
             "GalGame_Chapter02_16_08": "不过现在就不说这些了，我们还是赶快开始找原型机吧。",
             "unrelated_short": "「原型机」？",
@@ -161,3 +165,12 @@ def test_full_fuzzy_line_beats_exact_short_suffix(tmp_path) -> None:
     )
     assert match is not None
     assert match.text_id == "GalGame_Chapter02_16_08"
+
+
+def test_cumulative_comic_panel_returns_each_visible_official_line(tmp_path) -> None:
+    index = make_index(tmp_path)
+    matches = index.match_line_groups(
+        ["We finally made it inside.", "Keep moving before they catch us."],
+        channel="cinematic",
+    )
+    assert {match.text_id for match in matches} >= {"Comic_line_1", "Comic_line_2"}

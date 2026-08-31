@@ -80,8 +80,8 @@ class AudioCaptureService:
         detected_at: float,
         callback: Callable[[int, str | None, bool], None],
         *,
-        pre_roll: float = 4.0,
-        post_roll: float = 8.0,
+        pre_roll: float = 1.3,
+        post_roll: float = 5.0,
     ) -> None:
         with self._lock:
             for clip in self._pending:
@@ -91,16 +91,20 @@ class AudioCaptureService:
                     clip.detected_at = min(clip.detected_at, detected_at)
                     clip.callback = callback
                     return
-            # The next subtitle is also a useful end boundary for the previous
-            # voice line. Keep a little room for the final syllable, but do not
-            # let the next speaker leak into the older clip.
+            # OCR confirms a subtitle roughly half a second after it appears.
+            # Treat that inferred appearance time as the boundary between two
+            # back-to-back speakers, with only a small safety overlap.
+            boundary = detected_at - 0.5
             for clip in self._pending:
                 if clip.start < detected_at:
-                    clip.end = min(clip.end, detected_at + 0.65)
+                    clip.end = min(clip.end, boundary + 0.15)
+            clip_start = detected_at - pre_roll
+            if self._pending:
+                clip_start = max(clip_start, boundary - 0.25)
             self._pending.append(
                 _PendingClip(
                     line_id=line_id,
-                    start=detected_at - pre_roll,
+                    start=clip_start,
                     end=detected_at + post_roll,
                     detected_at=detected_at,
                     callback=callback,
@@ -238,11 +242,22 @@ class AudioCaptureService:
     ) -> tuple[float, float] | None:
         if not segments:
             return None
-        # FireRedVAD can split one expressive line at a long dramatic pause.
-        # The raw clip is already bounded by adjacent subtitle detections, so
-        # retain the full span of its neural speech detections.
         ordered = sorted(segments)
-        return ordered[0][0], max(end for _, end in ordered)
+        groups: list[list[float]] = []
+        for start, end in ordered:
+            if groups and start - groups[-1][1] <= 0.65:
+                groups[-1][1] = max(groups[-1][1], end)
+            else:
+                groups.append([start, end])
+
+        def distance(group: list[float]) -> float:
+            start, end = group
+            if start - 0.25 <= anchor_seconds <= end + 0.35:
+                return 0.0
+            return min(abs(anchor_seconds - start), abs(anchor_seconds - end))
+
+        selected = min(groups, key=distance)
+        return selected[0], selected[1]
 
     def _trim_to_voice(
         self, samples: np.ndarray, anchor_seconds: float

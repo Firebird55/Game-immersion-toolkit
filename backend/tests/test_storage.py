@@ -172,3 +172,53 @@ def test_adjacent_duplicate_ignores_punctuation_and_spacing(tmp_path) -> None:
     )
     assert duplicate is None and upgraded is False
     assert store.count() == 1
+
+
+def test_prune_keeps_favorites_plus_fifty_recent_lines(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    favorite_id = None
+    for index in range(53):
+        line = store.add(
+            TextMatch(
+                text_id=f"line-{index}",
+                english=f"Spoken sentence number {index}.",
+                chinese=f"句子{index}。",
+                source_ocr=f"Spoken sentence number {index}.",
+                score=100,
+                kind="exact",
+            ),
+            "session-a",
+        )
+        store.update_audio(line.id, f"{line.id}.mp3", voiced=True)
+        if index == 0:
+            favorite_id = line.id
+            store.set_favorite(line.id, True)
+
+    removed = store.prune(keep_nonfavorite=50)
+    assert len(removed) == 2
+    assert favorite_id is not None
+    favorite = store.get(favorite_id)
+    assert favorite is not None and favorite.favorite is True
+    assert store.count() == 51
+
+
+def test_purge_unvoiced_keeps_confirmed_audio_and_favorites(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    match = TextMatch(
+        text_id="line",
+        english="A spoken line.",
+        chinese="一句台词。",
+        source_ocr="A spoken line.",
+        score=100,
+        kind="exact",
+    )
+    unvoiced = store.add(match.model_copy(update={"text_id": "unvoiced"}), "session-a")
+    voiced = store.add(match.model_copy(update={"text_id": "voiced"}), "session-a")
+    favorite = store.add(match.model_copy(update={"text_id": "favorite"}), "session-a")
+    store.update_audio(voiced.id, f"{voiced.id}.mp3", voiced=True)
+    store.set_favorite(favorite.id, True)
+
+    removed_ids = {line_id for line_id, _ in store.purge_unvoiced()}
+    assert unvoiced.id in removed_ids
+    assert store.get(voiced.id) is not None
+    assert store.get(favorite.id) is not None

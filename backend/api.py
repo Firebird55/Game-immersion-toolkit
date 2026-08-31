@@ -26,6 +26,10 @@ class ManualIngest(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
+class FavoriteUpdate(BaseModel):
+    favorite: bool
+
+
 class EventHub:
     def __init__(self) -> None:
         self.clients: set[WebSocket] = set()
@@ -62,11 +66,21 @@ class Runtime:
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.audio = AudioCaptureService(DATA_DIR / "audio")
+        removed_rows = self.transcript.purge_unvoiced()
+        removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
+        audio_dir = self.audio.output_dir.resolve()
+        for _, filename in removed_rows:
+            if not filename:
+                continue
+            path = (audio_dir / filename).resolve()
+            if path.parent == audio_dir:
+                path.unlink(missing_ok=True)
         self.capture = CaptureService(
             settings=self.settings,
             textmaps=self.textmaps,
             transcript=self.transcript,
             on_line=self.on_line,
+            on_delete=self.on_delete,
             on_status=self.on_capture_status,
             audio=self.audio,
         )
@@ -74,6 +88,9 @@ class Runtime:
 
     async def on_line(self, line: TranscriptLine) -> None:
         await self.hub.broadcast({"type": "line", "line": line.model_dump(mode="json")})
+
+    async def on_delete(self, line_id: int) -> None:
+        await self.hub.broadcast({"type": "line_deleted", "line_id": line_id})
 
     async def on_capture_status(self, status: CaptureSnapshot) -> None:
         await self.hub.broadcast({"type": "capture_status", "capture": status.model_dump(mode="json")})
@@ -191,6 +208,15 @@ def get_line_audio(line_id: int) -> FileResponse:
         raise HTTPException(status_code=404, detail="Audio file is unavailable")
     media_type = "audio/mpeg" if path.suffix.casefold() == ".mp3" else "audio/wav"
     return FileResponse(path, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
+
+
+@app.patch("/api/lines/{line_id}/favorite", response_model=TranscriptLine)
+async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> TranscriptLine:
+    line = runtime.transcript.set_favorite(line_id, payload.favorite)
+    if line is None:
+        raise HTTPException(status_code=404, detail="Transcript line not found")
+    await runtime.on_line(line)
+    return line
 
 
 @app.post("/api/capture/start")

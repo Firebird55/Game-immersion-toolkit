@@ -65,3 +65,11 @@ def test_visible_full_line_rejects_later_suffix_match() -> None:
     assert service._is_redundant_visible_match(
         "dialogue", "The prototype?", "Belle The prototype?"
     ) is False
+
+
+def test_cinematic_panel_comparison_accepts_growth_and_detects_clear() -> None:
+    first = "What are you doing here"
+    grown = first + "We have to leave before it gets dark"
+    next_panel = "Meanwhile back at Random Play"
+    assert CaptureService._same_cinematic_panel(first, grown) is True
+    assert CaptureService._same_cinematic_panel(grown, next_panel) is False
