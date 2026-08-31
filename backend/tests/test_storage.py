@@ -202,7 +202,7 @@ def test_prune_keeps_favorites_plus_fifty_recent_lines(tmp_path) -> None:
     assert store.count() == 51
 
 
-def test_purge_unvoiced_keeps_confirmed_audio_and_favorites(tmp_path) -> None:
+def test_purge_unvoiced_keeps_only_confirmed_audio(tmp_path) -> None:
     store = TranscriptStore(tmp_path / "transcript.db")
     match = TextMatch(
         text_id="line",
@@ -220,5 +220,6 @@ def test_purge_unvoiced_keeps_confirmed_audio_and_favorites(tmp_path) -> None:
 
     removed_ids = {line_id for line_id, _ in store.purge_unvoiced()}
     assert unvoiced.id in removed_ids
+    assert favorite.id in removed_ids
     assert store.get(voiced.id) is not None
-    assert store.get(favorite.id) is not None
+    assert store.get(favorite.id) is None
