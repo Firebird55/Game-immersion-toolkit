@@ -472,7 +472,15 @@ class CaptureService:
         cinematic_confidence: float | None = None
         cinematic_match_score: float | None = None
         scan_cinematic = self._scan_index % 2 == 1
-        if speech_active and not excluded_screen and tip_match is None and scan_cinematic:
+        # Comic/visual-novel subtitles can appear a fraction before VAD notices
+        # the voice. Their filmstrip presentation is itself strong evidence of
+        # voiced content, so do not skip the only scan that might see a short line.
+        if (
+            (speech_active or self._visual_novel_layout)
+            and not excluded_screen
+            and tip_match is None
+            and scan_cinematic
+        ):
             cinematic_image = self._capture(cinematic_bounds)
             if cinematic_image.width > 1920:
                 cinematic_image.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
@@ -511,9 +519,8 @@ class CaptureService:
                 and item.text_id not in already_matched
                 and item.text_id not in blocked_unvoiced_ids
             ]
-            self._cinematic_seen_ids.update(item.text_id for item in cinematic_matches)
-            cinematic_match = new_cinematic_matches[-1] if new_cinematic_matches else None
-            if cinematic_match is not None:
+            emitted_cinematic_matches: list[TextMatch] = []
+            for cinematic_match in new_cinematic_matches:
                 cinematic_key = f"cinematic\0{cinematic_match.text_id}\0{cinematic_match.english}"
                 if self._can_emit(cinematic_key, monotonic_now):
                     line, _ = self.transcript.add_or_upgrade_recent(
@@ -524,14 +531,22 @@ class CaptureService:
                     )
                     if line is not None:
                         emitted_lines.append(line)
+                        emitted_cinematic_matches.append(cinematic_match)
+                        self._cinematic_seen_ids.add(cinematic_match.text_id)
                         self._schedule_line_audio(
                             line, monotonic_now,
                             observed_at=monotonic_now,
                         )
-                cinematic_match_score = cinematic_match.score
+            if emitted_cinematic_matches:
+                cinematic_match_score = max(item.score for item in emitted_cinematic_matches)
                 if match is None and tip_match is None:
                     phase = "matched"
-                    message = "Voiced cinematic/comic line matched"
+                    count = len(emitted_cinematic_matches)
+                    message = (
+                        "Voiced cinematic/comic line matched"
+                        if count == 1
+                        else f"{count} voiced cinematic/comic lines matched"
+                    )
             else:
                 cinematic_match_score = max(
                     (item.score for item in cinematic_matches), default=None

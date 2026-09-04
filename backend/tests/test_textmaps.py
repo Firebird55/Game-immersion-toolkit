@@ -32,6 +32,9 @@ def make_index(tmp_path) -> TextMapIndex:
             "Comic_test": "{M#What's going on? My eyes just...}{F#What's going on? My eyes just...}",
             "Comic_line_1": "We finally made it inside.",
             "Comic_line_2": "Keep moving before they catch us.",
+            "Comic_scroll_1": "...Thanks for your cooperation. We have a rough idea of how things unfolded.",
+            "Comic_scroll_2": "Earlier today, you all ended up deep in the Hollow after the Bangboo with your carrot malfunctioned.",
+            "Comic_scroll_3": "Then, you were attacked by an unknown monster right here.",
             "GalGame_Chapter02_16_03": "Don't forget, although the upcoming metro renovation project also goes through this area, Public Security has yet to approve any units or individuals to enter.",
             "GalGame_Chapter02_16_08": "But that's not important. We should start looking for the prototype.",
             "unrelated_short": "The prototype?",
@@ -57,6 +60,9 @@ def make_index(tmp_path) -> TextMapIndex:
             "Comic_test": "{M#怎么回事？我的眼睛…}{F#怎么回事？我的眼睛…}",
             "Comic_line_1": "我们终于进来了。",
             "Comic_line_2": "在他们追上前继续走。",
+            "Comic_scroll_1": "……感谢配合。事情的经过我们已经大致了解了。",
+            "Comic_scroll_2": "今天早些时候，你们跟着出故障的萝卜邦布深入了空洞。",
+            "Comic_scroll_3": "然后，你们就在这里遭到了一只未知怪物的袭击。",
             "GalGame_Chapter02_16_03": "别忘了，即使地铁改建项目也经过这里，治安局仍未批准任何单位或个人进入。",
             "GalGame_Chapter02_16_08": "不过现在就不说这些了，我们还是赶快开始找原型机吧。",
             "unrelated_short": "「原型机」？",
@@ -195,3 +201,28 @@ def test_cumulative_comic_panel_returns_each_visible_official_line(tmp_path) -> 
         channel="cinematic",
     )
     assert {match.text_id for match in matches} >= {"Comic_line_1", "Comic_line_2"}
+
+
+def test_scrollable_comic_fragments_resolve_to_complete_official_lines(tmp_path) -> None:
+    index = make_index(tmp_path)
+    matches = index.match_line_groups(
+        [
+            "Menu",
+            "...Thanks for your",
+            "cooperation. We have a",
+            "rough idea of how",
+            "Earlier today, you all",
+            "ended up deep in the",
+            "Hollow after the",
+            "Then, you were",
+            "attacked by an",
+            "unknown monster right",
+            "here.",
+        ],
+        channel="cinematic",
+    )
+    by_id = {match.text_id: match for match in matches}
+    assert set(by_id) >= {"Comic_scroll_1", "Comic_scroll_2", "Comic_scroll_3"}
+    assert by_id["Comic_scroll_1"].english.endswith("things unfolded.")
+    assert by_id["Comic_scroll_2"].english.endswith("carrot malfunctioned.")
+    assert by_id["Comic_scroll_1"].source_ocr != by_id["Comic_scroll_1"].english

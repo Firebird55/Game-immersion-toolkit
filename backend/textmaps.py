@@ -71,6 +71,7 @@ class TextMapIndex:
         self._lock = threading.RLock()
         self._records_by_normalized: dict[str, list[_Record]] = {}
         self._choices: list[str] = []
+        self._cinematic_choices: list[str] = []
         self._blocked_labels: set[str] = set()
         self._cache: dict[tuple[str, int, bool, str], TextMatch | None] = {}
         self.ready = False
@@ -152,6 +153,12 @@ class TextMapIndex:
             with self._lock:
                 self._records_by_normalized = index
                 self._choices = list(index)
+                self._cinematic_choices = [
+                    normalized
+                    for normalized, records in index.items()
+                    if len(normalized) >= 20
+                    if any(self._is_allowed_record(record, "cinematic") for record in records)
+                ]
                 self._blocked_labels = blocked_labels
                 self._cache.clear()
                 self.entry_count = sum(len(records) for records in index.values())
@@ -265,7 +272,21 @@ class TextMapIndex:
         source_lines = list(lines)
         joined = normalize_english(" ".join(source_lines))
         by_id: dict[str, TextMatch] = {}
-        for candidate, allow_short in self._candidate_strings(source_lines):
+        candidates = self._candidate_strings(source_lines)
+        # Comic speech bubbles frequently wrap over four or more OCR rows. They
+        # can also scroll, leaving only a long prefix or middle section visible.
+        # Wider contiguous windows give the cinematic matcher enough context to
+        # recover the complete official TextMap line without ever storing the
+        # clipped on-screen fragment itself.
+        cleaned = [display_text(line) for line in source_lines if display_text(line)]
+        for size in range(4, min(7, len(cleaned)) + 1):
+            for start in range(0, len(cleaned) - size + 1):
+                candidate = " ".join(cleaned[start : start + size])
+                value = (candidate, False)
+                if value not in candidates:
+                    candidates.append(value)
+
+        for candidate, allow_short in candidates:
             result = self.match_text(
                 candidate,
                 threshold=threshold,
@@ -273,7 +294,9 @@ class TextMapIndex:
                 channel=channel,
             )
             if result is None:
-                continue
+                result = self._match_cinematic_fragment(candidate, threshold)
+                if result is None:
+                    continue
             previous = by_id.get(result.text_id)
             if previous is None or (result.score, len(normalize_english(result.source_ocr))) > (
                 previous.score,
@@ -287,6 +310,58 @@ class TextMapIndex:
             return (position if position >= 0 else -1, len(source))
 
         return sorted(by_id.values(), key=screen_position)
+
+    def _match_cinematic_fragment(
+        self,
+        source_ocr: str,
+        threshold: float,
+    ) -> TextMatch | None:
+        """Resolve a substantial clipped comic bubble to its full official line."""
+        normalized = normalize_english(source_ocr)
+        if len(normalized) < 28:
+            return None
+        with self._lock:
+            choices = self._cinematic_choices
+            if not choices:
+                return None
+            matches = process.extract(
+                normalized,
+                choices,
+                scorer=fuzz.partial_ratio,
+                score_cutoff=max(92, threshold),
+                limit=2,
+            )
+            if not matches:
+                return None
+            matched_normalized, score, _choice_index = matches[0]
+            # Require a meaningful share of the official sentence. This keeps a
+            # generic phrase inside a very long line from becoming a false hit.
+            coverage = min(len(normalized), len(matched_normalized)) / max(
+                len(normalized), len(matched_normalized)
+            )
+            if coverage < 0.45:
+                return None
+            if len(matches) > 1 and matches[1][1] >= score - 1:
+                return None
+            records = [
+                record
+                for record in self._records_by_normalized[matched_normalized]
+                if self._is_allowed_record(record, "cinematic")
+            ]
+            if not records:
+                return None
+            chinese_counts = Counter(record.chinese for record in records)
+            selected_chinese, _ = chinese_counts.most_common(1)[0]
+            selected = next(record for record in records if record.chinese == selected_chinese)
+        return TextMatch(
+            text_id=selected.text_id,
+            english=selected.english,
+            chinese=selected.chinese,
+            source_ocr=source_ocr,
+            score=round(float(score), 1),
+            kind="fuzzy",
+            ambiguous=len(chinese_counts) > 1,
+        )
 
     def match_text(
         self,
@@ -330,9 +405,12 @@ class TextMapIndex:
                     self._cache[cache_key] = None
                     return None
                 effective_threshold = max(threshold, 94) if len(normalized) < 10 else threshold
+                fuzzy_choices = (
+                    self._cinematic_choices if channel == "cinematic" else self._choices
+                )
                 fuzzy_match = process.extractOne(
                     normalized,
-                    self._choices,
+                    fuzzy_choices,
                     scorer=fuzz.ratio,
                     score_cutoff=effective_threshold,
                 )
