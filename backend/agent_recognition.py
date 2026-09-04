@@ -19,10 +19,11 @@ import numpy as np
 from .agent_fingerprint import HOP, RATE, landmarks, mono_audio, waveform_score
 from .agent_store import AgentVoiceStore
 from .voice_assets import VoiceEntry
+from .agent_library import atomic_json
 
 
 class AgentRecognizer:
-    def __init__(self, folder: Path, audio, publish):
+    def __init__(self, folder: Path, audio, publish, activity=None):
         self.folder, self.audio, self.publish = folder, audio, publish
         self.store = AgentVoiceStore(folder / 'entries.db')
         self.library = json.loads((folder / 'library.json').read_text(encoding='utf-8')) if (folder / 'library.json').exists() else {'agents':{}, 'clips':{}}
@@ -37,6 +38,25 @@ class AgentRecognizer:
         self._replay_until = 0.
         self.indexed = 0
         self._consumed_until = 0.
+        self.activity = activity
+        self.updating = False
+        self.updater = None
+        self._diagnostics = {}
+        names = folder/'observed-agents.json'
+        self.observed_agents = json.loads(names.read_text(encoding='utf-8')) if names.exists() else {}
+        self.library['agents'].update(self.observed_agents)
+
+    def replace_library(self, library):
+        library['agents'].update(self.observed_agents)
+        with self._lock:
+            self.library = library
+            self._last_error = None
+
+    def remember_agent(self, name):
+        if name not in self.library['agents']:
+            self.observed_agents[name] = {'name': name}
+            atomic_json(self.folder/'observed-agents.json', self.observed_agents)
+            self.replace_library({**self.library, 'agents': {**self.library['agents'], name: {'name': name}}})
 
     def close(self):
         self._executor.shutdown(wait=True)
@@ -51,20 +71,21 @@ class AgentRecognizer:
         matches = [name for name in self.library['agents'] if name.casefold() in values]
         return matches[0] if len(matches) == 1 else None
 
-    def observe(self, agent: str | None, active: bool):
+    def observe(self, agent: str | None, active: bool, observed_since: float | None = None):
         now = time.monotonic()
         with self._lock:
             previous, since, _seen = self._context
             selected = agent if active else None
-            self._context = (selected, since if selected == previous else now, now)
-        if not selected or now < self._replay_until or now-self._last_scan < 1.5:
+            start = min(now, max(now-12, observed_since)) if observed_since is not None else now
+            self._context = (selected, since if selected == previous else start, now)
+        if self.updating or not selected or now < self._replay_until or now-self._last_scan < 1.5:
             return
         if self._future is not None and not self._future.done():
             return
         self._last_scan = now
         # Snapshot on the caller thread: a slow index query must not read future
         # audio and attribute it to a character who was selected earlier.
-        begin = max(since if selected == previous else now, now - 12., self._consumed_until)
+        begin = max(since if selected == previous else start, now - 12., self._consumed_until)
         samples = self.audio._samples_between(begin, now)
         if len(samples) < self.audio.sample_rate:
             return
@@ -80,7 +101,9 @@ class AgentRecognizer:
             pass
         return {'indexed_clips': self.indexed, 'total_clips': len(self.library['clips']),
                 'selected_agent': self._context[0], 'last_match': self._last_match,
-                'last_error': self._last_error, 'saved_lines': self.store.count()}
+                'last_error': self._last_error, 'saved_lines': self.store.count(),
+                'recognition': self._diagnostics,
+                'update': self.updater.status() if self.updater else None}
 
     def suppress_playback(self, seconds: float = 35):
         self._replay_until = time.monotonic() + min(max(seconds, 1), 40)
@@ -89,6 +112,8 @@ class AgentRecognizer:
     def _recognize(self, agent, begin, samples, sample_rate):
         try:
             observed = mono_audio(samples, sample_rate)
+            self._diagnostics = {'checked_at': time.time(), 'seconds': round(len(observed)/RATE,2),
+                                 'level': round(float(np.sqrt(np.mean(observed**2))),5), 'best_score': 0.}
             # Once a voice has been learned, replay recognition avoids querying
             # millions of global landmarks. Still verify its actual waveform.
             known = self._waveform_candidates(self.store.assets_for_agent(agent), observed, begin)
@@ -130,12 +155,15 @@ class AgentRecognizer:
     def _waveform_candidates(self, assets, observed, begin):
         candidates = []
         for asset in assets:
+            if asset not in self.library['clips']:
+                continue
             path = self.folder / 'pcm' / f'{asset}.npy'
             if not path.exists():
                 continue
             reference = np.load(path, allow_pickle=False)
             core = reference[:min(len(reference), int(1.5*RATE))]
             score, start = waveform_score(core, observed)
+            self._diagnostics['best_score'] = max(self._diagnostics.get('best_score',0.), round(score,3))
             onset = begin + start / RATE
             if score >= .42 and abs(self._occurrences.get(asset, float('-inf'))-onset) >= 1.:
                 candidates.append((score, asset, start))
@@ -155,6 +183,8 @@ class AgentRecognizer:
             if selected != agent or onset < since-.2 or time.monotonic()-seen_at > 3 or time.monotonic() < self._replay_until:
                 return
             self._occurrences[asset] = onset
+            if self.activity:
+                self.activity(agent)
             self._consumed_until = onset + .45
             if len(self._occurrences)>200:
                 self._occurrences = {k:v for k,v in self._occurrences.items() if v>time.monotonic()-60}
@@ -174,14 +204,14 @@ class AgentRecognizer:
         path = Path(entry['package'])
         stat = path.stat()
         if (stat.st_size, stat.st_mtime_ns) != (entry['package_size'], entry['package_mtime_ns']):
-            raise ValueError('Game voice package changed; rebuild the agent index')
+            raise ValueError('Game voice files changed; automatic refresh is pending')
         target = self.folder / 'audio' / f'{asset}.wav'
         target.parent.mkdir(exist_ok=True)
         if not target.exists():
             decoder = self.folder.parent / 'voice-assets/vgmstream/vgmstream-cli.exe'
             with tempfile.TemporaryDirectory(prefix='agent-', dir=self.folder) as scratch:
                 wem, wav = Path(scratch)/'voice.wem', Path(scratch)/'voice.wav'
-                wem.write_bytes(VoiceEntry(path, entry['offset'], entry['size'], int(asset)).read())
+                wem.write_bytes(VoiceEntry(path, entry['offset'], entry['size'], entry['file_id']).read())
                 subprocess.run([str(decoder), '-o', str(wav), str(wem)], capture_output=True,
                                check=True, timeout=15, creationflags=subprocess.CREATE_NO_WINDOW)
                 wav.replace(target)

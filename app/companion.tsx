@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { createVoiceActivityFollower, type VoiceActivity } from '@/lib/voice-activity';
 import {
   Dialog,
   DialogContent,
@@ -86,7 +87,8 @@ type StatusPayload = {
   capture: CaptureStatus;
   textmaps: TextMapStatus;
   audio: { ready: boolean; message: string };
-  agents?: { indexed_clips: number; total_clips: number; selected_agent: string | null; last_error: string | null; saved_lines: number };
+  agents?: { indexed_clips: number; total_clips: number; selected_agent: string | null; last_error: string | null; saved_lines: number; update?: { state: string; message: string; automatic: boolean } };
+  voice_activity?: VoiceActivity | null;
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
@@ -183,6 +185,7 @@ function CompanionClient() {
   const [refreshingMaps, setRefreshingMaps] = useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [transcriptTab, setTranscriptTab] = useState<TranscriptTab>('history');
+  const followVoice = useRef(createVoiceActivityFollower(setTranscriptTab));
   const [agentLines, setAgentLines] = useState<AgentLine[]>([]);
   const [agentTotal, setAgentTotal] = useState(0);
   const [loadingAgents, setLoadingAgents] = useState(false);
@@ -204,6 +207,7 @@ function CompanionClient() {
       }
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
+      followVoice.current(nextStatus.voice_activity);
       setDraftSettings(nextStatus.settings);
       const recentLines = (await linesResponse.json()) as TranscriptLine[];
       const favoriteLines = (await favoritesResponse.json()) as TranscriptLine[];
@@ -241,6 +245,7 @@ function CompanionClient() {
         const event = JSON.parse(message.data);
         if (event.type === 'snapshot') {
           setStatus(event.snapshot);
+          followVoice.current(event.snapshot.voice_activity);
           setDraftSettings(event.snapshot.settings);
         }
         if (event.type === 'capture_status') {
@@ -277,6 +282,9 @@ function CompanionClient() {
         }
         if (event.type === 'agent_line') {
           setAgentLines(current => mergeAgentLines(current, [event.line as AgentLine]));
+        }
+        if (event.type === 'voice_activity') {
+          followVoice.current(event.activity);
         }
         if (event.type === 'line_deleted') {
           const lineId = Number(event.line_id);
@@ -546,6 +554,7 @@ function CompanionClient() {
         </div>
 
         {transcriptTab === 'agents' ? <div className="agent-library">
+          {status?.agents?.update && <p className="agent-note" role="status">{status.agents.update.message}</p>}
           <div className="agent-listening" role="status">
             <Radio size={16} />
             <span>{capture?.phase === 'agents'

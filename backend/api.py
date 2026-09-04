@@ -12,12 +12,14 @@ from pydantic import BaseModel, Field
 from .audio import AudioCaptureService
 from .voice_assets import VoiceAssetService
 from .agent_recognition import AgentRecognizer
+from .agent_library import AgentLibraryUpdater
+from .voice_activity import VoiceActivity
 from .capture import CaptureService
 from .config import SettingsStore
 from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex
-from .windows import list_visible_windows
+from .windows import list_visible_windows, game_data_directory
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -74,7 +76,10 @@ class Runtime:
             DATA_DIR / "audio",
         )
         self.event_loop = asyncio.get_running_loop()
-        self.agents = AgentRecognizer(DATA_DIR / 'agent-voices', self.audio, self.on_agent_thread)
+        self.voice_activity = VoiceActivity()
+        self.agents = AgentRecognizer(DATA_DIR / 'agent-voices', self.audio, self.on_agent_thread, self.on_agent_activity)
+        self.agent_updater = AgentLibraryUpdater(self.agents, lambda: game_data_directory(self.settings.get()))
+        self.agents.updater = self.agent_updater
         removed_rows = self.transcript.purge_unvoiced()
         removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
         audio_dir = self.audio.output_dir.resolve()
@@ -94,6 +99,7 @@ class Runtime:
             audio=self.audio,
             voice_assets=self.voice_assets,
             agent_recognizer=self.agents,
+            on_voice=self.on_story_voice,
         )
         self.map_task: asyncio.Task[None] | None = None
 
@@ -102,6 +108,19 @@ class Runtime:
 
     def on_agent_thread(self, line: dict) -> None:
         asyncio.run_coroutine_threadsafe(self.hub.broadcast({'type':'agent_line','line':line}), self.event_loop)
+
+    def on_agent_activity(self, agent: str) -> None:
+        asyncio.run_coroutine_threadsafe(self.emit_activity('agents', agent), self.event_loop)
+
+    async def on_story_voice(self, line) -> None:
+        await self.emit_activity('history')
+
+    async def emit_activity(self, kind, agent=None):
+        if agent and self.agents._context[0] != agent:
+            return
+        activity = self.voice_activity.record(kind, self.capture.snapshot().phase)
+        if activity:
+            await self.hub.broadcast({'type': 'voice_activity', 'activity': activity})
 
     async def on_delete(self, line_id: int) -> None:
         await self.hub.broadcast({"type": "line_deleted", "line_id": line_id})
@@ -116,6 +135,7 @@ class Runtime:
             "audio": self.audio.status(),
             "voice_assets": self.voice_assets.status(),
             "agents": self.agents.status(),
+            "voice_activity": self.voice_activity.latest,
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -153,12 +173,14 @@ async def lifespan(_app: FastAPI):
     runtime = Runtime()
     runtime.audio.start()
     runtime.start_map_prepare()
+    runtime.agent_updater.start()
     if runtime.settings.get().auto_start:
         runtime.capture.start()
     try:
         yield
     finally:
         await runtime.capture.close()
+        await asyncio.to_thread(runtime.agent_updater.close)
         runtime.voice_assets.close()
         runtime.agents.close()
         runtime.audio.stop()

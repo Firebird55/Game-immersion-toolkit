@@ -48,6 +48,11 @@ excluded from story capture. The companion compares loopback audio with a local
 fingerprint index of the installed Mandarin soundbanks and verifies candidates
 against their original waveforms. Uncertain matches are skipped.
 
+Newly recognized agent-screen voices automatically select **Agents**. Newly
+captured voiced dialogue outside that screen selects **History**. Opening a
+menu, toggling a favorite, replaying audio in the web UI, and polling old entries
+do not change tabs. Missed voice events are recovered when the page reconnects.
+
 Each heard agent/clip has one persistent entry. Hearing it again increases its
 play count and moves that entry to the top. Agent entries are not subject to the
 50-line History limit; older entries can be loaded with **Load more**.
@@ -62,16 +67,33 @@ Local agent data is in `data/agent-voices`: `entries.db` (saved entries),
 `audio` (heard originals), and `model` (local SenseVoice model). Keep `entries.db`
 and `audio` together when backing up your collection.
 
-After a game update changes the Mandarin packages, rebuild the library and
-fingerprints using a matching AvatarBaseTemplateTb data dump:
+The library is maintained automatically while the companion runs. At startup
+and every minute it checks the installed Mandarin soundbanks and streamed audio.
+Changed/new clips are indexed in the background; agent recognition pauses during
+that work, while story capture continues. Interrupted work resumes, failures
+retry, and the last library is replaced only after indexing succeeds. Existing
+saved agent entries and their original audio are retained.
+
+New names can be learned from the selected agent's nameplate after two consistent
+reads on a confirmed agent screen. This does not require an updated wiki or a
+hand-maintained character list. New clips receive local automatic Hanzi
+transcription the first time they are recognized. Repacked unchanged audio keeps
+its identity; a reused game ID containing different audio gets a new identity.
+
+This supports updates using the current package formats and nameplate layouts;
+an incompatible future game format/UI may still require a software update. The
+Agents tab displays automatic update/retry status rather than silently claiming
+that unavailable audio was recognized.
+
+The following commands remain available for development/recovery, but are not
+required after normal game updates:
 
 ```powershell
 .\.venv\Scripts\python.exe -m scripts.index_agent_voices --game-data "F:\SteamLibrary\steamapps\common\Zenless Zone Zero\games\ZenlessZoneZero Game\ZenlessZoneZero_Data" --avatars "work\voice-assets\AvatarBaseTemplateTb.json"
 .\.venv\Scripts\python.exe -m scripts.build_agent_fingerprints
 ```
 
-Restart the companion after rebuilding. Initial indexing is resumable and runs
-separately from capture. The ASR model is the official
+Initial indexing is resumable and runs separately from capture. The ASR model is the official
 [SenseVoice int8 model](https://k2-fsa.github.io/sherpa/onnx/sense-voice/pretrained.html),
 extracted under `data/agent-voices/model` with its tokens and license.
 

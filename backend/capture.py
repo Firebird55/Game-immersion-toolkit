@@ -76,6 +76,7 @@ class CaptureService:
         audio: AudioCaptureService,
         voice_assets: VoiceAssetService | None = None,
         agent_recognizer=None,
+        on_voice=None,
     ):
         self.settings = settings
         self.textmaps = textmaps
@@ -87,6 +88,10 @@ class CaptureService:
         self.voice_assets = voice_assets
         self.agent_recognizer = agent_recognizer
         self._selected_agent: str | None = None
+        self.on_voice = on_voice
+        self._new_agent_name = None
+        self._new_agent_frames = 0
+        self._new_agent_since = None
         self.session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
         self._snapshot = CaptureSnapshot()
         self._snapshot_lock = threading.RLock()
@@ -248,8 +253,24 @@ class CaptureService:
             if self._is_agent_screen(header_lines + nav_lines):
                 self._excluded_screen = 'agents'
                 self._selected_agent = self.agent_recognizer.identify_agent(header_lines + nav_lines) if self.agent_recognizer else None
+                if not self._selected_agent and self.agent_recognizer:
+                    # The selected nameplate is at bottom left in both input
+                    # layouts. Never learn an unknown name from arbitrary OCR.
+                    plate = self._capture(self._region_bounds(window, CaptureRegion(left=.085, top=.78, width=.19, height=.17)))
+                    plate.thumbnail((900,400), Image.Resampling.LANCZOS)
+                    plate_lines = [str(item.get('text','')) for item in self._engine.recognize_pil(plate).get('lines',[])]
+                    candidate = self._nameplate_candidate(plate_lines)
+                    if candidate != self._new_agent_name:
+                        self._new_agent_since = time.monotonic()-.4
+                    self._new_agent_frames = self._new_agent_frames+1 if candidate == self._new_agent_name else 1
+                    self._new_agent_name = candidate
+                    if candidate and self._new_agent_frames >= 2:
+                        self.agent_recognizer.remember_agent(candidate)
+                        self._selected_agent = candidate
+                        self.agent_recognizer.observe(candidate, True, self._new_agent_since)
             else:
                 self._selected_agent = None
+                self._new_agent_name, self._new_agent_frames = None, 0
 
         if self.agent_recognizer:
             self.agent_recognizer.observe(self._selected_agent, self._excluded_screen == 'agents')
@@ -552,6 +573,8 @@ class CaptureService:
             self._remove_audio_file(audio_path)
             return
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+        if self.on_voice:
+            asyncio.run_coroutine_threadsafe(self.on_voice(line), self._event_loop)
         for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
             self._remove_audio_file(removed_audio)
             asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)
@@ -631,6 +654,27 @@ class CaptureService:
         return len(lines) >= 4 and sum(marker in text for marker in secondary_markers) >= 2
 
     @staticmethod
+    def _nameplate_candidate(lines: list[str]) -> str | None:
+        ignored = {'base','skills','equipment','select','return','character details','training plan',
+                   'lb','rb','lt','rt','ls','rs','x','y','a','b','s','lv','back'}
+        candidates = {}
+        for line in lines:
+            clean = re.sub(r'^(?:(?:LB|RB|LT|RT|LS|RS|[XYAB])\s+)+|(?:\s+(?:LB|RB|LT|RT|LS|RS|[XYAB]))+$', '', line.strip())
+            clean = clean.strip(' ☆★◀▶「」"“”')
+            words = clean.split()
+            if (not 1 <= len(words) <= 5 or not 2 <= len(clean) <= 48
+                    or clean.casefold() in ignored or re.search(r'\blv\.?|\buid\b|\bfps\b',clean,re.I)
+                    or not clean[0].isalpha()
+                    or not all(char.isalnum() or char in " '&.-" for char in clean)):
+                continue
+            if not all(word[0].isupper() or word.isdigit() or word in {'&','of','the','de','and'} for word in words):
+                continue
+            candidates.setdefault(clean.casefold(), clean)
+            if not clean.isupper():
+                candidates[clean.casefold()] = clean
+        return next(iter(candidates.values())) if len(candidates) == 1 else None
+
+    @staticmethod
     def _is_agent_screen(lines: list[str]) -> bool:
         # OCR can join navigation tabs into one row or include controller/key
         # prompts. Match whole menu labels after removing those prompts, never
@@ -645,7 +689,7 @@ class CaptureService:
             if re.fullmatch(rf'(?:{navigation})(?:\s+(?:{navigation}))*', clean):
                 labels.update(re.findall(navigation, clean))
         menu = len(labels & {'base', 'skills', 'equipment', 'mindscape cinema'})
-        levels = sum(bool(re.search(r'\blv\.?\s*\d', line)) for line in labels)
+        levels = sum(bool(re.search(r'\blv\.?\s*\d', line, re.I)) for line in lines)
         return (menu >= 2
                 or (bool(labels & {'training plan', 'special training plan'}) and levels >= 1)
                 or ({'character details', 'select', 'return'} <= labels and levels >= 3))

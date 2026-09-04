@@ -30,7 +30,7 @@ if sys.platform == "win32":
             pass
 
 
-def _process_name_for_window(hwnd: int) -> str:
+def _process_path_for_window(hwnd: int) -> str:
     process_id = wintypes.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
     process = kernel32.OpenProcess(0x1000, False, process_id.value)
@@ -40,10 +40,25 @@ def _process_name_for_window(hwnd: int) -> str:
         size = wintypes.DWORD(32768)
         buffer = ctypes.create_unicode_buffer(size.value)
         if kernel32.QueryFullProcessImageNameW(process, 0, buffer, ctypes.byref(size)):
-            return Path(buffer.value).name
+            return buffer.value
         return ""
     finally:
         kernel32.CloseHandle(process)
+
+
+def _process_name_for_window(hwnd: int) -> str:
+    return Path(_process_path_for_window(hwnd)).name
+
+
+def game_data_directory(settings: AppSettings) -> Path | None:
+    window = find_game_window(settings)
+    if window:
+        executable = _process_path_for_window(window.handle)
+        if executable:
+            folder = Path(executable).parent/'ZenlessZoneZero_Data'
+            if folder.is_dir():
+                return folder
+    return None
 
 
 def _window_bounds(hwnd: int) -> tuple[int, int, int, int] | None:
