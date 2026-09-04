@@ -53,6 +53,13 @@ captured voiced dialogue outside that screen selects **History**. Opening a
 menu, toggling a favorite, replaying audio in the web UI, and polling old entries
 do not change tabs. Missed voice events are recovered when the page reconnects.
 
+Selection voices start immediately, so recognition includes a two-second
+pre-roll on entering the agent screen and checks the small nameplate every
+capture pass. On a character/screen change, its buffered audio is queued for
+recognition with the character identity observed at capture time. Late results
+can populate that character's collection without switching away from current
+story dialogue. The queue is bounded to protect memory during very rapid changes.
+
 Each heard agent/clip has one persistent entry. Hearing it again increases its
 play count and moves that entry to the top. Agent entries are not subject to the
 50-line History limit; older entries can be loaded with **Load more**.

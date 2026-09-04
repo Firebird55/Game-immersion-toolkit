@@ -112,6 +112,24 @@ def test_unknown_agent_name_can_be_learned_without_metadata():
     assert CaptureService._is_agent_screen(['Character Details','Select','Return','Lv. 60','Lv. 60','Lv. 60'])
 
 
+def test_instant_selection_voice_uses_pre_roll_and_flushes_on_switch(tmp_path,monkeypatch):
+    import backend.agent_recognition as module
+    now=[100.]
+    monkeypatch.setattr(module.time,'monotonic',lambda:now[0])
+    r=module.AgentRecognizer(tmp_path,None,lambda line:None)
+    snapshots=[]
+    monkeypatch.setattr(r,'_submit_snapshot',lambda *args:snapshots.append(args))
+    r.observe('Nicole',True)
+    assert snapshots==[]  # do not start a costly music-only lookup immediately
+    now[0]=101.5
+    r.observe('Nicole',True)
+    assert snapshots[0]==('Nicole',98.,101.5,98.)
+    now[0]=102.
+    r.observe('Anby',True)
+    assert snapshots[-1]==('Nicole',98.,102.,98.)
+    r.close()
+
+
 def test_voice_activity_ignores_late_results_from_wrong_game_screen():
     activity=VoiceActivity()
     assert activity.record('agents','listening') is None

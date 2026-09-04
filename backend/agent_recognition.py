@@ -29,7 +29,9 @@ class AgentRecognizer:
         self.library = json.loads((folder / 'library.json').read_text(encoding='utf-8')) if (folder / 'library.json').exists() else {'agents':{}, 'clips':{}}
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='zzz-agent-voice')
         self._future = None
+        self._pending = []
         self._context: tuple[str | None, float, float] = (None, 0., 0.)
+        self._selected_at = 0.
         self._lock = threading.Lock()
         self._last_scan = 0.
         self._occurrences: dict[str, float] = {}
@@ -59,7 +61,7 @@ class AgentRecognizer:
             self.replace_library({**self.library, 'agents': {**self.library['agents'], name: {'name': name}}})
 
     def close(self):
-        self._executor.shutdown(wait=True)
+        self._executor.shutdown(wait=True, cancel_futures=True)
 
     def identify_agent(self, lines: list[str]) -> str | None:
         # Names may move between the top and bottom in controller/keyboard UI.
@@ -76,20 +78,36 @@ class AgentRecognizer:
         with self._lock:
             previous, since, _seen = self._context
             selected = agent if active else None
-            start = min(now, max(now-12, observed_since)) if observed_since is not None else now
+            # Names are read shortly after the selection animation begins.
+            # Retain a small pre-roll so the start of its voice isn't discarded.
+            start = min(now, max(now-12, observed_since)) if observed_since is not None else now-(2.0 if previous is None else .6)
+            if selected != previous:
+                self._selected_at = now
             self._context = (selected, since if selected == previous else start, now)
+        if previous and previous != selected and not self.updating and now >= self._replay_until:
+            self._submit_snapshot(previous, max(since, now-12., self._consumed_until), now, since)
         if self.updating or not selected or now < self._replay_until or now-self._last_scan < 1.5:
             return
+        if now-self._selected_at < 1.1:
+            return  # wait for speech, not just the music in the pre-roll
         if self._future is not None and not self._future.done():
             return
         self._last_scan = now
         # Snapshot on the caller thread: a slow index query must not read future
         # audio and attribute it to a character who was selected earlier.
         begin = max(since if selected == previous else start, now - 12., self._consumed_until)
-        samples = self.audio._samples_between(begin, now)
-        if len(samples) < self.audio.sample_rate:
+        self._submit_snapshot(selected, begin, now, since if selected == previous else start)
+
+    def _submit_snapshot(self, agent, begin, end, since):
+        self._pending = [future for future in self._pending if not future.done()]
+        if len(self._pending) >= 8:
+            self._last_error = 'Voice recognition is catching up with rapid agent changes'
             return
-        self._future = self._executor.submit(self._recognize, selected, begin, samples, self.audio.sample_rate)
+        samples = self.audio._samples_between(begin, end)
+        if len(samples) < int(self.audio.sample_rate*1.6):
+            return
+        self._future = self._executor.submit(self._recognize, agent, begin, samples, self.audio.sample_rate, since)
+        self._pending.append(self._future)
 
     def status(self):
         try:
@@ -109,7 +127,7 @@ class AgentRecognizer:
         self._replay_until = time.monotonic() + min(max(seconds, 1), 40)
         self._consumed_until = max(self._consumed_until, self._replay_until)
 
-    def _recognize(self, agent, begin, samples, sample_rate):
+    def _recognize(self, agent, begin, samples, sample_rate, context_since=None):
         try:
             observed = mono_audio(samples, sample_rate)
             self._diagnostics = {'checked_at': time.time(), 'seconds': round(len(observed)/RATE,2),
@@ -118,7 +136,7 @@ class AgentRecognizer:
             # millions of global landmarks. Still verify its actual waveform.
             known = self._waveform_candidates(self.store.assets_for_agent(agent), observed, begin)
             if known:
-                return self._accept_candidates(known, agent, begin)
+                return self._accept_candidates(known, agent, begin, context_since)
             points = landmarks(observed)
             points = points[::max(1, (len(points)+1399)//1400)]
             if len(points) < 10:
@@ -137,9 +155,12 @@ class AgentRecognizer:
                 for start in range(0, len(keys), 400):
                     batch = keys[start:start+400]
                     for value, asset, reference_frame in db.execute(
-                        'SELECT hash,asset_id,frame FROM hashes WHERE hash IN ('+','.join('?' for _ in batch)+')', batch):
+                        'SELECT hash,asset_id,frame FROM hashes WHERE hash IN ('+','.join('?' for _ in batch)+') AND frame <= ?',
+                        [*batch, max(frame for _,frame in points)+2]):
                         for observed_frame in query[value]:
                             offset = observed_frame-reference_frame
+                            if offset < -2:
+                                continue
                             votes[(asset, round(offset/4))] += 1
             if not votes:
                 return
@@ -148,7 +169,7 @@ class AgentRecognizer:
                 if count < 12 or asset in assets:
                     continue
                 assets.append(asset)
-            self._accept_candidates(self._waveform_candidates(assets, observed, begin), agent, begin)
+            self._accept_candidates(self._waveform_candidates(assets, observed, begin), agent, begin, context_since)
         except Exception as error:
             self._last_error = str(error)
 
@@ -169,7 +190,7 @@ class AgentRecognizer:
                 candidates.append((score, asset, start))
         return candidates
 
-    def _accept_candidates(self, candidates, agent, begin):
+    def _accept_candidates(self, candidates, agent, begin, context_since=None):
         try:
             candidates.sort(key=lambda item:item[0], reverse=True)
             if not candidates or (len(candidates)>1 and candidates[0][0]-candidates[1][0]<.06):
@@ -180,12 +201,16 @@ class AgentRecognizer:
                 return
             with self._lock:
                 selected, since, seen_at = self._context
-            if selected != agent or onset < since-.2 or time.monotonic()-seen_at > 3 or time.monotonic() < self._replay_until:
+            # A snapshot captured on the previous agent remains valid while
+            # background matching finishes after the player changes character.
+            valid_context = (onset >= context_since-.2 if context_since is not None
+                             else selected == agent and onset >= since-.2 and time.monotonic()-seen_at <= 3)
+            if not valid_context or time.monotonic() < self._replay_until:
                 return
             self._occurrences[asset] = onset
             if self.activity:
                 self.activity(agent)
-            self._consumed_until = onset + .45
+            self._consumed_until = max(self._consumed_until, onset + .45)
             if len(self._occurrences)>200:
                 self._occurrences = {k:v for k,v in self._occurrences.items() if v>time.monotonic()-60}
             original, original_rate, target = self._original_audio(asset)

@@ -166,4 +166,6 @@ def test_recognition_pipeline_deduplicates_same_audio_occurrence(tmp_path,monkey
     recognizer._context=(None,1000.,1000.)
     recognizer._recognize('Dialyn',970.,observed,8000)
     assert len(published)==2  # left the agent screen
+    recognizer._recognize('Dialyn',980.,observed,8000,context_since=979.)
+    assert len(published)==3  # valid captured audio finishes after a screen change
     recognizer.close()

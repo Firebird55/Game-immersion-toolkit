@@ -261,7 +261,7 @@ class CaptureService:
                     plate_lines = [str(item.get('text','')) for item in self._engine.recognize_pil(plate).get('lines',[])]
                     candidate = self._nameplate_candidate(plate_lines)
                     if candidate != self._new_agent_name:
-                        self._new_agent_since = time.monotonic()-.4
+                        self._new_agent_since = time.monotonic()-2.0
                     self._new_agent_frames = self._new_agent_frames+1 if candidate == self._new_agent_name else 1
                     self._new_agent_name = candidate
                     if candidate and self._new_agent_frames >= 2:
@@ -271,6 +271,16 @@ class CaptureService:
             else:
                 self._selected_agent = None
                 self._new_agent_name, self._new_agent_frames = None, 0
+
+        if self.agent_recognizer and self._excluded_screen == 'agents' and self._scan_index % 4 != 1:
+            # Selection voices begin immediately. Track the tiny nameplate each
+            # scan rather than waiting for the next full layout/header pass.
+            plate = self._capture(self._region_bounds(window, CaptureRegion(left=.085, top=.78, width=.19, height=.17)))
+            plate.thumbnail((900,400), Image.Resampling.LANCZOS)
+            plate_lines = [str(item.get('text','')) for item in self._engine.recognize_pil(plate).get('lines',[])]
+            selected = self.agent_recognizer.identify_agent(plate_lines)
+            if selected:
+                self._selected_agent = selected
 
         if self.agent_recognizer:
             self.agent_recognizer.observe(self._selected_agent, self._excluded_screen == 'agents')
