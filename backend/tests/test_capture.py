@@ -1,6 +1,17 @@
 from backend.capture import CaptureService, StableMatchTracker
 
 
+def test_current_subtitle_visibility_expires_and_clears_per_channel() -> None:
+    service = object.__new__(CaptureService)
+    service._visible_text_by_channel = {}
+    service._observe_visible_matches("dialogue", ["spoken-a"], 100.0)
+    service._observe_visible_matches("tip", ["spoken-b"], 100.0)
+    assert service._visible_text_ids(101.0) == ["spoken-a", "spoken-b"]
+    service._observe_visible_matches("dialogue", [], 101.0)
+    assert service._visible_text_ids(101.0) == ["spoken-b"]
+    assert service._visible_text_ids(102.1) == []
+
+
 def test_stable_tracker_emits_once_per_visible_line() -> None:
     tracker = StableMatchTracker(required_frames=2)
     assert tracker.observe("line-a") is False

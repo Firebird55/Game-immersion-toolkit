@@ -194,7 +194,11 @@ def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
 ) -> list[TranscriptLine]:
-    return runtime.transcript.list(limit=limit, before_id=before_id)
+    return [
+        line for line in runtime.transcript.list(limit=limit, before_id=before_id)
+        if line.voiced and line.has_audio
+        and runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
+    ]
 
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])

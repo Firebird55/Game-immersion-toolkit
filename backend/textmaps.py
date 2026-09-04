@@ -31,9 +31,8 @@ CINEMATIC_ID_MARKERS = (
     "comic",
     "video",
     "voice",
-    "subtitle",
-    "caption",
 )
+UI_LABELS = {"talk", "outputvalue", "searchsupply", "next", "select", "confirm", "cancel"}
 GENDER_VARIANT_RE = re.compile(r"\{[MF]#(.*?)\}", re.DOTALL)
 TERMINAL_PUNCTUATION_RE = re.compile(r"[.!?…][\"')\]}]*$")
 
@@ -375,6 +374,18 @@ class TextMapIndex:
 
     @classmethod
     def _is_allowed_record(cls, record: _Record, channel: str) -> bool:
+        text_id = record.text_id.casefold()
+        # TextMap "SubTitle" is a menu subheading, not evidence of spoken
+        # subtitles. Newbie tips are unvoiced tutorial/inventory notices.
+        if (
+            normalize_english(record.english) in UI_LABELS
+            or record.english.rstrip().endswith((":", "："))
+            or text_id.startswith("tips_newbie_")
+            or ("subtitle" in text_id and not any(
+                marker in text_id for marker in CINEMATIC_ID_MARKERS
+            ))
+        ):
+            return False
         if channel == "tip":
             text_id = record.text_id.casefold()
             if "name" in text_id or "speaker" in text_id:
@@ -388,3 +399,7 @@ class TextMapIndex:
                 return False
             return any(marker in text_id for marker in CINEMATIC_ID_MARKERS)
         return cls._is_dialogue_record(record)
+
+    @classmethod
+    def is_capture_text(cls, text_id: str, english: str, channel: str) -> bool:
+        return cls._is_allowed_record(_Record(text_id, english, ""), channel)

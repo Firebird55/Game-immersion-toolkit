@@ -100,12 +100,16 @@ class CaptureService:
         self._cinematic_seen_ids: set[str] = set()
         self._cinematic_panel_text = ""
         self._excluded_screen: str | None = None
+        self._visible_text_by_channel: dict[str, tuple[float, list[str]]] = {}
 
     def snapshot(self) -> CaptureSnapshot:
         with self._snapshot_lock:
             return self._snapshot.model_copy(deep=True)
 
     def _update_snapshot(self, **changes: object) -> CaptureSnapshot:
+        if changes.get("phase") in {"stopped", "starting", "error", "waiting_for_game", "excluded_screen"}:
+            self._visible_text_by_channel.clear()
+            changes["visible_text_ids"] = []
         with self._snapshot_lock:
             self._snapshot = self._snapshot.model_copy(update=changes)
             return self._snapshot.model_copy(deep=True)
@@ -162,8 +166,8 @@ class CaptureService:
                     outcome = await loop.run_in_executor(self._executor, self._scan_once)
                     snapshot = self.snapshot()
                     await self.on_status(snapshot)
-                    for line in outcome.emitted_lines or []:
-                        await self.on_line(line)
+                    # _audio_ready publishes only after neural voice validation.
+                    # Pending matches must not flash in the visible transcript.
                 except Exception as error:
                     snapshot = self._update_snapshot(
                         running=True,
@@ -257,6 +261,7 @@ class CaptureService:
             else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
         monotonic_now = time.monotonic()
+        self._observe_visible_matches("dialogue", [match.text_id] if match else [], monotonic_now)
         speech_active = self.audio.speech_recent(1.8)
         emitted_lines: list[TranscriptLine] = []
         if match is None:
@@ -309,6 +314,7 @@ class CaptureService:
                 if tip_match is not None
                 else ""
             )
+            self._observe_visible_matches("tip", [tip_match.text_id] if tip_match else [], monotonic_now)
             fresh_tip = bool(tip_key) and self._is_fresh_match(
                 "tip", tip_key, monotonic_now
             )
@@ -352,6 +358,7 @@ class CaptureService:
                 threshold=max(settings.fuzzy_threshold, 88),
                 channel="cinematic",
             )
+            self._observe_visible_matches("cinematic", [item.text_id for item in cinematic_matches], monotonic_now)
             normalized_panel = normalize_english(cinematic_raw_text)
             if (
                 normalized_panel
@@ -425,8 +432,20 @@ class CaptureService:
             last_match_score=match_score,
             last_scan_at=now,
             last_error=None,
+            visible_text_ids=self._visible_text_ids(monotonic_now),
         )
         return _ScanOutcome(emitted_lines=emitted_lines)
+
+    def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
+        self._visible_text_by_channel[channel] = (now, text_ids)
+
+    def _visible_text_ids(self, now: float) -> list[str]:
+        return list(dict.fromkeys(
+            text_id
+            for seen_at, text_ids in self._visible_text_by_channel.values()
+            if now - seen_at <= 2.0
+            for text_id in text_ids
+        ))
 
     def _audio_ready(self, line_id: int, audio_path: str | None, voiced: bool) -> None:
         if self._event_loop is None:

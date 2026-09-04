@@ -73,6 +73,7 @@ class TranscriptLine(BaseModel):
 
 
 class CaptureSnapshot(BaseModel):
+    visible_text_ids: list[str] = Field(default_factory=list)
     running: bool = False
     phase: str = "stopped"
     message: str = "Capture is stopped"

@@ -72,6 +72,24 @@ def test_normalize_english_ignores_punctuation_and_markup() -> None:
     assert normalize_english("<b>Don’t</b> wait — Proxy!") == "dontwaitproxy"
 
 
+def test_menu_subtitles_and_unvoiced_fairy_tutorials_are_not_dialogue() -> None:
+    rejected = [
+        ("Event_Chat_textmap", "Talk"),
+        ("ActivityBangkov_SearchBox_SubTitle2", "Output Value:"),
+        ("ActivityBangkov_SearchBox_SubTitleDetail", "Searching..."),
+        ("Tips_Newbie_50436_1", "Special Supply found: Blade of the Other!"),
+        ("Tips_Newbie_50418_1", "This is the Storage, used to keep Supplies brought back from the Hollow."),
+        ("TutorialDialogSubTitle_1", "TUTORIAL"),
+    ]
+    for text_id, english in rejected:
+        for channel in ("dialogue", "tip", "cinematic"):
+            assert not TextMapIndex.is_capture_text(text_id, english, channel)
+    assert TextMapIndex.is_capture_text("Comic_123", "We have to leave!", "cinematic")
+    assert TextMapIndex.is_capture_text("Video_123", "We have to leave!", "cinematic")
+    assert TextMapIndex.is_capture_text("GalGame_123", "We have to leave!", "dialogue")
+    assert TextMapIndex.is_capture_text("Tips_1228010012", "To unlock it, you need to obtain an S-Rank in the previous battle.", "tip")
+
+
 def test_exact_match_uses_shared_id(tmp_path) -> None:
     index = make_index(tmp_path)
     match = index.match_text("Leave any combat along the way to us!")

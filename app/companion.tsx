@@ -42,6 +42,7 @@ type Settings = {
   save_unmatched: boolean;
 };
 type CaptureStatus = {
+  visible_text_ids: string[];
   running: boolean;
   phase: string;
   message: string;
@@ -233,6 +234,7 @@ function CompanionClient() {
         }
         if (event.type === 'line') {
           const line = event.line as TranscriptLine;
+          if (!line.voiced || !line.has_audio) return;
           const isNew = !knownLineIds.current.has(line.id);
           knownLineIds.current.add(line.id);
           setLines((current) => {
@@ -290,8 +292,16 @@ function CompanionClient() {
   }, [settingsOpen]);
 
   const recentLines = useMemo(() => lines.slice(0, 50), [lines]);
-  const latestLine = recentLines[0] ?? null;
-  const historyLines = useMemo(() => recentLines.slice(1), [recentLines]);
+  const latestLine = recentLines.find((line) =>
+    line.session_id === status?.session.id
+    && line.voiced && line.has_audio
+    && status?.capture.running
+    && status.capture.visible_text_ids?.includes(line.text_id)
+  ) ?? null;
+  const historyLines = useMemo(
+    () => recentLines.filter((line) => line.id !== latestLine?.id),
+    [recentLines, latestLine?.id],
+  );
   const favoriteLines = useMemo(() => lines.filter((line) => line.favorite), [lines]);
   const visibleTranscriptLines = transcriptTab === 'favorites' ? favoriteLines : historyLines;
   const sessionLines = useMemo(
@@ -449,8 +459,8 @@ function CompanionClient() {
           <div className="current-empty">
             <ScanLine size={28} />
             <div>
-              <strong>{capture?.message ?? 'Connecting to the capture service'}</strong>
-              <p>{capture?.last_ocr || 'The next matched subtitle will appear here automatically.'}</p>
+              <strong>No confirmed voiced subtitle on screen</strong>
+              <p>The next voiced line will appear here. Previous lines stay in History.</p>
             </div>
           </div>
         )}

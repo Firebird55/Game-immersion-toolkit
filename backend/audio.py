@@ -45,10 +45,12 @@ class AudioCaptureService:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._vad = webrtcvad.Vad(2)
+        self._voice_validation_error: str | None = None
         try:
             self._voice_vad: FireRedVad | None = FireRedVad()
-        except Exception:
+        except Exception as error:
             self._voice_vad = None
+            self._voice_validation_error = str(error)
         self.ready = False
         self.message = "Audio capture has not started"
 
@@ -67,7 +69,11 @@ class AudioCaptureService:
         self._thread = None
 
     def status(self) -> dict[str, object]:
-        return {"ready": self.ready, "message": self.message}
+        message = self.message
+        if self._voice_validation_error:
+            message += f"; voice validation unavailable (lines skipped): {self._voice_validation_error}"
+        return {"ready": self.ready, "message": message,
+                "voice_validation_ready": self._voice_vad is not None and not self._voice_validation_error}
 
     def speech_recent(self, seconds: float = 2.0) -> bool:
         now = time.monotonic()
@@ -257,6 +263,10 @@ class AudioCaptureService:
             return min(abs(anchor_seconds - start), abs(anchor_seconds - end))
 
         selected = min(groups, key=distance)
+        # Do not attach unrelated speech that occurs much later in the clip
+        # to a silent UI notice just because it is the nearest speech available.
+        if distance(selected) > 0.75:
+            return None
         return selected[0], selected[1]
 
     def _trim_to_voice(
@@ -265,13 +275,15 @@ class AudioCaptureService:
         if samples.size == 0:
             return samples, False
         if self._voice_vad is None:
-            return samples, self._has_speech(samples)
+            return samples[:0], False
         try:
             group = self._select_speech_group(
                 self._voice_vad.segments(samples, self.sample_rate), anchor_seconds
             )
-        except Exception:
-            return samples, self._has_speech(samples)
+            self._voice_validation_error = None
+        except Exception as error:
+            self._voice_validation_error = str(error)
+            return samples[:0], False
         if group is None:
             return samples[:0], False
 
