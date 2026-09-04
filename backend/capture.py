@@ -20,6 +20,7 @@ from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex, normalize_english
 from .windows import WindowInfo, find_game_window
+from .voice_assets import AudioSourceChoice, VoiceAssetService
 
 
 class StableMatchTracker:
@@ -72,6 +73,7 @@ class CaptureService:
         on_delete: Callable[[int], Awaitable[None]],
         on_status: Callable[[CaptureSnapshot], Awaitable[None]],
         audio: AudioCaptureService,
+        voice_assets: VoiceAssetService | None = None,
     ):
         self.settings = settings
         self.textmaps = textmaps
@@ -80,6 +82,7 @@ class CaptureService:
         self.on_delete = on_delete
         self.on_status = on_status
         self.audio = audio
+        self.voice_assets = voice_assets
         self.session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
         self._snapshot = CaptureSnapshot()
         self._snapshot_lock = threading.RLock()
@@ -275,7 +278,7 @@ class CaptureService:
             redundant_visible_match = self._is_redundant_visible_match(
                 "dialogue", match.english, raw_text
             )
-            if not speech_active:
+            if not speech_active and not (self.voice_assets and self.voice_assets.has(match.text_id)):
                 self._tracker.observe(None)
             elif fresh_match and (
                 self._tracker.observe(key)
@@ -287,10 +290,9 @@ class CaptureService:
                 )
                 if line is not None:
                     emitted_lines.append(line)
-                    self.audio.schedule_clip(
-                        line.id, monotonic_now, self._audio_ready,
+                    self._schedule_line_audio(
+                        line, monotonic_now,
                         observed_at=self._visible_match_started["dialogue"][1],
-                        chinese=match.chinese,
                     )
             phase = "matched"
             message = "Official bilingual line matched"
@@ -335,10 +337,9 @@ class CaptureService:
                     )
                     if line is not None:
                         emitted_lines.append(line)
-                        self.audio.schedule_clip(
-                            line.id, monotonic_now, self._audio_ready,
+                        self._schedule_line_audio(
+                            line, monotonic_now,
                             observed_at=self._visible_match_started["tip"][1],
-                            chinese=tip_match.chinese,
                         )
                 tip_match_score = tip_match.score
                 if match is None:
@@ -399,10 +400,9 @@ class CaptureService:
                     )
                     if line is not None:
                         emitted_lines.append(line)
-                        self.audio.schedule_clip(
-                            line.id, monotonic_now, self._audio_ready,
+                        self._schedule_line_audio(
+                            line, monotonic_now,
                             observed_at=monotonic_now,
-                            chinese=cinematic_match.chinese,
                         )
                 cinematic_match_score = cinematic_match.score
                 if match is None and tip_match is None:
@@ -458,6 +458,31 @@ class CaptureService:
             if now - seen_at <= 2.0
             for text_id in text_ids
         ))
+
+    def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
+        def publish(line_id: int, filename: str | None, voiced: bool) -> None:
+            current = self.transcript.get(line_id)
+            if current is None or current.text_id != line.text_id:
+                self._remove_audio_file(filename)
+                return
+            self._audio_ready(line_id, filename, voiced)
+
+        def cancel_recording(line_id: int) -> None:
+            current = self.transcript.get(line_id)
+            if current is not None and current.text_id == line.text_id:
+                self.audio.cancel_clip(line_id)
+
+        if self.voice_assets and self.voice_assets.has(line.text_id):
+            choice = AudioSourceChoice(publish, self._remove_audio_file, cancel_recording)
+            # Keep the ring-buffer fallback until extraction succeeds. Arbitration
+            # prevents a late VAD failure from deleting a successful original clip.
+            self.audio.schedule_clip(line.id, now, choice.recording_result,
+                                     observed_at=observed_at, chinese=line.chinese)
+            if not self.voice_assets.schedule(line.text_id, line.id, choice.original_result):
+                choice.original_result(line.id, None, False)
+        else:
+            self.audio.schedule_clip(line.id, now, publish,
+                                     observed_at=observed_at, chinese=line.chinese)
 
     def _audio_ready(self, line_id: int, audio_path: str | None, voiced: bool) -> None:
         if self._event_loop is None:

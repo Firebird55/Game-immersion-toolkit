@@ -1,0 +1,231 @@
+"""Read-only access to ZZZ's Mandarin Wwise external voice files.
+
+Only exact GalScript text-id -> source -> FNV-1 matches are accepted. No
+transcript similarity or guessed dialogue ordinals are used here.
+"""
+from __future__ import annotations
+
+import json
+import struct
+import shutil
+import subprocess
+import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from typing import Callable
+from dataclasses import dataclass
+from pathlib import Path
+
+
+def voice_hash(path: str) -> int:
+    value = 0xCBF29CE484222325
+    for byte in path.lower().encode("utf-8"):
+        value = ((value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF) ^ byte
+    return value
+
+
+@dataclass(frozen=True)
+class VoiceEntry:
+    package: Path
+    offset: int
+    size: int
+    file_id: int
+
+    def read(self) -> bytes:
+        with self.package.open("rb") as stream:
+            stream.seek(self.offset)
+            data = stream.read(self.size)
+        if len(data) != self.size or data[:4] != b"RIFF":
+            raise ValueError("Voice asset missing, changed, or not a RIFF WEM")
+        return data
+
+
+def read_external_table(package: Path) -> list[VoiceEntry]:
+    """Read the small PCK table, never the complete audio package."""
+    size = package.stat().st_size
+    with package.open("rb") as stream:
+        header = stream.read(28)
+        if len(header) < 28 or header[:4] != b"AKPK":
+            raise ValueError("Not a Wwise PCK")
+        header_size, flag, languages, banks, sounds, externals = struct.unpack_from("<6I", header, 4)
+        if flag != 1 or not 16 <= header_size <= min(size, 32 * 1024 * 1024):
+            raise ValueError("Unsupported PCK header")
+        if languages + banks + sounds + 16 >= header_size:
+            return []
+        offset = 28 + languages + banks + sounds
+        if not 4 <= externals <= 32 * 1024 * 1024 or offset + externals > min(size, header_size + 8):
+            raise ValueError("Invalid external table bounds")
+        stream.seek(offset)
+        table = stream.read(externals)
+    if len(table) != externals:
+        raise ValueError("Truncated external table")
+    count = struct.unpack_from("<I", table)[0]
+    if count == 0:
+        return []
+    if externals != 4 + count * 24:
+        raise ValueError("Unsupported external entry layout")
+    entries = []
+    for file_id, block, length, position, _language in struct.iter_unpack("<Q4I", table[4:]):
+        position *= block or 1
+        if not 0 < length <= 64 * 1024 * 1024 or position < header_size or position + length > size:
+            raise ValueError("External voice outside package")
+        entries.append(VoiceEntry(package, position, length, file_id))
+    return entries
+
+
+def index_mandarin(game_data: Path) -> dict[int, VoiceEntry]:
+    entries: dict[int, VoiceEntry] = {}
+    # Persistent updates take precedence over base packages.
+    for directory in ("StreamingAssets", "Persistent"):
+        root = game_data / directory / "Audio/Windows/Full/Cn"
+        for package in sorted(root.glob("*.pck")):
+            for entry in read_external_table(package):
+                entries[entry.file_id] = entry
+    return entries
+
+
+def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, VoiceEntry]) -> dict[str, dict]:
+    by_speaker: dict[str, list[str]] = {}
+    for prefix in prefixes:
+        if prefix.lower().startswith("vo_galgame/") and "/VO_" in prefix:
+            speaker = prefix.rstrip("/").rsplit("/VO_", 1)[1].lower()
+            by_speaker.setdefault(speaker, []).append(prefix)
+    candidates: dict[str, dict[int, str]] = {}
+    for link in links:
+        source, text_id = link["source"], link["text_id"]
+        paths = [source] if "/" in source else [
+            prefix + source for token in source.lower().split("_")
+            for prefix in by_speaker.get(token, [])
+        ]
+        for path in paths:
+            full = f"chinese(prc)/ex/{path}.wem"
+            hashed = voice_hash(full)
+            if hashed in entries:
+                candidates.setdefault(text_id, {})[hashed] = full
+    result = {}
+    for text_id, values in candidates.items():
+        if len(values) != 1:
+            continue  # Ambiguous voice variant: preserve recording fallback.
+        hashed, source = next(iter(values.items()))
+        entry = entries[hashed]
+        result[text_id] = {
+            "source": source, "file_id": f"{hashed:016x}",
+            "package": str(entry.package), "offset": entry.offset, "size": entry.size,
+        }
+    return result
+
+
+class VoiceAssetService:
+    """Small persistent manifest; decode only requested lines, off the OCR thread."""
+
+    def __init__(self, manifest: Path, decoder: Path, output_dir: Path):
+        self.decoder = decoder
+        self.output_dir = output_dir
+        self._entries: dict[str, dict] = {}
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
+        self._slots = threading.BoundedSemaphore(8)
+        self.last_error: str | None = None
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            if data.get("version") != 1:
+                raise ValueError("Unsupported original voice manifest")
+            self._entries = data["entries"]
+        except (OSError, ValueError, KeyError) as error:
+            self.last_error = str(error)
+        self.ready = bool(self._entries and decoder.is_file() and shutil.which("ffmpeg"))
+
+    def has(self, text_id: str) -> bool:
+        if not self.ready or text_id not in self._entries:
+            return False
+        item = self._entries[text_id]
+        try:
+            stat = Path(item["package"]).stat()
+            return stat.st_size == item["package_size"] and stat.st_mtime_ns == item["package_mtime_ns"]
+        except OSError:
+            return False
+
+    def status(self) -> dict:
+        return {"ready": self.ready, "mapped_lines": len(self._entries), "last_error": self.last_error}
+
+    def close(self) -> None:
+        self._executor.shutdown(wait=True)
+
+    def extract(self, text_id: str, line_id: int) -> str:
+        item = self._entries[text_id]
+        path = Path(item["package"])
+        stat = path.stat()
+        if stat.st_size != item["package_size"] or stat.st_mtime_ns != item["package_mtime_ns"]:
+            raise ValueError("Game audio package changed; rebuild the original voice index")
+        if voice_hash(item["source"]) != int(item["file_id"], 16):
+            raise ValueError("Voice source hash mismatch")
+        entry = VoiceEntry(path, item["offset"], item["size"], int(item["file_id"], 16))
+        if entry.offset < 28 or not 0 < entry.size <= 64 * 1024 * 1024 or entry.offset + entry.size > stat.st_size:
+            raise ValueError("Invalid voice asset bounds")
+        data = entry.read()
+        if path.stat().st_mtime_ns != stat.st_mtime_ns:
+            raise ValueError("Audio package changed during reading")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"official-{line_id}-{item['file_id']}.mp3"
+        destination = self.output_dir / filename
+        # Decode into a task-owned temporary directory; publish only complete files.
+        with tempfile.TemporaryDirectory(prefix="voice-", dir=self.output_dir) as scratch:
+            scratch = Path(scratch)
+            wem, wav, mp3 = scratch / "voice.wem", scratch / "voice.wav", scratch / "voice.mp3"
+            wem.write_bytes(data)
+            options = {"check": True, "capture_output": True, "timeout": 20,
+                       "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+            subprocess.run([str(self.decoder), "-o", str(wav), str(wem)], **options)
+            subprocess.run([shutil.which("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin",
+                            "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
+            if mp3.stat().st_size < 100:
+                raise ValueError("Empty decoded voice")
+            mp3.replace(destination)
+        return filename
+
+    def schedule(self, text_id: str, line_id: int, callback: Callable[[int, str | None, bool], None]) -> bool:
+        if not self.has(text_id) or not self._slots.acquire(blocking=False):
+            return False
+        def work():
+            result = None
+            try:
+                result = self.extract(text_id, line_id)
+                self.last_error = None
+            except Exception as error:
+                self.last_error = str(error)
+            finally:
+                self._slots.release()
+            callback(line_id, result, result is not None)
+        self._executor.submit(work)
+        return True
+
+
+class AudioSourceChoice:
+    """Wait for the asset attempt before publishing a parallel recording result."""
+
+    def __init__(self, publish: Callable, discard: Callable, cancel_recording: Callable):
+        self._lock = threading.Lock()
+        self._state = "pending"
+        self._recorded: tuple | None = None
+        self.publish, self.discard, self.cancel_recording = publish, discard, cancel_recording
+
+    def recording_result(self, line_id: int, path: str | None, voiced: bool) -> None:
+        with self._lock:
+            if self._state == "original":
+                self.discard(path)
+            elif self._state == "fallback":
+                self.publish(line_id, path, voiced)
+            else:
+                self._recorded = (line_id, path, voiced)
+
+    def original_result(self, line_id: int, path: str | None, voiced: bool) -> None:
+        with self._lock:
+            if path and voiced:
+                self._state = "original"
+                self.cancel_recording(line_id)
+                if self._recorded:
+                    self.discard(self._recorded[1])
+                self.publish(line_id, path, True)
+            else:
+                self._state = "fallback"
+                if self._recorded:
+                    self.publish(*self._recorded)

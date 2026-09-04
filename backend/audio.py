@@ -148,6 +148,10 @@ class AudioCaptureService:
             2.0 if syllables >= 30 else 1.3,
         )
 
+    def cancel_clip(self, line_id: int) -> None:
+        with self._lock:
+            self._pending = [clip for clip in self._pending if clip.line_id != line_id]
+
     def _run(self) -> None:
         audio = pyaudio.PyAudio()
         stream = None
@@ -215,6 +219,8 @@ class AudioCaptureService:
             except Exception as error:
                 self._voice_validation_error = str(error)
             with self._lock:
+                if clip not in self._pending:
+                    continue
                 if bounds:
                     first, last = (clip.start + value for value in bounds)
                     clip.voice_start = min(clip.voice_start, first) if clip.voice_start is not None else first

@@ -78,6 +78,7 @@ type TranscriptLine = {
   channel: 'dialogue' | 'tip' | 'cinematic';
   voiced: boolean;
   has_audio: boolean;
+  audio_source?: 'original' | 'recording';
   favorite: boolean;
 };
 type StatusPayload = {
@@ -374,7 +375,7 @@ function CompanionClient() {
   function playLine(line: TranscriptLine) {
     if (!line.has_audio) return;
     playback.current?.pause();
-    const audio = new Audio(`${API_URL}/api/lines/${line.id}/audio?v=${line.id}`);
+    const audio = new Audio(`${API_URL}/api/lines/${line.id}/audio?v=${line.id}-${line.audio_source ?? 'recording'}`);
     playback.current = audio;
     void audio.play();
   }
@@ -448,7 +449,7 @@ function CompanionClient() {
             <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />
             <div className="current-actions">
               <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label="Play current voice line" title="Play voice line">
-                <Volume2 size={18} /> Play voice
+                <Volume2 size={18} /> {latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
               </button>
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}

@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from .audio import AudioCaptureService
+from .voice_assets import VoiceAssetService
 from .capture import CaptureService
 from .config import SettingsStore
 from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
@@ -66,6 +67,11 @@ class Runtime:
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.audio = AudioCaptureService(DATA_DIR / "audio")
+        self.voice_assets = VoiceAssetService(
+            DATA_DIR / "voice-assets/manifest.json",
+            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            DATA_DIR / "audio",
+        )
         removed_rows = self.transcript.purge_unvoiced()
         removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
         audio_dir = self.audio.output_dir.resolve()
@@ -83,6 +89,7 @@ class Runtime:
             on_delete=self.on_delete,
             on_status=self.on_capture_status,
             audio=self.audio,
+            voice_assets=self.voice_assets,
         )
         self.map_task: asyncio.Task[None] | None = None
 
@@ -100,6 +107,7 @@ class Runtime:
             "capture": self.capture.snapshot().model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
             "audio": self.audio.status(),
+            "voice_assets": self.voice_assets.status(),
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -143,6 +151,7 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         await runtime.capture.close()
+        runtime.voice_assets.close()
         runtime.audio.stop()
         if runtime.map_task and not runtime.map_task.done():
             runtime.map_task.cancel()
@@ -216,7 +225,7 @@ def get_line_audio(line_id: int) -> FileResponse:
     if path.parent != audio_dir or not path.is_file():
         raise HTTPException(status_code=404, detail="Audio file is unavailable")
     media_type = "audio/mpeg" if path.suffix.casefold() == ".mp3" else "audio/wav"
-    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
+    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
 
 
 @app.patch("/api/lines/{line_id}/favorite", response_model=TranscriptLine)

@@ -87,6 +87,7 @@ class TranscriptStore:
             channel=row["channel"],
             voiced=bool(row["voiced"]),
             has_audio=bool(row["audio_path"]),
+            audio_source="original" if (row["audio_path"] or "").startswith("official-") else "recording",
             favorite=bool(row["favorite"]),
         )
 

@@ -69,6 +69,7 @@ class TranscriptLine(BaseModel):
     channel: Literal["dialogue", "tip", "cinematic"] = "dialogue"
     voiced: bool = False
     has_audio: bool = False
+    audio_source: Literal["original", "recording"] = "recording"
     favorite: bool = False
 
 
