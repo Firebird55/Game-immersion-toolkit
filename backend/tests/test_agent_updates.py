@@ -138,3 +138,22 @@ def test_voice_activity_ignores_late_results_from_wrong_game_screen():
     story=activity.record('history','matched')
     assert story['occurred_at']>agent['occurred_at']
     assert story['kind']=='history'
+
+
+def test_queued_agent_activity_follows_tab_during_character_changes():
+    import asyncio
+    from backend.api import Runtime
+    runtime=Runtime.__new__(Runtime)
+    runtime.voice_activity=VoiceActivity()
+    runtime.agents=SimpleNamespace(_context=('Remielle',0,0))
+    phase=['agents']
+    runtime.capture=SimpleNamespace(snapshot=lambda:SimpleNamespace(phase=phase[0]))
+    events=[]
+    async def broadcast(event):
+        events.append(event)
+    runtime.hub=SimpleNamespace(broadcast=broadcast)
+    asyncio.run(runtime.emit_activity('agents','Grace'))
+    assert events[0]['activity']['kind']=='agents'
+    phase[0]='matched'
+    asyncio.run(runtime.emit_activity('agents','Grace'))
+    assert len(events)==1  # must not steal focus from resumed story dialogue

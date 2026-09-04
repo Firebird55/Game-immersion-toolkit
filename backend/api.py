@@ -116,8 +116,8 @@ class Runtime:
         await self.emit_activity('history')
 
     async def emit_activity(self, kind, agent=None):
-        if agent and self.agents._context[0] != agent:
-            return
+        # Changing characters is still the Agents view. Only leaving the agent
+        # screen should prevent a queued agent match from switching the tab.
         activity = self.voice_activity.record(kind, self.capture.snapshot().phase)
         if activity:
             await self.hub.broadcast({'type': 'voice_activity', 'activity': activity})
