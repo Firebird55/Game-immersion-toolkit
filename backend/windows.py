@@ -121,6 +121,11 @@ def find_game_window(settings: AppSettings) -> WindowInfo | None:
     for window in candidates:
         if window.process_name.casefold() in process_names:
             return window
+    # A browser tab, chat, or document can contain "Zenless Zone Zero" in its
+    # title. When executable names are configured, never capture such a window
+    # merely because the actual game is minimized.
+    if process_names:
+        return None
     for window in candidates:
         title = window.title.casefold()
         if any(needle in title for needle in title_needles):
