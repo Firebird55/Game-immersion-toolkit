@@ -143,3 +143,30 @@ def test_comic_rows_are_grouped_by_bubble_instead_of_global_reading_order() -> N
     assert "Ah... W-Wait a sec, Qingyi!" in groups
     assert any(text.startswith("I'm not sure why") and text.endswith("Bangboo. It looks") for text in groups)
     assert any(text.startswith("Saying things") and text.endswith("get us reported!") for text in groups)
+
+
+def test_comic_bubbles_are_ordered_left_to_right_before_vertical_position() -> None:
+    def row(text: str, left: float, top: float, right: float, bottom: float) -> dict:
+        return {
+            "text": text,
+            "bounding_rect": {
+                "x1": left, "y1": top,
+                "x2": right, "y2": top,
+                "x3": right, "y3": bottom,
+                "x4": left, "y4": bottom,
+            },
+        }
+
+    groups = CaptureService._spatial_text_groups({
+        "lines": [
+            row("First, upper-left.", 50, 70, 250, 90),
+            row("Third, upper-right.", 500, 80, 700, 100),
+            row("Second, lower-left.", 260, 300, 460, 320),
+        ]
+    })
+
+    assert groups == [
+        "First, upper-left.",
+        "Second, lower-left.",
+        "Third, upper-right.",
+    ]

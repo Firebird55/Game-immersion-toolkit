@@ -669,7 +669,12 @@ class CaptureService:
             best_group["line_left"] = item["left"]
             best_group["line_height"] = (best_group["line_height"] + item_height) / 2
 
-        groups.sort(key=lambda group: (group["top"], group["left"]))
+        # Comic dialogue advances horizontally. Several bubbles may become
+        # visible before one OCR pass, and ordering them by vertical position
+        # would put an upper-right bubble before a lower-left bubble. Preserve
+        # the game's reading sequence: columns left-to-right, then top-to-bottom
+        # only when multiple bubbles occupy the same column.
+        groups.sort(key=lambda group: (group["left"], group["top"]))
         return [
             " ".join(
                 item["text"]
