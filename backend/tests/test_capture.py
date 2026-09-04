@@ -113,3 +113,33 @@ def test_static_match_is_not_paired_with_much_later_speech() -> None:
     assert service._is_fresh_match("tip", "tip-a", 102.9) is True
     assert service._is_fresh_match("tip", "tip-a", 103.1) is False
     assert service._is_fresh_match("tip", "tip-b", 110.0) is True
+
+
+def test_comic_rows_are_grouped_by_bubble_instead_of_global_reading_order() -> None:
+    def row(text: str, left: float, top: float, right: float, bottom: float) -> dict:
+        return {
+            "text": text,
+            "bounding_rect": {
+                "x1": left, "y1": top,
+                "x2": right, "y2": top,
+                "x3": right, "y3": bottom,
+                "x4": left, "y4": bottom,
+            },
+        }
+
+    groups = CaptureService._spatial_text_groups({
+        "lines": [
+            row("I'm not sure why, but", 50, 70, 256, 90),
+            row("something feels", 49, 92, 210, 111),
+            row("Ah... W-Wait a sec,", 505, 76, 689, 95),
+            row("different about this", 50, 112, 251, 131),
+            row("Qingyi!", 503, 97, 572, 116),
+            row("Bangboo. It looks", 50, 135, 219, 153),
+            row("Saying things like that", 599, 301, 822, 320),
+            row("get us reported!", 598, 366, 760, 385),
+        ]
+    })
+
+    assert "Ah... W-Wait a sec, Qingyi!" in groups
+    assert any(text.startswith("I'm not sure why") and text.endswith("Bangboo. It looks") for text in groups)
+    assert any(text.startswith("Saying things") and text.endswith("get us reported!") for text in groups)

@@ -471,7 +471,10 @@ class CaptureService:
         cinematic_raw_text = ""
         cinematic_confidence: float | None = None
         cinematic_match_score: float | None = None
-        scan_cinematic = self._scan_index % 2 == 1
+        # A comic bubble can be added and voiced between two alternating scans.
+        # Once the filmstrip layout is visible, inspect it on every pass; retain
+        # the cheaper alternating cadence for ordinary gameplay/cutscenes.
+        scan_cinematic = self._visual_novel_layout or self._scan_index % 2 == 1
         # Comic/visual-novel subtitles can appear a fraction before VAD notices
         # the voice. Their filmstrip presentation is itself strong evidence of
         # voiced content, so do not skip the only scan that might see a short line.
@@ -487,10 +490,7 @@ class CaptureService:
             cinematic_response = engine.recognize_pil(cinematic_image)
             if epoch != self._scan_epoch:
                 return _ScanOutcome([])
-            cinematic_lines = [
-                line.get("text", "").strip() for line in cinematic_response.get("lines", [])
-            ]
-            cinematic_lines = [line for line in cinematic_lines if line]
+            cinematic_lines = self._spatial_text_groups(cinematic_response)
             cinematic_raw_text = " ".join(cinematic_lines).strip()
             cinematic_confidence = self._confidence(cinematic_response)
             cinematic_matches = self.textmaps.match_line_groups(
@@ -592,6 +592,91 @@ class CaptureService:
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
         self._visible_text_by_channel[channel] = (now, text_ids)
+
+    @staticmethod
+    def _spatial_text_groups(response: dict) -> list[str]:
+        """Reassemble OCR rows into comic bubbles using their screen geometry."""
+        positioned = []
+        fallback = []
+        for line in response.get("lines", []):
+            text = str(line.get("text", "")).strip()
+            if not text:
+                continue
+            fallback.append(text)
+            rectangle = line.get("bounding_rect") or {}
+            try:
+                xs = [float(rectangle[f"x{index}"]) for index in range(1, 5)]
+                ys = [float(rectangle[f"y{index}"]) for index in range(1, 5)]
+            except (KeyError, TypeError, ValueError):
+                continue
+            left, right = min(xs), max(xs)
+            top, bottom = min(ys), max(ys)
+            if right > left and bottom > top:
+                positioned.append({
+                    "text": text,
+                    "left": left,
+                    "right": right,
+                    "top": top,
+                    "bottom": bottom,
+                })
+        if len(positioned) != len(fallback):
+            return fallback
+
+        positioned.sort(key=lambda item: (item["top"], item["left"]))
+        groups: list[dict] = []
+        for item in positioned:
+            item_height = item["bottom"] - item["top"]
+            best_group = None
+            best_distance = float("inf")
+            for group in groups:
+                group_height = max(1.0, group["line_height"])
+                vertical_gap = item["top"] - group["bottom"]
+                if vertical_gap < -max(item_height, group_height) or vertical_gap > max(
+                    48.0, group_height * 2.4
+                ):
+                    continue
+                overlap = min(item["right"], group["right"]) - max(
+                    item["left"], group["left"]
+                )
+                narrow_width = min(
+                    item["right"] - item["left"],
+                    group["right"] - group["left"],
+                )
+                aligned = abs(item["left"] - group["line_left"]) <= max(
+                    60.0, group_height * 3.0
+                )
+                if overlap < narrow_width * 0.18 and not aligned:
+                    continue
+                distance = abs(vertical_gap) + abs(item["left"] - group["line_left"]) * 0.15
+                if distance < best_distance:
+                    best_group = group
+                    best_distance = distance
+            if best_group is None:
+                groups.append({
+                    "lines": [item],
+                    "left": item["left"],
+                    "right": item["right"],
+                    "top": item["top"],
+                    "bottom": item["bottom"],
+                    "line_left": item["left"],
+                    "line_height": item_height,
+                })
+                continue
+            best_group["lines"].append(item)
+            best_group["left"] = min(best_group["left"], item["left"])
+            best_group["right"] = max(best_group["right"], item["right"])
+            best_group["bottom"] = max(best_group["bottom"], item["bottom"])
+            best_group["line_left"] = item["left"]
+            best_group["line_height"] = (best_group["line_height"] + item_height) / 2
+
+        groups.sort(key=lambda group: (group["top"], group["left"]))
+        return [
+            " ".join(
+                item["text"]
+                for item in sorted(group["lines"], key=lambda row: (row["top"], row["left"]))
+            )
+            for group in groups
+        ]
 
     def _visible_text_ids(self, now: float) -> list[str]:
         return list(dict.fromkeys(
