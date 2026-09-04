@@ -287,7 +287,11 @@ class CaptureService:
                 )
                 if line is not None:
                     emitted_lines.append(line)
-                    self.audio.schedule_clip(line.id, monotonic_now, self._audio_ready)
+                    self.audio.schedule_clip(
+                        line.id, monotonic_now, self._audio_ready,
+                        observed_at=self._visible_match_started["dialogue"][1],
+                        chinese=match.chinese,
+                    )
             phase = "matched"
             message = "Official bilingual line matched"
             match_score = match.score
@@ -331,7 +335,11 @@ class CaptureService:
                     )
                     if line is not None:
                         emitted_lines.append(line)
-                        self.audio.schedule_clip(line.id, monotonic_now, self._audio_ready)
+                        self.audio.schedule_clip(
+                            line.id, monotonic_now, self._audio_ready,
+                            observed_at=self._visible_match_started["tip"][1],
+                            chinese=tip_match.chinese,
+                        )
                 tip_match_score = tip_match.score
                 if match is None:
                     phase = "matched"
@@ -391,7 +399,11 @@ class CaptureService:
                     )
                     if line is not None:
                         emitted_lines.append(line)
-                        self.audio.schedule_clip(line.id, monotonic_now, self._audio_ready)
+                        self.audio.schedule_clip(
+                            line.id, monotonic_now, self._audio_ready,
+                            observed_at=monotonic_now,
+                            chinese=cinematic_match.chinese,
+                        )
                 cinematic_match_score = cinematic_match.score
                 if match is None and tip_match is None:
                     phase = "matched"
