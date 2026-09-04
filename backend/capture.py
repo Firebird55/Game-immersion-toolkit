@@ -672,7 +672,9 @@ class CaptureService:
     def _agent_from_nameplate(self, window: WindowInfo, fallback: str | None = None) -> str | None:
         """Resolve the selected agent from the shared keyboard/controller plate."""
         plate = self._capture(self._region_bounds(
-            window, CaptureRegion(left=.075, top=.75, width=.25, height=.21)))
+            # Start left of the controller's X prompt. The previous crop began
+            # inside long labels and could reduce "Soldier 0 - Anby" to "Anby".
+            window, CaptureRegion(left=.02, top=.75, width=.31, height=.21)))
         plate.thumbnail((1100, 500), Image.Resampling.LANCZOS)
         plate_lines = [str(item.get('text', '')).strip()
                        for item in self._engine.recognize_pil(plate).get('lines', [])]
