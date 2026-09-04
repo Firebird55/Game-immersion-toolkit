@@ -47,6 +47,7 @@ next-env.d.ts
 /data/capture-preview.jpg
 /data/audio/
 /data/voice-assets/
+/data/agent-voices/
 __pycache__/
 *.pyc
 .pytest_cache/

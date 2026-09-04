@@ -38,7 +38,42 @@ Double-click `Stop Proxy Transcript.cmd` to stop the background services.
 - Voice clips: `data/audio`
 - TextMaps: `data/textmaps`
 
-OCR, speech detection, matching, and audio clipping happen locally. The only network operation is downloading or updating the TextMap JSON files. Audio currently follows the default Windows playback device, so keep ZZZ routed to that device.
+OCR, speech detection, matching, transcription, and audio clipping happen locally. Network access is used for initial data/model/tool downloads and updates, not for sending audio. Audio follows the default Windows playback device, so keep ZZZ routed to that device.
+
+## Agent voices
+
+The **Agents** tab sits between History and Favorites. While the game's agent
+selection screen is visible (keyboard or controller layout), its UI labels are
+excluded from story capture. The companion compares loopback audio with a local
+fingerprint index of the installed Mandarin soundbanks and verifies candidates
+against their original waveforms. Uncertain matches are skipped.
+
+Each heard agent/clip has one persistent entry. Hearing it again increases its
+play count and moves that entry to the top. Agent entries are not subject to the
+50-line History limit; older entries can be loaded with **Load more**.
+
+Playback uses the complete original game clip, not a cropped music-containing
+recording. Hanzi is transcribed locally from that clean clip with SenseVoice and
+labelled **Automatic transcription**; it is not guaranteed official dialogue.
+The app does not modify the game or read its process memory.
+
+Local agent data is in `data/agent-voices`: `entries.db` (saved entries),
+`library.json` (package offsets), `fingerprints.db` and `pcm` (rebuildable index),
+`audio` (heard originals), and `model` (local SenseVoice model). Keep `entries.db`
+and `audio` together when backing up your collection.
+
+After a game update changes the Mandarin packages, rebuild the library and
+fingerprints using a matching AvatarBaseTemplateTb data dump:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.index_agent_voices --game-data "F:\SteamLibrary\steamapps\common\Zenless Zone Zero\games\ZenlessZoneZero Game\ZenlessZoneZero_Data" --avatars "work\voice-assets\AvatarBaseTemplateTb.json"
+.\.venv\Scripts\python.exe -m scripts.build_agent_fingerprints
+```
+
+Restart the companion after rebuilding. Initial indexing is resumable and runs
+separately from capture. The ASR model is the official
+[SenseVoice int8 model](https://k2-fsa.github.io/sherpa/onnx/sense-voice/pretrained.html),
+extracted under `data/agent-voices/model` with its tokens and license.
 
 ## Development
 

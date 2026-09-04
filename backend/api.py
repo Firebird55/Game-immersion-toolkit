@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from .audio import AudioCaptureService
 from .voice_assets import VoiceAssetService
+from .agent_recognition import AgentRecognizer
 from .capture import CaptureService
 from .config import SettingsStore
 from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
@@ -72,6 +73,8 @@ class Runtime:
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
             DATA_DIR / "audio",
         )
+        self.event_loop = asyncio.get_running_loop()
+        self.agents = AgentRecognizer(DATA_DIR / 'agent-voices', self.audio, self.on_agent_thread)
         removed_rows = self.transcript.purge_unvoiced()
         removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
         audio_dir = self.audio.output_dir.resolve()
@@ -90,11 +93,15 @@ class Runtime:
             on_status=self.on_capture_status,
             audio=self.audio,
             voice_assets=self.voice_assets,
+            agent_recognizer=self.agents,
         )
         self.map_task: asyncio.Task[None] | None = None
 
     async def on_line(self, line: TranscriptLine) -> None:
         await self.hub.broadcast({"type": "line", "line": line.model_dump(mode="json")})
+
+    def on_agent_thread(self, line: dict) -> None:
+        asyncio.run_coroutine_threadsafe(self.hub.broadcast({'type':'agent_line','line':line}), self.event_loop)
 
     async def on_delete(self, line_id: int) -> None:
         await self.hub.broadcast({"type": "line_deleted", "line_id": line_id})
@@ -108,6 +115,7 @@ class Runtime:
             "textmaps": self.textmaps.status(),
             "audio": self.audio.status(),
             "voice_assets": self.voice_assets.status(),
+            "agents": self.agents.status(),
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -152,6 +160,7 @@ async def lifespan(_app: FastAPI):
     finally:
         await runtime.capture.close()
         runtime.voice_assets.close()
+        runtime.agents.close()
         runtime.audio.stop()
         if runtime.map_task and not runtime.map_task.done():
             runtime.map_task.cancel()
@@ -213,6 +222,27 @@ def get_lines(
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites() -> list[TranscriptLine]:
     return runtime.transcript.list_favorites()
+
+
+@app.get('/api/agents')
+def get_agents(limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0)):
+    return {'lines': runtime.agents.store.list(limit, offset), 'total': runtime.agents.store.count(),
+            'status': runtime.agents.status()}
+
+
+@app.get('/api/agents/{asset_id}/audio')
+def get_agent_audio(asset_id: str):
+    if not asset_id.isdecimal() or not runtime.agents.store.has_asset(asset_id):
+        raise HTTPException(status_code=404, detail='Agent voice not found')
+    path = DATA_DIR / 'agent-voices/audio' / f'{asset_id}.wav'
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail='Agent audio unavailable')
+    # Loopback includes browser playback. Do not rediscover our own replay.
+    import wave
+    with wave.open(str(path)) as audio:
+        duration = audio.getnframes() / audio.getframerate()
+    runtime.agents.suppress_playback(duration + 1)
+    return FileResponse(path, media_type='audio/wav', headers={'Cache-Control':'no-store'})
 
 
 @app.get("/api/lines/{line_id}/audio")

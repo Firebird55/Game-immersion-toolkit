@@ -4,6 +4,8 @@ mss==10.2.0
 oneocr==1.0.12
 pillow==12.3.0
 numpy==1.26.4
+scipy==1.14.1
+sherpa-onnx==1.13.7
 onnxruntime>=1.24.3,<1.25.0
 kaldi-native-fbank>=1.15.0
 PyAudioWPatch==0.2.12.7

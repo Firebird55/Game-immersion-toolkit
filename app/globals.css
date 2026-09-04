@@ -244,6 +244,16 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
   font-size: 12px;
 }
 .transcript-tabs button:hover { color: var(--foreground); }
+.agent-library { padding-top: 16px; }
+.agent-listening { display: flex; align-items: center; gap: 10px; color: var(--foreground); }
+.agent-note { color: var(--muted-foreground); font-size: 13px; line-height: 1.6; margin: 10px 0; }
+.agent-lines { margin-top: 18px; }
+.agent-line { padding: 22px 8px; border-top: 1px solid var(--border); }
+.agent-line-header, .agent-line-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.agent-line-header strong { font-size: 17px; }
+.agent-line-header time, .agent-line-footer > span { color: var(--muted-foreground); font-size: 12px; }
+.agent-line p[lang] { font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: 25px; line-height: 1.7; margin: 16px 0; }
+.agent-line-footer { flex-wrap: wrap; }
 .transcript-tabs button.is-active {
   border-color: #56632f;
   background: rgb(201 255 52 / 9%);

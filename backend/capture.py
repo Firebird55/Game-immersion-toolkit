@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from difflib import SequenceMatcher
 import io
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -74,6 +75,7 @@ class CaptureService:
         on_status: Callable[[CaptureSnapshot], Awaitable[None]],
         audio: AudioCaptureService,
         voice_assets: VoiceAssetService | None = None,
+        agent_recognizer=None,
     ):
         self.settings = settings
         self.textmaps = textmaps
@@ -83,6 +85,8 @@ class CaptureService:
         self.on_status = on_status
         self.audio = audio
         self.voice_assets = voice_assets
+        self.agent_recognizer = agent_recognizer
+        self._selected_agent: str | None = None
         self.session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
         self._snapshot = CaptureSnapshot()
         self._snapshot_lock = threading.RLock()
@@ -124,6 +128,8 @@ class CaptureService:
     def preview_for_region(self, region: CaptureRegion) -> bytes:
         window = find_game_window(self.settings.get())
         if window is None:
+            if self.agent_recognizer:
+                self.agent_recognizer.observe(None, False)
             return b""
         image = self._capture(self._region_bounds(window, region))
         return self._encode_preview(image)
@@ -137,6 +143,8 @@ class CaptureService:
         return True
 
     async def stop(self) -> bool:
+        if self.agent_recognizer:
+            self.agent_recognizer.observe(None, False)
         if not self._task or self._task.done():
             self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
             return False
@@ -190,6 +198,10 @@ class CaptureService:
         window = find_game_window(settings)
         now = datetime.now(timezone.utc).astimezone()
         if window is None:
+            self._selected_agent = None
+            self._excluded_screen = None
+            if self.agent_recognizer:
+                self.agent_recognizer.observe(None, False)
             self._tracker.observe(None)
             self._tip_tracker.observe(None)
             self._cinematic_tracker.observe(None)
@@ -212,7 +224,7 @@ class CaptureService:
             # One inexpensive upper-screen signature pass covers the left-side
             # Story Recap header, centered Knock Knock panel, and the HDD hub.
             header_bounds = self._region_bounds(
-                window, CaptureRegion(left=0, top=0, width=0.72, height=0.42)
+                window, CaptureRegion(left=0, top=0, width=1, height=0.55)
             )
             header_image = self._capture(header_bounds)
             if header_image.width > 1400:
@@ -226,6 +238,31 @@ class CaptureService:
                 if line.get("text", "").strip()
             ]
             self._excluded_screen = self._classify_screen_header(header_lines)
+            # Agent names are UI labels, not subtitles. The identifying menu
+            # controls live below the existing Story Recap/header crop.
+            nav_image = self._capture(self._region_bounds(
+                window, CaptureRegion(left=0, top=.55, width=1, height=.45)))
+            nav_image.thumbnail((1400, 650), Image.Resampling.LANCZOS)
+            nav_response = self._engine.recognize_pil(nav_image)
+            nav_lines = [str(line.get('text','')).strip() for line in nav_response.get('lines',[])]
+            if self._is_agent_screen(header_lines + nav_lines):
+                self._excluded_screen = 'agents'
+                self._selected_agent = self.agent_recognizer.identify_agent(header_lines + nav_lines) if self.agent_recognizer else None
+            else:
+                self._selected_agent = None
+
+        if self.agent_recognizer:
+            self.agent_recognizer.observe(self._selected_agent, self._excluded_screen == 'agents')
+        if self._excluded_screen == 'agents':
+            self._tracker.observe(None)
+            self._tip_tracker.observe(None)
+            self._cinematic_tracker.observe(None)
+            self._visible_text_by_channel.clear()
+            self._update_snapshot(running=True, phase='agents',
+                message=f'Listening to {self._selected_agent or "agent"} voice lines',
+                visible_text_ids=[], window_title=window.title, window_bounds=window.bounds,
+                last_ocr='', last_tip_ocr='', last_cinematic_ocr='', last_error=None, last_scan_at=now)
+            return _ScanOutcome([])
 
         image = self._capture(crop_bounds)
         self._set_preview(image)
@@ -263,6 +300,23 @@ class CaptureService:
             if excluded_screen
             else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
+        # Entering the agent menu between periodic layout scans must not let a
+        # character-name label become a voiced story line during that gap.
+        if match and self.agent_recognizer and normalize_english(match.english) in {
+            normalize_english(name) for name in self.agent_recognizer.library['agents']
+        }:
+            nav = self._capture(self._region_bounds(window, CaptureRegion(left=0, top=.55, width=1, height=.45)))
+            nav.thumbnail((1400,650), Image.Resampling.LANCZOS)
+            nav_lines = [str(line.get('text','')).strip() for line in self._engine.recognize_pil(nav).get('lines',[])]
+            if self._is_agent_screen(nav_lines):
+                self._excluded_screen = 'agents'
+                self._selected_agent = self.agent_recognizer.identify_agent(nav_lines)
+                self.agent_recognizer.observe(self._selected_agent, True)
+                self._visible_text_by_channel.clear()
+                self._tracker.observe(None)
+                self._update_snapshot(running=True, phase='agents', visible_text_ids=[], last_ocr='',
+                    message=f'Listening to {self._selected_agent or "agent"} voice lines', last_error=None)
+                return _ScanOutcome([])
         monotonic_now = time.monotonic()
         self._observe_visible_matches("dialogue", [match.text_id] if match else [], monotonic_now)
         speech_active = self.audio.speech_recent(1.8)
@@ -575,6 +629,26 @@ class CaptureService:
             return True
         secondary_markers = ("reply", "completed", "latest messages")
         return len(lines) >= 4 and sum(marker in text for marker in secondary_markers) >= 2
+
+    @staticmethod
+    def _is_agent_screen(lines: list[str]) -> bool:
+        # OCR can join navigation tabs into one row or include controller/key
+        # prompts. Match whole menu labels after removing those prompts, never
+        # words such as "skills" embedded in spoken dialogue.
+        labels = set()
+        navigation = r'base|skills|equipment|mindscape cinema'
+        for line in lines:
+            clean = re.sub(r'[^\w\s.]', ' ', line.casefold())
+            clean = re.sub(r'\b(?:lb|rb|lt|rt|l1|r1|l2|r2|tab|esc|[abxyqe])\b', ' ', clean)
+            clean = ' '.join(clean.split())
+            labels.add(clean)
+            if re.fullmatch(rf'(?:{navigation})(?:\s+(?:{navigation}))*', clean):
+                labels.update(re.findall(navigation, clean))
+        menu = len(labels & {'base', 'skills', 'equipment', 'mindscape cinema'})
+        levels = sum(bool(re.search(r'\blv\.?\s*\d', line)) for line in labels)
+        return (menu >= 2
+                or (bool(labels & {'training plan', 'special training plan'}) and levels >= 1)
+                or ({'character details', 'select', 'return'} <= labels and levels >= 3))
 
     @staticmethod
     def _classify_screen_header(lines: list[str]) -> str | None:

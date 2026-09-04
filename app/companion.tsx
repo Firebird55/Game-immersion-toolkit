@@ -13,6 +13,7 @@ import {
   ScanLine,
   Settings2,
   Star,
+  Users,
   Volume2,
 } from 'lucide-react';
 
@@ -85,10 +86,20 @@ type StatusPayload = {
   capture: CaptureStatus;
   textmaps: TextMapStatus;
   audio: { ready: boolean; message: string };
+  agents?: { indexed_clips: number; total_clips: number; selected_agent: string | null; last_error: string | null; saved_lines: number };
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
-type TranscriptTab = 'history' | 'favorites';
+type TranscriptTab = 'history' | 'agents' | 'favorites';
+type AgentLine = { key: string; agent: string; asset_id: string; chinese: string; text_source: string; last_heard: string; heard_count: number };
+
+function mergeAgentLines(current: AgentLine[], incoming: AgentLine[]) {
+  const entries = new Map(current.map(line => [line.key, line]));
+  for (const line of incoming) {
+    if (!entries.has(line.key) || entries.get(line.key)!.last_heard <= line.last_heard) entries.set(line.key, line);
+  }
+  return [...entries.values()].sort((a,b) => b.last_heard.localeCompare(a.last_heard) || b.key.localeCompare(a.key));
+}
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -108,6 +119,7 @@ function phaseLabel(phase: string) {
     unmatched: 'Reading subtitle',
     excluded_screen: 'History UI ignored',
     matched: 'Matched',
+    agents: 'Agent voices',
     error: 'Retrying',
     stopped: 'Paused',
   };
@@ -171,6 +183,9 @@ function CompanionClient() {
   const [refreshingMaps, setRefreshingMaps] = useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [transcriptTab, setTranscriptTab] = useState<TranscriptTab>('history');
+  const [agentLines, setAgentLines] = useState<AgentLine[]>([]);
+  const [agentTotal, setAgentTotal] = useState(0);
+  const [loadingAgents, setLoadingAgents] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
@@ -178,10 +193,11 @@ function CompanionClient() {
 
   const loadSnapshot = useCallback(async () => {
     try {
-      const [statusResponse, linesResponse, favoritesResponse] = await Promise.all([
+      const [statusResponse, linesResponse, favoritesResponse, agentsResponse] = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/lines?limit=50`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/favorites`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/agents`, { cache: 'no-store' }),
       ]);
       if (!statusResponse.ok || !linesResponse.ok || !favoritesResponse.ok) {
         throw new Error('Companion service unavailable');
@@ -196,6 +212,11 @@ function CompanionClient() {
       ).sort((left, right) => right.id - left.id);
       knownLineIds.current = new Set(nextLines.map((line) => line.id));
       setLines(nextLines);
+      if (agentsResponse.ok) {
+        const agents = await agentsResponse.json();
+        setAgentLines(current => mergeAgentLines(current, agents.lines));
+        setAgentTotal(agents.total);
+      }
       setOnline(true);
       setSnapshotLoaded(true);
     } catch {
@@ -253,6 +274,9 @@ function CompanionClient() {
               total_line_count: current.session.total_line_count + (isNew ? 1 : 0),
             },
           } : current);
+        }
+        if (event.type === 'agent_line') {
+          setAgentLines(current => mergeAgentLines(current, [event.line as AgentLine]));
         }
         if (event.type === 'line_deleted') {
           const lineId = Number(event.line_id);
@@ -380,6 +404,25 @@ function CompanionClient() {
     void audio.play();
   }
 
+  function playAgent(line: AgentLine) {
+    playback.current?.pause();
+    const audio = new Audio(`${API_URL}/api/agents/${line.asset_id}/audio`);
+    playback.current = audio;
+    void audio.play().catch(() => undefined);
+  }
+
+  async function loadMoreAgents() {
+    setLoadingAgents(true);
+    try {
+      const response = await fetch(`${API_URL}/api/agents?offset=${agentLines.length}&limit=100`, { cache: 'no-store' });
+      if (response.ok) {
+        const page = await response.json();
+        setAgentLines(current => mergeAgentLines(current, page.lines));
+        setAgentTotal(page.total);
+      }
+    } finally { setLoadingAgents(false); }
+  }
+
   const capture = status?.capture;
   const mapStatus = status?.textmaps;
   const currentCount = status?.session.line_count ?? sessionLines.length;
@@ -433,7 +476,7 @@ function CompanionClient() {
         </div>
       </section>
 
-      <section className={`current-line ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
+      {transcriptTab !== 'agents' && <section className={`current-line ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
           <span id="current-heading"><Crosshair size={16} /> Current line</span>
           {latestLine ? (
@@ -465,15 +508,15 @@ function CompanionClient() {
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
       <section className="transcript" aria-labelledby="transcript-heading">
         <div className="transcript-heading">
           <div>
             <p className="eyebrow">Saved transcript</p>
-            <h2 id="transcript-heading">{transcriptTab === 'favorites' ? 'Favorites' : 'Earlier lines'}</h2>
+            <h2 id="transcript-heading">{transcriptTab === 'agents' ? 'Agent voices' : transcriptTab === 'favorites' ? 'Favorites' : 'Earlier lines'}</h2>
           </div>
-          <p>{transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : 'Newest first · 50 recent lines'}</p>
+          <p>{transcriptTab === 'agents' ? 'Last heard first · Kept between sessions' : transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : 'Newest first · 50 recent lines'}</p>
         </div>
 
         <div className="transcript-tabs" role="tablist" aria-label="Transcript view">
@@ -485,6 +528,10 @@ function CompanionClient() {
             onClick={() => setTranscriptTab('history')}
           >
             History
+          </button>
+          <button type="button" role="tab" aria-selected={transcriptTab === 'agents'}
+            className={transcriptTab === 'agents' ? 'is-active' : ''} onClick={() => setTranscriptTab('agents')}>
+            <Users size={14} /> Agents <span>{Math.max(agentTotal,agentLines.length)}</span>
           </button>
           <button
             type="button"
@@ -498,6 +545,30 @@ function CompanionClient() {
           </button>
         </div>
 
+        {transcriptTab === 'agents' ? <div className="agent-library">
+          <div className="agent-listening" role="status">
+            <Radio size={16} />
+            <span>{capture?.phase === 'agents'
+              ? `Listening${status?.agents?.selected_agent ? ` to ${status.agents.selected_agent}` : ' for agent voices'}`
+              : 'Open an agent in the game to recognize their voice lines.'}</span>
+          </div>
+          {status?.agents && status.agents.indexed_clips < status.agents.total_clips &&
+            <p className="agent-note">Preparing audio recognition: {status.agents.indexed_clips.toLocaleString()} / {status.agents.total_clips.toLocaleString()} clips. Unindexed clips cannot be recognized yet.</p>}
+          <p className="agent-note">Hanzi is transcribed from the matched original clip and may contain errors. Replays move the same entry to the top.</p>
+          {status?.agents?.last_error && <p className="agent-note">Recognition issue: {status.agents.last_error}</p>}
+          <div className="line-list agent-lines">
+            {agentLines.map(line => <article className="agent-line" key={line.key}>
+              <div className="agent-line-header"><strong>{line.agent}</strong><time dateTime={line.last_heard}>{formatTime(line.last_heard)}</time></div>
+              <StableText lang="zh-Hans" text={line.chinese} />
+              <div className="agent-line-footer">
+                <span>Automatic transcription · Heard {line.heard_count} {line.heard_count === 1 ? 'time' : 'times'}</span>
+                <Button variant="outline" size="sm" onClick={() => playAgent(line)} aria-label={`Play ${line.agent} voice line`}><Volume2 size={16} /> Play voice</Button>
+              </div>
+            </article>)}
+            {!agentLines.length && <div className="transcript-empty"><Users size={26} /><p>No agent voices heard yet. Play a line on an agent’s game screen; it will be saved here once recognized.</p></div>}
+            {agentLines.length < agentTotal && <Button variant="outline" onClick={loadMoreAgents} disabled={loadingAgents}>{loadingAgents ? 'Loading…' : 'Load older voices'}</Button>}
+          </div>
+        </div> : <>
         <div className="column-labels" aria-hidden="true">
           <span>Time / type</span><span>English</span><span>中文</span><span>Match</span>
         </div>
@@ -527,6 +598,7 @@ function CompanionClient() {
             </div>
           )}
         </div>
+        </>}
       </section>
 
       <footer className="capture-footer">
