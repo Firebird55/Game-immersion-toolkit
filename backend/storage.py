@@ -303,12 +303,12 @@ class TranscriptStore:
         ]
 
     def purge_unvoiced(self) -> list[tuple[int, str | None]]:
-        """Remove every row that never produced a confirmed voice clip."""
+        """Remove unconfirmed rows while retaining known voiced cinematic text."""
         with self._connect() as connection:
             rows = connection.execute(
                 """
                 SELECT id, audio_path FROM transcript_lines
-                WHERE voiced = 0 OR audio_path IS NULL
+                WHERE voiced = 0 OR (audio_path IS NULL AND channel <> 'cinematic')
                 """
             ).fetchall()
             if rows:

@@ -261,7 +261,7 @@ function CompanionClient() {
         }
         if (event.type === 'line') {
           const line = event.line as TranscriptLine;
-          if (!line.voiced || !line.has_audio) return;
+          if (!line.voiced) return;
           const isNew = !knownLineIds.current.has(line.id);
           knownLineIds.current.add(line.id);
           setLines((current) => {
@@ -327,7 +327,7 @@ function CompanionClient() {
   const recentLines = useMemo(() => lines.slice(0, 50), [lines]);
   const latestLine = recentLines.find((line) =>
     line.session_id === status?.session.id
-    && line.voiced && line.has_audio
+    && line.voiced
     && status?.capture.running
     && status.capture.visible_text_ids?.includes(line.text_id)
   ) ?? null;
@@ -499,8 +499,8 @@ function CompanionClient() {
             <StableText className="current-english" text={latestLine.english} />
             <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />
             <div className="current-actions">
-              <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label="Play current voice line" title="Play voice line">
-                <Volume2 size={18} /> {latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
+              <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : 'Voice audio was missed'} title={latestLine.has_audio ? 'Play voice line' : 'Text captured; voice audio was missed'}>
+                <Volume2 size={18} /> {!latestLine.has_audio ? 'Voice missed' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
               </button>
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}

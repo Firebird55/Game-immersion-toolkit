@@ -630,6 +630,19 @@ class CaptureService:
         if self._event_loop is None:
             return
         if not voiced or not audio_path:
+            current = self.transcript.get(line_id)
+            # Comic/visual-novel presentation is known to be voiced. If rapid
+            # progression has already moved its sound out of the loopback
+            # window, keep the complete official bilingual line in the log
+            # instead of losing the sentence as well.
+            if current is not None and current.channel == "cinematic":
+                line = self.transcript.update_audio(line_id, None, True)
+                if line is not None:
+                    asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+                    for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
+                        self._remove_audio_file(removed_audio)
+                        asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)
+                return
             removed_audio = self.transcript.delete(line_id)
             self._remove_audio_file(removed_audio)
             asyncio.run_coroutine_threadsafe(self.on_delete(line_id), self._event_loop)

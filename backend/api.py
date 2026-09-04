@@ -236,7 +236,7 @@ def get_lines(
 ) -> list[TranscriptLine]:
     return [
         line for line in runtime.transcript.list(limit=limit, before_id=before_id)
-        if line.voiced and line.has_audio
+        if line.voiced and (line.has_audio or line.channel == "cinematic")
         and runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
     ]
 

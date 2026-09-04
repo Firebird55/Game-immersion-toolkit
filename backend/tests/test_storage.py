@@ -237,11 +237,18 @@ def test_purge_unvoiced_keeps_only_confirmed_audio(tmp_path) -> None:
     unvoiced = store.add(match.model_copy(update={"text_id": "unvoiced"}), "session-a")
     voiced = store.add(match.model_copy(update={"text_id": "voiced"}), "session-a")
     favorite = store.add(match.model_copy(update={"text_id": "favorite"}), "session-a")
+    cinematic = store.add(
+        match.model_copy(update={"text_id": "cinematic"}),
+        "session-a",
+        channel="cinematic",
+    )
     store.update_audio(voiced.id, f"{voiced.id}.mp3", voiced=True)
+    store.update_audio(cinematic.id, None, voiced=True)
     store.set_favorite(favorite.id, True)
 
     removed_ids = {line_id for line_id, _ in store.purge_unvoiced()}
     assert unvoiced.id in removed_ids
     assert favorite.id in removed_ids
     assert store.get(voiced.id) is not None
+    assert store.get(cinematic.id) is not None
     assert store.get(favorite.id) is None
