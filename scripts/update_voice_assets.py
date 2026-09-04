@@ -1,4 +1,4 @@
-"""Refresh the complete installed GalGame voice manifest after a game update.
+"""Refresh installed story, sidequest, event, and comic voice mappings.
 
 The game directory is read-only. Generated links stay in work/ and the atomic
 runtime manifest stays in data/voice-assets.
@@ -70,7 +70,7 @@ def main() -> None:
     except (OSError, ValueError):
         previous = {}
     manifest = root / "data/voice-assets/manifest.json"
-    if previous.get("version") == 1 and previous.get("inventory") == current and manifest.exists():
+    if previous.get("version") == 2 and previous.get("inventory") == current and manifest.exists():
         print("Full local voice manifest is already current.")
         return
 
@@ -80,10 +80,24 @@ def main() -> None:
         "timeout": 600,
         "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
     }
-    subprocess.run([
-        "node", str(root / "scripts/extract_voice_links.mjs"),
-        str(game_data), str(tools), "galgame",
-    ], **options)
+    link_files = []
+    for category in ("galgame", "comic"):
+        output_name = f"scene-links-{category}.json"
+        subprocess.run([
+            "node", str(root / "scripts/extract_voice_links.mjs"),
+            str(game_data), str(tools), category, output_name,
+        ], **options)
+        link_files.append(tools / output_name)
+    combined_links = []
+    seen_links = set()
+    for link_file in link_files:
+        for link in json.loads(link_file.read_text(encoding="utf-8")):
+            key = (link["source"].casefold(), link["text_id"])
+            if key not in seen_links:
+                seen_links.add(key)
+                combined_links.append(link)
+    combined_path = tools / "scene-links.json"
+    atomic_json(combined_path, combined_links)
     subprocess.run([
         sys.executable, "-m", "scripts.index_voice_assets",
         "--game-data", str(game_data),
@@ -91,7 +105,7 @@ def main() -> None:
         "--prefixes", str(prefixes),
         "--decoder-dir", str(decoder),
     ], **options)
-    atomic_json(state_path, {"version": 1, "inventory": inventory(game_data, required)})
+    atomic_json(state_path, {"version": 2, "inventory": inventory(game_data, required)})
     total = len(json.loads(manifest.read_text(encoding="utf-8"))["entries"])
     print(f"Full local Mandarin voice manifest ready: {total:,} exact lines.")
 

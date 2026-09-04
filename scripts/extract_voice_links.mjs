@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
-const [gameDataArg, toolsArg, filter = 'zenkov'] = process.argv.slice(2);
+const [gameDataArg, toolsArg, filter = 'zenkov', outputName = 'scene-links.json'] = process.argv.slice(2);
 if (!gameDataArg || !toolsArg) throw new Error('Pass GAME_DATA and TOOL_DIR');
 const gameData = resolve(gameDataArg);
 const toolDir = resolve(toolsArg);
@@ -53,5 +53,6 @@ for (const block of blocks) {
     links.push({ source: result.sourceNames.get(source) ?? source, text_id });
   }
 }
-await writeFile(join(toolDir, 'scene-links.json'), JSON.stringify(links, null, 2));
+if (!/^[A-Za-z0-9_.-]+\.json$/.test(outputName)) throw new Error('Invalid output filename');
+await writeFile(join(toolDir, outputName), JSON.stringify(links, null, 2));
 console.log(`Read ${blocks.size} game blocks; wrote ${links.length} source links outside the game.`);
