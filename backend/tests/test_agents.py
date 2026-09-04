@@ -32,6 +32,14 @@ def test_agent_identity_is_exact_and_unambiguous():
     assert recognizer.identify_agent(['Dialyn is here.']) is None
 
 
+def test_agent_variant_with_shared_name_uses_full_identity():
+    from backend.agent_recognition import AgentRecognizer
+    recognizer = AgentRecognizer.__new__(AgentRecognizer)
+    recognizer.library = {'agents': {'Anby': {}, 'Soldier 0 - Anby': {}, 'Yidhari': {}}}
+    assert recognizer.identify_agent(['Anby', 'Soldier 0 - Anby']) == 'Soldier 0 - Anby'
+    assert recognizer.identify_agent(['Anby', 'Yidhari']) is None
+
+
 def test_supplied_dialyn_keyboard_and_controller_ocr():
     # Recognized from the user's two reference screenshots, 4 September 2026.
     common = ['Special', 'Training Plan', 'S Lv. 401', 'Lv. 40 X', 'Dialyn']

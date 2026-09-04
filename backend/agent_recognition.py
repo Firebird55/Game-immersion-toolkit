@@ -22,6 +22,15 @@ from .voice_assets import VoiceEntry
 from .agent_library import atomic_json
 
 
+# Some playable variants do not expose a character voice-bank name in the
+# avatar metadata used to seed library.json.  Keep their public UI identity
+# here so a shared suffix ("Anby") cannot collapse the variant into the base
+# agent before dynamic nameplate learning has a chance to run.
+BUILTIN_AGENT_IDENTITIES = {
+    'Soldier 0 - Anby': {'name': 'Soldier 0 - Anby', 'chinese_name': '零号·安比'},
+}
+
+
 class AgentRecognizer:
     def __init__(self, folder: Path, audio, publish, activity=None):
         self.folder, self.audio, self.publish = folder, audio, publish
@@ -46,9 +55,11 @@ class AgentRecognizer:
         self._diagnostics = {}
         names = folder/'observed-agents.json'
         self.observed_agents = json.loads(names.read_text(encoding='utf-8')) if names.exists() else {}
+        self.library['agents'].update(BUILTIN_AGENT_IDENTITIES)
         self.library['agents'].update(self.observed_agents)
 
     def replace_library(self, library):
+        library['agents'].update(BUILTIN_AGENT_IDENTITIES)
         library['agents'].update(self.observed_agents)
         with self._lock:
             self.library = library
@@ -71,7 +82,16 @@ class AgentRecognizer:
         values |= {re.sub(rf'^(?:{prompts}\s+)+|(?:\s+{prompts})+$', '', value).strip()
                    for value in values}
         matches = [name for name in self.library['agents'] if name.casefold() in values]
-        return matches[0] if len(matches) == 1 else None
+        if len(matches) == 1:
+            return matches[0]
+        if matches:
+            # The OCR response may contain both "Anby" and the full
+            # "Soldier 0 - Anby" label. Prefer the uniquely most-specific
+            # identity, but retain the ambiguity guard for unrelated agents.
+            longest = max(matches, key=len)
+            if all(name.casefold() in longest.casefold() for name in matches):
+                return longest
+        return None
 
     def observe(self, agent: str | None, active: bool, observed_since: float | None = None):
         now = time.monotonic()

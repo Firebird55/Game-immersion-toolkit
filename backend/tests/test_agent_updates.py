@@ -109,6 +109,7 @@ def test_unknown_agent_name_can_be_learned_without_metadata():
     assert CaptureService._nameplate_candidate(['FUTURE AGENT','Future Agent'])=='Future Agent'
     assert CaptureService._nameplate_candidate(['Future Agent','Other Agent']) is None
     assert CaptureService._nameplate_candidate(['Lv. 60','Equipment','Select','UID: 123']) is None
+    assert CaptureService._nameplate_candidate(['Soldier 0 - Anby']) == 'Soldier 0 - Anby'
     assert CaptureService._is_agent_screen(['Character Details','Select','Return','Lv. 60','Lv. 60','Lv. 60'])
 
 

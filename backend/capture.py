@@ -253,21 +253,11 @@ class CaptureService:
             if self._is_agent_screen(header_lines + nav_lines):
                 self._excluded_screen = 'agents'
                 self._selected_agent = self.agent_recognizer.identify_agent(header_lines + nav_lines) if self.agent_recognizer else None
-                if not self._selected_agent and self.agent_recognizer:
-                    # The selected nameplate is at bottom left in both input
-                    # layouts. Never learn an unknown name from arbitrary OCR.
-                    plate = self._capture(self._region_bounds(window, CaptureRegion(left=.085, top=.78, width=.19, height=.17)))
-                    plate.thumbnail((900,400), Image.Resampling.LANCZOS)
-                    plate_lines = [str(item.get('text','')) for item in self._engine.recognize_pil(plate).get('lines',[])]
-                    candidate = self._nameplate_candidate(plate_lines)
-                    if candidate != self._new_agent_name:
-                        self._new_agent_since = time.monotonic()-2.0
-                    self._new_agent_frames = self._new_agent_frames+1 if candidate == self._new_agent_name else 1
-                    self._new_agent_name = candidate
-                    if candidate and self._new_agent_frames >= 2:
-                        self.agent_recognizer.remember_agent(candidate)
-                        self._selected_agent = candidate
-                        self.agent_recognizer.observe(candidate, True, self._new_agent_since)
+                if self.agent_recognizer:
+                    # Always let the dedicated nameplate override broad screen
+                    # OCR. This is essential for variants whose full label
+                    # contains another agent name, such as Soldier 0 - Anby.
+                    self._selected_agent = self._agent_from_nameplate(window, self._selected_agent)
             else:
                 self._selected_agent = None
                 self._new_agent_name, self._new_agent_frames = None, 0
@@ -275,12 +265,7 @@ class CaptureService:
         if self.agent_recognizer and self._excluded_screen == 'agents' and self._scan_index % 4 != 1:
             # Selection voices begin immediately. Track the tiny nameplate each
             # scan rather than waiting for the next full layout/header pass.
-            plate = self._capture(self._region_bounds(window, CaptureRegion(left=.085, top=.78, width=.19, height=.17)))
-            plate.thumbnail((900,400), Image.Resampling.LANCZOS)
-            plate_lines = [str(item.get('text','')) for item in self._engine.recognize_pil(plate).get('lines',[])]
-            selected = self.agent_recognizer.identify_agent(plate_lines)
-            if selected:
-                self._selected_agent = selected
+            self._selected_agent = self._agent_from_nameplate(window, self._selected_agent)
 
         if self.agent_recognizer:
             self.agent_recognizer.observe(self._selected_agent, self._excluded_screen == 'agents')
@@ -677,12 +662,37 @@ class CaptureService:
                     or not clean[0].isalpha()
                     or not all(char.isalnum() or char in " '&.-" for char in clean)):
                 continue
-            if not all(word[0].isupper() or word.isdigit() or word in {'&','of','the','de','and'} for word in words):
+            if not all(word[0].isupper() or word.isdigit() or word in {'&','-','of','the','de','and'} for word in words):
                 continue
             candidates.setdefault(clean.casefold(), clean)
             if not clean.isupper():
                 candidates[clean.casefold()] = clean
         return next(iter(candidates.values())) if len(candidates) == 1 else None
+
+    def _agent_from_nameplate(self, window: WindowInfo, fallback: str | None = None) -> str | None:
+        """Resolve the selected agent from the shared keyboard/controller plate."""
+        plate = self._capture(self._region_bounds(
+            window, CaptureRegion(left=.075, top=.75, width=.25, height=.21)))
+        plate.thumbnail((1100, 500), Image.Resampling.LANCZOS)
+        plate_lines = [str(item.get('text', '')).strip()
+                       for item in self._engine.recognize_pil(plate).get('lines', [])]
+        selected = self.agent_recognizer.identify_agent(plate_lines)
+        if selected:
+            self._new_agent_name, self._new_agent_frames = None, 0
+            return selected
+
+        # Future agents are learned locally after two matching scans. The
+        # dedicated crop prevents unrelated roster labels from becoming names.
+        candidate = self._nameplate_candidate(plate_lines)
+        if candidate != self._new_agent_name:
+            self._new_agent_since = time.monotonic() - 2.0
+        self._new_agent_frames = self._new_agent_frames + 1 if candidate == self._new_agent_name else 1
+        self._new_agent_name = candidate
+        if candidate and self._new_agent_frames >= 2:
+            self.agent_recognizer.remember_agent(candidate)
+            self.agent_recognizer.observe(candidate, True, self._new_agent_since)
+            return candidate
+        return fallback
 
     @staticmethod
     def _is_agent_screen(lines: list[str]) -> bool:
