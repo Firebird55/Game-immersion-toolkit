@@ -1,4 +1,5 @@
 from backend.capture import CaptureService, StableMatchTracker
+from PIL import Image
 
 
 def test_current_subtitle_visibility_expires_and_clears_per_channel() -> None:
@@ -63,6 +64,25 @@ def test_screen_header_classifier_excludes_history_interfaces() -> None:
     assert CaptureService._classify_screen_header(["Knock Knock", "Anton"]) == "phone"
     assert CaptureService._classify_screen_header(["NEW!", "Story Commission", "70%"]) == "hdd"
     assert CaptureService._classify_screen_header(["Belobog Industries", "Ben"]) is None
+
+
+def test_visual_novel_filmstrip_is_distinct_from_normal_gameplay() -> None:
+    filmstrip = Image.new("RGB", (800, 100), (4, 4, 4))
+    daylight = Image.new("RGB", (800, 100), (130, 105, 85))
+    night_scene = Image.new("RGB", (800, 100), (30, 35, 48))
+    assert CaptureService._is_visual_novel_layout(filmstrip)
+    assert not CaptureService._is_visual_novel_layout(daylight)
+    assert not CaptureService._is_visual_novel_layout(night_scene)
+
+
+def test_broad_dark_gameplay_dialogue_box_is_detected() -> None:
+    crop = Image.new("RGB", (1000, 300), (140, 110, 80))
+    for x in range(150, 850):
+        for y in range(135, 300):
+            crop.putpixel((x, y), (8, 8, 8))
+    plain_subtitles = Image.new("RGB", (1000, 300), (90, 100, 120))
+    assert CaptureService._has_dialogue_box(crop)
+    assert not CaptureService._has_dialogue_box(plain_subtitles)
 
 
 def test_visible_full_line_rejects_later_suffix_match() -> None:

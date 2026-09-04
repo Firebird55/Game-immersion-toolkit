@@ -112,6 +112,7 @@ class CaptureService:
         self._cinematic_seen_ids: set[str] = set()
         self._cinematic_panel_text = ""
         self._excluded_screen: str | None = None
+        self._visual_novel_layout = False
         self._visible_text_by_channel: dict[str, tuple[float, list[str]]] = {}
 
     def snapshot(self) -> CaptureSnapshot:
@@ -225,6 +226,13 @@ class CaptureService:
             return _ScanOutcome([])
 
         crop_bounds = self._region_bounds(window, settings.region)
+        # Normal 3D interactions and voiced visual-novel scenes use nearly the
+        # same bottom dialogue box. The visual-novel presentation has a stable,
+        # nearly-black filmstrip across the top; sample it every scan so a line
+        # shown immediately after a transition is classified correctly.
+        layout_probe = self._capture(self._region_bounds(
+            window, CaptureRegion(left=0, top=0, width=1, height=.10)))
+        self._visual_novel_layout = self._is_visual_novel_layout(layout_probe)
         if self._scan_index % 4 == 1:
             # One inexpensive upper-screen signature pass covers the left-side
             # Story Recap header, centered Knock Knock panel, and the HDD hub.
@@ -282,6 +290,7 @@ class CaptureService:
 
         image = self._capture(crop_bounds)
         self._set_preview(image)
+        dialogue_box_layout = self._has_dialogue_box(image)
         if image.width > 1600:
             image.thumbnail((1600, 400), Image.Resampling.LANCZOS)
         if self._engine is None:
@@ -311,11 +320,19 @@ class CaptureService:
 
         phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
         excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd"}
-        match = (
+        raw_match = (
             None
             if excluded_screen
             else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
+        # The large bottom dialogue box in normal 3D gameplay is interaction
+        # text, not spoken audio. Only that exact text is blocked; cinematic,
+        # comic and top-right channels remain independently eligible.
+        unvoiced_gameplay_dialogue = bool(
+            raw_match and dialogue_box_layout and not self._visual_novel_layout
+        )
+        match = None if unvoiced_gameplay_dialogue else raw_match
+        blocked_unvoiced_ids = {raw_match.text_id} if unvoiced_gameplay_dialogue else set()
         # Entering the agent menu between periodic layout scans must not let a
         # character-name label become a voiced story line during that gap.
         if match and self.agent_recognizer and normalize_english(match.english) in {
@@ -456,6 +473,7 @@ class CaptureService:
                 for item in cinematic_matches
                 if item.text_id not in self._cinematic_seen_ids
                 and item.text_id not in already_matched
+                and item.text_id not in blocked_unvoiced_ids
             ]
             self._cinematic_seen_ids.update(item.text_id for item in cinematic_matches)
             cinematic_match = new_cinematic_matches[-1] if new_cinematic_matches else None
@@ -493,6 +511,9 @@ class CaptureService:
                 "phone": "Phone screen ignored",
             }
             message = messages.get(self._excluded_screen, "Phone screen ignored")
+        elif unvoiced_gameplay_dialogue:
+            phase = "excluded_screen"
+            message = "Unvoiced gameplay dialogue ignored"
 
         self._update_snapshot(
             running=True,
@@ -668,6 +689,31 @@ class CaptureService:
             if not clean.isupper():
                 candidates[clean.casefold()] = clean
         return next(iter(candidates.values())) if len(candidates) == 1 else None
+
+    @staticmethod
+    def _dark_fraction(image: Image.Image, threshold: int) -> float:
+        probe = image.convert('L')
+        probe.thumbnail((240, 120), Image.Resampling.BILINEAR)
+        histogram = probe.histogram()
+        total = max(1, sum(histogram))
+        return sum(histogram[:threshold]) / total
+
+    @classmethod
+    def _is_visual_novel_layout(cls, top_probe: Image.Image) -> bool:
+        # The supplied filmstrip reference is >99% below luma 20 in this strip;
+        # ordinary gameplay remains far above it. The high cutoff avoids
+        # treating a merely dark/night scene as the visual-novel frame.
+        return cls._dark_fraction(top_probe, 20) >= .93
+
+    @classmethod
+    def _has_dialogue_box(cls, image: Image.Image) -> bool:
+        # Inspect the central lower half of the configured dialogue crop. Both
+        # gameplay and visual-novel boxes are broad, near-black rectangles;
+        # plain anime subtitles and comic speech bubbles are not.
+        width, height = image.size
+        box = image.crop((round(width * .15), round(height * .45),
+                          round(width * .85), height))
+        return cls._dark_fraction(box, 50) >= .65
 
     def _agent_from_nameplate(self, window: WindowInfo, fallback: str | None = None) -> str | None:
         """Resolve the selected agent from the shared keyboard/controller plate."""
