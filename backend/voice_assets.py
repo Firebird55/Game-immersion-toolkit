@@ -6,6 +6,7 @@ transcript similarity or guessed dialogue ordinals are used here.
 from __future__ import annotations
 
 import json
+import re
 import struct
 import shutil
 import subprocess
@@ -84,6 +85,29 @@ def index_mandarin(game_data: Path) -> dict[int, VoiceEntry]:
     return entries
 
 
+def merge_valid_manifest_entries(previous: dict, refreshed: dict) -> dict:
+    """Preserve still-valid exact mappings when an incremental scan is added."""
+    merged = {}
+    for text_id, item in previous.items():
+        try:
+            path = Path(item["package"])
+            stat = path.stat()
+            valid = (
+                stat.st_size == item["package_size"]
+                and stat.st_mtime_ns == item["package_mtime_ns"]
+                and voice_hash(item["source"]) == int(item["file_id"], 16)
+                and 0 < item["size"] <= 64 * 1024 * 1024
+                and 28 <= item["offset"] < stat.st_size
+                and item["offset"] + item["size"] <= stat.st_size
+            )
+        except (KeyError, OSError, TypeError, ValueError):
+            valid = False
+        if valid:
+            merged[text_id] = item
+    merged.update(refreshed)
+    return merged
+
+
 def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, VoiceEntry]) -> dict[str, dict]:
     by_speaker: dict[str, list[str]] = {}
     for prefix in prefixes:
@@ -97,11 +121,32 @@ def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, Voi
             prefix + source for token in source.lower().split("_")
             for prefix in by_speaker.get(token, [])
         ]
+        found = False
         for path in paths:
             full = f"chinese(prc)/ex/{path}.wem"
             hashed = voice_hash(full)
             if hashed in entries:
                 candidates.setdefault(text_id, {})[hashed] = full
+                found = True
+        if not found and "/" not in source:
+            # VoiceData's prefix list can lag a newly installed chapter. The
+            # Wwise file ID validates path guesses exactly, so try conventional
+            # version/speaker paths only when metadata found no real asset.
+            ignored = {"galgame", "main", "companion", "chapter", "event", "activity"}
+            speakers = {
+                token for token in source.split("_")
+                if re.fullmatch(r"[A-Za-z][A-Za-z0-9]+", token)
+                and token.casefold() not in ignored
+                and not token.casefold().startswith(("chapter", "ver"))
+            }
+            for speaker in speakers:
+                for major in range(1, 10):
+                    for minor in range(10):
+                        path = f"VO_Galgame/Ver{major}_{minor}/VO_{speaker}/{source}"
+                        full = f"chinese(prc)/ex/{path}.wem"
+                        hashed = voice_hash(full)
+                        if hashed in entries:
+                            candidates.setdefault(text_id, {})[hashed] = full
     result = {}
     for text_id, values in candidates.items():
         if len(values) != 1:
@@ -143,6 +188,14 @@ class VoiceAssetService:
             return stat.st_size == item["package_size"] and stat.st_mtime_ns == item["package_mtime_ns"]
         except OSError:
             return False
+
+    def reload(self, manifest: Path) -> None:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        if data.get("version") != 1 or not isinstance(data.get("entries"), dict):
+            raise ValueError("Unsupported original voice manifest")
+        self._entries = data["entries"]
+        self.ready = bool(self._entries and self.decoder.is_file() and shutil.which("ffmpeg"))
+        self.last_error = None
 
     def status(self) -> dict:
         return {"ready": self.ready, "mapped_lines": len(self._entries), "last_error": self.last_error}

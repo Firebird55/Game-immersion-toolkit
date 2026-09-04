@@ -7,7 +7,7 @@ import json
 import shutil
 from pathlib import Path
 
-from backend.voice_assets import index_mandarin, resolve_links
+from backend.voice_assets import index_mandarin, merge_valid_manifest_entries, resolve_links
 
 
 def main():
@@ -31,6 +31,12 @@ def main():
             stat = Path(package).stat()
             stats[package] = (stat.st_size, stat.st_mtime_ns)
         record["package_size"], record["package_mtime_ns"] = stats[package]
+    manifest = output / "manifest.json"
+    try:
+        previous = json.loads(manifest.read_text(encoding="utf-8")).get("entries", {})
+    except (OSError, ValueError):
+        previous = {}
+    resolved = merge_valid_manifest_entries(previous, resolved)
     if not resolved:
         raise ValueError("No exact voice mappings found; previous manifest left unchanged")
     if not (args.decoder_dir / "vgmstream-cli.exe").is_file():
@@ -38,7 +44,7 @@ def main():
     shutil.copytree(args.decoder_dir, output / "vgmstream", dirs_exist_ok=True)
     temporary = output / "manifest.json.tmp"
     temporary.write_text(json.dumps({"version": 1, "entries": resolved}, ensure_ascii=False), encoding="utf-8")
-    temporary.replace(output / "manifest.json")
+    temporary.replace(manifest)
     print(f"Indexed {len(resolved)} exact Mandarin lines from {len(entries)} local voice assets.")
 
 

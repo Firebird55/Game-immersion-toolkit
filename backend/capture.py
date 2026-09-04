@@ -104,6 +104,7 @@ class CaptureService:
         self._cinematic_tracker = StableMatchTracker()
         self._event_loop: asyncio.AbstractEventLoop | None = None
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+        self._scan_epoch = 0
         self._scan_index = 0
         self._last_emitted_at: dict[str, float] = {}
         self._last_emitted_key_by_channel: dict[str, str] = {}
@@ -180,11 +181,32 @@ class CaptureService:
                 self._tip_tracker.configure(1)
                 self._cinematic_tracker.configure(1)
                 try:
-                    outcome = await loop.run_in_executor(self._executor, self._scan_once)
+                    scan = loop.run_in_executor(self._executor, self._scan_once)
+                    outcome = await asyncio.wait_for(asyncio.shield(scan), timeout=12)
                     snapshot = self.snapshot()
                     await self.on_status(snapshot)
                     # _audio_ready publishes only after neural voice validation.
                     # Pending matches must not flash in the visible transcript.
+                except asyncio.TimeoutError:
+                    # A native OCR call can occasionally stop returning. Rotate
+                    # the worker and engine so capture resumes instead of
+                    # leaving a stale screen classification in the UI forever.
+                    self._scan_epoch += 1
+                    self._executor.shutdown(wait=False, cancel_futures=True)
+                    self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+                    self._engine = None
+                    self._excluded_screen = None
+                    self._selected_agent = None
+                    self._tracker.observe(None)
+                    self._tip_tracker.observe(None)
+                    self._cinematic_tracker.observe(None)
+                    snapshot = self._update_snapshot(
+                        running=True,
+                        phase="error",
+                        message="OCR stalled; capture recovered automatically",
+                        last_error="A scan exceeded 12 seconds and was replaced",
+                    )
+                    await self.on_status(snapshot)
                 except Exception as error:
                     snapshot = self._update_snapshot(
                         running=True,
@@ -199,6 +221,7 @@ class CaptureService:
             raise
 
     def _scan_once(self) -> _ScanOutcome:
+        epoch = self._scan_epoch
         self._scan_index += 1
         settings = self.settings.get()
         window = find_game_window(settings)
@@ -225,6 +248,11 @@ class CaptureService:
             )
             return _ScanOutcome([])
 
+        engine = self._engine
+        if engine is None:
+            engine = OcrEngine()
+            self._engine = engine
+
         crop_bounds = self._region_bounds(window, settings.region)
         # Normal 3D interactions and voiced visual-novel scenes use nearly the
         # same bottom dialogue box. The visual-novel presentation has a stable,
@@ -242,9 +270,9 @@ class CaptureService:
             header_image = self._capture(header_bounds)
             if header_image.width > 1400:
                 header_image.thumbnail((1400, 700), Image.Resampling.LANCZOS)
-            if self._engine is None:
-                self._engine = OcrEngine()
-            header_response = self._engine.recognize_pil(header_image)
+            header_response = engine.recognize_pil(header_image)
+            if epoch != self._scan_epoch:
+                return _ScanOutcome([])
             header_lines = [
                 line.get("text", "").strip()
                 for line in header_response.get("lines", [])
@@ -256,7 +284,9 @@ class CaptureService:
             nav_image = self._capture(self._region_bounds(
                 window, CaptureRegion(left=0, top=.55, width=1, height=.45)))
             nav_image.thumbnail((1400, 650), Image.Resampling.LANCZOS)
-            nav_response = self._engine.recognize_pil(nav_image)
+            nav_response = engine.recognize_pil(nav_image)
+            if epoch != self._scan_epoch:
+                return _ScanOutcome([])
             nav_lines = [str(line.get('text','')).strip() for line in nav_response.get('lines',[])]
             if self._is_agent_screen(header_lines + nav_lines):
                 self._excluded_screen = 'agents'
@@ -265,7 +295,7 @@ class CaptureService:
                     # Always let the dedicated nameplate override broad screen
                     # OCR. This is essential for variants whose full label
                     # contains another agent name, such as Soldier 0 - Anby.
-                    self._selected_agent = self._agent_from_nameplate(window, self._selected_agent)
+                    self._selected_agent = self._agent_from_nameplate(window, self._selected_agent, engine, epoch)
             else:
                 self._selected_agent = None
                 self._new_agent_name, self._new_agent_frames = None, 0
@@ -273,7 +303,7 @@ class CaptureService:
         if self.agent_recognizer and self._excluded_screen == 'agents' and self._scan_index % 4 != 1:
             # Selection voices begin immediately. Track the tiny nameplate each
             # scan rather than waiting for the next full layout/header pass.
-            self._selected_agent = self._agent_from_nameplate(window, self._selected_agent)
+            self._selected_agent = self._agent_from_nameplate(window, self._selected_agent, engine, epoch)
 
         if self.agent_recognizer:
             self.agent_recognizer.observe(self._selected_agent, self._excluded_screen == 'agents')
@@ -293,9 +323,9 @@ class CaptureService:
         dialogue_box_layout = self._has_dialogue_box(image)
         if image.width > 1600:
             image.thumbnail((1600, 400), Image.Resampling.LANCZOS)
-        if self._engine is None:
-            self._engine = OcrEngine()
-        response = self._engine.recognize_pil(image)
+        response = engine.recognize_pil(image)
+        if epoch != self._scan_epoch:
+            return _ScanOutcome([])
         lines = [line.get("text", "").strip() for line in response.get("lines", [])]
         lines = [line for line in lines if line]
         raw_text = " ".join(lines).strip()
@@ -340,7 +370,9 @@ class CaptureService:
         }:
             nav = self._capture(self._region_bounds(window, CaptureRegion(left=0, top=.55, width=1, height=.45)))
             nav.thumbnail((1400,650), Image.Resampling.LANCZOS)
-            nav_lines = [str(line.get('text','')).strip() for line in self._engine.recognize_pil(nav).get('lines',[])]
+            nav_lines = [str(line.get('text','')).strip() for line in engine.recognize_pil(nav).get('lines',[])]
+            if epoch != self._scan_epoch:
+                return _ScanOutcome([])
             if self._is_agent_screen(nav_lines):
                 self._excluded_screen = 'agents'
                 self._selected_agent = self.agent_recognizer.identify_agent(nav_lines)
@@ -394,7 +426,9 @@ class CaptureService:
         scan_tip = self._scan_index % 4 == 1
         if scan_tip:
             tip_image = self._capture(tip_bounds)
-            tip_response = self._engine.recognize_pil(tip_image)
+            tip_response = engine.recognize_pil(tip_image)
+            if epoch != self._scan_epoch:
+                return _ScanOutcome([])
             tip_lines = [line.get("text", "").strip() for line in tip_response.get("lines", [])]
             tip_lines = [line for line in tip_lines if line]
             tip_raw_text = " ".join(tip_lines).strip()
@@ -442,7 +476,9 @@ class CaptureService:
             cinematic_image = self._capture(cinematic_bounds)
             if cinematic_image.width > 1920:
                 cinematic_image.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
-            cinematic_response = self._engine.recognize_pil(cinematic_image)
+            cinematic_response = engine.recognize_pil(cinematic_image)
+            if epoch != self._scan_epoch:
+                return _ScanOutcome([])
             cinematic_lines = [
                 line.get("text", "").strip() for line in cinematic_response.get("lines", [])
             ]
@@ -715,15 +751,21 @@ class CaptureService:
                           round(width * .85), height))
         return cls._dark_fraction(box, 50) >= .65
 
-    def _agent_from_nameplate(self, window: WindowInfo, fallback: str | None = None) -> str | None:
+    def _agent_from_nameplate(
+        self, window: WindowInfo, fallback: str | None = None,
+        engine: OcrEngine | None = None, epoch: int | None = None,
+    ) -> str | None:
         """Resolve the selected agent from the shared keyboard/controller plate."""
         plate = self._capture(self._region_bounds(
             # Start left of the controller's X prompt. The previous crop began
             # inside long labels and could reduce "Soldier 0 - Anby" to "Anby".
             window, CaptureRegion(left=.02, top=.75, width=.31, height=.21)))
         plate.thumbnail((1100, 500), Image.Resampling.LANCZOS)
+        engine = engine or self._engine
         plate_lines = [str(item.get('text', '')).strip()
-                       for item in self._engine.recognize_pil(plate).get('lines', [])]
+                       for item in engine.recognize_pil(plate).get('lines', [])]
+        if epoch is not None and epoch != self._scan_epoch:
+            return fallback
         selected = self.agent_recognizer.identify_agent(plate_lines)
         if selected:
             self._new_agent_name, self._new_agent_frames = None, 0

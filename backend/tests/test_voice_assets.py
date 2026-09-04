@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from backend.voice_assets import AudioSourceChoice, VoiceAssetService, VoiceEntry, read_external_table, resolve_links, voice_hash
+from backend.voice_assets import (
+    AudioSourceChoice, VoiceAssetService, VoiceEntry, merge_valid_manifest_entries,
+    read_external_table, resolve_links, voice_hash,
+)
 
 
 def package(tmp_path, *, offset=64):
@@ -45,6 +48,15 @@ def test_exact_link_and_ambiguous_prefixes(tmp_path):
     assert list(resolve_links(links, prefixes, entries)) == ["exact-id"]
 
 
+def test_new_chapter_resolves_standard_voice_path_without_updated_prefix_metadata(tmp_path):
+    source = "GalGame_Chapter999_Belle_010_001"
+    path = f"chinese(prc)/ex/VO_Galgame/Ver4_2/VO_Belle/{source}.wem"
+    hashed = voice_hash(path)
+    entries = {hashed: VoiceEntry(tmp_path / "future.pck", 64, 12, hashed)}
+    resolved = resolve_links([{"source": source, "text_id": "future-id"}], [], entries)
+    assert resolved["future-id"]["file_id"] == f"{hashed:016x}"
+
+
 @pytest.mark.parametrize("recording_first", [True, False])
 def test_original_wins_without_late_recording_deletion(recording_first):
     published, discarded, cancelled = [], [], []
@@ -83,4 +95,16 @@ def test_package_update_rejected_before_decode(tmp_path):
         with pytest.raises(ValueError, match="changed"):
             service.extract("id", 1)
     finally:
-        service.close()
+            service.close()
+
+
+def test_incremental_manifest_keeps_only_valid_previous_entries(tmp_path):
+    path = package(tmp_path)
+    stat = path.stat()
+    source = "chinese(prc)/ex/VO_Galgame/Ver1_0/VO_Belle/voice.wem"
+    valid = {"source": source, "file_id": f"{voice_hash(source):016x}",
+             "package": str(path), "package_size": stat.st_size,
+             "package_mtime_ns": stat.st_mtime_ns, "offset": 64, "size": 12}
+    stale = {**valid, "package_size": 1}
+    merged = merge_valid_manifest_entries({"old": valid, "stale": stale}, {"new": valid})
+    assert set(merged) == {"old", "new"}

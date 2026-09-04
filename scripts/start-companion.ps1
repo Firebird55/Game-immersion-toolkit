@@ -37,6 +37,9 @@ function Test-LocalEndpoint([string]$url) {
 $started = [ordered]@{}
 
 if (-not (Test-LocalEndpoint 'http://127.0.0.1:8766/api/health')) {
+    # Normally this is an instant inventory check. After a ZZZ patch it rebuilds
+    # all installed GalGame/chapter/event voice mappings before capture starts.
+    & $python -m scripts.update_voice_assets
     $backend = Start-Process -FilePath $python `
         -ArgumentList '-m', 'backend.main' `
         -WorkingDirectory $projectRoot `
