@@ -43,6 +43,10 @@ def test_transcript_channel_migrates_and_round_trips(tmp_path) -> None:
     assert updated.voiced is True
     assert updated.has_audio is True
     assert store.audio_path(created.id) == f"{created.id}.mp3"
+    labelled = store.update_speaker(created.id, "Belle", "铃")
+    assert labelled is not None
+    assert labelled.speaker_english == "Belle"
+    assert labelled.speaker_chinese == "铃"
 
 
 def test_partial_line_is_upgraded_and_recent_duplicates_are_skipped(tmp_path) -> None:

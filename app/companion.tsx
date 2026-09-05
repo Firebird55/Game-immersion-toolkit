@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { createVoiceActivityFollower, type VoiceActivity } from '@/lib/voice-activity';
 import {
   Dialog,
@@ -81,7 +82,17 @@ type TranscriptLine = {
   voiced: boolean;
   has_audio: boolean;
   audio_source?: 'original' | 'recording';
+  speaker_english?: string | null;
+  speaker_chinese?: string | null;
   favorite: boolean;
+};
+type UpdateStatus = {
+  state: string;
+  message: string;
+  progress: number;
+  automatic: boolean;
+  last_checked: string | null;
+  last_error: string | null;
 };
 type StatusPayload = {
   capture: CaptureStatus;
@@ -89,11 +100,13 @@ type StatusPayload = {
   audio: { ready: boolean; message: string };
   agents?: { indexed_clips: number; total_clips: number; selected_agent: string | null; last_error: string | null; saved_lines: number; update?: { state: string; message: string; automatic: boolean } };
   voice_activity?: VoiceActivity | null;
+  updates?: UpdateStatus;
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'agents' | 'favorites';
 type AgentLine = { key: string; agent: string; asset_id: string; chinese: string; text_source: string; last_heard: string; heard_count: number };
+type AgentPage = { lines: AgentLine[]; total: number };
 
 function mergeAgentLines(current: AgentLine[], incoming: AgentLine[]) {
   const entries = new Map(current.map(line => [line.key, line]));
@@ -193,6 +206,12 @@ function CompanionClient() {
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
   const playback = useRef<HTMLAudioElement | null>(null);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
+    if ([1, 0.85, 0.75, 0.6].includes(saved)) setPlaybackRate(saved);
+  }, []);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -217,7 +236,7 @@ function CompanionClient() {
       knownLineIds.current = new Set(nextLines.map((line) => line.id));
       setLines(nextLines);
       if (agentsResponse.ok) {
-        const agents = await agentsResponse.json();
+        const agents = (await agentsResponse.json()) as AgentPage;
         setAgentLines(current => mergeAgentLines(current, agents.lines));
         setAgentTotal(agents.total);
       }
@@ -254,6 +273,9 @@ function CompanionClient() {
         if (event.type === 'textmaps_status') {
           setRefreshingMaps(false);
           setStatus((current) => current ? { ...current, textmaps: event.textmaps } : current);
+        }
+        if (event.type === 'update_status') {
+          setStatus((current) => current ? { ...current, updates: event.updates } : current);
         }
         if (event.type === 'settings') {
           setDraftSettings(event.settings);
@@ -408,6 +430,7 @@ function CompanionClient() {
     if (!line.has_audio) return;
     playback.current?.pause();
     const audio = new Audio(`${API_URL}/api/lines/${line.id}/audio?v=${line.id}-${line.audio_source ?? 'recording'}`);
+    audio.playbackRate = playbackRate;
     playback.current = audio;
     void audio.play();
   }
@@ -415,8 +438,15 @@ function CompanionClient() {
   function playAgent(line: AgentLine) {
     playback.current?.pause();
     const audio = new Audio(`${API_URL}/api/agents/${line.asset_id}/audio`);
+    audio.playbackRate = playbackRate;
     playback.current = audio;
     void audio.play().catch(() => undefined);
+  }
+
+  function changePlaybackRate(value: number) {
+    setPlaybackRate(value);
+    window.localStorage.setItem('proxy-transcript-playback-rate', String(value));
+    if (playback.current) playback.current.playbackRate = value;
   }
 
   async function loadMoreAgents() {
@@ -424,7 +454,7 @@ function CompanionClient() {
     try {
       const response = await fetch(`${API_URL}/api/agents?offset=${agentLines.length}&limit=100`, { cache: 'no-store' });
       if (response.ok) {
-        const page = await response.json();
+        const page = (await response.json()) as AgentPage;
         setAgentLines(current => mergeAgentLines(current, page.lines));
         setAgentTotal(page.total);
       }
@@ -433,6 +463,7 @@ function CompanionClient() {
 
   const capture = status?.capture;
   const mapStatus = status?.textmaps;
+  const updateStatus = status?.updates;
   const currentCount = status?.session.line_count ?? sessionLines.length;
   const activeRegion = draftSettings
     ? (setupChannel === 'tip'
@@ -484,6 +515,16 @@ function CompanionClient() {
         </div>
       </section>
 
+      {updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label="Automatic data update status">
+        <div className="update-progress-copy">
+          <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? 'is-spinning' : ''} />
+          <strong>Automatic updates</strong>
+          <StableInline text={updateStatus.message} />
+        </div>
+        <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />
+        <span className="update-progress-value">{updateStatus.progress}%</span>
+      </section>}
+
       {transcriptTab !== 'agents' && <section className={`current-line ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
           <span id="current-heading"><Crosshair size={16} /> Current line</span>
@@ -496,6 +537,10 @@ function CompanionClient() {
         </div>
         {latestLine ? (
           <div className="current-pair">
+            {(latestLine.speaker_english || latestLine.speaker_chinese) && <div className="current-speaker">
+              {latestLine.speaker_english && <StableInline text={latestLine.speaker_english} />}
+              {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
+            </div>}
             <StableText className="current-english" text={latestLine.english} />
             <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />
             <div className="current-actions">
@@ -588,8 +633,14 @@ function CompanionClient() {
                 <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
                 <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : 'DIALOGUE'}</small>
               </div>
-              <StableText text={line.english} />
-              <StableText lang="zh-Hans" text={line.chinese} />
+              <div className="line-language">
+                {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
+                <StableText text={line.english} />
+              </div>
+              <div className="line-language">
+                {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
+                <StableText lang="zh-Hans" text={line.chinese} />
+              </div>
               <div className="line-meta">
                 <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
                 <div className="line-actions">
@@ -615,6 +666,16 @@ function CompanionClient() {
           <span className="live-pulse" /> <StableInline text={capture?.message ?? 'Connecting to local capture service'} />
         </span>
         <div className="footer-actions">
+          <label className="playback-speed">
+            <Volume2 size={16} />
+            <span>Speed</span>
+            <select value={playbackRate} onChange={(event) => changePlaybackRate(Number(event.target.value))} aria-label="Voice playback speed">
+              <option value={1}>1×</option>
+              <option value={0.85}>0.85×</option>
+              <option value={0.75}>0.75×</option>
+              <option value={0.6}>0.6×</option>
+            </select>
+          </label>
           <Button
             variant="outline"
             className={capture?.running ? 'capture-toggle is-running' : 'capture-toggle'}

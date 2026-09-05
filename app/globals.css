@@ -147,6 +147,31 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .status-strip span { color: var(--muted-foreground); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
 .status-strip strong { font-size: 13px; font-weight: 500; }
 
+.update-progress {
+  display: grid;
+  grid-template-columns: minmax(230px, auto) minmax(140px, 1fr) 42px;
+  align-items: center;
+  gap: 13px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  background: #0d1115;
+}
+.update-progress-copy { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.update-progress-copy svg { flex: 0 0 auto; color: var(--acid); }
+.update-progress-copy strong { flex: 0 0 auto; font-size: 13px; font-weight: 600; }
+.update-progress-copy span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.update-progress [data-slot="progress"] { gap: 0; }
+.update-progress-value { color: var(--muted-foreground); font-family: var(--font-geist-mono), monospace; font-size: 12px; text-align: right; }
+.update-progress.is-retrying { border-color: #684b38; }
+.update-progress.is-retrying .update-progress-copy svg { color: #ffbf69; }
+
 .current-line {
   position: relative;
   overflow: hidden;
@@ -178,6 +203,8 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .match-label { color: var(--acid); }
 
 .current-pair { margin-top: 15px; display: grid; gap: 9px; }
+.current-speaker { display: flex; align-items: baseline; gap: 9px; color: var(--acid); font-size: 14px; font-weight: 650; }
+.speaker-chinese { font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; }
 .current-english { max-width: 880px; margin-bottom: 0; font-size: clamp(20px, 2.5vw, 28px); line-height: 1.24; letter-spacing: -.018em; }
 .current-chinese { margin-bottom: 0; color: #f2f5f7; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.42; }
 .current-chinese-host { min-height: 1.45em; }
@@ -325,6 +352,8 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .capture-toggle.is-running .capture-play-label { display: none; }
 .transcript-line p { margin-bottom: 0; font-size: 15px; line-height: 1.48; }
 .transcript-line p[lang] { color: #f2f5f7; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: 19px; line-height: 1.58; }
+.line-language { min-width: 0; display: grid; gap: 5px; }
+.line-speaker { color: var(--acid); font-size: 13px; font-weight: 650; }
 
 .capture-footer {
   flex: 0 0 auto;
@@ -335,6 +364,28 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 }
 
 .footer-actions { display: flex; align-items: center; gap: 8px; }
+.playback-speed {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 0 10px;
+  border: 1px solid #3b444d;
+  border-radius: 2px;
+  background: #0d1115;
+  color: #d7dde2;
+  font-size: 13px;
+}
+.playback-speed svg { color: var(--acid); }
+.playback-speed select {
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: var(--font-geist-mono), monospace;
+  outline: 0;
+}
+.playback-speed select option { background: #171c22; color: var(--foreground); }
 .capture-footer [data-slot="button"] { height: 38px; border-radius: 2px; padding-inline: 14px; }
 .transcript-empty { min-height: 240px; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted-foreground); text-align: center; }
 .transcript-empty p { max-width: 360px; margin-bottom: 0; line-height: 1.5; }
@@ -380,6 +431,8 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 @media (max-width: 720px) {
   .companion-shell { height: auto; min-height: 100svh; overflow: visible; padding: 14px; }
   .status-strip { grid-template-columns: 1fr; }
+  .update-progress { grid-template-columns: 1fr 42px; }
+  .update-progress-copy { grid-column: 1 / -1; }
   .status-strip > div { border-right: 0; border-bottom: 1px solid var(--border); }
   .status-strip > div:last-child { border-bottom: 0; }
   .column-labels { display: none; }

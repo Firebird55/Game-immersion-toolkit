@@ -70,6 +70,8 @@ class TranscriptLine(BaseModel):
     voiced: bool = False
     has_audio: bool = False
     audio_source: Literal["original", "recording"] = "recording"
+    speaker_english: str | None = None
+    speaker_chinese: str | None = None
     favorite: bool = False
 
 

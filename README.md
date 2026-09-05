@@ -12,6 +12,11 @@ The matcher also builds a blocklist from the official character-name and speaker
 
 Repeated TextMap lines are suppressed for 60 seconds across all capture regions. If typewriter text first matches a partial sentence and the complete official line appears within five seconds, the existing transcript row and pending audio clip are upgraded in place.
 
+History rows show the speaker in English and Simplified Chinese whenever the
+exact game voice path or the on-screen nameplate identifies them. The bilingual
+name itself comes from the official TextMaps. Comic bubbles without a nameplate
+remain unlabelled rather than being assigned to a guessed speaker.
+
 ## First-time setup
 
 Open PowerShell in this folder and run:
@@ -28,6 +33,23 @@ The TextMap download is approximately 100 MB and is stored locally under `data/t
 2. Double-click `Start Proxy Transcript.cmd`.
 3. The companion opens on the portrait monitor to the right of the primary display.
 4. Use **Capture setup** if the live crop contains HUD text or misses part of the subtitle.
+
+The **Speed** control in the footer plays story and agent clips at 1×, 0.85×,
+0.75×, or 0.6× while preserving pitch. The choice is remembered by Chrome.
+
+## Automatic updates
+
+The companion opens immediately using its last complete local indexes. A
+progress bar in the web interface then checks the upstream ZenlessData metadata,
+the bilingual TextMaps, and the installed Mandarin game packages in the
+background. New chapter, event, sidequest, comic, and agent assets are indexed
+without blocking the webpage or changing game files. The check repeats every
+15 minutes while the companion is running; failures keep the previous complete
+indexes active and retry automatically.
+
+This updates data and game-derived indexes, not the customized application code
+or a dirty Git working tree. A future incompatible game format still requires a
+normal software update.
 
 Double-click `Stop Proxy Transcript.cmd` to stop the background services.
 

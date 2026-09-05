@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS transcript_lines (
     channel TEXT NOT NULL DEFAULT 'dialogue',
     voiced INTEGER NOT NULL DEFAULT 0,
     audio_path TEXT,
+    speaker_english TEXT,
+    speaker_chinese TEXT,
     favorite INTEGER NOT NULL DEFAULT 0
 )
 """
@@ -57,6 +59,10 @@ class TranscriptStore:
                 connection.execute(
                     "ALTER TABLE transcript_lines ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0"
                 )
+            if "speaker_english" not in columns:
+                connection.execute("ALTER TABLE transcript_lines ADD COLUMN speaker_english TEXT")
+            if "speaker_chinese" not in columns:
+                connection.execute("ALTER TABLE transcript_lines ADD COLUMN speaker_chinese TEXT")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_transcript_created_at "
                 "ON transcript_lines(created_at DESC)"
@@ -88,6 +94,8 @@ class TranscriptStore:
             voiced=bool(row["voiced"]),
             has_audio=bool(row["audio_path"]),
             audio_source="original" if (row["audio_path"] or "").startswith("official-") else "recording",
+            speaker_english=row["speaker_english"],
+            speaker_chinese=row["speaker_chinese"],
             favorite=bool(row["favorite"]),
         )
 
@@ -266,6 +274,22 @@ class TranscriptStore:
             connection.execute(
                 "UPDATE transcript_lines SET favorite = ? WHERE id = ?",
                 (int(favorite), line_id),
+            )
+            row = connection.execute(
+                "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
+            ).fetchone()
+        return self._row_to_line(row) if row else None
+
+    def update_speaker(
+        self,
+        line_id: int,
+        speaker_english: str | None,
+        speaker_chinese: str | None,
+    ) -> TranscriptLine | None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE transcript_lines SET speaker_english = ?, speaker_chinese = ? WHERE id = ?",
+                (speaker_english, speaker_chinese, line_id),
             )
             row = connection.execute(
                 "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)

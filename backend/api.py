@@ -20,6 +20,8 @@ from .config import SettingsStore
 from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex
+from .speakers import SpeakerResolver
+from .updates import BackgroundUpdateManager
 from .windows import list_visible_windows, game_data_directory
 
 
@@ -77,6 +79,7 @@ class Runtime:
             DATA_DIR / "audio",
             DATA_DIR / "voice-assets/learned-manifest.json",
         )
+        self.speakers = SpeakerResolver(self.textmaps, self.voice_assets, self.transcript)
         self.story_voices = StoryVoiceResolver(
             DATA_DIR / "voice-assets",
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
@@ -115,6 +118,9 @@ class Runtime:
         for line in self.transcript.list(limit=50):
             self.capture.repair_recorded_line(line)
         self.map_task: asyncio.Task[None] | None = None
+        self.update_manager = BackgroundUpdateManager(
+            PROJECT_ROOT, self.textmaps, self.voice_assets, self.on_update_thread
+        )
 
     def _game_data(self) -> Path | None:
         discovered = game_data_directory(self.settings.get())
@@ -126,7 +132,14 @@ class Runtime:
         return None
 
     async def on_line(self, line: TranscriptLine) -> None:
+        line = self.speakers.enrich(line)
         await self.hub.broadcast({"type": "line", "line": line.model_dump(mode="json")})
+
+    def on_update_thread(self, update: dict[str, object]) -> None:
+        asyncio.run_coroutine_threadsafe(
+            self.hub.broadcast({"type": "update_status", "updates": self.update_status()}),
+            self.event_loop,
+        )
 
     def on_agent_thread(self, line: dict) -> None:
         asyncio.run_coroutine_threadsafe(self.hub.broadcast({'type':'agent_line','line':line}), self.event_loop)
@@ -150,15 +163,56 @@ class Runtime:
     async def on_capture_status(self, status: CaptureSnapshot) -> None:
         await self.hub.broadcast({"type": "capture_status", "capture": status.model_dump(mode="json")})
 
+    def update_status(self, agents: dict[str, object] | None = None) -> dict[str, object]:
+        update = self.update_manager.status()
+        if update["state"] in {"checking", "updating"}:
+            return update
+        agents = agents or self.agents.status()
+        agent_update = agents.get("update") or {}
+        story_update = self.story_updater.status()
+        if agent_update.get("state") == "updating":
+            indexed = int(agents.get("indexed_clips") or 0)
+            total = max(1, int(agents.get("total_clips") or 0))
+            return {
+                **update,
+                "state": "updating",
+                "message": agent_update.get("message", "Indexing new agent voices"),
+                "progress": min(91, 82 + round(9 * indexed / total)),
+            }
+        if story_update.get("state") == "updating":
+            return {
+                **update,
+                "state": "updating",
+                "message": story_update.get("message", "Indexing new story voices"),
+                "progress": 94,
+            }
+        retry = next(
+            (
+                item for item in (agent_update, story_update)
+                if item.get("state") == "retrying"
+            ),
+            None,
+        )
+        if retry:
+            return {
+                **update,
+                "state": "retrying",
+                "message": retry.get("message", "An audio index will retry automatically"),
+                "progress": 100,
+            }
+        return update
+
     def status(self) -> dict[str, object]:
+        agents = self.agents.status()
         return {
             "capture": self.capture.snapshot().model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
             "audio": self.audio.status(),
             "voice_assets": self.voice_assets.status(),
             "story_voices": self.story_voices.status(),
-            "agents": self.agents.status(),
+            "agents": agents,
             "voice_activity": self.voice_activity.latest,
+            "updates": self.update_status(agents),
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -180,6 +234,7 @@ class Runtime:
                 force_download=force,
                 progress=self.textmaps.set_message,
             )
+            await asyncio.to_thread(self.speakers.backfill)
         except Exception as error:
             self.textmaps.ready = False
             self.textmaps.state = "error"
@@ -198,6 +253,7 @@ async def lifespan(_app: FastAPI):
     runtime.start_map_prepare()
     runtime.agent_updater.start()
     runtime.story_updater.start()
+    runtime.update_manager.start()
     if runtime.settings.get().auto_start:
         runtime.capture.start()
     try:
@@ -206,6 +262,7 @@ async def lifespan(_app: FastAPI):
         await runtime.capture.close()
         await asyncio.to_thread(runtime.agent_updater.close)
         await asyncio.to_thread(runtime.story_updater.close)
+        await asyncio.to_thread(runtime.update_manager.close)
         runtime.story_voices.close()
         runtime.voice_assets.close()
         runtime.agents.close()
@@ -261,7 +318,7 @@ def get_lines(
     before_id: int | None = Query(default=None, ge=1),
 ) -> list[TranscriptLine]:
     return [
-        line for line in runtime.transcript.list(limit=limit, before_id=before_id)
+        runtime.speakers.enrich(line) for line in runtime.transcript.list(limit=limit, before_id=before_id)
         if line.voiced and (line.has_audio or line.channel == "cinematic")
         and runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
     ]
@@ -269,7 +326,7 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites() -> list[TranscriptLine]:
-    return runtime.transcript.list_favorites()
+    return [runtime.speakers.enrich(line) for line in runtime.transcript.list_favorites()]
 
 
 @app.get('/api/agents')
@@ -356,6 +413,12 @@ async def capture_preview(
 def update_textmaps() -> dict[str, object]:
     started = runtime.start_map_prepare(force=True)
     return {"started": started, "textmaps": runtime.textmaps.status()}
+
+
+@app.post("/api/updates/check")
+def check_updates() -> dict[str, object]:
+    started = runtime.update_manager.request_check()
+    return {"started": started, "updates": runtime.update_manager.status()}
 
 
 @app.post("/api/ingest", response_model=TranscriptLine)

@@ -185,6 +185,31 @@ class TextMapIndex:
         with self._lock:
             self.message = message
 
+    def resolve_display_name(self, candidates: Iterable[str]) -> tuple[str, str] | None:
+        """Resolve a technical/OCR speaker label to an official bilingual name."""
+        with self._lock:
+            ranked: list[tuple[tuple[int, int, int, int], str, str]] = []
+            for candidate_index, candidate in enumerate(candidates):
+                normalized = normalize_english(candidate)
+                if not normalized:
+                    continue
+                for record in self._records_by_normalized.get(normalized, []):
+                    english = display_text(record.english).strip(" \"'.,!?…:;()[]{}")
+                    chinese = display_text(record.chinese).strip(" \"'.,!?…:;()[]{}「」『』（）")
+                    if not english or not chinese or len(english) > 48 or len(chinese) > 24:
+                        continue
+                    text_id = record.text_id.casefold()
+                    name_hint = int("name" in text_id or "avatar" in text_id or "speaker" in text_id)
+                    punctuation_free = int(english == record.english.strip() and chinese == record.chinese.strip())
+                    exact_spelling = int(english.casefold() == candidate.casefold())
+                    ranked.append(
+                        ((-candidate_index, name_hint, exact_spelling, punctuation_free), english, chinese)
+                    )
+            if not ranked:
+                return None
+            _, english, chinese = max(ranked, key=lambda item: item[0])
+            return english, chinese
+
     @staticmethod
     def _looks_like_label(value: str) -> bool:
         words = value.split()

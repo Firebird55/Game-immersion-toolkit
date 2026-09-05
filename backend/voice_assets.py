@@ -224,6 +224,10 @@ class VoiceAssetService:
             "last_error": self.last_error,
         }
 
+    def source_for(self, text_id: str) -> str:
+        with self._manifest_lock:
+            return str(self._entries.get(text_id, {}).get("source", ""))
+
     def learn(self, text_id: str, entry: VoiceEntry) -> None:
         """Persist a fingerprint-verified TextMap alias to an unnamed WEM."""
         if self.learned_manifest is None:
