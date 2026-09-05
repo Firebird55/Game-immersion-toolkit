@@ -15,6 +15,14 @@ reads game memory, or opens Story Recap.
 There is deliberately no matching by approximate sentence text or speaker-local
 line numbers. A short phrase repeated by another character is not interchangeable.
 
+Some recap and comic voices deliberately have no source filename in the shipped
+metadata. For those assets, the companion builds a compact acoustic landmark
+index from unmapped Mandarin story packages. The first loopback clip is used only
+as a recognition probe. A match is accepted only with a large landmark margin and
+independent waveform verification; the transcript audio is then replaced by the
+isolated local WEM. The verified TextMap-to-WEM alias is checksummed in
+`learned-manifest.json`, so later occurrences use the game file immediately.
+
 The initial local index resolved 25,511 lines, including 49 of a snapshot of the
 last 50 transcript entries. This is not coverage of every game dialogue type.
 Nanson's `Side_GalGame_ZenkovS1_100100007_011` resolves to
@@ -35,10 +43,11 @@ cannot delete or replace an original. Originals use per-transcript-row files in
 `data/audio`, so the existing 50-line retention and favorites rules still apply.
 The current-line button identifies original audio; all playback uses the same API.
 
-If a package has changed, a mapping is missing/ambiguous, or decoding fails,
-recording is used instead. After game updates, rebuild the manifest; stale offsets
-are never used. This does not fix OCR lines that were never recognized, and video
-cutscenes with audio embedded in video are not covered by this GalScript index.
+If a package has changed, fingerprint evidence is ambiguous, or decoding fails,
+recording is used instead. The background story indexer detects package changes
+and refreshes automatically while capture continues; stale offsets are never
+used. This does not fix OCR lines that were never recognized, and video cutscenes
+with audio embedded in video are not covered by the external-WEM index.
 
 ## Local rebuild
 
@@ -75,3 +84,13 @@ To replace existing finalized recordings where an exact original exists, run
 This preserves favorites and transcript text, replacing only their playback files.
 Superseded loopback recordings are removed; original clips remain reproducible
 from the installed game packages.
+
+The compact unnamed-story index can also be built manually with:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.build_story_fingerprints `
+  --game-data 'F:\SteamLibrary\steamapps\common\Zenless Zone Zero\games\ZenlessZoneZero Game\ZenlessZoneZero_Data'
+```
+
+`/api/status` reports its indexed candidate count, update state, last candidate
+scores, and the last accepted local asset.

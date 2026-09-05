@@ -108,3 +108,30 @@ def test_incremental_manifest_keeps_only_valid_previous_entries(tmp_path):
     stale = {**valid, "package_size": 1}
     merged = merge_valid_manifest_entries({"old": valid, "stale": stale}, {"new": valid})
     assert set(merged) == {"old", "new"}
+
+
+def test_fingerprint_learned_alias_survives_restart(tmp_path):
+    path = package(tmp_path)
+    manifest = tmp_path / "manifest.json"
+    learned = tmp_path / "learned.json"
+    manifest.write_text(json.dumps({"version": 1, "entries": {}}))
+    decoder = tmp_path / "decoder.exe"
+    decoder.write_bytes(b"decoder")
+    entry = read_external_table(path)[0]
+    service = VoiceAssetService(manifest, decoder, tmp_path / "out", learned)
+    try:
+        service.learn("Comic_future", entry)
+        assert service.has("Comic_future")
+        assert service.status()["learned_lines"] == 1
+    finally:
+        service.close()
+
+    restored = VoiceAssetService(manifest, decoder, tmp_path / "out", learned)
+    try:
+        assert restored.has("Comic_future")
+        saved = json.loads(learned.read_text(encoding="utf-8"))["entries"]["Comic_future"]
+        assert saved["file_id"] == "000000000000007b"
+        assert saved["matched_by"] == "audio_fingerprint"
+        assert len(saved["sha256"]) == 64
+    finally:
+        restored.close()

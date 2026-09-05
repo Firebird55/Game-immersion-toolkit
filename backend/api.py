@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from .audio import AudioCaptureService
 from .voice_assets import VoiceAssetService
+from .story_voice import StoryVoiceResolver, StoryVoiceIndexUpdater
 from .agent_recognition import AgentRecognizer
 from .agent_library import AgentLibraryUpdater
 from .voice_activity import VoiceActivity
@@ -74,7 +75,16 @@ class Runtime:
             DATA_DIR / "voice-assets/manifest.json",
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
             DATA_DIR / "audio",
+            DATA_DIR / "voice-assets/learned-manifest.json",
         )
+        self.story_voices = StoryVoiceResolver(
+            DATA_DIR / "voice-assets",
+            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            DATA_DIR / "audio",
+            self.voice_assets,
+        )
+        self.story_updater = StoryVoiceIndexUpdater(self.story_voices, self._game_data)
+        self.story_voices.updater = self.story_updater
         self.event_loop = asyncio.get_running_loop()
         self.voice_activity = VoiceActivity()
         self.agents = AgentRecognizer(DATA_DIR / 'agent-voices', self.audio, self.on_agent_thread, self.on_agent_activity)
@@ -98,10 +108,22 @@ class Runtime:
             on_status=self.on_capture_status,
             audio=self.audio,
             voice_assets=self.voice_assets,
+            story_voice_resolver=self.story_voices,
             agent_recognizer=self.agents,
             on_voice=self.on_story_voice,
         )
+        for line in self.transcript.list(limit=50):
+            self.capture.repair_recorded_line(line)
         self.map_task: asyncio.Task[None] | None = None
+
+    def _game_data(self) -> Path | None:
+        discovered = game_data_directory(self.settings.get())
+        if discovered:
+            return discovered
+        stored = self.agents.library.get("game_data")
+        if stored and Path(stored).is_dir():
+            return Path(stored)
+        return None
 
     async def on_line(self, line: TranscriptLine) -> None:
         await self.hub.broadcast({"type": "line", "line": line.model_dump(mode="json")})
@@ -134,6 +156,7 @@ class Runtime:
             "textmaps": self.textmaps.status(),
             "audio": self.audio.status(),
             "voice_assets": self.voice_assets.status(),
+            "story_voices": self.story_voices.status(),
             "agents": self.agents.status(),
             "voice_activity": self.voice_activity.latest,
             "settings": self.settings.get().model_dump(mode="json"),
@@ -174,6 +197,7 @@ async def lifespan(_app: FastAPI):
     runtime.audio.start()
     runtime.start_map_prepare()
     runtime.agent_updater.start()
+    runtime.story_updater.start()
     if runtime.settings.get().auto_start:
         runtime.capture.start()
     try:
@@ -181,6 +205,8 @@ async def lifespan(_app: FastAPI):
     finally:
         await runtime.capture.close()
         await asyncio.to_thread(runtime.agent_updater.close)
+        await asyncio.to_thread(runtime.story_updater.close)
+        runtime.story_voices.close()
         runtime.voice_assets.close()
         runtime.agents.close()
         runtime.audio.stop()

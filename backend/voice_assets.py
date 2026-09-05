@@ -6,6 +6,7 @@ transcript similarity or guessed dialogue ordinals are used here.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import struct
 import shutil
@@ -163,10 +164,20 @@ def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, Voi
 class VoiceAssetService:
     """Small persistent manifest; decode only requested lines, off the OCR thread."""
 
-    def __init__(self, manifest: Path, decoder: Path, output_dir: Path):
+    def __init__(
+        self,
+        manifest: Path,
+        decoder: Path,
+        output_dir: Path,
+        learned_manifest: Path | None = None,
+    ):
+        self.manifest = manifest
+        self.learned_manifest = learned_manifest
         self.decoder = decoder
         self.output_dir = output_dir
         self._entries: dict[str, dict] = {}
+        self._learned_entries: dict[str, dict] = {}
+        self._manifest_lock = threading.RLock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
@@ -175,6 +186,12 @@ class VoiceAssetService:
             if data.get("version") != 1:
                 raise ValueError("Unsupported original voice manifest")
             self._entries = data["entries"]
+            if learned_manifest and learned_manifest.exists():
+                learned = json.loads(learned_manifest.read_text(encoding="utf-8"))
+                if learned.get("version") != 1 or not isinstance(learned.get("entries"), dict):
+                    raise ValueError("Unsupported learned voice manifest")
+                self._learned_entries = learned["entries"]
+                self._entries.update(self._learned_entries)
         except (OSError, ValueError, KeyError) as error:
             self.last_error = str(error)
         self.ready = bool(self._entries and decoder.is_file() and shutil.which("ffmpeg"))
@@ -193,12 +210,48 @@ class VoiceAssetService:
         data = json.loads(manifest.read_text(encoding="utf-8"))
         if data.get("version") != 1 or not isinstance(data.get("entries"), dict):
             raise ValueError("Unsupported original voice manifest")
-        self._entries = data["entries"]
+        with self._manifest_lock:
+            self.manifest = manifest
+            self._entries = {**data["entries"], **self._learned_entries}
         self.ready = bool(self._entries and self.decoder.is_file() and shutil.which("ffmpeg"))
         self.last_error = None
 
     def status(self) -> dict:
-        return {"ready": self.ready, "mapped_lines": len(self._entries), "last_error": self.last_error}
+        return {
+            "ready": self.ready,
+            "mapped_lines": len(self._entries),
+            "learned_lines": len(self._learned_entries),
+            "last_error": self.last_error,
+        }
+
+    def learn(self, text_id: str, entry: VoiceEntry) -> None:
+        """Persist a fingerprint-verified TextMap alias to an unnamed WEM."""
+        if self.learned_manifest is None:
+            raise ValueError("Learned voice manifest is not configured")
+        data = entry.read()
+        stat = entry.package.stat()
+        item = {
+            "source": "",
+            "file_id": f"{entry.file_id:016x}",
+            "package": str(entry.package),
+            "package_size": stat.st_size,
+            "package_mtime_ns": stat.st_mtime_ns,
+            "offset": entry.offset,
+            "size": entry.size,
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "matched_by": "audio_fingerprint",
+        }
+        with self._manifest_lock:
+            self._learned_entries[text_id] = item
+            self._entries[text_id] = item
+            self.learned_manifest.parent.mkdir(parents=True, exist_ok=True)
+            temporary = self.learned_manifest.with_suffix(".pending")
+            temporary.write_text(
+                json.dumps({"version": 1, "entries": self._learned_entries}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            temporary.replace(self.learned_manifest)
+        self.ready = bool(self._entries and self.decoder.is_file() and shutil.which("ffmpeg"))
 
     def close(self) -> None:
         self._executor.shutdown(wait=True)
@@ -209,12 +262,14 @@ class VoiceAssetService:
         stat = path.stat()
         if stat.st_size != item["package_size"] or stat.st_mtime_ns != item["package_mtime_ns"]:
             raise ValueError("Game audio package changed; rebuild the original voice index")
-        if voice_hash(item["source"]) != int(item["file_id"], 16):
+        if item.get("source") and voice_hash(item["source"]) != int(item["file_id"], 16):
             raise ValueError("Voice source hash mismatch")
         entry = VoiceEntry(path, item["offset"], item["size"], int(item["file_id"], 16))
         if entry.offset < 28 or not 0 < entry.size <= 64 * 1024 * 1024 or entry.offset + entry.size > stat.st_size:
             raise ValueError("Invalid voice asset bounds")
         data = entry.read()
+        if item.get("sha256") and hashlib.sha256(data).hexdigest() != item["sha256"]:
+            raise ValueError("Learned voice asset checksum mismatch")
         if path.stat().st_mtime_ns != stat.st_mtime_ns:
             raise ValueError("Audio package changed during reading")
         self.output_dir.mkdir(parents=True, exist_ok=True)

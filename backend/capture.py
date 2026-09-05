@@ -75,6 +75,7 @@ class CaptureService:
         on_status: Callable[[CaptureSnapshot], Awaitable[None]],
         audio: AudioCaptureService,
         voice_assets: VoiceAssetService | None = None,
+        story_voice_resolver=None,
         agent_recognizer=None,
         on_voice=None,
     ):
@@ -86,6 +87,7 @@ class CaptureService:
         self.on_status = on_status
         self.audio = audio
         self.voice_assets = voice_assets
+        self.story_voice_resolver = story_voice_resolver
         self.agent_recognizer = agent_recognizer
         self._selected_agent: str | None = None
         self.on_voice = on_voice
@@ -743,11 +745,52 @@ class CaptureService:
             self._remove_audio_file(audio_path)
             return
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+        if (
+            self.story_voice_resolver is not None
+            and audio_path
+            and not audio_path.startswith("official-")
+        ):
+            self.story_voice_resolver.schedule(
+                line.id, line.text_id, audio_path, self._story_original_ready
+            )
         if self.on_voice:
             asyncio.run_coroutine_threadsafe(self.on_voice(line), self._event_loop)
         for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
             self._remove_audio_file(removed_audio)
             asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)
+
+    def _story_original_ready(self, line_id: int, text_id: str, audio_path: str) -> None:
+        if self._event_loop is None:
+            self._remove_audio_file(audio_path)
+            return
+        current = self.transcript.get(line_id)
+        if current is None or current.text_id != text_id:
+            self._remove_audio_file(audio_path)
+            return
+        previous = self.transcript.audio_path(line_id)
+        line = self.transcript.update_audio(line_id, audio_path, True)
+        if line is None:
+            self._remove_audio_file(audio_path)
+            return
+        if previous and previous != audio_path:
+            self._remove_audio_file(previous)
+        asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+
+    def repair_recorded_line(self, line: TranscriptLine) -> bool:
+        if (
+            self.story_voice_resolver is None
+            or not line.voiced
+            or not line.has_audio
+            or line.audio_source == "original"
+        ):
+            return False
+        audio_path = self.transcript.audio_path(line.id)
+        return bool(
+            audio_path
+            and self.story_voice_resolver.schedule(
+                line.id, line.text_id, audio_path, self._story_original_ready
+            )
+        )
 
     def _remove_audio_file(self, filename: str | None) -> None:
         if not filename:
