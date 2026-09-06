@@ -76,7 +76,7 @@ class SpeakerResolver:
         if not self.textmaps.ready:
             return None
         candidates: list[str] = []
-        token = _voice_token(self.voice_assets.source_for(line.text_id))
+        token = _voice_token(self.voice_assets.source_for(line.text_id, line.english))
         if token:
             candidates.extend(_humanize_token(token))
         ocr_name = _ocr_speaker(line.source_ocr, line.english)

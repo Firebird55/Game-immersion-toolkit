@@ -32,6 +32,7 @@ CINEMATIC_ID_MARKERS = (
     "video",
     "voice",
 )
+GAMEPLAY_ID_MARKERS = ("ongoinglevel",)
 UI_LABELS = {"talk", "outputvalue", "searchsupply", "next", "select", "confirm", "cancel"}
 GENDER_VARIANT_RE = re.compile(r"\{[MF]#(.*?)\}", re.DOTALL)
 TERMINAL_PUNCTUATION_RE = re.compile(r"[.!?…][\"')\]}]*$")
@@ -72,6 +73,7 @@ class TextMapIndex:
         self._records_by_normalized: dict[str, list[_Record]] = {}
         self._choices: list[str] = []
         self._cinematic_choices: list[str] = []
+        self._gameplay_choices: list[str] = []
         self._blocked_labels: set[str] = set()
         self._cache: dict[tuple[str, int, bool, str], TextMatch | None] = {}
         self.ready = False
@@ -158,6 +160,11 @@ class TextMapIndex:
                     for normalized, records in index.items()
                     if len(normalized) >= 20
                     if any(self._is_allowed_record(record, "cinematic") for record in records)
+                ]
+                self._gameplay_choices = [
+                    normalized
+                    for normalized, records in index.items()
+                    if any(self._is_allowed_record(record, "gameplay") for record in records)
                 ]
                 self._blocked_labels = blocked_labels
                 self._cache.clear()
@@ -431,7 +438,9 @@ class TextMapIndex:
                     return None
                 effective_threshold = max(threshold, 94) if len(normalized) < 10 else threshold
                 fuzzy_choices = (
-                    self._cinematic_choices if channel == "cinematic" else self._choices
+                    self._cinematic_choices if channel == "cinematic"
+                    else self._gameplay_choices if channel == "gameplay"
+                    else self._choices
                 )
                 fuzzy_match = process.extractOne(
                     normalized,
@@ -501,6 +510,10 @@ class TextMapIndex:
             if "name" in text_id or "speaker" in text_id:
                 return False
             return any(marker in text_id for marker in CINEMATIC_ID_MARKERS)
+        if channel == "gameplay":
+            if "name" in text_id or "speaker" in text_id:
+                return False
+            return any(marker in text_id for marker in GAMEPLAY_ID_MARKERS)
         return cls._is_dialogue_record(record)
 
     @classmethod

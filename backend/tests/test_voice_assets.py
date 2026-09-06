@@ -6,7 +6,7 @@ import pytest
 
 from backend.voice_assets import (
     AudioSourceChoice, VoiceAssetService, VoiceEntry, merge_valid_manifest_entries,
-    read_external_table, resolve_links, voice_hash,
+    read_external_table, resolve_links, voice_hash, voice_manifest_key,
 )
 
 
@@ -55,6 +55,36 @@ def test_new_chapter_resolves_standard_voice_path_without_updated_prefix_metadat
     entries = {hashed: VoiceEntry(tmp_path / "future.pck", 64, 12, hashed)}
     resolved = resolve_links([{"source": source, "text_id": "future-id"}], [], entries)
     assert resolved["future-id"]["file_id"] == f"{hashed:016x}"
+
+
+def test_ongoing_voice_uses_any_speaker_prefix_and_keeps_text_variant(tmp_path):
+    source = "OngoingLevel_ZenkovS1_Wise_123101026_001"
+    prefix = "VO_Ongoing/Ver3_1/VO_Wise/"
+    path = f"chinese(prc)/ex/{prefix}{source}.wem"
+    hashed = voice_hash(path)
+    english = "(Looks like Nanson has something to report. Better go check.)"
+    entries = {hashed: VoiceEntry(tmp_path / "future.pck", 64, 12, hashed)}
+    resolved = resolve_links(
+        [{"source": source, "text_id": "Side_OngoingLevel_Test", "english": english}],
+        [prefix],
+        entries,
+    )
+    key = voice_manifest_key("Side_OngoingLevel_Test", english)
+    assert resolved[key]["source"] == path
+
+
+def test_future_ongoing_speaker_resolves_without_new_prefix_metadata(tmp_path):
+    source = "OngoingLevel_FutureStory_NewAgent_100_001"
+    path = f"chinese(prc)/ex/VO_Ongoing/Ver4_2/VO_NewAgent/{source}.wem"
+    hashed = voice_hash(path)
+    entries = {hashed: VoiceEntry(tmp_path / "future.pck", 64, 12, hashed)}
+    resolved = resolve_links(
+        [{"source": source, "text_id": "Side_OngoingLevel_Future", "english": "Future line."}],
+        [],
+        entries,
+    )
+    key = voice_manifest_key("Side_OngoingLevel_Future", "Future line.")
+    assert resolved[key]["source"] == path
 
 
 @pytest.mark.parametrize("recording_first", [True, False])

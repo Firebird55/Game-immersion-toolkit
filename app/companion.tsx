@@ -78,7 +78,7 @@ type TranscriptLine = {
   score: number;
   match_kind: string;
   ambiguous: boolean;
-  channel: 'dialogue' | 'tip' | 'cinematic';
+  channel: 'dialogue' | 'gameplay' | 'tip' | 'cinematic';
   voiced: boolean;
   has_audio: boolean;
   audio_source?: 'original' | 'recording';
@@ -531,7 +531,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={`${latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={`${latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -631,7 +631,7 @@ function CompanionClient() {
             <article className="transcript-line" key={line.id}>
               <div className="line-time">
                 <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
-                <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : 'DIALOGUE'}</small>
+                <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : line.channel === 'gameplay' ? 'GAMEPLAY' : 'DIALOGUE'}</small>
               </div>
               <div className="line-language">
                 {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}

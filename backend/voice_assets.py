@@ -18,12 +18,20 @@ from typing import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .textmaps import normalize_english
+
 
 def voice_hash(path: str) -> int:
     value = 0xCBF29CE484222325
     for byte in path.lower().encode("utf-8"):
         value = ((value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF) ^ byte
     return value
+
+
+def voice_manifest_key(text_id: str, english: str | None = None) -> str:
+    """Address gender-specific assets without changing the official TextMap ID."""
+    normalized = normalize_english(english or "")
+    return f"{text_id}\0{normalized}" if normalized else text_id
 
 
 @dataclass(frozen=True)
@@ -112,12 +120,13 @@ def merge_valid_manifest_entries(previous: dict, refreshed: dict) -> dict:
 def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, VoiceEntry]) -> dict[str, dict]:
     by_speaker: dict[str, list[str]] = {}
     for prefix in prefixes:
-        if prefix.lower().startswith("vo_galgame/") and "/VO_" in prefix:
+        if "/VO_" in prefix:
             speaker = prefix.rstrip("/").rsplit("/VO_", 1)[1].lower()
             by_speaker.setdefault(speaker, []).append(prefix)
     candidates: dict[str, dict[int, str]] = {}
     for link in links:
         source, text_id = link["source"], link["text_id"]
+        manifest_key = voice_manifest_key(text_id, link.get("english"))
         paths = [source] if "/" in source else [
             prefix + source for token in source.lower().split("_")
             for prefix in by_speaker.get(token, [])
@@ -127,27 +136,37 @@ def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, Voi
             full = f"chinese(prc)/ex/{path}.wem"
             hashed = voice_hash(full)
             if hashed in entries:
-                candidates.setdefault(text_id, {})[hashed] = full
+                candidates.setdefault(manifest_key, {})[hashed] = full
                 found = True
         if not found and "/" not in source:
             # VoiceData's prefix list can lag a newly installed chapter. The
             # Wwise file ID validates path guesses exactly, so try conventional
             # version/speaker paths only when metadata found no real asset.
-            ignored = {"galgame", "main", "companion", "chapter", "event", "activity"}
+            ignored = {
+                "galgame", "ongoinglevel", "level", "main", "companion",
+                "chapter", "event", "activity",
+            }
             speakers = {
                 token for token in source.split("_")
                 if re.fullmatch(r"[A-Za-z][A-Za-z0-9]+", token)
                 and token.casefold() not in ignored
                 and not token.casefold().startswith(("chapter", "ver"))
             }
+            source_kind = source.casefold()
+            families = (
+                ["VO_Ongoing"] if source_kind.startswith("ongoinglevel_")
+                else ["VO_Level"] if source_kind.startswith("level_")
+                else ["VO_Galgame"]
+            )
             for speaker in speakers:
                 for major in range(1, 10):
                     for minor in range(10):
-                        path = f"VO_Galgame/Ver{major}_{minor}/VO_{speaker}/{source}"
-                        full = f"chinese(prc)/ex/{path}.wem"
-                        hashed = voice_hash(full)
-                        if hashed in entries:
-                            candidates.setdefault(text_id, {})[hashed] = full
+                        for family in families:
+                            path = f"{family}/Ver{major}_{minor}/VO_{speaker}/{source}"
+                            full = f"chinese(prc)/ex/{path}.wem"
+                            hashed = voice_hash(full)
+                            if hashed in entries:
+                                candidates.setdefault(manifest_key, {})[hashed] = full
     result = {}
     for text_id, values in candidates.items():
         if len(values) != 1:
@@ -197,9 +216,22 @@ class VoiceAssetService:
         self.ready = bool(self._entries and decoder.is_file() and shutil.which("ffmpeg"))
 
     def has(self, text_id: str) -> bool:
-        if not self.ready or text_id not in self._entries:
+        return self.has_variant(text_id)
+
+    def _entry_key(self, text_id: str, english: str | None = None) -> str | None:
+        variant = voice_manifest_key(text_id, english)
+        with self._manifest_lock:
+            if variant in self._entries:
+                return variant
+            if text_id in self._entries:
+                return text_id
+        return None
+
+    def has_variant(self, text_id: str, english: str | None = None) -> bool:
+        entry_key = self._entry_key(text_id, english)
+        if not self.ready or entry_key is None:
             return False
-        item = self._entries[text_id]
+        item = self._entries[entry_key]
         try:
             stat = Path(item["package"]).stat()
             return stat.st_size == item["package_size"] and stat.st_mtime_ns == item["package_mtime_ns"]
@@ -224,9 +256,10 @@ class VoiceAssetService:
             "last_error": self.last_error,
         }
 
-    def source_for(self, text_id: str) -> str:
+    def source_for(self, text_id: str, english: str | None = None) -> str:
+        entry_key = self._entry_key(text_id, english)
         with self._manifest_lock:
-            return str(self._entries.get(text_id, {}).get("source", ""))
+            return str(self._entries.get(entry_key or "", {}).get("source", ""))
 
     def learn(self, text_id: str, entry: VoiceEntry) -> None:
         """Persist a fingerprint-verified TextMap alias to an unnamed WEM."""
@@ -260,8 +293,11 @@ class VoiceAssetService:
     def close(self) -> None:
         self._executor.shutdown(wait=True)
 
-    def extract(self, text_id: str, line_id: int) -> str:
-        item = self._entries[text_id]
+    def extract(self, text_id: str, line_id: int, english: str | None = None) -> str:
+        entry_key = self._entry_key(text_id, english)
+        if entry_key is None:
+            raise KeyError(text_id)
+        item = self._entries[entry_key]
         path = Path(item["package"])
         stat = path.stat()
         if stat.st_size != item["package_size"] or stat.st_mtime_ns != item["package_mtime_ns"]:
@@ -294,13 +330,17 @@ class VoiceAssetService:
             mp3.replace(destination)
         return filename
 
-    def schedule(self, text_id: str, line_id: int, callback: Callable[[int, str | None, bool], None]) -> bool:
-        if not self.has(text_id) or not self._slots.acquire(blocking=False):
+    def schedule(
+        self, text_id: str, line_id: int,
+        callback: Callable[[int, str | None, bool], None],
+        english: str | None = None,
+    ) -> bool:
+        if not self.has_variant(text_id, english) or not self._slots.acquire(blocking=False):
             return False
         def work():
             result = None
             try:
-                result = self.extract(text_id, line_id)
+                result = self.extract(text_id, line_id, english)
                 self.last_error = None
             except Exception as error:
                 self.last_error = str(error)

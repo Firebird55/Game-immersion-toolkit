@@ -66,7 +66,7 @@ class TranscriptLine(BaseModel):
     score: float
     match_kind: str
     ambiguous: bool = False
-    channel: Literal["dialogue", "tip", "cinematic"] = "dialogue"
+    channel: Literal["dialogue", "gameplay", "tip", "cinematic"] = "dialogue"
     voiced: bool = False
     has_audio: bool = False
     audio_source: Literal["original", "recording"] = "recording"

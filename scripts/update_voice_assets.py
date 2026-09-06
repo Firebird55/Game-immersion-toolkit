@@ -12,6 +12,45 @@ import subprocess
 import sys
 
 from backend.agent_library import atomic_json
+from backend.textmaps import localized_variants
+
+
+ONGOING_TEXT_ID = "PMNJCMFLJIL"
+ONGOING_FEMALE_VOICE = "DGFCDOGFFGP"
+ONGOING_MALE_VOICE = "EODLJIEIIGJ"
+
+
+def ongoing_voice_links(config: dict, english: dict[str, str]) -> list[dict[str, str]]:
+    """Link floating gameplay subtitles to every configured speaker asset.
+
+    ZZZ stores these separately from GalGame/Comic performances. The two voice
+    fields are normally female/male protagonist variants, but also contain NPC,
+    companion, and agent sources, so no speaker allowlist is used.
+    """
+    rows = next((value for value in config.values() if isinstance(value, list)), [])
+    links: list[dict[str, str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        text_id = str(row.get(ONGOING_TEXT_ID, "")).strip()
+        if "ongoinglevel" not in text_id.casefold() or text_id not in english:
+            continue
+        variants = localized_variants(english[text_id])
+        male = str(row.get(ONGOING_MALE_VOICE, "")).strip()
+        female = str(row.get(ONGOING_FEMALE_VOICE, "")).strip()
+        if male:
+            links.append({"source": male, "text_id": text_id, "english": variants[0]})
+        if female:
+            variant = variants[1] if len(variants) > 1 else variants[0]
+            links.append({"source": female, "text_id": text_id, "english": variant})
+    return links
+
+
+def merged_english_maps(root: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for name in ("en_base.json", "en_overwrite.json"):
+        result.update(json.loads((root / "data/textmaps" / name).read_text(encoding="utf-8-sig")))
+    return result
 
 
 def discover_game_data(root: Path) -> Path | None:
@@ -57,8 +96,9 @@ def main() -> None:
     prefixes = tools / "VoiceData.json"
     decoder = tools / "vgmstream"
     reader = tools / "galgame-perform.ts"
+    ongoing_config = tools / "OngoingTipsConfigTemplateTb.json"
     state_path = root / "data/voice-assets/full-index-state.json"
-    required = [template, prefixes, reader, decoder / "vgmstream-cli.exe"]
+    required = [template, prefixes, reader, ongoing_config, decoder / "vgmstream-cli.exe"]
     game_data = discover_game_data(root)
     if game_data is None or not all(path.exists() for path in required) or not shutil.which("node"):
         print("Full voice refresh skipped; the last complete local manifest remains active.")
@@ -70,7 +110,7 @@ def main() -> None:
     except (OSError, ValueError):
         previous = {}
     manifest = root / "data/voice-assets/manifest.json"
-    if previous.get("version") == 2 and previous.get("inventory") == current and manifest.exists():
+    if previous.get("version") == 3 and previous.get("inventory") == current and manifest.exists():
         print("Full local voice manifest is already current.")
         return
 
@@ -96,6 +136,15 @@ def main() -> None:
             if key not in seen_links:
                 seen_links.add(key)
                 combined_links.append(link)
+    ongoing = ongoing_voice_links(
+        json.loads(ongoing_config.read_text(encoding="utf-8")),
+        merged_english_maps(root),
+    )
+    for link in ongoing:
+        key = (link["source"].casefold(), link["text_id"], link["english"])
+        if key not in seen_links:
+            seen_links.add(key)
+            combined_links.append(link)
     combined_path = tools / "scene-links.json"
     atomic_json(combined_path, combined_links)
     subprocess.run([
@@ -105,7 +154,7 @@ def main() -> None:
         "--prefixes", str(prefixes),
         "--decoder-dir", str(decoder),
     ], **options)
-    atomic_json(state_path, {"version": 2, "inventory": inventory(game_data, required)})
+    atomic_json(state_path, {"version": 3, "inventory": inventory(game_data, required)})
     total = len(json.loads(manifest.read_text(encoding="utf-8"))["entries"])
     print(f"Full local Mandarin voice manifest ready: {total:,} exact lines.")
 

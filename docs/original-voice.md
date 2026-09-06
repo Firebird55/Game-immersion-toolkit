@@ -12,6 +12,14 @@ reads game memory, or opens Story Recap.
 4. Verify the complete Mandarin path against the 64-bit FNV-1 ID in the local PCK.
 5. Accept only one unambiguous asset per TextMap ID.
 
+Floating free-roam subtitles use a second exact metadata route. The installed
+`OngoingTipsConfigTemplateTb` pairs each OngoingLevel TextMap record with its
+voice source(s). Those sources are resolved through every matching speaker prefix
+and verified against the same PCK hashes. A single TextMap ID can contain separate
+male/female sentences, so the manifest keys those assets by both official ID and
+normalized English variant. NPC, agent, companion, and future speaker sources use
+the same route without a name allowlist.
+
 There is deliberately no matching by approximate sentence text or speaker-local
 line numbers. A short phrase repeated by another character is not interchangeable.
 
@@ -42,6 +50,12 @@ Recording remains available until extraction succeeds. A late recording callback
 cannot delete or replace an original. Originals use per-transcript-row files in
 `data/audio`, so the existing 50-line retention and favorites rules still apply.
 The current-line button identifies original audio; all playback uses the same API.
+
+At the September 2026 verification point, the merged manifest contained 54,250
+exact mappings. The screenshot case
+`Side_OngoingLevel_ZenkovS1_123101026_02` resolved to Wise's
+`VO_Ongoing/Ver3_1` WEM in `External_Cn_8.pck` and decoded to an isolated
+2.76-second MP3.
 
 If a package has changed, fingerprint evidence is ambiguous, or decoding fails,
 recording is used instead. The background story indexer detects package changes

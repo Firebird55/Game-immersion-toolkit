@@ -4,7 +4,12 @@ A local, gameplay-first bilingual transcript companion for Zenless Zone Zero.
 
 It captures English text from the running game, recognizes it with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
 
-Three independent regions cover the normal dialogue box, upper-right spoken prompts, and voiced cutscene/comic panels. The last region only activates while speech is detected. The Knock Knock phone interface, Story Recap, and HDD commission-selection screen are explicitly excluded.
+Three independent regions cover the lower subtitles, upper-right spoken prompts,
+and voiced cutscene/comic panels. Within the lower region, wide dark interaction
+boxes in normal 3D gameplay remain excluded as unvoiced. White outlined subtitles
+drawn directly over the scene are treated as voiced gameplay lines and matched
+against the game's OngoingLevel records. The Knock Knock phone interface, Story
+Recap, and HDD commission-selection screen are explicitly excluded.
 
 Windows loopback audio is kept only in a short in-memory rolling buffer. When a matched line contains speech, the companion uses GameSentenceMiner's local FireRedVAD model to trim away the music-only lead-in and tail, saves a compact MP3 clip, and adds playback controls to that row in the web interface. It does not make a continuous recording.
 
@@ -42,10 +47,16 @@ The **Speed** control in the footer plays story and agent clips at 1×, 0.85×,
 The companion opens immediately using its last complete local indexes. A
 progress bar in the web interface then checks the upstream ZenlessData metadata,
 the bilingual TextMaps, and the installed Mandarin game packages in the
-background. New chapter, event, sidequest, comic, and agent assets are indexed
+background. New chapter, event, sidequest, floating gameplay, comic, and agent assets are indexed
 without blocking the webpage or changing game files. The check repeats every
 15 minutes while the companion is running; failures keep the previous complete
 indexes active and retry automatically.
+
+The floating-gameplay index reads the installed Ongoing Tips metadata for every
+referenced speaker; it is not limited to Wise or Belle. Gender-specific TextMap
+variants retain separate original WEMs. New package timestamps and metadata are
+noticed at startup and by the recurring background check, then atomically
+hot-reloaded without blocking the page.
 
 This updates data and game-derived indexes, not the customized application code
 or a dirty Git working tree. A future incompatible game format still requires a

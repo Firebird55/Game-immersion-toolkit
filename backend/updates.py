@@ -129,16 +129,17 @@ class BackgroundUpdateManager:
         self._run_command(["git", "pull", "--ff-only", "--quiet"], cwd=repository, timeout=240)
         after = self._run_command(["git", "rev-parse", "HEAD"], cwd=repository, timeout=30)
 
-        source = repository / "FileCfg/PerformTemplateTb.json"
-        destination = self.project_root / "work/voice-assets/PerformTemplateTb.json"
         copied = False
-        if source.is_file() and (
-            not destination.is_file() or self._digest(source) != self._digest(destination)
-        ):
-            pending = destination.with_suffix(".pending")
-            shutil.copy2(source, pending)
-            pending.replace(destination)
-            copied = True
+        for name in ("PerformTemplateTb.json", "OngoingTipsConfigTemplateTb.json"):
+            source = repository / "FileCfg" / name
+            destination = self.project_root / "work/voice-assets" / name
+            if source.is_file() and (
+                not destination.is_file() or self._digest(source) != self._digest(destination)
+            ):
+                pending = destination.with_suffix(".pending")
+                shutil.copy2(source, pending)
+                pending.replace(destination)
+                copied = True
         changed = before != after or copied
         return after, changed, "Upstream game metadata updated" if changed else "Upstream game metadata is current"
 

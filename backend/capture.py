@@ -352,19 +352,34 @@ class CaptureService:
 
         phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
         excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd"}
-        raw_match = (
+        dialogue_match = (
             None
             if excluded_screen
             else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
+        # Short voiced remarks during free-roam gameplay are rendered as white
+        # outlined text directly over the scene. They use OngoingLevel TextMap
+        # records rather than the normal GalGame dialogue family. Only consider
+        # that family when the broad dark interaction box is absent.
+        gameplay_match = (
+            None
+            if excluded_screen or dialogue_box_layout or self._visual_novel_layout
+            else self.textmaps.match_lines(
+                lines, threshold=settings.fuzzy_threshold, channel="gameplay"
+            )
+        )
+        raw_match = gameplay_match or dialogue_match
+        match_channel = "gameplay" if gameplay_match is not None else "dialogue"
         # The large bottom dialogue box in normal 3D gameplay is interaction
         # text, not spoken audio. Only that exact text is blocked; cinematic,
         # comic and top-right channels remain independently eligible.
         unvoiced_gameplay_dialogue = bool(
-            raw_match and dialogue_box_layout and not self._visual_novel_layout
+            dialogue_match and dialogue_box_layout and not self._visual_novel_layout
         )
         match = None if unvoiced_gameplay_dialogue else raw_match
-        blocked_unvoiced_ids = {raw_match.text_id} if unvoiced_gameplay_dialogue else set()
+        blocked_unvoiced_ids = (
+            {dialogue_match.text_id} if unvoiced_gameplay_dialogue else set()
+        )
         # Entering the agent menu between periodic layout scans must not let a
         # character-name label become a voiced story line during that gap.
         if match and self.agent_recognizer and normalize_english(match.english) in {
@@ -385,7 +400,9 @@ class CaptureService:
                     message=f'Listening to {self._selected_agent or "agent"} voice lines', last_error=None)
                 return _ScanOutcome([])
         monotonic_now = time.monotonic()
-        self._observe_visible_matches("dialogue", [match.text_id] if match else [], monotonic_now)
+        self._observe_visible_matches(
+            match_channel, [match.text_id] if match else [], monotonic_now
+        )
         speech_active = self.audio.speech_recent(1.8)
         emitted_lines: list[TranscriptLine] = []
         if match is None:
@@ -395,28 +412,35 @@ class CaptureService:
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
-            fresh_match = self._is_fresh_match("dialogue", key, monotonic_now)
+            fresh_match = self._is_fresh_match(match_channel, key, monotonic_now)
             redundant_visible_match = self._is_redundant_visible_match(
-                "dialogue", match.english, raw_text
+                match_channel, match.english, raw_text
             )
-            if not speech_active and not (self.voice_assets and self.voice_assets.has(match.text_id)):
+            if not speech_active and not (
+                self.voice_assets
+                and self.voice_assets.has_variant(match.text_id, match.english)
+            ):
                 self._tracker.observe(None)
             elif fresh_match and (
                 self._tracker.observe(key)
                 and not redundant_visible_match
-                and self._can_emit(f"dialogue\0{key}", monotonic_now)
+                and self._can_emit(f"{match_channel}\0{key}", monotonic_now)
             ):
                 line, _ = self.transcript.add_or_upgrade_recent(
-                    match, self.session_id, created_at=now, channel="dialogue"
+                    match, self.session_id, created_at=now, channel=match_channel
                 )
                 if line is not None:
                     emitted_lines.append(line)
                     self._schedule_line_audio(
                         line, monotonic_now,
-                        observed_at=self._visible_match_started["dialogue"][1],
+                        observed_at=self._visible_match_started[match_channel][1],
                     )
             phase = "matched"
-            message = "Official bilingual line matched"
+            message = (
+                "Voiced gameplay subtitle matched"
+                if match_channel == "gameplay"
+                else "Official bilingual line matched"
+            )
             match_score = match.score
 
         tip_bounds = self._region_bounds(window, settings.tip_region)
@@ -706,13 +730,15 @@ class CaptureService:
             if current is not None and current.text_id == line.text_id:
                 self.audio.cancel_clip(line_id)
 
-        if self.voice_assets and self.voice_assets.has(line.text_id):
+        if self.voice_assets and self.voice_assets.has_variant(line.text_id, line.english):
             choice = AudioSourceChoice(publish, self._remove_audio_file, cancel_recording)
             # Keep the ring-buffer fallback until extraction succeeds. Arbitration
             # prevents a late VAD failure from deleting a successful original clip.
             self.audio.schedule_clip(line.id, now, choice.recording_result,
                                      observed_at=observed_at, chinese=line.chinese)
-            if not self.voice_assets.schedule(line.text_id, line.id, choice.original_result):
+            if not self.voice_assets.schedule(
+                line.text_id, line.id, choice.original_result, line.english
+            ):
                 choice.original_result(line.id, None, False)
         else:
             self.audio.schedule_clip(line.id, now, publish,

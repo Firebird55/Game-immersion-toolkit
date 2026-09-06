@@ -38,6 +38,7 @@ def make_index(tmp_path) -> TextMapIndex:
             "GalGame_Chapter02_16_03": "Don't forget, although the upcoming metro renovation project also goes through this area, Public Security has yet to approve any units or individuals to enter.",
             "GalGame_Chapter02_16_08": "But that's not important. We should start looking for the prototype.",
             "unrelated_short": "The prototype?",
+            "Side_OngoingLevel_Test_01": "(Looks like Nanson has something to report. Better go check.)",
         },
     )
     write_map(
@@ -66,6 +67,7 @@ def make_index(tmp_path) -> TextMapIndex:
             "GalGame_Chapter02_16_03": "别忘了，即使地铁改建项目也经过这里，治安局仍未批准任何单位或个人进入。",
             "GalGame_Chapter02_16_08": "不过现在就不说这些了，我们还是赶快开始找原型机吧。",
             "unrelated_short": "「原型机」？",
+            "Side_OngoingLevel_Test_01": "（南升似乎有事情要同步，过去看看吧。）",
         },
     )
     write_map(index, "en_overwrite", {"dialogue_old": "The current localization."})
@@ -88,11 +90,12 @@ def test_menu_subtitles_and_unvoiced_fairy_tutorials_are_not_dialogue() -> None:
         ("TutorialDialogSubTitle_1", "TUTORIAL"),
     ]
     for text_id, english in rejected:
-        for channel in ("dialogue", "tip", "cinematic"):
+        for channel in ("dialogue", "gameplay", "tip", "cinematic"):
             assert not TextMapIndex.is_capture_text(text_id, english, channel)
     assert TextMapIndex.is_capture_text("Comic_123", "We have to leave!", "cinematic")
     assert TextMapIndex.is_capture_text("Video_123", "We have to leave!", "cinematic")
     assert TextMapIndex.is_capture_text("GalGame_123", "We have to leave!", "dialogue")
+    assert TextMapIndex.is_capture_text("Side_OngoingLevel_123", "We should go.", "gameplay")
     assert TextMapIndex.is_capture_text("Tips_1228010012", "To unlock it, you need to obtain an S-Rank in the previous battle.", "tip")
 
 
@@ -155,6 +158,16 @@ def test_top_right_tip_uses_separate_safe_channel(tmp_path) -> None:
     assert match.text_id == "Tips_1228010012"
     assert match.chinese.startswith("需于上次战斗中取得")
     assert index.match_text("Press to launch a Basic Attack.", channel="tip") is None
+
+
+def test_floating_gameplay_voice_uses_ongoing_level_channel(tmp_path) -> None:
+    index = make_index(tmp_path)
+    text = "(Looks like Nanson has something to report. Better go check.)"
+    assert index.match_text(text) is None
+    match = index.match_lines([".. Wise ..", text], channel="gameplay")
+    assert match is not None
+    assert match.text_id == "Side_OngoingLevel_Test_01"
+    assert match.chinese.startswith("（南升")
 
 
 def test_comic_gender_variants_match_in_cinematic_channel(tmp_path) -> None:
