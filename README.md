@@ -11,6 +11,11 @@ drawn directly over the scene are treated as voiced gameplay lines and matched
 against the game's OngoingLevel records. The Knock Knock phone interface, Story
 Recap, and HDD commission-selection screen are explicitly excluded.
 
+Because these floating gameplay subtitles are brief, the newest confirmed one
+remains in **Current line** after it disappears in-game. It stays there until any
+new voiced line arrives, keeping the Hanzi available for Migaku without creating
+a duplicate History row. Other dialogue presentations keep their live behavior.
+
 Windows loopback audio is kept only in a short in-memory rolling buffer. When a matched line contains speech, the companion uses GameSentenceMiner's local FireRedVAD model to trim away the music-only lead-in and tail, saves a compact MP3 clip, and adds playback controls to that row in the web interface. It does not make a continuous recording.
 
 The matcher also builds a blocklist from the official character-name and speaker-label records. Short standalone HUD actions are ignored, while short spoken replies are accepted when OCR sees them beneath a speaker label. This keeps the log focused on dialogue without maintaining a manual list of characters.

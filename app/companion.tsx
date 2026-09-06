@@ -347,12 +347,21 @@ function CompanionClient() {
   }, [settingsOpen]);
 
   const recentLines = useMemo(() => lines.slice(0, 50), [lines]);
-  const latestLine = recentLines.find((line) =>
+  const visibleLine = recentLines.find((line) =>
     line.session_id === status?.session.id
     && line.voiced
     && status?.capture.running
     && status.capture.visible_text_ids?.includes(line.text_id)
   ) ?? null;
+  const latestSessionLine = recentLines.find((line) =>
+    line.session_id === status?.session.id && line.voiced
+  ) ?? null;
+  // Free-roam subtitles disappear from the game almost immediately. Keep the
+  // newest one available to read/Migaku until any later voiced line arrives.
+  // Other presentation modes still disappear from Current line with the game.
+  const latestLine = visibleLine ?? (
+    latestSessionLine?.channel === 'gameplay' ? latestSessionLine : null
+  );
   const historyLines = useMemo(
     () => recentLines.filter((line) => line.id !== latestLine?.id),
     [recentLines, latestLine?.id],
