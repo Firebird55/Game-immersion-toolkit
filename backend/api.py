@@ -20,6 +20,8 @@ from .config import SettingsStore
 from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex
+from .pragmata import PragmataTextIndex
+from .pragmata_updates import PragmataUpdateManager
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .windows import list_visible_windows, game_data_directory
@@ -72,6 +74,8 @@ class Runtime:
         self.settings = SettingsStore(DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
+        self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
+        self.pragmata.load()
         self.audio = AudioCaptureService(DATA_DIR / "audio")
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
@@ -105,6 +109,7 @@ class Runtime:
         self.capture = CaptureService(
             settings=self.settings,
             textmaps=self.textmaps,
+            pragmata=self.pragmata,
             transcript=self.transcript,
             on_line=self.on_line,
             on_delete=self.on_delete,
@@ -120,6 +125,9 @@ class Runtime:
         self.map_task: asyncio.Task[None] | None = None
         self.update_manager = BackgroundUpdateManager(
             PROJECT_ROOT, self.textmaps, self.voice_assets, self.on_update_thread
+        )
+        self.pragmata_updater = PragmataUpdateManager(
+            PROJECT_ROOT, self.pragmata, self.on_update_thread
         )
 
     def _game_data(self) -> Path | None:
@@ -170,6 +178,9 @@ class Runtime:
         agents = agents or self.agents.status()
         agent_update = agents.get("update") or {}
         story_update = self.story_updater.status()
+        pragmata_update = self.pragmata_updater.status()
+        if pragmata_update.get("state") == "updating":
+            return pragmata_update
         if agent_update.get("state") == "updating":
             indexed = int(agents.get("indexed_clips") or 0)
             total = max(1, int(agents.get("total_clips") or 0))
@@ -188,7 +199,7 @@ class Runtime:
             }
         retry = next(
             (
-                item for item in (agent_update, story_update)
+                item for item in (agent_update, story_update, pragmata_update)
                 if item.get("state") == "retrying"
             ),
             None,
@@ -207,6 +218,10 @@ class Runtime:
         return {
             "capture": self.capture.snapshot().model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
+            "game_textmaps": {
+                "zzz": self.textmaps.status(),
+                "pragmata": self.pragmata.status(),
+            },
             "audio": self.audio.status(),
             "voice_assets": self.voice_assets.status(),
             "story_voices": self.story_voices.status(),
@@ -254,6 +269,7 @@ async def lifespan(_app: FastAPI):
     runtime.agent_updater.start()
     runtime.story_updater.start()
     runtime.update_manager.start()
+    runtime.pragmata_updater.start()
     if runtime.settings.get().auto_start:
         runtime.capture.start()
     try:
@@ -263,6 +279,7 @@ async def lifespan(_app: FastAPI):
         await asyncio.to_thread(runtime.agent_updater.close)
         await asyncio.to_thread(runtime.story_updater.close)
         await asyncio.to_thread(runtime.update_manager.close)
+        await asyncio.to_thread(runtime.pragmata_updater.close)
         runtime.story_voices.close()
         runtime.voice_assets.close()
         runtime.agents.close()
@@ -316,17 +333,24 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata)$"),
 ) -> list[TranscriptLine]:
     return [
-        runtime.speakers.enrich(line) for line in runtime.transcript.list(limit=limit, before_id=before_id)
+        runtime.speakers.enrich(line) for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
         if line.voiced and (line.has_audio or line.channel == "cinematic")
-        and runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
+        and (
+            runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
+            if line.game == "pragmata"
+            else runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
+        )
     ]
 
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
-def get_favorites() -> list[TranscriptLine]:
-    return [runtime.speakers.enrich(line) for line in runtime.transcript.list_favorites()]
+def get_favorites(
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata)$"),
+) -> list[TranscriptLine]:
+    return [runtime.speakers.enrich(line) for line in runtime.transcript.list_favorites(game=game)]
 
 
 @app.get('/api/agents')
@@ -418,7 +442,8 @@ def update_textmaps() -> dict[str, object]:
 @app.post("/api/updates/check")
 def check_updates() -> dict[str, object]:
     started = runtime.update_manager.request_check()
-    return {"started": started, "updates": runtime.update_manager.status()}
+    pragmata_started = runtime.pragmata_updater.request_check()
+    return {"started": started or pragmata_started, "updates": runtime.update_status()}
 
 
 @app.post("/api/ingest", response_model=TranscriptLine)

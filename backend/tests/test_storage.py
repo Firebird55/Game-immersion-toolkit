@@ -25,6 +25,26 @@ def test_transcript_round_trip(tmp_path) -> None:
     assert store.count("session-b") == 0
 
 
+def test_game_histories_are_partitioned(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    zzz = TextMatch(
+        text_id="zzz-line", english="A shared line.", chinese="一句台词。",
+        source_ocr="A shared line.", score=100, kind="exact",
+    )
+    pragmata = TextMatch(
+        game="pragmata", text_id="pragmata-line", english="A shared line.",
+        chinese="一句台词。", source_ocr="A shared line.", score=100, kind="exact",
+        speaker_english="Ken", speaker_chinese="肯",
+    )
+    first, _ = store.add_or_upgrade_recent(zzz, "session-a")
+    second, _ = store.add_or_upgrade_recent(pragmata, "session-a")
+    assert first is not None and second is not None
+    assert store.list(game="zzz") == [first]
+    assert store.list(game="pragmata") == [second]
+    assert second.speaker_english == "Ken"
+    assert second.speaker_chinese == "肯"
+
+
 def test_transcript_channel_migrates_and_round_trips(tmp_path) -> None:
     store = TranscriptStore(tmp_path / "transcript.db")
     match = TextMatch(

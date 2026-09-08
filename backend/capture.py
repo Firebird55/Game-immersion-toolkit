@@ -20,7 +20,8 @@ from .config import SettingsStore
 from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex, normalize_english
-from .windows import WindowInfo, find_game_window
+from .pragmata import PragmataTextIndex
+from .windows import WindowInfo, find_active_game_window, find_game_window
 from .voice_assets import AudioSourceChoice, VoiceAssetService
 
 
@@ -69,6 +70,7 @@ class CaptureService:
         self,
         settings: SettingsStore,
         textmaps: TextMapIndex,
+        pragmata: PragmataTextIndex | None,
         transcript: TranscriptStore,
         on_line: Callable[[TranscriptLine], Awaitable[None]],
         on_delete: Callable[[int], Awaitable[None]],
@@ -81,6 +83,7 @@ class CaptureService:
     ):
         self.settings = settings
         self.textmaps = textmaps
+        self.pragmata = pragmata
         self.transcript = transcript
         self.on_line = on_line
         self.on_delete = on_delete
@@ -135,12 +138,12 @@ class CaptureService:
             return self._preview
 
     def preview_for_region(self, region: CaptureRegion) -> bytes:
-        window = find_game_window(self.settings.get())
-        if window is None:
+        active = find_active_game_window(self.settings.get())
+        if active is None:
             if self.agent_recognizer:
                 self.agent_recognizer.observe(None, False)
             return b""
-        image = self._capture(self._region_bounds(window, region))
+        image = self._capture(self._region_bounds(active[1], region))
         return self._encode_preview(image)
 
     def start(self) -> bool:
@@ -226,9 +229,9 @@ class CaptureService:
         epoch = self._scan_epoch
         self._scan_index += 1
         settings = self.settings.get()
-        window = find_game_window(settings)
+        active = find_active_game_window(settings)
         now = datetime.now(timezone.utc).astimezone()
-        if window is None:
+        if active is None:
             self._selected_agent = None
             self._excluded_screen = None
             if self.agent_recognizer:
@@ -239,7 +242,8 @@ class CaptureService:
             self._update_snapshot(
                 running=True,
                 phase="waiting_for_game",
-                message="Waiting for ZenlessZoneZero.exe",
+                message="Waiting for Zenless Zone Zero or PRAGMATA",
+                active_game=None,
                 window_title=None,
                 window_bounds=None,
                 crop_bounds=None,
@@ -250,10 +254,15 @@ class CaptureService:
             )
             return _ScanOutcome([])
 
+        profile, window = active
+
         engine = self._engine
         if engine is None:
             engine = OcrEngine()
             self._engine = engine
+
+        if profile.id == "pragmata":
+            return self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
 
         crop_bounds = self._region_bounds(window, settings.region)
         # Normal 3D interactions and voiced visual-novel scenes use nearly the
@@ -316,7 +325,7 @@ class CaptureService:
             self._visible_text_by_channel.clear()
             self._update_snapshot(running=True, phase='agents',
                 message=f'Listening to {self._selected_agent or "agent"} voice lines',
-                visible_text_ids=[], window_title=window.title, window_bounds=window.bounds,
+                active_game='zzz', visible_text_ids=[], window_title=window.title, window_bounds=window.bounds,
                 last_ocr='', last_tip_ocr='', last_cinematic_ocr='', last_error=None, last_scan_at=now)
             return _ScanOutcome([])
 
@@ -339,6 +348,7 @@ class CaptureService:
                 running=True,
                 phase="loading_textmaps",
                 message=self.textmaps.status()["message"],
+                active_game="zzz",
                 window_title=window.title,
                 window_bounds=window.bounds,
                 crop_bounds=crop_bounds,
@@ -397,7 +407,7 @@ class CaptureService:
                 self._visible_text_by_channel.clear()
                 self._tracker.observe(None)
                 self._update_snapshot(running=True, phase='agents', visible_text_ids=[], last_ocr='',
-                    message=f'Listening to {self._selected_agent or "agent"} voice lines', last_error=None)
+                    active_game='zzz', message=f'Listening to {self._selected_agent or "agent"} voice lines', last_error=None)
                 return _ScanOutcome([])
         monotonic_now = time.monotonic()
         self._observe_visible_matches(
@@ -594,6 +604,7 @@ class CaptureService:
 
         self._update_snapshot(
             running=True,
+            active_game="zzz",
             phase=phase,
             message=message,
             window_title=window.title,
@@ -615,6 +626,121 @@ class CaptureService:
             visible_text_ids=self._visible_text_ids(monotonic_now),
         )
         return _ScanOutcome(emitted_lines=emitted_lines)
+
+    def _scan_pragmata(
+        self,
+        window: WindowInfo,
+        region: CaptureRegion,
+        engine: OcrEngine,
+        epoch: int,
+        now: datetime,
+    ) -> _ScanOutcome:
+        """Capture PRAGMATA's shared lower subtitle lane.
+
+        Radio messages, cinematics and walk-and-talk dialogue use the same
+        speaker-plus-body layout. Matching exclusively against the official
+        conv/cutscene MSG families and requiring VAD confirmation keeps HUD,
+        credits and unvoiced UI copy out of the transcript.
+        """
+        self._selected_agent = None
+        self._excluded_screen = None
+        if self.agent_recognizer:
+            self.agent_recognizer.observe(None, False)
+        crop_bounds = self._region_bounds(window, region)
+        image = self._capture(crop_bounds)
+        self._set_preview(image)
+        if image.width > 1600:
+            image.thumbnail((1600, 570), Image.Resampling.LANCZOS)
+        response = engine.recognize_pil(image)
+        if epoch != self._scan_epoch:
+            return _ScanOutcome([])
+        lines = [
+            str(line.get("text", "")).strip()
+            for line in response.get("lines", [])
+            if str(line.get("text", "")).strip()
+        ]
+        raw_text = " ".join(lines)
+        confidence = self._confidence(response)
+        index = self.pragmata
+        if index is None or not index.ready:
+            self._tracker.observe(None)
+            status = index.status() if index else {"message": "PRAGMATA index unavailable"}
+            self._update_snapshot(
+                running=True,
+                phase="loading_textmaps",
+                message=str(status["message"]),
+                active_game="pragmata",
+                window_title=window.title,
+                window_bounds=window.bounds,
+                crop_bounds=crop_bounds,
+                tip_crop_bounds=None,
+                cinematic_crop_bounds=None,
+                last_ocr=raw_text,
+                last_ocr_confidence=confidence,
+                last_match_score=None,
+                last_scan_at=now,
+                last_error=None,
+            )
+            return _ScanOutcome([])
+
+        settings = self.settings.get()
+        match = index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold))
+        monotonic_now = time.monotonic()
+        self._observe_visible_matches("pragmata", [match.text_id] if match else [], monotonic_now)
+        emitted: list[TranscriptLine] = []
+        match_score = match.score if match else None
+        if match is None:
+            self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
+            phase = "unmatched" if raw_text else "listening"
+            message = "Reading PRAGMATA subtitle" if raw_text else "Listening for PRAGMATA dialogue"
+        else:
+            key = f"pragmata\0{match.text_id}\0{match.english}"
+            fresh = self._is_fresh_match("pragmata", key, monotonic_now)
+            speech_active = self.audio.speech_recent(1.8)
+            # Two equal scans avoid committing typewriter/transition fragments.
+            if not speech_active:
+                self._tracker.observe(None)
+            elif (
+                fresh
+                and self._tracker.observe(key)
+                and self._can_emit(key, monotonic_now)
+            ):
+                line, _ = self.transcript.add_or_upgrade_recent(
+                    match, self.session_id, created_at=now, channel="dialogue"
+                )
+                if line is not None:
+                    emitted.append(line)
+                    observed_at = self._visible_match_started["pragmata"][1]
+                    self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
+            phase = "matched"
+            message = "Official PRAGMATA line matched; confirming voice"
+
+        self._tip_tracker.observe(None)
+        self._cinematic_tracker.observe(None)
+        self._update_snapshot(
+            running=True,
+            phase=phase,
+            message=message,
+            active_game="pragmata",
+            window_title=window.title,
+            window_bounds=window.bounds,
+            crop_bounds=crop_bounds,
+            tip_crop_bounds=None,
+            cinematic_crop_bounds=None,
+            last_ocr=raw_text,
+            last_ocr_confidence=confidence,
+            last_tip_ocr="",
+            last_tip_ocr_confidence=None,
+            last_tip_match_score=None,
+            last_cinematic_ocr="",
+            last_cinematic_ocr_confidence=None,
+            last_cinematic_match_score=None,
+            last_match_score=match_score,
+            last_scan_at=now,
+            last_error=None,
+            visible_text_ids=self._visible_text_ids(monotonic_now),
+        )
+        return _ScanOutcome(emitted_lines=emitted)
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
         self._visible_text_by_channel[channel] = (now, text_ids)

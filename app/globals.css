@@ -89,6 +89,52 @@ button, input { font: inherit; }
   border-bottom: 1px solid var(--border);
 }
 
+.game-tabs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  background: rgb(13 17 21 / 94%);
+}
+.game-tabs > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  color: var(--muted-foreground);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.game-tabs button {
+  min-height: 31px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #aeb7bf;
+  cursor: pointer;
+  font-size: 12px;
+}
+.game-tabs button:hover { color: var(--foreground); }
+.game-tabs button.is-active {
+  border-color: #5b6c2c;
+  background: #202912;
+  color: var(--acid);
+}
+.game-tabs small {
+  margin-left: auto;
+  padding-right: 9px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.current-line.game-pragmata {
+  border-color: #496b77;
+  background: radial-gradient(circle at 100% 0%, rgb(113 215 255 / 12%), transparent 34%), var(--surface-raised);
+}
+.current-line.game-pragmata::before { background: var(--cyan); }
+
 .eyebrow {
   margin: 0 0 5px;
   color: var(--acid);
@@ -205,8 +251,8 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .current-pair { margin-top: 15px; display: grid; gap: 9px; }
 .current-speaker { display: flex; align-items: baseline; gap: 9px; color: var(--acid); font-size: 14px; font-weight: 650; }
 .speaker-chinese { font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; }
-.current-english { max-width: 880px; margin-bottom: 0; font-size: clamp(20px, 2.5vw, 28px); line-height: 1.24; letter-spacing: -.018em; }
-.current-chinese { margin-bottom: 0; color: #f2f5f7; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.42; }
+.current-english { max-width: 880px; margin-bottom: 0; white-space: pre-line; font-size: clamp(20px, 2.5vw, 28px); line-height: 1.24; letter-spacing: -.018em; }
+.current-chinese { margin-bottom: 0; color: #f2f5f7; white-space: pre-line; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.42; }
 .current-chinese-host { min-height: 1.45em; }
 .current-actions { display: flex; gap: 8px; margin-top: 3px; }
 .current-actions button,
@@ -350,7 +396,7 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .capture-toggle.is-running .capture-pause-label { display: inline-flex; }
 .capture-toggle.is-running .capture-play-icon,
 .capture-toggle.is-running .capture-play-label { display: none; }
-.transcript-line p { margin-bottom: 0; font-size: 15px; line-height: 1.48; }
+.transcript-line p { margin-bottom: 0; white-space: pre-line; font-size: 15px; line-height: 1.48; }
 .transcript-line p[lang] { color: #f2f5f7; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: 19px; line-height: 1.58; }
 .line-language { min-width: 0; display: grid; gap: 5px; }
 .line-speaker { color: var(--acid); font-size: 13px; font-weight: 650; }
@@ -431,6 +477,9 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 @media (max-width: 720px) {
   .companion-shell { height: auto; min-height: 100svh; overflow: visible; padding: 14px; }
   .status-strip { grid-template-columns: 1fr; }
+  .game-tabs { flex-wrap: wrap; }
+  .game-tabs > span { width: 100%; padding-block: 5px; }
+  .game-tabs small { width: 100%; margin: 2px 0 4px; padding-left: 10px; }
   .update-progress { grid-template-columns: 1fr 42px; }
   .update-progress-copy { grid-column: 1 / -1; }
   .status-strip > div { border-right: 0; border-bottom: 1px solid var(--border); }

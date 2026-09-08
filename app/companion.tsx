@@ -15,6 +15,7 @@ import {
   Star,
   Users,
   Volume2,
+  Gamepad2,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ const WS_URL = 'ws://127.0.0.1:8766/api/ws';
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
+  preferred_game: 'auto' | 'zzz' | 'pragmata';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -49,6 +51,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
+  active_game: 'zzz' | 'pragmata' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -71,6 +74,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
+  game: 'zzz' | 'pragmata';
   source_ocr: string;
   english: string;
   chinese: string;
@@ -97,6 +101,7 @@ type UpdateStatus = {
 type StatusPayload = {
   capture: CaptureStatus;
   textmaps: TextMapStatus;
+  game_textmaps?: Record<'zzz' | 'pragmata', TextMapStatus>;
   audio: { ready: boolean; message: string };
   agents?: { indexed_clips: number; total_clips: number; selected_agent: string | null; last_error: string | null; saved_lines: number; update?: { state: string; message: string; automatic: boolean } };
   voice_activity?: VoiceActivity | null;
@@ -105,6 +110,7 @@ type StatusPayload = {
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'agents' | 'favorites';
+type GameId = 'zzz' | 'pragmata';
 type AgentLine = { key: string; agent: string; asset_id: string; chinese: string; text_source: string; last_heard: string; heard_count: number };
 type AgentPage = { lines: AgentLine[]; total: number };
 
@@ -198,6 +204,8 @@ function CompanionClient() {
   const [refreshingMaps, setRefreshingMaps] = useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [transcriptTab, setTranscriptTab] = useState<TranscriptTab>('history');
+  const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
+  const lastActiveGame = useRef<GameId | null>(null);
   const followVoice = useRef(createVoiceActivityFollower(setTranscriptTab));
   const [agentLines, setAgentLines] = useState<AgentLine[]>([]);
   const [agentTotal, setAgentTotal] = useState(0);
@@ -215,21 +223,29 @@ function CompanionClient() {
 
   const loadSnapshot = useCallback(async () => {
     try {
-      const [statusResponse, linesResponse, favoritesResponse, agentsResponse] = await Promise.all([
+      const [statusResponse, zzzLinesResponse, pragmataLinesResponse, zzzFavoritesResponse, pragmataFavoritesResponse, agentsResponse] = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=50`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/favorites`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/lines?limit=50&game=zzz`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/lines?limit=50&game=pragmata`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/favorites?game=zzz`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/favorites?game=pragmata`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/agents`, { cache: 'no-store' }),
       ]);
-      if (!statusResponse.ok || !linesResponse.ok || !favoritesResponse.ok) {
+      if (!statusResponse.ok || !zzzLinesResponse.ok || !pragmataLinesResponse.ok || !zzzFavoritesResponse.ok || !pragmataFavoritesResponse.ok) {
         throw new Error('Companion service unavailable');
       }
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
       followVoice.current(nextStatus.voice_activity);
       setDraftSettings(nextStatus.settings);
-      const recentLines = (await linesResponse.json()) as TranscriptLine[];
-      const favoriteLines = (await favoritesResponse.json()) as TranscriptLine[];
+      const recentLines = [
+        ...(await zzzLinesResponse.json()) as TranscriptLine[],
+        ...(await pragmataLinesResponse.json()) as TranscriptLine[],
+      ];
+      const favoriteLines = [
+        ...(await zzzFavoritesResponse.json()) as TranscriptLine[],
+        ...(await pragmataFavoritesResponse.json()) as TranscriptLine[],
+      ];
       const nextLines = Array.from(
         new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
       ).sort((left, right) => right.id - left.id);
@@ -346,7 +362,19 @@ function CompanionClient() {
     return () => window.clearInterval(timer);
   }, [settingsOpen]);
 
-  const recentLines = useMemo(() => lines.slice(0, 50), [lines]);
+  useEffect(() => {
+    const active = status?.capture.active_game;
+    if (active && active !== lastActiveGame.current) {
+      lastActiveGame.current = active;
+      setSelectedGame(active);
+      if (active === 'pragmata' && transcriptTab === 'agents') setTranscriptTab('history');
+    }
+  }, [status?.capture.active_game, transcriptTab]);
+
+  const recentLines = useMemo(
+    () => lines.filter((line) => line.game === selectedGame).slice(0, 50),
+    [lines, selectedGame],
+  );
   const visibleLine = recentLines.find((line) =>
     line.session_id === status?.session.id
     && line.voiced
@@ -360,17 +388,22 @@ function CompanionClient() {
   // newest one available to read/Migaku until any later voiced line arrives.
   // Other presentation modes still disappear from Current line with the game.
   const latestLine = visibleLine ?? (
-    latestSessionLine?.channel === 'gameplay' ? latestSessionLine : null
+    latestSessionLine && (latestSessionLine.channel === 'gameplay' || latestSessionLine.game === 'pragmata')
+      ? latestSessionLine
+      : null
   );
   const historyLines = useMemo(
     () => recentLines.filter((line) => line.id !== latestLine?.id),
     [recentLines, latestLine?.id],
   );
-  const favoriteLines = useMemo(() => lines.filter((line) => line.favorite), [lines]);
+  const favoriteLines = useMemo(
+    () => lines.filter((line) => line.game === selectedGame && line.favorite),
+    [lines, selectedGame],
+  );
   const visibleTranscriptLines = transcriptTab === 'favorites' ? favoriteLines : historyLines;
   const sessionLines = useMemo(
-    () => lines.filter((line) => !status || line.session_id === status.session.id),
-    [lines, status],
+    () => lines.filter((line) => line.game === selectedGame && (!status || line.session_id === status.session.id)),
+    [lines, selectedGame, status],
   );
   useEffect(() => {
     if (historyList.current) historyList.current.scrollTop = 0;
@@ -473,7 +506,7 @@ function CompanionClient() {
   const capture = status?.capture;
   const mapStatus = status?.textmaps;
   const updateStatus = status?.updates;
-  const currentCount = status?.session.line_count ?? sessionLines.length;
+  const currentCount = sessionLines.length;
   const activeRegion = draftSettings
     ? (setupChannel === 'tip'
         ? draftSettings.tip_region
@@ -497,7 +530,7 @@ function CompanionClient() {
     <main className="companion-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Zenless Zone Zero</p>
+          <p className="eyebrow">{selectedGame === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</p>
           <h1>Proxy Transcript</h1>
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
@@ -506,16 +539,27 @@ function CompanionClient() {
         </div>
       </header>
 
+      <nav className="game-tabs" aria-label="Game transcript">
+        <span><Gamepad2 size={15} /> Game</span>
+        <button type="button" className={selectedGame === 'zzz' ? 'is-active' : ''} aria-pressed={selectedGame === 'zzz'} onClick={() => setSelectedGame('zzz')}>
+          Zenless Zone Zero
+        </button>
+        <button type="button" className={selectedGame === 'pragmata' ? 'is-active' : ''} aria-pressed={selectedGame === 'pragmata'} onClick={() => { setSelectedGame('pragmata'); if (transcriptTab === 'agents') setTranscriptTab('history'); }}>
+          PRAGMATA
+        </button>
+        {status?.capture.active_game && <small>Capturing {status.capture.active_game === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</small>}
+      </nav>
+
       <section className="status-strip" aria-label="Companion status">
         <div>
           <Radio size={17} />
-          <span>3-zone OCR + voice</span>
+          <span>{selectedGame === 'pragmata' ? 'Subtitle OCR + voice' : '3-zone OCR + voice'}</span>
           <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : 'Paused'} /></strong>
         </div>
         <div>
           <Database size={17} />
-          <span>TextMaps</span>
-          <strong><StableInline text={mapStatus?.ready ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'} /></strong>
+          <span>{selectedGame === 'pragmata' ? 'Official game text' : 'TextMaps'}</span>
+          <strong><StableInline text={(status?.game_textmaps?.[selectedGame] ?? mapStatus)?.ready ? `${(status?.game_textmaps?.[selectedGame] ?? mapStatus)!.entry_count.toLocaleString()} pairs` : (status?.game_textmaps?.[selectedGame] ?? mapStatus)?.message ?? 'Connecting'} /></strong>
         </div>
         <div>
           <Activity size={17} />
@@ -534,13 +578,13 @@ function CompanionClient() {
         <span className="update-progress-value">{updateStatus.progress}%</span>
       </section>}
 
-      {transcriptTab !== 'agents' && <section className={`current-line ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
+      {transcriptTab !== 'agents' && <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
           <span id="current-heading"><Crosshair size={16} /> Current line</span>
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={`${latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={`${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -591,10 +635,10 @@ function CompanionClient() {
           >
             History
           </button>
-          <button type="button" role="tab" aria-selected={transcriptTab === 'agents'}
+          {selectedGame === 'zzz' && <button type="button" role="tab" aria-selected={transcriptTab === 'agents'}
             className={transcriptTab === 'agents' ? 'is-active' : ''} onClick={() => setTranscriptTab('agents')}>
             <Users size={14} /> Agents <span>{Math.max(agentTotal,agentLines.length)}</span>
-          </button>
+          </button>}
           <button
             type="button"
             role="tab"
@@ -663,7 +707,7 @@ function CompanionClient() {
               {transcriptTab === 'favorites' ? <Star size={24} /> : <Database size={24} />}
               <p>{transcriptTab === 'favorites'
                 ? 'Favorite a line with the star button and it will stay here between sessions.'
-                : 'Your matched lines will accumulate here and remain after a restart.'}</p>
+                : `Your matched ${selectedGame === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'} lines will remain after a restart.`}</p>
             </div>
           )}
         </div>
@@ -743,7 +787,7 @@ function CompanionClient() {
                 alt={`Live preview of the ${setupChannel === 'tip' ? 'top-right tip' : setupChannel === 'cinematic' ? 'cinematic and comic' : 'dialogue'} capture region`}
               />
             ) : (
-              <div className="preview-placeholder"><ScanLine /> Start ZZZ to see the capture preview.</div>
+              <div className="preview-placeholder"><ScanLine /> Start the selected game to see the capture preview.</div>
             )}
             <span>{setupChannel === 'tip' ? 'Top-right live crop' : setupChannel === 'cinematic' ? 'Cutscene / comic live crop' : 'Dialogue live crop'}</span>
           </div>

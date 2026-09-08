@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .models import AppSettings
+from .games import GAME_PROFILES, GameProfile, ordered_profiles
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +51,11 @@ def _process_name_for_window(hwnd: int) -> str:
     return Path(_process_path_for_window(hwnd)).name
 
 
+def executable_path_for_window(window: WindowInfo) -> Path | None:
+    executable = _process_path_for_window(window.handle)
+    return Path(executable) if executable else None
+
+
 def game_data_directory(settings: AppSettings) -> Path | None:
     window = find_game_window(settings)
     if window:
@@ -58,6 +64,17 @@ def game_data_directory(settings: AppSettings) -> Path | None:
             folder = Path(executable).parent/'ZenlessZoneZero_Data'
             if folder.is_dir():
                 return folder
+    return None
+
+
+def find_active_game_window(settings: AppSettings) -> tuple[GameProfile, WindowInfo] | None:
+    candidates = list_visible_windows()
+    by_process = {window.process_name.casefold(): window for window in candidates}
+    for profile in ordered_profiles(settings.preferred_game):
+        for process_name in profile.process_names:
+            window = by_process.get(process_name.casefold())
+            if window is not None:
+                return profile, window
     return None
 
 
@@ -115,6 +132,9 @@ def list_visible_windows() -> list[WindowInfo]:
 
 
 def find_game_window(settings: AppSettings) -> WindowInfo | None:
+    active = find_active_game_window(settings)
+    if active is not None:
+        return active[1]
     process_names = {name.casefold() for name in settings.process_names}
     title_needles = [needle.casefold() for needle in settings.window_title_contains]
     candidates = list_visible_windows()

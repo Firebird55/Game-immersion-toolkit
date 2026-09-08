@@ -22,6 +22,7 @@ class CaptureRegion(BaseModel):
 
 
 class AppSettings(BaseModel):
+    preferred_game: Literal["auto", "zzz", "pragmata"] = "auto"
     process_names: list[str] = Field(default_factory=lambda: ["ZenlessZoneZero.exe"])
     window_title_contains: list[str] = Field(
         default_factory=lambda: ["Zenless Zone Zero", "ZenlessZoneZero"]
@@ -46,6 +47,7 @@ class AppSettings(BaseModel):
 
 
 class TextMatch(BaseModel):
+    game: Literal["zzz", "pragmata"] = "zzz"
     text_id: str
     english: str
     chinese: str
@@ -53,12 +55,15 @@ class TextMatch(BaseModel):
     score: float
     kind: Literal["exact", "fuzzy"]
     ambiguous: bool = False
+    speaker_english: str | None = None
+    speaker_chinese: str | None = None
 
 
 class TranscriptLine(BaseModel):
     id: int
     created_at: datetime
     session_id: str
+    game: Literal["zzz", "pragmata"] = "zzz"
     source_ocr: str
     english: str
     chinese: str
@@ -80,6 +85,7 @@ class CaptureSnapshot(BaseModel):
     running: bool = False
     phase: str = "stopped"
     message: str = "Capture is stopped"
+    active_game: Literal["zzz", "pragmata"] | None = None
     window_title: str | None = None
     window_bounds: tuple[int, int, int, int] | None = None
     crop_bounds: tuple[int, int, int, int] | None = None

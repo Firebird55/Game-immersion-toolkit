@@ -1,0 +1,263 @@
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import shutil
+import struct
+import subprocess
+import sys
+import urllib.request
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = PROJECT_ROOT / "data" / "pragmata"
+RELEASE_LIST_URL = (
+    "https://raw.githubusercontent.com/Ekey/REE.PAK.Tool/main/Projects/P_STM_Release.list"
+)
+KEY = bytes(
+    [0xCF, 0xCE, 0xFB, 0xF8, 0xEC, 0x0A, 0x33, 0x66,
+     0x93, 0xA9, 0x1D, 0x93, 0x50, 0x39, 0x5F, 0x09]
+)
+REF_RE = re.compile(r"<REF\s+([^>]+)>", re.IGNORECASE)
+TAG_RE = re.compile(r"<[^>]+>")
+SPEAKER_CODE_RE = re.compile(r"_(Ch\d{5})$", re.IGNORECASE)
+
+
+def align(stream, boundary: int = 8) -> None:
+    remainder = stream.tell() % boundary
+    if remainder:
+        stream.read(boundary - remainder)
+
+
+def decrypt(data: bytes) -> bytes:
+    result = bytearray(data)
+    previous = 0
+    for index, current in enumerate(result):
+        result[index] = current ^ previous ^ KEY[index & 0xF]
+        previous = current
+    return bytes(result)
+
+
+def read_strings(pool: bytes) -> dict[int, str]:
+    decoded = pool.decode("utf-16-le")
+    result: dict[int, str] = {}
+    start = 0
+    for index, character in enumerate(decoded):
+        if character == "\0":
+            result[start * 2] = decoded[start:index]
+            start = index + 1
+    return result
+
+
+def read_msg(path: Path) -> list[dict[str, object]]:
+    """Read the subset of RE Engine MSG v23 needed for localization indexing."""
+    with path.open("rb") as stream:
+        version, magic = struct.unpack("<I4s", stream.read(8))
+        if magic != b"GMSG":
+            raise ValueError(f"Not an RE Engine MSG file: {path}")
+        _header_offset = struct.unpack("<Q", stream.read(8))[0]
+        entry_count, attribute_count, language_count = struct.unpack("<III", stream.read(12))
+        align(stream)
+        data_offset = struct.unpack("<Q", stream.read(8))[0] if version > 12 else None
+        unknown_offset, language_offset, attribute_offset, attribute_name_offset = struct.unpack(
+            "<QQQQ", stream.read(32)
+        )
+        entry_offsets = [struct.unpack("<Q", stream.read(8))[0] for _ in range(entry_count)]
+        stream.seek(unknown_offset + 8)
+        stream.seek(language_offset)
+        languages = [struct.unpack("<I", stream.read(4))[0] for _ in range(language_count)]
+        align(stream)
+        stream.seek(attribute_offset)
+        attribute_types = [struct.unpack("<i", stream.read(4))[0] for _ in range(attribute_count)]
+        align(stream)
+        stream.seek(attribute_name_offset + attribute_count * 8)
+
+        headers = []
+        for offset in entry_offsets:
+            stream.seek(offset)
+            stream.read(16)  # GUID
+            stream.read(4)   # CRC
+            stream.read(4)   # hash/index
+            name_offset, values_offset = struct.unpack("<QQ", stream.read(16))
+            content_offsets = [struct.unpack("<Q", stream.read(8))[0] for _ in range(language_count)]
+            headers.append((name_offset, values_offset, content_offsets))
+
+        if data_offset is None:
+            if headers:
+                stream.seek(headers[0][1] + attribute_count * 8 * entry_count)
+            data_offset = stream.tell()
+        stream.seek(0, 2)
+        end = stream.tell()
+        stream.seek(data_offset)
+        strings = read_strings(decrypt(stream.read(end - data_offset)) if version > 12 else stream.read())
+
+    language_positions = {language: index for index, language in enumerate(languages)}
+    english_index = language_positions.get(1)
+    chinese_index = language_positions.get(13)
+    if english_index is None or chinese_index is None:
+        return []
+
+    def text(offset: int) -> str:
+        return strings.get(offset - data_offset, "")
+
+    return [
+        {
+            "name": text(name_offset),
+            "english": text(content_offsets[english_index]),
+            "chinese": text(content_offsets[chinese_index]),
+        }
+        for name_offset, _values_offset, content_offsets in headers
+    ]
+
+
+def find_install() -> Path | None:
+    candidates = [
+        Path(r"C:\Program Files (x86)\Steam\steamapps\common\PRAGMATA"),
+        Path(r"C:\Program Files\Steam\steamapps\common\PRAGMATA"),
+    ]
+    for letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
+        candidates.append(Path(f"{letter}:\\SteamLibrary\\steamapps\\common\\PRAGMATA"))
+    return next((path for path in candidates if (path / "PRAGMATA.exe").is_file()), None)
+
+
+def fingerprint(install: Path) -> str:
+    return "|".join(
+        f"{path.name}:{path.stat().st_size}:{path.stat().st_mtime_ns}"
+        for path in sorted(install.glob("re_chunk_*.pak*"), key=lambda item: item.name)
+    )
+
+
+def update_message_list(tools: Path) -> None:
+    projects = tools / "Projects"
+    projects.mkdir(parents=True, exist_ok=True)
+    release = projects / "P_STM_Release.list"
+    try:
+        request = urllib.request.Request(RELEASE_LIST_URL, headers={"User-Agent": "ProxyTranscript/1"})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            release.write_bytes(response.read())
+    except Exception:
+        if not release.is_file():
+            raise
+    paths = [
+        line.strip()
+        for line in release.read_text(encoding="utf-8-sig").splitlines()
+        if line.casefold().startswith("natives/stm/message/")
+    ]
+    (projects / "P_MESSAGES.list").write_text("\n".join(paths) + "\n", encoding="utf-8")
+
+
+def archive_order(path: Path) -> tuple[int, str]:
+    name = path.name.casefold()
+    return (int("patch" in name), name)
+
+
+def extract_messages(install: Path, destination: Path, tools: Path) -> None:
+    unpacker = tools / "REE.Unpacker.exe"
+    if not unpacker.is_file():
+        raise FileNotFoundError(
+            "PRAGMATA extractor is missing. Re-run the Proxy Transcript installer/update."
+        )
+    update_message_list(tools)
+    destination.mkdir(parents=True, exist_ok=True)
+    for archive in sorted(install.glob("re_chunk_*.pak*"), key=archive_order):
+        result = subprocess.run(
+            [str(unpacker), "P_MESSAGES", str(archive), str(destination)],
+            cwd=tools,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode:
+            raise RuntimeError(result.stderr.strip() or result.stdout[-1000:])
+
+
+def clean_text(value: str, references: dict[str, tuple[str, str]], language: int) -> str:
+    def replace(match: re.Match[str]) -> str:
+        pair = references.get(match.group(1))
+        return pair[language] if pair else ""
+
+    value = REF_RE.sub(replace, value)
+    value = TAG_RE.sub("", value)
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+    return "\n".join(" ".join(line.split()) for line in value.splitlines()).strip()
+
+
+def build_index(message_root: Path, install: Path | None) -> dict[str, object]:
+    parsed: list[tuple[Path, list[dict[str, object]]]] = []
+    references: dict[str, tuple[str, str]] = {}
+    for path in sorted(message_root.rglob("*.msg.*")):
+        entries = read_msg(path)
+        parsed.append((path, entries))
+        for entry in entries:
+            english, chinese = str(entry["english"]), str(entry["chinese"])
+            if english and chinese and not REF_RE.search(english + chinese):
+                references[str(entry["name"])] = (english, chinese)
+
+    speakers: dict[str, list[str]] = {}
+    records: list[dict[str, object]] = []
+    for path, entries in parsed:
+        relative = path.relative_to(message_root).as_posix().casefold()
+        is_spoken_family = relative.startswith("mes_main/conv/") or relative.startswith(
+            "mes_main/event/cutscene/"
+        )
+        for entry in entries:
+            name = str(entry["name"])
+            english = clean_text(str(entry["english"]), references, 0)
+            chinese = clean_text(str(entry["chinese"]), references, 1)
+            if relative.endswith("ingame/speakername.msg.23") and english and chinese:
+                speakers[english] = [english, chinese]
+            if not is_spoken_family or not english or not chinese:
+                continue
+            code = SPEAKER_CODE_RE.search(name)
+            records.append(
+                {
+                    "text_id": f"{relative}:{name}",
+                    "english": english,
+                    "chinese": chinese,
+                    "source": relative,
+                    "speaker_code": code.group(1) if code else None,
+                }
+            )
+
+    # Preserve distinct IDs for repeated lines, while eliminating accidental
+    # duplicate records from overlaying base and patch archives.
+    unique = {record["text_id"]: record for record in records}
+    return {
+        "format": 1,
+        "game": "pragmata",
+        "install": str(install) if install else None,
+        "fingerprint": fingerprint(install) if install else None,
+        "records": list(unique.values()),
+        "speakers": speakers,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Index official PRAGMATA English and Chinese dialogue")
+    parser.add_argument("--install", type=Path)
+    parser.add_argument("--source", type=Path, help="Use an already-extracted natives/stm/message folder")
+    parser.add_argument("--output", type=Path, default=DATA_DIR / "textmap.json")
+    args = parser.parse_args()
+    install = args.install or find_install()
+    if args.source:
+        message_root = args.source
+    else:
+        if install is None:
+            raise SystemExit("PRAGMATA installation was not found")
+        extracted = DATA_DIR / "extracted-next"
+        extract_messages(install, extracted, DATA_DIR / "tools")
+        message_root = extracted / "natives" / "stm" / "message"
+    payload = build_index(message_root, install)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = args.output.with_suffix(".tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    temporary.replace(args.output)
+    print(f"Indexed {len(payload['records']):,} official dialogue records")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

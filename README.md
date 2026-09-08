@@ -1,6 +1,7 @@
 # Proxy Transcript
 
-A local, gameplay-first bilingual transcript companion for Zenless Zone Zero.
+A local, gameplay-first bilingual transcript companion for Zenless Zone Zero
+and PRAGMATA.
 
 It captures English text from the running game, recognizes it with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
 
@@ -39,10 +40,34 @@ The TextMap download is approximately 100 MB and is stored locally under `data/t
 
 ## Normal use
 
-1. Start Zenless Zone Zero with English subtitles.
+1. Start Zenless Zone Zero or PRAGMATA with English subtitles and Mandarin audio.
 2. Double-click `Start Proxy Transcript.cmd`.
 3. The companion opens on the portrait monitor to the right of the primary display.
 4. Use **Capture setup** if the live crop contains HUD text or misses part of the subtitle.
+
+The **Game** switch above the transcript keeps each title's History and
+Favorites separate. It follows the running game automatically; you can switch
+it manually to review the other game's saved lines. The Agents collection is
+specific to Zenless Zone Zero.
+
+## PRAGMATA
+
+PRAGMATA's radio dialogue, cinematics, and in-world conversations all use a
+centered lower subtitle lane. The companion reads that lane and matches it
+against the official English and Simplified-Chinese strings extracted from the
+installed RE Engine message archives. Speaker references are resolved from the
+same files (for example, `Ken` / `肯`).
+
+Only message families used for spoken conversations and cutscenes are indexed.
+A matching subtitle is published only after local voice detection confirms
+speech, so credits, HUD labels, menus, and unvoiced text are skipped. Saved
+playback is trimmed from Windows loopback and contains the Mandarin utterance;
+the game is never modified.
+
+On startup, the companion fingerprints PRAGMATA's `re_chunk_*.pak` files. A
+changed game build is re-extracted and re-indexed in the background while the
+web interface continues using the last complete index. The generated files are
+kept under `data/pragmata` and atomically replaced after a successful update.
 
 The **Speed** control in the footer plays story and agent clips at 1×, 0.85×,
 0.75×, or 0.6× while preserving pitch. The choice is remembered by Chrome.
@@ -75,6 +100,7 @@ Double-click `Stop Proxy Transcript.cmd` to stop the background services.
 - Transcript: `data/transcript.db`
 - Voice clips: `data/audio`
 - TextMaps: `data/textmaps`
+- PRAGMATA official index and extractor: `data/pragmata`
 
 OCR, speech detection, matching, transcription, and audio clipping happen locally. Network access is used for initial data/model/tool downloads and updates, not for sending audio. Audio follows the default Windows playback device, so keep ZZZ routed to that device.
 

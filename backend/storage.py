@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS transcript_lines (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL,
     session_id TEXT NOT NULL,
+    game TEXT NOT NULL DEFAULT 'zzz',
     source_ocr TEXT NOT NULL,
     english TEXT NOT NULL,
     chinese TEXT NOT NULL,
@@ -49,6 +50,10 @@ class TranscriptStore:
                 connection.execute(
                     "ALTER TABLE transcript_lines ADD COLUMN channel TEXT NOT NULL DEFAULT 'dialogue'"
                 )
+            if "game" not in columns:
+                connection.execute(
+                    "ALTER TABLE transcript_lines ADD COLUMN game TEXT NOT NULL DEFAULT 'zzz'"
+                )
             if "voiced" not in columns:
                 connection.execute(
                     "ALTER TABLE transcript_lines ADD COLUMN voiced INTEGER NOT NULL DEFAULT 0"
@@ -83,6 +88,7 @@ class TranscriptStore:
             id=row["id"],
             created_at=datetime.fromisoformat(row["created_at"]),
             session_id=row["session_id"],
+            game=row["game"],
             source_ocr=row["source_ocr"],
             english=row["english"],
             chinese=row["chinese"],
@@ -111,13 +117,15 @@ class TranscriptStore:
             cursor = connection.execute(
                 """
                 INSERT INTO transcript_lines (
-                    created_at, session_id, source_ocr, english, chinese,
-                    text_id, score, match_kind, ambiguous, channel, voiced, audio_path, favorite
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, session_id, game, source_ocr, english, chinese,
+                    text_id, score, match_kind, ambiguous, channel, voiced, audio_path,
+                    speaker_english, speaker_chinese, favorite
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     timestamp.isoformat(),
                     session_id,
+                    match.game,
                     match.source_ocr,
                     match.english,
                     match.chinese,
@@ -128,6 +136,8 @@ class TranscriptStore:
                     channel,
                     0,
                     None,
+                    match.speaker_english,
+                    match.speaker_chinese,
                     0,
                 ),
             )
@@ -165,10 +175,10 @@ class TranscriptStore:
             adjacent = connection.execute(
                 """
                 SELECT * FROM transcript_lines
-                WHERE datetime(created_at) >= datetime(?)
+                WHERE game = ? AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 1
                 """,
-                (adjacent_cutoff.isoformat(),),
+                (match.game, adjacent_cutoff.isoformat()),
             ).fetchone()
             if adjacent and self._prefix_text(adjacent["english"]) == self._prefix_text(
                 match.english
@@ -179,10 +189,11 @@ class TranscriptStore:
                 """
                 SELECT 1 FROM transcript_lines
                 WHERE text_id = ? AND english = ?
+                  AND game = ?
                   AND datetime(created_at) >= datetime(?)
                 LIMIT 1
                 """,
-                (match.text_id, match.english, cutoff.isoformat()),
+                (match.text_id, match.english, match.game, cutoff.isoformat()),
             ).fetchone()
             if duplicate:
                 return None, False
@@ -191,10 +202,10 @@ class TranscriptStore:
             recent_rows = connection.execute(
                 """
                 SELECT * FROM transcript_lines
-                WHERE datetime(created_at) >= datetime(?)
+                WHERE game = ? AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 8
                 """,
-                (fragment_cutoff.isoformat(),),
+                (match.game, fragment_cutoff.isoformat()),
             ).fetchall()
             incoming_text = self._prefix_text(match.english)
             for recent in recent_rows:
@@ -210,10 +221,10 @@ class TranscriptStore:
             previous = connection.execute(
                 """
                 SELECT * FROM transcript_lines
-                WHERE session_id = ? AND datetime(created_at) >= datetime(?)
+                WHERE session_id = ? AND game = ? AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 1
                 """,
-                (session_id, upgrade_cutoff.isoformat()),
+                (session_id, match.game, upgrade_cutoff.isoformat()),
             ).fetchone()
             if previous:
                 previous_text = self._prefix_text(previous["english"])
@@ -229,6 +240,7 @@ class TranscriptStore:
                         UPDATE transcript_lines
                         SET source_ocr = ?, english = ?, chinese = ?, text_id = ?,
                             score = ?, match_kind = ?, ambiguous = ?, channel = ?,
+                            speaker_english = ?, speaker_chinese = ?,
                             voiced = 0, audio_path = NULL
                         WHERE id = ?
                         """,
@@ -241,6 +253,8 @@ class TranscriptStore:
                             match.kind,
                             int(match.ambiguous),
                             channel,
+                            match.speaker_english,
+                            match.speaker_chinese,
                             previous["id"],
                         ),
                     )
@@ -305,17 +319,20 @@ class TranscriptStore:
         return str(row["audio_path"]) if row and row["audio_path"] else None
 
     def prune(self, keep_nonfavorite: int = 50) -> list[tuple[int, str | None]]:
-        """Keep favorites plus only the newest non-favorite transcript rows."""
+        """Keep favorites plus the newest non-favorites for each supported game."""
         keep_nonfavorite = max(0, keep_nonfavorite)
         with self._connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT id, audio_path FROM transcript_lines
-                WHERE favorite = 0
-                ORDER BY id DESC LIMIT -1 OFFSET ?
-                """,
-                (keep_nonfavorite,),
-            ).fetchall()
+            rows = []
+            games = [row[0] for row in connection.execute("SELECT DISTINCT game FROM transcript_lines")]
+            for game in games:
+                rows.extend(connection.execute(
+                    """
+                    SELECT id, audio_path FROM transcript_lines
+                    WHERE favorite = 0 AND game = ?
+                    ORDER BY id DESC LIMIT -1 OFFSET ?
+                    """,
+                    (game, keep_nonfavorite),
+                ).fetchall())
             if rows:
                 connection.executemany(
                     "DELETE FROM transcript_lines WHERE id = ?",
@@ -352,38 +369,51 @@ class TranscriptStore:
             ).fetchone()
         return str(row["audio_path"]) if row and row["audio_path"] else None
 
-    def list(self, limit: int = 250, before_id: int | None = None) -> list[TranscriptLine]:
+    def list(
+        self, limit: int = 250, before_id: int | None = None, game: str | None = None
+    ) -> list[TranscriptLine]:
         limit = max(1, min(limit, 1000))
         query = "SELECT * FROM transcript_lines"
         parameters: list[object] = []
+        conditions: list[str] = []
         if before_id is not None:
-            query += " WHERE id < ?"
+            conditions.append("id < ?")
             parameters.append(before_id)
+        if game is not None:
+            conditions.append("game = ?")
+            parameters.append(game)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY id DESC LIMIT ?"
         parameters.append(limit)
         with self._connect() as connection:
             rows = connection.execute(query, parameters).fetchall()
         return [self._row_to_line(row) for row in rows]
 
-    def list_favorites(self) -> list[TranscriptLine]:
+    def list_favorites(self, game: str | None = None) -> list[TranscriptLine]:
         """Return every saved favorite, newest first."""
         with self._connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM transcript_lines
-                WHERE favorite = 1
-                ORDER BY id DESC
-                """
-            ).fetchall()
+            query = "SELECT * FROM transcript_lines WHERE favorite = 1"
+            parameters: list[object] = []
+            if game is not None:
+                query += " AND game = ?"
+                parameters.append(game)
+            query += " ORDER BY id DESC"
+            rows = connection.execute(query, parameters).fetchall()
         return [self._row_to_line(row) for row in rows]
 
-    def count(self, session_id: str | None = None) -> int:
+    def count(self, session_id: str | None = None, game: str | None = None) -> int:
         with self._connect() as connection:
+            query = "SELECT COUNT(*) AS total FROM transcript_lines"
+            conditions: list[str] = []
+            parameters: list[object] = []
             if session_id:
-                row = connection.execute(
-                    "SELECT COUNT(*) AS total FROM transcript_lines WHERE session_id = ?",
-                    (session_id,),
-                ).fetchone()
-            else:
-                row = connection.execute("SELECT COUNT(*) AS total FROM transcript_lines").fetchone()
+                conditions.append("session_id = ?")
+                parameters.append(session_id)
+            if game:
+                conditions.append("game = ?")
+                parameters.append(game)
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            row = connection.execute(query, parameters).fetchone()
         return int(row["total"])

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Proxy Transcript — ZZZ Companion',
-  description: 'A local bilingual transcript companion for Zenless Zone Zero.',
+  title: 'Proxy Transcript — Bilingual Game Companion',
+  description: 'A local bilingual transcript companion for voiced game dialogue.',
   icons: {
     icon: '/proxy-transcript.png',
     apple: '/proxy-transcript.png',
