@@ -60,14 +60,19 @@ same files (for example, `Ken` / `肯`).
 
 Only message families used for spoken conversations and cutscenes are indexed.
 A matching subtitle is published only after local voice detection confirms
-speech, so credits, HUD labels, menus, and unvoiced text are skipped. Saved
-playback is trimmed from Windows loopback and contains the Mandarin utterance;
+speech, so credits, HUD labels, menus, and unvoiced text are skipped. Whenever
+the game exposes an exact link, playback comes directly from its Mandarin Wwise
+media: conversation `SoundID` links select individual WEMs, while cinematic
+subtitle GUIDs and timeline frames cut sentence-sized clips from the original
+scene track. Windows loopback remains only as a fallback for unmapped lines;
 the game is never modified.
 
 On startup, the companion fingerprints PRAGMATA's `re_chunk_*.pak` files. A
 changed game build is re-extracted and re-indexed in the background while the
 web interface continues using the last complete index. The generated files are
 kept under `data/pragmata` and atomically replaced after a successful update.
+Audio packages are unpacked lazily on first use and cached per game-build
+fingerprint, so indexing does not duplicate the full game installation.
 
 The **Speed** control in the footer plays story and agent clips at 1×, 0.85×,
 0.75×, or 0.6× while preserving pitch. The choice is remembered by Chrome.

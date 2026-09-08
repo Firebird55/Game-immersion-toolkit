@@ -21,6 +21,7 @@ from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex, normalize_english
 from .pragmata import PragmataTextIndex
+from .pragmata_audio import PragmataVoiceAssetService
 from .windows import WindowInfo, find_active_game_window, find_game_window
 from .voice_assets import AudioSourceChoice, VoiceAssetService
 
@@ -77,6 +78,7 @@ class CaptureService:
         on_status: Callable[[CaptureSnapshot], Awaitable[None]],
         audio: AudioCaptureService,
         voice_assets: VoiceAssetService | None = None,
+        pragmata_voice_assets: PragmataVoiceAssetService | None = None,
         story_voice_resolver=None,
         agent_recognizer=None,
         on_voice=None,
@@ -90,6 +92,7 @@ class CaptureService:
         self.on_status = on_status
         self.audio = audio
         self.voice_assets = voice_assets
+        self.pragmata_voice_assets = pragmata_voice_assets
         self.story_voice_resolver = story_voice_resolver
         self.agent_recognizer = agent_recognizer
         self._selected_agent: str | None = None
@@ -856,13 +859,16 @@ class CaptureService:
             if current is not None and current.text_id == line.text_id:
                 self.audio.cancel_clip(line_id)
 
-        if self.voice_assets and self.voice_assets.has_variant(line.text_id, line.english):
+        asset_service = (
+            self.pragmata_voice_assets if line.game == "pragmata" else self.voice_assets
+        )
+        if asset_service and asset_service.has_variant(line.text_id, line.english):
             choice = AudioSourceChoice(publish, self._remove_audio_file, cancel_recording)
             # Keep the ring-buffer fallback until extraction succeeds. Arbitration
             # prevents a late VAD failure from deleting a successful original clip.
             self.audio.schedule_clip(line.id, now, choice.recording_result,
                                      observed_at=observed_at, chinese=line.chinese)
-            if not self.voice_assets.schedule(
+            if not asset_service.schedule(
                 line.text_id, line.id, choice.original_result, line.english
             ):
                 choice.original_result(line.id, None, False)
@@ -899,6 +905,7 @@ class CaptureService:
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
         if (
             self.story_voice_resolver is not None
+            and line.game == "zzz"
             and audio_path
             and not audio_path.startswith("official-")
         ):
@@ -930,7 +937,22 @@ class CaptureService:
 
     def repair_recorded_line(self, line: TranscriptLine) -> bool:
         if (
-            self.story_voice_resolver is None
+            line.game == "pragmata"
+            and self.pragmata_voice_assets is not None
+            and line.voiced
+            and line.audio_source != "original"
+            and self.pragmata_voice_assets.has_variant(line.text_id, line.english)
+        ):
+            def ready(line_id: int, audio_path: str | None, voiced: bool) -> None:
+                if voiced and audio_path:
+                    self._story_original_ready(line_id, line.text_id, audio_path)
+
+            return self.pragmata_voice_assets.schedule(
+                line.text_id, line.id, ready, line.english
+            )
+        if (
+            line.game != "zzz"
+            or self.story_voice_resolver is None
             or not line.voiced
             or not line.has_audio
             or line.audio_source == "original"

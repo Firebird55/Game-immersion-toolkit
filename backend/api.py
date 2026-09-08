@@ -21,6 +21,7 @@ from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex
 from .pragmata import PragmataTextIndex
+from .pragmata_audio import PragmataVoiceAssetService
 from .pragmata_updates import PragmataUpdateManager
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
@@ -83,6 +84,11 @@ class Runtime:
             DATA_DIR / "audio",
             DATA_DIR / "voice-assets/learned-manifest.json",
         )
+        self.pragmata_voice_assets = PragmataVoiceAssetService(
+            DATA_DIR / "pragmata",
+            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            DATA_DIR / "audio",
+        )
         self.speakers = SpeakerResolver(self.textmaps, self.voice_assets, self.transcript)
         self.story_voices = StoryVoiceResolver(
             DATA_DIR / "voice-assets",
@@ -116,6 +122,7 @@ class Runtime:
             on_status=self.on_capture_status,
             audio=self.audio,
             voice_assets=self.voice_assets,
+            pragmata_voice_assets=self.pragmata_voice_assets,
             story_voice_resolver=self.story_voices,
             agent_recognizer=self.agents,
             on_voice=self.on_story_voice,
@@ -127,7 +134,7 @@ class Runtime:
             PROJECT_ROOT, self.textmaps, self.voice_assets, self.on_update_thread
         )
         self.pragmata_updater = PragmataUpdateManager(
-            PROJECT_ROOT, self.pragmata, self.on_update_thread
+            PROJECT_ROOT, self.pragmata, self.pragmata_voice_assets, self.on_update_thread
         )
 
     def _game_data(self) -> Path | None:
@@ -224,6 +231,7 @@ class Runtime:
             },
             "audio": self.audio.status(),
             "voice_assets": self.voice_assets.status(),
+            "pragmata_voice_assets": self.pragmata_voice_assets.status(),
             "story_voices": self.story_voices.status(),
             "agents": agents,
             "voice_activity": self.voice_activity.latest,
@@ -282,6 +290,7 @@ async def lifespan(_app: FastAPI):
         await asyncio.to_thread(runtime.pragmata_updater.close)
         runtime.story_voices.close()
         runtime.voice_assets.close()
+        runtime.pragmata_voice_assets.close()
         runtime.agents.close()
         runtime.audio.stop()
         if runtime.map_task and not runtime.map_task.done():

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from .pragmata import PragmataTextIndex
+from .pragmata_audio import PragmataVoiceAssetService
 
 
 class PragmataUpdateManager:
@@ -17,10 +18,12 @@ class PragmataUpdateManager:
         self,
         project_root: Path,
         index: PragmataTextIndex,
+        voice_assets: PragmataVoiceAssetService,
         on_update: Callable[[dict[str, object]], None] | None = None,
     ) -> None:
         self.project_root = project_root
         self.index = index
+        self.voice_assets = voice_assets
         self.on_update = on_update
         self._thread: threading.Thread | None = None
         self._lock = threading.RLock()
@@ -74,6 +77,7 @@ class PragmataUpdateManager:
                         needs_update = payload.get("fingerprint") != fingerprint(install)
             if not needs_update:
                 self.index.load()
+                self.voice_assets.reload()
                 self._set(state="idle", message="PRAGMATA game files are current", progress=100)
                 return
             self._set(state="updating", message="Indexing official PRAGMATA subtitles", progress=15)
@@ -85,6 +89,7 @@ class PragmataUpdateManager:
                 raise RuntimeError(result.stderr.strip() or result.stdout.strip())
             if not self.index.load():
                 raise RuntimeError(self.index.message)
+            self.voice_assets.reload()
             self._set(
                 state="idle",
                 message=f"PRAGMATA index ready: {self.index.entry_count:,} official lines",

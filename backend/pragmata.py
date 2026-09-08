@@ -25,6 +25,7 @@ class PragmataRecord:
     chinese: str
     source: str
     speaker_code: str | None = None
+    audio: dict[str, object] | None = None
 
 
 class PragmataTextIndex:
@@ -41,6 +42,7 @@ class PragmataTextIndex:
         self.state = "not_ready"
         self.message = "PRAGMATA dialogue has not been indexed"
         self.entry_count = 0
+        self.audio_count = 0
 
     def load(self) -> bool:
         if not self.path.is_file():
@@ -63,6 +65,9 @@ class PragmataTextIndex:
                 self._choices = list(records)
                 self._speaker_names = names
                 self.entry_count = sum(len(items) for items in records.values())
+                self.audio_count = sum(
+                    1 for items in records.values() for record in items if record.audio is not None
+                )
                 self.ready = True
                 self.state = "ready"
                 self.message = f"{self.entry_count:,} official PRAGMATA dialogue pairs indexed"
@@ -81,6 +86,7 @@ class PragmataTextIndex:
                 "state": self.state,
                 "message": self.message,
                 "entry_count": self.entry_count,
+                "audio_count": self.audio_count,
             }
 
     @staticmethod
