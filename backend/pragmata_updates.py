@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from .pragmata import PragmataTextIndex
-from .pragmata_audio import PragmataVoiceAssetService
+from .pragmata_audio import INDEX_FORMAT, PragmataVoiceAssetService
 
 
 class PragmataUpdateManager:
@@ -69,12 +69,13 @@ class PragmataUpdateManager:
             install = None
             if path.is_file():
                 payload = json.loads(path.read_text(encoding="utf-8"))
+                needs_update = payload.get("format", 0) < INDEX_FORMAT
                 install_value = payload.get("install")
                 if install_value:
                     install = Path(str(install_value))
                     if install.is_dir():
                         from scripts.index_pragmata_assets import fingerprint
-                        needs_update = payload.get("fingerprint") != fingerprint(install)
+                        needs_update = needs_update or payload.get("fingerprint") != fingerprint(install)
             if not needs_update:
                 self.index.load()
                 self.voice_assets.reload()

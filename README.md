@@ -67,8 +67,18 @@ subtitle GUIDs and timeline frames cut sentence-sized clips from the original
 scene track. Windows loopback remains only as a fallback for unmapped lines;
 the game is never modified.
 
+Fixed Wwise voice layers are combined using their authored gains and delays;
+shared radio effects cannot extend playback past the sentence. Identical
+English/Chinese lines by the same speaker can reuse a verified official take,
+marked internally as `bilingual_alias` (not a claim about which take played).
+The September 2026 index has 3,882 audio-linked records out of 3,894 dialogue
+records. Credits, sound-effect captions and rejected development strings are
+excluded. Twelve remaining records retain capture fallback because their
+source is absent, has no timeline interval, or uses an unsupported event tree.
+`data/pragmata/textmap.json` includes `excluded` and `audio_diagnostics` reports.
+
 On startup, the companion fingerprints PRAGMATA's `re_chunk_*.pak` files. A
-changed game build is re-extracted and re-indexed in the background while the
+changed game build or newer index format is re-extracted and re-indexed in the background while the
 web interface continues using the last complete index. The generated files are
 kept under `data/pragmata` and atomically replaced after a successful update.
 Audio packages are unpacked lazily on first use and cached per game-build

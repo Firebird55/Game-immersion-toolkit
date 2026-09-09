@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import gzip
 import hashlib
 import json
 import re
@@ -9,13 +8,15 @@ import struct
 import subprocess
 import tempfile
 import threading
+import wave
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable
 
 
 ZERO_GUID = "00000000-0000-0000-0000-000000000000"
+INDEX_FORMAT = 3
 SCENE_CLIP_RE = re.compile(r"^cs\d+_s(\d+)$", re.IGNORECASE)
 
 
@@ -145,7 +146,97 @@ def read_tmlfsm_dialogue_segments(path: Path) -> list[dict[str, float | str]]:
     return result
 
 
-def build_sound_id_audio_map(graph: dict[str, object]) -> dict[int, dict[str, object]]:
+def read_bank_play_layers(path: Path) -> dict[int, list[dict[str, object]]]:
+    """Read fixed Wwise 150 Play -> layer -> source trees, preserving delays/gain.
+
+    Random/switch containers are deliberately unsupported: their alternatives
+    must never be mixed together as if they played simultaneously.
+    """
+    data = path.read_bytes()
+    objects = {}
+    version = None
+    offset = 0
+    while offset + 8 <= len(data):
+        tag, size = struct.unpack_from('<4sI', data, offset)
+        body = data[offset + 8:offset + 8 + size]
+        if len(body) != size:
+            raise ValueError('Truncated Wwise bank')
+        if tag == b'BKHD':
+            version = _u32(body, 0)
+        if tag == b'HIRC':
+            pos = 4
+            for _ in range(_u32(body, 0)):
+                kind, length = struct.unpack_from('<BI', body, pos)
+                payload = body[pos + 5:pos + 5 + length]
+                objects[_u32(payload, 0)] = (kind, payload)
+                pos += 5 + length
+        offset += 8 + size
+    if version != 150:
+        raise ValueError(f'Unsupported Wwise bank version {version}')
+    nodes = {}
+    children = {}
+    for oid, (kind, payload) in objects.items():
+        if kind not in (2, 5, 6, 7, 9):
+            continue
+        pos, media = 4, None
+        if kind == 2:
+            plugin = _u32(payload, pos)
+            if plugin & 0xF != 1:
+                continue
+            media = _u32(payload, pos + 5)
+            pos += 14
+        fx_count = payload[pos + 1]
+        pos += 2 + (1 if fx_count else 0) + fx_count * 6
+        metadata_count = payload[pos + 1]
+        pos += 2 + metadata_count * 6
+        parent = _u32(payload, pos + 4)
+        pos += 9
+        count = payload[pos]
+        ids = payload[pos + 1:pos + 1 + count]
+        values = struct.unpack_from(f'<{count}f', payload, pos + 1 + count)
+        props = dict(zip(ids, values))
+        range_pos = pos + 1 + count * 5
+        range_count = payload[range_pos]
+        range_ids = payload[range_pos + 1:range_pos + 1 + range_count]
+        if set(range_ids) & {0, 0x22}:
+            # Keep the child in the tree so its parent cannot silently render
+            # only the remaining, supported sources.
+            kind = -1
+        nodes[oid] = (kind, media, props.get(0, 0.0), props.get(0x22, 0.0))
+        children.setdefault(parent, []).append(oid)
+
+    def walk(oid, gain=0.0, delay=0.0, visiting=frozenset()):
+        if oid in visiting or oid not in nodes:
+            raise ValueError('Incomplete Wwise play tree')
+        kind, media, volume, wait = nodes[oid]
+        gain, delay = gain + volume, delay + wait
+        if kind == 2:
+            return [{'media_id': media, 'gain_db': gain, 'delay_seconds': delay}]
+        if kind not in (7, 9) or not children.get(oid):
+            raise ValueError('Voice event uses a dynamic container')
+        return [item for child in children[oid]
+                for item in walk(child, gain, delay, visiting | {oid})]
+
+    events = {}
+    for oid, (kind, payload) in objects.items():
+        if kind != 4 or payload[4] >= 128:
+            continue
+        actions = struct.unpack_from(f'<{payload[4]}I', payload, 5)
+        layers = []
+        try:
+            for aid in actions:
+                akind, action = objects[aid]
+                if akind != 3 or struct.unpack_from('<H', action, 4)[0] != 0x0403:
+                    raise ValueError('Unsupported event action')
+                layers.extend(walk(_u32(action, 6)))
+            if layers:
+                events[oid] = layers
+        except (KeyError, ValueError):
+            continue
+    return events
+
+
+def build_sound_id_audio_map(graph: dict[str, object], bank_root: Path | None = None) -> dict[int, dict[str, object]]:
     """Map RE Engine MSG SoundIDs to a unique Mandarin Wwise media object."""
     records = graph.get("source_event_records", [])
     source_events = graph.get("source_events", {})
@@ -176,12 +267,16 @@ def build_sound_id_audio_map(graph: dict[str, object]) -> dict[int, dict[str, ob
         package = packages.get(localized_bank)
         if not available or not isinstance(package, dict):
             continue
+        bank_path = bank_root / f'{bank}.sbnk.1.x64.zhcn' if bank_root else None
+        play_layers = read_bank_play_layers(bank_path) if bank_path and bank_path.is_file() else {}
         for event_id, event in dict(events).items():
             index = record_index.get((str(bank), int(event_id)))
             candidates = record_media.get(index, set()) & available if index is not None else set()
-            if len(candidates) != 1:
+            layers = play_layers.get(int(event_id), [])
+            layered = len(candidates) > 1 and {x['media_id'] for x in layers} == candidates
+            if len(candidates) != 1 and not layered:
                 continue
-            media_id = next(iter(candidates))
+            media_id = min(candidates)
             audio = {
                 "bank": str(bank),
                 "media_id": media_id,
@@ -189,6 +284,13 @@ def build_sound_id_audio_map(graph: dict[str, object]) -> dict[int, dict[str, ob
                 "streaming": str(package.get("streaming", "")),
                 "mapping": "sound_id",
             }
+            if layered:
+                audio['layers'] = layers
+                audio['mapping'] = 'sound_id_layers'
+                # Shared radio/noise layers may loop. Bound playback by the
+                # sentence-specific sources, including their authored delays.
+                exclusive = [m for m in candidates if len(source_events.get(str(m), [])) == 1]
+                audio['duration_media_ids'] = exclusive or sorted(candidates)
             for trigger_id in event.get("trigger_ids", []):
                 trigger = int(trigger_id)
                 if trigger in mapped and mapped[trigger] != audio:
@@ -200,7 +302,7 @@ def build_sound_id_audio_map(graph: dict[str, object]) -> dict[int, dict[str, ob
     return mapped
 
 
-def cutscene_audio_for_bank(graph: dict[str, object], bank: str) -> dict[str, object] | None:
+def cutscene_audio_for_bank(graph: dict[str, object], bank: str, bank_root: Path | None = None) -> dict[str, object] | None:
     localized_bank = f"{bank}.zhcn"
     package = dict(graph.get("media_packages", {})).get(localized_bank)
     if not isinstance(package, dict):
@@ -209,15 +311,26 @@ def cutscene_audio_for_bank(graph: dict[str, object], bank: str) -> dict[str, ob
     for path, links in dict(graph.get("media_links", {})).items():
         if str(path).casefold().endswith(f"/{bank}.sbnk.1.x64.zhcn") and isinstance(links, dict):
             media_ids.update(map(int, links.get(localized_bank, [])))
-    if len(media_ids) != 1:
+    layers = []
+    if len(media_ids) > 1 and bank_root:
+        path = bank_root / f'{bank}.sbnk.1.x64.zhcn'
+        if path.is_file():
+            candidates = [ls for ls in read_bank_play_layers(path).values()
+                          if {x['media_id'] for x in ls} == media_ids]
+            if len(candidates) == 1:
+                layers = candidates[0]
+    if not media_ids or (len(media_ids) != 1 and not layers):
         return None
-    return {
+    result = {
         "bank": bank,
-        "media_id": next(iter(media_ids)),
+        "media_id": min(media_ids),
         "index": str(package.get("index", "")),
         "streaming": str(package.get("streaming", "")),
         "mapping": "timeline_guid",
     }
+    if layers:
+        result['layers'] = layers
+    return result
 
 
 def read_pck_media(path: Path, media_id: int) -> bytes:
@@ -267,6 +380,45 @@ class PragmataAudioEntry:
     mapping: str
     start_seconds: float | None = None
     end_seconds: float | None = None
+    layers: tuple[dict[str, object], ...] = ()
+    duration_media_ids: tuple[int, ...] = ()
+
+    @property
+    def media_ids(self) -> set[int]:
+        return {int(layer["media_id"]) for layer in self.layers} or {self.media_id}
+
+
+def mix_voice_layers(entry: PragmataAudioEntry, waves: dict[int, Path], destination: Path) -> None:
+    """Render fixed simultaneous layers; never choose/mix random alternatives."""
+    command = [shutil.which("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin"]
+    layers = entry.layers or ({"media_id": entry.media_id},)
+    filters, ends = [], []
+    for index, layer in enumerate(layers):
+        media_id = int(layer["media_id"])
+        path = waves[media_id]
+        delay = max(0.0, float(layer.get("delay_seconds", 0)))
+        gain = float(layer.get("gain_db", 0))
+        command.extend(["-i", str(path)])
+        filters.append(
+            f"[{index}:a]aformat=channel_layouts=stereo,volume={gain:.6f}dB,"
+            f"adelay={delay * 1000:.3f}:all=1[a{index}]"
+        )
+        if media_id in entry.duration_media_ids:
+            with wave.open(str(path)) as stream:
+                ends.append(delay + stream.getnframes() / stream.getframerate())
+    inputs = "".join(f"[a{i}]" for i in range(len(layers)))
+    filters.append(f"{inputs}amix=inputs={len(layers)}:normalize=0:dropout_transition=0[mix]")
+    tail = "[mix]"
+    if entry.start_seconds is not None and entry.end_seconds is not None:
+        start = max(0.0, entry.start_seconds - 0.08)
+        tail += f"atrim=start={start:.4f}:end={entry.end_seconds + 0.25:.4f},asetpts=PTS-STARTPTS,"
+    elif ends:
+        tail += f"atrim=end={max(ends):.4f},"
+    filters.append(tail + "alimiter=limit=0.95:level=0:latency=1[out]")
+    command.extend(["-filter_complex", ";".join(filters), "-map", "[out]", "-ac", "2",
+                    "-codec:a", "libmp3lame", "-q:a", "2", str(destination)])
+    subprocess.run(command, check=True, capture_output=True, timeout=90,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
 
 
 class PragmataVoiceAssetService:
@@ -308,6 +460,8 @@ class PragmataVoiceAssetService:
                     mapping=str(audio.get("mapping", "")),
                     start_seconds=float(audio["start_seconds"]) if "start_seconds" in audio else None,
                     end_seconds=float(audio["end_seconds"]) if "end_seconds" in audio else None,
+                    layers=tuple(audio.get("layers", [])),
+                    duration_media_ids=tuple(map(int, audio.get("duration_media_ids", []))),
                 )
             install_value = payload.get("install")
             with self._lock:
@@ -361,7 +515,8 @@ class PragmataVoiceAssetService:
                 candidate = cache / Path(virtual.replace("/", "\\"))
                 if candidate.is_file():
                     try:
-                        read_pck_media(candidate, entry.media_id)
+                        for media_id in entry.media_ids:
+                            read_pck_media(candidate, media_id)
                         return candidate
                     except KeyError:
                         pass
@@ -389,7 +544,8 @@ class PragmataVoiceAssetService:
             candidate = cache / Path(virtual.replace("/", "\\"))
             if candidate.is_file():
                 try:
-                    read_pck_media(candidate, entry.media_id)
+                    for media_id in entry.media_ids:
+                        read_pck_media(candidate, media_id)
                     return candidate
                 except KeyError:
                     pass
@@ -401,28 +557,25 @@ class PragmataVoiceAssetService:
         if entry is None:
             raise KeyError(text_id)
         package = self._package(entry)
-        wem_data = read_pck_media(package, entry.media_id)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         filename = f"official-pragmata-{line_id}-{entry.media_id}.mp3"
         destination = self.output_dir / filename
         with tempfile.TemporaryDirectory(prefix="pragmata-voice-", dir=self.output_dir) as scratch_value:
             scratch = Path(scratch_value)
-            wem, wav, mp3 = scratch / "voice.wem", scratch / "voice.wav", scratch / "voice.mp3"
-            wem.write_bytes(wem_data)
+            mp3 = scratch / "voice.mp3"
             options = {
                 "check": True,
                 "capture_output": True,
                 "timeout": 90,
                 "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
             }
-            subprocess.run([str(self.decoder), "-o", str(wav), str(wem)], **options)
-            command = [shutil.which("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin"]
-            if entry.start_seconds is not None and entry.end_seconds is not None:
-                start = max(0.0, entry.start_seconds - 0.08)
-                duration = max(0.1, entry.end_seconds - start + 0.25)
-                command.extend(["-ss", f"{start:.4f}", "-t", f"{duration:.4f}"])
-            command.extend(["-i", str(wav), "-ac", "2", "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)])
-            subprocess.run(command, **options)
+            waves = {}
+            for media_id in entry.media_ids:
+                wem, wav = scratch / f"{media_id}.wem", scratch / f"{media_id}.wav"
+                wem.write_bytes(read_pck_media(package, media_id))
+                subprocess.run([str(self.decoder), "-o", str(wav), str(wem)], **options)
+                waves[media_id] = wav
+            mix_voice_layers(entry, waves, mp3)
             if mp3.stat().st_size < 100:
                 raise ValueError("Empty decoded PRAGMATA voice")
             mp3.replace(destination)

@@ -17,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.pragmata_audio import (
+    INDEX_FORMAT,
     build_sound_id_audio_map,
     cutscene_audio_for_bank,
     read_tmlfsm_dialogue_segments,
@@ -162,6 +163,10 @@ def update_asset_list(tools: Path) -> None:
         for line in release.read_text(encoding="utf-8-sig").splitlines()
         if line.casefold().startswith("natives/stm/message/")
         or (
+            line.casefold().startswith("natives/stm/sound/wwise/")
+            and line.casefold().endswith("dialogue.sbnk.1.x64.zhcn")
+        )
+        or (
             line.casefold().startswith("natives/stm/event/cs/")
             and "/flow/" in line.casefold()
             and ".tmlfsm2." in line.casefold()
@@ -241,14 +246,15 @@ def build_index(
             if english and chinese and not REF_RE.search(english + chinese):
                 references[str(entry["name"])] = (english, chinese)
 
-    sound_audio = build_sound_id_audio_map(sound_graph) if sound_graph else {}
+    bank_root = message_root.parent / "sound" / "wwise"
+    sound_audio = build_sound_id_audio_map(sound_graph, bank_root) if sound_graph else {}
     timeline_audio: dict[str, dict[str, object]] = {}
     if timeline_root is not None and sound_graph:
         for path in sorted(timeline_root.rglob("*.tmlfsm2.*")):
             bank_match = re.search(r"/(cs\d+)/flow/", path.as_posix(), re.IGNORECASE)
             if not bank_match:
                 continue
-            base_audio = cutscene_audio_for_bank(sound_graph, f"{bank_match.group(1).lower()}_dialogue")
+            base_audio = cutscene_audio_for_bank(sound_graph, f"{bank_match.group(1).lower()}_dialogue", bank_root)
             if base_audio is None:
                 continue
             try:
@@ -263,6 +269,8 @@ def build_index(
 
     speakers: dict[str, list[str]] = {}
     records: list[dict[str, object]] = []
+    excluded: list[dict[str, str]] = []
+    unresolved_reasons: dict[str, str] = {}
     for path, entries in parsed:
         relative = path.relative_to(message_root).as_posix().casefold()
         is_spoken_family = relative.startswith("mes_main/conv/") or relative.startswith(
@@ -275,6 +283,15 @@ def build_index(
             if relative.endswith("ingame/speakername.msg.23") and english and chinese:
                 speakers[english] = [english, chinese]
             if not is_spoken_family or not english or not chinese:
+                continue
+            reason = (
+                "credits" if name.startswith("OP_StaffList_") else
+                "sound_effect_caption" if name.casefold().startswith("soundsupport_") else
+                "rejected_development_text" if "#rejected#" in (english + chinese).casefold() else
+                "nonverbal_caption" if not re.search(r"[A-Za-z]", english) or re.fullmatch(r"\[[^\]]+\]", english) else None
+            )
+            if reason:
+                excluded.append({"text_id": f"{relative}:{name}", "reason": reason})
                 continue
             code = SPEAKER_CODE_RE.search(name)
             record = {
@@ -289,19 +306,44 @@ def build_index(
                 audio = timeline_audio.get(str(entry.get("guid") or "").lower())
             if audio is not None:
                 record["audio"] = audio
+            else:
+                bank_name = f"{Path(relative).name.split('.')[0]}_dialogue"
+                if "/cutscene/" in relative:
+                    reason = ("no_audio_bank_in_asset_index" if bank_name not in (sound_graph or {}).get("banks", {})
+                              else "no_subtitle_guid_interval")
+                else:
+                    reason = "no_unique_supported_event_tree"
+                unresolved_reasons[record["text_id"]] = reason
             records.append(record)
 
     # Preserve distinct IDs for repeated lines, while eliminating accidental
     # duplicate records from overlaying base and patch archives.
     unique = {record["text_id"]: record for record in records}
+    # Reused subtitle IDs sometimes have several event aliases. An identical
+    # bilingual line by the same speaker can reuse a verified official take;
+    # record its provenance rather than claiming the ambiguous event was solved.
+    aliases = {}
+    for record in unique.values():
+        if record.get("audio") and record.get("speaker_code"):
+            key = (record["english"], record["chinese"], record["speaker_code"])
+            aliases.setdefault(key, record)
+    for record in unique.values():
+        key = (record["english"], record["chinese"], record["speaker_code"])
+        if not record.get("audio") and key in aliases:
+            alias = aliases[key]
+            record["audio"] = {**alias["audio"], "mapping": "bilingual_alias", "alias_text_id": alias["text_id"]}
     return {
-        "format": 2,
+        "format": INDEX_FORMAT,
         "game": "pragmata",
         "install": str(install) if install else None,
         "fingerprint": fingerprint(install) if install else None,
         "records": list(unique.values()),
         "speakers": speakers,
         "audio_count": sum(1 for record in unique.values() if "audio" in record),
+        "excluded": excluded,
+        "unresolved_audio": [record["text_id"] for record in unique.values() if "audio" not in record],
+        "audio_diagnostics": [{"text_id": record["text_id"], "reason": unresolved_reasons[record["text_id"]]}
+                              for record in unique.values() if "audio" not in record],
     }
 
 
