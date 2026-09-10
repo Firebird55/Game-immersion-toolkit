@@ -87,6 +87,35 @@ fingerprint, so indexing does not duplicate the full game installation.
 The **Speed** control in the footer plays story and agent clips at 1×, 0.85×,
 0.75×, or 0.6× while preserving pitch. The choice is remembered by Chrome.
 
+## Send to Lexirise
+
+Use **Lexirise** beside a current sentence, the send icon in History/Favorites,
+or the button beside an agent voice. Nothing is sent automatically. The backend
+uploads the available voice clip and creates a Chinese sentence with its English
+translation, then adds it to the correct existing deck:
+
+- PRAGMATA → deck 1951.
+- Zenless Zone Zero, including agent voices → deck 1950.
+
+The deck is chosen from the saved line's game, not the tab currently open.
+Agent Hanzi remains automatic transcription; no English translation is invented.
+Original game audio is used when the saved clip has it; otherwise the available
+recording is sent and labeled as such. Missing clips must be ready before sending.
+Lexirise hosts uploaded audio at an HTTPS URL; the API accepts clips up to 90 seconds.
+
+Sent markers and partial transfer progress survive restarts. Repeated sends of
+the same Mandarin sentence to the same deck reuse the export. A lost response
+is reconciled against Lexirise before adding another deck entry. Existing study
+notes and proficiency are preserved. Previously sent lines remain in Lexirise
+when local history is pruned.
+
+The key is stored only in `data/lexirise/key.dpapi`, encrypted for the current
+Windows user. That directory (including the export ledger) is excluded from Git
+and is not served to Chrome. Other hosts can supply `LEXIRISE_API_KEY` to the
+backend environment. To replace a Windows key, call `save_api_key` from
+`backend.lexirise` locally; there is intentionally no browser endpoint exposing
+or replacing credentials. API contract: https://lexirise.app/api-reference.
+
 ## Automatic updates
 
 The companion opens immediately using its last complete local indexes. A

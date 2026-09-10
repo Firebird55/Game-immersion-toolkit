@@ -254,7 +254,7 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .current-english { max-width: 880px; margin-bottom: 0; white-space: pre-line; font-size: clamp(20px, 2.5vw, 28px); line-height: 1.24; letter-spacing: -.018em; }
 .current-chinese { margin-bottom: 0; color: #f2f5f7; white-space: pre-line; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.42; }
 .current-chinese-host { min-height: 1.45em; }
-.current-actions { display: flex; gap: 8px; margin-top: 3px; }
+.current-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; }
 .current-actions button,
 .line-actions button {
   display: inline-flex;
@@ -390,6 +390,13 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .line-meta > span.is-low-score { color: #ffbf69; }
 .line-actions { display: flex; gap: 5px; }
 .line-actions button { width: 32px; height: 30px; padding: 0; }
+.line-actions { flex-wrap: wrap; justify-content: flex-end; }
+.lexirise-send { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--border); padding: 6px 10px; border-radius: 3px; font-size: 14px; cursor: pointer; }
+.lexirise-send:disabled { cursor: default; opacity: .5; }
+.lexirise-send.is-sent:disabled { opacity: 1; color: var(--acid); }
+.lexirise-send:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+.study-status { font-size: 14px; color: var(--acid); padding: 8px 0; overflow-wrap: anywhere; }
+.study-status:empty { display: none; }
 .capture-toggle .capture-pause-icon,
 .capture-toggle .capture-pause-label { display: none; }
 .capture-toggle.is-running .capture-pause-icon,

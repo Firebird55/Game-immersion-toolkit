@@ -60,6 +60,11 @@ class AgentVoiceStore:
     def has_asset(self, asset_id: str) -> bool:
         return self.transcript(asset_id) is not None
 
+    def get_asset(self, asset_id: str) -> dict | None:
+        with self.connect() as db:
+            row = db.execute('SELECT * FROM agent_lines WHERE asset_id=? ORDER BY last_heard DESC LIMIT 1', (asset_id,)).fetchone()
+            return dict(row) if row else None
+
     def assets_for_agent(self, agent: str) -> list[str]:
         with self.connect() as db:
             return [row[0] for row in db.execute('SELECT asset_id FROM agent_lines WHERE agent=?', (agent,))]

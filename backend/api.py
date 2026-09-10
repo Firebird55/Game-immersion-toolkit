@@ -4,7 +4,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Header, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
@@ -25,6 +25,7 @@ from .pragmata_audio import PragmataVoiceAssetService
 from .pragmata_updates import PragmataUpdateManager
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
+from .lexirise import LexiriseService, LexiriseError
 from .windows import list_visible_windows, game_data_directory
 
 
@@ -74,6 +75,7 @@ class Runtime:
         self.hub = EventHub()
         self.settings = SettingsStore(DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
+        self.lexirise = LexiriseService(DATA_DIR / "lexirise")
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
@@ -403,6 +405,53 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
         raise HTTPException(status_code=404, detail="Transcript line not found")
     await runtime.on_line(line)
     return line
+
+
+@app.get("/api/lexirise")
+def lexirise_status() -> dict:
+    return runtime.lexirise.status()
+
+
+@app.post("/api/lines/{line_id}/lexirise")
+def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default="")) -> dict:
+    # Custom header forces cross-origin browsers through the existing allowlist.
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's Lexirise button.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "This line is no longer in local history.")
+    if not line.voiced:
+        raise HTTPException(409, "Wait until this line is confirmed voiced.")
+    line = runtime.speakers.enrich(line)
+    root = (DATA_DIR / "audio").resolve()
+    path = (root / (runtime.transcript.audio_path(line_id) or "missing")).resolve()
+    if path.parent != root:
+        raise HTTPException(404, "Voice file unavailable.")
+    try:
+        return runtime.lexirise.send(ref=f"line:{line_id}", game=line.game, chinese=line.chinese,
+            english=line.english, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
+            audio=path, audio_source=line.audio_source)
+    except LexiriseError as error:
+        raise HTTPException(409, str(error)) from None
+    except OSError:
+        raise HTTPException(409, "The local voice clip became unavailable. Try a saved favorite.") from None
+
+
+@app.post("/api/agents/{asset_id}/lexirise")
+def send_agent_to_lexirise(asset_id: str, x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's Lexirise button.")
+    line = runtime.agents.store.get_asset(asset_id) if asset_id.isdecimal() else None
+    if line is None:
+        raise HTTPException(404, "Agent line not found.")
+    try:
+        return runtime.lexirise.send(ref=f"agent:{asset_id}", game="zzz", chinese=line["chinese"],
+            english="", speaker=line["agent"], audio=DATA_DIR / "agent-voices/audio" / f"{asset_id}.wav",
+            audio_source="original; Hanzi automatically transcribed")
+    except LexiriseError as error:
+        raise HTTPException(409, str(error)) from None
+    except OSError:
+        raise HTTPException(409, "The local agent voice clip is unavailable.") from None
 
 
 @app.post("/api/capture/start")

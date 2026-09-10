@@ -16,6 +16,9 @@ import {
   Users,
   Volume2,
   Gamepad2,
+  Send,
+  Check,
+  Loader2,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -113,6 +116,18 @@ type TranscriptTab = 'history' | 'agents' | 'favorites';
 type GameId = 'zzz' | 'pragmata';
 type AgentLine = { key: string; agent: string; asset_id: string; chinese: string; text_source: string; last_heard: string; heard_count: number };
 type AgentPage = { lines: AgentLine[]; total: number };
+type LexiriseStatus = { configured: boolean; sent: Record<string, number> };
+
+function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
+  sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
+}) {
+  const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${game === 'zzz' ? 'Zenless Zone Zero' : 'PRAGMATA'}`;
+  return <button type="button" className={`lexirise-send ${sent ? 'is-sent' : ''}`} translate="no"
+    disabled={disabled || busy || sent} onClick={onClick} title={title} aria-label={title} aria-busy={busy}>
+    {busy ? <Loader2 size={16} className="animate-spin" /> : sent ? <Check size={16} /> : <Send size={16} />}
+    {!compact && <span>{busy ? 'Sending…' : sent ? 'Sent to Lexirise' : 'Lexirise'}</span>}
+  </button>;
+}
 
 function mergeAgentLines(current: AgentLine[], incoming: AgentLine[]) {
   const entries = new Map(current.map(line => [line.key, line]));
@@ -215,6 +230,10 @@ function CompanionClient() {
   const historyList = useRef<HTMLDivElement>(null);
   const playback = useRef<HTMLAudioElement | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
+  const [sendingRef, setSendingRef] = useState<string | null>(null);
+  const [studyMessage, setStudyMessage] = useState('');
+  const sendingStudy = useRef(false);
 
   useEffect(() => {
     const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
@@ -258,6 +277,10 @@ function CompanionClient() {
       }
       setOnline(true);
       setSnapshotLoaded(true);
+      // Integration status must not prevent the transcript from loading.
+      void fetch(`${API_URL}/api/lexirise`, { cache: 'no-store' })
+        .then(response => response.ok ? response.json() : null)
+        .then(value => { if (value) setLexirise(value); }).catch(() => undefined);
     } catch {
       setOnline(false);
     }
@@ -477,6 +500,35 @@ function CompanionClient() {
     void audio.play();
   }
 
+  async function sendToLexirise(kind: 'line' | 'agent', id: number | string) {
+    if (sendingStudy.current) return;
+    sendingStudy.current = true;
+    const ref = `${kind}:${id}`;
+    setSendingRef(ref);
+    setStudyMessage('Sending sentence and voice to Lexirise…');
+    try {
+      const response = await fetch(`${API_URL}/api/${kind === 'line' ? 'lines' : 'agents'}/${id}/lexirise`, {
+        method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise' },
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
+      setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
+      setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${result.deck_id === 1951 ? 'PRAGMATA' : 'Zenless Zone Zero'}.`);
+    } catch (error) {
+      setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
+    } finally {
+      sendingStudy.current = false;
+      setSendingRef(null);
+    }
+  }
+
+  function studyButton(kind: 'line' | 'agent', id: number | string, game: GameId, hasAudio: boolean, compact = false) {
+    const ref = `${kind}:${id}`;
+    return <LexiriseButton sent={!!lexirise.sent[ref]} busy={sendingRef === ref}
+      disabled={!online || !lexirise.configured || !hasAudio || (sendingRef !== null && sendingRef !== ref)}
+      game={game} onClick={() => void sendToLexirise(kind, id)} compact={compact} />;
+  }
+
   function playAgent(line: AgentLine) {
     playback.current?.pause();
     const audio = new Audio(`${API_URL}/api/agents/${line.asset_id}/audio`);
@@ -603,6 +655,7 @@ function CompanionClient() {
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
               </button>
+              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio)}
             </div>
           </div>
         ) : (
@@ -616,6 +669,9 @@ function CompanionClient() {
         )}
       </section>}
 
+      <div className="study-status" role="status" aria-live="polite">
+        {studyMessage || (online && !lexirise.configured ? 'Lexirise is not configured on this computer.' : '')}
+      </div>
       <section className="transcript" aria-labelledby="transcript-heading">
         <div className="transcript-heading">
           <div>
@@ -670,6 +726,7 @@ function CompanionClient() {
               <div className="agent-line-footer">
                 <span>Automatic transcription · Heard {line.heard_count} {line.heard_count === 1 ? 'time' : 'times'}</span>
                 <Button variant="outline" size="sm" onClick={() => playAgent(line)} aria-label={`Play ${line.agent} voice line`}><Volume2 size={16} /> Play voice</Button>
+                {studyButton('agent', line.asset_id, 'zzz', !!line.chinese)}
               </div>
             </article>)}
             {!agentLines.length && <div className="transcript-empty"><Users size={26} /><p>No agent voices heard yet. Play a line on an agent’s game screen; it will be saved here once recognized.</p></div>}
@@ -699,6 +756,7 @@ function CompanionClient() {
                 <div className="line-actions">
                   <button type="button" onClick={() => playLine(line)} disabled={!line.has_audio} aria-label={`Play voice line: ${line.english}`} title="Play voice line"><Volume2 size={16} /></button>
                   <button type="button" className={line.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(line)} aria-label={line.favorite ? 'Remove from favorites' : 'Favorite line'} title={line.favorite ? 'Remove favorite' : 'Keep forever'}><Star size={16} fill={line.favorite ? 'currentColor' : 'none'} /></button>
+                  {studyButton('line', line.id, line.game, line.has_audio, true)}
                 </div>
               </div>
             </article>
