@@ -13,6 +13,7 @@ class FakeAPI:
         self.items = []
         self.decks = {1950: [], 1951: []}
         self.fail_after_add = False
+        self.hide_added_membership = False
 
     def __call__(self, request):
         self.calls.append((request.method, request.url.path))
@@ -41,8 +42,11 @@ class FakeAPI:
                     self.fail_after_add = False
                     raise httpx.ReadTimeout('lost response with sensitive information', request=request)
                 return httpx.Response(200, json={'success': True, 'added_count': 1})
+            items = self.decks[deck_id]
+            if self.hide_added_membership and items:
+                items = items[:-1]
             return httpx.Response(200, json={'success': True, 'deck': {'lang': 'zh', 'unit_type': 'sentence', 'deck_type': 'snapshot'},
-                                            'items': self.decks[deck_id], 'hasMore': False})
+                                            'items': items, 'hasMore': False})
         raise AssertionError(path)
 
 
@@ -88,6 +92,24 @@ def test_lost_deck_response_resumes_without_duplicate_upload_or_card(tmp_path):
     assert len(api.decks[1951]) == 1
     assert api.calls.count(('POST', '/v1/vocabulary/audio')) == 1
     assert api.calls.count(('POST', '/v1/vocabulary')) == 1
+
+
+def test_positive_add_count_is_authoritative_while_read_replica_lags(tmp_path):
+    api, service, kwargs = fixture(tmp_path)
+    api.hide_added_membership = True
+
+    assert service.send(**kwargs)['sent']
+    assert len(api.decks[1951]) == 1
+    assert service.status()['sent'] == {'line:1': 1951}
+
+
+def test_positive_add_count_does_not_fail_when_deck_read_replica_lags(tmp_path):
+    api, service, kwargs = fixture(tmp_path)
+    api.hide_added_membership = True
+
+    assert service.send(**kwargs)['sent']
+    assert len(api.decks[1951]) == 1
+    assert service.status()['sent'] == {'line:1': 1951}
 
 
 def test_existing_notes_and_proficiency_are_not_overwritten(tmp_path):

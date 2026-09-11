@@ -122,6 +122,22 @@ class LexiriseService:
                 return
             offset += len(items)
 
+    @classmethod
+    def _deck_contains(cls, client, deck_id: int, vocabulary_id: int, chinese: str) -> bool:
+        """Recognize membership by stable ID, with text as an API compatibility fallback."""
+        return any(
+            item.get("saved_expression_id") == vocabulary_id
+            or item.get("id") == vocabulary_id
+            or item.get("expression_text") == chinese
+            for item in cls._items(client, f"/v1/decks/{deck_id}", "items")
+        )
+
+    @staticmethod
+    def _confirmed_add_count(result: dict) -> bool:
+        """A positive mutation count is authoritative even if a read replica lags."""
+        value = result.get("added_count", result.get("addedCount"))
+        return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
     def _save(self, db, key, ref, state):
         db.execute("INSERT INTO exports VALUES (?,?) ON CONFLICT(key) DO UPDATE SET state=excluded.state",
                    (key, json.dumps(state)))
@@ -191,14 +207,20 @@ class LexiriseService:
                             raise LexiriseError("Lexirise did not return the saved sentence ID. Retry to check it.")
                     state["vocabulary_id"] = int(vocabulary_id)
                     self._save(db, key, ref, state)
-                existing = any(item.get("expression_text") == chinese for item in
-                               self._items(client, f"/v1/decks/{deck_id}", "items"))
+                existing = self._deck_contains(
+                    client, deck_id, state["vocabulary_id"], chinese
+                )
+                membership_confirmed = existing
                 if not existing:
-                    self._request(client, "POST", f"/v1/decks/{deck_id}/items", json={
+                    result = self._request(client, "POST", f"/v1/decks/{deck_id}/items", json={
                         "saved_expression_selection": {"mode": "explicit", "ids": [state["vocabulary_id"]]}})
+                    membership_confirmed = self._confirmed_add_count(result)
                 # Verify membership; a success response alone can contain zero additions.
-                if not existing and not any(item.get("expression_text") == chinese for item in
-                                            self._items(client, f"/v1/decks/{deck_id}", "items")):
+                # A positive addition count is authoritative. Otherwise read back
+                # once, preserving the safety check for a zero-addition response.
+                if not membership_confirmed and not self._deck_contains(
+                    client, deck_id, state["vocabulary_id"], chinese
+                ):
                     raise LexiriseError("Sentence saved, but deck membership is not confirmed. Retry to finish.")
                 state["complete"] = True
                 self._save(db, key, ref, state)
