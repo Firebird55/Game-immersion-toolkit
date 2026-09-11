@@ -74,6 +74,9 @@ class TranscriptLine(BaseModel):
     channel: Literal["dialogue", "gameplay", "tip", "cinematic"] = "dialogue"
     voiced: bool = False
     has_audio: bool = False
+    # Runtime-only hint used while an already-mapped original voice is being
+    # decoded. It is intentionally not persisted in SQLite.
+    audio_pending: bool = False
     audio_source: Literal["original", "recording"] = "recording"
     speaker_english: str | None = None
     speaker_chinese: str | None = None

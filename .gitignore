@@ -44,6 +44,7 @@ next-env.d.ts
 /data/transcript.db*
 /data/textmaps/
 /data/processes.json
+/data/*.log
 /data/capture-preview.jpg
 /data/audio/
 /data/voice-assets/

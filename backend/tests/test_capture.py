@@ -1,4 +1,9 @@
+import asyncio
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
 from backend.capture import CaptureService, StableMatchTracker
+from backend.models import TranscriptLine
 from PIL import Image
 
 
@@ -19,6 +24,63 @@ def test_stable_tracker_emits_once_per_visible_line() -> None:
     assert tracker.observe("line-a") is True
     assert tracker.observe("line-a") is False
     assert tracker.observe("line-a") is False
+
+
+def test_mapped_pragmata_text_publishes_before_audio_is_ready() -> None:
+    published = []
+
+    async def exercise() -> None:
+        service = object.__new__(CaptureService)
+        service._event_loop = asyncio.get_running_loop()
+        service.pragmata_voice_assets = SimpleNamespace(
+            has_variant=lambda text_id, english: text_id == "pragmata:line-a"
+        )
+
+        async def on_line(line: TranscriptLine) -> None:
+            published.append(line)
+
+        service.on_line = on_line
+        pending = TranscriptLine(
+            id=1,
+            created_at=datetime.now(timezone.utc),
+            session_id="test",
+            game="pragmata",
+            source_ocr="We have to move.",
+            english="We have to move.",
+            chinese="我们得走了。",
+            text_id="pragmata:line-a",
+            score=100,
+            match_kind="exact",
+        )
+
+        assert service._publish_pragmata_text_while_audio_prepares(pending) is True
+        await asyncio.sleep(0)
+
+    asyncio.run(exercise())
+    assert len(published) == 1
+    assert published[0].voiced is True
+    assert published[0].has_audio is False
+    assert published[0].audio_pending is True
+
+
+def test_unmapped_pragmata_text_still_waits_for_voice_validation() -> None:
+    service = object.__new__(CaptureService)
+    service._event_loop = object()
+    service.pragmata_voice_assets = SimpleNamespace(has_variant=lambda *_: False)
+    line = TranscriptLine(
+        id=1,
+        created_at=datetime.now(timezone.utc),
+        session_id="test",
+        game="pragmata",
+        source_ocr="Wait.",
+        english="Wait.",
+        chinese="等等。",
+        text_id="pragmata:unmapped",
+        score=100,
+        match_kind="exact",
+    )
+
+    assert service._publish_pragmata_text_while_audio_prepares(line) is False
 
 
 def test_stable_tracker_allows_same_line_after_it_disappears() -> None:

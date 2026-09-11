@@ -714,6 +714,7 @@ class CaptureService:
                 if line is not None:
                     emitted.append(line)
                     observed_at = self._visible_match_started["pragmata"][1]
+                    self._publish_pragmata_text_while_audio_prepares(line)
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
             message = "Official PRAGMATA line matched; confirming voice"
@@ -744,6 +745,31 @@ class CaptureService:
             visible_text_ids=self._visible_text_ids(monotonic_now),
         )
         return _ScanOutcome(emitted_lines=emitted)
+
+    def _publish_pragmata_text_while_audio_prepares(self, line: TranscriptLine) -> bool:
+        """Show a mapped PRAGMATA line without waiting for audio decoding.
+
+        The line has already passed the normal two-frame OCR stability check,
+        strict official-text matching, and live speech detection. A direct
+        subtitle-to-voice mapping gives us the final independent confirmation;
+        decoding that voice is useful for playback but should not hold the
+        visible transcript several seconds behind the game.
+
+        The database remains pending until the existing audio/VAD path finishes,
+        so a failed validation can still retract the provisional WebSocket row.
+        """
+        if (
+            self._event_loop is None
+            or line.game != "pragmata"
+            or self.pragmata_voice_assets is None
+            or not self.pragmata_voice_assets.has_variant(line.text_id, line.english)
+        ):
+            return False
+        pending = line.model_copy(
+            update={"voiced": True, "has_audio": False, "audio_pending": True}
+        )
+        asyncio.run_coroutine_threadsafe(self.on_line(pending), self._event_loop)
+        return True
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
         self._visible_text_by_channel[channel] = (now, text_ids)

@@ -149,7 +149,12 @@ class Runtime:
         return None
 
     async def on_line(self, line: TranscriptLine) -> None:
+        audio_pending = line.audio_pending
         line = self.speakers.enrich(line)
+        if audio_pending and not line.audio_pending:
+            # Speaker enrichment can round-trip through SQLite; preserve this
+            # transient delivery state on the WebSocket payload.
+            line = line.model_copy(update={"audio_pending": True})
         await self.hub.broadcast({"type": "line", "line": line.model_dump(mode="json")})
 
     def on_update_thread(self, update: dict[str, object]) -> None:
