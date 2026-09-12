@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   Crosshair,
@@ -34,6 +34,8 @@ import {
 
 const API_URL = 'http://127.0.0.1:8766';
 const WS_URL = 'ws://127.0.0.1:8766/api/ws';
+const HISTORY_LIMIT = 50;
+const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
@@ -119,7 +121,7 @@ type AgentLine = { key: string; agent: string; asset_id: string; chinese: string
 type AgentPage = { lines: AgentLine[]; total: number };
 type LexiriseStatus = { configured: boolean; sent: Record<string, number> };
 
-function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
+const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
 }) {
   const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${game === 'zzz' ? 'Zenless Zone Zero' : 'PRAGMATA'}`;
@@ -128,7 +130,7 @@ function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }
     {busy ? <Loader2 size={16} className="animate-spin" /> : sent ? <Check size={16} /> : <Send size={16} />}
     {!compact && <span>{busy ? 'Sending…' : sent ? 'Sent to Lexirise' : 'Lexirise'}</span>}
   </button>;
-}
+});
 
 function mergeAgentLines(current: AgentLine[], incoming: AgentLine[]) {
   const entries = new Map(current.map(line => [line.key, line]));
@@ -138,13 +140,80 @@ function mergeAgentLines(current: AgentLine[], incoming: AgentLine[]) {
   return [...entries.values()].sort((a,b) => b.last_heard.localeCompare(a.last_heard) || b.key.localeCompare(a.key));
 }
 
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
 function formatTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(new Date(value));
+  return timeFormatter.format(new Date(value));
+}
+
+function sameStringArray(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameBounds(
+  left: [number, number, number, number] | null,
+  right: [number, number, number, number] | null,
+) {
+  if (left === right) return true;
+  return !!left && !!right && left.every((value, index) => value === right[index]);
+}
+
+function captureStatusEqual(left: CaptureStatus, right: CaptureStatus, includeDiagnostics: boolean) {
+  const visibleStateMatches = left.running === right.running
+    && left.phase === right.phase
+    && left.message === right.message
+    && left.active_game === right.active_game
+    && left.last_error === right.last_error
+    && sameStringArray(left.visible_text_ids, right.visible_text_ids);
+  if (!visibleStateMatches || !includeDiagnostics) return visibleStateMatches;
+
+  return left.window_title === right.window_title
+    && sameBounds(left.window_bounds, right.window_bounds)
+    && sameBounds(left.crop_bounds, right.crop_bounds)
+    && sameBounds(left.tip_crop_bounds, right.tip_crop_bounds)
+    && sameBounds(left.cinematic_crop_bounds, right.cinematic_crop_bounds)
+    && left.last_ocr === right.last_ocr
+    && left.last_ocr_confidence === right.last_ocr_confidence
+    && left.last_tip_ocr === right.last_tip_ocr
+    && left.last_tip_ocr_confidence === right.last_tip_ocr_confidence
+    && left.last_tip_match_score === right.last_tip_match_score
+    && left.last_cinematic_ocr === right.last_cinematic_ocr
+    && left.last_cinematic_ocr_confidence === right.last_cinematic_ocr_confidence
+    && left.last_cinematic_match_score === right.last_cinematic_match_score
+    && left.last_match_score === right.last_match_score;
+}
+
+function transcriptLineEqual(left: TranscriptLine, right: TranscriptLine) {
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+  return leftEntries.length === rightEntries.length
+    && leftEntries.every(([key, value]) => Object.is(value, right[key as keyof TranscriptLine]));
+}
+
+function mergeTranscriptSnapshot(current: TranscriptLine[], snapshot: TranscriptLine[]) {
+  const currentById = new Map(current.map((line) => [line.id, line]));
+  const snapshotIds = new Set(snapshot.map((line) => line.id));
+  const newestSnapshotId: Partial<Record<GameId, number>> = {};
+  for (const line of snapshot) {
+    newestSnapshotId[line.game] = Math.max(newestSnapshotId[line.game] ?? 0, line.id);
+  }
+
+  const merged = snapshot.map((line) => {
+    const existing = currentById.get(line.id);
+    return existing && transcriptLineEqual(existing, line) ? existing : line;
+  });
+  for (const line of current) {
+    if (snapshotIds.has(line.id)) continue;
+    // WebSocket lines can arrive before their audio is ready and therefore
+    // before /api/lines returns them. Keep those lines through background sync.
+    if (line.audio_pending || line.id > (newestSnapshotId[line.game] ?? 0)) merged.push(line);
+  }
+  return merged.sort((left, right) => right.id - left.id);
 }
 
 function phaseLabel(phase: string) {
@@ -170,7 +239,7 @@ export function Companion() {
   return <CompanionClient />;
 }
 
-function StableText({ text, className, lang }: { text: string; className?: string; lang?: string }) {
+const StableText = memo(function StableText({ text, className, lang }: { text: string; className?: string; lang?: string }) {
   const element = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (element.current && element.current.textContent !== text) {
@@ -180,9 +249,9 @@ function StableText({ text, className, lang }: { text: string; className?: strin
     }
   }, [text]);
   return <p ref={element} className={className} lang={lang} />;
-}
+});
 
-function StableInline({ text, className }: { text: string; className?: string }) {
+const StableInline = memo(function StableInline({ text, className }: { text: string; className?: string }) {
   const element = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (element.current && element.current.textContent !== text) {
@@ -190,9 +259,9 @@ function StableInline({ text, className }: { text: string; className?: string })
     }
   }, [text]);
   return <span ref={element} className={className} />;
-}
+});
 
-function MigakuCurrentText({ text, lineId }: { text: string; lineId: number }) {
+const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId }: { text: string; lineId: number }) {
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!host.current) return;
@@ -206,13 +275,63 @@ function MigakuCurrentText({ text, lineId }: { text: string; lineId: number }) {
     host.current.replaceChildren(paragraph);
   }, [lineId, text]);
   return <div className="current-chinese-host" ref={host} />;
-}
+});
+
+const TranscriptRow = memo(function TranscriptRow({
+  line,
+  canUseLexirise,
+  sendingRef,
+  sentToLexirise,
+  onPlay,
+  onToggleFavorite,
+  onSendToLexirise,
+}: {
+  line: TranscriptLine;
+  canUseLexirise: boolean;
+  sendingRef: string | null;
+  sentToLexirise: boolean;
+  onPlay: (line: TranscriptLine) => void;
+  onToggleFavorite: (line: TranscriptLine) => void;
+  onSendToLexirise: (kind: 'line' | 'agent', id: number | string) => void;
+}) {
+  const ref = `line:${line.id}`;
+  return <article className="transcript-line">
+    <div className="line-time">
+      <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
+      <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : line.channel === 'gameplay' ? 'GAMEPLAY' : 'DIALOGUE'}</small>
+    </div>
+    <div className="line-language">
+      {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
+      <StableText text={line.english} />
+    </div>
+    <div className="line-language">
+      {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
+      <StableText lang="zh-Hans" text={line.chinese} />
+    </div>
+    <div className="line-meta">
+      <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
+      <div className="line-actions">
+        <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`Play voice line: ${line.english}`} title="Play voice line"><Volume2 size={16} /></button>
+        <button type="button" className={line.favorite ? 'is-favorite' : ''} onClick={() => onToggleFavorite(line)} aria-label={line.favorite ? 'Remove from favorites' : 'Favorite line'} title={line.favorite ? 'Remove favorite' : 'Keep forever'}><Star size={16} fill={line.favorite ? 'currentColor' : 'none'} /></button>
+        <LexiriseButton
+          sent={sentToLexirise}
+          busy={sendingRef === ref}
+          disabled={!canUseLexirise || !line.has_audio || (sendingRef !== null && sendingRef !== ref)}
+          game={line.game}
+          onClick={() => onSendToLexirise('line', line.id)}
+          compact
+        />
+      </div>
+    </div>
+  </article>;
+});
 
 function CompanionClient() {
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsOpenRef = useRef(false);
   const [draftSettings, setDraftSettings] = useState<Settings | null>(null);
   const [previewTick, setPreviewTick] = useState(0);
   const [setupChannel, setSetupChannel] = useState<'dialogue' | 'tip' | 'cinematic'>('dialogue');
@@ -220,9 +339,16 @@ function CompanionClient() {
   const [refreshingMaps, setRefreshingMaps] = useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [transcriptTab, setTranscriptTab] = useState<TranscriptTab>('history');
+  const transcriptTabRef = useRef<TranscriptTab>('history');
+  const [historyPage, setHistoryPage] = useState(0);
+  const changeTranscriptTab = useCallback((tab: TranscriptTab, resetHistory = false) => {
+    if (resetHistory || transcriptTabRef.current !== tab) setHistoryPage(0);
+    transcriptTabRef.current = tab;
+    setTranscriptTab(tab);
+  }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
   const lastActiveGame = useRef<GameId | null>(null);
-  const followVoice = useRef(createVoiceActivityFollower(setTranscriptTab));
+  const followVoice = useRef(createVoiceActivityFollower(changeTranscriptTab));
   const [agentLines, setAgentLines] = useState<AgentLine[]>([]);
   const [agentTotal, setAgentTotal] = useState(0);
   const [loadingAgents, setLoadingAgents] = useState(false);
@@ -240,6 +366,10 @@ function CompanionClient() {
     const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
     if ([1, 0.85, 0.75, 0.6].includes(saved)) setPlaybackRate(saved);
   }, []);
+
+  useEffect(() => {
+    settingsOpenRef.current = settingsOpen;
+  }, [settingsOpen]);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -269,8 +399,11 @@ function CompanionClient() {
       const nextLines = Array.from(
         new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
       ).sort((left, right) => right.id - left.id);
-      knownLineIds.current = new Set(nextLines.map((line) => line.id));
-      setLines(nextLines);
+      setLines((current) => {
+        const merged = mergeTranscriptSnapshot(current, nextLines);
+        knownLineIds.current = new Set(merged.map((line) => line.id));
+        return merged;
+      });
       if (agentsResponse.ok) {
         const agents = (await agentsResponse.json()) as AgentPage;
         setAgentLines(current => mergeAgentLines(current, agents.lines));
@@ -308,7 +441,10 @@ function CompanionClient() {
           setDraftSettings(event.snapshot.settings);
         }
         if (event.type === 'capture_status') {
-          setStatus((current) => current ? { ...current, capture: event.capture } : current);
+          const nextCapture = event.capture as CaptureStatus;
+          setStatus((current) => current && !captureStatusEqual(current.capture, nextCapture, settingsOpenRef.current)
+            ? { ...current, capture: nextCapture }
+            : current);
         }
         if (event.type === 'textmaps_status') {
           setRefreshingMaps(false);
@@ -391,12 +527,13 @@ function CompanionClient() {
     if (active && active !== lastActiveGame.current) {
       lastActiveGame.current = active;
       setSelectedGame(active);
-      if (active === 'pragmata' && transcriptTab === 'agents') setTranscriptTab('history');
+      setHistoryPage(0);
+      if (active === 'pragmata' && transcriptTab === 'agents') changeTranscriptTab('history');
     }
-  }, [status?.capture.active_game, transcriptTab]);
+  }, [changeTranscriptTab, status?.capture.active_game, transcriptTab]);
 
   const recentLines = useMemo(
-    () => lines.filter((line) => line.game === selectedGame).slice(0, 50),
+    () => lines.filter((line) => line.game === selectedGame).slice(0, HISTORY_LIMIT),
     [lines, selectedGame],
   );
   const visibleLine = recentLines.find((line) =>
@@ -424,14 +561,22 @@ function CompanionClient() {
     () => lines.filter((line) => line.game === selectedGame && line.favorite),
     [lines, selectedGame],
   );
-  const visibleTranscriptLines = transcriptTab === 'favorites' ? favoriteLines : historyLines;
+  const historyPageCount = Math.max(1, Math.ceil(historyLines.length / HISTORY_PAGE_SIZE));
+  const currentHistoryPage = Math.min(historyPage, historyPageCount - 1);
+  const visibleTranscriptLines = transcriptTab === 'favorites'
+    ? favoriteLines
+    : historyLines.slice(
+        currentHistoryPage * HISTORY_PAGE_SIZE,
+        (currentHistoryPage + 1) * HISTORY_PAGE_SIZE,
+      );
+  const sessionId = status?.session.id;
   const sessionLines = useMemo(
-    () => lines.filter((line) => line.game === selectedGame && (!status || line.session_id === status.session.id)),
-    [lines, selectedGame, status],
+    () => lines.filter((line) => line.game === selectedGame && (!sessionId || line.session_id === sessionId)),
+    [lines, selectedGame, sessionId],
   );
   useEffect(() => {
     if (historyList.current) historyList.current.scrollTop = 0;
-  }, [historyLines.length, favoriteLines.length, transcriptTab]);
+  }, [historyLines.length, favoriteLines.length, transcriptTab, currentHistoryPage]);
 
   async function toggleCapture() {
     if (!status) return;
@@ -481,7 +626,7 @@ function CompanionClient() {
     await loadSnapshot();
   }
 
-  async function toggleFavorite(line: TranscriptLine) {
+  const toggleFavorite = useCallback(async (line: TranscriptLine) => {
     const favorite = !line.favorite;
     setLines((current) => current.map((item) => item.id === line.id ? { ...item, favorite } : item));
     const response = await fetch(`${API_URL}/api/lines/${line.id}/favorite`, {
@@ -490,18 +635,18 @@ function CompanionClient() {
       body: JSON.stringify({ favorite }),
     });
     if (!response.ok) await loadSnapshot();
-  }
+  }, [loadSnapshot]);
 
-  function playLine(line: TranscriptLine) {
+  const playLine = useCallback((line: TranscriptLine) => {
     if (!line.has_audio) return;
     playback.current?.pause();
     const audio = new Audio(`${API_URL}/api/lines/${line.id}/audio?v=${line.id}-${line.audio_source ?? 'recording'}`);
     audio.playbackRate = playbackRate;
     playback.current = audio;
     void audio.play();
-  }
+  }, [playbackRate]);
 
-  async function sendToLexirise(kind: 'line' | 'agent', id: number | string) {
+  const sendToLexirise = useCallback(async (kind: 'line' | 'agent', id: number | string) => {
     if (sendingStudy.current) return;
     sendingStudy.current = true;
     const ref = `${kind}:${id}`;
@@ -521,7 +666,7 @@ function CompanionClient() {
       sendingStudy.current = false;
       setSendingRef(null);
     }
-  }
+  }, []);
 
   function studyButton(kind: 'line' | 'agent', id: number | string, game: GameId, hasAudio: boolean, compact = false) {
     const ref = `${kind}:${id}`;
@@ -594,10 +739,10 @@ function CompanionClient() {
 
       <nav className="game-tabs" aria-label="Game transcript">
         <span><Gamepad2 size={15} /> Game</span>
-        <button type="button" className={selectedGame === 'zzz' ? 'is-active' : ''} aria-pressed={selectedGame === 'zzz'} onClick={() => setSelectedGame('zzz')}>
+        <button type="button" className={selectedGame === 'zzz' ? 'is-active' : ''} aria-pressed={selectedGame === 'zzz'} onClick={() => { setSelectedGame('zzz'); setHistoryPage(0); }}>
           Zenless Zone Zero
         </button>
-        <button type="button" className={selectedGame === 'pragmata' ? 'is-active' : ''} aria-pressed={selectedGame === 'pragmata'} onClick={() => { setSelectedGame('pragmata'); if (transcriptTab === 'agents') setTranscriptTab('history'); }}>
+        <button type="button" className={selectedGame === 'pragmata' ? 'is-active' : ''} aria-pressed={selectedGame === 'pragmata'} onClick={() => { setSelectedGame('pragmata'); setHistoryPage(0); if (transcriptTab === 'agents') changeTranscriptTab('history'); }}>
           PRAGMATA
         </button>
         {status?.capture.active_game && <small>Capturing {status.capture.active_game === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</small>}
@@ -679,7 +824,7 @@ function CompanionClient() {
             <p className="eyebrow">Saved transcript</p>
             <h2 id="transcript-heading">{transcriptTab === 'agents' ? 'Agent voices' : transcriptTab === 'favorites' ? 'Favorites' : 'Earlier lines'}</h2>
           </div>
-          <p>{transcriptTab === 'agents' ? 'Last heard first · Kept between sessions' : transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : 'Newest first · 50 recent lines'}</p>
+          <p>{transcriptTab === 'agents' ? 'Last heard first · Kept between sessions' : transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : '10 at a time · up to 50 recent lines'}</p>
         </div>
 
         <div className="transcript-tabs" role="tablist" aria-label="Transcript view">
@@ -688,12 +833,12 @@ function CompanionClient() {
             role="tab"
             aria-selected={transcriptTab === 'history'}
             className={transcriptTab === 'history' ? 'is-active' : ''}
-            onClick={() => setTranscriptTab('history')}
+            onClick={() => changeTranscriptTab('history', true)}
           >
             History
           </button>
           {selectedGame === 'zzz' && <button type="button" role="tab" aria-selected={transcriptTab === 'agents'}
-            className={transcriptTab === 'agents' ? 'is-active' : ''} onClick={() => setTranscriptTab('agents')}>
+            className={transcriptTab === 'agents' ? 'is-active' : ''} onClick={() => changeTranscriptTab('agents', true)}>
             <Users size={14} /> Agents <span>{Math.max(agentTotal,agentLines.length)}</span>
           </button>}
           <button
@@ -701,7 +846,7 @@ function CompanionClient() {
             role="tab"
             aria-selected={transcriptTab === 'favorites'}
             className={transcriptTab === 'favorites' ? 'is-active' : ''}
-            onClick={() => setTranscriptTab('favorites')}
+            onClick={() => changeTranscriptTab('favorites', true)}
           >
             <Star size={14} fill={transcriptTab === 'favorites' ? 'currentColor' : 'none'} />
             Favorites <span>{favoriteLines.length}</span>
@@ -739,28 +884,16 @@ function CompanionClient() {
         </div>
         <div className="line-list" ref={historyList}>
           {visibleTranscriptLines.length ? visibleTranscriptLines.map((line) => (
-            <article className="transcript-line" key={line.id}>
-              <div className="line-time">
-                <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
-                <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : line.channel === 'gameplay' ? 'GAMEPLAY' : 'DIALOGUE'}</small>
-              </div>
-              <div className="line-language">
-                {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
-                <StableText text={line.english} />
-              </div>
-              <div className="line-language">
-                {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-                <StableText lang="zh-Hans" text={line.chinese} />
-              </div>
-              <div className="line-meta">
-                <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
-                <div className="line-actions">
-                  <button type="button" onClick={() => playLine(line)} disabled={!line.has_audio} aria-label={`Play voice line: ${line.english}`} title="Play voice line"><Volume2 size={16} /></button>
-                  <button type="button" className={line.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(line)} aria-label={line.favorite ? 'Remove from favorites' : 'Favorite line'} title={line.favorite ? 'Remove favorite' : 'Keep forever'}><Star size={16} fill={line.favorite ? 'currentColor' : 'none'} /></button>
-                  {studyButton('line', line.id, line.game, line.has_audio, true)}
-                </div>
-              </div>
-            </article>
+            <TranscriptRow
+              key={line.id}
+              line={line}
+              canUseLexirise={online && lexirise.configured}
+              sendingRef={sendingRef}
+              sentToLexirise={!!lexirise.sent[`line:${line.id}`]}
+              onPlay={playLine}
+              onToggleFavorite={toggleFavorite}
+              onSendToLexirise={sendToLexirise}
+            />
           )) : (
             <div className="transcript-empty">
               {transcriptTab === 'favorites' ? <Star size={24} /> : <Database size={24} />}
@@ -770,6 +903,27 @@ function CompanionClient() {
             </div>
           )}
         </div>
+        {transcriptTab === 'history' && historyLines.length > HISTORY_PAGE_SIZE && (
+          <nav className="history-pagination" aria-label="Transcript history pages">
+            <button
+              type="button"
+              onClick={() => setHistoryPage(Math.max(0, currentHistoryPage - 1))}
+              disabled={currentHistoryPage === 0}
+            >
+              Newer 10
+            </button>
+            <span>
+              {currentHistoryPage * HISTORY_PAGE_SIZE + 1}–{Math.min((currentHistoryPage + 1) * HISTORY_PAGE_SIZE, historyLines.length)} of {historyLines.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => setHistoryPage(Math.min(historyPageCount - 1, currentHistoryPage + 1))}
+              disabled={currentHistoryPage >= historyPageCount - 1}
+            >
+              Previous 10
+            </button>
+          </nav>
+        )}
         </>}
       </section>
 

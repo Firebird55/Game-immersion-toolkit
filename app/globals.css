@@ -365,6 +365,30 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 }
 
 .line-list { min-height: 0; overflow-y: auto; scrollbar-color: #4a535e transparent; overscroll-behavior: contain; }
+.transcript > .line-list { flex: 1; }
+
+.history-pagination {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 10px 0;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, rgb(17 21 26 / 86%), #11151a 35%);
+}
+.history-pagination button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid #56632f;
+  border-radius: 3px;
+  background: rgb(201 255 52 / 7%);
+  color: var(--acid);
+  cursor: pointer;
+  font-size: 12px;
+}
+.history-pagination button:disabled { border-color: var(--border); color: var(--muted-foreground); cursor: default; opacity: .48; }
+.history-pagination span { color: var(--muted-foreground); font-family: var(--font-geist-mono), monospace; font-size: 11px; }
 
 .transcript-line time, .line-meta > span {
   padding-top: 3px;
