@@ -67,6 +67,32 @@ def game_data_directory(settings: AppSettings) -> Path | None:
     return None
 
 
+def installed_zzz_game_data_directory(settings: AppSettings) -> Path | None:
+    """Find the running game or a local Steam install after a drive move."""
+    live = game_data_directory(settings)
+    if live:
+        return live
+    if sys.platform != "win32":
+        return None
+    drives = kernel32.GetLogicalDrives()
+    suffixes = (
+        "SteamLibrary/steamapps/common/Zenless Zone Zero/games/ZenlessZoneZero Game/ZenlessZoneZero_Data",
+        "Program Files (x86)/Steam/steamapps/common/Zenless Zone Zero/games/ZenlessZoneZero Game/ZenlessZoneZero_Data",
+    )
+    for index in range(2, 26):
+        if not drives & (1 << index):
+            continue
+        for suffix in suffixes:
+            candidate = Path(f"{chr(65 + index)}:/") / suffix
+            try:
+                if (candidate / "StreamingAssets").is_dir() or (candidate / "Persistent").is_dir():
+                    return candidate
+            except OSError:
+                # A mounted but locked BitLocker volume is not an install.
+                continue
+    return None
+
+
 def find_active_game_window(settings: AppSettings) -> tuple[GameProfile, WindowInfo] | None:
     candidates = list_visible_windows()
     by_process = {window.process_name.casefold(): window for window in candidates}

@@ -54,12 +54,31 @@ def merged_english_maps(root: Path) -> dict[str, str]:
 
 
 def discover_game_data(root: Path) -> Path | None:
+    # Prefer the actual running game. The app may later be copied to a PC
+    # where ZZZ is installed on a different drive from Proxy Transcript.
+    try:
+        from backend.config import SettingsStore
+        from backend.windows import installed_zzz_game_data_directory
+        live = installed_zzz_game_data_directory(SettingsStore(root / "data/settings.json").get())
+        if live:
+            return live
+    except (OSError, ValueError):
+        pass
+
+    # The portable app and game may move together to another drive letter.
+    def available(path: Path) -> Path | None:
+        candidates = [path]
+        if path.drive and path.drive.casefold() != root.drive.casefold():
+            candidates.insert(0, Path(root.anchor, *path.parts[1:]))
+        return next((item for item in candidates if item.is_dir()), None)
+
     library = root / "data/agent-voices/library.json"
     if library.exists():
         try:
             candidate = Path(json.loads(library.read_text(encoding="utf-8"))["game_data"])
-            if candidate.is_dir():
-                return candidate
+            found = available(candidate)
+            if found:
+                return found
         except (OSError, ValueError, KeyError):
             pass
     manifest = root / "data/voice-assets/manifest.json"
@@ -67,7 +86,8 @@ def discover_game_data(root: Path) -> Path | None:
         try:
             entries = json.loads(manifest.read_text(encoding="utf-8"))["entries"]
             package = Path(next(iter(entries.values()))["package"])
-            return next(parent for parent in package.parents if parent.name.endswith("_Data"))
+            candidate = next(parent for parent in package.parents if parent.name.endswith("_Data"))
+            return available(candidate)
         except (OSError, ValueError, KeyError, StopIteration):
             pass
     return None
@@ -101,7 +121,7 @@ def main() -> None:
     required = [template, prefixes, reader, ongoing_config, decoder / "vgmstream-cli.exe"]
     game_data = discover_game_data(root)
     if game_data is None or not all(path.exists() for path in required) or not shutil.which("node"):
-        print("Full voice refresh skipped; the last complete local manifest remains active.")
+        print("Full voice refresh skipped; installed game files or indexing tools are unavailable. The last local manifest remains active.")
         return
 
     current = inventory(game_data, required)

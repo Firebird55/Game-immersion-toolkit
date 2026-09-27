@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -109,7 +110,19 @@ class AgentLibraryUpdater:
             self._thread.join(timeout=5)
 
     def status(self):
-        return {'state': self.state, 'message': self.message, 'automatic': True}
+        progress = 100 if self.state == 'ready' else 0
+        if self.state == 'updating':
+            try:
+                with (self.folder / 'update.log').open('rb') as stream:
+                    stream.seek(max(0, stream.seek(0, 2) - 4096))
+                    tail = stream.read().decode('utf-8', errors='replace')
+                steps = re.findall(r'(\d+)/(\d+) clips indexed', tail)
+                if steps:
+                    done, total = map(int, steps[-1])
+                    progress = round(100 * done / max(1, total))
+            except OSError:
+                pass
+        return {'state': self.state, 'message': self.message, 'automatic': True, 'progress': progress}
 
     def _game_data(self):
         library = self.recognizer.library

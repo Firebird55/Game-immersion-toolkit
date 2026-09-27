@@ -7,6 +7,7 @@ import sqlite3
 import subprocess
 import tempfile
 import wave
+from datetime import datetime
 
 import numpy as np
 
@@ -24,13 +25,29 @@ def main():
     decoder = root / 'data/voice-assets/vgmstream/vgmstream-cli.exe'
     pcm_dir = folder / 'pcm'
     pcm_dir.mkdir(exist_ok=True)
-    database = sqlite3.connect(folder / 'fingerprints.db')
+    database_path = folder / 'fingerprints.db'
+    database = sqlite3.connect(database_path)
+    try:
+        if database.execute('PRAGMA quick_check').fetchone() != ('ok',):
+            raise sqlite3.DatabaseError('fingerprint index failed integrity check')
+    except sqlite3.DatabaseError:
+        database.close()
+        archived = folder / f'fingerprints-corrupt-{datetime.now():%Y%m%d-%H%M%S}.db'
+        database_path.replace(archived)
+        print(f'Archived unreadable fingerprint index as {archived.name}; rebuilding.', flush=True)
+        database = sqlite3.connect(database_path)
     database.execute('PRAGMA journal_mode=WAL')
+    database.execute('PRAGMA synchronous=NORMAL')
     database.execute('CREATE TABLE IF NOT EXISTS clips (asset_id TEXT PRIMARY KEY, duration REAL, fingerprint TEXT)')
     database.execute('CREATE TABLE IF NOT EXISTS hashes (hash INTEGER, asset_id TEXT, frame INTEGER)')
-    database.execute('CREATE INDEX IF NOT EXISTS idx_hashes_hash ON hashes(hash)')
-    database.execute('CREATE INDEX IF NOT EXISTS idx_hashes_asset ON hashes(asset_id)')
+    # Maintaining two large B-trees for every inserted landmark is extremely
+    # slow on USB storage. Recognition is paused during this rebuild, so make
+    # the search indexes once after the data is complete.
+    database.execute('DROP INDEX IF EXISTS idx_hashes_hash')
+    database.execute('DROP INDEX IF EXISTS idx_hashes_asset')
     done = {asset: (stamp, duration) for asset, stamp, duration in database.execute('SELECT asset_id, fingerprint, duration FROM clips')}
+    old_library = folder / 'library.json'
+    old_clips = json.loads(old_library.read_text(encoding='utf-8')).get('clips', {}) if old_library.exists() else {}
     def decode(pair):
         asset_id, entry = pair
         legacy = f"{entry['package_size']}:{entry['package_mtime_ns']}:{entry['offset']}:{entry['size']}"
@@ -39,13 +56,22 @@ def main():
         if prior_stamp in (stamp, legacy) and duration > 0:
             if (pcm_dir/f'{asset_id}.npy').exists() or not .3 <= duration <= 120:
                 return asset_id, duration, None, stamp
+        cached_pcm = pcm_dir/f'{asset_id}.npy'
+        if prior_stamp is None and old_clips.get(asset_id, {}).get('sha256') == stamp and cached_pcm.exists():
+            try:
+                samples = np.load(cached_pcm, allow_pickle=False)
+                duration = len(samples) / 8000
+                if .3 <= duration <= 120:
+                    return asset_id, duration, landmarks(samples), stamp
+            except (OSError, ValueError):
+                pass
         try:
             voice = VoiceEntry(Path(entry['package']), entry['offset'], entry['size'], entry['file_id'])
             with tempfile.TemporaryDirectory(prefix='zzz-agent-') as temp:
                 wem, wav = Path(temp) / 'voice.wem', Path(temp) / 'voice.wav'
                 wem.write_bytes(voice.read())
                 subprocess.run([str(decoder), '-o', str(wav), str(wem)], capture_output=True,
-                               check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+                               check=True, timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
                 with wave.open(str(wav)) as audio:
                     if audio.getsampwidth() != 2:
                         return asset_id, 0., [], stamp
@@ -71,7 +97,7 @@ def main():
                 if stamp is None:
                     failures += 1
                     continue  # not marked done: automatically retry next run
-                if hashes is not None:
+                if hashes is not None and asset_id in done:
                     database.execute('DELETE FROM hashes WHERE asset_id = ?', (asset_id,))
                 database.execute('INSERT OR REPLACE INTO clips VALUES (?, ?, ?)', (asset_id, duration, stamp))
                 if hashes is not None:
@@ -84,6 +110,9 @@ def main():
     database.executemany('INSERT INTO active_assets VALUES (?)', [(asset,) for asset in library['clips']])
     database.execute('DELETE FROM hashes WHERE asset_id IN (SELECT asset_id FROM clips WHERE asset_id NOT IN (SELECT asset_id FROM active_assets))')
     database.execute('DELETE FROM clips WHERE asset_id NOT IN (SELECT asset_id FROM active_assets)')
+    database.commit()
+    database.execute('CREATE INDEX IF NOT EXISTS idx_hashes_hash ON hashes(hash)')
+    database.execute('CREATE INDEX IF NOT EXISTS idx_hashes_asset ON hashes(asset_id)')
     database.commit()
     print('Complete', database.execute('SELECT COUNT(*) FROM hashes').fetchone(), flush=True)
     database.close()

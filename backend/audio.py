@@ -63,6 +63,8 @@ class AudioCaptureService:
             self._voice_validation_error = str(error)
         self.ready = False
         self.message = "Audio capture has not started"
+        self._last_samples_at = 0.0
+        self._last_rms = 0.0
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -84,6 +86,8 @@ class AudioCaptureService:
         if self._voice_validation_error:
             message += f"; voice validation unavailable (lines skipped): {self._voice_validation_error}"
         return {"ready": self.ready, "message": message,
+                "recent_samples": time.monotonic() - self._last_samples_at < 2.0,
+                "level": round(self._last_rms, 4),
                 "pending_clips": len(self._pending),
                 "clip_mode": "adaptive-utterance",
                 "voice_validation_ready": self._voice_vad is not None and not self._voice_validation_error}
@@ -153,38 +157,50 @@ class AudioCaptureService:
             self._pending = [clip for clip in self._pending if clip.line_id != line_id]
 
     def _run(self) -> None:
-        audio = pyaudio.PyAudio()
-        stream = None
-        try:
-            devices = list(audio.get_loopback_device_info_generator())
-            if not devices:
-                raise RuntimeError("No Windows WASAPI loopback device was found")
-            device = devices[0]
-            self.sample_rate = int(device["defaultSampleRate"])
-            self.channels = int(device["maxInputChannels"])
-            self.ready = True
-            self.message = f"Capturing {device['name']}"
-            chunk_frames = self.sample_rate // 4
-            stream = audio.open(
-                format=pyaudio.paFloat32,
-                channels=self.channels,
-                rate=self.sample_rate,
-                input=True,
-                input_device_index=int(device["index"]),
-                frames_per_buffer=chunk_frames,
-            )
-            while not self._stop.is_set():
-                raw = stream.read(chunk_frames, exception_on_overflow=False)
-                samples = np.frombuffer(raw, dtype=np.float32).reshape(-1, self.channels)
-                self._append_samples(samples)
-        except Exception as error:
-            self.ready = False
-            self.message = f"Audio capture unavailable: {error}"
-        finally:
-            if stream is not None:
-                stream.stop_stream()
-                stream.close()
-            audio.terminate()
+        # Bluetooth headphones may reconnect while the app is running. WASAPI
+        # then invalidates the old stream, so discover the current default again.
+        while not self._stop.is_set():
+            audio = pyaudio.PyAudio()
+            stream = None
+            try:
+                device = audio.get_default_wasapi_loopback()
+                self.sample_rate = int(device["defaultSampleRate"])
+                self.channels = int(device["maxInputChannels"])
+                chunk_frames = self.sample_rate // 4
+                stream = audio.open(
+                    format=pyaudio.paFloat32,
+                    channels=self.channels,
+                    rate=self.sample_rate,
+                    input=True,
+                    input_device_index=int(device["index"]),
+                    frames_per_buffer=chunk_frames,
+                )
+                self.ready = True
+                self.message = f"Capturing {device['name']}"
+                last_device_check = time.monotonic()
+                while not self._stop.is_set():
+                    raw = stream.read(chunk_frames, exception_on_overflow=False)
+                    samples = np.frombuffer(raw, dtype=np.float32).reshape(-1, self.channels)
+                    self._append_samples(samples)
+                    if time.monotonic() - last_device_check >= 3:
+                        last_device_check = time.monotonic()
+                        current = audio.get_default_wasapi_loopback()
+                        if current["name"] != device["name"]:
+                            break
+            except Exception as error:
+                self.ready = False
+                self.message = f"Audio reconnecting: {error}"
+            finally:
+                if stream is not None:
+                    try:
+                        stream.stop_stream()
+                        stream.close()
+                    except Exception:
+                        pass
+                audio.terminate()
+            if not self._stop.is_set():
+                self.ready = False
+                self._stop.wait(2)
 
     def _append_samples(self, samples: np.ndarray) -> None:
         if samples.size == 0:
@@ -192,6 +208,8 @@ class AudioCaptureService:
         now = time.monotonic()
         start = now - (len(samples) / self.sample_rate)
         with self._lock:
+            self._last_samples_at = now
+            self._last_rms = float(np.sqrt(np.mean(np.square(samples), dtype=np.float64)))
             self._chunks.append(_AudioChunk(start=start, samples=samples.copy()))
             while self._chunks and self._chunks[0].start < now - 85:
                 self._chunks.popleft()

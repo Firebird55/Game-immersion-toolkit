@@ -119,29 +119,41 @@ class BackgroundUpdateManager:
         repository = self.project_root / "work/voice-assets/ZenlessData"
         if not (repository / ".git").exists() or not shutil.which("git"):
             return None, False, "Upstream metadata repository is not installed"
+        # Portable USB filesystems do not record Git ownership. Trust only this
+        # exact bundled metadata checkout for these invocations, without changing
+        # the user's global Git configuration.
+        git = ["git", "-c", f"safe.directory={repository.as_posix()}",
+               "-c", "http.sslBackend=openssl"]
         dirty = self._run_command(
-            ["git", "status", "--porcelain", "--untracked-files=no"], cwd=repository, timeout=30
+            [*git, "status", "--porcelain", "--untracked-files=no"], cwd=repository, timeout=30
         )
+        before = self._run_command([*git, "rev-parse", "HEAD"], cwd=repository, timeout=30)
         if dirty:
-            commit = self._run_command(["git", "rev-parse", "HEAD"], cwd=repository, timeout=30)
-            return commit, False, "Upstream metadata has local edits; kept them unchanged"
-        before = self._run_command(["git", "rev-parse", "HEAD"], cwd=repository, timeout=30)
-        self._run_command(["git", "pull", "--ff-only", "--quiet"], cwd=repository, timeout=240)
-        after = self._run_command(["git", "rev-parse", "HEAD"], cwd=repository, timeout=30)
+            # Fetch the current upstream files without touching local edits.
+            self._run_command([*git, "fetch", "origin", "master", "--quiet"], cwd=repository, timeout=240)
+            after = self._run_command([*git, "rev-parse", "FETCH_HEAD"], cwd=repository, timeout=30)
+        else:
+            self._run_command([*git, "pull", "--ff-only", "--quiet"], cwd=repository, timeout=240)
+            after = self._run_command([*git, "rev-parse", "HEAD"], cwd=repository, timeout=30)
 
         copied = False
         for name in ("PerformTemplateTb.json", "OngoingTipsConfigTemplateTb.json"):
-            source = repository / "FileCfg" / name
             destination = self.project_root / "work/voice-assets" / name
-            if source.is_file() and (
-                not destination.is_file() or self._digest(source) != self._digest(destination)
-            ):
+            if dirty:
+                source_bytes = subprocess.run([*git, "show", f"{after}:FileCfg/{name}"],
+                    cwd=repository, check=True, capture_output=True, timeout=30,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
+            else:
+                source = repository / "FileCfg" / name
+                source_bytes = source.read_bytes() if source.is_file() else b""
+            if source_bytes and (not destination.is_file() or destination.read_bytes() != source_bytes):
                 pending = destination.with_suffix(".pending")
-                shutil.copy2(source, pending)
+                pending.write_bytes(source_bytes)
                 pending.replace(destination)
                 copied = True
-        changed = before != after or copied
-        return after, changed, "Upstream game metadata updated" if changed else "Upstream game metadata is current"
+        changed = (not dirty and before != after) or copied
+        suffix = "; local checkout edits preserved" if dirty else ""
+        return after, changed, ("Upstream game metadata updated" if changed else "Upstream game metadata is current") + suffix
 
     def check_once(self) -> None:
         previous = self._read_state()
