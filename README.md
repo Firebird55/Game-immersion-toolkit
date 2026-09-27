@@ -17,7 +17,7 @@ remains in **Current line** after it disappears in-game. It stays there until an
 new voiced line arrives, keeping the Hanzi available for Migaku without creating
 a duplicate History row. Other dialogue presentations keep their live behavior.
 
-Windows loopback audio is kept only in a short in-memory rolling buffer. When a matched line contains speech, the companion uses GameSentenceMiner's local FireRedVAD model to trim away the music-only lead-in and tail, saves a compact MP3 clip, and adds playback controls to that row in the web interface. It does not make a continuous recording.
+Windows loopback audio is kept only in a short in-memory rolling buffer. When a matched line contains speech, the companion uses its bundled FireRedVAD model to trim away the music-only lead-in and tail, saves an MP3 clip when FFmpeg is available or a WAV clip otherwise, and adds playback controls to that row in the web interface. It does not make a continuous recording.
 
 The matcher also builds a blocklist from the official character-name and speaker-label records. Short standalone HUD actions are ignored, while short spoken replies are accepted when OCR sees them beneath a speaker label. This keeps the log focused on dialogue without maintaining a manual list of characters.
 
@@ -30,25 +30,35 @@ remain unlabelled rather than being assigned to a guessed speaker.
 
 ## First-time setup
 
-Open PowerShell in this folder and run:
+Install Python 3.12, Node.js 22 or newer, and Windows Snipping Tool, then open PowerShell in this folder and run (the Codex desktop bundled Python 3.12 can also be used when present):
 
 ```powershell
 .\scripts\setup.ps1
 ```
 
-The TextMap download is approximately 100 MB and is stored locally under `data/textmaps`.
+Run setup from the extracted `E:\gamesentenceminer` folder on the Intenso USB stick. The app, frontend build, transcript, and TextMap data stay in that folder. This PC keeps only its Python environment, launcher, and encrypted Lexirise credential under Local AppData. Setup downloads the TextMaps only when the ZIP does not already contain them.
+
+When copying the folder to another PC, keep the whole `gamesentenceminer` directory (including `data` and `work`) and run `scripts\setup.ps1` there. The launcher and Start menu shortcut are recreated for the new path. The updater locates the running ZZZ executable or a local Steam installation, so game and app drive letters may differ. Connect the desired headphones before launching; capture follows the current Windows WASAPI output and reconnects after an audio-device switch. The DPAPI-encrypted Lexirise key cannot be copied between Windows users. Set it on the other PC with the hidden prompt:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Proxy Transcript\venv\Scripts\python.exe" -m scripts.set_lexirise_key
+```
+
+On this PC, the app is already installed. Start it from the **Proxy Transcript** Start menu shortcut or `E:\gamesentenceminer\Start Proxy Transcript.cmd`. The app and capture service listen only on this PC. `scripts\install-status.ps1` shows ZIP extraction, dependency repair, old C: checkout move, and local service status, including percentages. Before first live gameplay, `scripts\check-capture-readiness.py` verifies local OCR and display capture; see `docs\capture-readiness.md` for the results and live game checklist. If this folder is copied to another Windows PC, run setup there again because the Python environment and encrypted API credential belong to this PC.
 
 ## Normal use
 
 1. Start Zenless Zone Zero or PRAGMATA with English subtitles and Mandarin audio.
 2. Double-click `Start Proxy Transcript.cmd`.
-3. The companion opens on the portrait monitor to the right of the primary display.
+3. The companion opens on the portrait monitor to the right of the primary display, or on a connected secondary display such as Duet when no portrait monitor is present.
 4. Use **Capture setup** if the live crop contains HUD text or misses part of the subtitle.
 
 The **Game** switch above the transcript keeps each title's History and
 Favorites separate. It follows the running game automatically; you can switch
 it manually to review the other game's saved lines. The Agents collection is
 specific to Zenless Zone Zero.
+
+The compact **Reading** switch chooses Migaku (default) or Lexirise. In Lexirise mode, saved Chinese lines show proficiency colors, pinyin, and inline English meanings for words below the known level. The **Pinyin** control chooses unknown words, all words, or off. Tap a word for a built-in definition, or scan its selectable text with Yomitan. These display choices are remembered in the browser and do not send a sentence to a Lexirise deck. The research and implementation details are in `docs/lexirise-reading-mode.md`.
 
 ## PRAGMATA
 
@@ -109,12 +119,15 @@ is reconciled against Lexirise before adding another deck entry. Existing study
 notes and proficiency are preserved. Previously sent lines remain in Lexirise
 when local history is pruned.
 
-The key is stored only in `data/lexirise/key.dpapi`, encrypted for the current
-Windows user. That directory (including the export ledger) is excluded from Git
-and is not served to Chrome. Other hosts can supply `LEXIRISE_API_KEY` to the
-backend environment. To replace a Windows key, call `save_api_key` from
-`backend.lexirise` locally; there is intentionally no browser endpoint exposing
-or replacing credentials. API contract: https://lexirise.app/api-reference.
+The key is stored encrypted for the current Windows user. On this PC, the key
+file lives in `%LOCALAPPDATA%\Programs\Proxy Transcript\key.dpapi` so a synced
+project can keep different DPAPI keys on different PCs. Existing installations
+can still read `data/lexirise/key.dpapi`. The export ledger in `data/lexirise`
+is excluded from Git and is not served to Chrome. Other hosts can supply
+`LEXIRISE_API_KEY` to the backend environment. To replace a Windows key, call
+`save_api_key` from `backend.lexirise` with the local AppData directory; there
+is intentionally no browser endpoint exposing or replacing credentials. API
+contract: https://lexirise.app/api-reference.
 
 ## Automatic updates
 

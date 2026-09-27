@@ -44,6 +44,8 @@ next-env.d.ts
 /data/transcript.db*
 /data/textmaps/
 /data/processes.json
+/install-progress.json
+/dependency-restore-progress.json
 /data/*.log
 /data/capture-preview.jpg
 /data/audio/
@@ -54,3 +56,6 @@ next-env.d.ts
 __pycache__/
 *.pyc
 .pytest_cache/
+*.tsbuildinfo
+/dependency-missing.json
+*.lnk

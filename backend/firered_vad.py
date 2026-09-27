@@ -39,10 +39,13 @@ def _load_cmvn(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 
 class FireRedVad:
-    """Adapter around the FireRedVAD model bundled with GameSentenceMiner."""
+    """Adapter around the portable FireRedVAD voice validation model."""
 
     def __init__(self) -> None:
-        asset_dir = (
+        # Keep the capture model with the portable Proxy Transcript project.
+        # The legacy GameSentenceMiner installation is an optional fallback.
+        project_assets = Path(__file__).resolve().parents[1] / "assets" / "fireredvad"
+        legacy_assets = (
             Path(os.environ.get("LOCALAPPDATA", ""))
             / "Programs"
             / "gamesentenceminer"
@@ -51,10 +54,11 @@ class FireRedVad:
             / "assets"
             / "fireredvad"
         )
+        asset_dir = project_assets if (project_assets / "fireredvad_vad.onnx").is_file() else legacy_assets
         model_path = asset_dir / "fireredvad_vad.onnx"
         cmvn_path = asset_dir / "cmvn.ark"
         if not model_path.exists() or not cmvn_path.exists():
-            raise FileNotFoundError("GameSentenceMiner FireRedVAD assets were not found")
+            raise FileNotFoundError("FireRedVAD assets are missing; run Proxy Transcript setup")
 
         self._means, self._inverse_std = _load_cmvn(cmvn_path)
         self._session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])

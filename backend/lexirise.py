@@ -76,6 +76,13 @@ class LexiriseService:
         key = self._api_key or os.environ.get("LEXIRISE_API_KEY")
         if key:
             return key.strip()
+        # A synced project can be used on several Windows PCs, but a DPAPI
+        # blob can only be decrypted on the PC/user that created it.
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if os.name == "nt" and local_app_data:
+            local_key = Path(local_app_data) / "Programs" / "Proxy Transcript" / "key.dpapi"
+            if local_key.is_file():
+                return _protect(local_key.read_bytes(), decrypt=True).decode()
         try:
             return _protect((self.directory / "key.dpapi").read_bytes(), decrypt=True).decode()
         except OSError:
