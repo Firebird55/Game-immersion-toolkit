@@ -50,6 +50,20 @@ do {
         Write-Output "  C ProxyTranscript cleanup: remaining $leftover"
     }
     else { Write-Output '  C ProxyTranscript cleanup: complete' }
+    $agentLog = Join-Path $root 'data\agent-voices\update.log'
+    if (Test-Path -LiteralPath $agentLog) {
+        $last = Select-String -LiteralPath $agentLog -Pattern '(\d+)/(\d+) clips indexed' |
+            Select-Object -Last 1
+        if ($last -and $last.Matches[0].Groups[2].Value -gt 0) {
+            $done = [int]$last.Matches[0].Groups[1].Value
+            $total = [int]$last.Matches[0].Groups[2].Value
+            $percent = [Math]::Round(100 * $done / $total, 1)
+            Write-Output "  Agent voice index: $percent% ($done / $total clips)"
+        }
+        elseif (Select-String -LiteralPath $agentLog -Pattern '^Complete' -Quiet) {
+            Write-Output '  Agent voice index: 100% complete'
+        }
+    }
     Write-Output "  Backend: $(Get-EndpointStatus 'http://127.0.0.1:8766/api/health') | Website: $(Get-EndpointStatus 'http://127.0.0.1:3000/')"
     if ($Watch) { Start-Sleep -Seconds 10 }
 } while ($Watch)
