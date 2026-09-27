@@ -167,6 +167,17 @@ class AudioCaptureService:
                 self.sample_rate = int(device["defaultSampleRate"])
                 self.channels = int(device["maxInputChannels"])
                 chunk_frames = self.sample_rate // 4
+
+                def receive(raw, _frame_count, _time_info, _status):
+                    try:
+                        samples = np.frombuffer(raw, dtype=np.float32).reshape(-1, self.channels)
+                        self._append_samples(samples)
+                        return (None, pyaudio.paContinue)
+                    except Exception as error:
+                        self.ready = False
+                        self.message = f"Audio reconnecting: {error}"
+                        return (None, pyaudio.paAbort)
+
                 stream = audio.open(
                     format=pyaudio.paFloat32,
                     channels=self.channels,
@@ -174,19 +185,20 @@ class AudioCaptureService:
                     input=True,
                     input_device_index=int(device["index"]),
                     frames_per_buffer=chunk_frames,
+                    stream_callback=receive,
                 )
                 self.ready = True
                 self.message = f"Capturing {device['name']}"
                 last_device_check = time.monotonic()
                 while not self._stop.is_set():
-                    raw = stream.read(chunk_frames, exception_on_overflow=False)
-                    samples = np.frombuffer(raw, dtype=np.float32).reshape(-1, self.channels)
-                    self._append_samples(samples)
+                    if not stream.is_active():
+                        raise RuntimeError("Playback device stream stopped")
                     if time.monotonic() - last_device_check >= 3:
                         last_device_check = time.monotonic()
                         current = audio.get_default_wasapi_loopback()
                         if current["name"] != device["name"]:
                             break
+                    self._stop.wait(0.2)
             except Exception as error:
                 self.ready = False
                 self.message = f"Audio reconnecting: {error}"

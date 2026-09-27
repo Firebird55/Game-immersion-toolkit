@@ -612,7 +612,7 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
   .setup-actions { align-items: stretch; flex-direction: column; }
 }
 /* Compact reader options fit the iPad beside the existing game controls. */
-.reading-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:7px 20px; border-bottom:1px solid #27313a; background:#10151a; }
+.reading-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-left:auto; padding:0 6px; }
 .reading-controls label { display:flex; gap:7px; align-items:center; color:#aebcc9; font-size:12px; }
 .reading-controls select { color:#eff7ff; background:#18212a; border:1px solid #41505e; border-radius:5px; padding:5px 25px 5px 8px; font:inherit; }
 .reading-text { line-height:2.35; overflow-wrap:anywhere; }
@@ -629,4 +629,4 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .reading-popover { position:absolute; z-index:30; bottom:100%; left:50%; transform:translateX(-50%); width:max-content; max-width:min(250px,80vw); display:flex; flex-direction:column; gap:3px; padding:9px 12px; background:#202c35; border:1px solid #6f8798; border-radius:7px; box-shadow:0 8px 20px #0009; color:#fff; font-size:14px; line-height:1.3; }
 .reading-popover small { color:#adbec9; font-size:11px; }
 .current-chinese.reading-text { line-height:2.2; }
-@media (max-width:700px) { .reading-controls { padding:6px 12px; } .reading-text { line-height:2.15; } .reading-meaning { font-size:.46em; } }
+@media (max-width:700px) { .reading-controls { width:100%; margin-left:0; padding:4px 8px; } .reading-text { line-height:2.15; } .reading-meaning { font-size:.46em; } }

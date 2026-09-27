@@ -20,19 +20,22 @@ def main():
     folder = root / 'data/agent-voices'
     parser = argparse.ArgumentParser()
     parser.add_argument('--library', type=Path, default=folder/'library.json')
+    parser.add_argument('--database', type=Path, default=folder/'fingerprints.db',
+                        help='Optional temporary build database; copy back only after a successful run')
     args = parser.parse_args()
     library = json.loads(args.library.read_text(encoding='utf-8'))
     decoder = root / 'data/voice-assets/vgmstream/vgmstream-cli.exe'
     pcm_dir = folder / 'pcm'
     pcm_dir.mkdir(exist_ok=True)
-    database_path = folder / 'fingerprints.db'
+    database_path = args.database
+    database_path.parent.mkdir(parents=True, exist_ok=True)
     database = sqlite3.connect(database_path)
     try:
         if database.execute('PRAGMA quick_check').fetchone() != ('ok',):
             raise sqlite3.DatabaseError('fingerprint index failed integrity check')
     except sqlite3.DatabaseError:
         database.close()
-        archived = folder / f'fingerprints-corrupt-{datetime.now():%Y%m%d-%H%M%S}.db'
+        archived = database_path.with_name(f'fingerprints-corrupt-{datetime.now():%Y%m%d-%H%M%S}.db')
         database_path.replace(archived)
         print(f'Archived unreadable fingerprint index as {archived.name}; rebuilding.', flush=True)
         database = sqlite3.connect(database_path)

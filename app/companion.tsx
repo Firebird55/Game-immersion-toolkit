@@ -758,9 +758,7 @@ function CompanionClient() {
           PRAGMATA
         </button>
         {status?.capture.active_game && <small>Capturing {status.capture.active_game === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</small>}
-      </nav>
-
-      <div className="reading-controls" aria-label="Chinese reading options">
+        <div className="reading-controls" aria-label="Chinese reading options">
         <label>Reading <select value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
           setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
@@ -769,7 +767,8 @@ function CompanionClient() {
           const value = event.target.value as PinyinMode;
           setPinyinMode(value); window.localStorage.setItem('proxy-transcript-pinyin-mode', value);
         }}><option value="unknown">Unknown words</option><option value="all">All words</option><option value="off">Off</option></select></label>}
-      </div>
+        </div>
+      </nav>
 
       <section className="status-strip" aria-label="Companion status">
         <div>
