@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -26,10 +27,11 @@ from .pragmata_updates import PragmataUpdateManager
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError
-from .windows import list_visible_windows, game_data_directory
+from .reading import LexiriseReadingService
+from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
 DATA_DIR = PROJECT_ROOT / "data"
 
 
@@ -76,6 +78,7 @@ class Runtime:
         self.settings = SettingsStore(DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.lexirise = LexiriseService(DATA_DIR / "lexirise")
+        self.reading = LexiriseReadingService(DATA_DIR / "lexirise", self.lexirise)
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
@@ -103,7 +106,7 @@ class Runtime:
         self.event_loop = asyncio.get_running_loop()
         self.voice_activity = VoiceActivity()
         self.agents = AgentRecognizer(DATA_DIR / 'agent-voices', self.audio, self.on_agent_thread, self.on_agent_activity)
-        self.agent_updater = AgentLibraryUpdater(self.agents, lambda: game_data_directory(self.settings.get()))
+        self.agent_updater = AgentLibraryUpdater(self.agents, lambda: installed_zzz_game_data_directory(self.settings.get()))
         self.agents.updater = self.agent_updater
         removed_rows = self.transcript.purge_unvoiced()
         removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
@@ -138,9 +141,23 @@ class Runtime:
         self.pragmata_updater = PragmataUpdateManager(
             PROJECT_ROOT, self.pragmata, self.pragmata_voice_assets, self.on_update_thread
         )
+        self.index_task: asyncio.Task[None] | None = None
+
+    async def start_indexes_in_order(self) -> None:
+        # Rebuilding several audio fingerprint databases at once can exhaust
+        # Windows virtual memory on a portable game drive.
+        while self.update_manager.state in {"checking", "updating"}:
+            await asyncio.sleep(2)
+        self.story_updater.start()
+        while self.story_updater.state in {"checking", "updating"}:
+            await asyncio.sleep(2)
+        self.agent_updater.start()
+        while self.agent_updater.state in {"checking", "updating"}:
+            await asyncio.sleep(2)
+        self.pragmata_updater.start()
 
     def _game_data(self) -> Path | None:
-        discovered = game_data_directory(self.settings.get())
+        discovered = installed_zzz_game_data_directory(self.settings.get())
         if discovered:
             return discovered
         stored = self.agents.library.get("game_data")
@@ -196,13 +213,12 @@ class Runtime:
         if pragmata_update.get("state") == "updating":
             return pragmata_update
         if agent_update.get("state") == "updating":
-            indexed = int(agents.get("indexed_clips") or 0)
-            total = max(1, int(agents.get("total_clips") or 0))
+            stage_progress = int(agent_update.get("progress") or 0)
             return {
                 **update,
                 "state": "updating",
                 "message": agent_update.get("message", "Indexing new agent voices"),
-                "progress": min(91, 82 + round(9 * indexed / total)),
+                "progress": min(99, 82 + round(17 * stage_progress / 100)),
             }
         if story_update.get("state") == "updating":
             return {
@@ -281,15 +297,19 @@ async def lifespan(_app: FastAPI):
     runtime = Runtime()
     runtime.audio.start()
     runtime.start_map_prepare()
-    runtime.agent_updater.start()
-    runtime.story_updater.start()
     runtime.update_manager.start()
-    runtime.pragmata_updater.start()
+    runtime.index_task = asyncio.create_task(runtime.start_indexes_in_order(), name="voice-index-coordinator")
     if runtime.settings.get().auto_start:
         runtime.capture.start()
     try:
         yield
     finally:
+        if runtime.index_task:
+            runtime.index_task.cancel()
+            try:
+                await runtime.index_task
+            except asyncio.CancelledError:
+                pass
         await runtime.capture.close()
         await asyncio.to_thread(runtime.agent_updater.close)
         await asyncio.to_thread(runtime.story_updater.close)
@@ -415,6 +435,17 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
 @app.get("/api/lexirise")
 def lexirise_status() -> dict:
     return runtime.lexirise.status()
+
+
+@app.get("/api/lines/{line_id}/reading")
+def line_reading(line_id: int) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        return runtime.reading.analyze(line.chinese)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
 
 
 @app.post("/api/lines/{line_id}/lexirise")

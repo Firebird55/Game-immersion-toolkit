@@ -23,6 +23,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { ReadingText, type PinyinMode } from '@/app/reading-text';
 import { createVoiceActivityFollower, type VoiceActivity } from '@/lib/voice-activity';
 import {
   Dialog,
@@ -120,6 +121,7 @@ type GameId = 'zzz' | 'pragmata';
 type AgentLine = { key: string; agent: string; asset_id: string; chinese: string; text_source: string; last_heard: string; heard_count: number };
 type AgentPage = { lines: AgentLine[]; total: number };
 type LexiriseStatus = { configured: boolean; sent: Record<string, number> };
+type ReadingMode = 'migaku' | 'lexirise';
 
 const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
@@ -279,6 +281,8 @@ const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId }: { te
 
 const TranscriptRow = memo(function TranscriptRow({
   line,
+  readingMode,
+  pinyinMode,
   canUseLexirise,
   sendingRef,
   sentToLexirise,
@@ -287,6 +291,8 @@ const TranscriptRow = memo(function TranscriptRow({
   onSendToLexirise,
 }: {
   line: TranscriptLine;
+  readingMode: ReadingMode;
+  pinyinMode: PinyinMode;
   canUseLexirise: boolean;
   sendingRef: string | null;
   sentToLexirise: boolean;
@@ -306,7 +312,7 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      <StableText lang="zh-Hans" text={line.chinese} />
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.chinese} pinyin={pinyinMode} /> : <StableText lang="zh-Hans" text={line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
@@ -358,6 +364,8 @@ function CompanionClient() {
   const playback = useRef<HTMLAudioElement | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
+  const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
+  const [pinyinMode, setPinyinMode] = useState<PinyinMode>('unknown');
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
   const sendingStudy = useRef(false);
@@ -365,6 +373,10 @@ function CompanionClient() {
   useEffect(() => {
     const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
     if ([1, 0.85, 0.75, 0.6].includes(saved)) setPlaybackRate(saved);
+    const reader = window.localStorage.getItem('proxy-transcript-reading-mode');
+    if (reader === 'migaku' || reader === 'lexirise') setReadingMode(reader);
+    const pinyin = window.localStorage.getItem('proxy-transcript-pinyin-mode');
+    if (pinyin === 'unknown' || pinyin === 'all' || pinyin === 'off') setPinyinMode(pinyin);
   }, []);
 
   useEffect(() => {
@@ -414,7 +426,7 @@ function CompanionClient() {
       // Integration status must not prevent the transcript from loading.
       void fetch(`${API_URL}/api/lexirise`, { cache: 'no-store' })
         .then(response => response.ok ? response.json() : null)
-        .then(value => { if (value) setLexirise(value); }).catch(() => undefined);
+        .then(value => { if (value) setLexirise(value as LexiriseStatus); }).catch(() => undefined);
     } catch {
       setOnline(false);
     }
@@ -656,7 +668,7 @@ function CompanionClient() {
       const response = await fetch(`${API_URL}/api/${kind === 'line' ? 'lines' : 'agents'}/${id}/lexirise`, {
         method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise' },
       });
-      const result = await response.json();
+      const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
       setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${result.deck_id === 1951 ? 'PRAGMATA' : 'Zenless Zone Zero'}.`);
@@ -748,6 +760,17 @@ function CompanionClient() {
         {status?.capture.active_game && <small>Capturing {status.capture.active_game === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</small>}
       </nav>
 
+      <div className="reading-controls" aria-label="Chinese reading options">
+        <label>Reading <select value={readingMode} onChange={event => {
+          const value = event.target.value as ReadingMode;
+          setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
+        }}><option value="migaku">Migaku</option><option value="lexirise" disabled={!lexirise.configured}>Lexirise</option></select></label>
+        {readingMode === 'lexirise' && <label>Pinyin <select value={pinyinMode} onChange={event => {
+          const value = event.target.value as PinyinMode;
+          setPinyinMode(value); window.localStorage.setItem('proxy-transcript-pinyin-mode', value);
+        }}><option value="unknown">Unknown words</option><option value="all">All words</option><option value="off">Off</option></select></label>}
+      </div>
+
       <section className="status-strip" aria-label="Companion status">
         <div>
           <Radio size={17} />
@@ -793,7 +816,7 @@ function CompanionClient() {
               {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
             </div>}
             <StableText className="current-english" text={latestLine.english} />
-            <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />
+            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.chinese} pinyin={pinyinMode} current /> : <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />}
             <div className="current-actions">
               <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Voice audio was missed'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Text captured; voice audio was missed'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice missed' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
@@ -887,6 +910,8 @@ function CompanionClient() {
             <TranscriptRow
               key={line.id}
               line={line}
+              readingMode={readingMode}
+              pinyinMode={pinyinMode}
               canUseLexirise={online && lexirise.configured}
               sendingRef={sendingRef}
               sentToLexirise={!!lexirise.sent[`line:${line.id}`]}
