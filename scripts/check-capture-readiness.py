@@ -22,6 +22,7 @@ from backend.capture import CaptureService
 from backend.firered_vad import FireRedVad
 from backend.games import GAME_PROFILES
 from backend.models import AppSettings
+from backend.media_tools import ffmpeg_executable
 from backend.windows import WindowInfo, find_active_game_window
 
 
@@ -46,14 +47,16 @@ def main() -> int:
     vad = FireRedVad()
     vad.segments(np.zeros(32_000, dtype=np.float32), 16_000)
     print("FireRedVAD: model loaded and silent-audio inference passed")
+    ffmpeg = ffmpeg_executable()
+    if not ffmpeg:
+        raise RuntimeError("FFmpeg is unavailable; rerun scripts/setup.ps1")
+    print(f"FFmpeg: {Path(ffmpeg).name}")
     audio = pyaudio.PyAudio()
     try:
-        devices = list(audio.get_loopback_device_info_generator())
+        device = audio.get_default_wasapi_loopback()
     finally:
         audio.terminate()
-    if not devices:
-        raise RuntimeError("No Windows WASAPI loopback audio device is available")
-    print(f"Loopback audio: {devices[0]['name']}")
+    print(f"Loopback audio: {device['name']}")
 
     with mss.MSS() as grabber:
         monitors = grabber.monitors[1:]

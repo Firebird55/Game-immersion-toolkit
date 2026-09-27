@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import subprocess
 import threading
 import time
@@ -16,6 +15,7 @@ import pyaudiowpatch as pyaudio
 import webrtcvad
 
 from .firered_vad import FireRedVad
+from .media_tools import ffmpeg_executable
 
 
 @dataclass(slots=True)
@@ -320,7 +320,7 @@ class AudioCaptureService:
             output.setframerate(self.sample_rate)
             output.writeframes(pcm.tobytes())
 
-        ffmpeg = shutil.which("ffmpeg")
+        ffmpeg = ffmpeg_executable()
         if ffmpeg:
             result = subprocess.run(
                 [

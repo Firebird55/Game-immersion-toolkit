@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import shutil
 import struct
 import subprocess
 import tempfile
@@ -13,6 +12,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+
+from .media_tools import ffmpeg_executable
 
 
 ZERO_GUID = "00000000-0000-0000-0000-000000000000"
@@ -390,7 +391,7 @@ class PragmataAudioEntry:
 
 def mix_voice_layers(entry: PragmataAudioEntry, waves: dict[int, Path], destination: Path) -> None:
     """Render fixed simultaneous layers; never choose/mix random alternatives."""
-    command = [shutil.which("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostdin"]
+    command = [ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-nostdin"]
     layers = entry.layers or ({"media_id": entry.media_id},)
     filters, ends = [], []
     for index, layer in enumerate(layers):
@@ -474,7 +475,7 @@ class PragmataVoiceAssetService:
                     and self._install.is_dir()
                     and self.decoder.is_file()
                     and (self.tools / "REE.Unpacker.exe").is_file()
-                    and shutil.which("ffmpeg")
+                    and ffmpeg_executable()
                 )
                 self.last_error = None
             return self.ready

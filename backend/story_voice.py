@@ -18,6 +18,7 @@ import numpy as np
 
 from .agent_fingerprint import RATE, landmarks, mono_audio, waveform_score
 from .voice_assets import VoiceAssetService, VoiceEntry
+from .media_tools import ffmpeg_executable
 
 
 STORY_PACKAGE = re.compile(r"10[1-3]\d\d")
@@ -64,7 +65,7 @@ def _decode_entry(entry: VoiceEntry, decoder: Path) -> np.ndarray:
 def _recording_samples(path: Path) -> np.ndarray:
     result = subprocess.run(
         [
-            "ffmpeg", "-v", "error", "-nostdin", "-i", str(path),
+            ffmpeg_executable(), "-v", "error", "-nostdin", "-i", str(path),
             "-f", "f32le", "-ac", "1", "-ar", str(RATE), "-",
         ],
         capture_output=True,

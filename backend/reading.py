@@ -43,11 +43,13 @@ class LexiriseReadingService:
         cached = self._cached("meaning", word, 30 * 86400)
         if cached is not None:
             return cached.get("meaning", "")
+        if self._cached("meaning-pending", word, 60) is not None:
+            return ""
         result = self._post("/v1/dictionary/lookup", {"text": word, "language": "zh"})
         translations = result.get("translations") or []
         meaning = next((item.get("translation", "") for item in translations
                         if item.get("target_lang") == "en" and isinstance(item.get("translation"), str)), "")
-        self._save("meaning", word, {"meaning": meaning})
+        self._save("meaning" if meaning else "meaning-pending", word, {"meaning": meaning})
         return meaning
 
     def analyze(self, text: str) -> dict:

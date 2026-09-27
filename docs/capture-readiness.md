@@ -1,10 +1,12 @@
 # Game capture readiness on this PC
 
-Checked 27 September 2026 with Duet connected in portrait at Windows 125% scaling. Run `scripts\check-capture-readiness.py` with the Proxy Transcript virtual environment after any display, Windows Snipping Tool, or Python environment change.
+Checked 27–28 September 2026. Run `scripts\check-capture-readiness.py` with the Proxy Transcript virtual environment after any display, Windows Snipping Tool, or Python environment change.
 
 ## Result
 
-The capture path is ready for a game test. The local backend and website both responded successfully, capture is running in `waiting_for_game`, and the ZZZ TextMap reports **427,596 indexed bilingual entries**. The backend reports loopback audio ready and `voice_validation_ready: true`. Zenless Zone Zero and PRAGMATA were not running, so an actual game subtitle cannot be confirmed yet.
+The native OCR, screenshot/crop, FireRedVAD, audio conversion, and official voice extraction paths pass local checks. The local backend and website responded successfully, and the ZZZ TextMap reports **427,596 indexed bilingual entries**. ZZZ was briefly visible at `1920×1200`; the backend detected its executable and OCR read the resource-update text, but no voiced dialogue was displayed before the game closed. An actual subtitle-to-transcript capture remains to be checked during gameplay.
+
+The game moved from `F:` to the USB drive `E:`. The automatic voice refresh rebuilt a current manifest from 84 USB source files with **56,650 exact Mandarin line mappings**. A saved ZZZ line was decoded to a 116,108-byte MP3, and FireRedVAD identified its speech intervals. The initial installation lacked FFmpeg, which prevented original voice playback; setup now installs `imageio-ffmpeg` for both this and future PCs. Windows loopback produced nonzero audio samples on the currently selected BOOM 3 output. AirPods were selected and the loopback stream opened successfully earlier, but they are disconnected now, so a post-reconnect sample check remains.
 
 The audit uncovered a missing native OneOCR installation that would have broken OCR as soon as a game window appeared. The three native files from this PC's installed Windows Snipping Tool were copied into the current user's `.config\oneocr` folder. `scripts\setup.ps1` now installs and initializes them automatically on future setup runs. A synthetic English subtitle was recognized exactly as **“Enemies incoming!”**.
 

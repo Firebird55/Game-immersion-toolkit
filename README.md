@@ -19,6 +19,8 @@ a duplicate History row. Other dialogue presentations keep their live behavior.
 
 Windows loopback audio is kept only in a short in-memory rolling buffer. When a matched line contains speech, the companion uses its bundled FireRedVAD model to trim away the music-only lead-in and tail, saves an MP3 clip when FFmpeg is available or a WAV clip otherwise, and adds playback controls to that row in the web interface. It does not make a continuous recording.
 
+Setup installs a local FFmpeg binary through `imageio-ffmpeg`, so exact original game voices and recorded clips can be converted without relying on a separate system-wide FFmpeg installation.
+
 The matcher also builds a blocklist from the official character-name and speaker-label records. Short standalone HUD actions are ignored, while short spoken replies are accepted when OCR sees them beneath a speaker label. This keeps the log focused on dialogue without maintaining a manual list of characters.
 
 Repeated TextMap lines are suppressed for 60 seconds across all capture regions. If typewriter text first matches a partial sentence and the complete official line appears within five seconds, the existing transcript row and pending audio clip are upgraded in place.

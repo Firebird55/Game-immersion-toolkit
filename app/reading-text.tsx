@@ -6,23 +6,31 @@ export type PinyinMode = 'unknown' | 'all' | 'off';
 type Token = { start: number; end: number; word: string; pinyin: string; proficiency: number; meaning: string };
 type Reading = { text: string; tokens: Token[] };
 const API_URL = 'http://127.0.0.1:8766';
-const cache = new Map<number, Reading>();
+const cache = new Map<number, { reading: Reading; at: number }>();
+function cachedReading(id: number, text: string): Reading | null {
+  const saved = cache.get(id);
+  return saved && saved.reading.text === text && Date.now() - saved.at < 10 * 60_000 ? saved.reading : null;
+}
+function shortGloss(meaning: string) {
+  const first = meaning.split(/[,;]/, 1)[0].trim();
+  return first.length > 32 ? `${first.slice(0, 29)}…` : first;
+}
 
 export const ReadingText = memo(function ReadingText({ id, text, pinyin, current = false }: {
   id: number; text: string; pinyin: PinyinMode; current?: boolean;
 }) {
-  const [reading, setReading] = useState<Reading | null>(cache.get(id) ?? null);
+  const [reading, setReading] = useState<Reading | null>(cachedReading(id, text));
   const [open, setOpen] = useState<number | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     let active = true;
     setOpen(null);
-    const saved = cache.get(id);
-    setReading(saved?.text === text ? saved : null);
-    if (saved?.text === text) return;
+    const saved = cachedReading(id, text);
+    setReading(saved);
+    if (saved) return;
     fetch(`${API_URL}/api/lines/${id}/reading`, { cache: 'no-store' })
       .then(response => { if (!response.ok) throw new Error('Analysis unavailable'); return response.json() as Promise<Reading>; })
-      .then(result => { cache.set(id, result); if (active) { setReading(result); setError(false); } })
+      .then(result => { cache.set(id, { reading: result, at: Date.now() }); if (active) { setReading(result); setError(false); } })
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [id, text]);
@@ -39,7 +47,7 @@ export const ReadingText = memo(function ReadingText({ id, text, pinyin, current
       {showPinyin && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
       <span className="reading-hanzi" onClick={() => setOpen(open === index ? null : index)}
         title={token.meaning || 'Tap for word details'}>{text.slice(token.start, token.end)}</span>
-      {unknown && !!token.meaning && <span className="reading-meaning">{token.meaning}</span>}
+      {unknown && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
       {open === index && <span className="reading-popover" role="status">
         <strong>{token.word}</strong>{token.pinyin && <span>{token.pinyin}</span>}
         <span>{token.meaning || 'No dictionary meaning available yet'}</span>
