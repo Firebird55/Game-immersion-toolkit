@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Bookmark, Volume2 } from 'lucide-react';
 
 export type ReadingScope = 'unknown' | 'all' | 'off';
 export type ReadingOptions = {
@@ -39,6 +40,7 @@ type Token = { start: number; end: number; word: string; pinyin: string; zhuyin:
 type Reading = { text: string; tokens: Token[]; pendingMeanings?: boolean };
 type Lookup = {
   translations: { meaning: string; partOfSpeech: string[]; examples: { text: string; translation: string }[] }[];
+  examples: { text: string; translation: string }[];
   dictionaries: { name: string; headword: string; reading: string; definitions: string[] }[];
   hskLevel?: number; rank?: number; frequencyScore?: number;
   alternateReadings: string[];
@@ -47,8 +49,12 @@ type Lookup = {
 };
 type ContextMeaning = { meaning: string; conciseMeaning: string; reading: string };
 type CharacterBreakdown = { partial?: boolean; characters: { character: string; hint: string; strokeCount?: number;
-  unavailable?: boolean; components: { character: string; type: string[]; hint: string }[] }[] };
-type WordTab = 'definition' | 'translation' | 'context' | 'components';
+  unavailable?: boolean; pinyin: string[]; gloss: string;
+  components: { character: string; type: string[]; hint: string }[] }[] };
+type ExampleResult = { examples: { text: string; translation: string; tokens: Token[] }[] };
+type SimilarResult = { generated: boolean; suggestions: { word: string; pinyin: string;
+  tones: number[]; meaning: string; usage: string }[] };
+type WordTab = 'definition' | 'context' | 'examples' | 'similar' | 'components';
 const API_URL = 'http://127.0.0.1:8766';
 const cache = new Map<number, { reading: Reading; at: number }>();
 const lookupCache = new Map<string, Lookup>();
@@ -89,15 +95,57 @@ const WORD_LEVELS = [
   { value: 4, short: 'K', label: 'Known' },
 ] as const;
 
-function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficiency, onRetry }: {
+function speakChinese(text: string) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'zh-CN';
+  utterance.rate = 0.82;
+  const voice = window.speechSynthesis.getVoices().find(value => value.lang.toLowerCase().startsWith('zh'));
+  if (voice) utterance.voice = voice;
+  window.speechSynthesis.speak(utterance);
+}
+
+function ExampleChinese({ text, tokens, options }: { text: string; tokens: Token[]; options: ReadingOptions }) {
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  for (const [index, token] of tokens.entries()) {
+    if (token.start < cursor || token.end > text.length) continue;
+    if (token.start > cursor) parts.push(text.slice(cursor, token.start));
+    const word = text.slice(token.start, token.end);
+    const unknown = token.proficiency < 4;
+    parts.push(<span key={`${token.start}-${index}`} className="reading-token">
+      {enabled(options.pinyin, unknown) && token.pinyin && <span className="reading-pinyin">{token.pinyin}</span>}
+      {enabled(options.zhuyin, unknown) && token.zhuyin && <span className="reading-zhuyin">{token.zhuyin}</span>}
+      <span className="reading-hanzi" style={enabled(options.toneColors, unknown) ? toneStyle(token.tones || [], word, options.palette) : undefined}>{word}</span>
+      {enabled(options.meanings, unknown) && token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
+    </span>);
+    cursor = token.end;
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <div className="word-example-chinese" lang="zh-Hans">{parts}</div>;
+}
+
+function WordSheet({ id, text, token, lookup, lookupError, options, onClose, onProficiency, onRetry }: {
   id: number; text: string; token: Token; lookup?: Lookup; lookupError: boolean;
-  onClose: () => void; onProficiency: (level: number) => void; onRetry: () => void;
+  options: ReadingOptions; onClose: () => void; onProficiency: (level: number) => void; onRetry: () => void;
 }) {
   const [tab, setTab] = useState<WordTab>('definition');
   const [context, setContext] = useState<ContextMeaning | null>(null);
   const [contextError, setContextError] = useState(false);
+  const [contextQuestion, setContextQuestion] = useState('');
+  const [questionAnswer, setQuestionAnswer] = useState('');
+  const [questionBusy, setQuestionBusy] = useState(false);
+  const [questionError, setQuestionError] = useState('');
   const [characters, setCharacters] = useState<CharacterBreakdown | null>(null);
   const [charactersError, setCharactersError] = useState(false);
+  const [examples, setExamples] = useState<ExampleResult | null>(null);
+  const [examplesError, setExamplesError] = useState(false);
+  const [savedExamples, setSavedExamples] = useState<Record<number, boolean>>({});
+  const [savingExample, setSavingExample] = useState<number | null>(null);
+  const [exampleSaveError, setExampleSaveError] = useState('');
+  const [similar, setSimilar] = useState<SimilarResult | null>(null);
+  const [similarError, setSimilarError] = useState(false);
   const [saving, setSaving] = useState<number | null>(null);
   const [saveError, setSaveError] = useState('');
   useEffect(() => {
@@ -111,7 +159,7 @@ function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficienc
     return () => controller.abort();
   }, [tab, context, contextError, id, token.start]);
   useEffect(() => {
-    if (tab !== 'components' || token.word.length === 1 || characters || charactersError) return;
+    if ((tab !== 'components' && tab !== 'definition') || token.word.length === 1 || characters || charactersError) return;
     const controller = new AbortController();
     fetch(`${API_URL}/api/lines/${id}/reading/characters?start=${token.start}`,
       { cache: 'no-store', signal: controller.signal })
@@ -120,6 +168,26 @@ function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficienc
       .catch(() => { if (!controller.signal.aborted) setCharactersError(true); });
     return () => controller.abort();
   }, [tab, characters, charactersError, id, token.start, token.word]);
+  useEffect(() => {
+    if (tab !== 'examples' || examples || examplesError) return;
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/lines/${id}/reading/examples?start=${token.start}`,
+      { cache: 'no-store', signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error('Examples unavailable'); return response.json() as Promise<ExampleResult>; })
+      .then(setExamples)
+      .catch(() => { if (!controller.signal.aborted) setExamplesError(true); });
+    return () => controller.abort();
+  }, [tab, examples, examplesError, id, token.start]);
+  useEffect(() => {
+    if (tab !== 'similar' || similar || similarError) return;
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/lines/${id}/reading/similar?start=${token.start}`,
+      { cache: 'no-store', signal: controller.signal })
+      .then(response => { if (!response.ok) throw new Error('Similar words unavailable'); return response.json() as Promise<SimilarResult>; })
+      .then(setSimilar)
+      .catch(() => { if (!controller.signal.aborted) setSimilarError(true); });
+    return () => controller.abort();
+  }, [tab, similar, similarError, id, token.start]);
   async function setLevel(level: number) {
     if (saving !== null || level === token.proficiency) return;
     setSaving(level);
@@ -138,15 +206,41 @@ function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficienc
       setSaving(null);
     }
   }
-  function speak() {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(token.word);
-    utterance.lang = 'zh-CN';
-    utterance.rate = 0.82;
-    const voice = window.speechSynthesis.getVoices().find(value => value.lang.toLowerCase().startsWith('zh'));
-    if (voice) utterance.voice = voice;
-    window.speechSynthesis.speak(utterance);
+  async function askQuestion(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const question = contextQuestion.trim();
+    if (!question || questionBusy) return;
+    setQuestionBusy(true);
+    setQuestionError('');
+    try {
+      const response = await fetch(`${API_URL}/api/lines/${id}/reading/context`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'lexirise' },
+        body: JSON.stringify({ start: token.start, question }),
+      });
+      if (!response.ok) throw new Error('Lexirise could not answer that question. Try again.');
+      const result = await response.json() as ContextMeaning;
+      setQuestionAnswer(result.meaning || 'No answer was returned.');
+    } catch (error) {
+      setQuestionError(error instanceof Error ? error.message : 'Could not get an answer.');
+    } finally {
+      setQuestionBusy(false);
+    }
+  }
+  async function saveExample(index: number) {
+    if (savingExample !== null || savedExamples[index]) return;
+    setSavingExample(index);
+    setExampleSaveError('');
+    try {
+      const response = await fetch(`${API_URL}/api/lines/${id}/reading/examples/${index}/save?start=${token.start}`, {
+        method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise' },
+      });
+      if (!response.ok) throw new Error('Lexirise could not save this example. Try again.');
+      setSavedExamples(previous => ({ ...previous, [index]: true }));
+    } catch (error) {
+      setExampleSaveError(error instanceof Error ? error.message : 'Could not save this example.');
+    } finally {
+      setSavingExample(null);
+    }
   }
   const primary = lookup?.translations.find(value => value.partOfSpeech.length) || lookup?.translations[0];
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
@@ -154,14 +248,14 @@ function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficienc
       <div className="word-sheet-top">
         <div className="word-sheet-identity">
           <div className="word-sheet-headword"><DialogTitle>{token.word}</DialogTitle>
-            <button type="button" className="word-speak" onClick={speak} title="Speak using this device's Chinese voice" aria-label={`Pronounce ${token.word}`}>▶</button>
+            <button type="button" className="word-speak" onClick={() => speakChinese(token.word)} title="Speak using this device's Chinese voice" aria-label={`Pronounce ${token.word}`}>▶</button>
           </div>
           <div className="word-sheet-reading">{token.pinyin}{lookup?.alternateReadings?.length ? ` · ${lookup.alternateReadings.join(' · ')}` : ''}</div>
           {token.zhuyin && <div className="word-sheet-zhuyin">{token.zhuyin}</div>}
         </div>
         <div className="word-levels" role="group" aria-label="Lexirise vocabulary status">
           {WORD_LEVELS.map(level => <button key={level.value} type="button"
-            className={token.proficiency === level.value ? 'active' : ''}
+            className={token.proficiency === level.value ? `active level-${level.value}` : ''}
             disabled={saving !== null} onClick={() => void setLevel(level.value)}
             title={level.label} aria-label={`Mark ${token.word} ${level.label}`}
             aria-pressed={token.proficiency === level.value}>{saving === level.value ? '…' : level.short}</button>)}
@@ -169,20 +263,28 @@ function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficienc
       </div>
       {saveError && <p className="word-sheet-error" role="alert">{saveError}</p>}
       <div className="word-tabs" role="tablist" aria-label="Word details">
-        {(['definition', 'translation', 'context', 'components'] as const).map(value =>
+        {(['definition', 'context', 'examples', 'similar', 'components'] as const).map(value =>
           <button key={value} type="button" role="tab" aria-selected={tab === value}
             className={tab === value ? 'active' : ''} onClick={() => setTab(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}
       </div>
       <div className="word-sheet-body" role="tabpanel">
-        {!lookup && !lookupError && (tab === 'definition' || tab === 'translation' || (tab === 'components' && token.word.length === 1)) &&
+        {!lookup && !lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
           <p>{token.meaning || 'Looking up word details…'}<small className="word-loading-note">Loading dictionary details…</small></p>}
-        {lookupError && (tab === 'definition' || tab === 'translation' || (tab === 'components' && token.word.length === 1)) &&
+        {lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
           <p>Dictionary details are unavailable. {token.meaning}
           <button type="button" className="word-retry" onClick={onRetry}>Retry dictionary lookup</button></p>}
         {tab === 'definition' && lookup && <>
           <div className="word-definition-lead"><span>{primary?.meaning || token.meaning || 'No definition yet'}</span>
             {primary?.partOfSpeech.length ? <small>{primary.partOfSpeech.join(', ')}</small> : null}</div>
           {lookup.hskLevel != null && <span className="word-hsk">HSK {lookup.hskLevel}</span>}
+          {token.word.length > 1 && <section className="word-character-summary">
+            <h3>Characters</h3>
+            {characters ? <div className="word-character-summary-list">{characters.characters.map((character, index) =>
+              <div key={index} className="word-character-summary-item">
+                <span><small>{character.pinyin?.join(' · ')}</small><strong>{character.character}</strong></span>
+                <p>{character.gloss || (character.unavailable ? 'Details unavailable' : '')}</p>
+              </div>)}</div> : <p>{charactersError ? <button type="button" className="word-retry" onClick={() => setCharactersError(false)}>Retry character details</button> : 'Loading character details…'}</p>}
+          </section>}
           {lookup.dictionaries.map((dictionary, index) => <section className="word-dictionary" key={index}>
             <h3>{dictionary.name}</h3>
             <p><strong>{dictionary.headword}</strong> <span>{dictionary.reading}</span></p>
@@ -192,15 +294,9 @@ function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficienc
             {lookup.frequencyScore != null && <span className="word-frequency-bars" aria-label={`Frequency score ${Math.round(lookup.frequencyScore * 100)} percent`}>
               {Array.from({ length: 4 }, (_, index) => <i key={index} className={lookup.frequencyScore! >= (index + 1) / 4 ? 'on' : ''} />)}
             </span>}
-            <span>{lookup.rank <= 100 ? 'Very common' : lookup.rank <= 1000 ? 'Common' : `Rank #${lookup.rank}`}</span>
-            <span>#{lookup.rank}</span></div>}
+            <span>{lookup.rank <= 100 ? 'Very common' : lookup.rank <= 5000 ? 'Common' : 'Less common'}</span>
+            <span>#{lookup.rank.toLocaleString()}</span></div>}
         </>}
-        {tab === 'translation' && lookup && <div className="word-translations">
-          {lookup.translations.length ? lookup.translations.map((entry, index) => <section key={index}>
-            <div><strong>{entry.meaning}</strong> {entry.partOfSpeech.length > 0 && <small>{entry.partOfSpeech.join(', ')}</small>}</div>
-            {entry.examples.map((example, exampleIndex) => <p key={exampleIndex} lang="zh-Hans">{example.text}<small>{example.translation}</small></p>)}
-          </section>) : <p>{token.meaning || 'No English translation available yet.'}</p>}
-        </div>}
         {tab === 'context' && <div className="word-context">
           <p lang="zh-Hans">{text}</p>
           {context ? <><strong>{context.conciseMeaning || token.meaning}</strong><p>{context.meaning}</p>
@@ -208,6 +304,40 @@ function WordSheet({ id, text, token, lookup, lookupError, onClose, onProficienc
             <p>{contextError ? <>Context explanation unavailable.
               <button type="button" className="word-retry" onClick={() => setContextError(false)}>Retry context</button></> :
               'Explaining this word in the line…'}</p>}
+          {questionAnswer && <div className="word-context-answer">{questionAnswer}</div>}
+          <form className="word-context-question" onSubmit={event => void askQuestion(event)}>
+            <input value={contextQuestion} maxLength={500} onChange={event => setContextQuestion(event.target.value)}
+              placeholder="Ask about nuance, grammar, or tone" aria-label="Ask Lexirise about this word" />
+            <button type="submit" disabled={!contextQuestion.trim() || questionBusy} aria-label="Ask Lexirise">{questionBusy ? '…' : '↑'}</button>
+          </form>
+          {questionError && <p className="word-sheet-error" role="alert">{questionError}</p>}
+        </div>}
+        {tab === 'examples' && <div className="word-examples">
+          {examples ? examples.examples.length ? examples.examples.map((example, index) => <article key={index} className="word-example">
+            <div className="word-example-main"><ExampleChinese text={example.text} tokens={example.tokens} options={options} />
+              <p>{example.translation}</p></div>
+            <div className="word-example-actions">
+              <button type="button" onClick={() => speakChinese(example.text)} title="Play with this device's Chinese voice" aria-label={`Play example ${index + 1}`}><Volume2 size={18} /></button>
+              <button type="button" onClick={() => void saveExample(index)} disabled={savingExample !== null || savedExamples[index]}
+                className={savedExamples[index] ? 'saved' : ''} title="Save example sentence to Lexirise (text only)"
+                aria-label={savedExamples[index] ? `Example ${index + 1} saved` : `Save example ${index + 1} to Lexirise`}><Bookmark size={18} /></button>
+            </div>
+          </article>) : <p>Lexirise has no example sentences for this word.</p> :
+            <p>{examplesError ? <>Examples unavailable.
+              <button type="button" className="word-retry" onClick={() => setExamplesError(false)}>Retry examples</button></> : 'Loading examples…'}</p>}
+          {exampleSaveError && <p className="word-sheet-error" role="alert">{exampleSaveError}</p>}
+          <small>Example playback uses this device’s Chinese speech voice. Bookmarks save text and translation to Lexirise.</small>
+        </div>}
+        {tab === 'similar' && <div className="word-similar">
+          <h3>Close in meaning</h3>
+          {similar ? similar.suggestions.length ? similar.suggestions.map((suggestion, index) => <article key={index}>
+            <span className="word-similar-reading">{suggestion.pinyin}</span>
+            <strong style={toneStyle(suggestion.tones || [], suggestion.word, options.palette)}>{suggestion.word}</strong>
+            <p>{suggestion.meaning}</p><small>{suggestion.usage}</small>
+          </article>) : <p>Lexirise did not return verified similar words for this use.</p> :
+            <p>{similarError ? <>Similar words unavailable.
+              <button type="button" className="word-retry" onClick={() => setSimilarError(false)}>Retry similar words</button></> : 'Finding similar words…'}</p>}
+          <small>Usage notes are AI suggestions; each displayed word was checked against Lexirise’s dictionary.</small>
         </div>}
         {tab === 'components' && <div className="word-components">
           {token.word.length > 1 ? characters ? characters.characters.map((character, charIndex) => <section className="word-character" key={charIndex}>
@@ -321,7 +451,7 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
   if (cursor < text.length) parts.push(text.slice(cursor));
   const selected = open === null ? null : reading.tokens[open];
   return <><p className={`reading-text ${current ? 'current-chinese' : ''}`} lang="zh-Hans">{parts}</p>
-    {selected && <WordSheet key={`${id}:${selected.start}`} id={id} text={text} token={selected}
+    {selected && <WordSheet key={`${id}:${selected.start}`} id={id} text={text} token={selected} options={options}
       lookup={lookup?.index === open ? lookup.value : undefined} lookupError={lookup?.index === open && !!lookup.error}
       onClose={() => setOpen(null)} onProficiency={onProficiency}
       onRetry={() => { setLookup(null); setLookupAttempt(value => value + 1); }} />}</>;

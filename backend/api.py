@@ -491,11 +491,14 @@ def ask_line_word_context(line_id: int, payload: WordContextQuestion,
                           x_proxy_transcript: str = Header(default="")) -> dict:
     if x_proxy_transcript != "lexirise":
         raise HTTPException(403, "Use the companion's word controls.")
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(422, "Question cannot be blank")
     line = runtime.transcript.get(line_id)
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.context(line.chinese, payload.start, payload.question.strip())
+        result = runtime.reading.context(line.chinese, payload.start, question)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -510,6 +513,20 @@ def line_word_examples(line_id: int, start: int = Query(ge=0)) -> dict:
         raise HTTPException(404, "Transcript line not found")
     try:
         result = runtime.reading.examples(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.get("/api/lines/{line_id}/reading/similar")
+def line_word_similar(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.similar(line.chinese, start)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:

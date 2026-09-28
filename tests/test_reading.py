@@ -246,6 +246,45 @@ class ReadingTests(unittest.TestCase):
             finally:
                 reader.pool.shutdown(wait=True)
 
+    def test_similar_words_are_verified_against_dictionary(self):
+        calls = []
+
+        def reply(request):
+            payload = json.loads(request.read())
+            calls.append(request.url.path)
+            if request.url.path == "/v1/analyze/text":
+                return httpx.Response(200, json={"occurrences": [{"word": "单词", "entryId": 7,
+                    "isWordLike": True, "charStart": 0, "charEnd": 2}],
+                    "entryMetaById": {"7": {"gloss": "word"}}})
+            if request.url.path == "/v1/analyze/context":
+                return httpx.Response(200, json={"meaning":
+                    "- **词语** — word or expression | Broader than 单词\n"
+                    "词汇 | vocabulary | A collection of words\n"
+                    "错词 | typo | Not actually close"})
+            if request.url.path == "/v1/dictionary/lookup":
+                word = payload["text"]
+                if word == "错词":
+                    return httpx.Response(200, json={"word": word, "entry_id": None})
+                return httpx.Response(200, json={"word": word, "entry_id": 40,
+                    "transliteration": "cíyǔ", "tones": [2, 3],
+                    "translations": [{"target_lang": "en", "translation": "dictionary meaning"}]})
+            raise AssertionError(request.url.path)
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            export = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
+            reader = LexiriseReadingService(directory, export)
+            try:
+                first = reader.similar("单词", 0)
+                second = reader.similar("单词", 0)
+                self.assertEqual(first, second)
+                self.assertEqual([item["word"] for item in first["suggestions"]], ["词语", "词汇"])
+                self.assertEqual(first["suggestions"][0]["meaning"], "dictionary meaning")
+                self.assertEqual(first["suggestions"][0]["usage"], "Broader than 单词")
+                self.assertEqual(calls.count("/v1/analyze/context"), 1)
+            finally:
+                reader.pool.shutdown(wait=True)
+
     def test_utf16_ranges_unknown_meanings_and_cache(self):
         calls = []
         lookup_started = threading.Event()

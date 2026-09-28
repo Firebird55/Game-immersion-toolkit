@@ -1,60 +1,44 @@
-# Lexirise reading mode for Proxy Transcript
+# Lexirise reading mode
 
-Status: implemented locally, 28 September 2026. The reading selector offers **Migaku** and **Lexirise**. The existing manual **Send to Lexirise** buttons remain separate.
+Status: implemented locally, 28 September 2026. The website offers **Migaku** and **Lexirise** reading modes. Lexirise provides the built-in press-to-lookup experience; Yomitan is not required. The Translation tab from the reference images is intentionally omitted.
 
-## What is built
+## Reading the transcript
 
-- `backend/reading.py` uses the Windows-only Lexirise credential, analyzes saved lines by ID, validates ordered UTF-16 ranges, and caches sentence analysis for 10 minutes. Lexirise's `occurrences` supply tone marked Pinyin and tones; `entryMetaById.gloss` supplies English meanings for known and unknown words. Analysis returns without waiting for missing dictionary glosses. Up to four missing unknown words are looked up in the background and cached. Zhuyin spelling is converted locally with `pypinyin`, using Lexirise's tone values.
-- `GET /api/lines/{id}/reading` returns normalized tokens without exposing the key. `GET /api/lines/{id}/reading/lookup?start=…` looks up the word at that position only when pressed. It returns Lexirise English translations and examples, CC-CEDICT definitions, HSK level when present, frequency rank and score, alternate readings, and character components when present. The parser converts supplemental dictionary HTML to plain text before sending it to the browser. Dictionary data is cached locally for 30 days; an older cache format is ignored.
-- `GET /api/lines/{id}/reading/context?start=…` asks Lexirise to explain the selected occurrence in its full saved sentence. This request starts only after opening the Context tab. `GET /api/lines/{id}/reading/characters?start=…` fetches each unique Hanzi in a multi-character word only when its Components tab opens; individual character metadata is cached for 30 days. `POST /api/lines/{id}/reading/proficiency` updates a selected word to tracked, learning, fresh, or known only after a user presses its state button. The route accepts a line ID and token offset, validates the word server-side, and requires the companion's custom header. A saved Lexirise item is patched; an unsaved one is created through the vocabulary endpoint. No captured line automatically creates vocabulary.
-- `app/reading-text.tsx` renders selectable Hanzi with Pinyin, Zhuyin, tone marks, and glosses as soon as sentence analysis returns. When dictionary glosses are still pending, the visible line refreshes briefly in the background. Tapping a word opens a responsive sheet with **Definition**, **Translation**, **Context**, and **Components** tabs. Its T/L/F/K controls reflect Lexirise levels 1/2/3/4, and a successful update refreshes all visible instances of the word immediately. The pronunciation button uses this device's browser speech voice (`zh-CN`); Lexirise does not document a word-audio endpoint. Yomitan can still scan the underlying text in browsers where its touch setting is enabled. Browser localStorage remembers each display scope and the five tone colors.
-- The **Reading options** dialog offers unknown/all/off independently for Pinyin, Zhuyin, separate tone marks, inline translation, and tone colors. The default colors follow [Migaku's tone mapping](https://migaku.com/blog/chinese/chinese-language-tones): first red, second yellow, third green, fourth blue, neutral gray. Each color is editable and can be reset. When Lexirise supplies one tone per Hanzi, a text gradient colors each character while preserving one selectable word node for Yomitan. Other words fall back to their first tone color.
-- Migaku keeps its fresh-node current-line behavior and remains the default. The mode selector can be changed at any time without changing transcript records.
+- `POST /v1/analyze/text` segments a saved Chinese line, returns UTF-16 offsets, tone-marked Pinyin, tones, word IDs, English glosses, and learner state. The website renders the official text in its original order; punctuation and gaps remain selectable text. Analysis is cached for 10 minutes. Missing glosses are fetched in the background so a new line is shown without waiting for a dictionary request.
+- Reading options independently set Pinyin, Zhuyin, separate tone marks, inline English glosses, and tone colors to **unknown words**, **all words**, or **off**. The five editable default tone colors follow the existing Migaku palette. Zhuyin spelling is converted locally, with Lexirise tones applied. Settings are stored in browser localStorage.
+- Pressing a word opens the Lexirise sheet. **T/L/F/K** set tracked (1), learning (2), fresh (3), and known (4). A saved item is patched; an unsaved word is created only when its state button is pressed. The selected state immediately updates visible instances of that word.
 
-Live API verification on a saved ZZZ sentence returned 36 tokens with Pinyin, Zhuyin, tone data, and English glosses. A live lookup for `是` returned rank 2, HSK 1, two CC-CEDICT entries, two components, and an alternate reading. The context endpoint returned the selected word's meaning in the sentence. A multi-character `出来` component request returned both characters. A live proficiency request preserved the already-known state of `是` through Lexirise's PATCH endpoint. The word sheet was checked in the running local browser at a narrow portrait viewport. The actual iPad and Yomitan touch behavior still need a device check.
+## Word sheet
 
-## Target experience
-
-Keep the current English line and official Chinese line. In Lexirise mode, segment the Chinese sentence into tappable words as in the supplied screenshot. Color words by Mandarin tone with an editable Migaku-like palette, place an optional short English meaning below words, and show optional Pinyin, Zhuyin, or tone marks above them. Each display setting supports unknown words, all words, or off. Preserve the exact official Chinese text, punctuation, and word order. A word tap opens the cached definition. Current line and History use the same annotations; the narrow iPad layout wraps word groups cleanly without shrinking Hanzi.
-
-This is a **display and lookup** option, not an automatic vocabulary export. Never automatically create saved words or send captured audio because a line appears on screen.
-
-## Relevant API contracts
-
-Lexirise's [API reference](https://lexirise.app/api-reference) documents Pro-account authentication with `Authorization: Bearer …` or `x-api-key`, base URL `https://api.lexirise.app`, and 1,200 requests per hour. This PC stores the user's key with Windows DPAPI in Local AppData; the existing backend also supports its ignored `data/lexirise/key.dpapi` path. No key belongs in React, localStorage, a URL, a log, or this document.
-
-| Need | Endpoint | Use |
+| View or control | Implementation | Limit |
 | --- | --- | --- |
-| Sentence segmentation, Pinyin, tones, gloss, entry IDs, learner state | `POST /v1/analyze/text` | Send `{ "text": "…", "language": "zh", "fast": true }` from the Python backend. Response includes `occurrences` with `word`, `charStart`, `charEnd`, `entryId`, `transliteration`, and tones; `entryMetaById` includes glosses and tones; `stateByEntryId` gives proficiency. |
-| Full analysis when fast result is provisional | `POST /v1/analyze/text` | Repeat with `fast: false` after a short delay only when needed. `morphoPending: true` says refined segmentation is pending. Do not poll each render. |
-| Fallback meaning when analysis has no gloss | `POST /v1/dictionary/lookup` | Look up distinct unknown words with missing glosses, cache the English dictionary translation, and reuse it across lines. |
-| Optional later contextual meaning | `POST /v1/analyze/context` | Send a sentence and token offsets for a meaning specific to that occurrence. This is researched but not called in the current renderer because it would multiply latency and API usage. |
-| Explicit vocabulary state selection | `POST /v1/vocabulary`, `PATCH /v1/vocabulary/{id}` | Tracked 1, learning 2, fresh 3, known 4. Only a status button calls these endpoints. |
+| Header and play | Hanzi, Lexirise Pinyin, alternate readings, Zhuyin, and this device's Chinese browser speech voice. | Lexirise's public API does not document a word-audio endpoint. Voice quality depends on installed browser/Windows voices. |
+| Definition | Lexirise English meaning and part of speech, HSK, characters with Pinyin and gloss for multi-character words, supplemental dictionary entries, frequency rank/score. | Supplemental sections appear for whichever dictionaries the public lookup response returns. The user's other installed dictionaries did not appear in four tested live responses. |
+| Context | `POST /v1/analyze/context` for the selected occurrence in its saved line, plus a question field for nuance, grammar, or tone. | On-demand model call may take several seconds or fail; the sheet provides retry. |
+| Examples | Up to five Lexirise dictionary examples, with Chinese reading annotations and English translation. Play uses device speech. Bookmark explicitly saves the example sentence and translation through `POST /v1/vocabulary`. | The dictionary response has no example-audio URL. A bookmarked example is text only. |
+| Similar | On-demand Lexirise context question requests nearby words; each proposed Hanzi word is checked through dictionary lookup before display. Pinyin, dictionary meaning, and the generated usage note are shown. | This is an AI suggestion, not a dedicated synonyms API. It may describe related expressions in the wider phrase rather than interchangeable words. The view reports an empty or failed result instead of inventing one. |
+| Components | Lexirise character components and hints, when present. | Detail depends on the dictionary response. |
 
-The [Yomitan scanning settings](https://github.com/yomidevs/yomitan/blob/master/ext/templates-modals.html) support mouse, touch, and pen inputs. Yomitan can already scan selectable text in the Windows Chrome window, including one shown on the iPad through Duet. Its [local API](https://github.com/yomidevs/yomitan-api/blob/master/README.md) is optional and device-local. It is unnecessary for the first version of this feature.
+The popup loads only the selected view's extra data, and caches lookup, character, context, and Similar results. This keeps newly captured lines and the initial popup responsive. Word lookup stays in the app; there is no Yomitan dependency.
 
-## Lookup interaction
+## Dictionary coverage checked
 
-Press a Hanzi word to open the Lexirise sheet. The word stays as real DOM text so Yomitan can also scan it when touch scanning is enabled in the Chrome profile shown through Duet. Test an actual press on the iPad; browser automation at a narrow viewport cannot prove how Duet sends touch events. The inline glosses, pinyin, and colors come from Lexirise analysis.
+Live read-only `POST /v1/dictionary/lookup` probes for `总是`, `单词`, `词语`, and `朋友` all returned the English translation fields and only `CC-CEDICT` in `supplementalEntries`. `总是` returned HSK 3 and frequency rank 1,872. The parser renders every dictionary entry sent by that array and accepts both list and plain-paragraph HTML. Other dictionaries attached in the Lexirise app may be available only in that app or through a separate API contract; they cannot currently be displayed from these responses. This needs Lexirise confirmation or a documented endpoint before promising parity.
 
-The built-in tap sheet provides lookup without relying on Yomitan. The dictionary call runs only when a word is pressed and is cached locally. The sentence and analysis gloss stay visible if a dictionary request is slow or fails, with a retry control. `/v1/analyze/context` makes a separate request only when the Context tab is opened, which preserves API quota and keeps the initial sheet quick.
+`单词` returned three examples, `词语` one, and `朋友` three. A live saved-line lookup for `是` showed two CC-CEDICT entries and its HSK/frequency information. Examples, Context, and Similar were opened in the running website and displayed API results. In the saved line `他们不过是找个理由…`, the Similar suggestions reflected the meaning of the **phrase** `不过是`; they should be treated as related expressions, not direct substitutions for `是`.
 
-## Data and rendering design
+## Captured voice and example voice
 
-The local endpoint accepts a transcript line ID and loads its official Chinese text from SQLite. The backend validates monotonic, non-overlapping Lexirise ranges before returning tokens. Lexirise offsets count **JavaScript UTF-16 units**: a probe of `你好🙂朋友朋友` placed the emoji at `2..4` and the two `朋友` tokens at `4..6` and `6..8`. The React renderer uses those ranges with JavaScript `slice`, preserving punctuation and gaps as plain text. An invalid token is omitted while the official sentence remains visible.
+The existing **Send to Lexirise** action for a captured game sentence uploads its available original voice clip through `POST /v1/vocabulary/audio`, includes the returned public URL in the saved sentence's `audioUrls`, and adds that sentence to the game's snapshot deck. A focused mock-API test checks the uploaded bytes, URL, translation, deck membership, and retry idempotency. This is separate from the word sheet's browser speech and its text-only example bookmarks. Sending a captured sentence is still explicit; viewing a line never uploads its audio.
 
-`stateByEntryId` determines the documented proficiency levels: 0 unknown, 1 tracked, 2 learning, 3 fresh, and 4 known. Proficiency controls which words count as unknown for display settings. Lexirise supplies the Pinyin and tones; the local `pypinyin` converter supplies Zhuyin phonetic symbols, and Lexirise's tones override local tone guesses. The word component stacks whichever annotations are enabled around one selectable Hanzi text node. The Migaku branch keeps its existing fresh DOM node, while the Lexirise branch uses normal React text. All reader settings persist per browser.
+## API and local data
 
-Potential refinements: deduplicate simultaneous requests for the same uncached sentence across browser tabs, add a rate-budget indicator, and source word audio from Lexirise if a documented API endpoint becomes available. A browser session currently avoids refetching the same line, and the backend caches analysis, meanings, dictionary data, and context across sessions.
+The official [Lexirise API reference](https://lexirise.app/api-reference) documents the `analyze/text`, `analyze/context`, `dictionary/lookup`, `vocabulary`, and `vocabulary/audio` calls used here. The API key is stored with Windows DPAPI in Local AppData for this PC; it is not sent to React or stored in the repository. A copied installation on another PC needs that PC's own credential setup because DPAPI is tied to a Windows user.
 
-## Checks before release
+The backend accepts a transcript line ID and token start offset, then validates the word against the saved official Chinese line. Lexirise offsets are UTF-16 units, which match JavaScript `slice` even when the line contains emoji. State and example-save routes require the companion's custom header. The reader caches analysis for 10 minutes, dictionary/character data for 30 days, context answers for 30 days, and Similar suggestions for 7 days.
 
-- The real `zh` analysis and dictionary response have been verified on a saved ZZZ sentence. Confirm that read-only analysis does not alter the user's vocabulary count if that becomes a concern.
-- Test unknown, tracked, learning, fresh, known, and missing `stateByEntryId`; duplicated words; punctuation; emoji; no dictionary result; `morphoPending`; 401/429/timeouts; and a line that changes while analysis is pending.
-- Inspect at the current Duet viewport and the home portrait monitor. Test touch target size, word wrapping, scroll, popup placement, and Yomitan scanning in the actual Chrome profile.
-- Check that API credentials do not appear in network responses, HTML, browser storage, logs, or Git; verify the 1,200/hour budget with cache metrics.
+## Remaining device and service checks
 
-## Open contract questions
-
-- A live read-only probe returned tone-marked Chinese pinyin (`nǐhǎo`, `péngyou`) and `POST /v1/analyze/context` returned `conciseMeaning: "friend"` with `reading: "péngyou"`. Less common names, polyphonic words, and provisional `morphoPending` responses still need review.
-- The API docs do not show a batch context endpoint. The current implementation uses cached dictionary meanings, which may be less precise for polysemous words. A future context pass should be limited to selected words to protect the 1,200/hour quota.
+- Test a real press, text wrap, popup scroll, and speech voice on the connected iPad through Duet, and on the home secondary screen. Browser layout checks do not prove Duet touch or audio behavior.
+- Ask Lexirise whether user-installed dictionaries and recorded example/word audio are available through its public API. Only the response fields above have been observed.
+- If a dedicated synonyms endpoint is added, replace the context-question Similar view. Its current generated notes can be slow and sometimes describe the surrounding phrase.

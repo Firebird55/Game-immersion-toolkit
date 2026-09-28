@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import threading
 import time
@@ -99,9 +100,9 @@ class LexiriseReadingService:
         with self.lock, closing(sqlite3.connect(self.path)) as db, db:
             db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (kind, key, json.dumps(value), time.time()))
 
-    def _post(self, path: str, payload: dict) -> dict:
+    def _post(self, path: str, payload: dict, timeout: float = 25) -> dict:
         with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
-                          timeout=25, follow_redirects=False, transport=self.lexirise.transport) as client:
+                          timeout=timeout, follow_redirects=False, transport=self.lexirise.transport) as client:
             return LexiriseService._request(client, "POST", path, json=payload)
 
     def _patch(self, path: str, payload: dict) -> dict:
@@ -208,7 +209,7 @@ class LexiriseReadingService:
         if token is None:
             return None
         word = token["word"]
-        cached = self._cached("lookup-v2", word, 30 * 86400)
+        cached = self._cached("lookup-v3", word, 30 * 86400)
         if cached is None:
             response = self._post("/v1/dictionary/lookup", {"text": word, "language": "zh"})
             translations = []
@@ -262,7 +263,7 @@ class LexiriseReadingService:
                       "components": components, "characterHint": character.get("hint", ""),
                       "strokeCount": character.get("strokeCount"),
                       "character": character.get("char", "")}
-            self._save("lookup-v2", word, cached)
+            self._save("lookup-v3", word, cached)
         return {"word": word, "pinyin": token["pinyin"], "zhuyin": token["zhuyin"],
                 "tones": token["tones"], "proficiency": token["proficiency"],
                 "meaning": token["meaning"], **cached}
@@ -278,7 +279,7 @@ class LexiriseReadingService:
                        "charStart": token["start"], "charEnd": token["end"]}
             if question:
                 payload["question"] = question
-            response = self._post("/v1/analyze/context", payload)
+            response = self._post("/v1/analyze/context", payload, timeout=60)
             cached = {name: response.get(name, "") for name in ("meaning", "conciseMeaning", "reading")}
             self._save("context", key, cached)
         return cached
@@ -352,6 +353,54 @@ class LexiriseReadingService:
         if not isinstance(saved_id, int) or saved_id <= 0:
             raise LexiriseError("Lexirise did not confirm this example was saved. Try again.")
         return {"saved": True, "savedExpressionId": saved_id}
+
+    def similar(self, text: str, start: int) -> dict | None:
+        token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)
+        if token is None:
+            return None
+        key = f"{text}:{start}"
+        cached = self._cached("similar", key, 7 * 86400)
+        if cached is not None:
+            return cached
+        question = (f"Suggest exactly three close Chinese alternatives to {token['word']} in this context. "
+                    "For each, give the Chinese word, short English meaning, and one short usage distinction. "
+                    "Use one line per alternative, formatted WORD | MEANING | USAGE. No introduction or markdown.")
+        response = self._post("/v1/analyze/context", {"language": "zh", "text": text,
+            "charStart": token["start"], "charEnd": token["end"], "question": question}, timeout=60)
+        suggestions = []
+        for line in (response.get("meaning") or "").splitlines():
+            clean = line.strip().lstrip("-• ")
+            match = re.match(r"(?:\*\*)?([\u3400-\u9fff]{1,8})(?:\*\*)?\s*(?:\||[—–-])\s*(.+)", clean)
+            if not match:
+                continue
+            word, rest = match.groups()
+            if word == token["word"] or word in (item["word"] for item in suggestions):
+                continue
+            parts = [part.strip() for part in rest.split("|", 1)]
+            suggestions.append({"word": word, "meaning": parts[0],
+                                "usage": parts[1] if len(parts) > 1 else ""})
+            if len(suggestions) == 4:
+                break
+        pending = {item["word"]: self.pool.submit(self._post, "/v1/dictionary/lookup",
+                   {"text": item["word"], "language": "zh"}) for item in suggestions}
+        confirmed = []
+        for item in suggestions:
+            try:
+                dictionary = pending[item["word"]].result()
+            except LexiriseError:
+                continue
+            if dictionary.get("word") != item["word"] or not dictionary.get("entry_id"):
+                continue
+            translations = [entry.get("translation") for entry in dictionary.get("translations") or []
+                            if isinstance(entry, dict) and entry.get("target_lang") == "en"
+                            and isinstance(entry.get("translation"), str)]
+            confirmed.append({**item, "meaning": translations[0] if translations else item["meaning"],
+                              "pinyin": dictionary.get("transliteration") or "",
+                              "tones": dictionary.get("tones") or []})
+        result = {"suggestions": confirmed, "generated": True}
+        if confirmed:
+            self._save("similar", key, result)
+        return result
 
     def set_proficiency(self, text: str, start: int, proficiency: int) -> dict | None:
         if proficiency not in (1, 2, 3, 4):
