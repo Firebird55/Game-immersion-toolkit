@@ -48,6 +48,11 @@ class WordProficiencyUpdate(BaseModel):
     proficiency: int = Field(ge=1, le=4)
 
 
+class WordContextQuestion(BaseModel):
+    start: int = Field(ge=0)
+    question: str = Field(min_length=1, max_length=500)
+
+
 class EventHub:
     def __init__(self) -> None:
         self.clients: set[WebSocket] = set()
@@ -478,6 +483,54 @@ def line_word_context(line_id: int, start: int = Query(ge=0)) -> dict:
         raise HTTPException(503, str(error)) from None
     if result is None:
         raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/context")
+def ask_line_word_context(line_id: int, payload: WordContextQuestion,
+                          x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's word controls.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.context(line.chinese, payload.start, payload.question.strip())
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.get("/api/lines/{line_id}/reading/examples")
+def line_word_examples(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.examples(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/examples/{example_index}/save")
+def save_line_word_example(line_id: int, example_index: int, start: int = Query(ge=0),
+                           x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's example bookmark.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.save_example(line.chinese, start, example_index)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Example not found for this word")
     return result
 
 

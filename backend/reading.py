@@ -27,6 +27,8 @@ class _DefinitionParser(HTMLParser):
         self.headword = ""
         self.in_headword = False
         self.headword_parts: list[str] = []
+        self.plain_lines: list[str] = []
+        self.plain_parts: list[str] = []
 
     def handle_starttag(self, tag, attrs):
         if tag == "li":
@@ -45,12 +47,19 @@ class _DefinitionParser(HTMLParser):
         if tag == "div" and self.in_headword:
             self.headword = "".join(self.headword_parts).strip()
             self.in_headword = False
+        if tag in ("p", "div", "br") and not self.inside and not self.in_headword:
+            line = " ".join("".join(self.plain_parts).split())
+            if line and line != self.headword and line not in self.plain_lines:
+                self.plain_lines.append(line)
+            self.plain_parts = []
 
     def handle_data(self, data):
         if self.inside:
             self.parts.append(data)
         if self.in_headword:
             self.headword_parts.append(data)
+        elif not self.inside:
+            self.plain_parts.append(data)
 
 
 def word_zhuyin(word: str, tones: list[int]) -> str:
@@ -203,17 +212,23 @@ class LexiriseReadingService:
         if cached is None:
             response = self._post("/v1/dictionary/lookup", {"text": word, "language": "zh"})
             translations = []
+            all_examples = []
+            example_texts = set()
             for item in response.get("translations") or []:
                 if not isinstance(item, dict) or item.get("target_lang") != "en":
                     continue
                 meaning = item.get("translation")
                 if not isinstance(meaning, str) or not meaning.strip():
                     continue
-                examples = [
-                    {"text": example.get("text", ""), "translation": example.get("translation", "")}
-                    for example in (item.get("examples") or [])[:2]
-                    if isinstance(example, dict) and isinstance(example.get("text"), str)
-                ]
+                examples = []
+                for example in (item.get("examples") or [])[:6]:
+                    if not isinstance(example, dict) or not isinstance(example.get("text"), str):
+                        continue
+                    entry = {"text": example["text"], "translation": example.get("translation") or ""}
+                    examples.append(entry)
+                    if entry["text"] not in example_texts:
+                        example_texts.add(entry["text"])
+                        all_examples.append(entry)
                 pos = item.get("part_of_speech") or []
                 translations.append({"meaning": meaning.strip(), "examples": examples,
                                      "partOfSpeech": [value for value in pos if isinstance(value, str)] if isinstance(pos, list) else []})
@@ -225,7 +240,7 @@ class LexiriseReadingService:
                 parser.feed(entry.get("html") if isinstance(entry.get("html"), str) else "")
                 dictionaries.append({"name": entry.get("dictionary_name", "Dictionary"),
                                      "headword": parser.headword or entry.get("headword", ""), "reading": entry.get("reading", ""),
-                                     "definitions": parser.items})
+                                     "definitions": parser.items or parser.plain_lines})
             character = response.get("characterInfo")
             if not isinstance(character, dict):
                 character = {}
@@ -239,7 +254,8 @@ class LexiriseReadingService:
             hsk = stats.get("hskLevel") or next((int(tag[4:]) for tag in tags
                 if isinstance(tag, str) and tag.startswith("HSK-") and tag[4:].isdigit()), None)
             alternate = response.get("multipleReadings") or {}
-            cached = {"translations": translations, "dictionaries": dictionaries,
+            cached = {"translations": translations, "examples": all_examples[:8],
+                      "dictionaries": dictionaries,
                       "hskLevel": hsk, "rank": response.get("rank"),
                       "frequencyScore": response.get("frequency_score"),
                       "alternateReadings": alternate.get("alternatives") or [] if isinstance(alternate, dict) else [],
@@ -251,15 +267,18 @@ class LexiriseReadingService:
                 "tones": token["tones"], "proficiency": token["proficiency"],
                 "meaning": token["meaning"], **cached}
 
-    def context(self, text: str, start: int) -> dict | None:
+    def context(self, text: str, start: int, question: str | None = None) -> dict | None:
         token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)
         if token is None:
             return None
-        key = f"{text}:{start}"
+        key = f"{text}:{start}:{question or ''}"
         cached = self._cached("context", key, 30 * 86400)
         if cached is None:
-            response = self._post("/v1/analyze/context", {"language": "zh", "text": text,
-                "charStart": token["start"], "charEnd": token["end"]})
+            payload = {"language": "zh", "text": text,
+                       "charStart": token["start"], "charEnd": token["end"]}
+            if question:
+                payload["question"] = question
+            response = self._post("/v1/analyze/context", payload)
             cached = {name: response.get(name, "") for name in ("meaning", "conciseMeaning", "reading")}
             self._save("context", key, cached)
         return cached
@@ -295,8 +314,44 @@ class LexiriseReadingService:
                           for part in info.get("components") or [] if isinstance(part, dict)]
             characters.append({"character": char, "hint": info.get("hint", ""),
                                "strokeCount": info.get("strokeCount"), "components": components,
+                               "pinyin": info.get("pinyin") or [], "gloss": info.get("gloss") or "",
                                "unavailable": char in failed})
         return {"characters": characters, "partial": partial}
+
+    def examples(self, text: str, start: int) -> dict | None:
+        details = self.lookup(text, start)
+        if details is None:
+            return None
+        examples = details.get("examples") or []
+        pending = {index: self.pool.submit(self.analyze, item["text"])
+                   for index, item in enumerate(examples[:5])}
+        result = []
+        for index, item in enumerate(examples[:5]):
+            try:
+                reading = pending[index].result()
+                tokens = reading["tokens"]
+            except (LexiriseError, ValueError):
+                tokens = []
+            result.append({**item, "tokens": tokens})
+        return {"examples": result}
+
+    def save_example(self, text: str, start: int, example_index: int) -> dict | None:
+        details = self.lookup(text, start)
+        if details is None:
+            return None
+        examples = details.get("examples") or []
+        if not 0 <= example_index < len(examples):
+            return None
+        example = examples[example_index]
+        payload = {"language": "zh", "text": example["text"], "mode": "sentence"}
+        if example.get("translation"):
+            payload["translation"] = example["translation"]
+        response = self._post("/v1/vocabulary", payload)
+        item = response.get("item") if isinstance(response.get("item"), dict) else response
+        saved_id = item.get("id") or item.get("saved_expression_id")
+        if not isinstance(saved_id, int) or saved_id <= 0:
+            raise LexiriseError("Lexirise did not confirm this example was saved. Try again.")
+        return {"saved": True, "savedExpressionId": saved_id}
 
     def set_proficiency(self, text: str, start: int, proficiency: int) -> dict | None:
         if proficiency not in (1, 2, 3, 4):

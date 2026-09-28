@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import threading
 import unittest
+import json
 from pathlib import Path
 
 import httpx
@@ -195,6 +196,53 @@ class ReadingTests(unittest.TestCase):
                 self.assertFalse(result["characters"][0]["unavailable"])
                 self.assertTrue(result["characters"][1]["unavailable"])
                 self.assertEqual(result["characters"][0]["components"][0]["character"], "月")
+            finally:
+                reader.pool.shutdown(wait=True)
+
+    def test_examples_custom_dictionary_and_context_question(self):
+        calls = []
+
+        def reply(request):
+            payload = json.loads(request.read()) if request.method == "POST" else {}
+            calls.append((request.url.path, payload))
+            if request.url.path == "/v1/analyze/text":
+                text = payload["text"]
+                occurrences = [{"word": "单词", "entryId": 7, "isWordLike": True,
+                                "charStart": 0, "charEnd": 2}] if text == "单词" else []
+                return httpx.Response(200, json={"occurrences": occurrences,
+                    "entryMetaById": {"7": {"gloss": "word"}}})
+            if request.url.path == "/v1/dictionary/lookup":
+                return httpx.Response(200, json={
+                    "translations": [{"target_lang": "en", "translation": "word",
+                        "examples": [{"text": "这个单词很好记", "translation": "This word is easy to remember"},
+                                     {"text": "请查一下单词", "translation": "Please look up the word"}]}],
+                    "supplementalEntries": [{"dictionary_name": "My Dictionary", "headword": "单词",
+                        "html": "<div><p>vocabulary item</p><p>a written word</p></div>"}],
+                })
+            if request.url.path == "/v1/analyze/context":
+                return httpx.Response(200, json={"meaning": "One unit of vocabulary", "conciseMeaning": "word"})
+            if request.url.path == "/v1/vocabulary":
+                return httpx.Response(200, json={"item": {"id": 99}})
+            raise AssertionError(request.url.path)
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            export = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
+            reader = LexiriseReadingService(directory, export)
+            try:
+                lookup = reader.lookup("单词", 0)
+                self.assertEqual(lookup["dictionaries"][0]["name"], "My Dictionary")
+                self.assertEqual(lookup["dictionaries"][0]["definitions"], ["vocabulary item", "a written word"])
+                self.assertEqual(len(lookup["examples"]), 2)
+                examples = reader.examples("单词", 0)["examples"]
+                self.assertEqual(len(examples), 2)
+                self.assertEqual(examples[0]["translation"], "This word is easy to remember")
+                self.assertEqual(reader.context("单词", 0, "How is this used?")["conciseMeaning"], "word")
+                self.assertEqual(reader.save_example("单词", 0, 1)["savedExpressionId"], 99)
+                self.assertTrue(any(path == "/v1/analyze/context" and body.get("question") == "How is this used?"
+                                    for path, body in calls))
+                self.assertTrue(any(path == "/v1/vocabulary" and body.get("text") == "请查一下单词"
+                                    for path, body in calls))
             finally:
                 reader.pool.shutdown(wait=True)
 
