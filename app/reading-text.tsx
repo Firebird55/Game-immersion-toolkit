@@ -36,8 +36,10 @@ export function restoreReadingOptions(value: unknown): ReadingOptions {
 }
 type Token = { start: number; end: number; word: string; pinyin: string; zhuyin: string; tones: number[]; proficiency: number; meaning: string };
 type Reading = { text: string; tokens: Token[] };
+type Lookup = { translations: { meaning: string; examples: { text: string; translation: string }[] }[] };
 const API_URL = 'http://127.0.0.1:8766';
 const cache = new Map<number, { reading: Reading; at: number }>();
+const lookupCache = new Map<string, Lookup>();
 function cachedReading(id: number, text: string): Reading | null {
   const saved = cache.get(id);
   return saved && saved.reading.text === text && Date.now() - saved.at < 10 * 60_000 ? saved.reading : null;
@@ -56,6 +58,7 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
 }) {
   const [reading, setReading] = useState<Reading | null>(cachedReading(id, text));
   const [open, setOpen] = useState<number | null>(null);
+  const [lookup, setLookup] = useState<{ index: number; value?: Lookup; error?: boolean } | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     let active = true;
@@ -69,6 +72,21 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [id, text]);
+  useEffect(() => {
+    if (open === null || !reading || reading.text !== text) return;
+    const token = reading.tokens[open];
+    if (!token) return;
+    const key = `${id}:${token.start}`;
+    const saved = lookupCache.get(key);
+    if (saved) { setLookup({ index: open, value: saved }); return; }
+    let active = true;
+    setLookup({ index: open });
+    fetch(`${API_URL}/api/lines/${id}/reading/lookup?start=${token.start}`, { cache: 'no-store' })
+      .then(response => { if (!response.ok) throw new Error('Lookup unavailable'); return response.json() as Promise<Lookup>; })
+      .then(value => { lookupCache.set(key, value); if (active) setLookup({ index: open, value }); })
+      .catch(() => { if (active) setLookup({ index: open, error: true }); });
+    return () => { active = false; };
+  }, [id, open, reading, text]);
 
   if (!reading || reading.text !== text) return <p className={current ? 'current-chinese' : undefined} lang="zh-Hans" title={error ? 'Lexirise analysis unavailable' : 'Analyzing with Lexirise'}>{text}</p>;
   const parts: React.ReactNode[] = [];
@@ -90,7 +108,14 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
       {open === index && <span className="reading-popover" role="status">
         <strong>{token.word}</strong>{token.pinyin && <span>{token.pinyin}</span>}
         {token.zhuyin && <span>{token.zhuyin}</span>}
-        <span>{token.meaning || 'No dictionary meaning available yet'}</span>
+        {lookup?.index === index && lookup.value?.translations.length ? lookup.value.translations.map((entry, entryIndex) =>
+          <span key={entryIndex} className="reading-lookup-entry">
+            <span>{entry.meaning}</span>
+            {entry.examples.map((example, exampleIndex) => <small key={exampleIndex}>
+              {example.text}{example.translation && <> · {example.translation}</>}
+            </small>)}
+          </span>) : <span>{token.meaning || (lookup?.index === index && !lookup.error ? 'Looking up…' : 'No dictionary meaning available yet')}</span>}
+        {lookup?.index === index && lookup.error && <small>Dictionary details unavailable; showing the analysis gloss.</small>}
         <small>Level {token.proficiency} · Select text for Yomitan</small>
       </span>}
     </span>);
