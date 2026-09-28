@@ -15,6 +15,25 @@ from backend.agent_fingerprint import landmarks, mono_audio
 from backend.voice_assets import VoiceEntry
 
 
+def index_matches_library(database: sqlite3.Connection, clips: dict, pcm_dir: Path) -> bool:
+    """A moved game path does not require rebuilding unchanged audio hashes."""
+    indexes = {row[0] for row in database.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    if not {'idx_hashes_hash', 'idx_hashes_asset'} <= indexes:
+        return False
+    done = {asset: (stamp, duration) for asset, stamp, duration in
+            database.execute('SELECT asset_id, fingerprint, duration FROM clips')}
+    if len(done) != len(clips):
+        return False
+    for asset, entry in clips.items():
+        legacy = f"{entry['package_size']}:{entry['package_mtime_ns']}:{entry['offset']}:{entry['size']}"
+        stamp, duration = done.get(asset, (None, 0.))
+        if stamp not in (entry.get('sha256', legacy), legacy) or duration <= 0:
+            return False
+        if .3 <= duration <= 120 and not (pcm_dir / f'{asset}.npy').exists():
+            return False
+    return True
+
+
 def main():
     root = Path(__file__).resolve().parents[1]
     folder = root / 'data/agent-voices'
@@ -43,6 +62,10 @@ def main():
     database.execute('PRAGMA synchronous=NORMAL')
     database.execute('CREATE TABLE IF NOT EXISTS clips (asset_id TEXT PRIMARY KEY, duration REAL, fingerprint TEXT)')
     database.execute('CREATE TABLE IF NOT EXISTS hashes (hash INTEGER, asset_id TEXT, frame INTEGER)')
+    if index_matches_library(database, library['clips'], pcm_dir):
+        database.close()
+        print(f'Complete ({len(library["clips"])} existing clip fingerprints reused)', flush=True)
+        return
     # Maintaining two large B-trees for every inserted landmark is extremely
     # slow on USB storage. Recognition is paused during this rebuild, so make
     # the search indexes once after the data is complete.
