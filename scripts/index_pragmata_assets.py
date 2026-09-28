@@ -137,7 +137,15 @@ def find_install() -> Path | None:
     ]
     for letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
         candidates.append(Path(f"{letter}:\\SteamLibrary\\steamapps\\common\\PRAGMATA"))
-    return next((path for path in candidates if (path / "PRAGMATA.exe").is_file()), None)
+    for path in candidates:
+        try:
+            if (path / "PRAGMATA.exe").is_file():
+                return path
+        except OSError:
+            # A locked or disconnected drive must not hide an install on a
+            # later drive letter.
+            continue
+    return None
 
 
 def fingerprint(install: Path) -> str:

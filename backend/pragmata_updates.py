@@ -64,18 +64,26 @@ class PragmataUpdateManager:
 
     def _run(self) -> None:
         try:
+            from scripts.index_pragmata_assets import find_install, fingerprint
+
             path = self.index.path
+            install = find_install()
+            if install is None:
+                self.index.load()
+                self.voice_assets.reload()
+                self._set(
+                    state="waiting",
+                    message="Waiting for installed PRAGMATA game files; saved subtitles remain available",
+                    progress=100,
+                    last_error=None,
+                )
+                return
             needs_update = not path.is_file()
-            install = None
             if path.is_file():
                 payload = json.loads(path.read_text(encoding="utf-8"))
                 needs_update = payload.get("format", 0) < INDEX_FORMAT
-                install_value = payload.get("install")
-                if install_value:
-                    install = Path(str(install_value))
-                    if install.is_dir():
-                        from scripts.index_pragmata_assets import fingerprint
-                        needs_update = needs_update or payload.get("fingerprint") != fingerprint(install)
+                needs_update = needs_update or payload.get("install") != str(install)
+                needs_update = needs_update or payload.get("fingerprint") != fingerprint(install)
             if not needs_update:
                 self.index.load()
                 self.voice_assets.reload()
@@ -83,8 +91,7 @@ class PragmataUpdateManager:
                 return
             self._set(state="updating", message="Indexing official PRAGMATA subtitles", progress=15)
             command = [sys.executable, str(self.project_root / "scripts/index_pragmata_assets.py")]
-            if install:
-                command.extend(["--install", str(install)])
+            command.extend(["--install", str(install)])
             result = subprocess.run(command, cwd=self.project_root, capture_output=True, text=True)
             if result.returncode:
                 raise RuntimeError(result.stderr.strip() or result.stdout.strip())
