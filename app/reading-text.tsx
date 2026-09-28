@@ -2,8 +2,39 @@
 
 import { memo, useEffect, useState } from 'react';
 
-export type PinyinMode = 'unknown' | 'all' | 'off';
-type Token = { start: number; end: number; word: string; pinyin: string; proficiency: number; meaning: string };
+export type ReadingScope = 'unknown' | 'all' | 'off';
+export type ReadingOptions = {
+  pinyin: ReadingScope;
+  zhuyin: ReadingScope;
+  toneMarks: ReadingScope;
+  meanings: ReadingScope;
+  toneColors: ReadingScope;
+  palette: [string, string, string, string, string];
+};
+export const MIGAKU_TONE_PALETTE: ReadingOptions['palette'] = ['#ff526b', '#ffd34d', '#43cfa1', '#4fa8ff', '#9ca9b7'];
+export const DEFAULT_READING_OPTIONS: ReadingOptions = {
+  pinyin: 'unknown', zhuyin: 'off', toneMarks: 'off', meanings: 'unknown',
+  toneColors: 'all', palette: [...MIGAKU_TONE_PALETTE],
+};
+export function isReadingScope(value: unknown): value is ReadingScope {
+  return value === 'unknown' || value === 'all' || value === 'off';
+}
+export function restoreReadingOptions(value: unknown): ReadingOptions {
+  if (!value || typeof value !== 'object') return { ...DEFAULT_READING_OPTIONS, palette: [...MIGAKU_TONE_PALETTE] };
+  const saved = value as Record<string, unknown>;
+  const palette = Array.isArray(saved.palette) && saved.palette.length === 5
+    && saved.palette.every(color => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color))
+    ? saved.palette as ReadingOptions['palette'] : [...MIGAKU_TONE_PALETTE] as ReadingOptions['palette'];
+  return {
+    pinyin: isReadingScope(saved.pinyin) ? saved.pinyin : 'unknown',
+    zhuyin: isReadingScope(saved.zhuyin) ? saved.zhuyin : 'off',
+    toneMarks: isReadingScope(saved.toneMarks) ? saved.toneMarks : 'off',
+    meanings: isReadingScope(saved.meanings) ? saved.meanings : 'unknown',
+    toneColors: isReadingScope(saved.toneColors) ? saved.toneColors : 'all',
+    palette,
+  };
+}
+type Token = { start: number; end: number; word: string; pinyin: string; zhuyin: string; tones: number[]; proficiency: number; meaning: string };
 type Reading = { text: string; tokens: Token[] };
 const API_URL = 'http://127.0.0.1:8766';
 const cache = new Map<number, { reading: Reading; at: number }>();
@@ -15,9 +46,13 @@ function shortGloss(meaning: string) {
   const first = meaning.split(/[,;]/, 1)[0].trim();
   return first.length > 32 ? `${first.slice(0, 29)}…` : first;
 }
+function enabled(scope: ReadingScope, unknown: boolean) {
+  return scope === 'all' || (scope === 'unknown' && unknown);
+}
+const TONE_MARKS: Record<number, string> = { 1: '¯', 2: 'ˊ', 3: 'ˇ', 4: 'ˋ', 5: '˙' };
 
-export const ReadingText = memo(function ReadingText({ id, text, pinyin, current = false }: {
-  id: number; text: string; pinyin: PinyinMode; current?: boolean;
+export const ReadingText = memo(function ReadingText({ id, text, options, current = false }: {
+  id: number; text: string; options: ReadingOptions; current?: boolean;
 }) {
   const [reading, setReading] = useState<Reading | null>(cachedReading(id, text));
   const [open, setOpen] = useState<number | null>(null);
@@ -42,14 +77,19 @@ export const ReadingText = memo(function ReadingText({ id, text, pinyin, current
     if (token.start < cursor || token.end > text.length) continue;
     if (token.start > cursor) parts.push(text.slice(cursor, token.start));
     const unknown = token.proficiency < 4;
-    const showPinyin = pinyin === 'all' || (pinyin === 'unknown' && unknown);
-    parts.push(<span key={`${token.start}-${index}`} className={`reading-token level-${token.proficiency}`}>
-      {showPinyin && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
+    const tone = token.tones?.find(value => value >= 1 && value <= 5);
+    const color = enabled(options.toneColors, unknown) && tone ? options.palette[tone - 1] : undefined;
+    const toneMarks = token.tones?.map(value => TONE_MARKS[value] || '').filter(Boolean).join(' ');
+    parts.push(<span key={`${token.start}-${index}`} className="reading-token">
+      {enabled(options.toneMarks, unknown) && !!toneMarks && <span className="reading-tone-marks" aria-hidden="true">{toneMarks}</span>}
+      {enabled(options.pinyin, unknown) && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
+      {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true">{token.zhuyin}</span>}
       <span className="reading-hanzi" onClick={() => setOpen(open === index ? null : index)}
-        title={token.meaning || 'Tap for word details'}>{text.slice(token.start, token.end)}</span>
-      {unknown && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
+        style={color ? { color } : undefined} title={token.meaning || 'Tap for word details'}>{text.slice(token.start, token.end)}</span>
+      {enabled(options.meanings, unknown) && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
       {open === index && <span className="reading-popover" role="status">
         <strong>{token.word}</strong>{token.pinyin && <span>{token.pinyin}</span>}
+        {token.zhuyin && <span>{token.zhuyin}</span>}
         <span>{token.meaning || 'No dictionary meaning available yet'}</span>
         <small>Level {token.proficiency} · Select text for Yomitan</small>
       </span>}
