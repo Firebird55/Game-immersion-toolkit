@@ -41,6 +41,37 @@ class ReadingTests(unittest.TestCase):
     def test_zhuyin_uses_lexirise_tones_for_neutral_syllables(self):
         self.assertEqual(word_zhuyin("朋友", [2, 5]), "ㄆㄥˊ ㄧㄡ˙")
 
+    def test_pressed_word_gets_dictionary_examples_once(self):
+        calls = []
+
+        def reply(request):
+            calls.append(request.url.path)
+            if request.url.path == "/v1/analyze/text":
+                return httpx.Response(200, json={
+                    "occurrences": [{"word": "朋友", "entryId": 7, "isWordLike": True,
+                                     "charStart": 0, "charEnd": 2, "transliteration": "péngyou", "tones": [2, 5]}],
+                    "entryMetaById": {"7": {"gloss": "friend"}},
+                    "stateByEntryId": {},
+                })
+            if request.url.path == "/v1/dictionary/lookup":
+                return httpx.Response(200, json={"translations": [{
+                    "target_lang": "en", "translation": "friend",
+                    "examples": [{"text": "我的朋友", "translation": "my friend"}],
+                }]})
+            raise AssertionError(request.url.path)
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            export = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
+            reader = LexiriseReadingService(directory, export)
+            self.assertIsNone(reader.lookup("朋友", 1))
+            first = reader.lookup("朋友", 0)
+            second = reader.lookup("朋友", 0)
+            self.assertEqual(first, second)
+            self.assertEqual(first["translations"][0]["examples"][0]["translation"], "my friend")
+            self.assertEqual(calls, ["/v1/analyze/text", "/v1/dictionary/lookup"])
+            reader.pool.shutdown(wait=True)
+
     def test_utf16_ranges_unknown_meanings_and_cache(self):
         calls = []
 

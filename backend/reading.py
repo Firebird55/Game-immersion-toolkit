@@ -123,3 +123,34 @@ class LexiriseReadingService:
         for token in tokens:
             token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
         return {"text": text, "tokens": tokens}
+
+    def lookup(self, text: str, start: int) -> dict | None:
+        """Look up one token from an official saved line after a user presses it."""
+        token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)
+        if token is None:
+            return None
+        word = token["word"]
+        cached = self._cached("lookup", word, 30 * 86400)
+        if cached is None:
+            response = self._post("/v1/dictionary/lookup", {"text": word, "language": "zh"})
+            translations = []
+            for item in response.get("translations") or []:
+                if not isinstance(item, dict) or item.get("target_lang") != "en":
+                    continue
+                meaning = item.get("translation")
+                if not isinstance(meaning, str) or not meaning.strip():
+                    continue
+                examples = [
+                    {"text": example.get("text", ""), "translation": example.get("translation", "")}
+                    for example in (item.get("examples") or [])[:2]
+                    if isinstance(example, dict) and isinstance(example.get("text"), str)
+                ]
+                translations.append({"meaning": meaning.strip(), "examples": examples})
+                if len(translations) == 3:
+                    break
+            cached = {"translations": translations}
+            if translations:
+                self._save("lookup", word, cached)
+        return {"word": word, "pinyin": token["pinyin"], "zhuyin": token["zhuyin"],
+                "tones": token["tones"], "proficiency": token["proficiency"],
+                "meaning": token["meaning"], **cached}

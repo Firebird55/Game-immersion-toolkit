@@ -448,6 +448,20 @@ def line_reading(line_id: int) -> dict:
         raise HTTPException(503, str(error)) from None
 
 
+@app.get("/api/lines/{line_id}/reading/lookup")
+def line_word_lookup(line_id: int, start: int) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.lookup(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
 @app.post("/api/lines/{line_id}/lexirise")
 def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default="")) -> dict:
     # Custom header forces cross-origin browsers through the existing allowlist.
