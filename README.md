@@ -60,7 +60,7 @@ Favorites separate. It follows the running game automatically; you can switch
 it manually to review the other game's saved lines. The Agents collection is
 specific to Zenless Zone Zero.
 
-The compact **Reading** switch chooses Migaku (default) or Lexirise. In Lexirise mode, saved Chinese lines show proficiency colors, pinyin, and inline English meanings for words below the known level. The **Pinyin** control chooses unknown words, all words, or off. Tap a word for a built-in definition, or scan its selectable text with Yomitan. These display choices are remembered in the browser and do not send a sentence to a Lexirise deck. The research and implementation details are in `docs/lexirise-reading-mode.md`.
+The compact **Reading** switch chooses Migaku (default) or Lexirise. In Lexirise mode, **Reading options** controls Pinyin, Zhuyin, separate tone marks, inline English meanings, and tone colors. Each can appear on unknown words, all words, or be turned off. Tone colors default to Migaku's red/yellow/green/blue/gray mapping and each color can be edited. Tap a word for a built-in definition, or scan its selectable text with Yomitan. These display choices are remembered in the browser and do not send a sentence to a Lexirise deck. The research and implementation details are in `docs/lexirise-reading-mode.md`.
 
 ## PRAGMATA
 

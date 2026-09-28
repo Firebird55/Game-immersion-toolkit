@@ -1,19 +1,20 @@
 # Lexirise reading mode for Proxy Transcript
 
-Status: implemented locally, 27 September 2026. The reading selector offers **Migaku** and **Lexirise**. The existing manual **Send to Lexirise** buttons remain separate.
+Status: implemented locally, 28 September 2026. The reading selector offers **Migaku** and **Lexirise**. The existing manual **Send to Lexirise** buttons remain separate.
 
 ## What is built
 
-- `backend/reading.py` uses the Windows-only Lexirise credential, analyzes saved lines by ID, validates ordered UTF-16 ranges, and caches sentence analysis for 10 minutes and dictionary meanings for 30 days. At most four dictionary lookups run concurrently. Unknown, tracked, learning, and fresh words receive inline English meanings; known words stay neutral.
+- `backend/reading.py` uses the Windows-only Lexirise credential, analyzes saved lines by ID, validates ordered UTF-16 ranges, and caches sentence analysis for 10 minutes. Lexirise's `occurrences` supply tone marked Pinyin and tones; `entryMetaById.gloss` supplies English meanings for known and unknown words. Missing unknown glosses use cached dictionary lookups, with at most four in flight. Zhuyin spelling is converted locally with `pypinyin`, using Lexirise's tone values.
 - `GET /api/lines/{id}/reading` returns normalized tokens without exposing the key. It calls only read endpoints (`/v1/analyze/text` and `/v1/dictionary/lookup`). The separate manual export still requires an explicit button press.
-- `app/reading-text.tsx` renders selectable Hanzi with color, pinyin and glosses. Tapping a word opens a compact definition. Yomitan can scan the underlying text in browsers where its touch setting is enabled. Browser localStorage remembers the reading mode and pinyin choice (unknown, all, off).
+- `app/reading-text.tsx` renders selectable Hanzi with Pinyin, Zhuyin, tone marks, and glosses. Tapping a word opens a compact definition. Yomitan can scan the underlying text in browsers where its touch setting is enabled. Browser localStorage remembers each display scope and the five tone colors.
+- The **Reading options** dialog offers unknown/all/off independently for Pinyin, Zhuyin, separate tone marks, inline translation, and tone colors. The default colors follow [Migaku's tone mapping](https://migaku.com/blog/chinese/chinese-language-tones): first red, second yellow, third green, fourth blue, neutral gray. Each color is editable and can be reset. The whole word uses its first syllable's tone color so the Hanzi remains one text node for Yomitan scanning; all syllable tones remain visible in Pinyin, Zhuyin, or tone marks.
 - Migaku keeps its fresh-node current-line behavior and remains the default. The mode selector can be changed at any time without changing transcript records.
 
-Live API verification on a saved ZZZ sentence returned 36 tokens, including 16 non-known tokens with English meanings. TypeScript and production build passed. A visual check on the iPad and a Yomitan touch test are deferred until those screens and the application are available.
+Live API verification on a saved ZZZ sentence returned 36 tokens with Pinyin, Zhuyin, tone data, and English glosses. TypeScript and production build passed on D:. A visual check on the iPad and a Yomitan touch test are deferred until those screens and the application are available.
 
 ## Target experience
 
-Keep the current English line and official Chinese line. In an optional Lexirise mode, segment the Chinese sentence into tappable words as in the supplied screenshot. Color each word by the learner's Lexirise proficiency, place a short English meaning under unknown words, and place pinyin above unknown words or all words according to a setting. Preserve the exact official Chinese text, punctuation, and word order. A word tap opens a detailed lookup. Current line and History use the same annotations; the narrow iPad layout wraps word groups cleanly without shrinking Hanzi.
+Keep the current English line and official Chinese line. In Lexirise mode, segment the Chinese sentence into tappable words as in the supplied screenshot. Color words by Mandarin tone with an editable Migaku-like palette, place an optional short English meaning below words, and show optional Pinyin, Zhuyin, or tone marks above them. Each display setting supports unknown words, all words, or off. Preserve the exact official Chinese text, punctuation, and word order. A word tap opens the cached definition. Current line and History use the same annotations; the narrow iPad layout wraps word groups cleanly without shrinking Hanzi.
 
 This is a **display and lookup** option, not an automatic vocabulary export. Never automatically create saved words or send captured audio because a line appears on screen.
 
@@ -23,9 +24,9 @@ Lexirise's [API reference](https://lexirise.app/api-reference) documents Pro-acc
 
 | Need | Endpoint | Use |
 | --- | --- | --- |
-| Sentence segmentation, pinyin, entry IDs, learner state | `POST /v1/analyze/text` | Send `{ "text": "…", "language": "zh", "fast": true }` from the Python backend. Response includes `occurrences` with `word`, `charStart`, `charEnd`, `entryId`, `transliteration`; `entryMetaById`; `stateByEntryId`; and `morphoPending`. |
+| Sentence segmentation, Pinyin, tones, gloss, entry IDs, learner state | `POST /v1/analyze/text` | Send `{ "text": "…", "language": "zh", "fast": true }` from the Python backend. Response includes `occurrences` with `word`, `charStart`, `charEnd`, `entryId`, `transliteration`, and tones; `entryMetaById` includes glosses and tones; `stateByEntryId` gives proficiency. |
 | Full analysis when fast result is provisional | `POST /v1/analyze/text` | Repeat with `fast: false` after a short delay only when needed. `morphoPending: true` says refined segmentation is pending. Do not poll each render. |
-| Short inline meaning for an unknown token | `POST /v1/dictionary/lookup` | Look up distinct unknown words, cache the English dictionary translation, and reuse it across lines. This is the implemented fast path. |
+| Fallback meaning when analysis has no gloss | `POST /v1/dictionary/lookup` | Look up distinct unknown words with missing glosses, cache the English dictionary translation, and reuse it across lines. |
 | Optional later contextual meaning | `POST /v1/analyze/context` | Send a sentence and token offsets for a meaning specific to that occurrence. This is researched but not called in the current renderer because it would multiply latency and API usage. |
 | Saving or changing vocabulary, only after an explicit future UI action | `POST /v1/vocabulary`, `PATCH /v1/vocabulary/{id}` | The existing export flow is separate. Read-only annotations must never call these write endpoints. |
 
@@ -43,7 +44,7 @@ If touch scanning proves unreliable, the built-in tap popup already shows the ca
 
 The local endpoint accepts a transcript line ID and loads its official Chinese text from SQLite. The backend validates monotonic, non-overlapping Lexirise ranges before returning tokens. Lexirise offsets count **JavaScript UTF-16 units**: a probe of `你好🙂朋友朋友` placed the emoji at `2..4` and the two `朋友` tokens at `4..6` and `6..8`. The React renderer uses those ranges with JavaScript `slice`, preserving punctuation and gaps as plain text. An invalid token is omitted while the official sentence remains visible.
 
-`stateByEntryId` determines the documented proficiency levels: 0 unknown, 1 tracked, 2 learning, 3 fresh, and 4 known. CSS colors reflect the state. The word component uses a three-row inline layout for pinyin, Hanzi, and a short gloss; groups wrap between words on narrow screens. The Migaku branch keeps its existing fresh DOM node, while the Lexirise branch uses normal React text. The selector and pinyin setting persist per browser.
+`stateByEntryId` determines the documented proficiency levels: 0 unknown, 1 tracked, 2 learning, 3 fresh, and 4 known. Proficiency controls which words count as unknown for display settings. Lexirise supplies the Pinyin and tones; the local `pypinyin` converter supplies Zhuyin phonetic symbols, and Lexirise's tones override local tone guesses. The word component stacks whichever annotations are enabled around one selectable Hanzi text node. The Migaku branch keeps its existing fresh DOM node, while the Lexirise branch uses normal React text. All reader settings persist per browser.
 
 Potential refinements: deduplicate simultaneous requests for the same uncached sentence across browser tabs; add an explicit lookup endpoint with examples; use `/v1/analyze/context` for ambiguous words; and add a rate-budget indicator. A browser session currently avoids refetching the same line, and the backend caches analysis and meanings across sessions.
 
