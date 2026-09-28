@@ -43,6 +43,11 @@ class FavoriteUpdate(BaseModel):
     favorite: bool
 
 
+class WordProficiencyUpdate(BaseModel):
+    start: int = Field(ge=0)
+    proficiency: int = Field(ge=1, le=4)
+
+
 class EventHub:
     def __init__(self) -> None:
         self.clients: set[WebSocket] = set()
@@ -455,6 +460,37 @@ def line_word_lookup(line_id: int, start: int) -> dict:
         raise HTTPException(404, "Transcript line not found")
     try:
         result = runtime.reading.lookup(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.get("/api/lines/{line_id}/reading/context")
+def line_word_context(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.context(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/proficiency")
+def line_word_proficiency(line_id: int, payload: WordProficiencyUpdate,
+                          x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's word controls.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.set_proficiency(line.chinese, payload.start, payload.proficiency)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:

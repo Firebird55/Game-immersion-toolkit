@@ -4,6 +4,7 @@ import json
 import sqlite3
 import threading
 import time
+from html.parser import HTMLParser
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
@@ -15,6 +16,30 @@ from .lexirise import API_BASE, LexiriseError, LexiriseService
 
 
 ZHUYIN_TONE_MARKS = {1: "", 2: "ˊ", 3: "ˇ", 4: "ˋ", 5: "˙"}
+
+
+class _DefinitionParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.items: list[str] = []
+        self.inside = False
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "li":
+            self.inside = True
+            self.parts = []
+
+    def handle_endtag(self, tag):
+        if tag == "li" and self.inside:
+            value = "".join(self.parts).strip()
+            if value:
+                self.items.append(value)
+            self.inside = False
+
+    def handle_data(self, data):
+        if self.inside:
+            self.parts.append(data)
 
 
 def word_zhuyin(word: str, tones: list[int]) -> str:
@@ -33,7 +58,7 @@ def word_zhuyin(word: str, tones: list[int]) -> str:
 
 
 class LexiriseReadingService:
-    """Read-only analysis for the transcript. The API key stays on the PC."""
+    """Analyze transcript words and update explicit learner choices server-side."""
 
     def __init__(self, directory: Path, lexirise: LexiriseService):
         self.path = directory / "reading-cache.db"
@@ -58,6 +83,11 @@ class LexiriseReadingService:
         with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
                           timeout=25, follow_redirects=False, transport=self.lexirise.transport) as client:
             return LexiriseService._request(client, "POST", path, json=payload)
+
+    def _patch(self, path: str, payload: dict) -> dict:
+        with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
+                          timeout=25, follow_redirects=False, transport=self.lexirise.transport) as client:
+            return LexiriseService._request(client, "PATCH", path, json=payload)
 
     def _meaning(self, word: str) -> str:
         cached = self._cached("meaning", word, 30 * 86400)
@@ -118,6 +148,9 @@ class LexiriseReadingService:
                 continue
             entry_id = item.get("entryId")
             state = states.get(str(entry_id), {}) if entry_id is not None else {}
+            override = self._cached("state", str(entry_id), 10 * 60) if isinstance(entry_id, int) else None
+            if override is not None:
+                state = override
             meta = entry_meta.get(str(entry_id), {}) if entry_id is not None else {}
             if not isinstance(meta, dict):
                 meta = {}
@@ -129,6 +162,8 @@ class LexiriseReadingService:
                      for tone in raw_tones] if isinstance(raw_tones, list) else []
             gloss = meta.get("gloss") if isinstance(meta.get("gloss"), str) else ""
             tokens.append({"start": start, "end": end, "word": word,
+                           "entryId": entry_id if isinstance(entry_id, int) else None,
+                           "savedExpressionId": state.get("saved_expression_id") if isinstance(state, dict) else None,
                            "pinyin": item.get("transliteration") or meta.get("transliteration") or "",
                            "zhuyin": word_zhuyin(word, tones), "tones": tones,
                            "proficiency": proficiency, "meaning": gloss})
@@ -168,12 +203,69 @@ class LexiriseReadingService:
                     for example in (item.get("examples") or [])[:2]
                     if isinstance(example, dict) and isinstance(example.get("text"), str)
                 ]
-                translations.append({"meaning": meaning.strip(), "examples": examples})
-                if len(translations) == 3:
-                    break
-            cached = {"translations": translations}
-            if translations:
-                self._save("lookup", word, cached)
+                pos = item.get("part_of_speech") or []
+                translations.append({"meaning": meaning.strip(), "examples": examples,
+                                     "partOfSpeech": [value for value in pos if isinstance(value, str)] if isinstance(pos, list) else []})
+            dictionaries = []
+            for entry in response.get("supplementalEntries") or []:
+                if not isinstance(entry, dict):
+                    continue
+                parser = _DefinitionParser()
+                parser.feed(entry.get("html") if isinstance(entry.get("html"), str) else "")
+                dictionaries.append({"name": entry.get("dictionary_name", "Dictionary"),
+                                     "headword": entry.get("headword", ""), "reading": entry.get("reading", ""),
+                                     "definitions": parser.items})
+            character = response.get("characterInfo")
+            if not isinstance(character, dict):
+                character = {}
+            components = [{"character": part.get("character", ""), "type": part.get("type") or [],
+                           "hint": part.get("hint", "")}
+                          for part in character.get("components") or [] if isinstance(part, dict)]
+            stats = character.get("statistics") if isinstance(character.get("statistics"), dict) else {}
+            tags = response.get("system_tags") or []
+            hsk = stats.get("hskLevel") or next((int(tag[4:]) for tag in tags
+                if isinstance(tag, str) and tag.startswith("HSK-") and tag[4:].isdigit()), None)
+            alternate = response.get("multipleReadings") or {}
+            cached = {"translations": translations, "dictionaries": dictionaries,
+                      "hskLevel": hsk, "rank": response.get("rank"),
+                      "frequencyScore": response.get("frequency_score"),
+                      "alternateReadings": alternate.get("alternatives") or [] if isinstance(alternate, dict) else [],
+                      "components": components, "characterHint": character.get("hint", ""),
+                      "strokeCount": character.get("strokeCount"),
+                      "character": character.get("char", "")}
+            self._save("lookup", word, cached)
         return {"word": word, "pinyin": token["pinyin"], "zhuyin": token["zhuyin"],
                 "tones": token["tones"], "proficiency": token["proficiency"],
                 "meaning": token["meaning"], **cached}
+
+    def context(self, text: str, start: int) -> dict | None:
+        token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)
+        if token is None:
+            return None
+        key = f"{text}:{start}"
+        cached = self._cached("context", key, 30 * 86400)
+        if cached is None:
+            response = self._post("/v1/analyze/context", {"language": "zh", "text": text,
+                "charStart": token["start"], "charEnd": token["end"]})
+            cached = {name: response.get(name, "") for name in ("meaning", "conciseMeaning", "reading")}
+            self._save("context", key, cached)
+        return cached
+
+    def set_proficiency(self, text: str, start: int, proficiency: int) -> dict | None:
+        if proficiency not in (1, 2, 3, 4):
+            raise ValueError("Invalid proficiency")
+        token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)
+        if token is None or not isinstance(token["entryId"], int):
+            return None
+        saved_id = token.get("savedExpressionId")
+        if isinstance(saved_id, int) and saved_id > 0:
+            response = self._patch(f"/v1/vocabulary/{saved_id}", {"proficiency": proficiency})
+        else:
+            response = self._post("/v1/vocabulary", {"language": "zh", "text": token["word"],
+                "mode": "word", "proficiency": proficiency})
+            item = response.get("item") if isinstance(response.get("item"), dict) else response
+            saved_id = item.get("saved_expression_id") or item.get("id")
+        state = {"proficiency": proficiency, "saved_expression_id": saved_id}
+        self._save("state", str(token["entryId"]), state)
+        return {"word": token["word"], "entryId": token["entryId"],
+                "proficiency": proficiency, "savedExpressionId": saved_id}
