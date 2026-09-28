@@ -24,11 +24,17 @@ class _DefinitionParser(HTMLParser):
         self.items: list[str] = []
         self.inside = False
         self.parts: list[str] = []
+        self.headword = ""
+        self.in_headword = False
+        self.headword_parts: list[str] = []
 
     def handle_starttag(self, tag, attrs):
         if tag == "li":
             self.inside = True
             self.parts = []
+        if tag == "div" and dict(attrs).get("data-sc-cccedict") == "headword":
+            self.in_headword = True
+            self.headword_parts = []
 
     def handle_endtag(self, tag):
         if tag == "li" and self.inside:
@@ -36,10 +42,15 @@ class _DefinitionParser(HTMLParser):
             if value:
                 self.items.append(value)
             self.inside = False
+        if tag == "div" and self.in_headword:
+            self.headword = "".join(self.headword_parts).strip()
+            self.in_headword = False
 
     def handle_data(self, data):
         if self.inside:
             self.parts.append(data)
+        if self.in_headword:
+            self.headword_parts.append(data)
 
 
 def word_zhuyin(word: str, tones: list[int]) -> str:
@@ -188,7 +199,7 @@ class LexiriseReadingService:
         if token is None:
             return None
         word = token["word"]
-        cached = self._cached("lookup", word, 30 * 86400)
+        cached = self._cached("lookup-v2", word, 30 * 86400)
         if cached is None:
             response = self._post("/v1/dictionary/lookup", {"text": word, "language": "zh"})
             translations = []
@@ -213,12 +224,14 @@ class LexiriseReadingService:
                 parser = _DefinitionParser()
                 parser.feed(entry.get("html") if isinstance(entry.get("html"), str) else "")
                 dictionaries.append({"name": entry.get("dictionary_name", "Dictionary"),
-                                     "headword": entry.get("headword", ""), "reading": entry.get("reading", ""),
+                                     "headword": parser.headword or entry.get("headword", ""), "reading": entry.get("reading", ""),
                                      "definitions": parser.items})
             character = response.get("characterInfo")
             if not isinstance(character, dict):
                 character = {}
-            components = [{"character": part.get("character", ""), "type": part.get("type") or [],
+            components = [{"character": part.get("character", ""),
+                           "type": [value for value in part.get("type", []) if isinstance(value, str)]
+                           if isinstance(part.get("type"), list) else [],
                            "hint": part.get("hint", "")}
                           for part in character.get("components") or [] if isinstance(part, dict)]
             stats = character.get("statistics") if isinstance(character.get("statistics"), dict) else {}
@@ -233,7 +246,7 @@ class LexiriseReadingService:
                       "components": components, "characterHint": character.get("hint", ""),
                       "strokeCount": character.get("strokeCount"),
                       "character": character.get("char", "")}
-            self._save("lookup", word, cached)
+            self._save("lookup-v2", word, cached)
         return {"word": word, "pinyin": token["pinyin"], "zhuyin": token["zhuyin"],
                 "tones": token["tones"], "proficiency": token["proficiency"],
                 "meaning": token["meaning"], **cached}
@@ -250,6 +263,40 @@ class LexiriseReadingService:
             cached = {name: response.get(name, "") for name in ("meaning", "conciseMeaning", "reading")}
             self._save("context", key, cached)
         return cached
+
+    def characters(self, text: str, start: int) -> dict | None:
+        token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)
+        if token is None:
+            return None
+        letters = [char for char in dict.fromkeys(token["word"])
+                   if "\u3400" <= char <= "\u9fff"][:8]
+        cached_info = {char: self._cached("character", char, 30 * 86400) for char in letters}
+        pending = {char: self.pool.submit(self._post, "/v1/dictionary/lookup",
+                   {"text": char, "language": "zh"}) for char in letters if cached_info[char] is None}
+        characters = []
+        partial = False
+        failed: set[str] = set()
+        for char in letters:
+            info = cached_info[char]
+            if info is None:
+                try:
+                    response = pending[char].result()
+                    raw = response.get("characterInfo")
+                    info = raw if isinstance(raw, dict) else {}
+                    self._save("character", char, info)
+                except LexiriseError:
+                    info = {}
+                    partial = True
+                    failed.add(char)
+            components = [{"character": part.get("character", ""),
+                           "type": [value for value in part.get("type", []) if isinstance(value, str)]
+                           if isinstance(part.get("type"), list) else [],
+                           "hint": part.get("hint", "")}
+                          for part in info.get("components") or [] if isinstance(part, dict)]
+            characters.append({"character": char, "hint": info.get("hint", ""),
+                               "strokeCount": info.get("strokeCount"), "components": components,
+                               "unavailable": char in failed})
+        return {"characters": characters, "partial": partial}
 
     def set_proficiency(self, text: str, start: int, proficiency: int) -> dict | None:
         if proficiency not in (1, 2, 3, 4):

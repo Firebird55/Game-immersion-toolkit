@@ -145,6 +145,59 @@ class ReadingTests(unittest.TestCase):
             finally:
                 reader.pool.shutdown(wait=True)
 
+    def test_components_for_multi_character_word_are_loaded_on_demand(self):
+        calls = []
+
+        def reply(request):
+            if request.url.path == "/v1/analyze/text":
+                return httpx.Response(200, json={"occurrences": [{"word": "朋友", "entryId": 7,
+                    "isWordLike": True, "charStart": 0, "charEnd": 2}],
+                    "entryMetaById": {"7": {"gloss": "friend"}}, "stateByEntryId": {}})
+            if request.url.path == "/v1/dictionary/lookup":
+                word = request.read().decode()
+                calls.append(word)
+                character = "朋" if "朋" in word else "友"
+                return httpx.Response(200, json={"characterInfo": {"char": character,
+                    "components": [{"character": character, "type": ["meaning"]}]}})
+            raise AssertionError(request.url.path)
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            export = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
+            reader = LexiriseReadingService(directory, export)
+            try:
+                first = reader.characters("朋友", 0)
+                second = reader.characters("朋友", 0)
+                self.assertEqual(first, second)
+                self.assertEqual([item["character"] for item in first["characters"]], ["朋", "友"])
+                self.assertEqual(len(calls), 2)
+            finally:
+                reader.pool.shutdown(wait=True)
+
+    def test_component_lookup_preserves_partial_results(self):
+        def reply(request):
+            if request.url.path == "/v1/analyze/text":
+                return httpx.Response(200, json={"occurrences": [{"word": "朋友", "entryId": 7,
+                    "isWordLike": True, "charStart": 0, "charEnd": 2}],
+                    "entryMetaById": {"7": {"gloss": "friend"}}})
+            if "友" in request.read().decode():
+                raise httpx.ReadTimeout("temporary timeout")
+            return httpx.Response(200, json={"characterInfo": {"char": "朋",
+                "components": [{"character": "月", "type": ["meaning"]}]}})
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            export = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
+            reader = LexiriseReadingService(directory, export)
+            try:
+                result = reader.characters("朋友", 0)
+                self.assertTrue(result["partial"])
+                self.assertFalse(result["characters"][0]["unavailable"])
+                self.assertTrue(result["characters"][1]["unavailable"])
+                self.assertEqual(result["characters"][0]["components"][0]["character"], "月")
+            finally:
+                reader.pool.shutdown(wait=True)
+
     def test_utf16_ranges_unknown_meanings_and_cache(self):
         calls = []
         lookup_started = threading.Event()

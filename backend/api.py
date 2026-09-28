@@ -481,6 +481,20 @@ def line_word_context(line_id: int, start: int = Query(ge=0)) -> dict:
     return result
 
 
+@app.get("/api/lines/{line_id}/reading/characters")
+def line_word_characters(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.characters(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
 @app.post("/api/lines/{line_id}/reading/proficiency")
 def line_word_proficiency(line_id: int, payload: WordProficiencyUpdate,
                           x_proxy_transcript: str = Header(default="")) -> dict:
