@@ -52,6 +52,16 @@ function enabled(scope: ReadingScope, unknown: boolean) {
   return scope === 'all' || (scope === 'unknown' && unknown);
 }
 const TONE_MARKS: Record<number, string> = { 1: '¯', 2: 'ˊ', 3: 'ˇ', 4: 'ˋ', 5: '˙' };
+function toneStyle(tones: number[], text: string, palette: ReadingOptions['palette']): React.CSSProperties | undefined {
+  const first = tones.find(value => value >= 1 && value <= 5);
+  if (!first) return undefined;
+  if (tones.length !== text.length || tones.length === 1 || tones.some(value => value < 1 || value > 5))
+    return { color: palette[first - 1] };
+  const stops = tones.map((value, index) =>
+    `${palette[value - 1]} ${index * 100 / tones.length}% ${(index + 1) * 100 / tones.length}%`);
+  return { backgroundImage: `linear-gradient(90deg, ${stops.join(', ')})`,
+    backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' };
+}
 
 export const ReadingText = memo(function ReadingText({ id, text, options, current = false }: {
   id: number; text: string; options: ReadingOptions; current?: boolean;
@@ -95,15 +105,16 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
     if (token.start < cursor || token.end > text.length) continue;
     if (token.start > cursor) parts.push(text.slice(cursor, token.start));
     const unknown = token.proficiency < 4;
-    const tone = token.tones?.find(value => value >= 1 && value <= 5);
-    const color = enabled(options.toneColors, unknown) && tone ? options.palette[tone - 1] : undefined;
+    const wordText = text.slice(token.start, token.end);
+    const colorStyle = enabled(options.toneColors, unknown)
+      ? toneStyle(token.tones || [], wordText, options.palette) : undefined;
     const toneMarks = token.tones?.map(value => TONE_MARKS[value] || '').filter(Boolean).join(' ');
     parts.push(<span key={`${token.start}-${index}`} className="reading-token">
       {enabled(options.toneMarks, unknown) && !!toneMarks && <span className="reading-tone-marks" aria-hidden="true">{toneMarks}</span>}
       {enabled(options.pinyin, unknown) && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
       {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true">{token.zhuyin}</span>}
       <span className="reading-hanzi" onClick={() => setOpen(open === index ? null : index)}
-        style={color ? { color } : undefined} title={token.meaning || 'Tap for word details'}>{text.slice(token.start, token.end)}</span>
+        style={colorStyle} title={token.meaning || 'Tap for word details'}>{wordText}</span>
       {enabled(options.meanings, unknown) && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
       {open === index && <span className="reading-popover" role="status">
         <strong>{token.word}</strong>{token.pinyin && <span>{token.pinyin}</span>}

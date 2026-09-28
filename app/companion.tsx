@@ -129,7 +129,7 @@ const READING_FIELDS: { key: ReadingScopeField; label: string; hint: string }[] 
   { key: 'zhuyin', label: 'Zhuyin', hint: 'Bopomofo reading with Lexirise tones' },
   { key: 'toneMarks', label: 'Tone marks', hint: 'A separate tone cue above each word' },
   { key: 'meanings', label: 'Inline translation', hint: 'English meaning below a word' },
-  { key: 'toneColors', label: 'Tone colors', hint: 'Color words by their first syllable' },
+  { key: 'toneColors', label: 'Tone colors', hint: 'Color each Hanzi by its syllable tone' },
 ];
 const TONE_NAMES = ['1 · level', '2 · rising', '3 · dipping', '4 · falling', '5 · neutral'];
 
