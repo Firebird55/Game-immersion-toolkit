@@ -35,7 +35,7 @@ export function restoreReadingOptions(value: unknown): ReadingOptions {
   };
 }
 type Token = { start: number; end: number; word: string; pinyin: string; zhuyin: string; tones: number[]; proficiency: number; meaning: string };
-type Reading = { text: string; tokens: Token[] };
+type Reading = { text: string; tokens: Token[]; pendingMeanings?: boolean };
 type Lookup = { translations: { meaning: string; examples: { text: string; translation: string }[] }[] };
 const API_URL = 'http://127.0.0.1:8766';
 const cache = new Map<number, { reading: Reading; at: number }>();
@@ -72,15 +72,30 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
   const [error, setError] = useState(false);
   useEffect(() => {
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let refreshCount = 0;
+    const refreshDelays = [800, 1200, 1800, 2600, 3800, 5600, 8000];
     setOpen(null);
     const saved = cachedReading(id, text);
     setReading(saved);
-    if (saved) return;
-    fetch(`${API_URL}/api/lines/${id}/reading`, { cache: 'no-store' })
-      .then(response => { if (!response.ok) throw new Error('Analysis unavailable'); return response.json() as Promise<Reading>; })
-      .then(result => { cache.set(id, { reading: result, at: Date.now() }); if (active) { setReading(result); setError(false); } })
-      .catch(() => { if (active) setError(true); });
-    return () => { active = false; };
+    async function refresh() {
+      try {
+        const response = await fetch(`${API_URL}/api/lines/${id}/reading`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Analysis unavailable');
+        const result = await response.json() as Reading;
+        if (!active) return;
+        cache.set(id, { reading: result, at: Date.now() });
+        setReading(result);
+        setError(false);
+        if (result.pendingMeanings && refreshCount < refreshDelays.length) {
+          timer = setTimeout(refresh, refreshDelays[refreshCount++]);
+        }
+      } catch {
+        if (active) setError(true);
+      }
+    }
+    if (!saved || saved.pendingMeanings) void refresh();
+    return () => { active = false; if (timer) clearTimeout(timer); };
   }, [id, text]);
   useEffect(() => {
     if (open === null || !reading || reading.text !== text) return;

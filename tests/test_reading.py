@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -74,6 +75,8 @@ class ReadingTests(unittest.TestCase):
 
     def test_utf16_ranges_unknown_meanings_and_cache(self):
         calls = []
+        lookup_started = threading.Event()
+        allow_lookup = threading.Event()
 
         def reply(request):
             calls.append(request.url.path)
@@ -89,6 +92,9 @@ class ReadingTests(unittest.TestCase):
                     "stateByEntryId": {"1": {"proficiency": 4}},
                 })
             if request.url.path == "/v1/dictionary/lookup":
+                lookup_started.set()
+                if not allow_lookup.wait(3):
+                    raise AssertionError("Dictionary lookup was not released")
                 return httpx.Response(200, json={"translations": [{"target_lang": "en", "translation": "friend"}]})
             raise AssertionError(request.url.path)
 
@@ -97,14 +103,22 @@ class ReadingTests(unittest.TestCase):
             transport = httpx.MockTransport(reply)
             export = LexiriseService(directory, api_key="test", transport=transport)
             reader = LexiriseReadingService(directory, export)
-            first = reader.analyze("你🙂朋友朋友")
-            second = reader.analyze("你🙂朋友朋友")
-            self.assertEqual(first, second)
+            try:
+                first = reader.analyze("你🙂朋友朋友")
+                self.assertTrue(lookup_started.wait(1))
+                self.assertTrue(first["pendingMeanings"])
+                self.assertEqual([token["meaning"] for token in first["tokens"]], ["", "", ""])
+                allow_lookup.set()
+                reader.pool.shutdown(wait=True)
+                second = reader.analyze("你🙂朋友朋友")
+            finally:
+                allow_lookup.set()
+                reader.pool.shutdown(wait=True)
+            self.assertFalse(second["pendingMeanings"])
             self.assertEqual([(token["start"], token["end"]) for token in first["tokens"]], [(0, 1), (3, 5), (5, 7)])
-            self.assertEqual([token["meaning"] for token in first["tokens"]], ["", "friend", "friend"])
+            self.assertEqual([token["meaning"] for token in second["tokens"]], ["", "friend", "friend"])
             self.assertEqual(calls.count("/v1/analyze/text"), 1)
             self.assertEqual(calls.count("/v1/dictionary/lookup"), 1)
-            reader.pool.shutdown(wait=True)
 
 
 if __name__ == "__main__":

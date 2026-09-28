@@ -4,7 +4,7 @@ import json
 import sqlite3
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
 
@@ -40,6 +40,7 @@ class LexiriseReadingService:
         self.lexirise = lexirise
         self.lock = threading.RLock()
         self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
+        self.pending_meanings: set[str] = set()
         directory.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("CREATE TABLE IF NOT EXISTS cache (kind TEXT, key TEXT, value TEXT, at REAL, PRIMARY KEY(kind,key))")
@@ -70,6 +71,28 @@ class LexiriseReadingService:
                         if item.get("target_lang") == "en" and isinstance(item.get("translation"), str)), "")
         self._save("meaning" if meaning else "meaning-pending", word, {"meaning": meaning})
         return meaning
+
+    def _finish_meaning(self, word: str, future: Future) -> None:
+        try:
+            future.result()
+        except Exception:
+            # A failed dictionary lookup must not delay sentence analysis or
+            # start another request on every browser refresh.
+            self._save("meaning-pending", word, {"meaning": ""})
+        finally:
+            with self.lock:
+                self.pending_meanings.discard(word)
+
+    def _schedule_meaning(self, word: str) -> bool:
+        if self._cached("meaning-pending", word, 60) is not None:
+            return False
+        with self.lock:
+            if word in self.pending_meanings:
+                return True
+            self.pending_meanings.add(word)
+            future = self.pool.submit(self._meaning, word)
+            future.add_done_callback(lambda completed: self._finish_meaning(word, completed))
+            return True
 
     def analyze(self, text: str) -> dict:
         if not text.strip() or len(text) > 1600:
@@ -113,16 +136,16 @@ class LexiriseReadingService:
         unknown = list(dict.fromkeys(token["word"] for token in tokens
                                      if token["proficiency"] < 4 and not token["meaning"]))
         meanings = {}
-        futures = {self.pool.submit(self._meaning, word): word for word in unknown}
-        for future in as_completed(futures):
-            try:
-                meanings[futures[future]] = future.result()
-            except LexiriseError:
-                # Analysis and pinyin remain useful during dictionary outages.
-                pass
+        pending = False
+        for word in unknown:
+            saved = self._cached("meaning", word, 30 * 86400)
+            if saved is not None:
+                meanings[word] = saved.get("meaning", "")
+            else:
+                pending = self._schedule_meaning(word) or pending
         for token in tokens:
             token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
-        return {"text": text, "tokens": tokens}
+        return {"text": text, "tokens": tokens, "pendingMeanings": pending}
 
     def lookup(self, text: str, start: int) -> dict | None:
         """Look up one token from an official saved line after a user presses it."""
