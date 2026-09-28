@@ -5,8 +5,8 @@ Status: implemented locally, 28 September 2026. The reading selector offers **Mi
 ## What is built
 
 - `backend/reading.py` uses the Windows-only Lexirise credential, analyzes saved lines by ID, validates ordered UTF-16 ranges, and caches sentence analysis for 10 minutes. Lexirise's `occurrences` supply tone marked Pinyin and tones; `entryMetaById.gloss` supplies English meanings for known and unknown words. Missing unknown glosses use cached dictionary lookups, with at most four in flight. Zhuyin spelling is converted locally with `pypinyin`, using Lexirise's tone values.
-- `GET /api/lines/{id}/reading` returns normalized tokens without exposing the key. It calls only read endpoints (`/v1/analyze/text` and `/v1/dictionary/lookup`). The separate manual export still requires an explicit button press.
-- `app/reading-text.tsx` renders selectable Hanzi with Pinyin, Zhuyin, tone marks, and glosses. Tapping a word opens a compact definition. Yomitan can scan the underlying text in browsers where its touch setting is enabled. Browser localStorage remembers each display scope and the five tone colors.
+- `GET /api/lines/{id}/reading` returns normalized tokens without exposing the key. `GET /api/lines/{id}/reading/lookup?start=…` looks up the word at that position only when pressed, returning English definitions and up to two examples per sense. These routes use analysis and dictionary endpoints; the separate manual export still requires an explicit button press.
+- `app/reading-text.tsx` renders selectable Hanzi with Pinyin, Zhuyin, tone marks, and glosses. Tapping a word opens a compact dictionary view with examples when Lexirise provides them. Yomitan can scan the underlying text in browsers where its touch setting is enabled. Browser localStorage remembers each display scope and the five tone colors.
 - The **Reading options** dialog offers unknown/all/off independently for Pinyin, Zhuyin, separate tone marks, inline translation, and tone colors. The default colors follow [Migaku's tone mapping](https://migaku.com/blog/chinese/chinese-language-tones): first red, second yellow, third green, fourth blue, neutral gray. Each color is editable and can be reset. The whole word uses its first syllable's tone color so the Hanzi remains one text node for Yomitan scanning; all syllable tones remain visible in Pinyin, Zhuyin, or tone marks.
 - Migaku keeps its fresh-node current-line behavior and remains the default. The mode selector can be changed at any time without changing transcript records.
 
@@ -36,7 +36,7 @@ The [Yomitan scanning settings](https://github.com/yomidevs/yomitan/blob/master/
 
 Start with **Yomitan as the lookup action**, as requested. Keep every Hanzi token as real selectable DOM text, leave pointer and selection events alone, and configure Yomitan's touch scanning in the Chrome profile shown through Duet. Test an actual press on the iPad; do not assume the extension handles touch in the same way as a mouse hover. The inline glosses, pinyin, and colors still come from Lexirise analysis.
 
-If touch scanning proves unreliable, the built-in tap popup already shows the cached Lexirise dictionary meaning and pinyin. A richer explicit lookup panel with examples and contextual meaning remains possible.
+If touch scanning proves unreliable, the built-in tap popup shows Lexirise dictionary definitions, examples, Pinyin, and Zhuyin. The dictionary call runs only when a word is pressed and is cached locally. Contextual meaning from `/v1/analyze/context` remains a possible later refinement.
 
 `/v1/analyze/context` is useful where dictionary headwords are ambiguous, but it makes an extra model-backed request for each word. It is a future refinement; the current renderer displays the original sentence immediately while dictionary annotations load.
 
