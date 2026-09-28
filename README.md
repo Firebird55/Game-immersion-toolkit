@@ -38,7 +38,7 @@ Install Python 3.12, Node.js 22 or newer, and Windows Snipping Tool, then open P
 .\scripts\setup.ps1
 ```
 
-Run setup from the extracted `E:\gamesentenceminer` folder on the Intenso USB stick. The app, frontend build, transcript, and TextMap data stay in that folder. This PC keeps only its Python environment, launcher, and encrypted Lexirise credential under Local AppData. Setup downloads the TextMaps only when the ZIP does not already contain them.
+Run setup from `PROJECT_ROOT/GameSentenceMiner`. The app, frontend build, transcript, and TextMap data stay on D:. The Zenless Zone Zero installation can remain on the Intenso USB stick; the updater discovers its game files separately. This PC keeps its Python environment, launcher, and encrypted Lexirise credential under Local AppData. Setup downloads the TextMaps only when the project does not already contain them.
 
 When copying the folder to another PC, keep the whole `gamesentenceminer` directory (including `data` and `work`) and run `scripts\setup.ps1` there. The launcher and Start menu shortcut are recreated for the new path. The updater locates the running ZZZ executable or a local Steam installation, so game and app drive letters may differ. Connect the desired headphones before launching; capture follows the current Windows WASAPI output and reconnects after an audio-device switch. The DPAPI-encrypted Lexirise key cannot be copied between Windows users. Set it on the other PC with the hidden prompt:
 
@@ -46,7 +46,7 @@ When copying the folder to another PC, keep the whole `gamesentenceminer` direct
 & "$env:LOCALAPPDATA\Programs\Proxy Transcript\venv\Scripts\python.exe" -m scripts.set_lexirise_key
 ```
 
-On this PC, the app is already installed. Start it from the **Proxy Transcript** Start menu shortcut or `E:\gamesentenceminer\Start Proxy Transcript.cmd`. The app and capture service listen only on this PC. `scripts\install-status.ps1` shows ZIP extraction, dependency repair, old C: checkout move, and local service status, including percentages. Before first live gameplay, `scripts\check-capture-readiness.py` verifies local OCR and display capture; see `docs\capture-readiness.md` for the results and live game checklist. If this folder is copied to another Windows PC, run setup there again because the Python environment and encrypted API credential belong to this PC.
+On this PC, the app is installed on D:. Start it from the **Proxy Transcript** Start menu shortcut or `PROJECT_ROOT/GameSentenceMiner\Start Proxy Transcript.cmd`. The app and capture service listen only on this PC. `scripts\install-status.ps1` shows local indexing and service status, including percentages. Before first live gameplay, `scripts\check-capture-readiness.py` verifies local OCR and display capture; see `docs\capture-readiness.md` for the results and live game checklist. If this folder is copied to another Windows PC, run setup there again because the Python environment and encrypted API credential belong to this PC.
 
 ## Normal use
 
