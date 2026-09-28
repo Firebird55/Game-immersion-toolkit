@@ -9,8 +9,27 @@ from contextlib import closing
 from pathlib import Path
 
 import httpx
+from pypinyin import Style, lazy_pinyin
 
 from .lexirise import API_BASE, LexiriseError, LexiriseService
+
+
+ZHUYIN_TONE_MARKS = {1: "", 2: "ˊ", 3: "ˇ", 4: "ˋ", 5: "˙"}
+
+
+def word_zhuyin(word: str, tones: list[int]) -> str:
+    """Use local phonetic spelling with the tones supplied by Lexirise."""
+    if not any("\u3400" <= character <= "\u9fff" for character in word):
+        return ""
+    syllables = lazy_pinyin(word, style=Style.BOPOMOFO)
+    if len(syllables) != len(word):
+        return ""
+    result = []
+    for index, syllable in enumerate(syllables):
+        base = syllable.rstrip("ˊˇˋ˙")
+        tone = tones[index] if index < len(tones) else 0
+        result.append(base + ZHUYIN_TONE_MARKS.get(tone, ""))
+    return " ".join(result)
 
 
 class LexiriseReadingService:
@@ -60,6 +79,7 @@ class LexiriseReadingService:
             result = self._post("/v1/analyze/text", {"text": text, "language": "zh", "fast": True})
             self._save("analysis", text, result)
         states = result.get("stateByEntryId") or {}
+        entry_meta = result.get("entryMetaById") or {}
         tokens = []
         last_end = 0
         # Lexirise offsets are UTF-16 units, which also match JavaScript slice.
@@ -75,14 +95,23 @@ class LexiriseReadingService:
                 continue
             entry_id = item.get("entryId")
             state = states.get(str(entry_id), {}) if entry_id is not None else {}
+            meta = entry_meta.get(str(entry_id), {}) if entry_id is not None else {}
+            if not isinstance(meta, dict):
+                meta = {}
             proficiency = state.get("proficiency", 0) if isinstance(state, dict) else 0
             if not isinstance(proficiency, int) or proficiency not in range(5):
                 proficiency = 0
+            raw_tones = item.get("tones") or meta.get("tones") or []
+            tones = [tone if isinstance(tone, int) and tone in range(1, 6) else 0
+                     for tone in raw_tones] if isinstance(raw_tones, list) else []
+            gloss = meta.get("gloss") if isinstance(meta.get("gloss"), str) else ""
             tokens.append({"start": start, "end": end, "word": word,
-                           "pinyin": item.get("transliteration") or "",
-                           "proficiency": proficiency, "meaning": ""})
+                           "pinyin": item.get("transliteration") or meta.get("transliteration") or "",
+                           "zhuyin": word_zhuyin(word, tones), "tones": tones,
+                           "proficiency": proficiency, "meaning": gloss})
             last_end = end
-        unknown = list(dict.fromkeys(token["word"] for token in tokens if token["proficiency"] < 4))
+        unknown = list(dict.fromkeys(token["word"] for token in tokens
+                                     if token["proficiency"] < 4 and not token["meaning"]))
         meanings = {}
         futures = {self.pool.submit(self._meaning, word): word for word in unknown}
         for future in as_completed(futures):
@@ -92,5 +121,5 @@ class LexiriseReadingService:
                 # Analysis and pinyin remain useful during dictionary outages.
                 pass
         for token in tokens:
-            token["meaning"] = meanings.get(token["word"], "")
+            token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
         return {"text": text, "tokens": tokens}

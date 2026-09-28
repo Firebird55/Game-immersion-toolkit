@@ -7,10 +7,40 @@ from pathlib import Path
 import httpx
 
 from backend.lexirise import LexiriseService
-from backend.reading import LexiriseReadingService
+from backend.reading import LexiriseReadingService, word_zhuyin
 
 
 class ReadingTests(unittest.TestCase):
+    def test_lexirise_gloss_and_tones_cover_known_words_without_dictionary_calls(self):
+        calls = []
+
+        def reply(request):
+            calls.append(request.url.path)
+            self.assertEqual(request.url.path, "/v1/analyze/text")
+            return httpx.Response(200, json={
+                "occurrences": [
+                    {"word": "朋友", "entryId": 7, "isWordLike": True,
+                     "charStart": 0, "charEnd": 2, "transliteration": "péngyou", "tones": [2, 5]},
+                ],
+                "entryMetaById": {"7": {"gloss": "friend; companion", "tones": [2, 5]}},
+                "stateByEntryId": {"7": {"proficiency": 4}},
+            })
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            export = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
+            reader = LexiriseReadingService(directory, export)
+            token = reader.analyze("朋友")["tokens"][0]
+            self.assertEqual(token["pinyin"], "péngyou")
+            self.assertEqual(token["tones"], [2, 5])
+            self.assertEqual(token["zhuyin"], "ㄆㄥˊ ㄧㄡ˙")
+            self.assertEqual(token["meaning"], "friend; companion")
+            self.assertEqual(calls, ["/v1/analyze/text"])
+            reader.pool.shutdown(wait=True)
+
+    def test_zhuyin_uses_lexirise_tones_for_neutral_syllables(self):
+        self.assertEqual(word_zhuyin("朋友", [2, 5]), "ㄆㄥˊ ㄧㄡ˙")
+
     def test_utf16_ranges_unknown_meanings_and_cache(self):
         calls = []
 
