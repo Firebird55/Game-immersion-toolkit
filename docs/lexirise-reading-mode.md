@@ -27,6 +27,8 @@ Live read-only `POST /v1/dictionary/lookup` probes for `总是`, `单词`, `词�
 
 `单词` returned three examples, `词语` one, and `朋友` three. A live saved-line lookup for `是` showed two CC-CEDICT entries and its HSK/frequency information. Examples, Context, and Similar were opened in the running website and displayed API results. In the saved line `他们不过是找个理由…`, the Similar suggestions reflected the meaning of the **phrase** `不过是`; they should be treated as related expressions, not direct substitutions for `是`.
 
+The live `出来` character request returned Pinyin, English glosses, and components for both characters. The actual Chrome window on the Duet iPad displayed the Lexirise reader and history without horizontal overflow. With wired Realtek headphones selected, the running app received loopback samples at nonzero levels from a Windows test sound. A newly captured voiced game line is still needed to verify the full OCR-to-saved-clip path in this session.
+
 ## Captured voice and example voice
 
 The existing **Send to Lexirise** action for a captured game sentence uploads its available original voice clip through `POST /v1/vocabulary/audio`, includes the returned public URL in the saved sentence's `audioUrls`, and adds that sentence to the game's snapshot deck. A focused mock-API test checks the uploaded bytes, URL, translation, deck membership, and retry idempotency. This is separate from the word sheet's browser speech and its text-only example bookmarks. Sending a captured sentence is still explicit; viewing a line never uploads its audio.

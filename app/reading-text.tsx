@@ -332,7 +332,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, onClose, onP
           <h3>Close in meaning</h3>
           {similar ? similar.suggestions.length ? similar.suggestions.map((suggestion, index) => <article key={index}>
             <span className="word-similar-reading">{suggestion.pinyin}</span>
-            <strong style={toneStyle(suggestion.tones || [], suggestion.word, options.palette)}>{suggestion.word}</strong>
+            <strong style={enabled(options.toneColors, true) ? toneStyle(suggestion.tones || [], suggestion.word, options.palette) : undefined}>{suggestion.word}</strong>
             <p>{suggestion.meaning}</p><small>{suggestion.usage}</small>
           </article>) : <p>Lexirise did not return verified similar words for this use.</p> :
             <p>{similarError ? <>Similar words unavailable.
