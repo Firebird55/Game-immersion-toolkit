@@ -190,9 +190,16 @@ class AudioCaptureService:
                 self.ready = True
                 self.message = f"Capturing {device['name']}"
                 last_device_check = time.monotonic()
+                stream_started = last_device_check
                 while not self._stop.is_set():
                     if not stream.is_active():
                         raise RuntimeError("Playback device stream stopped")
+                    # WASAPI can leave an apparently active loopback attached to
+                    # the old output after headphones become the default. A
+                    # healthy loopback delivers silent buffers too, so absence
+                    # of callbacks means this stream needs a fresh PyAudio init.
+                    if time.monotonic() - max(stream_started, self._last_samples_at) > 8:
+                        raise RuntimeError("Playback loopback stopped delivering samples")
                     if time.monotonic() - last_device_check >= 3:
                         last_device_check = time.monotonic()
                         current = audio.get_default_wasapi_loopback()
