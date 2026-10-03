@@ -14,7 +14,8 @@ def test_voice_inventory_changes_with_installed_package(tmp_path):
     assert inventory(game, []) != before
 
 
-def test_game_data_can_be_recovered_without_running_game(tmp_path):
+def test_game_data_can_be_recovered_without_running_game(tmp_path, monkeypatch):
+    monkeypatch.setattr("backend.windows.installed_zzz_game_data_directory", lambda settings: None)
     game = tmp_path / "ZenlessZoneZero_Data"
     game.mkdir()
     data = tmp_path / "data/agent-voices"

@@ -7,3 +7,5 @@ The running application no longer opens a loopback recording stream, performs li
 A stable matched subtitle is published immediately while the mapped original voice is decoded asynchronously. Voice clips come from installed game files, so headset selection and game volume do not affect matching. Missing voice mappings are skipped; extraction failures retain the confirmed subtitle and can be repaired from the exact mapping. Automatic text and original voice mapping updates remain active.
 
 Regression checks exercise mapped/unmapped ZZZ capture across all four channels, PRAGMATA capture without live speech, original extraction failure and retry, preserved confirmed subtitles/favorites, and removal of agent routes. No actual game is currently running for a live subtitle check.
+
+The full regression suite passed (143 tests, one skipped) before the separate full Lexirise analysis change. Native OCR recognized “Enemies incoming!”, local FFmpeg was available, the 1920×1200 display could be captured, and all four subtitle crop geometries stayed within the display.

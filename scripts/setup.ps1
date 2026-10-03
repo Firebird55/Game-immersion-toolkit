@@ -39,25 +39,6 @@ foreach ($name in @('oneocr.dll', 'oneocr.onemodel', 'onnxruntime.dll')) {
 & $venvPython -c 'from oneocr import OcrEngine; OcrEngine()'
 if ($LASTEXITCODE -ne 0) { throw 'Native OCR initialization failed.' }
 
-$vadTarget = Join-Path $projectRoot 'assets\fireredvad'
-$vadSource = 'https://raw.githubusercontent.com/FireRedTeam/FireRedVAD/c30ec49e8cc69642b0ee65362eba11b9d11c6e54/pretrained_models/onnx_models'
-$vadFiles = @{
-    'cmvn.ark' = 'C87F6F13EDF0F0EC7535DDFC9CC3387D9268CB234B70182D566C5E2EDF3CA473'
-    'fireredvad_vad.onnx' = 'A226E68E695548754A9AB5480A55BBCB8522AA69111CB97E4F093DDCE63AD5DC'
-}
-New-Item -ItemType Directory -Path $vadTarget -Force | Out-Null
-foreach ($name in $vadFiles.Keys) {
-    $destination = Join-Path $vadTarget $name
-    if (-not (Test-Path -LiteralPath $destination) -or
-        (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash -ne $vadFiles[$name]) {
-        Invoke-WebRequest -Uri "$vadSource/$name" -OutFile $destination -TimeoutSec 60
-    }
-    if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash -ne $vadFiles[$name]) {
-        throw "FireRedVAD model verification failed: $name"
-    }
-}
-& $venvPython -c 'from backend.firered_vad import FireRedVad; FireRedVad()'
-if ($LASTEXITCODE -ne 0) { throw 'Voice validation model initialization failed.' }
 
 $vinext = Join-Path $projectRoot 'node_modules\vinext\dist\cli.js'
 if (-not (Test-Path -LiteralPath $vinext)) {

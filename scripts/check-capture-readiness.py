@@ -13,13 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import mss
-import numpy as np
-import pyaudiowpatch as pyaudio
 from oneocr import OcrEngine
 from PIL import Image, ImageDraw, ImageFont
 
 from backend.capture import CaptureService
-from backend.firered_vad import FireRedVad
 from backend.games import GAME_PROFILES
 from backend.models import AppSettings
 from backend.media_tools import ffmpeg_executable
@@ -44,19 +41,11 @@ def main() -> int:
         raise RuntimeError(f"Native OCR could not read a test subtitle: {lines!r}")
     print(f"Native OCR: recognized {lines[0]!r}")
 
-    vad = FireRedVad()
-    vad.segments(np.zeros(32_000, dtype=np.float32), 16_000)
-    print("FireRedVAD: model loaded and silent-audio inference passed")
     ffmpeg = ffmpeg_executable()
     if not ffmpeg:
         raise RuntimeError("FFmpeg is unavailable; rerun scripts/setup.ps1")
     print(f"FFmpeg: {Path(ffmpeg).name}")
-    audio = pyaudio.PyAudio()
-    try:
-        device = audio.get_default_wasapi_loopback()
-    finally:
-        audio.terminate()
-    print(f"Loopback audio: {device['name']}")
+    print("Voice capture: original game files matched by visible subtitles; no audio device needed")
 
     with mss.MSS() as grabber:
         monitors = grabber.monitors[1:]
