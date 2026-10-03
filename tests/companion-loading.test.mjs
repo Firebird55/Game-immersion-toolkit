@@ -30,6 +30,10 @@ async function installHitoFixture(page, line = fixtureLine) {
     if (url.pathname === '/api/status') json = snapshot;
     if (url.pathname === '/api/lexirise') json = { configured: true, sent: {} };
     if (url.pathname === '/api/agents') json = { lines: [], total: 0 };
+    if (url.pathname.endsWith('/reading/characters')) json = { characters: [] };
+    if (url.pathname.endsWith('/reading/lookup')) json = {
+      translations: [], examples: [], dictionaries: [], alternateReadings: [], components: [],
+    };
     if (url.pathname === '/api/lines' || url.pathname === '/api/favorites')
       json = url.pathname === '/api/lines' && url.searchParams.get('game') === 'hito' ? [line] : [];
     return route.fulfill({ json });
