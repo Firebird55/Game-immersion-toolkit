@@ -112,6 +112,8 @@ test('lookup shows only returned grammar and makes pronunciation tones readable'
       });
       assert.ok(sizes.size >= 20);
       assert.ok(Number(sizes.weight) >= 800);
+      assert.ok(await sheet.locator('.word-sheet-zhuyin .pronunciation-tone').evaluate(
+        element => parseFloat(getComputedStyle(element).fontSize) >= 24));
       await page.screenshot({ path: `output/hito-analysis/lookup-tones-${name}.png`, fullPage: true });
 
       pending = false;
