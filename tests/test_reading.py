@@ -13,6 +13,52 @@ from backend.reading import LexiriseReadingService, word_zhuyin
 
 
 class ReadingTests(unittest.TestCase):
+    def test_definition_keeps_all_senses_and_enriches_direct_components_only(self):
+        calls = []
+        meanings = [("important, essential", "adjective"), ("if, in case", "conjunction"),
+                    ("will, shall", "auxiliary"), ("want, need, require", "verb"), ("want", None)]
+
+        def reply(request):
+            payload = json.loads(request.read())
+            if request.url.path == "/v1/analyze/text":
+                return httpx.Response(200, json={"occurrences": [{"word": "要", "entryId": 7,
+                    "isWordLike": True, "charStart": 0, "charEnd": 1}],
+                    "entryMetaById": {"7": {"gloss": "want"}}})
+            self.assertEqual(request.url.path, "/v1/dictionary/lookup")
+            calls.append(payload["text"])
+            if payload["text"] == "要":
+                return httpx.Response(200, json={"translations": [{"target_lang": "en",
+                    "translation": meaning, "part_of_speech": [pos] if pos else None}
+                    for meaning, pos in meanings], "characterInfo": {"char": "要",
+                    "hint": "Pictograph of hands grabbing a waist.", "components": [
+                        {"character": "◎", "type": ["iconic"], "hint": "Two hands."},
+                        {"character": "女", "type": ["iconic"]}]}})
+            self.assertEqual(payload["text"], "女")
+            return httpx.Response(200, json={"characterInfo": {"char": "女",
+                "pinyin": ["nǚ", "rǔ"], "gloss": "woman",
+                "hint": "Pictograph of a kneeling woman.",
+                "components": [{"character": "人", "type": ["iconic"]}]}})
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            reader = LexiriseReadingService(directory,
+                LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply)))
+            try:
+                definition = reader.lookup("要", 0)
+                self.assertEqual([item["meaning"] for item in definition["translations"]],
+                                 [meaning for meaning, _ in meanings])
+                self.assertEqual(definition["translations"][3]["partOfSpeech"], ["verb"])
+                details = reader.characters("要", 0)
+                parts = details["characters"][0]["components"]
+                self.assertEqual(parts[0]["hint"], "Two hands.")
+                self.assertEqual(parts[1]["pinyin"], ["nǚ", "rǔ"])
+                self.assertEqual(parts[1]["gloss"], "woman")
+                self.assertEqual(parts[1]["characterHint"], "Pictograph of a kneeling woman.")
+                self.assertEqual(reader.characters("要", 0), details)
+                self.assertEqual(calls, ["要", "女"])
+            finally:
+                reader.pool.shutdown(wait=True)
+
     def test_lexirise_gloss_and_tones_cover_known_words_without_dictionary_calls(self):
         calls = []
 

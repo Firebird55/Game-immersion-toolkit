@@ -679,6 +679,11 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .word-component-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .word-component-cards article { display:flex; align-items:flex-start; gap:11px; padding:12px; border:1px solid #3c3d42; border-radius:6px; background:#1e1e20; }
 .word-component-cards strong { flex:none; font-size:34px; font-weight:500; line-height:1.25; }
+.word-component-glyph { display:flex; flex:none; flex-direction:column; align-items:center; }
+.word-component-glyph small { max-width:60px; font-size:12px; text-align:center; }
+.word-component-cards .word-component-gloss { color:#ddd; }
+.word-component-cards details { margin-top:6px; font-size:13px; }
+.word-component-cards summary { color:#b7b2eb; cursor:pointer; }
 .word-component-type { display:inline-block; padding:1px 8px; border-radius:5px; background:#393081; color:#cfc9ff; font-size:13px; text-transform:capitalize; }
 .word-component-cards p { margin:5px 0 0; color:#b7b7bd; font-size:14px; }
 .word-hsk { display:inline-flex; margin:0 0 18px; padding:2px 9px; border:1px solid #19b870; border-radius:10px; color:#59e5a7; font-size:13px; }

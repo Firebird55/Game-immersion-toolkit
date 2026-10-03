@@ -38,19 +38,20 @@ export function restoreReadingOptions(value: unknown): ReadingOptions {
 }
 type Token = { start: number; end: number; word: string; pinyin: string; zhuyin: string; tones: number[]; proficiency: number; meaning: string; entryId?: number | null };
 type Reading = { text: string; tokens: Token[]; pendingMeanings?: boolean };
+type Component = { character: string; type: string[]; hint: string; pinyin?: string[]; gloss?: string; characterHint?: string };
 type Lookup = {
   translations: { meaning: string; partOfSpeech: string[]; examples: { text: string; translation: string }[] }[];
   examples: { text: string; translation: string }[];
   dictionaries: { name: string; headword: string; reading: string; definitions: string[] }[];
   hskLevel?: number; rank?: number; frequencyScore?: number;
   alternateReadings: string[];
-  components: { character: string; type: string[]; hint: string }[];
+  components: Component[];
   characterHint?: string; strokeCount?: number; character?: string;
 };
 type ContextMeaning = { meaning: string; conciseMeaning: string; reading: string };
 type CharacterBreakdown = { partial?: boolean; characters: { character: string; hint: string; strokeCount?: number;
   unavailable?: boolean; pinyin: string[]; gloss: string;
-  components: { character: string; type: string[]; hint: string }[] }[] };
+  components: Component[] }[] };
 type ExampleResult = { examples: { text: string; translation: string; tokens: Token[] }[] };
 type SimilarResult = { generated: boolean; suggestions: { word: string; pinyin: string;
   tones: number[]; meaning: string; usage: string }[] };
@@ -126,8 +127,14 @@ function ExampleChinese({ text, tokens, options }: { text: string; tokens: Token
   return <div className="word-example-chinese" lang="zh-Hans">{parts}</div>;
 }
 
-function DefinitionComponents({ character, hint, strokeCount, components }: {
-  character: string; hint?: string; strokeCount?: number; components: Lookup['components'];
+function pronunciationTone(reading: string): number {
+  const index = ['āēīōūǖ', 'áéíóúǘ', 'ǎěǐǒǔǚ', 'àèìòùǜ']
+    .findIndex(marks => [...reading].some(letter => marks.includes(letter)));
+  return index < 0 ? 5 : index + 1;
+}
+
+function DefinitionComponents({ character, hint, strokeCount, components, options }: {
+  character: string; hint?: string; strokeCount?: number; components: Component[]; options: ReadingOptions;
 }) {
   if (!hint && !components.length && strokeCount == null) return null;
   return <section className="word-definition-components" aria-label={`${character} character explanation`}>
@@ -136,9 +143,16 @@ function DefinitionComponents({ character, hint, strokeCount, components }: {
     {!!components.length && <>
       <h4>Components <small>{components.length}</small></h4>
       <div className="word-component-cards">{components.map((part, index) => <article key={index}>
-        <strong lang="zh-Hans">{part.character}</strong>
+        <div className="word-component-glyph"><small>{part.pinyin?.join(' · ')}</small>
+          <strong lang="zh-Hans" style={enabled(options.toneColors, true) && part.pinyin?.length ?
+            toneStyle([pronunciationTone(part.pinyin[0])], part.character, options.palette) : undefined}>{part.character}</strong>
+        </div>
         <div><span className="word-component-type">{part.type.join(', ') || 'Component'}</span>
-          {part.hint && <p>{part.hint}</p>}</div>
+          {part.gloss && <p className="word-component-gloss">{part.gloss}</p>}
+          {(part.hint || part.characterHint) && <p>{part.hint || part.characterHint}</p>}
+          {part.hint && part.characterHint && part.hint !== part.characterHint &&
+            <details><summary>Character explanation</summary><p>{part.characterHint}</p></details>}
+        </div>
       </article>)}</div>
     </>}
   </section>;
@@ -178,7 +192,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
     return () => controller.abort();
   }, [tab, context, contextError, id, token.start]);
   useEffect(() => {
-    if ((tab !== 'components' && tab !== 'definition') || token.word.length === 1 || characters || charactersError) return;
+    if ((tab !== 'components' && tab !== 'definition') || (token.word.length === 1 && !lookup) || characters || charactersError) return;
     const controller = new AbortController();
     fetch(`${API_URL}/api/lines/${id}/reading/characters?start=${token.start}`,
       { cache: 'no-store', signal: controller.signal })
@@ -186,7 +200,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
       .then(setCharacters)
       .catch(() => { if (!controller.signal.aborted) setCharactersError(true); });
     return () => controller.abort();
-  }, [tab, characters, charactersError, id, token.start, token.word]);
+  }, [tab, characters, charactersError, id, token.start, token.word, lookup]);
   useEffect(() => {
     if (tab !== 'examples' || examples || examplesError) return;
     const controller = new AbortController();
@@ -316,11 +330,14 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             <p><strong>{dictionary.headword}</strong> <span>{dictionary.reading}</span></p>
             <ul>{dictionary.definitions.map((meaning, item) => <li key={item}>{meaning}</li>)}</ul>
           </section>)}
-          {token.word.length === 1 ? <DefinitionComponents character={lookup.character || token.word}
-            hint={lookup.characterHint} strokeCount={lookup.strokeCount} components={lookup.components} /> :
-            characters?.characters.map((character, index) => <DefinitionComponents key={index}
+          {token.word.length === 1 ? <DefinitionComponents character={lookup.character || token.word} options={options}
+            hint={lookup.characterHint} strokeCount={lookup.strokeCount}
+            components={characters?.characters[0]?.components || lookup.components} /> :
+            characters?.characters.map((character, index) => <DefinitionComponents key={index} options={options}
               character={character.character} hint={character.hint} strokeCount={character.strokeCount} components={character.components} />)}
-          {token.word.length > 1 && characters?.partial && <button type="button" className="word-retry"
+          {charactersError && <button type="button" className="word-retry"
+            onClick={() => setCharactersError(false)}>Retry component details</button>}
+          {characters?.partial && <button type="button" className="word-retry"
             onClick={() => setCharacters(null)}>Retry missing character explanations</button>}
           {lookup.rank != null && <div className="word-frequency"><span>Frequency</span>
             {lookup.frequencyScore != null && <span className="word-frequency-bars" aria-label={`Frequency score ${Math.round(lookup.frequencyScore * 100)} percent`}>

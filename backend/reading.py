@@ -245,6 +245,8 @@ class LexiriseReadingService:
             character = response.get("characterInfo")
             if not isinstance(character, dict):
                 character = {}
+            if len(word) == 1 and character:
+                self._save("character", word, character)
             components = [{"character": part.get("character", ""),
                            "type": [value for value in part.get("type", []) if isinstance(value, str)]
                            if isinstance(part.get("type"), list) else [],
@@ -317,6 +319,29 @@ class LexiriseReadingService:
                                "strokeCount": info.get("strokeCount"), "components": components,
                                "pinyin": info.get("pinyin") or [], "gloss": info.get("gloss") or "",
                                "unavailable": char in failed})
+        # Fetch only direct Chinese components, without recursively expanding
+        # their components. Definitions can render before this enrichment.
+        component_letters = list(dict.fromkeys(part["character"] for character in characters
+            for part in character["components"] if isinstance(part["character"], str)
+            and len(part["character"]) == 1 and "\u3400" <= part["character"] <= "\u9fff"))
+        component_info = {char: self._cached("character", char, 30 * 86400) for char in component_letters}
+        component_pending = {char: self.pool.submit(self._post, "/v1/dictionary/lookup",
+            {"text": char, "language": "zh"}) for char in component_letters if component_info[char] is None}
+        for char, future in component_pending.items():
+            try:
+                response = future.result()
+                raw = response.get("characterInfo")
+                component_info[char] = raw if isinstance(raw, dict) else {}
+                self._save("character", char, component_info[char])
+            except LexiriseError:
+                partial = True
+        for character in characters:
+            for part in character["components"]:
+                info = component_info.get(part["character"]) or {}
+                raw_pinyin = info.get("pinyin")
+                part["pinyin"] = [value for value in raw_pinyin if isinstance(value, str)] if isinstance(raw_pinyin, list) else []
+                part["gloss"] = info.get("gloss") or ""
+                part["characterHint"] = info.get("hint") or ""
         return {"characters": characters, "partial": partial}
 
     def examples(self, text: str, start: int) -> dict | None:
