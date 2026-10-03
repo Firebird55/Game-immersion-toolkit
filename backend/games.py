@@ -15,6 +15,13 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "hito": GameProfile(
+        id="hito",
+        name="Hito's World Playtest",
+        process_names=("Hito's World.exe", "Hito's World Playtest.exe"),
+        title_needles=("Hito's World",),
+        subtitle_region=CaptureRegion(left=0.365, top=0.815, width=0.34, height=0.125),
+    ),
     "zzz": GameProfile(
         id="zzz",
         name="Zenless Zone Zero",
