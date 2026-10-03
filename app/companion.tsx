@@ -360,6 +360,7 @@ function CompanionClient() {
   const [agentTotal, setAgentTotal] = useState(0);
   const [loadingAgents, setLoadingAgents] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const snapshotLoading = useRef(false);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
   const playback = useRef<HTMLAudioElement | null>(null);
@@ -379,55 +380,60 @@ function CompanionClient() {
   }, [settingsOpen]);
 
   const loadSnapshot = useCallback(async () => {
+    if (snapshotLoading.current) return;
+    snapshotLoading.current = true;
     try {
-      const [statusResponse, zzzLinesResponse, pragmataLinesResponse, zzzFavoritesResponse, pragmataFavoritesResponse, agentsResponse, hitoLinesResponse, hitoFavoritesResponse] = await Promise.all([
-        fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=50&game=zzz`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=50&game=pragmata`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/favorites?game=zzz`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/favorites?game=pragmata`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/agents`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=50&game=hito`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/favorites?game=hito`, { cache: 'no-store' }),
-      ]);
-      if (!statusResponse.ok || !zzzLinesResponse.ok || !pragmataLinesResponse.ok || !zzzFavoritesResponse.ok || !pragmataFavoritesResponse.ok || !hitoLinesResponse.ok || !hitoFavoritesResponse.ok) {
-        throw new Error('Companion service unavailable');
-      }
+      const request = (path: string) => fetch(`${API_URL}${path}`, {
+        cache: 'no-store', signal: AbortSignal.timeout(8000),
+      });
+      const statusResponse = await request('/api/status');
+      if (!statusResponse.ok) throw new Error('Companion service unavailable');
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
       followVoice.current(nextStatus.voice_activity);
       setDraftSettings(nextStatus.settings);
-      const recentLines = [
-        ...(await zzzLinesResponse.json()) as TranscriptLine[],
-        ...(await pragmataLinesResponse.json()) as TranscriptLine[],
-        ...(await hitoLinesResponse.json()) as TranscriptLine[],
-      ];
-      const favoriteLines = [
-        ...(await zzzFavoritesResponse.json()) as TranscriptLine[],
-        ...(await pragmataFavoritesResponse.json()) as TranscriptLine[],
-        ...(await hitoFavoritesResponse.json()) as TranscriptLine[],
-      ];
-      const nextLines = Array.from(
-        new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
-      ).sort(newestFirst);
-      setLines((current) => {
-        const merged = mergeTranscriptSnapshot(current, nextLines);
-        knownLineIds.current = new Set(merged.map((line) => line.id));
-        return merged;
-      });
-      if (agentsResponse.ok) {
-        const agents = (await agentsResponse.json()) as AgentPage;
-        setAgentLines(current => mergeAgentLines(current, agents.lines));
-        setAgentTotal(agents.total);
-      }
       setOnline(true);
       setSnapshotLoaded(true);
+
+      // Each collection can arrive independently; another game's failure must not
+      // hold the active transcript behind the initial loading screen.
+      const collections = (['zzz', 'pragmata', 'hito'] as const).map(async game => {
+        const results = await Promise.allSettled(
+          [`/api/lines?limit=50&game=${game}`, `/api/favorites?game=${game}`].map(async path => {
+            const response = await request(path);
+            if (!response.ok) throw new Error('Transcript collection unavailable');
+            return (await response.json()) as TranscriptLine[];
+          }),
+        );
+        const incoming = Array.from(new Map(results.flatMap(result =>
+          result.status === 'fulfilled' ? result.value : [],
+        ).map(line => [line.id, line])).values());
+        const complete = results.every(result => result.status === 'fulfilled');
+        setLines(current => {
+          const snapshot = complete ? incoming : [
+            ...current.filter(line => line.game === game), ...incoming,
+          ];
+          const unique = Array.from(new Map(snapshot.map(line => [line.id, line])).values());
+          const merged = mergeTranscriptSnapshot(current, unique);
+          knownLineIds.current = new Set(merged.map(line => line.id));
+          return merged;
+        });
+      });
+      const agents = request('/api/agents').then(async response => {
+        if (!response.ok) return;
+        const page = (await response.json()) as AgentPage;
+        setAgentLines(current => mergeAgentLines(current, page.lines));
+        setAgentTotal(page.total);
+      });
       // Integration status must not prevent the transcript from loading.
-      void fetch(`${API_URL}/api/lexirise`, { cache: 'no-store' })
+      void request('/api/lexirise')
         .then(response => response.ok ? response.json() : null)
         .then(value => { if (value) setLexirise(value as LexiriseStatus); }).catch(() => undefined);
+      await Promise.allSettled([...collections, agents]);
     } catch {
       setOnline(false);
+    } finally {
+      snapshotLoading.current = false;
     }
   }, []);
 
