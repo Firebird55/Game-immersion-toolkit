@@ -148,10 +148,10 @@ class LexiriseReadingService:
     def analyze(self, text: str) -> dict:
         if not text.strip() or len(text) > 1600:
             raise LexiriseError("This sentence is too long for Lexirise reading analysis.")
-        result = self._cached("analysis", text, 10 * 60)
+        result = self._cached("analysis-full", text, 10 * 60)
         if result is None:
-            result = self._post("/v1/analyze/text", {"text": text, "language": "zh", "fast": True})
-            self._save("analysis", text, result)
+            result = self._post("/v1/analyze/text", {"text": text, "language": "zh", "fast": False})
+            self._save("analysis-full", text, result)
         states = result.get("stateByEntryId") or {}
         entry_meta = result.get("entryMetaById") or {}
         tokens = []

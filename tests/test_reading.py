@@ -13,6 +13,26 @@ from backend.reading import LexiriseReadingService, word_zhuyin
 
 
 class ReadingTests(unittest.TestCase):
+    def test_full_analysis_does_not_reuse_fast_mode_cache(self):
+        calls = []
+        def reply(request):
+            payload = json.loads(request.read())
+            self.assertEqual(request.url.path, "/v1/analyze/text")
+            self.assertIs(payload["fast"], False)
+            calls.append(payload)
+            return httpx.Response(200, json={"occurrences": []})
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            reader = LexiriseReadingService(directory,
+                LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply)))
+            try:
+                reader._save("analysis", "十分钟", {"occurrences": [{"word": "wrong cached split"}]})
+                self.assertEqual(reader.analyze("十分钟")["tokens"], [])
+                reader.analyze("十分钟")
+                self.assertEqual(len(calls), 1)
+            finally:
+                reader.pool.shutdown(wait=True)
+
     def test_definition_keeps_all_senses_and_enriches_direct_components_only(self):
         calls = []
         meanings = [("important, essential", "adjective"), ("if, in case", "conjunction"),
