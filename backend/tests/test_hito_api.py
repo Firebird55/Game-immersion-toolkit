@@ -7,6 +7,7 @@ from fastapi import WebSocketDisconnect
 
 from backend import api
 from backend.agent_recognition import AgentRecognizer
+from backend.models import AppSettings, CaptureSnapshot
 
 
 def test_browser_snapshot_does_not_block_capture_event_loop(monkeypatch):
@@ -67,3 +68,21 @@ def test_hito_status_skips_unrelated_agent_database_and_survives_sync_errors(tmp
     assert recognizer.status(include_database_counts=False)['saved_lines'] == 0
     assert not calls
     assert recognizer.status()['saved_lines'] == 0
+
+
+def test_browser_status_survives_temporary_history_count_errors():
+    runtime = object.__new__(api.Runtime)
+    runtime.capture = SimpleNamespace(session_id='test', snapshot=lambda: CaptureSnapshot(active_game='hito'))
+    runtime.agents = SimpleNamespace(status=lambda **kwargs: {})
+    for name in ('textmaps', 'pragmata', 'hito', 'audio', 'voice_assets', 'pragmata_voice_assets', 'story_voices'):
+        setattr(runtime, name, SimpleNamespace(status=lambda **kwargs: {}))
+    runtime.settings = SimpleNamespace(get=AppSettings)
+    runtime.voice_activity = SimpleNamespace(latest=None)
+    runtime.update_status = lambda agents: {}
+    runtime._session_counts = ('test', 2, 30)
+
+    def count(*args):
+        raise sqlite3.OperationalError('disk I/O error')
+
+    runtime.transcript = SimpleNamespace(count=count)
+    assert runtime.status()['session'] == {'id': 'test', 'line_count': 2, 'total_line_count': 30}

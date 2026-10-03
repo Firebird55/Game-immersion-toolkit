@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -252,6 +253,15 @@ class Runtime:
         capture = self.capture.snapshot()
         database_counts = capture.active_game == "zzz"
         agents = self.agents.status(include_database_counts=database_counts)
+        session_counts = getattr(self, '_session_counts', (self.capture.session_id, 0, 0))
+        if session_counts[0] != self.capture.session_id:
+            session_counts = (self.capture.session_id, 0, session_counts[2])
+        try:
+            session_counts = (self.capture.session_id, self.transcript.count(self.capture.session_id),
+                              self.transcript.count())
+            self._session_counts = session_counts
+        except sqlite3.Error:
+            pass
         return {
             "capture": capture.model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
@@ -270,8 +280,8 @@ class Runtime:
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
-                "line_count": self.transcript.count(self.capture.session_id),
-                "total_line_count": self.transcript.count(),
+                "line_count": session_counts[1],
+                "total_line_count": session_counts[2],
             },
         }
 
