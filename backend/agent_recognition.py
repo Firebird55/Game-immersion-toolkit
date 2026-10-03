@@ -130,6 +130,13 @@ class AgentRecognizer:
         self._pending.append(self._future)
 
     def status(self, include_database_counts=True):
+        saved_lines = getattr(self, '_status_saved_lines', 0)
+        if include_database_counts:
+            try:
+                saved_lines = self.store.count()
+                self._status_saved_lines = saved_lines
+            except sqlite3.Error:
+                pass
         try:
             path = self.folder / 'fingerprints.db'
             if include_database_counts and path.exists():
@@ -139,7 +146,7 @@ class AgentRecognizer:
             pass
         return {'indexed_clips': self.indexed, 'total_clips': len(self.library['clips']),
                 'selected_agent': self._context[0], 'last_match': self._last_match,
-                'last_error': self._last_error, 'saved_lines': self.store.count(),
+                'last_error': self._last_error, 'saved_lines': saved_lines,
                 'recognition': self._diagnostics,
                 'update': self.updater.status() if self.updater else None}
 
