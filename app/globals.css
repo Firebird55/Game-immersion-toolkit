@@ -536,9 +536,9 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .reader-options-button { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
 .reading-text { line-height:2.35; overflow-wrap:anywhere; }
 .reading-token { display:inline-flex; position:relative; flex-direction:column; align-items:center; vertical-align:middle; margin:0 2px 7px; line-height:1.1; }
-.reading-pinyin,.reading-zhuyin,.reading-tone-marks { font-size:.42em; line-height:1.15; color:#a9c9dc; white-space:nowrap; }
-.reading-zhuyin { font-size:.43em; }
-.reading-tone-marks { color:#e6cd87; letter-spacing:.08em; }
+.reading-pinyin,.reading-zhuyin,.reading-tone-marks { font-size:max(14px,.48em); line-height:1.35; color:#d4e4ef; font-weight:600; white-space:nowrap; }
+.reading-tone-marks { font-size:max(18px,.6em); color:#ffe299; font-weight:800; letter-spacing:0; }
+.pronunciation-tone { color:#fff; font-weight:800; -webkit-text-stroke:.2px currentColor; }
 .reading-hanzi { color:#d9e3ed; cursor:pointer; text-decoration:underline; text-decoration-color:transparent; text-underline-offset:3px; }
 .reading-hanzi:hover,.reading-hanzi:focus { text-decoration-color:currentColor; }
 .reading-meaning { max-width:12em; font-size:.38em; line-height:1.2; color:#c2c7ce; text-align:center; white-space:normal; }
@@ -566,8 +566,8 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .word-sheet-title { margin:0; overflow-wrap:anywhere; font-size:clamp(32px,7vw,48px); font-weight:500; line-height:1.15; }
 .word-speak { display:grid; place-items:center; flex:none; width:36px; height:36px; border:1px solid #484a50; border-radius:50%; background:#28282b; color:#ddd; cursor:pointer; font-size:18px; }
 .word-speak:hover { background:#45474d; }
-.word-sheet-reading { margin-top:5px; color:#a4a4a8; font-size:17px; overflow-wrap:anywhere; }
-.word-sheet-zhuyin { color:#9aa9af; font-size:15px; }
+.word-sheet-reading { margin-top:7px; color:#d4e4ef; font-size:20px; font-weight:600; line-height:1.4; overflow-wrap:anywhere; }
+.word-sheet-zhuyin { color:#d4e4ef; font-size:18px; font-weight:600; line-height:1.4; }
 .word-levels { display:flex; flex:none; overflow:hidden; border:1px solid #494b4f; border-radius:7px; background:#202124; }
 .word-levels button { width:36px; min-height:39px; border-right:1px solid #3b3d42; color:#e6e6e7; font-size:16px; cursor:pointer; }
 .word-levels button:last-child { border-right:0; }

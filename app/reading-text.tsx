@@ -83,6 +83,10 @@ function enabled(scope: ReadingScope, unknown: boolean) {
   return scope === 'all' || (scope === 'unknown' && unknown);
 }
 const TONE_MARKS: Record<number, string> = { 1: '¯', 2: 'ˊ', 3: 'ˇ', 4: 'ˋ', 5: '˙' };
+function Pronunciation({ text }: { text: string }) {
+  return <>{text.split(/([āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜńňǹḿ¯ˊˇˋ˙])/u).map((part, index) =>
+    index % 2 ? <span key={index} className="pronunciation-tone">{part}</span> : part)}</>;
+}
 function toneStyle(tones: number[], text: string, palette: ReadingOptions['palette']): React.CSSProperties | undefined {
   const first = tones.find(value => value >= 1 && value <= 5);
   if (!first) return undefined;
@@ -121,8 +125,8 @@ function ExampleChinese({ text, tokens, options }: { text: string; tokens: Token
     const word = text.slice(token.start, token.end);
     const unknown = token.proficiency < 4;
     parts.push(<span key={`${token.start}-${index}`} className="reading-token">
-      {enabled(options.pinyin, unknown) && token.pinyin && <span className="reading-pinyin">{token.pinyin}</span>}
-      {enabled(options.zhuyin, unknown) && token.zhuyin && <span className="reading-zhuyin">{token.zhuyin}</span>}
+      {enabled(options.pinyin, unknown) && token.pinyin && <span className="reading-pinyin"><Pronunciation text={token.pinyin} /></span>}
+      {enabled(options.zhuyin, unknown) && token.zhuyin && <span className="reading-zhuyin"><Pronunciation text={token.zhuyin} /></span>}
       <span className="reading-hanzi" style={enabled(options.toneColors, unknown) ? toneStyle(token.tones || [], word, options.palette) : undefined}>{word}</span>
       {enabled(options.meanings, unknown) && token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
     </span>);
@@ -194,6 +198,9 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
   const unknownGrammar = unknownWordGrammar(grammar, token.start, token.end);
   const sortedGrammar = [...grammar].sort((left, right) =>
     Number(appliesToWord(right, token.start, token.end)) - Number(appliesToWord(left, token.start, token.end)));
+  useEffect(() => {
+    if (tab === 'grammar' && !grammar.length) setTab('definition');
+  }, [tab, grammar.length]);
   async function setGrammarKnown(rule: GrammarRule) {
     if (savingGrammar !== null) return;
     setSavingGrammar(rule.slug);
@@ -319,8 +326,8 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             style={enabled(options.toneColors, token.proficiency < 4) ? toneStyle(token.tones || [], token.word, options.palette) : undefined}>{token.word}</Popover.Title>
             <button type="button" className="word-speak" onClick={() => speakChinese(token.word)} title="Speak using this device's Chinese voice" aria-label={`Pronounce ${token.word}`}><Play size={17} fill="currentColor" /></button>
           </div>
-          <div className="word-sheet-reading">{token.pinyin}{lookup?.alternateReadings?.length ? ` · ${lookup.alternateReadings.join(' · ')}` : ''}</div>
-          {token.zhuyin && <div className="word-sheet-zhuyin">{token.zhuyin}</div>}
+          <div className="word-sheet-reading"><Pronunciation text={token.pinyin + (lookup?.alternateReadings?.length ? ` · ${lookup.alternateReadings.join(' · ')}` : '')} /></div>
+          {token.zhuyin && <div className="word-sheet-zhuyin"><Pronunciation text={token.zhuyin} /></div>}
         </div>
         <div className="word-levels" role="group" aria-label="Lexirise vocabulary status">
           {WORD_LEVELS.map(level => <button key={level.value} type="button"
@@ -333,11 +340,11 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
       {saveError && <p className="word-sheet-error" role="alert">{saveError}</p>}
       <div className="word-tabs" role="tablist" aria-label="Word details">
         {(['definition', 'grammar', 'context', 'examples', 'similar', 'components'] as const).map(value =>
-          <button key={value} type="button" role="tab" aria-selected={tab === value}
+          (value !== 'grammar' || grammar.length > 0) && <button key={value} type="button" role="tab" aria-selected={tab === value}
             className={tab === value ? 'active' : ''} onClick={() => setTab(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}
       </div>
       <div className="word-sheet-body" role="tabpanel">
-        {tab === 'definition' && (unknownGrammar.length > 0 || analysisPending) &&
+        {tab === 'definition' && unknownGrammar.length > 0 &&
           <section className="word-grammar-summary" aria-label="Unknown grammar for this word">
             <small>Unknown grammar</small>
             {unknownGrammar.slice(0, 3).map(rule => <button type="button" key={rule.slug}
@@ -346,15 +353,12 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             </button>)}
             {unknownGrammar.length > 3 && <button type="button" className="word-grammar-more"
               onClick={() => setTab('grammar')}>+{unknownGrammar.length - 3} more</button>}
-            {analysisPending && <small>Checking grammar…</small>}
           </section>}
-        {tab === 'grammar' && <div className="word-grammar-details">
+        {tab === 'grammar' && grammar.length > 0 && <div className="word-grammar-details">
           <h3>Grammar in this sentence</h3>
           <p className="word-grammar-sentence" lang="zh-Hans">{text}</p>
           {analysisPending && <p className="word-grammar-note">Detailed analysis is still running.
             <button type="button" onClick={onGrammarRetry}>Check again</button></p>}
-          {!grammar.length && !analysisPending && <p>No grammar rules were returned for this sentence.
-            <button type="button" className="word-retry" onClick={onGrammarRetry}>Retry grammar analysis</button></p>}
           {sortedGrammar.map(rule => <article key={rule.slug}
             className={`${rule.proficiency >= 4 ? 'is-known' : ''} ${appliesToWord(rule, token.start, token.end) ? 'uses-selected-word' : ''}`}>
             <div className="word-grammar-heading"><a href={grammarUrl(rule.slug)} target="_blank" rel="noopener noreferrer"
@@ -572,8 +576,8 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
     const toneMarks = token.tones?.map(value => TONE_MARKS[value] || '').filter(Boolean).join(' ');
     parts.push(<span key={`${token.start}-${index}`} className="reading-token">
       {enabled(options.toneMarks, unknown) && !!toneMarks && <span className="reading-tone-marks" aria-hidden="true">{toneMarks}</span>}
-      {enabled(options.pinyin, unknown) && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
-      {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true">{token.zhuyin}</span>}
+      {enabled(options.pinyin, unknown) && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true"><Pronunciation text={token.pinyin} /></span>}
+      {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true"><Pronunciation text={token.zhuyin} /></span>}
       <span className="reading-hanzi" role="button" tabIndex={0}
         aria-haspopup="dialog" aria-expanded={open === index}
         onClick={event => { setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }}
