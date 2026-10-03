@@ -232,6 +232,11 @@ class HitoTextIndex:
                 match = self._choose(' '.join(selected), self._records)
             if match is None:
                 match = self._choose(text, self._generated(text))
+            fallback = ' '.join(selected)
+            if match is None and text != fallback and hanzi and not re.search(r'[a-z]', fallback, re.I):
+                # Grammar-made annotations (such as yige) are not dictionary words.
+                # Validate the complete Hanzi row through the game grammar as well.
+                match = self._choose(fallback, self._generated(fallback))
             if len(self._cache) > 1000:
                 self._cache.clear()
             self._cache[cache_key] = match

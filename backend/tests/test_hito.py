@@ -57,3 +57,30 @@ def test_hito_pinyin_noise_does_not_hide_complete_hanzi(tmp_path):
     index._records = [dict(chinese='我 看到 一个 大门', english='I see a gate')]
     index._load_pinyin({'vocabulary': [{'pinyin': 'wo kandao yige damen'}]})
     assert index.match_lines(['wo kandao yige darnen', '我 看到 一个 大门']).english == 'I see a gate'
+
+
+def test_hito_grammar_generated_line_survives_unknown_article_pinyin(tmp_path):
+    index = HitoTextIndex(tmp_path)
+    index._load_pinyin({'vocabulary': [{'pinyin': 'wo shoudao riji'}]})
+    requests = []
+
+    def generate(text):
+        requests.append(text)
+        if text != '我 收到 一个 日记':
+            return []
+        return [dict(chinese=text, english='I receive a diary', identity='I receive quantity diary')]
+
+    index._generated = generate
+    match = index.match_lines(['WO shoudao', '我 收到 一个 日记', 'yige riji'])
+    assert match.english == 'I receive a diary'
+    assert match.chinese == '我 收到 一个 日记'
+    assert requests[-1] == match.chinese
+
+
+def test_hito_does_not_generate_from_fragments_of_mixed_narrative(tmp_path):
+    index = HitoTextIndex(tmp_path)
+    index._load_pinyin({'vocabulary': [{'pinyin': 'wo'}]})
+    requests = []
+    index._generated = lambda text: requests.append(text) or []
+    assert index.match_lines(['Ok, then', '面向 and 转', 'stand for...']) is None
+    assert requests == ['Ok, then 面向 and 转 stand for...']
