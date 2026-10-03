@@ -40,3 +40,20 @@ def test_hito_generated_pair_uses_grammar_identity(tmp_path):
 def test_hito_long_ocr_error_is_corrected_only_to_unambiguous_game_text():
     row = dict(chinese='也许 我 应该 写 这个', english='Maybe I should write this')
     assert HitoTextIndex._choose('也许 我 应该 写 这个', [row]).english == row['english']
+
+
+def test_hito_preserves_wrapped_english_narrative_and_removes_game_pinyin(tmp_path):
+    index = HitoTextIndex(tmp_path)
+    index._records = [dict(chinese='Ok, then 面向 and 转 stand for...',
+                           english='Ok, then to face and to turn stand for...')]
+    index._load_pinyin({'vocabulary': [{'pinyin': 'mianxiang'}, {'pinyin': 'zhuan'}]})
+    match = index.match_lines(['mianxiang', 'zhuan', 'Ok, then 面向 and 转', 'stand for...'])
+    assert match.english == index._records[0]['english']
+    assert index.match_lines(['mianxiang', 'zhuan', 'Ok, then 面向 and 45', 'stand for...']) is None
+
+
+def test_hito_pinyin_noise_does_not_hide_complete_hanzi(tmp_path):
+    index = HitoTextIndex(tmp_path)
+    index._records = [dict(chinese='我 看到 一个 大门', english='I see a gate')]
+    index._load_pinyin({'vocabulary': [{'pinyin': 'wo kandao yige damen'}]})
+    assert index.match_lines(['wo kandao yige darnen', '我 看到 一个 大门']).english == 'I see a gate'

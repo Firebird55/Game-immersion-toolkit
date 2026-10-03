@@ -31,6 +31,7 @@ class HitoTextIndex:
         self.ready = False
         self.message = 'Waiting for Hito game files'
         self._records: list[dict] = []
+        self._pinyin_words: set[str] = set()
         self._cache: dict[str, TextMatch | None] = {}
         self._archive: Path | None = None
         self._process: subprocess.Popen | None = None
@@ -45,7 +46,9 @@ class HitoTextIndex:
         cached = data_dir / 'textmap.json'
         if cached.exists():
             try:
-                self._records = json.loads(cached.read_text(encoding='utf-8'))['records']
+                catalog = json.loads(cached.read_text(encoding='utf-8'))
+                self._records = catalog['records']
+                self._load_pinyin(catalog)
                 self.ready = bool(self._records)
                 self.message = 'Cached Hito game text loaded'
             except (ValueError, OSError, KeyError):
@@ -54,6 +57,10 @@ class HitoTextIndex:
     def status(self) -> dict:
         return dict(ready=self.ready, state='ready' if self.ready else 'loading',
                     message=self.message, entry_count=len(self._records))
+
+    def _load_pinyin(self, catalog: dict) -> None:
+        self._pinyin_words = {word.casefold() for row in catalog.get('vocabulary', [])
+                              for word in re.findall(r'[a-z]+', row.get('pinyin', '').lower())}
 
     def ensure_game_files(self, executable: Path | None) -> None:
         if executable is None or self._closed:
@@ -121,6 +128,7 @@ class HitoTextIndex:
                 self._process = process
                 self._responses = responses
                 self._records = catalog['records']
+                self._load_pinyin(catalog)
                 self._cache.clear()
                 self.ready = True
                 self.message = 'Hito game text and generated-sentence validation ready'
@@ -204,13 +212,24 @@ class HitoTextIndex:
             selected = hanzi or [line.strip() for line in lines if len(normalize(line)) >= 4]
             if not selected:
                 return None
-            # Exclude separate pinyin rows; preserve wrapped Mandarin lines.
-            text = ' '.join(selected)
+            # OCR splits mixed-language narrative into several rows. Keep its English
+            # fragments, removing only annotation rows composed of game pinyin words.
+            narrative = []
+            for line in lines:
+                words = re.findall(r'[a-z]+', line.casefold())
+                annotation = (words and not re.search(r'[\u3400-\u9fff]', line)
+                              and all(word in self._pinyin_words for word in words))
+                if line.strip() and not annotation:
+                    narrative.append(line.strip())
+            text = ' '.join(narrative if self._pinyin_words else selected)
             cache_key = normalize(text)
             if cache_key in self._cache:
                 cached = self._cache[cache_key]
                 return cached.model_copy(update={'source_ocr': text}) if cached else None
             match = self._choose(text, self._records)
+            if match is None and text != ' '.join(selected):
+                # A noisy pinyin row must not hide an otherwise complete Hanzi line.
+                match = self._choose(' '.join(selected), self._records)
             if match is None:
                 match = self._choose(text, self._generated(text))
             if len(self._cache) > 1000:

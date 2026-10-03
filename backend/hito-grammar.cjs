@@ -173,7 +173,8 @@ for (const [group, values] of Object.entries(context.l.hanzi)) {
   for (const [key, chinese] of Object.entries(values)) {
     if (typeof chinese !== 'string' || !chinese) continue;
     const english = context.l.english[group]?.[key];
-    if (typeof english === 'string') vocabulary.push({key, group, chinese:clean(chinese), english:clean(english)});
+    if (typeof english === 'string') vocabulary.push({key, group, chinese:clean(chinese),
+      english:clean(english), pinyin:clean(context.l.pinyin[group]?.[key])});
   }
 }
 console.log(JSON.stringify({records:[...records.values()], vocabulary,

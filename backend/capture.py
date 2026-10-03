@@ -13,7 +13,7 @@ from typing import Awaitable, Callable
 
 import mss
 from oneocr import OcrEngine
-from PIL import Image
+from PIL import Image, ImageOps
 
 from .audio import AudioCaptureService
 from .config import SettingsStore
@@ -774,8 +774,9 @@ class CaptureService:
             image = self._capture(bounds)
             if channel == "dialogue":
                 self._set_preview(image)
-            # Small pixel-font glyphs benefit from a larger input to OneOCR.
-            image = image.resize((image.width * 2, image.height * 2), Image.Resampling.NEAREST)
+            # Black-on-white avoids colored pixel glyphs being mistaken for digits.
+            image = ImageOps.invert(image.convert('RGB')).resize(
+                (image.width * 2, image.height * 2), Image.Resampling.LANCZOS)
             response = engine.recognize_pil(image)
             if epoch != self._scan_epoch:
                 return _ScanOutcome([])
