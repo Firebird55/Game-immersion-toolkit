@@ -24,6 +24,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { createVoiceActivityFollower, type VoiceActivity } from '@/lib/voice-activity';
+import { ReadingText, DEFAULT_READING_OPTIONS, MIGAKU_TONE_PALETTE,
+  restoreReadingOptions, type ReadingOptions, type ReadingScope } from '@/app/reading-text';
+import { shouldHideTranslation, restoreTranslationLimit, type ReadingSummary, type TranslationLimit } from '@/app/translation-visibility';
 import {
   Dialog,
   DialogContent,
@@ -126,6 +129,17 @@ function newestFirst(left: TranscriptLine, right: TranscriptLine) {
 type AgentLine = { key: string; agent: string; asset_id: string; chinese: string; text_source: string; last_heard: string; heard_count: number };
 type AgentPage = { lines: AgentLine[]; total: number };
 type LexiriseStatus = { configured: boolean; sent: Record<string, number> };
+
+type ReadingMode = 'migaku' | 'lexirise';
+type ReadingScopeField = 'pinyin' | 'zhuyin' | 'toneMarks' | 'meanings' | 'toneColors';
+const READING_FIELDS: { key: ReadingScopeField; label: string; hint: string }[] = [
+  { key: 'pinyin', label: 'Pinyin', hint: 'Tone marked spelling from Lexirise' },
+  { key: 'zhuyin', label: 'Zhuyin', hint: 'Bopomofo reading with Lexirise tones' },
+  { key: 'toneMarks', label: 'Tone marks', hint: 'A separate tone cue above each word' },
+  { key: 'meanings', label: 'Inline translation', hint: 'English meaning below a word' },
+  { key: 'toneColors', label: 'Tone colors', hint: 'Color each Hanzi by its syllable tone' },
+];
+const TONE_NAMES = ['1 · level', '2 · rising', '3 · dipping', '4 · falling', '5 · neutral'];
 
 const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
@@ -284,8 +298,25 @@ const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId }: { te
   return <div className="current-chinese-host" ref={host} />;
 });
 
+function EnglishTranslation({ line, summary, limit, current = false }: {
+  line: TranscriptLine; summary: ReadingSummary | null; limit: TranslationLimit; current?: boolean;
+}) {
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const key = JSON.stringify([line.id, line.chinese, line.english, limit]);
+  const count = summary?.id === line.id && summary.text === line.chinese ? summary.unknownWords : null;
+  const hidden = shouldHideTranslation(limit, count) && revealed !== key;
+  if (!hidden) return <StableText className={current ? 'current-english' : undefined} text={line.english} />;
+  return <button type="button" className={`english-reveal ${current ? 'current-english-reveal' : ''}`}
+    onClick={() => setRevealed(key)} aria-label="Show English translation">
+    <span>English hidden · Tap to reveal</span>
+    <small>{count} unknown {count === 1 ? 'word' : 'words'}</small>
+  </button>;
+}
+
 const TranscriptRow = memo(function TranscriptRow({
   line,
+  readingMode,
+  readingOptions,
   canUseLexirise,
   sendingRef,
   sentToLexirise,
@@ -294,6 +325,8 @@ const TranscriptRow = memo(function TranscriptRow({
   onSendToLexirise,
 }: {
   line: TranscriptLine;
+  readingMode: ReadingMode;
+  readingOptions: ReadingOptions;
   canUseLexirise: boolean;
   sendingRef: string | null;
   sentToLexirise: boolean;
@@ -301,6 +334,7 @@ const TranscriptRow = memo(function TranscriptRow({
   onToggleFavorite: (line: TranscriptLine) => void;
   onSendToLexirise: (kind: 'line' | 'agent', id: number | string) => void;
 }) {
+  const [readingSummary, setReadingSummary] = useState<ReadingSummary | null>(null);
   const ref = `line:${line.id}`;
   return <article className="transcript-line">
     <div className="line-time">
@@ -309,11 +343,11 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
-      <StableText text={line.english} />
+      <EnglishTranslation line={line} summary={readingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} />
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      <StableText lang="zh-Hans" text={line.chinese} />
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.chinese} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
@@ -366,13 +400,32 @@ function CompanionClient() {
   const playback = useRef<HTMLAudioElement | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
+  const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
+  const [readingOptions, setReadingOptions] = useState<ReadingOptions>(DEFAULT_READING_OPTIONS);
+  const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
+  const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
   const sendingStudy = useRef(false);
+  const saveReadingOptions = useCallback((next: ReadingOptions) => {
+    setReadingOptions(next);
+    window.localStorage.setItem('proxy-transcript-reading-options', JSON.stringify(next));
+  }, []);
 
   useEffect(() => {
     const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
     if ([1, 0.85, 0.75, 0.6].includes(saved)) setPlaybackRate(saved);
+    const reader = window.localStorage.getItem('proxy-transcript-reading-mode');
+    if (reader === 'migaku' || reader === 'lexirise') setReadingMode(reader);
+    try {
+      const options = window.localStorage.getItem('proxy-transcript-reading-options');
+      if (options) setReadingOptions(restoreReadingOptions(JSON.parse(options)));
+      else {
+        const pinyin = window.localStorage.getItem('proxy-transcript-pinyin-mode');
+        if (pinyin === 'unknown' || pinyin === 'all' || pinyin === 'off')
+          setReadingOptions({ ...DEFAULT_READING_OPTIONS, pinyin });
+      }
+    } catch { setReadingOptions(DEFAULT_READING_OPTIONS); }
   }, []);
 
   useEffect(() => {
@@ -766,6 +819,14 @@ function CompanionClient() {
           <Gamepad2 size={15} /> Hito's World
         </button>
         {status?.capture.active_game && <small>Capturing {GAME_NAMES[status.capture.active_game]}</small>}
+        <div className="reading-controls" aria-label="Chinese reading options">
+          <label>Reading <select value={readingMode} aria-label="Reading source" onChange={event => {
+            const value = event.target.value as ReadingMode;
+            setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
+          }}><option value="migaku">Migaku</option><option value="lexirise" disabled={!lexirise.configured}>Lexirise</option></select></label>
+          {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setReaderSettingsOpen(true)}
+            aria-label="Lexirise reading options"><Settings2 size={15} /> Reading options</button>}
+        </div>
       </nav>
 
       <section className="status-strip" aria-label="Companion status">
@@ -812,8 +873,8 @@ function CompanionClient() {
               {latestLine.speaker_english && <StableInline text={latestLine.speaker_english} />}
               {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
             </div>}
-            <StableText className="current-english" text={latestLine.english} />
-            <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />
+            <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
+            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.chinese} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />}
             <div className="current-actions">
               <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Voice audio was missed'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Text captured; voice audio was missed'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice missed' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
@@ -907,6 +968,8 @@ function CompanionClient() {
             <TranscriptRow
               key={line.id}
               line={line}
+              readingMode={readingMode}
+              readingOptions={readingOptions}
               canUseLexirise={online && lexirise.configured}
               sendingRef={sendingRef}
               sentToLexirise={!!lexirise.sent[`line:${line.id}`]}
@@ -978,6 +1041,55 @@ function CompanionClient() {
           </Button>
         </div>
       </footer>
+
+      <Dialog open={readerSettingsOpen} onOpenChange={setReaderSettingsOpen}>
+        <DialogContent className="setup-dialog reader-settings-dialog sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Lexirise reading options</DialogTitle>
+            <DialogDescription>Choose which words get readings, translations, and tone colors.</DialogDescription>
+          </DialogHeader>
+          <div className="reader-option-list">
+            <label className="reader-option-row">
+              <span><strong>Hide English translation</strong><small>Hide when a line has at most this many unknown words. Tap to reveal. Only Known words count as known.</small></span>
+              <select value={readingOptions.hideEnglishAt} aria-label="Hide English translation"
+                onChange={event => saveReadingOptions({ ...readingOptions,
+                  hideEnglishAt: restoreTranslationLimit(event.target.value === 'off' ? 'off' : Number(event.target.value)),
+                })}>
+                <option value="off">Always show</option>
+                <option value="0">0 unknown words</option>
+                <option value="1">1 or fewer</option>
+                <option value="2">2 or fewer</option>
+                <option value="3">3 or fewer</option>
+              </select>
+            </label>
+            {READING_FIELDS.map(field => <label key={field.key} className="reader-option-row">
+              <span><strong>{field.label}</strong><small>{field.hint}</small></span>
+              <select value={readingOptions[field.key]} onChange={event => saveReadingOptions({
+                ...readingOptions, [field.key]: event.target.value as ReadingScope,
+              })} aria-label={field.label}>
+                <option value="unknown">Unknown words</option>
+                <option value="all">All words</option>
+                <option value="off">Off</option>
+              </select>
+            </label>)}
+          </div>
+          <fieldset className="reader-tone-palette">
+            <legend>Migaku tone palette</legend>
+            <div className="reader-color-list">
+              {TONE_NAMES.map((name, index) => <label key={name}>
+                <input type="color" value={readingOptions.palette[index]} aria-label={`${name} color`}
+                  onChange={event => {
+                    const palette = [...readingOptions.palette] as ReadingOptions['palette'];
+                    palette[index] = event.target.value;
+                    saveReadingOptions({ ...readingOptions, palette });
+                  }} />
+                <span>{name}</span>
+              </label>)}
+            </div>
+            <button type="button" onClick={() => saveReadingOptions({ ...readingOptions, palette: [...MIGAKU_TONE_PALETTE] })}>Reset colors</button>
+          </fieldset>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">
