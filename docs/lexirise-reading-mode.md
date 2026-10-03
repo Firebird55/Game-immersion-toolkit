@@ -11,6 +11,10 @@ Status: implemented locally, 28 September 2026. The website offers **Migaku** an
 
 ## Word sheet
 
+Definition begins with a compact summary of unknown grammar rules anchored to the pressed word (up to three short lines, with a link to the rest). Grammar shows all rules Lexirise detected in the sentence, including known rules, with rules using the pressed word first. Each card includes its explanation, HSK level, matched text, and a link to the official Lexirise grammar page. Repeated instances of the same rule are grouped. Rules and states reuse the existing full analysis response; pending detailed analysis is retried instead of cached as complete.
+
+**Mark known / Mark unknown** saves a persistent local grammar choice in `data/lexirise/reading-cache.db`, separate from Lexirise's read-only grammar states. These local choices move with the application data to another PC and update all visible instances immediately. The public API reference does not currently document grammar-state writes, so these buttons do not update the Lexirise account. The Grammar tab labels local choices and links to Lexirise to manage them there.
+
 | View or control | Implementation | Limit |
 | --- | --- | --- |
 | Header and play | Hanzi, Lexirise Pinyin, alternate readings, Zhuyin, and this device's Chinese browser speech voice. | Lexirise's public API does not document a word-audio endpoint. Voice quality depends on installed browser/Windows voices. |

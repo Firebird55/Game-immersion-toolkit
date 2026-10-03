@@ -662,6 +662,30 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .word-sheet-body { min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:14px 18px 20px; color:#d1d1d3; font-size:16px; line-height:1.55; overflow-wrap:anywhere; }
 .word-sheet-body small { color:#99999e; font-size:13px; }
 .word-loading-note { display:block; margin-top:7px; }
+.word-grammar-summary { padding:0 0 9px; margin-bottom:10px; border-bottom:1px solid #3c3d42; }
+.word-grammar-summary > small { display:block; margin-bottom:3px; font-size:11px; }
+.word-grammar-summary button { display:flex; align-items:baseline; gap:7px; width:100%; padding:2px 0; text-align:left; font-size:12px; line-height:1.4; cursor:pointer; }
+.word-grammar-summary strong { flex:none; max-width:45%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; color:#c6d7ff; }
+.word-grammar-summary button span { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:#aeb0b6; }
+.word-grammar-summary button:hover span, .word-grammar-summary .word-grammar-more { color:#c6d7ff; }
+.word-grammar-details h3 { margin:0 0 8px; font-size:16px; font-weight:500; }
+.word-grammar-sentence { margin:0 0 13px; font-size:13px; color:#aeb0b6; }
+.word-grammar-details article { padding:12px 0; border-top:1px solid #3c3d42; }
+.word-grammar-heading { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.word-grammar-heading a { display:flex; gap:8px; align-items:baseline; color:#c6d7ff; }
+.word-grammar-heading a:hover { text-decoration:underline; }
+.word-grammar-heading a strong { font-size:17px; font-weight:500; }
+.word-grammar-heading a span { font-size:13px; }
+.word-grammar-details article > p { margin:5px 0 8px; font-size:14px; }
+.word-grammar-examples { display:flex; gap:6px; flex-wrap:wrap; }
+.word-grammar-examples span { padding:2px 7px; border-radius:4px; background:#2b3041; font-size:13px; }
+.word-grammar-actions { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:9px; }
+.word-grammar-actions button, .word-grammar-note button { flex:none; padding:6px 9px; border:1px solid #52565d; border-radius:5px; font-size:12px; cursor:pointer; }
+.word-grammar-actions button:hover { border-color:#c6d7ff; }
+.word-grammar-actions button:disabled { opacity:.5; cursor:wait; }
+.word-grammar-details .is-known .word-grammar-actions small { color:#4bd08a; }
+.word-grammar-details .uses-selected-word .word-grammar-heading a { color:#d7e4ff; }
+.word-grammar-note { display:block; margin-top:12px; font-size:12px; line-height:1.5; color:#99999e; }
 .word-retry { display:block; margin-top:10px; padding:7px 11px; border:1px solid #6a6e73; border-radius:7px; color:#f6f6f6; cursor:pointer; }
 .word-definition-lead { display:flex; flex-wrap:wrap; align-items:baseline; gap:5px 9px; margin-bottom:8px; font-size:18px; }
 .word-pos { padding:2px 9px; border-radius:5px; background:#203b89; color:#c6d7ff; font-size:14px; text-transform:capitalize; }

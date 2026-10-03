@@ -1,9 +1,10 @@
 'use client';
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Popover } from '@base-ui/react/popover';
 import { Bookmark, Play, Volume2, X } from 'lucide-react';
 import { countUnknownWords, restoreTranslationLimit, type ReadingSummary, type TranslationLimit } from './translation-visibility';
+import { appliesToWord, unknownWordGrammar, grammarUrl, type GrammarRule } from './grammar-rules';
 
 export type ReadingScope = 'unknown' | 'all' | 'off';
 export type ReadingOptions = {
@@ -40,7 +41,7 @@ export function restoreReadingOptions(value: unknown): ReadingOptions {
   };
 }
 type Token = { start: number; end: number; word: string; pinyin: string; zhuyin: string; tones: number[]; proficiency: number; meaning: string; entryId?: number | null };
-type Reading = { text: string; tokens: Token[]; pendingMeanings?: boolean };
+type Reading = { text: string; tokens: Token[]; pendingMeanings?: boolean; analysisPending?: boolean; grammar?: GrammarRule[] };
 type Component = { character: string; type: string[]; hint: string; pinyin?: string[]; gloss?: string; characterHint?: string };
 type Lookup = {
   translations: { meaning: string; partOfSpeech: string[]; examples: { text: string; translation: string }[] }[];
@@ -58,13 +59,14 @@ type CharacterBreakdown = { partial?: boolean; characters: { character: string; 
 type ExampleResult = { examples: { text: string; translation: string; tokens: Token[] }[] };
 type SimilarResult = { generated: boolean; suggestions: { word: string; pinyin: string;
   tones: number[]; meaning: string; usage: string }[] };
-type WordTab = 'definition' | 'context' | 'examples' | 'similar' | 'components';
+type WordTab = 'definition' | 'grammar' | 'context' | 'examples' | 'similar' | 'components';
 const API_URL = 'http://127.0.0.1:8766';
 const cache = new Map<number, { reading: Reading; at: number }>();
 const lookupCache = new Map<string, Lookup>();
 const proficiencyOverrides = new Map<number, number>();
+const grammarOverrides = new Map<string, { proficiency: number; localOverride: boolean }>();
 function applyOverrides(reading: Reading): Reading {
-  return { ...reading, tokens: reading.tokens.map(token => {
+  return { ...reading, grammar: reading.grammar?.map(rule => ({ ...rule, ...grammarOverrides.get(rule.slug) })), tokens: reading.tokens.map(token => {
     const level = token.entryId == null ? undefined : proficiencyOverrides.get(token.entryId);
     return level == null ? token : { ...token, proficiency: level };
   }) };
@@ -161,10 +163,13 @@ function DefinitionComponents({ character, hint, strokeCount, components, option
   </section>;
 }
 
-function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, onClose, onProficiency, onRetry }: {
+function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry }: {
   id: number; text: string; token: Token; lookup?: Lookup; lookupError: boolean;
   anchor: HTMLElement; keyboard: boolean;
   options: ReadingOptions; onClose: () => void; onProficiency: (level: number) => void; onRetry: () => void;
+  grammar: GrammarRule[]; analysisPending: boolean;
+  onGrammarChange: (rule: { slug: string; proficiency: number; localOverride: boolean }) => void;
+  onGrammarRetry: () => void;
 }) {
   const [tab, setTab] = useState<WordTab>('definition');
   const [context, setContext] = useState<ContextMeaning | null>(null);
@@ -184,6 +189,29 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
   const [similarError, setSimilarError] = useState(false);
   const [saving, setSaving] = useState<number | null>(null);
   const [saveError, setSaveError] = useState('');
+  const [savingGrammar, setSavingGrammar] = useState<string | null>(null);
+  const [grammarSaveError, setGrammarSaveError] = useState('');
+  const unknownGrammar = unknownWordGrammar(grammar, token.start, token.end);
+  const sortedGrammar = [...grammar].sort((left, right) =>
+    Number(appliesToWord(right, token.start, token.end)) - Number(appliesToWord(left, token.start, token.end)));
+  async function setGrammarKnown(rule: GrammarRule) {
+    if (savingGrammar !== null) return;
+    setSavingGrammar(rule.slug);
+    setGrammarSaveError('');
+    try {
+      const response = await fetch(`${API_URL}/api/lines/${id}/reading/grammar`, {
+        method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'lexirise' },
+        body: JSON.stringify({ slug: rule.slug, known: rule.proficiency < 4 }),
+      });
+      if (!response.ok) throw new Error('Could not save grammar status. Try again.');
+      onGrammarChange(await response.json());
+    } catch (error) {
+      setGrammarSaveError(error instanceof Error ? error.message : 'Could not save grammar status.');
+    } finally {
+      setSavingGrammar(null);
+    }
+  }
   useEffect(() => {
     if (tab !== 'context' || context || contextError) return;
     const controller = new AbortController();
@@ -304,11 +332,46 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
       </div>
       {saveError && <p className="word-sheet-error" role="alert">{saveError}</p>}
       <div className="word-tabs" role="tablist" aria-label="Word details">
-        {(['definition', 'context', 'examples', 'similar', 'components'] as const).map(value =>
+        {(['definition', 'grammar', 'context', 'examples', 'similar', 'components'] as const).map(value =>
           <button key={value} type="button" role="tab" aria-selected={tab === value}
             className={tab === value ? 'active' : ''} onClick={() => setTab(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}
       </div>
       <div className="word-sheet-body" role="tabpanel">
+        {tab === 'definition' && (unknownGrammar.length > 0 || analysisPending) &&
+          <section className="word-grammar-summary" aria-label="Unknown grammar for this word">
+            <small>Unknown grammar</small>
+            {unknownGrammar.slice(0, 3).map(rule => <button type="button" key={rule.slug}
+              title={`${rule.title}: ${rule.subtitle}`} onClick={() => setTab('grammar')}>
+              <strong lang="zh-Hans">{rule.title}</strong><span>{rule.subtitle}</span>
+            </button>)}
+            {unknownGrammar.length > 3 && <button type="button" className="word-grammar-more"
+              onClick={() => setTab('grammar')}>+{unknownGrammar.length - 3} more</button>}
+            {analysisPending && <small>Checking grammar…</small>}
+          </section>}
+        {tab === 'grammar' && <div className="word-grammar-details">
+          <h3>Grammar in this sentence</h3>
+          <p className="word-grammar-sentence" lang="zh-Hans">{text}</p>
+          {analysisPending && <p className="word-grammar-note">Detailed analysis is still running.
+            <button type="button" onClick={onGrammarRetry}>Check again</button></p>}
+          {!grammar.length && !analysisPending && <p>No grammar rules were returned for this sentence.
+            <button type="button" className="word-retry" onClick={onGrammarRetry}>Retry grammar analysis</button></p>}
+          {sortedGrammar.map(rule => <article key={rule.slug}
+            className={`${rule.proficiency >= 4 ? 'is-known' : ''} ${appliesToWord(rule, token.start, token.end) ? 'uses-selected-word' : ''}`}>
+            <div className="word-grammar-heading"><a href={grammarUrl(rule.slug)} target="_blank" rel="noopener noreferrer"
+              aria-label={`Read about ${rule.title} on Lexirise`}><strong lang="zh-Hans">{rule.title}</strong><span>↗</span></a>
+              {rule.level && <small>{rule.level}</small>}</div>
+            <p>{rule.subtitle}</p>
+            <div className="word-grammar-examples" lang="zh-Hans">{rule.examples.map((example, index) => <span key={index}>{example}</span>)}</div>
+            <div className="word-grammar-actions"><small>{rule.proficiency >= 4 ? 'Known' :
+              WORD_LEVELS.find(level => level.value === rule.proficiency)?.label || 'Unknown'}
+              {rule.localOverride ? ' · Local' : ''}
+              {appliesToWord(rule, token.start, token.end) ? ' · Uses this word' : ''}</small>
+              <button type="button" disabled={savingGrammar !== null} onClick={() => void setGrammarKnown(rule)}>
+                {savingGrammar === rule.slug ? 'Saving…' : rule.proficiency >= 4 ? 'Mark unknown' : 'Mark known'}</button></div>
+          </article>)}
+          {grammarSaveError && <p className="word-sheet-error" role="alert">{grammarSaveError}</p>}
+          <small className="word-grammar-note">Status changes are saved in Proxy Transcript. Lexirise's API currently provides read-only grammar states; use the rule links to read more or update them on Lexirise.</small>
+        </div>}
         {!lookup && !lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
           <p>{token.meaning || 'Looking up word details…'}<small className="word-loading-note">Loading dictionary details…</small></p>}
         {lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
@@ -429,14 +492,15 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
   const [lookup, setLookup] = useState<{ index: number; value?: Lookup; error?: boolean } | null>(null);
   const [lookupAttempt, setLookupAttempt] = useState(0);
   const [error, setError] = useState(false);
+  const refreshReading = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => {
-    onSummary?.({ id, text, unknownWords: reading?.text === text ? countUnknownWords(text, reading.tokens) : null });
+    onSummary?.({ id, text, unknownWords: reading?.text === text && !reading.analysisPending ? countUnknownWords(text, reading.tokens) : null });
   }, [id, text, reading, onSummary]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let refreshCount = 0;
-    const refreshDelays = [800, 1200, 1800, 2600, 3800, 5600, 8000];
+    const refreshDelays = [800, 1200, 1800, 2600, 3800, 5600, 8000, 12000, 16000, 20000];
     setOpen(null);
     const saved = cachedReading(id, text);
     setReading(saved);
@@ -449,17 +513,20 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
         cache.set(id, { reading: result, at: Date.now() });
         setReading(result);
         setError(false);
-        if (result.pendingMeanings && refreshCount < refreshDelays.length) {
+        if ((result.pendingMeanings || result.analysisPending) && refreshCount < refreshDelays.length) {
           timer = setTimeout(refresh, refreshDelays[refreshCount++]);
         }
       } catch {
         if (active) setError(true);
       }
     }
-    if (!saved || saved.pendingMeanings) void refresh();
+    refreshReading.current = refresh;
+    if (!saved || saved.pendingMeanings || saved.analysisPending) void refresh();
     const onChange = () => setReading(previous => previous ? applyOverrides(previous) : previous);
     window.addEventListener('lexirise-word-state', onChange);
-    return () => { active = false; if (timer) clearTimeout(timer); window.removeEventListener('lexirise-word-state', onChange); };
+    window.addEventListener('lexirise-grammar-state', onChange);
+    return () => { active = false; if (timer) clearTimeout(timer); refreshReading.current = null;
+      window.removeEventListener('lexirise-word-state', onChange); window.removeEventListener('lexirise-grammar-state', onChange); };
   }, [id, text]);
   useEffect(() => {
     if (open === null || !reading || reading.text !== text) return;
@@ -484,6 +551,12 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
     proficiencyOverrides.set(entryId, level);
     for (const [lineId, saved] of cache) cache.set(lineId, { ...saved, reading: applyOverrides(saved.reading) });
     window.dispatchEvent(new Event('lexirise-word-state'));
+  }
+
+  function onGrammarChange(rule: { slug: string; proficiency: number; localOverride: boolean }) {
+    grammarOverrides.set(rule.slug, { proficiency: rule.proficiency, localOverride: rule.localOverride });
+    for (const [lineId, saved] of cache) cache.set(lineId, { ...saved, reading: applyOverrides(saved.reading) });
+    window.dispatchEvent(new Event('lexirise-grammar-state'));
   }
 
   if (!reading || reading.text !== text) return <p className={current ? 'current-chinese' : undefined} lang="zh-Hans" title={error ? 'Lexirise analysis unavailable' : 'Analyzing with Lexirise'}>{text}</p>;
@@ -514,6 +587,8 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
   const selected = open === null ? null : reading.tokens[open];
   return <><p className={`reading-text ${current ? 'current-chinese' : ''}`} lang="zh-Hans">{parts}</p>
     {selected && anchor && <WordSheet key={`${id}:${selected.start}`} id={id} text={text} token={selected} options={options} anchor={anchor} keyboard={keyboard}
+      grammar={reading.grammar || []} analysisPending={!!reading.analysisPending} onGrammarChange={onGrammarChange}
+      onGrammarRetry={() => void refreshReading.current?.()}
       lookup={lookup?.index === open ? lookup.value : undefined} lookupError={lookup?.index === open && !!lookup.error}
       onClose={() => setOpen(null)} onProficiency={onProficiency}
       onRetry={() => { setLookup(null); setLookupAttempt(value => value + 1); }} />}</>;
