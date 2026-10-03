@@ -233,7 +233,7 @@ class Runtime:
 
     def status(self) -> dict[str, object]:
         capture = self.capture.snapshot()
-        database_counts = capture.active_game != "hito"
+        database_counts = capture.active_game == "zzz"
         agents = self.agents.status(include_database_counts=database_counts)
         return {
             "capture": capture.model_dump(mode="json"),
@@ -552,7 +552,8 @@ def windows() -> list[dict[str, object]]:
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await runtime.hub.connect(websocket)
     try:
-        await websocket.send_json({"type": "snapshot", "snapshot": runtime.status()})
+        snapshot = await asyncio.to_thread(runtime.status)
+        await websocket.send_json({"type": "snapshot", "snapshot": snapshot})
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
