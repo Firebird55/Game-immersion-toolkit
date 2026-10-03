@@ -27,6 +27,7 @@ from .pragmata_updates import PragmataUpdateManager
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError
+from .reading import LexiriseReadingService
 from .windows import list_visible_windows, game_data_directory
 
 
@@ -729,3 +730,4 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         await runtime.hub.disconnect(websocket)
     except Exception:
         await runtime.hub.disconnect(websocket)
+
