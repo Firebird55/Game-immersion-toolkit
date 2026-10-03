@@ -14,6 +14,7 @@ import httpx
 from pypinyin import Style, lazy_pinyin
 
 from .lexirise import API_BASE, LexiriseError, LexiriseService
+from .grammar import normalize_grammar
 
 
 ZHUYIN_TONE_MARKS = {1: "", 2: "ˊ", 3: "ˇ", 4: "ˋ", 5: "˙"}
@@ -90,6 +91,7 @@ class LexiriseReadingService:
         directory.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("CREATE TABLE IF NOT EXISTS cache (kind TEXT, key TEXT, value TEXT, at REAL, PRIMARY KEY(kind,key))")
+            db.execute("CREATE TABLE IF NOT EXISTS grammar_choices (slug TEXT PRIMARY KEY, proficiency INTEGER NOT NULL CHECK(proficiency IN (0,4)))")
 
     def _cached(self, kind: str, key: str, max_age: float):
         with self.lock, closing(sqlite3.connect(self.path)) as db:
@@ -149,6 +151,8 @@ class LexiriseReadingService:
         if not text.strip() or len(text) > 1600:
             raise LexiriseError("This sentence is too long for Lexirise reading analysis.")
         result = self._cached("analysis-full", text, 10 * 60)
+        if result and result.get("morphoPending") and self._cached("analysis-full", text, 1) is None:
+            result = None
         if result is None:
             result = self._post("/v1/analyze/text", {"text": text, "language": "zh", "fast": False})
             self._save("analysis-full", text, result)
@@ -201,7 +205,22 @@ class LexiriseReadingService:
                 pending = self._schedule_meaning(word) or pending
         for token in tokens:
             token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
-        return {"text": text, "tokens": tokens, "pendingMeanings": pending}
+        with self.lock, closing(sqlite3.connect(self.path)) as db:
+            grammar_choices = dict(db.execute("SELECT slug,proficiency FROM grammar_choices"))
+        return {"text": text, "tokens": tokens, "pendingMeanings": pending,
+                "analysisPending": bool(result.get("morphoPending")),
+                "grammar": normalize_grammar(text, result, grammar_choices)}
+
+    def set_grammar_known(self, text: str, slug: str, known: bool) -> dict | None:
+        # Grammar writes are not exposed by Lexirise's public v1 API. Persist an
+        # explicit local choice, separate from the remote learner state/cache.
+        rule = next((rule for rule in self.analyze(text)["grammar"] if rule["slug"] == slug), None)
+        if rule is None:
+            return None
+        proficiency = 4 if known else 0
+        with self.lock, closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (slug, proficiency))
+        return {"slug": slug, "proficiency": proficiency, "localOverride": True}
 
     def lookup(self, text: str, start: int) -> dict | None:
         """Look up one token from an official saved line after a user presses it."""

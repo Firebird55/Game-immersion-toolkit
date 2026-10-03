@@ -48,6 +48,11 @@ class WordContextQuestion(BaseModel):
     question: str = Field(min_length=1, max_length=500)
 
 
+class GrammarKnownUpdate(BaseModel):
+    slug: str = Field(min_length=1, max_length=160, pattern=r"^[a-zA-Z0-9_-]+$")
+    known: bool = Field(strict=True)
+
+
 class EventHub:
     def __init__(self) -> None:
         self.clients: set[WebSocket] = set()
@@ -369,6 +374,23 @@ def line_word_lookup(line_id: int, start: int) -> dict:
         raise HTTPException(503, str(error)) from None
     if result is None:
         raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/grammar")
+def line_grammar_known(line_id: int, payload: GrammarKnownUpdate,
+                       x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's grammar controls.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.set_grammar_known(line.chinese, payload.slug, payload.known)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Grammar rule not found in this line")
     return result
 
 
