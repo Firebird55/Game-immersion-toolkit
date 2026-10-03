@@ -42,6 +42,21 @@ class FavoriteUpdate(BaseModel):
     favorite: bool
 
 
+class WordProficiencyUpdate(BaseModel):
+    start: int = Field(ge=0)
+    proficiency: int = Field(ge=1, le=4)
+
+
+class WordContextQuestion(BaseModel):
+    start: int = Field(ge=0)
+    question: str = Field(min_length=1, max_length=500)
+
+
+class GrammarKnownUpdate(BaseModel):
+    slug: str = Field(min_length=1, max_length=160, pattern=r"^[a-zA-Z0-9_-]+$")
+    known: bool = Field(strict=True)
+
+
 class EventHub:
     def __init__(self) -> None:
         self.clients: set[WebSocket] = set()
@@ -77,6 +92,7 @@ class Runtime:
         self.settings = SettingsStore(DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.lexirise = LexiriseService(DATA_DIR / "lexirise")
+        self.reading = LexiriseReadingService(DATA_DIR / "lexirise", self.lexirise)
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
@@ -299,6 +315,7 @@ async def lifespan(_app: FastAPI):
     finally:
         await runtime.capture.close()
         await asyncio.to_thread(runtime.hito.close)
+        await asyncio.to_thread(runtime.reading.pool.shutdown, wait=True, cancel_futures=True)
         await asyncio.to_thread(runtime.agent_updater.close)
         await asyncio.to_thread(runtime.story_updater.close)
         await asyncio.to_thread(runtime.update_manager.close)
@@ -425,6 +442,158 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
 @app.get("/api/lexirise")
 def lexirise_status() -> dict:
     return runtime.lexirise.status()
+
+
+@app.get("/api/lines/{line_id}/reading")
+def line_reading(line_id: int) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        return runtime.reading.analyze(line.chinese)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+
+
+@app.get("/api/lines/{line_id}/reading/lookup")
+def line_word_lookup(line_id: int, start: int) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.lookup(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/grammar")
+def line_grammar_known(line_id: int, payload: GrammarKnownUpdate,
+                       x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's grammar controls.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.set_grammar_known(line.chinese, payload.slug, payload.known)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Grammar rule not found in this line")
+    return result
+
+
+@app.get("/api/lines/{line_id}/reading/context")
+def line_word_context(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.context(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/context")
+def ask_line_word_context(line_id: int, payload: WordContextQuestion,
+                          x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's word controls.")
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(422, "Question cannot be blank")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.context(line.chinese, payload.start, question)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.get("/api/lines/{line_id}/reading/examples")
+def line_word_examples(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.examples(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.get("/api/lines/{line_id}/reading/similar")
+def line_word_similar(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.similar(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/examples/{example_index}/save")
+def save_line_word_example(line_id: int, example_index: int, start: int = Query(ge=0),
+                           x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's example bookmark.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.save_example(line.chinese, start, example_index)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Example not found for this word")
+    return result
+
+
+@app.get("/api/lines/{line_id}/reading/characters")
+def line_word_characters(line_id: int, start: int = Query(ge=0)) -> dict:
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.characters(line.chinese, start)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
+
+
+@app.post("/api/lines/{line_id}/reading/proficiency")
+def line_word_proficiency(line_id: int, payload: WordProficiencyUpdate,
+                          x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403, "Use the companion's word controls.")
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(404, "Transcript line not found")
+    try:
+        result = runtime.reading.set_proficiency(line.chinese, payload.start, payload.proficiency)
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+    if result is None:
+        raise HTTPException(404, "Word not found in this line")
+    return result
 
 
 @app.post("/api/lines/{line_id}/lexirise")
