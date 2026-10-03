@@ -1,8 +1,8 @@
 'use client';
 
 import { memo, useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Bookmark, Volume2 } from 'lucide-react';
+import { Popover } from '@base-ui/react/popover';
+import { Bookmark, Play, Volume2, X } from 'lucide-react';
 
 export type ReadingScope = 'unknown' | 'all' | 'off';
 export type ReadingOptions = {
@@ -126,8 +126,27 @@ function ExampleChinese({ text, tokens, options }: { text: string; tokens: Token
   return <div className="word-example-chinese" lang="zh-Hans">{parts}</div>;
 }
 
-function WordSheet({ id, text, token, lookup, lookupError, options, onClose, onProficiency, onRetry }: {
+function DefinitionComponents({ character, hint, strokeCount, components }: {
+  character: string; hint?: string; strokeCount?: number; components: Lookup['components'];
+}) {
+  if (!hint && !components.length && strokeCount == null) return null;
+  return <section className="word-definition-components" aria-label={`${character} character explanation`}>
+    <h3>{character} <span>Character explanation</span>{strokeCount != null && <small>{strokeCount} strokes</small>}</h3>
+    {hint && <p className="word-character-hint">{hint}</p>}
+    {!!components.length && <>
+      <h4>Components <small>{components.length}</small></h4>
+      <div className="word-component-cards">{components.map((part, index) => <article key={index}>
+        <strong lang="zh-Hans">{part.character}</strong>
+        <div><span className="word-component-type">{part.type.join(', ') || 'Component'}</span>
+          {part.hint && <p>{part.hint}</p>}</div>
+      </article>)}</div>
+    </>}
+  </section>;
+}
+
+function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, onClose, onProficiency, onRetry }: {
   id: number; text: string; token: Token; lookup?: Lookup; lookupError: boolean;
+  anchor: HTMLElement; keyboard: boolean;
   options: ReadingOptions; onClose: () => void; onProficiency: (level: number) => void; onRetry: () => void;
 }) {
   const [tab, setTab] = useState<WordTab>('definition');
@@ -242,13 +261,18 @@ function WordSheet({ id, text, token, lookup, lookupError, options, onClose, onP
       setSavingExample(null);
     }
   }
-  const primary = lookup?.translations.find(value => value.partOfSpeech.length) || lookup?.translations[0];
-  return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-    <DialogContent className="word-sheet" showCloseButton>
+  return <Popover.Root open modal={false} onOpenChange={open => { if (!open) onClose(); }}>
+    <Popover.Portal>
+    <Popover.Positioner anchor={anchor} side="bottom" sideOffset={8} align="start" positionMethod="fixed"
+      collisionPadding={12} collisionAvoidance={{ side: 'flip', align: 'shift', fallbackAxisSide: 'none' }}
+      className="word-sheet-positioner">
+    <Popover.Popup className="word-sheet" initialFocus={keyboard} finalFocus={keyboard ? () => anchor : false}>
+      <Popover.Close className="word-sheet-close" aria-label="Close word lookup"><X size={17} /></Popover.Close>
       <div className="word-sheet-top">
         <div className="word-sheet-identity">
-          <div className="word-sheet-headword"><DialogTitle>{token.word}</DialogTitle>
-            <button type="button" className="word-speak" onClick={() => speakChinese(token.word)} title="Speak using this device's Chinese voice" aria-label={`Pronounce ${token.word}`}>▶</button>
+          <div className="word-sheet-headword"><Popover.Title className="word-sheet-title"
+            style={enabled(options.toneColors, token.proficiency < 4) ? toneStyle(token.tones || [], token.word, options.palette) : undefined}>{token.word}</Popover.Title>
+            <button type="button" className="word-speak" onClick={() => speakChinese(token.word)} title="Speak using this device's Chinese voice" aria-label={`Pronounce ${token.word}`}><Play size={17} fill="currentColor" /></button>
           </div>
           <div className="word-sheet-reading">{token.pinyin}{lookup?.alternateReadings?.length ? ` · ${lookup.alternateReadings.join(' · ')}` : ''}</div>
           {token.zhuyin && <div className="word-sheet-zhuyin">{token.zhuyin}</div>}
@@ -274,8 +298,10 @@ function WordSheet({ id, text, token, lookup, lookupError, options, onClose, onP
           <p>Dictionary details are unavailable. {token.meaning}
           <button type="button" className="word-retry" onClick={onRetry}>Retry dictionary lookup</button></p>}
         {tab === 'definition' && lookup && <>
-          <div className="word-definition-lead"><span>{primary?.meaning || token.meaning || 'No definition yet'}</span>
-            {primary?.partOfSpeech.length ? <small>{primary.partOfSpeech.join(', ')}</small> : null}</div>
+          <div className="word-definition-senses">{lookup.translations.length ? lookup.translations.map((sense, index) =>
+            <div className="word-definition-lead" key={index}><span>{sense.meaning}</span>
+              {sense.partOfSpeech.map((part, partIndex) => <span className="word-pos" key={partIndex}>{part}</span>)}
+            </div>) : <p>{token.meaning || 'No definition yet'}</p>}</div>
           {lookup.hskLevel != null && <span className="word-hsk">HSK {lookup.hskLevel}</span>}
           {token.word.length > 1 && <section className="word-character-summary">
             <h3>Characters</h3>
@@ -290,6 +316,12 @@ function WordSheet({ id, text, token, lookup, lookupError, options, onClose, onP
             <p><strong>{dictionary.headword}</strong> <span>{dictionary.reading}</span></p>
             <ul>{dictionary.definitions.map((meaning, item) => <li key={item}>{meaning}</li>)}</ul>
           </section>)}
+          {token.word.length === 1 ? <DefinitionComponents character={lookup.character || token.word}
+            hint={lookup.characterHint} strokeCount={lookup.strokeCount} components={lookup.components} /> :
+            characters?.characters.map((character, index) => <DefinitionComponents key={index}
+              character={character.character} hint={character.hint} strokeCount={character.strokeCount} components={character.components} />)}
+          {token.word.length > 1 && characters?.partial && <button type="button" className="word-retry"
+            onClick={() => setCharacters(null)}>Retry missing character explanations</button>}
           {lookup.rank != null && <div className="word-frequency"><span>Frequency</span>
             {lookup.frequencyScore != null && <span className="word-frequency-bars" aria-label={`Frequency score ${Math.round(lookup.frequencyScore * 100)} percent`}>
               {Array.from({ length: 4 }, (_, index) => <i key={index} className={lookup.frequencyScore! >= (index + 1) / 4 ? 'on' : ''} />)}
@@ -360,8 +392,10 @@ function WordSheet({ id, text, token, lookup, lookupError, options, onClose, onP
             onClick={() => setCharacters(null)}>Retry missing characters</button>}
         </div>}
       </div>
-    </DialogContent>
-  </Dialog>;
+    </Popover.Popup>
+    </Popover.Positioner>
+    </Popover.Portal>
+  </Popover.Root>;
 }
 
 export const ReadingText = memo(function ReadingText({ id, text, options, current = false }: {
@@ -369,6 +403,8 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
 }) {
   const [reading, setReading] = useState<Reading | null>(cachedReading(id, text));
   const [open, setOpen] = useState<number | null>(null);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [keyboard, setKeyboard] = useState(false);
   const [lookup, setLookup] = useState<{ index: number; value?: Lookup; error?: boolean } | null>(null);
   const [lookupAttempt, setLookupAttempt] = useState(0);
   const [error, setError] = useState(false);
@@ -442,7 +478,9 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
       {enabled(options.pinyin, unknown) && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
       {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true">{token.zhuyin}</span>}
       <span className="reading-hanzi" role="button" tabIndex={0}
-        onClick={() => setOpen(index)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(index); } }}
+        aria-haspopup="dialog" aria-expanded={open === index}
+        onClick={event => { setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }}
+        onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setAnchor(event.currentTarget); setKeyboard(true); setOpen(open === index ? null : index); } }}
         style={colorStyle} title={token.meaning || 'Tap for word details'}>{wordText}</span>
       {enabled(options.meanings, unknown) && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
     </span>);
@@ -451,7 +489,7 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
   if (cursor < text.length) parts.push(text.slice(cursor));
   const selected = open === null ? null : reading.tokens[open];
   return <><p className={`reading-text ${current ? 'current-chinese' : ''}`} lang="zh-Hans">{parts}</p>
-    {selected && <WordSheet key={`${id}:${selected.start}`} id={id} text={text} token={selected} options={options}
+    {selected && anchor && <WordSheet key={`${id}:${selected.start}`} id={id} text={text} token={selected} options={options} anchor={anchor} keyboard={keyboard}
       lookup={lookup?.index === open ? lookup.value : undefined} lookupError={lookup?.index === open && !!lookup.error}
       onClose={() => setOpen(null)} onProficiency={onProficiency}
       onRetry={() => { setLookup(null); setLookupAttempt(value => value + 1); }} />}</>;
