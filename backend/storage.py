@@ -99,7 +99,7 @@ class TranscriptStore:
             channel=row["channel"],
             voiced=bool(row["voiced"]),
             has_audio=bool(row["audio_path"]),
-            audio_source="original" if (row["audio_path"] or "").startswith("official-") else "recording",
+            audio_source="original" if not row["audio_path"] or row["audio_path"].startswith("official-") else "recording",
             speaker_english=row["speaker_english"],
             speaker_chinese=row["speaker_chinese"],
             favorite=bool(row["favorite"]),
@@ -344,12 +344,12 @@ class TranscriptStore:
         ]
 
     def purge_unvoiced(self) -> list[tuple[int, str | None]]:
-        """Remove unconfirmed rows while retaining known voiced cinematic text."""
+        """Keep favorites and subtitle-confirmed voices, including pending audio."""
         with self._connect() as connection:
             rows = connection.execute(
                 """
                 SELECT id, audio_path FROM transcript_lines
-                WHERE voiced = 0 OR (audio_path IS NULL AND channel <> 'cinematic')
+                WHERE voiced = 0 AND favorite = 0
                 """
             ).fetchall()
             if rows:

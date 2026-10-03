@@ -13,7 +13,6 @@ import {
   ScanLine,
   Settings2,
   Star,
-  Users,
   Volume2,
   Gamepad2,
   Send,
@@ -25,7 +24,6 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ReadingText, DEFAULT_READING_OPTIONS, MIGAKU_TONE_PALETTE,
   restoreReadingOptions, type ReadingOptions, type ReadingScope } from '@/app/reading-text';
-import { createVoiceActivityFollower, type VoiceActivity } from '@/lib/voice-activity';
 import {
   Dialog,
   DialogContent,
@@ -111,16 +109,12 @@ type StatusPayload = {
   textmaps: TextMapStatus;
   game_textmaps?: Record<'zzz' | 'pragmata', TextMapStatus>;
   audio: { ready: boolean; message: string };
-  agents?: { indexed_clips: number; total_clips: number; selected_agent: string | null; last_error: string | null; saved_lines: number; update?: { state: string; message: string; automatic: boolean } };
-  voice_activity?: VoiceActivity | null;
   updates?: UpdateStatus;
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
-type TranscriptTab = 'history' | 'agents' | 'favorites';
+type TranscriptTab = 'history' | 'favorites';
 type GameId = 'zzz' | 'pragmata';
-type AgentLine = { key: string; agent: string; asset_id: string; chinese: string; text_source: string; last_heard: string; heard_count: number };
-type AgentPage = { lines: AgentLine[]; total: number };
 type LexiriseStatus = { configured: boolean; sent: Record<string, number> };
 type ReadingMode = 'migaku' | 'lexirise';
 type ReadingScopeField = 'pinyin' | 'zhuyin' | 'toneMarks' | 'meanings' | 'toneColors';
@@ -143,14 +137,6 @@ const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game
     {!compact && <span>{busy ? 'Sending…' : sent ? 'Sent to Lexirise' : 'Lexirise'}</span>}
   </button>;
 });
-
-function mergeAgentLines(current: AgentLine[], incoming: AgentLine[]) {
-  const entries = new Map(current.map(line => [line.key, line]));
-  for (const line of incoming) {
-    if (!entries.has(line.key) || entries.get(line.key)!.last_heard <= line.last_heard) entries.set(line.key, line);
-  }
-  return [...entries.values()].sort((a,b) => b.last_heard.localeCompare(a.last_heard) || b.key.localeCompare(a.key));
-}
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
@@ -233,11 +219,10 @@ function phaseLabel(phase: string) {
     starting: 'Starting',
     waiting_for_game: 'Waiting for game',
     loading_textmaps: 'Loading TextMaps',
-    listening: 'Listening',
+    listening: 'Reading subtitles',
     unmatched: 'Reading subtitle',
     excluded_screen: 'History UI ignored',
     matched: 'Matched',
-    agents: 'Agent voices',
     error: 'Retrying',
     stopped: 'Paused',
   };
@@ -308,7 +293,7 @@ const TranscriptRow = memo(function TranscriptRow({
   sentToLexirise: boolean;
   onPlay: (line: TranscriptLine) => void;
   onToggleFavorite: (line: TranscriptLine) => void;
-  onSendToLexirise: (kind: 'line' | 'agent', id: number | string) => void;
+  onSendToLexirise: (kind: 'line', id: number | string) => void;
 }) {
   const ref = `line:${line.id}`;
   return <article className="transcript-line">
@@ -364,10 +349,6 @@ function CompanionClient() {
   }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
   const lastActiveGame = useRef<GameId | null>(null);
-  const followVoice = useRef(createVoiceActivityFollower(changeTranscriptTab));
-  const [agentLines, setAgentLines] = useState<AgentLine[]>([]);
-  const [agentTotal, setAgentTotal] = useState(0);
-  const [loadingAgents, setLoadingAgents] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
@@ -407,20 +388,18 @@ function CompanionClient() {
 
   const loadSnapshot = useCallback(async () => {
     try {
-      const [statusResponse, zzzLinesResponse, pragmataLinesResponse, zzzFavoritesResponse, pragmataFavoritesResponse, agentsResponse] = await Promise.all([
+      const [statusResponse, zzzLinesResponse, pragmataLinesResponse, zzzFavoritesResponse, pragmataFavoritesResponse] = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/lines?limit=50&game=zzz`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/lines?limit=50&game=pragmata`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/favorites?game=zzz`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/favorites?game=pragmata`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/agents`, { cache: 'no-store' }),
       ]);
       if (!statusResponse.ok || !zzzLinesResponse.ok || !pragmataLinesResponse.ok || !zzzFavoritesResponse.ok || !pragmataFavoritesResponse.ok) {
         throw new Error('Companion service unavailable');
       }
       const nextStatus = (await statusResponse.json()) as StatusPayload;
       setStatus(nextStatus);
-      followVoice.current(nextStatus.voice_activity);
       setDraftSettings(nextStatus.settings);
       const recentLines = [
         ...(await zzzLinesResponse.json()) as TranscriptLine[],
@@ -438,11 +417,6 @@ function CompanionClient() {
         knownLineIds.current = new Set(merged.map((line) => line.id));
         return merged;
       });
-      if (agentsResponse.ok) {
-        const agents = (await agentsResponse.json()) as AgentPage;
-        setAgentLines(current => mergeAgentLines(current, agents.lines));
-        setAgentTotal(agents.total);
-      }
       setOnline(true);
       setSnapshotLoaded(true);
       // Integration status must not prevent the transcript from loading.
@@ -471,7 +445,6 @@ function CompanionClient() {
         const event = JSON.parse(message.data);
         if (event.type === 'snapshot') {
           setStatus(event.snapshot);
-          followVoice.current(event.snapshot.voice_activity);
           setDraftSettings(event.snapshot.settings);
         }
         if (event.type === 'capture_status') {
@@ -511,12 +484,6 @@ function CompanionClient() {
               total_line_count: current.session.total_line_count + (isNew ? 1 : 0),
             },
           } : current);
-        }
-        if (event.type === 'agent_line') {
-          setAgentLines(current => mergeAgentLines(current, [event.line as AgentLine]));
-        }
-        if (event.type === 'voice_activity') {
-          followVoice.current(event.activity);
         }
         if (event.type === 'line_deleted') {
           const lineId = Number(event.line_id);
@@ -562,7 +529,6 @@ function CompanionClient() {
       lastActiveGame.current = active;
       setSelectedGame(active);
       setHistoryPage(0);
-      if (active === 'pragmata' && transcriptTab === 'agents') changeTranscriptTab('history');
     }
   }, [changeTranscriptTab, status?.capture.active_game, transcriptTab]);
 
@@ -680,14 +646,14 @@ function CompanionClient() {
     void audio.play();
   }, [playbackRate]);
 
-  const sendToLexirise = useCallback(async (kind: 'line' | 'agent', id: number | string) => {
+  const sendToLexirise = useCallback(async (kind: 'line', id: number | string) => {
     if (sendingStudy.current) return;
     sendingStudy.current = true;
     const ref = `${kind}:${id}`;
     setSendingRef(ref);
     setStudyMessage('Sending sentence and voice to Lexirise…');
     try {
-      const response = await fetch(`${API_URL}/api/${kind === 'line' ? 'lines' : 'agents'}/${id}/lexirise`, {
+      const response = await fetch(`${API_URL}/api/lines/${id}/lexirise`, {
         method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise' },
       });
       const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
@@ -702,37 +668,17 @@ function CompanionClient() {
     }
   }, []);
 
-  function studyButton(kind: 'line' | 'agent', id: number | string, game: GameId, hasAudio: boolean, compact = false) {
+  function studyButton(kind: 'line', id: number | string, game: GameId, hasAudio: boolean, compact = false) {
     const ref = `${kind}:${id}`;
     return <LexiriseButton sent={!!lexirise.sent[ref]} busy={sendingRef === ref}
       disabled={!online || !lexirise.configured || !hasAudio || (sendingRef !== null && sendingRef !== ref)}
       game={game} onClick={() => void sendToLexirise(kind, id)} compact={compact} />;
   }
 
-  function playAgent(line: AgentLine) {
-    playback.current?.pause();
-    const audio = new Audio(`${API_URL}/api/agents/${line.asset_id}/audio`);
-    audio.playbackRate = playbackRate;
-    playback.current = audio;
-    void audio.play().catch(() => undefined);
-  }
-
   function changePlaybackRate(value: number) {
     setPlaybackRate(value);
     window.localStorage.setItem('proxy-transcript-playback-rate', String(value));
     if (playback.current) playback.current.playbackRate = value;
-  }
-
-  async function loadMoreAgents() {
-    setLoadingAgents(true);
-    try {
-      const response = await fetch(`${API_URL}/api/agents?offset=${agentLines.length}&limit=100`, { cache: 'no-store' });
-      if (response.ok) {
-        const page = (await response.json()) as AgentPage;
-        setAgentLines(current => mergeAgentLines(current, page.lines));
-        setAgentTotal(page.total);
-      }
-    } finally { setLoadingAgents(false); }
   }
 
   const capture = status?.capture;
@@ -776,7 +722,7 @@ function CompanionClient() {
         <button type="button" className={selectedGame === 'zzz' ? 'is-active' : ''} aria-pressed={selectedGame === 'zzz'} onClick={() => { setSelectedGame('zzz'); setHistoryPage(0); }}>
           Zenless Zone Zero
         </button>
-        <button type="button" className={selectedGame === 'pragmata' ? 'is-active' : ''} aria-pressed={selectedGame === 'pragmata'} onClick={() => { setSelectedGame('pragmata'); setHistoryPage(0); if (transcriptTab === 'agents') changeTranscriptTab('history'); }}>
+        <button type="button" className={selectedGame === 'pragmata' ? 'is-active' : ''} aria-pressed={selectedGame === 'pragmata'} onClick={() => { setSelectedGame('pragmata'); setHistoryPage(0); }}>
           PRAGMATA
         </button>
         {status?.capture.active_game && <small>Capturing {status.capture.active_game === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</small>}
@@ -818,7 +764,7 @@ function CompanionClient() {
         <span className="update-progress-value">{updateStatus.progress}%</span>
       </section>}
 
-      {transcriptTab !== 'agents' && <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
+      <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
           <span id="current-heading"><Crosshair size={16} /> Current line</span>
           {latestLine ? (
@@ -855,7 +801,7 @@ function CompanionClient() {
             </div>
           </div>
         )}
-      </section>}
+      </section>
 
       <div className="study-status" role="status" aria-live="polite">
         {studyMessage || (online && !lexirise.configured ? 'Lexirise is not configured on this computer.' : '')}
@@ -864,9 +810,9 @@ function CompanionClient() {
         <div className="transcript-heading">
           <div>
             <p className="eyebrow">Saved transcript</p>
-            <h2 id="transcript-heading">{transcriptTab === 'agents' ? 'Agent voices' : transcriptTab === 'favorites' ? 'Favorites' : 'Earlier lines'}</h2>
+            <h2 id="transcript-heading">{transcriptTab === 'favorites' ? 'Favorites' : 'Earlier lines'}</h2>
           </div>
-          <p>{transcriptTab === 'agents' ? 'Last heard first · Kept between sessions' : transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : '10 at a time · up to 50 recent lines'}</p>
+          <p>{transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : '10 at a time · up to 50 recent lines'}</p>
         </div>
 
         <div className="transcript-tabs" role="tablist" aria-label="Transcript view">
@@ -879,10 +825,6 @@ function CompanionClient() {
           >
             History
           </button>
-          {selectedGame === 'zzz' && <button type="button" role="tab" aria-selected={transcriptTab === 'agents'}
-            className={transcriptTab === 'agents' ? 'is-active' : ''} onClick={() => changeTranscriptTab('agents', true)}>
-            <Users size={14} /> Agents <span>{Math.max(agentTotal,agentLines.length)}</span>
-          </button>}
           <button
             type="button"
             role="tab"
@@ -895,32 +837,6 @@ function CompanionClient() {
           </button>
         </div>
 
-        {transcriptTab === 'agents' ? <div className="agent-library">
-          {status?.agents?.update && <p className="agent-note" role="status">{status.agents.update.message}</p>}
-          <div className="agent-listening" role="status">
-            <Radio size={16} />
-            <span>{capture?.phase === 'agents'
-              ? `Listening${status?.agents?.selected_agent ? ` to ${status.agents.selected_agent}` : ' for agent voices'}`
-              : 'Open an agent in the game to recognize their voice lines.'}</span>
-          </div>
-          {status?.agents && status.agents.indexed_clips < status.agents.total_clips &&
-            <p className="agent-note">Preparing audio recognition: {status.agents.indexed_clips.toLocaleString()} / {status.agents.total_clips.toLocaleString()} clips. Unindexed clips cannot be recognized yet.</p>}
-          <p className="agent-note">Hanzi is transcribed from the matched original clip and may contain errors. Replays move the same entry to the top.</p>
-          {status?.agents?.last_error && <p className="agent-note">Recognition issue: {status.agents.last_error}</p>}
-          <div className="line-list agent-lines">
-            {agentLines.map(line => <article className="agent-line" key={line.key}>
-              <div className="agent-line-header"><strong>{line.agent}</strong><time dateTime={line.last_heard}>{formatTime(line.last_heard)}</time></div>
-              <StableText lang="zh-Hans" text={line.chinese} />
-              <div className="agent-line-footer">
-                <span>Automatic transcription · Heard {line.heard_count} {line.heard_count === 1 ? 'time' : 'times'}</span>
-                <Button variant="outline" size="sm" onClick={() => playAgent(line)} aria-label={`Play ${line.agent} voice line`}><Volume2 size={16} /> Play voice</Button>
-                {studyButton('agent', line.asset_id, 'zzz', !!line.chinese)}
-              </div>
-            </article>)}
-            {!agentLines.length && <div className="transcript-empty"><Users size={26} /><p>No agent voices heard yet. Play a line on an agent’s game screen; it will be saved here once recognized.</p></div>}
-            {agentLines.length < agentTotal && <Button variant="outline" onClick={loadMoreAgents} disabled={loadingAgents}>{loadingAgents ? 'Loading…' : 'Load older voices'}</Button>}
-          </div>
-        </div> : <>
         <div className="column-labels" aria-hidden="true">
           <span>Time / type</span><span>English</span><span>中文</span><span>Match</span>
         </div>
@@ -968,7 +884,6 @@ function CompanionClient() {
             </button>
           </nav>
         )}
-        </>}
       </section>
 
       <footer className="capture-footer">

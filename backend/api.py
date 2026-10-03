@@ -10,12 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from .audio import AudioCaptureService
 from .voice_assets import VoiceAssetService
-from .story_voice import StoryVoiceResolver, StoryVoiceIndexUpdater
-from .agent_recognition import AgentRecognizer
-from .agent_library import AgentLibraryUpdater
-from .voice_activity import VoiceActivity
 from .capture import CaptureService
 from .config import SettingsStore
 from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
@@ -92,7 +87,6 @@ class Runtime:
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
-        self.audio = AudioCaptureService(DATA_DIR / "audio")
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
@@ -105,22 +99,10 @@ class Runtime:
             DATA_DIR / "audio",
         )
         self.speakers = SpeakerResolver(self.textmaps, self.voice_assets, self.transcript)
-        self.story_voices = StoryVoiceResolver(
-            DATA_DIR / "voice-assets",
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
-            DATA_DIR / "audio",
-            self.voice_assets,
-        )
-        self.story_updater = StoryVoiceIndexUpdater(self.story_voices, self._game_data)
-        self.story_voices.updater = self.story_updater
         self.event_loop = asyncio.get_running_loop()
-        self.voice_activity = VoiceActivity()
-        self.agents = AgentRecognizer(DATA_DIR / 'agent-voices', self.audio, self.on_agent_thread, self.on_agent_activity)
-        self.agent_updater = AgentLibraryUpdater(self.agents, lambda: installed_zzz_game_data_directory(self.settings.get()))
-        self.agents.updater = self.agent_updater
         removed_rows = self.transcript.purge_unvoiced()
         removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
-        audio_dir = self.audio.output_dir.resolve()
+        audio_dir = (DATA_DIR / "audio").resolve()
         for _, filename in removed_rows:
             if not filename:
                 continue
@@ -135,12 +117,9 @@ class Runtime:
             on_line=self.on_line,
             on_delete=self.on_delete,
             on_status=self.on_capture_status,
-            audio=self.audio,
+            audio_dir=DATA_DIR / "audio",
             voice_assets=self.voice_assets,
             pragmata_voice_assets=self.pragmata_voice_assets,
-            story_voice_resolver=self.story_voices,
-            agent_recognizer=self.agents,
-            on_voice=self.on_story_voice,
         )
         for line in self.transcript.list(limit=50):
             self.capture.repair_recorded_line(line)
@@ -154,26 +133,10 @@ class Runtime:
         self.index_task: asyncio.Task[None] | None = None
 
     async def start_indexes_in_order(self) -> None:
-        # Rebuilding several audio fingerprint databases at once can exhaust
-        # Windows virtual memory on a portable game drive.
+        # Refresh exact game-file mappings before checking the second game.
         while self.update_manager.state in {"checking", "updating"}:
             await asyncio.sleep(2)
-        self.story_updater.start()
-        while self.story_updater.state in {"checking", "updating"}:
-            await asyncio.sleep(2)
-        self.agent_updater.start()
-        while self.agent_updater.state in {"checking", "updating"}:
-            await asyncio.sleep(2)
         self.pragmata_updater.start()
-
-    def _game_data(self) -> Path | None:
-        discovered = installed_zzz_game_data_directory(self.settings.get())
-        if discovered:
-            return discovered
-        stored = self.agents.library.get("game_data")
-        if stored and Path(stored).is_dir():
-            return Path(stored)
-        return None
 
     async def on_line(self, line: TranscriptLine) -> None:
         audio_pending = line.audio_pending
@@ -190,56 +153,22 @@ class Runtime:
             self.event_loop,
         )
 
-    def on_agent_thread(self, line: dict) -> None:
-        asyncio.run_coroutine_threadsafe(self.hub.broadcast({'type':'agent_line','line':line}), self.event_loop)
-
-    def on_agent_activity(self, agent: str) -> None:
-        asyncio.run_coroutine_threadsafe(self.emit_activity('agents', agent), self.event_loop)
-
-    async def on_story_voice(self, line) -> None:
-        await self.emit_activity('history')
-
-    async def emit_activity(self, kind, agent=None):
-        # Changing characters is still the Agents view. Only leaving the agent
-        # screen should prevent a queued agent match from switching the tab.
-        activity = self.voice_activity.record(kind, self.capture.snapshot().phase)
-        if activity:
-            await self.hub.broadcast({'type': 'voice_activity', 'activity': activity})
-
     async def on_delete(self, line_id: int) -> None:
         await self.hub.broadcast({"type": "line_deleted", "line_id": line_id})
 
     async def on_capture_status(self, status: CaptureSnapshot) -> None:
         await self.hub.broadcast({"type": "capture_status", "capture": status.model_dump(mode="json")})
 
-    def update_status(self, agents: dict[str, object] | None = None) -> dict[str, object]:
+    def update_status(self) -> dict[str, object]:
         update = self.update_manager.status()
         if update["state"] in {"checking", "updating"}:
             return update
-        agents = agents or self.agents.status()
-        agent_update = agents.get("update") or {}
-        story_update = self.story_updater.status()
         pragmata_update = self.pragmata_updater.status()
         if pragmata_update.get("state") == "updating":
             return pragmata_update
-        if agent_update.get("state") == "updating":
-            stage_progress = int(agent_update.get("progress") or 0)
-            return {
-                **update,
-                "state": "updating",
-                "message": agent_update.get("message", "Indexing new agent voices"),
-                "progress": min(99, 82 + round(17 * stage_progress / 100)),
-            }
-        if story_update.get("state") == "updating":
-            return {
-                **update,
-                "state": "updating",
-                "message": story_update.get("message", "Indexing new story voices"),
-                "progress": 94,
-            }
         retry = next(
             (
-                item for item in (agent_update, story_update, pragmata_update)
+                item for item in (pragmata_update,)
                 if item.get("state") == "retrying"
             ),
             None,
@@ -254,7 +183,6 @@ class Runtime:
         return update
 
     def status(self) -> dict[str, object]:
-        agents = self.agents.status()
         return {
             "capture": self.capture.snapshot().model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
@@ -262,13 +190,12 @@ class Runtime:
                 "zzz": self.textmaps.status(),
                 "pragmata": self.pragmata.status(),
             },
-            "audio": self.audio.status(),
+            "audio": {"ready": self.voice_assets.ready or self.pragmata_voice_assets.ready,
+                      "message": "Original voices from game files; matched by visible subtitles",
+                      "clip_mode": "subtitle-game-files", "listening": False},
             "voice_assets": self.voice_assets.status(),
             "pragmata_voice_assets": self.pragmata_voice_assets.status(),
-            "story_voices": self.story_voices.status(),
-            "agents": agents,
-            "voice_activity": self.voice_activity.latest,
-            "updates": self.update_status(agents),
+            "updates": self.update_status(),
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -305,7 +232,6 @@ runtime: Runtime
 async def lifespan(_app: FastAPI):
     global runtime
     runtime = Runtime()
-    runtime.audio.start()
     runtime.start_map_prepare()
     runtime.update_manager.start()
     runtime.index_task = asyncio.create_task(runtime.start_indexes_in_order(), name="voice-index-coordinator")
@@ -321,15 +247,10 @@ async def lifespan(_app: FastAPI):
             except asyncio.CancelledError:
                 pass
         await runtime.capture.close()
-        await asyncio.to_thread(runtime.agent_updater.close)
-        await asyncio.to_thread(runtime.story_updater.close)
         await asyncio.to_thread(runtime.update_manager.close)
         await asyncio.to_thread(runtime.pragmata_updater.close)
-        runtime.story_voices.close()
         runtime.voice_assets.close()
         runtime.pragmata_voice_assets.close()
-        runtime.agents.close()
-        runtime.audio.stop()
         if runtime.map_task and not runtime.map_task.done():
             runtime.map_task.cancel()
             try:
@@ -383,7 +304,7 @@ def get_lines(
 ) -> list[TranscriptLine]:
     return [
         runtime.speakers.enrich(line) for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
-        if line.voiced and (line.has_audio or line.channel == "cinematic")
+        if line.voiced
         and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
@@ -397,27 +318,6 @@ def get_favorites(
     game: str | None = Query(default=None, pattern="^(zzz|pragmata)$"),
 ) -> list[TranscriptLine]:
     return [runtime.speakers.enrich(line) for line in runtime.transcript.list_favorites(game=game)]
-
-
-@app.get('/api/agents')
-def get_agents(limit: int = Query(default=100, ge=1, le=500), offset: int = Query(default=0, ge=0)):
-    return {'lines': runtime.agents.store.list(limit, offset), 'total': runtime.agents.store.count(),
-            'status': runtime.agents.status()}
-
-
-@app.get('/api/agents/{asset_id}/audio')
-def get_agent_audio(asset_id: str):
-    if not asset_id.isdecimal() or not runtime.agents.store.has_asset(asset_id):
-        raise HTTPException(status_code=404, detail='Agent voice not found')
-    path = DATA_DIR / 'agent-voices/audio' / f'{asset_id}.wav'
-    if not path.is_file():
-        raise HTTPException(status_code=404, detail='Agent audio unavailable')
-    # Loopback includes browser playback. Do not rediscover our own replay.
-    import wave
-    with wave.open(str(path)) as audio:
-        duration = audio.getnframes() / audio.getframerate()
-    runtime.agents.suppress_playback(duration + 1)
-    return FileResponse(path, media_type='audio/wav', headers={'Cache-Control':'no-store'})
 
 
 @app.get("/api/lines/{line_id}/audio")
@@ -605,23 +505,6 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         raise HTTPException(409, str(error)) from None
     except OSError:
         raise HTTPException(409, "The local voice clip became unavailable. Try a saved favorite.") from None
-
-
-@app.post("/api/agents/{asset_id}/lexirise")
-def send_agent_to_lexirise(asset_id: str, x_proxy_transcript: str = Header(default="")) -> dict:
-    if x_proxy_transcript != "lexirise":
-        raise HTTPException(403, "Use the companion's Lexirise button.")
-    line = runtime.agents.store.get_asset(asset_id) if asset_id.isdecimal() else None
-    if line is None:
-        raise HTTPException(404, "Agent line not found.")
-    try:
-        return runtime.lexirise.send(ref=f"agent:{asset_id}", game="zzz", chinese=line["chinese"],
-            english="", speaker=line["agent"], audio=DATA_DIR / "agent-voices/audio" / f"{asset_id}.wav",
-            audio_source="original; Hanzi automatically transcribed")
-    except LexiriseError as error:
-        raise HTTPException(409, str(error)) from None
-    except OSError:
-        raise HTTPException(409, "The local agent voice clip is unavailable.") from None
 
 
 @app.post("/api/capture/start")

@@ -5,7 +5,6 @@ from types import SimpleNamespace
 import pytest
 
 from backend.agent_library import AgentLibraryUpdater, build_library, stable_asset_id
-from backend.capture import CaptureService
 from backend.voice_activity import VoiceActivity
 from backend.voice_assets import VoiceEntry
 
@@ -104,15 +103,6 @@ def test_update_loop_retries_without_intervention(tmp_path,monkeypatch):
     assert len(calls)==2
 
 
-def test_unknown_agent_name_can_be_learned_without_metadata():
-    assert CaptureService._nameplate_candidate(['X','Future Agent','LB'])=='Future Agent'
-    assert CaptureService._nameplate_candidate(['FUTURE AGENT','Future Agent'])=='Future Agent'
-    assert CaptureService._nameplate_candidate(['Future Agent','Other Agent']) is None
-    assert CaptureService._nameplate_candidate(['Lv. 60','Equipment','Select','UID: 123']) is None
-    assert CaptureService._nameplate_candidate(['Soldier 0 - Anby']) == 'Soldier 0 - Anby'
-    assert CaptureService._is_agent_screen(['Character Details','Select','Return','Lv. 60','Lv. 60','Lv. 60'])
-
-
 def test_instant_selection_voice_uses_pre_roll_and_flushes_on_switch(tmp_path,monkeypatch):
     import backend.agent_recognition as module
     now=[100.]
@@ -141,20 +131,4 @@ def test_voice_activity_ignores_late_results_from_wrong_game_screen():
     assert story['kind']=='history'
 
 
-def test_queued_agent_activity_follows_tab_during_character_changes():
-    import asyncio
-    from backend.api import Runtime
-    runtime=Runtime.__new__(Runtime)
-    runtime.voice_activity=VoiceActivity()
-    runtime.agents=SimpleNamespace(_context=('Remielle',0,0))
-    phase=['agents']
-    runtime.capture=SimpleNamespace(snapshot=lambda:SimpleNamespace(phase=phase[0]))
-    events=[]
-    async def broadcast(event):
-        events.append(event)
-    runtime.hub=SimpleNamespace(broadcast=broadcast)
-    asyncio.run(runtime.emit_activity('agents','Grace'))
-    assert events[0]['activity']['kind']=='agents'
-    phase[0]='matched'
-    asyncio.run(runtime.emit_activity('agents','Grace'))
-    assert len(events)==1  # must not steal focus from resumed story dialogue
+

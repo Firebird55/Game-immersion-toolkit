@@ -248,7 +248,7 @@ def test_list_favorites_returns_all_favorites_newest_first(tmp_path) -> None:
     assert all(line.favorite for line in favorites)
 
 
-def test_purge_unvoiced_keeps_only_confirmed_audio(tmp_path) -> None:
+def test_purge_unvoiced_keeps_confirmed_subtitles_and_favorites(tmp_path) -> None:
     store = TranscriptStore(tmp_path / "transcript.db")
     match = TextMatch(
         text_id="line",
@@ -268,11 +268,14 @@ def test_purge_unvoiced_keeps_only_confirmed_audio(tmp_path) -> None:
     )
     store.update_audio(voiced.id, f"{voiced.id}.mp3", voiced=True)
     store.update_audio(cinematic.id, None, voiced=True)
+    pending = store.add(match.model_copy(update={"text_id": "pending"}), "session-a")
+    store.update_audio(pending.id, None, voiced=True)
     store.set_favorite(favorite.id, True)
 
     removed_ids = {line_id for line_id, _ in store.purge_unvoiced()}
     assert unvoiced.id in removed_ids
-    assert favorite.id in removed_ids
+    assert favorite.id not in removed_ids
     assert store.get(voiced.id) is not None
     assert store.get(cinematic.id) is not None
-    assert store.get(favorite.id) is None
+    assert store.get(favorite.id) is not None
+    assert store.get(pending.id).audio_source == "original"

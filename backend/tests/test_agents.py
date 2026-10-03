@@ -3,23 +3,6 @@ import numpy as np
 
 from backend.agent_fingerprint import landmarks, waveform_score
 from backend.agent_store import AgentVoiceStore
-from backend.capture import CaptureService
-
-
-def test_agent_ui_not_character_names():
-    assert CaptureService._is_agent_screen(['Dialyn','Base','Skills','Equipment'])
-    assert CaptureService._is_agent_screen(['LV. 40','Training Plan'])
-    assert not CaptureService._is_agent_screen(['Yidhari?', 'Promeia...', 'Skills are important.'])
-    assert not CaptureService._is_agent_screen(['Base', 'Nicole'])
-
-
-def test_agent_navigation_accepts_both_input_prompt_styles():
-    # Synthetic OCR variants: separate labels, joined tabs, and input glyphs.
-    assert CaptureService._is_agent_screen(['Q Base', 'E Skills', 'Equipment'])
-    assert CaptureService._is_agent_screen(['LB Base Skills Equipment RB'])
-    assert CaptureService._is_agent_screen(['L1 Base', 'R1 Skills', 'B Back'])
-    assert CaptureService._is_agent_screen(['◀ Base', 'Skills ▶'])
-    assert not CaptureService._is_agent_screen(['Our base needs equipment.', 'Skills are important.'])
 
 
 def test_agent_identity_is_exact_and_unambiguous():
@@ -38,17 +21,6 @@ def test_agent_variant_with_shared_name_uses_full_identity():
     recognizer.library = {'agents': {'Anby': {}, 'Soldier 0 - Anby': {}, 'Yidhari': {}}}
     assert recognizer.identify_agent(['Anby', 'Soldier 0 - Anby']) == 'Soldier 0 - Anby'
     assert recognizer.identify_agent(['Anby', 'Yidhari']) is None
-
-
-def test_supplied_dialyn_keyboard_and_controller_ocr():
-    # Recognized from the user's two reference screenshots, 4 September 2026.
-    common = ['Special', 'Training Plan', 'S Lv. 401', 'Lv. 40 X', 'Dialyn']
-    keyboard = common + ['Base', 'Skills', 'Equipment', 'DIALYN']
-    controller = common + ['LS', 'RB', 'RS', 'X', 'LB', 'Y', 'Character Details', 'A', 'Select', 'B', 'Return']
-    assert CaptureService._is_agent_screen(keyboard)
-    assert CaptureService._is_agent_screen(controller)
-    assert CaptureService._is_agent_screen(['Y Character Details','A Select','B Return','Lv. 40','Lv. 30','Lv. 20'])
-    assert not CaptureService._is_agent_screen(['Training Plan', 'Talk'])
 
 
 def test_agent_replays_upsert_and_reorder_across_restarts(tmp_path):

@@ -10,12 +10,12 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Awaitable, Callable
+from pathlib import Path
 
 import mss
 from oneocr import OcrEngine
 from PIL import Image
 
-from .audio import AudioCaptureService
 from .config import SettingsStore
 from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
@@ -23,7 +23,7 @@ from .textmaps import TextMapIndex, normalize_english
 from .pragmata import PragmataTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
 from .windows import WindowInfo, find_active_game_window, find_game_window
-from .voice_assets import AudioSourceChoice, VoiceAssetService
+from .voice_assets import VoiceAssetService
 
 
 class StableMatchTracker:
@@ -76,12 +76,9 @@ class CaptureService:
         on_line: Callable[[TranscriptLine], Awaitable[None]],
         on_delete: Callable[[int], Awaitable[None]],
         on_status: Callable[[CaptureSnapshot], Awaitable[None]],
-        audio: AudioCaptureService,
+        audio_dir: Path,
         voice_assets: VoiceAssetService | None = None,
         pragmata_voice_assets: PragmataVoiceAssetService | None = None,
-        story_voice_resolver=None,
-        agent_recognizer=None,
-        on_voice=None,
     ):
         self.settings = settings
         self.textmaps = textmaps
@@ -90,16 +87,9 @@ class CaptureService:
         self.on_line = on_line
         self.on_delete = on_delete
         self.on_status = on_status
-        self.audio = audio
+        self.audio_dir = audio_dir
         self.voice_assets = voice_assets
         self.pragmata_voice_assets = pragmata_voice_assets
-        self.story_voice_resolver = story_voice_resolver
-        self.agent_recognizer = agent_recognizer
-        self._selected_agent: str | None = None
-        self.on_voice = on_voice
-        self._new_agent_name = None
-        self._new_agent_frames = 0
-        self._new_agent_since = None
         self.session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
         self._snapshot = CaptureSnapshot()
         self._snapshot_lock = threading.RLock()
@@ -143,8 +133,6 @@ class CaptureService:
     def preview_for_region(self, region: CaptureRegion) -> bytes:
         active = find_active_game_window(self.settings.get())
         if active is None:
-            if self.agent_recognizer:
-                self.agent_recognizer.observe(None, False)
             return b""
         image = self._capture(self._region_bounds(active[1], region))
         return self._encode_preview(image)
@@ -153,13 +141,11 @@ class CaptureService:
         if self._task and not self._task.done():
             return False
         self._event_loop = asyncio.get_running_loop()
-        self._update_snapshot(running=True, phase="starting", message="Starting English OCR and audio")
+        self._update_snapshot(running=True, phase="starting", message="Starting subtitle OCR and original game voices")
         self._task = asyncio.create_task(self._run(), name="zzz-capture")
         return True
 
     async def stop(self) -> bool:
-        if self.agent_recognizer:
-            self.agent_recognizer.observe(None, False)
         if not self._task or self._task.done():
             self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
             return False
@@ -193,8 +179,8 @@ class CaptureService:
                     outcome = await asyncio.wait_for(asyncio.shield(scan), timeout=12)
                     snapshot = self.snapshot()
                     await self.on_status(snapshot)
-                    # _audio_ready publishes only after neural voice validation.
-                    # Pending matches must not flash in the visible transcript.
+                    # Subtitle-confirmed lines publish while their original
+                    # game files are decoded asynchronously.
                 except asyncio.TimeoutError:
                     # A native OCR call can occasionally stop returning. Rotate
                     # the worker and engine so capture resumes instead of
@@ -204,7 +190,6 @@ class CaptureService:
                     self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
                     self._engine = None
                     self._excluded_screen = None
-                    self._selected_agent = None
                     self._tracker.observe(None)
                     self._tip_tracker.observe(None)
                     self._cinematic_tracker.observe(None)
@@ -235,10 +220,7 @@ class CaptureService:
         active = find_active_game_window(settings)
         now = datetime.now(timezone.utc).astimezone()
         if active is None:
-            self._selected_agent = None
             self._excluded_screen = None
-            if self.agent_recognizer:
-                self.agent_recognizer.observe(None, False)
             self._tracker.observe(None)
             self._tip_tracker.observe(None)
             self._cinematic_tracker.observe(None)
@@ -293,45 +275,6 @@ class CaptureService:
                 if line.get("text", "").strip()
             ]
             self._excluded_screen = self._classify_screen_header(header_lines)
-            # Agent names are UI labels, not subtitles. The identifying menu
-            # controls live below the existing Story Recap/header crop.
-            nav_image = self._capture(self._region_bounds(
-                window, CaptureRegion(left=0, top=.55, width=1, height=.45)))
-            nav_image.thumbnail((1400, 650), Image.Resampling.LANCZOS)
-            nav_response = engine.recognize_pil(nav_image)
-            if epoch != self._scan_epoch:
-                return _ScanOutcome([])
-            nav_lines = [str(line.get('text','')).strip() for line in nav_response.get('lines',[])]
-            if self._is_agent_screen(header_lines + nav_lines):
-                self._excluded_screen = 'agents'
-                self._selected_agent = self.agent_recognizer.identify_agent(header_lines + nav_lines) if self.agent_recognizer else None
-                if self.agent_recognizer:
-                    # Always let the dedicated nameplate override broad screen
-                    # OCR. This is essential for variants whose full label
-                    # contains another agent name, such as Soldier 0 - Anby.
-                    self._selected_agent = self._agent_from_nameplate(window, self._selected_agent, engine, epoch)
-            else:
-                self._selected_agent = None
-                self._new_agent_name, self._new_agent_frames = None, 0
-
-        if self.agent_recognizer and self._excluded_screen == 'agents' and self._scan_index % 4 != 1:
-            # Selection voices begin immediately. Track the tiny nameplate each
-            # scan rather than waiting for the next full layout/header pass.
-            self._selected_agent = self._agent_from_nameplate(window, self._selected_agent, engine, epoch)
-
-        if self.agent_recognizer:
-            self.agent_recognizer.observe(self._selected_agent, self._excluded_screen == 'agents')
-        if self._excluded_screen == 'agents':
-            self._tracker.observe(None)
-            self._tip_tracker.observe(None)
-            self._cinematic_tracker.observe(None)
-            self._visible_text_by_channel.clear()
-            self._update_snapshot(running=True, phase='agents',
-                message=f'Listening to {self._selected_agent or "agent"} voice lines',
-                active_game='zzz', visible_text_ids=[], window_title=window.title, window_bounds=window.bounds,
-                last_ocr='', last_tip_ocr='', last_cinematic_ocr='', last_error=None, last_scan_at=now)
-            return _ScanOutcome([])
-
         image = self._capture(crop_bounds)
         self._set_preview(image)
         dialogue_box_layout = self._has_dialogue_box(image)
@@ -388,40 +331,21 @@ class CaptureService:
         # comic and top-right channels remain independently eligible.
         unvoiced_gameplay_dialogue = bool(
             dialogue_match and dialogue_box_layout and not self._visual_novel_layout
+            and not self._mapped_voice(dialogue_match)
         )
-        match = None if unvoiced_gameplay_dialogue else raw_match
+        match = None if unvoiced_gameplay_dialogue or not self._mapped_voice(raw_match) else raw_match
         blocked_unvoiced_ids = (
             {dialogue_match.text_id} if unvoiced_gameplay_dialogue else set()
         )
-        # Entering the agent menu between periodic layout scans must not let a
-        # character-name label become a voiced story line during that gap.
-        if match and self.agent_recognizer and normalize_english(match.english) in {
-            normalize_english(name) for name in self.agent_recognizer.library['agents']
-        }:
-            nav = self._capture(self._region_bounds(window, CaptureRegion(left=0, top=.55, width=1, height=.45)))
-            nav.thumbnail((1400,650), Image.Resampling.LANCZOS)
-            nav_lines = [str(line.get('text','')).strip() for line in engine.recognize_pil(nav).get('lines',[])]
-            if epoch != self._scan_epoch:
-                return _ScanOutcome([])
-            if self._is_agent_screen(nav_lines):
-                self._excluded_screen = 'agents'
-                self._selected_agent = self.agent_recognizer.identify_agent(nav_lines)
-                self.agent_recognizer.observe(self._selected_agent, True)
-                self._visible_text_by_channel.clear()
-                self._tracker.observe(None)
-                self._update_snapshot(running=True, phase='agents', visible_text_ids=[], last_ocr='',
-                    active_game='zzz', message=f'Listening to {self._selected_agent or "agent"} voice lines', last_error=None)
-                return _ScanOutcome([])
         monotonic_now = time.monotonic()
         self._observe_visible_matches(
             match_channel, [match.text_id] if match else [], monotonic_now
         )
-        speech_active = self.audio.speech_recent(1.8)
         emitted_lines: list[TranscriptLine] = []
         if match is None:
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
             phase = "unmatched" if raw_text else "listening"
-            message = "Subtitle seen, but no official match" if raw_text else "Listening for English subtitles"
+            message = "Subtitle seen, but no official match" if raw_text else "Reading English subtitles"
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
@@ -429,12 +353,7 @@ class CaptureService:
             redundant_visible_match = self._is_redundant_visible_match(
                 match_channel, match.english, raw_text
             )
-            if not speech_active and not (
-                self.voice_assets
-                and self.voice_assets.has_variant(match.text_id, match.english)
-            ):
-                self._tracker.observe(None)
-            elif fresh_match and (
+            if fresh_match and (
                 self._tracker.observe(key)
                 and not redundant_visible_match
                 and self._can_emit(f"{match_channel}\0{key}", monotonic_now)
@@ -475,6 +394,8 @@ class CaptureService:
             tip_match = None if excluded_screen else self.textmaps.match_lines(
                 tip_lines, threshold=settings.fuzzy_threshold, channel="tip"
             )
+            if not self._mapped_voice(tip_match):
+                tip_match = None
             tip_key = (
                 f"tip\0{tip_match.text_id}\0{tip_match.english}"
                 if tip_match is not None
@@ -484,7 +405,7 @@ class CaptureService:
             fresh_tip = bool(tip_key) and self._is_fresh_match(
                 "tip", tip_key, monotonic_now
             )
-            if tip_match is None or not speech_active:
+            if tip_match is None:
                 self._tip_tracker.observe(None if not tip_raw_text else f"unmatched:{tip_raw_text.casefold()}")
             else:
                 if (
@@ -514,15 +435,8 @@ class CaptureService:
         # Once the filmstrip layout is visible, inspect it on every pass; retain
         # the cheaper alternating cadence for ordinary gameplay/cutscenes.
         scan_cinematic = self._visual_novel_layout or self._scan_index % 2 == 1
-        # Comic/visual-novel subtitles can appear a fraction before VAD notices
-        # the voice. Their filmstrip presentation is itself strong evidence of
-        # voiced content, so do not skip the only scan that might see a short line.
-        if (
-            (speech_active or self._visual_novel_layout)
-            and not excluded_screen
-            and tip_match is None
-            and scan_cinematic
-        ):
+        # Visible subtitles and exact game-file mappings confirm the voice.
+        if not excluded_screen and tip_match is None and scan_cinematic:
             cinematic_image = self._capture(cinematic_bounds)
             if cinematic_image.width > 1920:
                 cinematic_image.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
@@ -537,6 +451,7 @@ class CaptureService:
                 threshold=max(settings.fuzzy_threshold, 88),
                 channel="cinematic",
             )
+            cinematic_matches = [item for item in cinematic_matches if self._mapped_voice(item)]
             self._observe_visible_matches("cinematic", [item.text_id for item in cinematic_matches], monotonic_now)
             normalized_panel = normalize_english(cinematic_raw_text)
             if (
@@ -642,13 +557,10 @@ class CaptureService:
 
         Radio messages, cinematics and walk-and-talk dialogue use the same
         speaker-plus-body layout. Matching exclusively against the official
-        conv/cutscene MSG families and requiring VAD confirmation keeps HUD,
+        conv/cutscene MSG families and exact original voice mappings keeps HUD,
         credits and unvoiced UI copy out of the transcript.
         """
-        self._selected_agent = None
         self._excluded_screen = None
-        if self.agent_recognizer:
-            self.agent_recognizer.observe(None, False)
         crop_bounds = self._region_bounds(window, region)
         image = self._capture(crop_bounds)
         self._set_preview(image)
@@ -688,6 +600,8 @@ class CaptureService:
 
         settings = self.settings.get()
         match = index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold))
+        if not self._mapped_voice(match):
+            match = None
         monotonic_now = time.monotonic()
         self._observe_visible_matches("pragmata", [match.text_id] if match else [], monotonic_now)
         emitted: list[TranscriptLine] = []
@@ -695,15 +609,12 @@ class CaptureService:
         if match is None:
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
             phase = "unmatched" if raw_text else "listening"
-            message = "Reading PRAGMATA subtitle" if raw_text else "Listening for PRAGMATA dialogue"
+            message = "Reading PRAGMATA subtitle" if raw_text else "Reading PRAGMATA subtitles"
         else:
             key = f"pragmata\0{match.text_id}\0{match.english}"
             fresh = self._is_fresh_match("pragmata", key, monotonic_now)
-            speech_active = self.audio.speech_recent(1.8)
             # Two equal scans avoid committing typewriter/transition fragments.
-            if not speech_active:
-                self._tracker.observe(None)
-            elif (
+            if (
                 fresh
                 and self._tracker.observe(key)
                 and self._can_emit(key, monotonic_now)
@@ -714,10 +625,9 @@ class CaptureService:
                 if line is not None:
                     emitted.append(line)
                     observed_at = self._visible_match_started["pragmata"][1]
-                    self._publish_pragmata_text_while_audio_prepares(line)
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
-            message = "Official PRAGMATA line matched; confirming voice"
+            message = "PRAGMATA subtitle matched to original game voice"
 
         self._tip_tracker.observe(None)
         self._cinematic_tracker.observe(None)
@@ -746,30 +656,11 @@ class CaptureService:
         )
         return _ScanOutcome(emitted_lines=emitted)
 
-    def _publish_pragmata_text_while_audio_prepares(self, line: TranscriptLine) -> bool:
-        """Show a mapped PRAGMATA line without waiting for audio decoding.
-
-        The line has already passed the normal two-frame OCR stability check,
-        strict official-text matching, and live speech detection. A direct
-        subtitle-to-voice mapping gives us the final independent confirmation;
-        decoding that voice is useful for playback but should not hold the
-        visible transcript several seconds behind the game.
-
-        The database remains pending until the existing audio/VAD path finishes,
-        so a failed validation can still retract the provisional WebSocket row.
-        """
-        if (
-            self._event_loop is None
-            or line.game != "pragmata"
-            or self.pragmata_voice_assets is None
-            or not self.pragmata_voice_assets.has_variant(line.text_id, line.english)
-        ):
+    def _mapped_voice(self, match: TextMatch | None) -> bool:
+        if match is None:
             return False
-        pending = line.model_copy(
-            update={"voiced": True, "has_audio": False, "audio_pending": True}
-        )
-        asyncio.run_coroutine_threadsafe(self.on_line(pending), self._event_loop)
-        return True
+        assets = self.pragmata_voice_assets if match.game == "pragmata" else self.voice_assets
+        return bool(assets and assets.has_variant(match.text_id, match.english))
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
         self._visible_text_by_channel[channel] = (now, text_ids)
@@ -873,6 +764,17 @@ class CaptureService:
         ))
 
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
+        assets = self.pragmata_voice_assets if line.game == "pragmata" else self.voice_assets
+        if not assets or not assets.has_variant(line.text_id, line.english):
+            return
+        # Publish the official bilingual subtitle immediately, independently of
+        # output devices, game volume, or the time needed to decode the WEM.
+        confirmed = self.transcript.update_audio(line.id, None, True)
+        if confirmed is None or self._event_loop is None:
+            return
+        pending = confirmed.model_copy(update={"audio_pending": True, "audio_source": "original"})
+        asyncio.run_coroutine_threadsafe(self.on_line(pending), self._event_loop)
+
         def publish(line_id: int, filename: str | None, voiced: bool) -> None:
             current = self.transcript.get(line_id)
             if current is None or current.text_id != line.text_id:
@@ -880,66 +782,19 @@ class CaptureService:
                 return
             self._audio_ready(line_id, filename, voiced)
 
-        def cancel_recording(line_id: int) -> None:
-            current = self.transcript.get(line_id)
-            if current is not None and current.text_id == line.text_id:
-                self.audio.cancel_clip(line_id)
-
-        asset_service = (
-            self.pragmata_voice_assets if line.game == "pragmata" else self.voice_assets
-        )
-        if asset_service and asset_service.has_variant(line.text_id, line.english):
-            choice = AudioSourceChoice(publish, self._remove_audio_file, cancel_recording)
-            # Keep the ring-buffer fallback until extraction succeeds. Arbitration
-            # prevents a late VAD failure from deleting a successful original clip.
-            self.audio.schedule_clip(line.id, now, choice.recording_result,
-                                     observed_at=observed_at, chinese=line.chinese)
-            if not asset_service.schedule(
-                line.text_id, line.id, choice.original_result, line.english
-            ):
-                choice.original_result(line.id, None, False)
-        else:
-            self.audio.schedule_clip(line.id, now, publish,
-                                     observed_at=observed_at, chinese=line.chinese)
+        if not assets.schedule(line.text_id, line.id, publish, line.english):
+            publish(line.id, None, False)
 
     def _audio_ready(self, line_id: int, audio_path: str | None, voiced: bool) -> None:
         if self._event_loop is None:
             return
-        if not voiced or not audio_path:
-            current = self.transcript.get(line_id)
-            # Comic/visual-novel presentation is known to be voiced. If rapid
-            # progression has already moved its sound out of the loopback
-            # window, keep the complete official bilingual line in the log
-            # instead of losing the sentence as well.
-            if current is not None and current.channel == "cinematic":
-                line = self.transcript.update_audio(line_id, None, True)
-                if line is not None:
-                    asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
-                    for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
-                        self._remove_audio_file(removed_audio)
-                        asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)
-                return
-            removed_audio = self.transcript.delete(line_id)
-            self._remove_audio_file(removed_audio)
-            asyncio.run_coroutine_threadsafe(self.on_delete(line_id), self._event_loop)
-            return
-
-        line = self.transcript.update_audio(line_id, audio_path, True)
+        # Extraction failure must not erase a subtitle whose mapping already
+        # confirms the voice. Playback can be retried from the original files.
+        line = self.transcript.update_audio(line_id, audio_path if voiced else None, True)
         if line is None:
             self._remove_audio_file(audio_path)
             return
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
-        if (
-            self.story_voice_resolver is not None
-            and line.game == "zzz"
-            and audio_path
-            and not audio_path.startswith("official-")
-        ):
-            self.story_voice_resolver.schedule(
-                line.id, line.text_id, audio_path, self._story_original_ready
-            )
-        if self.on_voice:
-            asyncio.run_coroutine_threadsafe(self.on_voice(line), self._event_loop)
         for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
             self._remove_audio_file(removed_audio)
             asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)
@@ -962,40 +817,22 @@ class CaptureService:
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
 
     def repair_recorded_line(self, line: TranscriptLine) -> bool:
-        if (
-            line.game == "pragmata"
-            and self.pragmata_voice_assets is not None
-            and line.voiced
-            and line.audio_source != "original"
-            and self.pragmata_voice_assets.has_variant(line.text_id, line.english)
-        ):
-            def ready(line_id: int, audio_path: str | None, voiced: bool) -> None:
-                if voiced and audio_path:
-                    self._story_original_ready(line_id, line.text_id, audio_path)
-
-            return self.pragmata_voice_assets.schedule(
-                line.text_id, line.id, ready, line.english
-            )
-        if (
-            line.game != "zzz"
-            or self.story_voice_resolver is None
-            or not line.voiced
-            or not line.has_audio
-            or line.audio_source == "original"
-        ):
+        assets = self.pragmata_voice_assets if line.game == "pragmata" else self.voice_assets
+        if not assets or not line.voiced or (line.audio_source == "original" and line.has_audio):
             return False
-        audio_path = self.transcript.audio_path(line.id)
-        return bool(
-            audio_path
-            and self.story_voice_resolver.schedule(
-                line.id, line.text_id, audio_path, self._story_original_ready
-            )
-        )
+        if not assets.has_variant(line.text_id, line.english):
+            return False
+
+        def ready(line_id: int, audio_path: str | None, voiced: bool) -> None:
+            if voiced and audio_path:
+                self._story_original_ready(line_id, line.text_id, audio_path)
+
+        return assets.schedule(line.text_id, line.id, ready, line.english)
 
     def _remove_audio_file(self, filename: str | None) -> None:
         if not filename:
             return
-        audio_dir = self.audio.output_dir.resolve()
+        audio_dir = self.audio_dir.resolve()
         path = (audio_dir / filename).resolve()
         if path.parent == audio_dir:
             path.unlink(missing_ok=True)
@@ -1067,27 +904,6 @@ class CaptureService:
         return len(lines) >= 4 and sum(marker in text for marker in secondary_markers) >= 2
 
     @staticmethod
-    def _nameplate_candidate(lines: list[str]) -> str | None:
-        ignored = {'base','skills','equipment','select','return','character details','training plan',
-                   'lb','rb','lt','rt','ls','rs','x','y','a','b','s','lv','back'}
-        candidates = {}
-        for line in lines:
-            clean = re.sub(r'^(?:(?:LB|RB|LT|RT|LS|RS|[XYAB])\s+)+|(?:\s+(?:LB|RB|LT|RT|LS|RS|[XYAB]))+$', '', line.strip())
-            clean = clean.strip(' ☆★◀▶「」"“”')
-            words = clean.split()
-            if (not 1 <= len(words) <= 5 or not 2 <= len(clean) <= 48
-                    or clean.casefold() in ignored or re.search(r'\blv\.?|\buid\b|\bfps\b',clean,re.I)
-                    or not clean[0].isalpha()
-                    or not all(char.isalnum() or char in " '&.-" for char in clean)):
-                continue
-            if not all(word[0].isupper() or word.isdigit() or word in {'&','-','of','the','de','and'} for word in words):
-                continue
-            candidates.setdefault(clean.casefold(), clean)
-            if not clean.isupper():
-                candidates[clean.casefold()] = clean
-        return next(iter(candidates.values())) if len(candidates) == 1 else None
-
-    @staticmethod
     def _dark_fraction(image: Image.Image, threshold: int) -> float:
         probe = image.convert('L')
         probe.thumbnail((240, 120), Image.Resampling.BILINEAR)
@@ -1111,59 +927,6 @@ class CaptureService:
         box = image.crop((round(width * .15), round(height * .45),
                           round(width * .85), height))
         return cls._dark_fraction(box, 50) >= .65
-
-    def _agent_from_nameplate(
-        self, window: WindowInfo, fallback: str | None = None,
-        engine: OcrEngine | None = None, epoch: int | None = None,
-    ) -> str | None:
-        """Resolve the selected agent from the shared keyboard/controller plate."""
-        plate = self._capture(self._region_bounds(
-            # Start left of the controller's X prompt. The previous crop began
-            # inside long labels and could reduce "Soldier 0 - Anby" to "Anby".
-            window, CaptureRegion(left=.02, top=.75, width=.31, height=.21)))
-        plate.thumbnail((1100, 500), Image.Resampling.LANCZOS)
-        engine = engine or self._engine
-        plate_lines = [str(item.get('text', '')).strip()
-                       for item in engine.recognize_pil(plate).get('lines', [])]
-        if epoch is not None and epoch != self._scan_epoch:
-            return fallback
-        selected = self.agent_recognizer.identify_agent(plate_lines)
-        if selected:
-            self._new_agent_name, self._new_agent_frames = None, 0
-            return selected
-
-        # Future agents are learned locally after two matching scans. The
-        # dedicated crop prevents unrelated roster labels from becoming names.
-        candidate = self._nameplate_candidate(plate_lines)
-        if candidate != self._new_agent_name:
-            self._new_agent_since = time.monotonic() - 2.0
-        self._new_agent_frames = self._new_agent_frames + 1 if candidate == self._new_agent_name else 1
-        self._new_agent_name = candidate
-        if candidate and self._new_agent_frames >= 2:
-            self.agent_recognizer.remember_agent(candidate)
-            self.agent_recognizer.observe(candidate, True, self._new_agent_since)
-            return candidate
-        return fallback
-
-    @staticmethod
-    def _is_agent_screen(lines: list[str]) -> bool:
-        # OCR can join navigation tabs into one row or include controller/key
-        # prompts. Match whole menu labels after removing those prompts, never
-        # words such as "skills" embedded in spoken dialogue.
-        labels = set()
-        navigation = r'base|skills|equipment|mindscape cinema'
-        for line in lines:
-            clean = re.sub(r'[^\w\s.]', ' ', line.casefold())
-            clean = re.sub(r'\b(?:lb|rb|lt|rt|l1|r1|l2|r2|tab|esc|[abxyqe])\b', ' ', clean)
-            clean = ' '.join(clean.split())
-            labels.add(clean)
-            if re.fullmatch(rf'(?:{navigation})(?:\s+(?:{navigation}))*', clean):
-                labels.update(re.findall(navigation, clean))
-        menu = len(labels & {'base', 'skills', 'equipment', 'mindscape cinema'})
-        levels = sum(bool(re.search(r'\blv\.?\s*\d', line, re.I)) for line in lines)
-        return (menu >= 2
-                or (bool(labels & {'training plan', 'special training plan'}) and levels >= 1)
-                or ({'character details', 'select', 'return'} <= labels and levels >= 3))
 
     @staticmethod
     def _classify_screen_header(lines: list[str]) -> str | None:
