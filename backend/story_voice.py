@@ -244,13 +244,15 @@ class StoryVoiceResolver:
         }
         return entry, diagnostics
 
-    def status(self) -> dict[str, object]:
-        indexed = 0
+    def status(self, include_database_counts: bool = True) -> dict[str, object]:
+        indexed = getattr(self, "_status_indexed_clips", 0)
         try:
-            with closing(sqlite3.connect(
-                f"file:{self.database_path.as_posix()}?mode=ro", uri=True, timeout=0.1
-            )) as database:
-                indexed = int(database.execute("SELECT COUNT(*) FROM clips").fetchone()[0])
+            if include_database_counts:
+                with closing(sqlite3.connect(
+                    f"file:{self.database_path.as_posix()}?mode=ro", uri=True, timeout=0.1
+                )) as database:
+                    indexed = int(database.execute("SELECT COUNT(*) FROM clips").fetchone()[0])
+                    self._status_indexed_clips = indexed
         except sqlite3.Error:
             pass
         return {

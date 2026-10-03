@@ -129,10 +129,10 @@ class AgentRecognizer:
         self._future = self._executor.submit(self._recognize, agent, begin, samples, self.audio.sample_rate, since)
         self._pending.append(self._future)
 
-    def status(self):
+    def status(self, include_database_counts=True):
         try:
             path = self.folder / 'fingerprints.db'
-            if path.exists():
+            if include_database_counts and path.exists():
                 with closing(sqlite3.connect(f'file:{path.as_posix()}?mode=ro', uri=True, timeout=.05)) as db:
                     self.indexed = db.execute('SELECT COUNT(*) FROM clips').fetchone()[0]
         except sqlite3.Error:

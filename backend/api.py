@@ -21,6 +21,7 @@ from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex
 from .pragmata import PragmataTextIndex
+from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
 from .pragmata_updates import PragmataUpdateManager
 from .speakers import SpeakerResolver
@@ -79,6 +80,7 @@ class Runtime:
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
+        self.hito = HitoTextIndex(DATA_DIR / "hito")
         self.audio = AudioCaptureService(DATA_DIR / "audio")
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
@@ -128,6 +130,7 @@ class Runtime:
             story_voice_resolver=self.story_voices,
             agent_recognizer=self.agents,
             on_voice=self.on_story_voice,
+            hito=self.hito,
         )
         for line in self.transcript.list(limit=50):
             self.capture.repair_recorded_line(line)
@@ -150,7 +153,8 @@ class Runtime:
 
     async def on_line(self, line: TranscriptLine) -> None:
         audio_pending = line.audio_pending
-        line = self.speakers.enrich(line)
+        if line.game != "hito":
+            line = self.speakers.enrich(line)
         if audio_pending and not line.audio_pending:
             # Speaker enrichment can round-trip through SQLite; preserve this
             # transient delivery state on the WebSocket payload.
@@ -228,18 +232,21 @@ class Runtime:
         return update
 
     def status(self) -> dict[str, object]:
-        agents = self.agents.status()
+        capture = self.capture.snapshot()
+        database_counts = capture.active_game != "hito"
+        agents = self.agents.status(include_database_counts=database_counts)
         return {
-            "capture": self.capture.snapshot().model_dump(mode="json"),
+            "capture": capture.model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
             "game_textmaps": {
                 "zzz": self.textmaps.status(),
                 "pragmata": self.pragmata.status(),
+                "hito": self.hito.status(),
             },
             "audio": self.audio.status(),
             "voice_assets": self.voice_assets.status(),
             "pragmata_voice_assets": self.pragmata_voice_assets.status(),
-            "story_voices": self.story_voices.status(),
+            "story_voices": self.story_voices.status(include_database_counts=database_counts),
             "agents": agents,
             "voice_activity": self.voice_activity.latest,
             "updates": self.update_status(agents),
@@ -291,6 +298,7 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         await runtime.capture.close()
+        await asyncio.to_thread(runtime.hito.close)
         await asyncio.to_thread(runtime.agent_updater.close)
         await asyncio.to_thread(runtime.story_updater.close)
         await asyncio.to_thread(runtime.update_manager.close)
@@ -349,24 +357,26 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito)$"),
 ) -> list[TranscriptLine]:
     return [
-        runtime.speakers.enrich(line) for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
-        if line.voiced and (line.has_audio or line.channel == "cinematic")
+        line if line.game == "hito" else runtime.speakers.enrich(line)
+        for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
+        if line.game == "hito" or (line.voiced and (line.has_audio or line.channel == "cinematic")
         and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
             else runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
-        )
+        ))
     ]
 
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito)$"),
 ) -> list[TranscriptLine]:
-    return [runtime.speakers.enrich(line) for line in runtime.transcript.list_favorites(game=game)]
+    return [line if line.game == "hito" else runtime.speakers.enrich(line)
+            for line in runtime.transcript.list_favorites(game=game)]
 
 
 @app.get('/api/agents')
