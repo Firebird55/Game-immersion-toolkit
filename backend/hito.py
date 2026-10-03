@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import threading
+import time
 
 from rapidfuzz import fuzz
 
@@ -33,10 +34,13 @@ class HitoTextIndex:
         self._cache: dict[str, TextMatch | None] = {}
         self._archive: Path | None = None
         self._process: subprocess.Popen | None = None
+        self._starting_process: subprocess.Popen | None = None
         self._responses: queue.Queue = queue.Queue()
         self._lock = threading.RLock()
         self._preparing = False
         self._closed = False
+        self._retry_at = 0.0
+        self._signature: tuple | None = None
         self._thread: threading.Thread | None = None
         cached = data_dir / 'textmap.json'
         if cached.exists():
@@ -59,11 +63,16 @@ class HitoTextIndex:
             self.message = 'Hito resources/app.asar was not found'
             return
         with self._lock:
-            if self._preparing or (archive == self._archive and self._process is not None
+            stat = archive.stat()
+            signature = (archive, stat.st_size, stat.st_mtime_ns)
+            if self._preparing or time.monotonic() < self._retry_at or (signature == self._signature and self._process is not None
                                    and self._process.poll() is None):
                 return
+            self._signature = signature
             self._archive = archive
             self._preparing = True
+            self.ready = False
+            self._cache.clear()
             self.message = 'Reading Hito dialogue and grammar from game files'
             self._thread = threading.Thread(target=self._prepare, args=(archive,), daemon=True)
             self._thread.start()
@@ -78,14 +87,17 @@ class HitoTextIndex:
             env = os.environ.copy()
             installed = Path(env.get('LOCALAPPDATA', '')) / 'Programs/Proxy Transcript/frontend/node_modules'
             project = Path(env.get('PROXY_TRANSCRIPT_PROJECT_ROOT', Path(__file__).resolve().parents[1]))
-            env['NODE_PATH'] = os.pathsep.join([str(installed), str(project / 'node_modules')])
+            env['NODE_PATH'] = os.pathsep.join([
+                env.get('NODE_PATH', ''), str(installed), str(project / 'node_modules')])
             with (self.data_dir / 'grammar.log').open('w', encoding='utf-8') as errors:
                 process = subprocess.Popen(
-                    [node, str(Path(__file__).with_name('hito-grammar.cjs')), str(archive)],
+                    [node, str(Path(__file__).with_name('hito-grammar.cjs')), str(archive),
+                     str(self.data_dir / 'textmap.json')],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors,
                     text=True, encoding='utf-8', env=env,
                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
                 )
+                self._starting_process = process
             responses: queue.Queue = queue.Queue()
 
             def read_responses() -> None:
@@ -122,7 +134,9 @@ class HitoTextIndex:
             if process and process.poll() is None:
                 process.terminate()
             self.message = f'Hito game-file reader: {error}'
+            self._retry_at = time.monotonic() + 60
         finally:
+            self._starting_process = None
             self._preparing = False
 
     def _generated(self, text: str) -> list[dict]:
@@ -151,6 +165,12 @@ class HitoTextIndex:
             if abs(len(candidate) - len(target)) > 2:
                 continue
             score = fuzz.ratio(target, candidate)
+            if re.findall(r'\d+(?:\.\d+)?', text) != re.findall(
+                    r'\d+(?:\.\d+)?', row['chinese' if chinese else 'english']):
+                continue
+            if chinese and any((word in target) != (word in candidate)
+                               for word in ('不', '没', '能', '应该', '正在', '必须')):
+                continue
             # Short phrases must match exactly. Never complete a typewriter prefix.
             if score < (100 if len(target) < 12 else 94):
                 continue
@@ -162,14 +182,20 @@ class HitoTextIndex:
             return None
         score, row = ranked[0]
         different = next((s for s, r in ranked[1:] if
-                          (r['chinese'], r['english']) != (row['chinese'], row['english'])), None)
+                          normalize(r['chinese' if chinese else 'english']) !=
+                          normalize(row['chinese' if chinese else 'english'])), None)
         if different is not None and score - different < 4:
             return None
-        identity = sentence_identity(row.get('identity') or row['english'])
+        alternatives = {r['english']: r for s, r in ranked if s == score and
+                        normalize(r['chinese' if chinese else 'english']) ==
+                        normalize(row['chinese' if chinese else 'english'])}
+        counterparts = sorted(alternatives)
+        identity = '|'.join(sorted({sentence_identity(r.get('identity') or r['english'])
+                                    for r in alternatives.values()}))
         key = hashlib.sha256(identity.encode()).hexdigest()[:24]
-        return TextMatch(game='hito', text_id=f'hito:{key}', english=row['english'],
+        return TextMatch(game='hito', text_id=f'hito:{key}', english=' / '.join(counterparts),
                          chinese=row['chinese'], source_ocr=text, score=score,
-                         kind='exact' if score == 100 else 'fuzzy')
+                         kind='exact' if score == 100 else 'fuzzy', ambiguous=len(counterparts) > 1)
 
     def match_lines(self, lines: list[str]) -> TextMatch | None:
         with self._lock:
@@ -195,6 +221,7 @@ class HitoTextIndex:
     def close(self) -> None:
         self._closed = True
         with self._lock:
-            if self._process and self._process.poll() is None:
-                self._process.terminate()
-                self._process.wait(timeout=5)
+            for process in (self._process, self._starting_process):
+                if process and process.poll() is None:
+                    process.terminate()
+                    process.wait(timeout=5)

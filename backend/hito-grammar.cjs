@@ -7,6 +7,12 @@ const acorn = require('acorn');
 const debug = message => { if (process.env.HITO_DEBUG) console.error(message); };
 
 const bytes = fs.readFileSync(process.argv[2]);
+const archiveHash = crypto.createHash('sha256').update(bytes).digest('hex');
+let cachedCatalog;
+try {
+  const saved = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+  if (saved.archive_hash === archiveHash) cachedCatalog = saved;
+} catch {}
 const headerSize = bytes.readUInt32LE(4);
 const header = JSON.parse(bytes.subarray(16, 16 + bytes.readUInt32LE(12)).toString('utf8'));
 const entries = [];
@@ -77,7 +83,7 @@ context.phrasesCsv = tables[2];
 context.storyCsv = tables[3];
 vm.runInContext('var l=r2(vocabularyCsv,true),u=r2(phrasesCsv,true),story=r2(storyCsv,false);', context, {timeout: 1000});
 debug('Loaded dictionaries');
-function clean(value) { return String(value || '').replace(/_/g, ' ').replace(/#/g, '').trim(); }
+function clean(value) { return String(value || '').replace(/<[^>]+>/g, '').replace(/_/g, ' ').replace(/#/g, '').trim(); }
 function plain(value, part) {
   return clean(value.replace(/\[([^\[\]]*%[^\[\]]*)\]/g, (_, text) => text.split('%')[part] || ''));
 }
@@ -116,11 +122,15 @@ function walk(n) {
 walk(tree);
 debug('Indexed call sites');
 const records = new Map();
+function family(value) {
+  return clean(value).toLowerCase().replace(/\b(?:a|an|some|one|two|three|four|five|six|seven|eight|nine|ten)\b|\d+(?:\.\d+)?/g,'quantity')
+    .replace(/[a-z]+/g, word => context.n9.singular(word));
+}
 function add(output, identity) {
   const chinese = plain(output, 0), english = plain(output, 3);
   if (!/[\u3400-\u9fff]/.test(chinese) || !english || /undefined|\{[^}]*\}/.test(chinese + english)) return;
   const key = chinese + '\n' + english;
-  records.set(key, {chinese, english, identity: identity || english});
+  records.set(key, {chinese, english, identity: family(identity || english)});
 }
 // Full story rows matter: a displayed message may contain several commands.
 const story = context.story;
@@ -136,7 +146,8 @@ function storyRows(value) {
     } else storyRows(child);
   }
 }
-storyRows(story);
+if (!cachedCatalog) storyRows(story);
+else cachedCatalog.records.forEach(row => add(`[${row.chinese}%%%${row.english}]`, clean(row.identity)));
 debug('Expanded authored dialogue');
 const phrases = vm.runInContext('u.hanzi', context);
 const englishPhrases = vm.runInContext('u.english', context);
@@ -150,7 +161,7 @@ function canonicalArgs(args) {
   return args.map((value, i) => typeof value === 'number' &&
     (args[i+1] === 'counter' || (i === 1 && args.length <= 4)) ? 2 : value);
 }
-for (const call of calls) {
+for (const call of cachedCatalog ? [] : calls) {
   try {
     const args = call.nodes.map(constant);
     add(compose(call.method, args), plain(compose(call.method, canonicalArgs(args)), 3));
@@ -166,22 +177,44 @@ for (const [group, values] of Object.entries(context.l.hanzi)) {
   }
 }
 console.log(JSON.stringify({records:[...records.values()], vocabulary,
-  archive_hash:crypto.createHash('sha256').update(bytes).digest('hex'), calls:calls.length}));
+  archive_hash:archiveHash, calls:calls.length}));
 
 function normalize(s) { return clean(s).toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''); }
+function oneEdit(a,b) {
+  if (Math.abs(a.length-b.length)>1) return false;
+  let i=0,j=0,edits=0;
+  while(i<a.length && j<b.length) {
+    if(a[i]===b[j]) { i++; j++; continue; }
+    if(++edits>1) return false;
+    if(a.length>=b.length) i++;
+    if(b.length>=a.length) j++;
+  }
+  return edits+(a.length-i)+(b.length-j)<=1;
+}
 const roleNames = new Set(['topic','subject','object','target','targetObject','targetDirection',
   'context','contextWith','togetherWith','source','sourceOff','time','counter','possessive',
   'possessiveOf','possessiveFor','possessiveObject','progressive','purposeFor','connection']);
 function resolve(text) {
   const normalized = normalize(text);
   const english = !/[\u3400-\u9fff]/.test(text);
-  const seen = vocabulary.filter(v => {
+  let seen = vocabulary.filter(v => {
     const word = normalize(english ? v.english : v.chinese);
     return word && (english ? new RegExp(`\\b${v.english.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}\\b`, 'i').test(text)
       : normalized.includes(word));
   });
+  if (!english) {
+    const objectSpans = seen.filter(v => v.group === 'objects').flatMap(v =>
+      [...normalized.matchAll(new RegExp(normalize(v.chinese),'g'))].map(m => ({start:m.index,end:m.index+normalize(v.chinese).length})));
+    seen = seen.filter(v => {
+      const word = normalize(v.chinese);
+      return [...normalized.matchAll(new RegExp(word,'g'))].some(m =>
+        !objectSpans.some(span => span.start <= m.index && span.end >= m.index+word.length && span.end-span.start > word.length));
+    });
+  }
   const verbs = [...new Set(seen.filter(v => v.group === 'verbs').map(v => v.key))];
-  const words = [...new Set(seen.filter(v => v.group !== 'verbs').map(v => v.key))];
+  const nouns = [...new Set(seen.filter(v => ['objects','pronouns'].includes(v.group)).map(v => v.key))];
+  const objects = [...new Set(seen.filter(v => v.group === 'objects').map(v => v.key))];
+  const modifiers = [...new Set(seen.filter(v => ['objects','adjectives','adverbs'].includes(v.group)).map(v => v.key))];
   const numbers = [...new Set((text.match(/\d+(?:\.\d+)?/g) || []).map(Number))];
   const result = new Map();
   const signatures = new Set();
@@ -189,6 +222,15 @@ function resolve(text) {
   const started = Date.now();
   for (const call of calls) {
     if (['composeSimpleMessage','composeCustomMessage','composeInfoListMessage','composeNegativeListMessage'].includes(call.method)) continue;
+    if (!english) {
+      if (/Progressive/.test(call.method) && !/正在/.test(normalized)) continue;
+      if (/Necessitative/.test(call.method) && !/得|必须|须/.test(normalized)) continue;
+      if (/PotentialNegative|Failure/.test(call.method) && !/不能|不会|无法|不可以/.test(normalized)) continue;
+      if (/Negative/.test(call.method) && !/没|不/.test(normalized)) continue;
+      if (/Question/.test(call.method) && !/[?？]|吗|什么|哪里|谁|怎么|哪/.test(text)) continue;
+      if (/Desiderative/.test(call.method) && !/想/.test(normalized)) continue;
+      if (/Prescriptive/.test(call.method) && !/应该/.test(normalized)) continue;
+    }
     const values = call.nodes.map(n => { try { return {fixed:true, value:constant(n)}; } catch { return {fixed:false}; } });
     if (values[0]?.fixed && typeof values[0].value === 'string' && !verbs.includes(values[0].value)) continue;
     const domains = call.nodes.map((node, i) => {
@@ -200,11 +242,15 @@ function resolve(text) {
       if (node.type === 'UnaryExpression' && node.operator === '!') return [false,true];
       if (node.type === 'ObjectExpression' || i >= 13) return [{}];
       if (node.type === 'ArrayExpression' || /\.map\(/.test(code)) return [];
-      if (roleNames.has(next)) return [...words.slice(0,14),null];
+      if (/\.name|\.adjective/.test(code)) return [null,...modifiers.slice(0,8)];
+      if (/\.type|\.object/.test(code) && roleNames.has(next)) return objects.slice(0,8);
+      if (roleNames.has(next)) return [null,...nouns.slice(0,8)];
       if (i > 0 && typeof values[i-1]?.value === 'string' && roleNames.has(values[i-1].value)) return [false,true];
       if (/\.verb|\.equip|\.unequip|\.dismount|\.mount|triggers\[/.test(code)) return verbs;
       if (/\.cost|\.quantity|\.amount|\.counter/.test(code)) return numbers;
-      return [...words.slice(0,10),null];
+      const roles = /PotentialNegative/.test(call.method) ? [2,5,8] : /Question/.test(call.method) ? [2,4,7,10] : [2,5,8,11];
+      if (roles.includes(i)) return ['object','subject','target','source','time','context','togetherWith','targetDirection'];
+      return [null,...nouns.slice(0,8)];
     });
     if (domains.some(d => !d.length)) continue;
     const signature = JSON.stringify([call.method,domains]);
@@ -221,8 +267,8 @@ function resolve(text) {
         const chinese = plain(output,0), englishText = plain(output,3);
         const target = normalize(english ? englishText : chinese);
         // Strict lexical coverage keeps unrelated grammar candidates out of fuzzy matching.
-        if (!target || Math.abs(target.length-normalized.length) > 2 || /undefined/.test(output)) return;
-        const identity = plain(compose(call.method,canonicalArgs(args)),3);
+        if (!target || !oneEdit(target,normalized) || /undefined/.test(output)) return;
+        const identity = family(plain(compose(call.method,canonicalArgs(args)),3));
         result.set(chinese+'\n'+englishText,{chinese,english:englishText,identity});
       } catch {}
     }

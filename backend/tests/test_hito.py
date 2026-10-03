@@ -18,10 +18,12 @@ def test_hito_rejects_unverified_ocr_and_partial_typewriter(tmp_path):
     assert index.match_lines(['任意的菜单文本']) is None
 
 
-def test_hito_rejects_ambiguous_counterparts():
-    assert HitoTextIndex._choose('看到', [
+def test_hito_keeps_valid_text_but_shows_multiple_game_counterparts():
+    match = HitoTextIndex._choose('看到', [
         dict(chinese='看到', english='See'), dict(chinese='看到', english='Look')
-    ]) is None
+    ])
+    assert match.ambiguous
+    assert match.english == 'Look / See'
 
 
 def test_hito_generated_pair_uses_grammar_identity(tmp_path):
