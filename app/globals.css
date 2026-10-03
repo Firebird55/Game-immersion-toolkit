@@ -252,6 +252,11 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .current-speaker { display: flex; align-items: baseline; gap: 9px; color: var(--acid); font-size: 14px; font-weight: 650; }
 .speaker-chinese { font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; }
 .current-english { max-width: 880px; margin-bottom: 0; white-space: pre-line; font-size: clamp(20px, 2.5vw, 28px); line-height: 1.24; letter-spacing: -.018em; }
+.english-reveal { display:flex; flex-wrap:wrap; align-items:center; gap:5px 12px; min-height:44px; max-width:100%; padding:9px 12px; border:1px dashed #52606b; border-radius:5px; color:#bdc8d3; background:#11171c; text-align:left; cursor:pointer; font-size:14px; }
+.english-reveal small { color:#8499ac; font-size:12px; }
+.english-reveal:hover { border-color:var(--acid); color:#fff; }
+.english-reveal:focus-visible { outline:2px solid var(--acid); outline-offset:3px; }
+.current-english-reveal { align-self:flex-start; }
 .current-chinese { margin-bottom: 0; color: #f2f5f7; white-space: pre-line; font-family: "Microsoft YaHei UI", "Noto Sans SC", sans-serif; font-size: clamp(24px, 2.8vw, 32px); line-height: 1.42; }
 .current-chinese-host { min-height: 1.45em; }
 .current-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; }

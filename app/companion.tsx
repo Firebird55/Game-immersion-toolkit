@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ReadingText, DEFAULT_READING_OPTIONS, MIGAKU_TONE_PALETTE,
   restoreReadingOptions, type ReadingOptions, type ReadingScope } from '@/app/reading-text';
+import { shouldHideTranslation, restoreTranslationLimit, type ReadingSummary, type TranslationLimit } from '@/app/translation-visibility';
 import {
   Dialog,
   DialogContent,
@@ -274,6 +275,21 @@ const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId }: { te
   return <div className="current-chinese-host" ref={host} />;
 });
 
+function EnglishTranslation({ line, summary, limit, current = false }: {
+  line: TranscriptLine; summary: ReadingSummary | null; limit: TranslationLimit; current?: boolean;
+}) {
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const key = JSON.stringify([line.id, line.chinese, line.english, limit]);
+  const count = summary?.id === line.id && summary.text === line.chinese ? summary.unknownWords : null;
+  const hidden = shouldHideTranslation(limit, count) && revealed !== key;
+  if (!hidden) return <StableText className={current ? 'current-english' : undefined} text={line.english} />;
+  return <button type="button" className={`english-reveal ${current ? 'current-english-reveal' : ''}`}
+    onClick={() => setRevealed(key)} aria-label="Show English translation">
+    <span>English hidden · Tap to reveal</span>
+    <small>{count} unknown {count === 1 ? 'word' : 'words'}</small>
+  </button>;
+}
+
 const TranscriptRow = memo(function TranscriptRow({
   line,
   readingMode,
@@ -295,6 +311,7 @@ const TranscriptRow = memo(function TranscriptRow({
   onToggleFavorite: (line: TranscriptLine) => void;
   onSendToLexirise: (kind: 'line', id: number | string) => void;
 }) {
+  const [readingSummary, setReadingSummary] = useState<ReadingSummary | null>(null);
   const ref = `line:${line.id}`;
   return <article className="transcript-line">
     <div className="line-time">
@@ -303,11 +320,11 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
-      <StableText text={line.english} />
+      <EnglishTranslation line={line} summary={readingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} />
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.chinese} options={readingOptions} /> : <StableText lang="zh-Hans" text={line.chinese} />}
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.chinese} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
@@ -357,6 +374,7 @@ function CompanionClient() {
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
   const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
   const [readingOptions, setReadingOptions] = useState<ReadingOptions>(DEFAULT_READING_OPTIONS);
+  const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
@@ -780,8 +798,8 @@ function CompanionClient() {
               {latestLine.speaker_english && <StableInline text={latestLine.speaker_english} />}
               {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
             </div>}
-            <StableText className="current-english" text={latestLine.english} />
-            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.chinese} options={readingOptions} current /> : <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />}
+            <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
+            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.chinese} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />}
             <div className="current-actions">
               <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
@@ -925,6 +943,19 @@ function CompanionClient() {
             <DialogDescription>Choose which words get readings, translations, and tone colors.</DialogDescription>
           </DialogHeader>
           <div className="reader-option-list">
+            <label className="reader-option-row">
+              <span><strong>Hide English translation</strong><small>Hide when a line has at most this many unknown words. Tap to reveal. Only Known words count as known.</small></span>
+              <select value={readingOptions.hideEnglishAt} aria-label="Hide English translation"
+                onChange={event => saveReadingOptions({ ...readingOptions,
+                  hideEnglishAt: restoreTranslationLimit(event.target.value === 'off' ? 'off' : Number(event.target.value)),
+                })}>
+                <option value="off">Always show</option>
+                <option value="0">0 unknown words</option>
+                <option value="1">1 or fewer</option>
+                <option value="2">2 or fewer</option>
+                <option value="3">3 or fewer</option>
+              </select>
+            </label>
             {READING_FIELDS.map(field => <label key={field.key} className="reader-option-row">
               <span><strong>{field.label}</strong><small>{field.hint}</small></span>
               <select value={readingOptions[field.key]} onChange={event => saveReadingOptions({

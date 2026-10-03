@@ -3,6 +3,7 @@
 import { memo, useEffect, useState } from 'react';
 import { Popover } from '@base-ui/react/popover';
 import { Bookmark, Play, Volume2, X } from 'lucide-react';
+import { countUnknownWords, restoreTranslationLimit, type ReadingSummary, type TranslationLimit } from './translation-visibility';
 
 export type ReadingScope = 'unknown' | 'all' | 'off';
 export type ReadingOptions = {
@@ -11,12 +12,13 @@ export type ReadingOptions = {
   toneMarks: ReadingScope;
   meanings: ReadingScope;
   toneColors: ReadingScope;
+  hideEnglishAt: TranslationLimit;
   palette: [string, string, string, string, string];
 };
 export const MIGAKU_TONE_PALETTE: ReadingOptions['palette'] = ['#ff526b', '#ffd34d', '#43cfa1', '#4fa8ff', '#9ca9b7'];
 export const DEFAULT_READING_OPTIONS: ReadingOptions = {
   pinyin: 'unknown', zhuyin: 'off', toneMarks: 'off', meanings: 'unknown',
-  toneColors: 'all', palette: [...MIGAKU_TONE_PALETTE],
+  toneColors: 'all', hideEnglishAt: 'off', palette: [...MIGAKU_TONE_PALETTE],
 };
 export function isReadingScope(value: unknown): value is ReadingScope {
   return value === 'unknown' || value === 'all' || value === 'off';
@@ -33,6 +35,7 @@ export function restoreReadingOptions(value: unknown): ReadingOptions {
     toneMarks: isReadingScope(saved.toneMarks) ? saved.toneMarks : 'off',
     meanings: isReadingScope(saved.meanings) ? saved.meanings : 'unknown',
     toneColors: isReadingScope(saved.toneColors) ? saved.toneColors : 'all',
+    hideEnglishAt: restoreTranslationLimit(saved.hideEnglishAt),
     palette,
   };
 }
@@ -415,8 +418,9 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
   </Popover.Root>;
 }
 
-export const ReadingText = memo(function ReadingText({ id, text, options, current = false }: {
+export const ReadingText = memo(function ReadingText({ id, text, options, current = false, onSummary }: {
   id: number; text: string; options: ReadingOptions; current?: boolean;
+  onSummary?: (summary: ReadingSummary) => void;
 }) {
   const [reading, setReading] = useState<Reading | null>(cachedReading(id, text));
   const [open, setOpen] = useState<number | null>(null);
@@ -425,6 +429,9 @@ export const ReadingText = memo(function ReadingText({ id, text, options, curren
   const [lookup, setLookup] = useState<{ index: number; value?: Lookup; error?: boolean } | null>(null);
   const [lookupAttempt, setLookupAttempt] = useState(0);
   const [error, setError] = useState(false);
+  useEffect(() => {
+    onSummary?.({ id, text, unknownWords: reading?.text === text ? countUnknownWords(text, reading.tokens) : null });
+  }, [id, text, reading, onSummary]);
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
