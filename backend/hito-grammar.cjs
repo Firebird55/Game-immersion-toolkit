@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const readline = require('node:readline');
 const acorn = require('acorn');
 const debug = message => { if (process.env.HITO_DEBUG) console.error(message); };
-const extractorVersion = 2;
+const extractorVersion = 3;
 
 const bytes = fs.readFileSync(process.argv[2]);
 const archiveHash = crypto.createHash('sha256').update(bytes).digest('hex');
@@ -149,8 +149,14 @@ load(hanziNode.name);
 load('n9');
 load('r2');
 load('sk');
-const english = definitions[languageRootName].slice(englishNode.start, englishNode.end);
-vm.runInContext(`var r0={english:${english},hanzi:${hanziNode.name},pinyin:${hanziNode.name},chinese:${hanziNode.name}};`, context, {timeout: 2000});
+const bilingualName = Object.keys(definitions).find(name => {
+  const source = definitions[name];
+  return source.includes(`Object.entries(${languageRootName})`) && source.includes('.settings.known')
+    && source.includes('.settings.annotation');
+});
+if (!bilingualName) throw new Error('Unsupported Hito bilingual composer');
+load(bilingualName);
+const bilingualGrammar = context[bilingualName];
 const inflector = Object.values(context).find(value => typeof value?.singular === 'function');
 if (!inflector) throw new Error('Unsupported Hito word inflector');
 debug('Loaded grammar');
@@ -172,7 +178,7 @@ function plain(value, part) {
 }
 function entity() { return {settings:{language:'hanzi', known:'english', annotation:'pinyin'}, action:{}}; }
 function compose(method, args) {
-  return context.r0.hanzi[method](entity(), ...args);
+  return bilingualGrammar.hanzi[method](entity(), ...args);
 }
 function constant(n) {
   if (n.type === 'Literal') return n.value;

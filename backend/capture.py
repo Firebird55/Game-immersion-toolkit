@@ -686,11 +686,7 @@ class CaptureService:
             response = engine.recognize_pil(image)
             if epoch != self._scan_epoch:
                 return _ScanOutcome([])
-            lines = [
-                str(row.get("text", "")).strip()
-                for row in response.get("lines", [])
-                if str(row.get("text", "")).strip()
-            ]
+            lines = self._hito_ocr_lines(image, response, engine)
             raw = " ".join(lines)
             match = index.match_lines(lines) if index and index.ready else None
             observations[channel] = (bounds, raw, self._confidence(response), match)
@@ -736,6 +732,60 @@ class CaptureService:
             visible_text_ids=list(dict.fromkeys(visible_ids)),
         )
         return _ScanOutcome(emitted)
+
+    @staticmethod
+    def _hito_ocr_lines(image: Image.Image, response: dict, engine: OcrEngine) -> list[str]:
+        """Read highlighted Hanzi separately from the surrounding Latin text."""
+        import numpy as np
+
+        rows = response.get("lines", [])
+        original = [str(row.get("text", "")).strip() for row in rows if str(row.get("text", "")).strip()]
+        pixels = np.asarray(image.convert("RGB"), dtype=np.int16)
+        orange = (pixels[:, :, 0] > pixels[:, :, 2] + 45) & (pixels[:, :, 0] > 120) & (pixels[:, :, 1] > 60)
+        if np.count_nonzero(orange) < 40:
+            return original
+        mask = Image.fromarray(np.repeat((orange.astype(np.uint8) * 255)[:, :, None], 3, axis=2))
+        highlighted = [row for row in engine.recognize_pil(mask).get("lines", [])
+                       if re.search(r"[\u3400-\u9fff]", str(row.get("text", ""))) and row.get("bounding_rect")]
+        if not highlighted or any(not row.get("bounding_rect") for row in rows):
+            return original
+
+        def bounds(row):
+            rect = row["bounding_rect"]
+            return (min(rect[f"x{i}"] for i in range(1, 5)), min(rect[f"y{i}"] for i in range(1, 5)),
+                    max(rect[f"x{i}"] for i in range(1, 5)), max(rect[f"y{i}"] for i in range(1, 5)))
+
+        remaining = list(highlighted)
+        result = []
+        for row in rows:
+            left, top, right, bottom = bounds(row)
+            # Ruby pinyin sits immediately above a highlighted Hanzi word.
+            annotation = any(
+                min(right, bounds(word)[2]) - max(left, bounds(word)[0]) > (right - left) * .6
+                and bottom <= bounds(word)[1] + (bounds(word)[3] - bounds(word)[1]) * .15
+                and bounds(word)[1] - bottom < bounds(word)[3] - bounds(word)[1]
+                and bottom - top < (bounds(word)[3] - bounds(word)[1]) * .75
+                for word in highlighted)
+            if annotation:
+                continue
+            replacements = [word for word in remaining
+                            if min(bottom, bounds(word)[3]) - max(top, bounds(word)[1])
+                            > min(bottom - top, bounds(word)[3] - bounds(word)[1]) * .5]
+            if not replacements or not row.get("words"):
+                result.append(str(row.get("text", "")))
+                continue
+            pieces = []
+            for word in row["words"]:
+                wl, wt, wr, wb = bounds(word)
+                if any(min(wr, bounds(chinese)[2]) - max(wl, bounds(chinese)[0]) > (wr - wl) * .4
+                       for chinese in replacements):
+                    continue
+                pieces.append((wl, str(word["text"])))
+            for word in replacements:
+                pieces.append((bounds(word)[0], str(word["text"])))
+                remaining.remove(word)
+            result.append(" ".join(text for _, text in sorted(pieces)))
+        return result
 
     def _mapped_voice(self, match: TextMatch | None) -> bool:
         if match is None:

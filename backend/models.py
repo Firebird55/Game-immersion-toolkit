@@ -35,7 +35,7 @@ class AppSettings(BaseModel):
         default_factory=lambda: CaptureRegion(left=0.04, top=0.06, width=0.92, height=0.88)
     )
     hito_region: CaptureRegion = Field(
-        default_factory=lambda: CaptureRegion(left=0.365, top=0.815, width=0.34, height=0.125)
+        default_factory=lambda: CaptureRegion(left=0.35, top=0.765, width=0.365, height=0.18)
     )
     hito_tip_region: CaptureRegion = Field(
         default_factory=lambda: CaptureRegion(left=0.31, top=0.075, width=0.38, height=0.16)

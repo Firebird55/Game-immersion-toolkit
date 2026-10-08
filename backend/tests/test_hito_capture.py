@@ -54,3 +54,33 @@ def test_hito_two_boxes_emit_independently_without_voice_and_touch_repeats(tmp_p
     assert repeated[0].id == first[0].id
     assert service.transcript.count(game='hito') == 2
     assert snapshots[-1]['tip_crop_bounds'] != snapshots[-1]['crop_bounds']
+
+
+def test_mixed_hito_tutorial_replaces_latin_ocr_and_removes_ruby_pinyin(tmp_path):
+    from backend.hito import HitoTextIndex
+
+    def row(text, x, y, width, height, words=None):
+        return dict(text=text, bounding_rect=dict(x1=x, y1=y, x2=x+width, y2=y,
+                    x3=x+width, y3=y+height, x4=x, y4=y+height), words=words or [])
+
+    image = Image.new('RGB', (600, 180))
+    image.paste((255, 170, 70), (450, 95, 550, 155))
+    highlighted = row('说话', 450, 95, 100, 60)
+    engine = SimpleNamespace(recognize_pil=lambda image: {'lines': [highlighted]})
+    response = {'lines': [
+        row('I can tap or use the arrow keys', 0, 0, 590, 45),
+        row('shuohua', 450, 60, 100, 28),
+        row('to move and talk with ixis', 0, 95, 550, 60, [
+            row('to move and talk with', 0, 95, 425, 60),
+            row('ixis', 450, 95, 100, 60),
+        ]),
+    ]}
+    lines = CaptureService._hito_ocr_lines(image, response, engine)
+    assert lines == ['I can tap or use the arrow keys', 'to move and talk with 说话']
+    index = HitoTextIndex(tmp_path)
+    index._records = [dict(chinese='I can tap or use the arrow keys to move and talk with 说话',
+                           english='I can tap or use the arrow keys to move and talk with to speak')]
+    index._load_pinyin({'vocabulary': [{'pinyin': 'shuo hua'}]})
+    match = index.match_lines(lines)
+    assert match and match.score == 100
+    assert match.chinese.endswith('说话')
