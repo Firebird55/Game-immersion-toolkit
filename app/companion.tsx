@@ -48,6 +48,7 @@ type Settings = {
   cinematic_region: CaptureRegion;
   hito_region: CaptureRegion;
   hito_tip_region: CaptureRegion;
+  hito_auto_regions: boolean;
   scan_interval_ms: number;
   stable_frames: number;
   fuzzy_threshold: number;
@@ -625,12 +626,12 @@ function CompanionClient() {
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
-      const nextRegion = { ...current[regionKey], [field]: value };
+      const nextRegion = { ...(selectedGame === 'hito' && current.hito_auto_regions ? activeRegion ?? current[regionKey] : current[regionKey]), [field]: value };
       if (field === 'left') nextRegion.width = Math.min(nextRegion.width, 1 - value);
       if (field === 'top') nextRegion.height = Math.min(nextRegion.height, 1 - value);
       if (field === 'width') nextRegion.width = Math.min(value, 1 - nextRegion.left);
       if (field === 'height') nextRegion.height = Math.min(value, 1 - nextRegion.top);
-      return { ...current, [regionKey]: nextRegion };
+      return { ...current, ...(selectedGame === 'hito' ? { hito_auto_regions: false } : {}), [regionKey]: nextRegion };
     });
   }
 
@@ -723,11 +724,19 @@ function CompanionClient() {
   const mapStatus = status?.textmaps;
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
-  const activeRegion = draftSettings
+  const manualRegion = draftSettings
     ? (selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
+  const detectedBounds = setupChannel === 'tip' ? capture?.tip_crop_bounds : capture?.crop_bounds;
+  const gameBounds = capture?.window_bounds;
+  const activeRegion = selectedGame === 'hito' && draftSettings?.hito_auto_regions
+    && capture?.active_game === 'hito' && detectedBounds && gameBounds
+    ? { left: (detectedBounds[0] - gameBounds[0]) / gameBounds[2],
+        top: (detectedBounds[1] - gameBounds[1]) / gameBounds[3],
+        width: detectedBounds[2] / gameBounds[2], height: detectedBounds[3] / gameBounds[3] }
+    : manualRegion;
   const previewRegionQuery = draftSettings
     ? new URLSearchParams({
         left: String(activeRegion?.left),
@@ -1016,6 +1025,13 @@ function CompanionClient() {
               {selectedGame === 'hito' ? 'Tune the bottom dialogue box and top message box independently.' : 'Tune the bottom dialogue box and the upper-right tutorial banner independently.'}
             </DialogDescription>
           </DialogHeader>
+
+          <p>Capture adjustments are saved on this PC.</p>
+          {selectedGame === 'hito' && draftSettings && <label>
+            <input type="checkbox" checked={draftSettings.hito_auto_regions}
+              onChange={event => setDraftSettings(current => current ? { ...current, hito_auto_regions: event.target.checked } : current)} />
+            {' '}Automatically follow Hito message boxes at the current resolution and zoom
+          </label>}
 
           <div className="capture-tabs" role="tablist" aria-label="Capture region">
             <button

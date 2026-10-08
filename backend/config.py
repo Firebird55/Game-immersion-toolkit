@@ -8,16 +8,20 @@ from .models import AppSettings
 
 
 class SettingsStore:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, legacy_path: Path | None = None):
         self.path = path
+        self.legacy_path = legacy_path
         self._lock = threading.RLock()
         self._settings = self._load()
+        if not path.exists() and legacy_path and legacy_path.exists():
+            self.save(self._settings)
 
     def _load(self) -> AppSettings:
-        if not self.path.exists():
+        source = self.path if self.path.exists() else self.legacy_path
+        if source is None or not source.exists():
             return AppSettings()
         try:
-            return AppSettings.model_validate_json(self.path.read_text(encoding="utf-8"))
+            return AppSettings.model_validate_json(source.read_text(encoding="utf-8"))
         except (OSError, ValueError, json.JSONDecodeError):
             return AppSettings()
 

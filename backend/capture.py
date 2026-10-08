@@ -674,12 +674,19 @@ class CaptureService:
         emitted: list[TranscriptLine] = []
         observations: dict[str, tuple[tuple[int, int, int, int], str, float | None, TextMatch | None]] = {}
         visible_ids: list[str] = []
+        screen = self._capture(window.bounds) if settings.hito_auto_regions else None
+        detected = self._hito_box_regions(screen) if screen is not None else {}
         for channel, region, tracker in (
             ("dialogue", settings.hito_region, self._tracker),
             ("tip", settings.hito_tip_region, self._tip_tracker),
         ):
+            region = detected.get(channel, region)
             bounds = self._region_bounds(window, region)
-            image = self._capture(bounds)
+            if screen is None:
+                image = self._capture(bounds)
+            else:
+                x, y = bounds[0] - window.bounds[0], bounds[1] - window.bounds[1]
+                image = screen.crop((x, y, x + bounds[2], y + bounds[3]))
             if channel == "dialogue":
                 self._set_preview(image)
             image = image.resize((image.width * 2, image.height * 2), Image.Resampling.NEAREST)
@@ -732,6 +739,48 @@ class CaptureService:
             visible_text_ids=list(dict.fromkeys(visible_ids)),
         )
         return _ScanOutcome(emitted)
+
+    @staticmethod
+    def _hito_box_regions(image: Image.Image) -> dict[str, CaptureRegion]:
+        """Locate Hito's outlined message panels at the current game zoom."""
+        import numpy as np
+
+        scaled = image.copy()
+        scaled.thumbnail((960, 960), Image.Resampling.BILINEAR)
+        pixels = np.asarray(scaled.convert('RGB'), dtype=np.int16)
+        height, width = pixels.shape[:2]
+        white = (pixels.min(axis=2) > 180) & (pixels.max(axis=2) - pixels.min(axis=2) < 35)
+        edges = []
+        for y in range(height):
+            transitions = np.diff(np.pad(white[y].astype(np.int8), (1, 1)))
+            for left, right in zip(np.where(transitions == 1)[0], np.where(transitions == -1)[0]):
+                if right - left >= width * .18 and left < width * .65 and right > width * .4:
+                    if edges and y - edges[-1][0] <= 3 and abs(left - edges[-1][1]) < 5 and abs(right - edges[-1][2]) < 5:
+                        continue
+                    edges.append((y, left, right))
+        panels = []
+        for i, (top, left, right) in enumerate(edges):
+            for bottom, bl, br in edges[i+1:]:
+                if not height * .04 < bottom - top < height * .35 or abs(left-bl) > 6 or abs(right-br) > 6:
+                    continue
+                sides = white[top:bottom+1, max(0,left-5):min(width,left+6)].any(axis=1)
+                if sides.mean() < .65:
+                    continue
+                panels.append((top, bottom, left, right))
+        result = {}
+        for channel, candidates in (
+            ('dialogue', [p for p in panels if p[0] > height * .5]),
+            ('tip', [p for p in panels if p[1] < height * .5]),
+        ):
+            if not candidates:
+                continue
+            top, bottom, left, right = max(candidates, key=lambda p: (p[3]-p[2]) * (p[1]-p[0]))
+            # The bottom panel has a speaker glyph in its left column.
+            inset = (right-left) * (.18 if channel == 'dialogue' else .02)
+            x = (left + inset) / width
+            y = (top + 3) / height
+            result[channel] = CaptureRegion(left=x, top=y, width=(right-3)/width-x, height=(bottom-3)/height-y)
+        return result
 
     @staticmethod
     def _hito_ocr_lines(image: Image.Image, response: dict, engine: OcrEngine) -> list[str]:

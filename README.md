@@ -1,7 +1,7 @@
 # Proxy Transcript
 
 A local, gameplay-first bilingual transcript companion for Zenless Zone Zero
-and PRAGMATA.
+and PRAGMATA, with game-text capture for Hito's World.
 
 It captures English text from the running game, recognizes it with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
 
@@ -38,7 +38,7 @@ Install Python 3.12, Node.js 22 or newer, and Windows Snipping Tool, then open P
 .\scripts\setup.ps1
 ```
 
-Run setup from `PROJECT_ROOT/GameSentenceMiner`. The app, frontend build, transcript, and TextMap data stay on D:. The Zenless Zone Zero installation can remain on the Intenso USB stick; the updater discovers its game files separately. This PC keeps its Python environment, launcher, and encrypted Lexirise credential under Local AppData. Setup downloads the TextMaps only when the project does not already contain them.
+Run setup from the project folder. The app, frontend build, transcript, and TextMap data stay in that folder. Game installations can be on a different drive; the updater discovers their game files separately. Each PC keeps its Python environment, launcher, capture settings, and encrypted Lexirise credential under Local AppData. Setup downloads the TextMaps only when the project does not already contain them.
 
 When copying the folder to another PC, keep the whole `gamesentenceminer` directory (including `data` and `work`) and run `scripts\setup.ps1` there. The launcher and Start menu shortcut are recreated for the new path. The updater locates the running ZZZ executable or a local Steam installation, so game and app drive letters may differ. Headset selection and game volume do not affect subtitle matching or original voice extraction. The DPAPI-encrypted Lexirise key cannot be copied between Windows users. Set it on the other PC with the hidden prompt:
 
@@ -46,7 +46,7 @@ When copying the folder to another PC, keep the whole `gamesentenceminer` direct
 & "$env:LOCALAPPDATA\Programs\Proxy Transcript\venv\Scripts\python.exe" -m scripts.set_lexirise_key
 ```
 
-On this PC, the app is installed on D:. Start it from the **Proxy Transcript** Start menu shortcut or `PROJECT_ROOT/GameSentenceMiner\Start Proxy Transcript.cmd`. The app and capture service listen only on this PC. `scripts\install-status.ps1` shows local indexing and service status, including percentages. Before first live gameplay, `scripts\check-capture-readiness.py` verifies local OCR and display capture; see `docs\capture-readiness.md` for the results and live game checklist. If this folder is copied to another Windows PC, run setup there again because the Python environment and encrypted API credential belong to this PC.
+Start the app from the **Proxy Transcript** Start menu shortcut or `Start Proxy Transcript.cmd` in the project folder. The app and capture service listen only on this PC. `scripts\install-status.ps1` shows local indexing and service status, including percentages. Before first live gameplay, `scripts\check-capture-readiness.py` verifies local OCR and display capture; see `docs\capture-readiness.md` for the results and live game checklist. If this folder is copied to another Windows PC, run setup there again because the Python environment and encrypted API credential belong to this PC.
 
 ## Normal use
 
@@ -60,6 +60,14 @@ Favorites separate. It follows the running game automatically; you can switch
 it manually to review the other game's saved lines.
 
 The compact **Reading** switch chooses Migaku (default) or Lexirise. In Lexirise mode, **Reading options** controls Pinyin, Zhuyin, separate tone marks, inline English meanings, and tone colors. Each can appear on unknown words, all words, or be turned off. Tone colors default to Migaku's red/yellow/green/blue/gray mapping and each color can be edited. Tap a word for a built-in definition, or scan its selectable text with Yomitan. These display choices are remembered in the browser and do not send a sentence to a Lexirise deck. The research and implementation details are in `docs/lexirise-reading-mode.md`.
+
+## Hito's World
+
+Hito reads verified Chinese/English text from the running game's `resources/app.asar`, including generated sentences and mixed English/Hanzi tutorial lines. Both the bottom dialogue panel and top message panel appear in Current line and History without requiring recorded audio.
+
+Automatic capture follows the visible message-box borders, so screen resolution and game zoom can change without recropping. Capture setup shows the detected crop. Moving a region slider switches Hito to manual regions; re-enable the automatic checkbox and save to resume box detection. Manual settings belong to this PC and are not synchronized with the project folder.
+
+The game-file catalog refreshes automatically when the running game's archive changes. **Capture setup → Refresh from game** forces a refresh. If an update changes the grammar format incompatibly, the previous catalog stays available and `data/hito/grammar.log` contains the error for a software update.
 
 ## PRAGMATA
 
@@ -151,11 +159,12 @@ Double-click `Stop Proxy Transcript.cmd` to stop the background services.
 
 ## Local data
 
-- Settings: `data/settings.json`
+- PC settings: `%LOCALAPPDATA%/Proxy Transcript/settings.json` (existing `data/settings.json` is imported once)
 - Transcript: `data/transcript.db`
 - Voice clips: `data/audio`
 - TextMaps: `data/textmaps`
 - PRAGMATA official index and extractor: `data/pragmata`
+- Hito game-text catalog and extraction log: `data/hito`
 
 OCR, subtitle matching, and original voice extraction happen locally. Network access supports data/tool updates and explicit Lexirise actions. Capture is independent of the Windows playback device.
 

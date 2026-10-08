@@ -86,7 +86,8 @@ class EventHub:
 class Runtime:
     def __init__(self) -> None:
         self.hub = EventHub()
-        self.settings = SettingsStore(DATA_DIR / "settings.json")
+        local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
+        self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.lexirise = LexiriseService(DATA_DIR / "lexirise")
         self.reading = LexiriseReadingService(DATA_DIR / "lexirise", self.lexirise)

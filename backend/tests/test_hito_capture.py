@@ -84,3 +84,22 @@ def test_mixed_hito_tutorial_replaces_latin_ocr_and_removes_ruby_pinyin(tmp_path
     match = index.match_lines(lines)
     assert match and match.score == 100
     assert match.chinese.endswith('说话')
+
+
+def test_hito_box_detection_follows_resolution_and_game_zoom():
+    from PIL import ImageDraw
+
+    for width, height, panel in (
+        (1920, 1080, (.28, .78, .72, .93)),
+        (3840, 2160, (.28, .78, .72, .93)),
+        (1280, 800, (.18, .65, .82, .91)),
+    ):
+        image = Image.new('RGB', (width, height))
+        coords = tuple(round(value * (width if i % 2 == 0 else height)) for i, value in enumerate(panel))
+        ImageDraw.Draw(image).rectangle(coords, outline='white', width=max(3, width // 320))
+        region = CaptureService._hito_box_regions(image)['dialogue']
+        left, top, right, bottom = panel
+        assert abs(region.top - top) < .015
+        assert abs(region.top + region.height - bottom) < .015
+        assert abs(region.left - (left + (right-left)*.18)) < .015
+        assert abs(region.left + region.width - right) < .015

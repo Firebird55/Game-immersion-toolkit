@@ -40,6 +40,7 @@ class AppSettings(BaseModel):
     hito_tip_region: CaptureRegion = Field(
         default_factory=lambda: CaptureRegion(left=0.31, top=0.075, width=0.38, height=0.16)
     )
+    hito_auto_regions: bool = True
     scan_interval_ms: int = Field(default=250, ge=100, le=5000)
     stable_frames: int = Field(default=2, ge=1, le=8)
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)
