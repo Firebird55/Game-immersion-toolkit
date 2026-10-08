@@ -62,8 +62,11 @@ if (-not (Test-LocalEndpoint 'http://127.0.0.1:3000/')) {
     }
     if (-not (Test-Path -LiteralPath $wrangler)) { throw 'Wrangler is missing. Restore node_modules from the ZIP.' }
     $node = (Get-Command node -ErrorAction Stop).Source
+    # Start-Process flattens ArgumentList to a command line on Windows. Keep the
+    # script path quoted so installs below folders such as "Google Drive" work.
+    $wranglerArgument = '"' + $wrangler + '"'
     $frontend = Start-Process -FilePath $node `
-        -ArgumentList $wrangler, 'dev', '--config', 'dist\server\wrangler.json', '--port', '3000' `
+        -ArgumentList $wranglerArgument, 'dev', '--config', 'dist\server\wrangler.json', '--port', '3000' `
         -WorkingDirectory $projectRoot `
         -WindowStyle Hidden `
         -PassThru

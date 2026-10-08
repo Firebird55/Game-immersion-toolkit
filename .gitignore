@@ -18,6 +18,7 @@
 
 # misc
 .DS_Store
+desktop.ini
 *.pem
 
 # debug
@@ -60,3 +61,4 @@ __pycache__/
 /dependency-missing.json
 /copy.log
 *.lnk
+/gamesenteneminer.zip
