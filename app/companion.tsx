@@ -40,12 +40,14 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
   tip_region: CaptureRegion;
   cinematic_region: CaptureRegion;
+  hito_region: CaptureRegion;
+  hito_tip_region: CaptureRegion;
   scan_interval_ms: number;
   stable_frames: number;
   fuzzy_threshold: number;
@@ -57,7 +59,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -80,7 +82,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata';
+  game: 'zzz' | 'pragmata' | 'hito';
   source_ocr: string;
   english: string;
   chinese: string;
@@ -108,14 +110,22 @@ type UpdateStatus = {
 type StatusPayload = {
   capture: CaptureStatus;
   textmaps: TextMapStatus;
-  game_textmaps?: Record<'zzz' | 'pragmata', TextMapStatus>;
+  game_textmaps?: Record<GameId, TextMapStatus>;
   audio: { ready: boolean; message: string };
   updates?: UpdateStatus;
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata';
+type GameId = 'zzz' | 'pragmata' | 'hito';
+const GAME_NAMES: Record<GameId, string> = {
+  zzz: 'Zenless Zone Zero',
+  pragmata: 'PRAGMATA',
+  hito: "Hito's World",
+};
+function newestFirst(left: TranscriptLine, right: TranscriptLine) {
+  return Date.parse(right.created_at) - Date.parse(left.created_at) || right.id - left.id;
+}
 type LexiriseStatus = { configured: boolean; sent: Record<string, number> };
 type ReadingMode = 'migaku' | 'lexirise';
 type ReadingScopeField = 'pinyin' | 'zhuyin' | 'toneMarks' | 'meanings' | 'toneColors';
@@ -131,6 +141,7 @@ const TONE_NAMES = ['1 · level', '2 · rising', '3 · dipping', '4 · falling',
 const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
 }) {
+  if (game === 'hito') return null;
   const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${game === 'zzz' ? 'Zenless Zone Zero' : 'PRAGMATA'}`;
   return <button type="button" className={`lexirise-send ${sent ? 'is-sent' : ''}`} translate="no"
     disabled={disabled || busy || sent} onClick={onClick} title={title} aria-label={title} aria-busy={busy}>
@@ -197,9 +208,9 @@ function transcriptLineEqual(left: TranscriptLine, right: TranscriptLine) {
 function mergeTranscriptSnapshot(current: TranscriptLine[], snapshot: TranscriptLine[]) {
   const currentById = new Map(current.map((line) => [line.id, line]));
   const snapshotIds = new Set(snapshot.map((line) => line.id));
-  const newestSnapshotId: Partial<Record<GameId, number>> = {};
+  const newestSnapshotAt: Partial<Record<GameId, number>> = {};
   for (const line of snapshot) {
-    newestSnapshotId[line.game] = Math.max(newestSnapshotId[line.game] ?? 0, line.id);
+    newestSnapshotAt[line.game] = Math.max(newestSnapshotAt[line.game] ?? 0, Date.parse(line.created_at));
   }
 
   const merged = snapshot.map((line) => {
@@ -210,9 +221,9 @@ function mergeTranscriptSnapshot(current: TranscriptLine[], snapshot: Transcript
     if (snapshotIds.has(line.id)) continue;
     // WebSocket lines can arrive before their audio is ready and therefore
     // before /api/lines returns them. Keep those lines through background sync.
-    if (line.audio_pending || line.id > (newestSnapshotId[line.game] ?? 0)) merged.push(line);
+    if (line.audio_pending || Date.parse(line.created_at) > (newestSnapshotAt[line.game] ?? 0)) merged.push(line);
   }
-  return merged.sort((left, right) => right.id - left.id);
+  return merged.sort(newestFirst);
 }
 
 function phaseLabel(phase: string) {
@@ -316,7 +327,7 @@ const TranscriptRow = memo(function TranscriptRow({
   return <article className="transcript-line">
     <div className="line-time">
       <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
-      <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : line.channel === 'gameplay' ? 'GAMEPLAY' : 'DIALOGUE'}</small>
+      <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? line.game === 'hito' ? 'TOP BOX' : 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : line.channel === 'gameplay' ? 'GAMEPLAY' : 'DIALOGUE'}</small>
     </div>
     <div className="line-language">
       {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
@@ -406,14 +417,16 @@ function CompanionClient() {
 
   const loadSnapshot = useCallback(async () => {
     try {
-      const [statusResponse, zzzLinesResponse, pragmataLinesResponse, zzzFavoritesResponse, pragmataFavoritesResponse] = await Promise.all([
+      const [statusResponse, zzzLinesResponse, pragmataLinesResponse, hitoLinesResponse, zzzFavoritesResponse, pragmataFavoritesResponse, hitoFavoritesResponse] = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/lines?limit=50&game=zzz`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/lines?limit=50&game=pragmata`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/lines?limit=50&game=hito`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/favorites?game=zzz`, { cache: 'no-store' }),
         fetch(`${API_URL}/api/favorites?game=pragmata`, { cache: 'no-store' }),
+        fetch(`${API_URL}/api/favorites?game=hito`, { cache: 'no-store' }),
       ]);
-      if (!statusResponse.ok || !zzzLinesResponse.ok || !pragmataLinesResponse.ok || !zzzFavoritesResponse.ok || !pragmataFavoritesResponse.ok) {
+      if (!statusResponse.ok || !zzzLinesResponse.ok || !pragmataLinesResponse.ok || !hitoLinesResponse.ok || !zzzFavoritesResponse.ok || !pragmataFavoritesResponse.ok || !hitoFavoritesResponse.ok) {
         throw new Error('Companion service unavailable');
       }
       const nextStatus = (await statusResponse.json()) as StatusPayload;
@@ -422,14 +435,16 @@ function CompanionClient() {
       const recentLines = [
         ...(await zzzLinesResponse.json()) as TranscriptLine[],
         ...(await pragmataLinesResponse.json()) as TranscriptLine[],
+        ...(await hitoLinesResponse.json()) as TranscriptLine[],
       ];
       const favoriteLines = [
         ...(await zzzFavoritesResponse.json()) as TranscriptLine[],
         ...(await pragmataFavoritesResponse.json()) as TranscriptLine[],
+        ...(await hitoFavoritesResponse.json()) as TranscriptLine[],
       ];
       const nextLines = Array.from(
         new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
-      ).sort((left, right) => right.id - left.id);
+      ).sort(newestFirst);
       setLines((current) => {
         const merged = mergeTranscriptSnapshot(current, nextLines);
         knownLineIds.current = new Set(merged.map((line) => line.id));
@@ -484,7 +499,7 @@ function CompanionClient() {
         }
         if (event.type === 'line') {
           const line = event.line as TranscriptLine;
-          if (!line.voiced) return;
+          if (!line.voiced && line.game !== 'hito') return;
           const isNew = !knownLineIds.current.has(line.id);
           knownLineIds.current.add(line.id);
           setLines((current) => {
@@ -492,7 +507,7 @@ function CompanionClient() {
             return (existing
               ? current.map((item) => item.id === line.id ? line : item)
               : [line, ...current]
-            ).sort((left, right) => right.id - left.id);
+            ).sort(newestFirst);
           });
           setStatus((current) => current ? {
             ...current,
@@ -556,18 +571,18 @@ function CompanionClient() {
   );
   const visibleLine = recentLines.find((line) =>
     line.session_id === status?.session.id
-    && line.voiced
+    && (line.voiced || line.game === 'hito')
     && status?.capture.running
     && status.capture.visible_text_ids?.includes(line.text_id)
   ) ?? null;
   const latestSessionLine = recentLines.find((line) =>
-    line.session_id === status?.session.id && line.voiced
+    line.session_id === status?.session.id && (line.voiced || line.game === 'hito')
   ) ?? null;
   // Free-roam subtitles disappear from the game almost immediately. Keep the
   // newest one available to read/Migaku until any later voiced line arrives.
   // Other presentation modes still disappear from Current line with the game.
   const latestLine = visibleLine ?? (
-    latestSessionLine && (latestSessionLine.channel === 'gameplay' || latestSessionLine.game === 'pragmata')
+    latestSessionLine && (latestSessionLine.channel === 'gameplay' || latestSessionLine.game !== 'zzz')
       ? latestSessionLine
       : null
   );
@@ -606,7 +621,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = setupChannel === 'tip'
+      const regionKey = selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -640,8 +655,13 @@ function CompanionClient() {
 
   async function refreshTextMaps() {
     setRefreshingMaps(true);
-    await fetch(`${API_URL}/api/textmaps/update`, { method: 'POST' });
-    await loadSnapshot();
+    try {
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : '/api/textmaps/update';
+      await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
+      await loadSnapshot();
+    } finally {
+      setRefreshingMaps(false);
+    }
   }
 
   const toggleFavorite = useCallback(async (line: TranscriptLine) => {
@@ -704,7 +724,7 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const activeRegion = draftSettings
-    ? (setupChannel === 'tip'
+    ? (selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
@@ -726,7 +746,7 @@ function CompanionClient() {
     <main className="companion-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">{selectedGame === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</p>
+          <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
           <h1>Proxy Transcript</h1>
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
@@ -743,7 +763,10 @@ function CompanionClient() {
         <button type="button" className={selectedGame === 'pragmata' ? 'is-active' : ''} aria-pressed={selectedGame === 'pragmata'} onClick={() => { setSelectedGame('pragmata'); setHistoryPage(0); }}>
           PRAGMATA
         </button>
-        {status?.capture.active_game && <small>Capturing {status.capture.active_game === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'}</small>}
+        <button type="button" className={selectedGame === 'hito' ? 'is-active' : ''} aria-pressed={selectedGame === 'hito'} onClick={() => { setSelectedGame('hito'); setHistoryPage(0); if (setupChannel === 'cinematic') setSetupChannel('dialogue'); }}>
+          Hito&apos;s World
+        </button>
+        {status?.capture.active_game && <small>Capturing {GAME_NAMES[status.capture.active_game]}</small>}
         <div className="reading-controls" aria-label="Chinese reading options">
         <label>Reading <select value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
@@ -757,12 +780,12 @@ function CompanionClient() {
       <section className="status-strip" aria-label="Companion status">
         <div>
           <Radio size={17} />
-          <span>{selectedGame === 'pragmata' ? 'Subtitle OCR + voice' : '3-zone OCR + voice'}</span>
+          <span>{selectedGame === 'hito' ? 'Two-box OCR' : selectedGame === 'pragmata' ? 'Subtitle OCR + voice' : '3-zone OCR + voice'}</span>
           <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : 'Paused'} /></strong>
         </div>
         <div>
           <Database size={17} />
-          <span>{selectedGame === 'pragmata' ? 'Official game text' : 'TextMaps'}</span>
+          <span>{selectedGame !== 'zzz' ? 'Official game text' : 'TextMaps'}</span>
           <strong><StableInline text={(status?.game_textmaps?.[selectedGame] ?? mapStatus)?.ready ? `${(status?.game_textmaps?.[selectedGame] ?? mapStatus)!.entry_count.toLocaleString()} pairs` : (status?.game_textmaps?.[selectedGame] ?? mapStatus)?.message ?? 'Connecting'} /></strong>
         </div>
         <div>
@@ -788,7 +811,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={`${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -814,8 +837,8 @@ function CompanionClient() {
           <div className="current-empty">
             <ScanLine size={28} />
             <div>
-              <strong>No confirmed voiced subtitle on screen</strong>
-              <p>The next voiced line will appear here. Previous lines stay in History.</p>
+              <strong>{selectedGame === 'hito' ? 'No verified Hito text on screen' : 'No confirmed voiced subtitle on screen'}</strong>
+              <p>{selectedGame === 'hito' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
             </div>
           </div>
         )}
@@ -877,7 +900,7 @@ function CompanionClient() {
               {transcriptTab === 'favorites' ? <Star size={24} /> : <Database size={24} />}
               <p>{transcriptTab === 'favorites'
                 ? 'Favorite a line with the star button and it will stay here between sessions.'
-                : `Your matched ${selectedGame === 'pragmata' ? 'PRAGMATA' : 'Zenless Zone Zero'} lines will remain after a restart.`}</p>
+                : `Your matched ${GAME_NAMES[selectedGame]} lines will remain after a restart.`}</p>
             </div>
           )}
         </div>
@@ -990,7 +1013,7 @@ function CompanionClient() {
           <DialogHeader>
             <DialogTitle>Capture setup</DialogTitle>
             <DialogDescription>
-              Tune the bottom dialogue box and the upper-right tutorial banner independently.
+              {selectedGame === 'hito' ? 'Tune the bottom dialogue box and top message box independently.' : 'Tune the bottom dialogue box and the upper-right tutorial banner independently.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1007,15 +1030,15 @@ function CompanionClient() {
               className={setupChannel === 'tip' ? 'is-active' : ''}
               onClick={() => setSetupChannel('tip')}
             >
-              <ScanLine size={16} /> Top-right tips
+              <ScanLine size={16} /> {selectedGame === 'hito' ? 'Top box' : 'Top-right tips'}
             </button>
-            <button
+            {selectedGame !== 'hito' && <button
               type="button"
               className={setupChannel === 'cinematic' ? 'is-active' : ''}
               onClick={() => setSetupChannel('cinematic')}
             >
               <Volume2 size={16} /> Cutscenes & comics
-            </button>
+            </button>}
           </div>
 
           <div className="capture-preview">
@@ -1028,7 +1051,7 @@ function CompanionClient() {
             ) : (
               <div className="preview-placeholder"><ScanLine /> Start the selected game to see the capture preview.</div>
             )}
-            <span>{setupChannel === 'tip' ? 'Top-right live crop' : setupChannel === 'cinematic' ? 'Cutscene / comic live crop' : 'Dialogue live crop'}</span>
+            <span>{setupChannel === 'tip' ? selectedGame === 'hito' ? 'Top-box live crop' : 'Top-right live crop' : setupChannel === 'cinematic' ? 'Cutscene / comic live crop' : 'Dialogue live crop'}</span>
           </div>
 
           {draftSettings ? (
@@ -1040,13 +1063,13 @@ function CompanionClient() {
                 ['height', 'Height'],
               ] as const).map(([field, label]) => (
                 <label key={field}>
-                  <span>{label}<strong>{Math.round((setupChannel === 'tip' ? draftSettings.tip_region : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)[field] * 100)}%</strong></span>
+                  <span>{label}<strong>{Math.round((activeRegion ?? draftSettings.region)[field] * 100)}%</strong></span>
                   <input
                     type="range"
                     min={field === 'width' || field === 'height' ? 5 : 0}
                     max={100}
                     step={1}
-                    value={Math.round((setupChannel === 'tip' ? draftSettings.tip_region : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)[field] * 100)}
+                    value={Math.round((activeRegion ?? draftSettings.region)[field] * 100)}
                     onChange={(event) => updateRegion(field, Number(event.target.value))}
                   />
                 </label>
@@ -1063,7 +1086,7 @@ function CompanionClient() {
           <div className="setup-actions">
             <Button variant="outline" onClick={refreshTextMaps} disabled={refreshingMaps}>
               <RefreshCw className={refreshingMaps ? 'is-spinning' : ''} />
-              <StableInline text={refreshingMaps ? 'Updating…' : 'Update TextMaps'} />
+              <StableInline text={refreshingMaps ? 'Updating…' : selectedGame === 'hito' ? 'Refresh from game' : 'Update TextMaps'} />
             </Button>
             <Button onClick={saveSettings} disabled={!draftSettings || saving}>
               <StableInline text={saving ? 'Saving…' : 'Save both regions'} />

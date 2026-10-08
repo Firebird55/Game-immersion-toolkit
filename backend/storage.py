@@ -80,6 +80,10 @@ class TranscriptStore:
                 "CREATE INDEX IF NOT EXISTS idx_transcript_favorites_id "
                 "ON transcript_lines(id DESC) WHERE favorite = 1"
             )
+            connection.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_hito_identity "
+                "ON transcript_lines(game, text_id) WHERE game = 'hito'"
+            )
             connection.execute("PRAGMA optimize")
 
     @staticmethod
@@ -150,6 +154,42 @@ class TranscriptStore:
     @staticmethod
     def _prefix_text(value: str) -> str:
         return "".join(character.casefold() for character in value if character.isalnum())
+
+    def add_or_touch_hito(
+        self,
+        match: TextMatch,
+        session_id: str,
+        created_at: datetime | None = None,
+        channel: str = "dialogue",
+    ) -> TranscriptLine:
+        if match.game != "hito":
+            raise ValueError("Hito identity handling requires a Hito match")
+        timestamp = created_at or datetime.now(timezone.utc).astimezone()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO transcript_lines (
+                    created_at, session_id, game, source_ocr, english, chinese,
+                    text_id, score, match_kind, ambiguous, channel
+                ) VALUES (?, ?, 'hito', ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(game, text_id) WHERE game = 'hito' DO UPDATE SET
+                    created_at = excluded.created_at, session_id = excluded.session_id,
+                    source_ocr = excluded.source_ocr, english = excluded.english,
+                    chinese = excluded.chinese, score = excluded.score,
+                    match_kind = excluded.match_kind, ambiguous = excluded.ambiguous,
+                    channel = excluded.channel
+                """,
+                (
+                    timestamp.isoformat(), session_id, match.source_ocr, match.english,
+                    match.chinese, match.text_id, match.score, match.kind,
+                    int(match.ambiguous), channel,
+                ),
+            )
+            row = connection.execute(
+                "SELECT * FROM transcript_lines WHERE game = 'hito' AND text_id = ?",
+                (match.text_id,),
+            ).fetchone()
+        return self._row_to_line(row)
 
     def add_or_upgrade_recent(
         self,
@@ -325,6 +365,8 @@ class TranscriptStore:
             rows = []
             games = [row[0] for row in connection.execute("SELECT DISTINCT game FROM transcript_lines")]
             for game in games:
+                if game == "hito":
+                    continue
                 rows.extend(connection.execute(
                     """
                     SELECT id, audio_path FROM transcript_lines
@@ -349,7 +391,7 @@ class TranscriptStore:
             rows = connection.execute(
                 """
                 SELECT id, audio_path FROM transcript_lines
-                WHERE voiced = 0 AND favorite = 0
+                WHERE game <> 'hito' AND voiced = 0 AND favorite = 0
                 """
             ).fetchall()
             if rows:
@@ -384,7 +426,7 @@ class TranscriptStore:
             parameters.append(game)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        query += " ORDER BY id DESC LIMIT ?"
+        query += " ORDER BY julianday(created_at) DESC, id DESC LIMIT ?"
         parameters.append(limit)
         with self._connect() as connection:
             rows = connection.execute(query, parameters).fetchall()
@@ -398,7 +440,7 @@ class TranscriptStore:
             if game is not None:
                 query += " AND game = ?"
                 parameters.append(game)
-            query += " ORDER BY id DESC"
+            query += " ORDER BY julianday(created_at) DESC, id DESC"
             rows = connection.execute(query, parameters).fetchall()
         return [self._row_to_line(row) for row in rows]
 

@@ -17,6 +17,7 @@ from .models import AppSettings, CaptureRegion, CaptureSnapshot, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex
 from .pragmata import PragmataTextIndex
+from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
 from .pragmata_updates import PragmataUpdateManager
 from .speakers import SpeakerResolver
@@ -92,6 +93,7 @@ class Runtime:
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
+        self.hito = HitoTextIndex(DATA_DIR / "hito")
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
@@ -125,6 +127,7 @@ class Runtime:
             audio_dir=DATA_DIR / "audio",
             voice_assets=self.voice_assets,
             pragmata_voice_assets=self.pragmata_voice_assets,
+            hito=self.hito,
         )
         for line in self.transcript.list(limit=50):
             self.capture.repair_recorded_line(line)
@@ -145,7 +148,8 @@ class Runtime:
 
     async def on_line(self, line: TranscriptLine) -> None:
         audio_pending = line.audio_pending
-        line = self.speakers.enrich(line)
+        if line.game != "hito":
+            line = self.speakers.enrich(line)
         if audio_pending and not line.audio_pending:
             # Speaker enrichment can round-trip through SQLite; preserve this
             # transient delivery state on the WebSocket payload.
@@ -194,6 +198,7 @@ class Runtime:
             "game_textmaps": {
                 "zzz": self.textmaps.status(),
                 "pragmata": self.pragmata.status(),
+                "hito": self.hito.status(),
             },
             "audio": {"ready": self.voice_assets.ready or self.pragmata_voice_assets.ready,
                       "message": "Original voices from game files; matched by visible subtitles",
@@ -252,6 +257,7 @@ async def lifespan(_app: FastAPI):
             except asyncio.CancelledError:
                 pass
         await runtime.capture.close()
+        await asyncio.to_thread(runtime.hito.close)
         await asyncio.to_thread(runtime.update_manager.close)
         await asyncio.to_thread(runtime.pragmata_updater.close)
         runtime.voice_assets.close()
@@ -305,24 +311,25 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito)$"),
 ) -> list[TranscriptLine]:
     return [
-        runtime.speakers.enrich(line) for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
-        if line.voiced
-        and (
+        line if line.game == "hito" else runtime.speakers.enrich(line)
+        for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
+        if line.game == "hito" or (line.voiced and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
             else runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
-        )
+        ))
     ]
 
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito)$"),
 ) -> list[TranscriptLine]:
-    return [runtime.speakers.enrich(line) for line in runtime.transcript.list_favorites(game=game)]
+    return [line if line.game == "hito" else runtime.speakers.enrich(line)
+            for line in runtime.transcript.list_favorites(game=game)]
 
 
 @app.get("/api/lines/{line_id}/audio")
@@ -572,6 +579,12 @@ def update_textmaps() -> dict[str, object]:
     return {"started": started, "textmaps": runtime.textmaps.status()}
 
 
+@app.post("/api/hito/update")
+def update_hito_text() -> dict[str, object]:
+    started = runtime.hito.refresh()
+    return {"started": started, "hito": runtime.hito.status()}
+
+
 @app.post("/api/updates/check")
 def check_updates() -> dict[str, object]:
     started = runtime.update_manager.request_check()
@@ -612,7 +625,8 @@ def windows() -> list[dict[str, object]]:
 async def websocket_endpoint(websocket: WebSocket) -> None:
     await runtime.hub.connect(websocket)
     try:
-        await websocket.send_json({"type": "snapshot", "snapshot": runtime.status()})
+        snapshot = await asyncio.to_thread(runtime.status)
+        await websocket.send_json({"type": "snapshot", "snapshot": snapshot})
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:

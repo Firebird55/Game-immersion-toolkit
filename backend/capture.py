@@ -21,8 +21,9 @@ from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex, normalize_english
 from .pragmata import PragmataTextIndex
+from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
-from .windows import WindowInfo, find_active_game_window, find_game_window
+from .windows import WindowInfo, executable_path_for_window, find_active_game_window, find_game_window
 from .voice_assets import VoiceAssetService
 
 
@@ -79,10 +80,12 @@ class CaptureService:
         audio_dir: Path,
         voice_assets: VoiceAssetService | None = None,
         pragmata_voice_assets: PragmataVoiceAssetService | None = None,
+        hito: HitoTextIndex | None = None,
     ):
         self.settings = settings
         self.textmaps = textmaps
         self.pragmata = pragmata
+        self.hito = hito
         self.transcript = transcript
         self.on_line = on_line
         self.on_delete = on_delete
@@ -179,6 +182,10 @@ class CaptureService:
                     outcome = await asyncio.wait_for(asyncio.shield(scan), timeout=12)
                     snapshot = self.snapshot()
                     await self.on_status(snapshot)
+                    if outcome and outcome.emitted_lines:
+                        for line in outcome.emitted_lines:
+                            if line.game == "hito":
+                                await self.on_line(line)
                     # Subtitle-confirmed lines publish while their original
                     # game files are decoded asynchronously.
                 except asyncio.TimeoutError:
@@ -227,7 +234,7 @@ class CaptureService:
             self._update_snapshot(
                 running=True,
                 phase="waiting_for_game",
-                message="Waiting for Zenless Zone Zero or PRAGMATA",
+                message="Waiting for Hito's World, Zenless Zone Zero or PRAGMATA",
                 active_game=None,
                 window_title=None,
                 window_bounds=None,
@@ -248,6 +255,8 @@ class CaptureService:
 
         if profile.id == "pragmata":
             return self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
+        if profile.id == "hito":
+            return self._scan_hito(window, engine, epoch, now)
 
         crop_bounds = self._region_bounds(window, settings.region)
         # Normal 3D interactions and voiced visual-novel scenes use nearly the
@@ -630,7 +639,6 @@ class CaptureService:
             message = "PRAGMATA subtitle matched to original game voice"
 
         self._tip_tracker.observe(None)
-        self._cinematic_tracker.observe(None)
         self._update_snapshot(
             running=True,
             phase=phase,
@@ -655,6 +663,79 @@ class CaptureService:
             visible_text_ids=self._visible_text_ids(monotonic_now),
         )
         return _ScanOutcome(emitted_lines=emitted)
+
+    def _scan_hito(
+        self, window: WindowInfo, engine: OcrEngine, epoch: int, now: datetime
+    ) -> _ScanOutcome:
+        settings = self.settings.get()
+        index = self.hito
+        if index:
+            index.ensure_game_files(executable_path_for_window(window))
+        emitted: list[TranscriptLine] = []
+        observations: dict[str, tuple[tuple[int, int, int, int], str, float | None, TextMatch | None]] = {}
+        visible_ids: list[str] = []
+        for channel, region, tracker in (
+            ("dialogue", settings.hito_region, self._tracker),
+            ("tip", settings.hito_tip_region, self._tip_tracker),
+        ):
+            bounds = self._region_bounds(window, region)
+            image = self._capture(bounds)
+            if channel == "dialogue":
+                self._set_preview(image)
+            image = image.resize((image.width * 2, image.height * 2), Image.Resampling.NEAREST)
+            response = engine.recognize_pil(image)
+            if epoch != self._scan_epoch:
+                return _ScanOutcome([])
+            lines = [
+                str(row.get("text", "")).strip()
+                for row in response.get("lines", [])
+                if str(row.get("text", "")).strip()
+            ]
+            raw = " ".join(lines)
+            match = index.match_lines(lines) if index and index.ready else None
+            observations[channel] = (bounds, raw, self._confidence(response), match)
+            if match:
+                visible_ids.append(match.text_id)
+                key = f"hito\0{match.text_id}\0{match.english}\0{match.chinese}"
+                if tracker.observe(key):
+                    emitted.append(self.transcript.add_or_touch_hito(
+                        match, self.session_id, created_at=now, channel=channel
+                    ))
+            else:
+                tracker.observe(None if not raw else f"hito-unmatched:{raw}")
+
+        bounds, raw, confidence, match = observations["dialogue"]
+        tip_bounds, tip_raw, tip_confidence, tip_match = observations["tip"]
+        ready = bool(index and index.ready)
+        any_match = match or tip_match
+        self._update_snapshot(
+            running=True,
+            phase="matched" if any_match else "listening" if ready else "loading_textmaps",
+            message=(
+                "Hito bilingual game text matched" if any_match
+                else "Waiting for verified Hito dialogue" if ready
+                else index.message if index else "Hito game-file reader unavailable"
+            ),
+            active_game="hito",
+            window_title=window.title,
+            window_bounds=window.bounds,
+            crop_bounds=bounds,
+            tip_crop_bounds=tip_bounds,
+            cinematic_crop_bounds=None,
+            last_ocr=raw,
+            last_ocr_confidence=confidence,
+            last_match_score=match.score if match else None,
+            last_tip_ocr=tip_raw,
+            last_tip_ocr_confidence=tip_confidence,
+            last_tip_match_score=tip_match.score if tip_match else None,
+            last_cinematic_ocr="",
+            last_cinematic_ocr_confidence=None,
+            last_cinematic_match_score=None,
+            last_scan_at=now,
+            last_error=None,
+            visible_text_ids=list(dict.fromkeys(visible_ids)),
+        )
+        return _ScanOutcome(emitted)
 
     def _mapped_voice(self, match: TextMatch | None) -> bool:
         if match is None:
