@@ -153,28 +153,29 @@ class TextMapIndex:
                     index.setdefault(normalized, []).append(
                         _Record(text_id=text_id, english=english_text, chinese=chinese_text)
                     )
+            from .bilingual import ChineseLookup
+            chinese_lookup = ChineseLookup(record for records in index.values() for record in records)
+            # Prepare channel choices before publishing the snapshot. Large
+            # indexes must neither consume the first subtitle's stability
+            # window nor block status requests while the background loader runs.
+            for channel in ("dialogue", "tip", "cinematic", "gameplay"):
+                chinese_lookup._choices[channel] = [key for key, records in chinese_lookup.records.items()
+                    if any(self._is_allowed_record(record, channel) for record in records)]
+            cinematic_choices = [
+                normalized for normalized, records in index.items()
+                if len(normalized) >= 20
+                if any(self._is_allowed_record(record, "cinematic") for record in records)
+            ]
+            gameplay_choices = [
+                normalized for normalized, records in index.items()
+                if any(self._is_allowed_record(record, "gameplay") for record in records)
+            ]
             with self._lock:
-                from .bilingual import ChineseLookup
-                self._chinese_lookup = ChineseLookup(record for records in index.values() for record in records)
-                # Prepare channel choices while loading, rather than spending
-                # the first visible subtitle's stability window classifying
-                # hundreds of thousands of Chinese localization records.
-                for channel in ("dialogue", "tip", "cinematic", "gameplay"):
-                    self._chinese_lookup._choices[channel] = [key for key, records in self._chinese_lookup.records.items()
-                        if any(self._is_allowed_record(record, channel) for record in records)]
+                self._chinese_lookup = chinese_lookup
                 self._records_by_normalized = index
                 self._choices = list(index)
-                self._cinematic_choices = [
-                    normalized
-                    for normalized, records in index.items()
-                    if len(normalized) >= 20
-                    if any(self._is_allowed_record(record, "cinematic") for record in records)
-                ]
-                self._gameplay_choices = [
-                    normalized
-                    for normalized, records in index.items()
-                    if any(self._is_allowed_record(record, "gameplay") for record in records)
-                ]
+                self._cinematic_choices = cinematic_choices
+                self._gameplay_choices = gameplay_choices
                 self._blocked_labels = blocked_labels
                 self._cache.clear()
                 self.entry_count = sum(len(records) for records in index.values())

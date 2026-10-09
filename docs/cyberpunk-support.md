@@ -69,7 +69,7 @@ screenshots without starting a game, use
 The latter reports recognized text and matched identities, and writes only to
 its isolated test transcript. It does not add lines to the user's real history.
 
-Final checks include TypeScript, 240 Python tests, 11 JavaScript tests, the
+Final checks include TypeScript, 241 Python tests, 11 JavaScript tests, the
 production build, and Chromium/Firefox layouts at desktop, mobile, and 4K
 resolutions (100%, 150%, and 200% scaling for 4K). Browser fixtures verify game
 isolation, V voice saving, per-game refresh, calibration preservation, and

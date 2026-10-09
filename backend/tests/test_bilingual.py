@@ -58,3 +58,24 @@ def test_exact_chinese_from_another_channel_never_fuzzes_into_dialogue():
     assert lookup.match("这段是故事回顾画面。", 88,
                         allowed=lambda record: record.channel == "dialogue") is None
     assert lookup._choices == {}  # Excluded exact text requires no fuzzy-index scan.
+
+
+def test_background_chinese_index_build_leaves_status_responsive(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    index = make_index(tmp_path)
+    original = index._is_allowed_record
+    entered, release = threading.Event(), threading.Event()
+    def blocked(record, channel):
+        entered.set()
+        assert release.wait(5)
+        return original(record, channel)
+    monkeypatch.setattr(index, "_is_allowed_record", blocked)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        loading = pool.submit(index.load)
+        try:
+            assert entered.wait(2)
+            assert pool.submit(index.status).result(timeout=1)["ready"] is True
+        finally:
+            release.set()
+        loading.result(timeout=5)
