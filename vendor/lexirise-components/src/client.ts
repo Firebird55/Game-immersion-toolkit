@@ -25,6 +25,13 @@ const pending=new Map<string,Promise<any>>();
 const states=new Map<number,{proficiency:number,savedExpressionId:number}>();
 let grammarChoices:Record<string,number>={};
 let credential='';
+let settingsScope='unloaded';
+function adoptSettings(value:AccountSettings){
+ const profile=value.languageSettings[sourceLanguage]??{};
+ const scope=JSON.stringify([value.global.effectiveTranslationLanguage??value.global.translationLanguage??value.native_lang,profile.script,profile.readingAid]);
+ if(scope!==settingsScope){settingsScope=scope;generation++;memory.clear();pending.clear();missingGloss.clear();glossPending.clear();try{window.dispatchEvent(new Event('lexirise-account-settings'));}catch{}}
+ return value;
+}
 let accountScope='unconfigured';
 async function identifyAccount(key:string){accountScope=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))).map(n=>n.toString(16).padStart(2,'0')).join('');}
 let generation=0;
@@ -32,7 +39,7 @@ let cooldown=0;
 let running=0;
 let cacheWrites:Promise<void>=Promise.resolve();
 const waiting:Array<()=>void>=[];
-async function initializeClient(){ const key=await getValue('lexirise:key','');if(key!==credential){generation++;memory.clear();pending.clear();states.clear();missingGloss.clear();glossPending.clear();}credential=key;await identifyAccount(credential);grammarChoices=await getValue('lexirise:grammar:'+sourceLanguage,sourceLanguage==='zh'?await getValue('lexirise:grammar',{}):{}); }
+async function initializeClient(){ const key=await getValue('lexirise:key','');if(key!==credential){generation++;memory.clear();pending.clear();states.clear();missingGloss.clear();glossPending.clear();}credential=key;await identifyAccount(credential);grammarChoices=await getValue('lexirise:grammar:'+sourceLanguage,sourceLanguage==='zh'?await getValue('lexirise:grammar',{}):{});if(credential||host.configured?.()){try{await loadSettings();}catch{/* A settings-read failure is surfaced in the panel; it must not disable a working reader. */}} }
 function hasKey(){return Boolean(credential);}
 async function configureKey(key:string){
   const next=key.trim(); if(next) await setValue('lexirise:key',next); else await deleteValue('lexirise:key');
@@ -57,7 +64,7 @@ async function api(method:string,path:string,payload?:unknown):Promise<Json>{
 async function testConnection(){ const result=await api('GET','/v1/me');return {connected:Boolean(result.user),message:result.user?'Connected to Lexirise.':'No account returned.'}; }
 async function cached<T>(kind:string,key:string,ttl:number,load:()=>Promise<T>,complete:(v:T)=>boolean=()=>true):Promise<T>{
   // Only dictionary data is persisted; account states/analysis stay session-local.
-  const identity=`${host.cacheScope}:${accountScope}:${sourceLanguage}:${translationLanguage}:${kind}:${key}`, now=Date.now(), revision=generation;
+  const identity=`${host.cacheScope}:${accountScope}:${sourceLanguage}:${translationLanguage}:${settingsScope}:${kind}:${key}`, now=Date.now(), revision=generation;
   const hit=memory.get(identity);if(hit&&now-hit.at<ttl)return hit.value;
   if(pending.has(identity)) return pending.get(identity)!;
   const task=(async()=>{
@@ -87,6 +94,11 @@ async function cached<T>(kind:string,key:string,ttl:number,load:()=>Promise<T>,c
 }
 function textValue(value:unknown){return typeof value==='string'?value:'';}
 function list(value:unknown):any[]{return Array.isArray(value)?value:[];}
+function translationsFor(raw:Json|undefined):any[]{
+ const items=list(raw?.translations);
+ const preferred=items.filter(t=>t?.target_lang===translationLanguage&&textValue(t.translation).trim());
+ return preferred.length?preferred:items.filter(t=>t?.target_lang===(raw?.translation_target||items.find(t=>textValue(t?.translation).trim())?.target_lang)&&textValue(t.translation).trim());
+}
 function validTone(value:unknown){return Number.isInteger(value)&&Number(value)>=1&&Number(value)<=(sourceLanguage==='yue'?6:5)?Number(value):0;}
 function validState(value:unknown){return Number.isInteger(value)&&Number(value)>=0&&Number(value)<=4?Number(value):0;}
 function normalizeGrammar(text:string,analysis:Json,overrides:Record<string,number>={}):GrammarRule[]{
@@ -132,21 +144,21 @@ async function analyze(text:string):Promise<Reading>{
   const reading=normalizeReading(text,result);let pendingMeanings=false;
   for(const token of reading.tokens){
     if(token.meaning)continue;
-    const stored=memory.get(`${host.cacheScope}:${accountScope}:${sourceLanguage}:${translationLanguage}:dictionary:${token.word}`)?.value;
-    const gloss=list(stored?.translations).find(t=>t.target_lang===translationLanguage)?.translation||missingGloss.get(token.word)?.value;
+    const stored=memory.get(`${host.cacheScope}:${accountScope}:${sourceLanguage}:${translationLanguage}:${settingsScope}:dictionary:${token.word}`)?.value;
+    const gloss=translationsFor(stored)[0]?.translation||missingGloss.get(token.word)?.value;
     if(gloss){token.meaning=gloss;continue;}
     if(glossPending.has(token.word)){pendingMeanings=true;continue;}
     if((missingGloss.get(token.word)?.retryAt||0)>Date.now()){pendingMeanings=true;continue;}
     // Do not block the first annotated render while short glosses load.
     const revision=generation;glossPending.add(token.word);pendingMeanings=true;
-    void dictionary(token.word).then(d=>{if(revision===generation)missingGloss.set(token.word,{retryAt:Date.now()+60000,value:list(d.translations).find(t=>t.target_lang===translationLanguage)?.translation});}).catch(()=>{if(revision===generation)missingGloss.set(token.word,{retryAt:Date.now()+60000});}).finally(()=>glossPending.delete(token.word));
+    void dictionary(token.word).then(d=>{if(revision===generation)missingGloss.set(token.word,{retryAt:Date.now()+60000,value:translationsFor(d)[0]?.translation});}).catch(()=>{if(revision===generation)missingGloss.set(token.word,{retryAt:Date.now()+60000});}).finally(()=>glossPending.delete(token.word));
   }
   return {...reading,pendingMeanings};
 }
-async function dictionary(word:string):Promise<Json>{return cached('dictionary',word,30*DAY,()=>api('POST','/v1/dictionary/lookup',{text:word,language:sourceLanguage}),r=>r.translation_status!=='pending'&&list(r.translations).some(t=>t.target_lang===translationLanguage&&t.translation));}
+async function dictionary(word:string):Promise<Json>{return cached('dictionary',word,30*DAY,()=>api('POST','/v1/dictionary/lookup',{text:word,language:sourceLanguage}),r=>r.translation_status!=='pending'&&translationsFor(r).length>0);}
 async function tokenAt(text:string,start:number){const token=(await analyze(text)).tokens.find(t=>t.start===start);if(!token)throw new Error('This word changed. Tap it again.');return token as Token & {savedExpressionId?:number};}
 function normalizeLookup(raw:Json):Lookup{
-  const translations=list(raw.translations).filter(t=>t?.target_lang==='en'&&textValue(t.translation).trim()).map(t=>({meaning:t.translation.trim(),partOfSpeech:list(t.part_of_speech).filter(p=>typeof p==='string'),examples:list(t.examples).filter(e=>typeof e?.text==='string').slice(0,6).map(e=>({text:e.text,translation:textValue(e.translation)}))}));
+  const translations=translationsFor(raw).map(t=>({meaning:t.translation.trim(),partOfSpeech:list(t.part_of_speech).filter(p=>typeof p==='string'),examples:list(t.examples).filter(e=>typeof e?.text==='string').slice(0,6).map(e=>({text:e.text,translation:textValue(e.translation)}))}));
   const examples=translations.flatMap(t=>t.examples).filter((e,i,a)=>a.findIndex(x=>x.text===e.text)===i).slice(0,8);
   const dictionaries=list(raw.supplementalEntries).filter(Boolean).map(entry=>{
     const doc=new DOMParser().parseFromString(textValue(entry.html),'text/html');
@@ -160,7 +172,7 @@ function normalizeLookup(raw:Json):Lookup{
   });
   const info=raw.characterInfo||{};
   const tag=list(raw.system_tags).find(t=>typeof t==='string'&&/^HSK-\d+$/.test(t));
-  return {translations,examples,dictionaries,hskLevel:info.statistics?.hskLevel||(tag?Number(tag.slice(4)):undefined),rank:raw.rank,frequencyScore:raw.frequency_score,alternateReadings:list(raw.multipleReadings?.alternatives),components:components(info),characterHint:textValue(info.hint),strokeCount:info.strokeCount,character:textValue(info.char)};
+  return {sourceLanguage,translationLanguage:translationsFor(raw)[0]?.target_lang??translationLanguage,translations,examples,dictionaries,hskLevel:info.statistics?.hskLevel||(tag?Number(tag.slice(4)):undefined),rank:raw.rank,frequencyScore:raw.frequency_score,alternateReadings:list(raw.multipleReadings?.alternatives),components:components(info),characterHint:textValue(info.hint),strokeCount:info.strokeCount,character:textValue(info.char)};
 }
 function components(info:Json){return list(info.components).filter(Boolean).map(part=>({character:textValue(part.character),type:list(part.type).filter(t=>typeof t==='string'),hint:textValue(part.hint)}));}
 async function lookup(text:string,start:number){const token=await tokenAt(text,start);return normalizeLookup(await dictionary(token.word));}
@@ -186,7 +198,7 @@ async function similar(text:string,start:number){
       if(!match||match[1]===token.word||suggestions.some(s=>s.word===match[1]))continue;
       try{const raw=await dictionary(match[1]);if(raw.word!==match[1]||!raw.entry_id)continue;
         const [meaning,usage='']=match[2].split('|').map(x=>x.trim());
-        suggestions.push({word:raw.word,meaning:list(raw.translations).find(t=>t.target_lang===translationLanguage)?.translation||meaning,usage,pinyin:textValue(raw.transliteration),tones:list(raw.tones).map(validTone)});
+        suggestions.push({word:raw.word,meaning:translationsFor(raw)[0]?.translation||meaning,usage,pinyin:textValue(raw.transliteration),tones:list(raw.tones).map(validTone)});
       }catch{/* An unverified suggestion is never displayed. */}
       if(suggestions.length===4)break;
     }
@@ -233,7 +245,7 @@ async function requestReading(text:string,action:string,params:{start?:number,in
 }
 
 
- async function loadSettings(){return validateAccount(await api('GET','/v1/settings'));}
- async function patchSettings(changes:Record<string,unknown>){return validateAccount(await api('PATCH','/v1/settings',changes));}
+ async function loadSettings(){return adoptSettings(validateAccount(await api('GET','/v1/settings')));}
+ async function patchSettings(changes:Record<string,unknown>){return adoptSettings(validateAccount(await api('PATCH','/v1/settings',changes)));}
  return {initializeClient,hasKey,configureKey,testConnection,requestReading,analyze,normalizeReading,normalizeGrammar,normalizeLookup,loadSettings,patchSettings};
 }

@@ -42,6 +42,8 @@ type Component = {
     characterHint?: string;
 };
 export type Lookup = {
+    sourceLanguage?: string;
+    translationLanguage?: string;
     translations: {
         meaning: string;
         partOfSpeech: string[];

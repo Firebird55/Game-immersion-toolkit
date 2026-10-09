@@ -45,6 +45,7 @@ export type Token = { start: number; end: number; word: string; pinyin: string; 
 export type Reading = { text: string; tokens: Token[]; pendingMeanings?: boolean; analysisPending?: boolean; grammar?: GrammarRule[] };
 type Component = { character: string; type: string[]; hint: string; pinyin?: string[]; gloss?: string; characterHint?: string };
 export type Lookup = {
+  sourceLanguage?:string; translationLanguage?:string;
   translations: { meaning: string; partOfSpeech: string[]; examples: { text: string; translation: string }[] }[];
   examples: { text: string; translation: string }[];
   dictionaries: { name: string; headword: string; reading: string; definitions: string[] }[];
