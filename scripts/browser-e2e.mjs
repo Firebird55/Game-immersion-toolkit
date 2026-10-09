@@ -33,6 +33,10 @@ try{
  await page.goto('http://localhost:'+port);await page.locator('.reading-hanzi').first().click();await page.locator('.word-sheet').waitFor();
  await page.locator('.word-sheet').evaluate(n=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  let b=await page.locator('.word-sheet').boundingBox();assert(b&&b.x>=-1&&b.y>=-1&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit lookup fits '+JSON.stringify(b));
+ const expectedWidth=Math.min(width<=560?340:400,width-32),heightCap=width<=560?Math.min(360,height*.6):320;
+ assert(Math.abs(b.width-expectedWidth)<=1,name+' toolkit shares compact lookup width');
+ assert(b.height<=heightCap+1,name+' toolkit shares compact lookup height');
+ assert.equal(await page.locator('.word-sheet-body').evaluate(n=>getComputedStyle(n).fontSize),'13px','Toolkit shares compact lookup typography');
  assert.equal(await page.locator('.word-sheet').evaluate(n=>n.getRootNode()===document),true,'Toolkit portal stays in document');
  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Lexirise reading options',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Lexirise reading options'});await dialog.waitFor();await page.getByLabel('Edit account language').waitFor();
  b=await dialog.boundingBox();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit settings fits '+JSON.stringify(b));
