@@ -2,7 +2,11 @@
 import {execFileSync} from 'node:child_process';
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8',maxBuffer:128*1024*1024});
 const patterns=[/lx_[A-Za-z0-9]{40,}/,/gh[pousr]_[A-Za-z0-9]{30,}/,/github_pat_[A-Za-z0-9_]{30,}/,/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,/AKIA[0-9A-Z]{16}/];
-const objects=[...new Set(git('rev-list','--objects','--all').trim().split('\n').map(l=>l.split(' ')[0]))];
+// Google Drive can add desktop.ini beneath .git/refs. Enumerate valid refs:
+// never delete metadata or accidentally publish Codex checkpoint refs.
+const refResult=execFileSync('git',['for-each-ref','--format=%(refname)'],{encoding:'utf8',stdio:['pipe','pipe','pipe']});
+const refs=refResult.trim().split('\n').filter(Boolean);
+const objects=[...new Set(git('rev-list','--objects','HEAD',...refs).trim().split('\n').map(l=>l.split(' ')[0]))];
 const batch=execFileSync('git',['cat-file','--batch'],{input:objects.join('\n')+'\n',maxBuffer:512*1024*1024});
 let offset=0,blobs=0;
 while(offset<batch.length){

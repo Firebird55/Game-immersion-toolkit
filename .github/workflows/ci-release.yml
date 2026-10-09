@@ -1,0 +1,59 @@
+name: Checks and release
+on:
+  push:
+    branches: [main, 'codex/**']
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock.txt
+      - run: python -m pip install -r requirements.lock.txt
+      - run: npm ci
+      - run: npm run check
+      - run: npx playwright install chromium firefox
+      - run: node scripts/browser-e2e.mjs
+      - run: node scripts/secret-check.mjs
+      - name: Validate and package release artifacts
+        run: node scripts/package-release.mjs
+      - run: node scripts/validate-artifacts.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tested-release-assets
+          path: |
+            release/*.zip
+            release/*.user.js
+            release/*.txt
+            release/*.md
+            release/*.json
+            release/SHA256SUMS
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tested-release-assets
+          path: release
+      - name: Publish private release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "${{ github.ref_name }}" release/* --verify-tag --title "${{ github.ref_name }}" --notes "Tested release; authenticated downloads required. See RELEASE.md."

@@ -42,6 +42,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Native OCR initialization failed.' }
 
 $vinext = Join-Path $projectRoot 'node_modules\vinext\dist\cli.js'
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'Install Node.js 24 LTS (including npm), then run setup again.' }
+$npmMajor = [int]((& npm --version).Split('.')[0])
+if ($npmMajor -lt 10) { throw 'npm 10 or newer is required. Install current Node.js LTS or run npm install -g npm@11, then retry.' }
 & npm ci
 if ($LASTEXITCODE -ne 0) { throw 'Locked frontend dependency installation failed.' }
 
