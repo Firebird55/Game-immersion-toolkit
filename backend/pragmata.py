@@ -12,6 +12,7 @@ from rapidfuzz import fuzz, process
 
 from .models import TextMatch
 from .textmaps import display_text, normalize_english
+from .bilingual import ChineseLookup, contains_han, normalize_subtitle, subtitle_candidates
 
 
 REF_RE = re.compile(r"<REF\s+([^>]+)>", re.IGNORECASE)
@@ -38,6 +39,7 @@ class PragmataTextIndex:
         self._records: dict[str, list[PragmataRecord]] = {}
         self._choices: list[str] = []
         self._speaker_names: dict[str, tuple[str, str]] = {}
+        self._chinese_lookup = ChineseLookup([])
         self.ready = False
         self.state = "not_ready"
         self.message = "PRAGMATA dialogue has not been indexed"
@@ -62,6 +64,7 @@ class PragmataTextIndex:
             }
             with self._lock:
                 self._records = records
+                self._chinese_lookup = ChineseLookup(r for items in records.values() for r in items)
                 self._choices = list(records)
                 self._speaker_names = names
                 self.entry_count = sum(len(items) for items in records.values())
@@ -99,6 +102,8 @@ class PragmataTextIndex:
             return None, None
         cleaned = display_text(value).strip(" .·•")
         result = self._speaker_names.get(normalize_english(cleaned))
+        if contains_han(cleaned):
+            result = next((pair for pair in self._speaker_names.values() if pair[1] == cleaned), None)
         return result if result else (cleaned, None)
 
     def match_lines(self, lines: Iterable[str], threshold: float = 82) -> TextMatch | None:
@@ -110,6 +115,7 @@ class PragmataTextIndex:
         body = cleaned[1:] if speaker else cleaned
         candidates.append((" ".join(body), speaker))
         candidates.append((" ".join(cleaned), None))
+        candidates.extend((value, speaker) for value in subtitle_candidates(cleaned) if contains_han(value))
         # OneOCR occasionally splits the speaker label or subtitle oddly.
         if len(body) > 1:
             for start in range(len(body)):
@@ -117,7 +123,7 @@ class PragmataTextIndex:
         matches = [self.match_text(text, threshold, speaker) for text, speaker in candidates]
         return max(
             (item for item in matches if item is not None),
-            key=lambda item: (item.score, len(normalize_english(item.source_ocr))),
+            key=lambda item: (item.score, len(normalize_subtitle(item.source_ocr))),
             default=None,
         )
 
@@ -126,12 +132,18 @@ class PragmataTextIndex:
     ) -> TextMatch | None:
         source = display_text(value)
         normalized = normalize_english(source)
-        if len(normalized) < 2:
+        if len(normalized) < 2 and not contains_han(source):
             return None
         with self._lock:
-            records = self._records.get(normalized)
+            chinese_result = self._chinese_lookup.match(source, threshold) if contains_han(source) else None
+            records = chinese_result[0] if chinese_result else self._records.get(normalized)
             score = 100.0
             kind = "exact"
+            if contains_han(source):
+                if chinese_result is None:
+                    return None
+                score = chinese_result[1]
+                kind = "exact" if score == 100 else "fuzzy"
             if not records:
                 result = process.extractOne(normalized, self._choices, scorer=fuzz.ratio, score_cutoff=threshold)
                 if result is None:

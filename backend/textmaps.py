@@ -75,6 +75,7 @@ class TextMapIndex:
         self._cinematic_choices: list[str] = []
         self._gameplay_choices: list[str] = []
         self._blocked_labels: set[str] = set()
+        self._chinese_lookup = None
         self._cache: dict[tuple[str, int, bool, str], TextMatch | None] = {}
         self.ready = False
         self.state = "not_ready"
@@ -153,6 +154,8 @@ class TextMapIndex:
                         _Record(text_id=text_id, english=english_text, chinese=chinese_text)
                     )
             with self._lock:
+                from .bilingual import ChineseLookup
+                self._chinese_lookup = ChineseLookup(record for records in index.values() for record in records)
                 self._records_by_normalized = index
                 self._choices = list(index)
                 self._cinematic_choices = [
@@ -252,11 +255,12 @@ class TextMapIndex:
         *,
         channel: str = "dialogue",
     ) -> TextMatch | None:
+        from .bilingual import contains_han, normalize_subtitle
         source_lines = list(lines)
         crowded = len([line for line in source_lines if display_text(line)]) > 4
         matches: list[TextMatch] = []
         for candidate, allow_short in self._candidate_strings(source_lines):
-            if crowded and len(display_text(candidate).split()) < 4:
+            if crowded and not contains_han(candidate) and len(display_text(candidate).split()) < 4:
                 continue
             result = self.match_text(
                 candidate,
@@ -272,7 +276,7 @@ class TextMapIndex:
 
         best = max(
             matches,
-            key=lambda item: (item.score, len(normalize_english(item.source_ocr))),
+            key=lambda item: (item.score, len(normalize_subtitle(item.source_ocr))),
         )
         best_text = normalize_english(best.english)
         # OCR often exposes the final subtitle row as a perfect short match while
@@ -301,8 +305,9 @@ class TextMapIndex:
         channel: str = "cinematic",
     ) -> list[TextMatch]:
         """Return every distinct official line represented in cumulative screen text."""
+        from .bilingual import normalize_subtitle
         source_lines = list(lines)
-        joined = normalize_english(" ".join(source_lines))
+        joined = normalize_subtitle(" ".join(source_lines))
         by_id: dict[str, TextMatch] = {}
         candidates = self._candidate_strings(source_lines)
         # Comic speech bubbles frequently wrap over four or more OCR rows. They
@@ -330,14 +335,14 @@ class TextMapIndex:
                 if result is None:
                     continue
             previous = by_id.get(result.text_id)
-            if previous is None or (result.score, len(normalize_english(result.source_ocr))) > (
+            if previous is None or (result.score, len(normalize_subtitle(result.source_ocr))) > (
                 previous.score,
-                len(normalize_english(previous.source_ocr)),
+                len(normalize_subtitle(previous.source_ocr)),
             ):
                 by_id[result.text_id] = result
 
         def screen_position(item: TextMatch) -> tuple[int, int]:
-            source = normalize_english(item.source_ocr)
+            source = normalize_subtitle(item.source_ocr)
             position = joined.find(source)
             return (position if position >= 0 else -1, len(source))
 
@@ -349,11 +354,15 @@ class TextMapIndex:
         threshold: float,
     ) -> TextMatch | None:
         """Resolve a substantial clipped comic bubble to its full official line."""
-        normalized = normalize_english(source_ocr)
-        if len(normalized) < 28:
+        from .bilingual import contains_han, normalize_subtitle
+        chinese = contains_han(source_ocr)
+        normalized = normalize_subtitle(source_ocr)
+        if len(normalized) < (14 if chinese else 28):
             return None
         with self._lock:
-            choices = self._cinematic_choices
+            choices = ([key for key, records in self._chinese_lookup.records.items()
+                        if any(self._is_allowed_record(r, "cinematic") for r in records)]
+                       if chinese and self._chinese_lookup else self._cinematic_choices)
             if not choices:
                 return None
             matches = process.extract(
@@ -377,7 +386,8 @@ class TextMapIndex:
                 return None
             records = [
                 record
-                for record in self._records_by_normalized[matched_normalized]
+                for record in (self._chinese_lookup.records[matched_normalized]
+                               if chinese else self._records_by_normalized[matched_normalized])
                 if self._is_allowed_record(record, "cinematic")
             ]
             if not records:
@@ -405,6 +415,9 @@ class TextMapIndex:
     ) -> TextMatch | None:
         if not self.ready:
             return None
+        from .bilingual import contains_han
+        if contains_han(source_ocr):
+            return self._match_chinese(source_ocr, threshold, channel)
         normalized = normalize_english(source_ocr)
         # One-to-three character matches are overwhelmingly speaker labels,
         # percentages, button hints, and other HUD fragments in ZZZ. Keeping
@@ -476,6 +489,28 @@ class TextMapIndex:
             if len(self._cache) > 4096:
                 self._cache.pop(next(iter(self._cache)))
             return result
+
+    def _match_chinese(self, source: str, threshold: float, channel: str) -> TextMatch | None:
+        from .bilingual import normalize_chinese
+        with self._lock:
+            if self._chinese_lookup is None:
+                return None
+            result = self._chinese_lookup.match(source, threshold,
+                lambda record: self._is_allowed_record(record, channel), channel)
+            if result is None:
+                return None
+            records, score = result
+            # A name is sometimes repeated under a dialogue key too.
+            if any(record.chinese == records[0].chinese
+                   and ("name" in record.text_id.casefold() or "speaker" in record.text_id.casefold())
+                   for record in self._chinese_lookup.records.get(
+                       normalize_chinese(source), [])):
+                return None
+            record = records[0]
+            return TextMatch(text_id=record.text_id, english=record.english, chinese=record.chinese,
+                             source_ocr=source, score=round(score, 1),
+                             kind="exact" if score == 100 else "fuzzy",
+                             ambiguous=len({r.text_id for r in records}) > 1)
 
     @staticmethod
     def _is_dialogue_record(record: _Record) -> bool:
