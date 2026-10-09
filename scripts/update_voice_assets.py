@@ -59,7 +59,9 @@ def discover_game_data(root: Path) -> Path | None:
     try:
         from backend.config import SettingsStore
         from backend.windows import installed_zzz_game_data_directory
-        live = installed_zzz_game_data_directory(SettingsStore(root / "data/settings.json").get())
+        import os
+        local = Path(os.environ.get("LOCALAPPDATA", root / "data")) / "Proxy Transcript/settings.json"
+        live = installed_zzz_game_data_directory(SettingsStore(local, legacy_path=root / "data/settings.json").get())
         if live:
             return live
     except (OSError, ValueError):

@@ -1,4 +1,12 @@
-# Proxy Transcript
+# Game immersion toolkit
+
+Local Windows OCR, verified bilingual transcripts and original game audio for Hito's World, Zenless Zone Zero and PRAGMATA. Shared Lexirise settings/readings/lookups support 31 study languages; Migaku remains a separate reading mode. Existing game transcripts remain Chinese.
+
+Download a private release ZIP and double-click **Install.cmd**. The optional game-folder popup locates your own installed files, saves locations per PC and preserves automatic discovery. Game assets are never bundled or uploaded. See [installation guide](INSTALL.md), [mobile-friendly installer page](INSTALL.html), [contributing](CONTRIBUTING.md), [agent rules](AGENTS.md) and [release/rollback](RELEASE.md).
+
+The UI adapts to narrow/short windows and high browser/Windows zoom. Hito automatically follows dialogue boxes; capture regions are normalized against physical game-window pixels and local calibration remains per PC.
+
+## Detailed behavior (Proxy Transcript companion)
 
 A local, gameplay-first bilingual transcript companion for Zenless Zone Zero
 and PRAGMATA, with game-text capture for Hito's World.

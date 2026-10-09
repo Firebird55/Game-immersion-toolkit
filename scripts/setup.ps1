@@ -13,7 +13,11 @@ $pythonCandidates = @(
     (Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe')
 )
 $basePython = $pythonCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $basePython) { throw 'Python 3.12 was not found.' }
+if (-not $basePython -and (Get-Command py -ErrorAction SilentlyContinue)) {
+    $candidate = & py -3.12 -c 'import sys; print(sys.executable)' 2>$null
+    if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $candidate)) { $basePython = $candidate }
+}
+if (-not $basePython) { throw 'Python 3.12 was not found. Install Python 3.12 with the Windows py launcher, then retry.' }
 
 if (-not (Test-Path -LiteralPath $venvPython)) {
     & $basePython -m venv $venvDir

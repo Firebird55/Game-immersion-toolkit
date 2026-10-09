@@ -623,6 +623,18 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .reading-controls select { color:#eff7ff; background:#18212a; border:1px solid #41505e; border-radius:5px; padding:5px 25px 5px 8px; font:inherit; }
 .reader-options-button { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
 .reading-text { line-height:2.35; overflow-wrap:anywhere; }
+.game-tabs { flex-wrap:wrap; min-width:0; }
+.game-tabs small { overflow-wrap:anywhere; }
+.topbar,.current-header,.capture-footer,.transcript-toolbar { min-width:0; }
+.current-pair,.line-language { overflow-wrap:anywhere; }
+.capture-tabs { grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr)); }
+@media (max-width:360px) {
+  .companion-shell { padding:10px; }
+  .topbar { align-items:flex-start; gap:10px; }
+  .current-line { padding:12px; }
+  .footer-actions { flex-wrap:wrap; }
+  .footer-actions [data-slot="button"] { min-width:0; padding-inline:8px; }
+}
 .reading-token { display:inline-flex; position:relative; flex-direction:column; align-items:center; vertical-align:middle; margin:0 2px 7px; line-height:1.1; }
 .reading-pinyin,.reading-zhuyin,.reading-tone-marks { font-size:.42em; line-height:1.15; color:#a9c9dc; white-space:nowrap; }
 .reading-zhuyin { font-size:.43em; }

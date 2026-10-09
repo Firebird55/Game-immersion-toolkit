@@ -131,6 +131,10 @@ def read_msg(path: Path) -> list[dict[str, object]]:
 
 
 def find_install() -> Path | None:
+    from backend.game_paths import configured_install
+    configured = configured_install("pragmata")
+    if configured:
+        return configured
     candidates = [
         Path(r"C:\Program Files (x86)\Steam\steamapps\common\PRAGMATA"),
         Path(r"C:\Program Files\Steam\steamapps\common\PRAGMATA"),

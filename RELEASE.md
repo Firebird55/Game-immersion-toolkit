@@ -6,6 +6,7 @@ GitHub-hosted Actions only, never Argo or cluster dependencies.
 
 ## Explicit release
 From clean main: npm run release -- --version 0.2.0 (increment for later releases).
+Stop the running companion with scripts/stop-companion.ps1 before local checks/releases: Windows locks the built frontend while it is serving. Restart it after verification.
 The command runs integration checks, validates the vendor pin, scans secrets/history, updates metadata, commits and pushes an annotated version tag.
 Monitor gh run list and gh run watch <id> --exit-status. Tag workflow rebuilds and tests before publishing.
 Download using gh release download <tag> --repo Firebird55/Game-immersion-toolkit --dir <empty-folder>.
@@ -13,6 +14,7 @@ Verify each SHA256SUMS entry and PROVENANCE sourceCommit against the release tag
 
 ## Installation and updates
 Extract the distribution ZIP to a new folder, stop the old companion, and run scripts/setup.ps1. Setup uses npm ci and locked Python dependencies; node_modules from the old ZIP is never required. Windows Snipping Tool supplies native OCR files during user setup, not CI. Preserve the old data directory (databases/game indexes/audio) and local DPAPI key; never delete them. Per-PC capture settings remain in LOCALAPPDATA/Proxy Transcript/settings.json. Existing game lines remain Chinese. Use the capture preview to calibrate unusual layouts; Hito automatic box detection follows current game resolution and zoom.
+For guided setup, double-click Install.cmd instead. Its optional game-folder popup saves validated locations in LOCALAPPDATA/Proxy Transcript/game-paths.json, separately from capture settings/keys. Choose Game Folders.cmd can reopen it later. See INSTALL.md and the included CONTRIBUTING.md/AGENTS.md before agent work. Game assets are read from the user's own installation, never redistributed.
 Use Reload from Lexirise to read account preferences. Only Save to Lexirise writes remote settings; legacy local display preferences are not automatically uploaded.
 
 ## Compatibility watch for agents

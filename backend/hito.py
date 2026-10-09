@@ -63,9 +63,17 @@ class HitoTextIndex:
                               for word in re.findall(r'[a-z]+', row.get('pinyin', '').lower())}
 
     def ensure_game_files(self, executable: Path | None) -> None:
-        if executable is None or self._closed:
+        if self._closed:
             return
-        archive = executable.parent / 'resources' / 'app.asar'
+        from .game_paths import configured_install
+        root = executable.parent if executable else configured_install('hito')
+        if root is None:
+            return
+        archive = root / 'resources' / 'app.asar'
+        if not archive.is_file():
+            root = configured_install('hito')
+            if root:
+                archive = root / 'resources' / 'app.asar'
         self._ensure_archive(archive)
 
     def refresh(self) -> bool:

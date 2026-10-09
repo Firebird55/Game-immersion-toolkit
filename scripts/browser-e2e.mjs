@@ -24,7 +24,7 @@ function response(path,query,method,body){
 try{
  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Toolkit preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes('localhost:'+port)||String(b).includes('127.0.0.1:'+port)){clearTimeout(timer);resolve();}});server.stderr.on('data',b=>process.stderr.write(b));server.once('error',reject);});
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){browser=await engine.launch({headless:true});
- for(const[pw,ph,zoom]of [[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[768,1024,1.25],[3840,2160,2]]){
+ for(const[pw,ph,zoom]of [[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,2]]){
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[];
  await page.addInitScript(()=>localStorage.setItem('proxy-transcript-reading-mode','lexirise'));
  await page.route('http://127.0.0.1:8766/**',async route=>{const req=route.request(),url=new URL(req.url());const body=req.postData()?JSON.parse(req.postData()):{};
@@ -40,6 +40,11 @@ try{
  assert.equal(writes.length,0);await page.keyboard.press('Escape');
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' toolkit layout has no horizontal overflow at '+width);
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();const capture=page.getByRole('dialog',{name:'Capture setup'});await capture.waitFor();b=await capture.boundingBox();assert(b&&b.x>=0&&b.x+b.width<=width+1,'Capture setup fits');
+ await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
+ if(zoom===1&&pw===1920){for(const[w,h]of [[320,568],[1280,720],[568,320],[900,720]]){
+  await page.setViewportSize({width:w,height:h});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Resize does not overflow');
+  await page.getByRole('button',{name:'Lexirise reading options',exact:true}).click();await dialog.waitFor();const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=w+1&&box.y+box.height<=h+1,'Resized toolkit settings fit');await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
+ }}
  console.log(name+': toolkit '+width+'x'+height+' zoom/DPR '+zoom+' passed');await context.close();
  }await browser.close();browser=null;}
 }finally{await browser?.close();if(process.platform==='win32'){try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}}else server.kill();}

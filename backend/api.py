@@ -96,6 +96,7 @@ class Runtime:
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
         self.hito = HitoTextIndex(DATA_DIR / "hito")
+        self.hito.ensure_game_files(None)
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",

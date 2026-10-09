@@ -39,6 +39,7 @@ jobs:
             release/*.user.js
             release/*.txt
             release/*.md
+            release/*.html
             release/*.json
             release/SHA256SUMS
   publish:
