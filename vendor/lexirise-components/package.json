@@ -1,6 +1,6 @@
 {
   "name": "@firebird55/lexirise-components",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "private": true,
   "main": "./dist/index.js",
@@ -20,7 +20,12 @@
     "tools",
     "lexirise-baseline.json",
     "PROVENANCE.json",
-    "README.md"
+    "README.md",
+    "INSTALL.md",
+    "INSTALL.html",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "RELEASE.md"
   ],
   "peerDependencies": {
     "react": ">=19.2.0",

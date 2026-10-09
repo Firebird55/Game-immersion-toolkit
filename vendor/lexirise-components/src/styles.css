@@ -200,3 +200,27 @@
 .word-sheet { box-sizing:border-box; max-width:calc(100vw - 24px); max-height:min(calc(100dvh - 24px),var(--available-height,calc(100dvh - 24px))); overflow:auto; }
 .reading-text { overflow-wrap:anywhere; }
 @media(max-width:480px) { .reader-option-row { flex-wrap:wrap; gap:8px; } .settings-dialog { padding:18px; } }
+
+/* Adapt to the available host width, not only the whole browser window. */
+.reading-text { min-width:0; max-width:100%; white-space:normal; }
+.reading-token { max-width:100%; }
+.reading-hanzi { max-width:100%; overflow-wrap:anywhere; }
+.word-sheet-top { flex-wrap:wrap; }
+.word-sheet-identity { max-width:100%; }
+.word-sheet-title { min-width:0; }
+.word-sheet-headword { min-width:0; }
+.settings-dialog { overflow-wrap:anywhere; }
+.reader-option-row > :is(input,select,textarea) { min-width:0; width:100%; }
+.settings-dialog .settings-actions button { min-height:40px; padding:7px 10px; border:1px solid #516170; border-radius:5px; }
+.settings-backdrop { overflow:auto; }
+@media (max-width:560px) {
+  .reader-option-row { grid-template-columns:minmax(0,1fr); gap:7px; }
+  .word-sheet-top { gap:10px; }
+  .word-levels button { min-height:40px; }
+  .settings-dialog .settings-actions { flex-direction:column; align-items:stretch; }
+  .word-component-cards { grid-template-columns:minmax(0,1fr); }
+}
+@media (pointer:coarse) {
+  .word-sheet-close,.settings-close { min-width:40px; min-height:40px; }
+  .word-tabs button { min-height:44px; }
+}
