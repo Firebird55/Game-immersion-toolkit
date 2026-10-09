@@ -13,6 +13,7 @@ import httpx
 
 
 DECKS = {"zzz": (1950, "Zenless Zone Zero"), "pragmata": (1951, "PRAGMATA")}
+NEW_GAME_DECKS = {"wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077"}
 API_BASE = "https://api.lexirise.app"
 
 
@@ -62,6 +63,7 @@ class LexiriseService:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("CREATE TABLE IF NOT EXISTS exports (key TEXT PRIMARY KEY, state TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS export_refs (ref TEXT PRIMARY KEY, export_key TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS game_decks (scope TEXT, game TEXT, deck_id INTEGER, title TEXT, PRIMARY KEY(scope,game))")
 
     @contextmanager
     def _connect(self):
@@ -95,8 +97,50 @@ class LexiriseService:
             configured = False
         with self._connect() as db:
             rows = db.execute("SELECT ref,state FROM export_refs JOIN exports ON export_key=key").fetchall()
-        return {"configured": configured, "decks": {game: {"id": value[0], "title": value[1]} for game, value in DECKS.items()},
+        decks = self._decks() if configured else DECKS
+        return {"configured": configured, "decks": {game: {"id": value[0], "title": value[1]} for game, value in decks.items()},
                 "sent": {ref: json.loads(state)["deck_id"] for ref, state in rows if json.loads(state).get("complete")}}
+
+    def _decks(self) -> dict:
+        scope = hashlib.sha256(self._key().encode()).hexdigest()
+        with self._connect() as db:
+            rows = db.execute("SELECT game,deck_id,title FROM game_decks WHERE scope=?", (scope,)).fetchall()
+        return {**DECKS, **{game: (deck_id, title) for game, deck_id, title in rows}}
+
+    def ensure_game_decks(self) -> dict:
+        """Explicit provisioning only; startup and status never create account data."""
+        key = self._key()
+        scope = hashlib.sha256(key.encode()).hexdigest()
+        with self._lock, self._connect() as db, httpx.Client(
+                base_url=API_BASE, headers={"Authorization": f"Bearer {key}"},
+                transport=self.transport, timeout=30) as client:
+            account_id = self._request(client, "GET", "/v1/me").get("user", {}).get("id")
+            if account_id is None:
+                raise LexiriseError("Could not verify ownership of existing game decks.")
+            available = self._request(client, "GET", "/v1/decks", params={"language": "zh"}).get("decks", [])
+            result = {}
+            for game, title in NEW_GAME_DECKS.items():
+                saved = db.execute("SELECT deck_id FROM game_decks WHERE scope=? AND game=?", (scope, game)).fetchone()
+                candidates = [d for d in available if d.get("title") == title
+                              and d.get("unit_type") == "sentence" and d.get("deck_type") == "snapshot"
+                              and (d.get("language") or d.get("lang")) == "zh"
+                              and d.get("owner_user_id") == account_id]
+                chosen = next((d for d in candidates if saved and d.get("id") == saved[0]), None)
+                if chosen is None:
+                    if len(candidates) > 1:
+                        raise LexiriseError(f"Several {title} decks already exist; choose a destination before provisioning.")
+                    chosen = candidates[0] if candidates else None
+                if chosen is None:
+                    chosen = self._request(client, "POST", "/v1/decks", json={
+                        "title": title, "language": "zh", "unit_type": "sentence", "deck_type": "snapshot",
+                        "import_items": []}).get("deck", {})
+                deck_id = chosen.get("id")
+                if not isinstance(deck_id, int) or isinstance(deck_id, bool):
+                    raise LexiriseError("Lexirise did not confirm the new deck ID.")
+                db.execute("INSERT OR REPLACE INTO game_decks VALUES (?,?,?,?)", (scope, game, deck_id, title))
+                db.commit()
+                result[game] = {"id": deck_id, "title": title}
+            return result
 
     @staticmethod
     def _request(client, method, path, **kwargs):
@@ -153,7 +197,7 @@ class LexiriseService:
 
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
              audio: Path, audio_source: str = "original") -> dict:
-        if game not in DECKS or not chinese.strip():
+        if game not in DECKS and game not in NEW_GAME_DECKS or not chinese.strip():
             raise LexiriseError("This line has no supported game or Mandarin sentence.")
         if not self._lock.acquire(blocking=False):
             raise LexiriseError("Another sentence is being sent. Please try again in a moment.")
@@ -163,7 +207,10 @@ class LexiriseService:
             self._lock.release()
 
     def _send(self, ref, game, chinese, english, speaker, audio, audio_source):
-        deck_id, game_title = DECKS[game]
+        decks = self._decks()
+        if game not in decks:
+            raise LexiriseError("This game's Lexirise deck has not been configured yet.")
+        deck_id, game_title = decks[game]
         key = hashlib.sha256(f"{deck_id}\0{chinese}".encode()).hexdigest()
         with self._connect() as db:
             row = db.execute("SELECT state FROM exports WHERE key=?", (key,)).fetchone()
