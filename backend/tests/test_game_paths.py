@@ -21,13 +21,18 @@ def make_game(tmp_path, game):
         (root / "bin/x64/Cyberpunk2077.exe").touch()
         (root / "archive/pc/content").mkdir(parents=True)
         (root / "archive/pc/content/lang_en_text.archive").touch()
+    elif game == "wuwa":
+        (root / "Client/Binaries/Win64").mkdir(parents=True)
+        (root / "Client/Binaries/Win64/Client-Win64-Shipping.exe").touch()
+        (root / "Client/Content/Paks").mkdir(parents=True)
+        (root / "Client/Content/Paks/pakchunk0.pak").touch()
     else:
         (root / "PRAGMATA.exe").touch()
         (root / "re_chunk_000.pak").touch()
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk"])
+@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa"])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()

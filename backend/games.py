@@ -15,6 +15,9 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "wuwa": GameProfile(id="wuwa", name="Wuthering Waves", process_names=("Client-Win64-Shipping.exe",),
+        title_needles=("Wuthering Waves", "鸣潮"),
+        subtitle_region=CaptureRegion(left=.10, top=.64, width=.80, height=.32)),
     "cyberpunk": GameProfile(id="cyberpunk", name="Cyberpunk 2077", process_names=("Cyberpunk2077.exe",),
         title_needles=("Cyberpunk 2077",),
         subtitle_region=CaptureRegion(left=.12, top=.59, width=.76, height=.37)),

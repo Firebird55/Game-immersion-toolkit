@@ -23,6 +23,7 @@ from .pragmata_updates import PragmataUpdateManager
 from .local_game import LocalGameTextIndex
 from .local_voice import LocalVoiceAssetService
 from .local_game_updates import LocalGameUpdateManager
+from .game_assets import LOCAL_GAMES
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError
@@ -111,7 +112,7 @@ class Runtime:
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
             DATA_DIR / "audio",
         )
-        self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in ("cyberpunk",)}
+        self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in LOCAL_GAMES}
         self.game_voice_assets = {game: LocalVoiceAssetService(game, DATA_DIR / game,
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
         self.speakers = SpeakerResolver(self.textmaps, self.voice_assets, self.transcript)
@@ -338,7 +339,7 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa)$"),
 ) -> list[TranscriptLine]:
     return [
         runtime.speakers.enrich(line) if line.game == "zzz" else line
@@ -347,7 +348,7 @@ def get_lines(
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
             else runtime.game_indexes[line.game].is_capture_text(line.text_id, line.english, line.channel)
-            if line.game in {"cyberpunk"}
+            if line.game in runtime.game_indexes
             else runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
         ))
     ]
@@ -355,7 +356,7 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa)$"),
 ) -> list[TranscriptLine]:
     return [runtime.speakers.enrich(line) if line.game == "zzz" else line
             for line in runtime.transcript.list_favorites(game=game)]

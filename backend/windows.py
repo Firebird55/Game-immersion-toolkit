@@ -106,6 +106,17 @@ def find_active_game_window(settings: AppSettings) -> tuple[GameProfile, WindowI
     for profile in ordered_profiles(settings.preferred_game):
         for process_name in profile.process_names:
             window = by_process.get(process_name.casefold())
+            if window is not None and profile.id == "wuwa":
+                # This generic Unreal executable name is used by other games.
+                # Require the game's own title or a verified installation path.
+                titled = any(name.casefold() in window.title.casefold() for name in profile.title_needles)
+                if not titled:
+                    from .game_paths import discover_install
+                    install = discover_install("wuwa")
+                    actual = executable_path_for_window(window)
+                    expected = install / "Client/Binaries/Win64/Client-Win64-Shipping.exe" if install else None
+                    if actual is None or expected is None or actual.resolve() != expected.resolve():
+                        continue
             if window is not None:
                 return profile, window
     return None

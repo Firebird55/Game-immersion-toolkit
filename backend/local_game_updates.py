@@ -4,6 +4,7 @@ import json
 import threading
 
 from .game_paths import discover_install
+from .game_assets import asset_adapter, LOCAL_GAMES
 
 
 class LocalGameUpdateManager:
@@ -49,10 +50,11 @@ class LocalGameUpdateManager:
 
     def _run(self):
         try:
-            from .cyberpunk_assets import fingerprint, index_install
+            adapter, _executable = asset_adapter(self.game)
+            fingerprint, index_install = adapter.fingerprint, adapter.index_install
             install = discover_install(self.game)
             if install is None:
-                self._set(state="waiting", message=f"Waiting for installed {self.game} files")
+                self._set(state="waiting", message=f"Waiting for installed {LOCAL_GAMES[self.game]} files")
                 return
             path = self.index.path
             try:

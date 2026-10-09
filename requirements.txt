@@ -14,4 +14,5 @@ PyAudioWPatch==0.2.12.7
 webrtcvad-wheels==2.0.14
 pytest==9.1.1
 rapidfuzz==3.14.5
+pycryptodome==3.24.0
 uvicorn[standard]==0.52.4

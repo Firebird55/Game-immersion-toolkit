@@ -1,0 +1,13 @@
+"""Explicit registry of local dialogue/original-voice extraction adapters."""
+from importlib import import_module
+
+LOCAL_GAMES = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves"}
+_ADAPTERS = {"cyberpunk": ("cyberpunk_assets", "WolvenKit.CLI.exe"),
+             "wuwa": ("wuthering_assets", "FModelCLI.exe")}
+
+
+def asset_adapter(game):
+    if game not in _ADAPTERS:
+        raise ValueError("Unsupported local original-voice adapter")
+    module, executable = _ADAPTERS[game]
+    return import_module("." + module, __package__), executable

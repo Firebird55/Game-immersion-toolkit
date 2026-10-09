@@ -42,7 +42,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -53,6 +53,8 @@ type Settings = {
   hito_auto_regions: boolean;
   cyberpunk_region: CaptureRegion;
   cyberpunk_v_voice: 'unconfigured' | 'female' | 'male';
+  wuwa_region: CaptureRegion;
+  wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   scan_interval_ms: number;
   stable_frames: number;
   fuzzy_threshold: number;
@@ -64,7 +66,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -87,7 +89,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk';
+  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa';
   source_ocr: string;
   english: string;
   chinese: string;
@@ -122,11 +124,12 @@ type StatusPayload = {
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa';
 const GAME_NAMES: Record<GameId, string> = {
   zzz: 'Zenless Zone Zero',
   pragmata: 'PRAGMATA',
   cyberpunk: 'Cyberpunk 2077',
+  wuwa: 'Wuthering Waves',
   hito: "Hito's World",
 };
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
@@ -615,7 +618,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'cyberpunk' ? 'cyberpunk_region' : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'wuwa' ? 'wuwa_region' : selectedGame === 'cyberpunk' ? 'cyberpunk_region' : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -650,7 +653,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : selectedGame === 'cyberpunk' ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -718,7 +721,7 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'cyberpunk' ? draftSettings.cyberpunk_region : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'wuwa' ? draftSettings.wuwa_region : selectedGame === 'cyberpunk' ? draftSettings.cyberpunk_region : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
@@ -972,6 +975,12 @@ function CompanionClient() {
           {selectedGame === 'cyberpunk' && draftSettings && <label>V voice
             <select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
               <option value="unconfigured">Choose V's voice to capture variant lines</option>
+              <option value="female">Female</option><option value="male">Male</option>
+            </select>
+          </label>}
+          {selectedGame === 'wuwa' && draftSettings && <label>Rover voice
+            <select value={draftSettings.wuwa_rover_voice} onChange={event => setDraftSettings(current => current ? { ...current, wuwa_rover_voice: event.target.value as Settings['wuwa_rover_voice'] } : current)}>
+              <option value="unconfigured">Choose Rover's voice to capture variant lines</option>
               <option value="female">Female</option><option value="male">Male</option>
             </select>
           </label>}

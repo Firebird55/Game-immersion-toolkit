@@ -61,6 +61,8 @@ next-env.d.ts
 /data/hito/
 /data/wwm/
 /data/cyberpunk/
+/data/wuwa/
+/data/witcher3/
 /data/lexirise/
 __pycache__/
 *.pyc

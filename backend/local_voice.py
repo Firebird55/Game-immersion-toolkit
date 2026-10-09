@@ -10,12 +10,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .media_tools import ffmpeg_executable
+from .game_assets import asset_adapter
 
 
 class LocalVoiceAssetService:
     def __init__(self, game: str, data_dir: Path, decoder: Path, output_dir: Path):
-        if game != "cyberpunk":
-            raise ValueError("Unsupported local original-voice adapter")
+        self._adapter, self._extractor = asset_adapter(game)
         self.game, self.data_dir, self.decoder, self.output_dir = game, data_dir, decoder, output_dir
         self.ready = False
         self.last_error = None
@@ -49,7 +49,7 @@ class LocalVoiceAssetService:
     def extract(self, text_id: str, line_id: int, _english=None) -> str:
         with self._lock:
             audio, install, stamp = dict(self._entries[text_id]), self._install, self._fingerprint
-        from .cyberpunk_assets import extract_voice, fingerprint
+        extract_voice, fingerprint = self._adapter.extract_voice, self._adapter.fingerprint
         if install is None or fingerprint(install) != stamp:
             raise ValueError("Game files changed; refresh the original voice index")
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -58,7 +58,7 @@ class LocalVoiceAssetService:
         output = self.output_dir / filename
         with tempfile.TemporaryDirectory(prefix=f"{self.game}-voice-", dir=self.output_dir) as scratch_value:
             scratch = Path(scratch_value)
-            data = extract_voice(install, audio, self.data_dir / "tools/WolvenKit.CLI.exe", scratch)
+            data = extract_voice(install, audio, self.data_dir / "tools" / self._extractor, scratch)
             wem, wav, mp3 = scratch / "voice.wem", scratch / "voice.wav", scratch / "voice.mp3"
             wem.write_bytes(data)
             options = {"check": True, "capture_output": True, "timeout": 90,
