@@ -1,6 +1,8 @@
 
 """Account settings transport; explicit writes only, using the host's protected key."""
 import httpx
+import hashlib
+import json
 from .lexirise import API_BASE, LexiriseService, LexiriseError
 
 STUDY_LANGUAGES = frozenset("zh yue nan ja ko en es fr de it pt ru id ar hi ta th vi tr nl pl cs ro hu sv no da fi la grc lzh".split())
@@ -34,4 +36,5 @@ def account_settings(service: LexiriseService, payload: dict | None = None) -> d
         result = service._request(client, "GET" if payload is None else "PATCH", "/v1/settings", **kwargs)
     if not isinstance(result.get("languages"), list) or not isinstance(result.get("global"), dict) or not isinstance(result.get("languageSettings"), dict):
         raise LexiriseError("Lexirise returned invalid account settings.")
+    service._settings_scope = hashlib.sha256(json.dumps({"global": result["global"], "languageSettings": result["languageSettings"]}, sort_keys=True).encode()).hexdigest()
     return result

@@ -8,6 +8,28 @@ from backend.lexirise import LexiriseService, LexiriseError
 from backend.lexirise_settings import account_settings, validate_patch, STUDY_LANGUAGES
 from backend.reading import LexiriseReadingService
 
+def test_dictionary_translation_fallback_and_cache_scope_on_settings_reload(tmp_path):
+    calls=[]
+    def reply(request):
+        body=json.loads(request.content) if request.content else {}
+        calls.append(request.url.path)
+        if request.url.path=="/v1/settings":
+            data=settings();data["global"]["translationLanguage"]="fr"
+            return httpx.Response(200,json=data)
+        if request.url.path=="/v1/analyze/text":
+            return httpx.Response(200,json={"occurrences":[{"isWordLike":True,"word":"你好","charStart":0,"charEnd":2,"entryId":1}],"entryMetaById":{"1":{"gloss":"greeting"}}})
+        return httpx.Response(200,json={"translations":[{"target_lang":"fr","translation":"bonjour"}],"translation_target":"fr"})
+    service=LexiriseService(tmp_path,api_key="fixture",transport=httpx.MockTransport(reply))
+    reader=LexiriseReadingService(tmp_path,service)
+    try:
+        result=reader.lookup("你好",0);assert result["translations"][0]["meaning"]=="bonjour"
+        assert result["translationLanguage"]=="fr" and result["sourceLanguage"]=="zh"
+        count=calls.count("/v1/analyze/text")
+        account_settings(service)
+        reader.analyze("你好")
+        assert calls.count("/v1/analyze/text")==count+1
+    finally:reader.pool.shutdown(wait=True)
+
 def settings():
     return {"languages":["zh"], "native_lang":"en", "global":{"translationLanguage":None}, "languageSettings":{"zh":{"readingAid":"pinyin"},"nl":{"fontSize":"md"}}}
 

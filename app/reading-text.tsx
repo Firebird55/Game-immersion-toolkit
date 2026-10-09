@@ -2,6 +2,7 @@
 'use client';
 import {createReader} from '@firebird55/lexirise-components';
 import type {ComponentProps} from 'react';
+import {useEffect,useState} from 'react';
 export {DEFAULT_READING_OPTIONS,MIGAKU_TONE_PALETTE,restoreReadingOptions} from '@firebird55/lexirise-components';
 export type {ReadingOptions,ReadingScope} from '@firebird55/lexirise-components';
 const lineIds=new Map<string,number>();
@@ -12,4 +13,8 @@ const reader=createReader({sourceLanguage:'zh',translationLanguage:'en',request:
  const headers=new Headers(init.headers);if(init.method&&init.method!=='GET')headers.set('X-Proxy-Transcript','lexirise');
  return fetch('http://127.0.0.1:8766/api/lines/'+id+'/reading'+path+(query.size?'?'+query:''),{...init,headers});
 }});
-export function ReadingText(props:ComponentProps<typeof reader.ReadingText>){lineIds.set(props.text,props.id);return <reader.ReadingText {...props}/>;}
+export function ReadingText(props:ComponentProps<typeof reader.ReadingText>){
+ const [revision,setRevision]=useState(0);
+ useEffect(()=>{const changed=()=>{reader.resetReadingCaches();setRevision(n=>n+1);};window.addEventListener('lexirise-account-settings',changed);return()=>window.removeEventListener('lexirise-account-settings',changed);},[]);
+ lineIds.set(props.text,props.id);return <reader.ReadingText key={revision} {...props}/>;
+}

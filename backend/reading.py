@@ -101,7 +101,8 @@ class LexiriseReadingService:
 
     def _scope(self, kind: str) -> str:
         account = hashlib.sha256(self.lexirise._key().encode()).hexdigest()
-        return f'{account}:{self.source_language}:{self.translation_language}:{kind}'
+        settings = getattr(self.lexirise, '_settings_scope', 'unloaded')
+        return f'{account}:{self.source_language}:{self.translation_language}:{settings}:{kind}'
 
     def _cached(self, kind: str, key: str, max_age: float):
         kind = self._scope(kind)
@@ -124,6 +125,12 @@ class LexiriseReadingService:
                           timeout=25, follow_redirects=False, transport=self.lexirise.transport) as client:
             return LexiriseService._request(client, "PATCH", path, json=payload)
 
+    def _translations(self, response: dict) -> list[dict]:
+        items = [item for item in response.get("translations") or [] if isinstance(item, dict) and isinstance(item.get("translation"), str) and item["translation"].strip()]
+        preferred = [item for item in items if item.get("target_lang") == self.translation_language]
+        target = response.get("translation_target") or (items[0].get("target_lang") if items else None)
+        return preferred or [item for item in items if item.get("target_lang") == target]
+
     def _meaning(self, word: str) -> str:
         cached = self._cached("meaning", word, 30 * 86400)
         if cached is not None:
@@ -131,9 +138,8 @@ class LexiriseReadingService:
         if self._cached("meaning-pending", word, 60) is not None:
             return ""
         result = self._post("/v1/dictionary/lookup", {"text": word, "language": self.source_language})
-        translations = result.get("translations") or []
-        meaning = next((item.get("translation", "") for item in translations
-                        if item.get("target_lang") == self.translation_language and isinstance(item.get("translation"), str)), "")
+        translations = self._translations(result)
+        meaning = translations[0]["translation"] if translations else ""
         self._save("meaning" if meaning else "meaning-pending", word, {"meaning": meaning})
         return meaning
 
@@ -247,8 +253,8 @@ class LexiriseReadingService:
             translations = []
             all_examples = []
             example_texts = set()
-            for item in response.get("translations") or []:
-                if not isinstance(item, dict) or item.get("target_lang") != self.translation_language:
+            for item in self._translations(response):
+                if not isinstance(item, dict):
                     continue
                 meaning = item.get("translation")
                 if not isinstance(meaning, str) or not meaning.strip():
@@ -289,7 +295,9 @@ class LexiriseReadingService:
             hsk = stats.get("hskLevel") or next((int(tag[4:]) for tag in tags
                 if isinstance(tag, str) and tag.startswith("HSK-") and tag[4:].isdigit()), None)
             alternate = response.get("multipleReadings") or {}
-            cached = {"translations": translations, "examples": all_examples[:8],
+            cached = {"sourceLanguage": self.source_language,
+                      "translationLanguage": self._translations(response)[0].get("target_lang") if self._translations(response) else self.translation_language,
+                      "translations": translations, "examples": all_examples[:8],
                       "dictionaries": dictionaries,
                       "hskLevel": hsk, "rank": response.get("rank"),
                       "frequencyScore": response.get("frequency_score"),
