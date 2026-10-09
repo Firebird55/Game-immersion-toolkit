@@ -358,7 +358,13 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
 
 @app.get("/api/lexirise")
 def lexirise_status() -> dict:
-    return runtime.lexirise.status()
+    status = runtime.lexirise.status()
+    if status["configured"] and not hasattr(runtime.lexirise, "_settings_scope"):
+        try:
+            account_settings(runtime.lexirise)
+        except LexiriseError:
+            pass  # Reading/panel errors remain actionable without blocking capture.
+    return status
 
 
 @app.get("/api/lexirise/settings")
