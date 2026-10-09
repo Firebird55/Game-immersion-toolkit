@@ -59,6 +59,8 @@ next-env.d.ts
 /data/agent-voices/
 /data/pragmata/
 /data/hito/
+/data/wwm/
+/data/cyberpunk/
 /data/lexirise/
 __pycache__/
 *.pyc

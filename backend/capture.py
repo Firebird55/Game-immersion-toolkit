@@ -17,9 +17,11 @@ from oneocr import OcrEngine
 from PIL import Image
 
 from .config import SettingsStore
+from .games import GAME_PROFILES
 from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex, normalize_english
+from .bilingual import normalize_subtitle
 from .pragmata import PragmataTextIndex
 from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
@@ -81,11 +83,15 @@ class CaptureService:
         voice_assets: VoiceAssetService | None = None,
         pragmata_voice_assets: PragmataVoiceAssetService | None = None,
         hito: HitoTextIndex | None = None,
+        game_indexes: dict | None = None,
+        game_voice_assets: dict | None = None,
     ):
         self.settings = settings
         self.textmaps = textmaps
         self.pragmata = pragmata
         self.hito = hito
+        self.game_indexes = game_indexes or {}
+        self.game_voice_assets = game_voice_assets or {}
         self.transcript = transcript
         self.on_line = on_line
         self.on_delete = on_delete
@@ -234,7 +240,7 @@ class CaptureService:
             self._update_snapshot(
                 running=True,
                 phase="waiting_for_game",
-                message="Waiting for Hito's World, Zenless Zone Zero or PRAGMATA",
+                message="Waiting for a supported game",
                 active_game=None,
                 window_title=None,
                 window_bounds=None,
@@ -253,6 +259,11 @@ class CaptureService:
             engine = OcrEngine()
             self._engine = engine
 
+        if profile.id in self.game_indexes:
+            region = getattr(settings, f"{profile.id}_region")
+            index = self.game_indexes[profile.id]
+            index.player_voice = settings.cyberpunk_v_voice
+            return self._scan_pragmata(window, region, engine, epoch, now, game=profile.id)
         if profile.id == "pragmata":
             return self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
         if profile.id == "hito":
@@ -462,7 +473,7 @@ class CaptureService:
             )
             cinematic_matches = [item for item in cinematic_matches if self._mapped_voice(item)]
             self._observe_visible_matches("cinematic", [item.text_id for item in cinematic_matches], monotonic_now)
-            normalized_panel = normalize_english(cinematic_raw_text)
+            normalized_panel = normalize_subtitle(cinematic_raw_text)
             if (
                 normalized_panel
                 and self._cinematic_panel_text
@@ -561,6 +572,7 @@ class CaptureService:
         engine: OcrEngine,
         epoch: int,
         now: datetime,
+        game: str = "pragmata",
     ) -> _ScanOutcome:
         """Capture PRAGMATA's shared lower subtitle lane.
 
@@ -585,15 +597,15 @@ class CaptureService:
         ]
         raw_text = " ".join(lines)
         confidence = self._confidence(response)
-        index = self.pragmata
-        if index is None or not index.ready:
+        index = self.pragmata if game == "pragmata" else self.game_indexes.get(game)
+        if index is None or not index.ready or (game != "pragmata" and index.audio_count == 0):
             self._tracker.observe(None)
             status = index.status() if index else {"message": "PRAGMATA index unavailable"}
             self._update_snapshot(
                 running=True,
-                phase="loading_textmaps",
+                phase="loading_textmaps" if index is None or not index.ready else "waiting_for_voice",
                 message=str(status["message"]),
-                active_game="pragmata",
+                active_game=game,
                 window_title=window.title,
                 window_bounds=window.bounds,
                 crop_bounds=crop_bounds,
@@ -612,16 +624,16 @@ class CaptureService:
         if not self._mapped_voice(match):
             match = None
         monotonic_now = time.monotonic()
-        self._observe_visible_matches("pragmata", [match.text_id] if match else [], monotonic_now)
+        self._observe_visible_matches(game, [match.text_id] if match else [], monotonic_now)
         emitted: list[TranscriptLine] = []
         match_score = match.score if match else None
         if match is None:
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
             phase = "unmatched" if raw_text else "listening"
-            message = "Reading PRAGMATA subtitle" if raw_text else "Reading PRAGMATA subtitles"
+            message = f"Reading {GAME_PROFILES[game].name} subtitles"
         else:
-            key = f"pragmata\0{match.text_id}\0{match.english}"
-            fresh = self._is_fresh_match("pragmata", key, monotonic_now)
+            key = f"{game}\0{match.text_id}\0{match.english}"
+            fresh = self._is_fresh_match(game, key, monotonic_now)
             # Two equal scans avoid committing typewriter/transition fragments.
             if (
                 fresh
@@ -633,17 +645,17 @@ class CaptureService:
                 )
                 if line is not None:
                     emitted.append(line)
-                    observed_at = self._visible_match_started["pragmata"][1]
+                    observed_at = self._visible_match_started[game][1]
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
-            message = "PRAGMATA subtitle matched to original game voice"
+            message = f"{GAME_PROFILES[game].name} subtitle matched to original Mandarin voice"
 
         self._tip_tracker.observe(None)
         self._update_snapshot(
             running=True,
             phase=phase,
             message=message,
-            active_game="pragmata",
+            active_game=game,
             window_title=window.title,
             window_bounds=window.bounds,
             crop_bounds=crop_bounds,
@@ -838,10 +850,17 @@ class CaptureService:
             result.append(" ".join(text for _, text in sorted(pieces)))
         return result
 
+    def _assets_for(self, game: str):
+        if game == "zzz":
+            return self.voice_assets
+        if game == "pragmata":
+            return self.pragmata_voice_assets
+        return self.game_voice_assets.get(game)
+
     def _mapped_voice(self, match: TextMatch | None) -> bool:
         if match is None:
             return False
-        assets = self.pragmata_voice_assets if match.game == "pragmata" else self.voice_assets
+        assets = self._assets_for(match.game)
         return bool(assets and assets.has_variant(match.text_id, match.english))
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
@@ -946,7 +965,7 @@ class CaptureService:
         ))
 
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
-        assets = self.pragmata_voice_assets if line.game == "pragmata" else self.voice_assets
+        assets = self._assets_for(line.game)
         if not assets or not assets.has_variant(line.text_id, line.english):
             return
         # Publish the official bilingual subtitle immediately, independently of
@@ -999,7 +1018,7 @@ class CaptureService:
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
 
     def repair_recorded_line(self, line: TranscriptLine) -> bool:
-        assets = self.pragmata_voice_assets if line.game == "pragmata" else self.voice_assets
+        assets = self._assets_for(line.game)
         if not assets or not line.voiced or (line.audio_source == "original" and line.has_audio):
             return False
         if not assets.has_variant(line.text_id, line.english):

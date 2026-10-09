@@ -20,6 +20,9 @@ from .pragmata import PragmataTextIndex
 from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
 from .pragmata_updates import PragmataUpdateManager
+from .local_game import LocalGameTextIndex
+from .local_voice import LocalVoiceAssetService
+from .local_game_updates import LocalGameUpdateManager
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError
@@ -108,6 +111,9 @@ class Runtime:
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
             DATA_DIR / "audio",
         )
+        self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in ("cyberpunk",)}
+        self.game_voice_assets = {game: LocalVoiceAssetService(game, DATA_DIR / game,
+            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
         self.speakers = SpeakerResolver(self.textmaps, self.voice_assets, self.transcript)
         self.event_loop = asyncio.get_running_loop()
         removed_rows = self.transcript.purge_unvoiced()
@@ -131,6 +137,8 @@ class Runtime:
             voice_assets=self.voice_assets,
             pragmata_voice_assets=self.pragmata_voice_assets,
             hito=self.hito,
+            game_indexes=self.game_indexes,
+            game_voice_assets=self.game_voice_assets,
         )
         for line in self.transcript.list(limit=50):
             self.capture.repair_recorded_line(line)
@@ -141,6 +149,8 @@ class Runtime:
         self.pragmata_updater = PragmataUpdateManager(
             PROJECT_ROOT, self.pragmata, self.pragmata_voice_assets, self.on_update_thread
         )
+        self.game_updaters = {game: LocalGameUpdateManager(game, self.game_indexes[game], voices,
+            self.on_update_thread) for game, voices in self.game_voice_assets.items()}
         self.index_task: asyncio.Task[None] | None = None
 
     async def start_indexes_in_order(self) -> None:
@@ -148,10 +158,14 @@ class Runtime:
         while self.update_manager.state in {"checking", "updating"}:
             await asyncio.sleep(2)
         self.pragmata_updater.start()
+        while self.pragmata_updater._thread and self.pragmata_updater._thread.is_alive():
+            await asyncio.sleep(2)
+        for updater in self.game_updaters.values():
+            updater.start()
 
     async def on_line(self, line: TranscriptLine) -> None:
         audio_pending = line.audio_pending
-        if line.game != "hito":
+        if line.game == "zzz":
             line = self.speakers.enrich(line)
         if audio_pending and not line.audio_pending:
             # Speaker enrichment can round-trip through SQLite; preserve this
@@ -192,6 +206,10 @@ class Runtime:
                 "message": retry.get("message", "An audio index will retry automatically"),
                 "progress": 100,
             }
+        for updater in self.game_updaters.values():
+            current = updater.status()
+            if current["state"] in {"updating", "retrying"}:
+                return current
         return update
 
     def status(self) -> dict[str, object]:
@@ -202,12 +220,14 @@ class Runtime:
                 "zzz": self.textmaps.status(),
                 "pragmata": self.pragmata.status(),
                 "hito": self.hito.status(),
+                **{game: index.status() for game, index in self.game_indexes.items()},
             },
-            "audio": {"ready": self.voice_assets.ready or self.pragmata_voice_assets.ready,
+            "audio": {"ready": self.voice_assets.ready or self.pragmata_voice_assets.ready or any(v.ready for v in self.game_voice_assets.values()),
                       "message": "Original voices from game files; matched by visible subtitles",
                       "clip_mode": "subtitle-game-files", "listening": False},
             "voice_assets": self.voice_assets.status(),
             "pragmata_voice_assets": self.pragmata_voice_assets.status(),
+            "game_voice_assets": {game: v.status() for game, v in self.game_voice_assets.items()},
             "updates": self.update_status(),
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
@@ -265,6 +285,10 @@ async def lifespan(_app: FastAPI):
         await asyncio.to_thread(runtime.pragmata_updater.close)
         runtime.voice_assets.close()
         runtime.pragmata_voice_assets.close()
+        for updater in runtime.game_updaters.values():
+            await asyncio.to_thread(updater.close)
+        for voices in runtime.game_voice_assets.values():
+            voices.close()
         if runtime.map_task and not runtime.map_task.done():
             runtime.map_task.cancel()
             try:
@@ -314,14 +338,16 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk)$"),
 ) -> list[TranscriptLine]:
     return [
-        line if line.game == "hito" else runtime.speakers.enrich(line)
+        runtime.speakers.enrich(line) if line.game == "zzz" else line
         for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
         if line.game == "hito" or (line.voiced and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
+            else runtime.game_indexes[line.game].is_capture_text(line.text_id, line.english, line.channel)
+            if line.game in {"cyberpunk"}
             else runtime.textmaps.is_capture_text(line.text_id, line.english, line.channel)
         ))
     ]
@@ -329,9 +355,9 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk)$"),
 ) -> list[TranscriptLine]:
-    return [line if line.game == "hito" else runtime.speakers.enrich(line)
+    return [runtime.speakers.enrich(line) if line.game == "zzz" else line
             for line in runtime.transcript.list_favorites(game=game)]
 
 
@@ -548,7 +574,8 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         raise HTTPException(404, "This line is no longer in local history.")
     if not line.voiced:
         raise HTTPException(409, "Wait until this line is confirmed voiced.")
-    line = runtime.speakers.enrich(line)
+    if line.game == "zzz":
+        line = runtime.speakers.enrich(line)
     root = (DATA_DIR / "audio").resolve()
     path = (root / (runtime.transcript.audio_path(line_id) or "missing")).resolve()
     if path.parent != root:
@@ -606,6 +633,14 @@ def update_textmaps() -> dict[str, object]:
     return {"started": started, "textmaps": runtime.textmaps.status()}
 
 
+@app.post("/api/games/{game}/update")
+def update_local_game(game: str) -> dict:
+    updater = runtime.game_updaters.get(game)
+    if updater is None:
+        raise HTTPException(404, "Unsupported game-file index")
+    return {"started": updater.request_check(), "updates": updater.status()}
+
+
 @app.post("/api/hito/update")
 def update_hito_text() -> dict[str, object]:
     started = runtime.hito.refresh()
@@ -616,7 +651,8 @@ def update_hito_text() -> dict[str, object]:
 def check_updates() -> dict[str, object]:
     started = runtime.update_manager.request_check()
     pragmata_started = runtime.pragmata_updater.request_check()
-    return {"started": started or pragmata_started, "updates": runtime.update_status()}
+    new_started = [updater.request_check() for updater in runtime.game_updaters.values()]
+    return {"started": started or pragmata_started or any(new_started), "updates": runtime.update_status()}
 
 
 @app.post("/api/ingest", response_model=TranscriptLine)

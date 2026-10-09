@@ -1,0 +1,107 @@
+"""Indexes of official subtitles and verified original voice references."""
+from __future__ import annotations
+
+import json
+import threading
+from dataclasses import dataclass
+from pathlib import Path
+
+from rapidfuzz import fuzz, process
+
+from .bilingual import ChineseLookup, contains_han, normalize_subtitle, subtitle_candidates
+from .models import TextMatch
+from .textmaps import display_text, normalize_english
+
+
+@dataclass(frozen=True)
+class LocalDialogue:
+    text_id: str
+    english: str
+    chinese: str
+    audio: dict | None = None
+    speaker_english: str | None = None
+    speaker_chinese: str | None = None
+    player_voice: str | None = None
+
+
+class LocalGameTextIndex:
+    def __init__(self, game: str, data_dir: Path):
+        self.game, self.path = game, data_dir / "textmap.json"
+        self.ready = False
+        self.state, self.message = "not_ready", "Waiting for official game-file index"
+        self.entry_count = self.audio_count = 0
+        self._lock = threading.RLock()
+        self._records: dict[str, list[LocalDialogue]] = {}
+        self._chinese = ChineseLookup([])
+        self.player_voice = "unconfigured"
+        self.load()
+
+    def load(self) -> bool:
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+            records = [LocalDialogue(**item) for item in payload["records"]]
+            voiced = [record for record in records if record.audio]
+            lookup: dict[str, list[LocalDialogue]] = {}
+            for record in voiced:
+                lookup.setdefault(normalize_english(record.english), []).append(record)
+            with self._lock:
+                self._records, self._chinese = lookup, ChineseLookup(voiced)
+                self.entry_count, self.audio_count = len(records), len(voiced)
+                self.ready, self.state = True, "ready" if voiced else "missing_voice"
+                self.message = payload.get("message") or f"{len(records):,} bilingual pairs; {len(voiced):,} Mandarin voices"
+            return True
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            self.message = str(error) if self.path.exists() else "Waiting for official game-file index"
+            return False
+
+    def status(self) -> dict:
+        with self._lock:
+            return {"ready": self.ready, "state": self.state, "message": self.message,
+                    "entry_count": self.entry_count, "audio_count": self.audio_count}
+
+    def match_lines(self, lines, threshold: float = 88) -> TextMatch | None:
+        matches = []
+        with self._lock:
+            for source in subtitle_candidates(lines):
+                score = 100.0
+                if contains_han(source):
+                    hit = self._chinese.match(source, threshold)
+                    if hit is None:
+                        continue
+                    records, score = hit
+                else:
+                    key = normalize_english(source)
+                    if len(key) < 3:
+                        continue
+                    records = self._records.get(key)
+                    if not records:
+                        if len(key) < 8:
+                            continue
+                        hits = process.extract(key, self._records.keys(), scorer=fuzz.ratio,
+                                               score_cutoff=max(88, threshold), limit=2)
+                        if not hits or (len(hits) > 1 and hits[1][1] >= hits[0][1] - 2):
+                            continue
+                        choice, score, _ = hits[0]
+                        records = self._records[choice]
+                records = [r for r in records if not r.player_voice or r.player_voice == self.player_voice]
+                # Repeated text can resolve to different performances. Accept
+                # only a unique voice, rather than taking the first file.
+                voices = {json.dumps(r.audio, sort_keys=True) for r in records}
+                if len(voices) != 1:
+                    continue
+                record = records[0]
+                matches.append(TextMatch(game=self.game, text_id=record.text_id,
+                    english=display_text(record.english), chinese=display_text(record.chinese),
+                    source_ocr=source, score=float(score), kind="exact" if score == 100 else "fuzzy",
+                    speaker_english=record.speaker_english, speaker_chinese=record.speaker_chinese))
+        if not matches:
+            return None
+        best = max(matches, key=lambda m: (m.score, len(normalize_subtitle(m.source_ocr))))
+        equally_good = [m for m in matches if m.score == best.score
+                        and len(normalize_subtitle(m.source_ocr)) == len(normalize_subtitle(best.source_ocr))]
+        if len({m.text_id for m in equally_good}) > 1:
+            return None
+        return best
+
+    def is_capture_text(self, text_id: str, english: str, _channel: str) -> bool:
+        return text_id.startswith(self.game + ":") and bool(display_text(english))

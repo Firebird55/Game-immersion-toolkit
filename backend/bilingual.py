@@ -30,6 +30,10 @@ def normalize_subtitle(value: str) -> str:
 def subtitle_candidates(lines: Iterable[str]) -> list[str]:
     """Keep wrapped language blocks separate, including bilingual speaker labels."""
     cleaned = [display_text(line) for line in lines if display_text(line)]
+    # Some layouts/OCR versions flatten the mod's newline. Split at a sentence
+    # boundary, retaining Latin names embedded within ordinary Chinese text.
+    cleaned = [part.strip() for line in cleaned for part in re.split(
+        r"(?<=[。！？])\s*(?=[A-Za-z])|(?<=[.!?])\s*(?=[\u3400-\u9fff])", line) if part.strip()]
     candidates: list[str] = []
     for start in range(len(cleaned)):
         for end in range(start + 1, min(len(cleaned), start + 8) + 1):

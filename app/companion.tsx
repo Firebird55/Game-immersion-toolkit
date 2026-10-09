@@ -42,7 +42,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -51,6 +51,8 @@ type Settings = {
   hito_region: CaptureRegion;
   hito_tip_region: CaptureRegion;
   hito_auto_regions: boolean;
+  cyberpunk_region: CaptureRegion;
+  cyberpunk_v_voice: 'unconfigured' | 'female' | 'male';
   scan_interval_ms: number;
   stable_frames: number;
   fuzzy_threshold: number;
@@ -62,7 +64,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -85,7 +87,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito';
+  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk';
   source_ocr: string;
   english: string;
   chinese: string;
@@ -120,10 +122,11 @@ type StatusPayload = {
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk';
 const GAME_NAMES: Record<GameId, string> = {
   zzz: 'Zenless Zone Zero',
   pragmata: 'PRAGMATA',
+  cyberpunk: 'Cyberpunk 2077',
   hito: "Hito's World",
 };
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
@@ -145,7 +148,7 @@ const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
 }) {
   if (game === 'hito') return null;
-  const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${game === 'zzz' ? 'Zenless Zone Zero' : 'PRAGMATA'}`;
+  const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${GAME_NAMES[game]}`;
   return <button type="button" className={`lexirise-send ${sent ? 'is-sent' : ''}`} translate="no"
     disabled={disabled || busy || sent} onClick={onClick} title={title} aria-label={title} aria-busy={busy}>
     {busy ? <Loader2 size={16} className="animate-spin" /> : sent ? <Check size={16} /> : <Send size={16} />}
@@ -420,31 +423,19 @@ function CompanionClient() {
 
   const loadSnapshot = useCallback(async () => {
     try {
-      const [statusResponse, zzzLinesResponse, pragmataLinesResponse, hitoLinesResponse, zzzFavoritesResponse, pragmataFavoritesResponse, hitoFavoritesResponse] = await Promise.all([
+      const games = Object.keys(GAME_NAMES) as GameId[];
+      const responses = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=50&game=zzz`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=50&game=pragmata`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/lines?limit=50&game=hito`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/favorites?game=zzz`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/favorites?game=pragmata`, { cache: 'no-store' }),
-        fetch(`${API_URL}/api/favorites?game=hito`, { cache: 'no-store' }),
+        ...games.map(game => fetch(`${API_URL}/api/lines?limit=50&game=${game}`, { cache: 'no-store' })),
+        ...games.map(game => fetch(`${API_URL}/api/favorites?game=${game}`, { cache: 'no-store' })),
       ]);
-      if (!statusResponse.ok || !zzzLinesResponse.ok || !pragmataLinesResponse.ok || !hitoLinesResponse.ok || !zzzFavoritesResponse.ok || !pragmataFavoritesResponse.ok || !hitoFavoritesResponse.ok) {
-        throw new Error('Companion service unavailable');
-      }
-      const nextStatus = (await statusResponse.json()) as StatusPayload;
+      if (responses.some(response => !response.ok)) throw new Error('Companion service unavailable');
+      const nextStatus = await responses[0].json() as StatusPayload;
       setStatus(nextStatus);
       setDraftSettings(nextStatus.settings);
-      const recentLines = [
-        ...(await zzzLinesResponse.json()) as TranscriptLine[],
-        ...(await pragmataLinesResponse.json()) as TranscriptLine[],
-        ...(await hitoLinesResponse.json()) as TranscriptLine[],
-      ];
-      const favoriteLines = [
-        ...(await zzzFavoritesResponse.json()) as TranscriptLine[],
-        ...(await pragmataFavoritesResponse.json()) as TranscriptLine[],
-        ...(await hitoFavoritesResponse.json()) as TranscriptLine[],
-      ];
+      const snapshots = await Promise.all(responses.slice(1).map(response => response.json() as Promise<TranscriptLine[]>));
+      const recentLines = snapshots.slice(0, games.length).flat();
+      const favoriteLines = snapshots.slice(games.length).flat();
       const nextLines = Array.from(
         new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
       ).sort(newestFirst);
@@ -624,7 +615,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'cyberpunk' ? 'cyberpunk_region' : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -659,7 +650,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : selectedGame === 'cyberpunk' ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -687,7 +678,7 @@ function CompanionClient() {
     void audio.play();
   }, [playbackRate]);
 
-  const sendToLexirise = useCallback(async (kind: 'line', id: number | string) => {
+  const sendToLexirise = useCallback(async (kind: 'line', id: number | string, game: GameId) => {
     if (sendingStudy.current) return;
     sendingStudy.current = true;
     const ref = `${kind}:${id}`;
@@ -700,7 +691,7 @@ function CompanionClient() {
       const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
-      setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${result.deck_id === 1951 ? 'PRAGMATA' : 'Zenless Zone Zero'}.`);
+      setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
     } catch (error) {
       setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
     } finally {
@@ -713,7 +704,7 @@ function CompanionClient() {
     const ref = `${kind}:${id}`;
     return <LexiriseButton sent={!!lexirise.sent[ref]} busy={sendingRef === ref}
       disabled={!online || !lexirise.configured || !hasAudio || (sendingRef !== null && sendingRef !== ref)}
-      game={game} onClick={() => void sendToLexirise(kind, id)} compact={compact} />;
+      game={game} onClick={() => void sendToLexirise(kind, id, game)} compact={compact} />;
   }
 
   function changePlaybackRate(value: number) {
@@ -727,7 +718,7 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'cyberpunk' ? draftSettings.cyberpunk_region : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
@@ -768,15 +759,11 @@ function CompanionClient() {
 
       <nav className="game-tabs" aria-label="Game transcript">
         <span><Gamepad2 size={15} /> Game</span>
-        <button type="button" className={selectedGame === 'zzz' ? 'is-active' : ''} aria-pressed={selectedGame === 'zzz'} onClick={() => { setSelectedGame('zzz'); setHistoryPage(0); }}>
-          Zenless Zone Zero
-        </button>
-        <button type="button" className={selectedGame === 'pragmata' ? 'is-active' : ''} aria-pressed={selectedGame === 'pragmata'} onClick={() => { setSelectedGame('pragmata'); setHistoryPage(0); }}>
-          PRAGMATA
-        </button>
-        <button type="button" className={selectedGame === 'hito' ? 'is-active' : ''} aria-pressed={selectedGame === 'hito'} onClick={() => { setSelectedGame('hito'); setHistoryPage(0); if (setupChannel === 'cinematic') setSetupChannel('dialogue'); }}>
-          Hito&apos;s World
-        </button>
+        {(Object.keys(GAME_NAMES) as GameId[]).map(game => <button key={game} type="button"
+          className={selectedGame === game ? 'is-active' : ''} aria-pressed={selectedGame === game}
+          onClick={() => { setSelectedGame(game); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue'); }}>
+          {GAME_NAMES[game]}
+        </button>)}
         {status?.capture.active_game && <small>Capturing {GAME_NAMES[status.capture.active_game]}</small>}
         <div className="reading-controls" aria-label="Chinese reading options">
         <label>Reading <select value={readingMode} onChange={event => {
@@ -791,7 +778,7 @@ function CompanionClient() {
       <section className="status-strip" aria-label="Companion status">
         <div>
           <Radio size={17} />
-          <span>{selectedGame === 'hito' ? 'Two-box OCR' : selectedGame === 'pragmata' ? 'Subtitle OCR + voice' : '3-zone OCR + voice'}</span>
+          <span>{selectedGame === 'hito' ? 'Two-box OCR' : selectedGame !== 'zzz' ? 'Auto English/Chinese OCR + voice' : '3-zone OCR + voice'}</span>
           <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : 'Paused'} /></strong>
         </div>
         <div>
@@ -904,7 +891,7 @@ function CompanionClient() {
               sentToLexirise={!!lexirise.sent[`line:${line.id}`]}
               onPlay={playLine}
               onToggleFavorite={toggleFavorite}
-              onSendToLexirise={sendToLexirise}
+              onSendToLexirise={(kind, id) => { void sendToLexirise(kind, id, selectedGame); }}
             />
           )) : (
             <div className="transcript-empty">
@@ -977,11 +964,17 @@ function CompanionClient() {
           <DialogHeader>
             <DialogTitle>Capture setup</DialogTitle>
             <DialogDescription>
-              {selectedGame === 'hito' ? 'Tune the bottom dialogue box and top message box independently.' : 'Tune the bottom dialogue box and the upper-right tutorial banner independently.'}
+              {selectedGame === 'hito' ? 'Tune the bottom dialogue box and top message box independently.' : selectedGame === 'zzz' ? 'Tune dialogue, top-right subtitles, and cinematics independently.' : 'Tune the subtitle area, including wrapped English and Chinese lines.'}
             </DialogDescription>
           </DialogHeader>
 
-          <p>Capture adjustments are saved on this PC.</p>
+          <p>Capture adjustments are saved on this PC. {selectedGame !== 'hito' && 'English or Chinese subtitles are detected automatically; study text and audio remain Mandarin.'}</p>
+          {selectedGame === 'cyberpunk' && draftSettings && <label>V voice
+            <select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
+              <option value="unconfigured">Choose V's voice to capture variant lines</option>
+              <option value="female">Female</option><option value="male">Male</option>
+            </select>
+          </label>}
           {selectedGame === 'hito' && draftSettings && <label>
             <input type="checkbox" checked={draftSettings.hito_auto_regions}
               onChange={event => setDraftSettings(current => current ? { ...current, hito_auto_regions: event.target.checked } : current)} />
@@ -996,14 +989,14 @@ function CompanionClient() {
             >
               <MessageSquareText size={16} /> Dialogue
             </button>
-            <button
+            {(selectedGame === 'zzz' || selectedGame === 'hito') && <button
               type="button"
               className={setupChannel === 'tip' ? 'is-active' : ''}
               onClick={() => setSetupChannel('tip')}
             >
               <ScanLine size={16} /> {selectedGame === 'hito' ? 'Top box' : 'Top-right tips'}
-            </button>
-            {selectedGame !== 'hito' && <button
+            </button>}
+            {selectedGame === 'zzz' && <button
               type="button"
               className={setupChannel === 'cinematic' ? 'is-active' : ''}
               onClick={() => setSetupChannel('cinematic')}

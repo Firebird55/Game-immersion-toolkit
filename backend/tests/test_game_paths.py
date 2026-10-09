@@ -16,13 +16,18 @@ def make_game(tmp_path, game):
         (root / "resources/app.asar").write_bytes(b"local game")
     elif game == "zzz":
         (root / "ZenlessZoneZero_Data/StreamingAssets").mkdir(parents=True)
+    elif game == "cyberpunk":
+        (root / "bin/x64").mkdir(parents=True)
+        (root / "bin/x64/Cyberpunk2077.exe").touch()
+        (root / "archive/pc/content").mkdir(parents=True)
+        (root / "archive/pc/content/lang_en_text.archive").touch()
     else:
         (root / "PRAGMATA.exe").touch()
         (root / "re_chunk_000.pak").touch()
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata"])
+@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk"])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()

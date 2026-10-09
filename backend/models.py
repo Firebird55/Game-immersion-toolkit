@@ -21,8 +21,11 @@ class CaptureRegion(BaseModel):
         return self
 
 
+GameId = Literal["zzz", "pragmata", "hito", "cyberpunk"]
+
+
 class AppSettings(BaseModel):
-    preferred_game: Literal["auto", "zzz", "pragmata", "hito"] = "auto"
+    preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk"] = "auto"
     process_names: list[str] = Field(default_factory=lambda: ["ZenlessZoneZero.exe"])
     window_title_contains: list[str] = Field(
         default_factory=lambda: ["Zenless Zone Zero", "ZenlessZoneZero"]
@@ -41,6 +44,8 @@ class AppSettings(BaseModel):
         default_factory=lambda: CaptureRegion(left=0.31, top=0.075, width=0.38, height=0.16)
     )
     hito_auto_regions: bool = True
+    cyberpunk_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.12, top=.59, width=.76, height=.37))
+    cyberpunk_v_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
     scan_interval_ms: int = Field(default=250, ge=100, le=5000)
     stable_frames: int = Field(default=2, ge=1, le=8)
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)
@@ -54,7 +59,7 @@ class AppSettings(BaseModel):
 
 
 class TextMatch(BaseModel):
-    game: Literal["zzz", "pragmata", "hito"] = "zzz"
+    game: GameId = "zzz"
     text_id: str
     english: str
     chinese: str
@@ -70,7 +75,7 @@ class TranscriptLine(BaseModel):
     id: int
     created_at: datetime
     session_id: str
-    game: Literal["zzz", "pragmata", "hito"] = "zzz"
+    game: GameId = "zzz"
     source_ocr: str
     english: str
     chinese: str
@@ -95,7 +100,7 @@ class CaptureSnapshot(BaseModel):
     running: bool = False
     phase: str = "stopped"
     message: str = "Capture is stopped"
-    active_game: Literal["zzz", "pragmata", "hito"] | None = None
+    active_game: GameId | None = None
     window_title: str | None = None
     window_bounds: tuple[int, int, int, int] | None = None
     crop_bounds: tuple[int, int, int, int] | None = None

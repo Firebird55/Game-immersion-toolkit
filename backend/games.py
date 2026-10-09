@@ -15,6 +15,9 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "cyberpunk": GameProfile(id="cyberpunk", name="Cyberpunk 2077", process_names=("Cyberpunk2077.exe",),
+        title_needles=("Cyberpunk 2077",),
+        subtitle_region=CaptureRegion(left=.12, top=.59, width=.76, height=.37)),
     "hito": GameProfile(
         id="hito",
         name="Hito's World Playtest",

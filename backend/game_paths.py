@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito")
+GAMES = ("zzz", "pragmata", "hito", "cyberpunk")
 
 
 def settings_path() -> Path:
@@ -21,6 +21,8 @@ def validate_install(game: str, path: Path) -> Path:
     if game == "zzz" and root.name == "ZenlessZoneZero_Data":
         root = root.parent
     valid = {
+        "cyberpunk": lambda: (root / "bin/x64/Cyberpunk2077.exe").is_file()
+        and (root / "archive/pc/content/lang_en_text.archive").is_file(),
         "zzz": lambda: (root / "ZenlessZoneZero_Data").is_dir()
         and ((root / "ZenlessZoneZero_Data/StreamingAssets").is_dir()
              or (root / "ZenlessZoneZero_Data/Persistent").is_dir()),
@@ -61,3 +63,34 @@ def save_install(game: str, path: Path) -> Path:
     temporary.write_text(json.dumps(values, indent=2), encoding="utf-8")
     temporary.replace(target)
     return root
+
+
+def discover_install(game: str) -> Path | None:
+    configured = configured_install(game)
+    if configured:
+        return configured
+    names = {"cyberpunk": "Cyberpunk 2077"}
+    candidates = []
+    # Respect Steam's registered libraries as well as conventional drive roots.
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam") as key:
+            steam = Path(winreg.QueryValueEx(key, "SteamPath")[0])
+        import re
+        libraries = [steam]
+        config = steam / "steamapps/libraryfolders.vdf"
+        if config.is_file():
+            libraries.extend(Path(value.replace("\\\\", "\\")) for value in
+                             re.findall(r'"path"\s+"([^"]+)"', config.read_text(encoding="utf-8")))
+        candidates.extend(path / "steamapps/common" / names[game] for path in libraries)
+    except (ImportError, OSError):
+        pass
+    for letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
+        candidates.extend(Path(f"{letter}:/") / suffix / names[game] for suffix in
+                          ("SteamLibrary/steamapps/common", "Program Files (x86)/Steam/steamapps/common"))
+    for path in candidates:
+        try:
+            return validate_install(game, path)
+        except (OSError, ValueError):
+            continue
+    return None
