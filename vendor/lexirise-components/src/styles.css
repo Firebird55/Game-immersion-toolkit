@@ -197,6 +197,6 @@
 .settings-dialog .settings-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .settings-dialog .settings-account { border:1px solid #5c6d80; border-radius:8px; padding:14px; }
 .settings-dialog .study-languages { display:flex;flex-wrap:wrap;gap:9px; }
-.word-sheet { max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px); overflow:auto; }
+.word-sheet { box-sizing:border-box; max-width:calc(100vw - 24px); max-height:min(calc(100dvh - 24px),var(--available-height,calc(100dvh - 24px))); overflow:auto; }
 .reading-text { overflow-wrap:anywhere; }
 @media(max-width:480px) { .reader-option-row { flex-wrap:wrap; gap:8px; } .settings-dialog { padding:18px; } }
