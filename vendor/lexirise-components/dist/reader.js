@@ -451,3 +451,20 @@ export function createReader(adapter) {
     });
     return { ReadingText, LookupWindow: WordSheet, resetReadingCaches };
 }
+const boundReaders = new WeakMap();
+function bound(adapter) {
+    let result = boundReaders.get(adapter);
+    if (!result) {
+        result = createReader(adapter);
+        boundReaders.set(adapter, result);
+    }
+    return result;
+}
+export function Reader({ adapter, ...props }) {
+    const Component = bound(adapter).ReadingText;
+    return _jsx(Component, { ...props });
+}
+export function LookupWindow({ adapter, ...props }) {
+    const Component = bound(adapter).LookupWindow;
+    return _jsx(Component, { ...props });
+}

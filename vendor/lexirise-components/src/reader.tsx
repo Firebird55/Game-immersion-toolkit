@@ -633,3 +633,14 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
 
  return { ReadingText, LookupWindow:WordSheet, resetReadingCaches };
 }
+
+const boundReaders = new WeakMap<ReaderAdapter, ReturnType<typeof createReader>>();
+function bound(adapter:ReaderAdapter) {
+ let result=boundReaders.get(adapter);if(!result){result=createReader(adapter);boundReaders.set(adapter,result);}return result;
+}
+export function Reader({adapter,...props}:{adapter:ReaderAdapter}&React.ComponentProps<ReturnType<typeof createReader>['ReadingText']>) {
+ const Component=bound(adapter).ReadingText;return <Component {...props}/>;
+}
+export function LookupWindow({adapter,...props}:{adapter:ReaderAdapter}&React.ComponentProps<ReturnType<typeof createReader>['LookupWindow']>) {
+ const Component=bound(adapter).LookupWindow;return <Component {...props}/>;
+}

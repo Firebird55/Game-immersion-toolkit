@@ -32,7 +32,7 @@ let cooldown=0;
 let running=0;
 let cacheWrites:Promise<void>=Promise.resolve();
 const waiting:Array<()=>void>=[];
-async function initializeClient(){ credential=await getValue('lexirise:key','');await identifyAccount(credential);grammarChoices=await getValue('lexirise:grammar:'+sourceLanguage,{}); }
+async function initializeClient(){ const key=await getValue('lexirise:key','');if(key!==credential){generation++;memory.clear();pending.clear();states.clear();missingGloss.clear();glossPending.clear();}credential=key;await identifyAccount(credential);grammarChoices=await getValue('lexirise:grammar:'+sourceLanguage,sourceLanguage==='zh'?await getValue('lexirise:grammar',{}):{}); }
 function hasKey(){return Boolean(credential);}
 async function configureKey(key:string){
   const next=key.trim(); if(next) await setValue('lexirise:key',next); else await deleteValue('lexirise:key');

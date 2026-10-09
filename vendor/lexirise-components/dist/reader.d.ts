@@ -111,4 +111,10 @@ export declare function createReader(adapter: ReaderAdapter): {
     }) => import("react/jsx-runtime").JSX.Element;
     resetReadingCaches: () => void;
 };
+export declare function Reader({ adapter, ...props }: {
+    adapter: ReaderAdapter;
+} & React.ComponentProps<ReturnType<typeof createReader>['ReadingText']>): import("react/jsx-runtime").JSX.Element;
+export declare function LookupWindow({ adapter, ...props }: {
+    adapter: ReaderAdapter;
+} & React.ComponentProps<ReturnType<typeof createReader>['LookupWindow']>): import("react/jsx-runtime").JSX.Element;
 export {};
