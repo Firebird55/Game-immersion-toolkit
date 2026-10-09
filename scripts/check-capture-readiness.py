@@ -21,6 +21,7 @@ from backend.games import GAME_PROFILES
 from backend.models import AppSettings
 from backend.media_tools import ffmpeg_executable
 from backend.windows import WindowInfo, find_active_game_window
+from backend.bilingual import normalize_chinese
 
 
 def main() -> int:
@@ -40,6 +41,16 @@ def main() -> int:
     if not any("enemies incoming" in line.casefold() for line in lines):
         raise RuntimeError(f"Native OCR could not read a test subtitle: {lines!r}")
     print(f"Native OCR: recognized {lines[0]!r}")
+
+    bilingual = Image.new("RGB", (1150, 220), "#111820")
+    painter = ImageDraw.Draw(bilingual)
+    chinese_font = ImageFont.truetype(r"C:\Windows\Fonts\msyh.ttc", 52)
+    painter.text((35, 25), "他们过来了！", font=chinese_font, fill="white")
+    painter.text((35, 112), "They're coming!", font=font, fill="white")
+    bilingual_lines = [item.get("text", "") for item in OcrEngine().recognize_pil(bilingual).get("lines", [])]
+    if not any(normalize_chinese(line) == "他们过来了" for line in bilingual_lines):
+        raise RuntimeError("Native OCR could not read the Mandarin subtitle fixture")
+    print("Native OCR: Mandarin and English subtitle blocks recognized")
 
     ffmpeg = ffmpeg_executable()
     if not ffmpeg:
@@ -76,6 +87,7 @@ def main() -> int:
             ("ZZZ top-right", settings.tip_region),
             ("ZZZ cinematic", settings.cinematic_region),
             ("PRAGMATA subtitles", GAME_PROFILES["pragmata"].subtitle_region),
+            ("Cyberpunk bilingual subtitles", settings.cyberpunk_region),
         ):
             left, top, width, height = CaptureService._region_bounds(window, region)
             if (

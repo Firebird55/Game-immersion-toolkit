@@ -1,17 +1,19 @@
 # Game immersion toolkit
 
-Local Windows OCR, verified bilingual transcripts and original game audio for Hito's World, Zenless Zone Zero and PRAGMATA. Shared Lexirise settings/readings/lookups support 31 study languages; Migaku remains a separate reading mode. Existing game transcripts remain Chinese.
+Local Windows OCR, verified bilingual transcripts and original game audio for Hito's World, Zenless Zone Zero, PRAGMATA and Cyberpunk 2077. Shared Lexirise settings/readings/lookups support 31 study languages; Migaku remains a separate reading mode. Existing game transcripts remain Chinese.
 
 Download a private release ZIP and double-click **Install.cmd**. The optional game-folder popup locates your own installed files, saves locations per PC and preserves automatic discovery. Game assets are never bundled or uploaded. See [installation guide](INSTALL.md), [mobile-friendly installer page](INSTALL.html), [contributing](CONTRIBUTING.md), [agent rules](AGENTS.md) and [release/rollback](RELEASE.md).
 
 The UI adapts to narrow/short windows and high browser/Windows zoom. Hito automatically follows dialogue boxes; capture regions are normalized against physical game-window pixels and local calibration remains per PC.
 
+See [Cyberpunk support and automatic subtitle languages](docs/cyberpunk-support.md) for bilingual-mod compatibility, V voice selection, and the Where Winds Meet limitation.
+
 ## Detailed behavior (Proxy Transcript companion)
 
-A local, gameplay-first bilingual transcript companion for Zenless Zone Zero
-and PRAGMATA, with game-text capture for Hito's World.
+A local, gameplay-first bilingual transcript companion for Zenless Zone Zero,
+PRAGMATA and Cyberpunk 2077, with game-text capture for Hito's World.
 
-It captures English text from the running game, recognizes it with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
+It captures English or Chinese subtitles from the running game, automatically recognizes the language with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
 
 Three independent regions cover the lower subtitles, upper-right spoken prompts,
 and voiced cutscene/comic panels. Within the lower region, wide dark interaction
@@ -58,7 +60,7 @@ Start the app from the **Proxy Transcript** Start menu shortcut or `Start Proxy 
 
 ## Normal use
 
-1. Start Zenless Zone Zero or PRAGMATA with English subtitles and Mandarin audio.
+1. Start Zenless Zone Zero, PRAGMATA or Cyberpunk 2077 with English or Chinese subtitles and Mandarin audio.
 2. Double-click `Start Proxy Transcript.cmd`.
 3. The companion opens on the portrait monitor to the right of the primary display, or on a connected secondary display such as Duet when no portrait monitor is present.
 4. Use **Capture setup** if the live crop contains HUD text or misses part of the subtitle.
