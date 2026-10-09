@@ -432,7 +432,7 @@ function CompanionClient() {
       if (responses.some(response => !response.ok)) throw new Error('Companion service unavailable');
       const nextStatus = await responses[0].json() as StatusPayload;
       setStatus(nextStatus);
-      setDraftSettings(nextStatus.settings);
+      if (!settingsOpenRef.current) setDraftSettings(nextStatus.settings);
       const snapshots = await Promise.all(responses.slice(1).map(response => response.json() as Promise<TranscriptLine[]>));
       const recentLines = snapshots.slice(0, games.length).flat();
       const favoriteLines = snapshots.slice(games.length).flat();
@@ -472,7 +472,7 @@ function CompanionClient() {
         const event = JSON.parse(message.data);
         if (event.type === 'snapshot') {
           setStatus(event.snapshot);
-          setDraftSettings(event.snapshot.settings);
+          if (!settingsOpenRef.current) setDraftSettings(event.snapshot.settings);
         }
         if (event.type === 'capture_status') {
           const nextCapture = event.capture as CaptureStatus;
@@ -488,7 +488,7 @@ function CompanionClient() {
           setStatus((current) => current ? { ...current, updates: event.updates } : current);
         }
         if (event.type === 'settings') {
-          setDraftSettings(event.settings);
+          if (!settingsOpenRef.current) setDraftSettings(event.settings);
           setStatus((current) => current ? { ...current, settings: event.settings } : current);
         }
         if (event.type === 'line') {
@@ -951,7 +951,7 @@ function CompanionClient() {
             <span className="capture-pause-label">Pause</span>
             <span className="capture-play-label">Start</span>
           </Button>
-          <Button onClick={() => setSettingsOpen(true)} disabled={!online || !draftSettings}>
+          <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={!online || !draftSettings}>
             <Settings2 /> Capture setup
           </Button>
         </div>
@@ -1043,7 +1043,7 @@ function CompanionClient() {
 
           <div className="ocr-readout">
             <span>Latest OCR</span>
-            <StableText text={(setupChannel === 'tip' ? capture?.last_tip_ocr : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr : capture?.last_ocr) || 'No English text detected in the current region.'} />
+            <StableText text={(setupChannel === 'tip' ? capture?.last_tip_ocr : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr : capture?.last_ocr) || 'No subtitle text detected in the current region.'} />
             <small><StableInline text={(setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ? `${Math.round((setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ?? 0)}% OCR confidence` : 'Waiting for text'} /></small>
           </div>
 
@@ -1053,7 +1053,7 @@ function CompanionClient() {
               <StableInline text={refreshingMaps ? 'Updating…' : selectedGame === 'hito' ? 'Refresh from game' : 'Update TextMaps'} />
             </Button>
             <Button onClick={saveSettings} disabled={!draftSettings || saving}>
-              <StableInline text={saving ? 'Saving…' : 'Save both regions'} />
+              <StableInline text={saving ? 'Saving…' : 'Save capture settings'} />
             </Button>
           </div>
         </DialogContent>
