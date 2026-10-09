@@ -20,7 +20,7 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not create the Python environment.' }
 }
 
-& $venvPython -m pip install --disable-pip-version-check --timeout 120 --retries 8 -r requirements.txt
+& $venvPython -m pip install --disable-pip-version-check --timeout 120 --retries 8 -r requirements.lock.txt
 if ($LASTEXITCODE -ne 0) { throw 'Python dependency installation failed.' }
 
 # The Python oneocr package expects the native OCR files from Windows Snipping
@@ -41,9 +41,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Native OCR initialization failed.' }
 
 
 $vinext = Join-Path $projectRoot 'node_modules\vinext\dist\cli.js'
-if (-not (Test-Path -LiteralPath $vinext)) {
-    throw 'Node packages are missing. Restore node_modules from the source ZIP before building.'
-}
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'Install Node.js 24 LTS (including npm), then run setup again.' }
+& npm ci
+if ($LASTEXITCODE -ne 0) { throw 'Locked frontend dependency installation failed.' }
 
 $wasRunning = $false
 try {

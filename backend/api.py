@@ -24,6 +24,7 @@ from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError
 from .reading import LexiriseReadingService
+from .lexirise_settings import account_settings
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 
 
@@ -358,6 +359,24 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
 @app.get("/api/lexirise")
 def lexirise_status() -> dict:
     return runtime.lexirise.status()
+
+
+@app.get("/api/lexirise/settings")
+def lexirise_get_settings() -> dict:
+    try:
+        return account_settings(runtime.lexirise)
+    except LexiriseError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from None
+
+
+@app.patch("/api/lexirise/settings")
+def lexirise_patch_settings(payload: dict, x_proxy_transcript: str = Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(status_code=403, detail="Explicit Lexirise action required.")
+    try:
+        return account_settings(runtime.lexirise, payload)
+    except LexiriseError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from None
 
 
 @app.get("/api/lines/{line_id}/reading")

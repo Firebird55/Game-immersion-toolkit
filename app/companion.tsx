@@ -1,5 +1,7 @@
 'use client';
 
+import { SettingsPanel, restoreLocalSettings, type LocalSettings } from '@firebird55/lexirise-components';
+import { settingsAdapter } from './lexirise-settings';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -385,13 +387,13 @@ function CompanionClient() {
   const [playbackRate, setPlaybackRate] = useState(1);
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
   const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
-  const [readingOptions, setReadingOptions] = useState<ReadingOptions>(DEFAULT_READING_OPTIONS);
+  const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
   const sendingStudy = useRef(false);
-  const saveReadingOptions = useCallback((next: ReadingOptions) => {
+  const saveReadingOptions = useCallback((next: LocalSettings) => {
     setReadingOptions(next);
     window.localStorage.setItem('proxy-transcript-reading-options', JSON.stringify(next));
   }, []);
@@ -403,7 +405,7 @@ function CompanionClient() {
     if (reader === 'migaku' || reader === 'lexirise') setReadingMode(reader);
     try {
       const saved = window.localStorage.getItem('proxy-transcript-reading-options');
-      if (saved) setReadingOptions(restoreReadingOptions(JSON.parse(saved)));
+      if (saved) setReadingOptions(restoreLocalSettings(JSON.parse(saved)));
       else {
         const pinyin = window.localStorage.getItem('proxy-transcript-pinyin-mode');
         if (pinyin === 'unknown' || pinyin === 'all' || pinyin === 'off')
@@ -752,7 +754,7 @@ function CompanionClient() {
   if (!snapshotLoaded) return <main className="companion-shell" aria-busy="true" />;
 
   return (
-    <main className="companion-shell">
+    <main className="companion-shell" style={{'--lexirise-font-size': (readingOptions.fontSize ?? 27) + 'px'} as React.CSSProperties}>
       <header className="topbar">
         <div>
           <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
@@ -968,54 +970,7 @@ function CompanionClient() {
         </div>
       </footer>
 
-      <Dialog open={readerSettingsOpen} onOpenChange={setReaderSettingsOpen}>
-        <DialogContent className="setup-dialog reader-settings-dialog sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Lexirise reading options</DialogTitle>
-            <DialogDescription>Choose which words get readings, translations, and tone colors.</DialogDescription>
-          </DialogHeader>
-          <div className="reader-option-list">
-            <label className="reader-option-row">
-              <span><strong>Hide English translation</strong><small>Hide when a line has at most this many unknown words. Tap to reveal. Only Known words count as known.</small></span>
-              <select value={readingOptions.hideEnglishAt} aria-label="Hide English translation"
-                onChange={event => saveReadingOptions({ ...readingOptions,
-                  hideEnglishAt: restoreTranslationLimit(event.target.value === 'off' ? 'off' : Number(event.target.value)),
-                })}>
-                <option value="off">Always show</option>
-                <option value="0">0 unknown words</option>
-                <option value="1">1 or fewer</option>
-                <option value="2">2 or fewer</option>
-                <option value="3">3 or fewer</option>
-              </select>
-            </label>
-            {READING_FIELDS.map(field => <label key={field.key} className="reader-option-row">
-              <span><strong>{field.label}</strong><small>{field.hint}</small></span>
-              <select value={readingOptions[field.key]} onChange={event => saveReadingOptions({
-                ...readingOptions, [field.key]: event.target.value as ReadingScope,
-              })} aria-label={field.label}>
-                <option value="unknown">Unknown words</option>
-                <option value="all">All words</option>
-                <option value="off">Off</option>
-              </select>
-            </label>)}
-          </div>
-          <fieldset className="reader-tone-palette">
-            <legend>Migaku tone palette</legend>
-            <div className="reader-color-list">
-              {TONE_NAMES.map((name, index) => <label key={name}>
-                <input type="color" value={readingOptions.palette[index]} aria-label={`${name} color`}
-                  onChange={event => {
-                    const palette = [...readingOptions.palette] as ReadingOptions['palette'];
-                    palette[index] = event.target.value;
-                    saveReadingOptions({ ...readingOptions, palette });
-                  }} />
-                <span>{name}</span>
-              </label>)}
-            </div>
-            <button type="button" onClick={() => saveReadingOptions({ ...readingOptions, palette: [...MIGAKU_TONE_PALETTE] })}>Reset colors</button>
-          </fieldset>
-        </DialogContent>
-      </Dialog>
+      {readerSettingsOpen && <SettingsPanel initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage="zh" />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">

@@ -1,0 +1,49 @@
+{
+  "name": "@firebird55/lexirise-components",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css",
+    "./capabilities.json": "./capabilities.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "capabilities.json",
+    "tools",
+    "lexirise-baseline.json",
+    "PROVENANCE.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "check": "npm run typecheck && npm test",
+    "shared:update": "node scripts/shared-update.mjs",
+    "release": "node scripts/release.mjs",
+    "lexirise:watch": "node scripts/lexirise-watch.mjs"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0",
+    "react-dom": ">=19.2.0"
+  },
+  "dependencies": {
+    "@base-ui/react": "1.7.0",
+    "lucide-react": "1.31.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "typescript": "5.9.3"
+  }
+}

@@ -60,7 +60,7 @@ if (-not (Test-LocalEndpoint 'http://127.0.0.1:3000/')) {
             Where-Object Name -like 'wrangler@*' | Select-Object -First 1
         if ($package) { $wrangler = Join-Path $package.FullName 'node_modules\wrangler\bin\wrangler.js' }
     }
-    if (-not (Test-Path -LiteralPath $wrangler)) { throw 'Wrangler is missing. Restore node_modules from the ZIP.' }
+    if (-not (Test-Path -LiteralPath $wrangler)) { throw 'Wrangler is missing. Run scripts\setup.ps1 to install locked dependencies.' }
     $node = (Get-Command node -ErrorAction Stop).Source
     # Start-Process flattens ArgumentList to a command line on Windows. Keep the
     # script path quoted so installs below folders such as "Google Drive" work.

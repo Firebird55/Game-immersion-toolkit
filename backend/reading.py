@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sqlite3
@@ -15,6 +16,7 @@ from pypinyin import Style, lazy_pinyin
 
 from .lexirise import API_BASE, LexiriseError, LexiriseService
 from .grammar import normalize_grammar
+from .lexirise_settings import STUDY_LANGUAGES
 
 
 ZHUYIN_TONE_MARKS = {1: "", 2: "ˊ", 3: "ˇ", 4: "ˋ", 5: "˙"}
@@ -82,7 +84,11 @@ def word_zhuyin(word: str, tones: list[int]) -> str:
 class LexiriseReadingService:
     """Analyze transcript words and update explicit learner choices server-side."""
 
-    def __init__(self, directory: Path, lexirise: LexiriseService):
+    def __init__(self, directory: Path, lexirise: LexiriseService, *, source_language: str = 'zh', translation_language: str = 'en'):
+        if source_language not in STUDY_LANGUAGES:
+            raise ValueError('Unsupported source language')
+        self.source_language = source_language
+        self.translation_language = translation_language
         self.path = directory / "reading-cache.db"
         self.lexirise = lexirise
         self.lock = threading.RLock()
@@ -93,12 +99,18 @@ class LexiriseReadingService:
             db.execute("CREATE TABLE IF NOT EXISTS cache (kind TEXT, key TEXT, value TEXT, at REAL, PRIMARY KEY(kind,key))")
             db.execute("CREATE TABLE IF NOT EXISTS grammar_choices (slug TEXT PRIMARY KEY, proficiency INTEGER NOT NULL CHECK(proficiency IN (0,4)))")
 
+    def _scope(self, kind: str) -> str:
+        account = hashlib.sha256(self.lexirise._key().encode()).hexdigest()
+        return f'{account}:{self.source_language}:{self.translation_language}:{kind}'
+
     def _cached(self, kind: str, key: str, max_age: float):
+        kind = self._scope(kind)
         with self.lock, closing(sqlite3.connect(self.path)) as db:
             row = db.execute("SELECT value,at FROM cache WHERE kind=? AND key=?", (kind, key)).fetchone()
         return json.loads(row[0]) if row and time.time() - row[1] < max_age else None
 
     def _save(self, kind: str, key: str, value: dict):
+        kind = self._scope(kind)
         with self.lock, closing(sqlite3.connect(self.path)) as db, db:
             db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (kind, key, json.dumps(value), time.time()))
 
@@ -118,10 +130,10 @@ class LexiriseReadingService:
             return cached.get("meaning", "")
         if self._cached("meaning-pending", word, 60) is not None:
             return ""
-        result = self._post("/v1/dictionary/lookup", {"text": word, "language": "zh"})
+        result = self._post("/v1/dictionary/lookup", {"text": word, "language": self.source_language})
         translations = result.get("translations") or []
         meaning = next((item.get("translation", "") for item in translations
-                        if item.get("target_lang") == "en" and isinstance(item.get("translation"), str)), "")
+                        if item.get("target_lang") == self.translation_language and isinstance(item.get("translation"), str)), "")
         self._save("meaning" if meaning else "meaning-pending", word, {"meaning": meaning})
         return meaning
 
@@ -154,7 +166,7 @@ class LexiriseReadingService:
         if result and result.get("morphoPending") and self._cached("analysis-full", text, 1) is None:
             result = None
         if result is None:
-            result = self._post("/v1/analyze/text", {"text": text, "language": "zh", "fast": False})
+            result = self._post("/v1/analyze/text", {"text": text, "language": self.source_language, "fast": False})
             self._save("analysis-full", text, result)
         states = result.get("stateByEntryId") or {}
         entry_meta = result.get("entryMetaById") or {}
@@ -183,14 +195,14 @@ class LexiriseReadingService:
             if not isinstance(proficiency, int) or proficiency not in range(5):
                 proficiency = 0
             raw_tones = item.get("tones") or meta.get("tones") or []
-            tones = [tone if isinstance(tone, int) and tone in range(1, 6) else 0
+            tones = [tone if isinstance(tone, int) and tone in range(1, 7 if self.source_language == 'yue' else 6) else 0
                      for tone in raw_tones] if isinstance(raw_tones, list) else []
             gloss = meta.get("gloss") if isinstance(meta.get("gloss"), str) else ""
             tokens.append({"start": start, "end": end, "word": word,
                            "entryId": entry_id if isinstance(entry_id, int) else None,
                            "savedExpressionId": state.get("saved_expression_id") if isinstance(state, dict) else None,
                            "pinyin": item.get("transliteration") or meta.get("transliteration") or "",
-                           "zhuyin": word_zhuyin(word, tones), "tones": tones,
+                           "zhuyin": word_zhuyin(word, tones) if self.source_language == "zh" else "", "tones": tones,
                            "proficiency": proficiency, "meaning": gloss})
             last_end = end
         unknown = list(dict.fromkeys(token["word"] for token in tokens
@@ -206,20 +218,21 @@ class LexiriseReadingService:
         for token in tokens:
             token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
         with self.lock, closing(sqlite3.connect(self.path)) as db:
-            grammar_choices = dict(db.execute("SELECT slug,proficiency FROM grammar_choices"))
+            grammar_choices = {slug.split(":", 1)[-1]: level for slug, level in db.execute("SELECT slug,proficiency FROM grammar_choices")
+                               if slug.startswith(self.source_language + ":") or (self.source_language == "zh" and ":" not in slug)}
         return {"text": text, "tokens": tokens, "pendingMeanings": pending,
                 "analysisPending": bool(result.get("morphoPending")),
                 "grammar": normalize_grammar(text, result, grammar_choices)}
 
     def set_grammar_known(self, text: str, slug: str, known: bool) -> dict | None:
-        # Grammar writes are not exposed by Lexirise's public v1 API. Persist an
-        # explicit local choice, separate from the remote learner state/cache.
+        # Preserve the existing app-local grammar override. Remote grammar state
+        # writes are a separate API operation, not implied by this local control.
         rule = next((rule for rule in self.analyze(text)["grammar"] if rule["slug"] == slug), None)
         if rule is None:
             return None
         proficiency = 4 if known else 0
         with self.lock, closing(sqlite3.connect(self.path)) as db, db:
-            db.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (slug, proficiency))
+            db.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (self.source_language + ":" + slug, proficiency))
         return {"slug": slug, "proficiency": proficiency, "localOverride": True}
 
     def lookup(self, text: str, start: int) -> dict | None:
@@ -230,12 +243,12 @@ class LexiriseReadingService:
         word = token["word"]
         cached = self._cached("lookup-v3", word, 30 * 86400)
         if cached is None:
-            response = self._post("/v1/dictionary/lookup", {"text": word, "language": "zh"})
+            response = self._post("/v1/dictionary/lookup", {"text": word, "language": self.source_language})
             translations = []
             all_examples = []
             example_texts = set()
             for item in response.get("translations") or []:
-                if not isinstance(item, dict) or item.get("target_lang") != "en":
+                if not isinstance(item, dict) or item.get("target_lang") != self.translation_language:
                     continue
                 meaning = item.get("translation")
                 if not isinstance(meaning, str) or not meaning.strip():
@@ -296,7 +309,7 @@ class LexiriseReadingService:
         key = f"{text}:{start}:{question or ''}"
         cached = self._cached("context", key, 30 * 86400)
         if cached is None:
-            payload = {"language": "zh", "text": text,
+            payload = {"language": self.source_language, "text": text,
                        "charStart": token["start"], "charEnd": token["end"]}
             if question:
                 payload["question"] = question
@@ -313,7 +326,7 @@ class LexiriseReadingService:
                    if "\u3400" <= char <= "\u9fff"][:8]
         cached_info = {char: self._cached("character", char, 30 * 86400) for char in letters}
         pending = {char: self.pool.submit(self._post, "/v1/dictionary/lookup",
-                   {"text": char, "language": "zh"}) for char in letters if cached_info[char] is None}
+                   {"text": char, "language": self.source_language}) for char in letters if cached_info[char] is None}
         characters = []
         partial = False
         failed: set[str] = set()
@@ -345,7 +358,7 @@ class LexiriseReadingService:
             and len(part["character"]) == 1 and "\u3400" <= part["character"] <= "\u9fff"))
         component_info = {char: self._cached("character", char, 30 * 86400) for char in component_letters}
         component_pending = {char: self.pool.submit(self._post, "/v1/dictionary/lookup",
-            {"text": char, "language": "zh"}) for char in component_letters if component_info[char] is None}
+            {"text": char, "language": self.source_language}) for char in component_letters if component_info[char] is None}
         for char, future in component_pending.items():
             try:
                 response = future.result()
@@ -388,7 +401,7 @@ class LexiriseReadingService:
         if not 0 <= example_index < len(examples):
             return None
         example = examples[example_index]
-        payload = {"language": "zh", "text": example["text"], "mode": "sentence"}
+        payload = {"language": self.source_language, "text": example["text"], "mode": "sentence"}
         if example.get("translation"):
             payload["translation"] = example["translation"]
         response = self._post("/v1/vocabulary", payload)
@@ -406,15 +419,15 @@ class LexiriseReadingService:
         cached = self._cached("similar", key, 7 * 86400)
         if cached is not None:
             return cached
-        question = (f"Suggest exactly three close Chinese alternatives to {token['word']} in this context. "
-                    "For each, give the Chinese word, short English meaning, and one short usage distinction. "
+        question = (f"Suggest exactly three close {self.source_language} alternatives to {token['word']} in this context. "
+                    f"For each, give the source-language word, short {self.translation_language} meaning, and one short usage distinction. "
                     "Use one line per alternative, formatted WORD | MEANING | USAGE. No introduction or markdown.")
-        response = self._post("/v1/analyze/context", {"language": "zh", "text": text,
+        response = self._post("/v1/analyze/context", {"language": self.source_language, "text": text,
             "charStart": token["start"], "charEnd": token["end"], "question": question}, timeout=60)
         suggestions = []
         for line in (response.get("meaning") or "").splitlines():
             clean = line.strip().lstrip("-• ")
-            match = re.match(r"(?:\*\*)?([\u3400-\u9fff]{1,8})(?:\*\*)?\s*(?:\||[—–-])\s*(.+)", clean)
+            match = re.match(r"(?:\*\*)?([^|\n]{1,80}?)(?:\*\*)?\s*(?:\||[—–-])\s*(.+)", clean)
             if not match:
                 continue
             word, rest = match.groups()
@@ -426,7 +439,7 @@ class LexiriseReadingService:
             if len(suggestions) == 4:
                 break
         pending = {item["word"]: self.pool.submit(self._post, "/v1/dictionary/lookup",
-                   {"text": item["word"], "language": "zh"}) for item in suggestions}
+                   {"text": item["word"], "language": self.source_language}) for item in suggestions}
         confirmed = []
         for item in suggestions:
             try:
@@ -436,7 +449,7 @@ class LexiriseReadingService:
             if dictionary.get("word") != item["word"] or not dictionary.get("entry_id"):
                 continue
             translations = [entry.get("translation") for entry in dictionary.get("translations") or []
-                            if isinstance(entry, dict) and entry.get("target_lang") == "en"
+                            if isinstance(entry, dict) and entry.get("target_lang") == self.translation_language
                             and isinstance(entry.get("translation"), str)]
             confirmed.append({**item, "meaning": translations[0] if translations else item["meaning"],
                               "pinyin": dictionary.get("transliteration") or "",
@@ -456,7 +469,7 @@ class LexiriseReadingService:
         if isinstance(saved_id, int) and saved_id > 0:
             response = self._patch(f"/v1/vocabulary/{saved_id}", {"proficiency": proficiency})
         else:
-            response = self._post("/v1/vocabulary", {"language": "zh", "text": token["word"],
+            response = self._post("/v1/vocabulary", {"language": self.source_language, "text": token["word"],
                 "mode": "word", "proficiency": proficiency})
             item = response.get("item") if isinstance(response.get("item"), dict) else response
             saved_id = item.get("saved_expression_id") or item.get("id")

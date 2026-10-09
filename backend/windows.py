@@ -23,7 +23,10 @@ if sys.platform == "win32":
     user32 = ctypes.windll.user32
     kernel32 = ctypes.windll.kernel32
     try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        # Per-monitor V2 keeps client bounds and screenshots in physical pixels
+        # when a window moves between displays with different Windows zoom.
+        if not user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
     except (AttributeError, OSError):
         try:
             user32.SetProcessDPIAware()

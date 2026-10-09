@@ -83,7 +83,7 @@ def test_pending_full_analysis_retries_instead_of_caching_fast_only_for_ten_minu
     try:
         assert reader.analyze("😀说了了")["analysisPending"] is True
         with closing(sqlite3.connect(reader.path)) as db, db:
-            db.execute("UPDATE cache SET at=at-2 WHERE kind='analysis-full'")
+            db.execute("UPDATE cache SET at=at-2 WHERE kind=?", (reader._scope("analysis-full"),))
         result = reader.analyze("😀说了了")
         assert result["analysisPending"] is False and len(result["grammar"]) == 1
         assert len(requests) == 2
