@@ -819,7 +819,9 @@ class CaptureService:
                 continue
             replacements = [word for word in remaining
                             if min(bottom, bounds(word)[3]) - max(top, bounds(word)[1])
-                            > min(bottom - top, bounds(word)[3] - bounds(word)[1]) * .5]
+                            > min(bottom - top, bounds(word)[3] - bounds(word)[1]) * .5
+                            and min(right, bounds(word)[2]) - max(left, bounds(word)[0])
+                            > min(right - left, bounds(word)[2] - bounds(word)[0]) * .5]
             if not replacements or not row.get("words"):
                 result.append(str(row.get("text", "")))
                 continue

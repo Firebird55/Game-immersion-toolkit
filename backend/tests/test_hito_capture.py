@@ -103,3 +103,27 @@ def test_hito_box_detection_follows_resolution_and_game_zoom():
         assert abs(region.top + region.height - bottom) < .015
         assert abs(region.left - (left + (right-left)*.18)) < .015
         assert abs(region.left + region.width - right) < .015
+
+
+def test_hito_split_same_baseline_rows_do_not_duplicate_highlighted_words(tmp_path):
+    from backend.hito import HitoTextIndex
+
+    def row(text, x, width, words=None):
+        return dict(text=text, bounding_rect=dict(x1=x, y1=60, x2=x+width, y2=60,
+                    x3=x+width, y3=120, x4=x, y4=120), words=words or [])
+
+    image = Image.new('RGB', (700, 160))
+    for x in (10, 250, 490):
+        image.paste((255, 170, 70), (x, 60, x+100, 120))
+    highlighted = [row('看到', x, 100) for x in (10, 250, 490)]
+    engine = SimpleNamespace(recognize_pil=lambda image: {'lines': highlighted})
+    response = {'lines': [
+        row('看到 ..', 10, 190, [row('看到', 10, 100), row('..', 130, 70)]),
+        row('看到 .. 看到 !!', 250, 430, [row('看到', 250, 100), row('..', 370, 70),
+                                        row('看到', 490, 100), row('!!', 610, 70)]),
+    ]}
+    lines = CaptureService._hito_ocr_lines(image, response, engine)
+    assert lines == ['看到 ..', '看到 .. 看到 !!']
+    index = HitoTextIndex(tmp_path)
+    index._records = [dict(chinese='看到.. 看到.. 看到!!', english='to see.. to see.. to see!!')]
+    assert index.match_lines(lines).score == 100
