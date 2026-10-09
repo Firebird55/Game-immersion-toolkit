@@ -8,6 +8,6 @@ Read [AGENTS.md](AGENTS.md) and [RELEASE.md](RELEASE.md) before editing. Install
 4. Edit common settings, reader and lookup source here. Publish the shared version, run shared:update --version <version> --all from that repository, then verify both consumers.
 5. Test mobile/desktop, narrow containers, window resizing, 100–200% zoom-equivalent viewports, touch targets, Firefox/Chromium and Shadow DOM. Toolkit capture must preserve Chinese source text and Hito/ZZZ/PRAGMATA behavior.
 6. Run npm run lexirise:watch for public upstream changes; exit 2 requires review. Never silently accept a baseline or change a real account.
-7. Release using npm run release -- --version <semver>, monitor GitHub-hosted Actions, download artifacts and verify SHA-256/source provenance. Keep all repositories private and delivery independent of Argo/cluster infrastructure.
+7. Release using npm run release -- --version <semver>, monitor GitHub-hosted Actions, download artifacts and verify SHA-256/source provenance. Keep this repository and the toolkit private; public consumers require explicit owner authorization and sanitized history. Delivery stays independent of Argo/cluster infrastructure.
 
 Never commit credentials, game archives, extracted copyrighted assets, recordings, databases, dependency directories or diagnostics. Rollback preserves user data and storage. See the release runbook for exact commands.
