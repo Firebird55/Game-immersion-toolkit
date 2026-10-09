@@ -37,3 +37,24 @@ def test_bilingual_mod_blocks_are_not_concatenated():
     assert "跟紧我。 我会保护你。" in candidates
     assert "Stay close. I will protect you." in candidates
     assert "跟紧我。 我会保护你。 Stay close." not in candidates
+
+
+def test_chinese_header_filters_keep_zzz_unvoiced_screens_excluded():
+    from backend.capture import CaptureService
+    assert CaptureService._classify_screen_header(["前 情 回 顾"]) == "story_recap"
+    assert CaptureService._classify_screen_header(["剧情回顾"]) == "story_recap"
+    assert CaptureService._classify_screen_header(["剧情委托"]) == "hdd"
+    assert CaptureService._classify_screen_header(["战斗委托"]) == "hdd"
+    assert CaptureService._classify_screen_header(["我会保护你。"]) is None
+
+
+def test_exact_chinese_from_another_channel_never_fuzzes_into_dialogue():
+    from types import SimpleNamespace
+    from backend.bilingual import ChineseLookup
+    lookup = ChineseLookup([
+        SimpleNamespace(chinese="这段是故事回顾画面。", channel="recap"),
+        SimpleNamespace(chinese="这段是故事回顾画面啊。", channel="dialogue"),
+    ])
+    assert lookup.match("这段是故事回顾画面。", 88,
+                        allowed=lambda record: record.channel == "dialogue") is None
+    assert lookup._choices == {}  # Excluded exact text requires no fuzzy-index scan.

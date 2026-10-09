@@ -156,6 +156,12 @@ class TextMapIndex:
             with self._lock:
                 from .bilingual import ChineseLookup
                 self._chinese_lookup = ChineseLookup(record for records in index.values() for record in records)
+                # Prepare channel choices while loading, rather than spending
+                # the first visible subtitle's stability window classifying
+                # hundreds of thousands of Chinese localization records.
+                for channel in ("dialogue", "tip", "cinematic", "gameplay"):
+                    self._chinese_lookup._choices[channel] = [key for key, records in self._chinese_lookup.records.items()
+                        if any(self._is_allowed_record(record, channel) for record in records)]
                 self._records_by_normalized = index
                 self._choices = list(index)
                 self._cinematic_choices = [

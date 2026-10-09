@@ -65,6 +65,8 @@ class ChineseLookup:
         exact = [record for record in self.records.get(key, []) if allowed(record)]
         if exact:
             return exact, 100.0
+        if key in self.records:
+            return None  # An exact record belongs to an excluded channel.
         # Short Hanzi fragments must be exact: fuzzy matching two or three
         # characters can otherwise select a completely different utterance.
         if len(key) < 6:

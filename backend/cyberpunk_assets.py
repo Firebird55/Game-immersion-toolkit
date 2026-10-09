@@ -88,7 +88,7 @@ def build_records(english: dict, chinese: dict, voices: dict) -> list[dict]:
             depot = resource_path(vo, variant)
             if not en_text or not zh_text or en_text.startswith("[db_"):
                 continue
-            audio = {"archive": vo["archive"], "depot": depot} if depot else None
+            audio = {"archive": vo["archive"], "depot": depot} if depot.casefold().endswith(".wem") else None
             signature = (en_text, zh_text, depot)
             if signature in alternatives:
                 continue

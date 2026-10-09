@@ -365,7 +365,7 @@ class CaptureService:
         if match is None:
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
             phase = "unmatched" if raw_text else "listening"
-            message = "Subtitle seen, but no official match" if raw_text else "Reading English subtitles"
+            message = "Subtitle seen, but no official match" if raw_text else "Reading English or Chinese subtitles"
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
@@ -1132,11 +1132,12 @@ class CaptureService:
     @staticmethod
     def _classify_screen_header(lines: list[str]) -> str | None:
         text = " ".join(lines).casefold()
-        if "story recap" in text:
+        chinese = "".join(text.split())
+        if "story recap" in text or any(title in chinese for title in ("前情回顾", "剧情回顾")):
             return "story_recap"
         if "knock knock" in text:
             return "phone"
-        if "story commission" in text or "combat commission" in text:
+        if "story commission" in text or "combat commission" in text or any(title in chinese for title in ("剧情委托", "战斗委托")):
             return "hdd"
         return None
 

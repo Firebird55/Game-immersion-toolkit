@@ -54,6 +54,8 @@ def test_status_exposes_hito_capture_and_text_index():
         setattr(runtime, name, SimpleNamespace(status=lambda: {}))
     runtime.voice_assets = SimpleNamespace(ready=True, status=lambda: {})
     runtime.pragmata_voice_assets = SimpleNamespace(ready=True, status=lambda: {})
+    runtime.game_indexes = {"cyberpunk": SimpleNamespace(status=lambda: {"ready": True, "entry_count": 12})}
+    runtime.game_voice_assets = {"cyberpunk": SimpleNamespace(ready=True, status=lambda: {})}
     runtime.hito = SimpleNamespace(status=lambda: {
         'ready': True, 'state': 'ready', 'message': 'ready', 'entry_count': 123,
     })
