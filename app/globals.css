@@ -80,6 +80,17 @@ button, input { font: inherit; }
   gap: 11px;
 }
 
+/* High browser/Windows zoom reduces the usable CSS viewport. Keep fixed
+   sections from shrinking over one another and allow page scrolling when short. */
+.companion-shell > :not(.transcript) { flex-shrink: 0; }
+@media (max-height: 800px) {
+  body { overflow: auto; }
+  .companion-shell { height: auto; min-height: 100svh; overflow: visible; }
+  .transcript { min-height: 380px; overflow: visible; }
+  .line-list { overflow: visible; }
+}
+.setup-dialog { max-height: calc(100dvh - 24px); overflow: auto; }
+
 .topbar {
   display: flex;
   align-items: flex-end;
