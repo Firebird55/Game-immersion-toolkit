@@ -25,8 +25,10 @@ def test_explicit_deck_creation_is_repeatable_and_account_scoped(tmp_path):
     assert "wwm" not in service.status()["decks"]
     first = service.ensure_game_decks()
     assert first == service.ensure_game_decks()
-    assert len(creates) == 2
+    assert len(creates) == 4
     assert service.status()["decks"]["cyberpunk"]["id"] == 2101
+    assert service.status()["decks"]["wuwa"]["id"] == 2102
+    assert service.status()["decks"]["witcher3"]["id"] == 2103
     other = LexiriseService(tmp_path, api_key="other-test-key")
     assert "wwm" not in other.status()["decks"]
 

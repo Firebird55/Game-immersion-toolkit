@@ -13,7 +13,8 @@ import httpx
 
 
 DECKS = {"zzz": (1950, "Zenless Zone Zero"), "pragmata": (1951, "PRAGMATA")}
-NEW_GAME_DECKS = {"wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077"}
+NEW_GAME_DECKS = {"wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
+                  "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
 API_BASE = "https://api.lexirise.app"
 
 

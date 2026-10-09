@@ -29,7 +29,14 @@ def normalize_subtitle(value: str) -> str:
 
 def subtitle_candidates(lines: Iterable[str]) -> list[str]:
     """Keep wrapped language blocks separate, including bilingual speaker labels."""
-    cleaned = [display_text(line) for line in lines if display_text(line)]
+    cleaned = [display_text(line).lstrip("~～ ") for line in lines if display_text(line)]
+    separated = []
+    for line in cleaned:
+        parts = [part.strip() for part in re.split(r"\s*[~～]\s*", line) if part.strip()]
+        # Witcher Dual Subtitles uses '~' for same-row or wrapped pairs. Keep
+        # ordinary tildes within a single language as part of the utterance.
+        separated.extend(parts if len({contains_han(part) for part in parts}) > 1 else [line])
+    cleaned = separated
     # Some layouts/OCR versions flatten the mod's newline. Split at a sentence
     # boundary, retaining Latin names embedded within ordinary Chinese text.
     cleaned = [part.strip() for line in cleaned for part in re.split(

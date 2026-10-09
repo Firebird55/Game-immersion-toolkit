@@ -26,13 +26,18 @@ def make_game(tmp_path, game):
         (root / "Client/Binaries/Win64/Client-Win64-Shipping.exe").touch()
         (root / "Client/Content/Paks").mkdir(parents=True)
         (root / "Client/Content/Paks/pakchunk0.pak").touch()
+    elif game == "witcher3":
+        (root / "bin/x64_dx12").mkdir(parents=True)
+        (root / "bin/x64_dx12/witcher3.exe").touch()
+        (root / "content/content0").mkdir(parents=True)
+        (root / "content/content0/en.w3strings").touch()
     else:
         (root / "PRAGMATA.exe").touch()
         (root / "re_chunk_000.pak").touch()
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa"])
+@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3"])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()

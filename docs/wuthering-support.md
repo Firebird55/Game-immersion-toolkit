@@ -33,3 +33,11 @@ current files contain no Mandarin external-source pack, so original Mandarin
 playback awaits that download. Ownership, gender selection, missing-pack
 behavior, foreign-language rejection, resource isolation, and automatic update
 fingerprints are covered by offline regression checks.
+
+Synthetic 3840 × 2160 English and Chinese screenshot fixtures passed through
+production cropping and native Windows OCR. Both correctly remained in
+`waiting_for_voice` without creating transcript rows while the Chinese pack
+was absent. Browser checks cover Rover selection, independent calibration,
+asset refresh, and the missing-pack message even when the subtitle index is
+ready. Actual Mandarin decoding and gameplay appearance await the voice pack
+and a live game test.

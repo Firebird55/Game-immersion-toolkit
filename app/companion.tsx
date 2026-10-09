@@ -42,7 +42,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -55,6 +55,7 @@ type Settings = {
   cyberpunk_v_voice: 'unconfigured' | 'female' | 'male';
   wuwa_region: CaptureRegion;
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
+  witcher3_region: CaptureRegion;
   scan_interval_ms: number;
   stable_frames: number;
   fuzzy_threshold: number;
@@ -66,7 +67,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -89,7 +90,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa';
+  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3';
   source_ocr: string;
   english: string;
   chinese: string;
@@ -124,12 +125,13 @@ type StatusPayload = {
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3';
 const GAME_NAMES: Record<GameId, string> = {
   zzz: 'Zenless Zone Zero',
   pragmata: 'PRAGMATA',
   cyberpunk: 'Cyberpunk 2077',
   wuwa: 'Wuthering Waves',
+  witcher3: 'The Witcher 3',
   hito: "Hito's World",
 };
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
@@ -618,7 +620,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'wuwa' ? 'wuwa_region' : selectedGame === 'cyberpunk' ? 'cyberpunk_region' : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'witcher3' ? 'witcher3_region' : selectedGame === 'wuwa' ? 'wuwa_region' : selectedGame === 'cyberpunk' ? 'cyberpunk_region' : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -653,7 +655,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -717,11 +719,11 @@ function CompanionClient() {
   }
 
   const capture = status?.capture;
-  const mapStatus = status?.textmaps;
+  const mapStatus = status?.game_textmaps?.[selectedGame] ?? status?.textmaps;
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'wuwa' ? draftSettings.wuwa_region : selectedGame === 'cyberpunk' ? draftSettings.cyberpunk_region : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'witcher3' ? draftSettings.witcher3_region : selectedGame === 'wuwa' ? draftSettings.wuwa_region : selectedGame === 'cyberpunk' ? draftSettings.cyberpunk_region : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
@@ -787,7 +789,7 @@ function CompanionClient() {
         <div>
           <Database size={17} />
           <span>{selectedGame !== 'zzz' ? 'Official game text' : 'TextMaps'}</span>
-          <strong><StableInline text={(status?.game_textmaps?.[selectedGame] ?? mapStatus)?.ready ? `${(status?.game_textmaps?.[selectedGame] ?? mapStatus)!.entry_count.toLocaleString()} pairs` : (status?.game_textmaps?.[selectedGame] ?? mapStatus)?.message ?? 'Connecting'} /></strong>
+          <strong><StableInline text={mapStatus?.ready && mapStatus.state !== 'missing_voice' ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'} /></strong>
         </div>
         <div>
           <Activity size={17} />

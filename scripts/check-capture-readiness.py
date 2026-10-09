@@ -88,6 +88,8 @@ def main() -> int:
             ("ZZZ cinematic", settings.cinematic_region),
             ("PRAGMATA subtitles", GAME_PROFILES["pragmata"].subtitle_region),
             ("Cyberpunk bilingual subtitles", settings.cyberpunk_region),
+            ("Wuthering Waves subtitles", settings.wuwa_region),
+            ("Witcher stock/dual subtitles", settings.witcher3_region),
         ):
             left, top, width, height = CaptureService._region_bounds(window, region)
             if (

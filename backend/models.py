@@ -21,11 +21,11 @@ class CaptureRegion(BaseModel):
         return self
 
 
-GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa"]
+GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3"]
 
 
 class AppSettings(BaseModel):
-    preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk", "wuwa"] = "auto"
+    preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3"] = "auto"
     process_names: list[str] = Field(default_factory=lambda: ["ZenlessZoneZero.exe"])
     window_title_contains: list[str] = Field(
         default_factory=lambda: ["Zenless Zone Zero", "ZenlessZoneZero"]
@@ -48,6 +48,7 @@ class AppSettings(BaseModel):
     cyberpunk_v_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
     wuwa_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.64, width=.80, height=.32))
     wuwa_rover_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
+    witcher3_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=.63, width=.84, height=.34))
     scan_interval_ms: int = Field(default=250, ge=100, le=5000)
     stable_frames: int = Field(default=2, ge=1, le=8)
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)

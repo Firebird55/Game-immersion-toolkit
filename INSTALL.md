@@ -1,6 +1,6 @@
 # Install Game immersion toolkit
 
-Windows companion for verified bilingual Hito, ZZZ, PRAGMATA and Cyberpunk 2077 transcripts, native OCR and Lexirise/Migaku reading.
+Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3 transcripts, native OCR and Lexirise/Migaku reading.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Windows companion for verified bilingual Hito, ZZZ, PRAGMATA and Cyberpunk 2077 
 
 2. Install Python 3.12 with its Windows launcher, Node.js 24 (npm 10+) and Windows Snipping Tool. Double-click Install.cmd. No administrator access is required for the app itself.
 
-3. The optional popup lets you browse to installed game folders. Hito needs resources/app.asar; ZZZ needs ZenlessZoneZero_Data (StreamingAssets or Persistent); PRAGMATA needs PRAGMATA.exe and re_chunk_*.pak files. Cyberpunk needs bin/x64/Cyberpunk2077.exe and archive/pc/content language archives, including the official Mandarin voice pack. Select the installation folder, not an archive. Skip keeps automatic detection and existing preferences.
+3. The optional popup lets you browse to installed game folders. Hito needs resources/app.asar; ZZZ needs ZenlessZoneZero_Data (StreamingAssets or Persistent); PRAGMATA needs PRAGMATA.exe and re_chunk_*.pak files. Cyberpunk needs bin/x64/Cyberpunk2077.exe and archive/pc/content language archives. Wuthering Waves needs Client/Binaries/Win64/Client-Win64-Shipping.exe and Client/Content/Paks. Witcher needs bin/x64/witcher3.exe or bin/x64_dx12/witcher3.exe and content language files. Install the official Mandarin voice packs (inside Wuthering Waves; through Steam for Witcher/Cyberpunk). Select the installation folder, not an archive. Skip keeps automatic detection and existing preferences.
 
 4. Launch Start Proxy Transcript.cmd. Set the Lexirise key with the protected local prompt documented in README.md, or use Migaku separately.
 

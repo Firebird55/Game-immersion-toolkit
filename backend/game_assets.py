@@ -1,9 +1,9 @@
 """Explicit registry of local dialogue/original-voice extraction adapters."""
 from importlib import import_module
 
-LOCAL_GAMES = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves"}
+LOCAL_GAMES = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
 _ADAPTERS = {"cyberpunk": ("cyberpunk_assets", "WolvenKit.CLI.exe"),
-             "wuwa": ("wuthering_assets", "FModelCLI.exe")}
+             "wuwa": ("wuthering_assets", "FModelCLI.exe"), "witcher3": ("witcher_assets", "")}
 
 
 def asset_adapter(game):

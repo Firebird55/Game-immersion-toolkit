@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa")
+GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3")
 
 
 def settings_path() -> Path:
@@ -21,6 +21,8 @@ def validate_install(game: str, path: Path) -> Path:
     if game == "zzz" and root.name == "ZenlessZoneZero_Data":
         root = root.parent
     valid = {
+        "witcher3": lambda: any((root / folder / "witcher3.exe").is_file() for folder in ("bin/x64", "bin/x64_dx12"))
+        and any((root / "content").glob("*/en.w3strings")),
         "wuwa": lambda: (root / "Client/Binaries/Win64/Client-Win64-Shipping.exe").is_file()
         and any((root / "Client/Content/Paks").glob("pakchunk*.pak")),
         "cyberpunk": lambda: (root / "bin/x64/Cyberpunk2077.exe").is_file()
@@ -71,7 +73,7 @@ def discover_install(game: str) -> Path | None:
     configured = configured_install(game)
     if configured:
         return configured
-    names = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves"}
+    names = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
     candidates = []
     # Respect Steam's registered libraries as well as conventional drive roots.
     try:

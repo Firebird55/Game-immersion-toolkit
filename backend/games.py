@@ -15,6 +15,9 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "witcher3": GameProfile(id="witcher3", name="The Witcher 3", process_names=("witcher3.exe",),
+        title_needles=("The Witcher 3",),
+        subtitle_region=CaptureRegion(left=.08, top=.63, width=.84, height=.34)),
     "wuwa": GameProfile(id="wuwa", name="Wuthering Waves", process_names=("Client-Win64-Shipping.exe",),
         title_needles=("Wuthering Waves", "鸣潮"),
         subtitle_region=CaptureRegion(left=.10, top=.64, width=.80, height=.32)),
