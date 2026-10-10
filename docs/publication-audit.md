@@ -25,3 +25,5 @@ Dependency scans are not a guarantee that all secrets or copyright issues can be
 The public Lexirise API documentation fingerprint and documented endpoints are unchanged. The website bundle fingerprint changed; the compatibility watcher continues to report that advisory rather than silently accepting an unverified UI baseline.
 
 Mobile layout checks run in emulated browser viewports. Actual iPad background screen capture and mobile OCR feasibility still require the manual two-device test; public hosting does not establish that result.
+
+The first toolkit release candidate was blocked because browser tests had produced a Wrangler runtime database beneath dist. Packaging now excludes runtime state and logs while retaining deployable assets; the regression test exercises this exact boundary. No installer artifact was published from that failed candidate.
