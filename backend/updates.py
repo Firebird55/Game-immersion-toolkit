@@ -43,6 +43,7 @@ class BackgroundUpdateManager:
         self.progress = 2
         self.last_checked: str | None = None
         self.last_error: str | None = None
+        self._force_maps = False
 
     def start(self) -> None:
         with self._lock:
@@ -61,6 +62,7 @@ class BackgroundUpdateManager:
 
     def request_check(self) -> bool:
         with self._lock:
+            self._force_maps = True
             already_running = self.state in {"checking", "updating"}
         self._wake.set()
         if not self._thread or not self._thread.is_alive():
@@ -166,6 +168,8 @@ class BackgroundUpdateManager:
         return after, changed, ("Upstream game metadata updated" if changed else "Upstream game metadata is current") + suffix
 
     def check_once(self) -> None:
+        with self._lock:
+            force_maps, self._force_maps = self._force_maps, False
         if self.game_data_provider:
             installed = self.game_data_provider()
         else:
@@ -179,6 +183,8 @@ class BackgroundUpdateManager:
             self._set("waiting", "Install ZZZ game tools in Setup to prepare original voices", 100)
             return
         previous = self._read_state()
+        from scripts.update_voice_assets import inventory
+        installed_signature = hashlib.sha256(json.dumps(inventory(installed, []), sort_keys=True).encode()).hexdigest()
         self._set("checking", "Checking upstream metadata", 5)
         commit: str | None = None
         metadata_changed = False
@@ -192,7 +198,7 @@ class BackgroundUpdateManager:
             return
         self._set("updating", metadata_message, 20)
         maps_missing = any(not self.textmaps.file_path(name).is_file() for name in self.textmaps.urls)
-        refresh_maps = maps_missing or metadata_changed or (
+        refresh_maps = force_maps or maps_missing or metadata_changed or previous.get("installed_signature") != installed_signature or (
             commit is not None and previous.get("metadata_commit") not in {None, commit}
         )
         if refresh_maps:
@@ -222,6 +228,7 @@ class BackgroundUpdateManager:
             {
                 "version": 1,
                 "metadata_commit": commit,
+                "installed_signature": installed_signature,
                 "last_checked": self.last_checked,
                 "voice_update": output,
             }

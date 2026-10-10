@@ -12,7 +12,7 @@ installed game files. ZZZ also refreshes its external language/scene metadata.
 
 | Game | Data included in refresh |
 | --- | --- |
-| Zenless Zone Zero | Current English/Chinese maps, scene metadata and installed Mandarin story/event/comic voice packages |
+| Zenless Zone Zero | Current English/Chinese maps, scene metadata and installed Mandarin story/event/comic voice packages; game-file changes and explicit refresh update maps even if scene metadata is unchanged |
 | PRAGMATA | Installed base and patch PAKs, bilingual messages, authored cutscene timelines and verified original Mandarin banks |
 | Cyberpunk 2077 | Base game plus optional Phantom Liberty English/Chinese text and Mandarin voice archives |
 | The Witcher III | Installed English/Chinese string tables and Mandarin speech IDs under both `content` and `dlc` |
