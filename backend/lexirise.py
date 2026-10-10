@@ -305,7 +305,7 @@ class LexiriseService:
                             self._request(client, "PATCH", f"/v1/vocabulary/{vocabulary_id}", json={"audioUrls": [*urls, state["audio_url"]]})
                     else:
                         payload = {"language": "zh", "text": chinese, "mode": "sentence",
-                                   "notes": f"{game_title}{' â€” ' + speaker if speaker else ''}\nAudio: {audio_source}",
+                                   "notes": f"{game_title}{' — ' + speaker if speaker else ''}\nAudio: {audio_source}",
                                    "tags": [game], "audioUrls": [state["audio_url"]]}
                         if english:
                             payload["translation"] = english

@@ -37,6 +37,6 @@ def test_export_without_new_deck_has_safe_error_and_releases_lock(tmp_path):
     service = LexiriseService(tmp_path, api_key="test-key")
     for _ in range(2):
         with pytest.raises(LexiriseError, match="deck has not been configured"):
-            service.send(ref="line:1", game="wwm", chinese="ä½ å¥½", english="Hello", speaker="",
+            service.send(ref="line:1", game="wwm", chinese="你好", english="Hello", speaker="",
                          audio=Path("missing"))
     assert not service._lock.locked()

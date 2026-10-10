@@ -44,9 +44,9 @@ class LexiriseVoiceTests(unittest.TestCase):
             clip.write_bytes(b"RIFF sample game voice")
             service = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
             service.configure_game_deck("zzz",1950)
-            first = service.send(ref="line:1", game="zzz", chinese="ä½ å¥½", english="Hello",
+            first = service.send(ref="line:1", game="zzz", chinese="你好", english="Hello",
                                  speaker="Anby", audio=clip)
-            second = service.send(ref="line:1", game="zzz", chinese="ä½ å¥½", english="Hello",
+            second = service.send(ref="line:1", game="zzz", chinese="你好", english="Hello",
                                   speaker="Anby", audio=clip)
             self.assertTrue(first["sent"])
             self.assertFalse(first["already_sent"])

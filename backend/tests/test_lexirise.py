@@ -59,7 +59,7 @@ def fixture(tmp_path):
     service.configure_game_deck('pragmata',1951)
     audio = tmp_path / 'voice.mp3'
     audio.write_bytes(b'test audio bytes')
-    kwargs = dict(ref='line:1', game='pragmata', chinese='Ã¤Â½Â Ã¥Â¥Â½Ã£â‚¬â€š', english='Hello.', speaker='Ken', audio=audio)
+    kwargs = dict(ref='line:1', game='pragmata', chinese='ä½ å¥½ã€‚', english='Hello.', speaker='Ken', audio=audio)
     return api, service, kwargs
 
 
@@ -156,7 +156,7 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
     from backend import api
     from backend.models import TranscriptLine
     line = TranscriptLine(id=1, created_at=datetime.now(timezone.utc), session_id='test', game='pragmata',
-        source_ocr='Hello.', english='Hello.', chinese='Ã¤Â½Â Ã¥Â¥Â½Ã£â‚¬â€š', text_id='test', score=100,
+        source_ocr='Hello.', english='Hello.', chinese='ä½ å¥½ã€‚', text_id='test', score=100,
         match_kind='exact', voiced=True, has_audio=True)
     sent = []
     def send(**kwargs):
