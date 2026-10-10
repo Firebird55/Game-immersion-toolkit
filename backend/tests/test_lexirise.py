@@ -19,6 +19,8 @@ class FakeAPI:
         self.calls.append((request.method, request.url.path))
         assert request.headers['Authorization'] == 'Bearer test-key'
         path = request.url.path
+        if path == '/v1/me':
+            return httpx.Response(200, json={'user':{'id':'test-account'}})
         if path == '/v1/vocabulary/audio':
             assert b'voice.mp3' in request.content
             return httpx.Response(200, json={'publicUrl': 'https://audio.lexirise.test/voice.mp3'})
@@ -45,7 +47,7 @@ class FakeAPI:
             items = self.decks[deck_id]
             if self.hide_added_membership and items:
                 items = items[:-1]
-            return httpx.Response(200, json={'success': True, 'deck': {'lang': 'zh', 'unit_type': 'sentence', 'deck_type': 'snapshot'},
+            return httpx.Response(200, json={'success': True, 'deck': {'owner_user_id':'test-account','lang': 'zh', 'unit_type': 'sentence', 'deck_type': 'snapshot'},
                                             'items': items, 'hasMore': False})
         raise AssertionError(path)
 
@@ -53,9 +55,11 @@ class FakeAPI:
 def fixture(tmp_path):
     api = FakeAPI()
     service = LexiriseService(tmp_path / 'lexirise', transport=httpx.MockTransport(api), api_key='test-key')
+    service.configure_game_deck('zzz',1950)
+    service.configure_game_deck('pragmata',1951)
     audio = tmp_path / 'voice.mp3'
     audio.write_bytes(b'test audio bytes')
-    kwargs = dict(ref='line:1', game='pragmata', chinese='你好。', english='Hello.', speaker='Ken', audio=audio)
+    kwargs = dict(ref='line:1', game='pragmata', chinese='Ã¤Â½Â Ã¥Â¥Â½Ã£â‚¬â€š', english='Hello.', speaker='Ken', audio=audio)
     return api, service, kwargs
 
 
@@ -125,11 +129,13 @@ def test_wrong_deck_type_fails_before_upload(tmp_path):
     calls = []
     def wrong(request):
         calls.append(request.method)
-        return httpx.Response(200, json={'deck': {'lang': 'zh', 'unit_type': 'word', 'deck_type': 'snapshot'}})
+        if request.url.path == '/v1/me':
+            return httpx.Response(200,json={'user':{'id':'test-account'}})
+        return httpx.Response(200, json={'deck': {'owner_user_id':'test-account','lang': 'zh', 'unit_type': 'word', 'deck_type': 'snapshot'}})
     service.transport = httpx.MockTransport(wrong)
     with pytest.raises(LexiriseError, match='sentence snapshot'):
         service.send(**kwargs)
-    assert calls == ['GET']
+    assert calls == ['GET','GET']
 
 
 def test_rate_limit_is_safe_and_missing_audio_does_not_upload(tmp_path):
@@ -150,7 +156,7 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
     from backend import api
     from backend.models import TranscriptLine
     line = TranscriptLine(id=1, created_at=datetime.now(timezone.utc), session_id='test', game='pragmata',
-        source_ocr='Hello.', english='Hello.', chinese='你好。', text_id='test', score=100,
+        source_ocr='Hello.', english='Hello.', chinese='Ã¤Â½Â Ã¥Â¥Â½Ã£â‚¬â€š', text_id='test', score=100,
         match_kind='exact', voiced=True, has_audio=True)
     sent = []
     def send(**kwargs):
@@ -169,3 +175,34 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
     line.voiced = False
     assert client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'}).status_code == 409
     assert len(sent) == 1
+
+def test_foreign_account_cannot_reuse_decks_or_export_markers(tmp_path):
+    api, service, kwargs = fixture(tmp_path)
+    service.send(**kwargs)
+    other = LexiriseService(service.directory,api_key='other-key')
+    assert other.status()['decks'] == {} and other.status()['sent'] == {}
+    with pytest.raises(LexiriseError,match='not been configured'):
+        other.send(**kwargs)
+
+def test_foreign_destination_rejected_without_writes(tmp_path):
+    calls=[]
+    def response(request):
+        calls.append(request.method)
+        if request.url.path == '/v1/me':return httpx.Response(200,json={'user':{'id':'me'}})
+        return httpx.Response(200,json={'deck':{'owner_user_id':'other','language':'zh','unit_type':'sentence','deck_type':'snapshot'}})
+    service=LexiriseService(tmp_path,api_key='test',transport=httpx.MockTransport(response))
+    with pytest.raises(LexiriseError,match='your own'):
+        service.configure_game_deck('zzz',42)
+    assert calls == ['GET','GET'] and service.status()['decks'] == {}
+
+def test_legacy_completion_migrates_only_after_verified_membership(tmp_path):
+    import hashlib
+    api,service,kwargs=fixture(tmp_path)
+    key=hashlib.sha256(('1951'+chr(0)+kwargs['chinese']).encode()).hexdigest()
+    item={'id':100,'expression_text':kwargs['chinese']};api.decks[1951]=[item]
+    old={'deck_id':1951,'vocabulary_id':100,'complete':True}
+    with service._connect() as db:db.execute('INSERT INTO exports VALUES (?,?)',(key,json.dumps(old)))
+    assert service.send(**kwargs)['already_sent']
+    assert all(method=='GET' for method,path in api.calls)
+    assert service.status()['sent']=={'line:1':1951}
+    with service._connect() as db:assert db.execute('SELECT state FROM exports WHERE key=?',(key,)).fetchone()

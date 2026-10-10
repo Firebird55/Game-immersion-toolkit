@@ -25,10 +25,10 @@ def test_explicit_deck_creation_is_repeatable_and_account_scoped(tmp_path):
     assert "wwm" not in service.status()["decks"]
     first = service.ensure_game_decks()
     assert first == service.ensure_game_decks()
-    assert len(creates) == 4
-    assert service.status()["decks"]["cyberpunk"]["id"] == 2101
-    assert service.status()["decks"]["wuwa"]["id"] == 2102
-    assert service.status()["decks"]["witcher3"]["id"] == 2103
+    assert len(creates) == 6
+    assert service.status()["decks"]["cyberpunk"]["id"] == 2103
+    assert service.status()["decks"]["wuwa"]["id"] == 2104
+    assert service.status()["decks"]["witcher3"]["id"] == 2105
     other = LexiriseService(tmp_path, api_key="other-test-key")
     assert "wwm" not in other.status()["decks"]
 
@@ -37,6 +37,6 @@ def test_export_without_new_deck_has_safe_error_and_releases_lock(tmp_path):
     service = LexiriseService(tmp_path, api_key="test-key")
     for _ in range(2):
         with pytest.raises(LexiriseError, match="deck has not been configured"):
-            service.send(ref="line:1", game="wwm", chinese="你好", english="Hello", speaker="",
+            service.send(ref="line:1", game="wwm", chinese="ä½ å¥½", english="Hello", speaker="",
                          audio=Path("missing"))
     assert not service._lock.locked()

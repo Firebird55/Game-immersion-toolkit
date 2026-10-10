@@ -12,8 +12,7 @@ from pathlib import Path
 import httpx
 
 
-DECKS = {"zzz": (1950, "Zenless Zone Zero"), "pragmata": (1951, "PRAGMATA")}
-NEW_GAME_DECKS = {"wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
+GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
                   "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
 API_BASE = "https://api.lexirise.app"
 
@@ -64,6 +63,8 @@ class LexiriseService:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("CREATE TABLE IF NOT EXISTS exports (key TEXT PRIMARY KEY, state TEXT NOT NULL)")
             db.execute("CREATE TABLE IF NOT EXISTS export_refs (ref TEXT PRIMARY KEY, export_key TEXT NOT NULL)")
+            db.execute("CREATE TABLE IF NOT EXISTS scoped_exports (scope TEXT, key TEXT, state TEXT NOT NULL, PRIMARY KEY(scope,key))")
+            db.execute("CREATE TABLE IF NOT EXISTS scoped_export_refs (scope TEXT, ref TEXT, export_key TEXT NOT NULL, PRIMARY KEY(scope,ref))")
             db.execute("CREATE TABLE IF NOT EXISTS game_decks (scope TEXT, game TEXT, deck_id INTEGER, title TEXT, PRIMARY KEY(scope,game))")
 
     @contextmanager
@@ -96,17 +97,59 @@ class LexiriseService:
             configured = bool(self._key())
         except LexiriseError:
             configured = False
+        scope = self._scope() if configured else ''
         with self._connect() as db:
-            rows = db.execute("SELECT ref,state FROM export_refs JOIN exports ON export_key=key").fetchall()
-        decks = self._decks() if configured else DECKS
+            rows = db.execute("SELECT ref,state FROM scoped_export_refs r JOIN scoped_exports e ON r.scope=e.scope AND r.export_key=e.key WHERE r.scope=?", (scope,)).fetchall()
+        decks = self._decks() if configured else {}
         return {"configured": configured, "decks": {game: {"id": value[0], "title": value[1]} for game, value in decks.items()},
                 "sent": {ref: json.loads(state)["deck_id"] for ref, state in rows if json.loads(state).get("complete")}}
 
+    def _scope(self):
+        return hashlib.sha256(self._key().encode()).hexdigest()
+
     def _decks(self) -> dict:
-        scope = hashlib.sha256(self._key().encode()).hexdigest()
         with self._connect() as db:
-            rows = db.execute("SELECT game,deck_id,title FROM game_decks WHERE scope=?", (scope,)).fetchall()
-        return {**DECKS, **{game: (deck_id, title) for game, deck_id, title in rows}}
+            rows = db.execute("SELECT game,deck_id,title FROM game_decks WHERE scope=?", (self._scope(),)).fetchall()
+        return {game: (deck_id, title) for game, deck_id, title in rows}
+
+    def _client(self):
+        return httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self._key()}"},
+                            transport=self.transport, timeout=30, follow_redirects=False)
+
+    def _account(self, client):
+        account = self._request(client, "GET", "/v1/me").get("user", {}).get("id")
+        if account is None:
+            raise LexiriseError("Could not verify deck ownership.")
+        return account
+
+    @staticmethod
+    def _owned(deck, account):
+        return (deck.get("owner_user_id") == account and (deck.get("language") or deck.get("lang")) == "zh"
+                and deck.get("unit_type") == "sentence" and deck.get("deck_type") == "snapshot")
+
+    def available_decks(self):
+        with self._client() as client:
+            account = self._account(client)
+            return [{"id":d["id"],"title":d.get("title", "Untitled deck")} for d in self._items(client, "/v1/decks", "decks", language="zh") if self._owned(d, account)]
+
+    def configure_game_deck(self, game, deck_id=None):
+        """Only called by an explicit destination selection or create action."""
+        if game not in GAME_TITLES or (deck_id is not None and (type(deck_id) is not int or deck_id <= 0)):
+            raise LexiriseError("Choose a supported game and valid deck.")
+        with self._lock, self._client() as client, self._connect() as db:
+            account = self._account(client)
+            if deck_id is None:
+                deck = self._request(client, "POST", "/v1/decks", json={"title":GAME_TITLES[game],"language":"zh","unit_type":"sentence","deck_type":"snapshot","import_items":[]}).get("deck", {})
+                deck_id = deck.get("id")
+                if type(deck_id) is not int or deck_id <= 0:
+                    raise LexiriseError("Lexirise did not confirm the new deck ID.")
+            # Read back even newly created destinations before storing them.
+            deck = self._request(client, "GET", f"/v1/decks/{deck_id}", params={"limit":1}).get("deck", {})
+            if not self._owned(deck, account):
+                raise LexiriseError("Choose your own Chinese sentence snapshot deck.")
+            title = deck.get("title") or GAME_TITLES[game]
+            db.execute("INSERT OR REPLACE INTO game_decks VALUES (?,?,?,?)", (self._scope(),game,deck_id,title))
+            return {"id":deck_id,"title":title}
 
     def ensure_game_decks(self) -> dict:
         """Explicit provisioning only; startup and status never create account data."""
@@ -120,7 +163,7 @@ class LexiriseService:
                 raise LexiriseError("Could not verify ownership of existing game decks.")
             available = self._request(client, "GET", "/v1/decks", params={"language": "zh"}).get("decks", [])
             result = {}
-            for game, title in NEW_GAME_DECKS.items():
+            for game, title in GAME_TITLES.items():
                 saved = db.execute("SELECT deck_id FROM game_decks WHERE scope=? AND game=?", (scope, game)).fetchone()
                 candidates = [d for d in available if d.get("title") == title
                               and d.get("unit_type") == "sentence" and d.get("deck_type") == "snapshot"
@@ -191,14 +234,15 @@ class LexiriseService:
         return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
     def _save(self, db, key, ref, state):
-        db.execute("INSERT INTO exports VALUES (?,?) ON CONFLICT(key) DO UPDATE SET state=excluded.state",
-                   (key, json.dumps(state)))
-        db.execute("INSERT INTO export_refs VALUES (?,?) ON CONFLICT(ref) DO UPDATE SET export_key=excluded.export_key", (ref, key))
+        scope = self._scope()
+        db.execute("INSERT INTO scoped_exports VALUES (?,?,?) ON CONFLICT(scope,key) DO UPDATE SET state=excluded.state",
+                   (scope, key, json.dumps(state)))
+        db.execute("INSERT INTO scoped_export_refs VALUES (?,?,?) ON CONFLICT(scope,ref) DO UPDATE SET export_key=excluded.export_key", (scope, ref, key))
         db.commit()
 
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
              audio: Path, audio_source: str = "original") -> dict:
-        if game not in DECKS and game not in NEW_GAME_DECKS or not chinese.strip():
+        if game not in GAME_TITLES or not chinese.strip():
             raise LexiriseError("This line has no supported game or Mandarin sentence.")
         if not self._lock.acquire(blocking=False):
             raise LexiriseError("Another sentence is being sent. Please try again in a moment.")
@@ -214,7 +258,7 @@ class LexiriseService:
         deck_id, game_title = decks[game]
         key = hashlib.sha256(f"{deck_id}\0{chinese}".encode()).hexdigest()
         with self._connect() as db:
-            row = db.execute("SELECT state FROM exports WHERE key=?", (key,)).fetchone()
+            row = db.execute("SELECT state FROM scoped_exports WHERE scope=? AND key=?", (self._scope(),key)).fetchone()
             state = json.loads(row[0]) if row else {"deck_id": deck_id}
             if state.get("complete"):
                 self._save(db, key, ref, state)
@@ -226,9 +270,19 @@ class LexiriseService:
             clip = audio.read_bytes()
             with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self._key()}"},
                               timeout=60, follow_redirects=False, transport=self.transport) as client:
+                account = self._account(client)
                 deck = self._request(client, "GET", f"/v1/decks/{deck_id}", params={"limit": 1}).get("deck", {})
                 if (deck.get("lang") or deck.get("language")) != "zh" or deck.get("unit_type") != "sentence" or deck.get("deck_type") != "snapshot":
                     raise LexiriseError(f"The {game_title} deck must be a Chinese sentence snapshot deck.")
+                if not self._owned(deck, account):
+                    raise LexiriseError("This destination is not owned by the current account. Select your own deck.")
+                # Legacy ledger stays intact. Adopt completion only after read-only
+                # ownership AND membership checks, never reuse legacy upload URLs.
+                legacy = db.execute("SELECT state FROM exports WHERE key=?", (key,)).fetchone()
+                old = json.loads(legacy[0]) if legacy else {}
+                if old.get("complete") and old.get("vocabulary_id") and self._deck_contains(client, deck_id, old["vocabulary_id"], chinese):
+                    self._save(db, key, ref, old)
+                    return {"sent":True,"already_sent":True,"deck_id":deck_id}
                 if not state.get("audio_url"):
                     result = self._request(client, "POST", "/v1/vocabulary/audio",
                                            files={"file": (f"voice{audio.suffix}", clip, "audio/mpeg" if audio.suffix == ".mp3" else "audio/wav")})
@@ -251,7 +305,7 @@ class LexiriseService:
                             self._request(client, "PATCH", f"/v1/vocabulary/{vocabulary_id}", json={"audioUrls": [*urls, state["audio_url"]]})
                     else:
                         payload = {"language": "zh", "text": chinese, "mode": "sentence",
-                                   "notes": f"{game_title}{' — ' + speaker if speaker else ''}\nAudio: {audio_source}",
+                                   "notes": f"{game_title}{' â€” ' + speaker if speaker else ''}\nAudio: {audio_source}",
                                    "tags": [game], "audioUrls": [state["audio_url"]]}
                         if english:
                             payload["translation"] = english

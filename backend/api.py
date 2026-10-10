@@ -395,6 +395,29 @@ def lexirise_status() -> dict:
     return status
 
 
+@app.get("/api/lexirise/decks")
+def lexirise_available_decks() -> dict:
+    try:
+        return {"decks":runtime.lexirise.available_decks()}
+    except LexiriseError as error:
+        raise HTTPException(503,str(error)) from None
+
+
+@app.post("/api/lexirise/decks")
+def lexirise_configure_deck(payload:dict,x_proxy_transcript:str=Header(default="")) -> dict:
+    if x_proxy_transcript != "lexirise":
+        raise HTTPException(403,"Use the companion's destination controls.")
+    if set(payload)-{"game","deck_id","create"} or type(payload.get("game")) is not str or (payload.get("create") is not True and type(payload.get("deck_id")) is not int):
+        raise HTTPException(422,"Select a destination or explicitly create one.")
+    if payload.get("create") is True and "deck_id" in payload:
+        raise HTTPException(422,"Choose selection or creation, not both.")
+    try:
+        runtime.lexirise.configure_game_deck(payload["game"],None if payload.get("create") is True else payload["deck_id"])
+        return runtime.lexirise.status()
+    except LexiriseError as error:
+        raise HTTPException(503,str(error)) from None
+
+
 @app.get("/api/lexirise/settings")
 def lexirise_get_settings() -> dict:
     try:

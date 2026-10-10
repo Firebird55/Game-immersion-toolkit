@@ -16,9 +16,11 @@ class LexiriseVoiceTests(unittest.TestCase):
 
         def reply(request):
             calls.append((request.method, request.url.path))
+            if request.url.path == "/v1/me":
+                return httpx.Response(200,json={"user":{"id":"test-account"}})
             if request.method == "GET" and request.url.path == "/v1/decks/1950":
                 if request.url.params.get("limit") == "1":
-                    return httpx.Response(200, json={"deck": {"lang": "zh", "unit_type": "sentence",
+                    return httpx.Response(200, json={"deck": {"owner_user_id":"test-account", "lang": "zh", "unit_type": "sentence",
                                                               "deck_type": "snapshot"}})
                 return httpx.Response(200, json={"items": [], "hasMore": False})
             if request.url.path == "/v1/vocabulary/audio":
@@ -41,9 +43,10 @@ class LexiriseVoiceTests(unittest.TestCase):
             clip = directory / "voice.wav"
             clip.write_bytes(b"RIFF sample game voice")
             service = LexiriseService(directory, api_key="test", transport=httpx.MockTransport(reply))
-            first = service.send(ref="line:1", game="zzz", chinese="你好", english="Hello",
+            service.configure_game_deck("zzz",1950)
+            first = service.send(ref="line:1", game="zzz", chinese="ä½ å¥½", english="Hello",
                                  speaker="Anby", audio=clip)
-            second = service.send(ref="line:1", game="zzz", chinese="你好", english="Hello",
+            second = service.send(ref="line:1", game="zzz", chinese="ä½ å¥½", english="Hello",
                                   speaker="Anby", audio=clip)
             self.assertTrue(first["sent"])
             self.assertFalse(first["already_sent"])
