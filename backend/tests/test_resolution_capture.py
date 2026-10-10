@@ -57,3 +57,16 @@ def test_windowed_capture_uses_client_origin_without_borders(monkeypatch):
         return True
     monkeypatch.setattr(windows, "user32", SimpleNamespace(GetClientRect=client, ClientToScreen=origin), raising=False)
     assert windows._window_bounds(1) == (-1920, 150, 1280, 720)
+
+
+@pytest.mark.parametrize("game", ["nte", "honkai3"])
+@pytest.mark.parametrize("size", [(800,600), (1920,1080), (3440,1440), (3840,2160)])
+def test_new_game_default_crops_agree_with_profiles_and_stay_in_client_bounds(game, size):
+    from backend.models import AppSettings
+    from backend.games import GAME_PROFILES
+    region = getattr(AppSettings(), f"{game}_region")
+    assert region == GAME_PROFILES[game].subtitle_region
+    width, height = size
+    window = WindowInfo(1, "Synthetic game", "game.exe", (-width, 120, width, height))
+    x, y, w, h = CaptureService._region_bounds(window, region)
+    assert -width <= x < x + w <= 0 and 120 <= y < y + h <= 120 + height

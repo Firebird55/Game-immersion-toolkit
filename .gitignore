@@ -41,6 +41,14 @@ desktop.ini
 *.w3strings
 *.utoc
 *.ucas
+*.locres
+*.hpw
+*.wmv
+*.unity3d
+*.assets
+*.bundle
+*.usm
+*.pdb
 *.wav
 *.mp3
 *.mp4
@@ -62,6 +70,10 @@ next-env.d.ts
 /outputs/
 /output/
 /work/
+
+# Owned native reader intermediates must not enter source or distributions.
+/scripts/game-readers/bin/
+/scripts/game-readers/obj/
 
 # local companion runtime
 /.venv/
