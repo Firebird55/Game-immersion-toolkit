@@ -12,8 +12,8 @@ try{
   for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[768,1024,1.25]]){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[];
    const region={left:.1,top:.6,width:.8,height:.25};
-   const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,cyberpunk_region:region,cyberpunk_tip_region:region,wuwa_region:region,wuwa_tip_region:region,wuwa_cinematic_region:region,witcher3_region:region,witcher3_tip_region:region,auto_start:false};
-   const games=Object.entries({zzz:'Zenless Zone Zero',pragmata:'PRAGMATA',hito:"Hito's World",cyberpunk:'Cyberpunk 2077',wuwa:'Wuthering Waves',witcher3:'The Witcher 3'}).map(([id,title])=>({id,title,configured_path:null,detected_path:id==='zzz'?'F:/Games/ZZZ':null,folder_state:id==='zzz'?'detected':'missing',folder_hint:'Choose your installed game folder.',voice_state:id==='hito'?'not_required':'missing',voice_hint:'Install the Mandarin voice pack in your game launcher.',tools_missing:id==='hito'?[]:['Voice decoder'],index_ready:false,indexed_lines:0,audio_ready:false,index_message:'Ready for setup',update_state:'waiting',update_message:'Prepare your game tools',progress:100,last_checked:null,needs_attention:false}));
+   const settings={nte_region:region,honkai3_region:region,preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,cyberpunk_region:region,cyberpunk_tip_region:region,wuwa_region:region,wuwa_tip_region:region,wuwa_cinematic_region:region,witcher3_region:region,witcher3_tip_region:region,auto_start:false};
+   const games=Object.entries({zzz:'Zenless Zone Zero',pragmata:'PRAGMATA',hito:"Hito's World",cyberpunk:'Cyberpunk 2077',wuwa:'Wuthering Waves',witcher3:'The Witcher 3',nte:'Neverness to Everness',honkai3:'Honkai Impact 3rd'}).map(([id,title])=>({id,title,configured_path:null,detected_path:id==='zzz'?'F:/Games/ZZZ':null,folder_state:id==='zzz'?'detected':'missing',folder_hint:'Choose your installed game folder.',voice_state:id==='hito'?'not_required':'missing',voice_hint:id==='honkai3'?'Coverage limited to verified catalog 4.7 dialogue.':'Install the Mandarin voice pack in your game launcher.',tools_missing:id==='hito'?[]:id==='nte'?['.NET 10 SDK','NTE reader']:['Voice decoder'],index_ready:false,indexed_lines:0,audio_ready:false,index_message:'Ready for setup',update_state:'waiting',update_message:'Prepare your game tools',progress:100,last_checked:null,needs_attention:false}));
    const setup={completed:false,version:'fixture',games,auto_start:false,free_gb:80,lexirise_configured:false,jobs:{},native:{},capture_check:null,requirements:[{id:'ocr',title:'Subtitle OCR',ready:true,help:''},{id:'audio',title:'Audio conversion',ready:true,help:''}]};
    await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
    await page.route('http://127.0.0.1:8766/**',async route=>{
@@ -51,6 +51,12 @@ try{
    assert(await dialog.getByRole('button',{name:'Refresh game data',exact:true}).isDisabled());
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'F:/Games/ZZZ');
+   for(const game of ['nte','honkai3']){
+    await dialog.getByLabel('Game to configure',{exact:true}).selectOption(game);
+    if(game==='nte')assert.equal(await dialog.getByRole('link',{name:'Microsoft .NET 10 SDK'}).getAttribute('href'),'https://dotnet.microsoft.com/download/dotnet/10.0');
+    else await dialog.getByText('Coverage limited to verified catalog 4.7 dialogue.',{exact:true}).waitFor();
+   }
+   await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
    assert(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Setup has horizontal overflow');
    if(name==='chromium'&&(width===1280||width===390))await dialog.screenshot({path:`output/playwright/toolkit-setup-${width===1280?'desktop':'mobile'}.png`});

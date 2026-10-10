@@ -90,6 +90,8 @@ def main() -> int:
             ("Cyberpunk bilingual subtitles", settings.cyberpunk_region),
             ("Wuthering Waves subtitles", settings.wuwa_region),
             ("Witcher stock/dual subtitles", settings.witcher3_region),
+            ("NTE subtitles", settings.nte_region),
+            ("Honkai Impact 3rd subtitles", settings.honkai3_region),
         ):
             left, top, width, height = CaptureService._region_bounds(window, region)
             if (

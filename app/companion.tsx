@@ -44,7 +44,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'honkai3';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -63,6 +63,8 @@ type Settings = {
   wuwa_cinematic_region: CaptureRegion;
   wuwa_capture_cinematic: boolean;
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
+  nte_region: CaptureRegion;
+  honkai3_region: CaptureRegion;
   witcher3_region: CaptureRegion;
   witcher3_tip_region: CaptureRegion;
   witcher3_capture_chatter: boolean;
@@ -77,7 +79,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'honkai3' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -100,7 +102,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3';
+  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'honkai3';
   source_ocr: string;
   english: string;
   chinese: string;
@@ -135,13 +137,15 @@ type StatusPayload = {
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'honkai3';
 const GAME_NAMES: Record<GameId, string> = {
   zzz: 'Zenless Zone Zero',
   pragmata: 'PRAGMATA',
   cyberpunk: 'Cyberpunk 2077',
   wuwa: 'Wuthering Waves',
   witcher3: 'The Witcher 3',
+  nte: 'Neverness to Everness',
+  honkai3: 'Honkai Impact 3rd',
   hito: "Hito's World",
 };
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
@@ -621,7 +625,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'nte' ? 'nte_region' : selectedGame === 'honkai3' ? 'honkai3_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -656,7 +660,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'honkai3'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -724,7 +728,7 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'honkai3' ? draftSettings.honkai3_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;

@@ -3,22 +3,24 @@ import assert from 'node:assert/strict';import {spawn,execFileSync} from 'node:c
 // Exercise the actual built Windows distribution, not the dev dependency optimizer.
 const port=4321,server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
 let browser;
-const region={left:.1,top:.6,width:.8,height:.25},settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
+const region={left:.1,top:.6,width:.8,height:.25},settings={nte_region:{left:.10,top:.70,width:.80,height:.28},honkai3_region:{left:.08,top:.68,width:.84,height:.30},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
 const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue fixture',text_id:'cyberpunk-fixture',has_audio:true,audio_source:'original'};
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
+const nteLine={...cyberpunkLine,id:4,game:'nte',english:'NTE dialogue fixture',text_id:'nte-fixture'};
+const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
 mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md'},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 function response(path,query,method,body){
- if(path==='/api/status')return {capture:{running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']},textmaps:mapStatus,game_textmaps:{zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
+ if(path==='/api/status')return {capture:{running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']},textmaps:mapStatus,game_textmaps:{nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
  if(path==='/api/settings'&&method==='PATCH'){Object.assign(settings,body);return settings;}
  if(path==='/api/lexirise')return {configured:true,decks:{},sent:{}};
- if(path==='/api/lines')return query.get('game')==='zzz'?[line]:query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:[];
+ if(path==='/api/lines')return query.get('game')==='zzz'?[line]:query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:query.get('game')==='nte'?[nteLine]:query.get('game')==='honkai3'?[honkaiLine]:[];
  if(path==='/api/favorites')return [];
  if(path==='/api/lexirise/settings'){if(method==='PATCH'){Object.assign(account.global,body.global??{});for(const[l,changes]of Object.entries(body.languageSettings??{}))Object.assign(account.languageSettings[l]??={},changes);}return account;}
- if(/^\/api\/lines\/[123]\/reading$/.test(path))return {text:'你好',tokens:[token],grammar:[]};
+ if(/^\/api\/lines\/[12345]\/reading$/.test(path))return {text:'你好',tokens:[token],grammar:[]};
  if(path.endsWith('/lookup'))return {translations:[{meaning:'hello',partOfSpeech:['greeting'],examples:[]}],examples:[],dictionaries:[],alternateReadings:[],components:[]};
  if(path.endsWith('/characters'))return {characters:[]};
  if(path.endsWith('/examples'))return {examples:[]};
@@ -34,6 +36,7 @@ try{
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
  await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
  settings.cyberpunk_tip_region.left=.10; settings.wuwa_cinematic_region.left=.12;
+ settings.nte_region.left=.10; settings.honkai3_region.left=.08;
  settings.cyberpunk_v_voice='unconfigured';
  settings.wuwa_rover_voice='unconfigured';
  await page.addInitScript(()=>localStorage.setItem('proxy-transcript-reading-mode','lexirise'));
@@ -116,6 +119,25 @@ try{
   if(game==='wuwa'){assert.equal(last.wuwa_rover_voice,'female','Rover choice survives asset refresh');assert.equal(last.wuwa_cinematic_region.left,.14,'Story card calibration is independent');assert.equal(last.wuwa_capture_chatter,false,'Unverified top-right channel stays off');}
   assert.deepEqual(last.cyberpunk_region,saved.body.cyberpunk_region,'Game calibration is independent');assert.equal(last.cyberpunk_v_voice,'male');
   assert.deepEqual(last.region,region,'New games preserve ZZZ calibration');assert.equal(writes.length,0,'New games never change account settings');
+ }
+ for(const[game,label,left]of [['nte','Neverness to Everness','10'],['honkai3','Honkai Impact 3rd','8']]){
+  await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' original voice is playable');
+  assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'zh',label+' study language remains Chinese');
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Eight game tabs fit');
+  await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
+  assert.equal(await capture.getByRole('button',{name:'NPC chatter',exact:true}).count(),0);
+  assert.equal(await capture.getByRole('button',{name:'Top-right tips',exact:true}).count(),0);
+  assert.equal(await capture.locator('input[type=range]').first().inputValue(),left,'Independent default crop');
+  await capture.locator('input[type=range]').first().fill('11');
+  await capture.getByRole('button',{name:'Update TextMaps',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.setup-actions button')?.textContent.includes('Update TextMaps'));
+  assert(localWrites.some(w=>w.path===`/api/games/${game}/update`),'Correct game updater');
+  await capture.getByRole('button',{name:'Save capture settings',exact:true}).click();await capture.waitFor({state:'hidden'});
+  const savedGame=localWrites.filter(w=>w.path==='/api/settings').at(-1).body;
+  assert.equal(savedGame[`${game}_region`].left,.11,'New crop persists');assert.deepEqual(savedGame.region,region,'ZZZ crop stays independent');
+  assert.equal(writes.length,0,'New games cause no account writes');
+  if(name==='chromium'&&pw===320)await page.screenshot({path:`output/playwright/${game}-mobile.png`});
  }
  await games.getByRole('button',{name:'Zenless Zone Zero',exact:true}).click();await page.locator('.current-line.game-zzz').waitFor();
  if(zoom===1&&pw===1920){for(const[w,h]of [[320,568],[1280,720],[568,320],[900,720]]){

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const API = 'http://127.0.0.1:8766';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'honkai3';
 type GameSetup = {
   id: GameId; title: string; configured_path: string | null; detected_path: string | null;
   folder_state: string; folder_hint: string; voice_state: string; voice_hint: string;
@@ -115,6 +115,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
           </select></label>
           {current && <>
             <p>{current.folder_hint}</p>
+            {game === 'nte' && current.tools_missing.includes('.NET 10 SDK') && <p>NTE needs the <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noreferrer">Microsoft .NET 10 SDK</a>. Install it, then prepare game tools.</p>}
             <label>Installed game folder<input value={folder} onChange={event => { dirty.current = true; setFolder(event.target.value); }}
               placeholder="Paste the folder path, or use Browse game folders" spellCheck={false} autoComplete="off" /></label>
             <div className="toolkit-setup-actions">
