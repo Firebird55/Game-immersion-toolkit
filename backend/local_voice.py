@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import json
 import subprocess
 import tempfile
 import threading
+import wave
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -64,8 +66,20 @@ class LocalVoiceAssetService:
             options = {"check": True, "capture_output": True, "timeout": 90,
                        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
             subprocess.run([str(self.decoder), "-i", "-o", str(wav), str(wem)], **options)
+            trim = []
+            if 'start_ms' in audio or 'end_ms' in audio:
+                start, end = audio.get('start_ms'), audio.get('end_ms')
+                with wave.open(str(wav)) as stream:
+                    duration_ms = stream.getnframes() / stream.getframerate() * 1000
+                if type(start) is not int or type(end) is not int or not 0 <= start < end <= duration_ms + 1:
+                    raise ValueError('Original movie voice timing is outside its source; refresh game data')
+                trim = ['-ss', str(start/1000), '-t', str((end-start)/1000)]
+                gain = audio.get('gain_db', 0)
+                if not isinstance(gain, (int, float)) or not math.isfinite(gain) or not -60 <= gain <= 24:
+                    raise ValueError('Invalid original movie voice gain')
+                trim += ['-af', f'volume={gain:.6f}dB']
             subprocess.run([str(ffmpeg_executable()), "-hide_banner", "-loglevel", "error", "-y",
-                            "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
+                            "-i", str(wav), *trim, "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
             if mp3.stat().st_size < 100:
                 raise ValueError("Original voice decoded to an empty clip")
             mp3.replace(output)

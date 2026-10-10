@@ -13,7 +13,8 @@ test('profile paths and credentials are rejected without echoing their values',(
 });
 test('game archives and voice files are rejected outside the normal cache directories',()=>{
  for(const file of ['assets/game.PAK','assets/re_chunk.pak.patch_001','public/voice.wem','assets/voice.pck','assets/game.exe','assets/app.asar','assets/cnpc.w3speech','Data/lookup.json',
-  'public/game.locres','public/patch.hpw','public/game.wmv','assets/level.assets','assets/story.unity3d','assets/voice.bundle','assets/cinematic.usm','tools/reader.pdb']){
+  'public/game.locres','public/patch.hpw','public/game.wmv','assets/level.assets','assets/story.unity3d','assets/voice.bundle','assets/cinematic.usm','tools/reader.pdb',
+  'assets/captions.srt','assets/captions.srt_zh-CN','assets/unreal.usmap','assets/table.uasset','assets/table.uexp','assets/table.ubulk']){
   assert(privatePath(file),file);
   assert.throws(()=>scanArtifact(tgz('package/'+file,'synthetic game asset'),'package.tgz'),/Private/);
  }

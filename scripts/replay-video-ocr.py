@@ -110,6 +110,8 @@ def replay(clip, resolution, data_dir, fps=2):
             settings.save(settings.get().model_copy(update={'wuwa_rover_voice': index.player_voice}))
         elif game == 'cyberpunk':
             settings.save(settings.get().model_copy(update={'cyberpunk_v_voice': index.player_voice}))
+        elif game == 'nte':
+            settings.save(settings.get().model_copy(update={'nte_player_voice': index.player_voice}))
         async def ignore(*_):
             pass
         service = CaptureService(settings, index, None, ReplayStore(folder / 'transcript.db'),

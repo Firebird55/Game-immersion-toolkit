@@ -65,6 +65,7 @@ type Settings = {
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   nte_region: CaptureRegion;
   nte_picture_area: 'window' | '16:9';
+  nte_player_voice: 'unconfigured' | 'female' | 'male';
   honkai3_region: CaptureRegion;
   honkai3_picture_area: 'window' | '16:9';
   witcher3_region: CaptureRegion;
@@ -1003,6 +1004,13 @@ function CompanionClient() {
               <option value="female">Female</option><option value="male">Male</option>
             </select>
           </label>}
+          {selectedGame === 'nte' && draftSettings && <label>Zero voice
+            <select aria-label="Zero voice" value={draftSettings.nte_player_voice ?? 'unconfigured'}
+              onChange={event => setDraftSettings(current => current ? { ...current, nte_player_voice: event.target.value as Settings['nte_player_voice'] } : current)}>
+              <option value="unconfigured">Choose Zero's voice for movie variants</option>
+              <option value="female">Female</option><option value="male">Male</option>
+            </select>
+          </label>}
           {selectedGame === 'hito' && draftSettings && <label>
             <input type="checkbox" checked={draftSettings.hito_auto_regions}
               onChange={event => setDraftSettings(current => current ? { ...current, hito_auto_regions: event.target.checked } : current)} />
@@ -1057,7 +1065,7 @@ function CompanionClient() {
           </label>}
           {(selectedGame === 'nte' || selectedGame === 'honkai3') && <p className="setup-note">
             Choose the picture inside black bars only when your game is letterboxed. Check the live crop after changing resolution or subtitle size.
-            {selectedGame === 'honkai3' ? ' Original voices remain limited to verified older catalog content.' : ' Movie captions without a verified per-line original voice are skipped.'}
+            {selectedGame === 'honkai3' ? ' Verified dialogue pages capture the complete original voice performance; coverage remains limited to older catalog content.' : " Movie captions use the game's original subtitle timings and Mandarin voices. Select Zero's voice to capture movies with player variants."}
           </p>}
           {(selectedGame === 'nte' || selectedGame === 'honkai3') && draftSettings && <button type="button" className="secondary-button"
             onClick={() => setDraftSettings(current => current ? { ...current, [`${selectedGame}_region`]: selectedGame === 'honkai3'

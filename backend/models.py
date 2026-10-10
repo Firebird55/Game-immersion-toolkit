@@ -59,6 +59,7 @@ class AppSettings(BaseModel):
     witcher3_capture_chatter: bool = True
     nte_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
     nte_picture_area: Literal["window", "16:9"] = "window"
+    nte_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
     # Legacy visual-novel dialogue extends to the right client edge; cropping
     # at 92% cuts its final words. Start below the highlighted speaker strip.
     honkai3_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.04, top=.72, width=.96, height=.24))

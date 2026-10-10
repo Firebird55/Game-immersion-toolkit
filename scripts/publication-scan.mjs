@@ -5,7 +5,7 @@ export function scanContent(data,label){
  if(credentialPatterns.some(p=>p.test(text)))throw new Error('Potential credential: '+label);
  if(/[A-Z]:[\\/]+Users[\\/]+(?!Public\b|Default\b)[^\s"'<>\\/]+/i.test(text))throw new Error('Personal profile path: '+label);
 }
-export function privatePath(name){return /(?:^|\/)(?:data|node_modules|\.git|\.venv|output|outputs|diagnostics|work|\.watch)(?:\/|$)/i.test(name)||/(?:^|\/)\.env(?:\.|$)/i.test(name)||/\.(?:dpapi|db|sqlite(?:3)?|mp3|wav|mp4|wmv|onemodel|dll|exe|pdb|pem|key|pak(?:[._-][a-z0-9._-]+)?|pck|wem|bnk|blk|archive|asar|w3speech|w3strings|utoc|ucas|locres|hpw|unity3d|assets|bundle|usm)$/i.test(name);}
+export function privatePath(name){return /(?:^|\/)(?:data|node_modules|\.git|\.venv|output|outputs|diagnostics|work|\.watch)(?:\/|$)/i.test(name)||/(?:^|\/)\.env(?:\.|$)/i.test(name)||/\.(?:dpapi|db|sqlite(?:3)?|mp3|wav|mp4|wmv|onemodel|dll|exe|pdb|pem|key|pak(?:[._-][a-z0-9._-]+)?|pck|wem|bnk|blk|archive|asar|w3speech|w3strings|utoc|ucas|locres|hpw|unity3d|assets|bundle|usm|srt(?:_[a-z0-9-]+)?|usmap|uasset|uexp|ubulk)$/i.test(name);}
 export function archiveEntries(data,name){
  const entries=[];
  if(name.endsWith('.zip')){

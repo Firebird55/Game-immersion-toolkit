@@ -86,12 +86,30 @@ internal static class NteReader
                     }
                     File.WriteAllText(Path.Combine(destination, "localization.json"), JsonSerializer.Serialize(all));
                     var keys = all["en"].Select(row => "Play_Vo_" + row.key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    if (request.RootElement.TryGetProperty("cinema_events", out var cinemaEvents))
+                    {
+                        if (cinemaEvents.GetArrayLength() > 2000) throw new InvalidDataException();
+                        foreach (var value in cinemaEvents.EnumerateArray())
+                        {
+                            var name = value.GetString()!;
+                            if (!name.StartsWith("Play_Vo_CG_") || !name.All(c => char.IsAsciiLetterOrDigit(c) || c == '_')) throw new InvalidDataException();
+                            keys.Add(name);
+                        }
+                    }
                     var banks = Path.Combine(destination, "banks"); Directory.CreateDirectory(banks);
                     foreach (var name in names.Where(n => n.StartsWith("HT/Content/WwiseAudio/Event/Chinese/", StringComparison.Ordinal) &&
                         n.EndsWith(".bnk") && keys.Contains(Path.GetFileNameWithoutExtension(n))))
                         File.WriteAllBytes(Path.Combine(banks, Path.GetFileName(name)), (byte[])save.Invoke(provider, [name])!);
                     File.WriteAllText(Path.Combine(destination, "media.json"), JsonSerializer.Serialize(names.Where(n =>
                         n.StartsWith("HT/Content/WwiseAudio/Media/Chinese/", StringComparison.Ordinal) && n.EndsWith(".wem"))));
+                    var subtitles = new Dictionary<string, string>();
+                    foreach (var name in names.Where(n => n.StartsWith("HT/Content/SrtFile/FFMpeg/Story/") && n.EndsWith(".srt")))
+                    {
+                        var data = (byte[])save.Invoke(provider, [name])!;
+                        if (data.Length > 512 * 1024) throw new InvalidDataException();
+                        subtitles[name] = new System.Text.UTF8Encoding(false, true).GetString(data);
+                    }
+                    File.WriteAllText(Path.Combine(destination, "cinema-subtitles.json"), JsonSerializer.Serialize(subtitles));
                 }
             }
             finally { (reader as IDisposable)?.Dispose(); }

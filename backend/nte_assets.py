@@ -106,7 +106,8 @@ def fingerprint(install: Path) -> str:
     if executable.is_file():
         sources.append(executable)
     values = [f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}" for p in sources]
-    return hashlib.sha256(("reader1|" + "|".join(values)).encode()).hexdigest()
+    from .nte_cinematics import CATALOG_REVISION
+    return hashlib.sha256(("reader4|" + CATALOG_REVISION + '|' + "|".join(values)).encode()).hexdigest()
 
 
 def _metadata_path(install: Path, stamp: str) -> Path:
@@ -132,7 +133,7 @@ def _archive_metadata(install: Path, stamp: str) -> str:
     return values[0]
 
 
-def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None) -> None:
+def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None) -> None:
     install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the game installation")
@@ -151,6 +152,8 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
     request = {"archive_metadata": key}
     if depot is not None:
         request["depot"] = depot
+    if cinema_events is not None:
+        request['cinema_events'] = cinema_events
     try:
         result = subprocess.run([str(sdk), str(executable), mode, str(install), str(executable.parent / "upstream"), str(destination)],
             input=json.dumps(request).encode(), capture_output=True, timeout=600, cwd=executable.parent / "upstream",
@@ -169,12 +172,13 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
             temporary.replace(path)
 
 
-def build_records(cache: Path) -> list[dict]:
+def build_records(cache: Path, cinema_bindings: list[dict] | None = None) -> list[dict]:
     localization = json.loads((cache / "localization.json").read_text(encoding="utf-8"))
     english = {(r["ns"], r["key"]): display_text(r["value"]) for r in localization["en"]}
     chinese = {(r["ns"], r["key"]): display_text(r["value"]) for r in localization["zh-CN"]}
     media = set(json.loads((cache / "media.json").read_text(encoding="utf-8")))
     events = {}
+    cinema_events = {}
     for path in (cache / "banks").glob("Play_Vo_*.bnk"):
         data = path.read_bytes()
         if len(data) < 20 or data[:4] != b"BKHD" or struct.unpack_from("<I", data, 16)[0] != wwise_hash("Chinese"):
@@ -186,11 +190,27 @@ def build_records(cache: Path) -> list[dict]:
             layers = read_bank_play_layers(path, allowed_versions=(154,)).get(wwise_hash(event), [])
         except (ValueError, IndexError, struct.error):
             continue
-        if len(layers) != 1:
-            continue
-        depot = f"{MEDIA_ROOT}{layers[0]['media_id']}.wem"
-        if depot in media:
-            events[event.lower()] = {"depot": depot, "event": event}
+        variants = [(None, layers)]
+        if not layers and event.startswith('Play_Vo_CG_'):
+            try:
+                variants = [(gender, read_bank_play_layers(path, allowed_versions=(154,),
+                             switch_states={wwise_hash('Sex_Switch'): wwise_hash(gender)}).get(wwise_hash(event), []))
+                            for gender in ['female', 'male']]
+            except (ValueError, IndexError, struct.error):
+                continue
+        for gender, selected in variants:
+            if len(selected) != 1:
+                continue
+            layer = selected[0]
+            depot = f"{MEDIA_ROOT}{layer['media_id']}.wem"
+            if depot not in media:
+                continue
+            audio = {"depot": depot, "event": event}
+            if gender is None:
+                events[event.lower()] = audio
+            if layer['delay_seconds'] == 0:
+                cinema_events.setdefault(event.lower(), []).append({'player_voice': gender,
+                    'audio': {**audio, 'gain_db': layer['gain_db']}})
     pairs_by_key = {}
     for (ns, key), en in english.items():
         pairs_by_key.setdefault(key.lower(), set()).add((en, chinese.get((ns, key), "")))
@@ -200,10 +220,17 @@ def build_records(cache: Path) -> list[dict]:
         audio = events.get(("Play_Vo_" + key).lower())
         if en and contains_han(zh) and audio and len(pairs_by_key[key.lower()]) == 1:
             records.append({"text_id": f"nte:{ns}:{key}", "english": en, "chinese": zh, "audio": audio})
+    if cinema_bindings:
+        from .nte_cinematics import movie_records
+        subtitles = json.loads((cache / 'cinema-subtitles.json').read_text(encoding='utf8'))
+        existing = {r['text_id'] for r in records}
+        records.extend(r for r in movie_records(cinema_bindings, subtitles, english, chinese, cinema_events) if r['text_id'] not in existing)
     return records
 
 
 def index_install(install: Path, data_dir: Path, progress=lambda _message: None) -> dict:
+    from .nte_cinematics import load_catalog, movie_bindings, CATALOG_REVISION
+    bindings = movie_bindings(load_catalog(data_dir / 'movie-catalog' / CATALOG_REVISION))
     stamp = fingerprint(install)
     executable = ensure_extractor(data_dir / "tools")
     cache = data_dir / "index-cache" / stamp[:16]
@@ -211,8 +238,8 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
         progress("Reading installed NTE English and Chinese dialogue and exact Chinese voice events")
         with tempfile.TemporaryDirectory(prefix="nte-index-", dir=data_dir) as value:
             staging = Path(value)
-            run_reader(install, executable, staging, "index")
-            records = build_records(staging)
+            run_reader(install, executable, staging, "index", cinema_events=sorted({r['event'] for r in bindings}))
+            records = build_records(staging, bindings)
             if not records or fingerprint(install) != stamp:
                 raise ValueError("NTE files changed or contain no supported bilingual voices; finish the game download and retry")
             cache.mkdir(parents=True, exist_ok=True)

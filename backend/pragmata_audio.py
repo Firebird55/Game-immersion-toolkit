@@ -147,11 +147,12 @@ def read_tmlfsm_dialogue_segments(path: Path) -> list[dict[str, float | str]]:
     return result
 
 
-def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (150,)) -> dict[int, list[dict[str, object]]]:
-    """Read fixed Wwise 150 Play -> layer -> source trees, preserving delays/gain.
+def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (150,),
+                          switch_states: dict[int, int] | None = None) -> dict[int, list[dict[str, object]]]:
+    """Read fixed Play -> layer -> source trees, preserving delays/gain.
 
-    Random/switch containers are deliberately unsupported: their alternatives
-    must never be mixed together as if they played simultaneously.
+    Switch containers require an explicit authored Wwise 154 group/value and
+    a deterministic branch. Never mix alternatives or choose a default state.
     """
     data = path.read_bytes()
     objects = {}
@@ -176,6 +177,7 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
         raise ValueError(f'Unsupported Wwise bank version {version}')
     nodes = {}
     children = {}
+    selected_children = {}
     for oid, (kind, payload) in objects.items():
         if kind not in (2, 5, 6, 7, 9):
             continue
@@ -185,7 +187,10 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
             if plugin & 0xF != 1:
                 continue
             media = _u32(payload, pos + 5)
-            pos += 14
+            # Wwise 154 prefetch sources insert cacheID before media size.
+            # Treating it as size shifts every subsequent node property.
+            cache_bytes = 4 if version == 154 and payload[pos+4] == 2 else 0
+            pos += 14 + cache_bytes
         fx_count = payload[pos + 1]
         pos += 2 + (1 if fx_count else 0) + fx_count * 6
         metadata_count = payload[pos + 1]
@@ -205,6 +210,49 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
             kind = -1
         nodes[oid] = (kind, media, props.get(0, 0.0), props.get(0x22, 0.0))
         children.setdefault(parent, []).append(oid)
+        if kind == 6 and version == 154 and switch_states:
+            # Narrowly supported NTE player-sex switches. Only a caller's
+            # explicit, verified group/value selects a branch. Unknown effects,
+            # positioning, states, RTPCs, fades and continuous validation stay
+            # unsupported; never mix alternatives or use a default value.
+            try:
+                extra = range_pos + 1 + range_count * 9
+                if fx_count or metadata_count or range_count or payload[extra:extra+6] != bytes(6):
+                    continue
+                if payload[extra+6] or payload[extra+10:extra+16] != bytes(6):
+                    continue
+                p = extra + 16
+                group_type, group = payload[p], _u32(payload, p+1)
+                if group_type != 0 or group not in switch_states or payload[p+9]:
+                    continue
+                p += 10
+                count = _u32(payload, p); p += 4
+                if not 0 < count <= 16:
+                    continue
+                listed = set(struct.unpack_from(f'<{count}I', payload, p)); p += count*4
+                group_count = _u32(payload, p); p += 4
+                if not 0 < group_count <= 16:
+                    continue
+                branches = {}
+                for _ in range(group_count):
+                    state, item_count = struct.unpack_from('<II', payload, p); p += 8
+                    if item_count != 1 or state in branches:
+                        raise ValueError('Unsupported switch branch')
+                    branches[state] = _u32(payload, p); p += 4
+                params = _u32(payload, p); p += 4
+                if params != count:
+                    continue
+                checked = set()
+                for _ in range(params):
+                    child = _u32(payload, p)
+                    if payload[p+4:p+13] != bytes(9) or child not in listed or child in checked:
+                        raise ValueError('Unsupported switch parameters')
+                    checked.add(child); p += 13
+                child = branches.get(switch_states[group])
+                if p == len(payload) and child in listed and set(branches.values()) <= listed:
+                    selected_children[oid] = child
+            except (ValueError, IndexError, struct.error):
+                continue
 
     def walk(oid, gain=0.0, delay=0.0, visiting=frozenset()):
         if oid in visiting or oid not in nodes:
@@ -213,6 +261,8 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
         gain, delay = gain + volume, delay + wait
         if kind == 2:
             return [{'media_id': media, 'gain_db': gain, 'delay_seconds': delay}]
+        if kind == 6 and oid in selected_children and selected_children[oid] in children.get(oid, []):
+            return walk(selected_children[oid], gain, delay, visiting | {oid})
         if kind not in (7, 9) or not children.get(oid):
             raise ValueError('Voice event uses a dynamic container')
         return [item for child in children[oid]

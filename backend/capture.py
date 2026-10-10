@@ -288,7 +288,7 @@ class CaptureService:
                 window = self._picture_window(window, getattr(settings, f"{profile.id}_picture_area"))
             region = getattr(settings, f"{profile.id}_region")
             index = self.game_indexes[profile.id]
-            index.player_voice = settings.cyberpunk_v_voice if profile.id == "cyberpunk" else getattr(settings, f"{profile.id}_rover_voice", "unconfigured")
+            index.player_voice = settings.cyberpunk_v_voice if profile.id == "cyberpunk" else settings.nte_player_voice if profile.id == 'nte' else getattr(settings, f"{profile.id}_rover_voice", "unconfigured")
             return self._scan_pragmata(window, region, engine, epoch, now, game=profile.id)
         if profile.id == "pragmata":
             return self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
