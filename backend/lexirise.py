@@ -139,7 +139,10 @@ class LexiriseService:
         with self._lock, self._client() as client, self._connect() as db:
             account = self._account(client)
             if deck_id is None:
-                deck = self._request(client, "POST", "/v1/decks", json={"title":GAME_TITLES[game],"language":"zh","unit_type":"sentence","deck_type":"snapshot","import_items":[]}).get("deck", {})
+                matches=[d for d in self._items(client,"/v1/decks","decks",language="zh") if self._owned(d,account) and d.get("title")==GAME_TITLES[game]]
+                if len(matches)>1:
+                    raise LexiriseError("Several matching decks exist. Select a destination from the list.")
+                deck = matches[0] if matches else self._request(client, "POST", "/v1/decks", json={"title":GAME_TITLES[game],"language":"zh","unit_type":"sentence","deck_type":"snapshot","import_items":[]}).get("deck", {})
                 deck_id = deck.get("id")
                 if type(deck_id) is not int or deck_id <= 0:
                     raise LexiriseError("Lexirise did not confirm the new deck ID.")
