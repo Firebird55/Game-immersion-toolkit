@@ -52,6 +52,7 @@ class PragmataUpdateTests(unittest.TestCase):
             manager = PragmataUpdateManager(Path(temp), index, voices)
             moved = Path("E:/SteamLibrary/steamapps/common/PRAGMATA")
             with patch("scripts.index_pragmata_assets.find_install", return_value=moved), \
+                 patch("backend.game_tools.missing_tools", return_value=[]), \
                  patch("scripts.index_pragmata_assets.fingerprint", return_value="same"), \
                  patch("backend.pragmata_updates.subprocess.run", return_value=SimpleNamespace(returncode=0)) as run:
                 manager._run()

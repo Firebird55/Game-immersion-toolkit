@@ -32,6 +32,7 @@ try{
  const sizes=process.argv.includes('--reading-settings')?[[1920,1080,1],[390,844,1],[320,568,1],[768,1024,1.25]]:process.argv.includes('--game-support')?[[320,568,1],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]:[[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]];
  for(const[pw,ph,zoom]of sizes){
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
+ await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
  settings.cyberpunk_tip_region.left=.10; settings.wuwa_cinematic_region.left=.12;
  settings.cyberpunk_v_voice='unconfigured';
  settings.wuwa_rover_voice='unconfigured';

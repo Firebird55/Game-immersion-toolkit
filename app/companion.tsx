@@ -3,6 +3,7 @@
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
 import { GameDeckSettings } from './game-deck-settings';
+import { ToolkitSetup } from './toolkit-setup';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -963,6 +964,10 @@ function CompanionClient() {
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={!online || !draftSettings}>
             <Settings2 /> Capture setup
           </Button>
+          <ToolkitSetup online={online} game={selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
+            onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
+            onCapture={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
+            onReading={() => setReaderSettingsOpen(true)} onAccount={() => setAccountSettingsOpen(true)} onChanged={() => void loadSnapshot()} />
         </div>
       </footer>
 

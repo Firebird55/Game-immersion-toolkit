@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from backend.agent_bank import bank_media, package_table
+from backend.textmaps import TextMapIndex
 
 
 def main():
@@ -11,10 +12,11 @@ def main():
     parser.add_argument('--avatars', type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
+    map_directory = TextMapIndex(root / 'data/textmaps').active_directory()
     en, zh = {}, {}
     for language, target in [('en', en), ('zh', zh)]:
         for suffix in ('base', 'overwrite'):
-            target.update(json.loads((root / f'data/textmaps/{language}_{suffix}.json').read_text(encoding='utf-8')))
+            target.update(json.loads((map_directory / f'{language}_{suffix}.json').read_text(encoding='utf-8')))
     banks, streams = {}, {}
     for layer in ('StreamingAssets', 'Persistent'):
         folder = args.game_data / layer / 'Audio/Windows/Full/Cn'

@@ -27,6 +27,7 @@ jobs:
       - run: npm run check
       - run: npx playwright install chromium firefox
       - run: node scripts/browser-e2e.mjs
+      - run: node scripts/setup-e2e.mjs
       - run: node scripts/mobile-capture-e2e.mjs
       - run: npm run audit:public
       - name: Validate and package release artifacts

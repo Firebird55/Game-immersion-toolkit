@@ -10,8 +10,9 @@ from .game_assets import asset_adapter, LOCAL_GAMES
 
 class LocalGameUpdateManager:
     """Build complete snapshots, preserving the previous index on failures."""
-    def __init__(self, game, index, voices, on_update=None):
+    def __init__(self, game, index, voices, on_update=None, project_root=None):
         self.game, self.index, self.voices, self.on_update = game, index, voices, on_update
+        self.project_root = project_root
         self._thread = None
         self._stop = threading.Event()
         self._wake = threading.Event()
@@ -58,6 +59,12 @@ class LocalGameUpdateManager:
                 self._set(state="waiting", message=f"Waiting for installed {LOCAL_GAMES[self.game]} files",
                           progress=100, last_error=None)
                 return
+            if self.project_root:
+                from .game_tools import missing_tools
+                if missing_tools(self.project_root, self.game):
+                    self._set(state="waiting", message="Install this game's tools in Setup before indexing",
+                              progress=100, last_error=None)
+                    return
             path = self.index.path
             try:
                 old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}

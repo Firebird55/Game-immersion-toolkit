@@ -65,8 +65,8 @@ class HitoTextIndex:
     def ensure_game_files(self, executable: Path | None) -> None:
         if self._closed:
             return
-        from .game_paths import configured_install
-        root = executable.parent if executable else configured_install('hito')
+        from .game_paths import configured_install, discover_install
+        root = executable.parent if executable else discover_install('hito')
         if root is None:
             return
         archive = root / 'resources' / 'app.asar'

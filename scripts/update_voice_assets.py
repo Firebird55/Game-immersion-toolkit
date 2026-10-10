@@ -47,9 +47,11 @@ def ongoing_voice_links(config: dict, english: dict[str, str]) -> list[dict[str,
 
 
 def merged_english_maps(root: Path) -> dict[str, str]:
+    from backend.textmaps import TextMapIndex
+    directory = TextMapIndex(root / "data/textmaps").active_directory()
     result: dict[str, str] = {}
     for name in ("en_base.json", "en_overwrite.json"):
-        result.update(json.loads((root / "data/textmaps" / name).read_text(encoding="utf-8-sig")))
+        result.update(json.loads((directory / name).read_text(encoding="utf-8-sig")))
     return result
 
 
@@ -126,7 +128,10 @@ def main() -> None:
         print("Full voice refresh skipped; installed game files or indexing tools are unavailable. The last local manifest remains active.")
         return
 
-    current = inventory(game_data, required)
+    from backend.textmaps import TextMapIndex
+    maps = TextMapIndex(root / "data/textmaps").active_directory()
+    sources = [*required, *(maps / name for name in ("en_base.json", "en_overwrite.json"))]
+    current = inventory(game_data, sources)
     try:
         previous = json.loads(state_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -176,7 +181,7 @@ def main() -> None:
         "--prefixes", str(prefixes),
         "--decoder-dir", str(decoder),
     ], **options)
-    atomic_json(state_path, {"version": 3, "inventory": inventory(game_data, required)})
+    atomic_json(state_path, {"version": 3, "inventory": inventory(game_data, sources)})
     total = len(json.loads(manifest.read_text(encoding="utf-8"))["entries"])
     print(f"Full local Mandarin voice manifest ready: {total:,} exact lines.")
 

@@ -107,4 +107,15 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    result = 1
+    try:
+        result = main()
+    except Exception as error:
+        print(f"Capture check failed: {error}", file=sys.stderr)
+    finally:
+        if "--pause" in sys.argv:
+            try:
+                input("Press Enter to close this local check…")
+            except EOFError:
+                pass
+    raise SystemExit(result)

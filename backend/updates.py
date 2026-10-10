@@ -174,6 +174,10 @@ class BackgroundUpdateManager:
         if installed is None:
             self._set("waiting", "Choose your installed ZZZ folder in Setup; saved transcripts remain available", 100)
             return
+        from .game_tools import missing_tools
+        if missing_tools(self.project_root, "zzz"):
+            self._set("waiting", "Install ZZZ game tools in Setup to prepare original voices", 100)
+            return
         previous = self._read_state()
         self._set("checking", "Checking upstream metadata", 5)
         commit: str | None = None
@@ -202,10 +206,6 @@ class BackgroundUpdateManager:
             self.textmaps.prepare(force_download=False)
 
         if self._stop.is_set():
-            return
-        from .game_tools import missing_tools
-        if missing_tools(self.project_root, "zzz"):
-            self._set("waiting", "Install ZZZ game tools in Setup to prepare original voices", 100)
             return
         self._set("updating", "Checking installed story, event, and comic voices", 55)
         output = self._run_command(

@@ -85,6 +85,8 @@ def install_archive(url: str, digest: str, directory: Path, required: tuple[str,
             target.write_bytes(content)
         for name in files:
             target = directory / name
+            if target.is_file() and target.read_bytes() == files[name]:
+                continue
             target.parent.mkdir(parents=True, exist_ok=True)
             (staging / name).replace(target)
     _atomic_file(marker, json.dumps({"url": url, "archive_sha256": digest,
@@ -120,7 +122,13 @@ def missing_tools(root: Path, game: str) -> list[str]:
         required += [(name, root / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "pragmata":
         required += [("PRAGMATA extractor", root / "data/pragmata/tools/REE.Unpacker.exe")]
-    return [name for name, path in required if not path.is_file()]
+    if game == "cyberpunk":
+        required += [("Cyberpunk extractor", root / "data/cyberpunk/tools/WolvenKit.CLI.exe")]
+    if game == "wuwa":
+        required += [("Wuthering Waves extractor", root / "data/wuwa/tools/FModelCLI.exe"),
+                     ("Wuthering Waves decompression", root / "data/wuwa/tools/.data/oodle-data-shared.dll"),
+                     ("Wuthering Waves decompression", root / "data/wuwa/tools/.data/zlib-ng2.dll")]
+    return list(dict.fromkeys(name for name, path in required if not path.is_file()))
 
 
 def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None:

@@ -97,6 +97,11 @@ class PragmataUpdateManager:
                     last_error=None,
                 )
                 return
+            from .game_tools import missing_tools
+            if missing_tools(self.project_root, "pragmata"):
+                self._set(state="waiting", message="Install PRAGMATA tools in Setup before indexing",
+                          progress=100, last_error=None)
+                return
             needs_update = not path.is_file()
             if path.is_file():
                 payload = json.loads(path.read_text(encoding="utf-8"))

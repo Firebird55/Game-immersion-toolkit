@@ -75,8 +75,8 @@ def installed_zzz_game_data_directory(settings: AppSettings) -> Path | None:
     live = game_data_directory(settings)
     if live:
         return live
-    from .game_paths import configured_install
-    configured = configured_install("zzz")
+    from .game_paths import discover_install
+    configured = discover_install("zzz")
     if configured:
         return configured / "ZenlessZoneZero_Data"
     if sys.platform != "win32":

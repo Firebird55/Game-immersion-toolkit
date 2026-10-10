@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import html
+import hashlib
 import json
 import re
+import shutil
+import tempfile
 import threading
 import urllib.request
+import uuid
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -70,6 +74,7 @@ class TextMapIndex:
         self.data_dir = data_dir
         self.urls = urls or TEXTMAP_URLS
         self._lock = threading.RLock()
+        self._prepare_lock = threading.Lock()
         self._records_by_normalized: dict[str, list[_Record]] = {}
         self._choices: list[str] = []
         self._cinematic_choices: list[str] = []
@@ -83,7 +88,20 @@ class TextMapIndex:
         self.entry_count = 0
 
     def file_path(self, name: str) -> Path:
-        return self.data_dir / f"{name}.json"
+        return self.active_directory() / f"{name}.json"
+
+    def active_directory(self) -> Path:
+        try:
+            name = json.loads((self.data_dir / "current.json").read_text(encoding="utf-8"))["snapshot"]
+            if isinstance(name, str) and re.fullmatch(r"[a-f0-9]{64}(?:-[a-f0-9]{8})?", name):
+                directory = self.data_dir / "snapshots" / name
+                if directory.resolve().is_relative_to(self.data_dir.resolve()) and all(
+                    (directory / f"{key}.json").is_file() for key in self.urls
+                ):
+                    return directory
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        return self.data_dir
 
     def prepare(
         self,
@@ -91,19 +109,49 @@ class TextMapIndex:
         force_download: bool = False,
         progress: Callable[[str], None] | None = None,
     ) -> None:
-        with self._lock:
-            self.state = "downloading"
-            self.message = "Checking bilingual TextMaps"
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        for name, url in self.urls.items():
-            path = self.file_path(name)
-            if force_download or not path.exists() or path.stat().st_size < 100:
-                if progress:
-                    progress(f"Downloading {name.replace('_', ' ')}")
-                self._download(url, path)
-        if progress:
-            progress("Building English lookup index")
-        self.load()
+        with self._prepare_lock:
+            with self._lock:
+                self.state = "downloading"
+                self.message = "Checking bilingual TextMaps"
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                with tempfile.TemporaryDirectory(dir=self.data_dir, prefix="refresh-") as temporary:
+                    staging = Path(temporary)
+                    active = self.active_directory()
+                    for name, url in self.urls.items():
+                        source, target = active / f"{name}.json", staging / f"{name}.json"
+                        if force_download or not source.exists() or source.stat().st_size < 100:
+                            if progress:
+                                progress(f"Downloading {name.replace('_', ' ')}")
+                            self._download(url, target)
+                        else:
+                            shutil.copyfile(source, target)
+                    if progress:
+                        progress("Building English lookup index")
+                    candidate = TextMapIndex(staging, self.urls)
+                    candidate.load()
+                    if not candidate.ready or not candidate.entry_count:
+                        raise ValueError("Downloaded TextMaps have no valid bilingual dialogue; previous index kept")
+                    digest = hashlib.sha256(b"".join((staging / f"{name}.json").read_bytes() for name in sorted(self.urls))).hexdigest()
+                    destination = self.data_dir / "snapshots" / digest
+                    if destination.exists() and not all((destination / f"{name}.json").is_file() and
+                            (destination / f"{name}.json").read_bytes() == (staging / f"{name}.json").read_bytes() for name in self.urls):
+                        destination = destination.with_name(digest + "-" + uuid.uuid4().hex[:8])
+                    if not destination.exists():
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        staging.replace(destination)
+                    marker = self.data_dir / "current.pending"
+                    marker.write_text(json.dumps({"snapshot": destination.name}), encoding="utf-8")
+                    marker.replace(self.data_dir / "current.json")
+                    with self._lock:
+                        for field in ("_records_by_normalized", "_choices", "_cinematic_choices", "_gameplay_choices",
+                                      "_blocked_labels", "_chinese_lookup", "_cache", "entry_count", "ready", "state", "message"):
+                            setattr(self, field, getattr(candidate, field))
+            except Exception:
+                with self._lock:
+                    self.state = "ready" if self.ready else "error"
+                    self.message = "Refresh failed; keeping the previous complete TextMaps" if self.ready else "TextMap setup needs attention"
+                raise
 
     @staticmethod
     def _download(url: str, destination: Path) -> None:
@@ -118,8 +166,8 @@ class TextMapIndex:
             if partial.exists():
                 partial.unlink(missing_ok=True)
 
-    def _read_map(self, name: str) -> dict[str, str]:
-        with self.file_path(name).open("r", encoding="utf-8-sig") as handle:
+    def _read_map(self, name: str, directory: Path | None = None) -> dict[str, str]:
+        with ((directory or self.active_directory()) / f"{name}.json").open("r", encoding="utf-8-sig") as handle:
             raw = json.load(handle)
         if not isinstance(raw, dict):
             raise ValueError(f"{name} is not a JSON object")
@@ -127,10 +175,11 @@ class TextMapIndex:
 
     def load(self) -> None:
         try:
-            english = self._read_map("en_base")
-            english.update(self._read_map("en_overwrite"))
-            chinese = self._read_map("zh_base")
-            chinese.update(self._read_map("zh_overwrite"))
+            directory = self.active_directory()
+            english = self._read_map("en_base", directory)
+            english.update(self._read_map("en_overwrite", directory))
+            chinese = self._read_map("zh_base", directory)
+            chinese.update(self._read_map("zh_overwrite", directory))
             index: dict[str, list[_Record]] = {}
             blocked_labels: set[str] = set()
             for text_id, english_value in english.items():

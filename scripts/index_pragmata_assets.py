@@ -131,8 +131,8 @@ def read_msg(path: Path) -> list[dict[str, object]]:
 
 
 def find_install() -> Path | None:
-    from backend.game_paths import configured_install
-    configured = configured_install("pragmata")
+    from backend.game_paths import discover_install
+    configured = discover_install("pragmata")
     if configured:
         return configured
     candidates = [

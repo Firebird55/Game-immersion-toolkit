@@ -5,10 +5,10 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query, Header, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Header, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from .voice_assets import VoiceAssetService
 from .capture import CaptureService
@@ -30,6 +30,8 @@ from .lexirise import LexiriseService, LexiriseError
 from .reading import LexiriseReadingService
 from .lexirise_settings import account_settings
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
+from .installation import InstallationService
+from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 
 
 PROJECT_ROOT = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
@@ -57,6 +59,21 @@ class WordContextQuestion(BaseModel):
 class GrammarKnownUpdate(BaseModel):
     slug: str = Field(min_length=1, max_length=160, pattern=r"^[a-zA-Z0-9_-]+$")
     known: bool = Field(strict=True)
+
+
+class SetupFolder(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    path: str | None = Field(default=None, max_length=4096)
+    use_automatic: bool = Field(default=False, strict=True)
+
+
+class SetupComplete(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    auto_start: bool = Field(strict=True)
+
+
+class SetupAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
 
 class EventHub:
@@ -92,6 +109,7 @@ class Runtime:
     def __init__(self) -> None:
         self.hub = EventHub()
         local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
+        existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
         self.lexirise = LexiriseService(DATA_DIR / "lexirise")
@@ -151,8 +169,66 @@ class Runtime:
             PROJECT_ROOT, self.pragmata, self.pragmata_voice_assets, self.on_update_thread
         )
         self.game_updaters = {game: LocalGameUpdateManager(game, self.game_indexes[game], voices,
-            self.on_update_thread) for game, voices in self.game_voice_assets.items()}
+            self.on_update_thread, project_root=PROJECT_ROOT) for game, voices in self.game_voice_assets.items()}
+        self.installation = InstallationService(PROJECT_ROOT, settings=self.settings,
+            game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
+            account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
         self.index_task: asyncio.Task[None] | None = None
+
+    def setup_install(self, game: str) -> Path | None:
+        install = discover_install(game)
+        if install:
+            return install
+        if game == "zzz":
+            data = installed_zzz_game_data_directory(self.settings.get())
+            return data.parent if data else None
+        if game == "pragmata":
+            from scripts.index_pragmata_assets import find_install
+            return find_install()
+        from .games import GAME_PROFILES
+        from .windows import executable_path_for_window
+        for window in list_visible_windows():
+            if window.process_name.casefold() not in {name.casefold() for name in GAME_PROFILES[game].process_names}:
+                continue
+            executable = executable_path_for_window(window)
+            if executable:
+                depth = 3 if game == "wuwa" else 2 if game in {"cyberpunk", "witcher3"} else 0
+                try:
+                    return validate_install(game, executable.parents[depth])
+                except (OSError, ValueError, IndexError):
+                    continue
+        return None
+
+    def setup_game_state(self, game: str) -> dict:
+        if game == "zzz":
+            index, audio, update = self.textmaps.status(), self.voice_assets.status(), self.update_manager.status()
+        elif game == "pragmata":
+            index, audio, update = self.pragmata.status(), self.pragmata_voice_assets.status(), self.pragmata_updater.status()
+        elif game == "hito":
+            index, audio, update = self.hito.status(), {}, {"state": "automatic", "progress": 100}
+        else:
+            index, audio, update = self.game_indexes[game].status(), self.game_voice_assets[game].status(), self.game_updaters[game].status()
+        return {"index_ready": bool(index.get("ready")), "index_state": index.get("state"),
+                "index_message": index.get("message", ""), "indexed_lines": index.get("entry_count", 0),
+                "audio_ready": bool(audio.get("ready")), "update_state": update.get("state", "idle"),
+                "update_message": update.get("message", "Game data checks run automatically"),
+                "progress": update.get("progress", 100), "last_checked": update.get("last_checked"),
+                "needs_attention": bool(update.get("last_error"))}
+
+    def refresh_game(self, game: str) -> bool:
+        if game not in GAMES:
+            raise ValueError("Unsupported game")
+        from .game_tools import missing_tools
+        if missing_tools(PROJECT_ROOT, game):
+            return False
+        if game == "zzz":
+            return self.update_manager.request_check()
+        if game == "pragmata":
+            return self.pragmata_updater.request_check()
+        if game == "hito":
+            self.hito.ensure_game_files(None)
+            return self.hito.refresh()
+        return self.game_updaters[game].request_check()
 
     async def start_indexes_in_order(self) -> None:
         # Refresh exact game-file mappings before checking the second game.
@@ -253,9 +329,8 @@ class Runtime:
             )
             await asyncio.to_thread(self.speakers.backfill)
         except Exception as error:
-            self.textmaps.ready = False
-            self.textmaps.state = "error"
-            self.textmaps.message = str(error)
+            self.textmaps.state = "ready" if self.textmaps.ready else "error"
+            self.textmaps.message = "Refresh failed; keeping the previous complete TextMaps" if self.textmaps.ready else str(error)
         await self.hub.broadcast({"type": "textmaps_status", "textmaps": self.textmaps.status()})
 
 
@@ -266,10 +341,11 @@ runtime: Runtime
 async def lifespan(_app: FastAPI):
     global runtime
     runtime = Runtime()
-    runtime.start_map_prepare()
+    if runtime.textmaps.file_path("zh_base").is_file():
+        runtime.start_map_prepare()
     runtime.update_manager.start()
     runtime.index_task = asyncio.create_task(runtime.start_indexes_in_order(), name="voice-index-coordinator")
-    if runtime.settings.get().auto_start:
+    if runtime.settings.get().auto_start and runtime.installation.completed:
         runtime.capture.start()
     try:
         yield
@@ -321,6 +397,98 @@ def health() -> dict[str, str]:
 @app.get("/api/status")
 def get_status() -> dict[str, object]:
     return runtime.status()
+
+
+def setup_access(request: Request, header: str | None = None, *, write: bool = False) -> None:
+    if request.url.hostname not in {"localhost", "127.0.0.1"}:
+        raise HTTPException(403, "Setup is available only on this PC")
+    origin = request.headers.get("origin")
+    if origin and origin not in {"http://localhost:3000", "http://127.0.0.1:3000",
+                                  "http://localhost:3001", "http://127.0.0.1:3001"}:
+        raise HTTPException(403, "Use the local companion to configure setup")
+    if write and header != "setup":
+        raise HTTPException(403, "Setup action header required")
+
+
+@app.get("/api/setup")
+def setup_status(request: Request) -> dict:
+    setup_access(request)
+    return runtime.installation.status()
+
+
+@app.get("/api/setup/report")
+def setup_report(request: Request) -> dict:
+    setup_access(request)
+    return runtime.installation.report()
+
+
+@app.post("/api/setup/games/{game}")
+def setup_folder(game: str, payload: SetupFolder, request: Request,
+                 x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in GAMES:
+        raise HTTPException(404, "Unsupported game")
+    if runtime.installation.status()["native"].get("folders"):
+        raise HTTPException(409, "Finish the Windows folder picker first")
+    try:
+        if payload.use_automatic and payload.path is None:
+            clear_install(game)
+        elif not payload.use_automatic and payload.path and payload.path.strip():
+            value = payload.path.strip()
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            save_install(game, Path(value))
+        else:
+            raise ValueError("Choose a folder or explicitly use automatic detection")
+    except (ValueError, OSError):
+        raise HTTPException(400, "Required game files were not found. Choose the installation folder shown in Setup; the previous folder was kept.") from None
+    runtime.refresh_game(game)
+    return runtime.installation.status()
+
+
+@app.post("/api/setup/games/{game}/tools")
+def setup_tools(game: str, payload: SetupAction, request: Request,
+                x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    try:
+        started = runtime.installation.prepare(game)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+    return {"started": started}
+
+
+@app.post("/api/setup/games/{game}/refresh")
+def setup_refresh(game: str, payload: SetupAction, request: Request,
+                  x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in GAMES:
+        raise HTTPException(404, "Unsupported game")
+    if not runtime.setup_install(game):
+        raise HTTPException(400, "Choose an installed game folder first")
+    from .game_tools import missing_tools
+    if missing_tools(PROJECT_ROOT, game):
+        raise HTTPException(409, "Install this game's tools before refreshing")
+    return {"started": runtime.refresh_game(game)}
+
+
+@app.post("/api/setup/native/{kind}")
+def setup_native(kind: str, payload: SetupAction, request: Request,
+                 x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    try:
+        return {"started": runtime.installation.launch_native(kind)}
+    except (ValueError, OSError):
+        raise HTTPException(400, "The setup dialog could not open. Re-run Install.cmd on Windows and retry.") from None
+
+
+@app.post("/api/setup/complete")
+def setup_complete(payload: SetupComplete, request: Request,
+                   x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    runtime.installation.complete(payload.auto_start)
+    if payload.auto_start:
+        runtime.capture.start()
+    return {"completed": True}
 
 
 @app.get("/api/settings", response_model=AppSettings)
