@@ -70,3 +70,39 @@ def test_new_game_default_crops_agree_with_profiles_and_stay_in_client_bounds(ga
     window = WindowInfo(1, "Synthetic game", "game.exe", (-width, 120, width, height))
     x, y, w, h = CaptureService._region_bounds(window, region)
     assert -width <= x < x + w <= 0 and 120 <= y < y + h <= 120 + height
+
+
+@pytest.mark.parametrize('size', [(800, 600), (1280, 800), (1920, 1200), (1920, 1080), (3440, 1440), (5120, 1440)])
+def test_explicit_picture_area_preserves_aspect_ratio_and_physical_origin(size):
+    width, height = size
+    original = WindowInfo(1, 'Synthetic game', 'game.exe', (-width, 120, width, height))
+    picture = CaptureService._picture_window(original, '16:9')
+    x, y, w, h = picture.bounds
+    assert abs(w/h-16/9) < .003
+    assert -width <= x < x+w <= 0 and 120 <= y < y+h <= 120+height
+    assert abs((x+width)*2+w-width) <= 1
+    assert abs((y-120)*2+h-height) <= 1
+    assert original.bounds == (-width, 120, width, height)
+    assert CaptureService._picture_window(original, 'window') is original
+
+
+def test_preview_uses_same_picture_coordinates_and_can_preview_unsaved_choice(tmp_path, monkeypatch):
+    from backend.models import AppSettings
+    from backend.games import GAME_PROFILES
+    from backend.tests.test_subtitle_capture import fixture_service
+    import backend.capture as module
+    service, _, _, _ = fixture_service(tmp_path)
+    service.settings.save(AppSettings(honkai3_picture_area='window'))
+    window = WindowInfo(1, 'Synthetic game', 'BH3.exe', (-800, 120, 800, 600))
+    monkeypatch.setattr(module, 'find_active_game_window', lambda _: (GAME_PROFILES['honkai3'], window))
+    seen = []
+    service._capture = lambda bounds: seen.append(bounds) or Image.new('RGB', bounds[2:], 'white')
+    try:
+        region = service.settings.get().honkai3_region
+        assert service.preview_for_region(region, '16:9')
+        assert seen[-1] == CaptureService._region_bounds(CaptureService._picture_window(window, '16:9'), region)
+        assert service.settings.get().honkai3_picture_area == 'window'
+        assert service.preview_for_region(region)
+        assert seen[-1] == CaptureService._region_bounds(window, region)
+    finally:
+        service._executor.shutdown()

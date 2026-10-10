@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import subprocess
@@ -122,6 +123,7 @@ def replay(clip, resolution, data_dir, fps=2):
         window = WindowInfo(0, clip['game'], '', (0, 0, *resolution))
         frame_count = 0
         emitted = []
+        origin = datetime.now(timezone.utc)
         try:
             for n, path in enumerate(sorted(folder.glob('frame-*.png'))):
                 with Image.open(path) as original:
@@ -130,7 +132,8 @@ def replay(clip, resolution, data_dir, fps=2):
                 service._capture = lambda bounds: screen.crop((bounds[0], bounds[1], bounds[0]+bounds[2], bounds[1]+bounds[3]))
                 # Replay time rather than CPU speed controls freshness/cooldown.
                 with patch('backend.capture.time.monotonic', return_value=n / fps), \
-                     patch('backend.capture.find_active_game_window', return_value=(GAME_PROFILES[game], window)):
+                     patch('backend.capture.find_active_game_window', return_value=(GAME_PROFILES[game], window)), \
+                     patch('backend.capture.datetime', SimpleNamespace(now=lambda *_: origin + timedelta(seconds=n / fps))):
                     outcome = service._scan_once()
                 emitted.extend(outcome.emitted_lines)
                 frame_count += 1

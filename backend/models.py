@@ -58,7 +58,11 @@ class AppSettings(BaseModel):
     witcher3_tip_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=0, width=.76, height=.74))
     witcher3_capture_chatter: bool = True
     nte_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
-    honkai3_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=.68, width=.84, height=.30))
+    nte_picture_area: Literal["window", "16:9"] = "window"
+    # Legacy visual-novel dialogue extends to the right client edge; cropping
+    # at 92% cuts its final words. Start below the highlighted speaker strip.
+    honkai3_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.04, top=.72, width=.96, height=.24))
+    honkai3_picture_area: Literal["window", "16:9"] = "window"
     scan_interval_ms: int = Field(default=250, ge=100, le=5000)
     stable_frames: int = Field(default=2, ge=1, le=8)
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)

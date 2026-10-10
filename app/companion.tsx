@@ -64,7 +64,9 @@ type Settings = {
   wuwa_capture_cinematic: boolean;
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   nte_region: CaptureRegion;
+  nte_picture_area: 'window' | '16:9';
   honkai3_region: CaptureRegion;
+  honkai3_picture_area: 'window' | '16:9';
   witcher3_region: CaptureRegion;
   witcher3_tip_region: CaptureRegion;
   witcher3_capture_chatter: boolean;
@@ -749,6 +751,7 @@ function CompanionClient() {
         top: String(activeRegion?.top),
         width: String(activeRegion?.width),
         height: String(activeRegion?.height),
+        ...(selectedGame === 'nte' || selectedGame === 'honkai3' ? { picture_area: draftSettings[`${selectedGame}_picture_area`] ?? 'window' } : {}),
         t: String(previewTick),
       }).toString()
     : `t=${previewTick}`;
@@ -1044,6 +1047,23 @@ function CompanionClient() {
               <Volume2 size={16} /> {selectedGame === 'wuwa' ? 'Centered story cards' : 'Cutscenes & comics'}
             </button>}
           </div>
+
+          {(selectedGame === 'nte' || selectedGame === 'honkai3') && draftSettings && <label>Game picture area
+            <select aria-label="Game picture area" value={draftSettings[`${selectedGame}_picture_area`] ?? 'window'}
+              onChange={event => setDraftSettings(current => current ? { ...current, [`${selectedGame}_picture_area`]: event.target.value } : current)}>
+              <option value="window">Full game window</option>
+              <option value="16:9">Centered 16:9 picture inside black bars</option>
+            </select>
+          </label>}
+          {(selectedGame === 'nte' || selectedGame === 'honkai3') && <p className="setup-note">
+            Choose the picture inside black bars only when your game is letterboxed. Check the live crop after changing resolution or subtitle size.
+            {selectedGame === 'honkai3' ? ' Original voices remain limited to verified older catalog content.' : ' Movie captions without a verified per-line original voice are skipped.'}
+          </p>}
+          {(selectedGame === 'nte' || selectedGame === 'honkai3') && draftSettings && <button type="button" className="secondary-button"
+            onClick={() => setDraftSettings(current => current ? { ...current, [`${selectedGame}_region`]: selectedGame === 'honkai3'
+              ? { left: .04, top: .72, width: .96, height: .24 } : { left: .10, top: .70, width: .80, height: .28 } } : current)}>
+            Use tested dialogue crop
+          </button>}
 
           <div className="capture-preview">
             {capture?.active_game === selectedGame && capture?.window_bounds ? (

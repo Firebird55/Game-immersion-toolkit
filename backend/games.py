@@ -20,7 +20,7 @@ GAME_PROFILES = {
         subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
     "honkai3": GameProfile(id="honkai3", name="Honkai Impact 3rd", process_names=("BH3.exe",),
         title_needles=("Honkai Impact", "崩坏3"),
-        subtitle_region=CaptureRegion(left=.08, top=.68, width=.84, height=.30)),
+        subtitle_region=CaptureRegion(left=.04, top=.72, width=.96, height=.24)),
     "witcher3": GameProfile(id="witcher3", name="The Witcher 3", process_names=("witcher3.exe",),
         title_needles=("The Witcher 3",),
         subtitle_region=CaptureRegion(left=.08, top=.63, width=.84, height=.34)),

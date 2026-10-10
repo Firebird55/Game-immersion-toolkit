@@ -4,6 +4,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query, Header, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -800,6 +801,7 @@ async def capture_preview(
     top: float | None = Query(default=None, ge=0, le=1),
     width: float | None = Query(default=None, gt=0, le=1),
     height: float | None = Query(default=None, gt=0, le=1),
+    picture_area: Literal["window", "16:9"] | None = Query(default=None),
 ) -> Response:
     values = (left, top, width, height)
     if all(value is not None for value in values):
@@ -807,7 +809,7 @@ async def capture_preview(
             region = CaptureRegion(left=left, top=top, width=width, height=height)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        preview = await asyncio.to_thread(runtime.capture.preview_for_region, region)
+        preview = await asyncio.to_thread(runtime.capture.preview_for_region, region, picture_area)
     else:
         preview = runtime.capture.preview_bytes()
     if not preview:

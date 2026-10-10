@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';import {spawn,execFileSync} from 'node:c
 // Exercise the actual built Windows distribution, not the dev dependency optimizer.
 const port=4321,server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
 let browser;
-const region={left:.1,top:.6,width:.8,height:.25},settings={nte_region:{left:.10,top:.70,width:.80,height:.28},honkai3_region:{left:.08,top:.68,width:.84,height:.30},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
+const region={left:.1,top:.6,width:.8,height:.25},settings={nte_region:{left:.10,top:.70,width:.80,height:.28},nte_picture_area:'window',honkai3_picture_area:'window',honkai3_region:{left:.04,top:.72,width:.96,height:.24},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
 const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue fixture',text_id:'cyberpunk-fixture',has_audio:true,audio_source:'original'};
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
@@ -36,7 +36,7 @@ try{
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
  await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
  settings.cyberpunk_tip_region.left=.10; settings.wuwa_cinematic_region.left=.12;
- settings.nte_region.left=.10; settings.honkai3_region.left=.08;
+ settings.nte_region.left=.10; settings.honkai3_region.left=.04;settings.nte_picture_area='window';settings.honkai3_picture_area='window';
  settings.cyberpunk_v_voice='unconfigured';
  settings.wuwa_rover_voice='unconfigured';
  await page.addInitScript(()=>localStorage.setItem('proxy-transcript-reading-mode','lexirise'));
@@ -120,7 +120,7 @@ try{
   assert.deepEqual(last.cyberpunk_region,saved.body.cyberpunk_region,'Game calibration is independent');assert.equal(last.cyberpunk_v_voice,'male');
   assert.deepEqual(last.region,region,'New games preserve ZZZ calibration');assert.equal(writes.length,0,'New games never change account settings');
  }
- for(const[game,label,left]of [['nte','Neverness to Everness','10'],['honkai3','Honkai Impact 3rd','8']]){
+ for(const[game,label,left]of [['nte','Neverness to Everness','10'],['honkai3','Honkai Impact 3rd','4']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' original voice is playable');
   assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'zh',label+' study language remains Chinese');
@@ -129,12 +129,16 @@ try{
   assert.equal(await capture.getByRole('button',{name:'NPC chatter',exact:true}).count(),0);
   assert.equal(await capture.getByRole('button',{name:'Top-right tips',exact:true}).count(),0);
   assert.equal(await capture.locator('input[type=range]').first().inputValue(),left,'Independent default crop');
+  await capture.getByRole('button',{name:'Use tested dialogue crop',exact:true}).click();
+  assert.equal(await capture.locator('input[type=range]').first().inputValue(),left);
+  await capture.getByLabel('Game picture area',{exact:true}).selectOption('16:9');
   await capture.locator('input[type=range]').first().fill('11');
   await capture.getByRole('button',{name:'Update TextMaps',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.setup-actions button')?.textContent.includes('Update TextMaps'));
   assert(localWrites.some(w=>w.path===`/api/games/${game}/update`),'Correct game updater');
   await capture.getByRole('button',{name:'Save capture settings',exact:true}).click();await capture.waitFor({state:'hidden'});
   const savedGame=localWrites.filter(w=>w.path==='/api/settings').at(-1).body;
+  assert.equal(savedGame[`${game}_picture_area`],'16:9','Picture area persists independently');
   assert.equal(savedGame[`${game}_region`].left,.11,'New crop persists');assert.deepEqual(savedGame.region,region,'ZZZ crop stays independent');
   assert.equal(writes.length,0,'New games cause no account writes');
   if(name==='chromium'&&pw===320)await page.screenshot({path:`output/playwright/${game}-mobile.png`});

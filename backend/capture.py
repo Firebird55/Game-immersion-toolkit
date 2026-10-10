@@ -7,7 +7,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Awaitable, Callable
 from pathlib import Path
@@ -143,12 +143,32 @@ class CaptureService:
         with self._preview_lock:
             return self._preview
 
-    def preview_for_region(self, region: CaptureRegion) -> bytes:
-        active = find_active_game_window(self.settings.get())
+    def preview_for_region(self, region: CaptureRegion, picture_area: str | None = None) -> bytes:
+        settings = self.settings.get()
+        active = find_active_game_window(settings)
         if active is None:
             return b""
-        image = self._capture(self._region_bounds(active[1], region))
+        profile, window = active
+        if profile.id in {"nte", "honkai3"}:
+            window = self._picture_window(window, picture_area or getattr(settings, f"{profile.id}_picture_area"))
+        image = self._capture(self._region_bounds(window, region))
         return self._encode_preview(image)
+
+    @staticmethod
+    def _picture_window(window: WindowInfo, area: str) -> WindowInfo:
+        """Explicitly calibrate the centered picture inside black bars.
+
+        Never infer letterboxing from a dark game scene. Coordinates remain
+        physical client pixels, including negative origins on other displays.
+        """
+        if area != "16:9":
+            return window
+        x, y, width, height = window.bounds
+        picture_width = min(width, round(height * 16 / 9))
+        picture_height = min(height, round(width * 9 / 16))
+        return replace(window, bounds=(x + (width-picture_width)//2,
+                                      y + (height-picture_height)//2,
+                                      picture_width, picture_height))
 
     def start(self) -> bool:
         if self._task and not self._task.done():
@@ -264,6 +284,8 @@ class CaptureService:
             self._engine = engine
 
         if profile.id in self.game_indexes:
+            if profile.id in {"nte", "honkai3"}:
+                window = self._picture_window(window, getattr(settings, f"{profile.id}_picture_area"))
             region = getattr(settings, f"{profile.id}_region")
             index = self.game_indexes[profile.id]
             index.player_voice = settings.cyberpunk_v_voice if profile.id == "cyberpunk" else getattr(settings, f"{profile.id}_rover_voice", "unconfigured")
@@ -715,7 +737,7 @@ class CaptureService:
             text = str(row.get("text", ""))
             short_label = (len(re.findall(r"[a-zA-Z]+", text)) == 1 and len(normalize_subtitle(text)) < 12)
             short_label |= bool(re.search(r"[\u3400-\u9fff]", text) and len(normalize_subtitle(text)) < 4)
-            caption_band = (.80, .87) if game == "witcher3" else (.85, .96) if game == "cyberpunk" else (.79, .96)
+            caption_band = (.80, .87) if game == "witcher3" else (.85, .96) if game == "cyberpunk" else (.72, .96) if game == "honkai3" else (.79, .96)
             # Moving harvest names can match a unique voiced word exactly. Keep
             # single short words only in the observed centered caption band.
             if (short_label or known_ui_label) and not caption_band[0] <= top <= caption_band[1]:
