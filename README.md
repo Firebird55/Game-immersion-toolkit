@@ -2,7 +2,7 @@
 
 Local Windows OCR, verified bilingual transcripts and original game audio for Hito's World, Zenless Zone Zero, PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3. Shared Lexirise settings/readings/lookups support 31 study languages; Migaku remains a separate reading mode. Existing game transcripts remain Chinese.
 
-Download a private release ZIP and double-click **Install.cmd**. The optional game-folder popup locates your own installed files, saves locations per PC and preserves automatic discovery. Game assets are never bundled or uploaded. See [installation guide](INSTALL.md), [mobile-friendly installer page](INSTALL.html), [contributing](CONTRIBUTING.md), [agent rules](AGENTS.md) and [release/rollback](RELEASE.md).
+Download a public release ZIP and double-click **Install.cmd**. The optional game-folder popup locates your own installed files, saves locations per PC and preserves automatic discovery. Game assets are never bundled or uploaded. See [installation guide](INSTALL.md), [mobile-friendly installer page](INSTALL.html), [contributing](CONTRIBUTING.md), [agent rules](AGENTS.md) and [release/rollback](RELEASE.md).
 
 The UI adapts to narrow/short windows and high browser/Windows zoom. Hito automatically follows dialogue boxes; capture regions are normalized against physical game-window pixels and local calibration remains per PC.
 
@@ -126,8 +126,8 @@ Nothing is sent automatically. The backend
 uploads the available voice clip and creates a Chinese sentence with its English
 translation, then adds it to the correct existing deck:
 
-- PRAGMATA → deck 1951.
-- Zenless Zone Zero, including agent voices → deck 1950.
+- Choose a destination for PRAGMATA in Lexirise account settings.
+- Choose a destination for Zenless Zone Zero, including agent voices, in Lexirise account settings.
 
 The deck is chosen from the saved line's game, not the tab currently open.
 Agent Hanzi remains automatic transcription; no English translation is invented.
@@ -200,3 +200,7 @@ npm run dev
 # tests
 .\.venv\Scripts\python.exe -m pytest -q
 ```
+
+## Community and license
+
+Created by [Firebird55](https://github.com/Firebird55/Emulingo-Lexirise-userscript). Contributions are welcome through issues and pull requests; read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Original code uses the custom visible-attribution [license](LICENSE); external software and game content retain their own terms. See [notices](THIRD_PARTY_NOTICES.md) and [security guidance](SECURITY.md).

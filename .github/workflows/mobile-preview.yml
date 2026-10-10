@@ -49,7 +49,7 @@ jobs:
         run: |
           printf '### Tested mobile preview\n\nCommit: `%s`\n\nSix browser-only files packaged. HTTPS deployment runs when repository variable MOBILE_PREVIEW_ENABLED is true and GitHub Pages is configured.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
   publish:
-    if: vars.MOBILE_PREVIEW_ENABLED == 'true'
+    if: github.repository == 'Firebird55/Game-immersion-toolkit' && vars.MOBILE_PREVIEW_ENABLED == 'true'
     needs: preview
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/FireRedTeam/FireRedVAD",
+  "revision": "c30ec49e8cc69642b0ee65362eba11b9d11c6e54",
+  "license": "Apache-2.0",
+  "files": [
+    {
+      "file": "fireredvad_vad.onnx",
+      "sha256": "a226e68e695548754a9ab5480a55bbcb8522aa69111cb97e4f093ddce63ad5dc",
+      "source": "https://raw.githubusercontent.com/FireRedTeam/FireRedVAD/c30ec49e8cc69642b0ee65362eba11b9d11c6e54/pretrained_models/onnx_models/fireredvad_vad.onnx"
+    },
+    {
+      "file": "cmvn.ark",
+      "sha256": "c87f6f13edf0f0ec7535ddfc9cc3387d9268cb234b70182d566c5e2edf3ca473",
+      "source": "https://raw.githubusercontent.com/FireRedTeam/FireRedVAD/c30ec49e8cc69642b0ee65362eba11b9d11c6e54/pretrained_models/onnx_models/cmvn.ark"
+    }
+  ]
+}

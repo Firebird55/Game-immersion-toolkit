@@ -103,7 +103,7 @@ class FireRedVad:
 
     @staticmethod
     def _postprocess(probabilities: np.ndarray, duration: float) -> list[tuple[float, float]]:
-        # These are GameSentenceMiner's FireRedVAD defaults.
+        # Five-frame smoothing and frame-based speech/silence thresholds.
         smoothed = np.convolve(probabilities, np.ones(5) / 5, mode="full")[: len(probabilities)]
         for index in range(min(4, len(probabilities))):
             smoothed[index] = probabilities[: index + 1].mean()

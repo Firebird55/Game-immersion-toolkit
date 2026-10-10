@@ -4,7 +4,7 @@ Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wu
 
 ## Installation
 
-1. Download the latest private release ZIP and SHA256SUMS while signed in to GitHub. Verify the checksum before extracting to a writable folder.
+1. Download the latest public release ZIP and SHA256SUMS from GitHub. Verify the checksum before extracting to a writable folder.
 
 2. Install Python 3.12 with its Windows launcher, Node.js 24 (npm 10+) and Windows Snipping Tool. Double-click Install.cmd. No administrator access is required for the app itself.
 
@@ -22,4 +22,4 @@ Read [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [RELEASE.md]
 
 ## Checksums and rollback
 
-Download SHA256SUMS beside the release assets; compare SHA-256 hashes before running an installer. Use gh release download <tag> --repo Firebird55/Game-immersion-toolkit --dir <empty-folder> for authenticated downloads. Install an earlier immutable release to roll back, keeping local data, keys and userscript-manager storage. See [release runbook](RELEASE.md).
+Download SHA256SUMS beside the release assets; compare SHA-256 hashes before running an installer. Use gh release download <tag> --repo Firebird55/Game-immersion-toolkit --dir <empty-folder> for public downloads. Install an earlier immutable release to roll back, keeping local data, keys and userscript-manager storage. See [release runbook](RELEASE.md).

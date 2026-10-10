@@ -32,7 +32,7 @@ Live read-only `POST /v1/dictionary/lookup` probes for `总是`, `单词`, `词�
 
 `单词` returned three examples, `词语` one, and `朋友` three. A live saved-line lookup for `是` showed two CC-CEDICT entries and its HSK/frequency information. Examples, Context, and Similar were opened in the running website and displayed API results. In the saved line `他们不过是找个理由…`, the Similar suggestions reflected the meaning of the **phrase** `不过是`; they should be treated as related expressions, not direct substitutions for `是`.
 
-The live `出来` character request returned Pinyin, English glosses, and components for both characters. The actual Chrome window on the Duet iPad displayed the Lexirise reader and history without horizontal overflow. With wired Realtek headphones selected, the running app received loopback samples at nonzero levels from a Windows test sound. During live ZZZ dialogue it matched Zhu Yuan's English subtitle to the official Chinese at 100%, saved line 1712 with an original audio clip, and served a decodable 8.33-second non-silent MP3. Sending that line to Lexirise returned deck 1950 success; retrying returned `already_sent: true`.
+Browser tests use synthetic Chinese fixtures. Export tests use mocked destinations and audio; live account verification is read-only.
 
 ## Captured voice and example voice
 

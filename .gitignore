@@ -72,3 +72,15 @@ __pycache__/
 /copy.log
 *.lnk
 /gamesenteneminer.zip
+
+# Private runtime and review material
+/data/
+/output/
+/work/
+/diagnostics/
+.env*
+*.dpapi
+*.db
+*.sqlite*
+*.key
+*.pem

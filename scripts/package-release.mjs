@@ -23,7 +23,7 @@ if(pkg.name==='@firebird55/lexirise-components'){
  execFileSync('powershell',['-NoProfile','-Command',"$ErrorActionPreference='Stop'; Compress-Archive -LiteralPath '"+folder+"' -DestinationPath 'release/Game-immersion-toolkit-"+version+".zip'"],{stdio:'inherit'});
  execFileSync(process.execPath,['-e',"require('fs').unlinkSync('release/source.tar')"]);
 }
-for(const file of ['INSTALL.md','INSTALL.html','AGENTS.md','CONTRIBUTING.md'])copyFileSync(file,'release/'+file);
+for(const file of ['INSTALL.md','INSTALL.html','AGENTS.md','CONTRIBUTING.md','LICENSE','NOTICE.md','THIRD_PARTY_NOTICES.md','SECURITY.md'])copyFileSync(file,'release/'+file);
 const assets=readdirSync('release').filter(f=>statSync('release/'+f).isFile()&&f!=='SHA256SUMS');
 writeFileSync('release/SHA256SUMS',assets.map(f=>createHash('sha256').update(readFileSync('release/'+f)).digest('hex')+'  '+f).join('\n')+'\n');
 console.log('Release assets and SHA-256 checksums prepared for '+version+' @ '+sha);
