@@ -1,6 +1,6 @@
 # Lexirise reading mode
 
-Status: implemented locally, 28 September 2026. The website offers **Migaku** and **Lexirise** reading modes. Lexirise provides the built-in press-to-lookup experience; Yomitan is not required. The Translation tab from the reference images is intentionally omitted.
+Reading settings are shared with Emulingo. The website offers **Migaku** and **Lexirise** reading modes. Lexirise provides the built-in press-to-lookup experience; Yomitan is not required. The Translation tab from the reference images is intentionally omitted.
 
 ## Reading the transcript
 
@@ -49,3 +49,9 @@ The backend accepts a transcript line ID and token start offset, then validates 
 - Test a real press, text wrap, popup scroll, and speech voice on the connected iPad through Duet, and on the home secondary screen. Browser layout checks do not prove Duet touch or audio behavior.
 - Ask Lexirise whether user-installed dictionaries and recorded example/word audio are available through its public API. Only the response fields above have been observed.
 - If a dedicated synonyms endpoint is added, replace the context-question Similar view. Its current generated notes can be slow and sometimes describe the surrounding phrase.
+
+## Shared reading preferences
+
+The Reading options dialog uses the same controls and CSS as Emulingo. Settings apply immediately on this device; account preferences and export destinations have a separate Account settings button. Tone colors use descriptive labels without implying a Migaku preset. Existing saved palettes remain intact.
+
+![Shared reading options with synthetic fixtures](lexirise-reading-options.png)

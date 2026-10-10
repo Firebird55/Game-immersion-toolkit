@@ -29,7 +29,7 @@ function response(path,query,method,body){
 try{
  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Toolkit preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes('localhost:'+port)||String(b).includes('127.0.0.1:'+port)){clearTimeout(timer);resolve();}});server.stderr.on('data',b=>process.stderr.write(b));server.once('error',reject);});
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){browser=await engine.launch({headless:true});
- const sizes=process.argv.includes('--game-support')?[[320,568,1],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]:[[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]];
+ const sizes=process.argv.includes('--reading-settings')?[[1920,1080,1],[390,844,1],[320,568,1],[768,1024,1.25]]:process.argv.includes('--game-support')?[[320,568,1],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]:[[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]];
  for(const[pw,ph,zoom]of sizes){
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
  settings.cyberpunk_tip_region.left=.10; settings.wuwa_cinematic_region.left=.12;
@@ -48,11 +48,20 @@ try{
  assert(b.height<=heightCap+1,name+' toolkit shares compact lookup height');
  assert.equal(await page.locator('.word-sheet-body').evaluate(n=>getComputedStyle(n).fontSize),'13px','Toolkit shares compact lookup typography');
  assert.equal(await page.locator('.word-sheet').evaluate(n=>n.getRootNode()===document),true,'Toolkit portal stays in document');
- await page.keyboard.press('Escape');await page.getByRole('button',{name:'Lexirise reading options',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Lexirise reading options'});await dialog.waitFor();await page.getByLabel('Edit account language').waitFor();
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'Lexirise reading options',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Lexirise reading options'});await dialog.waitFor();await page.getByLabel('Text size',{exact:true}).waitFor();
+ assert.equal(await dialog.getByText('5 · neutral',{exact:true}).count(),1);assert.equal(await dialog.getByText('Migaku tone palette').count(),0);
+ await page.getByLabel('Pronunciation readings',{exact:true}).selectOption('all');
+ await page.getByLabel('Tone 1 color',{exact:true}).fill('#123456');
+ assert.equal(await page.getByLabel('Tone 1 color',{exact:true}).inputValue(),'#123456');
+ await page.getByRole('button',{name:'Reset colors',exact:true}).click();assert.equal(await page.getByLabel('Tone 1 color',{exact:true}).inputValue(),'#ff526b');
+ assert.equal(writes.length,0,'Reading edits never write account settings');
+ if(name==='chromium'&&width===1920&&zoom===1)await dialog.screenshot({path:'output/playwright/shared-reading-options.png'});
  b=await dialog.boundingBox();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit settings fits '+JSON.stringify(b));
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
  await page.getByLabel('Edit account language').selectOption('ja');assert.equal(await page.locator('.reading-text').first().getAttribute('lang'),'zh','Editing Japanese account settings never reinterprets Chinese transcript');
  assert.equal(writes.length,0);await page.keyboard.press('Escape');
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' toolkit layout has no horizontal overflow at '+width);
+ if(process.argv.includes('--reading-settings')){console.log(name+': reading settings '+width+'x'+height+' passed');await context.close();continue;}
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();const capture=page.getByRole('dialog',{name:'Capture setup'});await capture.waitFor();b=await capture.boundingBox();assert(b&&b.x>=0&&b.x+b.width<=width+1,'Capture setup fits');
  await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
  const games=page.getByRole('navigation',{name:'Game transcript'});

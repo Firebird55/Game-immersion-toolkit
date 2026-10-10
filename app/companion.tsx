@@ -1,7 +1,8 @@
 'use client';
 
-import { SettingsPanel, restoreLocalSettings, type LocalSettings } from '@firebird55/lexirise-components';
+import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
+import { GameDeckSettings } from './game-deck-settings';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -24,8 +25,8 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ReadingText, DEFAULT_READING_OPTIONS, MIGAKU_TONE_PALETTE,
-  restoreReadingOptions, type ReadingOptions, type ReadingScope } from '@/app/reading-text';
+import { ReadingText, DEFAULT_READING_OPTIONS,
+  restoreReadingOptions, type ReadingOptions } from '@/app/reading-text';
 import { shouldHideTranslation, restoreTranslationLimit, type ReadingSummary, type TranslationLimit } from '@/app/translation-visibility';
 import {
   Dialog,
@@ -145,18 +146,8 @@ const GAME_NAMES: Record<GameId, string> = {
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
   return Date.parse(right.created_at) - Date.parse(left.created_at) || right.id - left.id;
 }
-type LexiriseStatus = { configured: boolean; sent: Record<string, number> };
+type LexiriseStatus = { configured: boolean; sent: Record<string, number>; decks?:Record<string,{id:number;title:string}> };
 type ReadingMode = 'migaku' | 'lexirise';
-type ReadingScopeField = 'pinyin' | 'zhuyin' | 'toneMarks' | 'meanings' | 'toneColors';
-const READING_FIELDS: { key: ReadingScopeField; label: string; hint: string }[] = [
-  { key: 'pinyin', label: 'Pinyin', hint: 'Tone marked spelling from Lexirise' },
-  { key: 'zhuyin', label: 'Zhuyin', hint: 'Bopomofo reading with Lexirise tones' },
-  { key: 'toneMarks', label: 'Tone marks', hint: 'A separate tone cue above each word' },
-  { key: 'meanings', label: 'Inline translation', hint: 'English meaning below a word' },
-  { key: 'toneColors', label: 'Tone colors', hint: 'Color each Hanzi by its syllable tone' },
-];
-const TONE_NAMES = ['1 · level', '2 · rising', '3 · dipping', '4 · falling', '5 · neutral'];
-
 const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
 }) {
@@ -406,6 +397,7 @@ function CompanionClient() {
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
+  const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
   const sendingStudy = useRef(false);
@@ -788,6 +780,7 @@ function CompanionClient() {
         }}><option value="migaku">Migaku</option><option value="lexirise" disabled={!lexirise.configured}>Lexirise</option></select></label>
         {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setReaderSettingsOpen(true)}
           aria-label="Lexirise reading options"><Settings2 size={15} /> Reading options</button>}
+        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setAccountSettingsOpen(true)}>Account settings</button>}
         </div>
       </nav>
 
@@ -973,7 +966,8 @@ function CompanionClient() {
         </div>
       </footer>
 
-      {readerSettingsOpen && <SettingsPanel initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage="zh" />}
+      {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage="zh" />}
+      {accountSettingsOpen && <SettingsPanel title="Lexirise account settings" showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage="zh" connection={selectedGame !== 'hito' ? <GameDeckSettings game={selectedGame} title={GAME_NAMES[selectedGame]} current={lexirise.decks?.[selectedGame]} onConfigured={() => void loadSnapshot()} /> : undefined} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">
