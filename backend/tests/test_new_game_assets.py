@@ -194,3 +194,33 @@ def test_missing_sdk_is_reported_without_downloading_any_nte_tool(tmp_path, monk
     monkeypatch.setattr(nte, "install_archive", lambda *_: pytest.fail("Do not download tools without the SDK"))
     with pytest.raises(ValueError, match=".NET 10 SDK"):
         nte.ensure_extractor(tmp_path)
+
+
+def test_honkai_authored_pages_identify_whole_bilingual_utterance_and_one_original_voice(tmp_path):
+    data = catalog()
+    data['TextMap_en.json'].append({'Hash': 2, 'Text': 'A second synthetic page.'})
+    data['TextMap_cn.json'].append({'Hash': 2, 'Text': '第二段测试文本。'})
+    data['DialogData.json'][0]['content'].append({'chatContent': {'hash': 2}})
+    records = honkai.catalog_links(data)
+    assert len(records) == 1
+    row = records[0]
+    assert row.pop('event') == 'VO_Synthetic_1'
+    row['audio'] = {'file': 'one-complete-authored-performance'}
+    (tmp_path / 'textmap.json').write_text(json.dumps({'records': records}), encoding='utf8')
+    index = LocalGameTextIndex('honkai3', tmp_path)
+    for page in row['ocr_english'] + row['ocr_chinese']:
+        match = index.match_lines([page], exact_only=True)
+        assert match.text_id == row['text_id']
+        assert match.english == 'A synthetic greeting. A second synthetic page.'
+        assert match.chinese == '测试问候。 第二段测试文本。'
+    assert index.match_lines(['An invented second page.'], exact_only=True) is None
+
+
+def test_authored_page_shared_by_different_performances_is_ambiguous(tmp_path):
+    rows = [{'text_id': f'honkai3:{n}', 'english': f'Whole performance {n}.', 'chinese': f'完整文本{n}。',
+             'ocr_english': ['A shared synthetic page.'], 'ocr_chinese': ['共同测试片段。'],
+             'audio': {'file': f'original-{n}'}} for n in [1, 2]]
+    (tmp_path / 'textmap.json').write_text(json.dumps({'records': rows}), encoding='utf8')
+    index = LocalGameTextIndex('honkai3', tmp_path)
+    assert index.match_lines(['A shared synthetic page.'], exact_only=True) is None
+    assert index.match_lines(['共同测试片段。'], exact_only=True) is None

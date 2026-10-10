@@ -42,7 +42,7 @@ def packages(install: Path) -> list[Path]:
 def fingerprint(install: Path) -> str:
     values = [f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}" for p in packages(install)]
     # Bump the index when a reviewed catalog or parser revision changes too.
-    return hashlib.sha256((CATALOG_REVISION + ":reader1|" + "|".join(values)).encode()).hexdigest()
+    return hashlib.sha256((CATALOG_REVISION + ":reader2|" + "|".join(values)).encode()).hexdigest()
 
 
 def package_tables(path: Path) -> tuple[dict[int, str], dict[tuple[int, int], PackageEntry], dict[tuple[int, int], PackageEntry]]:
@@ -176,11 +176,16 @@ def catalog_links(catalog: dict) -> list[dict]:
     for table in ("DialogData.json", "StageDialogData.json", "InLevelDialog.json"):
         for row in catalog[table]:
             speaker = None
+            pages = None
             if table == "DialogData.json":
                 content = row["content"]
-                if len(content) != 1:
-                    continue  # A single voice cannot be assigned to individual pages.
+                hashes = [page['chatContent']['hash'] for page in content]
+                if not hashes or len(set(hashes)) != len(hashes):
+                    continue
                 text_hash, event, identifier = content[0]["chatContent"]["hash"], row["audioID"], row["dialogID"]
+                pages = [(english.get(key, ''), chinese.get(key, '')) for key in hashes]
+                if any(not en or not contains_han(zh) for en, zh in pages):
+                    continue
             elif table == "StageDialogData.json":
                 text_hash, event, identifier = row["Content"]["hash"], row["AudioID"], row["DialogID"]
                 speaker = row.get("Name", {}).get("hash")
@@ -188,11 +193,15 @@ def catalog_links(catalog: dict) -> list[dict]:
                 text_hash, event, identifier = row["content"]["hash"], row["audioID"], row["dialogID"]
                 speaker = row.get("avatarName", {}).get("hash")
             en, zh = english.get(text_hash, ""), chinese.get(text_hash, "")
+            if pages:
+                en, zh = ' '.join(p[0] for p in pages), ' '.join(p[1] for p in pages)
             if not en or not contains_han(zh) or not re.fullmatch(r"VO_[A-Za-z0-9_]+", event):
                 continue
             records.append({"text_id": f"honkai3:{table[:-5]}:{identifier}:{text_hash}",
                 "english": en, "chinese": zh, "event": event,
                 "speaker_english": english.get(speaker), "speaker_chinese": chinese.get(speaker)})
+            if pages and len(pages) > 1:
+                records[-1].update(ocr_english=[p[0] for p in pages], ocr_chinese=[p[1] for p in pages])
     return records
 
 

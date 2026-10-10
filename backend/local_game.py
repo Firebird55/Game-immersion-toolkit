@@ -22,6 +22,10 @@ class LocalDialogue:
     speaker_english: str | None = None
     speaker_chinese: str | None = None
     player_voice: str | None = None
+    # Authored pages can identify one complete performance. Playback and study
+    # text always use the complete utterance, never a guessed per-page cut.
+    ocr_english: list[str] | None = None
+    ocr_chinese: list[str] | None = None
 
 
 class LocalGameTextIndex:
@@ -33,6 +37,7 @@ class LocalGameTextIndex:
         self._lock = threading.RLock()
         self._records: dict[str, list[LocalDialogue]] = {}
         self._chinese = ChineseLookup([])
+        self._chinese_anchors: dict[str, list[LocalDialogue]] = {}
         self.player_voice = "unconfigured"
         self.load()
 
@@ -42,10 +47,18 @@ class LocalGameTextIndex:
             records = [LocalDialogue(**item) for item in payload["records"]]
             voiced = [record for record in records if record.audio]
             lookup: dict[str, list[LocalDialogue]] = {}
+            chinese_anchors: dict[str, list[LocalDialogue]] = {}
             for record in voiced:
-                lookup.setdefault(normalize_english(record.english), []).append(record)
+                for values in (record.ocr_english, record.ocr_chinese):
+                    if values is not None and (not isinstance(values, list) or not all(isinstance(v, str) and v.strip() for v in values)):
+                        raise ValueError('Invalid authored OCR page anchors')
+                for english in dict.fromkeys([record.english, *(record.ocr_english or [])]):
+                    lookup.setdefault(normalize_english(english), []).append(record)
+                for chinese in dict.fromkeys([record.chinese, *(record.ocr_chinese or [])]):
+                    chinese_anchors.setdefault(normalize_subtitle(chinese), []).append(record)
             with self._lock:
                 self._records, self._chinese = lookup, ChineseLookup(voiced)
+                self._chinese_anchors = chinese_anchors
                 self.entry_count, self.audio_count = len(records), len(voiced)
                 self.ready, self.state = True, "ready" if voiced else "missing_voice"
                 self.message = payload.get("message") or f"{len(records):,} bilingual pairs; {len(voiced):,} Mandarin voices"
@@ -66,10 +79,11 @@ class LocalGameTextIndex:
                 score = 100.0
                 if contains_han(source):
                     if exact_only:
-                        exact_records = self._chinese.records.get(normalize_subtitle(source))
+                        exact_records = self._chinese_anchors.get(normalize_subtitle(source))
                         hit = (exact_records, 100.0) if exact_records else None
                     else:
-                        hit = self._chinese.match(source, threshold)
+                        exact_records = self._chinese_anchors.get(normalize_subtitle(source))
+                        hit = (exact_records, 100.0) if exact_records else self._chinese.match(source, threshold)
                     if hit is None:
                         continue
                     records, score = hit
