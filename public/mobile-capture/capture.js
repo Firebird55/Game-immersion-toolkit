@@ -21,7 +21,8 @@ function status(message) { $('status').textContent = message; }
 function updateRole() {
   const sender = $('role').value === 'sender', caps = capability();
   $('capability').textContent = `Secure context: ${caps.secure ? 'yes' : 'no'} · Screen capture API: ${caps.screenCapture ? 'available (background capture unverified)' : 'unavailable'} · WebRTC: ${caps.webRTC ? 'available' : 'unavailable'} · ${caps.userAgent}`;
-  $('instructions').textContent = sender ? 'Share the iPad screen and send the offer to the phone. Paste the phone’s answer back here, then open the game.' : 'Paste the iPad’s offer below. Accept it, send the generated answer back to the iPad, and keep this page open.';
+  $('instructions').textContent = sender ? 'Share the game window or screen and send the offer to the receiving device. Paste its answer back here, then open the game.' : 'Paste the gaming device’s offer below. Accept it, send the generated answer back, and keep this page open.';
+  if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. Use this device to receive a PC screen instead. Sharing a game running on this device needs a compatible capture helper; one is not included in this preview.';
   $('start').hidden = !sender;
   $('start').disabled = Boolean(peer) || pendingCapture || busyPairing || !caps.secure || !caps.screenCapture || !caps.webRTC;
   $('apply').disabled = pendingCapture || busyPairing || !caps.secure || !caps.webRTC;
@@ -116,7 +117,7 @@ $('apply').onclick = async () => {
     const sender = $('role').value === 'sender';
     const message = parsePairing($('incoming').value, sender ? 'answer' : 'offer');
     if (sender) {
-      if (!peer || peer.signalingState !== 'have-local-offer') throw new Error('Create an offer on this iPad first.');
+      if (!peer || peer.signalingState !== 'have-local-offer') throw new Error('Create an offer on the sharing device first.');
       if (message.game !== $('game').value) throw new Error('Answer belongs to a different game.');
       await peer.setRemoteDescription({ type: message.type, sdp: message.sdp });
       status('Answer accepted. Open the game and watch the phone preview.');

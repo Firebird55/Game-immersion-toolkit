@@ -81,6 +81,13 @@ machine-translation, or recorded-audio fallback. Expanding coverage requires a
 reviewed bilingual catalog with explicit event references and installed-source
 validation. Setup and index status display the catalog limit.
 
+A later launcher update on 2026-10-10 exposed **2,772** verified performances
+across **108** installed audio packages. The refreshed index fingerprint matched
+that updated installation. A sampled original performance decoded successfully
+and was non-silent. This is increased availability of catalog 4.7 performances,
+not evidence of newer-chapter or Part 2 catalog coverage. Counts depend on which
+story voices the user has downloaded.
+
 The missing multi-page briefings in the reviewed older footage now capture.
 Historical English rewrites that differ from every authored catalog page still
 require a matching reviewed localization catalog; they are not guessed from

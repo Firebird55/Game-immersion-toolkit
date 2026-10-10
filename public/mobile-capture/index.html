@@ -8,12 +8,12 @@
 </head>
 <body>
 <main>
-  <header><p class="eyebrow">Proxy Transcript · Device test</p><h1>Game on iPad.<br>Transcript on phone.</h1>
-  <p>First, check that your game screen keeps reaching the phone when you leave Safari. This test does not perform OCR or save game images.</p></header>
+  <header><p class="eyebrow">Proxy Transcript · Device test</p><h1>Test screen delivery<br>between your devices.</h1>
+  <p>This preview checks screen sharing. It does not perform OCR, display transcripts, or save game images. Use an iPad as the receiving screen for a PC game; sharing a game running on iPad requires browser screen-capture support.</p></header>
   <section class="build-panel" aria-label="Preview version"><p id="build-info">Local development source</p><button id="reload-build">Reload latest</button><p class="hint">Stop sharing before updating. Pair the devices again after reloading.</p></section>
   <section><h2>1. Choose this device</h2>
-    <label>Use this device as <select id="role"><option value="sender">iPad — share game screen</option><option value="receiver">Phone — receive screen</option></select></label>
-    <label>Game <select id="game"><option value="zzz">Zenless Zone Zero</option><option value="wuwa">Wuthering Waves</option></select></label>
+    <label>Use this device as <select id="role"><option value="sender">Share screen — supported browser on the gaming device</option><option value="receiver">Receive screen — iPad, iPhone, Android or PC</option></select></label>
+    <label>Game <select id="game"><option value="zzz">Zenless Zone Zero</option><option value="wuwa">Wuthering Waves</option><option value="pragmata">PRAGMATA</option><option value="cyberpunk">Cyberpunk 2077</option><option value="witcher3">The Witcher III</option><option value="nte">Neverness to Everness</option><option value="honkai3">Honkai Impact 3rd</option><option value="hito">Hito's World</option></select></label>
     <p id="capability" role="status"></p>
     <p class="hint">Open the same HTTPS address on both devices, on the same Wi-Fi. Allow local network access if requested. Keep the phone page open throughout the test.</p>
   </section>
@@ -32,7 +32,7 @@
     <video id="preview" autoplay muted playsinline aria-label="Received game screen"></video>
     <button id="play-preview" hidden>Play preview</button>
     <p id="metrics" role="status">No incoming frames yet.</p>
-    <p>On the iPad, switch into the game. On the phone, start the test. Play for 15 minutes with dialogue, cutscenes, rotation, and a return to Safari. Check that this preview shows the game and keeps moving.</p>
+    <p>On the sharing device, switch into the game. On the receiving device, start the test and keep this page open. Play for 15 minutes with dialogue, cutscenes, rotation, and a return to the browser. Check that this preview shows the game and keeps moving.</p>
     <button id="begin-test" disabled>Start 15-minute observation</button>
     <label>What happened? <select id="result"><option value="not_verified">Not verified yet</option><option value="game_visible">Game visible and moving</option><option value="frozen">Frozen or stopped after switching</option><option value="black">Black screen or wrong content</option></select></label>
     <label>Notes <textarea id="notes" placeholder="Game version, scenes tested, any interruptions"></textarea></label>

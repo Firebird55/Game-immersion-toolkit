@@ -5,8 +5,30 @@ audio, account connection, or transcript writes. The desktop capture pipeline is
 
 ## Open on iPad and phone
 
+The public bookmark is [the mobile preview](https://firebird55.github.io/Game-immersion-toolkit/).
+Tap **Reload latest** before pairing and compare the displayed commit on both
+devices. The page is a streaming experiment; selecting a game does not add OCR
+or claim that game's transcript coverage.
+
+For an immediate **PC → iPad** test:
+
+1. Open the bookmark in Chrome/Edge on the PC and Safari on the iPad, on the same Wi-Fi.
+2. On the PC select **Share screen** and the game, then **Share screen & create offer**.
+   Choose the game window or monitor in the browser permission dialog.
+3. On iPad select **Receive screen**. Transfer the PC offer privately, paste/open
+   it, and tap **Accept message**.
+4. Transfer the generated answer back to the PC and accept it there.
+5. Keep the iPad page open. Start **15-minute observation** on iPad and play on PC.
+   Verify moving game content, dialogue and cutscenes; rotate the iPad and return
+   to Safari. Stop, select the observed result, and download the report.
+
+For **game on iPad → phone**, the iPad must report that its screen-capture API is
+available. If unavailable, this browser preview cannot capture the iPad game;
+use iPad as a receiver for the PC test above. A native capture helper is still
+required to implement sharing where browsers cannot provide it.
+
 For normal development, use the [GitHub preview cycle](mobile-development.md).
-It provides a stable public HTTPS bookmark from this private repository. The PC
+It provides a stable public HTTPS bookmark from this public repository. The PC
 does not need to serve the page or install a certificate on your devices. The
 local HTTPS setup below remains available for offline or unpublished testing.
 

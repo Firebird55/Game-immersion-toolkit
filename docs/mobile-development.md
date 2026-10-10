@@ -1,6 +1,7 @@
 # Develop on Windows, test on iPad
 
-The repository is public. GitHub Pages hosts only the mobile capture page.
+The repository is public. GitHub Pages hosts only the mobile capture page at
+[the stable iPad preview bookmark](https://firebird55.github.io/Game-immersion-toolkit/).
 Game frames use direct WebRTC between your devices; catalog data, reports, game
 files, the Windows backend and credentials are not published. No deployment key
 is added to workflow secrets: Pages uses the job's built-in GitHub token and OIDC.
@@ -25,6 +26,12 @@ is added to workflow secrets: Pages uses the job's built-in GitHub token and OID
    that the displayed branch and commit match the push you want to test.
 6. Pair and test. Downloaded capture reports include the loaded commit and branch
    so device results can be traced back to the code.
+
+For an immediate test use the PC as **Share screen** and iPad as **Receive screen**;
+follow [pairing and observation instructions](mobile-capture.md). The page tests
+frame delivery only, without OCR or transcripts. Its capability check makes
+unsupported sender browsers explicit; adding a Home Screen shortcut cannot
+provide an unavailable screen-capture API.
 
 Pushes to `main` and `codex/**` deploy when mobile files or preview tooling change.
 The single bookmark shows the latest successful mobile deployment from any of

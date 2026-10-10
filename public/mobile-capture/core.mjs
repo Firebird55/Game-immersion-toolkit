@@ -1,11 +1,12 @@
 export const TEST_DURATION_MS = 15 * 60 * 1000;
+export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'honkai3', 'hito'];
 export function parsePairing(text, expectedType) {
   if (typeof text !== 'string' || text.length > 128_000) throw new Error('Pairing message is too large.');
   let value;
   try { value = JSON.parse(text); } catch { throw new Error('Paste or open a valid pairing message.'); }
   if (value?.format !== 'proxy-mobile-capture-v1' || value.type !== expectedType
     || typeof value.sdp !== 'string' || !value.sdp.startsWith('v=0') || value.sdp.length > 120_000
-    || !['zzz', 'wuwa'].includes(value.game)) throw new Error(`Expected a ${expectedType} from the other device.`);
+    || !SUPPORTED_GAMES.includes(value.game)) throw new Error(`Expected a ${expectedType} from the other device.`);
   return { type: value.type, sdp: value.sdp, game: value.game };
 }
 export function pairingMessage(description, game) {
