@@ -1,4 +1,4 @@
-param([switch]$NoGamePicker, [switch]$Contribute, [switch]$InstructionsOnly)
+param([switch]$NoGamePicker, [switch]$NoLaunch, [switch]$Contribute, [switch]$InstructionsOnly)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Write-Host 'Game immersion toolkit: local Windows OCR and verified bilingual game text.'
@@ -11,5 +11,12 @@ Write-Host 'Release with npm run release -- --version <semver>; verify hosted Ac
 if ($InstructionsOnly) { return }
 & (Join-Path $PSScriptRoot 'setup.ps1')
 if (-not $NoGamePicker) { & (Join-Path $PSScriptRoot 'select-game-folders.ps1') }
+$python = Join-Path $env:LOCALAPPDATA 'Programs\Proxy Transcript\venv\Scripts\python.exe'
+Push-Location -LiteralPath $projectRoot
+try {
+    & $python -m scripts.prepare_game_tools --configured
+    if ($LASTEXITCODE -ne 0) { Write-Warning 'Some optional game tools need attention. Open Setup in the app to retry; previously indexed data is preserved.' }
+} finally { Pop-Location }
 if ($Contribute) { Start-Process -FilePath (Join-Path $projectRoot 'CONTRIBUTING.md') -WindowStyle Hidden }
-Write-Host 'Installation complete. Launch Start Proxy Transcript.cmd. Re-run Choose Game Folders.cmd after moving a game.'
+Write-Host 'Installation complete. Setup in the app handles game folders, voice packs, data refreshes and optional reading accounts.'
+if (-not $NoLaunch) { & (Join-Path $PSScriptRoot 'start-companion.ps1') }

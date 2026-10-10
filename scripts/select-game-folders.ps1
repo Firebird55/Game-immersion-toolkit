@@ -64,7 +64,7 @@ try {
             & $python -m scripts.configure_game_paths --game $game --path $path
             if ($LASTEXITCODE -ne 0) { [System.Windows.Forms.MessageBox]::Show('Could not save the folder. Existing settings remain intact.', 'Save failed') | Out-Null; return }
         }
-        [System.Windows.Forms.MessageBox]::Show('Folders saved only on this PC. Restart the toolkit to refresh game indexes. Existing capture preferences and credentials were preserved.', 'Game folders saved') | Out-Null
+        [System.Windows.Forms.MessageBox]::Show('Folders saved only on this PC. Open Setup in the toolkit to prepare missing tools and refresh game data. Existing capture preferences and credentials were preserved.', 'Game folders saved') | Out-Null
         $form.DialogResult = 'OK'; $form.Close()
     })
     $buttons.Controls.Add($save); $buttons.Controls.Add($cancel)

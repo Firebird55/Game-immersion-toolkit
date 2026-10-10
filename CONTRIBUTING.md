@@ -8,7 +8,7 @@ Run `npm run check` and `npm run audit:public` before submitting. Account-write 
 
 Shared reader, lookup, reading settings and CSS are maintained in [Lexirise shared components](https://github.com/Firebird55/Lexirise-shared-components). Never edit consumer vendor copies. Propose shared changes there; the maintainer publishes a version and runs `npm run shared:update -- --version <version> --all` to test and commit both consumer integrations.
 
-Changes to UI require Chromium/Firefox, desktop/mobile, keyboard, narrow containers, zoom and Shadow DOM checks as applicable. Toolkit capture changes require synthetic resolution/DPI and crop-bound regressions. Keep Chinese game transcripts and Migaku mode separate.
+Changes to UI require Chromium/Firefox, desktop/mobile, keyboard, narrow containers, zoom and Shadow DOM checks as applicable. After the build, run node scripts/browser-e2e.mjs and node scripts/setup-e2e.mjs; native prompts and account writes use mocks in browser tests. Toolkit capture changes require synthetic resolution/DPI and crop-bound regressions. Keep Chinese game transcripts and Migaku mode separate.
 
 By submitting original contributions you agree to license them under the included Firebird55 Attribution License. Retain upstream notices for third-party work and document its origin. No copyright transfer or CLA is required. This custom visible-attribution license is not MIT and makes no claim of OSI approval.
 

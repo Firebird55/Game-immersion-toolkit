@@ -11,3 +11,10 @@ test('profile paths and credentials are rejected without echoing their values',(
  assert.throws(()=>scanContent(Buffer.from('C:/'+['Users','example','private'].join('/')),'fixture'),/profile path: fixture/);
  assert(privatePath('data/new-game/index.db'));assert(!privatePath('backend/data-model.py'));
 });
+test('game archives and voice files are rejected outside the normal cache directories',()=>{
+ for(const file of ['assets/game.PAK','assets/re_chunk.pak.patch_001','public/voice.wem','assets/voice.pck','assets/game.exe','assets/app.asar','assets/cnpc.w3speech','Data/lookup.json']){
+  assert(privatePath(file),file);
+  assert.throws(()=>scanArtifact(tgz('package/'+file,'synthetic game asset'),'package.tgz'),/Private/);
+ }
+ assert(!privatePath('assets/fireredvad/fireredvad_vad.onnx'));
+});

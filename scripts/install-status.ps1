@@ -27,29 +27,15 @@ do {
         Write-Output "  Dependency repair: $($dependencyStatus.phase) - $($dependencyStatus.percent)% by bytes, $dependencyEntryPercent% by entries"
         if ($dependencyStatus.error) { Write-Output "  Error: $($dependencyStatus.error)" }
     }
-    $oldCheckout = 'C:\gamesentenceminer'
-    $retiredCheckout = 'E:\_retired-C-attempts\gamesentenceminer'
-    if (Test-Path -LiteralPath $oldCheckout) {
-        $remaining = Get-ChildItem -LiteralPath $oldCheckout -Recurse -File -Force -ErrorAction SilentlyContinue |
-            Measure-Object -Property Length -Sum
-        $moved = if (Test-Path -LiteralPath $retiredCheckout) {
-            Get-ChildItem -LiteralPath $retiredCheckout -Recurse -File -Force -ErrorAction SilentlyContinue |
-                Measure-Object -Property Length -Sum
-        } else { $null }
-        $movedBytes = if ($moved) { [double]$moved.Sum } else { 0.0 }
-        $remainingBytes = [double]$remaining.Sum
-        $cleanupPercent = if ($movedBytes + $remainingBytes -gt 0) {
-            [Math]::Round(100 * $movedBytes / ($movedBytes + $remainingBytes), 1)
-        } else { 0.0 }
-        Write-Output "  C checkout move: $cleanupPercent% by bytes ($($moved.Count) files moved, $($remaining.Count) remaining)"
-    }
-    else { Write-Output '  C checkout move: complete' }
-    if (Test-Path -LiteralPath 'C:\ProxyTranscript') {
-        $leftover = (Get-ChildItem -LiteralPath 'C:\ProxyTranscript' -Force -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty Name) -join ', '
-        Write-Output "  C ProxyTranscript cleanup: remaining $leftover"
-    }
-    else { Write-Output '  C ProxyTranscript cleanup: complete' }
+    try {
+        $setupStatus = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/api/setup' -TimeoutSec 5
+        Write-Output "  Toolkit version: $($setupStatus.version) | Free space: $($setupStatus.free_gb) GB"
+        foreach ($game in $setupStatus.games) {
+            $toolState = if ($game.tools_missing.Count) { 'tools need setup' } else { 'tools ready' }
+            Write-Output "  $($game.title): $($game.folder_state), $toolState, $($game.indexed_lines) indexed lines, $($game.voice_state)"
+        }
+        Write-Output '  Open Setup in the companion to choose folders, repair tools or refresh after a game patch.'
+    } catch { Write-Output '  Setup status: start the companion to see game readiness.' }
     try {
         $liveStatus = Invoke-RestMethod -Uri 'http://127.0.0.1:8766/api/status' -TimeoutSec 3
         Write-Output "  Game-file updates: $($liveStatus.updates.progress)% - $($liveStatus.updates.message)"

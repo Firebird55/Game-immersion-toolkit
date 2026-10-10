@@ -26,6 +26,25 @@ desktop.ini
 desktop.ini
 *.pem
 
+# Installed games, native tools and voice media must stay local.
+*.exe
+*.dll
+*.pak
+*.pak.*
+*.pck
+*.wem
+*.bnk
+*.blk
+*.archive
+*.asar
+*.w3speech
+*.w3strings
+*.utoc
+*.ucas
+*.wav
+*.mp3
+*.mp4
+
 # debug
 npm-debug.log*
 yarn-debug.log*

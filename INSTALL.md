@@ -1,25 +1,50 @@
 # Install Game immersion toolkit
 
-Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3 transcripts, native OCR and Lexirise/Migaku reading.
+Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3 transcripts, local subtitle OCR and Lexirise/Migaku reading.
 
-## Installation
+## Install on a new PC
 
-1. Download the latest public release ZIP and SHA256SUMS from GitHub. Verify the checksum before extracting to a writable folder.
+1. Download the latest release ZIP and SHA256SUMS from [GitHub releases](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest). Check the ZIP's SHA-256 before extracting it to a writable folder outside your game installation.
+2. Install Python 3.12 with its Windows launcher or install manager, [Node.js 24 with npm](https://nodejs.org/en/download), and Windows Snipping Tool through Microsoft Store. [Python for Windows](https://www.python.org/downloads/windows/) includes the installation instructions. No administrator access is required for the toolkit itself.
+3. Double-click **Install.cmd**. It checks prerequisites, installs locked dependencies, initializes OCR, and creates a Start menu shortcut. Release ZIPs use their included prebuilt frontend; source checkouts build it locally.
+4. The optional Windows folder picker lets you select only the games you own and want to configure. Choose an installation folder rather than an executable or archive. Blank fields and Cancel preserve existing selections. Tools for selected games are downloaded separately into ignored local caches, with verified checksums and upstream notices.
+5. The companion opens after installation. Its first-run **Setup** screen guides you through **Games**, **Capture**, and **Reading**. You can finish without installing every game or adding a reading account. Reopen Setup from the footer whenever needed.
 
-2. Install Python 3.12 with its Windows launcher, Node.js 24 (npm 10+) and Windows Snipping Tool. Double-click Install.cmd. No administrator access is required for the app itself.
+## Games and voices
 
-3. The optional popup lets you browse to installed game folders. Hito needs resources/app.asar; ZZZ needs ZenlessZoneZero_Data (StreamingAssets or Persistent); PRAGMATA needs PRAGMATA.exe and re_chunk_*.pak files. Cyberpunk needs bin/x64/Cyberpunk2077.exe and archive/pc/content language archives. Wuthering Waves needs Client/Binaries/Win64/Client-Win64-Shipping.exe and Client/Content/Paks. Witcher needs bin/x64/witcher3.exe or bin/x64_dx12/witcher3.exe and content language files. Install the official Mandarin voice packs (inside Wuthering Waves; through Steam for Witcher/Cyberpunk). Select the installation folder, not an archive. Skip keeps automatic detection and existing preferences.
+| Game | Folder to choose | Voice requirement |
+| --- | --- | --- |
+| Hito's World | Contains resources/app.asar | Verified game text; no voice decoder needed |
+| Zenless Zone Zero | Contains ZenlessZoneZero_Data, or the Data folder itself | Mandarin voice pack installed through the game launcher |
+| PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
+| Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
+| Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
+| The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 
-4. Launch Start Proxy Transcript.cmd. Set the Lexirise key with the protected local prompt documented in README.md, or use Migaku separately.
+Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 
-5. After moving or updating games, re-run Choose Game Folders.cmd and restart the toolkit. It reads assets in place; never put game archives or extracted assets into GitHub.
+No game archives, audio packages, extracted voices, catalog data or captured clips are included in this repository or installer. The game installation is read-only. Locations are stored per PC in LOCALAPPDATA/Proxy Transcript/game-paths.json, separately from capture calibration and credentials. Tool/game-derived caches stay under data and work and must never be published.
 
-Game files are necessary for game-verified capture and original audio, but not for browsing saved transcripts. They are not bundled or uploaded. Per-PC locations live in LOCALAPPDATA/Proxy Transcript/game-paths.json. Capture calibration and DPAPI keys remain separate. Cancel or a blank picker field preserves existing locations.
+## After a game update or move
 
-## Agent and contributor instructions included in the installer
+Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, PRAGMATA/Cyberpunk/Wuthering/Witcher about every two minutes, and Hito when its archive changes during use. A moved game can be selected and refreshed without restarting the companion.
 
-Read [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [RELEASE.md](RELEASE.md). Inspect status; preserve unrelated work and local data. Commit logical changes, run checks before pushing, edit shared code only in its source repository, and use the documented release command. No credentials or game assets belong in commits or installer bundles. Installer setup is not permission for an agent to publish or change account settings.
+The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Previous complete indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update.
 
-## Checksums and rollback
+## Capture and optional reading accounts
 
-Download SHA256SUMS beside the release assets; compare SHA-256 hashes before running an installer. Use gh release download <tag> --repo Firebird55/Game-immersion-toolkit --dir <empty-folder> for public downloads. Install an earlier immutable release to roll back, keeping local data, keys and userscript-manager storage. See [release runbook](RELEASE.md).
+In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with English or Chinese subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover voice selection. Automatic capture on startup is optional. A microphone is not needed.
+
+In **Setup → Reading**, choose Migaku or Lexirise. Migaku uses your installed browser extension. Lexirise reading preferences are local; account features are optional. **Set up local API key** opens a hidden-input prompt on this PC and stores the key encrypted for the Windows user. It is not sent through the browser. Choose an explicitly verified game-deck destination before exporting; account saves and uploads remain explicit actions.
+
+**Download setup report** creates a report with versions and readiness flags. It excludes game-folder paths, account details, credentials, raw errors and transcript contents. The latest-release link provides toolkit updates; it does not rewrite a working Git checkout.
+
+## Repair and toolkit upgrades
+
+Re-run Install.cmd to repair dependencies or OCR after a Snipping Tool update. If the existing Python environment uses a different version, stop the companion, rename only LOCALAPPDATA/Programs/Proxy Transcript/venv to a backup name, and rerun Install.cmd with Python 3.12 installed. Keep key.dpapi and the other files beside the environment.
+
+For a toolkit upgrade, stop the old companion, extract the new verified ZIP, and retain your private data/work folders if you want to keep transcripts, favorites and cached indexes. Capture preferences, game locations and the encrypted key are stored per PC and reused. A key encrypted for one Windows user cannot be copied to another. Run Install.cmd in the new folder. Use scripts/install.ps1 -NoLaunch -NoGamePicker for an unattended dependency repair with existing selections.
+
+## Contributors and agents
+
+Read [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [RELEASE.md](RELEASE.md). Preserve unrelated work and local data, commit logical changes, and run checks before pushing. Edit shared UI in its source repository, then publish and synchronize consumers. Never publish game assets, captures, keys or private backups. Installation does not itself authorize publication or account changes.

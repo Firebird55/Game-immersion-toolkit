@@ -2,12 +2,12 @@
 
 Local Windows OCR, verified bilingual transcripts and original game audio for Hito's World, Zenless Zone Zero, PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3. Shared Lexirise settings/readings/lookups support 31 study languages; Migaku remains a separate reading mode. Existing game transcripts remain Chinese.
 
-Download a public release ZIP and double-click **Install.cmd**. The optional game-folder popup locates your own installed files, saves locations per PC and preserves automatic discovery. Game assets are never bundled or uploaded. See [installation guide](INSTALL.md), [mobile-friendly installer page](INSTALL.html), [contributing](CONTRIBUTING.md), [agent rules](AGENTS.md) and [release/rollback](RELEASE.md).
+Download a public release ZIP and double-click **Install.cmd**. The optional game-folder popup locates your own installed files. The in-app Setup screen guides game tools and voice packs, capture checks, local reading accounts and refreshes after game patches; saved locations remain per PC. Game assets are never bundled or uploaded. See [installation guide](INSTALL.md), [mobile-friendly installer page](INSTALL.html), [contributing](CONTRIBUTING.md), [agent rules](AGENTS.md) and [release/rollback](RELEASE.md).
 
 The UI adapts to narrow/short windows and high browser/Windows zoom. Hito automatically follows dialogue boxes; capture regions are normalized against physical game-window pixels and local calibration remains per PC.
 
 For an iPad game with a phone transcript, start with the [two-device browser capture test](docs/mobile-capture.md). This feasibility milestone checks screen sharing while the game is foregrounded; mobile OCR and bilingual transcripts remain gated on real-device results.
-The [Windows → GitHub → iPad development cycle](docs/mobile-development.md) publishes a versioned HTTPS preview after mobile changes are pushed, while keeping this repository private.
+The [Windows → GitHub → iPad development cycle](docs/mobile-development.md) publishes a versioned HTTPS preview after mobile changes are pushed, using a sanitized public repository.
 
 OCR scales to game-window height across small windows, 4K and ultrawide layouts, and windowed captures exclude title bars/borders. See [OCR resolution support and offline screenshot checks](docs/ocr-resolutions.md).
 
@@ -48,13 +48,13 @@ remain unlabelled rather than being assigned to a guessed speaker.
 
 ## First-time setup
 
-Install Python 3.12, Node.js 22 or newer, and Windows Snipping Tool, then open PowerShell in this folder and run (the Codex desktop bundled Python 3.12 can also be used when present):
+Install Python 3.12, Node.js 24 or newer, and Windows Snipping Tool, then open PowerShell in this folder and run (the Codex desktop bundled Python 3.12 can also be used when present):
 
 ```powershell
 .\scripts\setup.ps1
 ```
 
-Run setup from the project folder. The app, frontend build, transcript, and TextMap data stay in that folder. Game installations can be on a different drive; the updater discovers their game files separately. Each PC keeps its Python environment, launcher, capture settings, and encrypted Lexirise credential under Local AppData. Setup downloads the TextMaps only when the project does not already contain them.
+Run setup from the project folder. The app, frontend build, transcript, and TextMap data stay in that folder. Game installations can be on a different drive; the updater discovers their game files separately. Each PC keeps its Python environment, launcher, capture settings, and encrypted Lexirise credential under Local AppData. Setup prepares tools for selected games. Their subtitle and voice indexes are refreshed locally in the background; a clean install does not download ZZZ data until that game is configured.
 
 When copying the folder to another PC, keep the whole `gamesentenceminer` directory (including `data` and `work`) and run `scripts\setup.ps1` there. The launcher and Start menu shortcut are recreated for the new path. The updater locates the running ZZZ executable or a local Steam installation, so game and app drive letters may differ. Headset selection and game volume do not affect subtitle matching or original voice extraction. The DPAPI-encrypted Lexirise key cannot be copied between Windows users. Set it on the other PC with the hidden prompt:
 
@@ -63,6 +63,10 @@ When copying the folder to another PC, keep the whole `gamesentenceminer` direct
 ```
 
 Start the app from the **Proxy Transcript** Start menu shortcut or `Start Proxy Transcript.cmd` in the project folder. The app and capture service listen only on this PC. `scripts\install-status.ps1` shows local indexing and service status, including percentages. Before first live gameplay, `scripts\check-capture-readiness.py` verifies local OCR and display capture; see `docs\capture-readiness.md` for the results and live game checklist. If this folder is copied to another Windows PC, run setup there again because the Python environment and encrypted API credential belong to this PC.
+
+## Setup and game patches
+
+Open **Setup** in the footer to validate or browse game folders, check Mandarin voice packs, install/repair game tools, run OCR/display checks, and choose local reading/account preferences. After your game launcher finishes an update, choose that game and click **Refresh game data**. PRAGMATA and the other local game indexes are checked every two minutes while the companion runs; ZZZ checks about every fifteen minutes. Failed refreshes keep complete snapshots active. Setup also downloads a report that excludes paths, account data and transcript contents. See [installation and maintenance](INSTALL.md).
 
 ## Normal use
 
@@ -75,7 +79,7 @@ The **Game** switch above the transcript keeps each title's History and
 Favorites separate. It follows the running game automatically; you can switch
 it manually to review the other game's saved lines.
 
-The compact **Reading** switch chooses Migaku (default) or Lexirise. In Lexirise mode, **Reading options** controls Pinyin, Zhuyin, separate tone marks, inline English meanings, and tone colors. Each can appear on unknown words, all words, or be turned off. Tone colors default to Migaku's red/yellow/green/blue/gray mapping and each color can be edited. Tap a word for a built-in definition, or scan its selectable text with Yomitan. These display choices are remembered in the browser and do not send a sentence to a Lexirise deck. The research and implementation details are in `docs/lexirise-reading-mode.md`.
+The compact **Reading** switch chooses Migaku (default) or Lexirise. In Lexirise mode, **Reading options** controls Pinyin, Zhuyin, separate tone marks, inline English meanings, and tone colors. Each can appear on unknown words, all words, or be turned off. Tone colors use level/rising/dipping/falling/neutral labels and each color can be edited. Tap a word for a built-in definition, or scan its selectable text with Yomitan. These display choices are remembered in the browser and do not send a sentence to a Lexirise deck. The research and implementation details are in `docs/lexirise-reading-mode.md`.
 
 ## Hito's World
 
