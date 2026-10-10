@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -20,19 +21,24 @@ class PragmataUpdateManager:
         index: PragmataTextIndex,
         voice_assets: PragmataVoiceAssetService,
         on_update: Callable[[dict[str, object]], None] | None = None,
+        interval: float = 120,
     ) -> None:
         self.project_root = project_root
         self.index = index
         self.voice_assets = voice_assets
         self.on_update = on_update
+        self.interval = interval
         self._thread: threading.Thread | None = None
         self._lock = threading.RLock()
+        self._stop = threading.Event()
+        self._wake = threading.Event()
         self._status: dict[str, object] = {
             "state": "idle",
             "message": "PRAGMATA game files are current",
             "progress": 100,
             "automatic": True,
             "last_error": None,
+            "last_checked": None,
         }
 
     def status(self) -> dict[str, object]:
@@ -47,20 +53,33 @@ class PragmataUpdateManager:
             self.on_update(current)
 
     def start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            return
-        self._thread = threading.Thread(target=self._run, name="pragmata-index-update", daemon=True)
-        self._thread.start()
+        with self._lock:
+            if self._thread and self._thread.is_alive():
+                return
+            self._stop.clear()
+            self._set(state="checking", message="Checking installed PRAGMATA files", progress=5)
+            self._thread = threading.Thread(target=self._loop, name="pragmata-index-update", daemon=True)
+            self._thread.start()
 
     def close(self) -> None:
+        self._stop.set()
+        self._wake.set()
         if self._thread:
             self._thread.join(timeout=2)
 
     def request_check(self) -> bool:
-        if self._thread and self._thread.is_alive():
-            return False
-        self.start()
-        return True
+        with self._lock:
+            if self._thread and self._thread.is_alive():
+                self._wake.set()
+                return self._status["state"] != "updating"
+            self.start()
+            return True
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            self._wake.clear()
+            self._run()
+            self._wake.wait(self.interval)
 
     def _run(self) -> None:
         try:
@@ -108,7 +127,9 @@ class PragmataUpdateManager:
             self.index.load()
             self._set(
                 state="retrying",
-                message="PRAGMATA update will retry next launch",
+                message="PRAGMATA index needs attention; check Setup before retrying",
                 progress=100,
                 last_error=str(error),
             )
+        finally:
+            self._set(last_checked=datetime.now(timezone.utc).isoformat())

@@ -159,7 +159,7 @@ class Runtime:
         while self.update_manager.state in {"checking", "updating"}:
             await asyncio.sleep(2)
         self.pragmata_updater.start()
-        while self.pragmata_updater._thread and self.pragmata_updater._thread.is_alive():
+        while self.pragmata_updater.status()["state"] in {"checking", "updating"}:
             await asyncio.sleep(2)
         for updater in self.game_updaters.values():
             updater.start()
@@ -191,7 +191,7 @@ class Runtime:
         if update["state"] in {"checking", "updating"}:
             return update
         pragmata_update = self.pragmata_updater.status()
-        if pragmata_update.get("state") == "updating":
+        if pragmata_update.get("state") in {"checking", "updating"}:
             return pragmata_update
         retry = next(
             (

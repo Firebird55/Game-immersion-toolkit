@@ -1,6 +1,6 @@
 from pathlib import Path
 import pytest
-from backend.game_paths import configured_install, load_paths, save_install, validate_install
+from backend.game_paths import clear_install, configured_install, discover_install, load_paths, save_install, validate_install
 
 
 @pytest.fixture(autouse=True)
@@ -89,3 +89,24 @@ def test_hito_configured_archive_is_used_without_running_game(tmp_path, monkeypa
     monkeypatch.setattr(index, "_ensure_archive", lambda archive: calls.append(archive))
     index.ensure_game_files(None)
     assert calls == [root / "resources/app.asar"]
+
+
+def test_use_automatic_detection_removes_only_selected_game(tmp_path):
+    save_install("hito", make_game(tmp_path, "hito"))
+    save_install("zzz", make_game(tmp_path, "zzz"))
+    clear_install("zzz")
+    assert "zzz" not in load_paths()
+    assert configured_install("hito") is not None
+
+
+def test_wuthering_client_folder_is_normalized(tmp_path):
+    root = make_game(tmp_path, "wuwa")
+    assert validate_install("wuwa", root / "Client") == root
+
+
+@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3"])
+def test_auto_discovery_accepts_all_supported_games(monkeypatch, game):
+    def absent(*_args):
+        raise FileNotFoundError("synthetic absent game")
+    monkeypatch.setattr("backend.game_paths.validate_install", absent)
+    assert discover_install(game) is None

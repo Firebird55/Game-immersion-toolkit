@@ -24,12 +24,14 @@ class BackgroundUpdateManager:
         voice_assets: VoiceAssetService,
         publish: Callable[[dict[str, object]], None] | None = None,
         interval: float = 15 * 60,
+        game_data_provider: Callable[[], Path | None] | None = None,
     ) -> None:
         self.project_root = project_root
         self.textmaps = textmaps
         self.voice_assets = voice_assets
         self.publish = publish
         self.interval = interval
+        self.game_data_provider = game_data_provider
         self.state_path = project_root / "data/voice-assets/background-update-state.json"
         self._lock = threading.RLock()
         self._stop = threading.Event()
@@ -43,10 +45,11 @@ class BackgroundUpdateManager:
         self.last_error: str | None = None
 
     def start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            return
-        self._thread = threading.Thread(target=self._run, name="zzz-background-updates", daemon=True)
-        self._thread.start()
+        with self._lock:
+            if self._thread and self._thread.is_alive():
+                return
+            self._thread = threading.Thread(target=self._run, name="zzz-background-updates", daemon=True)
+            self._thread.start()
 
     def close(self) -> None:
         self._stop.set()
@@ -60,6 +63,8 @@ class BackgroundUpdateManager:
         with self._lock:
             already_running = self.state in {"checking", "updating"}
         self._wake.set()
+        if not self._thread or not self._thread.is_alive():
+            self.start()
         return not already_running
 
     def status(self) -> dict[str, object]:
@@ -118,7 +123,9 @@ class BackgroundUpdateManager:
     def _update_metadata_repository(self) -> tuple[str | None, bool, str]:
         repository = self.project_root / "work/voice-assets/ZenlessData"
         if not (repository / ".git").exists() or not shutil.which("git"):
-            return None, False, "Upstream metadata repository is not installed"
+            from .game_tools import refresh_zzz_metadata
+            revision, changed = refresh_zzz_metadata(self.project_root)
+            return revision, changed, "Local game metadata refreshed" if changed else "Local game metadata is current"
         # Portable USB filesystems do not record Git ownership. Trust only this
         # exact bundled metadata checkout for these invocations, without changing
         # the user's global Git configuration.
@@ -137,14 +144,17 @@ class BackgroundUpdateManager:
             after = self._run_command([*git, "rev-parse", "HEAD"], cwd=repository, timeout=30)
 
         copied = False
-        for name in ("PerformTemplateTb.json", "OngoingTipsConfigTemplateTb.json"):
+        sources = {"PerformTemplateTb.json": "FileCfg/PerformTemplateTb.json",
+                   "OngoingTipsConfigTemplateTb.json": "FileCfg/OngoingTipsConfigTemplateTb.json",
+                   "VoiceData.json": "Data/_unsorted/VoiceData.json"}
+        for name, relative in sources.items():
             destination = self.project_root / "work/voice-assets" / name
             if dirty:
-                source_bytes = subprocess.run([*git, "show", f"{after}:FileCfg/{name}"],
+                source_bytes = subprocess.run([*git, "show", f"{after}:{relative}"],
                     cwd=repository, check=True, capture_output=True, timeout=30,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
             else:
-                source = repository / "FileCfg" / name
+                source = repository / relative
                 source_bytes = source.read_bytes() if source.is_file() else b""
             if source_bytes and (not destination.is_file() or destination.read_bytes() != source_bytes):
                 pending = destination.with_suffix(".pending")
@@ -156,6 +166,14 @@ class BackgroundUpdateManager:
         return after, changed, ("Upstream game metadata updated" if changed else "Upstream game metadata is current") + suffix
 
     def check_once(self) -> None:
+        if self.game_data_provider:
+            installed = self.game_data_provider()
+        else:
+            from scripts.update_voice_assets import discover_game_data
+            installed = discover_game_data(self.project_root)
+        if installed is None:
+            self._set("waiting", "Choose your installed ZZZ folder in Setup; saved transcripts remain available", 100)
+            return
         previous = self._read_state()
         self._set("checking", "Checking upstream metadata", 5)
         commit: str | None = None
@@ -185,6 +203,10 @@ class BackgroundUpdateManager:
 
         if self._stop.is_set():
             return
+        from .game_tools import missing_tools
+        if missing_tools(self.project_root, "zzz"):
+            self._set("waiting", "Install ZZZ game tools in Setup to prepare original voices", 100)
+            return
         self._set("updating", "Checking installed story, event, and comic voices", 55)
         output = self._run_command(
             [sys.executable, "-m", "scripts.update_voice_assets"],
@@ -208,10 +230,10 @@ class BackgroundUpdateManager:
 
     def _run(self) -> None:
         while not self._stop.is_set():
+            self._wake.clear()
             try:
                 self.check_once()
             except Exception as error:
                 self.last_checked = datetime.now(timezone.utc).astimezone().isoformat()
                 self._set("retrying", "Update paused; capture is still running and will retry", 100, str(error))
-            self._wake.clear()
             self._wake.wait(self.interval)

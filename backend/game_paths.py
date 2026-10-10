@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from pathlib import Path
 
 GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3")
+GAME_NAMES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
+              "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
+_path_lock = threading.RLock()
 
 
 def settings_path() -> Path:
@@ -19,6 +23,8 @@ def validate_install(game: str, path: Path) -> Path:
     if not root.is_dir():
         raise ValueError("Choose the installed game folder, not an archive or executable")
     if game == "zzz" and root.name == "ZenlessZoneZero_Data":
+        root = root.parent
+    if game == "wuwa" and root.name == "Client":
         root = root.parent
     valid = {
         "witcher3": lambda: any((root / folder / "witcher3.exe").is_file() for folder in ("bin/x64", "bin/x64_dx12"))
@@ -59,21 +65,39 @@ def configured_install(game: str) -> Path | None:
 
 def save_install(game: str, path: Path) -> Path:
     root = validate_install(game, path)
-    values = load_paths()
-    values[game] = str(root)
+    with _path_lock:
+        values = load_paths()
+        values[game] = str(root)
+        _write_paths(values)
+    return root
+
+
+def clear_install(game: str) -> None:
+    if game not in GAMES:
+        raise ValueError("Unsupported game")
+    with _path_lock:
+        values = load_paths()
+        values.pop(game, None)
+        _write_paths(values)
+
+
+def _write_paths(values: dict[str, str]) -> None:
     target = settings_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".tmp")
     temporary.write_text(json.dumps(values, indent=2), encoding="utf-8")
     temporary.replace(target)
-    return root
 
 
 def discover_install(game: str) -> Path | None:
+    if game not in GAMES:
+        raise ValueError("Unsupported game")
     configured = configured_install(game)
     if configured:
         return configured
-    names = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
+    names = [GAME_NAMES[game]]
+    if game == "zzz":
+        names = ["Zenless Zone Zero/games/ZenlessZoneZero Game", "Zenless Zone Zero", "ZenlessZoneZero Game"]
     candidates = []
     # Respect Steam's registered libraries as well as conventional drive roots.
     try:
@@ -86,11 +110,11 @@ def discover_install(game: str) -> Path | None:
         if config.is_file():
             libraries.extend(Path(value.replace("\\\\", "\\")) for value in
                              re.findall(r'"path"\s+"([^"]+)"', config.read_text(encoding="utf-8")))
-        candidates.extend(path / "steamapps/common" / names[game] for path in libraries)
+        candidates.extend(path / "steamapps/common" / name for path in libraries for name in names)
     except (ImportError, OSError):
         pass
     for letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
-        candidates.extend(Path(f"{letter}:/") / suffix / names[game] for suffix in
+        candidates.extend(Path(f"{letter}:/") / suffix / name for name in names for suffix in
                           ("SteamLibrary/steamapps/common", "Program Files (x86)/Steam/steamapps/common"))
     for path in candidates:
         try:
