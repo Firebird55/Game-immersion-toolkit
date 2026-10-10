@@ -27,3 +27,5 @@ The public Lexirise API documentation fingerprint and documented endpoints are u
 Mobile layout checks run in emulated browser viewports. Actual iPad background screen capture and mobile OCR feasibility still require the manual two-device test; public hosting does not establish that result.
 
 The first toolkit release candidate was blocked because browser tests had produced a Wrangler runtime database beneath dist. Packaging now excludes runtime state and logs while retaining deployable assets; the regression test exercises this exact boundary. No installer artifact was published from that failed candidate.
+
+The final frontend audit identified Geist font files downloaded by next/font outside the npm tree. Their full copyright/OFL notice is retained in source and the bundled license aggregate; artifact validation checks both notices when fonts are present. Toolkit v0.2.7 supersedes v0.2.6 with this notice correction.

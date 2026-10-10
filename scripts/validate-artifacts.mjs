@@ -12,6 +12,13 @@ for(const line of sums){
   for(const required of ['LICENSE','NOTICE.md','AGENTS.md','CONTRIBUTING.md'])if(!entries.some(e=>e.name===required||e.name.endsWith('/'+required)))throw new Error('Missing distribution notice: '+required);
   if(pkg.name==='game-immersion-toolkit'&&!entries.some(e=>e.name.endsWith('/THIRD_PARTY_LICENSES.txt')))throw new Error('Bundled dependency licenses missing');
   if(pkg.name==='game-immersion-toolkit'&&!entries.some(e=>e.name.includes('/dist/client/')))throw new Error('Built frontend missing');
+  if(pkg.name==='game-immersion-toolkit'&&entries.some(e=>/\.(?:woff2?|ttf|otf)$/i.test(e.name))){
+   const fontLicense=readFileSync('styles/GEIST-OFL.txt','utf8').replace(/\r\n/g,'\n');
+   for(const notice of ['styles/GEIST-OFL.txt','THIRD_PARTY_LICENSES.txt']){
+    const entry=entries.find(e=>e.name.endsWith('/'+notice));
+    if(!entry?.data.toString('utf8').replace(/\r\n/g,'\n').includes(fontLicense))throw new Error('Bundled font license missing: '+notice);
+   }
+  }
  }
 }
 for(const required of ['LICENSE','NOTICE.md'])if(!sums.some(s=>s.endsWith('  '+required)))throw new Error('Missing standalone notice');

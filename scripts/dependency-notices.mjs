@@ -10,5 +10,7 @@ export function dependencyNotices(){
   for(const file of notices){try{blocks.push(path+' @ '+entry.version+' — '+file+'\n'+readFileSync(join(directory,file),'utf8'));}catch(error){if(error.code!=='EISDIR')throw error;}}
  }
  if(!blocks.length)throw new Error('Dependency license notices missing');
+ // next/font downloads these assets at build time, outside the npm dependency tree.
+ blocks.push('Geist and Geist Mono — styles/GEIST-OFL.txt\n'+readFileSync('styles/GEIST-OFL.txt','utf8'));
  return 'Third-party dependency notices from the locked installation. These licenses remain independent of the project license.\n\n'+blocks.join('\n\n--------------------\n\n')+'\n';
 }
