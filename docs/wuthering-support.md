@@ -41,7 +41,9 @@ through production cropping and native Windows OCR. Both correctly remained in
 `waiting_for_voice` without creating transcript rows while the Chinese pack
 was absent. Browser checks cover Rover selection, independent calibration,
 asset refresh, and the missing-pack message even when the subtitle index is
-ready. Actual gameplay appearance remains untested because no game was launched.
+ready. Recorded retail footage now verifies early-game/3.0 dialogue and centered
+story cards; see [game-specific OCR presentations](game-ocr-presentations.md).
+No game was launched.
 Optional official HD/SD video downloads and valid small empty patch archives are
 accepted by the extractor; unknown archive paths are still rejected.
 

@@ -55,3 +55,10 @@ Synthetic checks do not validate a game's actual subtitle placement, alternate
 HUD safe zones, letterboxing, or unusual font settings. Use Capture setup's
 preview to adjust a game's region when its real layout differs. No game is
 launched by these checks.
+
+## Recorded gameplay
+
+[Game-specific OCR presentations](game-ocr-presentations.md) documents the
+additional Cyberpunk/Witcher NPC regions and Wuthering centered story cards,
+with real sequential footage checks at 720p, 1080p and a 4K resize. The earlier
+synthetic matrix complements these placement and negative-screen checks.

@@ -122,6 +122,7 @@ class CaptureService:
         self._excluded_screen: str | None = None
         self._visual_novel_layout = False
         self._visible_text_by_channel: dict[str, tuple[float, list[str]]] = {}
+        self._local_chatter_trackers: dict[str, tuple[StableMatchTracker, float]] = {}
 
     def snapshot(self) -> CaptureSnapshot:
         with self._snapshot_lock:
@@ -130,6 +131,9 @@ class CaptureService:
     def _update_snapshot(self, **changes: object) -> CaptureSnapshot:
         if changes.get("phase") in {"stopped", "starting", "error", "waiting_for_game", "excluded_screen"}:
             self._visible_text_by_channel.clear()
+            for key in self._local_chatter_trackers:
+                self._visible_match_started.pop(key, None)
+            self._local_chatter_trackers.clear()
             changes["visible_text_ids"] = []
         with self._snapshot_lock:
             self._snapshot = self._snapshot.model_copy(update=changes)
@@ -572,7 +576,7 @@ class CaptureService:
         now: datetime,
         game: str = "pragmata",
     ) -> _ScanOutcome:
-        """Capture PRAGMATA's shared lower subtitle lane.
+        """Capture the lower subtitle lane and each local game's extra regions.
 
         Radio messages, cinematics and walk-and-talk dialogue use the same
         speaker-plus-body layout. Matching exclusively against the official
@@ -587,9 +591,10 @@ class CaptureService:
         response = engine.recognize_pil(image)
         if epoch != self._scan_epoch:
             return _ScanOutcome([])
+        main_response = self._local_subtitle_rows(response, image.size, region, game) if game in self.game_indexes else response
         lines = [
             str(line.get("text", "")).strip()
-            for line in response.get("lines", [])
+            for line in main_response.get("lines", [])
             if str(line.get("text", "")).strip()
         ]
         raw_text = " ".join(lines)
@@ -671,7 +676,132 @@ class CaptureService:
             last_error=None,
             visible_text_ids=self._visible_text_ids(monotonic_now),
         )
+        if game in self.game_indexes:
+            emitted.extend(self._scan_local_chatter(window, engine, epoch, now, game, match,
+                                                    dialogue_menu=bool(main_response.get("dialogue_menu"))))
+            if game == "wuwa":
+                emitted.extend(self._scan_local_chatter(window, engine, epoch, now, game, match,
+                                                        dialogue_menu=bool(main_response.get("dialogue_menu")),
+                                                        presentation="cinematic"))
         return _ScanOutcome(emitted_lines=emitted)
+
+    @staticmethod
+    def _local_subtitle_rows(response: dict, size: tuple[int, int],
+                             region: CaptureRegion, game: str) -> dict:
+        """Exclude response choices and corner HUD from the lower subtitle lane.
+
+        Coordinates refer to the OCR image, which may have been rescaled. Keep
+        the user's crop independent of screen resolution and Windows DPI.
+        """
+        rows = []
+        dialogue_menu = False
+        for row in response.get("lines", []):
+            # Interaction labels must not be treated as spoken subtitles.
+            known_ui_label = normalize_subtitle(str(row.get("text", ""))) in {
+                "talk", "open", "close", "back", "continue", "apply", "cancel",
+                "sprint", "jump", "roach", "horse", "interact", "next", "skip",
+                "select", "exit", "map", "inventory", "attack", "yourturn", "gatheringredients",
+                "交谈", "对话", "互动", "继续", "取消", "确定", "退出", "跳跃",
+                "冲刺", "攻击", "选择", "返回", "跳过", "打开", "关闭", "地图", "背包",
+            }
+            rectangle = row.get("bounding_rect") or {}
+            try:
+                left = region.left + min(float(rectangle[f"x{i}"]) for i in range(1, 5)) / size[0] * region.width
+                right = region.left + max(float(rectangle[f"x{i}"]) for i in range(1, 5)) / size[0] * region.width
+                top = region.top + min(float(rectangle[f"y{i}"]) for i in range(1, 5)) / size[1] * region.height
+            except (KeyError, ValueError, TypeError):
+                rows.append(row)
+                continue
+            text = str(row.get("text", ""))
+            short_label = (len(re.findall(r"[a-zA-Z]+", text)) == 1 and len(normalize_subtitle(text)) < 12)
+            short_label |= bool(re.search(r"[\u3400-\u9fff]", text) and len(normalize_subtitle(text)) < 4)
+            caption_band = (.80, .87) if game == "witcher3" else (.85, .96) if game == "cyberpunk" else (.79, .96)
+            # Moving harvest names can match a unique voiced word exactly. Keep
+            # single short words only in the observed centered caption band.
+            if (short_label or known_ui_label) and not caption_band[0] <= top <= caption_band[1]:
+                continue
+            # Response menus sit to the right, above the centered caption.
+            if left > (.52 if game == "cyberpunk" else .60) and top < (.84 if game == "cyberpunk" else .80):
+                dialogue_menu = True
+                continue
+            if not .22 <= (left + right) / 2 <= .78:
+                continue
+            rows.append(row)
+        return {**response, "lines": rows, "dialogue_menu": dialogue_menu}
+
+    def _scan_local_chatter(self, window: WindowInfo, engine: OcrEngine, epoch: int,
+                            now: datetime, game: str, main_match: TextMatch | None,
+                            dialogue_menu: bool = False, presentation: str = "chatter") -> list[TranscriptLine]:
+        """Read independently positioned voices without fuzzy HUD/choice matches."""
+        settings = self.settings.get()
+        channel = f"{game}:{presentation}"
+        cinematic = presentation == "cinematic"
+        snapshot_prefix = "cinematic" if cinematic else "tip"
+        monotonic_now = time.monotonic()
+        enabled = getattr(settings, f"{game}_capture_{presentation}")
+        if not enabled:
+            self._observe_visible_matches(channel, [], monotonic_now)
+            for key in list(self._local_chatter_trackers):
+                if key.startswith(channel + "\0"):
+                    del self._local_chatter_trackers[key]
+                    self._visible_match_started.pop(key, None)
+            self._update_snapshot(**{f"{snapshot_prefix}_crop_bounds": None, f"last_{snapshot_prefix}_ocr": "",
+                                     f"last_{snapshot_prefix}_ocr_confidence": None, f"last_{snapshot_prefix}_match_score": None},
+                                  visible_text_ids=self._visible_text_ids(monotonic_now))
+            return []
+        region = getattr(settings, f"{game}_{snapshot_prefix}_region")
+        bounds = self._region_bounds(window, region)
+        image = self._ocr_image(self._capture(bounds), window)
+        response = engine.recognize_pil(image)
+        if epoch != self._scan_epoch:
+            return []
+        raw_text = " ".join(str(row.get("text", "")) for row in response.get("lines", []))
+        # This is an exploration channel. Main dialogue wins when both overlap;
+        # an unselected response must never become an unrelated voiced line.
+        matches: dict[str, TextMatch] = {}
+        # The observed GiantSubtitle cards have one large centered paragraph
+        # on black. Broad scanning of normal scenes would read response options
+        # and quest/HUD text that can also occur in the official dialogue index.
+        card = not cinematic or (self._dark_fraction(image, 40) >= .88
+                                  and 0 < len(response.get("lines", [])) <= 4)
+        if main_match is None and not dialogue_menu and card:
+            positioned = {**response, "lines": [row for row in response.get("lines", []) if row.get("bounding_rect")]}
+            for group in self._spatial_text_groups(positioned):
+                minimum = 6 if re.search(r"[\u3400-\u9fff]", group) else 12
+                if len(normalize_subtitle(group)) < minimum:
+                    continue
+                match = self.game_indexes[game].match_lines([group], threshold=100, exact_only=True)
+                if match and match.kind == "exact" and self._mapped_voice(match):
+                    matches[match.text_id] = match
+        self._observe_visible_matches(channel, list(matches), monotonic_now)
+        emitted = []
+        active_keys = set()
+        for match in matches.values():
+            key = f"{channel}\0{match.text_id}\0{match.english}"
+            active_keys.add(key)
+            previous = self._local_chatter_trackers.get(key)
+            tracker = previous[0] if previous and monotonic_now - previous[1] <= 3 else StableMatchTracker()
+            tracker.configure(settings.stable_frames)
+            self._local_chatter_trackers[key] = (tracker, monotonic_now)
+            if self._is_fresh_match(key, key, monotonic_now) and tracker.observe(key) and self._can_emit(key, monotonic_now):
+                line, _ = self.transcript.add_or_upgrade_recent(match, self.session_id, created_at=now,
+                                                               channel="cinematic" if cinematic else "tip" if game == "wuwa" else "gameplay")
+                if line is not None:
+                    emitted.append(line)
+                    self._schedule_line_audio(line, monotonic_now, observed_at=self._visible_match_started[key][1])
+        # Require consecutive sightings: an intervening blank/HUD frame resets
+        # confirmation, even when another NPC continues talking.
+        for key in list(self._local_chatter_trackers):
+            if key.startswith(channel + "\0") and key not in active_keys:
+                del self._local_chatter_trackers[key]
+                self._visible_match_started.pop(key, None)
+        self._update_snapshot(**{f"{snapshot_prefix}_crop_bounds": bounds, f"last_{snapshot_prefix}_ocr": raw_text,
+                                  f"last_{snapshot_prefix}_ocr_confidence": self._confidence(response),
+                                  f"last_{snapshot_prefix}_match_score": max((m.score for m in matches.values()), default=None)},
+                              visible_text_ids=self._visible_text_ids(monotonic_now))
+        if matches:
+            self._update_snapshot(phase="matched", message=f"{GAME_PROFILES[game].name} {'story card' if cinematic else 'extra subtitle'} matched to original Mandarin voice")
+        return emitted
 
     def _scan_hito(
         self, window: WindowInfo, engine: OcrEngine, epoch: int, now: datetime

@@ -59,13 +59,17 @@ class LocalGameTextIndex:
             return {"ready": self.ready, "state": self.state, "message": self.message,
                     "entry_count": self.entry_count, "audio_count": self.audio_count}
 
-    def match_lines(self, lines, threshold: float = 88) -> TextMatch | None:
+    def match_lines(self, lines, threshold: float = 88, exact_only: bool = False) -> TextMatch | None:
         matches = []
         with self._lock:
             for source in subtitle_candidates(lines):
                 score = 100.0
                 if contains_han(source):
-                    hit = self._chinese.match(source, threshold)
+                    if exact_only:
+                        exact_records = self._chinese.records.get(normalize_subtitle(source))
+                        hit = (exact_records, 100.0) if exact_records else None
+                    else:
+                        hit = self._chinese.match(source, threshold)
                     if hit is None:
                         continue
                     records, score = hit
@@ -75,6 +79,8 @@ class LocalGameTextIndex:
                         continue
                     records = self._records.get(key)
                     if not records:
+                        if exact_only:
+                            continue
                         if len(key) < 8:
                             continue
                         hits = process.extract(key, self._records.keys(), scorer=fuzz.ratio,

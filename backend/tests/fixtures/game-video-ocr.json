@@ -1,0 +1,168 @@
+{
+  "clips": [
+    {
+      "name": "Cyberpunk overhead conversation",
+      "game": "cyberpunk",
+      "path": "work/footage/cyberpunk-funny-0.mp4",
+      "start": 0,
+      "duration": 26,
+      "source_url": "https://www.youtube.com/watch?v=x-acLmfcl5U",
+      "expected": [
+        "cyberpunk:1802395107801554944:female",
+        "cyberpunk:1802395780567916544:female"
+      ],
+      "allowed_channels": [
+        "gameplay"
+      ]
+    },
+    {
+      "name": "Witcher upper NPC chatter",
+      "game": "witcher3",
+      "path": "work/footage/witcher-outside-2580.mp4",
+      "start": 70,
+      "duration": 23,
+      "source_url": "https://www.youtube.com/watch?v=qK4gTahM18o&t=2650",
+      "expected": [
+        "witcher3:562914"
+      ],
+      "excluded": [
+        "witcher3:475149",
+        "witcher3:543827"
+      ],
+      "notes": "The second line is occluded by the crafting tutorial between its two complete sampled sightings. Consecutive confirmation deliberately skips it.",
+      "allowed_channels": [
+        "dialogue",
+        "gameplay"
+      ]
+    },
+    {
+      "name": "Witcher cutscene subtitles",
+      "game": "witcher3",
+      "path": "work/footage/witcher-900.mp4",
+      "start": 30,
+      "duration": 35,
+      "source_url": "https://www.youtube.com/watch?v=qK4gTahM18o&t=930",
+      "expected": [
+        "witcher3:173254",
+        "witcher3:568318"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ]
+    },
+    {
+      "name": "Witcher Gwent UI negative",
+      "game": "witcher3",
+      "path": "work/footage/witcher-chatter-1980.mp4",
+      "start": 140,
+      "duration": 20,
+      "source_url": "https://www.youtube.com/watch?v=qK4gTahM18o&t=2120",
+      "excluded": [
+        "witcher3:1178168",
+        "witcher3:167088",
+        "witcher3:163516"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ]
+    },
+    {
+      "name": "Wuthering story response choice negative",
+      "game": "wuwa",
+      "player_voice": "male",
+      "path": "work/footage/wuwa-180.mp4",
+      "start": 130,
+      "duration": 35,
+      "source_url": "https://www.youtube.com/watch?v=hknCrKujg94&t=310",
+      "expected": [
+        "wuwa:HuanglongXZ_4_19"
+      ],
+      "excluded": [
+        "wuwa:Character_Encore_41_59"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ]
+    },
+    {
+      "name": "Wuthering exploration HUD negative",
+      "game": "wuwa",
+      "player_voice": "male",
+      "path": "work/footage/wuwa-600.webm",
+      "start": 35,
+      "duration": 18,
+      "source_url": "https://www.youtube.com/watch?v=hknCrKujg94&t=635",
+      "excluded": [
+        "wuwa:Main_LahaiRoi_WMXZTK_23_19"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ]
+    },
+    {
+      "name": "Wuthering wrapped story and choices",
+      "game": "wuwa",
+      "player_voice": "male",
+      "path": "work/footage/wuwa-600.webm",
+      "start": 140,
+      "duration": 35,
+      "source_url": "https://www.youtube.com/watch?v=hknCrKujg94&t=740",
+      "expected": [
+        "wuwa:HuanglongXZ_13_19"
+      ],
+      "excluded": [
+        "wuwa:Main_Mengzhou_3_6_190_5"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ]
+    },
+    {
+      "name": "Wuthering 3.0 cinematic captions",
+      "game": "wuwa",
+      "player_voice": "female",
+      "path": "work/footage/wuwa3-420.mp4",
+      "start": 10,
+      "duration": 30,
+      "source_url": "https://www.youtube.com/watch?v=dh3l4P31Ylg&t=430",
+      "expected": [
+        "wuwa:Main_LahaiRoi_3_1_4_10",
+        "wuwa:Main_LahaiRoi_3_1_4_12"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ]
+    },
+    {
+      "name": "Wuthering 3.0 story dialogue",
+      "game": "wuwa",
+      "player_voice": "female",
+      "path": "work/footage/wuwa3-tour-2100.mp4",
+      "start": 0,
+      "duration": 40,
+      "source_url": "https://www.youtube.com/watch?v=dh3l4P31Ylg&t=2100",
+      "expected": [
+        "wuwa:Main_LahaiRoi_3_1_16_21",
+        "wuwa:Main_LahaiRoi_3_1_16_25"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ]
+    },
+    {
+      "name": "Wuthering centered GiantSubtitle card",
+      "game": "wuwa",
+      "player_voice": "female",
+      "path": "work/footage/wuwa3-combat-8500.mp4",
+      "start": 135,
+      "duration": 22,
+      "source_url": "https://www.youtube.com/watch?v=dh3l4P31Ylg&t=8635",
+      "expected": [
+        "wuwa:Main_LahaiRoi_3_1_3901_12"
+      ],
+      "allowed_channels": [
+        "cinematic"
+      ]
+    }
+  ]
+}

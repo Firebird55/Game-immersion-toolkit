@@ -49,8 +49,10 @@ Synthetic 3840 × 2160 screenshot fixtures passed through production cropping,
 native Windows OCR, matching, stability, and strict voice gating for stock
 English, stock Chinese, inline dual subtitles, and wrapped dual subtitles.
 The corresponding Cyberpunk stock-English, stock-Chinese, and bilingual checks
-also passed. The mod is optional in both games. Actual gameplay and the installed
-mod's appearance remain untested because no game was launched.
+also passed. The mod is optional in both games. Recorded retail gameplay now
+verifies normal subtitles and NPC chatter; see
+[game-specific OCR presentations](game-ocr-presentations.md). The installed
+mod's appearance still requires live or mod-specific footage validation.
 
 The complete check passes 275 Python tests, 11 JavaScript tests, type checking,
 and the production build. Chromium and Firefox passed 24 desktop/mobile/zoom

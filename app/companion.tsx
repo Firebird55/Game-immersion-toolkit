@@ -52,10 +52,18 @@ type Settings = {
   hito_tip_region: CaptureRegion;
   hito_auto_regions: boolean;
   cyberpunk_region: CaptureRegion;
+  cyberpunk_tip_region: CaptureRegion;
+  cyberpunk_capture_chatter: boolean;
   cyberpunk_v_voice: 'unconfigured' | 'female' | 'male';
   wuwa_region: CaptureRegion;
+  wuwa_tip_region: CaptureRegion;
+  wuwa_capture_chatter: boolean;
+  wuwa_cinematic_region: CaptureRegion;
+  wuwa_capture_cinematic: boolean;
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   witcher3_region: CaptureRegion;
+  witcher3_tip_region: CaptureRegion;
+  witcher3_capture_chatter: boolean;
   scan_interval_ms: number;
   stable_frames: number;
   fuzzy_threshold: number;
@@ -620,7 +628,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'witcher3' ? 'witcher3_region' : selectedGame === 'wuwa' ? 'wuwa_region' : selectedGame === 'cyberpunk' ? 'cyberpunk_region' : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -723,12 +731,15 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'witcher3' ? draftSettings.witcher3_region : selectedGame === 'wuwa' ? draftSettings.wuwa_region : selectedGame === 'cyberpunk' ? draftSettings.cyberpunk_region : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
   const detectedBounds = setupChannel === 'tip' ? capture?.tip_crop_bounds : capture?.crop_bounds;
   const gameBounds = capture?.window_bounds;
+  const setupRegionLabel = setupChannel === 'dialogue' ? 'Dialogue'
+    : setupChannel === 'cinematic' ? selectedGame === 'wuwa' ? 'Centered story cards' : 'Cutscenes & comics'
+    : selectedGame === 'hito' ? 'Top box' : selectedGame === 'cyberpunk' || selectedGame === 'witcher3' ? 'NPC chatter' : 'Top-right tips';
   const activeRegion = selectedGame === 'hito' && draftSettings?.hito_auto_regions
     && capture?.active_game === 'hito' && detectedBounds && gameBounds
     ? { left: (detectedBounds[0] - gameBounds[0]) / gameBounds[2],
@@ -814,7 +825,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -992,6 +1003,21 @@ function CompanionClient() {
             {' '}Automatically follow Hito message boxes at the current resolution and zoom
           </label>}
 
+          {(selectedGame === 'cyberpunk' || selectedGame === 'wuwa' || selectedGame === 'witcher3') && draftSettings && <label>
+            <input type="checkbox" checked={draftSettings[`${selectedGame}_capture_chatter`]}
+              onChange={event => setDraftSettings(current => current ? { ...current, [`${selectedGame}_capture_chatter`]: event.target.checked } : current)} />
+            {' '}{selectedGame === 'wuwa' ? 'Capture top-right voices (experimental; off by default)' : 'Capture conversations above NPC heads'}
+          </label>}
+          {(selectedGame === 'cyberpunk' || selectedGame === 'witcher3' || selectedGame === 'wuwa') && <p className="setup-note">
+            Extra voices require an exact subtitle match. Main dialogue takes priority; response choices are excluded.
+          </p>}
+
+          {selectedGame === 'wuwa' && draftSettings && <label>
+            <input type="checkbox" checked={draftSettings.wuwa_capture_cinematic}
+              onChange={event => setDraftSettings(current => current ? { ...current, wuwa_capture_cinematic: event.target.checked } : current)} />
+            {' '}Capture centered story cards on dark backgrounds
+          </label>}
+
           <div className="capture-tabs" role="tablist" aria-label="Capture region">
             <button
               type="button"
@@ -1000,33 +1026,33 @@ function CompanionClient() {
             >
               <MessageSquareText size={16} /> Dialogue
             </button>
-            {(selectedGame === 'zzz' || selectedGame === 'hito') && <button
+            {(selectedGame === 'zzz' || selectedGame === 'hito' || selectedGame === 'wuwa' || selectedGame === 'cyberpunk' || selectedGame === 'witcher3') && <button
               type="button"
               className={setupChannel === 'tip' ? 'is-active' : ''}
               onClick={() => setSetupChannel('tip')}
             >
-              <ScanLine size={16} /> {selectedGame === 'hito' ? 'Top box' : 'Top-right tips'}
+              <ScanLine size={16} /> {selectedGame === 'hito' ? 'Top box' : selectedGame === 'cyberpunk' || selectedGame === 'witcher3' ? 'NPC chatter' : 'Top-right tips'}
             </button>}
-            {selectedGame === 'zzz' && <button
+            {(selectedGame === 'zzz' || selectedGame === 'wuwa') && <button
               type="button"
               className={setupChannel === 'cinematic' ? 'is-active' : ''}
               onClick={() => setSetupChannel('cinematic')}
             >
-              <Volume2 size={16} /> Cutscenes & comics
+              <Volume2 size={16} /> {selectedGame === 'wuwa' ? 'Centered story cards' : 'Cutscenes & comics'}
             </button>}
           </div>
 
           <div className="capture-preview">
-            {(setupChannel === 'tip' ? capture?.tip_crop_bounds : setupChannel === 'cinematic' ? capture?.cinematic_crop_bounds : capture?.crop_bounds) ? (
+            {capture?.active_game === selectedGame && capture?.window_bounds ? (
               <img
                 key={previewTick}
                 src={`${API_URL}/api/capture/preview.jpg?${previewRegionQuery}`}
-                alt={`Live preview of the ${setupChannel === 'tip' ? 'top-right tip' : setupChannel === 'cinematic' ? 'cinematic and comic' : 'dialogue'} capture region`}
+                alt={`Live preview of the ${setupRegionLabel.toLowerCase()} capture region`}
               />
             ) : (
               <div className="preview-placeholder"><ScanLine /> Start the selected game to see the capture preview.</div>
             )}
-            <span>{setupChannel === 'tip' ? selectedGame === 'hito' ? 'Top-box live crop' : 'Top-right live crop' : setupChannel === 'cinematic' ? 'Cutscene / comic live crop' : 'Dialogue live crop'}</span>
+            <span>{setupRegionLabel} live crop</span>
           </div>
 
           {draftSettings ? (

@@ -45,10 +45,18 @@ class AppSettings(BaseModel):
     )
     hito_auto_regions: bool = True
     cyberpunk_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.12, top=.59, width=.76, height=.37))
+    cyberpunk_tip_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.12, width=.70, height=.62))
+    cyberpunk_capture_chatter: bool = True
     cyberpunk_v_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
     wuwa_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.64, width=.80, height=.32))
+    wuwa_tip_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.58, top=.05, width=.40, height=.32))
+    wuwa_capture_chatter: bool = False
+    wuwa_cinematic_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.12, top=.20, width=.76, height=.43))
+    wuwa_capture_cinematic: bool = True
     wuwa_rover_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
     witcher3_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=.63, width=.84, height=.34))
+    witcher3_tip_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=0, width=.76, height=.74))
+    witcher3_capture_chatter: bool = True
     scan_interval_ms: int = Field(default=250, ge=100, le=5000)
     stable_frames: int = Field(default=2, ge=1, le=8)
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)
