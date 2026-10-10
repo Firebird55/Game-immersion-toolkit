@@ -10,6 +10,7 @@ for(const line of sums){
  const entries=scanArtifact(data,file);
  if(/\.(zip|tgz)$/.test(file)){
   for(const required of ['LICENSE','NOTICE.md','AGENTS.md','CONTRIBUTING.md'])if(!entries.some(e=>e.name===required||e.name.endsWith('/'+required)))throw new Error('Missing distribution notice: '+required);
+  if(pkg.name==='game-immersion-toolkit'&&!entries.some(e=>e.name.endsWith('/THIRD_PARTY_LICENSES.txt')))throw new Error('Bundled dependency licenses missing');
   if(pkg.name==='game-immersion-toolkit'&&!entries.some(e=>e.name.includes('/dist/client/')))throw new Error('Built frontend missing');
  }
 }

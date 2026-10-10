@@ -1,6 +1,6 @@
 # Develop on Windows, test on iPad
 
-The repository stays private. GitHub Pages hosts only the mobile capture page.
+The repository is public. GitHub Pages hosts only the mobile capture page.
 Game frames use direct WebRTC between your devices; catalog data, reports, game
 files, the Windows backend and credentials are not published. No deployment key
 is added to workflow secrets: Pages uses the job's built-in GitHub token and OIDC.
@@ -13,7 +13,7 @@ is added to workflow secrets: Pages uses the job's built-in GitHub token and OID
    require a frontend rebuild or stopping the desktop companion.
 2. Use `npm run mobile:check` for quick pairing and browser checks while editing.
    Before pushing, run the repository checks required by AGENTS.md: `npm run check`
-   and `node scripts/secret-check.mjs`. Stop the companion before the production
+   and `npm run audit:public`. Stop the companion before the production
    build and restore it afterward as described in RELEASE.md.
 3. Commit the logical change and `git push -u origin HEAD` (subsequent pushes can
    use `git push`).
@@ -42,12 +42,7 @@ package always comes from the run's checked-out commit.
 
 The repo's Pages publishing source must be **GitHub Actions**, with HTTPS enabled.
 The `github-pages` environment must allow `main` and `codex/**` branches to deploy.
-GitHub Pages for a private repository requires an eligible GitHub account plan.
-Keep the repository private; do not change visibility to bypass a plan limitation.
-After configuring Pages, set repository variable `MOBILE_PREVIEW_ENABLED` to `true`.
-Until then, the fast checks and packaging run normally and publishing is skipped.
-The first setup attempt on 2026-10-10 was rejected because the current account
-plan does not support Pages for this private repository; no site was created.
+Both the toolkit and shared source are public after the publication audit. Set repository variable `MOBILE_PREVIEW_ENABLED` to `true` once Pages is configured. The workflow then deploys without a private-repository hosting plan or a deployment credential.
 
 The mobile page is public by choice. Its report and pairing messages stay on the
 devices. Transfer pairing descriptions privately and use the same Wi-Fi without

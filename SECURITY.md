@@ -11,3 +11,7 @@ Game files, extracted voices, transcripts, calibration, local configuration and 
 Pull-request workflows have read-only permissions and no live credentials. Release/deployment writes run only for trusted canonical-repository events. Dependency alerts and periodic Dependabot updates are enabled; contributors should run `npm audit` and report actionable vulnerabilities. Never use a forced automatic downgrade to conceal an advisory.
 
 Checksums and provenance help detect corrupt downloads, but do not constitute a security guarantee. Publication checks scan history and decompressed archives; manual review remains necessary for assets, screenshots and third-party rights.
+
+## Known dependency limitation
+
+The current npm audit reports one upstream [braces stack-exhaustion advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), inherited through six packages in Vinext's build dependency chain. The latest published braces version remains 3.0.3. This affects deeply nested glob input; the app does not accept glob patterns from transcript users. Build only trusted configuration and keep build servers on loopback. A patched upstream version is still required; do not run npm audit fix --force, which currently proposes an unrelated framework downgrade.
