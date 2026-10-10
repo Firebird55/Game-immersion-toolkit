@@ -367,8 +367,10 @@ class TextMapIndex:
         if len(normalized) < (14 if chinese else 28):
             return None
         with self._lock:
-            choices = ([key for key, records in self._chinese_lookup.records.items()
-                        if any(self._is_allowed_record(r, "cinematic") for r in records)]
+            # Prepared with the complete snapshot. Rebuilding these choices on
+            # every Hanzi fragment can consume the next frame's stability
+            # window, especially when several high-resolution regions overlap.
+            choices = (self._chinese_lookup._choices.get("cinematic", [])
                        if chinese and self._chinese_lookup else self._cinematic_choices)
             if not choices:
                 return None

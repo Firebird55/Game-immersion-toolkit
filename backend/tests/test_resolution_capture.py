@@ -26,3 +26,34 @@ def test_hito_dynamic_boxes_follow_resized_layout_not_saved_pc_coordinates(zoom)
     region=CaptureService._hito_box_regions(image)["dialogue"]
     assert abs(region.top-top)<.015
     assert abs(region.top+region.height-bottom)<.015
+
+
+def test_ultrawide_does_not_shrink_subtitle_height_and_small_windows_are_enlarged():
+    normal = WindowInfo(1, "fixture", "game.exe", (0, 0, 2560, 1440))
+    wide = WindowInfo(1, "fixture", "game.exe", (-5120, 120, 5120, 1440))
+    normal_crop = Image.new("RGB", (2048, 460))
+    wide_crop = Image.new("RGB", (4096, 460))
+    assert CaptureService._ocr_image(normal_crop, normal).height == CaptureService._ocr_image(wide_crop, wide).height
+    small = WindowInfo(1, "fixture", "game.exe", (100, 50, 1280, 720))
+    assert CaptureService._ocr_image(Image.new("RGB", (1024, 230)), small).height > 230
+    assert normal_crop.size == (2048, 460) and wide_crop.size == (4096, 460)
+
+
+def test_tiny_calibrated_crop_stays_inside_window_at_low_resolution():
+    window = WindowInfo(1, "fixture", "game.exe", (-800, 120, 800, 600))
+    region = CaptureRegion(left=.99, top=.99, width=.01, height=.01)
+    x, y, w, h = CaptureService._region_bounds(window, region)
+    assert x >= -800 and y >= 120 and x + w <= 0 and y + h <= 720
+
+
+def test_windowed_capture_uses_client_origin_without_borders(monkeypatch):
+    from types import SimpleNamespace
+    from backend import windows
+    def client(hwnd, pointer):
+        pointer._obj.right, pointer._obj.bottom = 1280, 720
+        return True
+    def origin(hwnd, pointer):
+        pointer._obj.x, pointer._obj.y = -1920, 150
+        return True
+    monkeypatch.setattr(windows, "user32", SimpleNamespace(GetClientRect=client, ClientToScreen=origin), raising=False)
+    assert windows._window_bounds(1) == (-1920, 150, 1280, 720)

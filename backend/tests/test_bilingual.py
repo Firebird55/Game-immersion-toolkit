@@ -79,3 +79,25 @@ def test_background_chinese_index_build_leaves_status_responsive(tmp_path, monke
         finally:
             release.set()
         loading.result(timeout=5)
+
+
+def test_chinese_cinematic_fragment_does_not_rescan_all_records_per_frame(tmp_path):
+    index = make_index(tmp_path)
+    class PreparedRecords(dict):
+        def items(self):
+            raise AssertionError("Per-frame enumeration consumes subtitle stability time")
+    index._chinese_lookup.records = PreparedRecords(index._chinese_lookup.records)
+    match = index._match_cinematic_fragment("你们跟着出故障的萝卜邦布深入了空洞", 88)
+    assert match is not None and match.text_id == "Comic_scroll_2"
+    assert match.chinese.startswith("今天早些时候")
+
+
+def test_ocr_ellipsis_row_does_not_split_a_wrapped_mandarin_subtitle(tmp_path):
+    from backend.local_game import LocalGameTextIndex
+    (tmp_path / "textmap.json").write_text(json.dumps({"records": [{
+        "text_id": "wuwa:rain", "english": "The rain... We must hurry.",
+        "chinese": "是溯洄雨……不好，得抓紧时间了。", "audio": {"depot": "exact-original"}}]},
+        ensure_ascii=False), encoding="utf-8")
+    index = LocalGameTextIndex("wuwa", tmp_path)
+    match = index.match_lines(["是溯洄雨 ..", "…… . 不好,得抓紧时间了。"])
+    assert match is not None and match.text_id == "wuwa:rain" and match.score == 100

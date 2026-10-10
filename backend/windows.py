@@ -123,6 +123,17 @@ def find_active_game_window(settings: AppSettings) -> tuple[GameProfile, WindowI
 
 
 def _window_bounds(hwnd: int) -> tuple[int, int, int, int] | None:
+    # Windowed games have title bars/borders. OCR regions are relative to the
+    # rendered client, just as in borderless/fullscreen mode. DPI awareness
+    # above keeps both the client size and screen origin in physical pixels.
+    client, origin = wintypes.RECT(), wintypes.POINT()
+    try:
+        if user32.GetClientRect(hwnd, ctypes.byref(client)) and user32.ClientToScreen(hwnd, ctypes.byref(origin)):
+            width, height = client.right - client.left, client.bottom - client.top
+            if width > 0 and height > 0:
+                return origin.x, origin.y, width, height
+    except (AttributeError, OSError):
+        pass
     rect = wintypes.RECT()
     try:
         dwmapi = ctypes.windll.dwmapi

@@ -41,6 +41,10 @@ def subtitle_candidates(lines: Iterable[str]) -> list[str]:
     # boundary, retaining Latin names embedded within ordinary Chinese text.
     cleaned = [part.strip() for line in cleaned for part in re.split(
         r"(?<=[。！？])\s*(?=[A-Za-z])|(?<=[.!?])\s*(?=[\u3400-\u9fff])", line) if part.strip()]
+    # At some font sizes OCR isolates an ellipsis as its own row. It has no
+    # language or lookup content; leaving it between two Hanzi rows prevents
+    # those wrapped parts from being joined into the original subtitle.
+    cleaned = [line for line in cleaned if normalize_subtitle(line)]
     candidates: list[str] = []
     for start in range(len(cleaned)):
         for end in range(start + 1, min(len(cleaned), start + 8) + 1):

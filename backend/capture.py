@@ -284,8 +284,7 @@ class CaptureService:
                 window, CaptureRegion(left=0, top=0, width=1, height=0.55)
             )
             header_image = self._capture(header_bounds)
-            if header_image.width > 1400:
-                header_image.thumbnail((1400, 700), Image.Resampling.LANCZOS)
+            header_image = self._ocr_image(header_image, window)
             header_response = engine.recognize_pil(header_image)
             if epoch != self._scan_epoch:
                 return _ScanOutcome([])
@@ -298,8 +297,7 @@ class CaptureService:
         image = self._capture(crop_bounds)
         self._set_preview(image)
         dialogue_box_layout = self._has_dialogue_box(image)
-        if image.width > 1600:
-            image.thumbnail((1600, 400), Image.Resampling.LANCZOS)
+        image = self._ocr_image(image, window)
         response = engine.recognize_pil(image)
         if epoch != self._scan_epoch:
             return _ScanOutcome([])
@@ -404,6 +402,7 @@ class CaptureService:
         scan_tip = self._scan_index % 4 == 1
         if scan_tip:
             tip_image = self._capture(tip_bounds)
+            tip_image = self._ocr_image(tip_image, window)
             tip_response = engine.recognize_pil(tip_image)
             if epoch != self._scan_epoch:
                 return _ScanOutcome([])
@@ -458,8 +457,7 @@ class CaptureService:
         # Visible subtitles and exact game-file mappings confirm the voice.
         if not excluded_screen and tip_match is None and scan_cinematic:
             cinematic_image = self._capture(cinematic_bounds)
-            if cinematic_image.width > 1920:
-                cinematic_image.thumbnail((1920, 1080), Image.Resampling.LANCZOS)
+            cinematic_image = self._ocr_image(cinematic_image, window)
             cinematic_response = engine.recognize_pil(cinematic_image)
             if epoch != self._scan_epoch:
                 return _ScanOutcome([])
@@ -585,8 +583,7 @@ class CaptureService:
         crop_bounds = self._region_bounds(window, region)
         image = self._capture(crop_bounds)
         self._set_preview(image)
-        if image.width > 1600:
-            image.thumbnail((1600, 570), Image.Resampling.LANCZOS)
+        image = self._ocr_image(image, window)
         response = engine.recognize_pil(image)
         if epoch != self._scan_epoch:
             return _ScanOutcome([])
@@ -1142,12 +1139,25 @@ class CaptureService:
         return None
 
     @staticmethod
+    def _ocr_image(image: Image.Image, window: WindowInfo) -> Image.Image:
+        """Keep subtitle glyph density stable across resolutions/aspect ratios.
+
+        Use physical client height, never monitor DPI or crop width. A width
+        cap disproportionately shrinks ultrawide text; small game windows need
+        enlargement instead. Limit enlargement to 2x without changing crops,
+        previews, or the coordinates saved in per-PC calibration.
+        """
+        scale = min(2.0, 1440 / max(1, window.bounds[3]))
+        size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+        return image if size == image.size else image.resize(size, Image.Resampling.LANCZOS)
+
+    @staticmethod
     def _region_bounds(window: WindowInfo, region: object) -> tuple[int, int, int, int]:
         window_x, window_y, window_width, window_height = window.bounds
-        left = window_x + round(window_width * region.left)
-        top = window_y + round(window_height * region.top)
-        width = max(50, round(window_width * region.width))
-        height = max(50, round(window_height * region.height))
+        left = window_x + min(window_width - 1, round(window_width * region.left))
+        top = window_y + min(window_height - 1, round(window_height * region.top))
+        width = max(1, min(window_x + window_width - left, max(50, round(window_width * region.width))))
+        height = max(1, min(window_y + window_height - top, max(50, round(window_height * region.height))))
         return left, top, width, height
 
     @staticmethod

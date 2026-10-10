@@ -44,3 +44,7 @@ asset refresh, and the missing-pack message even when the subtitle index is
 ready. Actual gameplay appearance remains untested because no game was launched.
 Optional official HD/SD video downloads and valid small empty patch archives are
 accepted by the extractor; unknown archive paths are still rejected.
+
+After the Mandarin download, all 40 English/Chinese cases in the
+[resolution matrix](ocr-resolutions.md) captured the exact original voice ID
+at ten resolutions and two subtitle font sizes.

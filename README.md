@@ -6,6 +6,8 @@ Download a private release ZIP and double-click **Install.cmd**. The optional ga
 
 The UI adapts to narrow/short windows and high browser/Windows zoom. Hito automatically follows dialogue boxes; capture regions are normalized against physical game-window pixels and local calibration remains per PC.
 
+OCR scales to game-window height across small windows, 4K and ultrawide layouts, and windowed captures exclude title bars/borders. See [OCR resolution support and offline screenshot checks](docs/ocr-resolutions.md).
+
 See [Cyberpunk support and automatic subtitle languages](docs/cyberpunk-support.md) for bilingual-mod compatibility, V voice selection, and the Where Winds Meet limitation.
 See [Wuthering Waves support](docs/wuthering-support.md) for the Chinese voice-pack requirement and Rover selection, and [Witcher 3 support](docs/witcher-support.md) for stock/dual subtitle compatibility. Both Witcher 3 and Cyberpunk work without a subtitle mod.
 
