@@ -7,7 +7,7 @@ import re
 import subprocess
 import urllib.request
 import zipfile
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from .textmaps import display_text
 
@@ -60,8 +60,22 @@ def archive_sources(install: Path) -> list[Path]:
 
 
 def fingerprint(install: Path) -> str:
-    return "|".join(f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}"
+    return "reader2|" + "|".join(f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}"
                     for p in archive_sources(install))
+
+
+def expansion_status(install: Path) -> dict:
+    paths = [p for p in archive_sources(install) if p.parent.name == "ep1" or p.name.startswith("ep1_")]
+    if not paths:
+        return {"expansion_state": "not_installed", "expansion_message": "Phantom Liberty not found; the base game can be used on its own."}
+    names = {p.name.removeprefix("ep1_") for p in paths}
+    if not {"lang_en_text.archive", "lang_zh-cn_text.archive"} <= names:
+        state, message = "missing_text", "Phantom Liberty language files are incomplete. Finish the DLC and language downloads in your game launcher, then refresh."
+    elif "lang_zh-cn_voice.archive" not in names:
+        state, message = "missing_voice", "Phantom Liberty needs its Mandarin voice archive. Install the Simplified Chinese language pack through your game launcher, then refresh."
+    else:
+        state, message = "available", "Phantom Liberty English/Chinese text and Mandarin voice archives found. Game-data refresh includes the DLC."
+    return {"expansion_state": state, "expansion_message": message}
 
 
 def json_entries(path: Path) -> list[dict]:
@@ -78,9 +92,11 @@ def build_records(english: dict, chinese: dict, voices: dict) -> list[dict]:
     records = []
     for string_id, en in english.items():
         zh = chinese.get(string_id)
-        if not zh:
+        if not zh or en.get("_content_group") != zh.get("_content_group"):
             continue
         vo = voices.get(string_id, {})
+        if vo.get("_content_group") != en.get("_content_group"):
+            vo = {}  # DLC text cannot borrow a base-game performance with a reused ID.
         alternatives = []
         for variant in ("female", "male"):
             en_text = display_text(en.get(f"{variant}Variant") or en.get("femaleVariant", ""))
@@ -111,6 +127,7 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
     cache = data_dir / "index-cache" / hashlib.sha256(source_fingerprint.encode()).hexdigest()[:16]
     english, chinese, voices = {}, {}, {}
     for archive in archive_sources(install):
+        group = "ep1" if archive.parent.name == "ep1" or archive.name.startswith("ep1_") else "content"
         destination = cache / archive.parent.name / archive.stem
         complete = destination / "complete.json"
         if not complete.is_file():
@@ -132,32 +149,36 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
                     # to the same line and should not replace its clean voice.
                     if path.name not in {"voiceovermap.json.json", "voiceovermap_1.json.json"}:
                         continue
-                    voices[string_id] = {**entry, "archive": archive.relative_to(install).as_posix()}
+                    voices[string_id] = {**entry, "archive": archive.relative_to(install).as_posix(), "_content_group": group}
                 elif "lang_en_" in archive.name:
-                    english[string_id] = entry
+                    english[string_id] = {**entry, "_content_group": group}
                 else:
-                    chinese[string_id] = entry
+                    chinese[string_id] = {**entry, "_content_group": group}
     if fingerprint(install) != source_fingerprint:
         raise ValueError("Cyberpunk files changed while indexing; retry after Steam finishes updating")
     records = build_records(english, chinese, voices)
     if not records:
         raise ValueError("No official bilingual Cyberpunk subtitles could be extracted")
     mapped = sum(bool(r["audio"]) for r in records)
+    expansion_voices = sum(bool(r["audio"]) and
+        (Path(r["audio"]["archive"]).parent.name == "ep1" or Path(r["audio"]["archive"]).name.startswith("ep1_"))
+        for r in records)
+    expansion_message = f"; {expansion_voices:,} Phantom Liberty voice mappings" if expansion_voices else ""
     return {"format": 1, "install": str(install), "fingerprint": source_fingerprint, "records": records,
-            "message": (f"{len(records):,} bilingual pairs; {mapped:,} Mandarin voices" if mapped else
+            "message": (f"{len(records):,} bilingual pairs; {mapped:,} Mandarin voices{expansion_message}" if mapped else
                         "Chinese subtitles indexed; install the official Mandarin voice pack in Steam")}
 
 
 def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
     archive = (install / audio["archive"]).resolve()
-    if not archive.is_relative_to(install.resolve()) or not archive.is_file():
+    if not archive.is_relative_to(install.resolve()) or archive not in [p.resolve() for p in archive_sources(install)] or "voice" not in archive.name:
         raise ValueError("Original voice archive is unavailable")
     depot = audio["depot"]
-    if not depot.casefold().endswith(".wem") or ".." in depot or ":" in depot:
+    if not depot.casefold().endswith(".wem") or ".." in depot or ":" in depot or PureWindowsPath(depot).root:
         raise ValueError("Invalid original voice resource")
     run_wolvenkit(executable, "unbundle", archive, "-o", destination,
                   "-r", "^" + re.escape(depot) + "$", "-v", "quiet")
     path = destination / depot.replace("\\", "/")
-    if not path.is_file():
+    if not path.resolve().is_relative_to(destination.resolve()) or not path.is_file():
         raise FileNotFoundError("Mandarin voice was not found in the installed archive")
     return path.read_bytes()

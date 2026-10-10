@@ -84,6 +84,9 @@ class InstallationService:
             except (OSError, ValueError):
                 install = None
             state = self.game_state(game)
+            if game == "cyberpunk" and install:
+                from .cyberpunk_assets import expansion_status
+                state = {**state, **expansion_status(install)}
             configured = configured_install(game)
             folder_state = "configured" if configured else "invalid" if game in saved else "detected" if install else "missing"
             try:

@@ -17,7 +17,7 @@ from .media_tools import ffmpeg_executable
 
 
 ZERO_GUID = "00000000-0000-0000-0000-000000000000"
-INDEX_FORMAT = 3
+INDEX_FORMAT = 4
 SCENE_CLIP_RE = re.compile(r"^cs\d+_s(\d+)$", re.IGNORECASE)
 
 

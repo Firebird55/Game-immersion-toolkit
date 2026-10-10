@@ -8,6 +8,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import urllib.request
 import uuid
 from pathlib import Path
@@ -359,6 +360,23 @@ def build_index(
     }
 
 
+def refresh_install(install: Path) -> dict:
+    """Extract a fresh overlay and publish only an unchanged, complete install."""
+    stamp = fingerprint(install)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="index-", dir=DATA_DIR) as temporary:
+        extracted = Path(temporary)
+        extract_assets(install, extracted, DATA_DIR / "tools")
+        message_root = extracted / "natives/stm/message"
+        payload = build_index(message_root, install, extracted, load_sound_graph())
+        if not payload.get("records"):
+            raise ValueError("No official bilingual PRAGMATA dialogue could be extracted; previous index preserved")
+        if fingerprint(install) != stamp:
+            raise ValueError("PRAGMATA files changed while indexing; finish the game update, then refresh")
+        payload["fingerprint"] = stamp
+        return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Index official PRAGMATA English and Chinese dialogue")
     parser.add_argument("--install", type=Path)
@@ -368,15 +386,12 @@ def main() -> int:
     install = args.install or find_install()
     if args.source:
         message_root = args.source
+        extraction_root = message_root.parents[2] if message_root.name.casefold() == "message" else None
+        payload = build_index(message_root, install, extraction_root, load_sound_graph())
     else:
         if install is None:
             raise SystemExit("PRAGMATA installation was not found")
-        extracted = DATA_DIR / "extracted-next"
-        extract_assets(install, extracted, DATA_DIR / "tools")
-        message_root = extracted / "natives" / "stm" / "message"
-    extraction_root = message_root.parents[2] if message_root.name.casefold() == "message" else None
-    graph = load_sound_graph()
-    payload = build_index(message_root, install, extraction_root, graph)
+        payload = refresh_install(install)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix(".tmp")
     temporary.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

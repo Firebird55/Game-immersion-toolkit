@@ -17,6 +17,8 @@ try{
    games.find(g=>g.id==='honkai3').catalog_message='Honkai catalog 4.7: older content only; newer chapters are unavailable.';
    games.find(g=>g.id==='nte').catalog_message='Catalog update unavailable or incompatible; using the last complete catalog.';
    games.find(g=>g.id==='nte').catalog_warning=true;
+   games.find(g=>g.id==='cyberpunk').expansion_message='Phantom Liberty needs its Mandarin voice archive. Install the Simplified Chinese language pack through your game launcher, then refresh.';
+   games.find(g=>g.id==='cyberpunk').expansion_state='missing_voice';
    const setup={completed:false,version:'fixture',games,auto_start:false,free_gb:80,lexirise_configured:false,jobs:{},native:{},capture_check:null,requirements:[{id:'ocr',title:'Subtitle OCR',ready:true,help:''},{id:'audio',title:'Audio conversion',ready:true,help:''}]};
    await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
    await page.route('http://127.0.0.1:8766/**',async route=>{
@@ -60,6 +62,8 @@ try{
     else await dialog.getByText('Coverage limited to verified catalog 4.7 dialogue.',{exact:true}).waitFor();
     await dialog.getByText(games.find(g=>g.id===game).catalog_message,{exact:true}).waitFor();
    }
+   await dialog.getByLabel('Game to configure',{exact:true}).selectOption('cyberpunk');
+   await dialog.getByText(games.find(g=>g.id==='cyberpunk').expansion_message,{exact:true}).waitFor();
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
    assert(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Setup has horizontal overflow');

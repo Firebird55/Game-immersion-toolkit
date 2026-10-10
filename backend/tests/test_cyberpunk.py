@@ -65,13 +65,15 @@ def test_voice_extraction_uses_exact_depot_and_rejects_path_escape(tmp_path, mon
     import pytest
     install, output = tmp_path / "game", tmp_path / "output"
     install.mkdir(); output.mkdir()
-    (install / "voice.archive").touch()
+    voice_archive = install / "archive/pc/content/lang_zh-cn_voice.archive"
+    voice_archive.parent.mkdir(parents=True)
+    voice_archive.touch()
     calls = []
     def run(_exe, *arguments):
         calls.append(arguments)
         (output / "voice.wem").write_bytes(b"original-wem")
     monkeypatch.setattr(module, "run_wolvenkit", run)
-    assert extract_voice(install, {"archive": "voice.archive", "depot": "voice.wem"}, Path("tool"), output) == b"original-wem"
+    assert extract_voice(install, {"archive": voice_archive.relative_to(install).as_posix(), "depot": "voice.wem"}, Path("tool"), output) == b"original-wem"
     assert "^voice\\.wem$" in calls[0]
     with pytest.raises(ValueError):
         extract_voice(install, {"archive": "../other.archive", "depot": "voice.wem"}, Path("tool"), output)

@@ -9,6 +9,29 @@ the toolkit repository. The toolkit reads the installation without modifying it.
 
 Most adapters rebuild bilingual text and original-voice mappings directly from
 installed game files. ZZZ also refreshes its external language/scene metadata.
+
+| Game | Data included in refresh |
+| --- | --- |
+| Zenless Zone Zero | Current English/Chinese maps, scene metadata and installed Mandarin story/event/comic voice packages |
+| PRAGMATA | Installed base and patch PAKs, bilingual messages, authored cutscene timelines and verified original Mandarin banks |
+| Cyberpunk 2077 | Base game plus optional Phantom Liberty English/Chinese text and Mandarin voice archives |
+| The Witcher III | Installed English/Chinese string tables and Mandarin speech IDs under both `content` and `dlc` |
+
+Cyberpunk users select the main game installation, with Phantom Liberty installed
+under that same installation. Install its Simplified Chinese language/voice pack
+through the game launcher as well, then refresh. Setup reports whether the DLC
+is absent, missing text, missing Mandarin voices, or has all language archives.
+Index status reports the number of mapped DLC performances. Installing,
+patching or removing those archives invalidates the local index automatically.
+Base-game use does not require Phantom Liberty. Incomplete DLC language files
+cannot borrow a base-game translation or performance with a reused string ID.
+V voice selection applies to DLC player variants too. Exact DLC archive/depot
+references drive original playback. No DLC files are redistributed.
+
+PRAGMATA refresh extracts base/patch overlays into a new temporary directory,
+so files removed by a patch cannot survive from a previous extraction. An empty
+index or a game change during extraction rejects the refresh before publication.
+
 NTE reads English/Chinese localization, subtitle cue times and original Mandarin
 media locally; its movie-to-voice binding tables come from
 [NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets).

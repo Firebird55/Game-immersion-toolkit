@@ -111,7 +111,7 @@ class PragmataUpdateManager:
             if not needs_update:
                 self.index.load()
                 self.voice_assets.reload()
-                self._set(state="idle", message="PRAGMATA game files are current", progress=100)
+                self._set(state="idle", message="PRAGMATA game files are current", progress=100, last_error=None)
                 return
             self._set(state="updating", message="Indexing official PRAGMATA subtitles", progress=15)
             command = [sys.executable, str(self.project_root / "scripts/index_pragmata_assets.py")]

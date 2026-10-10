@@ -14,6 +14,7 @@ type GameSetup = {
   index_message: string; update_message: string; update_state: string; progress: number;
   last_checked: string | null; needs_attention: boolean;
   catalog_message?: string | null; catalog_warning?: boolean;
+  expansion_message?: string; expansion_state?: string;
 };
 type Setup = {
   completed: boolean; version: string; games: GameSetup[]; auto_start: boolean; free_gb: number | null;
@@ -128,6 +129,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               <p><strong>Folder:</strong> {current.folder_state === 'configured' ? 'Verified' : current.folder_state === 'detected' ? 'Found automatically' : current.folder_state === 'invalid' ? 'Saved folder unavailable; choose its new location' : 'Not found yet'}</p>
               <p><strong>Voices:</strong> {VOICE_LABELS[current.voice_state] ?? current.voice_state}</p>
               <p>{current.voice_hint}</p>
+              {current.expansion_message && <p role="status">{current.expansion_message}</p>}
               <p><strong>Game tools:</strong> {current.tools_missing.length ? 'Installation needed' : 'Ready'}</p>
               <div className="toolkit-setup-actions">
                 {game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools. You can keep browsing while this runs.')}><Download /> {current.tools_missing.length ? 'Install game tools' : 'Repair game tools'}</Button>}

@@ -27,6 +27,8 @@ Setup shows saved/automatically detected folders, missing voice packs and tools,
 
 See [NTE and Honkai support](docs/nte-honkai-support.md) before configuring these games. NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). Honkai Impact 3rd captures only supported older bilingual dialogue with an exact installed Mandarin voice; newer chapters remain excluded.
 
+Cyberpunk users can include **Phantom Liberty**: install the DLC and its Simplified Chinese voice pack through the game launcher, select the main Cyberpunk folder, then refresh. Setup checks its optional English/Chinese text and Mandarin voice archives; index status reports mapped DLC performances. V voice selection applies to DLC variants too. The base game works without the DLC. Witcher III refresh includes installed DLC localization and Mandarin speech automatically.
+
 No game archives, audio packages, extracted voices, catalog data or captured clips are included in this repository or installer. The game installation is read-only. Locations are stored per PC in LOCALAPPDATA/Proxy Transcript/game-paths.json, separately from capture calibration and credentials. Tool/game-derived caches stay under data and work and must never be published.
 
 ## After a game update or move
