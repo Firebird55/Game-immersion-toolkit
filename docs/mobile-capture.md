@@ -5,6 +5,11 @@ audio, account connection, or transcript writes. The desktop capture pipeline is
 
 ## Open on iPad and phone
 
+For normal development, use the [GitHub preview cycle](mobile-development.md).
+It provides a stable public HTTPS bookmark from this private repository. The PC
+does not need to serve the page or install a certificate on your devices. The
+local HTTPS setup below remains available for offline or unpublished testing.
+
 The test is available at `/mobile-capture/index.html` from the frontend, or with
 the standalone server below. Screen sharing requires a secure context. Plain
 HTTP to a PC's LAN address is insufficient. Bypassing a certificate warning is

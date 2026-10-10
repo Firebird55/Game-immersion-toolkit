@@ -1,0 +1,72 @@
+name: Mobile preview
+on:
+  push:
+    branches: [main, 'codex/**']
+    paths:
+      - 'public/mobile-capture/**'
+      - 'scripts/build-mobile-preview.mjs'
+      - 'scripts/serve-mobile-capture.mjs'
+      - 'scripts/mobile-capture-e2e.mjs'
+      - 'tests/mobile-capture.test.mjs'
+      - '.github/workflows/mobile-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-pages-preview
+  cancel-in-progress: true
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check capture logic
+        run: node --test tests/mobile-capture.test.mjs
+      - name: Install isolated browser tools
+        run: npm install --prefix "$RUNNER_TEMP/mobile-tools" --no-package-lock --no-audit --no-fund playwright@1.64.0
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: mobile-preview-${{ runner.os }}-playwright-1.64.0
+      - name: Install browsers
+        run: '"$RUNNER_TEMP/mobile-tools/node_modules/.bin/playwright" install --with-deps chromium firefox'
+      - name: Package public preview files
+        id: package
+        run: node scripts/build-mobile-preview.mjs
+      - name: Check packaged browser pairing and phone layouts
+        env:
+          PLAYWRIGHT_MODULE_PATH: ${{ runner.temp }}/mobile-tools/node_modules/playwright/index.mjs
+          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
+        run: node scripts/mobile-capture-e2e.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ steps.package.outputs.directory }}
+      - name: Record tested version
+        run: |
+          printf '### Tested mobile preview\n\nCommit: `%s`\n\nSix browser-only files packaged. HTTPS deployment runs when repository variable MOBILE_PREVIEW_ENABLED is true and GitHub Pages is configured.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+  publish:
+    if: vars.MOBILE_PREVIEW_ENABLED == 'true'
+    needs: preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Publish HTTPS preview
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Record deployment URL
+        env:
+          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          printf '### Mobile preview\n\n%s\n\nCommit: `%s`\n\nOpen on iPad and phone, then tap **Reload latest** before pairing.\n' "$PREVIEW_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

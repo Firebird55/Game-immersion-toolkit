@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { readFileSync, mkdirSync } from 'node:fs';
-import { chromium, firefox } from 'playwright';
+import { readFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { resolve, sep } from 'node:path';
+const { chromium, firefox } = await import(process.env.PLAYWRIGHT_MODULE_PATH ? pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href : 'playwright');
 
-const root = new URL('../public/mobile-capture/', import.meta.url);
-const files = new Map([['/', 'index.html'], ['/capture.js', 'capture.js'], ['/core.mjs', 'core.mjs'], ['/style.css', 'style.css']]);
+const root = process.env.MOBILE_PREVIEW_DIR ? pathToFileURL(resolve(process.env.MOBILE_PREVIEW_DIR) + sep) : new URL('../public/mobile-capture/', import.meta.url);
+const files = new Map(readdirSync(root).map(name => [`/${name}`, name]));
+files.set('/', 'index.html');
+const expectedBuild = files.has('/build.json') ? JSON.parse(readFileSync(new URL('build.json', root), 'utf8')) : null;
 const server = http.createServer((req, res) => {
-  const file = files.get(req.url);
+  const file = files.get(new URL(req.url, 'http://localhost').pathname);
   if (!file) { res.writeHead(404); res.end(); return; }
-  res.setHeader('Content-Type', file.endsWith('html') ? 'text/html' : file.endsWith('css') ? 'text/css' : 'text/javascript');
+  res.setHeader('Content-Type', file.endsWith('html') ? 'text/html' : file.endsWith('css') ? 'text/css' : file.endsWith('json') ? 'application/json' : 'text/javascript');
   res.end(readFileSync(new URL(file, root)));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -37,6 +41,14 @@ try {
       };
     });
     await sender.goto(url); await receiver.goto(url);
+    if (expectedBuild) {
+      assert.match(await receiver.locator('#build-info').innerText(), new RegExp(expectedBuild.commit.slice(0, 8)));
+      // Google Drive can add desktop.ini to a local package. It is not one of
+      // the copied publication files and is absent on the Linux publisher.
+      const names = readdirSync(root).filter(name => name !== 'desktop.ini').sort();
+      assert.equal(names.length, 6, 'Publication contains only HTML, manifest, marker, script, core and CSS');
+      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|(?:capture|core|style)\.[0-9a-f]{16}\.(?:js|mjs|css))$/.test(name)));
+    }
     for (const [width, height, scale] of [[320, 568, 1], [390, 844, 1], [768, 1024, 1], [1920, 1080, 2]]) {
       await receiver.setViewportSize({ width, height });
       await receiver.evaluate(scale => { document.body.style.zoom = String(scale); }, scale);
@@ -60,6 +72,7 @@ try {
     await sender.fill('#incoming', await receiver.locator('#outgoing').inputValue());
     await sender.click('#apply');
     await receiver.bringToFront();
+    assert.equal(await receiver.locator('#reload-build').isEnabled(), false, 'Updating cannot interrupt an active session');
     await receiver.waitForFunction(() => document.getElementById('preview').videoWidth > 0, { timeout: 20000 });
     try {
       await receiver.waitForFunction(() => /Receiving frames/.test(document.getElementById('metrics').textContent));
@@ -80,6 +93,7 @@ try {
     assert(report.observation.frames > 0 && report.observation.darkSamples > 0);
     assert.equal(report.backgroundCaptureVerified, false);
     assert.equal(report.userObservation, 'not_verified');
+    assert.equal(report.build?.commit ?? null, expectedBuild?.commit ?? null, 'Report records the version actually loaded');
     assert(!JSON.stringify(report).includes('v=0'), 'Report excludes SDP');
     await receiver.evaluate(() => document.getElementById('preview').pause());
     await receiver.waitForFunction(() => document.getElementById('metrics').textContent.includes('Frame delivery stalled'));
@@ -88,6 +102,9 @@ try {
     assert.equal(await receiver.locator('#role').isEnabled(), true);
     assert.equal(await receiver.locator('#outgoing').inputValue(), '');
     assert.equal(await receiver.locator('#begin-test').isEnabled(), false);
+    assert.equal(await receiver.locator('#reload-build').isEnabled(), true);
+    await receiver.click('#reload-build');
+    await receiver.waitForURL(/\?v=\d+/);
     await sender.click('#stop');
     // A second session verifies cleanup and reconnect do not retain old metrics.
     await sender.click('#start');

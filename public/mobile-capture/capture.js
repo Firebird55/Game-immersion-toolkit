@@ -1,6 +1,12 @@
 import { TEST_DURATION_MS, parsePairing, pairingMessage, frameHealth, imageSignature } from './core.mjs';
 
 const $ = id => document.getElementById(id);
+const build = document.documentElement.dataset.buildCommit ? {
+  commit: document.documentElement.dataset.buildCommit,
+  branch: document.documentElement.dataset.buildBranch,
+  builtAt: document.documentElement.dataset.buildTime,
+} : null;
+if (build) $('build-info').textContent = `Build ${build.commit.slice(0, 8)} · ${build.branch} · ${build.builtAt}`;
 let peer = null, stream = null, generation = 0, frameCallback = null;
 let connectedAt = null, lastFrameAt = null, delivered = 0, changed = 0, dark = false;
 let lastHash = null, lastMediaTime = -1, observation = null, events = [];
@@ -20,6 +26,7 @@ function updateRole() {
   $('start').disabled = Boolean(peer) || pendingCapture || busyPairing || !caps.secure || !caps.screenCapture || !caps.webRTC;
   $('apply').disabled = pendingCapture || busyPairing || !caps.secure || !caps.webRTC;
   $('role').disabled = Boolean(peer) || pendingCapture || busyPairing; $('game').disabled = Boolean(peer) || pendingCapture || busyPairing;
+  $('reload-build').disabled = Boolean(peer) || pendingCapture || busyPairing;
 }
 function cleanup(message = 'Stopped.') {
   generation++;
@@ -126,6 +133,7 @@ $('play-preview').onclick = async () => {
   try { await $('preview').play(); $('play-preview').hidden = true; } catch (error) { status(`Cannot play preview: ${error.message}`); }
 };
 $('stop').onclick = () => cleanup();
+$('reload-build').onclick = () => { const url = new URL(location.href); url.searchParams.set('v', String(Date.now())); location.replace(url); };
 $('role').onchange = updateRole;
 $('copy').onclick = async () => { try { await navigator.clipboard.writeText($('outgoing').value); status('Pairing message copied.'); } catch { $('outgoing').select(); status('Select and copy the message, or download the pairing file.'); } };
 function download(value, name) {
@@ -179,7 +187,7 @@ $('begin-test').onclick = () => {
   observation = { startedAt: previousSampleAt, endedAt: null, frames: 0, changes: 0, samples: 0, stalledSamples: 0, darkSamples: 0, hiddenSamples: 0, maxSamplingGapMs: 0 };
   $('begin-test').disabled = true; event('observation_started');
 };
-$('report').onclick = () => download(JSON.stringify({ format: 'proxy-mobile-capture-report-v1', createdAt: new Date().toISOString(), role: sessionRole ?? $('role').value, game: sessionGame ?? $('game').value, capability: capability(), connectionState: peer?.connectionState ?? 'closed', frameMeasurement: $('preview').requestVideoFrameCallback ? 'video-frame-callback' : 'media-time-fallback', deliveredFrames: delivered, visibleChanges: changed, observation, userObservation: $('result').value, notes: $('notes').value.slice(0, 4000), events, backgroundCaptureVerified: false, explanation: 'Manual device test evidence only. Review the game preview and observation; frame delivery alone cannot verify game capture.' }, null, 2), 'mobile-capture-report.json');
+$('report').onclick = () => download(JSON.stringify({ format: 'proxy-mobile-capture-report-v1', createdAt: new Date().toISOString(), build, role: sessionRole ?? $('role').value, game: sessionGame ?? $('game').value, capability: capability(), connectionState: peer?.connectionState ?? 'closed', frameMeasurement: $('preview').requestVideoFrameCallback ? 'video-frame-callback' : 'media-time-fallback', deliveredFrames: delivered, visibleChanges: changed, observation, userObservation: $('result').value, notes: $('notes').value.slice(0, 4000), events, backgroundCaptureVerified: false, explanation: 'Manual device test evidence only. Review the game preview and observation; frame delivery alone cannot verify game capture.' }, null, 2), 'mobile-capture-report.json');
 document.addEventListener('visibilitychange', () => event(document.hidden ? 'page_hidden' : 'page_visible'));
 window.addEventListener('pagehide', () => { if (peer) event('page_unloaded'); });
 updateRole();
