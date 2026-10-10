@@ -4,6 +4,8 @@ import { access, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
+import { sceneAssetPaths } from './scene-catalog.mjs';
+import { comicVoicePairs, uniqueComicLinks } from './comic-links.mjs';
 
 const [gameDataArg, toolsArg, filter = 'zenkov', outputName = 'scene-links.json'] = process.argv.slice(2);
 if (!gameDataArg || !toolsArg) throw new Error('Pass GAME_DATA and TOOL_DIR');
@@ -11,13 +13,16 @@ const gameData = resolve(gameDataArg);
 const toolDir = resolve(toolsArg);
 if (toolDir.toLowerCase().startsWith(gameData.toLowerCase())) throw new Error('Tool directory must be outside the game');
 const source = await readFile(join(toolDir, 'galgame-perform.ts'), 'utf8');
-await writeFile(join(toolDir, 'galgame-perform.mjs'), ts.transpileModule(source, {
+// Expose the pinned reader's unpacker to our owned comic-format adapter.
+await writeFile(join(toolDir, 'galgame-perform.mjs'), ts.transpileModule(source + '\nexport { unpackMhyFile };', {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText);
-const { galGamePerformAssetPaths, galGameBlockNamesFromCatalog, galGameLinksFromBlocks } =
+const { galGameBlockNamesFromCatalog, galGameLinksFromBlocks, unpackMhyFile } =
   await import(pathToFileURL(join(toolDir, 'galgame-perform.mjs')).href);
-const paths = galGamePerformAssetPaths(JSON.parse(await readFile(join(toolDir, 'PerformTemplateTb.json'))))
-  .filter(path => path.includes(filter.toLowerCase()));
+const table = JSON.parse(await readFile(join(toolDir, 'PerformTemplateTb.json')));
+const category = filter.toLowerCase() === 'comic' ? 'comic' : 'galgame';
+const paths = sceneAssetPaths(table, category)
+  .filter(path => ['galgame', 'comic'].includes(filter.toLowerCase()) || path.includes(filter.toLowerCase()));
 if (!paths.length) throw new Error('No matching scene paths');
 async function localFile(name) {
   for (const directory of ['Persistent', 'StreamingAssets']) {
@@ -48,11 +53,25 @@ const links = [];
 for (const block of blocks) {
   const path = await localFile(block);
   if (!path) throw new Error(`Missing game block: ${block}`);
-  const result = galGameLinksFromBlocks([await readFile(path)]);
+  const bytes = await readFile(path);
+  if (category === 'comic') {
+    let offset = 0;
+    while (offset + 8 <= bytes.length) {
+      while (bytes[offset] === 0) offset++;
+      if (offset + 8 > bytes.length) break;
+      const unpacked = unpackMhyFile(bytes, offset);
+      for (const cab of unpacked.files) links.push(...comicVoicePairs(cab));
+      offset = unpacked.end;
+    }
+    continue;
+  }
+  const result = galGameLinksFromBlocks([bytes]);
   for (const [source, text_id] of result.links) {
     links.push({ source: result.sourceNames.get(source) ?? source, text_id });
   }
 }
+const verified = category === 'comic' ? uniqueComicLinks(links) : links;
+if (!verified.length) throw new Error('No unambiguous text-to-voice links in matching scenes');
 if (!/^[A-Za-z0-9_.-]+\.json$/.test(outputName)) throw new Error('Invalid output filename');
-await writeFile(join(toolDir, outputName), JSON.stringify(links, null, 2));
-console.log(`Read ${blocks.size} game blocks; wrote ${links.length} source links outside the game.`);
+await writeFile(join(toolDir, outputName), JSON.stringify(verified, null, 2));
+console.log(`Read ${blocks.size} game blocks; wrote ${verified.length} source links outside the game.`);

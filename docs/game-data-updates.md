@@ -17,6 +17,17 @@ installed game files. ZZZ also refreshes its external language/scene metadata.
 | Cyberpunk 2077 | Base game plus optional Phantom Liberty English/Chinese text and Mandarin voice archives |
 | The Witcher III | Installed English/Chinese string tables and Mandarin speech IDs under both `content` and `dlc` |
 
+ZZZ comic discovery includes the authored `Data/ScriptConfig/Comic` namespace,
+separately from GalGame performances. Comic voice mappings read complete
+serialized GUID-to-voice dictionary entries; neighboring subtitle order is not
+used. Conflicting associations and incomplete dictionaries are rejected. The
+2026-10-10 installed-client check yielded 701 comic links, each present in both
+language maps and matched to an original Mandarin package source. Three sampled
+comic performances decoded successfully and were non-silent. The full refreshed
+manifest contained 52,637 exact voice mappings. These are installation-specific
+counts, not evidence that every comic presentation passes OCR or that all future
+chapters are supported. Existing capture calibration is preserved.
+
 Cyberpunk users select the main game installation, with Phantom Liberty installed
 under that same installation. Install its Simplified Chinese language/voice pack
 through the game launcher as well, then refresh. Setup reports whether the DLC

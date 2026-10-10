@@ -137,7 +137,7 @@ def main() -> None:
     except (OSError, ValueError):
         previous = {}
     manifest = root / "data/voice-assets/manifest.json"
-    if previous.get("version") == 3 and previous.get("inventory") == current and manifest.exists():
+    if previous.get("version") == 4 and previous.get("inventory") == current and manifest.exists():
         print("Full local voice manifest is already current.")
         return
 
@@ -181,7 +181,7 @@ def main() -> None:
         "--prefixes", str(prefixes),
         "--decoder-dir", str(decoder),
     ], **options)
-    atomic_json(state_path, {"version": 3, "inventory": inventory(game_data, sources)})
+    atomic_json(state_path, {"version": 4, "inventory": inventory(game_data, sources)})
     total = len(json.loads(manifest.read_text(encoding="utf-8"))["entries"])
     print(f"Full local Mandarin voice manifest ready: {total:,} exact lines.")
 
