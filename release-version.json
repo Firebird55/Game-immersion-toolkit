@@ -1,4 +1,4 @@
 {
-  "version": "0.2.12",
-  "releaseCommand": "npm run release -- --version 0.2.12"
+  "version": "0.2.13",
+  "releaseCommand": "npm run release -- --version 0.2.13"
 }
