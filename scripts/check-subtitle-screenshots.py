@@ -11,6 +11,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -69,6 +70,10 @@ def fixture_image(game, english, chinese, language, resolution=(3840, 2160), fon
               [english, "~ " + chinese] if language == "dual-wrapped" else [chinese, english])
     rows = [row for block in blocks for row in wrap(block, font, width - round(150 * density))]
     y = top + round(60 * density)
+    if game == 'nte':
+        # Reviewed NTE captions sit below the speaker/HUD strip. Short mixed
+        # Chinese/Latin lines above this band are intentionally rejected.
+        y = max(y, round(screen_height * .81))
     for row in rows:
         x = left + (width - font.getlength(row)) / 2
         draw.text((x, y), row, font=font, fill="white", stroke_width=max(1, round(2 * density)), stroke_fill="#101010")
@@ -157,20 +162,24 @@ async def main(args):
         for game, index in indexes.items():
             if args.game and args.game != game:
                 continue
+            def unique_match(record):
+                en_match, zh_match = index.match_lines([record.english]), index.match_lines([record.chinese])
+                expected = record.text_id
+                if game == 'pragmata' and not expected.startswith('pragmata:'):
+                    expected = 'pragmata:' + expected
+                return en_match and zh_match and en_match.text_id == zh_match.text_id == expected
             if game == "zzz":
                 candidates = (record for records in index._records_by_normalized.values() for record in records
                     if index.is_capture_text(record.text_id, record.english, "dialogue"))
-                def unique_match(record):
-                    en_match, zh_match = index.match_lines([record.english]), index.match_lines([record.chinese])
-                    return en_match and zh_match and en_match.text_id == zh_match.text_id == record.text_id
                 record = next(r for r in candidates if 25 <= len(r.english) <= 95 and 8 <= len(r.chinese) <= 55
                               and voices[game].has_variant(r.text_id, r.english) and unique_match(r))
                 text_id, english, chinese = record.text_id, record.english, record.chinese
             else:
                 payload = json.loads((data / game / "textmap.json").read_text(encoding="utf-8"))
                 missing_voice = game in LOCAL_GAMES and index.audio_count == 0
-                record = next(r for r in payload["records"] if (r.get("audio") or missing_voice) and not r.get("player_voice")
+                candidates = (r for r in payload["records"] if (r.get("audio") or missing_voice) and not r.get("player_voice")
                               and 25 <= len(r["english"]) <= 95 and 8 <= len(r["chinese"]) <= 55)
+                record = next(r for r in candidates if missing_voice or unique_match(SimpleNamespace(**r)))
                 text_id = record["text_id"]
                 if game == "pragmata" and not text_id.startswith("pragmata:"):
                     text_id = "pragmata:" + text_id

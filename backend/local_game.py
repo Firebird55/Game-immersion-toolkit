@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import threading
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,6 +12,12 @@ from rapidfuzz import fuzz, process
 from .bilingual import ChineseLookup, contains_han, normalize_subtitle, subtitle_candidates
 from .models import TextMatch
 from .textmaps import display_text, normalize_english
+
+
+def _english_key(value: str) -> str:
+    # OCR renders compatibility glyphs such as superscript/full-width digits
+    # as ordinary digits. Preserve their values instead of discarding them.
+    return normalize_english(unicodedata.normalize('NFKC', value))
 
 
 @dataclass(frozen=True)
@@ -53,7 +60,7 @@ class LocalGameTextIndex:
                     if values is not None and (not isinstance(values, list) or not all(isinstance(v, str) and v.strip() for v in values)):
                         raise ValueError('Invalid authored OCR page anchors')
                 for english in dict.fromkeys([record.english, *(record.ocr_english or [])]):
-                    lookup.setdefault(normalize_english(english), []).append(record)
+                    lookup.setdefault(_english_key(english), []).append(record)
                 for chinese in dict.fromkeys([record.chinese, *(record.ocr_chinese or [])]):
                     chinese_anchors.setdefault(normalize_subtitle(chinese), []).append(record)
             with self._lock:
@@ -88,7 +95,7 @@ class LocalGameTextIndex:
                         continue
                     records, score = hit
                 else:
-                    key = normalize_english(source)
+                    key = _english_key(source)
                     if len(key) < 3:
                         continue
                     records = self._records.get(key)

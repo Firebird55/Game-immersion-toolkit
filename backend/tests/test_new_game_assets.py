@@ -224,3 +224,14 @@ def test_authored_page_shared_by_different_performances_is_ambiguous(tmp_path):
     index = LocalGameTextIndex('honkai3', tmp_path)
     assert index.match_lines(['A shared synthetic page.'], exact_only=True) is None
     assert index.match_lines(['共同测试片段。'], exact_only=True) is None
+
+
+def test_ocr_compatibility_digits_preserve_distinct_exact_voice_identities(tmp_path):
+    rows = [{'text_id': f'nte:{n}', 'english': f'Synthetic edition Q{glyph} is available.',
+             'chinese': f'测试版本{n}已发布。', 'audio': {'file': f'original-{n}'}}
+            for n, glyph in [(3, '³'), (4, '⁴')]]
+    (tmp_path / 'textmap.json').write_text(json.dumps({'records': rows}), encoding='utf8')
+    index = LocalGameTextIndex('nte', tmp_path)
+    for number in [3, 4]:
+        assert index.match_lines([f'Synthetic edition Q{number} is available.'], exact_only=True).text_id == f'nte:{number}'
+    assert index.match_lines(['Synthetic edition Q5 is available.'], exact_only=True) is None
