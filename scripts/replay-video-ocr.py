@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import subprocess
@@ -20,7 +19,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from PIL import Image
+from PIL import Image, ImageOps
 from oneocr import OcrEngine
 from backend.capture import CaptureService
 from backend.config import SettingsStore
@@ -29,6 +28,50 @@ from backend.media_tools import ffmpeg_executable
 from backend.models import AppSettings
 from backend.storage import TranscriptStore
 from backend.windows import WindowInfo
+from backend.games import GAME_PROFILES
+
+
+def prepare_frame(original, resolution, mode='fit'):
+    """Keep footage geometry; widening a recording must not stretch its text.
+
+    Fit tests simulate a letterboxed/pillarboxed recording, not native game UI
+    reflow. Stretch is retained only for explicitly requested legacy probes.
+    """
+    if mode == 'fit':
+        return ImageOps.pad(original.convert('RGB'), resolution,
+                            method=Image.Resampling.LANCZOS, color='black')
+    if mode == 'stretch':
+        return original.convert('RGB').resize(resolution, Image.Resampling.LANCZOS)
+    raise ValueError('aspect_mode must be fit or stretch')
+
+
+def validate_clip(clip):
+    if clip.get('game') not in GAME_PROFILES:
+        raise ValueError('Unknown replay game')
+    if not 0 < float(clip.get('duration', 0)) <= 120:
+        raise ValueError('Review clips in sections of at most 120 seconds')
+    if clip.get('aspect_mode', 'fit') not in {'fit', 'stretch'}:
+        raise ValueError('aspect_mode must be fit or stretch')
+    if not clip.get('expected') and not clip.get('expect_no_lines') and not clip.get('excluded'):
+        raise ValueError('Annotate expected IDs or an explicit negative case')
+    if clip.get('expect_no_lines') and clip.get('expected'):
+        raise ValueError('A negative case cannot also expect lines')
+
+
+def validate_result(clip, emitted, scheduled, mapped):
+    actual = {line.text_id for line in emitted}
+    expected = set(clip.get('expected', []))
+    assert expected <= actual, f"{clip['name']}: missed {expected-actual}"
+    if clip.get('expected_exact'):
+        assert actual == expected, f"{clip['name']}: unexpected {actual-expected}"
+    if clip.get('expect_no_lines'):
+        assert not emitted, f"{clip['name']}: unexpected voice {actual}"
+    assert not set(clip.get('excluded', [])) & actual, f"{clip['name']}: false voice {set(clip.get('excluded', [])) & actual}"
+    assert all(line.text_id in mapped for line in scheduled)
+    assert [line.id for line in scheduled] == [line.id for line in emitted], 'Each accepted line queues its own original asset'
+    if 'allowed_channels' in clip:
+        assert {line.channel for line in emitted} <= set(clip['allowed_channels'])
+    return actual
 
 
 class ReplayStore(TranscriptStore):
@@ -45,6 +88,7 @@ class ReplayStore(TranscriptStore):
 
 
 def replay(clip, resolution, data_dir, fps=2):
+    validate_clip(clip)
     game = clip['game']
     index = LocalGameTextIndex(game, data_dir / game)
     index.player_voice = clip.get('player_voice', 'unconfigured')
@@ -61,6 +105,10 @@ def replay(clip, resolution, data_dir, fps=2):
         settings = SettingsStore(folder / 'settings.json')
         settings.save(AppSettings(auto_start=False, stable_frames=2,
                                   **clip.get('settings', {})))
+        if game == 'wuwa':
+            settings.save(settings.get().model_copy(update={'wuwa_rover_voice': index.player_voice}))
+        elif game == 'cyberpunk':
+            settings.save(settings.get().model_copy(update={'cyberpunk_v_voice': index.player_voice}))
         async def ignore(*_):
             pass
         service = CaptureService(settings, index, None, ReplayStore(folder / 'transcript.db'),
@@ -70,32 +118,30 @@ def replay(clip, resolution, data_dir, fps=2):
         # Collect original-asset requests; never record sound or write an account.
         service._schedule_line_audio = lambda line, *_args, **_kwargs: scheduled.append(line)
         engine = OcrEngine()
+        service._engine = engine
         window = WindowInfo(0, clip['game'], '', (0, 0, *resolution))
-        origin = datetime.now(timezone.utc)
         frame_count = 0
         emitted = []
         try:
             for n, path in enumerate(sorted(folder.glob('frame-*.png'))):
                 with Image.open(path) as original:
-                    screen = original.convert('RGB').resize(resolution, Image.Resampling.LANCZOS)
+                    source_resolution = original.size
+                    screen = prepare_frame(original, resolution, clip.get('aspect_mode', 'fit'))
                 service._capture = lambda bounds: screen.crop((bounds[0], bounds[1], bounds[0]+bounds[2], bounds[1]+bounds[3]))
                 # Replay time rather than CPU speed controls freshness/cooldown.
-                with patch('backend.capture.time.monotonic', return_value=n / fps):
-                    outcome = service._scan_pragmata(window, getattr(settings.get(), f'{game}_region'),
-                                                    engine, 0, origin + timedelta(seconds=n / fps), game=game)
+                with patch('backend.capture.time.monotonic', return_value=n / fps), \
+                     patch('backend.capture.find_active_game_window', return_value=(GAME_PROFILES[game], window)):
+                    outcome = service._scan_once()
                 emitted.extend(outcome.emitted_lines)
                 frame_count += 1
         finally:
             service._executor.shutdown()
-        actual = {line.text_id for line in emitted}
-        assert set(clip.get('expected', [])) <= actual, f"{clip['name']}: missed {set(clip.get('expected', []))-actual}"
-        assert not set(clip.get('excluded', [])) & actual, f"{clip['name']}: false voice {set(clip.get('excluded', [])) & actual}"
-        assert all(line.text_id in mapped for line in scheduled)
-        assert len(scheduled) == len(emitted), 'Each accepted line queues its own original asset'
-        if 'allowed_channels' in clip:
-            assert {line.channel for line in emitted} <= set(clip['allowed_channels'])
+        assert frame_count, 'Replay contains no decoded frames'
+        actual = validate_result(clip, emitted, scheduled, mapped)
         return {'name': clip['name'], 'game': game, 'source_url': clip.get('source_url'),
-                'resolution': resolution, 'fps': fps, 'frames': frame_count, 'emitted': len(emitted),
+                'source_resolution': source_resolution, 'resolution': resolution,
+                'aspect_mode': clip.get('aspect_mode', 'fit'), 'presentation': clip.get('presentation'),
+                'fps': fps, 'frames': frame_count, 'emitted': len(emitted),
                 'ids': sorted(actual), 'channels': sorted({line.channel for line in emitted})}
 
 
