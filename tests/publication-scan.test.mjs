@@ -8,6 +8,6 @@ test('archive scan inspects compressed payloads and rejects private paths',()=>{
  assert.equal(scanArtifact(tgz('package/LICENSE','Project license'),'package.tgz').length,1);
 });
 test('profile paths and credentials are rejected without echoing their values',()=>{
- assert.throws(()=>scanContent(Buffer.from('%USERPROFILE%/private'),'fixture'),/profile path: fixture/);
+ assert.throws(()=>scanContent(Buffer.from('C:/'+['Users','example','private'].join('/')),'fixture'),/profile path: fixture/);
  assert(privatePath('data/new-game/index.db'));assert(!privatePath('backend/data-model.py'));
 });
