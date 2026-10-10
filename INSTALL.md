@@ -33,7 +33,7 @@ No game archives, audio packages, extracted voices, catalog data or captured cli
 
 Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, PRAGMATA/Cyberpunk/Wuthering/Witcher/NTE/Honkai about every two minutes, and Hito when its archive changes during use. A moved game can be selected and refreshed without restarting the companion.
 
-The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Previous complete indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update.
+The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE movie bindings and Honkai bilingual catalogs check their fixed upstream sources daily, on detected game changes, and immediately on explicit refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. Honkai's available source still covers older 4.7 content; refreshing does not add missing newer chapters. See [game-data updates](docs/game-data-updates.md).
 
 ## Capture and optional reading accounts
 

@@ -49,7 +49,7 @@ unresolved dynamic choices, conflicting localization keys and mod archives are e
 The installation used for validation yielded **14,928** bilingual voice mappings;
 coverage changes with the user's client and voice downloads.
 
-That total includes **474 movie cue/voice mappings**. A reviewed, pinned
+That total includes **474 movie cue/voice mappings**. A reviewed seed
 [movie binding catalog](https://github.com/Waifus-Grace/NTE_Assets/tree/cef09a29d4d92c7b1e0b950d89ba8c75b1c529e7)
 links the movie's subtitle file to its explicit CG voice event and localization
 table. Caption keys, English/Chinese text, cue times and original Mandarin media
@@ -61,7 +61,7 @@ random playback, other switches and continuous/faded branches remain excluded.
 This covers the tested opening movie, radio captions, character introduction
 card and later movie dialogue without scanning character labels across the screen.
 
-Honkai uses a reviewed public **4.7 bilingual catalog**, pinned to revision
+Honkai starts with a reviewed public **4.7 bilingual catalog**, at revision
 `01d7afbaf99ff7d3d027e27fe9a4b363a2db7cc1` from
 [HonkaiImpactData](https://github.com/nairieberry/HonkaiImpactData).
 The catalog supplies explicit TextMap hashes and authored dialogue-event names.
@@ -104,7 +104,10 @@ click **Refresh game data**. Checks run automatically about every two minutes.
 Archive/package changes invalidate cached mappings. Failed or interrupted
 refreshes preserve the previous complete index, while changed files block stale
 audio extraction. New archive formats or unsupported banks need a toolkit
-update; new Honkai chapters also need a reviewed catalog update.
+update. Compatible catalog updates are checked independently of toolkit releases;
+see [game-data updates](game-data-updates.md). The available Honkai source still
+covers older content: refreshing does not manufacture missing chapter text or
+prove full current story coverage.
 
 Regression tests use synthetic catalogs, banks, and packages. Contributors must
 never commit real game text, audio, extraction metadata, or captured gameplay.

@@ -222,10 +222,36 @@ def _load_catalog(directory: Path) -> dict:
     return catalog
 
 
+def validate_catalog(catalog: dict) -> None:
+    for name in ("TextMap_en.json", "TextMap_cn.json"):
+        rows = catalog[name]
+        if not isinstance(rows, list) or not rows or len(rows) > 1_000_000:
+            raise ValueError("Honkai bilingual catalog is incomplete")
+        for row in rows:
+            if (not isinstance(row, dict) or type(row.get("Hash")) is not int or
+                    not isinstance(row.get("Text"), str) or len(row["Text"]) > 32768):
+                raise ValueError("Unsupported Honkai localization schema")
+    for name in ("DialogData.json", "StageDialogData.json", "InLevelDialog.json"):
+        if not isinstance(catalog[name], list) or len(catalog[name]) > 1_000_000:
+            raise ValueError("Unsupported Honkai dialogue schema")
+    if not catalog_links(catalog):
+        raise ValueError("Catalog has no bilingual authored voice references")
+
+
+def refresh_catalog(data_dir: Path, force=False) -> dict:
+    from .game_catalogs import refresh_catalog as refresh
+    return refresh("honkai3", data_dir, validate_catalog, force)
+
+
 def index_install(install: Path, data_dir: Path, progress=lambda _message: None) -> dict:
+    from .game_catalogs import read_snapshot
     stamp = fingerprint(install)
-    progress("Reading the reviewed Honkai 4.7 bilingual catalog; newer chapters remain excluded")
-    records = catalog_links(_load_catalog(data_dir / "catalog" / CATALOG_REVISION))
+    snapshot = read_snapshot("honkai3", data_dir)
+    label = "4.7 (older content only)" if not snapshot or snapshot['revision'] == CATALOG_REVISION else snapshot['revision'][:8]
+    progress(f"Reading Honkai bilingual catalog {label}")
+    catalog = snapshot['catalog'] if snapshot else _load_catalog(data_dir / "catalog" / CATALOG_REVISION)
+    validate_catalog(catalog)
+    records = catalog_links(catalog)
     wanted = {wwise_hash(row["event"]) for row in records}
     voices = defaultdict(dict)
     progress("Verifying exact Honkai Chinese events and original sources in installed packages")
@@ -262,9 +288,11 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
             record["audio"] = next(iter(choices.values()))
             verified.append(record)
     if not verified or fingerprint(install) != stamp:
-        raise ValueError("No verified Honkai bilingual Mandarin voices are installed. Download Chinese story audio in-game, finish updates, then refresh. Newer chapters outside catalog 4.7 are unsupported.")
+        raise ValueError("No verified Honkai bilingual Mandarin voices are installed. Download Chinese story audio in-game, finish updates, then refresh. Content outside the available bilingual catalog remains unsupported.")
     return {"format": 1, "install": str(install), "fingerprint": stamp, "records": verified,
-            "message": f"{len(verified):,} verified Honkai bilingual Mandarin lines; limited to catalog {CATALOG_VERSION} content"}
+            "catalog_digest": snapshot['digest'] if snapshot else None,
+            "catalog_revision": snapshot['revision'] if snapshot else CATALOG_REVISION,
+            "message": f"{len(verified):,} verified Honkai bilingual Mandarin lines; limited to catalog {label} content"}
 
 
 def extract_voice(install: Path, audio: dict, _executable: Path, _destination: Path) -> bytes:

@@ -33,6 +33,20 @@ def load_catalog(directory: Path) -> list[dict]:
     return rows
 
 
+def catalog_rows(catalog: dict) -> list[dict]:
+    rows = []
+    for relative in CATALOG_FILES:
+        table = catalog[Path(relative).name]
+        if (not isinstance(table, list) or len(table) != 1 or not isinstance(table[0], dict) or
+                table[0].get('Type') != 'DataTable' or not isinstance(table[0].get('Rows'), dict) or
+                len(table[0]['Rows']) > 100_000 or not all(isinstance(r, dict) for r in table[0]['Rows'].values())):
+            raise ValueError('Unsupported NTE movie catalog schema')
+        rows.extend(table[0]['Rows'].values())
+    if not movie_bindings(rows):
+        raise ValueError('NTE catalog has no supported authored movie voice bindings')
+    return rows
+
+
 def movie_bindings(rows: list[dict]) -> list[dict]:
     result = []
     for row in rows:

@@ -32,7 +32,7 @@ VOICE_HINTS = {
     "wuwa": "Download the Chinese voice pack in Wuthering Waves, then refresh game data.",
     "witcher3": "Install the official Chinese speech pack through your game launcher.",
     "nte": "Download Chinese voices in NTE. Only exact installed bilingual dialogue and Chinese voice sources are captured.",
-    "honkai3": "Download Chinese story audio in Honkai Impact 3rd. Coverage is limited to verified catalog 4.7 dialogue; newer chapters are excluded.",
+    "honkai3": "Download Chinese story audio in Honkai Impact 3rd. Only dialogue in the available bilingual catalog with verified original voices is supported. The default catalog covers older 4.7 content; refresh checks for compatible catalog updates.",
 }
 
 

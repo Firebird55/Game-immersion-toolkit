@@ -17,6 +17,7 @@ class LocalGameUpdateManager:
         self._stop = threading.Event()
         self._wake = threading.Event()
         self._lock = threading.Lock()
+        self._force_catalog = False
         self._status = {"state": "idle", "message": "Waiting for game-file check", "progress": 100,
                         "automatic": True, "last_error": None, "last_checked": None}
 
@@ -33,8 +34,9 @@ class LocalGameUpdateManager:
     def start(self):
         return self.request_check()
 
-    def request_check(self):
+    def request_check(self, force_catalog=False):
         with self._lock:
+            self._force_catalog = self._force_catalog or force_catalog
             self._wake.set()
             if self._status["state"] == "updating":
                 return False
@@ -51,6 +53,8 @@ class LocalGameUpdateManager:
             self._wake.wait(120)
 
     def _run(self):
+        with self._lock:
+            force_catalog, self._force_catalog = self._force_catalog, False
         try:
             adapter, _executable = asset_adapter(self.game)
             fingerprint, index_install = adapter.fingerprint, adapter.index_install
@@ -70,7 +74,15 @@ class LocalGameUpdateManager:
                 old = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
             except ValueError:
                 old = {}
-            if old.get("format") == 1 and old.get("install") == str(install) and old.get("fingerprint") == fingerprint(install):
+            stamp = fingerprint(install)
+            catalog = None
+            if hasattr(adapter, "refresh_catalog"):
+                self._set(state="checking", message="Checking compatible catalog updates", progress=5)
+                catalog = adapter.refresh_catalog(path.parent, force=force_catalog or old.get("fingerprint") != stamp)
+                from .game_catalogs import catalog_status
+                self._set(**catalog_status(self.game, catalog))
+            if (old.get("format") == 1 and old.get("install") == str(install) and old.get("fingerprint") == stamp
+                    and (catalog is None or old.get("catalog_digest") == catalog["digest"])):
                 self.index.load()
                 self.voices.reload()
             else:
@@ -79,6 +91,8 @@ class LocalGameUpdateManager:
                 from .local_game import LocalDialogue
                 if not payload.get("records"):
                     raise ValueError("Extracted dialogue index is empty")
+                if catalog and payload.get("catalog_digest") != catalog["digest"]:
+                    raise ValueError("Catalog changed while indexing; retry refresh")
                 for record in payload["records"]:
                     LocalDialogue(**record)
                 path.parent.mkdir(parents=True, exist_ok=True)

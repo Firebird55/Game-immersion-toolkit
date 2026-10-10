@@ -214,6 +214,7 @@ class Runtime:
                 "audio_ready": bool(audio.get("ready")), "update_state": update.get("state", "idle"),
                 "update_message": update.get("message", "Game data checks run automatically"),
                 "progress": update.get("progress", 100), "last_checked": update.get("last_checked"),
+                "catalog_message": update.get("catalog_message"), "catalog_warning": update.get("catalog_warning", False),
                 "needs_attention": bool(update.get("last_error"))}
 
     def refresh_game(self, game: str) -> bool:
@@ -229,6 +230,8 @@ class Runtime:
         if game == "hito":
             self.hito.ensure_game_files(None)
             return self.hito.refresh()
+        if game in {"nte", "honkai3"}:
+            return self.game_updaters[game].request_check(force_catalog=True)
         return self.game_updaters[game].request_check()
 
     async def start_indexes_in_order(self) -> None:

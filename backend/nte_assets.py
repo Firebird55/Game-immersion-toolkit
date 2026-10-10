@@ -228,12 +228,23 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None) -> lis
     return records
 
 
+def refresh_catalog(data_dir: Path, force=False) -> dict:
+    from .game_catalogs import refresh_catalog as refresh
+    from .nte_cinematics import catalog_rows
+    return refresh('nte', data_dir, catalog_rows, force)
+
+
 def index_install(install: Path, data_dir: Path, progress=lambda _message: None) -> dict:
-    from .nte_cinematics import load_catalog, movie_bindings, CATALOG_REVISION
-    bindings = movie_bindings(load_catalog(data_dir / 'movie-catalog' / CATALOG_REVISION))
+    from .nte_cinematics import load_catalog, catalog_rows, movie_bindings, CATALOG_REVISION
+    from .game_catalogs import read_snapshot
+    snapshot = read_snapshot('nte', data_dir)
+    bindings = movie_bindings(catalog_rows(snapshot['catalog']) if snapshot else load_catalog(data_dir / 'movie-catalog' / CATALOG_REVISION))
     stamp = fingerprint(install)
     executable = ensure_extractor(data_dir / "tools")
-    cache = data_dir / "index-cache" / stamp[:16]
+    # New movie bindings must invalidate extracted event caches even when the
+    # game files themselves have not changed. Voice staleness remains physical.
+    cache_id = hashlib.sha256((stamp + (snapshot['digest'] if snapshot else CATALOG_REVISION)).encode()).hexdigest()
+    cache = data_dir / "index-cache" / cache_id[:16]
     if not (cache / "complete.json").is_file():
         progress("Reading installed NTE English and Chinese dialogue and exact Chinese voice events")
         with tempfile.TemporaryDirectory(prefix="nte-index-", dir=data_dir) as value:
@@ -248,6 +259,8 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
     if not records or fingerprint(install) != stamp:
         raise ValueError("NTE files changed while indexing; retry after the game update finishes")
     return {"format": 1, "install": str(install), "fingerprint": stamp, "records": records,
+            "catalog_digest": snapshot['digest'] if snapshot else None,
+            "catalog_revision": snapshot['revision'] if snapshot else CATALOG_REVISION,
             "message": f"{len(records):,} verified bilingual NTE lines with original Mandarin voices"}
 
 

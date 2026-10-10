@@ -13,6 +13,7 @@ type GameSetup = {
   tools_missing: string[]; index_ready: boolean; audio_ready: boolean; indexed_lines: number;
   index_message: string; update_message: string; update_state: string; progress: number;
   last_checked: string | null; needs_attention: boolean;
+  catalog_message?: string | null; catalog_warning?: boolean;
 };
 type Setup = {
   completed: boolean; version: string; games: GameSetup[]; auto_start: boolean; free_gb: number | null;
@@ -134,12 +135,13 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               </div>
               {job && <p role="status" className={job.state === 'error' ? 'toolkit-setup-error' : ''}>{job.message}</p>}
               <p role="status">{current.update_message}</p>
+              {current.catalog_message && <p role="status" className={current.catalog_warning ? 'toolkit-setup-error' : ''}>{current.catalog_message}</p>}
               {(current.update_state === 'checking' || current.update_state === 'updating' || job?.state === 'preparing') && <progress aria-label="Game setup progress" value={job?.state === 'preparing' ? job.progress : current.progress} max={100} />}
               <p>{current.index_ready ? `${current.indexed_lines.toLocaleString()} subtitle pairs indexed` : 'Subtitles will be indexed from your local game files.'}{current.audio_ready ? ' · Original voices ready' : ''}</p>
               {current.needs_attention && <p className="toolkit-setup-error">Indexing needs attention. Let the game launcher finish its download, check the voice pack, and retry.</p>}
               {current.last_checked && <small>Last check: {new Date(current.last_checked).toLocaleString()}</small>}
             </div>
-            <p className="toolkit-setup-note">After updating the game through its launcher, use <strong>Refresh game data</strong>. Automatic checks keep indexes current while the toolkit runs. A failed refresh keeps the previous complete index.</p>
+            <p className="toolkit-setup-note">After updating the game through its launcher, use <strong>Refresh game data</strong>. Compatible game data and catalog updates need no new toolkit release. Automatic checks keep indexes current while the toolkit runs. A failed refresh keeps the previous complete index. Changed game formats may require a toolkit update.</p>
             <details><summary>Where game tools come from</summary><p>Selected games download their decoder and extraction tools separately. Upstream terms apply; tool downloads are checksum verified and kept outside your game installation.</p>
               <a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">vgmstream</a>{' · '}
               <a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">ZZZ reader</a>{' · '}
