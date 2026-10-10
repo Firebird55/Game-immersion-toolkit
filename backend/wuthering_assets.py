@@ -74,10 +74,23 @@ def ensure_extractor(directory: Path, decoder: Path) -> Path:
     return executable
 
 
+def _official_archive(root: Path, path: Path) -> bool:
+    relative = path.relative_to(root)
+    if any(part.startswith("~") for part in relative.parts):
+        return False
+    if path.name.startswith("pakchunk"):
+        return True
+    # Optional in-game cinematic downloads use Video_* names rather than
+    # pakchunk*. The CLI scans them too; permit only the observed official
+    # location and a filename whose cinematic ID matches its parent folder.
+    match = re.fullmatch(r"Video/(hd|sd)/Paks/(\d+_\d+)/Video_(\d+_\d+)-(HD|SD)-WindowsNoEditor\.pak", relative.as_posix())
+    return bool(match and match[2] == match[3] and match[1].upper() == match[4])
+
+
 def archive_sources(install: Path) -> list[Path]:
     roots = [install / "Client/Content/Paks", install / "Client/Saved/Resources"]
-    return sorted({path for root in roots if root.is_dir() for path in root.rglob("pakchunk*.pak")
-                   if not any(part.startswith("~") for part in path.relative_to(root).parts)}, key=str)
+    return sorted({path for root in roots if root.is_dir() for path in root.rglob("*.pak")
+                   if _official_archive(root, path)}, key=str)
 
 
 def fingerprint(install: Path) -> str:
@@ -96,9 +109,12 @@ def _archive_metadata(install: Path, stamp: str) -> tuple[str, ...]:
     selected = set()
     for pak in archive_sources(install):
         with pak.open("rb") as stream:
-            if pak.stat().st_size < 512:
+            size = pak.stat().st_size
+            if size < 64:
                 raise ValueError("Game archive is incomplete; wait for the download to finish")
-            stream.seek(-512, 2)
+            # Empty official patch archives can be smaller than our footer
+            # probe. Read the available tail and validate its actual structure.
+            stream.seek(-min(512, size), 2)
             footer = stream.read()
             magic = footer.rfind(struct.pack("<I", 0x5A6F12E1))
             if magic < 17:
@@ -128,8 +144,7 @@ def _archive_metadata(install: Path, stamp: str) -> tuple[str, ...]:
 
 def run_extractor(install: Path, executable: Path, destination: Path | None, filter_text: str) -> list[str]:
     for root in (install / "Client/Content/Paks", install / "Client/Saved/Resources"):
-        if root.is_dir() and any(not path.name.startswith("pakchunk") or any(part.startswith("~") for part in path.relative_to(root).parts)
-                                 for path in root.rglob("*.pak")):
+        if root.is_dir() and any(not _official_archive(root, path) for path in root.rglob("*.pak")):
             raise ValueError("Wuthering Waves indexing requires official archives; unsupported mod archives were found")
     metadata = _archive_metadata(install, fingerprint(install))
     arguments = [str(destination), filter_text] if destination else ["--list", filter_text]

@@ -28,16 +28,19 @@ documented by [wuwa-keys](https://github.com/yarik0chka/wuwa-keys) and remains i
 memory. It is never stored in source, manifests, or logs. FModelCLI is an
 external GPL-3.0 tool; its license and source are available in its repository.
 
-On this PC, the installed text provides 47,120 dialogue variant records. Its
-current files contain no Mandarin external-source pack, so original Mandarin
-playback awaits that download. Ownership, gender selection, missing-pack
+On this PC, the installed text provides 47,119 dialogue variant records and
+the downloaded Mandarin pack provides 46,280 exact original voice mappings.
+Original dialogue `wuwa:Character_JiYan_12_1` decoded to a non-silent 3.84-second
+clip. Female and male variants of `Character_JiYan_18_1` also decoded to distinct,
+non-silent 2.62- and 2.93-second clips. Ownership, gender selection, missing-pack
 behavior, foreign-language rejection, resource isolation, and automatic update
 fingerprints are covered by offline regression checks.
 
-Synthetic 3840 × 2160 English and Chinese screenshot fixtures passed through
-production cropping and native Windows OCR. Both correctly remained in
+The initial synthetic 3840 × 2160 English and Chinese screenshot fixtures passed
+through production cropping and native Windows OCR. Both correctly remained in
 `waiting_for_voice` without creating transcript rows while the Chinese pack
 was absent. Browser checks cover Rover selection, independent calibration,
 asset refresh, and the missing-pack message even when the subtitle index is
-ready. Actual Mandarin decoding and gameplay appearance await the voice pack
-and a live game test.
+ready. Actual gameplay appearance remains untested because no game was launched.
+Optional official HD/SD video downloads and valid small empty patch archives are
+accepted by the extractor; unknown archive paths are still rejected.

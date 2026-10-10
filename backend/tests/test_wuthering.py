@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from backend.wuthering_assets import EXTERNAL_ROOT, build_records, extract_voice, fingerprint, run_extractor
+from backend.wuthering_assets import EXTERNAL_ROOT, archive_sources, build_records, extract_voice, fingerprint, run_extractor
 
 
 def plot_blob(text_id, filename, gender=False, global_language=False):
@@ -93,6 +93,43 @@ def test_extractor_errors_never_include_archive_metadata(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="could not complete") as error:
         run_extractor(tmp_path, Path("tool"), None, "ConfigDB")
     assert "private-placeholder" not in str(error.value)
+
+
+def test_official_downloaded_video_archives_are_allowed_but_custom_paks_are_rejected(tmp_path, monkeypatch):
+    import backend.wuthering_assets as module
+    from types import SimpleNamespace
+    video = tmp_path / "Client/Saved/Resources/Video/hd/Paks/101_1/Video_101_1-HD-WindowsNoEditor.pak"
+    video.parent.mkdir(parents=True)
+    video.write_bytes(b"official video fixture")
+    monkeypatch.setattr(module, "_archive_metadata", lambda *_: ("placeholder",))
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=b""))
+    assert archive_sources(tmp_path) == [video]
+    assert run_extractor(tmp_path, Path("tool"), None, "ConfigDB") == []
+    custom = video.parent / "Video_999_9-HD-WindowsNoEditor.pak"
+    custom.write_bytes(b"unknown")
+    assert custom not in archive_sources(tmp_path)
+    with pytest.raises(ValueError, match="unsupported mod archives"):
+        run_extractor(tmp_path, Path("tool"), None, "ConfigDB")
+
+
+def test_small_empty_official_patch_does_not_block_valid_language_archives(tmp_path, monkeypatch):
+    import json
+    from Crypto.Cipher import AES
+    import backend.wuthering_assets as module
+    directory = tmp_path / "Client/Content/Paks"
+    directory.mkdir(parents=True)
+    empty = directory / "pakchunk_empty.pak"
+    footer = b"\0" * 17 + struct.pack("<IIQQ", 0x5A6F12E1, 12, 0, 0) + b"\0" * 20
+    empty.write_bytes(b"\0" * (461 - len(footer)) + footer)
+    # An in-memory mock encoding, never a real game's extraction metadata.
+    encoding = bytes(32)
+    plain = struct.pack("<i", 4) + b"../\0" + b"\0" * 8
+    encrypted = AES.new(encoding, AES.MODE_ECB).encrypt(plain)
+    language = directory / "pakchunk_language.pak"
+    language.write_bytes(encrypted + b"\0" * 16 + b"\1" + struct.pack("<IIQQ", 0x5A6F12E1, 12, 0, 16) + b"\0" * 20)
+    candidate = "0x" + encoding.hex()
+    monkeypatch.setattr(module, "_download", lambda _: json.dumps([candidate]).encode())
+    assert module._archive_metadata(tmp_path, "fixture") == (candidate,)
 
 
 def test_voice_extraction_only_accepts_an_exact_mandarin_resource(tmp_path, monkeypatch):
