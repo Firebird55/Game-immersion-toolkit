@@ -63,7 +63,7 @@ class LocalVoiceAssetService:
             wem.write_bytes(data)
             options = {"check": True, "capture_output": True, "timeout": 90,
                        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
-            subprocess.run([str(self.decoder), "-o", str(wav), str(wem)], **options)
+            subprocess.run([str(self.decoder), "-i", "-o", str(wav), str(wem)], **options)
             subprocess.run([str(ffmpeg_executable()), "-hide_banner", "-loglevel", "error", "-y",
                             "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
             if mp3.stat().st_size < 100:

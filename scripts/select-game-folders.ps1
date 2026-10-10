@@ -1,7 +1,7 @@
 param([switch]$InstructionsOnly)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-if ($InstructionsOnly) { Write-Host 'Optional per-PC folders: Hito resources/app.asar, ZZZ ZenlessZoneZero_Data, PRAGMATA executable and PAKs, Cyberpunk archives, Wuthering Waves Client, Witcher 3 content. Cancel keeps existing settings.'; return }
+if ($InstructionsOnly) { Write-Host 'Optional per-PC folders: Hito resources/app.asar, ZZZ ZenlessZoneZero_Data, PRAGMATA executable and PAKs, Cyberpunk archives, Wuthering Waves Client, Witcher 3 content, NTE Client, Honkai Impact 3rd BH3_Data. Cancel keeps existing settings.'; return }
 $python = Join-Path $env:LOCALAPPDATA 'Programs\Proxy Transcript\venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python)) { throw 'Run Install.cmd first.' }
 Add-Type -AssemblyName System.Windows.Forms
@@ -14,22 +14,22 @@ $form.StartPosition = 'CenterScreen'
 $form.AutoScaleMode = 'Font'
 $form.AutoScroll = $true
 $table = New-Object System.Windows.Forms.TableLayoutPanel
-$table.Dock = 'Fill'; $table.Padding = New-Object System.Windows.Forms.Padding(16)
-$table.ColumnCount = 3; $table.RowCount = 8
+$table.Dock = 'Top'; $table.AutoSize = $true; $table.Padding = New-Object System.Windows.Forms.Padding(16)
+$table.ColumnCount = 3; $table.RowCount = 10
 $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute', 135))) | Out-Null
 $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent', 100))) | Out-Null
 $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute', 90))) | Out-Null
 $intro = New-Object System.Windows.Forms.Label
-$intro.Text = "Optional: choose each installed game folder, or leave it blank for automatic detection. No game files are copied or uploaded.`r`nHito: resources\app.asar. ZZZ: ZenlessZoneZero_Data. PRAGMATA: executable and PAKs. Cyberpunk, Wuthering Waves and Witcher 3: installation roots.`r`nAI contributors: read AGENTS.md, CONTRIBUTING.md and RELEASE.md in the installer folder."
+$intro.Text = "Optional: choose each installed game folder, or leave it blank for automatic detection. Game archives stay in place and are never uploaded.`r`nHito: resources\app.asar. ZZZ: ZenlessZoneZero_Data. NTE: folder containing Client. Honkai Impact 3rd: folder containing BH3.exe. Other games: installation roots.`r`nAI contributors: read AGENTS.md, CONTRIBUTING.md and RELEASE.md in the installer folder."
 $intro.Dock = 'Fill'; $intro.AutoSize = $true
 $table.Controls.Add($intro, 0, 0); $table.SetColumnSpan($intro, 3)
-$table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Percent', 100))) | Out-Null
+$table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize'))) | Out-Null
 $fields = @{}
 $oldLocation = Get-Location
 try {
     Set-Location -LiteralPath $projectRoot
     $existing = (& $python -m scripts.configure_game_paths --list | ConvertFrom-Json)
-    $games = @(@('hito', "Hito's World"), @('zzz', 'Zenless Zone Zero'), @('pragmata', 'PRAGMATA'), @('cyberpunk', 'Cyberpunk 2077'), @('wuwa', 'Wuthering Waves'), @('witcher3', 'The Witcher 3'))
+    $games = @(@('hito', "Hito's World"), @('zzz', 'Zenless Zone Zero'), @('pragmata', 'PRAGMATA'), @('cyberpunk', 'Cyberpunk 2077'), @('wuwa', 'Wuthering Waves'), @('witcher3', 'The Witcher 3'), @('nte', 'Neverness to Everness'), @('honkai3', 'Honkai Impact 3rd'))
     for ($index = 0; $index -lt $games.Count; $index++) {
         $game = $games[$index][0]; $name = $games[$index][1]; $row = $index + 1
         $table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute', 55))) | Out-Null
@@ -68,7 +68,7 @@ try {
         $form.DialogResult = 'OK'; $form.Close()
     })
     $buttons.Controls.Add($save); $buttons.Controls.Add($cancel)
-    $table.Controls.Add($buttons, 0, 7); $table.SetColumnSpan($buttons, 3)
+    $table.Controls.Add($buttons, 0, ($games.Count + 1)); $table.SetColumnSpan($buttons, 3)
     $form.Controls.Add($table); $form.CancelButton = $cancel
     $form.ShowDialog() | Out-Null
 } finally { Set-Location -LiteralPath $oldLocation.Path; $form.Dispose() }

@@ -622,7 +622,7 @@ class CaptureService:
             return _ScanOutcome([])
 
         settings = self.settings.get()
-        match = index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold))
+        match = index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold), exact_only=True) if game in {"nte", "honkai3"} else index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold))
         if not self._mapped_voice(match):
             match = None
         monotonic_now = time.monotonic()
@@ -676,7 +676,7 @@ class CaptureService:
             last_error=None,
             visible_text_ids=self._visible_text_ids(monotonic_now),
         )
-        if game in self.game_indexes:
+        if game in {"cyberpunk", "wuwa", "witcher3"} and game in self.game_indexes:
             emitted.extend(self._scan_local_chatter(window, engine, epoch, now, game, match,
                                                     dialogue_menu=bool(main_response.get("dialogue_menu"))))
             if game == "wuwa":

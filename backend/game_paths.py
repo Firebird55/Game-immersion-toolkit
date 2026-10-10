@@ -6,9 +6,10 @@ import os
 import threading
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3")
+GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "honkai3")
 GAME_NAMES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
-              "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
+              "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
+              "nte": "Neverness to Everness", "honkai3": "Honkai Impact 3rd"}
 _path_lock = threading.RLock()
 
 
@@ -26,7 +27,19 @@ def validate_install(game: str, path: Path) -> Path:
         root = root.parent
     if game == "wuwa" and root.name == "Client":
         root = root.parent
+    if game == "honkai3" and root.name == "BH3_Data":
+        root = root.parent
+    if game == "nte":
+        # Accept the launcher root or the nested Client/WindowsNoEditor/HT
+        # folder. Never mistake the launcher alone for a downloaded client.
+        for parent in [root, *list(root.parents)[:3]]:
+            if (parent / "Client/WindowsNoEditor/HT/Binaries/Win64/HTGame.exe").is_file():
+                root = parent
+                break
     valid = {
+        "nte": lambda: (root / "Client/WindowsNoEditor/HT/Binaries/Win64/HTGame.exe").is_file()
+        and any((root / "Client/WindowsNoEditor/HT/Content/Paks").glob("*.pak")),
+        "honkai3": lambda: (root / "BH3.exe").is_file() and (root / "BH3_Data/StreamingAssets").is_dir(),
         "witcher3": lambda: any((root / folder / "witcher3.exe").is_file() for folder in ("bin/x64", "bin/x64_dx12"))
         and any((root / "content").glob("*/en.w3strings")),
         "wuwa": lambda: (root / "Client/Binaries/Win64/Client-Win64-Shipping.exe").is_file()
@@ -98,6 +111,8 @@ def discover_install(game: str) -> Path | None:
     names = [GAME_NAMES[game]]
     if game == "zzz":
         names = ["Zenless Zone Zero/games/ZenlessZoneZero Game", "Zenless Zone Zero", "ZenlessZoneZero Game"]
+    elif game == "honkai3":
+        names = ["HonkaiImpact3rd", "Honkai Impact 3rd", "Honkai Impact 3rd Games"]
     candidates = []
     # Respect Steam's registered libraries as well as conventional drive roots.
     try:

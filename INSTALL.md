@@ -1,6 +1,6 @@
 # Install Game immersion toolkit
 
-Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3 transcripts, local subtitle OCR and Lexirise/Migaku reading.
+Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3, NTE and limited Honkai Impact 3rd transcripts, local subtitle OCR and Lexirise/Migaku reading.
 
 ## Install on a new PC
 
@@ -20,14 +20,18 @@ Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wu
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
 | Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
+| Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Chinese voices; .NET 10 SDK for the local reader |
+| Honkai Impact 3rd | Contains BH3.exe and BH3_Data, or BH3_Data itself | Chinese story audio; limited verified catalog 4.7 coverage |
 
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
+
+See [NTE and Honkai support](docs/nte-honkai-support.md) before configuring these games. NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). Honkai Impact 3rd captures only supported older bilingual dialogue with an exact installed Mandarin voice; newer chapters remain excluded.
 
 No game archives, audio packages, extracted voices, catalog data or captured clips are included in this repository or installer. The game installation is read-only. Locations are stored per PC in LOCALAPPDATA/Proxy Transcript/game-paths.json, separately from capture calibration and credentials. Tool/game-derived caches stay under data and work and must never be published.
 
 ## After a game update or move
 
-Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, PRAGMATA/Cyberpunk/Wuthering/Witcher about every two minutes, and Hito when its archive changes during use. A moved game can be selected and refreshed without restarting the companion.
+Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, PRAGMATA/Cyberpunk/Wuthering/Witcher/NTE/Honkai about every two minutes, and Hito when its archive changes during use. A moved game can be selected and refreshed without restarting the companion.
 
 The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Previous complete indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update.
 

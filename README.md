@@ -13,11 +13,12 @@ OCR scales to game-window height across small windows, 4K and ultrawide layouts,
 
 See [Cyberpunk support and automatic subtitle languages](docs/cyberpunk-support.md) for bilingual-mod compatibility, V voice selection, and the Where Winds Meet limitation.
 See [Wuthering Waves support](docs/wuthering-support.md) for the Chinese voice-pack requirement and Rover selection, and [Witcher 3 support](docs/witcher-support.md) for stock/dual subtitle compatibility. Both Witcher 3 and Cyberpunk work without a subtitle mod.
+See [NTE and Honkai Impact 3rd support](docs/nte-honkai-support.md) for NTE reader setup and Honkai's limited verified catalog coverage.
 
 ## Detailed behavior (Proxy Transcript companion)
 
 A local, gameplay-first bilingual transcript companion for Zenless Zone Zero,
-PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3, with game-text capture for Hito's World.
+PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3 and Neverness to Everness, with limited verified Honkai Impact 3rd coverage and game-text capture for Hito's World.
 
 It captures English or Chinese subtitles from the running game, automatically recognizes the language with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
 

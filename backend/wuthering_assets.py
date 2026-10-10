@@ -49,11 +49,7 @@ def _matches_digest(path: Path, digest: str) -> bool:
         return hashlib.file_digest(stream, "sha256").hexdigest() == digest
 
 
-def ensure_extractor(directory: Path, decoder: Path) -> Path:
-    executable = directory / "FModelCLI.exe"
-    if not _matches_digest(executable, EXTRACTOR_SHA256):
-        _verified_file(executable, _download(EXTRACTOR_URL), EXTRACTOR_SHA256)
-    dependencies = directory / ".data"
+def ensure_unreal_decompression(dependencies: Path) -> None:
     dependencies.mkdir(parents=True, exist_ok=True)
     # Populate pinned decompression dependencies before the CLI runs. It would
     # otherwise acquire its own dependencies, including a moving audio release.
@@ -68,6 +64,14 @@ def ensure_extractor(directory: Path, decoder: Path) -> Path:
     if not _matches_digest(zlib, zlib_digest):
         compressed = _download("https://github.com/NotOfficer/Zlib-ng.NET/releases/download/1.0.0/zlib-ng2.dll.gz")
         _verified_file(zlib, gzip.decompress(compressed), zlib_digest)
+
+
+def ensure_extractor(directory: Path, decoder: Path) -> Path:
+    executable = directory / "FModelCLI.exe"
+    if not _matches_digest(executable, EXTRACTOR_SHA256):
+        _verified_file(executable, _download(EXTRACTOR_URL), EXTRACTOR_SHA256)
+    dependencies = directory / ".data"
+    ensure_unreal_decompression(dependencies)
     if not decoder.is_file():
         raise FileNotFoundError("Original voice decoder is missing; run setup again")
     shutil.copyfile(decoder, dependencies / "vgmstream-cli.exe")

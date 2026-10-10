@@ -128,6 +128,14 @@ def missing_tools(root: Path, game: str) -> list[str]:
         required += [("Wuthering Waves extractor", root / "data/wuwa/tools/FModelCLI.exe"),
                      ("Wuthering Waves decompression", root / "data/wuwa/tools/.data/oodle-data-shared.dll"),
                      ("Wuthering Waves decompression", root / "data/wuwa/tools/.data/zlib-ng2.dll")]
+    if game == "nte":
+        from .nte_assets import dotnet_sdk
+        if dotnet_sdk() is None:
+            required.append((".NET 10 SDK", root / "data/nte/tools/missing-sdk"))
+        required += [("NTE reader", root / "data/nte/tools/NteReader.dll"),
+                     ("NTE archive reader", root / "data/nte/tools/upstream/UEExtractor.dll"),
+                     ("NTE decompression", root / "data/nte/tools/upstream/oodle-data-shared.dll"),
+                     ("NTE decompression", root / "data/nte/tools/upstream/zlib-ng2.dll")]
     return list(dict.fromkeys(name for name, path in required if not path.is_file()))
 
 
@@ -164,3 +172,7 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
         from .wuthering_assets import ensure_extractor
         progress("Preparing the verified Wuthering Waves extractor")
         ensure_extractor(root / "data/wuwa/tools", decoder / "vgmstream-cli.exe")
+    elif game == "nte":
+        from .nte_assets import ensure_extractor
+        progress("Preparing the verified NTE archive reader and local .NET bridge")
+        ensure_extractor(root / "data/nte/tools")

@@ -8,7 +8,7 @@ from backend.tests.test_subtitle_capture import fixture_service
 
 
 @pytest.mark.parametrize("mapped", [True, False])
-@pytest.mark.parametrize("game", ["cyberpunk", "wuwa", "witcher3"])
+@pytest.mark.parametrize("game", ["cyberpunk", "wuwa", "witcher3", "nte", "honkai3"])
 def test_local_game_routes_to_its_own_original_voice_and_preserves_retry(tmp_path, mapped, game):
     service, match, scheduled, published = fixture_service(tmp_path, game=game, mapped=mapped)
     service.game_indexes = {game: service.textmaps}

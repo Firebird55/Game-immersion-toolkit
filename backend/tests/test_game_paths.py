@@ -31,13 +31,21 @@ def make_game(tmp_path, game):
         (root / "bin/x64_dx12/witcher3.exe").touch()
         (root / "content/content0").mkdir(parents=True)
         (root / "content/content0/en.w3strings").touch()
+    elif game == "nte":
+        (root / "Client/WindowsNoEditor/HT/Binaries/Win64").mkdir(parents=True)
+        (root / "Client/WindowsNoEditor/HT/Binaries/Win64/HTGame.exe").touch()
+        (root / "Client/WindowsNoEditor/HT/Content/Paks").mkdir(parents=True)
+        (root / "Client/WindowsNoEditor/HT/Content/Paks/pakchunk0.pak").touch()
+    elif game == "honkai3":
+        (root / "BH3.exe").touch()
+        (root / "BH3_Data/StreamingAssets").mkdir(parents=True)
     else:
         (root / "PRAGMATA.exe").touch()
         (root / "re_chunk_000.pak").touch()
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3"])
+@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "honkai3"])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()
@@ -104,9 +112,23 @@ def test_wuthering_client_folder_is_normalized(tmp_path):
     assert validate_install("wuwa", root / "Client") == root
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3"])
+@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "honkai3"])
 def test_auto_discovery_accepts_all_supported_games(monkeypatch, game):
     def absent(*_args):
         raise FileNotFoundError("synthetic absent game")
     monkeypatch.setattr("backend.game_paths.validate_install", absent)
     assert discover_install(game) is None
+
+
+@pytest.mark.parametrize("subfolder", ["Client", "Client/WindowsNoEditor", "Client/WindowsNoEditor/HT"])
+def test_nte_nested_client_folders_are_normalized(tmp_path, subfolder):
+    root = make_game(tmp_path, "nte")
+    assert validate_install("nte", root / subfolder) == root
+
+
+def test_honkai_data_folder_is_normalized_and_star_rail_is_rejected(tmp_path):
+    root = make_game(tmp_path, "honkai3")
+    assert validate_install("honkai3", root / "BH3_Data") == root
+    (tmp_path / "StarRail.exe").touch()
+    with pytest.raises(ValueError):
+        validate_install("honkai3", tmp_path)

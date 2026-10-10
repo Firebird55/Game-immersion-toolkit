@@ -147,7 +147,7 @@ def read_tmlfsm_dialogue_segments(path: Path) -> list[dict[str, float | str]]:
     return result
 
 
-def read_bank_play_layers(path: Path) -> dict[int, list[dict[str, object]]]:
+def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (150,)) -> dict[int, list[dict[str, object]]]:
     """Read fixed Wwise 150 Play -> layer -> source trees, preserving delays/gain.
 
     Random/switch containers are deliberately unsupported: their alternatives
@@ -172,7 +172,7 @@ def read_bank_play_layers(path: Path) -> dict[int, list[dict[str, object]]]:
                 objects[_u32(payload, 0)] = (kind, payload)
                 pos += 5 + length
         offset += 8 + size
-    if version != 150:
+    if version not in allowed_versions:
         raise ValueError(f'Unsupported Wwise bank version {version}')
     nodes = {}
     children = {}

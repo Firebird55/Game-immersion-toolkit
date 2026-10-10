@@ -13,7 +13,8 @@ import httpx
 
 
 GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
-                  "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3"}
+                  "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
+                  "nte": "Neverness to Everness", "honkai3": "Honkai Impact 3rd"}
 API_BASE = "https://api.lexirise.app"
 
 
