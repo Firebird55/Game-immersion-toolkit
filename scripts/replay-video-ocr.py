@@ -57,11 +57,17 @@ def validate_clip(clip):
         raise ValueError('Annotate expected IDs or an explicit negative case')
     if clip.get('expect_no_lines') and clip.get('expected'):
         raise ValueError('A negative case cannot also expect lines')
+    overrides = clip.get('expected_by_fps', {})
+    if not isinstance(overrides, dict) or any(key not in {'2', '4'} or not isinstance(ids, list)
+            or not all(isinstance(value, str) and value for value in ids) for key, ids in overrides.items()):
+        raise ValueError('Cadence expectations require FPS 2/4 and lists of IDs')
+    if clip.get('expect_no_lines') and any(overrides.values()):
+        raise ValueError('A negative case cannot also expect lines')
 
 
-def validate_result(clip, emitted, scheduled, mapped):
+def validate_result(clip, emitted, scheduled, mapped, fps=2):
     actual = {line.text_id for line in emitted}
-    expected = set(clip.get('expected', []))
+    expected = set(clip.get('expected_by_fps', {}).get(str(fps), clip.get('expected', [])))
     assert expected <= actual, f"{clip['name']}: missed {expected-actual}"
     if clip.get('expected_exact'):
         assert actual == expected, f"{clip['name']}: unexpected {actual-expected}"
@@ -100,8 +106,9 @@ def replay(clip, resolution, data_dir, fps=2):
     with tempfile.TemporaryDirectory(prefix='game-video-ocr-') as scratch:
         folder = Path(scratch)
         command = [str(ffmpeg_executable()), '-hide_banner', '-loglevel', 'error',
-                   '-ss', str(clip.get('start', 0)), '-i', str(Path(clip['path']).resolve()),
-                   '-t', str(clip['duration']), '-vf', f'fps={fps}', str(folder / 'frame-%05d.png')]
+                   '-threads', '1', '-ss', str(clip.get('start', 0)), '-i', str(Path(clip['path']).resolve()),
+                   '-t', str(clip['duration']), '-filter_threads', '1', '-vf', f'fps={fps}',
+                   '-threads', '1', str(folder / 'frame-%05d.png')]
         subprocess.run(command, check=True, capture_output=True, timeout=120)
         settings = SettingsStore(folder / 'settings.json')
         settings.save(AppSettings(auto_start=False, stable_frames=2,
@@ -142,7 +149,7 @@ def replay(clip, resolution, data_dir, fps=2):
         finally:
             service._executor.shutdown()
         assert frame_count, 'Replay contains no decoded frames'
-        actual = validate_result(clip, emitted, scheduled, mapped)
+        actual = validate_result(clip, emitted, scheduled, mapped, fps)
         return {'name': clip['name'], 'game': game, 'source_url': clip.get('source_url'),
                 'source_resolution': source_resolution, 'resolution': resolution,
                 'aspect_mode': clip.get('aspect_mode', 'fit'), 'presentation': clip.get('presentation'),

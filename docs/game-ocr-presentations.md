@@ -110,3 +110,65 @@ python scripts/replay-video-ocr.py backend/tests/fixtures/game-video-ocr.json --
 The default replay samples two frames per second. `--fps 4` tests consecutive
 frames at the companion's default 250-ms cadence. Use the installed companion
 virtual environment with native OneOCR and the owner's Mandarin indexes.
+
+## NTE and Honkai footage
+
+NTE's tested movie captions, character introduction cards, normal wrapped story
+dialogue and walk-and-talk captions use the lower dialogue lane. Honkai's older
+right-edge visual-novel panel and newer centered visual-novel panel also use that
+lane. Honkai's tested crop is `.04, .72, .96, .24`; the previous narrower crop
+cut off final words. NTE's crop remains `.10, .70, .80, .28`. These games have
+separate calibration and an explicit centered 16:9 picture-area option for black
+bars. Existing saved calibration is preserved; use the tested-crop button to
+apply the revised default.
+
+| Source | Reviewed segments (source seconds) | Verified presentation |
+| --- | --- | --- |
+| [NTE Co-Ex beta PC](https://www.youtube.com/watch?v=Tbuu2k9LFyg) | 78–88, 113–123, 517–524 | Opening radio/movie captions and an explicit female player movie branch |
+| Same NTE recording | 998–1004, 2395–2403, 4197–4205 | Speaker-name exclusion, wrapped dialogue and walk-and-talk |
+| [NTE released PS5 footage](https://www.youtube.com/watch?v=zh_sfTZN5XI) | 143–155, 207–213 | Wrapped movie radio captions and character introduction card |
+| [Honkai 2018 mobile footage](https://www.youtube.com/watch?v=eBg1v3G5bas) | 401–408, 425–435, 443–453 | Right-edge visual-novel panel and complete performances recognized through authored dialogue pages |
+| [Honkai 2020 4K source recording](https://www.youtube.com/watch?v=ZIZc1STmUqo) | 238–246 | Newer centered visual-novel panel |
+
+The annotations also require **zero entries** for NTE's upgrade menu, unmapped
+upper floating status, an unconfigured movie player variant, Honkai's tutorial
+bubble and battle HUD. The source images, movies, indexes and extracted voices
+remain private local artifacts. The tracked manifest stores only IDs, source
+links, timestamps, picture settings and expectations.
+
+All **119 resolution cases** passed: 17 annotated segments at seven sizes,
+1,932 frame evaluations and 105 accepted entries. The same 17 segments passed
+at the normal four scans per second (552 frames, 17 entries); two brief movie
+captions have explicitly reviewed cadence-specific expectations. After Unicode
+numeral normalization changed, all five negative segments passed again at all
+seven sizes (504 frames, zero entries). The ten previous Cyberpunk/Witcher/Wuthering
+segments also passed at 1080p (568 frames, 33 entries). Together these are
+**181 replay cases and 3,556 frame evaluations**.
+
+All 474 NTE movie cue/variant timings fit their 35 installed original sources,
+checked using the original decoder's stream sample counts. Sample fixed and
+female/male movie clips and the recovered Honkai whole-page performances decoded
+to nonempty original MP3s. English/Chinese synthetic fixtures passed at 720p/4K
+with 75% font size. Chromium/Firefox checks passed in 24 desktop/mobile/zoom/4K
+layouts, plus eight setup cases and both real WebRTC mobile pairing cases.
+
+Resolution tests preserve each recording's aspect ratio and fit it into the
+target window. They exercise 800×600, 1280×720, 1920×1080, 2560×1440, 3840×2160,
+3440×1440 and 5120×1440 with the explicit centered 16:9 setting. The Honkai
+centered-panel source is a 3840×2160 recording; other recordings are 720p/1080p.
+Upscaling or adding bars tests OCR/crop behavior, **not native game UI reflow**.
+Check live preview after changing native aspect ratio, safe zones or subtitle size.
+
+NTE movie matching uses installed localization keys, subtitle timing and exact
+original Mandarin CG sources, including explicitly selected player branches.
+Honkai page matching uses the complete verified original performance. Neither
+adds raw OCR, machine translation or recorded-audio fallback. Old English
+rewrites without a verified catalog anchor and newer Honkai chapters remain
+outside the [documented catalog coverage](nte-honkai-support.md#verified-coverage).
+
+Native OneOCR runs on the replay images through production capture logic.
+Physical crop coordinates, including negative monitor origins and DPI/preview
+agreement, are covered by unit tests. This session could not validate live game
+capture or Windows DPI interactively: the Windows input desktop was inaccessible
+and native screen acquisition failed. Offline footage results do not imply that
+live desktop preflight passed.

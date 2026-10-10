@@ -37,7 +37,9 @@ The toolkit rebuilds subtitle and original-voice indexes; it does not patch the 
 
 ## Capture and optional reading accounts
 
-In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with English or Chinese subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover voice selection. Automatic capture on startup is optional. A microphone is not needed.
+In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with English or Chinese subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover/Zero voice selection. Automatic capture on startup is optional. A microphone is not needed.
+
+For NTE movie variants, select **Zero voice**. For NTE/Honkai games displayed as a centered 16:9 picture inside black bars, select that **Game picture area** option before adjusting the crop. Use **Full game window** when the game fills the window. **Use tested dialogue crop** explicitly applies the reviewed default; upgrading preserves existing calibration. Honkai dialogue pages sharing one voice capture the complete verified performance.
 
 In **Setup → Reading**, choose Migaku or Lexirise. Migaku uses your installed browser extension. Lexirise reading preferences are local; account features are optional. **Set up local API key** opens a hidden-input prompt on this PC and stores the key encrypted for the Windows user. It is not sent through the browser. Choose an explicitly verified game-deck destination before exporting; account saves and uploads remain explicit actions.
 

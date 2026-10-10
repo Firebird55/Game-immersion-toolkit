@@ -45,3 +45,21 @@ def test_replay_checks_original_asset_queue_identity_not_only_count():
     wrong = SimpleNamespace(id=2, text_id='nte:a', channel='dialogue')
     with pytest.raises(AssertionError, match='queues'):
         replay.validate_result(clip, [line], [wrong], {'nte:a'})
+
+
+def test_reviewed_brief_caption_has_explicit_expectations_at_each_cadence():
+    clip = {'name':'Brief boundary caption', 'game':'nte', 'duration':2, 'expected':['nte:a'],
+            'expected_exact':True, 'expected_by_fps':{'4':['nte:a','nte:brief']}}
+    replay.validate_clip(clip)
+    lines = [SimpleNamespace(id=n, text_id=key, channel='dialogue') for n,key in enumerate(['nte:a','nte:brief'])]
+    replay.validate_result(clip, lines[:1], lines[:1], {'nte:a','nte:brief'}, fps=2)
+    replay.validate_result(clip, lines, lines, {'nte:a','nte:brief'}, fps=4)
+    with pytest.raises(AssertionError):
+        replay.validate_result(clip, lines[:1], lines[:1], {'nte:a','nte:brief'}, fps=4)
+
+
+def test_cadence_expectations_cannot_silently_weaken_negative_annotations():
+    with pytest.raises(ValueError, match='negative'):
+        replay.validate_clip({'game':'nte','duration':2,'expect_no_lines':True,'expected_by_fps':{'4':['nte:a']}})
+    with pytest.raises(ValueError, match='FPS'):
+        replay.validate_clip({'game':'nte','duration':2,'expected':['nte:a'],'expected_by_fps':{'8':['nte:a']}})

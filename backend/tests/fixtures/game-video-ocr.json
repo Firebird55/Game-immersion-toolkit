@@ -64,7 +64,8 @@
       ],
       "allowed_channels": [
         "dialogue"
-      ]
+      ],
+      "expect_no_lines": true
     },
     {
       "name": "Wuthering story response choice negative",
@@ -85,7 +86,7 @@
       ]
     },
     {
-      "name": "Wuthering exploration HUD negative",
+      "name": "Wuthering exploration with HUD exclusion",
       "game": "wuwa",
       "player_voice": "male",
       "path": "work/footage/wuwa-600.webm",
@@ -163,6 +164,342 @@
       "allowed_channels": [
         "cinematic"
       ]
+    },
+    {
+      "name": "NTE wrapped dialogue",
+      "game": "nte",
+      "path": "work/footage/nte-full-720.mp4",
+      "start": 2395,
+      "duration": 8,
+      "presentation": "dialogue",
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=2395",
+      "expected": [
+        "nte:ST_MainDialogue:MP00_00_NPC001_016"
+      ],
+      "expect_no_lines": false,
+      "expected_exact": true,
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "NTE walk and talk",
+      "game": "nte",
+      "path": "work/footage/nte-full-720.mp4",
+      "start": 4197,
+      "duration": 8,
+      "presentation": "walk-and-talk",
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=4197",
+      "expected": [
+        "nte:ST_IntroduceMsg:MT_P00_NPC010_008"
+      ],
+      "expect_no_lines": false,
+      "expected_exact": true,
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "NTE speaker strip excluded",
+      "game": "nte",
+      "path": "work/footage/nte-full-720.mp4",
+      "start": 998,
+      "duration": 6,
+      "presentation": "dialogue",
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=998",
+      "expected": [
+        "nte:ST_MainDialogue:HM_Prologue_MainSQC005_Alphard_00003"
+      ],
+      "expect_no_lines": false,
+      "expected_exact": true,
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "excluded": [
+        "nte:ST_Miandialogue_Wuchao:MU01_06_NPC009_118"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "Honkai modern visual novel",
+      "game": "honkai3",
+      "path": "work/footage/honkai-full-4k.mp4",
+      "start": 238,
+      "duration": 8,
+      "presentation": "visual-novel",
+      "source_url": "https://www.youtube.com/watch?v=ZIZc1STmUqo&t=238",
+      "expected": [
+        "honkai3:DialogData:1:2017203498"
+      ],
+      "expect_no_lines": false,
+      "expected_exact": true,
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "honkai3_picture_area": "16:9"
+      },
+      "notes": "3840x2160 source recording; resizing does not imply native game UI reflow."
+    },
+    {
+      "name": "Honkai legacy visual novel original voice",
+      "game": "honkai3",
+      "path": "work/footage/honkai-intro-0.mp4",
+      "start": 401,
+      "duration": 7,
+      "source_url": "https://www.youtube.com/watch?v=eBg1v3G5bas&t=401",
+      "presentation": "visual-novel",
+      "expected": [
+        "honkai3:DialogData:2:2017203499"
+      ],
+      "expected_exact": true,
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "honkai3_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "Honkai old multi-page briefing",
+      "game": "honkai3",
+      "path": "work/footage/honkai-intro-0.mp4",
+      "start": 425,
+      "duration": 10,
+      "expected": [
+        "honkai3:DialogData:3:2017203502"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "presentation": "multi-page-visual-novel",
+      "source_url": "https://www.youtube.com/watch?v=eBg1v3G5bas&t=425",
+      "settings": {
+        "honkai3_picture_area": "16:9"
+      },
+      "expected_exact": true
+    },
+    {
+      "name": "Honkai old two-page briefing",
+      "game": "honkai3",
+      "path": "work/footage/honkai-intro-0.mp4",
+      "start": 443,
+      "duration": 10,
+      "expected": [
+        "honkai3:DialogData:5:-1891200954"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "presentation": "multi-page-visual-novel",
+      "source_url": "https://www.youtube.com/watch?v=eBg1v3G5bas&t=443",
+      "settings": {
+        "honkai3_picture_area": "16:9"
+      },
+      "expected_exact": true
+    },
+    {
+      "name": "NTE opening movie radio",
+      "game": "nte",
+      "path": "work/footage/nte-intro-0.mp4",
+      "start": 78,
+      "duration": 10,
+      "expected": [
+        "nte:ST_Sequence:HM_U00C00_00_SNPC_018",
+        "nte:ST_Sequence:HM_U00C00_00_SNPC_019"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "presentation": "movie",
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=78",
+      "settings": {
+        "nte_picture_area": "16:9"
+      },
+      "expected_exact": true
+    },
+    {
+      "name": "NTE opening movie warning",
+      "game": "nte",
+      "path": "work/footage/nte-intro-0.mp4",
+      "start": 113,
+      "duration": 10,
+      "expected": [
+        "nte:ST_Sequence:HM_U00C00_00_SNPC_026",
+        "nte:ST_Sequence:HM_U00C00_00_SNPC_029",
+        "nte:ST_Sequence:HM_U00C00_00_SNPC_030"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "presentation": "movie",
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=113",
+      "settings": {
+        "nte_picture_area": "16:9"
+      },
+      "expected_exact": true,
+      "expected_by_fps": {
+        "4": [
+          "nte:ST_Sequence:HM_U00C00_00_SNPC_026",
+          "nte:ST_Sequence:HM_U00C00_00_SNPC_029",
+          "nte:ST_Sequence:HM_U00C00_00_SNPC_030",
+          "nte:ST_Sequence:HM_U00C00_00_SNPC_025"
+        ]
+      },
+      "notes": "A brief complete caption at the clip boundary is stable at four scans per second; two scans per second intentionally cannot confirm it."
+    },
+    {
+      "name": "NTE released movie radio and wrapped captions",
+      "game": "nte",
+      "path": "work/footage/nte-retail-verified720.mp4",
+      "start": 143,
+      "duration": 12,
+      "expected": [
+        "nte:ST_Sequence:HM_U00C00_00_SNPC_020"
+      ],
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "presentation": "movie",
+      "source_url": "https://www.youtube.com/watch?v=zh_sfTZN5XI&t=143",
+      "settings": {
+        "nte_picture_area": "16:9"
+      },
+      "expected_exact": true
+    },
+    {
+      "name": "NTE movie character introduction card",
+      "game": "nte",
+      "path": "work/footage/nte-retail-verified720.mp4",
+      "start": 207,
+      "duration": 6,
+      "expected": [
+        "nte:ST_Sequence:HM_U00C00_00_NPC003_002"
+      ],
+      "source_url": "https://www.youtube.com/watch?v=zh_sfTZN5XI&t=207",
+      "presentation": "movie-character-card",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      },
+      "expected_exact": true
+    },
+    {
+      "name": "NTE movie female player branch",
+      "game": "nte",
+      "player_voice": "female",
+      "path": "work/footage/nte-full-720.mp4",
+      "start": 517,
+      "duration": 7,
+      "expected": [
+        "nte:ST_Sequence:HM_U00C00_00_NPC006_008:female"
+      ],
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=517",
+      "presentation": "movie-player-variant",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      },
+      "expected_exact": true,
+      "expected_by_fps": {
+        "4": [
+          "nte:ST_Sequence:HM_U00C00_00_NPC006_008:female",
+          "nte:ST_Sequence:HM_U00C00_00_NPC006_009:female"
+        ]
+      },
+      "notes": "The next brief movie caption is stable at four scans per second at the clip boundary."
+    },
+    {
+      "name": "NTE movie unconfigured player branch negative",
+      "game": "nte",
+      "path": "work/footage/nte-full-720.mp4",
+      "start": 517,
+      "duration": 7,
+      "expect_no_lines": true,
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=517",
+      "presentation": "unconfigured-variant",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "NTE upgrade menu negative",
+      "game": "nte",
+      "path": "work/footage/nte-retail-verified720.mp4",
+      "start": 2398,
+      "duration": 8,
+      "expect_no_lines": true,
+      "source_url": "https://www.youtube.com/watch?v=zh_sfTZN5XI&t=2398",
+      "presentation": "upgrade-menu",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "NTE upper floating status negative",
+      "game": "nte",
+      "path": "work/footage/nte-full-720.mp4",
+      "start": 797,
+      "duration": 7,
+      "expect_no_lines": true,
+      "source_url": "https://www.youtube.com/watch?v=Tbuu2k9LFyg&t=797",
+      "presentation": "unmapped-floating-status",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "nte_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "Honkai tutorial bubble negative",
+      "game": "honkai3",
+      "path": "work/footage/honkai-intro-0.mp4",
+      "start": 178,
+      "duration": 7,
+      "expect_no_lines": true,
+      "source_url": "https://www.youtube.com/watch?v=eBg1v3G5bas&t=178",
+      "presentation": "tutorial",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "honkai3_picture_area": "16:9"
+      }
+    },
+    {
+      "name": "Honkai battle HUD negative",
+      "game": "honkai3",
+      "path": "work/footage/honkai-full-4k.mp4",
+      "start": 60,
+      "duration": 7,
+      "expect_no_lines": true,
+      "source_url": "https://www.youtube.com/watch?v=ZIZc1STmUqo&t=60",
+      "presentation": "battle-HUD",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "settings": {
+        "honkai3_picture_area": "16:9"
+      }
     }
   ]
 }

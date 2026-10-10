@@ -62,3 +62,10 @@ launched by these checks.
 additional Cyberpunk/Witcher NPC regions and Wuthering centered story cards,
 with real sequential footage checks at 720p, 1080p and a 4K resize. The earlier
 synthetic matrix complements these placement and negative-screen checks.
+
+The NTE/Honkai annotations in that same manifest additionally exercise 4:3,
+16:9, ultrawide and super-ultrawide windows from 800×600 to 5120×1440. Replay
+preserves source geometry, using centered 16:9 picture calibration for added
+black bars. Honkai has a positive 4K source recording; other resized cases do
+not demonstrate native UI reflow. See the documented footage segments and
+live-desktop verification limitation before interpreting these results.

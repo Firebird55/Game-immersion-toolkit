@@ -31,15 +31,35 @@ dialogue layout. Neither game has an extra chatter/cinematic OCR channel yet.
 The matcher requires an exact supported subtitle and a verified voice mapping;
 unmapped text, response choices, and newer unsupported chapters are skipped.
 
+In **Capture setup**, select **Zero voice** for NTE movies with player variants.
+There is no automatic/default gender choice. Fixed voices still capture without
+this selection. For a centered 16:9 game picture inside a taller or wider window,
+choose **Game picture area → Centered 16:9 picture inside black bars**. Leave
+**Full game window** selected when the game fills the window. Preview uses the
+same picture coordinates as capture. **Use tested dialogue crop** restores the
+reviewed crop explicitly; updates preserve existing per-PC calibration.
+
 ## Verified coverage
 
 NTE reads the installed English and zh-CN `game.locres` tables. It joins the
 same localization namespace/key, verifies the exact `Play_Vo_<key>` bank and
 event IDs, Chinese language ID, Wwise 154 fixed play tree, and numeric Chinese
-media path. Only a single original source is accepted. Dynamic voice choices,
-multiple sources, conflicting localization keys, and mod archives are excluded.
-The installation used for validation yielded **14,364** bilingual voice mappings;
+media path. Only a single original source is accepted. Multiple sources,
+unresolved dynamic choices, conflicting localization keys and mod archives are excluded.
+The installation used for validation yielded **14,928** bilingual voice mappings;
 coverage changes with the user's client and voice downloads.
+
+That total includes **474 movie cue/voice mappings**. A reviewed, pinned
+[movie binding catalog](https://github.com/Waifus-Grace/NTE_Assets/tree/cef09a29d4d92c7b1e0b950d89ba8c75b1c529e7)
+links the movie's subtitle file to its explicit CG voice event and localization
+table. Caption keys, English/Chinese text, cue times and original Mandarin media
+come from the user's installed archives. Playback cuts the original movie voice
+at those authored times and checks decoded source bounds before saving a clip.
+Repeated cue keys with ambiguous timings are excluded. The explicitly authored
+`Sex_Switch` female/male branches are supported only when selected in setup;
+random playback, other switches and continuous/faded branches remain excluded.
+This covers the tested opening movie, radio captions, character introduction
+card and later movie dialogue without scanning character labels across the screen.
 
 Honkai uses a reviewed public **4.7 bilingual catalog**, pinned to revision
 `01d7afbaf99ff7d3d027e27fe9a4b363a2db7cc1` from
@@ -47,15 +67,27 @@ Honkai uses a reviewed public **4.7 bilingual catalog**, pinned to revision
 The catalog supplies explicit TextMap hashes and authored dialogue-event names.
 The reader verifies the installed PCK language table, Chinese(PRC) bank header,
 Wwise 135 Event → Play action → Sound → media chain, package bounds, and RIFF
-source. Other languages, silence generators, dynamic choices, ambiguous events,
-multi-page dialogue sharing a voice, and missing media are excluded.
+source. Other languages, silence generators, dynamic choices, ambiguous events
+and missing media are excluded. Authored dialogue pages sharing one verified
+performance are now joined into a complete bilingual utterance. An exact,
+unambiguous page identifies that utterance and its complete original voice;
+page-sized audio cuts are not inferred.
 
 **Honkai coverage is limited to older catalog content.** The tested installation
-yielded **165** bilingual lines with original Mandarin audio. This does not
+yielded **222** bilingual performances, including **57 multi-page performances**,
+with original Mandarin audio. This does not
 claim full current story support, Part 2, or newer chapters. There is no raw OCR,
 machine-translation, or recorded-audio fallback. Expanding coverage requires a
 reviewed bilingual catalog with explicit event references and installed-source
 validation. Setup and index status display the catalog limit.
+
+The missing multi-page briefings in the reviewed older footage now capture.
+Historical English rewrites that differ from every authored catalog page still
+require a matching reviewed localization catalog; they are not guessed from
+neighboring scene IDs. The published coverage count does not include those
+rewrites or unsupported current chapters. See the
+[footage and resolution checks](game-ocr-presentations.md#nte-and-honkai-footage)
+for the precise tested presentations.
 
 ## Updates and privacy
 
