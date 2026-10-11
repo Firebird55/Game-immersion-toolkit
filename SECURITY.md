@@ -6,7 +6,7 @@ The Windows companion binds to loopback. Do not expose its API, development serv
 
 The public mobile preview is an allowlisted static browser experiment. It has no desktop API, catalog upload or hosted signaling service. Direct WebRTC pairing is intended for two devices on the same network. Pairing descriptions can contain local network addresses: do not post them publicly. Reports exclude pairing descriptions, frames and keys.
 
-Game files, extracted voices, transcripts, calibration, local configuration and OCR binaries are excluded from distributions. Lexirise exports use explicitly selected destinations verified against the current account. Switching keys requires destination configuration for that credential and does not reuse another credential's export markers.
+Game files, extracted voices, transcripts, calibration, local configuration and Windows native OCR binaries are excluded from distributions. The mobile application includes separately allowlisted, licensed Tesseract JavaScript/WASM and English/Chinese language models. Users select their own catalog and voice files locally; those files are never uploaded to Pages. Lexirise exports use explicitly selected destinations verified against the current account. Switching keys requires destination configuration for that credential and does not reuse another credential's export markers.
 
 Pull-request workflows have read-only permissions and no live credentials. Release/deployment writes run only for trusted canonical-repository events. Dependency alerts and periodic Dependabot updates are enabled; contributors should run `npm audit` and report actionable vulnerabilities. Never use a forced automatic downgrade to conceal an advisory.
 

@@ -9,6 +9,8 @@ export function ocrAssets(){
  files.set('ocr/LICENSE-APACHE.txt',readFileSync('node_modules/tesseract.js-core/LICENSE'));
  files.set('ocr/NOTICE.txt',Buffer.from('Tesseract.js 7.0.0 and Tesseract.js-core 7.0.0: Apache-2.0. https://github.com/naptha/tesseract.js\nEnglish/Simplified Chinese traineddata: naptha/tessdata, Apache-2.0. https://github.com/naptha/tessdata/blob/gh-pages/LICENSE\nLanguage npm packaging: @tesseract.js-data/eng and chi_sim 1.0.0 (MIT metadata). Model files retain the upstream Apache license.\nAll files are served locally. No images are sent to an OCR service.\n'));
  const checks=Object.fromEntries([...files].map(([name,data])=>[name,createHash('sha256').update(data).digest('hex')]));
+ const trusted=JSON.parse(readFileSync(new URL('./mobile-ocr-integrity.json',import.meta.url))).files;
+ for(const [name,sha] of Object.entries(trusted))if(checks[name]!==sha)throw new Error('Pinned OCR runtime bytes changed: '+name);
  files.set('ocr/checksums.json',Buffer.from(JSON.stringify(checks)));
  return files;
 }

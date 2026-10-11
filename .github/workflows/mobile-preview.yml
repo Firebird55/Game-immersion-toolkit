@@ -11,6 +11,7 @@ on:
       - 'scripts/mobile-update-e2e.mjs'
       - 'scripts/mobile-layout-e2e.mjs'
       - 'scripts/mobile-assets.mjs'
+      - 'scripts/mobile-ocr-integrity.json'
       - 'scripts/prepare-mobile-assets.mjs'
       - 'tests/mobile-library.test.mjs'
       - 'tests/mobile-media-fixtures.mjs'

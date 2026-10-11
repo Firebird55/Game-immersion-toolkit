@@ -1,8 +1,16 @@
 import {inflateRawSync,gunzipSync} from 'node:zlib';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const trustedOcr=JSON.parse(readFileSync(new URL('./mobile-ocr-integrity.json',import.meta.url))).files;
 export const credentialPatterns=[/lx_[A-Za-z0-9]{40,}/,/gh[pousr]_[A-Za-z0-9]{30,}/,/github_pat_[A-Za-z0-9_]{30,}/,/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,/(?:AKIA|ASIA)[0-9A-Z]{16}/,/sk-(?:proj-|ant-)?[A-Za-z0-9_-]{40,}/,/xox[baprs]-[A-Za-z0-9-]{24,}/];
 export function scanContent(data,label){
  const text=data.toString('utf8');
- if(credentialPatterns.some(p=>p.test(text)))throw new Error('Potential credential: '+label);
+ if(credentialPatterns.some(p=>p.test(text))){
+  // The upstream wrappers contain base64 WASM with chance credential-shaped
+  // substrings. Only exact pinned bytes in the bundled OCR location qualify.
+  const entry=label.match(/(?:^|\/)dist\/client\/mobile-capture\/(ocr\/core\/[^/]+\.wasm\.js)$/)?.[1];
+  if(!entry||trustedOcr[entry]!==createHash('sha256').update(data).digest('hex'))throw new Error('Potential credential: '+label);
+ }
  if(/[A-Z]:[\\/]+Users[\\/]+(?!Public\b|Default\b)[^\s"'<>\\/]+/i.test(text))throw new Error('Personal profile path: '+label);
 }
 export function privatePath(name){return /(?:^|\/)(?:data|node_modules|\.git|\.venv|output|outputs|diagnostics|work|\.watch)(?:\/|$)/i.test(name)||/(?:^|\/)\.env(?:\.|$)/i.test(name)||/\.(?:catalog|voices-[a-f0-9]+)\.zip$/i.test(name)||/\.(?:dpapi|db|sqlite(?:3)?|mp3|wav|mp4|wmv|onemodel|dll|exe|pdb|pem|key|pak(?:[._-][a-z0-9._-]+)?|pck|wem|bnk|blk|archive|asar|w3speech|w3strings|utoc|ucas|locres|hpw|unity3d|assets|bundle|usm|srt(?:_[a-z0-9-]+)?|usmap|uasset|uexp|ubulk)$/i.test(name);}
