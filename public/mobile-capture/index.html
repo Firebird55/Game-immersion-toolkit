@@ -20,7 +20,8 @@
   </section>
   <section><h2>2. Connect the devices</h2>
     <p id="instructions"></p>
-    <div class="actions"><button id="start">Share screen &amp; create offer</button><button id="stop" disabled>Stop</button></div>
+    <div class="actions"><button id="start">Share screen &amp; create offer</button><button id="reconnect" disabled>Reconnect &amp; create new offer</button><button id="stop" disabled>Stop</button></div>
+    <p class="hint">If the phone freezes, return to this page on iPad and tap Reconnect. Exchange the fresh offer and answer. Your existing screen capture stays open; Stop ends it. An ended capture needs a new screen share.</p>
     <label>Your pairing message <textarea id="outgoing" readonly spellcheck="false" placeholder="Generated here"></textarea></label>
     <div class="actions"><button id="copy" disabled>Copy message</button><button id="save-pairing" disabled>Download pairing file</button></div>
     <label>Message from the other device <textarea id="incoming" spellcheck="false" placeholder="Paste the offer or answer here"></textarea></label>
@@ -28,6 +29,8 @@
     <button id="apply">Accept message</button>
     <p class="hint">Pairing messages contain local connection details. Transfer them privately using your usual device-sharing method. They are not included in the test report.</p>
     <p id="status" role="status" aria-live="polite">Ready.</p>
+    <p id="capture-state" role="status">Capture: not started</p>
+    <p id="diagnostics" class="hint">Connection diagnostics appear here.</p>
   </section>
   <section><h2>3. Watch while playing</h2>
     <video id="preview" autoplay muted playsinline aria-label="Received game screen"></video>
@@ -38,7 +41,7 @@
     <label>What happened? <select id="result"><option value="not_verified">Not verified yet</option><option value="game_visible">Game visible and moving</option><option value="frozen">Frozen or stopped after switching</option><option value="black">Black screen or wrong content</option></select></label>
     <label>Notes <textarea id="notes" placeholder="Game version, scenes tested, any interruptions"></textarea></label>
     <button id="report">Download test report</button>
-    <p class="hint">The report measures frame delivery and visible changes. It cannot determine that a particular game was captured: your observation is required. If capture fails in the background, the next step is an iPad capture app with a browser panel on the phone.</p>
+    <p class="hint">Download a report on both devices after a freeze or recovery. Reports include capture state, connection counters and page visibility events, without pairing details or game images. They cannot determine that a particular game was captured: your observation is required. Background capture still needs a device test.</p>
   </section>
 </main>
 <script type="module" src="./capture.js"></script>

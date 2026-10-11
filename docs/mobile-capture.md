@@ -30,6 +30,32 @@ the received video. The devices' roles do not reverse when capture is unavailabl
 Capture availability alone does not prove background game capture. Browser OCR
 and transcript display are not implemented in this preview.
 
+## Recover a frozen connection
+
+Temporary disconnections can recover on their own. If the phone stays frozen or
+reports a failed connection, keep both pages loaded and use this flow:
+
+1. Return to Safari on iPad. Check **Capture**: if it is **live**, tap
+   **Reconnect & create new offer**. This keeps the existing capture permission
+   and track; it replaces the connection only. A muted track is kept open too,
+   but reconnect cannot force the browser to resume a suspended capture.
+2. Transfer the fresh iPad offer to iPhone and tap **Accept message**. Transfer
+   the new iPhone answer back to iPad and accept it. Older offers and answers
+   are rejected so they cannot replace the current connection accidentally.
+3. Switch back into the game. Confirm moving gameplay resumes on iPhone.
+   The running observation, counts, result and notes are retained, including
+   the interruption. **Stop** ends capture and observation. A new capture after
+   Stop is a new session; Stop the receiving test before accepting that offer.
+4. Download a report on **both** devices after the failure and after recovery.
+   Note whether only the connection failed, the capture was muted/ended, or the
+   iPad page returned from the background. If capture ended, start a new screen
+   share; reconnect cannot restore an ended capture.
+
+Reload the latest build on both devices before the next test. Answers from older
+preview builds do not carry the new pairing identity and cannot complete a new
+sender's offer. Pairing remains direct and manual, without a hosted signaling
+service, STUN or TURN relay. Frames stay on the local connection.
+
 ## Optional PC streaming check
 
 Use **PC → iPhone** to check the receiving phone and pairing independently while
@@ -92,8 +118,24 @@ server running until both pages have loaded and pairing is complete.
 
 Reports contain capability information, user-agent, connection events, delivered
 frame counts, low-resolution image change counts, dark-image samples, and your
-notes. No screenshots, pairing descriptions, credentials or network addresses
-are exported. Notes are user-provided; avoid entering sensitive details.
+notes. They also include track live/muted/ended state, connection/ICE/signaling
+events, and up to 120 numeric RTC samples taken every two seconds. Sender source
+frame counters, when provided by the browser, help distinguish capture producing
+frames from the connection sending them; receiver counters describe incoming and
+decoded frames. Attempt numbers separate counters from replacement connections.
+No screenshots, pairing descriptions/identities, track/device identifiers,
+credentials or network addresses are exported. Notes are user-provided; avoid
+entering sensitive details. Reports are downloaded locally and are not uploaded.
+
+Page visibility, pagehide/pageshow, freeze/resume and online/offline events are
+recorded when the browser exposes them. Abrupt suspension or termination may not
+emit an event. Capture API availability is detected on each device; a browser
+support table cannot establish whether a particular iPad can capture a game in
+the background. Inspect actual gameplay and both reports before claiming support.
+Reports remain in memory until you download them; closing or losing the page
+can discard an undownloaded report. See the [WebRTC connection-state rules](https://www.w3.org/TR/webrtc/#dom-rtcicetransportstate)
+and [capture mute/end behavior](https://www.w3.org/TR/screen-capture/#closed-and-minimized-display-surfaces)
+for the distinction between a recoverable connection and an ended capture.
 
 Frame delivery and image changes do not prove that the game was captured. A
 stationary scene can have no image changes; a stream can deliver repeated or black
@@ -108,8 +150,11 @@ architecture to evaluate; it is not implemented by this milestone.
 
 ## Checks
 
-`node --test tests/mobile-capture.test.mjs` covers pairing validation, frame-stall
-detection and black-image detection. `node scripts/mobile-capture-e2e.mjs` checks
+`node --test tests/mobile-capture.test.mjs` covers pairing identity validation,
+privacy of RTC/track diagnostics, frame-stall and black-image detection.
+`node scripts/mobile-capture-e2e.mjs` checks
 the actual page in Chromium and Firefox, mobile layouts, permission failure,
-malformed pairing and a synthetic peer-to-peer video connection. Synthetic tests
+malformed/stale pairing, reconnect without requesting capture again, retained
+observation evidence, private diagnostics, stopping during an unfinished offer,
+ended capture and a synthetic peer-to-peer video connection. Synthetic tests
 cannot establish iPad background capture or game compatibility.
