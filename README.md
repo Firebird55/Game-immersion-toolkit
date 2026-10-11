@@ -126,6 +126,8 @@ The **Speed** control in the footer plays saved voice clips at 1×, 0.85×,
 
 ## Send to Lexirise
 
+The Lexirise word popup follows your account's tab order, enabled definition sections, first/last opening choice and desktop hover setting. Reload account settings to pick up changes made on Lexirise. The Translation tab uses the transcript's English line; available character Words and saved vocabulary Notes appear according to the account layout. Popup layout controls write only when you press Save to Lexirise.
+
 Use **Lexirise** beside a current sentence or the send icon in History/Favorites.
 Nothing is sent automatically. The backend
 uploads the available voice clip and creates a Chinese sentence with its English

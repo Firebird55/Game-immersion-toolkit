@@ -247,7 +247,7 @@ class LexiriseReadingService:
         if token is None:
             return None
         word = token["word"]
-        cached = self._cached("lookup-v3", word, 30 * 86400)
+        cached = self._cached("lookup-v4", word, 30 * 86400)
         if cached is None:
             response = self._post("/v1/dictionary/lookup", {"text": word, "language": self.source_language})
             translations = []
@@ -304,8 +304,12 @@ class LexiriseReadingService:
                       "alternateReadings": alternate.get("alternatives") or [] if isinstance(alternate, dict) else [],
                       "components": components, "characterHint": character.get("hint", ""),
                       "strokeCount": character.get("strokeCount"),
-                      "character": character.get("char", "")}
-            self._save("lookup-v3", word, cached)
+                      "character": character.get("char", ""),
+                      "topWords": [{"word": item["word"], "trad": item.get("trad", ""),
+                                    "gloss": item.get("gloss", ""), "share": item.get("share")}
+                                   for item in (character.get("statistics") or {}).get("topWords", [])
+                                   if isinstance(item, dict) and isinstance(item.get("word"), str)]}
+            self._save("lookup-v4", word, cached)
         return {"word": word, "pinyin": token["pinyin"], "zhuyin": token["zhuyin"],
                 "tones": token["tones"], "proficiency": token["proficiency"],
                 "meaning": token["meaning"], **cached}
@@ -325,6 +329,18 @@ class LexiriseReadingService:
             cached = {name: response.get(name, "") for name in ("meaning", "conciseMeaning", "reading")}
             self._save("context", key, cached)
         return cached
+
+    def notes(self, text: str, start: int) -> dict | None:
+        token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)
+        if token is None:
+            return None
+        saved_id = token.get("savedExpressionId")
+        if not isinstance(saved_id, int) or saved_id <= 0:
+            return {"notes": ""}
+        with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
+                          timeout=25, follow_redirects=False, transport=self.lexirise.transport) as client:
+            result = LexiriseService._request(client, "GET", f"/v1/vocabulary/{saved_id}")
+        return {"notes": result.get("notes") if isinstance(result.get("notes"), str) else ""}
 
     def characters(self, text: str, start: int) -> dict | None:
         token = next((item for item in self.analyze(text)["tokens"] if item["start"] == start), None)

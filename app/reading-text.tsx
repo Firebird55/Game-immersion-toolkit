@@ -1,12 +1,15 @@
 
 'use client';
-import {createReader} from '@firebird55/lexirise-components';
+import {createReader, validateAccount} from '@firebird55/lexirise-components';
 import type {ComponentProps} from 'react';
 import {useEffect,useState} from 'react';
 export {DEFAULT_READING_OPTIONS,MIGAKU_TONE_PALETTE,restoreReadingOptions} from '@firebird55/lexirise-components';
 export type {ReadingOptions,ReadingScope} from '@firebird55/lexirise-components';
 const lineIds=new Map<string,number>();
-const reader=createReader({sourceLanguage:'zh',translationLanguage:'en',request:async(text,action,params={},init={})=>{
+const reader=createReader({sourceLanguage:'zh',translationLanguage:'en',loadSettings:async()=>{
+ const response=await fetch('http://127.0.0.1:8766/api/lexirise/settings',{cache:'no-store'});
+ if(!response.ok)throw new Error('Popup settings unavailable.');return validateAccount(await response.json());
+},request:async(text,action,params={},init={})=>{
  const id=lineIds.get(text);if(id==null)throw new Error('Transcript line unavailable.');
  const query=new URLSearchParams();if(params.start!=null)query.set('start',String(params.start));
  let path=action==='analysis'?'':action==='save-example'?'/examples/'+params.index+'/save':'/'+action;

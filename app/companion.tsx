@@ -353,7 +353,7 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.chinese} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.chinese} />}
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.chinese} sentenceTranslation={line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
@@ -838,7 +838,7 @@ function CompanionClient() {
               {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
             </div>}
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
-            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.chinese} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />}
+            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.chinese} sentenceTranslation={latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />}
             <div className="current-actions">
               <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}

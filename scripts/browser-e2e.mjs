@@ -11,7 +11,7 @@ const nteLine={...cyberpunkLine,id:4,game:'nte',english:'NTE dialogue fixture',t
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
 mkdirSync('output/playwright',{recursive:true});
-const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md'},nl:{fontSize:'md'}}};
+const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 function response(path,query,method,body){
  if(path==='/api/status')return {capture:{running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']},textmaps:mapStatus,game_textmaps:{nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
@@ -45,6 +45,12 @@ try{
  if(req.method()!=='GET'&&req.method()!=='OPTIONS')localWrites.push({path:url.pathname,body});
  await route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,X-Proxy-Transcript','Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS'},body:JSON.stringify(response(url.pathname,url.searchParams,req.method(),body))});});
  await page.goto('http://localhost:'+port);await page.locator('.reading-hanzi').first().click();await page.locator('.word-sheet').waitFor();
+ await page.getByRole('tab',{name:'Context',exact:true}).waitFor();
+ assert.deepEqual(await page.locator('.word-tabs').getByRole('tab').allTextContents(),['Context','Translation','Definition'],'Toolkit reads the account popup order and enable flags');
+ assert.equal(await page.locator('.word-tabs').getByRole('tab',{selected:true}).textContent(),'Context','Toolkit opens the first account tab');
+ await page.getByRole('tab',{name:'Translation',exact:true}).click();assert.match(await page.locator('.word-sheet-body').textContent(),/Hello/);
+ await page.getByRole('tab',{name:'Definition',exact:true}).click();
+ if(name==='chromium'&&zoom===1&&[1920,390].includes(pw))await page.locator('.word-sheet').screenshot({path:`output/playwright/account-popup-${pw}.png`});
  await page.locator('.word-sheet').evaluate(n=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  let b=await page.locator('.word-sheet').boundingBox();assert(b&&b.x>=-1&&b.y>=-1&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit lookup fits '+JSON.stringify(b));
  const expectedWidth=Math.min(width<=560?340:400,width-32),heightCap=width<=560?Math.min(360,height*.6):320;
