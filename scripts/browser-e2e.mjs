@@ -64,6 +64,18 @@ try{
  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
  await page.getByLabel('Edit account language').selectOption('ja');assert.equal(await page.locator('.reading-text').first().getAttribute('lang'),'zh','Editing Japanese account settings never reinterprets Chinese transcript');
  assert.equal(writes.length,0);await page.keyboard.press('Escape');
+ if(pw===1920&&zoom===1){
+  await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
+  await page.getByLabel('Edit account language').selectOption('zh');
+  const presets=page.getByLabel('toneColorPreset',{exact:true});
+  const options=await presets.locator('option').evaluateAll(nodes=>nodes.map(node=>node.value));
+  assert(options.includes('mdbg')&&options.includes('colorblind'),'Current account presets are imported from shared source');
+  const palette=await presets.inputValue()==='colorblind'?'mdbg':'colorblind';
+  await presets.selectOption(palette);assert.equal(writes.length,0,'Palette selection does not write account settings');
+  await page.getByRole('button',{name:'Save to Lexirise',exact:true}).click();await page.getByText('Saved to Lexirise.',{exact:true}).waitFor();
+  assert.deepEqual(writes.pop(),{languageSettings:{zh:{toneColorPreset:palette}}},'Explicit save sends only the requested account palette');
+  await page.keyboard.press('Escape');
+ }
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' toolkit layout has no horizontal overflow at '+width);
  if(process.argv.includes('--reading-settings')){console.log(name+': reading settings '+width+'x'+height+' passed');await context.close();continue;}
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();const capture=page.getByRole('dialog',{name:'Capture setup'});await capture.waitFor();b=await capture.boundingBox();assert(b&&b.x>=0&&b.x+b.width<=width+1,'Capture setup fits');
