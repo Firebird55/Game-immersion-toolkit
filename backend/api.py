@@ -32,6 +32,7 @@ from .reading import LexiriseReadingService
 from .lexirise_settings import account_settings
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 from .installation import InstallationService
+from .mobile_library import MobileExportManager
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 
 
@@ -175,6 +176,7 @@ class Runtime:
             game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
             account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
         self.index_task: asyncio.Task[None] | None = None
+        self.mobile_exports = MobileExportManager(PROJECT_ROOT)
 
     def setup_install(self, game: str) -> Path | None:
         install = discover_install(game)
@@ -354,6 +356,7 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
+        runtime.mobile_exports.cancel()
         if runtime.index_task:
             runtime.index_task.cancel()
             try:
@@ -417,7 +420,34 @@ def setup_access(request: Request, header: str | None = None, *, write: bool = F
 @app.get("/api/setup")
 def setup_status(request: Request) -> dict:
     setup_access(request)
-    return runtime.installation.status()
+    return {**runtime.installation.status(), "mobile_export": runtime.mobile_exports.status() if hasattr(runtime, "mobile_exports") else None}
+
+
+class MobileExportOptions(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    include_audio: bool = True
+
+
+@app.post("/api/setup/games/{game}/mobile-export")
+def mobile_export(game: str, payload: MobileExportOptions, request: Request,
+                  x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in GAMES:
+        raise HTTPException(404, "Unsupported game")
+    return {"started": runtime.mobile_exports.start(game, payload.include_audio)}
+
+
+@app.get("/api/setup/mobile-export")
+def mobile_export_status(request: Request) -> dict:
+    setup_access(request)
+    return runtime.mobile_exports.status()
+
+
+@app.post("/api/setup/mobile-export/cancel")
+def mobile_export_cancel(request: Request, x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    runtime.mobile_exports.cancel()
+    return {"cancelled": True}
 
 
 @app.get("/api/setup/report")
