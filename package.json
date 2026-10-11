@@ -1,6 +1,6 @@
 {
   "name": "game-immersion-toolkit",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
