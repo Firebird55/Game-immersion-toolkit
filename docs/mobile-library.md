@@ -119,6 +119,9 @@ Software updates cache only allowlisted application/OCR assets. The service
 worker waits rather than replacing an active session. Stop sharing, tap
 **Reload latest**, check the build version, then pair again. Application updates
 do not migrate or delete the catalog/history/preferences database.
+The first visit requires Internet access. Start OCR once with each subtitle
+language you intend to use offline, so its worker, core and model are cached.
+Remembered catalogs and local voice playback do not require a model download.
 
 ## Physical iPhone acceptance test
 

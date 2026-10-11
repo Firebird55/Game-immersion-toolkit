@@ -30,6 +30,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  await page.locator('summary').filter({hasText:'Capture regions and calibration'}).click();await page.fill('#crop-left','9');await page.locator('#crop-left').dispatchEvent('change');
  await page.waitForFunction(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('proxy-mobile-library');q.onsuccess=()=>r(q.result);q.onerror=j;});const value=await new Promise(r=>{const q=db.transaction('state').objectStore('state').get('preferences');q.onsuccess=()=>r(q.result);});db.close();return value?.zzz?.crop[0]===.09;});
  const oldBuild=await page.getAttribute('html','data-build-commit');
+ assert(await page.evaluate(async base=>!!await caches.match(base+'/ocr/tesseract.esm.min.js'),base),'The application OCR loader must be cached before the first offline visit');
  await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1).catch(async error=>{console.error(name,{stage:'offline restore',errors,failures,library:await page.locator('#library-status').textContent()});throw error;});assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);await context.setOffline(false);
  // Simulate an active capture's disabled role/update controls. Real WebRTC
  // reconnects are separately exercised by mobile-capture-e2e.

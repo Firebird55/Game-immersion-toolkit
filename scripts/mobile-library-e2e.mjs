@@ -48,6 +48,8 @@ try{
   const videoSource=async sources=>page.evaluate(async sources=>{const video=document.querySelector('#preview');video.loop=true;for(const [base64,type] of sources){const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));video.src=URL.createObjectURL(new Blob([bytes],{type}));try{await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:1,state:'connected',live:true,game:'zzz',role:'receiver'}}));return;}catch{}}throw new Error('Test browser cannot decode MP4 or WebM.');},sources);
   await videoSource([[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
   await page.click('#ocr-start');
+  await page.waitForFunction(()=>document.body.classList.contains('ocr-running'));
+  assert(await page.evaluate(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;}),'The live preview stays visible while reading the transcript');
   await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000}).catch(async error=>{console.error({stage:'English OCR',status:await page.locator('#match-status').textContent(),errors});await diagnoseOcr(page,name,'English OCR');throw error;});
   assert.equal(await page.locator('.transcript-chinese').textContent(),row.chinese);
   await page.getByRole('button',{name:'Play original voice',exact:true}).click();
@@ -61,6 +63,8 @@ try{
   await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:15000}).catch(async error=>{const diagnosis=await page.evaluate(async base=>{const {default:T}=await import(base+'/ocr/tesseract.esm.min.js'),w=await T.createWorker('chi_sim',1,{workerPath:base+'/ocr/worker.min.js',corePath:base+'/ocr/core/',langPath:base+'/ocr/lang/',workerBlobURL:false});await w.setParameters({tessedit_pageseg_mode:'6'});const v=document.querySelector('#preview'),c=document.createElement('canvas');c.width=1800;c.height=301;c.getContext('2d').drawImage(v,v.videoWidth*.08,v.videoHeight*.67,v.videoWidth*.84,v.videoHeight*.25,0,0,1800,301);const r=await w.recognize(c);await w.terminate();return r.data.text;},base);console.error({stage:'Chinese OCR',status:await page.locator('#match-status').textContent(),diagnosis,errors});throw error;});
   assert.equal(await page.locator('.transcript-chinese').textContent(),chineseRow.chinese);
   await page.click('#ocr-pause');
+  const offline=files.has('/sw.js');
+  if(offline){await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);await context.setOffline(true);}
   await page.reload();
   await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000});
   assert(await page.getByRole('button',{name:'Reselect voice pack',exact:true}).isDisabled());
@@ -69,6 +73,11 @@ try{
   await page.waitForFunction(()=>!document.querySelector('.transcript-line button').disabled,{},{timeout:15000});
   await page.getByRole('button',{name:'Play original voice',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#voice-player').currentTime>0,{},{timeout:15000});
+  if(offline){
+   await page.selectOption('#role','receiver');await page.click('#clear-history');await videoSource([[CHINESE_VIDEO,'video/mp4'],[CHINESE_WEBM,'video/webm']]);await page.click('#ocr-start');
+   await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000}).catch(async error=>{console.error({stage:'Offline OCR',status:await page.locator('#match-status').textContent(),errors});throw error;});
+   assert.equal(await page.locator('.transcript-chinese').textContent(),chineseRow.chinese);await page.click('#ocr-pause');await context.setOffline(false);
+  }
   // A malformed file must preserve the existing accessible library.
   await page.setInputFiles('#library-files',[input('broken.zip',Buffer.from('broken'))]);
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('512 MiB')||document.querySelector('#library-status').textContent.includes('complete'),{},{timeout:15000});
