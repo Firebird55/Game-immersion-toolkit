@@ -11,6 +11,7 @@ reader.onmessage=({data})=>{if(data.progress!=null){text('library-status',`Readi
 reader.onerror=()=>{for(const request of pending.values())request.reject(new Error('Library worker unavailable. Reopen the files.'));pending.clear();};
 function request(action,body={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject});reader.postMessage({id,action,...body});});}
 function currentGame(){return $('game').value;}
+function updatePreview(){document.body.classList.toggle('ocr-running',scanning&&$('role').value==='receiver'&&streamState?.state==='connected'&&streamState?.live!==false&&!document.hidden);}
 const optionIds=['ocr-language','player-voice','show-english','extra-regions','cinematic-regions','ocr-contrast'];
 function setupCrop(){const game=currentGame(),saved=preferences[game]??{},selected=$('calibrate-region').value,keys=['dialogue',...Object.keys(extraCrops[game]??{})];$('calibrate-region').replaceChildren(...keys.map(key=>{const option=document.createElement('option');option.value=key;option.textContent={dialogue:'Dialogue',overhead:'Overhead captions',card:'Centered story card',comic:'Comic panels',panel:'Legacy dialogue panel',compact:'Compact subtitle strip'}[key];return option;}));$('calibrate-region').value=keys.includes(selected)?selected:'dialogue';const key=$('calibrate-region').value,crop=key==='dialogue'?saved.crop??crops[game]:saved.regions?.[key]??extraCrops[game][key];['left','top','width','height'].forEach((field,i)=>$('crop-'+field).value=String(crop[i]*100));$('picture-area').value=saved.picture??'window';for(const id of optionIds)if(saved[id]!=null){if($(id).type==='checkbox')$(id).checked=saved[id];else $(id).value=saved[id];}}
 function cropValue(){const values=['left','top','width','height'].map(key=>Number($('crop-'+key).value)/100);if(values.some(v=>!Number.isFinite(v)||v<0||v>1)||values[2]<=0||values[3]<=0||values[0]+values[2]>1.00001||values[1]+values[3]>1.00001)throw new Error('Keep the crop inside the video.');return values;}
@@ -37,7 +38,7 @@ $('library-files').onchange=async event=>{
   libraryStatus();render();await put('catalog',library).catch(()=>text('storage-status','Catalog is available this session; caching failed. Keep your Files copy.'));await reportStorage(true);
  }catch(error){text('library-status',error.message);}finally{$('library-files').disabled=false;event.target.value='';}
 };
-$('forget-library').onclick=async()=>{selection++;epoch++;scanning=false;stable=null;await request('forget');library=null;available.clear();selectedBytes=selectedPacks=0;await remove('catalog').catch(()=>{});libraryStatus();render();};
+$('forget-library').onclick=async()=>{selection++;epoch++;scanning=false;updatePreview();stable=null;await request('forget');library=null;available.clear();selectedBytes=selectedPacks=0;await remove('catalog').catch(()=>{});libraryStatus();render();};
 function saveHistory(){const favorites=history.filter(r=>r.favorite).slice(-5000),rest=history.filter(r=>!r.favorite).slice(-500);history=[...favorites,...rest].sort((a,b)=>a.createdAt-b.createdAt);return put('history',history).catch(()=>text('storage-status','Transcript history is temporary; storage could not be saved.'));}
 function render(){
  const panel=$('transcript');panel.replaceChildren();
@@ -58,7 +59,7 @@ for(const key of ['left','top','width','height'])$('crop-'+key).onchange=()=>voi
 $('picture-area').onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
 $('calibrate-region').onchange=setupCrop;
 $('reset-crop').onclick=()=>{const game=currentGame(),key=$('calibrate-region').value,saved=preferences[game]??{};preferences[game]={...saved,...key==='dialogue'?{crop:crops[game]}:{regions:{...saved.regions,[key]:extraCrops[game][key]}}};setupCrop();void savePreferences();};
-$('game').addEventListener('change',()=>{epoch++;stable=null;scanning=false;setupCrop();render();});
+$('game').addEventListener('change',()=>{epoch++;stable=null;scanning=false;updatePreview();setupCrop();render();});
 const canvas=document.createElement('canvas');
 function cropFrame(region){return drawCrop($('preview'),canvas,region,$('picture-area').value);}
 $('preview-crop').onclick=()=>{try{const image=cropFrame(cropValue()),preview=$('crop-preview');preview.width=image.width;preview.height=image.height;preview.getContext('2d').drawImage(image,0,0);preview.hidden=false;}catch(e){text('match-status',e.message);}};
@@ -70,11 +71,11 @@ async function initEngine(){
  loading=createWorker(lang,1,{workerPath:new URL('worker.min.js',base).href,corePath:new URL('core/',base).href,langPath:new URL('lang/',base).href,cachePath:'proxy-mobile-ocr-7-best-int-1',workerBlobURL:false,logger:value=>{if(value.status==='loading language traineddata')text('match-status','Preparing private on-device OCR…');}}).then(async value=>{await value.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});engine=value;engineLanguage=lang;return value;}).finally(()=>loading=null);
  return loading;
 }
-$('ocr-language').onchange=()=>{epoch++;stable=null;scanning=false;text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
-$('ocr-start').onclick=async()=>{const token=++epoch;try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){text('match-status',e.message);}};
-$('ocr-pause').onclick=()=>{scanning=false;epoch++;stable=null;text('match-status','OCR paused.');};
-window.addEventListener('mobile-stream',event=>{if(!streamState||streamState.generation!==event.detail.generation||streamState.state!==event.detail.state){epoch++;stable=null;lastMediaTime=-1;}streamState=event.detail;});
-document.addEventListener('visibilitychange',()=>{epoch++;stable=null;if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
+$('ocr-language').onchange=()=>{epoch++;stable=null;scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
+$('ocr-start').onclick=async()=>{const token=++epoch;try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;updatePreview();text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){text('match-status',e.message);}};
+$('ocr-pause').onclick=()=>{scanning=false;updatePreview();epoch++;stable=null;text('match-status','OCR paused.');};
+window.addEventListener('mobile-stream',event=>{if(!streamState||streamState.generation!==event.detail.generation||streamState.state!==event.detail.state){epoch++;stable=null;lastMediaTime=-1;}streamState=event.detail;updatePreview();});
+document.addEventListener('visibilitychange',()=>{epoch++;stable=null;updatePreview();if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
 function regions(){return captureRegions(currentGame(),preferences[currentGame()]?.crop??crops[currentGame()],$('extra-regions').checked,$('cinematic-regions').checked,preferences[currentGame()]?.regions).map(region=>$('ocr-contrast').value==='raw'?{...region,raw:true}:region);}
 async function scan(){
  if(busy||!scanning||!engine||document.hidden||!library||library.manifest.game!==currentGame()||$('role').value!=='receiver'||streamState?.state!=='connected'||streamState?.live===false||$('preview').readyState<2||$('preview').currentTime===lastMediaTime)return;

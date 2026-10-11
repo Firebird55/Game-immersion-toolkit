@@ -58,6 +58,8 @@ snapshot. Decoder cancellation takes effect between bounded work steps.
 4. Pair with the device sending the game using the existing offer/answer flow.
    Select English or Simplified Chinese subtitles, and the player voice if the
    game has player variants. Tap **Start OCR**. Keep the receiving page visible.
+   A small live preview stays visible while OCR runs, including when you scroll
+   to the transcript; browsers can suspend video that moves off screen.
 5. Read the Chinese/English transcript and tap **Play original voice**. If Safari
    requires another playback gesture, use the visible audio control. **Find line**
    also lets you verify a catalog line and local playback without a live stream.
