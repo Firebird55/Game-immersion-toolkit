@@ -43,6 +43,7 @@ export async function openZip(file){
 }
 export function validateRow(row){
  if(!row||!hex(row.id)||typeof row.textId!=='string'||row.textId.length>512||typeof row.english!=='string'||typeof row.chinese!=='string'||!row.english.trim()||!row.chinese.trim()||row.english.length>8000||row.chinese.length>8000||row.audio!==null&&!hex(row.audio)||row.sourceVoice!=null&&!hex(row.sourceVoice))fail('Invalid dialogue record.');
+ if(row.audio&&!hex(row.sourceVoice))fail('Missing original voice binding.');
  for(const field of ['anchorsEnglish','anchorsChinese'])if(row[field]!=null&&(!Array.isArray(row[field])||row[field].length>100||row[field].some(v=>typeof v!=='string'||v.length>8000)))fail('Invalid authored OCR anchors.');
  if(row.playerVoice!=null&&!['male','female'].includes(row.playerVoice))fail('Unsupported player voice.');
  if(!Array.isArray(row.channels)||row.channels.some(c=>!['dialogue','cinematic','gameplay','tip'].includes(c)))fail('Invalid dialogue channels.');
@@ -63,7 +64,10 @@ export async function readCatalog(zip, progress=()=>{}){
  if(rows.length!==m.coverage.dialogue||expected.size!==zip.entries.size)fail('Catalog coverage or contents disagree.');
  for(const pack of m.packs){if(!hex(pack.id)||packIds.has(pack.id)||!Array.isArray(pack.clips)||pack.clips.length>65530||pack.clips.some(sha=>!hex(sha)||!audio.has(sha)||packedAudio.has(sha)||(packedAudio.add(sha),false)))fail('Invalid or duplicate voice pack reference.');packIds.add(pack.id);}
  if(audio.size!==new Set(m.packs.flatMap(p=>p.clips)).size)fail('Missing voice pack references.');
- return {manifest:m,rows};
+ if(m.languages!=null&&(!Array.isArray(m.languages)||m.languages.length!==2||!m.languages.includes('zh-Hans')||!m.languages.includes('en')))fail('Unsupported catalog languages.');
+ // Do not retain arbitrary, deeply nested metadata from a selected file.
+ const manifest={format:m.format,kind:m.kind,game:m.game,title:m.title,revision:m.revision,languages:['zh-Hans','en'],coverage:{dialogue:rows.length,mappedVoices:rows.filter(r=>r.sourceVoice).length,exportedVoices:rows.filter(r=>r.audio).length,partial:m.coverage.partial===true},catalog:m.catalog.map(p=>({name:p.name,size:p.size,sha256:p.sha256})),packs:m.packs.map(p=>({id:p.id,clips:p.clips}))};
+ return {manifest,rows};
 }
 export function validateVoices(zip,catalog){
  const m=zip.manifest, pack=catalog.manifest.packs.find(p=>p.id===m.id);

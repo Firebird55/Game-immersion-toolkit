@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id), text=(id,message)=>$(id).textContent=me
 const reader=new Worker(new URL('./library-worker.mjs',import.meta.url),{type:'module'}), pending=new Map();
 let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, streamState=null, stable=null, emitted=new Map(), samples=[];
 let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,lastMediaTime=-1;
-let scanCompletion=Promise.resolve();
+let scanCompletion=Promise.resolve(),voiceBusy=false;
 reader.onmessage=({data})=>{if(data.progress!=null){text('library-status',`Reading ${data.progress.toLocaleString()} verified dialogue rows…`);return;}const request=pending.get(data.id);if(!request)return;pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
 reader.onerror=()=>{for(const request of pending.values())request.reject(new Error('Library worker unavailable. Reopen the files.'));pending.clear();};
 function request(action,body={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject});reader.postMessage({id,action,...body});});}
@@ -47,7 +47,7 @@ function render(){
   const chinese=document.createElement('p');chinese.lang='zh-Hans';chinese.className='transcript-chinese';chinese.textContent=line.chinese;item.append(chinese);
   if($('show-english').checked){const english=document.createElement('p');english.lang='en';english.textContent=line.english;item.append(english);}
   const status=document.createElement('small');status.textContent=`Catalog match · ${line.matching??'exact'}${line.score!=null?' · '+line.score.toFixed(0)+'%':''}`;item.append(status);
-  const actions=document.createElement('div');actions.className='actions';const play=document.createElement('button');play.textContent=line.audio?available.has(line.audio)?'Play original voice':declaredAudio.has(line.audio)?'Reselect voice pack':'Voice absent from this export':'Original audio not exported';play.disabled=!line.audio||!available.has(line.audio);play.onclick=async()=>{try{const start=performance.now(),blob=await request('voice',{sha:line.audio});if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=URL.createObjectURL(blob);$('voice-player').src=audioUrl;await $('voice-player').play();samples.push({kind:'playback',ms:performance.now()-start});samples=samples.slice(-120);}catch(error){text('match-status',error.message);}};
+  const actions=document.createElement('div');actions.className='actions';const play=document.createElement('button');play.textContent=line.audio?available.has(line.audio)?'Play original voice':declaredAudio.has(line.audio)?'Reselect voice pack':'Voice absent from this export':'Original audio not exported';play.disabled=voiceBusy||!line.audio||!available.has(line.audio);play.onclick=async()=>{if(voiceBusy)return;voiceBusy=true;const token=selection;render();try{const start=performance.now(),blob=await request('voice',{sha:line.audio});if(token!==selection)return;if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=URL.createObjectURL(blob);$('voice-player').src=audioUrl;await $('voice-player').play();samples.push({kind:'playback',ms:performance.now()-start});samples=samples.slice(-120);}catch(error){if(token===selection)text('match-status',error.message);}finally{voiceBusy=false;render();}};
   const favorite=document.createElement('button');favorite.textContent=line.favorite?'Unfavorite':'Favorite';favorite.onclick=()=>{line.favorite=!line.favorite;void saveHistory();render();};actions.append(play,favorite);item.append(actions);panel.append(item);
  }
 }
@@ -71,7 +71,7 @@ async function initEngine(){
  return loading;
 }
 $('ocr-language').onchange=()=>{epoch++;stable=null;scanning=false;text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
-$('ocr-start').onclick=async()=>{const token=++epoch;try{if(!library)throw new Error('Open a game catalog first.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){text('match-status',e.message);}};
+$('ocr-start').onclick=async()=>{const token=++epoch;try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){text('match-status',e.message);}};
 $('ocr-pause').onclick=()=>{scanning=false;epoch++;stable=null;text('match-status','OCR paused.');};
 window.addEventListener('mobile-stream',event=>{if(!streamState||streamState.generation!==event.detail.generation||streamState.state!==event.detail.state){epoch++;stable=null;lastMediaTime=-1;}streamState=event.detail;});
 document.addEventListener('visibilitychange',()=>{epoch++;stable=null;if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
@@ -94,11 +94,12 @@ async function scan(){
    if(accepted)break;
   }
   const elapsed=performance.now()-start;samples.push({kind:'ocr',ms:elapsed});samples=samples.slice(-120);
-  if(!accepted){stable=null;text('match-status',ambiguous?'Ambiguous dialogue/voice; skipped.':'No verified dialogue match in the current crop.');return;}
+  if(!accepted){stable=null;text('match-status',ambiguous?'Ambiguous dialogue/voice; skipped.':'No verified match: unsupported scene, incomplete text, or crop needs calibration.');return;}
   const key=accepted.row.id;stable=stable?.key===key?{key,count:stable.count+1}:{key,count:1};
   text('match-status',`Verified ${accepted.channel} match · ${elapsed.toFixed(0)} ms${stable.count<2?' · confirming…':''}`);
   if(stable.count===2&&(!emitted.has(key)||Date.now()-emitted.get(key)>10000)&&!history.some(r=>r.id===key&&Date.now()-r.createdAt<10000)){
    emitted.set(key,Date.now());history.push({...accepted.row,score:accepted.score,matching:accepted.score===100?'exact':'fuzzy',game:currentGame(),createdAt:Date.now(),favorite:false});await saveHistory();render();
+   if(emitted.size>2048){const cutoff=Date.now()-10000;for(const [id,time] of emitted)if(time<cutoff)emitted.delete(id);}
   }
  }catch(e){if(token===epoch)text('match-status',`OCR needs attention: ${e.message}`);}finally{busy=false;finishScan();}
 }
