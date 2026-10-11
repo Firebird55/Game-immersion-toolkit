@@ -60,6 +60,13 @@ jobs:
         run: node scripts/mobile-update-e2e.mjs
       - name: Check game-layout crops with owned synthetic scenes
         run: node scripts/mobile-layout-e2e.mjs
+      - name: Retain owned browser-fixture diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-test-diagnostics
+          path: output/playwright/mobile-library-*.png
+          retention-days: 3
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ steps.package.outputs.directory }}

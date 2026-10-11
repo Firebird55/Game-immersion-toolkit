@@ -19,6 +19,16 @@ const encode=entries=>Buffer.from(zipSync(Object.fromEntries(Object.entries(entr
 const catalog=encode({'manifest.json':manifest,'catalog/00000.ndjson':segment}),voices=encode({'manifest.json':{format:manifest.format,kind:'voices',game:'zzz',id,clips:{[sha]:{size:tone.length,sha256:sha}}},['audio/'+sha+'.mp3']:tone});
 const input=(name,buffer)=>({name,mimeType:'application/zip',buffer});
 mkdirSync('output/playwright',{recursive:true});
+const pipelinePath=[...files.keys()].find(p=>/\/ocr-pipeline(?:\.[a-f0-9]+)?\.mjs$/.test(p));
+async function diagnoseOcr(page,name,stage){
+ await page.screenshot({path:`output/playwright/mobile-library-${name}-failure.png`,fullPage:true});
+ const data=await page.evaluate(async({base,pipelinePath})=>{
+  const video=document.querySelector('#preview'),{crops,cropFrame,recognizeRegion,candidates}=await import(base+pipelinePath),{default:Tesseract}=await import(base+'/ocr/tesseract.esm.min.js'),language=document.querySelector('#ocr-language').value;
+  const worker=await Tesseract.createWorker(language,1,{workerPath:base+'/ocr/worker.min.js',corePath:base+'/ocr/core/',langPath:base+'/ocr/lang/',workerBlobURL:false}),canvas=document.createElement('canvas'),region={crop:crops.zzz,channel:'dialogue',ink:'white'};
+  cropFrame(video,canvas,region.crop);const data=await recognizeRegion(worker,canvas,region,language);await worker.terminate();
+  return {width:video.videoWidth,height:video.videoHeight,readyState:video.readyState,paused:video.paused,time:video.currentTime,text:data?.text,confidence:data?.confidence,candidates:data?candidates(data,region,canvas.width,canvas.height,'zzz'):null};
+ },{base,pipelinePath});console.error({name,stage,...data});
+}
 let browser;
 try{
  for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
@@ -38,7 +48,7 @@ try{
   const videoSource=async sources=>page.evaluate(async sources=>{const video=document.querySelector('#preview');video.loop=true;for(const [base64,type] of sources){const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));video.src=URL.createObjectURL(new Blob([bytes],{type}));try{await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:1,state:'connected',live:true,game:'zzz',role:'receiver'}}));return;}catch{}}throw new Error('Test browser cannot decode MP4 or WebM.');},sources);
   await videoSource([[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
   await page.click('#ocr-start');
-  await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000}).catch(async error=>{console.error({stage:'English OCR',status:await page.locator('#match-status').textContent(),errors});throw error;});
+  await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000}).catch(async error=>{console.error({stage:'English OCR',status:await page.locator('#match-status').textContent(),errors});await diagnoseOcr(page,name,'English OCR');throw error;});
   assert.equal(await page.locator('.transcript-chinese').textContent(),row.chinese);
   await page.getByRole('button',{name:'Play original voice',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#voice-player').currentTime>0,{},{timeout:15000});
