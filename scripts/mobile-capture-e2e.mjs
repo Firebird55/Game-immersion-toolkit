@@ -41,6 +41,18 @@ try {
       };
     });
     await sender.goto(url); await receiver.goto(url);
+    // An unsupported gaming-device browser must remain a sender with capture
+    // disabled; the receiver can still accept a supported sender's offer.
+    const unsupported = await context.newPage();
+    await unsupported.addInitScript(() => { navigator.mediaDevices.getDisplayMedia = undefined; });
+    await unsupported.goto(url);
+    assert.equal(await unsupported.locator('#role').inputValue(), 'sender');
+    assert.equal(await unsupported.locator('#start').isEnabled(), false);
+    assert.match(await unsupported.locator('#instructions').innerText(), /native capture helper/i);
+    await unsupported.selectOption('#role', 'receiver');
+    assert.equal(await unsupported.locator('#start').isVisible(), false);
+    assert.equal(await unsupported.locator('#apply').isEnabled(), true);
+    await unsupported.close();
     if (expectedBuild) {
       assert.match(await receiver.locator('#build-info').innerText(), new RegExp(expectedBuild.commit.slice(0, 8)));
       // Google Drive can add desktop.ini to a local package. It is not one of

@@ -22,7 +22,7 @@ function updateRole() {
   const sender = $('role').value === 'sender', caps = capability();
   $('capability').textContent = `Secure context: ${caps.secure ? 'yes' : 'no'} · Screen capture API: ${caps.screenCapture ? 'available (background capture unverified)' : 'unavailable'} · WebRTC: ${caps.webRTC ? 'available' : 'unavailable'} · ${caps.userAgent}`;
   $('instructions').textContent = sender ? 'Share the game window or screen and send the offer to the receiving device. Paste its answer back here, then open the game.' : 'Paste the gaming device’s offer below. Accept it, send the generated answer back, and keep this page open.';
-  if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. Use this device to receive a PC screen instead. Sharing a game running on this device needs a compatible capture helper; one is not included in this preview.';
+  if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. For your iPad game → iPhone setup, the iPad remains the sender and the iPhone remains the receiver. A native capture helper is needed on the iPad; it is not included yet. Browser pairing cannot start this capture.';
   $('start').hidden = !sender;
   $('start').disabled = Boolean(peer) || pendingCapture || busyPairing || !caps.secure || !caps.screenCapture || !caps.webRTC;
   $('apply').disabled = pendingCapture || busyPairing || !caps.secure || !caps.webRTC;

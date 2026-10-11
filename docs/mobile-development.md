@@ -27,11 +27,12 @@ is added to workflow secrets: Pages uses the job's built-in GitHub token and OID
 6. Pair and test. Downloaded capture reports include the loaded commit and branch
    so device results can be traced back to the code.
 
-For an immediate test use the PC as **Share screen** and iPad as **Receive screen**;
-follow [pairing and observation instructions](mobile-capture.md). The page tests
-frame delivery only, without OCR or transcripts. Its capability check makes
-unsupported sender browsers explicit; adding a Home Screen shortcut cannot
-provide an unavailable screen-capture API.
+The intended roles are **iPad: Share screen**, running the game, and **iPhone:
+Receive screen**. Follow [pairing and observation instructions](mobile-capture.md).
+The page tests frame delivery only, without OCR or transcripts. If iPad browser
+capture is unavailable, the native sender helper remains unfinished. A PC sender
+can optionally test the iPhone receiver, but cannot validate iPad game capture.
+Adding a Home Screen shortcut cannot provide an unavailable screen-capture API.
 
 Pushes to `main` and `codex/**` deploy when mobile files or preview tooling change.
 The single bookmark shows the latest successful mobile deployment from any of

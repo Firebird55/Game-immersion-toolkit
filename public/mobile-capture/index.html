@@ -9,10 +9,11 @@
 <body>
 <main>
   <header><p class="eyebrow">Proxy Transcript · Device test</p><h1>Test screen delivery<br>between your devices.</h1>
-  <p>This preview checks screen sharing. It does not perform OCR, display transcripts, or save game images. Use an iPad as the receiving screen for a PC game; sharing a game running on iPad requires browser screen-capture support.</p></header>
+  <p>Your setup: play the game on iPad and send its screen to iPhone. On iPad choose Share screen; on iPhone choose Receive screen. This preview checks screen sharing only. It does not perform OCR, display transcripts, or save game images.</p>
+  <p class="hint">Sending an iPad game needs capture that keeps working outside Safari. If this browser reports screen capture unavailable, the iPad sender needs a native capture helper. That helper is not included yet.</p></header>
   <section class="build-panel" aria-label="Preview version"><p id="build-info">Local development source</p><button id="reload-build">Reload latest</button><p class="hint">Stop sharing before updating. Pair the devices again after reloading.</p></section>
   <section><h2>1. Choose this device</h2>
-    <label>Use this device as <select id="role"><option value="sender">Share screen — supported browser on the gaming device</option><option value="receiver">Receive screen — iPad, iPhone, Android or PC</option></select></label>
+    <label>Use this device as <select id="role"><option value="sender">Share screen — iPad or other gaming device</option><option value="receiver">Receive screen — iPhone, Android or other viewing device</option></select></label>
     <label>Game <select id="game"><option value="zzz">Zenless Zone Zero</option><option value="wuwa">Wuthering Waves</option><option value="pragmata">PRAGMATA</option><option value="cyberpunk">Cyberpunk 2077</option><option value="witcher3">The Witcher III</option><option value="nte">Neverness to Everness</option><option value="honkai3">Honkai Impact 3rd</option><option value="hito">Hito's World</option></select></label>
     <p id="capability" role="status"></p>
     <p class="hint">Open the same HTTPS address on both devices, on the same Wi-Fi. Allow local network access if requested. Keep the phone page open throughout the test.</p>

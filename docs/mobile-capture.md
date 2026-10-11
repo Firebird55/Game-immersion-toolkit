@@ -10,22 +10,40 @@ Tap **Reload latest** before pairing and compare the displayed commit on both
 devices. The page is a streaming experiment; selecting a game does not add OCR
 or claim that game's transcript coverage.
 
-For an immediate **PC → iPad** test:
+## Intended setup: iPad game → iPhone receiver
 
-1. Open the bookmark in Chrome/Edge on the PC and Safari on the iPad, on the same Wi-Fi.
+The iPad is the **sender**, running the game. The iPhone is the **receiver**,
+eventually showing the transcript panel. In this first milestone it only shows
+the received video. The devices' roles do not reverse when capture is unavailable.
+
+1. Open the bookmark on iPad and iPhone on the same Wi-Fi; tap **Reload latest**.
+2. On iPad choose **Share screen** and the game. Check **Screen capture API**.
+3. If unavailable, this browser page cannot send the game. A native iPad capture
+   helper is still required and is not included. Do not switch the iPad to receiving
+   as a substitute for this setup. A Home Screen shortcut does not add capture.
+4. If available, tap **Share screen & create offer**. Transfer the offer privately
+   to iPhone, choose **Receive screen** there and tap **Accept message**.
+5. Transfer the iPhone's generated answer back to iPad and accept it. Switch iPad
+   into the game, keep the iPhone page open and start its **15-minute observation**.
+   Verify actual moving gameplay after switching apps; download the report.
+
+Capture availability alone does not prove background game capture. Browser OCR
+and transcript display are not implemented in this preview.
+
+## Optional PC streaming check
+
+Use **PC → iPhone** to check the receiving phone and pairing independently while
+the native iPad sender is unfinished. This does not validate capturing an iPad game.
+
+1. Open the bookmark in Chrome/Edge on the PC and Safari on the iPhone, on the same Wi-Fi.
 2. On the PC select **Share screen** and the game, then **Share screen & create offer**.
    Choose the game window or monitor in the browser permission dialog.
-3. On iPad select **Receive screen**. Transfer the PC offer privately, paste/open
+3. On iPhone select **Receive screen**. Transfer the PC offer privately, paste/open
    it, and tap **Accept message**.
 4. Transfer the generated answer back to the PC and accept it there.
-5. Keep the iPad page open. Start **15-minute observation** on iPad and play on PC.
-   Verify moving game content, dialogue and cutscenes; rotate the iPad and return
+5. Keep the iPhone page open. Start **15-minute observation** on iPhone and play on PC.
+   Verify moving game content, dialogue and cutscenes; rotate the iPhone and return
    to Safari. Stop, select the observed result, and download the report.
-
-For **game on iPad → phone**, the iPad must report that its screen-capture API is
-available. If unavailable, this browser preview cannot capture the iPad game;
-use iPad as a receiver for the PC test above. A native capture helper is still
-required to implement sharing where browsers cannot provide it.
 
 For normal development, use the [GitHub preview cycle](mobile-development.md).
 It provides a stable public HTTPS bookmark from this public repository. The PC
