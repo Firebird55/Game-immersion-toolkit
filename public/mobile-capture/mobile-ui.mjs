@@ -53,7 +53,7 @@ function render(){
  }
 }
 for(const id of ['show-english','favorites-only'])$(id).onchange=render;
-$('find-line').onclick=async()=>{try{const match=await request('match',{text:$('find-text').value,channel:'dialogue',player:$('player-voice').value});if(match.state!=='matched'){text('match-status','No unique verified line found.');return;}history.push({...match.row,score:match.score,matching:match.score===100?'exact':'fuzzy',game:library.manifest.game,createdAt:Date.now(),favorite:false});await saveHistory();render();text('match-status','Library line ready for reading and playback.');}catch(e){text('match-status',e.message);}};
+$('find-line').onclick=async()=>{const token=selection,game=currentGame();try{const match=await request('match',{text:$('find-text').value,channel:'dialogue',player:$('player-voice').value});if(token!==selection||game!==currentGame()||library?.manifest.game!==game)return;if(match.state!=='matched'){text('match-status','No unique verified line found.');return;}history.push({...match.row,score:match.score,matching:match.score===100?'exact':'fuzzy',game,createdAt:Date.now(),favorite:false});await saveHistory();render();text('match-status','Library line ready for reading and playback.');}catch(e){if(token===selection)text('match-status',e.message);}};
 $('clear-history').onclick=()=>{history=history.filter(r=>r.game!==currentGame());emitted.clear();stable=null;void saveHistory();render();};
 for(const key of ['left','top','width','height'])$('crop-'+key).onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
 $('picture-area').onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
