@@ -15,6 +15,8 @@ on Pages, uploaded to an OCR service or included in toolkit releases.
 4. Leave **Include original Mandarin voices** enabled and click **Export mobile
    library**. Uncheck it for a smaller, text-only catalog. First voice conversion
    can take considerable time; progress and the final size appear in Setup.
+   An approximate audio size appears after conversion starts, based on completed
+   clips; it changes as different clip lengths and duplicate audio are measured.
 5. Copy the completed folder's **catalog ZIP and voice ZIPs** to your phone.
    Keep them zipped, in **Files → On My iPhone**, with enough free space. Transfer
    using your normal cable, AirDrop from a Mac, or file-transfer method. A cloud

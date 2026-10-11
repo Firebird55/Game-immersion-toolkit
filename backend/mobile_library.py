@@ -69,6 +69,8 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     guard()
     getattr(check, "force", check)()
     rows, clips, source_cache, identities = [], {}, {}, {}
+    total_sources = len({r.get("sourceVoice") for r in records if r.get("sourceVoice")}) if include_audio else 0
+    audio_bytes = 0
     for number, original in enumerate(records):
         guard()
         row = {key: original[key] for key in ("textId", "english", "chinese", "speakerEnglish", "speakerChinese",
@@ -105,12 +107,16 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
                 source_cache[source] = file_digest(cached)
             sha = source_cache[source]
             row["audio"] = sha
+            if sha not in clips:
+                audio_bytes += cached.stat().st_size
             clips[sha] = cached
         rows.append(row)
         if len(rows) > ROW_LIMIT:
             raise ValueError("Catalog exceeds the mobile row limit")
         progress({"state": "exporting", "progress": int((number+1)/max(1, len(records))*85),
-                  "done": number+1, "total": len(records), "message": "Preparing verified dialogue and original voices"})
+                  "done": number+1, "total": len(records), "audioBytes": audio_bytes,
+                  "estimatedAudioBytes": round(audio_bytes * total_sources / max(1, len(source_cache))),
+                  "message": "Preparing verified dialogue and original voices"})
     if not rows:
         raise ValueError("No verified bilingual dialogue available; refresh game data first")
     guard()

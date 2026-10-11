@@ -52,6 +52,18 @@ def test_catalog_only_never_decodes(tmp_path):
     assert len(list(Path(result["folder"]).glob("*.zip"))) == 1
 
 
+def test_audio_size_estimate_tracks_deduplicated_completed_clips(tmp_path):
+    records = rows()
+    records[1]["sourceVoice"] = digest("voice2")
+    events = []
+    calls = []
+    export_library("zzz", records, tmp_path / "out", voice=voice(tmp_path, calls), progress=events.append)
+    conversion = [e for e in events if "estimatedAudioBytes" in e]
+    assert conversion[0]["estimatedAudioBytes"] == 1030
+    assert conversion[-1]["estimatedAudioBytes"] == conversion[-1]["audioBytes"] == 515
+    assert len(calls) == 2  # distinct source bindings, identical decoded content
+
+
 def test_cancel_preserves_complete_export_and_resumes(tmp_path):
     calls = []
     good = export_library("zzz", rows(), tmp_path / "out", voice=voice(tmp_path, calls))
