@@ -20,7 +20,9 @@ Follow [the transfer and device-test instructions](mobile-library.md).
   Chinese Tesseract OCR, manual MP3 playback, favorites, malformed packages,
   reload/reselection and private diagnostics. Chromium and Firefox pass locally.
   Windows Playwright WebKit passes file reading and canvas OCR; its runtime
-  cannot decode the media fixture. Linux CI runs the full WebKit media checks.
+  cannot decode the media fixture. Linux CI passes the full media checks in all
+  three engines, including offline pack reselection, playback and warmed Chinese
+  OCR. A small visible preview prevents the observed off-screen WebKit stall.
 - Real Chromium/Firefox WebRTC recovery preserves the opened catalog,
   transcript and favorite. Software-update tests in all three engines retain
   the catalog, calibration and favorite, including an offline reload and a
