@@ -173,3 +173,6 @@ Local media, prepared catalogs, images and detailed results stay in ignored
 `output/`; the replay server binds only to loopback. Resized/padded footage
 checks crop/OCR behavior, not native game UI reflow. Record failures honestly and
 never mark a missing scene or chapter verified because packaging succeeded.
+
+See the [0.2.17 verification record](mobile-library-verification.md) for measured
+browser results, observed footage misses and the pending physical-device checks.

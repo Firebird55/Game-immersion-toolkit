@@ -3,6 +3,8 @@ import http from 'node:http';
 import { readFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve, sep } from 'node:path';
+import {createHash} from 'node:crypto';
+import {zipSync,strToU8} from 'fflate';
 import {ocrAssets,mime} from './mobile-assets.mjs';
 const { chromium, firefox } = await import(process.env.PLAYWRIGHT_MODULE_PATH ? pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href : 'playwright');
 
@@ -21,6 +23,8 @@ const server = http.createServer((req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${server.address().port}/`;
 mkdirSync('output/playwright', { recursive: true });
+const libraryId='a'.repeat(64),libraryRow={id:libraryId,textId:'reconnect-check',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:libraryId,audio:null,channels:['dialogue']},libraryRows=strToU8(JSON.stringify(libraryRow)+'\n');
+const reconnectLibrary=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify({format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title:'Synthetic reconnect verification',revision:libraryId,coverage:{dialogue:1},catalog:[{name:'catalog/00000.ndjson',size:libraryRows.length,sha256:createHash('sha256').update(libraryRows).digest('hex')}],packs:[]})),'catalog/00000.ndjson':libraryRows},{level:0}));
 async function downloadReport(page) {
   const pending = page.waitForEvent('download');
   await page.click('#report');
@@ -147,6 +151,10 @@ try {
     await receiver.evaluate(() => { document.body.style.zoom = '1'; });
     await receiver.setViewportSize({ width: 390, height: 844 });
     await receiver.selectOption('#role', 'receiver');
+    await receiver.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:reconnectLibrary});
+    await receiver.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows'));
+    await receiver.fill('#find-text',libraryRow.english);await receiver.click('#find-line');
+    await receiver.getByRole('button',{name:'Favorite',exact:true}).click();
     await receiver.fill('#incoming', '{invalid'); await receiver.click('#apply');
     assert.match(await receiver.locator('#status').innerText(), /valid pairing/);
     await sender.evaluate(() => { window.denyCapture = true; });
@@ -299,6 +307,9 @@ try {
     assert.equal(recoveredReport.observation.endedAt, null, 'Connection loss does not end the observation');
     assert(recoveredReport.observation.frames > report.observation.frames, 'Observation counts continue after recovery');
     assert(recoveredReport.observation.changes > report.observation.changes, 'Visible changes continue after recovery');
+    assert.match(await receiver.locator('#library-status').innerText(),/1 bilingual rows/,'Reconnect preserves the open catalog');
+    assert.equal(await receiver.locator('.transcript-chinese').textContent(),libraryRow.chinese,'Reconnect preserves transcript history');
+    assert.equal(await receiver.getByRole('button',{name:'Unfavorite',exact:true}).count(),1,'Reconnect preserves favorites');
     const privateValues = [originalOffer.sessionId, originalOffer.pairingId, recoveryOffer.pairingId, await sender.evaluate(() => window.originalCaptureTrack.id)];
     for (const output of [senderReport, recoveredReport]) for (const value of privateValues) assert(!JSON.stringify(output).includes(value), 'Report excludes pairing and capture identifiers');
     await receiver.click('#stop');

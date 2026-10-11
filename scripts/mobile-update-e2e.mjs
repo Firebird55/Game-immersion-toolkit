@@ -2,11 +2,17 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {readFileSync,readdirSync,statSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {zipSync,strToU8} from 'fflate';
 import * as engines from 'playwright';
 import {mime} from './mobile-assets.mjs';
+// Give each engine a fresh origin and process, with bounded startup and teardown.
+if(!process.env.MOBILE_TEST_BROWSERS){
+ for(const engine of ['chromium','firefox','webkit'])execFileSync(process.execPath,[fileURLToPath(import.meta.url)],{stdio:'inherit',timeout:120000,env:{...process.env,MOBILE_TEST_BROWSERS:engine}});
+ process.exit(0);
+}
 const built=process.env.MOBILE_PREVIEW_DIR??execFileSync(process.execPath,['scripts/build-mobile-preview.mjs'],{encoding:'utf8'}).match(/Mobile preview: (.+)/)[1].trim();
 const baseline=new Map(readdirSync(built,{recursive:true}).filter(n=>statSync(resolve(built,n)).isFile()).map(n=>[n.replaceAll('\\','/'),readFileSync(resolve(built,n))]));
 let files=baseline;
@@ -17,14 +23,14 @@ const manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title
 const catalog=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify(manifest)),'catalog/00000.ndjson':segment},{level:0}));
 let browser;
 try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
- files=new Map(baseline);browser=await engines[name].launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
- await page.evaluate(()=>navigator.serviceWorker.ready);await page.reload();await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);
+ files=new Map(baseline);browser=await engines[name].launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),errors=[],failures=[];page.on('pageerror',e=>errors.push(e.message));context.on('requestfailed',r=>failures.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));await page.goto(base);
+ await page.waitForFunction(async()=>!!(await navigator.serviceWorker.getRegistration())?.active,{},{timeout:30000}).catch(error=>{console.error(name,{errors,failures,stage:'service worker activation'});throw error;});await page.reload();await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);
  await page.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows'));
  await page.fill('#find-text',row.english);await page.click('#find-line');await page.getByRole('button',{name:'Favorite',exact:true}).click();
  await page.locator('summary').filter({hasText:'Capture regions and calibration'}).click();await page.fill('#crop-left','9');await page.locator('#crop-left').dispatchEvent('change');
  await page.waitForFunction(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('proxy-mobile-library');q.onsuccess=()=>r(q.result);q.onerror=j;});const value=await new Promise(r=>{const q=db.transaction('state').objectStore('state').get('preferences');q.onsuccess=()=>r(q.result);});db.close();return value?.zzz?.crop[0]===.09;});
  const oldBuild=await page.getAttribute('html','data-build-commit');
- await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1);assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);await context.setOffline(false);
+ await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1).catch(async error=>{console.error(name,{stage:'offline restore',errors,failures,library:await page.locator('#library-status').textContent()});throw error;});assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);await context.setOffline(false);
  // Simulate an active capture's disabled role/update controls. Real WebRTC
  // reconnects are separately exercised by mobile-capture-e2e.
  await page.evaluate(()=>{document.querySelector('#role').disabled=true;document.querySelector('#reload-build').disabled=true;});
