@@ -3,17 +3,20 @@ import http from 'node:http';
 import { readFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve, sep } from 'node:path';
+import {ocrAssets,mime} from './mobile-assets.mjs';
 const { chromium, firefox } = await import(process.env.PLAYWRIGHT_MODULE_PATH ? pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href : 'playwright');
 
 const root = process.env.MOBILE_PREVIEW_DIR ? pathToFileURL(resolve(process.env.MOBILE_PREVIEW_DIR) + sep) : new URL('../public/mobile-capture/', import.meta.url);
 const files = new Map(readdirSync(root).map(name => [`/${name}`, name]));
+const ocr=ocrAssets();
 files.set('/', 'index.html');
 const expectedBuild = files.has('/build.json') ? JSON.parse(readFileSync(new URL('build.json', root), 'utf8')) : null;
 const server = http.createServer((req, res) => {
   const file = files.get(new URL(req.url, 'http://localhost').pathname);
-  if (!file) { res.writeHead(404); res.end(); return; }
-  res.setHeader('Content-Type', file.endsWith('html') ? 'text/html' : file.endsWith('css') ? 'text/css' : file.endsWith('json') ? 'application/json' : 'text/javascript');
-  res.end(readFileSync(new URL(file, root)));
+  const extra=ocr.get(new URL(req.url,'http://localhost').pathname.slice(1));
+  if (!file&&!extra) { res.writeHead(404); res.end(); return; }
+  res.setHeader('Content-Type', mime(file??req.url));
+  res.end(extra??readFileSync(new URL(file, root)));
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${server.address().port}/`;

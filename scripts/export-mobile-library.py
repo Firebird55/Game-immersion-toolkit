@@ -22,9 +22,15 @@ def main():
             parser.error("max-lines must be positive")
         rows = rows[:args.max_lines]
     try:
+        last = [-1]
+        def progress(value):
+            percent = value.get("progress", 0)
+            if percent != last[0]:
+                print(f"{percent}% {value['message']}", flush=True)
+                last[0] = percent
         result = export_library(args.game, rows, output, voice=voice, check=check,
                                 include_audio=not args.catalog_only,
-                                progress=lambda value: print(f"{value.get('progress', 0)}% {value['message']}", flush=True))
+                                progress=progress)
         print(result["folder"])
     finally:
         if service:

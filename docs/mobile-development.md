@@ -29,7 +29,7 @@ is added to workflow secrets: Pages uses the job's built-in GitHub token and OID
 
 The intended roles are **iPad: Share screen**, running the game, and **iPhone:
 Receive screen**. Follow [pairing and observation instructions](mobile-capture.md).
-The page tests frame delivery only, without OCR or transcripts. If iPad browser
+The page also reads user-selected local libraries and runs on-device OCR. If iPad browser
 capture is unavailable, the native sender helper remains unfinished. A PC sender
 can optionally test the iPhone receiver, but cannot validate iPad game capture.
 Adding a Home Screen shortcut cannot provide an unavailable screen-capture API.
@@ -42,7 +42,7 @@ Each preview uses content-hashed JS/CSS files to avoid mixing cached asset versi
 The full desktop CI remains independent and still needs to pass before a release.
 
 `npm run mobile:build` creates a private local package under ignored `output/`.
-The publisher copies only its six allowlisted files. Local builds identify the
+The publisher copies only its generated allowlist of application/OCR assets. Local builds identify the
 last commit; uncommitted edits are not a deployed version. The GitHub-generated
 package always comes from the run's checked-out commit.
 
@@ -55,4 +55,4 @@ Both the toolkit and shared source are public after the publication audit. Set r
 The mobile page is public by choice. Its report and pairing messages stay on the
 devices. Transfer pairing descriptions privately and use the same Wi-Fi without
 client isolation. The page still does not establish that iPad background screen
-capture works: follow the device test in `mobile-capture.md` before adding OCR.
+capture works: follow the device tests in `mobile-capture.md` and `mobile-library.md`.

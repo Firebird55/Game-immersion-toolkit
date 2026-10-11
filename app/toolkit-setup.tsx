@@ -17,7 +17,7 @@ type GameSetup = {
   expansion_message?: string; expansion_state?: string;
 };
 type Setup = {
-  mobile_export?: {state:string; game?:string; progress:number; message:string; folder?:string; bytes?:number; coverage?:{dialogue:number;exportedVoices:number}};
+  mobile_export?: {state:string; game?:string; progress:number; message:string; folder?:string; bytes?:number; estimatedCatalogBytes?:number; total?:number; coverage?:{dialogue:number;exportedVoices:number}};
   completed: boolean; version: string; games: GameSetup[]; auto_start: boolean; free_gb: number | null;
   lexirise_configured: boolean; requirements: { id: string; title: string; ready: boolean; help: string }[];
   jobs: Record<string, { state: string; message: string; progress: number }>;
@@ -154,7 +154,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
                 <Button disabled={busy || !current.index_ready || ['preparing','exporting'].includes(data.mobile_export?.state ?? '')} onClick={() => void action(`/api/setup/games/${game}/mobile-export`, {include_audio:exportVoices}, 'Export started. Completed clips are reused when you retry.')}><Download /> Export mobile library</Button>
                 {['preparing','exporting'].includes(data.mobile_export?.state ?? '') && <Button variant="outline" onClick={() => void action('/api/setup/mobile-export/cancel', {}, 'Cancellation requested.')}>Cancel export</Button>}
               </div>
-              {data.mobile_export && <><p role="status">{data.mobile_export.message}</p><progress aria-label="Mobile export progress" max={100} value={data.mobile_export.progress} />{data.mobile_export.folder && <p>Completed export folder: <code>{data.mobile_export.folder}</code></p>}{data.mobile_export.bytes != null && <p>{(data.mobile_export.bytes / 1024**3).toFixed(2)} GiB · {data.mobile_export.coverage?.dialogue.toLocaleString()} dialogue rows · {data.mobile_export.coverage?.exportedVoices.toLocaleString()} voices</p>}</>}
+              {data.mobile_export && <><p role="status">{data.mobile_export.message}</p><progress aria-label="Mobile export progress" max={100} value={data.mobile_export.progress} />{data.mobile_export.estimatedCatalogBytes != null && <p>Catalog estimate: {(data.mobile_export.estimatedCatalogBytes / 1024**2).toFixed(1)} MiB · {data.mobile_export.total?.toLocaleString()} mapped rows. Audio size is measured while decoding.</p>}{data.mobile_export.folder && <p>Completed export folder: <code>{data.mobile_export.folder}</code></p>}{data.mobile_export.bytes != null && <p>{(data.mobile_export.bytes / 1024**3).toFixed(2)} GiB · {data.mobile_export.coverage?.dialogue.toLocaleString()} dialogue rows · {data.mobile_export.coverage?.exportedVoices.toLocaleString()} voices</p>}</>}
             </section>
             <details><summary>Where game tools come from</summary><p>Selected games download their decoder and extraction tools separately. Upstream terms apply; tool downloads are checksum verified and kept outside your game installation.</p>
               <a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">vgmstream</a>{' · '}

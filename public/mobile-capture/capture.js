@@ -28,6 +28,7 @@ function updateDiagnostics() {
   $('diagnostics').textContent = `Connection: ${peer?.connectionState ?? 'closed'} · ICE: ${peer?.iceConnectionState ?? 'closed'} · ${recoveryAttempts} reconnect attempts · Page: ${document.hidden ? 'background' : 'visible'} · Network: ${navigator.onLine ? 'online' : 'offline'}`;
 }
 function updateRole() {
+  window.dispatchEvent(new CustomEvent('mobile-stream', {detail:{generation,game:sessionGame??$('game').value,role:sessionRole??$('role').value,state:peer?.connectionState??'closed',live:liveCapture()}}));
   const sender = $('role').value === 'sender', caps = capability();
   $('capability').textContent = `Secure context: ${caps.secure ? 'yes' : 'no'} · Screen capture API: ${caps.screenCapture ? 'available (background capture unverified)' : 'unavailable'} · WebRTC: ${caps.webRTC ? 'available' : 'unavailable'} · ${caps.userAgent}`;
   $('instructions').textContent = sender ? 'Share the game window or screen and send the offer to the receiving device. Paste its answer back here, then open the game.' : 'Paste the gaming device’s offer below. Accept it, send the generated answer back, and keep this page open.';

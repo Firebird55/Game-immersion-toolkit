@@ -70,6 +70,11 @@ next-env.d.ts
 /outputs/
 /output/
 /work/
+*.catalog.zip
+*.voices-*.zip
+/eng.traineddata
+/chi_sim.traineddata
+/public/mobile-capture/ocr/
 
 # Owned native reader intermediates must not enter source or distributions.
 /scripts/game-readers/bin/

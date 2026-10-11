@@ -33,7 +33,7 @@ def test_export_roundtrip_and_private_allowlist(tmp_path, game):
     folder = Path(result["folder"])
     with zipfile.ZipFile(folder / (game+".catalog.zip")) as pack:
         manifest = json.loads(pack.read("manifest.json"))
-        catalog = [json.loads(line) for line in pack.read("catalog.ndjson").splitlines()]
+        catalog = [json.loads(line) for item in manifest["catalog"] for line in pack.read(item["name"]).splitlines()]
         assert manifest["format"] == FORMAT
         assert manifest["coverage"]["exportedVoices"] == 2
         assert "install" not in catalog[1] and "api_key" not in catalog[1]
@@ -101,3 +101,16 @@ def test_oversized_clip_rejected_before_complete_pointer(tmp_path):
     with pytest.raises(ValueError, match="too large"):
         export_library("zzz", rows(), tmp_path / "out", voice=large, pack_limit=4096)
     assert not (tmp_path / "out/latest.json").exists()
+
+
+def test_corrupt_completed_pack_is_repaired_from_verified_cache(tmp_path):
+    calls = []
+    output = tmp_path / "out"
+    first = export_library("zzz", rows(), output, voice=voice(tmp_path, calls))
+    pack = next(Path(first["folder"]).glob("*voices*.zip"))
+    pack.write_bytes(b"broken")
+    second = export_library("zzz", rows(), output, voice=voice(tmp_path, calls))
+    with zipfile.ZipFile(next(Path(second["folder"]).glob("*voices*.zip"))) as archive:
+        assert archive.testzip() is None
+    assert len(calls) == 1
+    assert list(output.glob("*.invalid-*"))

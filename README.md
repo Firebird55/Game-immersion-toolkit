@@ -6,7 +6,7 @@ Download a public release ZIP and double-click **Install.cmd**. The optional gam
 
 The UI adapts to narrow/short windows and high browser/Windows zoom. Hito automatically follows dialogue boxes; capture regions are normalized against physical game-window pixels and local calibration remains per PC.
 
-For an iPad game with a phone transcript, start with the [two-device browser capture test](docs/mobile-capture.md). This feasibility milestone checks screen sharing while the game is foregrounded; mobile OCR and bilingual transcripts remain gated on real-device results.
+For mobile reading, [export a private library to On My iPhone](docs/mobile-library.md), open it in the public companion, and use on-device OCR with bilingual transcripts and original voices. The PC can be off during play. Audio files must be reselected after reopening. A working sender is still required; [two-device capture and reconnect](docs/mobile-capture.md) explains the unfinished native iPad sender and receiver testing.
 The [Windows → GitHub → iPad development cycle](docs/mobile-development.md) publishes a versioned HTTPS preview after mobile changes are pushed, using a sanitized public repository.
 
 OCR scales to game-window height across small windows, 4K and ultrawide layouts, and windowed captures exclude title bars/borders. See [OCR resolution support and offline screenshot checks](docs/ocr-resolutions.md).

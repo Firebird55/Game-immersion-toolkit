@@ -7,6 +7,14 @@ on:
       - 'scripts/build-mobile-preview.mjs'
       - 'scripts/serve-mobile-capture.mjs'
       - 'scripts/mobile-capture-e2e.mjs'
+      - 'scripts/mobile-library-e2e.mjs'
+      - 'scripts/mobile-update-e2e.mjs'
+      - 'scripts/mobile-assets.mjs'
+      - 'scripts/prepare-mobile-assets.mjs'
+      - 'tests/mobile-library.test.mjs'
+      - 'tests/mobile-media-fixtures.mjs'
+      - 'package.json'
+      - 'package-lock.json'
       - 'tests/mobile-capture.test.mjs'
       - '.github/workflows/mobile-preview.yml'
   workflow_dispatch:
@@ -18,36 +26,43 @@ concurrency:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Check capture logic
-        run: node --test tests/mobile-capture.test.mjs
-      - name: Install isolated browser tools
-        run: npm install --prefix "$RUNNER_TEMP/mobile-tools" --no-package-lock --no-audit --no-fund playwright@1.64.0
+      - name: Install locked browser and OCR dependencies
+        run: npm ci --ignore-scripts
+      - name: Check capture and library logic
+        run: node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: mobile-preview-${{ runner.os }}-playwright-1.64.0
       - name: Install browsers
-        run: '"$RUNNER_TEMP/mobile-tools/node_modules/.bin/playwright" install --with-deps chromium firefox'
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Package public preview files
         id: package
         run: node scripts/build-mobile-preview.mjs
       - name: Check packaged browser pairing and phone layouts
         env:
-          PLAYWRIGHT_MODULE_PATH: ${{ runner.temp }}/mobile-tools/node_modules/playwright/index.mjs
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/mobile-capture-e2e.mjs
+      - name: Check private file reading, OCR and original-voice playback in three engines
+        env:
+          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
+        run: node scripts/mobile-library-e2e.mjs
+      - name: Check application updates and offline data preservation
+        env:
+          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
+        run: node scripts/mobile-update-e2e.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ steps.package.outputs.directory }}
       - name: Record tested version
         run: |
-          printf '### Tested mobile preview\n\nCommit: `%s`\n\nSix browser-only files packaged. HTTPS deployment runs when repository variable MOBILE_PREVIEW_ENABLED is true and GitHub Pages is configured.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf '### Tested mobile preview\n\nCommit: `%s`\n\nAllowlisted browser/OCR assets packaged; no game libraries or user data. HTTPS deployment runs when repository variable MOBILE_PREVIEW_ENABLED is true and GitHub Pages is configured.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
   publish:
     if: github.repository == 'Firebird55/Game-immersion-toolkit' && vars.MOBILE_PREVIEW_ENABLED == 'true'
     needs: preview

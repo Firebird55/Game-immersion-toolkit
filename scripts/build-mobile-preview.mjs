@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import {ocrAssets} from './mobile-assets.mjs';
 
 const root = new URL('../', import.meta.url);
 const git = (...args) => execFileSync('git', args, { cwd: fileURLToPath(root), encoding: 'utf8' }).trim();
@@ -23,9 +24,10 @@ function asset(name, content) {
   return hashedName;
 }
 const source = name => readFileSync(new URL(`public/mobile-capture/${name}`, root), 'utf8');
-const core = asset('core.mjs', source('core.mjs'));
-asset('capture.js', source('capture.js').replace("'./core.mjs'", `'./${core}'`));
-asset('style.css', source('style.css'));
+for(const name of ['core.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','capture.js','style.css','icon.svg','manifest.webmanifest']){
+ let content=source(name);for(const [original,hashed] of assets)content=content.replaceAll('./'+original,'./'+hashed);asset(name,content);
+}
+const ocr=ocrAssets();
 const escape = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 let html = source('index.html').replace('<html lang="en">', `<html lang="en" data-build-commit="${commit}" data-build-branch="${escape(branch)}" data-build-time="${builtAt}">`);
 if (!html.includes(`data-build-commit="${commit}"`)) throw new Error('Preview HTML must expose its build version.');
@@ -37,12 +39,20 @@ writeFileSync(new URL('.nojekyll', destination), '');
 // from prior local builds stay outside the final publication directory.
 const publish = new URL('output/mobile-preview-publish/', root);
 mkdirSync(publish, { recursive: true });
-const files = ['index.html', 'build.json', '.nojekyll', ...assets.values()];
+const files = ['index.html', 'build.json', '.nojekyll', 'sw.js', ...assets.values(), ...ocr.keys()];
+const cacheName='proxy-mobile-'+createHash('sha256').update([...assets.values()].join('\n')).digest('hex').slice(0,16);
+writeFileSync(new URL('sw.js',destination),`const NAME=${JSON.stringify(cacheName)},FILES=${JSON.stringify(files.filter(n=>n!=='sw.js'))};
+const ROOT=new URL('./',self.location),ALLOW=new Set(FILES.map(n=>new URL(n,ROOT).href));
+self.addEventListener('install',event=>event.waitUntil(caches.open(NAME).then(cache=>cache.addAll(FILES.filter(n=>!n.startsWith('ocr/'))))));
+self.addEventListener('activate',event=>event.waitUntil((async()=>{const clients=await self.clients.matchAll({includeUncontrolled:true});if(clients.length<=1){const names=(await caches.keys()).filter(n=>n.startsWith('proxy-mobile-'));const keep=new Set([NAME,...names.filter(n=>n!==NAME).slice(-1)]);await Promise.all(names.filter(n=>!keep.has(n)).map(n=>caches.delete(n)));}await self.clients.claim();})()));
+self.addEventListener('message',event=>{if(event.data==='activate-update')self.skipWaiting();});
+self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(event.request.mode==='navigate'&&url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname)){event.respondWith(fetch(event.request).catch(()=>caches.match(new URL('index.html',ROOT).href)));return;}if(!ALLOW.has(url.href))return;event.respondWith(caches.open(NAME).then(async cache=>{const saved=await cache.match(event.request);if(saved)return saved;const response=await fetch(event.request);if(response.ok)await cache.put(event.request,response.clone());return response;}));});
+`);
 // The publisher must use a fresh directory rather than accumulate older assets.
 // No recursive deletion: version each package by its content and build time.
 const packageDir = new URL(`${commit}-${Date.now()}/`, publish);
 mkdirSync(packageDir);
-for (const name of files) writeFileSync(new URL(name, packageDir), readFileSync(new URL(name, destination)));
+for (const name of files){mkdirSync(new URL(name.includes('/')?name.slice(0,name.lastIndexOf('/')+1):'./',packageDir),{recursive:true});writeFileSync(new URL(name, packageDir),ocr.get(name)??readFileSync(new URL(name, destination)));}
 const path = fileURLToPath(packageDir);
 if (process.env.GITHUB_OUTPUT) {
   const { appendFileSync } = await import('node:fs');

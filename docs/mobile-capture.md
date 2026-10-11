@@ -1,20 +1,22 @@
 # Two-device mobile capture test
 
-This is the first, gated milestone of mobile support. It has no OCR, catalog import,
-audio, account connection, or transcript writes. The desktop capture pipeline is unchanged.
+The mobile companion retains this capture/reconnect test alongside its local-file
+library, OCR, bilingual transcript and original-voice features. Follow
+[mobile library setup](mobile-library.md) for those features. Mobile account
+integration and a native iPad sender remain outside this build.
 
 ## Open on iPad and phone
 
 The public bookmark is [the mobile preview](https://firebird55.github.io/Game-immersion-toolkit/).
 Tap **Reload latest** before pairing and compare the displayed commit on both
-devices. The page is a streaming experiment; selecting a game does not add OCR
-or claim that game's transcript coverage.
+devices. Selecting a game does not claim capture/OCR or complete catalog coverage:
+open an exported library and verify actual moving gameplay and recognized scenes.
 
 ## Intended setup: iPad game → iPhone receiver
 
 The iPad is the **sender**, running the game. The iPhone is the **receiver**,
-eventually showing the transcript panel. In this first milestone it only shows
-the received video. The devices' roles do not reverse when capture is unavailable.
+showing the transcript panel and received video. The devices' roles do not reverse
+when capture is unavailable.
 
 1. Open the bookmark on iPad and iPhone on the same Wi-Fi; tap **Reload latest**.
 2. On iPad choose **Share screen** and the game. Check **Screen capture API**.
@@ -28,7 +30,7 @@ the received video. The devices' roles do not reverse when capture is unavailabl
    Verify actual moving gameplay after switching apps; download the report.
 
 Capture availability alone does not prove background game capture. Browser OCR
-and transcript display are not implemented in this preview.
+uses an explicitly opened library and only verifies supported bilingual matches.
 
 ## Recover a frozen connection
 

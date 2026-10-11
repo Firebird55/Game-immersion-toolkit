@@ -15,6 +15,8 @@ from .textmaps import TextMapIndex, display_text
 
 FORMAT = "proxy-mobile-library-v1"
 PACK_LIMIT = 512 * 1024 * 1024
+CATALOG_LIMIT = 128 * 1024 * 1024
+ROW_LIMIT = 200000
 
 
 def encoded(value):
@@ -66,13 +68,18 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
 
     guard()
     getattr(check, "force", check)()
-    rows, clips, source_cache = [], {}, {}
+    rows, clips, source_cache, identities = [], {}, {}, {}
     for number, original in enumerate(records):
         guard()
         row = {key: original[key] for key in ("textId", "english", "chinese", "speakerEnglish", "speakerChinese",
                "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice") if key in original}
         source = original.get("sourceVoice")
-        row["id"] = digest([game, row["textId"], row["english"], row["chinese"], source])
+        row["id"] = digest([game, row["textId"], row["english"], row["chinese"], row.get("playerVoice")])
+        if row["id"] in identities:
+            if identities[row["id"]] != source:
+                raise ValueError("Conflicting original voices for one dialogue identity")
+            continue
+        identities[row["id"]] = source
         row["audio"] = None
         if include_audio and source:
             guard()
@@ -100,19 +107,21 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
             row["audio"] = sha
             clips[sha] = cached
         rows.append(row)
+        if len(rows) > ROW_LIMIT:
+            raise ValueError("Catalog exceeds the mobile row limit")
         progress({"state": "exporting", "progress": int((number+1)/max(1, len(records))*85),
                   "done": number+1, "total": len(records), "message": "Preparing verified dialogue and original voices"})
     if not rows:
         raise ValueError("No verified bilingual dialogue available; refresh game data first")
     guard()
-    revision = digest(rows)
+    revision = digest([FORMAT, "segmented-catalog", rows])
     destination = output / revision
     staging = output / (revision + ".pending")
     staging.mkdir(exist_ok=True)
     chunks, current, size = [], [], 2048
     for sha, path in sorted(clips.items()):
         required = path.stat().st_size + 1024
-        if required + 2048 > pack_limit:
+        if required + 2048 > pack_limit or path.stat().st_size > 64 * 1024 * 1024:
             raise ValueError("A voice clip is too large for a mobile pack")
         if current and size + required > pack_limit:
             chunks.append(current)
@@ -121,7 +130,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     if current:
         chunks.append(current)
     packs = []
-    for chunk in chunks:
+    for pack_number, chunk in enumerate(chunks):
         guard()
         index = {sha: {"size": path.stat().st_size, "sha256": sha} for sha, path in chunk}
         pack_id = digest([game, index])
@@ -133,24 +142,54 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
                          and (p.parent / (game + ".catalog.zip")).is_file()), None)
         if previous and previous.stat().st_size <= PACK_LIMIT:
             # Verify an existing completed pack before reuse; cache corruption cannot be promoted.
-            with zipfile.ZipFile(previous) as old:
-                valid = json.loads(old.read("manifest.json")) == manifest and old.testzip() is None
+            try:
+                with zipfile.ZipFile(previous) as old:
+                    valid = json.loads(old.read("manifest.json")) == manifest and old.testzip() is None
+            except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+                valid = False
             if valid:
                 shutil.copyfile(previous, target)
             else:
                 write_pack(target, manifest, [("audio/" + sha + ".mp3", path) for sha, path in chunk])
         else:
             write_pack(target, manifest, [("audio/" + sha + ".mp3", path) for sha, path in chunk])
-    content = b"".join(encoded(row) + b"\n" for row in rows)
+        progress({"state": "exporting", "progress": 85 + int(12 * (pack_number+1)/max(1,len(chunks))),
+                  "message": f"Completed voice pack {pack_number+1} of {len(chunks)}"})
+    segments, segment, segment_size = [], [], 0
+    for row in rows:
+        line = encoded(row) + b"\n"
+        if segment and segment_size + len(line) > 4 * 1024 * 1024:
+            segments.append(b"".join(segment)); segment, segment_size = [], 0
+        segment.append(line); segment_size += len(line)
+    if segment:
+        segments.append(b"".join(segment))
+    if len(segments) > 32 or sum(map(len, segments)) > CATALOG_LIMIT:
+        raise ValueError("Catalog exceeds the mobile memory limit")
+    catalog = [{"name": f"catalog/{i:05d}.ndjson", "size": len(value),
+                "sha256": hashlib.sha256(value).hexdigest()} for i, value in enumerate(segments)]
     coverage = {"dialogue": len(rows), "mappedVoices": sum(bool(r.get("sourceVoice")) for r in rows),
-                "exportedVoices": sum(bool(r["audio"]) for r in rows), "partial": game == "honkai3"}
+                "exportedVoices": sum(bool(r["audio"]) for r in rows), "partial": True}
     manifest = {"format": FORMAT, "kind": "catalog", "game": game, "title": GAME_NAMES[game],
                 "revision": revision, "languages": ["zh-Hans", "en"], "coverage": coverage,
-                "catalogSha256": hashlib.sha256(content).hexdigest(), "packs": packs}
+                "catalog": catalog, "packs": packs}
     name = game + ".catalog.zip"
-    write_pack(staging / name, manifest, [("catalog.ndjson", content)])
+    write_pack(staging / name, manifest, [(item["name"], value) for item, value in zip(catalog, segments)])
     guard()
     getattr(check, "force", check)()
+    if destination.exists():
+        try:
+            with zipfile.ZipFile(destination / name) as previous_catalog:
+                valid = json.loads(previous_catalog.read("manifest.json")) == manifest and previous_catalog.testzip() is None
+            for pack in packs:
+                with zipfile.ZipFile(destination / pack["name"]) as previous_pack:
+                    valid = valid and previous_pack.testzip() is None
+        except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+            valid = False
+        if not valid:
+            # Checked, same-parent private move; retain damaged files for diagnosis.
+            if destination.resolve().parent != output.resolve():
+                raise ValueError("Unsafe export destination")
+            destination.rename(output / (revision + ".invalid-" + str(time.time_ns())))
     if not destination.exists():
         staging.replace(destination)
     else:
@@ -161,6 +200,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     pointer = output / "latest.pending"
     pointer.write_bytes(encoded({"revision": revision, "catalog": name, "coverage": coverage}))
     guard()
+    getattr(check, "force", check)()
     os.replace(pointer, output / "latest.json")
     result = {"state": "complete", "progress": 100, "message": "Copy the catalog and voice ZIPs to On My iPhone",
               "folder": str(destination), "coverage": coverage, "bytes": sum(p.stat().st_size for p in destination.glob("*.zip"))}
@@ -180,8 +220,12 @@ def prepare_source(root, game, decode_dir):
         index.load()
         service = VoiceAssetService(data / "voice-assets/manifest.json", decoder, decode_dir,
                                    data / "voice-assets/learned-manifest.json")
+        from .speakers import _voice_token, _humanize_token
         inputs = [index.file_path(name) for name in ("en_base", "en_overwrite", "zh_base", "zh_overwrite")]
         inputs += [service.manifest]
+        learned = data / "voice-assets/learned-manifest.json"
+        if learned.exists():
+            inputs.append(learned)
         records = []
         for values in index._records_by_normalized.values():
             for item in values:
@@ -193,15 +237,33 @@ def prepare_source(root, game, decode_dir):
                     if (package.stat().st_size, package.stat().st_mtime_ns) != (audio["package_size"], audio["package_mtime_ns"]):
                         raise ValueError("Game changed; refresh original voices first")
                     watched[package] = (package.stat().st_size, package.stat().st_mtime_ns)
-                    records.append({"textId": item.text_id, "english": display_text(item.english),
-                                    "chinese": display_text(item.chinese), "channels": channels, "sourceVoice": digest(audio)})
-        source_check = lambda: None
+                    row = {"textId": item.text_id, "english": display_text(item.english),
+                           "chinese": display_text(item.chinese), "channels": channels, "sourceVoice": digest(audio)}
+                    token = _voice_token(audio.get("source", ""))
+                    names = index.resolve_display_name(_humanize_token(token)) if token else None
+                    if names:
+                        row.update(speakerEnglish=names[0], speakerChinese=names[1])
+                    records.append(row)
+        package_folders = {path.parent for path in watched}
+        def package_inventory():
+            return sorted((str(p), p.stat().st_size, p.stat().st_mtime_ns)
+                          for folder in package_folders for p in folder.glob("*.pck"))
+        inventory = package_inventory()
+        source_check = lambda: package_inventory() == inventory
     else:
         source = data / game / "textmap.json"
         payload = json.loads(source.read_text(encoding="utf-8"))
         inputs = [source]
         if game == "hito":
-            source_check = lambda: None
+            from .game_paths import discover_install
+            install = discover_install("hito")
+            if not install:
+                raise ValueError("Configure the installed Hito folder before exporting")
+            archive = install / "resources/app.asar"
+            if file_digest(archive) != payload.get("archive_hash"):
+                raise ValueError("Hito changed; refresh game data first")
+            inputs.append(archive)
+            source_check = lambda: True
         elif game == "pragmata":
             from .pragmata_audio import PragmataVoiceAssetService
             from scripts.index_pragmata_assets import fingerprint
@@ -283,6 +345,8 @@ class MobileExportManager:
             output = self.root / "output/mobile-libraries" / game
             decode_dir = output / "decoded"
             records, voice, check, service = prepare_source(self.root, game, decode_dir)
+            self._progress({"estimatedCatalogBytes": sum(len(encoded(row))+1 for row in records),
+                            "total": len(records), "message": "Catalog estimate ready; voice size is measured as clips decode"})
             export_library(game, records, output, voice=voice, include_audio=include_audio,
                            check=check, cancel=self._cancel, progress=self._progress)
         except ExportCancelled:

@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Proxy Transcript — Mobile capture test</title>
+  <title>Proxy Transcript — Mobile game companion</title>
+  <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 <main>
-  <header><p class="eyebrow">Proxy Transcript · Device test</p><h1>Test screen delivery<br>between your devices.</h1>
-  <p>Your setup: play the game on iPad and send its screen to iPhone. On iPad choose Share screen; on iPhone choose Receive screen. This preview checks screen sharing only. It does not perform OCR, display transcripts, or save game images.</p>
+  <header><p class="eyebrow">Proxy Transcript · Mobile companion</p><h1>Play on iPad.<br>Read on your phone.</h1>
+  <p>On iPad choose Share screen; on iPhone choose Receive screen. Open a library exported from your own installed PC game to enable private on-device OCR, bilingual transcripts and original voices. Your PC can be off while playing.</p>
   <p class="hint">Sending an iPad game needs capture that keeps working outside Safari. If this browser reports screen capture unavailable, the iPad sender needs a native capture helper. That helper is not included yet.</p></header>
   <section class="build-panel" aria-label="Preview version"><p id="build-info">Local development source</p><button id="reload-build">Reload latest</button><p class="hint">Stop sharing before updating. Pair the devices again after reloading.</p></section>
   <section><h2>1. Choose this device</h2>
@@ -43,7 +44,50 @@
     <button id="report">Download test report</button>
     <p class="hint">Download a report on both devices after a freeze or recovery. Reports include capture state, connection counters and page visibility events, without pairing details or game images. They cannot determine that a particular game was captured: your observation is required. Background capture still needs a device test.</p>
   </section>
+  <section aria-label="Your game library">
+    <h2>Open your game library on the receiving phone</h2>
+    <p>On your PC: Setup → Refresh game data → Export mobile library. Copy its completed ZIPs into Files → On My iPhone. Keep them zipped. Only your selected files are read; game content is never uploaded.</p>
+    <label>Catalog and voice ZIPs <input id="library-files" type="file" multiple accept=".zip,application/zip,application/octet-stream"></label>
+    <p id="library-status" role="status">Open your catalog and optional voice ZIPs.</p>
+    <p id="pack-status" class="hint"></p><p id="storage-status" class="hint"></p>
+    <button id="forget-library">Forget remembered library</button>
+    <p class="hint">After reopening, cached text can remain available, but select voice ZIPs again for playback. Retain your Files copies if Safari clears its cache. Add this page to the Home Screen before setting up your library.</p>
+  </section>
+  <section aria-label="Transcript controls">
+    <h2>OCR and transcript</h2>
+    <label>Game subtitle language <select id="ocr-language"><option value="eng">English</option><option value="chi_sim">Simplified Chinese</option><option value="eng+chi_sim">English and Chinese</option></select></label>
+    <label>Player voice <select id="player-voice"><option value="unconfigured">Not configured (ambiguous lines skipped)</option><option value="female">Female</option><option value="male">Male</option></select></label>
+    <div class="actions"><button id="ocr-start">Start OCR</button><button id="ocr-pause">Pause OCR</button></div>
+    <p id="match-status" role="status">Open a catalog, connect the receiving screen, then start OCR.</p>
+    <details><summary>Capture regions and calibration</summary>
+      <p>Percentages refer to the received video, independently of phone orientation or browser zoom.</p>
+      <label>Region to calibrate <select id="calibrate-region"><option value="dialogue">Dialogue</option></select></label>
+      <label>Picture area <select id="picture-area"><option value="window">Full video</option><option value="16:9">Centered 16:9 picture inside black bars</option></select></label>
+      <div class="crop-controls"><label>Left % <input id="crop-left" type="number" min="0" max="100" step="0.1"></label><label>Top % <input id="crop-top" type="number" min="0" max="100" step="0.1"></label><label>Width % <input id="crop-width" type="number" min="0.1" max="100" step="0.1"></label><label>Height % <input id="crop-height" type="number" min="0.1" max="100" step="0.1"></label></div>
+      <label><input id="extra-regions" type="checkbox" checked> Scan supported Cyberpunk/Witcher overhead captions</label>
+      <label><input id="cinematic-regions" type="checkbox" checked> Scan supported comics and centered story cards</label>
+      <div class="actions"><button id="preview-crop">Preview dialogue crop</button><button id="reset-crop">Use default crop</button></div><canvas id="crop-preview" hidden aria-label="Dialogue crop preview"></canvas>
+    </details>
+    <div class="actions"><label><input id="show-english" type="checkbox" checked> Show English</label><label><input id="favorites-only" type="checkbox"> Favorites only</label></div>
+    <label>Find a line in your library <input id="find-text" type="text" maxlength="2000" placeholder="Type an English or Chinese subtitle"></label><button id="find-line">Find line</button>
+    <audio id="voice-player" controls preload="none"></audio>
+    <div id="transcript" aria-label="Bilingual transcript" aria-live="polite"></div>
+    <details><summary>Physical device verification</summary>
+      <p>Only mark checks that you performed on this device. Browser automation cannot verify iPhone storage or background capture.</p>
+      <label>Device tested <select id="test-device"><option value="unknown">Not specified</option><option value="iphone">Physical iPhone</option><option value="ipad">Physical iPad</option><option value="android">Physical Android device</option><option value="desktop">Desktop browser</option></select></label>
+      <label><input id="test-large" type="checkbox"> Selected multiple voice packs totaling at least 2 GiB</label>
+      <label><input id="test-playback" type="checkbox"> Heard an original voice play from local Files</label>
+      <label><input id="test-reload" type="checkbox"> Reloaded, reselected packs and played audio again</label>
+      <label><input id="test-reboot" type="checkbox"> Rebooted the phone, reopened and reselected successfully</label>
+      <label><input id="test-update" type="checkbox"> Updated the application and retained text, favorites and calibration</label>
+      <label><input id="test-gameplay" type="checkbox"> Completed 15 minutes of moving gameplay with correct transcripts</label>
+      <label>Result <select id="test-outcome"><option value="not_verified">Not verified yet</option><option value="passed">Checks passed</option><option value="failed">Observed a failure</option></select></label>
+    </details>
+    <div class="actions"><button id="clear-history">Clear this game's transcript</button><button id="library-report">Download library test report</button></div>
+    <p class="hint">Only catalog-backed dialogue is displayed. Missing coverage or ambiguous voices are skipped. File opening and browser tests do not establish every game's capture, OCR or chapter coverage.</p>
+  </section>
 </main>
 <script type="module" src="./capture.js"></script>
+<script type="module" src="./mobile-ui.mjs"></script>
 </body>
 </html>
