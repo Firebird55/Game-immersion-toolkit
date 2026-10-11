@@ -19,7 +19,7 @@
     "lexirise:watch": "node scripts/lexirise-watch.mjs",
     "mobile:build": "node scripts/build-mobile-preview.mjs",
     "mobile:dev": "node scripts/serve-mobile-capture.mjs --local",
-    "mobile:check": "node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs && node scripts/mobile-capture-e2e.mjs && node scripts/mobile-library-e2e.mjs && node scripts/mobile-update-e2e.mjs",
+    "mobile:check": "node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs && node scripts/mobile-capture-e2e.mjs && node scripts/mobile-library-e2e.mjs && node scripts/mobile-update-e2e.mjs && node scripts/mobile-layout-e2e.mjs",
     "audit:public": "node scripts/secret-check.mjs --public"
   },
   "dependencies": {

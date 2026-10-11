@@ -74,7 +74,7 @@ export function validateVoices(zip,catalog){
 }
 export async function readVoice(zip,sha){const bytes=await zip.read('audio/'+sha+'.mp3');if(await sha256(bytes)!==sha)fail('Voice checksum failed. Reselect an intact export.');return new Blob([bytes],{type:'audio/mpeg'});}
 
-export const normalize = text => String(text).normalize('NFKC').toLowerCase().replace(/<[^>]*>|\{[^{}]*\}|\[[^\[\]]*\]/g,'').replace(/[^\p{L}\p{N}]/gu,'');
+export const normalize = text => String(text).normalize('NFKC').toLowerCase().replace(/<[^>]*>|\{[^{}]*\}|\[\/?(?:b|i|u|color|size|font)(?:=[^\]]*)?\]/g,'').replace(/[^\p{L}\p{N}]/gu,'');
 export function subtitleRows(blocks,crop,width,height,game){
  const rows=(blocks??[]).flatMap(block=>block.paragraphs??[]).flatMap(p=>p.lines??[]);
  if(!rows.length)return {lines:[],menu:false};
@@ -86,22 +86,33 @@ export function subtitleRows(blocks,crop,width,height,game){
   if(row.confidence!=null&&row.confidence<40)continue;
   const band=game==='witcher3'?[.80,.87]:game==='cyberpunk'?[.85,.96]:game==='honkai3'?[.72,.96]:[.79,.96];
   const short=(value.match(/[a-z]+/gi)?.length===1&&key.length<12)||(/[\u3400-\u9fff]/.test(value)&&key.length<4);
+  if(game==='honkai3'&&crop[0]<.2&&key.length<25&&top<.79&&!/[.!?。！？]$/.test(value))continue;
   if((short||labels.has(key))&&(top<band[0]||top>band[1]))continue;
   if(left>(game==='cyberpunk'?.52:.60)&&top<(game==='cyberpunk'?.84:.80)){if(key.length>=8&&(row.confidence??100)>=65&&(value.match(/[a-z]+/gi)?.length>=2||/[\u3400-\u9fff]{4}/.test(value)))menu=true;continue;}
   if((left+right)/2<.22||(left+right)/2>.78)continue;
   result.push(value);
  }
+ if(['nte','honkai3'].includes(game)&&result.length>1){const first=result[0],second=result[1];if(!/[.!?。！？]$/.test(first)&&normalize(first).length<=24&&normalize(second).length>normalize(first).length+8&&(first.match(/[a-z]+/gi)?.length<=3||/^[\u3400-\u9fff\s>»-]{1,8}$/.test(first)))result.shift();}
  return {lines:result,menu};
 }
 export function ratio(a,b){if(!a.length||!b.length)return 0;const previous=new Uint16Array(b.length+1);for(let i=0;i<a.length;i++){let diagonal=0;for(let j=0;j<b.length;j++){const old=previous[j+1];previous[j+1]=a[i]===b[j]?diagonal+1:Math.max(previous[j+1],previous[j]);diagonal=old;}}return 200*previous[b.length]/(a.length+b.length);}
 const grams = text => [...new Set(Array.from({length:Math.max(0,text.length-2)},(_,i)=>text.slice(i,i+3)))];
 export class DialogueMatcher{
- constructor(rows){this.exact=new Map();this.grams=new Map();this.hito=rows.some(r=>r.textId.startsWith('hito:'));this.exactOnly=rows.some(r=>/^(nte|honkai3):/.test(r.textId));for(const row of rows)for(const value of [row.english,row.chinese,...row.anchorsEnglish??[],...row.anchorsChinese??[]]){const key=normalize(value);if(key.length<2||key.length>2000)continue;const list=this.exact.get(key)??[];if(!list.includes(row))list.push(row);this.exact.set(key,list);}
+ constructor(rows){this.exact=new Map();this.grams=new Map();this.cache=new Map();this.hito=rows.some(r=>r.textId.startsWith('hito:'));this.exactOnly=rows.some(r=>/^(nte|honkai3):/.test(r.textId));for(const row of rows)for(const value of [row.english,row.chinese,...row.anchorsEnglish??[],...row.anchorsChinese??[]]){const key=normalize(value);if(key.length<2||key.length>2000)continue;const list=this.exact.get(key)??[];if(!list.includes(row))list.push(row);this.exact.set(key,list);}
   for(const key of this.exact.keys())for(const gram of grams(key)){const keys=this.grams.get(gram)??[];keys.push(key);this.grams.set(gram,keys);}}
- match(text,channel='dialogue',player='unconfigured',fragment=false){
+ match(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){const cacheKey=JSON.stringify([normalize(text),channel,player,fragment,exactOnly]);if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const result=this.lookup(text,channel,player,fragment,exactOnly);if(this.cache.size>=512)this.cache.clear();this.cache.set(cacheKey,result);return result;}
+ matchCandidates(values,channel='dialogue',player='unconfigured',fragment=false){
+  for(const exactOnly of [true,false]){
+   const results=values.slice(0,128).map(value=>({...this.match(value,channel,player,fragment,exactOnly),length:normalize(value).length})),hits=results.filter(r=>r.state==='matched').sort((a,b)=>b.score-a.score||b.length-a.length);
+   if(hits.length){const best=hits[0];if(results.some(r=>r.state==='ambiguous'&&r.length>=best.length)||hits.some(r=>r.score===best.score&&r.length===best.length&&r.row.sourceVoice!==best.row.sourceVoice))return {state:'ambiguous'};return best;}
+   if(exactOnly&&results.some(r=>r.state==='ambiguous'))return {state:'ambiguous'};
+  }
+  return {state:'unmatched'};
+ }
+ lookup(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){
   const key=normalize(text);if(key.length<2||key.length>2000)return {state:'unmatched'};
   let keys=this.exact.has(key)?[[key,100]]:[];
-  if(!keys.length&&!this.exactOnly&&channel==='dialogue'&&key.length>=(/\p{Script=Han}/u.test(key)?6:8)){
+  if(!keys.length&&!exactOnly&&!this.exactOnly&&channel==='dialogue'&&key.length>=(/\p{Script=Han}/u.test(key)?6:8)){
    const counts=new Map();for(const gram of grams(key))for(const candidate of this.grams.get(gram)??[])if(Math.abs(candidate.length-key.length)<Math.max(6,key.length*.25))counts.set(candidate,(counts.get(candidate)??0)+1);
    keys=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,128).filter(([candidate])=>!this.hito||key.length>=12&&Math.abs(candidate.length-key.length)<=2&&!candidate.startsWith(key)&&JSON.stringify(candidate.match(/\d+/g))===JSON.stringify(key.match(/\d+/g))&&['不','没','能','应该','正在','必须'].every(word=>candidate.includes(word)===key.includes(word))).map(([candidate])=>[candidate,ratio(key,candidate)]).filter(([,score])=>score>=(this.hito?94:88)).sort((a,b)=>b[1]-a[1]);
    if(keys.length>1&&keys[1][1]>=keys[0][1]-2)return {state:'ambiguous'};

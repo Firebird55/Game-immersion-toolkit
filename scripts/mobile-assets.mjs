@@ -12,4 +12,4 @@ export function ocrAssets(){
  files.set('ocr/checksums.json',Buffer.from(JSON.stringify(checks)));
  return files;
 }
-export const mime=name=>name.endsWith('.wasm')?'application/wasm':name.endsWith('.gz')?'application/gzip':name.endsWith('.json')||name.endsWith('.webmanifest')?'application/json':name.endsWith('.css')?'text/css':name.endsWith('.html')?'text/html':name.endsWith('.svg')?'image/svg+xml':name.endsWith('.txt')?'text/plain':'text/javascript';
+export const mime=name=>name.endsWith('.wasm')?'application/wasm':name.endsWith('.gz')?'application/gzip':name.endsWith('.json')||name.endsWith('.webmanifest')?'application/json':name.endsWith('.css')?'text/css':name.endsWith('.html')?'text/html':name.endsWith('.svg')?'image/svg+xml':name.endsWith('.png')?'image/png':name.endsWith('.txt')?'text/plain':'text/javascript';

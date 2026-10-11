@@ -88,8 +88,10 @@ paused, hidden, disconnected or superseded by a new stream/game. Two stable
 sightings confirm an accepted line. Short/ambiguous text and response menus are
 rejected; additional presentations retain stricter, exact matching.
 
-**Capture regions and calibration → Preview dialogue crop** shows the receiving
-video's crop. Percentages follow video pixels, not phone orientation or browser
+**Capture regions and calibration** lets you select dialogue, overhead, comic or
+card regions independently. **Preview dialogue crop** shows the selected region.
+Use **Original image** for custom colors/fonts if outlined-subtitle preparation
+loses text. Percentages follow video pixels, not phone orientation or browser
 zoom. Select **Centered 16:9** when the video has black bars. Recheck after stream
 resolution, subtitle size, aspect ratio or safe-zone changes. Overhead captions,
 comics and centered cards can be enabled separately. A supported catalog does

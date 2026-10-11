@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Proxy Transcript — Mobile game companion</title>
   <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icon.png">
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -50,6 +51,7 @@
     <label>Catalog and voice ZIPs <input id="library-files" type="file" multiple accept=".zip,application/zip,application/octet-stream"></label>
     <p id="library-status" role="status">Open your catalog and optional voice ZIPs.</p>
     <p id="pack-status" class="hint"></p><p id="storage-status" class="hint"></p>
+    <p id="coverage-status" class="hint"></p>
     <button id="forget-library">Forget remembered library</button>
     <p class="hint">After reopening, cached text can remain available, but select voice ZIPs again for playback. Retain your Files copies if Safari clears its cache. Add this page to the Home Screen before setting up your library.</p>
   </section>
@@ -62,10 +64,11 @@
     <details><summary>Capture regions and calibration</summary>
       <p>Percentages refer to the received video, independently of phone orientation or browser zoom.</p>
       <label>Region to calibrate <select id="calibrate-region"><option value="dialogue">Dialogue</option></select></label>
+      <label>Subtitle contrast <select id="ocr-contrast"><option value="auto">Prepare outlined subtitles</option><option value="raw">Original image (custom fonts/colors)</option></select></label>
       <label>Picture area <select id="picture-area"><option value="window">Full video</option><option value="16:9">Centered 16:9 picture inside black bars</option></select></label>
       <div class="crop-controls"><label>Left % <input id="crop-left" type="number" min="0" max="100" step="0.1"></label><label>Top % <input id="crop-top" type="number" min="0" max="100" step="0.1"></label><label>Width % <input id="crop-width" type="number" min="0.1" max="100" step="0.1"></label><label>Height % <input id="crop-height" type="number" min="0.1" max="100" step="0.1"></label></div>
-      <label><input id="extra-regions" type="checkbox" checked> Scan supported Cyberpunk/Witcher overhead captions</label>
-      <label><input id="cinematic-regions" type="checkbox" checked> Scan supported comics and centered story cards</label>
+      <label><input id="extra-regions" type="checkbox" checked> Scan Cyberpunk/Witcher overhead caption regions</label>
+      <label><input id="cinematic-regions" type="checkbox" checked> Scan comic, card and alternate dialogue-panel regions</label>
       <div class="actions"><button id="preview-crop">Preview dialogue crop</button><button id="reset-crop">Use default crop</button></div><canvas id="crop-preview" hidden aria-label="Dialogue crop preview"></canvas>
     </details>
     <div class="actions"><label><input id="show-english" type="checkbox" checked> Show English</label><label><input id="favorites-only" type="checkbox"> Favorites only</label></div>

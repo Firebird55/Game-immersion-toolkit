@@ -33,6 +33,8 @@ try{
      else{games[0].configured_path=body.use_automatic?null:body.path;games[0].folder_state=body.use_automatic?'detected':'configured';value=setup;}
     }else if(path==='/api/setup/games/zzz/tools'){games[0].tools_missing=[];setup.jobs.zzz={state:'ready',message:'Tools ready',progress:100};value={started:true};}
     else if(path==='/api/setup/games/zzz/refresh'){games[0].index_ready=true;games[0].indexed_lines=3;games[0].audio_ready=true;games[0].voice_state='present';games[0].update_message='Synthetic game data refreshed';value={started:true};}
+    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
+    else if(path==='/api/setup/mobile-export/cancel'){setup.mobile_export={...setup.mobile_export,state:'cancelled',message:'Synthetic export cancelled'};value={cancelled:true};}
     else if(path==='/api/setup/native/checks'){setup.capture_check=true;value={started:true};}
     else if(path.startsWith('/api/setup/native/'))value={started:true};
     else if(path==='/api/setup/complete'){setup.completed=true;setup.auto_start=body.auto_start;value={completed:true};}
@@ -51,6 +53,12 @@ try{
    await dialog.getByRole('button',{name:'Install game tools',exact:true}).click();
    await dialog.getByRole('button',{name:'Refresh game data',exact:true}).click();
    await dialog.getByText('3 subtitle pairs indexed · Original voices ready',{exact:true}).waitFor();
+   await dialog.getByRole('button',{name:'Export mobile library',exact:true}).click();await dialog.getByText('Synthetic export in progress',{exact:true}).waitFor();
+   assert.equal(await dialog.getByRole('progressbar',{name:'Mobile export progress'}).getAttribute('value'),'42');
+   assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true});
+   await dialog.getByRole('button',{name:'Cancel export',exact:true}).click();await dialog.getByText('Synthetic export cancelled',{exact:true}).waitFor();
+   await dialog.getByLabel('Include original Mandarin voices',{exact:false}).uncheck();await dialog.getByRole('button',{name:'Export mobile library',exact:true}).click();await dialog.getByText('Synthetic export complete',{exact:true}).waitFor();
+   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false});await dialog.getByText('F:/Exports/synthetic',{exact:true}).waitFor();
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('hito');
    assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'');
    assert(await dialog.getByRole('button',{name:'Refresh game data',exact:true}).isDisabled());

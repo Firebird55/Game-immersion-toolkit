@@ -1,26 +1,29 @@
 import {get,put,remove,storageStatus} from './storage.mjs';
 import Tesseract from './ocr/tesseract.esm.min.js';
 const {createWorker}=Tesseract;
-import {crops,extraCrops,cropFrame as drawCrop,prepareImage,candidates,regions as captureRegions} from './ocr-pipeline.mjs';
+import {crops,extraCrops,cropFrame as drawCrop,recognizeRegion,candidates,regions as captureRegions} from './ocr-pipeline.mjs';
 const $=id=>document.getElementById(id), text=(id,message)=>$(id).textContent=message;
 const reader=new Worker(new URL('./library-worker.mjs',import.meta.url),{type:'module'}), pending=new Map();
-let sequence=0, library=null, available=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, streamState=null, stable=null, emitted=new Map(), samples=[];
+let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, streamState=null, stable=null, emitted=new Map(), samples=[];
 let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,lastMediaTime=-1;
 let scanCompletion=Promise.resolve();
 reader.onmessage=({data})=>{if(data.progress!=null){text('library-status',`Reading ${data.progress.toLocaleString()} verified dialogue rows…`);return;}const request=pending.get(data.id);if(!request)return;pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
 reader.onerror=()=>{for(const request of pending.values())request.reject(new Error('Library worker unavailable. Reopen the files.'));pending.clear();};
 function request(action,body={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject});reader.postMessage({id,action,...body});});}
 function currentGame(){return $('game').value;}
-const optionIds=['ocr-language','player-voice','show-english','extra-regions','cinematic-regions'];
-function setupCrop(){const game=currentGame(),saved=preferences[game]??{},selected=$('calibrate-region').value,keys=['dialogue',...Object.keys(extraCrops[game]??{})];$('calibrate-region').replaceChildren(...keys.map(key=>{const option=document.createElement('option');option.value=key;option.textContent={dialogue:'Dialogue',overhead:'Overhead captions',card:'Centered story card',comic:'Comic panels'}[key];return option;}));$('calibrate-region').value=keys.includes(selected)?selected:'dialogue';const key=$('calibrate-region').value,crop=key==='dialogue'?saved.crop??crops[game]:saved.regions?.[key]??extraCrops[game][key];['left','top','width','height'].forEach((field,i)=>$('crop-'+field).value=String(crop[i]*100));$('picture-area').value=saved.picture??'window';for(const id of optionIds)if(saved[id]!=null){if($(id).type==='checkbox')$(id).checked=saved[id];else $(id).value=saved[id];}}
+const optionIds=['ocr-language','player-voice','show-english','extra-regions','cinematic-regions','ocr-contrast'];
+function setupCrop(){const game=currentGame(),saved=preferences[game]??{},selected=$('calibrate-region').value,keys=['dialogue',...Object.keys(extraCrops[game]??{})];$('calibrate-region').replaceChildren(...keys.map(key=>{const option=document.createElement('option');option.value=key;option.textContent={dialogue:'Dialogue',overhead:'Overhead captions',card:'Centered story card',comic:'Comic panels',panel:'Legacy dialogue panel',compact:'Compact subtitle strip'}[key];return option;}));$('calibrate-region').value=keys.includes(selected)?selected:'dialogue';const key=$('calibrate-region').value,crop=key==='dialogue'?saved.crop??crops[game]:saved.regions?.[key]??extraCrops[game][key];['left','top','width','height'].forEach((field,i)=>$('crop-'+field).value=String(crop[i]*100));$('picture-area').value=saved.picture??'window';for(const id of optionIds)if(saved[id]!=null){if($(id).type==='checkbox')$(id).checked=saved[id];else $(id).value=saved[id];}}
 function cropValue(){const values=['left','top','width','height'].map(key=>Number($('crop-'+key).value)/100);if(values.some(v=>!Number.isFinite(v)||v<0||v>1)||values[2]<=0||values[3]<=0||values[0]+values[2]>1.00001||values[1]+values[3]>1.00001)throw new Error('Keep the crop inside the video.');return values;}
 async function savePreferences(){epoch++;stable=null;const saved=preferences[currentGame()]??{},key=$('calibrate-region').value,value=cropValue();preferences[currentGame()]={...saved,...key==='dialogue'?{crop:value}:{regions:{...saved.regions,[key]:value}},picture:$('picture-area').value,...Object.fromEntries(optionIds.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]))};await put('preferences',preferences).catch(()=>text('storage-status','Calibration is temporary; browser storage is unavailable.'));}
 async function reportStorage(requestPersistence=false){const state=await storageStatus(requestPersistence);text('storage-status',`${state.persistent?'Persistent browser storage granted':'Browser cache is best effort; retain your Files copies'}${state.usage!=null?` · ${(state.usage/1024**2).toFixed(1)} MiB cached`:''}. Audio packs stay in Files and must be reselected after reopening.`);return state;}
 function libraryStatus(){
- if(!library){text('library-status','Open your exported catalog ZIP and optional voice ZIPs from On My iPhone.');return;}
+ if(!library){declaredAudio.clear();text('pack-status','');text('coverage-status','');text('library-status','Open your exported catalog ZIP and optional voice ZIPs from On My iPhone.');return;}
  const coverage=library.manifest.coverage;
+ declaredAudio=new Set(library.manifest.packs.flatMap(p=>p.clips));
  text('library-status',`${library.manifest.title} · ${library.rows.length.toLocaleString()} bilingual rows · ${available.size.toLocaleString()} unique voice clips accessible this session${coverage.partial?' · Partial catalog: newer/unmapped scenes remain unsupported':''}. ${available.size?'Audio packs are open.':'Reselect voice ZIPs for playback.'}`);
  text('pack-status',`${selectedPacks} voice packs selected · ${(selectedBytes/1024**3).toFixed(2)} GiB selected. Audio is read per clip, without importing whole packs.`);
+ const coverageNotes={zzz:'Comic crops pass synthetic layout checks; real mobile comic footage verification remains pending.',wuwa:'Sampled dialogue and centered cards pass; some resized movie/story captions still miss.',pragmata:'Mobile layout checks use synthetic scenes; real browser footage verification remains pending.',cyberpunk:'Small overhead captions still miss in recorded footage. Verify your subtitle size and crop.',witcher3:'Sampled cutscene captions pass; top-edge NPC captions still miss in recorded footage.',nte:'Sampled movie radio/intro cards pass; wrapped subtitles and some movie variants still miss.',honkai3:'Sampled modern and legacy panels pass; some multi-page scenes still miss. Newer chapters remain outside the verified catalog.',hito:'Fixed catalog rows are text-only. Mobile does not run the desktop grammar generator.'};
+ text('coverage-status','Browser OCR coverage: '+coverageNotes[library.manifest.game]);
 }
 $('library-files').onchange=async event=>{
  const token=++selection;epoch++;stable=null;
@@ -43,12 +46,13 @@ function render(){
   if(line.speakerChinese||line.speakerEnglish){const speaker=document.createElement('strong');speaker.textContent=line.speakerChinese??line.speakerEnglish;item.append(speaker);}
   const chinese=document.createElement('p');chinese.lang='zh-Hans';chinese.className='transcript-chinese';chinese.textContent=line.chinese;item.append(chinese);
   if($('show-english').checked){const english=document.createElement('p');english.lang='en';english.textContent=line.english;item.append(english);}
-  const actions=document.createElement('div');actions.className='actions';const play=document.createElement('button');play.textContent=line.audio?available.has(line.audio)?'Play original voice':'Reselect voice pack':'Original audio not exported';play.disabled=!line.audio||!available.has(line.audio);play.onclick=async()=>{try{const start=performance.now(),blob=await request('voice',{sha:line.audio});if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=URL.createObjectURL(blob);$('voice-player').src=audioUrl;await $('voice-player').play();samples.push({kind:'playback',ms:performance.now()-start});samples=samples.slice(-120);}catch(error){text('match-status',error.message);}};
+  const status=document.createElement('small');status.textContent=`Catalog match · ${line.matching??'exact'}${line.score!=null?' · '+line.score.toFixed(0)+'%':''}`;item.append(status);
+  const actions=document.createElement('div');actions.className='actions';const play=document.createElement('button');play.textContent=line.audio?available.has(line.audio)?'Play original voice':declaredAudio.has(line.audio)?'Reselect voice pack':'Voice absent from this export':'Original audio not exported';play.disabled=!line.audio||!available.has(line.audio);play.onclick=async()=>{try{const start=performance.now(),blob=await request('voice',{sha:line.audio});if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=URL.createObjectURL(blob);$('voice-player').src=audioUrl;await $('voice-player').play();samples.push({kind:'playback',ms:performance.now()-start});samples=samples.slice(-120);}catch(error){text('match-status',error.message);}};
   const favorite=document.createElement('button');favorite.textContent=line.favorite?'Unfavorite':'Favorite';favorite.onclick=()=>{line.favorite=!line.favorite;void saveHistory();render();};actions.append(play,favorite);item.append(actions);panel.append(item);
  }
 }
 for(const id of ['show-english','favorites-only'])$(id).onchange=render;
-$('find-line').onclick=async()=>{try{const match=await request('match',{text:$('find-text').value,channel:'dialogue',player:$('player-voice').value});if(match.state!=='matched'){text('match-status','No unique verified line found.');return;}history.push({...match.row,game:library.manifest.game,createdAt:Date.now(),favorite:false});await saveHistory();render();text('match-status','Library line ready for reading and playback.');}catch(e){text('match-status',e.message);}};
+$('find-line').onclick=async()=>{try{const match=await request('match',{text:$('find-text').value,channel:'dialogue',player:$('player-voice').value});if(match.state!=='matched'){text('match-status','No unique verified line found.');return;}history.push({...match.row,score:match.score,matching:match.score===100?'exact':'fuzzy',game:library.manifest.game,createdAt:Date.now(),favorite:false});await saveHistory();render();text('match-status','Library line ready for reading and playback.');}catch(e){text('match-status',e.message);}};
 $('clear-history').onclick=()=>{history=history.filter(r=>r.game!==currentGame());emitted.clear();stable=null;void saveHistory();render();};
 for(const key of ['left','top','width','height'])$('crop-'+key).onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
 $('picture-area').onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
@@ -71,7 +75,7 @@ $('ocr-start').onclick=async()=>{const token=++epoch;try{if(!library)throw new E
 $('ocr-pause').onclick=()=>{scanning=false;epoch++;stable=null;text('match-status','OCR paused.');};
 window.addEventListener('mobile-stream',event=>{if(!streamState||streamState.generation!==event.detail.generation||streamState.state!==event.detail.state){epoch++;stable=null;lastMediaTime=-1;}streamState=event.detail;});
 document.addEventListener('visibilitychange',()=>{epoch++;stable=null;if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
-function regions(){return captureRegions(currentGame(),preferences[currentGame()]?.crop??crops[currentGame()],$('extra-regions').checked,$('cinematic-regions').checked,preferences[currentGame()]?.regions);}
+function regions(){return captureRegions(currentGame(),preferences[currentGame()]?.crop??crops[currentGame()],$('extra-regions').checked,$('cinematic-regions').checked,preferences[currentGame()]?.regions).map(region=>$('ocr-contrast').value==='raw'?{...region,raw:true}:region);}
 async function scan(){
  if(busy||!scanning||!engine||document.hidden||!library||library.manifest.game!==currentGame()||$('role').value!=='receiver'||streamState?.state!=='connected'||streamState?.live===false||$('preview').readyState<2||$('preview').currentTime===lastMediaTime)return;
  lastMediaTime=$('preview').currentTime;
@@ -82,15 +86,11 @@ async function scan(){
    if(token!==epoch)return;
    if(region.channel!=='dialogue'&&dialogueMenu)continue;
    const image=cropFrame(region.crop);
-   if(!prepareImage(image,region,$('ocr-language').value))continue;
-   await engine.setParameters({tessedit_pageseg_mode:region.fragment?'11':'6'});
-   const recognized=await engine.recognize(image,{}, {text:true,blocks:true});if(token!==epoch)return;
-   const parsed=candidates(recognized.data,region,image.width,image.height,currentGame());if(region.channel==='dialogue')dialogueMenu=parsed.menu;
-   for(const value of parsed.values){
-    const match=await request('match',{text:value,channel:region.channel,player:$('player-voice').value,fragment:region.fragment});if(token!==epoch)return;
-    if(match.state==='ambiguous')ambiguous=true;
-    if(match.state==='matched'){accepted={...match,channel:region.channel};break;}
-   }
+   const recognized=await recognizeRegion(engine,image,region,$('ocr-language').value,()=>token===epoch);if(token!==epoch)return;if(!recognized)continue;
+   const parsed=candidates(recognized,region,image.width,image.height,currentGame());if(region.channel==='dialogue')dialogueMenu=parsed.menu;
+   const match=await request('match-candidates',{values:parsed.values,channel:region.channel,player:$('player-voice').value,fragment:region.fragment});if(token!==epoch)return;
+   if(match.state==='ambiguous')ambiguous=true;
+   if(match.state==='matched')accepted={...match,channel:region.channel};
    if(accepted)break;
   }
   const elapsed=performance.now()-start;samples.push({kind:'ocr',ms:elapsed});samples=samples.slice(-120);
@@ -98,7 +98,7 @@ async function scan(){
   const key=accepted.row.id;stable=stable?.key===key?{key,count:stable.count+1}:{key,count:1};
   text('match-status',`Verified ${accepted.channel} match · ${elapsed.toFixed(0)} ms${stable.count<2?' · confirming…':''}`);
   if(stable.count===2&&(!emitted.has(key)||Date.now()-emitted.get(key)>10000)&&!history.some(r=>r.id===key&&Date.now()-r.createdAt<10000)){
-   emitted.set(key,Date.now());history.push({...accepted.row,game:currentGame(),createdAt:Date.now(),favorite:false});await saveHistory();render();
+   emitted.set(key,Date.now());history.push({...accepted.row,score:accepted.score,matching:accepted.score===100?'exact':'fuzzy',game:currentGame(),createdAt:Date.now(),favorite:false});await saveHistory();render();
   }
  }catch(e){if(token===epoch)text('match-status',`OCR needs attention: ${e.message}`);}finally{busy=false;finishScan();}
 }

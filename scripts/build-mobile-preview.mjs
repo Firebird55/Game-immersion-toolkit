@@ -24,8 +24,8 @@ function asset(name, content) {
   return hashedName;
 }
 const source = name => readFileSync(new URL(`public/mobile-capture/${name}`, root), 'utf8');
-for(const name of ['core.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','capture.js','style.css','icon.svg','manifest.webmanifest']){
- let content=source(name);for(const [original,hashed] of assets)content=content.replaceAll('./'+original,'./'+hashed);asset(name,content);
+for(const name of ['core.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','capture.js','style.css','icon.svg','icon.png','manifest.webmanifest']){
+ let content=name.endsWith('.png')?readFileSync(new URL('public/mobile-capture/'+name,root)):source(name);if(typeof content==='string')for(const [original,hashed] of assets)content=content.replaceAll('./'+original,'./'+hashed);asset(name,content);
 }
 const ocr=ocrAssets();
 const escape = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);

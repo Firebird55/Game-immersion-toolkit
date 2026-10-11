@@ -21,11 +21,10 @@ try{
    for(const frame of clip.frames){image.src='/private/'+frame;await image.decode();let accepted=null,menu=false;
     for(const region of pipeline.regions(clip.game)){
      if(region.channel!=='dialogue'&&menu)continue;
-     pipeline.cropFrame(image,canvas,region.crop,'16:9');if(!pipeline.prepareImage(canvas,region,'eng'))continue;
-     await ocr.setParameters({tessedit_pageseg_mode:region.fragment?'11':'6'});const recognized=await ocr.recognize(canvas,{}, {text:true,blocks:true});
-     const parsed=pipeline.candidates(recognized.data,region,canvas.width,canvas.height,clip.game);if(region.channel==='dialogue')menu=parsed.menu;
-     for(const value of parsed.values){const match=matcher.match(value,region.channel,player,region.fragment);if(match.state==='matched'){accepted={...match,channel:region.channel};break;}}
-     if(diagnostics.length<600)diagnostics.push({frame,channel:region.channel,text:recognized.data.text,accepted:accepted?.row.textId??null});if(accepted)break;
+     pipeline.cropFrame(image,canvas,region.crop,'16:9');const recognized=await pipeline.recognizeRegion(ocr,canvas,region,'eng');if(!recognized)continue;
+     const parsed=pipeline.candidates(recognized,region,canvas.width,canvas.height,clip.game);if(region.channel==='dialogue')menu=parsed.menu;
+     const match=matcher.matchCandidates(parsed.values,region.channel,player,region.fragment);if(match.state==='matched')accepted={...match,channel:region.channel};
+     if(diagnostics.length<600)diagnostics.push({frame,channel:region.channel,text:recognized.text,candidates:parsed.values.slice(0,6),refined:recognized.refinedTexts,accepted:accepted?.row.textId??null});if(accepted)break;
     }
     if(!accepted){stable=null;continue;}const key=accepted.row.textId;stable=stable?.key===key?{key,count:stable.count+1}:{key,count:1};if(stable.count===2){emitted.add(key);channels.add(accepted.channel);}
    }
@@ -33,7 +32,7 @@ try{
   },clip);
   const ok=!result.missed.length&&!result.unexpected.length&&!result.wrongChannels.length;report.push({name:clip.name,game:clip.game,resolution:clip.resolution,frames:clip.frames.length,ok,...result});
   console.log(`${index+1}/${cases.length} ${clip.game} ${clip.resolution}: ${ok?'PASS':'FAIL'} (${result.actual.length} accepted; ${result.missed.length} missed; ${result.unexpected.length} unexpected)`);
-  writeFileSync(resolve(directory,'report.json'),JSON.stringify(report,null,2));
+  writeFileSync(resolve(directory,process.env.MOBILE_REPLAY_REPORT??'report.json'),JSON.stringify(report,null,2));
  }
  await page.evaluate(()=>ocr.terminate());
  console.log(`Browser footage checks: ${report.filter(r=>r.ok).length}/${report.length} passed`);if(report.some(r=>!r.ok))process.exitCode=1;

@@ -23,7 +23,7 @@ const routes = new Map([
   ['/core.mjs', ['core.mjs', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
 ]);
-for(const name of ['library.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','storage.mjs','manifest.webmanifest','icon.svg'])routes.set('/'+name,[name,mime(name)]);
+for(const name of ['library.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','storage.mjs','manifest.webmanifest','icon.svg','icon.png'])routes.set('/'+name,[name,mime(name)]);
 const handleRequest = (request, response) => {
   const pathname=new URL(request.url,'https://localhost').pathname;
   const external=ocr.get(pathname.slice(1));

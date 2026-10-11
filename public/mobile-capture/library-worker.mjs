@@ -7,6 +7,7 @@ self.onmessage=async({data})=>{
   if(action==='open'){
    const token=++epoch, opened=[];for(const file of data.files)opened.push(await openZip(file));
    const chosen=opened.filter(z=>z.manifest.kind==='catalog');if(chosen.length>1)throw new Error('Open one game catalog at a time.');
+   const packs=opened.filter(z=>z.manifest.kind==='voices');if(new Set(packs.map(p=>p.manifest.id)).size!==packs.length)throw new Error('Select each voice pack only once.');
    const candidate=chosen.length?await readCatalog(chosen[0],count=>self.postMessage({progress:count})):catalog;
    if(!candidate)throw new Error('Select the catalog ZIP together with its voices.');
    if(data.expectedGame&&candidate.manifest.game!==data.expectedGame)throw new Error('Stop capture before opening a different game.');
@@ -17,6 +18,7 @@ self.onmessage=async({data})=>{
    result={catalog,available:[...voices.keys()],selectedBytes:[...new Set(voices.values())].reduce((n,z)=>n+z.file.size,0),selectedPacks:new Set(voices.values()).size};
   }else if(action==='restore'){catalog=data.catalog;matcher=new DialogueMatcher(catalog.rows);voices.clear();result={catalog,available:[]};}
   else if(action==='match')result=matcher?matcher.match(data.text,data.channel,data.player,data.fragment):{state:'no_library'};
+  else if(action==='match-candidates')result=matcher?matcher.matchCandidates(data.values,data.channel,data.player,data.fragment):{state:'no_library'};
   else if(action==='voice'){const zip=voices.get(data.sha);if(!zip)throw new Error('Reselect the voice ZIPs from On My iPhone.');result=await readVoice(zip,data.sha);}
   else if(action==='forget'){epoch++;catalog=null;matcher=null;voices.clear();result=true;}
   else throw new Error('Unknown library action.');

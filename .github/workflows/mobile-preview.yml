@@ -9,6 +9,7 @@ on:
       - 'scripts/mobile-capture-e2e.mjs'
       - 'scripts/mobile-library-e2e.mjs'
       - 'scripts/mobile-update-e2e.mjs'
+      - 'scripts/mobile-layout-e2e.mjs'
       - 'scripts/mobile-assets.mjs'
       - 'scripts/prepare-mobile-assets.mjs'
       - 'tests/mobile-library.test.mjs'
@@ -57,6 +58,8 @@ jobs:
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/mobile-update-e2e.mjs
+      - name: Check game-layout crops with owned synthetic scenes
+        run: node scripts/mobile-layout-e2e.mjs
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ steps.package.outputs.directory }}
