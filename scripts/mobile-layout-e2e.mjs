@@ -10,7 +10,7 @@ const assets=ocrAssets(),server=http.createServer((req,res)=>{const path=req.url
 await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
  await page.evaluate(async()=>{const {default:T}=await import('/ocr/tesseract.esm.min.js');window.ocr=await T.createWorker('eng',1,{workerPath:location.origin+'/ocr/worker.min.js',corePath:location.origin+'/ocr/core/',langPath:location.origin+'/ocr/lang/',workerBlobURL:false});window.pipeline=await import('/ocr-pipeline.mjs');window.lib=await import('/library.mjs');});
- const games=['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','honkai3','hito'],scenes=[...games.map(game=>({game,kind:'dialogue',channel:'dialogue'})),{game:'zzz',kind:'comic',channel:'cinematic'},{game:'wuwa',kind:'card',channel:'cinematic'},{game:'cyberpunk',kind:'overhead',channel:'gameplay'},{game:'witcher3',kind:'top',channel:'gameplay'},{game:'honkai3',kind:'panel',channel:'dialogue'},{game:'wuwa',kind:'choice',negative:true},{game:'cyberpunk',kind:'hud',negative:true}];
+ const games=['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','honkai3','hito'],scenes=[...games.map(game=>({game,kind:'dialogue',channel:'dialogue'})),{game:'zzz',kind:'comic',channel:'cinematic'},{game:'wuwa',kind:'card',channel:'cinematic'},{game:'cyberpunk',kind:'overhead',channel:'gameplay'},{game:'witcher3',kind:'top',channel:'gameplay'},{game:'honkai3',kind:'panel',channel:'dialogue'},{game:'honkai3',kind:'whitepanel',channel:'dialogue'},{game:'wuwa',kind:'choice',negative:true},{game:'cyberpunk',kind:'hud',negative:true}];
  let count=0;
  for(const resolution of [[1280,720],[1920,1080],[3840,2160],[3440,1440]])for(const scene of scenes){
   const result=await page.evaluate(async({scene,resolution})=>{
@@ -21,6 +21,7 @@ try{browser=await chromium.launch({headless:true});const page=await browser.newP
    if(scene.kind==='overhead'){tx=.4;ty=.27;size=24;}
    if(scene.kind==='top'){tx=.25;ty=.06;size=24;}
    if(scene.kind==='panel'){tx=.44;ty=.81;size=30;ctx.fillStyle='white';ctx.font=`${30*s}px Arial`;ctx.fillText('zqqqq xxxxx',x+pw*.06,y+ph*.81);}
+   if(scene.kind==='whitepanel'){ctx.fillStyle='#eee';ctx.fillRect(x+pw*.07,y+ph*.72,pw*.86,ph*.24);tx=.18;ty=.85;color='black';}
    if(scene.kind==='choice'){tx=.70;ty=.76;size=16;}
    if(scene.kind==='hud'){tx=.01;ty=.94;size=15;}
    if(scene.game==='hito'){tx=.4;size=24;}

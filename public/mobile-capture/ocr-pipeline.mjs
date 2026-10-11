@@ -24,10 +24,11 @@ export function cropFrame(source,canvas,region,picture='window'){
  canvas.width=Math.max(1,Math.round(cw*scale));canvas.height=Math.max(1,Math.round(ch*scale));canvas.getContext('2d',{willReadFrequently:true}).drawImage(source,x+pw*left,y+ph*top,cw,ch,0,0,canvas.width,canvas.height);return canvas;
 }
 export function prepareImage(canvas,region,language){
- const context=canvas.getContext('2d',{willReadFrequently:true}),pixels=context.getImageData(0,0,canvas.width,canvas.height);let dark=0,total=0,black=0;
- for(let i=0;i<pixels.data.length;i+=64){total++;const sum=pixels.data[i]+pixels.data[i+1]+pixels.data[i+2];if(sum<240)dark++;if(sum<100)black++;}
+ const context=canvas.getContext('2d',{willReadFrequently:true}),pixels=context.getImageData(0,0,canvas.width,canvas.height);let dark=0,total=0,black=0,bright=0;
+ for(let i=0;i<pixels.data.length;i+=64){total++;const sum=pixels.data[i]+pixels.data[i+1]+pixels.data[i+2];if(sum<240)dark++;if(sum<100)black++;if(sum>600)bright++;}
  if(region.black&&black/total<.75)return false;
  if(region.raw)return true;
+ if(region.ink&&bright/total>.55)return true; // dark text on a pale dialogue panel
  if(region.ink||language.includes('chi_sim')&&dark/total>.75){
   const width=canvas.width,height=canvas.height,stride=width+1,outline=region.ink?new Uint32Array(stride*(height+1)):null;
   if(outline)for(let y=0;y<height;y++){let row=0;for(let x=0;x<width;x++){const i=(y*width+x)*4;row+=Math.max(pixels.data[i],pixels.data[i+1],pixels.data[i+2])<130?1:0;outline[(y+1)*stride+x+1]=outline[y*stride+x+1]+row;}}
@@ -82,7 +83,8 @@ export function cleanOcrBlocks(blocks){
   const words=[...line.words??[]];
   while(words.length&&(words[0].confidence<50||!normalize(words[0].text)))words.shift();
   while(words.length&&(words.at(-1).confidence<50||!normalize(words.at(-1).text)))words.pop();
-  return words.length?{...line,text:words.map(w=>w.text).join(' '),confidence:words.reduce((n,w)=>n+w.confidence,0)/words.length}:line;
+  const boxes=words.map(w=>w.bbox).filter(Boolean),bbox=boxes.length?{x0:Math.min(...boxes.map(b=>b.x0)),x1:Math.max(...boxes.map(b=>b.x1)),y0:Math.min(...boxes.map(b=>b.y0)),y1:Math.max(...boxes.map(b=>b.y1))}:line.bbox;
+  return words.length?{...line,bbox,text:words.map(w=>w.text).join(' '),confidence:words.reduce((n,w)=>n+w.confidence,0)/words.length}:line;
  }
  return (blocks??[]).map(block=>({...block,paragraphs:(block.paragraphs??[]).map(paragraph=>({...paragraph,lines:(paragraph.lines??[]).map(cleanLine)}))}));
 }
