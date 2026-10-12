@@ -10,7 +10,7 @@ test('archive scan inspects compressed payloads and rejects private paths',()=>{
 });
 test('profile paths and credentials are rejected without echoing their values',()=>{
  assert.throws(()=>scanContent(Buffer.from('C:/'+['Users','example','private'].join('/')),'fixture'),/profile path: fixture/);
- assert(privatePath('data/new-game/index.db'));assert(!privatePath('backend/data-model.py'));
+ assert(privatePath('.toolkit-mobile-work/fixture/cache/marker.json'));assert(privatePath('.toolkit-work/fixture.json'));assert(privatePath('data/new-game/index.db'));assert(!privatePath('backend/data-model.py'));
 });
 
 test('encoded upstream WASM is trusted only by exact bytes and its bundled location',()=>{

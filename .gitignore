@@ -110,6 +110,8 @@ __pycache__/
 /gamesenteneminer.zip
 
 # Private runtime and review material
+.toolkit-mobile-work/
+.toolkit-work/
 /data/
 /output/
 /work/

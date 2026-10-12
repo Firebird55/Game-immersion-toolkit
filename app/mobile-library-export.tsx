@@ -81,7 +81,8 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
       <progress aria-label="Mobile export progress" max={100} value={status.state === 'preparing' ? undefined : status.progress} />
       {status.total != null && <p className="toolkit-setup-note">{(status.done ?? 0).toLocaleString()} / {status.total.toLocaleString()} dialogue entries{status.audioBytes != null ? ` · ${gb(status.audioBytes)} audio converted` : ''}</p>}
       {completed && <><p>{status.coverage?.dialogue.toLocaleString()} bilingual lines · {status.coverage?.exportedVoices.toLocaleString()} voice-backed lines</p>
-        <label>Completed export folder<code className="toolkit-export-path">{status.folder}</code></label></>}
+        <label>Copy only this folder to USB or your phone<code className="toolkit-export-path">{status.folder}</code></label>
+        <p className="toolkit-setup-note">{status.bytes != null ? `${gb(status.bytes)} to transfer. ` : ''}Keep ZIPs zipped. Copying an older export's parent folder also copies its PC cache and can take much longer.</p></>}
       {status.state === 'cancelled' && <p className="toolkit-setup-note">Completed clips are kept. Resume with the same save folder to reuse them.</p>}
       {status.state === 'error' && <p className="toolkit-setup-error">{status.message}</p>}
     </div>}

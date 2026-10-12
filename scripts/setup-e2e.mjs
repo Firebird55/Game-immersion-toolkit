@@ -59,6 +59,7 @@ try{
    await field.fill('F:/wrong');await dialog.getByRole('button',{name:'Save game folder',exact:true}).click();
    await dialog.getByRole('alert').waitFor();assert.equal(games[0].configured_path,null);
    await field.fill('F:/Games/ZZZ');await dialog.getByRole('button',{name:'Save game folder',exact:true}).click();
+   await dialog.getByText('Folder saved on this PC. Prepare game tools if needed, then refresh game data.',{exact:true}).waitFor();
    assert.equal(games[0].configured_path,'F:/Games/ZZZ');
    await dialog.getByRole('button',{name:'Install game tools',exact:true}).click();
    await dialog.getByRole('button',{name:'Refresh game data',exact:true}).click();
@@ -86,6 +87,7 @@ try{
    assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true,destination_folder:'E:/Mobile libraries'});
    await dialog.getByRole('button',{name:'Cancel export',exact:true}).click();await dialog.getByText('Synthetic export cancelled',{exact:true}).waitFor();
    await dialog.getByLabel('Original Mandarin voices',{exact:false}).uncheck();await dialog.getByRole('button',{name:'Resume export',exact:true}).click();await dialog.getByText('Ready to transfer',{exact:true}).waitFor();
+   await dialog.getByText('Copy only this folder to USB or your phone',{exact:false}).waitFor();
    assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries'});await dialog.getByText('F:/Exports/synthetic',{exact:true}).waitFor();
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('hito');
    assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'');

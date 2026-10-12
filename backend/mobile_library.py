@@ -65,6 +65,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     if game not in GAMES or not 4096 <= pack_limit <= PACK_LIMIT or type(workers) is not int or not 1 <= workers <= 8:
         raise ValueError("Unsupported game or pack size")
     output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
     work = work_folder(output)
     cache = work / "cache"
     cache.mkdir(parents=True, exist_ok=True)
@@ -256,7 +257,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
                 "catalog": catalog, "packs": packs}
     name = catalog_name(game)
     write_pack(staging / name, manifest, [(item["name"], value) for item, value in zip(catalog, segments)])
-    write_instructions(output, staging)
+    write_instructions(output, staging, transfer_folder=destination)
     guard()
     getattr(check, "force", check)()
     if destination.exists():
@@ -293,6 +294,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     except (OSError, ValueError, KeyError, zipfile.BadZipFile):
         pass
     result = {"state": "complete", "progress": 100, "message": "Copy the catalog and voice ZIPs to On My iPhone",
+              "done": len(rows), "total": len(rows),
               "folder": str(destination), "coverage": coverage, "bytes": sum(p.stat().st_size for p in destination.glob("*.zip"))}
     progress(result)
     return result

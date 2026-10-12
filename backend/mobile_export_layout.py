@@ -1,5 +1,6 @@
 """Readable transfer folders, with resumable work kept separately."""
 import json
+import hashlib
 import os
 import re
 import zipfile
@@ -21,10 +22,26 @@ def hide_work_metadata(path):
 
 
 def work_folder(output):
-    output = Path(output)
-    work = output / '.toolkit-work'
-    work.mkdir(parents=True, exist_ok=True)
-    hide_work_metadata(work)
+    output = Path(output).resolve()
+    # Setup's output is <chosen transfer folder>/<game>. Keep thousands of
+    # resumable clips outside BOTH folders, on the same volume for atomic moves.
+    parent = output.parent
+    base = parent.parent if parent != Path(output.anchor) else parent
+    workspace = base / '.toolkit-mobile-work'
+    identity = hashlib.sha256(os.path.normcase(str(output)).encode('utf8')).hexdigest()
+    work = workspace / identity
+    if (workspace.resolve().parent != base.resolve()
+            or work.resolve().parent != workspace.resolve()
+            or workspace.is_symlink() or work.is_symlink()):
+        raise ValueError('Unsafe export workspace')
+    workspace.mkdir(parents=True, exist_ok=True)
+    hide_work_metadata(workspace)
+    old_work = output / '.toolkit-work'
+    if old_work.is_dir() and not work.exists():
+        if old_work.is_symlink() or old_work.resolve().parent != output:
+            raise ValueError('Unsafe legacy export work folder')
+        old_work.rename(work)
+    work.mkdir(exist_ok=True)
     for name in ('cache',):
         old, target = output / name, work / name
         if old.is_dir() and not target.exists():
@@ -98,11 +115,12 @@ def organize_completed_export(output, game):
     return destination
 
 
-def write_instructions(output, folder):
+def write_instructions(output, folder, *, transfer_folder=None):
     (Path(output) / 'START HERE.txt').write_text(
-        'Open the Mobile Library folder. Transfer only its ZIP files.\n'
+        f'Transfer this completed folder only: {Path(transfer_folder or folder).name}\n'
+        'It contains the catalog ZIP, numbered voice ZIPs and phone instructions.\n'
         'Keep ZIPs zipped. On the phone, select the catalog and voice ZIPs together.\n'
-        '.toolkit-work contains private resumable PC work; do not transfer it.\n'
+        'Resumable PC work is stored outside the selected transfer folder.\n'
         'latest.json is a private PC marker; it is not needed on the phone.\n', encoding='utf8')
     (Path(folder) / 'READ ME.txt').write_text(
         'Open https://firebird55.github.io/Game-immersion-toolkit/ on the receiving phone.\n'
@@ -113,7 +131,8 @@ def write_instructions(output, folder):
 
 def archive_previous_exports(output, game, current):
     output, current = Path(output), Path(current)
-    previous = work_folder(output) / 'previous-libraries'
+    work = work_folder(output)
+    previous = work / 'previous-libraries'
     for folder in output.glob(GAME_NAMES[game] + ' - Mobile Library - *'):
         if folder == current or not folder.is_dir():
             continue
@@ -125,7 +144,7 @@ def archive_previous_exports(output, game, current):
         if manifest.get('game') != game or folder.name != export_folder_name(game, manifest['revision']):
             continue
         target = previous / folder.name
-        if folder.resolve().parent != output.resolve() or not target.resolve().is_relative_to(output.resolve()):
+        if folder.resolve().parent != output.resolve() or not target.resolve().is_relative_to(work.resolve()):
             raise ValueError('Unsafe previous export location')
         previous.mkdir(exist_ok=True)
         if not target.exists():

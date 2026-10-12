@@ -23,8 +23,11 @@ on Pages, uploaded to an OCR service or included in toolkit releases.
    estimate is refined from measured clips and deduplication; completed ZIP bytes
    are exact. First voice conversion can take considerable time.
 5. Open the readable **Game - Mobile Library - revision** folder. Its catalog
-   and numbered voice ZIPs are the transfer files; `.toolkit-work` keeps resumable
-   caches and previous libraries separate. Copy the completed **catalog ZIP and voice ZIPs** to your phone.
+   and numbered voice ZIPs are the transfer files. Copy only that completed
+   folder, not the parent folder of an older export: it may contain thousands of
+   cached clips. New exports keep resumable work in `.toolkit-mobile-work`
+   outside the selected save folder, on the same drive. Legacy work moves there
+   when the same destination is next exported; completed libraries stay in place. Copy the completed **catalog ZIP and voice ZIPs** to your phone.
    Keep them zipped, in **Files → On My iPhone**, with enough free space. Transfer
    using your normal cable, AirDrop from a Mac, or file-transfer method. A cloud
    file provider can be used for transfer, but download/move the final copies
