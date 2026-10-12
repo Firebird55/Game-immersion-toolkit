@@ -21,9 +21,11 @@
     <p class="hint">Open the same HTTPS address on both devices, on the same Wi-Fi. Allow local network access if requested. Keep the phone page open throughout the test.</p>
   </section>
   <section><h2>2. Connect the devices</h2>
+    <label><input id="auto-recovery" type="checkbox" disabled> Automatically recover the connection when returning</label>
+    <p id="relay-status" class="hint" role="status">Checking recovery service configuration…</p>
     <p id="instructions"></p>
-    <div class="actions"><button id="start">Share screen &amp; create offer</button><button id="reconnect" disabled>Reconnect &amp; create new offer</button><button id="stop" disabled>Stop</button></div>
-    <p class="hint">If the phone freezes, return to this page on iPad and tap Reconnect. Exchange the fresh offer and answer. Your existing screen capture stays open; Stop ends it. An ended capture needs a new screen share.</p>
+    <div class="actions"><button id="start">Share screen &amp; create offer</button><button id="resume-share" hidden>Resume screen sharing</button><button id="reconnect" disabled>Reconnect &amp; create new offer</button><button id="stop" disabled>Stop</button></div>
+    <p class="hint">Return to this page after switching apps. With automatic recovery enabled, it resumes playback and exchanges fresh connection details if needed. Keep screen sharing active on the sender. If sharing ended, tap Share screen again. Direct QR pairing remains available.</p>
     <div id="qr-panel" hidden><canvas id="pairing-qr" aria-label="Pairing QR code"></canvas><p id="qr-description"></p>
       <div class="actions qr-controls"><button id="qr-enlarge">Larger QR</button><button id="qr-pause">Pause QR rotation</button><button id="qr-previous">Previous QR</button><button id="qr-next">Next QR</button></div>
       <p class="hint">The scanner needs every QR frame. If it gets stuck, pause here and show the missing frame using Next QR. Use Larger QR and move the camera closer.</p>
@@ -31,7 +33,7 @@
     <button id="scan-pairing">Scan the other device’s QR</button>
     <div id="qr-scan-panel" hidden><video id="qr-camera" autoplay muted playsinline aria-label="Pairing camera"></video><button id="stop-scan">Stop camera</button></div>
     <p id="qr-feedback" role="status">Scan the sender’s offer on the phone, then scan the phone’s answer on the sender. QR transfer stays between your devices.</p>
-    <p class="hint">Short pairing codes require a hosted signaling service. This direct pairing uses QR or a message file instead.</p>
+    <p class="hint">With automatic recovery, scan the sender’s offer once; the answer returns automatically. Without it, scan the answer back too. The recovery service exchanges encrypted connection details; game video and libraries stay on your devices.</p>
     <label>Your pairing message <textarea id="outgoing" readonly spellcheck="false" placeholder="Generated here"></textarea></label>
     <div class="actions"><button id="copy" disabled>Copy message</button><button id="save-pairing" disabled>Download pairing file</button></div>
     <label>Message from the other device <textarea id="incoming" spellcheck="false" placeholder="Paste the offer or answer here"></textarea></label>

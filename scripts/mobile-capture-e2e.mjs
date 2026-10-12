@@ -223,8 +223,8 @@ try {
       // Google Drive can add desktop.ini to a local package. It is not one of
       // the copied publication files and is absent on the Linux publisher.
       const names = readdirSync(root).filter(name => name !== 'desktop.ini').sort();
-      assert.equal(names.length, 19, 'Publication contains only the allowlisted application, QR and OCR assets');
-      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|sw\.js|ocr|pairing|(?:capture|core|qr-pairing|qr-ui|style|library|storage|library-worker|mobile-ui|ocr-pipeline|icon|manifest)\.[0-9a-f]{16}\.(?:js|mjs|css|svg|png|webmanifest))$/.test(name)));
+      assert.equal(names.length, 21, 'Publication contains only the allowlisted application, QR and OCR assets');
+      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|sw\.js|ocr|pairing|(?:capture|core|relay|recovery-config|qr-pairing|qr-ui|style|library|storage|library-worker|mobile-ui|ocr-pipeline|icon|manifest)\.[0-9a-f]{16}\.(?:js|mjs|json|css|svg|png|webmanifest))$/.test(name)));
     }
     for (const [width, height, scale] of [[320, 568, 1], [390, 844, 1], [768, 1024, 1], [1920, 1080, 2]]) {
       await receiver.setViewportSize({ width, height });
@@ -383,6 +383,9 @@ try {
     await sender.waitForFunction(() => /sample|sent|sending|RTC|network/i.test(document.getElementById('diagnostics').textContent));
     await receiver.evaluate(() => document.getElementById('preview').pause());
     await receiver.waitForFunction(() => document.getElementById('metrics').textContent.includes('Frame delivery stalled'));
+    await receiver.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+    await receiver.waitForFunction(() => !document.getElementById('preview').paused && document.getElementById('metrics').textContent.includes('Receiving frames'));
+    assert(await receiver.evaluate(() => window.testPeer === window.recoveredReceiverPeer && document.getElementById('preview').srcObject === window.recoveredReceivedStream),'Returning resumes live playback without replacing the connection');
     const senderReport = await downloadReport(sender), recoveredReport = await downloadReport(receiver);
     assertPrivateDiagnostics(senderReport, 'sender', recoveryOffer.attempt); assertPrivateDiagnostics(recoveredReport, 'receiver', recoveryOffer.attempt);
     assert(senderReport.events.some(event => event.kind === 'track_muted') && senderReport.events.some(event => event.kind === 'track_unmuted'), 'Capture mute transitions are recorded');
@@ -440,15 +443,16 @@ try {
     await sender.evaluate(() => { const track = window.capturedStream.getVideoTracks()[0]; track.stop(); track.dispatchEvent(new Event('ended')); });
     assert.match(await sender.locator('#capture-state').innerText(), /ended/i);
     assert.equal(await sender.locator('#reconnect').isEnabled(), false);
-    assert.equal(await sender.locator('#start').isEnabled(), true);
+    assert.equal(await sender.locator('#resume-share').isVisible(), true);
+    assert.equal(await sender.locator('#resume-share').isEnabled(), true);
     assert.equal(await sender.locator('#outgoing').inputValue(), '');
     const endedSenderReport = await downloadReport(sender);
     assert(endedSenderReport.events.some(event => event.kind === 'connection_attempt_failed'));
     assert(endedSenderReport.events.some(event => event.kind === 'track_ended' && event.track.readyState === 'ended'), 'Capture remains watched even when failed recovery leaves no peer');
-    await sender.click('#start');
+    await sender.click('#resume-share');
     await sender.waitForFunction(() => document.getElementById('outgoing').value.includes('"offer"'));
-    assert.equal(await sender.evaluate(() => window.captureRequests), requestsBeforeEnding + 1, 'An ended capture starts through a new permission request');
-    assert.notEqual(JSON.parse(await sender.locator('#outgoing').inputValue()).sessionId, endedSession);
+    assert.equal(await sender.evaluate(() => window.captureRequests), requestsBeforeEnding + 1, 'An ended capture resumes through a new permission request');
+    assert.equal(JSON.parse(await sender.locator('#outgoing').inputValue()).sessionId, endedSession);
     await sender.click('#stop');
     assert.deepEqual(errors, [], `${name}: no uncaught browser errors`);
     await context.close(); await browser.close(); browser = null;

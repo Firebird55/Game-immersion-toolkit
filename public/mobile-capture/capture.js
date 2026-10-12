@@ -1,4 +1,5 @@
 import { TEST_DURATION_MS, parsePairing, pairingMessage, samePairing, privateTrackState, privateRtcSample, frameHealth, imageSignature } from './core.mjs';
+import {createRelay, RelayClient} from './relay.mjs';
 
 const $ = id => document.getElementById(id);
 const build = document.documentElement.dataset.buildCommit ? {
@@ -13,6 +14,16 @@ let lastHash = null, lastMediaTime = -1, observation = null, events = [];
 let pendingCapture = false, busyPairing = false, previousSampleAt = null;
 let sessionGame = null, sessionRole = null;
 let identity = null, recoveryAttempts = 0, rtcSamples = [], trackSnapshot = [], statsPending = null;
+let relay = null, relayEndpoint = '', relayAbort = null, lastAutoAttempt = 0, playbackPending = null;
+const relayConfig = fetch('./recovery-config.json', {cache:'no-store'}).then(r => r.ok ? r.json() : {}).then(config => {
+  if (typeof config.endpoint === 'string' && config.endpoint && Array.isArray(config.origins) && config.origins.includes(location.origin)) {
+    const url = new URL(config.endpoint);
+    if (url.origin === config.endpoint && (url.protocol === 'https:' || url.protocol === 'http:' && ['127.0.0.1','localhost'].includes(location.hostname) && ['127.0.0.1','localhost'].includes(url.hostname))) relayEndpoint = config.endpoint;
+  }
+  $('auto-recovery').disabled = !relayEndpoint;
+  $('auto-recovery').checked = Boolean(relayEndpoint);
+  $('relay-status').textContent = relayEndpoint ? 'Automatic recovery available. Scan the sender’s QR once; the answer returns automatically. Recovery sessions last four hours.' : 'Automatic recovery is not configured on this build. Returning resumes live playback; a failed connection needs fresh direct pairing.';
+}).catch(() => { $('relay-status').textContent = 'Recovery service configuration unavailable. Direct QR pairing is available.'; });
 const canvas = document.createElement('canvas');
 canvas.width = 64; canvas.height = 36;
 const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -34,6 +45,8 @@ function updateRole() {
   $('instructions').textContent = sender ? 'Share the game window or screen and send the offer to the receiving device. Paste its answer back here, then open the game.' : 'Paste the gaming device’s offer below. Accept it, send the generated answer back, and keep this page open.';
   if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. For your iPad game → iPhone setup, the iPad remains the sender and the iPhone remains the receiver. A native capture helper is needed on the iPad; it is not included yet. Browser pairing cannot start this capture.';
   $('start').hidden = !sender;
+  $('resume-share').hidden = !sender || !identity || liveCapture();
+  $('resume-share').disabled = pendingCapture || busyPairing || !caps.screenCapture;
   const sessionActive = Boolean(peer) || Boolean(stream) || Boolean(identity);
   $('start').disabled = sessionActive || pendingCapture || busyPairing || !caps.secure || !caps.screenCapture || !caps.webRTC;
   $('reconnect').hidden = !sender;
@@ -42,6 +55,7 @@ function updateRole() {
   $('role').disabled = sessionActive || pendingCapture || busyPairing; $('game').disabled = $('role').disabled;
   $('reload-build').disabled = $('role').disabled;
   $('stop').disabled = !sessionActive && !pendingCapture && !busyPairing;
+  $('auto-recovery').disabled = !relayEndpoint || sessionActive || pendingCapture || busyPairing;
   updateDiagnostics();
 }
 function cancelFrameMonitor() {
@@ -72,6 +86,7 @@ function detachConnection(keepCapture = false) {
   return generation;
 }
 function cleanup(message = 'Stopped.') {
+  relayAbort?.abort(); relayAbort = null; relay?.close(); relay = null;
   detachConnection(); pendingCapture = false; busyPairing = false;
   identity = null;
   $('metrics').textContent = `Stopped · ${delivered} delivered frames · ${changed} visible changes`;
@@ -87,7 +102,11 @@ function watchTracks(active, token) {
     track.onended = () => {
       if (!current(active, token)) return;
       record('track_ended');
-      if (sessionRole === 'sender') cleanup('Screen capture ended. Start a new screen share; reconnect cannot restore an ended capture.');
+      if (sessionRole === 'sender') {
+        detachConnection(true); event('capture_permission_needed');
+        void relay?.send({kind:'capture-ended',sessionId:identity?.sessionId});
+        status('Screen sharing ended. Tap Resume screen sharing to choose the screen again. The paired phone reconnects automatically when recovery is enabled.'); updateRole();
+      }
       else {
         // A received track may end with a lost peer while the iPad's capture
         // remains live. Keep the observation and identity for a fresh offer.
@@ -108,9 +127,10 @@ function newPeer() {
     if (!current(active, token)) return;
     event(`connection_${active.connectionState}`);
     const interrupted = ['failed', 'disconnected', 'closed'].includes(active.connectionState);
-    status(`Connection: ${active.connectionState}${interrupted ? sessionRole === 'sender' ? '. Capture is kept open. Tap Reconnect & create new offer, then exchange the new messages.' : '. Return to the iPad, tap Reconnect & create new offer, then accept its fresh offer here and send the new answer back.' : ''}`);
+    status(`Connection: ${active.connectionState}${interrupted ? relay ? '. Automatic recovery will retry when both devices are online and screen sharing is active.' : sessionRole === 'sender' ? '. Capture is kept open. Tap Reconnect & create new offer, then exchange the new messages.' : '. Return to the iPad, tap Reconnect & create new offer, then accept its fresh offer here and send the new answer back.' : ''}`);
     if (active.connectionState === 'connected' && connectedAt === null) connectedAt = Date.now();
     updateRole();
+    if (interrupted) void automaticRecovery();
   };
   for (const [handler, kind, state] of [['oniceconnectionstatechange', 'ice_connection', 'iceConnectionState'], ['onicegatheringstatechange', 'ice_gathering', 'iceGatheringState'], ['onsignalingstatechange', 'signaling', 'signalingState']]) {
     active[handler] = () => { if (current(active, token)) { event(kind, { state: active[state] }); updateDiagnostics(); } };
@@ -132,6 +152,7 @@ function resetMetrics() {
   connectedAt = null; attemptStartedAt = null; lastFrameAt = null; delivered = 0; changed = 0; dark = false;
   lastHash = null; lastMediaTime = -1; observation = null; events = [];
   identity = null; recoveryAttempts = 0; rtcSamples = []; trackSnapshot = []; previousSampleAt = null;
+  lastAutoAttempt = 0;
   sessionGame = $('game').value; sessionRole = $('role').value;
   $('result').value = 'not_verified';
   $('notes').value = '';
@@ -158,6 +179,61 @@ async function outputDescription(active, description, token) {
   window.dispatchEvent(new CustomEvent('mobile-pairing-message',{detail:{message:$('outgoing').value}}));
   $('copy').disabled = false; $('save-pairing').disabled = false;
   status('Pairing message ready. Send it to the other device.');
+  if (relay && await relay.send({kind:'pairing',message:$('outgoing').value}) && current(active, token)) status(sessionRole === 'receiver' ? 'Answer sent automatically. Keep this page open to receive the screen.' : 'Offer ready. Scan this QR on the phone once; its answer returns automatically.');
+}
+function connectRelay(descriptor, role) {
+  relay?.close();
+  const client = new RelayClient(descriptor, role, {
+    onState(state) {
+      if (relay !== client) return;
+      event('recovery_service_' + state);
+      $('relay-status').textContent = state === 'ready' ? 'Automatic recovery connected. Video travels directly between your devices.' : state === 'expired' ? 'Recovery session expired after four hours. Stop and pair again.' : ['rejected','message_rejected'].includes(state) ? 'Recovery session rejected. Stop and pair again, or use direct QR pairing.' : 'Recovery service reconnecting. Your library and transcript are kept open.';
+      if (state === 'ready') { const message = $('outgoing').value; if (message) void client.send({kind:'pairing',message}); void automaticRecovery(); }
+    },
+    onPartner(present) { if (relay === client && present) void automaticRecovery(); },
+    async onMessage(value) {
+      if (relay !== client || !identity) return;
+      if (value.kind === 'recover' && value.sessionId === identity.sessionId && role === 'sender') { await automaticRecovery(true); return; }
+      if (value.kind === 'capture-ended' && value.sessionId === identity.sessionId) { status('Screen sharing stopped on the sender. Resume sharing there; this phone will reconnect automatically.'); return; }
+      if (value.kind !== 'pairing' || busyPairing || pendingCapture) return;
+      const message = parsePairing(value.message, role === 'sender' ? 'answer' : 'offer');
+      if (message.sessionId !== identity.sessionId || message.game !== sessionGame || JSON.stringify(message.relay) !== JSON.stringify(identity.relay)) return;
+      if (role === 'receiver' && message.attempt <= identity.attempt || role === 'sender' && peer?.signalingState !== 'have-local-offer') return;
+      await applyMessage(value.message);
+    }
+  });
+  relay = client;
+}
+async function resumePlayback() {
+  if (document.hidden || sessionRole !== 'receiver' || peer?.connectionState !== 'connected' || !liveCapture() || playbackPending?.token === generation) return;
+  const token = generation, source = $('preview').srcObject;
+  const pending = {token}; playbackPending = pending; let timer, poll;
+  try {
+    const video = $('preview'), initialTime = video.currentTime;
+    // Some WebKit/Firefox MediaStream play promises remain pending despite
+    // moving video. Advancing media time is also positive playback evidence.
+    await Promise.race([video.play(),new Promise((resolve,reject) => {
+      poll = setInterval(() => { if (!video.paused && video.readyState >= 2 && video.currentTime > initialTime + .02) resolve(); },100);
+      timer = setTimeout(() => reject(Error('Playback did not resume')),3000);
+    })]);
+    if (token !== generation || $('preview').srcObject !== source) return;
+    $('play-preview').hidden = true; monitorFrames(); event('preview_resumed'); updateRole();
+  } catch { if (token === generation && $('preview').srcObject === source) { $('play-preview').hidden = false; status('Tap Play preview to resume.'); } }
+  finally { clearTimeout(timer); clearInterval(poll); if (playbackPending === pending) playbackPending = null; }
+}
+async function automaticRecovery(force = false) {
+  if (!relay?.ready || !identity || document.hidden || !navigator.onLine || pendingCapture || busyPairing || Date.now() - lastAutoAttempt < 8000) return;
+  const interrupted = !peer || ['failed','disconnected','closed'].includes(peer.connectionState);
+  const stalled = sessionRole === 'receiver' && peer?.connectionState === 'connected' && lastFrameAt && Date.now() - lastFrameAt > 8000;
+  const timedOut = peer?.connectionState !== 'connected' && attemptStartedAt && Date.now() - attemptStartedAt > 20000;
+  if (!force && !interrupted && !stalled && !timedOut) return;
+  lastAutoAttempt = Date.now(); event('automatic_recovery_requested');
+  if (sessionRole === 'sender') { if (liveCapture()) await reconnectSender(true); }
+  else { await resumePlayback(); await relay.send({kind:'recover',sessionId:identity.sessionId}); status('Requesting a fresh connection automatically…'); }
+}
+function returnToStreaming() {
+  if (document.hidden) return;
+  relay?.wake(true); void resumePlayback(); void automaticRecovery();
 }
 async function createSenderOffer(active, token) {
   stream.getVideoTracks().forEach(track => active.addTrack(track, stream));
@@ -176,18 +252,26 @@ $('start').onclick = async () => {
     resetMetrics(); stream = captured;
     if (!liveCapture()) throw new Error('No live video track was provided.');
     identity = { sessionId: crypto.randomUUID(), pairingId: crypto.randomUUID(), attempt: 1 };
+    await relayConfig;
+    if (generation !== token) return;
+    if ($('auto-recovery').checked && relayEndpoint) {
+      relayAbort = new AbortController();
+      const descriptor = await createRelay(relayEndpoint, relayAbort.signal);
+      if (generation !== token) return;
+      identity.relay = descriptor; connectRelay(descriptor,'sender');
+    }
     const active = newPeer();
     await createSenderOffer(active, token);
     if (current(active, token)) event('screen_share_started');
   } catch (error) { if (generation === token) cleanup(`Cannot start capture: ${error.message}`); }
   finally { if (generation === token) { pendingCapture = false; busyPairing = false; updateRole(); } }
 };
-$('reconnect').onclick = async () => {
+async function reconnectSender(automatic = false) {
   if (pendingCapture || busyPairing || sessionRole !== 'sender' || !liveCapture()) return;
   let token = detachConnection(true);
   busyPairing = true; recoveryAttempts++;
   identity = { ...identity, pairingId: crypto.randomUUID(), attempt: identity.attempt + 1 };
-  event('reconnect_requested', { attempt: identity.attempt });
+  event('reconnect_requested', { attempt: identity.attempt, automatic });
   status('Capture is kept open. Preparing a fresh offer…'); updateRole();
   try { await createSenderOffer(newPeer(), token); }
   catch {
@@ -198,18 +282,33 @@ $('reconnect').onclick = async () => {
     }
   }
   finally { if (generation === token) { busyPairing = false; updateRole(); } }
+}
+$('reconnect').onclick = () => reconnectSender();
+$('resume-share').onclick = async () => {
+  if (!identity || sessionRole !== 'sender' || liveCapture() || pendingCapture || busyPairing) return;
+  const token = detachConnection(); pendingCapture = true; updateRole();
+  try {
+    const captured = await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
+    if (generation !== token) { captured.getTracks().forEach(t => t.stop()); return; }
+    stream = captured; pendingCapture = false; busyPairing = true; recoveryAttempts++;
+    identity = {...identity,pairingId:crypto.randomUUID(),attempt:identity.attempt+1};
+    event('screen_share_resumed'); await createSenderOffer(newPeer(),token);
+  } catch { if (generation === token) status('Screen sharing could not resume. Tap Resume screen sharing to try again.'); }
+  finally { if (generation === token) { pendingCapture = false; busyPairing = false; updateRole(); } }
 };
-$('apply').onclick = async () => {
+async function applyMessage(text) {
   busyPairing = true; updateRole();
   let token = generation;
   let replacingReceiver = false;
   try {
     const sender = $('role').value === 'sender';
-    const message = parsePairing($('incoming').value, sender ? 'answer' : 'offer');
+    const message = parsePairing(text, sender ? 'answer' : 'offer');
+    if (message.relay && (message.relay.endpoint !== relayEndpoint || message.relay.expires <= Date.now() || message.relay.expires > Date.now() + 4 * 3600000 + 60000)) throw Error('This recovery session is expired or uses a service not configured on this page. Reload both devices or use direct pairing.');
     if (sender) {
       if (!peer || peer.signalingState !== 'have-local-offer') throw new Error('Create an offer on the sharing device first.');
       if (message.game !== $('game').value) throw new Error('Answer belongs to a different game.');
       if (!samePairing(message, identity)) throw new Error('This answer is for an older or different offer. Reload both devices before a new test, or use the answer to the latest offer.');
+      if (JSON.stringify(message.relay) !== JSON.stringify(identity?.relay)) throw Error('Answer belongs to a different recovery session.');
       const active = peer;
       await active.setRemoteDescription({ type: message.type, sdp: message.sdp });
       if (current(active, token)) status('Answer accepted. Open the game and watch the phone preview.');
@@ -219,11 +318,13 @@ $('apply').onclick = async () => {
         if (message.game !== sessionGame) throw new Error('Offer belongs to a different game. Stop this test before changing games.');
         if (!continuing) throw new Error('Offer belongs to a different capture session. Stop this test before accepting it.');
         if (message.attempt <= identity.attempt || message.pairingId === identity.pairingId) throw new Error('This offer was already accepted or is older. Use the latest reconnect offer from the iPad.');
+        if (JSON.stringify(message.relay) !== JSON.stringify(identity.relay)) throw Error('Offer belongs to a different recovery session.');
       }
       token = detachConnection(); replacingReceiver = true;
       if (!continuing) { $('game').value = message.game; resetMetrics(); }
       else { recoveryAttempts++; event('reconnect_offer_accepted', { attempt: message.attempt }); }
-      identity = message.sessionId ? { sessionId: message.sessionId, pairingId: message.pairingId, attempt: message.attempt } : null;
+      identity = message.sessionId ? { sessionId: message.sessionId, pairingId: message.pairingId, attempt: message.attempt, ...(message.relay ? {relay:message.relay} : {}) } : null;
+      if (message.relay && !relay) connectRelay(message.relay,'receiver');
       const active = newPeer();
       await active.setRemoteDescription({ type: message.type, sdp: message.sdp });
       if (!current(active, token)) return;
@@ -238,7 +339,8 @@ $('apply').onclick = async () => {
     }
   }
   finally { if (generation === token) { busyPairing = false; updateRole(); } }
-};
+}
+$('apply').onclick = () => applyMessage($('incoming').value);
 $('play-preview').onclick = async () => {
   const token = generation, source = $('preview').srcObject;
   try { await $('preview').play(); if (token === generation && $('preview').srcObject === source) $('play-preview').hidden = true; }
@@ -314,8 +416,9 @@ $('begin-test').onclick = () => {
   $('begin-test').disabled = true; event('observation_started');
 };
 $('report').onclick = () => download(JSON.stringify({ format: 'proxy-mobile-capture-report-v1', createdAt: new Date().toISOString(), build, role: sessionRole ?? $('role').value, game: sessionGame ?? $('game').value, capability: capability(), connectionState: peer?.connectionState ?? 'closed', frameMeasurement: $('preview').requestVideoFrameCallback ? 'video-frame-callback' : 'media-time-fallback', deliveredFrames: delivered, visibleChanges: changed, observation, userObservation: $('result').value, notes: $('notes').value.slice(0, 4000), events, diagnostics: { tracks: trackStates(), rtcSamples, recoveryAttempts }, backgroundCaptureVerified: false, explanation: 'Manual device test evidence only. Review the game preview and observation; frame delivery alone cannot verify game capture.' }, null, 2), 'mobile-capture-report.json');
-document.addEventListener('visibilitychange', () => { event(document.hidden ? 'page_hidden' : 'page_visible'); updateDiagnostics(); });
-for (const kind of ['freeze', 'resume']) document.addEventListener(kind, () => event(kind));
-for (const kind of ['online', 'offline']) window.addEventListener(kind, () => { event(kind); updateDiagnostics(); });
-for (const kind of ['pagehide', 'pageshow']) window.addEventListener(kind, e => event(kind, { persisted: e.persisted }));
+document.addEventListener('visibilitychange', () => { event(document.hidden ? 'page_hidden' : 'page_visible'); updateDiagnostics(); if (!document.hidden) returnToStreaming(); });
+for (const kind of ['freeze', 'resume']) document.addEventListener(kind, () => { event(kind); if (kind === 'resume') returnToStreaming(); });
+for (const kind of ['online', 'offline']) window.addEventListener(kind, () => { event(kind); updateDiagnostics(); if (kind === 'online') returnToStreaming(); });
+for (const kind of ['pagehide', 'pageshow']) window.addEventListener(kind, e => { event(kind, { persisted: e.persisted }); if (kind === 'pageshow') returnToStreaming(); });
+setInterval(() => { if (!document.hidden) { if (relay && $('preview').paused) void resumePlayback(); void automaticRecovery(); } }, 5000);
 updateRole();

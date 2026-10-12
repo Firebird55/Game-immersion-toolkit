@@ -2,6 +2,15 @@ export const TEST_DURATION_MS = 15 * 60 * 1000;
 export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'honkai3', 'hito'];
 const PAIRING_FIELDS = ['sessionId', 'pairingId', 'attempt'];
 const PAIRING_ID = /^[A-Za-z0-9_-]{16,64}$/;
+export function parseRelay(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join() !== 'endpoint,expires,room,secret'
+    || typeof value.endpoint !== 'string' || value.endpoint.length > 256 || !/^[a-f0-9]{32}$/.test(value.room)
+    || typeof value.secret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value.secret)
+    || !Number.isSafeInteger(value.expires) || value.expires < 1) throw Error('Invalid recovery session.');
+  const url = new URL(value.endpoint);
+  if (url.origin !== value.endpoint || url.username || url.password || url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1','localhost'].includes(url.hostname))) throw Error('Invalid recovery service address.');
+  return {endpoint:value.endpoint, room:value.room, secret:value.secret, expires:value.expires};
+}
 function pairingIdentity(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid pairing identity.');
   const present = PAIRING_FIELDS.filter(field => Object.hasOwn(value, field));
@@ -21,10 +30,14 @@ export function parsePairing(text, expectedType) {
   if (value?.format !== 'proxy-mobile-capture-v1' || value.type !== expectedType
     || typeof value.sdp !== 'string' || !value.sdp.startsWith('v=0') || value.sdp.length > 120_000
     || !SUPPORTED_GAMES.includes(value.game)) throw new Error(`Expected a ${expectedType} from the other device.`);
-  return { type: value.type, sdp: value.sdp, game: value.game, ...pairingIdentity(value) };
+  const identity = pairingIdentity(value);
+  if (Object.hasOwn(value,'relay') && !identity.sessionId) throw Error('Recovery requires a session identity.');
+  return { type: value.type, sdp: value.sdp, game: value.game, ...identity, ...(Object.hasOwn(value,'relay') ? {relay:parseRelay(value.relay)} : {}) };
 }
 export function pairingMessage(description, game, identity = {}) {
-  return JSON.stringify({ format: 'proxy-mobile-capture-v1', type: description.type, sdp: description.sdp, game, ...pairingIdentity(identity) });
+  const parsedIdentity = pairingIdentity(identity);
+  if (Object.hasOwn(identity,'relay') && !parsedIdentity.sessionId) throw Error('Recovery requires a session identity.');
+  return JSON.stringify({ format: 'proxy-mobile-capture-v1', type: description.type, sdp: description.sdp, game, ...parsedIdentity, ...(Object.hasOwn(identity,'relay') ? {relay:parseRelay(identity.relay)} : {}) });
 }
 export function samePairing(a, b) {
   try {

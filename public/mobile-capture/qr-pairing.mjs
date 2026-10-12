@@ -30,6 +30,7 @@ export async function pairingFrames(message){
  const value=parsePairing(message,input.type);
  const compact=[value.type==='offer'?0:1,value.game,value.sdp];
  if(value.sessionId)compact.push(value.sessionId,value.pairingId,value.attempt);
+ if(value.relay){if(!value.sessionId)throw Error('Recovery requires a session identity.');compact.push(value.relay);}
  const payload=encode45(deflateSync(new TextEncoder().encode(JSON.stringify(compact)),{level:9}));
  if(payload.length>18000)throw new Error('This pairing message needs too many QR frames. Use the pairing file instead.');
  const count=payload.length<=3000?1:Math.min(16,Math.ceil(payload.length/480));
@@ -69,8 +70,8 @@ export class PairingQrReader{
   let message=new TextDecoder('utf8',{fatal:true}).decode(bytes);
   if(version==='PTQR2'){
    const value=JSON.parse(message);
-   if(!Array.isArray(value)||![3,6].includes(value.length)||![0,1].includes(value[0]))throw new Error('Invalid compact pairing message.');
-   message=pairingMessage({type:value[0]===0?'offer':'answer',sdp:value[2]},value[1],value.length===6?{sessionId:value[3],pairingId:value[4],attempt:value[5]}:{});
+   if(!Array.isArray(value)||![3,6,7].includes(value.length)||![0,1].includes(value[0]))throw new Error('Invalid compact pairing message.');
+   message=pairingMessage({type:value[0]===0?'offer':'answer',sdp:value[2]},value[1],value.length>=6?{sessionId:value[3],pairingId:value[4],attempt:value[5],...(value.length===7?{relay:value[6]}:{})}:{});
   }
   parsePairing(message,expectedType);
   return {received:count,total:count,message};

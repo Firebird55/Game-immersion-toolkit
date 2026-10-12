@@ -7,6 +7,9 @@ on:
       - 'scripts/build-mobile-preview.mjs'
       - 'scripts/serve-mobile-capture.mjs'
       - 'scripts/mobile-capture-e2e.mjs'
+      - 'scripts/mobile-recovery-e2e.mjs'
+      - 'services/pairing/**'
+      - 'tests/mobile-recovery.test.mjs'
       - 'scripts/mobile-library-e2e.mjs'
       - 'scripts/mobile-update-e2e.mjs'
       - 'scripts/mobile-layout-e2e.mjs'
@@ -38,7 +41,7 @@ jobs:
       - name: Install locked browser and OCR dependencies
         run: npm ci --ignore-scripts
       - name: Check capture and library logic
-        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs
+        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -52,6 +55,10 @@ jobs:
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/mobile-capture-e2e.mjs
+      - name: Check automatic recovery against a local Cloudflare runtime
+        env:
+          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
+        run: node scripts/mobile-recovery-e2e.mjs
       - name: Check private file reading, OCR and original-voice playback in three engines
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}

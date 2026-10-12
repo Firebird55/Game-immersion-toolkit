@@ -19,7 +19,9 @@
     "lexirise:watch": "node scripts/lexirise-watch.mjs",
     "mobile:build": "node scripts/build-mobile-preview.mjs",
     "mobile:dev": "node scripts/serve-mobile-capture.mjs --local",
-    "mobile:check": "node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs && node scripts/mobile-capture-e2e.mjs && node scripts/mobile-library-e2e.mjs && node scripts/mobile-update-e2e.mjs && node scripts/mobile-layout-e2e.mjs",
+    "pairing:dev": "wrangler dev --config services/pairing/wrangler.jsonc --local",
+    "pairing:deploy": "wrangler deploy --config services/pairing/wrangler.jsonc",
+    "mobile:check": "node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs && node scripts/mobile-capture-e2e.mjs && node scripts/mobile-recovery-e2e.mjs && node scripts/mobile-library-e2e.mjs && node scripts/mobile-update-e2e.mjs && node scripts/mobile-layout-e2e.mjs",
     "audit:public": "node scripts/secret-check.mjs --public"
   },
   "dependencies": {

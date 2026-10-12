@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "game-immersion-pairing",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-12",
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": { "ALLOWED_ORIGINS": "https://firebird55.github.io" },
+  "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairingRoom"] }],
+  "ratelimits": [{ "name": "ADMISSION", "namespace_id": "19701", "simple": { "limit": 60, "period": 60 } }],
+  "observability": { "enabled": true, "head_sampling_rate": 0.01, "logs": { "enabled": true, "invocation_logs": false }, "traces": { "enabled": true, "head_sampling_rate": 0.01 } }
+}

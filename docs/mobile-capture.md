@@ -29,7 +29,10 @@ when capture is unavailable.
    and keep the code centred in the camera; the message is accepted automatically.
    Reload both devices before testing the new QR format. The new scanner can
    still read older QR messages.
-5. On the sender, scan the iPhone’s answer QR. Both cameras stop after scanning.
+5. With **Automatically recover the connection when returning** enabled, the
+   answer returns through the recovery service automatically. No second scan is
+   needed. With direct pairing selected, scan the iPhone’s answer QR back on the
+   sender. Both cameras stop after scanning.
    Exceptionally large messages fall back to balanced QR frames changing every
    three seconds. If the scanner reads only some frames, it lists the missing
    numbers: use **Pause QR rotation** and **Next QR** on the displaying device
@@ -45,8 +48,17 @@ uses an explicitly opened library and only verifies supported bilingual matches.
 
 ## Recover a frozen connection
 
-Temporary disconnections can recover on their own. If the phone stays frozen or
-reports a failed connection, keep both pages loaded and use this flow:
+Returning to the page resumes paused playback automatically. With recovery
+enabled, both devices also reconnect to the Cloudflare service and exchange
+fresh offers/answers after a failed connection, with bounded retries. Keep both
+pages loaded: reloading loses the in-memory pairing key and needs a fresh scan.
+The opened library, transcript, favorites and running observation survive
+connection recovery. If screen sharing ended, tap **Resume screen sharing** on
+the sender to grant capture again; the paired phone reconnects automatically.
+The browser cannot grant screen-capture permission without that gesture, force
+a suspended operating-system capture to run, or add capture support to iPad Safari.
+
+If using direct pairing, or if the recovery service is unavailable, use this flow:
 
 1. Return to Safari on iPad. Check **Capture**: if it is **live**, tap
    **Reconnect & create new offer**. This keeps the existing capture permission
@@ -61,13 +73,16 @@ reports a failed connection, keep both pages loaded and use this flow:
    Stop is a new session; Stop the receiving test before accepting that offer.
 4. Download a report on **both** devices after the failure and after recovery.
    Note whether only the connection failed, the capture was muted/ended, or the
-   iPad page returned from the background. If capture ended, start a new screen
-   share; reconnect cannot restore an ended capture.
+   iPad page returned from the background. If capture ended, use **Resume screen
+   sharing**, then exchange its fresh offer and answer for direct pairing.
 
 Reload the latest build on both devices before the next test. Answers from older
 preview builds do not carry the new pairing identity and cannot complete a new
-sender's offer. Pairing remains direct and manual, without a hosted signaling
-service, STUN or TURN relay. Frames stay on the local connection.
+sender's offer. Video remains on the direct local connection, without STUN or
+TURN media relays. The optional Cloudflare service exchanges encrypted connection
+details only; it does not receive game video, voices or libraries. Service
+sessions expire after four hours and remain available while the PC is off.
+See [operating the recovery service](mobile-recovery-service.md).
 
 ## Optional PC streaming check
 

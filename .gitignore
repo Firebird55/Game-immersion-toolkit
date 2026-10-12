@@ -67,6 +67,7 @@ yarn-error.log*
 next-env.d.ts
 /dist/
 /.wrangler/
+**/.wrangler/
 /outputs/
 /output/
 /work/

@@ -41,6 +41,14 @@ Follow [the transfer and device-test instructions](mobile-library.md).
 
 ## Private recorded footage
 
+Automatic recovery is tested against an isolated local Cloudflare Workers runtime.
+Chromium/Firefox exercise one-way offer transfer, failed WebRTC links, returning
+from a hidden page and restarting ended capture with a fresh permission gesture.
+WebKit exercises encrypted signaling and socket reconnects. These checks retain
+the running observation; direct-pairing checks retain the catalog, transcripts
+and favorites. Physical iPhone background capture/recovery still requires a
+device report and is not established by this automation.
+
 The latest results combine the full replay with targeted reruns after correcting
 response-menu word bounds and light Honkai panels. There are 27 annotated clips,
 each resized/padded to 1280×720 and 1920×1080. **35 of 54 cases pass all their

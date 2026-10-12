@@ -34,6 +34,7 @@ jobs:
       - run: node scripts/browser-e2e.mjs
       - run: node scripts/setup-e2e.mjs
       - run: node scripts/mobile-capture-e2e.mjs
+      - run: node scripts/mobile-recovery-e2e.mjs
       - run: npm run audit:public
       - name: Validate and package release artifacts
         run: node scripts/package-release.mjs
