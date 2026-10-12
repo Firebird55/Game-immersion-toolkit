@@ -313,3 +313,31 @@ def extract_voice(install: Path, audio: dict, _executable: Path, _destination: P
     if data[:4] != b"RIFF":
         raise ValueError("Honkai original voice is not a supported WEM")
     return data
+
+
+def extract_voices(install: Path, audios: list[dict], _executable: Path, _destination: Path) -> list[bytes]:
+    allowed = {p.resolve() for p in packages(install)}
+    tables, decoded_banks, result = {}, {}, []
+    for audio in audios:
+        path = (install / audio.get('package', '')).resolve()
+        if not path.is_relative_to(install.resolve()) or path not in allowed:
+            raise ValueError('Invalid Honkai original voice package')
+        if path not in tables:
+            tables[path] = package_tables(path)
+        languages, banks, sounds = tables[path]
+        bank, language, event, media = (audio[name] for name in ('bank', 'language', 'event', 'media'))
+        if languages.get(language) != MANDARIN:
+            raise ValueError('Honkai voice language is not verified Mandarin')
+        entry = banks[(bank, language)]
+        key = (path, bank, language)
+        if key not in decoded_banks:
+            decoded_banks[key] = bank_sources(read_entry(path, entry), bank)
+        events, embedded = decoded_banks[key]
+        if events.get(event) != media:
+            raise ValueError('Honkai voice mapping changed; refresh game data')
+        target = PackageEntry(entry.offset + embedded[media].offset, embedded[media].size) if media in embedded else sounds[(media, language)]
+        data = read_entry(path, target)
+        if data[:4] != b'RIFF':
+            raise ValueError('Honkai original voice is not a supported WEM')
+        result.append(data)
+    return result

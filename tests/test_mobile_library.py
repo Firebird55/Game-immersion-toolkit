@@ -211,3 +211,69 @@ def test_export_moves_only_its_owned_decoded_files_into_verified_cache(tmp_path)
     export_library('zzz', records, output, voice=voice, workers=2)
     assert not list(decoded.glob('*.mp3'))
     assert len(list((output / 'cache').glob('*.mp3'))) == 2
+
+
+def test_batched_export_preserves_variants_deduplication_and_partial_cache(tmp_path):
+    records, scalar = parallel_fixture(tmp_path, 21)
+    records[0]['playerVoice'] = 'female'
+    records[1]['playerVoice'] = 'male'
+    records.append(dict(records[0], textId='fixture:alias'))
+    expected = export_library('zzz', records, tmp_path / 'scalar', voice=scalar, workers=4)
+    output = tmp_path / 'batch'
+    export_library('zzz', records[:3], output, voice=scalar)
+    decoded, batches = [], []
+    def voice(row, number):
+        raise AssertionError('Batch-capable source must use its verified batch path')
+    def batch(requests):
+        batches.append(len(requests))
+        decoded.extend(number for row, number in requests)
+        return [scalar(row, number) for row, number in requests]
+    voice.batch = batch
+    actual = export_library('zzz', records, output, voice=voice, workers=4)
+    assert sorted(decoded) == list(range(3, 21))
+    assert all(1 <= size <= 8 for size in batches)
+    a, b = Path(expected['folder']), Path(actual['folder'])
+    assert a.name == b.name
+    assert {p.name: p.read_bytes() for p in a.glob('*.zip')} == {p.name: p.read_bytes() for p in b.glob('*.zip')}
+    decoded.clear()
+    export_library('zzz', records, output, voice=voice, workers=4)
+    assert not decoded
+
+
+@pytest.mark.parametrize('failure', ['incomplete', 'decoder', 'cancel', 'changed'])
+def test_batch_failures_never_replace_valid_export_and_resume_from_completed_clips(tmp_path, failure):
+    output = tmp_path / 'batch'
+    export_library('zzz', rows(), output, include_audio=False)
+    before = (output / 'latest.json').read_bytes()
+    records, scalar = parallel_fixture(tmp_path, 21)
+    cancel, changed = threading.Event(), threading.Event()
+    def voice(row, number):
+        return scalar(row, number)
+    def batch(requests):
+        result = [scalar(row, number) for row, number in requests]
+        if failure == 'incomplete':
+            return result[:-1]
+        if failure == 'decoder':
+            raise ValueError('fixture decoder failure')
+        if failure == 'changed':
+            changed.set()
+        return result
+    voice.batch = batch
+    def progress(_):
+        if failure == 'cancel':
+            cancel.set()
+    def check():
+        if changed.is_set():
+            raise ValueError('game changed')
+    with pytest.raises(ExportCancelled if failure == 'cancel' else ValueError):
+        export_library('zzz', records, output, voice=voice, workers=2, cancel=cancel, check=check, progress=progress)
+    assert (output / 'latest.json').read_bytes() == before
+    completed = len(list((output / 'cache').glob('*.json')))
+    calls = []
+    def resume(requests):
+        calls.extend(requests)
+        return [scalar(row, number) for row, number in requests]
+    voice.batch = resume
+    result = export_library('zzz', records, output, voice=voice, workers=2)
+    assert len(calls) == 21 - completed
+    assert result['coverage']['exportedVoices'] == 21

@@ -293,7 +293,7 @@ class VoiceAssetService:
     def close(self) -> None:
         self._executor.shutdown(wait=True)
 
-    def extract(self, text_id: str, line_id: int, english: str | None = None) -> str:
+    def _read_voice(self, text_id: str, english: str | None = None) -> tuple[dict, bytes]:
         entry_key = self._entry_key(text_id, english)
         if entry_key is None:
             raise KeyError(text_id)
@@ -312,6 +312,10 @@ class VoiceAssetService:
             raise ValueError("Learned voice asset checksum mismatch")
         if path.stat().st_mtime_ns != stat.st_mtime_ns:
             raise ValueError("Audio package changed during reading")
+        return item, data
+
+    def extract(self, text_id: str, line_id: int, english: str | None = None) -> str:
+        item, data = self._read_voice(text_id, english)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         filename = f"official-{line_id}-{item['file_id']}.mp3"
         destination = self.output_dir / filename
@@ -329,6 +333,39 @@ class VoiceAssetService:
                 raise ValueError("Empty decoded voice")
             mp3.replace(destination)
         return filename
+
+    def extract_batch(self, requests: list[tuple[str, int, str | None]]) -> list[str]:
+        """Amortize decoder launches without concatenating distinct performances."""
+        if not 1 <= len(requests) <= 8:
+            raise ValueError("Voice batches must contain one to eight clips")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="voice-batch-", dir=self.output_dir) as scratch_value:
+            scratch = Path(scratch_value)
+            inputs, outputs, filenames = [], [], []
+            for index, (text_id, line_id, english) in enumerate(requests):
+                item, data = self._read_voice(text_id, english)
+                wem = scratch / f"{index}.wem"
+                wem.write_bytes(data)
+                inputs.append(wem)
+                outputs.append(scratch / f"{index}.mp3")
+                filenames.append(f"official-{line_id}-{item['file_id']}.mp3")
+            options = {"check": True, "capture_output": True, "timeout": 20 * len(requests),
+                       "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+            # Vgmstream accepts several inputs and writes <input>.wav for each.
+            subprocess.run([str(self.decoder), *map(str, inputs)], **options)
+            command = [ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-nostdin",
+                       "-filter_threads", "1", "-filter_complex_threads", "1"]
+            for wem in inputs:
+                command += ["-i", str(wem) + ".wav"]
+            for index, mp3 in enumerate(outputs):
+                command += ["-map", f"{index}:a:0", "-codec:a", "libmp3lame", "-q:a", "2",
+                            "-threads", "1", str(mp3)]
+            subprocess.run(command, **options)
+            if any(not mp3.is_file() or mp3.stat().st_size < 100 for mp3 in outputs):
+                raise ValueError("Empty or missing decoded batch voice")
+            for mp3, filename in zip(outputs, filenames):
+                mp3.replace(self.output_dir / filename)
+        return filenames
 
     def schedule(
         self, text_id: str, line_id: int,

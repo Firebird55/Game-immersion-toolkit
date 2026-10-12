@@ -182,3 +182,31 @@ def extract_voice(install: Path, audio: dict, executable: Path, destination: Pat
     if not path.resolve().is_relative_to(destination.resolve()) or not path.is_file():
         raise FileNotFoundError("Mandarin voice was not found in the installed archive")
     return path.read_bytes()
+
+
+def extract_voices(install: Path, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
+    allowed = {p.resolve() for p in archive_sources(install)}
+    groups, bindings = {}, []
+    for audio in audios:
+        archive = (install / audio['archive']).resolve()
+        depot = audio['depot']
+        if not archive.is_relative_to(install.resolve()) or archive not in allowed or 'voice' not in archive.name:
+            raise ValueError('Original voice archive is unavailable')
+        if not depot.casefold().endswith('.wem') or '..' in depot or ':' in depot or PureWindowsPath(depot).root:
+            raise ValueError('Invalid original voice resource')
+        groups.setdefault(archive, []).append(depot)
+        bindings.append((archive, depot))
+    directories = {}
+    for number, (archive, depots) in enumerate(groups.items()):
+        directory = destination / str(number); directory.mkdir(parents=True, exist_ok=True)
+        directories[archive] = directory
+        pattern = '^(?:' + '|'.join(re.escape(p) for p in dict.fromkeys(depots)) + ')$'
+        run_wolvenkit(executable, 'unbundle', archive, '-o', directory, '-r', pattern, '-v', 'quiet')
+    result = []
+    for archive, depot in bindings:
+        directory = directories[archive]
+        path = directory / depot.replace('\\', '/')
+        if not path.resolve().is_relative_to(directory.resolve()) or not path.is_file():
+            raise FileNotFoundError('Mandarin voice is missing from the installed archive')
+        result.append(path.read_bytes())
+    return result

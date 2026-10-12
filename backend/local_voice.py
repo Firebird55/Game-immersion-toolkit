@@ -101,5 +101,71 @@ class LocalVoiceAssetService:
         self._executor.submit(work)
         return True
 
+    def extract_batch(self, requests) -> list[str]:
+        if not 1 <= len(requests) <= 8:
+            raise ValueError('Voice batches must contain one to eight clips')
+        with self._lock:
+            audios = [dict(self._entries[text_id]) for text_id, number, english in requests]
+            install, stamp = self._install, self._fingerprint
+        if install is None or self._adapter.fingerprint(install) != stamp:
+            raise ValueError('Game files changed; refresh the original voice index')
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        filenames = [f"official-{self.game}-{number}-{hashlib.sha256(f'{stamp}\0{text_id}'.encode()).hexdigest()[:16]}.mp3"
+                     for text_id, number, english in requests]
+        with tempfile.TemporaryDirectory(prefix=f'{self.game}-batch-', dir=self.output_dir) as value:
+            scratch = Path(value)
+            extractor = self.data_dir / 'tools' / self._extractor
+            source_ids, originals, indexes = {}, [], []
+            for audio in audios:
+                source = json.dumps({k: v for k, v in audio.items() if k not in {'start_ms', 'end_ms', 'gain_db'}}, sort_keys=True)
+                if source not in source_ids:
+                    source_ids[source] = len(originals); originals.append(audio)
+                indexes.append(source_ids[source])
+            bulk = getattr(self._adapter, 'extract_voices', None)
+            if bulk:
+                payloads = bulk(install, originals, extractor, scratch)
+            else:
+                payloads = []
+                for index, audio in enumerate(originals):
+                    directory = scratch / str(index); directory.mkdir()
+                    payloads.append(self._adapter.extract_voice(install, audio, extractor, directory))
+            if len(payloads) != len(originals):
+                raise ValueError('Original voice extraction returned incomplete bindings')
+            inputs = []
+            for index, data in enumerate(payloads):
+                wem = scratch / f'{index}.wem'; wem.write_bytes(data); inputs.append(wem)
+            del payloads
+            options = {'check': True, 'capture_output': True, 'timeout': 90 * len(requests),
+                       'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0)}
+            subprocess.run([str(self.decoder), '-i', *map(str, inputs)], **options)
+            command = [str(ffmpeg_executable()), '-hide_banner', '-loglevel', 'error', '-nostdin',
+                       '-filter_threads', '1', '-filter_complex_threads', '1']
+            for wem in inputs:
+                command += ['-i', str(wem) + '.wav']
+            outputs = []
+            for index, (source_index, audio) in enumerate(zip(indexes, audios)):
+                wem = inputs[source_index]
+                trim = []
+                if 'start_ms' in audio or 'end_ms' in audio:
+                    start, end = audio.get('start_ms'), audio.get('end_ms')
+                    with wave.open(str(wem) + '.wav') as stream:
+                        duration = stream.getnframes() / stream.getframerate() * 1000
+                    if type(start) is not int or type(end) is not int or not 0 <= start < end <= duration + 1:
+                        raise ValueError('Original movie voice timing is outside its source; refresh game data')
+                    gain = audio.get('gain_db', 0)
+                    if not isinstance(gain, (int, float)) or not math.isfinite(gain) or not -60 <= gain <= 24:
+                        raise ValueError('Invalid original movie voice gain')
+                    trim = ['-ss', str(start/1000), '-t', str((end-start)/1000), '-af', f'volume={gain:.6f}dB']
+                mp3 = scratch / f'{index}.mp3'; outputs.append(mp3)
+                command += ['-map', f'{source_index}:a:0', *trim, '-codec:a', 'libmp3lame', '-q:a', '2', '-threads', '1', str(mp3)]
+            subprocess.run(command, **options)
+            if any(not p.is_file() or p.stat().st_size < 100 for p in outputs):
+                raise ValueError('Original voice batch decoded to an empty clip')
+            if self._adapter.fingerprint(install) != stamp:
+                raise ValueError('Game files changed during voice extraction')
+            for mp3, filename in zip(outputs, filenames):
+                mp3.replace(self.output_dir / filename)
+        return filenames
+
     def close(self):
         self._executor.shutdown(wait=False, cancel_futures=True)

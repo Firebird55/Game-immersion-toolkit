@@ -165,3 +165,50 @@ def test_fingerprint_learned_alias_survives_restart(tmp_path):
         assert len(saved["sha256"]) == 64
     finally:
         restored.close()
+
+
+@pytest.mark.parametrize('empty', [False, True])
+def test_batch_keeps_exact_player_variants_and_never_publishes_incomplete_audio(tmp_path, monkeypatch, empty):
+    from backend import voice_assets as module
+    path = tmp_path / 'fixture.pck'
+    path.write_bytes(bytes(64) + b'RIFFfirstwav' + b'RIFFotherwav')
+    stat = path.stat()
+    entries = {}
+    for offset, text, number in [(64, 'First performance.', 123), (76, 'Other performance.', 124)]:
+        entries[voice_manifest_key('shared-id', text)] = {'package': str(path), 'offset': offset, 'size': 12,
+            'file_id': f'{number:016x}', 'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
+    manifest = tmp_path / 'manifest.json'
+    manifest.write_text(json.dumps({'version': 1, 'entries': entries}))
+    service = VoiceAssetService(manifest, tmp_path / 'decoder.exe', tmp_path / 'out')
+    calls = []
+    def run(command, **options):
+        calls.append(command)
+        if command[0] == str(service.decoder):
+            for source in command[1:]:
+                Path(source + '.wav').write_bytes(Path(source).read_bytes())
+        else:
+            inputs = [Path(command[i + 1]) for i, arg in enumerate(command) if arg == '-i']
+            outputs = [Path(arg) for arg in command if str(arg).endswith('.mp3')]
+            for index, (source, output) in enumerate(zip(inputs, outputs)):
+                output.write_bytes(b'' if empty and index == 1 else b'ID3' + source.read_bytes() * 20)
+    monkeypatch.setattr(module.subprocess, 'run', run)
+    monkeypatch.setattr(module, 'ffmpeg_executable', lambda: 'fixture-ffmpeg')
+    try:
+        requests = [('shared-id', 1, 'First performance.'), ('shared-id', 2, 'Other performance.')]
+        if empty:
+            with pytest.raises(ValueError, match='Empty or missing'):
+                service.extract_batch(requests)
+            assert not list(service.output_dir.glob('*.mp3'))
+        else:
+            filenames = service.extract_batch(requests)
+            assert filenames == ['official-1-000000000000007b.mp3', 'official-2-000000000000007c.mp3']
+            assert (service.output_dir / filenames[0]).read_bytes() != (service.output_dir / filenames[1]).read_bytes()
+        assert len(calls) == 2
+        # Stale packages must fail before launching either decoder.
+        calls.clear()
+        path.write_bytes(path.read_bytes() + b'changed')
+        with pytest.raises(ValueError, match='changed'):
+            service.extract_batch(requests)
+        assert not calls
+    finally:
+        service.close()

@@ -13,7 +13,7 @@ internal static class NteReader
         Console.SetError(TextWriter.Null);
         try
         {
-            if (args.Length != 4 || args[0] is not ("index" or "voice")) throw new ArgumentException();
+            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices")) throw new ArgumentException();
             var install = Path.GetFullPath(args[1]);
             var tools = Path.GetFullPath(args[2]);
             var destination = Path.GetFullPath(args[3]);
@@ -42,16 +42,23 @@ internal static class NteReader
                 provider.GetType().GetMethods().Single(m => m.Name == "Mount" && m.GetParameters().Length == 0).Invoke(provider, null);
                 var save = provider.GetType().GetMethod("SaveAsset", [typeof(string)])!;
                 Directory.CreateDirectory(destination);
-                if (args[0] == "voice")
+                if (args[0] is "voice" or "voices")
                 {
-                    var depot = request.RootElement.GetProperty("depot").GetString()!;
+                    var depots = args[0] == "voice" ? new[] { request.RootElement.GetProperty("depot").GetString()! }
+                        : request.RootElement.GetProperty("depots").EnumerateArray().Select(x => x.GetString()!).ToArray();
+                    if (depots.Length is < 1 or > 8) throw new ArgumentException();
                     const string prefix = "HT/Content/WwiseAudio/Media/Chinese/";
+                    foreach (var depot in depots)
                     if (!depot.StartsWith(prefix, StringComparison.Ordinal) || !depot.EndsWith(".wem") ||
                         !depot[prefix.Length..^4].All(char.IsAsciiDigit) || depot.Length <= prefix.Length + 4)
                         throw new ArgumentException();
+                    for (int i = 0; i < depots.Length; i++)
+                    {
+                    var depot = depots[i];
                     var bytes = (byte[])save.Invoke(provider, [depot])!;
                     if (bytes.Length < 100 || bytes.Length > 64 * 1024 * 1024) throw new InvalidDataException();
-                    File.WriteAllBytes(Path.Combine(destination, "voice.wem"), bytes);
+                    File.WriteAllBytes(Path.Combine(destination, args[0] == "voice" ? "voice.wem" : $"{i}.wem"), bytes);
+                    }
                 }
                 else
                 {

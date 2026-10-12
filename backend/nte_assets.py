@@ -133,7 +133,7 @@ def _archive_metadata(install: Path, stamp: str) -> str:
     return values[0]
 
 
-def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None) -> None:
+def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None) -> None:
     install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the game installation")
@@ -152,6 +152,8 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
     request = {"archive_metadata": key}
     if depot is not None:
         request["depot"] = depot
+    if depots is not None:
+        request['depots'] = depots
     if cinema_events is not None:
         request['cinema_events'] = cinema_events
     try:
@@ -272,3 +274,14 @@ def extract_voice(install: Path, audio: dict, executable: Path, destination: Pat
     if data[:4] != b"RIFF":
         raise ValueError("NTE voice is not a supported original WEM")
     return data
+
+
+def extract_voices(install: Path, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
+    depots = [audio.get('depot', '') for audio in audios]
+    if not 1 <= len(depots) <= 8 or any(not re.fullmatch(re.escape(MEDIA_ROOT) + r'\d+\.wem', p) for p in depots):
+        raise ValueError('Invalid NTE Mandarin source reference')
+    run_reader(install, executable, destination, 'voices', depots=depots)
+    result = [(destination / f'{i}.wem').read_bytes() for i in range(len(depots))]
+    if any(data[:4] != b'RIFF' for data in result):
+        raise ValueError('NTE voice is not a supported original WEM')
+    return result

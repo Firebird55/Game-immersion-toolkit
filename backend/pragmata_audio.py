@@ -439,37 +439,57 @@ class PragmataAudioEntry:
         return {int(layer["media_id"]) for layer in self.layers} or {self.media_id}
 
 
-def mix_voice_layers(entry: PragmataAudioEntry, waves: dict[int, Path], destination: Path) -> None:
-    """Render fixed simultaneous layers; never choose/mix random alternatives."""
-    command = [ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-nostdin"]
+def _voice_mix(entry, waves, offset=0, prefix=''):
+    paths, filters, ends = [], [], []
     layers = entry.layers or ({"media_id": entry.media_id},)
-    filters, ends = [], []
     for index, layer in enumerate(layers):
         media_id = int(layer["media_id"])
-        path = waves[media_id]
+        path = waves[media_id]; paths.append(path)
         delay = max(0.0, float(layer.get("delay_seconds", 0)))
         gain = float(layer.get("gain_db", 0))
-        command.extend(["-i", str(path)])
-        filters.append(
-            f"[{index}:a]aformat=channel_layouts=stereo,volume={gain:.6f}dB,"
-            f"adelay={delay * 1000:.3f}:all=1[a{index}]"
-        )
+        filters.append(f"[{offset+index}:a]aformat=channel_layouts=stereo,volume={gain:.6f}dB,"
+                       f"adelay={delay * 1000:.3f}:all=1[{prefix}a{index}]")
         if media_id in entry.duration_media_ids:
             with wave.open(str(path)) as stream:
                 ends.append(delay + stream.getnframes() / stream.getframerate())
-    inputs = "".join(f"[a{i}]" for i in range(len(layers)))
-    filters.append(f"{inputs}amix=inputs={len(layers)}:normalize=0:dropout_transition=0[mix]")
-    tail = "[mix]"
+    inputs = "".join(f"[{prefix}a{i}]" for i in range(len(layers)))
+    filters.append(f"{inputs}amix=inputs={len(layers)}:normalize=0:dropout_transition=0[{prefix}mix]")
+    tail = f"[{prefix}mix]"
     if entry.start_seconds is not None and entry.end_seconds is not None:
         start = max(0.0, entry.start_seconds - 0.08)
         tail += f"atrim=start={start:.4f}:end={entry.end_seconds + 0.25:.4f},asetpts=PTS-STARTPTS,"
     elif ends:
         tail += f"atrim=end={max(ends):.4f},"
-    filters.append(tail + "alimiter=limit=0.95:level=0:latency=1[out]")
-    command.extend(["-filter_complex", ";".join(filters), "-map", "[out]", "-ac", "2",
-                    "-codec:a", "libmp3lame", "-q:a", "2", str(destination)])
+    filters.append(tail + f"alimiter=limit=0.95:level=0:latency=1[{prefix}out]")
+    return paths, filters, f"[{prefix}out]"
+
+
+def mix_voice_layers(entry: PragmataAudioEntry, waves: dict[int, Path], destination: Path) -> None:
+    """Render fixed simultaneous layers; never choose/mix random alternatives."""
+    paths, filters, label = _voice_mix(entry, waves)
+    command = [ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-nostdin"]
+    for path in paths:
+        command += ['-i', str(path)]
+    command += ['-filter_complex', ';'.join(filters), '-map', label, '-ac', '2',
+                '-codec:a', 'libmp3lame', '-q:a', '2', str(destination)]
     subprocess.run(command, check=True, capture_output=True, timeout=90,
                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def mix_voice_batches(requests):
+    command = [ffmpeg_executable(), '-hide_banner', '-loglevel', 'error', '-nostdin',
+               '-filter_threads', '1', '-filter_complex_threads', '1']
+    filters, outputs, offset = [], [], 0
+    for number, (entry, waves, destination) in enumerate(requests):
+        paths, clip_filters, label = _voice_mix(entry, waves, offset, f'clip{number}_')
+        for path in paths:
+            command += ['-i', str(path)]
+        filters.extend(clip_filters); offset += len(paths)
+        outputs += ['-map', label, '-ac', '2', '-codec:a', 'libmp3lame', '-q:a', '2',
+                    '-threads', '1', str(destination)]
+    command += ['-filter_complex', ';'.join(filters), *outputs]
+    subprocess.run(command, check=True, capture_output=True, timeout=90 * len(requests),
+                   creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
 
 
 class PragmataVoiceAssetService:
@@ -662,6 +682,38 @@ class PragmataVoiceAssetService:
 
         self._executor.submit(work)
         return True
+
+    def extract_batch(self, requests) -> list[str]:
+        if not 1 <= len(requests) <= 8:
+            raise ValueError('Voice batches must contain one to eight clips')
+        with self._lock:
+            entries = [self._entries[text_id] for text_id, number, english in requests]
+        if sum(len(entry.media_ids) for entry in entries) > 64:
+            return [self.extract(*request) for request in requests]
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        filenames = [f'official-pragmata-{number}-{entry.media_id}.mp3' for entry, (text_id, number, english) in zip(entries, requests)]
+        with tempfile.TemporaryDirectory(prefix='pragmata-batch-', dir=self.output_dir) as value:
+            scratch = Path(value)
+            sources, clips = {}, []
+            for number, entry in enumerate(entries):
+                package = self._package(entry)
+                waves = {}
+                for media_id in sorted(entry.media_ids):
+                    key = (package, media_id)
+                    if key not in sources:
+                        wem = scratch / f'{len(sources)}.wem'
+                        wem.write_bytes(read_pck_media(package, media_id))
+                        sources[key] = wem
+                    waves[media_id] = Path(str(sources[key]) + '.wav')
+                clips.append((entry, waves, scratch / f'{number}.mp3'))
+            subprocess.run([str(self.decoder), *map(str, sources.values())], check=True, capture_output=True,
+                           timeout=90 * len(requests), creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            mix_voice_batches(clips)
+            if any(not path.is_file() or path.stat().st_size < 100 for entry, waves, path in clips):
+                raise ValueError('Empty decoded PRAGMATA batch voice')
+            for (entry, waves, path), filename in zip(clips, filenames):
+                path.replace(self.output_dir / filename)
+        return filenames
 
     def close(self) -> None:
         self._executor.shutdown(wait=True)

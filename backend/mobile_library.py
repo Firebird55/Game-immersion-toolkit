@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+from itertools import islice
 import json
 import os
 from pathlib import Path
@@ -95,9 +96,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         if len(rows) > ROW_LIMIT:
             raise ValueError("Catalog exceeds the mobile row limit")
 
-    def convert(source, original, number):
-        if cancel.is_set():
-            raise ExportCancelled()
+    def cached_voice(source):
         cached = cache / (source + ".mp3")
         signature = cache / (source + ".json")
         if cached.is_file() and signature.is_file():
@@ -107,9 +106,12 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
                     return cached, sha
             except (OSError, ValueError, KeyError):
                 pass
-        if voice is None:
-            raise ValueError("Prepare original voice tools before exporting")
-        produced = Path(voice(original, number))
+        return None
+
+    def publish_voice(source, produced):
+        cached = cache / (source + ".mp3")
+        signature = cache / (source + ".json")
+        produced = Path(produced)
         temporary = cached.with_suffix(".pending")
         # Export-owned decoded files can move into cache instead of keeping two
         # copies. Other callers may supply reusable inputs, so retain those.
@@ -124,15 +126,42 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         marker.replace(signature)
         return cached, sha
 
+    batch_voice = getattr(voice, 'batch', None)
+    batch_size = 8 if callable(batch_voice) else 1
+    def convert(group):
+        if cancel.is_set():
+            raise ExportCancelled()
+        results, missing = {}, []
+        for source, original in group:
+            cached = cached_voice(source)
+            if cached:
+                results[source] = cached
+            else:
+                missing.append((source, original))
+        if missing:
+            if voice is None:
+                raise ValueError("Prepare original voice tools before exporting")
+            if cancel.is_set():
+                raise ExportCancelled()
+            if callable(batch_voice):
+                produced = batch_voice([original for source, original in missing])
+            else:
+                produced = [voice(*missing[0][1])]
+            if len(produced) != len(missing):
+                raise ValueError("Original voice batch returned incomplete bindings")
+            for (source, original), path in zip(missing, produced):
+                results[source] = publish_voice(source, path)
+        return results
+
     audio_bytes, done = 0, len(rows) - sum(source_rows.values())
-    jobs = iter(sources.items())
+    batch_key = getattr(voice, 'batch_key', None)
+    jobs = iter(sorted(sources.items(), key=lambda item: batch_key(item[1][0])) if callable(batch_key) else sources.items())
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mobile-export") as pool:
         pending = {}
         def submit():
-            item = next(jobs, None)
-            if item is not None:
-                source, (original, number) = item
-                pending[pool.submit(convert, source, original, number)] = source
+            group = list(islice(jobs, batch_size))
+            if group:
+                pending[pool.submit(convert, group)] = group
         try:
             for _ in range(min(workers, len(sources))):
                 submit()
@@ -141,17 +170,19 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
                 completed, _ = wait(pending, timeout=.2, return_when=FIRST_COMPLETED)
                 results = {future: future.result() for future in completed}
                 for future in completed:
-                    source = pending.pop(future)
-                    path, sha = results[future]
-                    source_cache[source] = sha
-                    if sha not in clips:
-                        audio_bytes += path.stat().st_size
-                    clips[sha] = path
-                    done += source_rows[source]
-                    progress({"state": "exporting", "progress": int(done/max(1, len(rows))*85),
-                              "done": done, "total": len(rows), "audioBytes": audio_bytes,
-                              "estimatedAudioBytes": round(audio_bytes * len(sources) / len(source_cache)),
-                              "workers": workers, "message": f"Preparing verified voices · {workers} parallel conversions"})
+                    pending.pop(future)
+                    for source, (path, sha) in results[future].items():
+                        source_cache[source] = sha
+                        if sha not in clips:
+                            audio_bytes += path.stat().st_size
+                        clips[sha] = path
+                        done += source_rows[source]
+                        progress({"state": "exporting", "progress": int(done/max(1, len(rows))*85),
+                                  "done": done, "total": len(rows), "audioBytes": audio_bytes,
+                                  "estimatedAudioBytes": round(audio_bytes * len(sources) / len(source_cache)),
+                                  "workers": workers, "batchSize": batch_size,
+                                  "message": f"Preparing verified voices · {workers} workers, {batch_size} clips per batch"})
+                        guard()
                     guard()
                     submit()
         finally:
@@ -262,7 +293,7 @@ def prepare_source(root, game, decode_dir):
     data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
     watched = {}
     service = None
-    if game == "zzz":
+    if service and hasattr(service, 'extract_batch'):
         from .voice_assets import VoiceAssetService
         index = TextMapIndex(data / "textmaps")
         index.load(prepare_matching=False)
@@ -324,6 +355,9 @@ def prepare_source(root, game, decode_dir):
             source_check = lambda: fingerprint(Path(payload["install"])) == payload["fingerprint"]
         else:
             from .local_voice import LocalVoiceAssetService
+            if game == 'nte':
+                from .nte_assets import ensure_extractor
+                ensure_extractor(data / game / 'tools')
             service = LocalVoiceAssetService(game, data / game, decoder, decode_dir)
             source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
         records = []
@@ -359,6 +393,16 @@ def prepare_source(root, game, decode_dir):
         if not service or not service.has_variant(row["textId"], row["english"]):
             raise ValueError("Original voice tools or exact mapping unavailable; refresh Setup")
         return decode_dir / service.extract(row["textId"], number, row["english"])
+
+    if game == "zzz":
+        def batch(requests):
+            if any(not service.has_variant(row['textId'], row['english']) for row, number in requests):
+                raise ValueError("Original voice tools or exact mapping unavailable; refresh Setup")
+            filenames = service.extract_batch([(row['textId'], number, row['english']) for row, number in requests])
+            return [decode_dir / filename for filename in filenames]
+        voice.batch = batch
+        if game in {'cyberpunk', 'wuwa', 'nte', 'honkai3', 'witcher3'}:
+            voice.batch_key = lambda row: encoded(service._entries[row['textId']]).decode('utf8')
 
     return records, voice, check, service
 

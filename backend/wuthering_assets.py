@@ -9,6 +9,8 @@ from __future__ import annotations
 import gzip
 import hashlib
 import io
+import os
+from bisect import bisect_left
 import json
 import re
 import shutil
@@ -253,3 +255,42 @@ def extract_voice(install: Path, audio: dict, executable: Path, destination: Pat
     if not path.is_relative_to(destination.resolve()) or not path.is_file():
         raise FileNotFoundError("The original Mandarin clip is missing from the installed voice pack")
     return path.read_bytes()
+
+
+@lru_cache(maxsize=2)
+def _voice_inventory(path: Path, size: int, modified: int) -> tuple[str, ...]:
+    values = json.loads(path.read_text(encoding='utf8'))
+    return tuple(sorted(p.casefold() for p in values if p.startswith(EXTERNAL_ROOT + 'zh_') and p.endswith('.wem')))
+
+
+def extract_voices(install: Path, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
+    depots = [audio.get('depot', '') for audio in audios]
+    if any(not p.startswith(EXTERNAL_ROOT + 'zh_') or not p.endswith('.wem') or '..' in p or ':' in p for p in depots):
+        raise ValueError('Invalid Mandarin voice reference')
+    inventory_path = executable.parent.parent / 'index-cache' / fingerprint(install)[:16] / 'complete.json'
+    try:
+        stat = inventory_path.stat()
+        inventory = _voice_inventory(inventory_path, stat.st_size, stat.st_mtime_ns)
+    except (OSError, ValueError, TypeError):
+        inventory = ()
+    locations = {}
+    def extract(group, number):
+        # The pinned reader supports substring filters. Use a shared prefix only
+        # when the indexed inventory proves it selects at most 16 source WEMs.
+        prefix = os.path.commonprefix(group)
+        low = bisect_left(inventory, prefix.casefold())
+        high = bisect_left(inventory, prefix.casefold() + '\uffff')
+        bounded = inventory and len(prefix) > len(EXTERNAL_ROOT + 'zh_') and 0 < high - low <= 16
+        if len(group) > 1 and not bounded:
+            middle = len(group) // 2
+            extract(group[:middle], number + 'a'); extract(group[middle:], number + 'b')
+            return
+        directory = destination / number; directory.mkdir(parents=True, exist_ok=True)
+        run_extractor(install, executable, directory, prefix if bounded else group[0])
+        for depot in group:
+            path = (directory / depot).resolve()
+            if not path.is_relative_to(directory.resolve()) or not path.is_file():
+                raise FileNotFoundError('Original Mandarin clip is missing from the installed voice pack')
+            locations[depot] = path
+    extract(sorted(set(depots)), 'sources')
+    return [locations[depot].read_bytes() for depot in depots]

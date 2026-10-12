@@ -204,3 +204,23 @@ def extract_voice(install: Path, audio: dict, _executable: Path, _destination: P
     if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
         raise ValueError("Original Witcher speech is unavailable or changed")
     return data
+
+
+def extract_voices(install: Path, audios: list[dict], _executable: Path, _destination: Path) -> list[bytes]:
+    from contextlib import ExitStack
+    streams, result = {}, []
+    with ExitStack() as stack:
+        for audio in audios:
+            path = (install / audio['archive']).resolve()
+            if not path.is_relative_to(install.resolve()) or path.name.casefold() != 'cnpc.w3speech':
+                raise ValueError('Invalid original Witcher Mandarin speech reference')
+            offset, size = int(audio['offset']), int(audio['size'])
+            if offset < 0 or not 44 <= size <= 100 * 1024 * 1024 or offset + size > path.stat().st_size:
+                raise ValueError('Invalid original Witcher speech bounds')
+            if path not in streams:
+                streams[path] = stack.enter_context(path.open('rb'))
+            stream = streams[path]; stream.seek(offset); data = _read(stream, size)
+            if data[:4] != b'RIFF' or data[8:12] != b'WAVE':
+                raise ValueError('Original Witcher speech is unavailable or changed')
+            result.append(data)
+    return result

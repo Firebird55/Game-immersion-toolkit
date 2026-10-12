@@ -55,6 +55,12 @@ writer; Ctrl+C interrupts its current command.
 
 Voice conversion automatically uses up to eight parallel workers, scaled to
 the PC's CPU count. Existing audio quality and cinematic timing are preserved.
+All seven voice-supported games convert up to eight clips per worker batch
+to reduce decoder launches. Archive extraction groups compatible resources,
+including Cyberpunk DLC, and reuses package tables within each batch. Wuthering
+uses shared prefixes only when its installed inventory bounds the extraction.
+Each clip keeps its verified binding, player variant and cinematic timing;
+PRAGMATA retains its authored layer mix. Hito remains catalog-only.
 The CLI accepts `--workers 1` through `--workers 8` for manual tuning. Use the
 same destination when resuming so verified clips can be reused.
 
