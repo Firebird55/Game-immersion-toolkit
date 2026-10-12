@@ -103,8 +103,9 @@ def test_changed_catalog_reuses_same_voice_pack(tmp_path):
     newer = rows(); newer[0]["english"] = "The lantern shines brightly."
     second = export_library("zzz", newer, tmp_path / "out", voice=voice(tmp_path, calls))
     assert first["folder"] != second["folder"]
-    a = next(Path(first["folder"]).glob("*voices*.zip"))
-    b = next(Path(second["folder"]).glob("*voices*.zip"))
+    archived = tmp_path / 'out/.toolkit-work/previous-libraries' / Path(first['folder']).name
+    a = next(archived.glob("*Voices*.zip"))
+    b = next(Path(second["folder"]).glob("*Voices*.zip"))
     assert a.name == b.name and a.read_bytes() == b.read_bytes()
 
 
@@ -120,10 +121,10 @@ def test_corrupt_completed_pack_is_repaired_from_verified_cache(tmp_path):
     calls = []
     output = tmp_path / "out"
     first = export_library("zzz", rows(), output, voice=voice(tmp_path, calls))
-    pack = next(Path(first["folder"]).glob("*voices*.zip"))
+    pack = next(Path(first["folder"]).glob("*Voices*.zip"))
     pack.write_bytes(b"broken")
     second = export_library("zzz", rows(), output, voice=voice(tmp_path, calls))
-    with zipfile.ZipFile(next(Path(second["folder"]).glob("*voices*.zip"))) as archive:
+    with zipfile.ZipFile(next(Path(second["folder"]).glob("*Voices*.zip"))) as archive:
         assert archive.testzip() is None
     assert len(calls) == 1
     assert list((output / ".toolkit-work").glob("*.invalid-*"))

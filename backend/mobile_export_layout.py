@@ -1,5 +1,6 @@
 """Readable transfer folders, with resumable work kept separately."""
 import json
+import os
 import re
 import zipfile
 from pathlib import Path
@@ -7,10 +8,23 @@ from pathlib import Path
 from .game_paths import GAME_NAMES
 
 
+def hide_work_metadata(path):
+    if os.name == 'nt':
+        import ctypes
+        get = ctypes.windll.kernel32.GetFileAttributesW
+        get.argtypes = [ctypes.c_wchar_p]
+        attributes = get(str(path))
+        if attributes != -1:
+            set_attributes = ctypes.windll.kernel32.SetFileAttributesW
+            set_attributes.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32]
+            set_attributes(str(path), attributes | 2)
+
+
 def work_folder(output):
     output = Path(output)
     work = output / '.toolkit-work'
     work.mkdir(parents=True, exist_ok=True)
+    hide_work_metadata(work)
     for name in ('cache',):
         old, target = output / name, work / name
         if old.is_dir() and not target.exists():
@@ -79,6 +93,7 @@ def organize_completed_export(output, game):
     pointer.write_text(json.dumps({'revision': manifest['revision'], 'folder': destination.name,
                                   'catalog': new_catalog.name, 'coverage': manifest['coverage']}), encoding='utf8')
     pointer.replace(output / 'latest.json')
+    hide_work_metadata(output / 'latest.json')
     write_instructions(output, destination)
     return destination
 
@@ -94,3 +109,24 @@ def write_instructions(output, folder):
         'Choose Receive screen and open the Catalog ZIP plus all matching Voices ZIPs.\n'
         'Keep ZIPs zipped. They may stay on a connected USB drive or in On My iPhone.\n'
         'After reopening, select the voice ZIPs again. No game files are uploaded.\n', encoding='utf8')
+
+
+def archive_previous_exports(output, game, current):
+    output, current = Path(output), Path(current)
+    previous = work_folder(output) / 'previous-libraries'
+    for folder in output.glob(GAME_NAMES[game] + ' - Mobile Library - *'):
+        if folder == current or not folder.is_dir():
+            continue
+        catalog = folder / catalog_name(game)
+        if not catalog.is_file():
+            continue
+        with zipfile.ZipFile(catalog) as archive:
+            manifest = json.loads(archive.read('manifest.json'))
+        if manifest.get('game') != game or folder.name != export_folder_name(game, manifest['revision']):
+            continue
+        target = previous / folder.name
+        if folder.resolve().parent != output.resolve() or not target.resolve().is_relative_to(output.resolve()):
+            raise ValueError('Unsafe previous export location')
+        previous.mkdir(exist_ok=True)
+        if not target.exists():
+            folder.rename(target)

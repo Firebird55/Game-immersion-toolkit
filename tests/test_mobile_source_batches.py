@@ -62,8 +62,8 @@ def test_prepared_sources_enable_verified_batching_for_every_voiced_game(tmp_pat
     records, voice, check, service = prepare_source(tmp_path, game, output/'decoded')
     events = []
     result = export_library(game, records, output, voice=voice, check=check, workers=2, progress=events.append)
-    assert result['coverage']['dialogue'] == 2
-    assert sum(not r.get('sourceVoice') for r in records) == (2 if game == 'hito' else 1)
+    assert result['coverage']['dialogue'] == (2 if game in {'zzz', 'hito'} else 1)
+    assert sum(not r.get('sourceVoice') for r in records) == (2 if game == 'hito' else 1 if game == 'zzz' else 0)
     if game == 'hito':
         assert service is None and not hasattr(voice, 'batch') and result['coverage']['exportedVoices'] == 0
     else:

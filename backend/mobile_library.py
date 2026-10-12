@@ -14,7 +14,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
-from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions
+from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions, archive_previous_exports, hide_work_metadata
 
 FORMAT = "proxy-mobile-library-v1"
 PACK_LIMIT = 512 * 1024 * 1024
@@ -219,7 +219,8 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         packs.append({"id": pack_id, "name": name, "clips": list(index)})
         target = staging / name
         manifest = {"format": FORMAT, "kind": "voices", "game": game, "id": pack_id, "clips": index}
-        previous = next((p for p in output.glob("*/" + name)
+        candidates = [*output.glob("*/" + name), *(work / 'previous-libraries').glob("*/" + name)]
+        previous = next((p for p in candidates
                          if (p.parent / catalog_name(game)).is_file()), None)
         if previous and previous.stat().st_size <= PACK_LIMIT:
             # Verify an existing completed pack before reuse; cache corruption cannot be promoted.
@@ -284,6 +285,13 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     guard()
     getattr(check, "force", check)()
     os.replace(pointer, output / "latest.json")
+    hide_work_metadata(output / 'latest.json')
+    # Tidying is optional once publication succeeded; failures must not turn a
+    # valid completed export into an error or discard the previous library.
+    try:
+        archive_previous_exports(output, game, destination)
+    except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+        pass
     result = {"state": "complete", "progress": 100, "message": "Copy the catalog and voice ZIPs to On My iPhone",
               "folder": str(destination), "coverage": coverage, "bytes": sum(p.stat().st_size for p in destination.glob("*.zip"))}
     progress(result)
@@ -369,6 +377,10 @@ def prepare_source(root, game, decode_dir):
             source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
         records = []
         for item in payload["records"]:
+            # Other adapters retain their verified performance coverage gates.
+            # In particular, unbound Honkai/NTE tables do not verify new scenes.
+            if game != 'hito' and not item.get('audio'):
+                continue
             text_id = str(item.get("text_id", item.get("identity", digest(item))))
             if game == "pragmata" and not text_id.startswith("pragmata:"):
                 text_id = "pragmata:" + text_id
