@@ -1,0 +1,14 @@
+{
+ "$schema":"../../node_modules/wrangler/config-schema.json",
+ "name":"game-immersion-lexirise",
+ "main":"worker.mjs",
+ "compatibility_date":"2026-10-12",
+ "workers_dev":true,
+ "preview_urls":false,
+ "vars":{"ALLOWED_ORIGINS":"https://firebird55.github.io"},
+ "ratelimits":[
+  {"name":"ADMISSION","namespace_id":"19702","simple":{"limit":120,"period":60}},
+  {"name":"ACCOUNT","namespace_id":"19703","simple":{"limit":60,"period":60}}
+ ],
+ "observability":{"enabled":false,"logs":{"enabled":false,"invocation_logs":false},"traces":{"enabled":false}}
+}

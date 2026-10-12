@@ -1,0 +1,11 @@
+{
+ "name":"game-immersion-lexirise-local",
+ "main":"worker.mjs",
+ "compatibility_date":"2026-10-12",
+ "vars":{"ALLOWED_ORIGINS":"http://127.0.0.1:8767,http://localhost:8767"},
+ "ratelimits":[
+  {"name":"ADMISSION","namespace_id":"19702","simple":{"limit":120,"period":60}},
+  {"name":"ACCOUNT","namespace_id":"19703","simple":{"limit":60,"period":60}}
+ ],
+ "observability":{"enabled":false}
+}
