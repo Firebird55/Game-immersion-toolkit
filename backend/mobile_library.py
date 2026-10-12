@@ -293,7 +293,7 @@ def prepare_source(root, game, decode_dir):
     data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
     watched = {}
     service = None
-    if service and hasattr(service, 'extract_batch'):
+    if game == "zzz":
         from .voice_assets import VoiceAssetService
         index = TextMapIndex(data / "textmaps")
         index.load(prepare_matching=False)
@@ -394,7 +394,7 @@ def prepare_source(root, game, decode_dir):
             raise ValueError("Original voice tools or exact mapping unavailable; refresh Setup")
         return decode_dir / service.extract(row["textId"], number, row["english"])
 
-    if game == "zzz":
+    if service and hasattr(service, 'extract_batch'):
         def batch(requests):
             if any(not service.has_variant(row['textId'], row['english']) for row, number in requests):
                 raise ValueError("Original voice tools or exact mapping unavailable; refresh Setup")
