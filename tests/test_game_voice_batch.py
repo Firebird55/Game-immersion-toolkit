@@ -110,11 +110,11 @@ def test_cyberpunk_bulk_extract_separates_dlc_and_base_archives_and_exact_resour
         cyberpunk_assets.extract_voices(tmp_path, [{**audios[0], 'depot': '../one.wem'}], Path(), tmp_path/'out')
 
 
-@pytest.mark.parametrize('broad', [False, True])
-def test_wuthering_shared_prefix_is_used_only_when_installed_inventory_bounds_it(tmp_path, monkeypatch, broad):
+@pytest.mark.parametrize('extras', [0, 1, 27])
+def test_wuthering_shared_prefix_extracts_no_unrequested_voices(tmp_path, monkeypatch, extras):
     root = wuthering_assets.EXTERNAL_ROOT
     depots = [root+'zh_scene_001.wem', root+'zh_scene_002.wem']
-    inventory = depots + ([root+f'zh_scene_00extra_{n:03d}.wem' for n in range(3, 30)] if broad else [])
+    inventory = depots + [root+f'zh_scene_00extra_{n:03d}.wem' for n in range(extras)]
     executable = tmp_path/'tools/reader'
     cache = tmp_path/'index-cache/fixture/complete.json'; cache.parent.mkdir(parents=True); cache.write_text(json.dumps(inventory))
     monkeypatch.setattr(wuthering_assets, 'fingerprint', lambda _: 'fixture')
@@ -127,4 +127,4 @@ def test_wuthering_shared_prefix_is_used_only_when_installed_inventory_bounds_it
     monkeypatch.setattr(wuthering_assets, 'run_extractor', unpack)
     result = wuthering_assets.extract_voices(tmp_path, [{'depot': p} for p in depots], executable, tmp_path/'out')
     assert result == [p.encode() for p in depots]
-    assert len(calls) == (2 if broad else 1)
+    assert len(calls) == (2 if extras else 1)

@@ -276,11 +276,12 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
     locations = {}
     def extract(group, number):
         # The pinned reader supports substring filters. Use a shared prefix only
-        # when the indexed inventory proves it selects at most 16 source WEMs.
+        # when the indexed inventory proves it selects exactly requested WEMs.
         prefix = os.path.commonprefix(group)
         low = bisect_left(inventory, prefix.casefold())
         high = bisect_left(inventory, prefix.casefold() + '\uffff')
-        bounded = inventory and len(prefix) > len(EXTERNAL_ROOT + 'zh_') and 0 < high - low <= 16
+        wanted = {p.casefold() for p in group}
+        bounded = inventory and len(prefix) > len(EXTERNAL_ROOT + 'zh_') and set(inventory[low:high]) == wanted
         if len(group) > 1 and not bounded:
             middle = len(group) // 2
             extract(group[:middle], number + 'a'); extract(group[middle:], number + 'b')
