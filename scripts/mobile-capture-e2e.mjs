@@ -223,8 +223,8 @@ try {
       // Google Drive can add desktop.ini to a local package. It is not one of
       // the copied publication files and is absent on the Linux publisher.
       const names = readdirSync(root).filter(name => name !== 'desktop.ini').sort();
-      assert.equal(names.length, 21, 'Publication contains only the allowlisted application, QR and OCR assets');
-      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|sw\.js|ocr|pairing|(?:capture|core|relay|recovery-config|qr-pairing|qr-ui|style|library|storage|library-worker|mobile-ui|ocr-pipeline|icon|manifest)\.[0-9a-f]{16}\.(?:js|mjs|json|css|svg|png|webmanifest))$/.test(name)));
+      assert.equal(names.length, 22, 'Publication contains only the allowlisted application, QR and OCR assets');
+      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|sw\.js|ocr|pairing|(?:capture|core|relay|recovery-config|qr-pairing|qr-render|qr-ui|style|library|storage|library-worker|mobile-ui|ocr-pipeline|icon|manifest)\.[0-9a-f]{16}\.(?:js|mjs|json|css|svg|png|webmanifest))$/.test(name)));
     }
     for (const [width, height, scale] of [[320, 568, 1], [390, 844, 1], [768, 1024, 1], [1920, 1080, 2]]) {
       await receiver.setViewportSize({ width, height });

@@ -41,6 +41,12 @@ Follow [the transfer and device-test instructions](mobile-library.md).
 
 ## Private recorded footage
 
+QR rendering also checks its generated pixels with the shipped scanner before
+displaying them, choosing another error-correction matrix if needed. Eighty
+owned compressed-payload fixtures exercise varied offer/answer identities. This
+addresses a valid code that the scanner could not recognize in one hosted
+Firefox run; camera focus and physical iPhone reading still need a device test.
+
 Automatic recovery is tested against an isolated local Cloudflare Workers runtime.
 Chromium/Firefox exercise one-way offer transfer, failed WebRTC links, returning
 from a hidden page and restarting ended capture with a fresh permission gesture.

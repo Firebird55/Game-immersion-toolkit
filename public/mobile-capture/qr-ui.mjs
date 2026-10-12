@@ -1,26 +1,24 @@
-import qrcode from './pairing/qrcode.mjs';
 import jsQR from './pairing/jsqr.mjs';
 import {pairingFrames,PairingQrReader,qrScanRegions} from './qr-pairing.mjs';
+import {readableQr} from './qr-render.mjs';
 const $=id=>document.getElementById(id);
 const panel=$('qr-panel'),home=panel.parentNode,anchor=panel.nextSibling,dialog=$('qr-large-dialog');
 const reader=new PairingQrReader(),canvas=document.createElement('canvas'),images=new Map();
-let frames=[],frame=0,paused=false,nextFrameAt=0,displayToken=0,camera=null,scanToken=0,readerRole=null;
+let frames=[],frame=0,paused=false,nextFrameAt=0,displayToken=0,camera=null,scanToken=0,readerRole=null,assisted=false;
 function draw(){
  if(!frames.length)return;
  let image=images.get(frame);
  if(!image){
-  const qr=qrcode(0,frames.length===1?'L':'M');qr.addData(frames[frame],'Alphanumeric');qr.make();
-  const size=qr.getModuleCount(),scale=Math.max(2,Math.floor(960/(size+8)));
-  image=document.createElement('canvas');image.width=image.height=(size+8)*scale;
-  const context=image.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,image.width,image.height);context.fillStyle='#000';
-  for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(qr.isDark(y,x))context.fillRect((x+4)*scale,(y+4)*scale,scale,scale);
+  const verified=readableQr(frames[frame],frames.length===1?'L':'M');
+  image=document.createElement('canvas');image.width=image.height=verified.width;
+  image.getContext('2d').putImageData(new ImageData(verified.pixels,verified.width,verified.width),0,0);
   images.set(frame,image);
   if(images.size>3)images.delete(images.keys().next().value);
  }
  const target=$('pairing-qr');target.width=image.width;target.height=image.height;target.getContext('2d').drawImage(image,0,0);
  target.dataset.frame=String(frame+1);target.dataset.total=String(frames.length);
  const kind=$('role').value==='sender'?'offer':'answer';
- $('qr-description').textContent=`${kind==='offer'?'Step 1: scan this offer on the receiving phone.':'Step 2: scan this answer on the sending device.'} QR ${frame+1} of ${frames.length}${frames.length>1?paused?' · paused':' · changes every 3 seconds':''}.`;
+ $('qr-description').textContent=`${kind==='offer'?assisted?'Scan this offer once on the receiving phone. Its answer returns automatically.':'Step 1: scan this offer on the receiving phone.':assisted?'The answer is sent automatically. This QR is available for manual transfer if needed.':'Step 2: scan this answer on the sending device.'} QR ${frame+1} of ${frames.length}${frames.length>1?paused?' · paused':' · changes every 3 seconds':''}.`;
  $('qr-pause').textContent=paused?'Resume QR rotation':'Pause QR rotation';
  for(const id of ['qr-previous','qr-next','qr-pause'])$(id).disabled=frames.length<2;
  nextFrameAt=Date.now()+3000;
@@ -38,8 +36,8 @@ function stopCamera(){
 window.addEventListener('mobile-pairing-message',async event=>{
  const token=++displayToken;closeLarge();frames=[];images.clear();panel.hidden=true;
  if(!event.detail.message){stopCamera();reader.reset();readerRole=null;return;}
- try{const next=await pairingFrames(event.detail.message);if(token!==displayToken)return;frames=next;frame=0;paused=false;panel.hidden=false;draw();}
- catch(error){if(token===displayToken)$('qr-feedback').textContent=error.message;}
+ try{const next=await pairingFrames(event.detail.message);if(token!==displayToken)return;assisted=Boolean(JSON.parse(event.detail.message).relay);frames=next;frame=0;paused=false;draw();panel.hidden=false;}
+ catch(error){if(token===displayToken){panel.hidden=true;$('qr-feedback').textContent=error.message;}}
 });
 $('role').addEventListener('change',()=>{stopCamera();reader.reset();readerRole=null;});
 $('stop-scan').onclick=()=>{stopCamera();$('qr-feedback').textContent=reader.parts.size?`Scan paused. ${reader.parts.size} of ${reader.count} frames kept; scan again to continue.`:'Camera stopped.';};

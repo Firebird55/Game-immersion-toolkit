@@ -6,8 +6,19 @@ import {pairingFrames,PairingQrReader,encode45,decode45,qrScanRegions} from '../
 import {deflateSync} from 'fflate';
 import {createHash} from 'node:crypto';
 import {pairingMessage} from '../public/mobile-capture/core.mjs';
+import {readableQr} from '../public/mobile-capture/qr-render.mjs';
 const identity={sessionId:'session-0123456789',pairingId:'pairing-0123456789',attempt:2};
 const message=pairingMessage({type:'offer',sdp:'v=0\r\n'+Array.from({length:100},(_,i)=>'a=fixture:'+i.toString(16).padStart(8,'0')).join('\r\n')},'zzz',identity);
+test('displayed QR pixels decode across varied compressed payloads and random-looking identities',async()=>{
+ for(let i=0;i<80;i++){
+  const fixture=createHash('sha256').update('owned-pairing-fixture-'+i).digest('hex');
+  const text=pairingMessage({type:i%2?'answer':'offer',sdp:'v=0\r\n'+Array.from({length:70+i%40},(_,n)=>`a=fixture:${n}:${createHash('sha256').update(fixture+n).digest('hex').slice(0,8)}`).join('\r\n')},'zzz',{sessionId:fixture.slice(0,32),pairingId:fixture.slice(32),attempt:1});
+  for(const frame of await pairingFrames(text)){
+   const image=readableQr(frame),code=jsQR(image.pixels,image.width,image.width,{inversionAttempts:'dontInvert'});
+   assert.equal(code?.data,frame);
+  }
+ }
+});
 test('QR round trip decodes rendered pixels and preserves reconnect identity',async()=>{
  const frames=await pairingFrames(message),reader=new PairingQrReader();let result;
  for(const frame of frames.toReversed()){
