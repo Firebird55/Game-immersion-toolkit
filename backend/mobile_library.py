@@ -316,49 +316,5 @@ def prepare_source(root, game, decode_dir):
     return records, voice, check, service
 
 
-class MobileExportManager:
-    def __init__(self, root):
-        self.root, self._lock, self._cancel = Path(root), threading.Lock(), threading.Event()
-        self._status = {"state": "idle", "progress": 0, "message": "Choose a game to export"}
-        self._thread = None
-
-    def status(self):
-        with self._lock:
-            return dict(self._status)
-
-    def _progress(self, values):
-        with self._lock:
-            self._status.update(values)
-
-    def cancel(self):
-        self._cancel.set()
-
-    def start(self, game, include_audio=True):
-        if game not in GAMES:
-            raise ValueError("Unsupported game")
-        with self._lock:
-            if self._thread and self._thread.is_alive():
-                return False
-            self._cancel = threading.Event()
-            self._status = {"state": "preparing", "game": game, "progress": 0, "message": "Checking local game library"}
-            self._thread = threading.Thread(target=self._run, args=(game, include_audio), daemon=True)
-            self._thread.start()
-        return True
-
-    def _run(self, game, include_audio):
-        service = None
-        try:
-            output = self.root / "output/mobile-libraries" / game
-            decode_dir = output / "decoded"
-            records, voice, check, service = prepare_source(self.root, game, decode_dir)
-            self._progress({"estimatedCatalogBytes": sum(len(encoded(row))+1 for row in records),
-                            "total": len(records), "message": "Catalog estimate ready; voice size is measured as clips decode"})
-            export_library(game, records, output, voice=voice, include_audio=include_audio,
-                           check=check, cancel=self._cancel, progress=self._progress)
-        except ExportCancelled:
-            self._progress({"state": "cancelled", "message": "Export cancelled; completed clips remain for resume"})
-        except Exception:
-            self._progress({"state": "error", "message": "Export failed. Refresh game data, verify original voice tools and free space, then retry."})
-        finally:
-            if service:
-                service.close()
+# Kept here for compatibility with the desktop runtime and existing integrations.
+from .mobile_export_controls import MobileExportManager

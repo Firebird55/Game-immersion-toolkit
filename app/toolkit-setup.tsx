@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Download, FolderOpen, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { MobileLibraryExport, type MobileExportStatus } from './mobile-library-export';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const API = 'http://127.0.0.1:8766';
@@ -17,7 +18,7 @@ type GameSetup = {
   expansion_message?: string; expansion_state?: string;
 };
 type Setup = {
-  mobile_export?: {state:string; game?:string; progress:number; message:string; folder?:string; bytes?:number; estimatedCatalogBytes?:number; estimatedAudioBytes?:number; audioBytes?:number; total?:number; coverage?:{dialogue:number;exportedVoices:number}};
+  mobile_export?: MobileExportStatus;
   completed: boolean; version: string; games: GameSetup[]; auto_start: boolean; free_gb: number | null;
   lexirise_configured: boolean; requirements: { id: string; title: string; ready: boolean; help: string }[];
   jobs: Record<string, { state: string; message: string; progress: number }>;
@@ -36,11 +37,10 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   const [autoStart, setAutoStart] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('');
   const firstLoad = useRef(false), dirty = useRef(false);
-  const [exportVoices, setExportVoices] = useState(true);
   const current = data?.games.find(item => item.id === game);
   const job = data?.jobs[game];
   const preparing = Object.values(data?.jobs ?? {}).some(item => item.state === 'preparing');
-  const nativeBusy = Object.values(data?.native ?? {}).some(Boolean);
+  const nativeBusy = Object.values(data?.native ?? {}).some(Boolean) || !!data?.mobile_export?.browseActive;
   const refresh = useCallback(async () => {
     const response = await fetch(`${API}/api/setup`, { cache: 'no-store' });
     if (!response.ok) throw new Error('Could not load setup. Make sure the companion is running.');
@@ -60,22 +60,25 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   useEffect(() => {
     if (!open) return;
     void refresh().catch(reason => setError(reason.message));
-    const timer = window.setInterval(() => { void refresh().catch(() => undefined); }, 5000);
+    const timer = window.setInterval(() => { void refresh().catch(() => undefined); }, ['preparing', 'exporting', 'cancelling'].includes(data?.mobile_export?.state ?? '') || data?.mobile_export?.browseActive ? 1000 : 5000);
     return () => window.clearInterval(timer);
-  }, [open, refresh]);
+  }, [open, refresh, data?.mobile_export?.state, data?.mobile_export?.browseActive]);
   useEffect(() => {
     if (!dirty.current) setFolder(current?.configured_path ?? current?.detected_path ?? '');
   }, [game, current?.configured_path, current?.detected_path]);
+  useEffect(() => {
+    if (['cancelled', 'complete', 'error'].includes(data?.mobile_export?.state ?? '')) setMessage('');
+  }, [data?.mobile_export?.state]);
 
   async function action(path: string, body: object = {}, success = '') {
     setBusy(true); setError(''); setMessage('');
     try {
       const response = await fetch(`${API}${path}`, { method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup' }, body: JSON.stringify(body) });
-      const result = await response.json() as { detail?: string; started?: boolean };
+      const result = await response.json() as { detail?: string; started?: boolean; cancelled?: boolean };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Setup action failed. Please retry.');
       await refresh(); onChanged();
-      setMessage(result.started === false ? 'A setup task is already running or queued.' : success || 'Checking game data in the background.');
+      setMessage(result.cancelled === false ? 'No export is running.' : result.started === false ? 'A setup task is already running or queued.' : success || 'Checking game data in the background.');
       return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not reach the companion.');
@@ -103,7 +106,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
       <Settings2 /> Setup
     </Button>
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="toolkit-setup-dialog sm:max-w-3xl">
+      <DialogContent className="toolkit-setup-dialog sm:max-w-6xl">
         <DialogHeader>
           <DialogTitle>Toolkit setup</DialogTitle>
           <DialogDescription>Connect your own installed games. Game archives and voices stay on this PC.</DialogDescription>
@@ -117,53 +120,48 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
           <label>Game to configure<select aria-label="Game to configure" value={game} onChange={event => { dirty.current = false; setError(''); setMessage(''); onGameChange(event.target.value as GameId); }}>
             {data.games.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select></label>
-          {current && <>
-            <p>{current.folder_hint}</p>
-            {game === 'nte' && current.tools_missing.includes('.NET 10 SDK') && <p>NTE needs the <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noreferrer">Microsoft .NET 10 SDK</a>. Install it, then prepare game tools.</p>}
-            <label>Installed game folder<input value={folder} onChange={event => { dirty.current = true; setFolder(event.target.value); }}
-              placeholder="Paste the folder path, or use Browse game folders" spellCheck={false} autoComplete="off" /></label>
-            <div className="toolkit-setup-actions">
-              <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action('/api/setup/native/folders', {}, 'The Windows folder picker opened on this PC. Save your folders there; setup will refresh when it closes.'); }}><FolderOpen /> Browse game folders</Button>
-              <Button disabled={busy || nativeBusy || !folder.trim()} onClick={() => void saveFolder()}>Save game folder</Button>
-              <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action(`/api/setup/games/${game}`, { use_automatic: true }, 'Automatic detection enabled for this game.'); }}>Use automatic detection</Button>
-            </div>
-            <div className="toolkit-setup-summary">
-              <p><strong>Folder:</strong> {current.folder_state === 'configured' ? 'Verified' : current.folder_state === 'detected' ? 'Found automatically' : current.folder_state === 'invalid' ? 'Saved folder unavailable; choose its new location' : 'Not found yet'}</p>
-              <p><strong>Voices:</strong> {VOICE_LABELS[current.voice_state] ?? current.voice_state}</p>
-              <p>{current.voice_hint}</p>
-              {current.expansion_message && <p role="status">{current.expansion_message}</p>}
-              <p><strong>Game tools:</strong> {current.tools_missing.length ? 'Installation needed' : 'Ready'}</p>
-              <div className="toolkit-setup-actions">
-                {game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools. You can keep browsing while this runs.')}><Download /> {current.tools_missing.length ? 'Install game tools' : 'Repair game tools'}</Button>}
-                <Button disabled={busy || preparing || !current.detected_path || !!current.tools_missing.length} onClick={() => void action(`/api/setup/games/${game}/refresh`)}><RefreshCw /> Refresh game data</Button>
+          {current && <div className="toolkit-game-grid">
+            <section className="toolkit-game-card" aria-label="Installed game readiness">
+              <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>Game files</h3><p>Your installed files supply the subtitles and voices.</p></div></div>
+              <div className="toolkit-readiness-grid">
+                <div><span>Installation</span><strong className={current.detected_path ? 'is-ready' : 'needs-setup'}>{current.detected_path ? 'Found' : 'Choose folder'}</strong></div>
+                <div><span>Mandarin voices</span><strong className={current.voice_state === 'present' || game === 'hito' ? 'is-ready' : 'needs-setup'}>{game === 'hito' ? 'Text only' : current.voice_state === 'present' ? 'Installed' : 'Needs setup'}</strong></div>
+                <div><span>Bilingual catalog</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : 'Not indexed'}</strong></div>
               </div>
-              {job && <p role="status" className={job.state === 'error' ? 'toolkit-setup-error' : ''}>{job.message}</p>}
-              <p role="status">{current.update_message}</p>
-              {current.catalog_message && <p role="status" className={current.catalog_warning ? 'toolkit-setup-error' : ''}>{current.catalog_message}</p>}
+              {current.detected_path && <code className="toolkit-installed-path">{current.detected_path}</code>}
+              <details className="toolkit-folder-details" open={!current.detected_path}>
+                <summary>{current.detected_path ? 'Change installation folder' : 'Choose installation folder'}</summary>
+                <p className="toolkit-setup-note">{current.folder_hint}</p>
+                {game === 'nte' && current.tools_missing.includes('.NET 10 SDK') && <p>NTE needs the <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noreferrer">Microsoft .NET 10 SDK</a>. Install it, then prepare game tools.</p>}
+                <label>Installed game folder<input value={folder} onChange={event => { dirty.current = true; setFolder(event.target.value); }} placeholder="Paste the installed game folder" spellCheck={false} autoComplete="off" /></label>
+                <div className="toolkit-setup-actions">
+                  <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action('/api/setup/native/folders', {}, 'The Windows folder picker opened. Save your folders there.'); }}><FolderOpen /> Browse game folders</Button>
+                  <Button disabled={busy || nativeBusy || !folder.trim()} onClick={() => void saveFolder()}>Save game folder</Button>
+                  <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action(`/api/setup/games/${game}`, { use_automatic: true }, 'Automatic detection enabled.'); }}>Auto-detect</Button>
+                </div>
+              </details>
+              {current.voice_state !== 'present' && game !== 'hito' && <p className="toolkit-setup-warning">{VOICE_LABELS[current.voice_state] ?? current.voice_state}. {current.voice_hint}</p>}
+              {current.expansion_message && <p role="status" className="toolkit-setup-note">{current.expansion_message}</p>}
+              <div className="toolkit-setup-actions">
+                {current.tools_missing.length > 0 && game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools.')}><Download /> Install game tools</Button>}
+                <Button variant="outline" disabled={busy || preparing || !current.detected_path || !!current.tools_missing.length || ['preparing','exporting','cancelling'].includes(data.mobile_export?.state ?? '')}
+                  onClick={() => void action(`/api/setup/games/${game}/refresh`)}><RefreshCw /> Refresh game data</Button>
+              </div>
+              {job && <p role="status" className={job.state === 'error' ? 'toolkit-setup-error' : 'toolkit-setup-note'}>{job.message}</p>}
+              <p role="status" className="toolkit-setup-note">{current.update_message}</p>
+              {current.catalog_message && <p role="status" className={current.catalog_warning ? 'toolkit-setup-warning' : 'toolkit-setup-note'}>{current.catalog_message}</p>}
               {(current.update_state === 'checking' || current.update_state === 'updating' || job?.state === 'preparing') && <progress aria-label="Game setup progress" value={job?.state === 'preparing' ? job.progress : current.progress} max={100} />}
-              <p>{current.index_ready ? `${current.indexed_lines.toLocaleString()} subtitle pairs indexed` : 'Subtitles will be indexed from your local game files.'}{current.audio_ready ? ' · Original voices ready' : ''}</p>
-              {current.needs_attention && <p className="toolkit-setup-error">Indexing needs attention. Let the game launcher finish its download, check the voice pack, and retry.</p>}
-              {current.last_checked && <small>Last check: {new Date(current.last_checked).toLocaleString()}</small>}
-            </div>
-            <p className="toolkit-setup-note">After updating the game through its launcher, use <strong>Refresh game data</strong>. Compatible game data and catalog updates need no new toolkit release. Automatic checks keep indexes current while the toolkit runs. A failed refresh keeps the previous complete index. Changed game formats may require a toolkit update.</p>
-            <section aria-label="Mobile library export">
-              <h3>Use this game on your phone</h3>
-              <p>Refresh game data first, then export your own library. Copy the completed catalog and voice ZIPs into Files → On My iPhone. The PC can be off during play.</p>
-              <label><input type="checkbox" checked={exportVoices} onChange={e => setExportVoices(e.target.checked)} /> Include original Mandarin voices (can take considerable time and disk space)</label>
-              <div className="toolkit-setup-actions">
-                <Button disabled={busy || !current.index_ready || ['preparing','exporting'].includes(data.mobile_export?.state ?? '')} onClick={() => void action(`/api/setup/games/${game}/mobile-export`, {include_audio:exportVoices}, 'Export started. Completed clips are reused when you retry.')}><Download /> Export mobile library</Button>
-                {['preparing','exporting'].includes(data.mobile_export?.state ?? '') && <Button variant="outline" onClick={() => void action('/api/setup/mobile-export/cancel', {}, 'Cancellation requested.')}>Cancel export</Button>}
-              </div>
-              {data.mobile_export && <><p role="status">{data.mobile_export.message}</p><progress aria-label="Mobile export progress" max={100} value={data.mobile_export.progress} />{data.mobile_export.estimatedCatalogBytes != null && <p>Catalog estimate: {(data.mobile_export.estimatedCatalogBytes / 1024**2).toFixed(1)} MiB · {data.mobile_export.total?.toLocaleString()} mapped rows. Audio size is measured while decoding.</p>}{data.mobile_export.estimatedAudioBytes != null && <p>Approximate audio size: {(data.mobile_export.estimatedAudioBytes / 1024**3).toFixed(2)} GiB · {((data.mobile_export.audioBytes ?? 0) / 1024**3).toFixed(2)} GiB converted. Estimate changes as more clips are converted and deduplicated.</p>}{data.mobile_export.folder && <p>Completed export folder: <code>{data.mobile_export.folder}</code></p>}{data.mobile_export.bytes != null && <p>{(data.mobile_export.bytes / 1024**3).toFixed(2)} GiB · {data.mobile_export.coverage?.dialogue.toLocaleString()} dialogue rows · {data.mobile_export.coverage?.exportedVoices.toLocaleString()} voices</p>}</>}
+              {current.needs_attention && <p className="toolkit-setup-error">Indexing needs attention. Let the launcher finish downloading, check the voice pack, and retry.</p>}
+              {current.last_checked && <small>Last checked {new Date(current.last_checked).toLocaleString()}</small>}
+              <details className="toolkit-export-help"><summary>Game updates and tools</summary>
+                <p>After a launcher update, refresh game data here. Compatible updates need no new toolkit release. A failed refresh keeps the previous complete index. Changed formats may require a toolkit update.</p>
+                {game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Repairing game tools.')}><Download /> Repair game tools</Button>}
+                <p>Reader tools are downloaded separately and checksum verified. Game files stay in place.</p>
+                <p><a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">vgmstream</a>{' · '}<a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">ZZZ reader</a>{' · '}<a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">REE unpacker</a>{' · '}<a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">WolvenKit</a>{' · '}<a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">FModelCLI</a></p>
+              </details>
             </section>
-            <details><summary>Where game tools come from</summary><p>Selected games download their decoder and extraction tools separately. Upstream terms apply; tool downloads are checksum verified and kept outside your game installation.</p>
-              <a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">vgmstream</a>{' · '}
-              <a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">ZZZ reader</a>{' · '}
-              <a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">REE unpacker</a>{' · '}
-              <a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">WolvenKit</a>{' · '}
-              <a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">FModelCLI</a>
-            </details>
-          </>}
+            <MobileLibraryExport game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={data.mobile_export} action={action} />
+          </div>}
         </section>}
         {data && step === 1 && <section className="toolkit-setup-section" aria-label="Capture checks">
           <h3>Capture and audio requirements</h3>

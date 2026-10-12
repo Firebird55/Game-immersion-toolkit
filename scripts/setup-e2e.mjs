@@ -9,7 +9,7 @@ try{
  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Setup preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes('localhost:'+port)||String(b).includes('127.0.0.1:'+port)){clearTimeout(timer);resolve();}});server.stderr.on('data',b=>process.stderr.write(b));server.once('error',reject);});
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){
   browser=await engine.launch({headless:true});
-  for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[768,1024,1.25]]){
+  for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[640,480,2],[640,360,2],[568,320,1],[768,1024,1.25]]){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[];
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={nte_region:region,honkai3_region:region,preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,cyberpunk_region:region,cyberpunk_tip_region:region,wuwa_region:region,wuwa_tip_region:region,wuwa_cinematic_region:region,witcher3_region:region,witcher3_tip_region:region,auto_start:false};
@@ -19,7 +19,7 @@ try{
    games.find(g=>g.id==='nte').catalog_warning=true;
    games.find(g=>g.id==='cyberpunk').expansion_message='Phantom Liberty needs its Mandarin voice archive. Install the Simplified Chinese language pack through your game launcher, then refresh.';
    games.find(g=>g.id==='cyberpunk').expansion_state='missing_voice';
-   const setup={completed:false,version:'fixture',games,auto_start:false,free_gb:80,lexirise_configured:false,jobs:{},native:{},capture_check:null,requirements:[{id:'ocr',title:'Subtitle OCR',ready:true,help:''},{id:'audio',title:'Audio conversion',ready:true,help:''}]};
+   const setup={mobile_export:{state:'idle',progress:0,message:'Ready',destinationFolder:'F:/Exports'},completed:false,version:'fixture',games,auto_start:false,free_gb:80,lexirise_configured:false,jobs:{},native:{},capture_check:null,requirements:[{id:'ocr',title:'Subtitle OCR',ready:true,help:''},{id:'audio',title:'Audio conversion',ready:true,help:''}]};
    await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
    await page.route('http://127.0.0.1:8766/**',async route=>{
     const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method(),body=request.postData()?JSON.parse(request.postData()):{};
@@ -33,7 +33,9 @@ try{
      else{games[0].configured_path=body.use_automatic?null:body.path;games[0].folder_state=body.use_automatic?'detected':'configured';value=setup;}
     }else if(path==='/api/setup/games/zzz/tools'){games[0].tools_missing=[];setup.jobs.zzz={state:'ready',message:'Tools ready',progress:100};value={started:true};}
     else if(path==='/api/setup/games/zzz/refresh'){games[0].index_ready=true;games[0].indexed_lines=3;games[0].audio_ready=true;games[0].voice_state='present';games[0].update_message='Synthetic game data refreshed';value={started:true};}
-    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
+    else if(path.endsWith('/mobile-export/preview')){value={estimatedBytes:body.include_audio?5e9:4096,estimateLowBytes:3e9,estimateHighBytes:8e9,workingBytes:16e9,freeBytes:80e9,rows:3,basis:'Synthetic estimate'};}
+    else if(path==='/api/setup/mobile-export/browse'){setup.mobile_export.destinationFolder='E:/Mobile libraries';value={started:true};}
+    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
     else if(path==='/api/setup/mobile-export/cancel'){setup.mobile_export={...setup.mobile_export,state:'cancelled',message:'Synthetic export cancelled'};value={cancelled:true};}
     else if(path==='/api/setup/native/checks'){setup.capture_check=true;value={started:true};}
     else if(path.startsWith('/api/setup/native/'))value={started:true};
@@ -45,20 +47,24 @@ try{
    await page.goto('http://localhost:'+port);
    const dialog=page.getByRole('dialog',{name:'Toolkit setup'});
    await dialog.waitFor();
+   await dialog.getByText('Change installation folder',{exact:true}).click();
    const field=dialog.getByLabel('Installed game folder');
    await field.fill('F:/wrong');await dialog.getByRole('button',{name:'Save game folder',exact:true}).click();
    await dialog.getByRole('alert').waitFor();assert.equal(games[0].configured_path,null);
    await field.fill('F:/Games/ZZZ');await dialog.getByRole('button',{name:'Save game folder',exact:true}).click();
-   await dialog.getByText('Folder: Verified',{exact:true}).waitFor();
+   assert.equal(games[0].configured_path,'F:/Games/ZZZ');
    await dialog.getByRole('button',{name:'Install game tools',exact:true}).click();
    await dialog.getByRole('button',{name:'Refresh game data',exact:true}).click();
-   await dialog.getByText('3 subtitle pairs indexed · Original voices ready',{exact:true}).waitFor();
+   await dialog.getByText('3 pairs',{exact:true}).waitFor();
+   await dialog.getByText('≈ 5.00 GB',{exact:true}).waitFor();
+   await dialog.getByRole('button',{name:'Browse',exact:true}).click();
+   await page.waitForFunction(()=>document.querySelector('#mobile-export-folder').value==='E:/Mobile libraries');
    await dialog.getByRole('button',{name:'Export mobile library',exact:true}).click();await dialog.getByText('Synthetic export in progress',{exact:true}).waitFor();
    assert.equal(await dialog.getByRole('progressbar',{name:'Mobile export progress'}).getAttribute('value'),'42');
-   assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true});
+   assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true,destination_folder:'E:/Mobile libraries'});
    await dialog.getByRole('button',{name:'Cancel export',exact:true}).click();await dialog.getByText('Synthetic export cancelled',{exact:true}).waitFor();
-   await dialog.getByLabel('Include original Mandarin voices',{exact:false}).uncheck();await dialog.getByRole('button',{name:'Export mobile library',exact:true}).click();await dialog.getByText('Synthetic export complete',{exact:true}).waitFor();
-   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false});await dialog.getByText('F:/Exports/synthetic',{exact:true}).waitFor();
+   await dialog.getByLabel('Original Mandarin voices',{exact:false}).uncheck();await dialog.getByRole('button',{name:'Resume export',exact:true}).click();await dialog.getByText('Ready to transfer',{exact:true}).waitFor();
+   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries'});await dialog.getByText('F:/Exports/synthetic',{exact:true}).waitFor();
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('hito');
    assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'');
    assert(await dialog.getByRole('button',{name:'Refresh game data',exact:true}).isDisabled());
@@ -67,7 +73,7 @@ try{
    for(const game of ['nte','honkai3']){
     await dialog.getByLabel('Game to configure',{exact:true}).selectOption(game);
     if(game==='nte')assert.equal(await dialog.getByRole('link',{name:'Microsoft .NET 10 SDK'}).getAttribute('href'),'https://dotnet.microsoft.com/download/dotnet/10.0');
-    else await dialog.getByText('Coverage limited to verified catalog 4.7 dialogue.',{exact:true}).waitFor();
+    else assert((await dialog.getByText(/Coverage limited to verified catalog 4.7 dialogue/).innerText()).includes('Coverage limited'));
     await dialog.getByText(games.find(g=>g.id===game).catalog_message,{exact:true}).waitFor();
    }
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('cyberpunk');

@@ -12,11 +12,16 @@ on Pages, uploaded to an OCR service or included in toolkit releases.
    Mandarin voice pack. Install/repair its reader tools if Setup requests them.
 3. After the launcher finishes updating, click **Refresh game data** and wait
    for the index to become ready. Check the game's documented coverage.
-4. Leave **Include original Mandarin voices** enabled and click **Export mobile
-   library**. Uncheck it for a smaller, text-only catalog. First voice conversion
-   can take considerable time; progress and the final size appear in Setup.
-   An approximate audio size appears after conversion starts, based on completed
-   clips; it changes as different clip lengths and duplicate audio are measured.
+4. Under **Mobile library**, choose **Save libraries to → Browse**, or paste an
+   absolute folder path. This destination is remembered on this PC. Each game
+   gets its own subfolder. Choose a drive with enough free space for ZIPs,
+   conversion and reusable caches; Setup shows an approximate working-space budget.
+   Leave **Original Mandarin voices** enabled and click **Export mobile library**.
+   Uncheck it for a smaller, text-only catalog. Setup shows an estimated size in
+   GB before export, a range and the estimate's basis. Typical clip sizes are used
+   initially, or the size of a previous completed export. During conversion the
+   estimate is refined from measured clips and deduplication; completed ZIP bytes
+   are exact. First voice conversion can take considerable time.
 5. Copy the completed folder's **catalog ZIP and voice ZIPs** to your phone.
    Keep them zipped, in **Files → On My iPhone**, with enough free space. Transfer
    using your normal cable, AirDrop from a Mac, or file-transfer method. A cloud
@@ -42,7 +47,11 @@ unchanged completed voice packs can be reused. Previous valid exports remain
 available if indexing, decoding, cancellation, disk space or source checks fail.
 Do not patch the game during an export. Refresh and export again afterward.
 The exporter detects changes to its source files and refuses to publish a mixed
-snapshot. Decoder cancellation takes effect between bounded work steps.
+snapshot. The desktop Cancel button stops the isolated export process and its
+decoder children, including during catalog preparation. Setup shows **Stopping…**
+until the process exits, then **Resume export**. Cancellation keeps verified
+completed clips and the previous valid export. The CLI uses the same package
+writer; Ctrl+C interrupts its current command.
 
 ## Open on the receiving phone
 

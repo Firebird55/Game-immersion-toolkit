@@ -426,6 +426,7 @@ def setup_status(request: Request) -> dict:
 class MobileExportOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_audio: bool = True
+    destination_folder: str | None = None
 
 
 @app.post("/api/setup/games/{game}/mobile-export")
@@ -434,7 +435,32 @@ def mobile_export(game: str, payload: MobileExportOptions, request: Request,
     setup_access(request, x_proxy_transcript, write=True)
     if game not in GAMES:
         raise HTTPException(404, "Unsupported game")
-    return {"started": runtime.mobile_exports.start(game, payload.include_audio)}
+    try:
+        return {"started": runtime.mobile_exports.start(game, payload.include_audio, payload.destination_folder)}
+    except (ValueError, OSError):
+        raise HTTPException(400, "Choose a writable private export folder outside game files and source repositories.") from None
+
+
+@app.post("/api/setup/games/{game}/mobile-export/preview")
+def mobile_export_preview(game: str, payload: MobileExportOptions, request: Request,
+                          x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in GAMES:
+        raise HTTPException(404, "Unsupported game")
+    try:
+        return runtime.mobile_exports.preview(game, payload.include_audio, payload.destination_folder)
+    except (ValueError, OSError):
+        raise HTTPException(400, "Choose an absolute folder outside game files and source repositories. Refresh game data if its estimate is unavailable.") from None
+
+
+@app.post("/api/setup/mobile-export/browse")
+def mobile_export_browse(payload: MobileExportOptions, request: Request,
+                         x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    try:
+        return {"started": runtime.mobile_exports.browse(payload.destination_folder)}
+    except (ValueError, OSError):
+        raise HTTPException(400, "Could not open the Windows folder picker. Paste a private destination folder instead.") from None
 
 
 @app.get("/api/setup/mobile-export")
@@ -446,8 +472,7 @@ def mobile_export_status(request: Request) -> dict:
 @app.post("/api/setup/mobile-export/cancel")
 def mobile_export_cancel(request: Request, x_proxy_transcript: str | None = Header(default=None)) -> dict:
     setup_access(request, x_proxy_transcript, write=True)
-    runtime.mobile_exports.cancel()
-    return {"cancelled": True}
+    return {"cancelled": runtime.mobile_exports.cancel()}
 
 
 @app.get("/api/setup/report")
