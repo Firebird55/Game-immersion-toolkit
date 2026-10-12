@@ -126,3 +126,88 @@ def test_corrupt_completed_pack_is_repaired_from_verified_cache(tmp_path):
         assert archive.testzip() is None
     assert len(calls) == 1
     assert list(output.glob("*.invalid-*"))
+
+
+def parallel_fixture(tmp_path, count=12):
+    records = [dict(rows()[0], textId=f'fixture:{i}', sourceVoice=digest(f'voice:{i}')) for i in range(count)]
+    def decode(row, number):
+        path = tmp_path / f'clip-{number}.mp3'
+        path.write_bytes(b'ID3' + bytes([number % 3]) * 512)  # Three distinct clips; exact deduplication.
+        return path
+    return records, decode
+
+
+def test_parallel_export_is_bounded_deduplicated_and_byte_identical_to_serial(tmp_path):
+    records, decode = parallel_fixture(tmp_path)
+    records += [dict(records[0], textId='fixture:alias')]
+    serial = export_library('zzz', records, tmp_path / 'serial', voice=decode)
+    lock, barrier = threading.Lock(), threading.Barrier(4)
+    calls, active, peak = [], [0], [0]
+    def concurrent(row, number):
+        with lock:
+            calls.append(number); active[0] += 1; peak[0] = max(peak[0], active[0])
+        try:
+            if number < 4:
+                barrier.wait(timeout=5)  # The first batch must run concurrently.
+            return decode(row, number)
+        finally:
+            with lock:
+                active[0] -= 1
+    parallel = export_library('zzz', records, tmp_path / 'parallel', voice=concurrent, workers=4)
+    assert 1 < peak[0] <= 4 and len(calls) == 12
+    a, b = Path(serial['folder']), Path(parallel['folder'])
+    assert a.name == b.name
+    assert {p.name: p.read_bytes() for p in a.glob('*.zip')} == {p.name: p.read_bytes() for p in b.glob('*.zip')}
+    assert parallel['coverage']['exportedVoices'] == 13
+    export_library('zzz', records, tmp_path / 'parallel', voice=concurrent, workers=4)
+    assert len(calls) == 12
+
+
+@pytest.mark.parametrize('failure', ['cancel', 'decode', 'changed'])
+def test_parallel_failure_preserves_previous_export_and_can_resume(tmp_path, failure):
+    output = tmp_path / 'out'
+    export_library('zzz', rows(), output, include_audio=False)
+    before = (output / 'latest.json').read_bytes()
+    records, decode = parallel_fixture(tmp_path)
+    cancel, changed = threading.Event(), threading.Event()
+    calls = []
+    def failing(row, number):
+        calls.append(number)
+        if number == 0:
+            if failure == 'decode':
+                raise ValueError('fixture decoder failed')
+            if failure == 'changed':
+                changed.set()
+        return decode(row, number)
+    def check():
+        if changed.is_set():
+            raise ValueError('game changed')
+    def progress(_):
+        if failure == 'cancel':
+            cancel.set()
+    with pytest.raises(ExportCancelled if failure == 'cancel' else ValueError):
+        export_library('zzz', records, output, voice=failing, workers=4, cancel=cancel, check=check, progress=progress)
+    assert (output / 'latest.json').read_bytes() == before
+    assert len(calls) <= 4
+    completed = len(list((output / 'cache').glob('*.json')))
+    calls.clear()
+    def resume(row, number):
+        calls.append(number)
+        return decode(row, number)
+    result = export_library('zzz', records, output, voice=resume, workers=4)
+    assert result['coverage']['exportedVoices'] == 12
+    assert len(calls) == 12 - completed
+
+
+def test_export_moves_only_its_owned_decoded_files_into_verified_cache(tmp_path):
+    records, _ = parallel_fixture(tmp_path, 2)
+    output = tmp_path / 'out'
+    decoded = output / 'decoded'
+    decoded.mkdir(parents=True)
+    def voice(row, number):
+        path = decoded / f'{number}.mp3'
+        path.write_bytes(b'ID3' + bytes([number]) * 512)
+        return path
+    export_library('zzz', records, output, voice=voice, workers=2)
+    assert not list(decoded.glob('*.mp3'))
+    assert len(list((output / 'cache').glob('*.mp3'))) == 2

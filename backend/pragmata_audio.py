@@ -486,6 +486,7 @@ class PragmataVoiceAssetService:
         self._install: Path | None = None
         self._fingerprint: str | None = None
         self._lock = threading.RLock()
+        self._package_lock = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pragmata-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
@@ -555,6 +556,12 @@ class PragmataVoiceAssetService:
         return self.data_dir / "audio-assets" / fingerprint
 
     def _package(self, entry: PragmataAudioEntry) -> Path:
+        # The unpacker uses one project list and shared extraction cache. Only
+        # package preparation is serialized; independent decoding stays parallel.
+        with self._package_lock:
+            return self._prepare_package(entry)
+
+    def _prepare_package(self, entry: PragmataAudioEntry) -> Path:
         install = self._install
         if install is None:
             raise FileNotFoundError("PRAGMATA installation is unavailable")

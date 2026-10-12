@@ -53,6 +53,11 @@ until the process exits, then **Resume export**. Cancellation keeps verified
 completed clips and the previous valid export. The CLI uses the same package
 writer; Ctrl+C interrupts its current command.
 
+Voice conversion automatically uses up to eight parallel workers, scaled to
+the PC's CPU count. Existing audio quality and cinematic timing are preserved.
+The CLI accepts `--workers 1` through `--workers 8` for manual tuning. Use the
+same destination when resuming so verified clips can be reused.
+
 ## Open on the receiving phone
 
 1. Open the bookmark in Safari, tap **Reload latest**, then use **Share → Add to

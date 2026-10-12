@@ -9,6 +9,7 @@ import shutil
 import threading
 import time
 import zipfile
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
@@ -17,6 +18,11 @@ FORMAT = "proxy-mobile-library-v1"
 PACK_LIMIT = 512 * 1024 * 1024
 CATALOG_LIMIT = 128 * 1024 * 1024
 ROW_LIMIT = 200000
+
+
+def export_workers():
+    """Bound decoder CPU/memory use while leaving capacity for the companion."""
+    return min(8, max(1, (os.cpu_count() or 2) // 2))
 
 
 def encoded(value):
@@ -52,9 +58,9 @@ def write_pack(path, manifest, entries):
 
 
 def export_library(game, records, output, *, voice=None, include_audio=True, check=lambda: None,
-                   cancel=None, progress=lambda value: None, pack_limit=PACK_LIMIT):
+                   cancel=None, progress=lambda value: None, pack_limit=PACK_LIMIT, workers=1):
     """All intermediate work is private; latest.json changes only on complete success."""
-    if game not in GAMES or not 4096 <= pack_limit <= PACK_LIMIT:
+    if game not in GAMES or not 4096 <= pack_limit <= PACK_LIMIT or type(workers) is not int or not 1 <= workers <= 8:
         raise ValueError("Unsupported game or pack size")
     output = Path(output)
     cache = output / "cache"
@@ -69,8 +75,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     guard()
     getattr(check, "force", check)()
     rows, clips, source_cache, identities = [], {}, {}, {}
-    total_sources = len({r.get("sourceVoice") for r in records if r.get("sourceVoice")}) if include_audio else 0
-    audio_bytes = 0
+    sources, source_rows = {}, {}
     for number, original in enumerate(records):
         guard()
         row = {key: original[key] for key in ("textId", "english", "chinese", "speakerEnglish", "speakerChinese",
@@ -84,39 +89,76 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         identities[row["id"]] = source
         row["audio"] = None
         if include_audio and source:
-            guard()
-            cached = cache / (source + ".mp3")
-            signature = cache / (source + ".json")
-            valid = False
-            if cached.is_file() and signature.is_file() and source not in source_cache:
-                try:
-                    valid = json.loads(signature.read_text())["sha256"] == file_digest(cached)
-                except (OSError, ValueError, KeyError):
-                    pass
-            if source in source_cache:
-                valid = True
-            if not valid:
-                if voice is None:
-                    raise ValueError("Prepare original voice tools before exporting")
-                produced = Path(voice(original, number))
-                temporary = cached.with_suffix(".pending")
-                shutil.copyfile(produced, temporary)
-                temporary.replace(cached)
-                signature.write_bytes(encoded({"sha256": file_digest(cached)}))
-            if source not in source_cache:
-                source_cache[source] = file_digest(cached)
-            sha = source_cache[source]
-            row["audio"] = sha
-            if sha not in clips:
-                audio_bytes += cached.stat().st_size
-            clips[sha] = cached
+            sources.setdefault(source, (original, number))
+            source_rows[source] = source_rows.get(source, 0) + 1
         rows.append(row)
         if len(rows) > ROW_LIMIT:
             raise ValueError("Catalog exceeds the mobile row limit")
-        progress({"state": "exporting", "progress": int((number+1)/max(1, len(records))*85),
-                  "done": number+1, "total": len(records), "audioBytes": audio_bytes,
-                  "estimatedAudioBytes": round(audio_bytes * total_sources / max(1, len(source_cache))),
-                  "message": "Preparing verified dialogue and original voices"})
+
+    def convert(source, original, number):
+        if cancel.is_set():
+            raise ExportCancelled()
+        cached = cache / (source + ".mp3")
+        signature = cache / (source + ".json")
+        if cached.is_file() and signature.is_file():
+            try:
+                sha = file_digest(cached)
+                if json.loads(signature.read_text())["sha256"] == sha:
+                    return cached, sha
+            except (OSError, ValueError, KeyError):
+                pass
+        if voice is None:
+            raise ValueError("Prepare original voice tools before exporting")
+        produced = Path(voice(original, number))
+        temporary = cached.with_suffix(".pending")
+        # Export-owned decoded files can move into cache instead of keeping two
+        # copies. Other callers may supply reusable inputs, so retain those.
+        if produced.parent.resolve() == (output / "decoded").resolve():
+            produced.replace(temporary)
+        else:
+            shutil.copyfile(produced, temporary)
+        sha = file_digest(temporary)
+        temporary.replace(cached)
+        marker = signature.with_suffix(".json.pending")
+        marker.write_bytes(encoded({"sha256": sha}))
+        marker.replace(signature)
+        return cached, sha
+
+    audio_bytes, done = 0, len(rows) - sum(source_rows.values())
+    jobs = iter(sources.items())
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="mobile-export") as pool:
+        pending = {}
+        def submit():
+            item = next(jobs, None)
+            if item is not None:
+                source, (original, number) = item
+                pending[pool.submit(convert, source, original, number)] = source
+        try:
+            for _ in range(min(workers, len(sources))):
+                submit()
+            while pending:
+                guard()
+                completed, _ = wait(pending, timeout=.2, return_when=FIRST_COMPLETED)
+                results = {future: future.result() for future in completed}
+                for future in completed:
+                    source = pending.pop(future)
+                    path, sha = results[future]
+                    source_cache[source] = sha
+                    if sha not in clips:
+                        audio_bytes += path.stat().st_size
+                    clips[sha] = path
+                    done += source_rows[source]
+                    progress({"state": "exporting", "progress": int(done/max(1, len(rows))*85),
+                              "done": done, "total": len(rows), "audioBytes": audio_bytes,
+                              "estimatedAudioBytes": round(audio_bytes * len(sources) / len(source_cache)),
+                              "workers": workers, "message": f"Preparing verified voices · {workers} parallel conversions"})
+                    guard()
+                    submit()
+        finally:
+            for future in pending:
+                future.cancel()
+    for row in rows:
+        row["audio"] = source_cache.get(row.get("sourceVoice"))
     if not rows:
         raise ValueError("No verified bilingual dialogue available; refresh game data first")
     guard()
@@ -223,7 +265,7 @@ def prepare_source(root, game, decode_dir):
     if game == "zzz":
         from .voice_assets import VoiceAssetService
         index = TextMapIndex(data / "textmaps")
-        index.load()
+        index.load(prepare_matching=False)
         service = VoiceAssetService(data / "voice-assets/manifest.json", decoder, decode_dir,
                                    data / "voice-assets/learned-manifest.json")
         from .speakers import _voice_token, _humanize_token
@@ -233,6 +275,7 @@ def prepare_source(root, game, decode_dir):
         if learned.exists():
             inputs.append(learned)
         records = []
+        speaker_names = {}
         for values in index._records_by_normalized.values():
             for item in values:
                 key = service._entry_key(item.text_id, item.english)
@@ -240,13 +283,17 @@ def prepare_source(root, game, decode_dir):
                 if key is not None and channels:
                     audio = service._entries[key]
                     package = Path(audio["package"])
-                    if (package.stat().st_size, package.stat().st_mtime_ns) != (audio["package_size"], audio["package_mtime_ns"]):
+                    if package not in watched:
+                        stat = package.stat()
+                        watched[package] = (stat.st_size, stat.st_mtime_ns)
+                    if watched[package] != (audio["package_size"], audio["package_mtime_ns"]):
                         raise ValueError("Game changed; refresh original voices first")
-                    watched[package] = (package.stat().st_size, package.stat().st_mtime_ns)
                     row = {"textId": item.text_id, "english": display_text(item.english),
                            "chinese": display_text(item.chinese), "channels": channels, "sourceVoice": digest(audio)}
                     token = _voice_token(audio.get("source", ""))
-                    names = index.resolve_display_name(_humanize_token(token)) if token else None
+                    if token not in speaker_names:
+                        speaker_names[token] = index.resolve_display_name(_humanize_token(token)) if token else None
+                    names = speaker_names[token]
                     if names:
                         row.update(speakerEnglish=names[0], speakerChinese=names[1])
                     records.append(row)

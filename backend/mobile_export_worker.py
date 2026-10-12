@@ -4,7 +4,7 @@ import json
 import time
 from pathlib import Path
 
-from .mobile_library import export_library, prepare_source, encoded
+from .mobile_library import export_library, prepare_source, encoded, export_workers
 
 
 def main():
@@ -28,7 +28,7 @@ def main():
         progress({'state': 'exporting', 'estimatedCatalogBytes': sum(len(encoded(r)) + 1 for r in records),
                   'total': len(records), 'message': 'Converting verified dialogue and voices'})
         export_library(args.game, records, args.output, voice=voice, check=check,
-                       include_audio=not args.catalog_only, progress=progress)
+                       include_audio=not args.catalog_only, progress=progress, workers=export_workers())
         return 0
     except Exception:
         progress({'state': 'error', 'message': 'Export failed. Check game data, voice tools and available disk space, then resume.'})

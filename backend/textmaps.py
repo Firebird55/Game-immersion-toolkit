@@ -173,7 +173,8 @@ class TextMapIndex:
             raise ValueError(f"{name} is not a JSON object")
         return {str(key): str(value) for key, value in raw.items() if value is not None}
 
-    def load(self) -> None:
+    def load(self, *, prepare_matching: bool = True) -> None:
+        """Load the same bilingual snapshot; exports can omit unused OCR indexes."""
         try:
             directory = self.active_directory()
             english = self._read_map("en_base", directory)
@@ -202,23 +203,26 @@ class TextMapIndex:
                     index.setdefault(normalized, []).append(
                         _Record(text_id=text_id, english=english_text, chinese=chinese_text)
                     )
-            from .bilingual import ChineseLookup
-            chinese_lookup = ChineseLookup(record for records in index.values() for record in records)
+            chinese_lookup = None
+            cinematic_choices, gameplay_choices = [], []
             # Prepare channel choices before publishing the snapshot. Large
             # indexes must neither consume the first subtitle's stability
             # window nor block status requests while the background loader runs.
-            for channel in ("dialogue", "tip", "cinematic", "gameplay"):
-                chinese_lookup._choices[channel] = [key for key, records in chinese_lookup.records.items()
-                    if any(self._is_allowed_record(record, channel) for record in records)]
-            cinematic_choices = [
-                normalized for normalized, records in index.items()
-                if len(normalized) >= 20
-                if any(self._is_allowed_record(record, "cinematic") for record in records)
-            ]
-            gameplay_choices = [
-                normalized for normalized, records in index.items()
-                if any(self._is_allowed_record(record, "gameplay") for record in records)
-            ]
+            if prepare_matching:
+                from .bilingual import ChineseLookup
+                chinese_lookup = ChineseLookup(record for records in index.values() for record in records)
+                for channel in ("dialogue", "tip", "cinematic", "gameplay"):
+                    chinese_lookup._choices[channel] = [key for key, records in chinese_lookup.records.items()
+                        if any(self._is_allowed_record(record, channel) for record in records)]
+                cinematic_choices = [
+                    normalized for normalized, records in index.items()
+                    if len(normalized) >= 20
+                    if any(self._is_allowed_record(record, "cinematic") for record in records)
+                ]
+                gameplay_choices = [
+                    normalized for normalized, records in index.items()
+                    if any(self._is_allowed_record(record, "gameplay") for record in records)
+                ]
             with self._lock:
                 self._chinese_lookup = chinese_lookup
                 self._records_by_normalized = index

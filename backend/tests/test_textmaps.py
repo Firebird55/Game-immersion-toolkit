@@ -80,6 +80,20 @@ def test_normalize_english_ignores_punctuation_and_markup() -> None:
     assert normalize_english("<b>Don’t</b> wait — Proxy!") == "dontwaitproxy"
 
 
+def test_export_loading_preserves_bilingual_variants_names_and_channel_rules(tmp_path):
+    desktop = make_index(tmp_path)
+    export = TextMapIndex(tmp_path)
+    export.load(prepare_matching=False)
+    assert export._records_by_normalized == desktop._records_by_normalized
+    assert export.resolve_display_name(['Nicole']) == desktop.resolve_display_name(['Nicole'])
+    assert export.entry_count == desktop.entry_count
+    for values in export._records_by_normalized.values():
+        for record in values:
+            for channel in ['dialogue', 'cinematic', 'gameplay']:
+                assert export._is_allowed_record(record, channel) == desktop._is_allowed_record(record, channel)
+    assert export._chinese_lookup is None and desktop._chinese_lookup is not None
+
+
 def test_menu_subtitles_and_unvoiced_fairy_tutorials_are_not_dialogue() -> None:
     rejected = [
         ("Event_Chat_textmap", "Talk"),

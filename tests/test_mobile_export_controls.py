@@ -77,8 +77,8 @@ def test_cancel_interrupts_blocked_preparation_and_decoder_children_and_retains_
 from pathlib import Path
 output=Path(sys.argv[1]);(output/'cache').mkdir(exist_ok=True)
 (output/'cache/complete.mp3').write_bytes(b'completed fixture')
-child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(120)'])
-(output/'child-ready').write_text(str(child.pid))
+children=[subprocess.Popen([sys.executable,'-c','import time;time.sleep(120)']) for _ in range(8)]
+(output/'child-ready').write_text(json.dumps([child.pid for child in children]))
 print(json.dumps({'state':sys.argv[2],'message':'synthetic blocked phase'}),flush=True)
 time.sleep(120)
 """)
