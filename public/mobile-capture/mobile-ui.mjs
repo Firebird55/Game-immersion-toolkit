@@ -75,7 +75,7 @@ $('find-line').onclick=async()=>{
   }
  }catch(e){if(token===selection)text('match-status',e.message);}
 };
-$('find-text').addEventListener('keydown',event=>{if(event.key==='Enter')$('find-line').click();});
+$('find-text').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();$('find-line').click();}});
 $('clear-history').onclick=()=>{history=history.filter(r=>r.game!==currentGame());emitted.clear();stable=null;void saveHistory();render();};
 for(const key of ['left','top','width','height'])$('crop-'+key).onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
 $('picture-area').onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
