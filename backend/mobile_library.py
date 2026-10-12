@@ -14,11 +14,12 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
+from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions
 
 FORMAT = "proxy-mobile-library-v1"
 PACK_LIMIT = 512 * 1024 * 1024
 CATALOG_LIMIT = 128 * 1024 * 1024
-ROW_LIMIT = 200000
+ROW_LIMIT = 250000
 
 
 def export_workers():
@@ -64,7 +65,8 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     if game not in GAMES or not 4096 <= pack_limit <= PACK_LIMIT or type(workers) is not int or not 1 <= workers <= 8:
         raise ValueError("Unsupported game or pack size")
     output = Path(output)
-    cache = output / "cache"
+    work = work_folder(output)
+    cache = work / "cache"
     cache.mkdir(parents=True, exist_ok=True)
     cancel = cancel or threading.Event()
 
@@ -115,7 +117,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         temporary = cached.with_suffix(".pending")
         # Export-owned decoded files can move into cache instead of keeping two
         # copies. Other callers may supply reusable inputs, so retain those.
-        if produced.parent.resolve() == (output / "decoded").resolve():
+        if produced.parent.resolve() in {(output / "decoded").resolve(), (work / "decoded").resolve()}:
             produced.replace(temporary)
         else:
             shutil.copyfile(produced, temporary)
@@ -194,8 +196,8 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         raise ValueError("No verified bilingual dialogue available; refresh game data first")
     guard()
     revision = digest([FORMAT, "segmented-catalog", rows])
-    destination = output / revision
-    staging = output / (revision + ".pending")
+    destination = output / export_folder_name(game, revision)
+    staging = work / (revision + ".pending")
     staging.mkdir(exist_ok=True)
     chunks, current, size = [], [], 2048
     for sha, path in sorted(clips.items()):
@@ -213,12 +215,12 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         guard()
         index = {sha: {"size": path.stat().st_size, "sha256": sha} for sha, path in chunk}
         pack_id = digest([game, index])
-        name = f"{game}.voices-{pack_id[:16]}.zip"
+        name = voice_pack_name(game, pack_number + 1, len(chunks), pack_id)
         packs.append({"id": pack_id, "name": name, "clips": list(index)})
         target = staging / name
         manifest = {"format": FORMAT, "kind": "voices", "game": game, "id": pack_id, "clips": index}
-        previous = next((p for p in output.glob("*/" + name) if len(p.parent.name) == 64
-                         and (p.parent / (game + ".catalog.zip")).is_file()), None)
+        previous = next((p for p in output.glob("*/" + name)
+                         if (p.parent / catalog_name(game)).is_file()), None)
         if previous and previous.stat().st_size <= PACK_LIMIT:
             # Verify an existing completed pack before reuse; cache corruption cannot be promoted.
             try:
@@ -251,8 +253,9 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     manifest = {"format": FORMAT, "kind": "catalog", "game": game, "title": GAME_NAMES[game],
                 "revision": revision, "languages": ["zh-Hans", "en"], "coverage": coverage,
                 "catalog": catalog, "packs": packs}
-    name = game + ".catalog.zip"
+    name = catalog_name(game)
     write_pack(staging / name, manifest, [(item["name"], value) for item, value in zip(catalog, segments)])
+    write_instructions(output, staging)
     guard()
     getattr(check, "force", check)()
     if destination.exists():
@@ -268,7 +271,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
             # Checked, same-parent private move; retain damaged files for diagnosis.
             if destination.resolve().parent != output.resolve():
                 raise ValueError("Unsafe export destination")
-            destination.rename(output / (revision + ".invalid-" + str(time.time_ns())))
+            destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
     if not destination.exists():
         staging.replace(destination)
     else:
@@ -277,7 +280,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
             path.unlink()
         staging.rmdir()
     pointer = output / "latest.pending"
-    pointer.write_bytes(encoded({"revision": revision, "catalog": name, "coverage": coverage}))
+    pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": name, "coverage": coverage}))
     guard()
     getattr(check, "force", check)()
     os.replace(pointer, output / "latest.json")
@@ -311,7 +314,12 @@ def prepare_source(root, game, decode_dir):
             for item in values:
                 key = service._entry_key(item.text_id, item.english)
                 channels = [c for c in ("dialogue", "cinematic", "gameplay") if index._is_allowed_record(item, c)]
-                if key is not None and channels:
+                if channels:
+                    row = {"textId": item.text_id, "english": display_text(item.english),
+                           "chinese": display_text(item.chinese), "channels": channels, "sourceVoice": None}
+                    if key is None:
+                        records.append(row)
+                        continue
                     audio = service._entries[key]
                     package = Path(audio["package"])
                     if package not in watched:
@@ -319,8 +327,7 @@ def prepare_source(root, game, decode_dir):
                         watched[package] = (stat.st_size, stat.st_mtime_ns)
                     if watched[package] != (audio["package_size"], audio["package_mtime_ns"]):
                         raise ValueError("Game changed; refresh original voices first")
-                    row = {"textId": item.text_id, "english": display_text(item.english),
-                           "chinese": display_text(item.chinese), "channels": channels, "sourceVoice": digest(audio)}
+                    row["sourceVoice"] = digest(audio)
                     token = _voice_token(audio.get("source", ""))
                     if token not in speaker_names:
                         speaker_names[token] = index.resolve_display_name(_humanize_token(token)) if token else None
@@ -362,8 +369,6 @@ def prepare_source(root, game, decode_dir):
             source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
         records = []
         for item in payload["records"]:
-            if game != "hito" and not item.get("audio"):
-                continue
             text_id = str(item.get("text_id", item.get("identity", digest(item))))
             if game == "pragmata" and not text_id.startswith("pragmata:"):
                 text_id = "pragmata:" + text_id

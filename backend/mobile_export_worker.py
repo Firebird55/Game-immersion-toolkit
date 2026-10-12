@@ -24,7 +24,8 @@ def main():
 
     service = None
     try:
-        records, voice, check, service = prepare_source(args.root, args.game, args.output / 'decoded')
+        from .mobile_export_layout import work_folder
+        records, voice, check, service = prepare_source(args.root, args.game, work_folder(args.output) / 'decoded')
         progress({'state': 'exporting', 'estimatedCatalogBytes': sum(len(encoded(r)) + 1 for r in records),
                   'total': len(records), 'message': 'Converting verified dialogue and voices'})
         export_library(args.game, records, args.output, voice=voice, check=check,

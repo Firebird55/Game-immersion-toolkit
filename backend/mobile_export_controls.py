@@ -13,6 +13,7 @@ import time
 import uuid
 
 from .game_paths import GAMES, settings_path, discover_install
+from .mobile_export_layout import latest_export
 
 ACTIVE = {'preparing', 'exporting', 'cancelling'}
 
@@ -197,14 +198,11 @@ class MobileExportManager:
         # A previous completed export is a better starting point than typical sizes.
         output = folder / game
         try:
-            pointer = json.loads((output / 'latest.json').read_text())
-            revision = pointer['revision']
-            if len(revision) == 64 and all(c in '0123456789abcdef' for c in revision):
-                files = list((output / revision).glob('*.zip'))
-                catalog_path = output / revision / (game + '.catalog.zip')
-                if catalog_path.is_file():
-                    estimated = sum(p.stat().st_size for p in files if include_audio or '.catalog.' in p.name)
-                    basis = 'Previous completed export; game updates can change the size'
+            completed, catalog_path = latest_export(output, game)
+            if catalog_path.is_file():
+                files = list(completed.glob('*.zip')) if include_audio else [catalog_path]
+                estimated = sum(p.stat().st_size for p in files)
+                basis = 'Previous completed export; game updates can change the size'
         except (OSError, ValueError, KeyError, TypeError):
             pass
         free = shutil.disk_usage(existing).free

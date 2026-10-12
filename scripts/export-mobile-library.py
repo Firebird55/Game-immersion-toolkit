@@ -18,7 +18,8 @@ def main():
     parser.add_argument("--max-lines", type=int, help="Explicit subset for private device verification")
     args = parser.parse_args()
     output = args.output or ROOT / "output/mobile-libraries" / args.game
-    rows, voice, check, service = prepare_source(ROOT, args.game, output / "decoded")
+    from backend.mobile_export_layout import work_folder
+    rows, voice, check, service = prepare_source(ROOT, args.game, work_folder(output) / "decoded")
     if args.max_lines is not None:
         if args.max_lines < 1:
             parser.error("max-lines must be positive")

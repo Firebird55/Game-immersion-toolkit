@@ -4,6 +4,7 @@ import threading
 import zipfile
 
 import pytest
+from backend.mobile_export_layout import catalog_name
 
 from backend.mobile_library import export_library, digest, ExportCancelled, FORMAT
 
@@ -31,7 +32,7 @@ def test_export_roundtrip_and_private_allowlist(tmp_path, game):
     output = tmp_path / "export"
     result = export_library(game, rows(game), output, voice=voice(tmp_path, calls))
     folder = Path(result["folder"])
-    with zipfile.ZipFile(folder / (game+".catalog.zip")) as pack:
+    with zipfile.ZipFile(folder / catalog_name(game)) as pack:
         manifest = json.loads(pack.read("manifest.json"))
         catalog = [json.loads(line) for item in manifest["catalog"] for line in pack.read(item["name"]).splitlines()]
         assert manifest["format"] == FORMAT
@@ -91,7 +92,7 @@ def test_source_change_prevents_publication(tmp_path):
 def test_corrupt_decoded_cache_is_rebuilt(tmp_path):
     calls = []
     export_library("zzz", rows(), tmp_path / "out", voice=voice(tmp_path, calls))
-    next((tmp_path / "out/cache").glob("*.mp3")).write_bytes(b"corrupt" * 100)
+    next((tmp_path / "out/.toolkit-work/cache").glob("*.mp3")).write_bytes(b"corrupt" * 100)
     export_library("zzz", rows(), tmp_path / "out", voice=voice(tmp_path, calls))
     assert len(calls) == 2
 
@@ -125,7 +126,7 @@ def test_corrupt_completed_pack_is_repaired_from_verified_cache(tmp_path):
     with zipfile.ZipFile(next(Path(second["folder"]).glob("*voices*.zip"))) as archive:
         assert archive.testzip() is None
     assert len(calls) == 1
-    assert list(output.glob("*.invalid-*"))
+    assert list((output / ".toolkit-work").glob("*.invalid-*"))
 
 
 def parallel_fixture(tmp_path, count=12):
@@ -189,7 +190,7 @@ def test_parallel_failure_preserves_previous_export_and_can_resume(tmp_path, fai
         export_library('zzz', records, output, voice=failing, workers=4, cancel=cancel, check=check, progress=progress)
     assert (output / 'latest.json').read_bytes() == before
     assert len(calls) <= 4
-    completed = len(list((output / 'cache').glob('*.json')))
+    completed = len(list((output / '.toolkit-work/cache').glob('*.json')))
     calls.clear()
     def resume(row, number):
         calls.append(number)
@@ -210,7 +211,7 @@ def test_export_moves_only_its_owned_decoded_files_into_verified_cache(tmp_path)
         return path
     export_library('zzz', records, output, voice=voice, workers=2)
     assert not list(decoded.glob('*.mp3'))
-    assert len(list((output / 'cache').glob('*.mp3'))) == 2
+    assert len(list((output / '.toolkit-work/cache').glob('*.mp3'))) == 2
 
 
 def test_batched_export_preserves_variants_deduplication_and_partial_cache(tmp_path):
@@ -268,7 +269,7 @@ def test_batch_failures_never_replace_valid_export_and_resume_from_completed_cli
     with pytest.raises(ExportCancelled if failure == 'cancel' else ValueError):
         export_library('zzz', records, output, voice=voice, workers=2, cancel=cancel, check=check, progress=progress)
     assert (output / 'latest.json').read_bytes() == before
-    completed = len(list((output / 'cache').glob('*.json')))
+    completed = len(list((output / '.toolkit-work/cache').glob('*.json')))
     calls = []
     def resume(requests):
         calls.extend(requests)
