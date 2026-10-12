@@ -83,3 +83,5 @@ $('scan-pairing').onclick=async()=>{
 };
 for(const event of ['pagehide','freeze'])window.addEventListener(event,stopCamera);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});
+
+export const pairingLifecycle={stop:stopCamera};

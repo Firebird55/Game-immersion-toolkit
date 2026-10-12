@@ -35,7 +35,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({acceptDownloads:true,viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],external=[];
   page.on('pageerror',e=>errors.push(e.message));context.on('request',request=>{if(!request.url().startsWith(base)&&!request.url().startsWith('blob:')&&!request.url().startsWith('data:'))external.push(request.url());});
-  await page.goto(base);await page.selectOption('#role','receiver');
+  await page.goto(base+'?developer=1');await page.selectOption('#role','receiver');
   await page.setInputFiles('#library-files',[input('catalog.zip',catalog),input('voices.zip',voices)]);
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent()});throw error;});
   await page.fill('#find-text',quietRow.english+'\n'+quietRow.chinese);await page.click('#find-line');await page.getByRole('button',{name:'No verified original voice',exact:true}).waitFor();assert(await page.getByRole('button',{name:'No verified original voice',exact:true}).isDisabled());await page.click('#clear-history');

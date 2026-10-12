@@ -1,112 +1,227 @@
 <!doctype html>
+
 <html lang="en">
+
 <head>
+
   <meta charset="utf-8">
+
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://game-immersion-pairing.boazbrak.workers.dev wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev http://127.0.0.1:8766 ws://127.0.0.1:8766; object-src 'none'; base-uri 'self'; form-action 'none'">
+
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Proxy Transcript — Mobile game companion</title>
+
+  <title>Proxy Transcript â€” Mobile game companion</title>
+
   <link rel="manifest" href="./manifest.webmanifest">
+
   <link rel="apple-touch-icon" href="./icon.png">
+
   <link rel="stylesheet" href="./style.css">
+
+  <link rel="stylesheet" href="./companion.css">
+
 </head>
+
 <body>
+
 <main>
-  <header><p class="eyebrow">Proxy Transcript · Mobile companion</p><h1>Play on iPad.<br>Read on your phone.</h1>
-  <p>On iPad choose Share screen; on iPhone choose Receive screen. Open a library exported from your own installed PC game to enable private on-device OCR, bilingual transcripts and original voices. Your PC can be off while playing.</p>
-  <p class="hint">Sending an iPad game needs capture that keeps working outside Safari. If this browser reports screen capture unavailable, the iPad sender needs a native capture helper. That helper is not included yet.</p></header>
-  <section class="build-panel" aria-label="Preview version"><p id="build-info">Local development source</p><button id="reload-build">Reload latest</button><p class="hint">Stop sharing before updating. Pair the devices again after reloading.</p></section>
-  <section><h2>1. Choose this device</h2>
-    <label>Use this device as <select id="role"><option value="sender">Share screen — iPad or other gaming device</option><option value="receiver">Receive screen — iPhone, Android or other viewing device</option></select></label>
+
+  <a class="skip-link" href="#reader-root">Skip to transcript</a>
+
+  <div id="app-root"><p role="status">Loading your companion…</p></div>
+
+  <div class="device-bar">
+
+    <label>Use this device as <select id="role"><option value="receiver" selected>Receiver — read transcript</option><option value="sender">Sender — share screen</option></select></label>
+
+    <label id="source-control">Transcript source <select id="source"><option value="mobile">Mobile OCR</option><option value="pc">Paired PC</option></select></label>
+
     <label>Game <select id="game"><option value="zzz">Zenless Zone Zero</option><option value="wuwa">Wuthering Waves</option><option value="pragmata">PRAGMATA</option><option value="cyberpunk">Cyberpunk 2077</option><option value="witcher3">The Witcher III</option><option value="nte">Neverness to Everness</option><option value="honkai3">Honkai Impact 3rd</option><option value="hito">Hito's World</option></select></label>
-    <p id="capability" role="status"></p>
-    <p class="hint">Open the same HTTPS address on both devices, on the same Wi-Fi. Allow local network access if requested. Keep the phone page open throughout the test.</p>
-  </section>
-  <section><h2>2. Connect the devices</h2>
+
+  </div>
+
+  <div id="reader-root"></div><div id="settings-root"></div>
+
+  <section class="build-panel" data-panel="settings" hidden aria-label="App version"><p id="build-info">Local development source</p><button id="reload-build">Reload latest</button><p class="hint">Stop sharing before updating. Pair the devices again after reloading.</p></section>
+
+  <section data-panel="connection" hidden><h2>Choose a connection</h2><p id="capability" role="status" class="developer-only"></p><p>Keep both devices on the same network. Allow local network access when requested. Pair using the QR code or a private pairing message.</p><p class="capture-limit">Browser screen capture may be unavailable on iPad or stop when switching apps. The native iPad capture helper is not included.</p></section>
+
+  <section data-panel="connection" hidden><h2>Pair your devices</h2>
+
     <label><input id="auto-recovery" type="checkbox" disabled> Automatically recover the connection when returning</label>
-    <p id="relay-status" class="hint" role="status">Checking recovery service configuration…</p>
+
+    <p id="relay-status" class="hint" role="status">Checking recovery service configurationâ€¦</p>
+
     <p id="instructions"></p>
+
     <div class="actions"><button id="start">Share screen &amp; create offer</button><button id="resume-share" hidden>Resume screen sharing</button><button id="reconnect" disabled>Reconnect &amp; create new offer</button><button id="stop" disabled>Stop</button></div>
+
     <p class="hint">Return to this page after switching apps. With automatic recovery enabled, it resumes playback and exchanges fresh connection details if needed. Keep screen sharing active on the sender. If sharing ended, tap Share screen again. Direct QR pairing remains available.</p>
+
     <div id="qr-panel" hidden><canvas id="pairing-qr" aria-label="Pairing QR code"></canvas><p id="qr-description"></p>
+
       <div class="actions qr-controls"><button id="qr-enlarge">Larger QR</button><button id="qr-pause">Pause QR rotation</button><button id="qr-previous">Previous QR</button><button id="qr-next">Next QR</button></div>
+
       <p class="hint">The scanner needs every QR frame. If it gets stuck, pause here and show the missing frame using Next QR. Use Larger QR and move the camera closer.</p>
+
     </div>
-    <button id="scan-pairing">Scan the other device’s QR</button>
+
+    <button id="scan-pairing">Scan the other deviceâ€™s QR</button>
+
     <div id="qr-scan-panel" hidden><video id="qr-camera" autoplay muted playsinline aria-label="Pairing camera"></video><button id="stop-scan">Stop camera</button></div>
-    <p id="qr-feedback" role="status">Scan the sender’s offer on the phone, then scan the phone’s answer on the sender. QR transfer stays between your devices.</p>
-    <p class="hint">With automatic recovery, scan the sender’s offer once; the answer returns automatically. Without it, scan the answer back too. The recovery service exchanges encrypted connection details; game video and libraries stay on your devices.</p>
+
+    <p id="qr-feedback" role="status">Scan the senderâ€™s offer on the phone, then scan the phoneâ€™s answer on the sender. QR transfer stays between your devices.</p>
+
+    <p class="hint">With automatic recovery, scan the senderâ€™s offer once; the answer returns automatically. Without it, scan the answer back too. The recovery service exchanges encrypted connection details; game video and libraries stay on your devices.</p>
+
     <label>Your pairing message <textarea id="outgoing" readonly spellcheck="false" placeholder="Generated here"></textarea></label>
+
     <div class="actions"><button id="copy" disabled>Copy message</button><button id="save-pairing" disabled>Download pairing file</button></div>
+
     <label>Message from the other device <textarea id="incoming" spellcheck="false" placeholder="Paste the offer or answer here"></textarea></label>
+
     <label>Or open its pairing file <input id="pairing-file" type="file" accept="application/json,.json"></label>
+
     <button id="apply">Accept message</button>
-    <p class="hint">Pairing messages contain local connection details. Transfer them privately using your usual device-sharing method. They are not included in the test report.</p>
+
+    <p class="hint">Pairing messages contain local connection details. Transfer them privately using your usual device-sharing method. They are not included in the developer report.</p>
+
     <p id="status" role="status" aria-live="polite">Ready.</p>
+
     <p id="capture-state" role="status">Capture: not started</p>
-    <p id="diagnostics" class="hint">Connection diagnostics appear here.</p>
+
+    <p class="developer-only" id="diagnostics">Connection diagnostics appear here.</p>
+
   </section>
-  <section><h2>3. Watch while playing</h2>
-    <video id="preview" autoplay muted playsinline aria-label="Received game screen"></video>
-    <button id="play-preview" hidden>Play preview</button>
+
+<aside id="video-surface">    <video id="preview" autoplay muted playsinline aria-label="Received game screen"></video>
+
+    <button id="play-preview" hidden>Play video</button>
+
+</aside>
+
+  <section class="developer-only" data-panel="connection" hidden><h2>Capture observation</h2>
+
     <p id="metrics" role="status">No incoming frames yet.</p>
+
     <p>On the sharing device, switch into the game. On the receiving device, start the test and keep this page open. Play for 15 minutes with dialogue, cutscenes, rotation, and a return to the browser. Check that this preview shows the game and keeps moving.</p>
+
     <button id="begin-test" disabled>Start 15-minute observation</button>
+
     <label>What happened? <select id="result"><option value="not_verified">Not verified yet</option><option value="game_visible">Game visible and moving</option><option value="frozen">Frozen or stopped after switching</option><option value="black">Black screen or wrong content</option></select></label>
+
     <label>Notes <textarea id="notes" placeholder="Game version, scenes tested, any interruptions"></textarea></label>
-    <button id="report">Download test report</button>
+
+    <button id="report">Download developer report</button>
+
     <p class="hint">Download a report on both devices after a freeze or recovery. Reports include capture state, connection counters and page visibility events, without pairing details or game images. They cannot determine that a particular game was captured: your observation is required. Background capture still needs a device test.</p>
+
   </section>
-  <section aria-label="Your game library">
-    <h2>Open your game library on the receiving phone</h2>
-    <p>Open the exported Catalog and Voices ZIPs from Files → On My iPhone, or directly from a connected USB drive. Keep them zipped. Only the catalog and individual voice clips are read; game content is never uploaded.</p>
+
+  <section aria-label="Your game library" data-panel="library" data-role="receiver" hidden>
+
+    <h2>Your game library</h2>
+
+    <p>Open the exported Catalog and Voices ZIPs from Files â†’ On My iPhone, or directly from a connected USB drive. Keep them zipped. Only the catalog and individual voice clips are read; game content is never uploaded.</p>
+
     <label>Catalog and voice ZIPs <input id="library-files" type="file" multiple accept=".zip,application/zip,application/octet-stream"></label>
+
     <button id="cancel-library" hidden>Cancel file opening</button>
+
     <p id="library-status" role="status">Open your catalog and optional voice ZIPs.</p>
-    <p id="pack-status" class="hint"></p><p id="storage-status" class="hint"></p>
-    <p id="coverage-status" class="hint"></p>
+
+    <p id="pack-status" class="hint developer-only"></p><p id="storage-status" class="hint"></p>
+
+    <p id="coverage-status" class="hint developer-only"></p>
+
     <p id="cache-status" class="hint"></p>
-    <p class="hint">With USB files, keep the drive connected and the phone unlocked. The app does not copy voice packs into browser storage; Safari or Files may stage selected files temporarily. Exact iPhone disk space is shown in Settings → General → iPhone Storage.</p>
+
+    <p class="hint">With USB files, keep the drive connected and the phone unlocked. The app does not copy voice packs into browser storage; Safari or Files may stage selected files temporarily. Exact iPhone disk space is shown in Settings â†’ General â†’ iPhone Storage.</p>
+
     <button id="forget-library">Forget remembered library</button>
+
     <p class="hint">After reopening, cached text can remain available, but select voice ZIPs again for playback. Retain your Files copies if Safari clears its cache. Add this page to the Home Screen before setting up your library.</p>
+
   </section>
-  <section aria-label="Transcript controls">
+
+  <section aria-label="Transcript controls" data-panel="library" data-role="receiver" hidden>
+
     <h2>OCR and transcript</h2>
+
     <label>Game subtitle language <select id="ocr-language"><option value="eng">English</option><option value="chi_sim">Simplified Chinese</option><option value="eng+chi_sim">English and Chinese</option></select></label>
+
     <label>Player voice <select id="player-voice"><option value="unconfigured">Not configured (ambiguous lines skipped)</option><option value="female">Female</option><option value="male">Male</option></select></label>
+
     <div class="actions"><button id="ocr-start">Start OCR</button><button id="ocr-pause">Pause OCR</button></div>
+
     <p id="match-status" role="status">Open a catalog, connect the receiving screen, then start OCR.</p>
+
     <details><summary>Capture regions and calibration</summary>
+
       <p>Percentages refer to the received video, independently of phone orientation or browser zoom.</p>
+
       <label>Region to calibrate <select id="calibrate-region"><option value="dialogue">Dialogue</option></select></label>
+
       <label>Subtitle contrast <select id="ocr-contrast"><option value="auto">Prepare outlined subtitles</option><option value="raw">Original image (custom fonts/colors)</option></select></label>
+
       <label>Picture area <select id="picture-area"><option value="window">Full video</option><option value="16:9">Centered 16:9 picture inside black bars</option></select></label>
+
       <div class="crop-controls"><label>Left % <input id="crop-left" type="number" min="0" max="100" step="0.1"></label><label>Top % <input id="crop-top" type="number" min="0" max="100" step="0.1"></label><label>Width % <input id="crop-width" type="number" min="0.1" max="100" step="0.1"></label><label>Height % <input id="crop-height" type="number" min="0.1" max="100" step="0.1"></label></div>
+
       <label><input id="extra-regions" type="checkbox" checked> Scan Cyberpunk/Witcher overhead caption regions</label>
+
       <label><input id="cinematic-regions" type="checkbox" checked> Scan comic, card and alternate dialogue-panel regions</label>
+
       <div class="actions"><button id="preview-crop">Preview dialogue crop</button><button id="reset-crop">Use default crop</button></div><canvas id="crop-preview" hidden aria-label="Dialogue crop preview"></canvas>
+
     </details>
-    <div class="actions"><label><input id="show-english" type="checkbox" checked> Show English</label><label><input id="favorites-only" type="checkbox"> Favorites only</label></div>
+
+    <div hidden class="actions"><label><input id="show-english" type="checkbox" checked> Show English</label><label><input id="favorites-only" type="checkbox"> Favorites only</label></div>
+
     <label>Find a line in your library <textarea id="find-text" rows="2" maxlength="2000" placeholder="Search English or Chinese words, or paste both on separate lines"></textarea></label><button id="find-line">Find line</button>
+
     <div id="search-results" aria-label="Library search results"></div>
-    <audio id="voice-player" controls preload="none"></audio>
-    <div id="transcript" aria-label="Bilingual transcript" aria-live="polite"></div>
-    <details><summary>Physical device verification</summary>
+
+
+
+    <div hidden id="transcript" aria-label="Bilingual transcript" aria-live="polite"></div>
+
+    <details class="developer-only"><summary>Physical device verification</summary>
+
       <p>Only mark checks that you performed on this device. Browser automation cannot verify iPhone storage or background capture.</p>
+
       <label>Device tested <select id="test-device"><option value="unknown">Not specified</option><option value="iphone">Physical iPhone</option><option value="ipad">Physical iPad</option><option value="android">Physical Android device</option><option value="desktop">Desktop browser</option></select></label>
+
       <label><input id="test-large" type="checkbox"> Selected multiple voice packs totaling at least 2 GiB</label>
+
       <label><input id="test-playback" type="checkbox"> Heard an original voice play from local Files</label>
+
       <label><input id="test-reload" type="checkbox"> Reloaded, reselected packs and played audio again</label>
+
       <label><input id="test-reboot" type="checkbox"> Rebooted the phone, reopened and reselected successfully</label>
+
       <label><input id="test-update" type="checkbox"> Updated the application and retained text, favorites and calibration</label>
+
       <label><input id="test-gameplay" type="checkbox"> Completed 15 minutes of moving gameplay with correct transcripts</label>
+
       <label>Result <select id="test-outcome"><option value="not_verified">Not verified yet</option><option value="passed">Checks passed</option><option value="failed">Observed a failure</option></select></label>
+
     </details>
-    <div class="actions"><button id="clear-history">Clear this game's transcript</button><button id="library-report">Download library test report</button></div>
+
+    <div class="actions"><button id="clear-history">Clear this game's transcript</button><button class="developer-only" id="library-report">Download library developer report</button></div>
+
     <p class="hint">Only catalog-backed dialogue is displayed. Missing coverage or ambiguous voices are skipped. File opening and browser tests do not establish every game's capture, OCR or chapter coverage.</p>
+
   </section>
+
+<audio id="voice-player" controls preload="none"></audio>
 </main>
+
 <dialog id="qr-large-dialog" aria-label="Large pairing QR"></dialog>
-<script type="module" src="./capture.js"></script>
-<script type="module" src="./qr-ui.mjs"></script>
-<script type="module" src="./mobile-ui.mjs"></script>
+
+<script type="module" src="./companion.js"></script>
+
 </body>
+
 </html>
+

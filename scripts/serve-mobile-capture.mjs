@@ -23,7 +23,7 @@ const routes = new Map([
   ['/core.mjs', ['core.mjs', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
 ]);
-for(const name of ['qr-pairing.mjs','qr-ui.mjs','library.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','storage.mjs','manifest.webmanifest','icon.svg','icon.png'])routes.set('/'+name,[name,mime(name)]);
+for(const name of ['companion.js','companion.css','transcript-channel.mjs','pc-provider.mjs','vault.mjs','recovery-config.json','relay.mjs','qr-render.mjs','qr-pairing.mjs','qr-ui.mjs','library.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','storage.mjs','manifest.webmanifest','icon.svg','icon.png'])routes.set('/'+name,[name,mime(name)]);
 const handleRequest = (request, response) => {
   const pathname=new URL(request.url,'https://localhost').pathname;
   const external=ocr.get(pathname.slice(1));
@@ -32,7 +32,7 @@ const handleRequest = (request, response) => {
   response.writeHead(200, {
     'Content-Type': route[1], 'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' http://127.0.0.1:8766 ws://127.0.0.1:8766 https://game-immersion-pairing.boazbrak.workers.dev wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev; object-src 'none'; frame-ancestors 'none'",
   });
   response.end(request.method === 'HEAD' ? undefined : external??readFileSync(fileURLToPath(new URL(route[0], root))));
 };

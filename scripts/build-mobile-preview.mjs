@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import {ocrAssets} from './mobile-assets.mjs';
 
+import {buildBrowserReader} from './build-browser-reader.mjs';
+await buildBrowserReader();
 const root = new URL('../', import.meta.url);
 const git = (...args) => execFileSync('git', args, { cwd: fileURLToPath(root), encoding: 'utf8' }).trim();
 const commit = process.env.GITHUB_SHA || git('rev-parse', 'HEAD');
@@ -24,7 +26,7 @@ function asset(name, content) {
   return hashedName;
 }
 const source = name => readFileSync(new URL(`public/mobile-capture/${name}`, root), 'utf8');
-for(const name of ['core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','capture.js','style.css','icon.svg','icon.png','manifest.webmanifest']){
+for(const name of ['core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','transcript-channel.mjs','pc-provider.mjs','vault.mjs','capture.js','companion.js','companion.css','style.css','icon.svg','icon.png','manifest.webmanifest']){
  let content=name.endsWith('.png')?readFileSync(new URL('public/mobile-capture/'+name,root)):source(name);if(typeof content==='string')for(const [original,hashed] of assets)content=content.replaceAll('./'+original,'./'+hashed);asset(name,content);
 }
 const ocr=ocrAssets();
@@ -46,7 +48,7 @@ const ROOT=new URL('./',self.location),ALLOW=new Set(FILES.map(n=>new URL(n,ROOT
 self.addEventListener('install',event=>event.waitUntil(caches.open(NAME).then(cache=>cache.addAll(FILES.filter(n=>!n.startsWith('ocr/')||n==='ocr/tesseract.esm.min.js')))));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{const clients=await self.clients.matchAll({includeUncontrolled:true});if(clients.length<=1){const names=(await caches.keys()).filter(n=>n.startsWith('proxy-mobile-'));const keep=new Set([NAME,...names.filter(n=>n!==NAME).slice(-1)]);await Promise.all(names.filter(n=>!keep.has(n)).map(n=>caches.delete(n)));}await self.clients.claim();})()));
 self.addEventListener('message',event=>{if(event.data==='activate-update')self.skipWaiting();});
-self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;const url=new URL(event.request.url);if(event.request.mode==='navigate'&&url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname)){event.respondWith(fetch(event.request).catch(()=>caches.match(new URL('index.html',ROOT).href)));return;}if(!ALLOW.has(url.href))return;event.respondWith(caches.open(NAME).then(async cache=>{const saved=await cache.match(event.request);if(saved)return saved;const response=await fetch(event.request);if(response.ok)await cache.put(event.request,response.clone());return response;}));});
+self.addEventListener('fetch',event=>{if(event.request.method!=='GET'||event.request.headers.has('Authorization'))return;const url=new URL(event.request.url);if(event.request.mode==='navigate'&&url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname)){event.respondWith(fetch(event.request).catch(()=>caches.match(new URL('index.html',ROOT).href)));return;}if(!ALLOW.has(url.href))return;event.respondWith(caches.open(NAME).then(async cache=>{const saved=await cache.match(event.request);if(saved)return saved;const response=await fetch(event.request);if(response.ok)await cache.put(event.request,response.clone());return response;}));});
 `);
 // The publisher must use a fresh directory rather than accumulate older assets.
 // No recursive deletion: version each package by its content and build time.

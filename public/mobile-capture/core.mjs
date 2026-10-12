@@ -32,12 +32,14 @@ export function parsePairing(text, expectedType) {
     || !SUPPORTED_GAMES.includes(value.game)) throw new Error(`Expected a ${expectedType} from the other device.`);
   const identity = pairingIdentity(value);
   if (Object.hasOwn(value,'relay') && !identity.sessionId) throw Error('Recovery requires a session identity.');
-  return { type: value.type, sdp: value.sdp, game: value.game, ...identity, ...(Object.hasOwn(value,'relay') ? {relay:parseRelay(value.relay)} : {}) };
+  if(value.mode!==undefined&&value.mode!=='transcript')throw Error('Unsupported pairing mode.');
+  if(value.mode==='transcript'&&!identity.sessionId)throw Error('Transcript pairing requires a session.');
+  return { type: value.type, sdp: value.sdp, game: value.game, ...(value.mode?{mode:value.mode}:{}), ...identity, ...(Object.hasOwn(value,'relay') ? {relay:parseRelay(value.relay)} : {}) };
 }
 export function pairingMessage(description, game, identity = {}) {
   const parsedIdentity = pairingIdentity(identity);
   if (Object.hasOwn(identity,'relay') && !parsedIdentity.sessionId) throw Error('Recovery requires a session identity.');
-  return JSON.stringify({ format: 'proxy-mobile-capture-v1', type: description.type, sdp: description.sdp, game, ...parsedIdentity, ...(Object.hasOwn(identity,'relay') ? {relay:parseRelay(identity.relay)} : {}) });
+  return JSON.stringify({ format: 'proxy-mobile-capture-v1', type: description.type, sdp: description.sdp, game, ...(identity.mode==='transcript'?{mode:'transcript'}:{}), ...parsedIdentity, ...(Object.hasOwn(identity,'relay') ? {relay:parseRelay(identity.relay)} : {}) });
 }
 export function samePairing(a, b) {
   try {

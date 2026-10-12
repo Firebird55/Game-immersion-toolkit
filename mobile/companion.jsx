@@ -1,0 +1,112 @@
+import React,{useEffect,useState,useRef} from 'react';
+import {createRoot} from 'react-dom/client';
+import {createPortal} from 'react-dom';
+import {createReader,createReadingSession,restoreLocalSettings,ReadingOptionsDialog,SettingsPanel,shouldHideTranslation} from '@firebird55/lexirise-components';
+import '@firebird55/lexirise-components/styles.css';
+import './companion.css';
+
+const $=id=>document.getElementById(id);
+const params=new URLSearchParams(location.search);
+if(params.get('developer')==='1')$('role').value='sender';
+if(params.get('pc')==='1'&&['localhost','127.0.0.1'].includes(location.hostname)){$('role').value='sender';$('source').value='pc';}
+if([...$('game').options].some(o=>o.value===params.get('game')))$('game').value=params.get('game');
+const [capture,library,pairing,storage,cryptoVault,protocol]=await Promise.all([
+ import(/* @vite-ignore */ new URL('./capture.js',document.baseURI).href),
+ import(/* @vite-ignore */ new URL('./mobile-ui.mjs',document.baseURI).href),
+ import(/* @vite-ignore */ new URL('./qr-ui.mjs',document.baseURI).href),
+ import(/* @vite-ignore */ new URL('./storage.mjs',document.baseURI).href),
+ import(/* @vite-ignore */ new URL('./vault.mjs',document.baseURI).href),
+ import(/* @vite-ignore */ new URL('./transcript-channel.mjs',document.baseURI).href)
+]);
+const gateway='https://game-immersion-lexirise.boazbrak.workers.dev';
+const keyOf=protocol.rowKey;
+let pcHistory=[],saveQueue=Promise.resolve();
+const persistPC=()=>{const copy=structuredClone(pcHistory);saveQueue=saveQueue.catch(()=>{}).then(()=>storage.put('pc-history',copy));return saveQueue;};
+function mergePC(rows){const map=new Map(pcHistory.map(r=>[keyOf(r),r]));for(const row of rows){const old=map.get(keyOf(row));map.set(keyOf(row),{...row,favorite:old?.favorite??false});}const all=[...map.values()].sort((a,b)=>a.createdAt-b.createdAt);pcHistory=[...all.filter(r=>r.favorite).slice(-5000),...all.filter(r=>!r.favorite).slice(-500)];}
+
+function App(){
+ const [view,setView]=useState($('role').value==='sender'?'connection':'reader'),[role,setRole]=useState($('role').value),[source,setSource]=useState($('source').value),[game,setGame]=useState($('game').value);
+ const [rows,setRows]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[status,setStatus]=useState('Ready to connect'),[filter,setFilter]=useState('history'),[search,setSearch]=useState(''),[limit,setLimit]=useState(30),[before,setBefore]=useState(null),[connected,setConnected]=useState(false);
+ const [options,setOptions]=useState(restoreLocalSettings(null)),[mode,setMode]=useState('migaku'),[chinese,setChinese]=useState(true),[english,setEnglish]=useState(true),[optionsOpen,setOptionsOpen]=useState(false),[accountOpen,setAccountOpen]=useState(false),[dev,setDev]=useState(params.get('developer')==='1');
+ const [unlocked,setUnlocked]=useState(false),[hasVault,setHasVault]=useState(false),[vaultAction,setVaultAction]=useState(''),[working,setWorking]=useState(false),[revision,setRevision]=useState(0),[decks,setDecks]=useState([]),[deck,setDeck]=useState(''),[deckTitle,setDeckTitle]=useState(''),[update,setUpdate]=useState(null);
+ const session=useRef(null),reader=useRef(null),vault=useRef(null),audioUrl=useRef(null),hydrated=useRef(false),busy=useRef(false);
+ if(!vault.current)vault.current=cryptoVault.createVault(storage,{onLock:()=>{session.current?.dispose();session.current=null;reader.current?.resetReadingCaches();reader.current=null;setUnlocked(false);setAccountOpen(false);setDecks([]);setDeck('');setRevision(r=>r+1);}});
+ const refresh=()=>setRows([...library.libraryLifecycle.history,...pcHistory]);
+ const run=async fn=>{if(busy.current)return;busy.current=true;setWorking(true);setError('');try{await fn();}catch(e){setError(e.message??'This action could not complete. Retry when ready.');}finally{busy.current=false;setWorking(false);}};
+ useEffect(()=>{
+  const change=()=>{setRole($('role').value);setSource($('source').value);setGame($('game').value);setLimit(30);setBefore(null);refresh();};
+  const stop=()=>{capture.captureLifecycle.stop();pairing.pairingLifecycle.stop();library.libraryLifecycle.stop();setConnected(false);if($('role').value==='sender')setView('connection');change();};
+  $('role').addEventListener('change',stop);$('source').addEventListener('change',stop);$('game').addEventListener('change',change);
+  const history=()=>refresh();window.addEventListener('mobile-history',history);
+  const pc=e=>{mergePC(e.detail.rows);refresh();if(e.detail.message.type==='page')setBefore(e.detail.message.before);void persistPC().catch(()=>setError('PC history is temporary because browser storage is unavailable.'));};window.addEventListener('pc-transcript',pc);
+  const stream=e=>{setConnected(e.detail.state==='connected');setGame($('game').value);};window.addEventListener('mobile-stream',stream);
+  const observer=new MutationObserver(()=>setStatus($('status').textContent));observer.observe($('status'),{childList:true,subtree:true,characterData:true});
+  const visibility=()=>vault.current.visibility(document.hidden),exit=()=>vault.current.lock();document.addEventListener('visibilitychange',visibility);window.addEventListener('pagehide',exit);
+  void (async()=>{try{pcHistory=await storage.get('pc-history')??[];const preferences=await storage.get('browser-reading')??{};setOptions(restoreLocalSettings(preferences.options));setMode(preferences.mode==='lexirise'?'lexirise':'migaku');setChinese(preferences.chinese!==false);setEnglish(preferences.english!==false);setHasVault(await vault.current.exists());refresh();}catch{setError('Browser storage is unavailable. Reading works this session; reconnect your library to restore local content.');}finally{hydrated.current=true;setLoading(false);}})();
+  if(document.documentElement.dataset.buildCommit&&'serviceWorker' in navigator)void navigator.serviceWorker.register('./sw.js').then(reg=>{if(reg.waiting)setUpdate(reg);reg.addEventListener('updatefound',()=>{reg.installing?.addEventListener('statechange',()=>{if(reg.waiting)setUpdate(reg);});});}).catch(()=>{});
+  return ()=>{observer.disconnect();$('role').removeEventListener('change',stop);$('source').removeEventListener('change',stop);$('game').removeEventListener('change',change);window.removeEventListener('mobile-history',history);window.removeEventListener('pc-transcript',pc);window.removeEventListener('mobile-stream',stream);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',exit);};
+ },[]);
+ useEffect(()=>{document.body.dataset.role=role;document.body.dataset.source=source;document.body.dataset.view=view;document.body.classList.toggle('developer-mode',dev);$('source-control').hidden=role==='sender';for(const panel of document.querySelectorAll('[data-panel]'))panel.hidden=!dev&&(panel.dataset.panel!==view||panel.dataset.role&&panel.dataset.role!==role);$('video-surface').hidden=source==='pc';},[view,role,source,dev]);
+ useEffect(()=>{if(hydrated.current)void storage.put('browser-reading',{version:1,options,mode,chinese,english}).catch(()=>setError('Reading preferences could not be saved.'));},[options,mode,chinese,english]);
+ async function transport(path,method,payload,signal){
+  const key=vault.current.credential(),response=await fetch(gateway+'/v1/request',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({path,method,...payload===undefined?{}:{payload}}),cache:'no-store',signal:AbortSignal.any([signal,vault.current.signal,AbortSignal.timeout(30000)])});
+  return {status:response.status,responseText:await response.text()};
+ }
+ function openSession(){session.current=createReadingSession({request:transport});reader.current=createReader({sourceLanguage:'zh',translationLanguage:'en',loadSettings:()=>session.current.loadSettings(),request:(...args)=>session.current.requestReading(...args)});setUnlocked(true);setRevision(r=>r+1);}
+ async function submitVault(event){event.preventDefault();const form=event.currentTarget,data=new FormData(form),action=vaultAction||(!hasVault?'connect':'unlock');const key=data.get('key'),pass=data.get('pass'),confirm=data.get('confirm');form.reset();await run(async()=>{
+  if(action==='change')await vault.current.changePassphrase(pass,confirm);
+  else if(action==='unlock')await vault.current.unlock(pass);
+  else await vault.current.connect(key,pass,confirm);
+  if(action!=='change')openSession();setHasVault(true);setVaultAction('');setNotice('Lexirise unlocked for this session.');
+ });}
+ async function blobFor(row){return row.source==='mobile-ocr'?library.libraryLifecycle.voice(row):capture.captureLifecycle.audio(row.id);}
+ async function play(row){await run(async()=>{const blob=await blobFor(row);if(audioUrl.current)URL.revokeObjectURL(audioUrl.current);audioUrl.current=URL.createObjectURL(blob);$('voice-player').src=audioUrl.current;await $('voice-player').play();});}
+ async function favorite(row){await run(async()=>{if(row.source==='mobile-ocr')await library.libraryLifecycle.favorite(row.id,row.game,!row.favorite);else{pcHistory=pcHistory.map(r=>keyOf(r)===keyOf(row)?{...r,favorite:!r.favorite}:r);await persistPC();refresh();}});}
+ async function saveSentence(row){await run(async()=>{
+  if(!session.current)throw Error('Unlock Lexirise in Settings first.');const client=session.current;
+  const payload={language:'zh',text:row.chinese,mode:'sentence',translation:row.english,notes:[row.game,row.speakerChinese||row.speakerEnglish].filter(Boolean).join(' — '),tags:[row.game]};
+  if(row.audio){const blob=await blobFor(row);const response=await fetch(gateway+'/v1/audio',{method:'POST',headers:{Authorization:'Bearer '+vault.current.credential(),'Content-Type':blob.type},body:blob,cache:'no-store',signal:AbortSignal.any([vault.current.signal,AbortSignal.timeout(30000)])});if(!response.ok)throw Error('Original voice upload failed. Retry saving when ready.');const uploaded=await response.json();if(!/^https:\/\//.test(uploaded.publicUrl))throw Error('Audio upload was not confirmed.');payload.audioUrls=[uploaded.publicUrl];}
+  const result=await client.requestAccount('POST','/v1/vocabulary',payload),id=result.item?.id??result.item?.saved_expression_id;if(!Number.isSafeInteger(id))throw Error('Sentence save was not confirmed. Retry to check.');
+  if(deck){await client.requestAccount('POST','/v1/decks/'+deck+'/items',{saved_expression_selection:{mode:'explicit',ids:[id]}});}setNotice('Sentence saved to Lexirise'+(deck?' and added to the selected deck.':'.'));
+ });}
+ const selected=rows.filter(r=>r.game===game&&(source==='mobile'?r.source==='mobile-ocr':r.source?.startsWith('pc-'))).sort((a,b)=>b.createdAt-a.createdAt||Number(b.id)-Number(a.id));
+ const matches=selected.filter(r=>(filter!=='favorites'||r.favorite)&&(!search||[r.chinese,r.english,r.speakerChinese,r.speakerEnglish].some(t=>t?.toLowerCase().includes(search.toLowerCase()))));
+ const current=selected[0],Reader=reader.current?.ReadingText;
+ function Line({row,current=false}){const [summary,setSummary]=useState(null);return <article className={'dialogue '+(current?'current-dialogue':'')}>
+  <div className="line-meta"><strong>{row.speakerChinese||row.speakerEnglish||'Dialogue'}</strong><span>{new Date(row.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></div>
+  {chinese&&(mode==='lexirise'&&unlocked&&Reader?<Reader key={revision} id={Number(row.id)||row.createdAt} text={row.chinese} sentenceTranslation={row.english} options={options} current={current} onSummary={setSummary}/>:<p className="current-chinese migaku-sentence" data-migaku-line-id={keyOf(row)} lang="zh-Hans">{row.chinese}</p>)}
+  {english&&!shouldHideTranslation(options.hideEnglishAt,summary?.unknownWords??null)&&<p className="translation" lang="en">{row.english}</p>}
+  <div className="line-actions"><button onClick={()=>play(row)} disabled={working||!row.audio||row.source!=='mobile-ocr'&&!connected}>▶ Original voice</button><button aria-pressed={Boolean(row.favorite)} onClick={()=>favorite(row)}>{row.favorite?'★ Favorited':'☆ Favorite'}</button>{mode==='lexirise'&&<button disabled={!unlocked||working} onClick={()=>saveSentence(row)}>Save sentence</button>}</div>
+ </article>;}
+ const go=next=>{setView(next);setError('');};
+ const applyUpdate=()=>run(async()=>{if($('role').disabled||capture.captureLifecycle.active||library.libraryLifecycle.busy)throw Error('Stop sharing and finish library operations before updating.');vault.current.lock();const registration=update??await navigator.serviceWorker?.getRegistration();await registration?.update().catch(()=>{});if(registration?.waiting){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});registration.waiting.postMessage('activate-update');}else {const url=new URL(location.href);url.searchParams.set('v',String(Date.now()));location.replace(url);}});
+ $('reload-build').onclick=applyUpdate;
+ return <>
+  <header className="companion-header"><div><p className="eyebrow">GAME IMMERSION TOOLKIT</p><h1>Proxy Transcript</h1><p className="subtitle">Stay in the story.</p></div><div className={'connection-badge '+(connected?'connected':'')}><span aria-hidden="true">●</span> {connected?'Connected':'Not connected'}</div></header>
+  <nav className="companion-nav" aria-label="Companion">{['reader','connection','library','settings'].filter(v=>role!=='sender'||!['reader','library'].includes(v)).map(v=><button key={v} aria-current={view===v?'page':undefined} onClick={()=>go(v)}>{v[0].toUpperCase()+v.slice(1)}</button>)}</nav>
+  {error&&<div className="message error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}{notice&&<div className="message" role="status">{notice}<button onClick={()=>setNotice('')}>Dismiss</button></div>}
+  {update&&<div className="message" role="status">An update is ready. Your library, favorites and calibration will stay on this device.<button onClick={applyUpdate} disabled={capture.captureLifecycle.active||library.libraryLifecycle.busy}>Update when idle</button></div>}
+  {createPortal(<div hidden={view!=='reader'||role!=='receiver'} style={{'--lexirise-font-size':options.fontSize+'px'}}>
+   <div className="reader-toolbar"><span className="eyebrow">{source==='pc'?'PAIRED PC':'MOBILE OCR'} / {game.toUpperCase()}</span><button onClick={()=>setOptionsOpen(true)}>Reading options</button></div>
+   <section className="current-card"><p className="eyebrow">CURRENT LINE</p>{loading?<p role="status">Restoring your transcript…</p>:current?<Line row={current} current/>:<div className="empty"><h2>Your next line belongs here.</h2><p>{source==='pc'?'On your PC, choose “Share transcript to another device”. Pair here to receive dialogue and original voices.':'Open your game library, pair with the sharing device, and start OCR to follow the dialogue.'}</p><div className="actions"><button onClick={()=>go('connection')}>Pair a device</button>{source==='mobile'&&<button onClick={()=>go('library')}>Open library</button>}</div></div>}</section>
+   <div className="history-toolbar"><div className="tabs">{['history','favorites'].map(t=><button key={t} aria-pressed={filter===t} onClick={()=>{setFilter(t);setLimit(30);}}>{t==='history'?'History':'Favorites'}</button>)}</div><label className="search-label"><span className="sr-only">Search transcript</span><input type="search" value={search} onChange={e=>{setSearch(e.target.value);setLimit(30);}} placeholder="Search Chinese, English or a speaker"/></label></div>
+   <div className="history-list" aria-label="Transcript history">{matches.slice(0,limit).map(row=><Line key={keyOf(row)} row={row}/>)}{!loading&&!matches.length&&<p className="empty">{filter==='favorites'?'Favorite a line to keep it here.':search?'No matching lines. Try another phrase or search your library.':'Your dialogue history will appear here.'}</p>}</div>
+   <div className="actions">{matches.length>limit&&<button onClick={()=>setLimit(n=>n+30)}>Show more history</button>}{source==='pc'&&before&&<button disabled={!connected||working} onClick={()=>run(()=>capture.captureLifecycle.older(before))}>Load older PC history</button>}{source==='mobile'&&<button onClick={()=>go('library')}>Search game library</button>}</div>
+   <p className="reader-status" role="status">{status}</p>{mode==='lexirise'&&!unlocked&&<p className="hint">Unlock Lexirise in Settings for analysis and lookups. Your local transcript and original audio remain available.</p>}
+  </div>,$('reader-root'))}
+  {createPortal(<div hidden={view!=='settings'}>
+   {role==='receiver'&&<section><h2>Reading</h2><label>Reader mode<select value={mode} onChange={e=>setMode(e.target.value)}><option value="migaku">Migaku / plain transcript</option><option value="lexirise">Lexirise</option></select></label><p className="hint">Migaku works independently with your browser extension where supported. Lexirise uses this device’s unlocked key.</p><div className="actions"><label><input type="checkbox" checked={chinese} onChange={e=>setChinese(e.target.checked)}/> Chinese</label><label><input type="checkbox" checked={english} onChange={e=>setEnglish(e.target.checked)}/> English</label></div><button onClick={()=>setOptionsOpen(true)}>Reading options</button></section>}
+   {role==='receiver'&&<section><div className="section-heading"><h2>Lexirise</h2><span>{unlocked?'Unlocked':hasVault?'Locked':'Not connected'}</span></div><p>Works with your PC off. Your key is encrypted on this device with your passphrase. Encryption protects stored credentials, not a compromised page while unlocked.</p>
+    {(!unlocked||vaultAction)&&<form onSubmit={submitVault} autoComplete="off">{(!hasVault||vaultAction==='connect')&&<label>Lexirise API key<input name="key" type="password" required maxLength={4096} autoComplete="off"/></label>}<label>{vaultAction==='change'?'New passphrase':'Passphrase'}<input name="pass" type="password" required minLength={12} maxLength={1024} autoComplete="off"/></label>{(!hasVault||['connect','change'].includes(vaultAction))&&<label>Confirm passphrase<input name="confirm" type="password" required minLength={12} maxLength={1024} autoComplete="off"/></label>}<button disabled={working}>{working?'Please wait…':vaultAction==='change'?'Change passphrase':!hasVault||vaultAction==='connect'?'Connect Lexirise':'Unlock'}</button></form>}
+    <div className="actions">{unlocked&&<><button onClick={()=>{vault.current.lock();setNotice('Lexirise locked.');}}>Lock</button><button onClick={()=>setVaultAction('change')}>Change passphrase</button><button onClick={()=>setAccountOpen(true)}>Account settings</button></>}{hasVault&&<><button onClick={()=>{vault.current.lock();setVaultAction('connect');}}>Replace key / forgotten passphrase</button><button onClick={()=>run(async()=>{await vault.current.forget();setHasVault(false);setVaultAction('');setNotice('Local credentials removed. Revoke the provider key separately if needed.');})}>Forget key</button></>}</div>
+    <p className="hint">At least 12 characters. Reloading, leaving the page, or five minutes in the background locks the key. Forgotten passphrases require entering your API key again. Forget key removes local credentials; it does not revoke the provider key.</p>
+    {unlocked&&<details><summary>Sentence saving and decks</summary><p>Saving a sentence uploads its text and, when available, original voice. A deck is created only when you choose Create deck.</p><button disabled={working} onClick={()=>run(async()=>setDecks((await session.current.requestAccount('GET','/v1/decks?language=zh')).decks??[]))}>Load my decks</button><label>Save destination<select value={deck} onChange={e=>setDeck(e.target.value)}><option value="">Vocabulary only</option>{decks.map(d=><option key={d.id} value={d.id}>{d.title}</option>)}</select></label><label>New deck name<input value={deckTitle} onChange={e=>setDeckTitle(e.target.value)} maxLength={120}/></label><button disabled={working||!deckTitle.trim()} onClick={()=>run(async()=>{const result=await session.current.requestAccount('POST','/v1/decks',{title:deckTitle.trim(),language:'zh',unit_type:'sentence',deck_type:'snapshot',import_items:[]});if(!result.deck?.id)throw Error('Deck creation was not confirmed. Reload your decks before retrying.');setDecks(d=>[...d,result.deck]);setDeck(String(result.deck.id));setDeckTitle('');})}>Create deck</button></details>}
+   </section>}
+   <section><h2>This device</h2><p>Local transcripts, favorites and calibration are kept in browser storage. Clearing site data removes them and your encrypted key. Reselect voice ZIPs after reopening; voice packs are never copied into browser storage.</p><label><input type="checkbox" checked={dev} onChange={e=>setDev(e.target.checked)}/> Enable developer mode</label><p className="hint">Shows capture observations, raw metrics and device verification tools for this session.</p></section>
+  </div>,$('settings-root'))}
+  {optionsOpen&&<ReadingOptionsDialog initial={options} onChange={setOptions} onClose={()=>setOptionsOpen(false)}/>}
+  {accountOpen&&unlocked&&<SettingsPanel initial={options} onChange={setOptions} onClose={()=>setAccountOpen(false)} adapter={{load:()=>session.current.loadSettings(),patch:p=>session.current.patchSettings(p)}} showReadingOptions={false} title="Lexirise account settings"/>}
+  <footer>By <a href="https://github.com/Firebird55/Game-immersion-toolkit" target="_blank" rel="noreferrer">Firebird55</a> · Game content stays on your devices. Lexirise actions use its API.</footer>
+ </>;
+}
+createRoot($('app-root')).render(<App/>);

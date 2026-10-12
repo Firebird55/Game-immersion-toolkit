@@ -34,7 +34,7 @@ try{
    window.captureRequests=0;
    if(navigator.mediaDevices)navigator.mediaDevices.getDisplayMedia=async()=>{window.captureRequests++;if(window.denyCapture)throw Error('Synthetic permission denial');const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;let i=0;const ctx=canvas.getContext('2d');setInterval(()=>{ctx.fillStyle=`rgb(${i++%255},100,180)`;ctx.fillRect(0,0,640,360);},100);window.capturedStream=canvas.captureStream(10);return window.capturedStream;};
   });
-  const sender=await context.newPage(),receiver=await context.newPage();await sender.goto(origin);await receiver.goto(origin);await receiver.selectOption('#role','receiver');
+  const sender=await context.newPage(),receiver=await context.newPage();await sender.goto(origin+'?developer=1');await receiver.goto(origin+'?developer=1');await receiver.selectOption('#role','receiver');
   await sender.waitForFunction(()=>document.querySelector('#auto-recovery').checked&&!document.querySelector('#auto-recovery').disabled);
   await sender.click('#start');await sender.waitForFunction(()=>document.querySelector('#outgoing').value.includes('"relay"'));
   const offer=JSON.parse(await sender.inputValue('#outgoing'));assert.equal(await sender.locator('#pairing-qr').getAttribute('data-total'),'1','Service-assisted offer fits one static QR');
@@ -94,7 +94,7 @@ try{
  // WebKit validates real encrypted signaling and reconnecting sockets. Its
  // automated runtime does not establish physical iPhone capture reliability.
  browser=await webkit.launch({headless:true});const context=await browser.newContext(),sender=await context.newPage(),receiver=await context.newPage(),errors=[];
- for(const page of [sender,receiver]){page.on('pageerror',e=>errors.push(e.message));await page.goto(origin);}
+ for(const page of [sender,receiver]){page.on('pageerror',e=>errors.push(e.message));await page.goto(origin+'?developer=1');}
  const descriptor=await sender.evaluate(async({endpoint,module})=>{const {createRelay,RelayClient}=await import(module),descriptor=await createRelay(endpoint);window.relayMessages=[];window.relayTest=new RelayClient(descriptor,'sender',{onMessage:v=>window.relayMessages.push(v)});return descriptor;},{endpoint,module:relayModule});
  await receiver.evaluate(async({descriptor,module})=>{const {RelayClient}=await import(module);window.relayMessages=[];window.relayTest=new RelayClient(descriptor,'receiver',{onMessage:v=>window.relayMessages.push(v)});},{descriptor,module:relayModule});
  for(const page of [sender,receiver])await page.waitForFunction(()=>window.relayTest.ready);

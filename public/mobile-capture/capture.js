@@ -1,3 +1,5 @@
+import {CHANNEL,createTranscriptChannel} from './transcript-channel.mjs';
+import {createPCProvider} from './pc-provider.mjs';
 import { TEST_DURATION_MS, parsePairing, pairingMessage, samePairing, privateTrackState, privateRtcSample, frameHealth, imageSignature } from './core.mjs';
 import {createRelay, RelayClient} from './relay.mjs';
 
@@ -8,6 +10,9 @@ const build = document.documentElement.dataset.buildCommit ? {
   builtAt: document.documentElement.dataset.buildTime,
 } : null;
 if (build) $('build-info').textContent = `Build ${build.commit.slice(0, 8)} · ${build.branch} · ${build.builtAt}`;
+let transcript=null, provider=null, unsubscribe=null;
+const pcSender=()=>new URLSearchParams(location.search).get('pc')==='1'&&['localhost','127.0.0.1'].includes(location.hostname)&&$('role').value==='sender';
+const transcriptMode=()=>pcSender()||$('source')?.value==='pc';
 let peer = null, stream = null, generation = 0, frameCallback = null;
 let connectedAt = null, attemptStartedAt = null, lastFrameAt = null, delivered = 0, changed = 0, dark = false;
 let lastHash = null, lastMediaTime = -1, observation = null, events = [];
@@ -30,7 +35,7 @@ const context = canvas.getContext('2d', { willReadFrequently: true });
 const capability = () => ({ secure: isSecureContext, screenCapture: typeof navigator.mediaDevices?.getDisplayMedia === 'function', webRTC: typeof RTCPeerConnection === 'function', userAgent: navigator.userAgent });
 function event(kind, details = {}) { events.push({ at: new Date().toISOString(), kind, ...details }); events = events.slice(-300); }
 function status(message) { $('status').textContent = message; }
-const liveCapture = () => stream?.getVideoTracks().some(track => track.readyState === 'live') ?? false;
+const liveCapture = () => pcSender() ? Boolean(identity) : stream?.getVideoTracks().some(track => track.readyState === 'live') ?? false;
 function trackStates() { return stream ? stream.getTracks().map(privateTrackState).filter(Boolean) : trackSnapshot; }
 function updateDiagnostics() {
   if (stream) trackSnapshot = trackStates();
@@ -41,9 +46,12 @@ function updateDiagnostics() {
 function updateRole() {
   window.dispatchEvent(new CustomEvent('mobile-stream', {detail:{generation,game:sessionGame??$('game').value,role:sessionRole??$('role').value,state:peer?.connectionState??'closed',live:liveCapture()}}));
   const sender = $('role').value === 'sender', caps = capability();
+  if(pcSender())caps.screenCapture=true;
   $('capability').textContent = `Secure context: ${caps.secure ? 'yes' : 'no'} · Screen capture API: ${caps.screenCapture ? 'available (background capture unverified)' : 'unavailable'} · WebRTC: ${caps.webRTC ? 'available' : 'unavailable'} · ${caps.userAgent}`;
   $('instructions').textContent = sender ? 'Share the game window or screen and send the offer to the receiving device. Paste its answer back here, then open the game.' : 'Paste the gaming device’s offer below. Accept it, send the generated answer back, and keep this page open.';
   if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. For your iPad game → iPhone setup, the iPad remains the sender and the iPhone remains the receiver. A native capture helper is needed on the iPad; it is not included yet. Browser pairing cannot start this capture.';
+  if(pcSender())$('instructions').textContent='Share the live PC transcript. Keep the desktop companion and this page running on the same network as the receiver.';
+  $('start').textContent=pcSender()?'Share transcript & create offer':'Share screen & create offer';
   $('start').hidden = !sender;
   $('resume-share').hidden = !sender || !identity || liveCapture();
   $('resume-share').disabled = pendingCapture || busyPairing || !caps.screenCapture;
@@ -65,6 +73,7 @@ function cancelFrameMonitor() {
 function detachConnection(keepCapture = false) {
   // Invalidate old callbacks before closing their peer or received tracks.
   generation++;
+  transcript?.close();transcript=null;unsubscribe?.();unsubscribe=null;provider=null;
   cancelFrameMonitor();
   if (peer) {
     peer.onconnectionstatechange = null; peer.oniceconnectionstatechange = null;
@@ -135,8 +144,16 @@ function newPeer() {
   for (const [handler, kind, state] of [['oniceconnectionstatechange', 'ice_connection', 'iceConnectionState'], ['onicegatheringstatechange', 'ice_gathering', 'iceGatheringState'], ['onsignalingstatechange', 'signaling', 'signalingState']]) {
     active[handler] = () => { if (current(active, token)) { event(kind, { state: active[state] }); updateDiagnostics(); } };
   }
+  if(transcriptMode()){
+    const attach=channel=>{
+      if(!current(active,token)||channel.label!==CHANNEL){channel.close();return;}
+      transcript=createTranscriptChannel(channel,{session:identity.sessionId+':'+identity.pairingId,provider,onState:status,onRows:(rows,message)=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{rows,message}})),onCapabilities:capabilities=>window.dispatchEvent(new CustomEvent('pc-capabilities',{detail:capabilities}))});
+      if(provider)unsubscribe=provider.subscribe(rows=>{void transcript?.update(rows).catch(()=>status('Transcript update interrupted. Reconnect to refresh history.'));});
+    };
+    if(pcSender()){provider=createPCProvider(sessionGame);attach(active.createDataChannel(CHANNEL,{ordered:true}));}else active.ondatachannel=e=>attach(e.channel);
+  }
   active.ontrack = async e => {
-    if (!current(active, token) || sessionRole !== 'receiver') return;
+    if (!current(active, token) || sessionRole !== 'receiver' || transcriptMode()) return;
     stream = e.streams[0] ?? new MediaStream([e.track]);
     $('preview').srcObject = stream;
     watchTracks(active, token);
@@ -175,7 +192,7 @@ async function outputDescription(active, description, token) {
   if (!current(active, token)) return;
   await gatherIce(active, token);
   if (!current(active, token)) return;
-  $('outgoing').value = pairingMessage(active.localDescription, sessionGame, identity ?? {});
+  $('outgoing').value = pairingMessage(active.localDescription, sessionGame, {...identity,...transcriptMode()?{mode:'transcript'}:{}});
   window.dispatchEvent(new CustomEvent('mobile-pairing-message',{detail:{message:$('outgoing').value}}));
   $('copy').disabled = false; $('save-pairing').disabled = false;
   status('Pairing message ready. Send it to the other device.');
@@ -236,8 +253,8 @@ function returnToStreaming() {
   relay?.wake(true); void resumePlayback(); void automaticRecovery();
 }
 async function createSenderOffer(active, token) {
-  stream.getVideoTracks().forEach(track => active.addTrack(track, stream));
-  watchTracks(active, token); $('preview').srcObject = stream;
+  if(!pcSender()){stream.getVideoTracks().forEach(track => active.addTrack(track, stream));
+  watchTracks(active, token); $('preview').srcObject = stream;}
   const offer = await active.createOffer();
   if (!current(active, token)) return;
   await outputDescription(active, offer, token);
@@ -246,11 +263,11 @@ $('start').onclick = async () => {
   const token = ++generation;
   pendingCapture = true; updateRole(); $('start').disabled = true; $('stop').disabled = false;
   try {
-    const captured = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-    if (generation !== token) { captured.getTracks().forEach(t => t.stop()); return; }
+    const captured = pcSender()?null:await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    if (generation !== token) { captured?.getTracks().forEach(t => t.stop()); return; }
     pendingCapture = false; busyPairing = true;
     resetMetrics(); stream = captured;
-    if (!liveCapture()) throw new Error('No live video track was provided.');
+    if (!pcSender()&&!liveCapture()) throw new Error('No live video track was provided.');
     identity = { sessionId: crypto.randomUUID(), pairingId: crypto.randomUUID(), attempt: 1 };
     await relayConfig;
     if (generation !== token) return;
@@ -289,7 +306,7 @@ $('resume-share').onclick = async () => {
   const token = detachConnection(); pendingCapture = true; updateRole();
   try {
     const captured = await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});
-    if (generation !== token) { captured.getTracks().forEach(t => t.stop()); return; }
+    if (generation !== token) { captured?.getTracks().forEach(t => t.stop()); return; }
     stream = captured; pendingCapture = false; busyPairing = true; recoveryAttempts++;
     identity = {...identity,pairingId:crypto.randomUUID(),attempt:identity.attempt+1};
     event('screen_share_resumed'); await createSenderOffer(newPeer(),token);
@@ -303,6 +320,8 @@ async function applyMessage(text) {
   try {
     const sender = $('role').value === 'sender';
     const message = parsePairing(text, sender ? 'answer' : 'offer');
+    const hasTranscript=message.mode==='transcript';
+    if(hasTranscript!==transcriptMode())throw Error('Choose '+(hasTranscript?'Paired PC':'Mobile OCR')+' as the receiver source before pairing.');
     if (message.relay && (message.relay.endpoint !== relayEndpoint || message.relay.expires <= Date.now() || message.relay.expires > Date.now() + 4 * 3600000 + 60000)) throw Error('This recovery session is expired or uses a service not configured on this page. Reload both devices or use direct pairing.');
     if (sender) {
       if (!peer || peer.signalingState !== 'have-local-offer') throw new Error('Create an offer on the sharing device first.');
@@ -422,3 +441,6 @@ for (const kind of ['online', 'offline']) window.addEventListener(kind, () => { 
 for (const kind of ['pagehide', 'pageshow']) window.addEventListener(kind, e => { event(kind, { persisted: e.persisted }); if (kind === 'pageshow') returnToStreaming(); });
 setInterval(() => { if (!document.hidden) { if (relay && $('preview').paused) void resumePlayback(); void automaticRecovery(); } }, 5000);
 updateRole();
+
+export const captureLifecycle={stop:cleanup,get active(){return Boolean(peer||identity||pendingCapture);},older:before=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.page(before);},audio:id=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.audio(id);}};
+window.addEventListener('pagehide',()=>cleanup());

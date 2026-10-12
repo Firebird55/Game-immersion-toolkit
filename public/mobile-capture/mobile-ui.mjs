@@ -47,6 +47,7 @@ $('cancel-library').onclick=()=>{selection++;void request('cancel-open');$('libr
 $('forget-library').onclick=async()=>{selection++;epoch++;scanning=false;updatePreview();stable=null;await request('forget');library=null;available.clear();selectedBytes=selectedPacks=0;await remove('catalog').catch(()=>{});libraryStatus();render();};
 function saveHistory(){const favorites=history.filter(r=>r.favorite).slice(-5000),rest=history.filter(r=>!r.favorite).slice(-500);history=[...favorites,...rest].sort((a,b)=>a.createdAt-b.createdAt);return put('history',history).catch(()=>text('storage-status','Transcript history is temporary; storage could not be saved.'));}
 function render(){
+ window.dispatchEvent(new CustomEvent('mobile-history',{detail:history.map(r=>({...r,source:'mobile-ocr'}))}));
  const panel=$('transcript');panel.replaceChildren();
  for(const line of history.filter(r=>r.game===currentGame()&&(!$('favorites-only').checked||r.favorite)).slice(-100).reverse()){
   const item=document.createElement('article');item.className='transcript-line';
@@ -137,6 +138,17 @@ async function restore(){const token=selection;try{preferences=await get('prefer
 void restore();
 for(const id of ['player-voice','extra-regions','cinematic-regions'])$(id).addEventListener('change',()=>{epoch++;stable=null;});
 for(const id of optionIds)$(id).addEventListener('change',()=>void savePreferences().catch(e=>text('match-status',e.message)));
-if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').then(registration=>{
+if(!document.getElementById('app-root')&&'serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').then(registration=>{
  $('reload-build').onclick=async()=>{if($('role').disabled)return;await registration.update().catch(()=>{});if(registration.installing)await new Promise(resolve=>{const worker=registration.installing;worker.addEventListener('statechange',()=>{if(['installed','redundant'].includes(worker.state))resolve();});setTimeout(resolve,5000);});if(registration.waiting){const activated=new Promise(resolve=>{navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true});setTimeout(resolve,3000);});registration.waiting.postMessage('activate-update');await activated;}const url=new URL(location.href);url.searchParams.set('v',String(Date.now()));location.replace(url);};
 }).catch(()=>{});
+
+export const libraryLifecycle={
+ get history(){return history.map(r=>({...r,source:'mobile-ocr'}));},
+ get busy(){return $('library-files').disabled||voiceBusy;},
+ get ready(){return Boolean(library);},
+ stop(){scanning=false;epoch++;stable=null;updatePreview();$('voice-player').pause();resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const previous=engine;engine=null;engineLanguage=null;await previous?.terminate();});},
+ async favorite(id,game,value){for(const row of history)if(row.id===id&&row.game===game)row.favorite=value;await saveHistory();render();},
+ async voice(row){if(!available.has(row.audio))throw Error('Reselect the original voice ZIP in Library.');return request('voice',{sha:row.audio});},
+ search:text=>request('search',{text}),
+ choose:addSearchLine
+};

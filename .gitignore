@@ -125,3 +125,6 @@ __pycache__/
 *.sqlite*
 *.key
 *.pem
+
+/public/mobile-capture/companion.js
+/public/mobile-capture/companion.css

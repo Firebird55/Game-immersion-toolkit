@@ -1,6 +1,12 @@
 const database=new Promise((resolve,reject)=>{
- const request=indexedDB.open('proxy-mobile-library',1);
- request.onupgradeneeded=()=>request.result.createObjectStore('state');
+ const request=indexedDB.open('proxy-mobile-library',2);
+ request.onupgradeneeded=()=>{
+  const state=request.result.objectStoreNames.contains('state')?request.transaction.objectStore('state'):request.result.createObjectStore('state');
+  const history=state.get('history');history.onsuccess=()=>{
+   if(Array.isArray(history.result))state.put(history.result.map(row=>({...row,source:row.source??'mobile-ocr'})),'history');
+   state.put({version:2},'companion-schema');
+  };
+ };
  request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
 });
 database.catch(()=>{});

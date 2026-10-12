@@ -23,7 +23,7 @@ const manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title
 const catalog=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify(manifest)),'catalog/00000.ndjson':segment},{level:0}));
 let browser;
 try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
- files=new Map(baseline);browser=await engines[name].launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),errors=[],failures=[];page.on('pageerror',e=>errors.push(e.message));context.on('requestfailed',r=>failures.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));await page.goto(base);
+ files=new Map(baseline);browser=await engines[name].launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),errors=[],failures=[];page.on('pageerror',e=>errors.push(e.message));context.on('requestfailed',r=>failures.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));await page.goto(base+'?developer=1');
  await page.waitForFunction(async()=>!!(await navigator.serviceWorker.getRegistration())?.active,{},{timeout:30000}).catch(error=>{console.error(name,{errors,failures,stage:'service worker activation'});throw error;});await page.reload();await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);
  await page.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows'));
  await page.fill('#find-text',row.english);await page.click('#find-line');await page.getByRole('button',{name:'Favorite',exact:true}).click();

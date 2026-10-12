@@ -203,12 +203,12 @@ try {
         return window.capturedStream;
       };
     });
-    await sender.goto(url); await receiver.goto(url);
+    await sender.goto(url+'?developer=1'); await receiver.goto(url+'?developer=1');
     // An unsupported gaming-device browser must remain a sender with capture
     // disabled; the receiver can still accept a supported sender's offer.
     const unsupported = await context.newPage();
     await unsupported.addInitScript(() => { navigator.mediaDevices.getDisplayMedia = undefined; });
-    await unsupported.goto(url);
+    await unsupported.goto(url+'?developer=1');
     assert.equal(await unsupported.locator('#role').inputValue(), 'sender');
     assert.equal(await unsupported.locator('#start').isEnabled(), false);
     assert.equal(await unsupported.locator('#reconnect').isEnabled(), false);
@@ -242,7 +242,7 @@ try {
     assert.match(await receiver.locator('#status').innerText(), /valid pairing/);
     await sender.evaluate(() => { window.denyCapture = true; });
     await sender.click('#start');
-    await sender.getByText('Cannot start capture: Permission denied', { exact: true }).waitFor();
+    await sender.locator('#status').filter({hasText:'Cannot start capture: Permission denied'}).waitFor();
     assert.equal(await sender.locator('#start').isEnabled(), true);
     await sender.evaluate(() => { window.denyCapture = false; });
     await verifyQrRendering(sender);
@@ -460,7 +460,7 @@ try {
   }
   browser=await webkit.launch({headless:true});
   const qrErrors=[],qrPage=await browser.newPage();qrPage.on('pageerror',error=>qrErrors.push(error.message));
-  await qrPage.goto(url);await verifyQrRendering(qrPage);assert.deepEqual(qrErrors,[]);
+  await qrPage.goto(url+'?developer=1');await verifyQrRendering(qrPage);assert.deepEqual(qrErrors,[]);
   console.log('webkit: real compact QR pixels decode and large-view portrait/landscape controls passed; camera/device reliability remains a physical test');
   await browser.close();browser=null;
 } finally { if (browser) await browser.close(); await new Promise(resolve => server.close(resolve)); }

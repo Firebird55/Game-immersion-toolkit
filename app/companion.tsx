@@ -767,6 +767,7 @@ function CompanionClient() {
         <div>
           <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
           <h1>Proxy Transcript</h1>
+          <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">Share transcript to another device</a>
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
           <span className="live-pulse" />
