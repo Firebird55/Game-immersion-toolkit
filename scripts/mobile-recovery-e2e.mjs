@@ -17,7 +17,7 @@ const server=http.createServer((req,res)=>{
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
 const probe=http.createServer();await new Promise(r=>probe.listen(0,'127.0.0.1',r));const port=probe.address().port;await new Promise(r=>probe.close(r));endpoint='http://127.0.0.1:'+port;
-const worker=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','services/pairing/wrangler.jsonc','--local','--ip','127.0.0.1','--port',String(port),'--inspector-port','0','--var','ALLOWED_ORIGINS:'+origin,'--persist-to','output/pairing-runtime-'+process.pid,'--show-interactive-dev-session=false'],{stdio:['pipe','pipe','pipe'],env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}});
+const worker=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','services/pairing/wrangler.jsonc','--local','--ip','127.0.0.1','--port',String(port),'--inspector-port','0','--var','ALLOWED_ORIGINS:'+origin,'--persist-to',resolve('output/pairing-runtime-'+process.pid),'--show-interactive-dev-session=false'],{stdio:['pipe','pipe','pipe'],env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}});
 let workerLog='';for(const stream of [worker.stdout,worker.stderr])stream.on('data',v=>{workerLog=(workerLog+v).slice(-5000);});
 let browser;
 const wait=async(predicate,label)=>{for(let i=0;i<120;i++){if(worker.exitCode!==null)throw Error('Local worker exited: '+workerLog);try{if(await predicate())return;}catch{}await new Promise(r=>setTimeout(r,250));}throw Error('Timed out: '+label+'\n'+workerLog);};

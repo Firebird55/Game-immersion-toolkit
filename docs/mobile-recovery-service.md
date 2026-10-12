@@ -1,5 +1,7 @@
 # Automatic connection recovery
 
+The public preview uses [the pairing service](https://game-immersion-pairing.boazbrak.workers.dev/health).
+
 GitHub Pages serves the frontend. A separate small Cloudflare Worker with one
 SQLite Durable Object per pairing room exchanges encrypted connection messages.
 It uses the WebSocket Hibernation API, admission/message limits, bounded packets

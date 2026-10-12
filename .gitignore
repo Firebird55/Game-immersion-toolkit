@@ -68,6 +68,7 @@ next-env.d.ts
 /dist/
 /.wrangler/
 **/.wrangler/
+/services/pairing/output/
 /outputs/
 /output/
 /work/
