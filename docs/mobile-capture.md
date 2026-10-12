@@ -25,9 +25,16 @@ when capture is unavailable.
    as a substitute for this setup. A Home Screen shortcut does not add capture.
 4. If available, tap **Share screen & create offer**. On iPhone choose
    **Receive screen → Scan the other device’s QR** and point at the sender’s QR.
-   Keep the camera pointed there until all automatically changing frames are read.
-   The message is accepted automatically.
+   Typical offers and replies now use one static, compact QR. Use **Larger QR**
+   and keep the code centred in the camera; the message is accepted automatically.
+   Reload both devices before testing the new QR format. The new scanner can
+   still read older QR messages.
 5. On the sender, scan the iPhone’s answer QR. Both cameras stop after scanning.
+   Exceptionally large messages fall back to balanced QR frames changing every
+   three seconds. If the scanner reads only some frames, it lists the missing
+   numbers: use **Pause QR rotation** and **Next QR** on the displaying device
+   to hold each missing frame. Stopping and restarting the camera keeps partial
+   progress on the current page. A page reload needs a fresh scan.
    Copy/paste and pairing files remain available if a device has no camera.
    Short codes require a hosted signaling service and are not part of this direct
    pairing flow. Switch the iPad into the game, keep the iPhone page open and start its **15-minute observation**.

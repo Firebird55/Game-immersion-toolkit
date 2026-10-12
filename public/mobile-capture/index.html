@@ -24,7 +24,10 @@
     <p id="instructions"></p>
     <div class="actions"><button id="start">Share screen &amp; create offer</button><button id="reconnect" disabled>Reconnect &amp; create new offer</button><button id="stop" disabled>Stop</button></div>
     <p class="hint">If the phone freezes, return to this page on iPad and tap Reconnect. Exchange the fresh offer and answer. Your existing screen capture stays open; Stop ends it. An ended capture needs a new screen share.</p>
-    <div id="qr-panel" hidden><canvas id="pairing-qr" aria-label="Pairing QR code"></canvas><p id="qr-description"></p></div>
+    <div id="qr-panel" hidden><canvas id="pairing-qr" aria-label="Pairing QR code"></canvas><p id="qr-description"></p>
+      <div class="actions qr-controls"><button id="qr-enlarge">Larger QR</button><button id="qr-pause">Pause QR rotation</button><button id="qr-previous">Previous QR</button><button id="qr-next">Next QR</button></div>
+      <p class="hint">The scanner needs every QR frame. If it gets stuck, pause here and show the missing frame using Next QR. Use Larger QR and move the camera closer.</p>
+    </div>
     <button id="scan-pairing">Scan the other device’s QR</button>
     <div id="qr-scan-panel" hidden><video id="qr-camera" autoplay muted playsinline aria-label="Pairing camera"></video><button id="stop-scan">Stop camera</button></div>
     <p id="qr-feedback" role="status">Scan the sender’s offer on the phone, then scan the phone’s answer on the sender. QR transfer stays between your devices.</p>
@@ -99,6 +102,7 @@
     <p class="hint">Only catalog-backed dialogue is displayed. Missing coverage or ambiguous voices are skipped. File opening and browser tests do not establish every game's capture, OCR or chapter coverage.</p>
   </section>
 </main>
+<dialog id="qr-large-dialog" aria-label="Large pairing QR"></dialog>
 <script type="module" src="./capture.js"></script>
 <script type="module" src="./qr-ui.mjs"></script>
 <script type="module" src="./mobile-ui.mjs"></script>

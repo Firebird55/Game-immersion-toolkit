@@ -103,3 +103,19 @@ Home Screen shortcut cannot add an absent capture API.
 - Existing voice ZIP identities remain compatible with the expanded ZZZ catalog.
   Honkai/NTE verification gates and chapter boundaries are retained. No native
   iPad capture helper or hosted short-code signaling service is added.
+
+## Compact QR pairing checks
+
+- PTQR2 packs validated metadata and the complete original SDP into a compressed
+  Base45 payload. Typical real Chromium and Firefox offers and answers fit one
+  static QR. No signaling service, network upload or codec restriction is added.
+- Real camera-stream fixtures exercise both directions at HD landscape/portrait
+  resolutions, partial scans, pause/next controls, scan resumption and unreadable
+  small-code recovery by moving closer. Very small camera images remain an optical
+  limit; the larger view and guidance are required when detail is insufficient.
+- Playwright WebKit decodes actual rendered QR pixels and verifies larger-view
+  layouts. This is not a physical Safari camera test. Real iPhone camera reliability
+  still requires a report from the updated build on both devices.
+- Older PTQR1 messages remain readable. Unusually large messages use balanced
+  frames with explicit missing-frame hints; malformed metadata, checksums and
+  oversized expanded payloads are rejected. Both devices need Reload latest.

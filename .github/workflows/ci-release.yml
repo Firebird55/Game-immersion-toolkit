@@ -30,7 +30,7 @@ jobs:
       - name: Compile owned NTE reader without game assets
         run: dotnet build scripts/game-readers/NteReader.csproj -c Release -o data/ci-reader -p:BaseIntermediateOutputPath="${{ github.workspace }}/data/ci-reader-obj/" --nologo
       - run: npm run check
-      - run: npx playwright install chromium firefox
+      - run: npx playwright install chromium firefox webkit
       - run: node scripts/browser-e2e.mjs
       - run: node scripts/setup-e2e.mjs
       - run: node scripts/mobile-capture-e2e.mjs
