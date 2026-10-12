@@ -124,3 +124,65 @@ def test_picker_cancel_preserves_destination_and_selection_is_applied(manager, t
     manager._picker_result = result
     assert manager.status()['destinationFolder'] == str(selected)
     assert not result.exists()
+
+
+def running_picker(manager, tmp_path):
+    result = tmp_path / 'picker.json'
+    process = SimpleNamespace(returncode=None, terminated=False)
+    process.poll = lambda: process.returncode
+    process.terminate = lambda: setattr(process, 'terminated', True)
+    process.wait = lambda timeout: setattr(process, 'returncode', -1)
+    manager._picker, manager._picker_result = process, result
+    manager._picker_started = time.monotonic()
+    return process, result
+
+
+def test_stalled_picker_times_out_and_destination_remains_editable(manager, tmp_path):
+    previous = manager.destination()
+    process, result = running_picker(manager, tmp_path)
+    manager._picker_started -= 26
+    status = manager.status()
+    assert process.terminated
+    assert status['browseActive'] is False and status['browsePhase'] is None
+    assert status['destinationFolder'] == str(previous)
+    assert 'did not show' in status['browseMessage']
+    assert not result.exists()
+
+
+def test_close_picker_discards_pending_selection_and_releases_busy_state(manager, tmp_path):
+    previous = manager.destination()
+    process, result = running_picker(manager, tmp_path)
+    ready = Path(str(result) + '.ready')
+    ready.write_text('{}')
+    result.write_text(json.dumps({'folder': str(tmp_path / 'abandoned')}))
+    assert manager.status()['browsePhase'] == 'open'
+    assert manager.close_picker()
+    assert process.terminated and manager.close_picker() is False
+    assert not result.exists() and not ready.exists()
+    assert manager.status()['browseActive'] is False
+    assert manager.destination() == previous
+
+
+def test_ready_picker_waits_for_user_and_reports_failure_without_private_details(manager, tmp_path):
+    process, result = running_picker(manager, tmp_path)
+    ready = Path(str(result) + '.ready')
+    ready.write_text('{}')
+    manager._picker_started -= 60
+    assert manager.status()['browseActive'] and not process.terminated
+    process.returncode = 1
+    result.write_text(json.dumps({'error': 'private diagnostic'}))
+    status = manager.status()
+    assert not status['browseActive'] and 'failed' in status['browseMessage']
+    assert 'private' not in status['browseMessage'] and not ready.exists()
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows startup flags')
+def test_picker_requests_visible_dialog_from_hidden_companion(manager, monkeypatch):
+    calls = []
+    monkeypatch.setattr(controls.subprocess, 'Popen', lambda args, **kwargs: calls.append((args, kwargs)) or SimpleNamespace(poll=lambda: None))
+    assert manager.browse()
+    args, options = calls[0]
+    assert '-STA' in args
+    assert options['startupinfo'].dwFlags & controls.subprocess.STARTF_USESHOWWINDOW
+    assert options['startupinfo'].wShowWindow == 1
+    assert options['creationflags'] == controls.subprocess.CREATE_NO_WINDOW

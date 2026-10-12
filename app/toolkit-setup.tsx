@@ -60,7 +60,10 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   useEffect(() => {
     if (!open) return;
     void refresh().catch(reason => setError(reason.message));
-    const timer = window.setInterval(() => { void refresh().catch(() => undefined); }, ['preparing', 'exporting', 'cancelling'].includes(data?.mobile_export?.state ?? '') || data?.mobile_export?.browseActive ? 1000 : 5000);
+    const timer = window.setInterval(() => { void refresh().catch(() => {
+      setError('The companion disconnected. Start it again and reopen Setup.');
+      setData(previous => previous?.mobile_export ? { ...previous, mobile_export: { ...previous.mobile_export, browseActive: false, browsePhase: null } } : previous);
+    }); }, ['preparing', 'exporting', 'cancelling'].includes(data?.mobile_export?.state ?? '') || data?.mobile_export?.browseActive ? 1000 : 5000);
     return () => window.clearInterval(timer);
   }, [open, refresh, data?.mobile_export?.state, data?.mobile_export?.browseActive]);
   useEffect(() => {
@@ -69,6 +72,9 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   useEffect(() => {
     if (['cancelled', 'complete', 'error'].includes(data?.mobile_export?.state ?? '')) setMessage('');
   }, [data?.mobile_export?.state]);
+  useEffect(() => {
+    if (data?.mobile_export?.browseActive === false) setMessage('');
+  }, [data?.mobile_export?.browseActive]);
 
   async function action(path: string, body: object = {}, success = '') {
     setBusy(true); setError(''); setMessage('');
@@ -78,7 +84,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
       const result = await response.json() as { detail?: string; started?: boolean; cancelled?: boolean };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Setup action failed. Please retry.');
       await refresh(); onChanged();
-      setMessage(result.cancelled === false ? 'No export is running.' : result.started === false ? 'A setup task is already running or queued.' : success || 'Checking game data in the background.');
+      setMessage(result.cancelled === false ? path.endsWith('/browse/cancel') ? 'No folder browser is open.' : 'No export is running.' : result.started === false ? 'A setup task is already running or queued.' : success || 'Checking game data in the background.');
       return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not reach the companion.');

@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 import uuid
 
 from .game_paths import GAMES, settings_path, discover_install
@@ -38,6 +39,8 @@ class MobileExportManager:
         self._lock = threading.RLock()
         self._cancel = threading.Event()
         self._thread = self._process = self._picker = self._picker_result = None
+        self._picker_started = 0.0
+        self._picker_message = ''
         self._status = {'state': 'idle', 'progress': 0, 'message': 'Ready to export a mobile library'}
         self._estimates = {}
 
@@ -88,23 +91,46 @@ class MobileExportManager:
         return path, existing
 
     def _finish_picker(self):
+        if self._picker and self._picker.poll() is None and not Path(str(self._picker_result) + '.ready').exists() and time.monotonic() - self._picker_started > 25:
+            self.close_picker()
+            self._picker_message = 'Windows did not show the folder browser. Paste a folder path or try Browse again.'
         if self._picker and self._picker.poll() is not None:
             try:
                 value = json.loads(self._picker_result.read_text(encoding='utf-8-sig'))
                 if value.get('folder'):
                     folder, _ = self._validate_folder(value['folder'])
                     self._save_destination(folder)
+                elif value.get('error'):
+                    self._picker_message = 'The Windows folder browser failed. Paste a folder path or try Browse again.'
             except (OSError, ValueError):
-                pass  # A dismissed picker preserves the previous destination.
+                if getattr(self._picker, 'returncode', 0):
+                    self._picker_message = 'The folder browser closed unexpectedly. Paste a folder path or try Browse again.'
             finally:
                 self._picker_result.unlink(missing_ok=True)
+                Path(str(self._picker_result) + '.ready').unlink(missing_ok=True)
                 self._picker = self._picker_result = None
+
+    def close_picker(self):
+        with self._lock:
+            if not self._picker:
+                return False
+            process, result = self._picker, self._picker_result
+            if process.poll() is None:
+                process.terminate()
+                process.wait(timeout=5)
+            # Never apply an abandoned selection. Keep the user's saved destination.
+            result.unlink(missing_ok=True)
+            Path(str(result) + '.ready').unlink(missing_ok=True)
+            self._picker = self._picker_result = None
+            self._picker_message = 'Folder browser closed. You can paste a destination or try Browse again.'
+            return True
 
     def status(self):
         with self._lock:
             self._finish_picker()
             status = {**self._status, 'destinationFolder': str(self.destination()),
-                      'browseActive': bool(self._picker)}
+                      'browseActive': bool(self._picker), 'browseMessage': self._picker_message,
+                      'browsePhase': 'open' if self._picker and Path(str(self._picker_result) + '.ready').exists() else 'starting' if self._picker else None}
         if status.get('estimate') and status.get('outputFolder'):
             try:
                 status['estimate'] = {**status['estimate'], 'freeBytes': shutil.disk_usage(status['outputFolder']).free}
@@ -123,11 +149,17 @@ class MobileExportManager:
             directory = self.preferences_path.parent
             directory.mkdir(parents=True, exist_ok=True)
             result = directory / ('mobile-folder-' + uuid.uuid4().hex + '.json')
+            startup = subprocess.STARTUPINFO()
+            startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startup.wShowWindow = 1  # SW_SHOWNORMAL: do not inherit the hidden companion's show state.
             self._picker = subprocess.Popen(['powershell.exe', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
                 '-File', str(self.root / 'scripts/select-export-folder.ps1'),
                 '-InitialPath', str(initial), '-ResultPath', str(result)],
-                creationflags=subprocess.CREATE_NO_WINDOW, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                creationflags=subprocess.CREATE_NO_WINDOW, startupinfo=startup,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             self._picker_result = result
+            self._picker_started = time.monotonic()
+            self._picker_message = ''
             return True
 
     def preview(self, game, include_audio=True, destination_folder=None):

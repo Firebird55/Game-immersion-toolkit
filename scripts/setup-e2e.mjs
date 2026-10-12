@@ -11,6 +11,7 @@ try{
   browser=await engine.launch({headless:true});
   for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[640,480,2],[640,360,2],[568,320,1],[768,1024,1.25]]){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[];
+   let pickerAttempts=0,setupOffline=false;
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={nte_region:region,honkai3_region:region,preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,cyberpunk_region:region,cyberpunk_tip_region:region,wuwa_region:region,wuwa_tip_region:region,wuwa_cinematic_region:region,witcher3_region:region,witcher3_tip_region:region,auto_start:false};
    const games=Object.entries({zzz:'Zenless Zone Zero',pragmata:'PRAGMATA',hito:"Hito's World",cyberpunk:'Cyberpunk 2077',wuwa:'Wuthering Waves',witcher3:'The Witcher 3',nte:'Neverness to Everness',honkai3:'Honkai Impact 3rd'}).map(([id,title])=>({id,title,configured_path:null,detected_path:id==='zzz'?'F:/Games/ZZZ':null,folder_state:id==='zzz'?'detected':'missing',folder_hint:'Choose your installed game folder.',voice_state:id==='hito'?'not_required':'missing',voice_hint:id==='honkai3'?'Coverage limited to verified catalog 4.7 dialogue.':'Install the Mandarin voice pack in your game launcher.',tools_missing:id==='hito'?[]:id==='nte'?['.NET 10 SDK','NTE reader']:['Voice decoder'],index_ready:false,indexed_lines:0,audio_ready:false,index_message:'Ready for setup',update_state:'waiting',update_message:'Prepare your game tools',progress:100,last_checked:null,needs_attention:false}));
@@ -26,7 +27,7 @@ try{
     let status=200,value={};
     if(method==='POST'){writes.push({path,body,headers:request.headers()});assert.equal(request.headers()['x-proxy-transcript'],'setup');}
     if(path==='/api/status')value={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}};
-    else if(path==='/api/setup')value=setup;
+    else if(path==='/api/setup'){if(setupOffline){await route.abort();return;}value=setup;}
     else if(path==='/api/setup/report')value={version:'fixture',platform:'Windows',requirements:{ocr:true},games:[{id:'zzz',folder_state:'configured'}]};
     else if(path==='/api/setup/games/zzz'){
      if(body.path==='F:/wrong'){status=400;value={detail:'Required game files were not found. Previous folder kept.'};}
@@ -34,7 +35,13 @@ try{
     }else if(path==='/api/setup/games/zzz/tools'){games[0].tools_missing=[];setup.jobs.zzz={state:'ready',message:'Tools ready',progress:100};value={started:true};}
     else if(path==='/api/setup/games/zzz/refresh'){games[0].index_ready=true;games[0].indexed_lines=3;games[0].audio_ready=true;games[0].voice_state='present';games[0].update_message='Synthetic game data refreshed';value={started:true};}
     else if(path.endsWith('/mobile-export/preview')){value={estimatedBytes:body.include_audio?5e9:4096,estimateLowBytes:3e9,estimateHighBytes:8e9,workingBytes:16e9,freeBytes:80e9,rows:3,basis:'Synthetic estimate'};}
-    else if(path==='/api/setup/mobile-export/browse'){setup.mobile_export.destinationFolder='E:/Mobile libraries';value={started:true};}
+    else if(path==='/api/setup/mobile-export/browse'){
+     pickerAttempts++;
+     if(pickerAttempts<=2){setup.mobile_export.browseActive=true;setup.mobile_export.browsePhase='starting';}
+     else{setup.mobile_export.destinationFolder='E:/Mobile libraries';setup.mobile_export.browseActive=false;}
+     value={started:true};
+    }
+    else if(path==='/api/setup/mobile-export/browse/cancel'){setup.mobile_export.browseActive=false;setup.mobile_export.browsePhase=null;setup.mobile_export.browseMessage='Folder browser closed. You can paste a destination or try Browse again.';value={cancelled:true};}
     else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
     else if(path==='/api/setup/mobile-export/cancel'){setup.mobile_export={...setup.mobile_export,state:'cancelled',message:'Synthetic export cancelled'};value={cancelled:true};}
     else if(path==='/api/setup/native/checks'){setup.capture_check=true;value={started:true};}
@@ -57,6 +64,21 @@ try{
    await dialog.getByRole('button',{name:'Refresh game data',exact:true}).click();
    await dialog.getByText('3 pairs',{exact:true}).waitFor();
    await dialog.getByText('≈ 5.00 GB',{exact:true}).waitFor();
+   await dialog.getByRole('button',{name:'Browse',exact:true}).click();
+   await dialog.getByText('Starting the folder browser. You can close it here if no window appears.',{exact:true}).waitFor();
+   assert(await dialog.getByLabel('Save libraries to',{exact:true}).isDisabled());
+   setup.mobile_export.browsePhase='open';
+   await dialog.getByText('Choose a folder in the Windows dialog. If it stalls, close it here and paste a path.',{exact:true}).waitFor();
+   await dialog.getByRole('button',{name:'Close picker',exact:true}).click();
+   await page.waitForFunction(()=>!document.querySelector('#mobile-export-folder').disabled);
+   assert.equal(await dialog.getByLabel('Save libraries to',{exact:true}).inputValue(),'F:/Exports');
+   await dialog.getByRole('button',{name:'Browse',exact:true}).click();
+   await dialog.getByRole('button',{name:'Close picker',exact:true}).waitFor();
+   setupOffline=true;
+   await dialog.getByText('The companion disconnected. Start it again and reopen Setup.',{exact:true}).waitFor();
+   assert(await dialog.getByLabel('Save libraries to',{exact:true}).isEnabled());
+   assert.equal(await dialog.getByRole('button',{name:'Close picker',exact:true}).count(),0);
+   setupOffline=false;
    await dialog.getByRole('button',{name:'Browse',exact:true}).click();
    await page.waitForFunction(()=>document.querySelector('#mobile-export-folder').value==='E:/Mobile libraries');
    await dialog.getByRole('button',{name:'Export mobile library',exact:true}).click();await dialog.getByText('Synthetic export in progress',{exact:true}).waitFor();

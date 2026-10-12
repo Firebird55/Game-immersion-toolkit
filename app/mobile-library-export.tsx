@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 
 type Estimate = { estimatedBytes: number; estimateLowBytes: number; estimateHighBytes: number; workingBytes: number; freeBytes: number; rows: number; basis: string };
 export type MobileExportStatus = { state: string; game?: string; progress: number; message: string; folder?: string; bytes?: number;
-  destinationFolder?: string; outputFolder?: string; browseActive?: boolean; estimatedCatalogBytes?: number; estimatedAudioBytes?: number; audioBytes?: number;
+  destinationFolder?: string; outputFolder?: string; browseActive?: boolean; browsePhase?: string | null; browseMessage?: string; estimatedCatalogBytes?: number; estimatedAudioBytes?: number; audioBytes?: number;
   done?: number; total?: number; estimate?: Estimate; coverage?: { dialogue: number; exportedVoices: number } };
 const activeStates = ['preparing', 'exporting', 'cancelling'];
 const gb = (bytes: number) => `${(bytes / 1e9).toFixed(bytes > 0 && bytes < 1e7 ? 3 : 2)} GB`;
@@ -52,7 +52,10 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
       <div className="toolkit-destination-row"><input id="mobile-export-folder" value={folder} disabled={active || status?.browseActive}
         spellCheck={false} autoComplete="off" placeholder="Choose a folder on this PC" onChange={event => { dirty.current = true; setFolder(event.target.value); }} />
         <Button variant="outline" disabled={busy || active || status?.browseActive} onClick={() => { dirty.current = false;
-          void action('/api/setup/mobile-export/browse', { destination_folder: folder || undefined }, 'Choose a save folder in the Windows dialog.'); }}><FolderOpen />{status?.browseActive ? 'Picker open…' : 'Browse'}</Button></div>
+          void action('/api/setup/mobile-export/browse', { destination_folder: folder || undefined }, 'Opening the Windows folder browser…'); }}><FolderOpen />{status?.browseActive ? status.browsePhase === 'open' ? 'Picker open…' : 'Opening…' : 'Browse'}</Button></div>
+      {status?.browseActive && <div className="toolkit-setup-actions"><p role="status" className="toolkit-setup-note">{status.browsePhase === 'open' ? 'Choose a folder in the Windows dialog. If it stalls, close it here and paste a path.' : 'Starting the folder browser. You can close it here if no window appears.'}</p>
+        <Button variant="outline" onClick={() => void action('/api/setup/mobile-export/browse/cancel', {}, 'Folder browser closed.')}>Close picker</Button></div>}
+      {status?.browseMessage && <p role="status" className="toolkit-setup-note">{status.browseMessage}</p>}
       <small>Creates a separate folder for each game. This choice is remembered on this PC.</small>
     </div>
     <div className="toolkit-export-estimate" aria-live="polite">

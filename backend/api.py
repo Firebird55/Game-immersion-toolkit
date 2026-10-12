@@ -4,6 +4,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from subprocess import TimeoutExpired
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query, Header, Request, WebSocket, WebSocketDisconnect
@@ -467,6 +468,15 @@ def mobile_export_browse(payload: MobileExportOptions, request: Request,
 def mobile_export_status(request: Request) -> dict:
     setup_access(request)
     return runtime.mobile_exports.status()
+
+
+@app.post("/api/setup/mobile-export/browse/cancel")
+def mobile_export_browse_cancel(request: Request, x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    try:
+        return {"cancelled": runtime.mobile_exports.close_picker()}
+    except (OSError, TimeoutExpired):
+        raise HTTPException(409, "Windows is still closing the folder browser. Try Close picker again.") from None
 
 
 @app.post("/api/setup/mobile-export/cancel")
