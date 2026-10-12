@@ -75,3 +75,31 @@ An iPad/iPhone gaming device must provide a working foreground-game capture
 source. A native system-capture sender is outside this release. Test the phone
 receiver with a PC sender until that source is available; GitHub Pages and a
 Home Screen shortcut cannot add an absent capture API.
+
+## 0.2.18 import, search and pairing checks
+
+- Repository checks pass: 527 Python tests, 53 JavaScript tests, type checking and
+  production builds. Public audit passes; game-derived fixtures remain private.
+- A private ZZZ export contains 222,479 bilingual text rows and the same 51,936
+  verified voiced rows. A previously omitted unvoiced line is found by English
+  search and labeled without original audio. The eight ZIPs open in 3.3 seconds
+  in desktop Chromium, and original playback and catalog reload pass. This is
+  neither an iPhone USB timing nor a measurement of Safari's temporary staging.
+- USB directory opening uses four file reads for a 1,000-clip fixture. Headers,
+  extended bounds, CRC and voice SHA-256 are checked before an entry is used.
+  Stalled/disconnected providers fail with instructions rather than an endless
+  loading state. Catalogs stay in the worker, with a deferred fuzzy OCR index.
+- Chromium and Firefox establish real WebRTC connections using the animated QR
+  renderer, decoder and a synthetic camera stream in both directions. Camera
+  tracks stop after scanning. Wrong-role, repeated/reordered, conflicting and
+  malformed frames are checked. Physical camera scanning remains a device check.
+- Chromium/Firefox pass bilingual manual searches, unvoiced labels, real OCR,
+  MP3 playback and reselection. Windows WebKit passes file reading and canvas OCR;
+  its media codec limitations remain as described above. Application cache/update
+  preservation passes all three engines. The 64 synthetic game-layout cases pass.
+- Browser quota checks exclude voice packs and show catalog cache estimates.
+  Persistence requests do not delay caching; low quota or failed writes preserve
+  session use. Browser quota does not establish device free disk space.
+- Existing voice ZIP identities remain compatible with the expanded ZZZ catalog.
+  Honkai/NTE verification gates and chapter boundaries are retained. No native
+  iPad capture helper or hosted short-code signaling service is added.
