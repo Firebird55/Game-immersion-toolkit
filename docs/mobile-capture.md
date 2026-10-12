@@ -23,10 +23,14 @@ when capture is unavailable.
 3. If unavailable, this browser page cannot send the game. A native iPad capture
    helper is still required and is not included. Do not switch the iPad to receiving
    as a substitute for this setup. A Home Screen shortcut does not add capture.
-4. If available, tap **Share screen & create offer**. Transfer the offer privately
-   to iPhone, choose **Receive screen** there and tap **Accept message**.
-5. Transfer the iPhone's generated answer back to iPad and accept it. Switch iPad
-   into the game, keep the iPhone page open and start its **15-minute observation**.
+4. If available, tap **Share screen & create offer**. On iPhone choose
+   **Receive screen → Scan the other device’s QR** and point at the sender’s QR.
+   Keep the camera pointed there until all automatically changing frames are read.
+   The message is accepted automatically.
+5. On the sender, scan the iPhone’s answer QR. Both cameras stop after scanning.
+   Copy/paste and pairing files remain available if a device has no camera.
+   Short codes require a hosted signaling service and are not part of this direct
+   pairing flow. Switch the iPad into the game, keep the iPhone page open and start its **15-minute observation**.
    Verify actual moving gameplay after switching apps; download the report.
 
 Capture availability alone does not prove background game capture. Browser OCR

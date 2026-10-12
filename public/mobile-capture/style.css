@@ -7,3 +7,4 @@
 body.ocr-running #preview{position:fixed;top:10px;right:10px;width:min(128px,28vw);height:72px;min-height:0;max-height:96px;z-index:4;pointer-events:none;box-shadow:0 2px 16px #0008}
 input[type=checkbox]{width:auto;display:inline-block;margin-right:.5rem}
 details{margin:1rem 0}summary{cursor:pointer}
+#pairing-qr{display:block;width:min(100%,420px);height:auto;margin:1rem auto;border:8px solid white;border-radius:8px}#qr-camera{max-height:300px}#search-results small{display:block;margin-bottom:.7rem}[hidden]{display:none!important}

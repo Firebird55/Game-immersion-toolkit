@@ -30,6 +30,23 @@ async function downloadReport(page) {
   await page.click('#report');
   return JSON.parse(readFileSync(await (await pending).path(), 'utf8'));
 }
+async function transferQr(source,target){
+  await source.waitForFunction(()=>!document.querySelector('#qr-panel').hidden);
+  await target.evaluate(()=>{
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=640;window.syntheticQrCamera=canvas;
+    navigator.mediaDevices.getUserMedia=async()=>{const stream=canvas.captureStream(10);window.syntheticCameraTracks=stream.getTracks();return stream;};
+  });
+  await target.click('#scan-pairing');
+  const expected=await source.locator('#outgoing').inputValue();let complete=false;
+  for(let i=0;i<50;i++){
+    const image=await source.evaluate(()=>document.querySelector('#pairing-qr').toDataURL());
+    await target.evaluate(async url=>{const image=new Image();image.src=url;await image.decode();const context=window.syntheticQrCamera.getContext('2d');context.fillStyle='white';context.fillRect(0,0,640,640);context.drawImage(image,0,0,640,640);},image);
+    await target.waitForTimeout(200);
+    if(await target.locator('#incoming').inputValue()===expected||await target.locator('#qr-feedback').textContent().then(v=>v.includes('Pairing QR read.'))){complete=true;break;}
+  }
+  assert(complete,'The camera reads the complete animated pairing QR: '+await target.locator('#qr-feedback').textContent());
+  assert(await target.evaluate(()=>window.syntheticCameraTracks.every(track=>track.readyState==='ended')),'Camera stops after reading the pairing message');
+}
 function assertPrivateDiagnostics(report, role, successfulAttempt) {
   assert.equal(report.format, 'proxy-mobile-capture-report-v1');
   assert.equal(report.role, role);
@@ -140,8 +157,8 @@ try {
       // Google Drive can add desktop.ini to a local package. It is not one of
       // the copied publication files and is absent on the Linux publisher.
       const names = readdirSync(root).filter(name => name !== 'desktop.ini').sort();
-      assert.equal(names.length, 16, 'Publication contains only the allowlisted application and OCR assets');
-      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|sw\.js|ocr|(?:capture|core|style|library|storage|library-worker|mobile-ui|ocr-pipeline|icon|manifest)\.[0-9a-f]{16}\.(?:js|mjs|css|svg|png|webmanifest))$/.test(name)));
+      assert.equal(names.length, 19, 'Publication contains only the allowlisted application, QR and OCR assets');
+      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|sw\.js|ocr|pairing|(?:capture|core|qr-pairing|qr-ui|style|library|storage|library-worker|mobile-ui|ocr-pipeline|icon|manifest)\.[0-9a-f]{16}\.(?:js|mjs|css|svg|png|webmanifest))$/.test(name)));
     }
     for (const [width, height, scale] of [[320, 568, 1], [390, 844, 1], [768, 1024, 1], [1920, 1080, 2]]) {
       await receiver.setViewportSize({ width, height });
@@ -170,14 +187,12 @@ try {
     assert.equal(typeof originalOffer.pairingId, 'string');
     assert.equal(originalOffer.attempt, 1);
     await sender.evaluate(() => { window.originalCaptureTrack = window.capturedStream.getVideoTracks()[0]; });
-    await receiver.fill('#incoming', originalOfferText);
-    await receiver.click('#apply');
+    await transferQr(sender,receiver);
     await receiver.waitForFunction(() => document.getElementById('outgoing').value.includes('"answer"'));
     const originalAnswerText = await receiver.locator('#outgoing').inputValue();
     const originalAnswer = JSON.parse(originalAnswerText);
     for (const field of ['sessionId', 'pairingId', 'attempt']) assert.equal(originalAnswer[field], originalOffer[field], `Answer echoes ${field}`);
-    await sender.fill('#incoming', originalAnswerText);
-    await sender.click('#apply');
+    await transferQr(receiver,sender);
     await receiver.bringToFront();
     assert.equal(await receiver.locator('#reload-build').isEnabled(), false, 'Updating cannot interrupt an active session');
     await receiver.waitForFunction(() => document.getElementById('preview').videoWidth > 0, { timeout: 20000 });

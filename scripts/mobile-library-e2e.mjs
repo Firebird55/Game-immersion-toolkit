@@ -13,8 +13,8 @@ const files=new Map(readdirSync(root,{recursive:true}).filter(n=>statSync(new UR
 const server=http.createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname,name=files.get(path),bytes=name?readFileSync(new URL(name,root)):ocr.get(path.slice(1));if(!bytes){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',mime(name??path));res.end(bytes);});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const base=`http://127.0.0.1:${server.address().port}`,hash=value=>createHash('sha256').update(value).digest('hex'),tone=Buffer.from(TONE,'base64'),sha=hash(tone),id='a'.repeat(64);
-const row={id,textId:'dialogue-test',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:id,audio:sha,channels:['dialogue','cinematic','gameplay']},chineseRow={...row,id:'b'.repeat(64),textId:'dialogue-chinese',english:'We can keep walking.',chinese:'我们可以继续走了。'},segment=Buffer.from(JSON.stringify(row)+'\n'+JSON.stringify(chineseRow)+'\n');
-const manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title:'Synthetic device verification',revision:id,coverage:{dialogue:2,exportedVoices:2},catalog:[{name:'catalog/00000.ndjson',sha256:hash(segment),size:segment.length}],packs:[{id,clips:[sha]}]};
+const row={id,textId:'dialogue-test',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:id,audio:sha,channels:['dialogue','cinematic','gameplay']},chineseRow={...row,id:'b'.repeat(64),textId:'dialogue-chinese',english:'We can keep walking.',chinese:'我们可以继续走了。'},quietRow={...row,id:'c'.repeat(64),textId:'quiet-synthetic',english:'A quiet unvoiced sentence.',chinese:'无声的句子。',sourceVoice:null,audio:null},segment=Buffer.from([row,chineseRow,quietRow].map(r=>JSON.stringify(r)+'\n').join(''));
+const manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title:'Synthetic device verification',revision:id,coverage:{dialogue:3,exportedVoices:2},catalog:[{name:'catalog/00000.ndjson',sha256:hash(segment),size:segment.length}],packs:[{id,clips:[sha]}]};
 const encode=entries=>Buffer.from(zipSync(Object.fromEntries(Object.entries(entries).map(([k,v])=>[k,Buffer.isBuffer(v)?v:strToU8(JSON.stringify(v))])),{level:0}));
 const catalog=encode({'manifest.json':manifest,'catalog/00000.ndjson':segment}),voices=encode({'manifest.json':{format:manifest.format,kind:'voices',game:'zzz',id,clips:{[sha]:{size:tone.length,sha256:sha}}},['audio/'+sha+'.mp3']:tone});
 const input=(name,buffer)=>({name,mimeType:'application/zip',buffer});
@@ -38,6 +38,7 @@ try{
   await page.goto(base);await page.selectOption('#role','receiver');
   await page.setInputFiles('#library-files',[input('catalog.zip',catalog),input('voices.zip',voices)]);
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent()});throw error;});
+  await page.fill('#find-text','unvoiced sentence');await page.click('#find-line');await page.getByRole('button',{name:'No verified original voice',exact:true}).waitFor();assert(await page.getByRole('button',{name:'No verified original voice',exact:true}).isDisabled());await page.click('#clear-history');
   if(name==='webkit'&&process.platform==='win32'){
    const recognized=await page.evaluate(async base=>{const {default:Tesseract}=await import(base+'/ocr/tesseract.esm.min.js');const worker=await Tesseract.createWorker('eng',1,{workerPath:base+'/ocr/worker.min.js',corePath:base+'/ocr/core/',langPath:base+'/ocr/lang/',workerBlobURL:false});const canvas=document.createElement('canvas');canvas.width=900;canvas.height=100;const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,900,100);ctx.fillStyle='black';ctx.font='40px Arial';ctx.fillText('The lantern is bright.',30,65);const result=await worker.recognize(canvas);await worker.terminate();return result.data.text;},base);
    assert(recognized.includes(row.english));assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
@@ -67,6 +68,7 @@ try{
   if(offline){await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);await context.setOffline(true);}
   await page.reload();
   await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000});
+  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('0 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({stage:'catalog restore',errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent(),cache:await page.locator('#cache-status').textContent()});throw error;});
   assert(await page.getByRole('button',{name:'Reselect voice pack',exact:true}).isDisabled());
   assert.equal(await page.locator('#library-status').textContent().then(v=>v.includes('0 unique voice clips accessible')),true);
   await page.setInputFiles('#library-files',[input('voices.zip',voices)]);

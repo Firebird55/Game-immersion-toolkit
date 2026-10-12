@@ -14,6 +14,7 @@ on:
       - 'scripts/mobile-ocr-integrity.json'
       - 'scripts/prepare-mobile-assets.mjs'
       - 'tests/mobile-library.test.mjs'
+      - 'tests/mobile-pairing-qr.test.mjs'
       - 'tests/mobile-media-fixtures.mjs'
       - 'package.json'
       - 'package-lock.json'
@@ -37,7 +38,7 @@ jobs:
       - name: Install locked browser and OCR dependencies
         run: npm ci --ignore-scripts
       - name: Check capture and library logic
-        run: node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs
+        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright

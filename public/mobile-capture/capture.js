@@ -66,6 +66,7 @@ function detachConnection(keepCapture = false) {
   $('play-preview').hidden = true;
   $('begin-test').disabled = true;
   $('outgoing').value = ''; $('copy').disabled = true; $('save-pairing').disabled = true;
+  window.dispatchEvent(new CustomEvent('mobile-pairing-message',{detail:{message:''}}));
   $('incoming').value = '';
   connectedAt = null; attemptStartedAt = Date.now(); lastFrameAt = null; lastMediaTime = -1; lastHash = null; dark = false;
   return generation;
@@ -154,6 +155,7 @@ async function outputDescription(active, description, token) {
   await gatherIce(active, token);
   if (!current(active, token)) return;
   $('outgoing').value = pairingMessage(active.localDescription, sessionGame, identity ?? {});
+  window.dispatchEvent(new CustomEvent('mobile-pairing-message',{detail:{message:$('outgoing').value}}));
   $('copy').disabled = false; $('save-pairing').disabled = false;
   status('Pairing message ready. Send it to the other device.');
 }

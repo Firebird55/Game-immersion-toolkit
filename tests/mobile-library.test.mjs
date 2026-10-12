@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {zipSync,strToU8} from 'fflate';
-import {openZip,readCatalog,readVoice,validateVoices,sha256,FORMAT,DialogueMatcher,ratio,subtitleRows} from '../public/mobile-capture/library.mjs';
+import {openZip,readCatalog,readVoice,validateVoices,sha256,FORMAT,DialogueMatcher,ratio,subtitleRows,searchCatalog} from '../public/mobile-capture/library.mjs';
 import {regions,candidates,cleanOcrBlocks} from '../public/mobile-capture/ocr-pipeline.mjs';
+import {cacheBudget} from '../public/mobile-capture/storage.mjs';
 const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
 const row={id:hex,textId:'dialogue-one',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:hex,audio:voiceHash,channels:['dialogue','cinematic','gameplay']};
 const bytes=strToU8(JSON.stringify(row)+'\n');
@@ -25,3 +26,40 @@ test('extra crops stay bounded and preserve independently calibrated dialogue',(
 test('OCR candidates trim surrounding noise, retain middle words and separate languages',()=>{const blocks=[{paragraphs:[{lines:[{text:'x The lantern is bright x',confidence:65,words:[{text:'x',confidence:10},...['The','lantern','is','bright'].map(text=>({text,confidence:95})),{text:'x',confidence:10}]}]}]}];assert.equal(cleanOcrBlocks(blocks)[0].paragraphs[0].lines[0].text,'The lantern is bright');const parsed=candidates({text:'Guide: The lantern is bright. ~ 灯笼很亮。',blocks:[]},{crop:[0,0,1,1],channel:'dialogue'},100,100,'zzz');assert(parsed.values.includes('The lantern is bright.'));assert(!parsed.values.some(v=>v.includes('bright')&&v.includes('灯笼')));});
 test('a voiced character name in a Honkai nameplate cannot play an unrelated performance',()=>{const blocks=[{paragraphs:[{lines:[{text:'Kiana >',confidence:95,bbox:{x0:50,x1:120,y0:20,y1:40}},{text:'An unsupported dialogue rewrite continues here.',confidence:95,bbox:{x0:50,x1:850,y0:60,y1:80}}]}]}];const parsed=subtitleRows(blocks,[.04,.72,.96,.24],1000,250,'honkai3');assert.deepEqual(parsed.lines,['An unsupported dialogue rewrite continues here.']);});
 test('noise trimmed from a Wuthering response choice cannot widen its bounds into the subtitle lane',()=>{const blocks=[{paragraphs:[{lines:[{text:'noise Someone is there.',confidence:70,bbox:{x0:10,x1:800,y0:10,y1:40},words:[{text:'noise',confidence:5,bbox:{x0:10,x1:100,y0:10,y1:40}},...['Someone','is','there.'].map((text,i)=>({text,confidence:95,bbox:{x0:720+i*25,x1:750+i*25,y0:20,y1:40}}))]}]}]}];const parsed=subtitleRows(cleanOcrBlocks(blocks),[.10,.64,.80,.32],1000,300,'wuwa');assert.deepEqual(parsed.lines,[]);assert.equal(parsed.menu,true);});
+
+test('manual search finds unvoiced text, fragments and both languages without choosing an ambiguous performance',()=>{
+ const quiet={...row,sourceVoice:null,audio:null},variant={...row,id:'b'.repeat(64),playerVoice:'male'};
+ assert.deepEqual(searchCatalog([quiet],'lantern').rows,[quiet]);
+ assert.equal(searchCatalog([quiet],row.english+'\n'+row.chinese).total,1);
+ assert.equal(searchCatalog([row,variant],row.english).total,2);
+ assert.equal(searchCatalog([quiet],'<img src=x>').total,0);
+});
+
+test('USB opening uses a bounded number of reads independent of voice entry count',async()=>{
+ const clips={},entries={};for(let i=0;i<1000;i++){const id=i.toString(16).padStart(64,'0');clips[id]={size:3,sha256:id};entries['audio/'+id+'.mp3']=new Uint8Array([1,2,3]);}
+ const file=make({'manifest.json':{format:FORMAT,kind:'voices',game:'zzz',id:hex,clips},...entries});let reads=0,readBytes=0;
+ const provider={size:file.size,slice(a,b){reads++;readBytes+=b-a;return file.slice(a,b);}};
+ const zip=await openZip(provider);assert.equal(reads,4);assert(readBytes<512*1024);
+ const before=reads;assert.equal((await zip.read('audio/'+'0'.repeat(64)+'.mp3')).length,3);assert.equal(reads-before,2);
+});
+
+test('deferred voice header and extended bounds are rejected before playback',async()=>{
+ const id='0'.repeat(64),m={format:FORMAT,kind:'voices',game:'zzz',id:hex,clips:{[id]:{size:3,sha256:id}}};
+ const good=make({'manifest.json':m,['audio/'+id+'.mp3']:new Uint8Array([1,2,3])}),zip=await openZip(good),entry=zip.entries.get('audio/'+id+'.mp3');
+ for(const corrupt of [bytes=>bytes[entry.start]=0,bytes=>new DataView(bytes.buffer).setUint16(entry.start+28,65535,true)]){
+  const bytes=new Uint8Array(await good.arrayBuffer());corrupt(bytes);const bad=await openZip(new File([bytes],'bad.zip'));
+  await assert.rejects(bad.read('audio/'+id+'.mp3'),/headers|bounds/);
+ }
+});
+
+test('disconnected or stalled file providers fail with recovery instructions',async()=>{
+ await assert.rejects(openZip({size:100,slice:()=>({arrayBuffer:()=>new Promise(()=>{})})},{timeoutMs:10}),/timed out/);
+ await assert.rejects(openZip({size:100,slice:()=>({arrayBuffer:async()=>new ArrayBuffer(0)})}),/no longer accessible/);
+});
+
+test('storage check compares catalog cache budget with browser quota, excluding multi-GB voice packs',()=>{
+ const m={catalog:[{size:1024}],packs:[{size:4*1024**3}]};
+ assert.equal(cacheBudget(m,{quota:100*1024**2,usage:0}).sufficient,true);
+ assert.equal(cacheBudget(m,{quota:1024,usage:1024}).sufficient,false);
+ assert.equal(cacheBudget(m,{quota:null,usage:null}).sufficient,null);
+});

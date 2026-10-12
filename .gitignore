@@ -114,6 +114,7 @@ __pycache__/
 /output/
 /work/
 /diagnostics/
+/public/mobile-capture/pairing/
 .env*
 *.dpapi
 *.db

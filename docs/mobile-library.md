@@ -22,11 +22,16 @@ on Pages, uploaded to an OCR service or included in toolkit releases.
    initially, or the size of a previous completed export. During conversion the
    estimate is refined from measured clips and deduplication; completed ZIP bytes
    are exact. First voice conversion can take considerable time.
-5. Copy the completed folder's **catalog ZIP and voice ZIPs** to your phone.
+5. Open the readable **Game - Mobile Library - revision** folder. Its catalog
+   and numbered voice ZIPs are the transfer files; `.toolkit-work` keeps resumable
+   caches and previous libraries separate. Copy the completed **catalog ZIP and voice ZIPs** to your phone.
    Keep them zipped, in **Files → On My iPhone**, with enough free space. Transfer
    using your normal cable, AirDrop from a Mac, or file-transfer method. A cloud
    file provider can be used for transfer, but download/move the final copies
-   locally before playing.
+   locally before playing. Alternatively, select ZIPs directly from a connected
+   USB drive in Files. Keep the drive connected and the phone unlocked. The app
+   does not copy voice packs into browser storage; Safari/Files may still stage
+   selected files temporarily, so zero temporary device storage is not guaranteed.
 
 The CLI uses the same exporter, from the toolkit folder:
 
@@ -39,7 +44,8 @@ Use the toolkit's installed Python environment if system Python lacks its
 dependencies. `--output <private-folder>` changes the destination. `--max-lines`
 is a verification subset, not a complete-game export. The default private
 destination is `output/mobile-libraries/<game>/<revision>/`; `latest.json` points
-to the last completed revision. Intermediate caches and decoded originals are
+to the last completed readable folder. Use its `folder` and `catalog` fields
+rather than constructing a path from the revision hash. Intermediate caches and decoded originals are
 not transfer files. Do not upload any of these to GitHub.
 
 Cancel and retry safely. Completed decoded clips are verified and reused;
@@ -70,7 +76,7 @@ same destination when resuming so verified clips can be reused.
    Home Screen** if desired. Set up the library in the surface you intend to use;
    Safari and a Home Screen application can have separate browser storage.
 2. Choose **Receive screen** and your game. Under **Open your game library**, tap
-   the file picker, browse **On My iPhone**, and select the catalog and multiple
+   the file picker, browse **On My iPhone** or your connected USB drive, and select the catalog and multiple
    voice ZIPs. You can open additional matching voice packs later.
 3. Check the bilingual row count, partial coverage notice, selected pack size
    and the count of voice clips **accessible this session**. Remembered catalog
@@ -82,7 +88,11 @@ same destination when resuming so verified clips can be reused.
    to the transcript; browsers can suspend video that moves off screen.
 5. Read the Chinese/English transcript and tap **Play original voice**. If Safari
    requires another playback gesture, use the visible audio control. **Find line**
-   also lets you verify a catalog line and local playback without a live stream.
+   searches English or Chinese fragments without a live stream. Multiple scenes
+   or voice variants are listed for explicit selection. Unvoiced bilingual text
+   is retained and labeled **No verified original voice**, rather than silently
+   omitted. Existing voice-only exports need a newly exported catalog for that
+   additional text; unchanged voice-pack identities remain usable.
 
 After reopening or rebooting, text/history can be restored from browser storage,
 but select the voice ZIPs again. Files permissions and objects are session-only.
@@ -91,11 +101,20 @@ data was cleared, reopen the catalog as well. Missing, corrupt or wrong-game
 packs cannot enable playback. Keep the Files copies as your recovery source.
 
 The page requests persistent browser storage and displays the actual granted
-status. A request is not a guarantee: Safari may still clear best-effort data or
+status. The page checks remaining browser quota against an estimated catalog cache
+budget, excluding voice-pack sizes. This is website quota, not actual device free
+disk space; consult **Settings → General → iPhone Storage** for that. If quota is
+low or caching fails, the current session remains usable and requests catalog
+reselection next time. Persistence permission requests are bounded and do not
+block catalog caching. A request is not a guarantee: Safari may still clear best-effort data or
 the user can delete it. Audio stays in Files; only catalogs, preferences,
 calibration, bounded transcript history and favorites are cached. A voice is read
 by ZIP entry using `File.slice()` when played, rather than importing a multi-GB
-pack into IndexedDB. SHA-256 and ZIP CRC checks protect those reads.
+pack into IndexedDB. Opening validates directories and manifests with four reads
+per ZIP; selected entries receive local-header, bounds and checksum validation
+before use. Progress, cancellation and file-read timeouts explain slow or
+disconnected providers. Large catalogs stay in the worker rather than being
+copied into the page, and fuzzy OCR indexing is delayed until needed. SHA-256 and ZIP CRC checks protect those reads.
 
 ## Capture, matching and updates
 
@@ -180,7 +199,7 @@ This tests storage access, not real game voices or gameplay OCR.
 ## Package and contributor checks
 
 Format `proxy-mobile-library-v1` uses STORE-only ZIPs capped at 512 MiB. Catalog
-NDJSON entries are approximately 4 MiB, with a 128 MiB/200,000-row total limit.
+NDJSON entries are approximately 4 MiB, with a 128 MiB/250,000-row total limit.
 Manifest and voice-entry limits are 8 MiB and 64 MiB. Stable dialogue/variant,
 revision, content and pack identities are retained; clips are deduplicated by
 content hash. Readers reject compression, unsafe names, overlapping/truncated

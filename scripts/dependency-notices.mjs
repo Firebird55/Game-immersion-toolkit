@@ -12,5 +12,6 @@ export function dependencyNotices(){
  if(!blocks.length)throw new Error('Dependency license notices missing');
  // next/font downloads these assets at build time, outside the npm dependency tree.
  blocks.push('Geist and Geist Mono — styles/GEIST-OFL.txt\n'+readFileSync('styles/GEIST-OFL.txt','utf8'));
+ if(existsSync('public/mobile-capture/pairing/LICENSE-QRCODE.txt'))blocks.push('qrcode-generator 2.0.4 — MIT\n'+readFileSync('public/mobile-capture/pairing/LICENSE-QRCODE.txt','utf8'));
  return 'Third-party dependency notices from the locked installation. These licenses remain independent of the project license.\n\n'+blocks.join('\n\n--------------------\n\n')+'\n';
 }
