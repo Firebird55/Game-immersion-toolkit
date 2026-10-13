@@ -75,10 +75,10 @@ same destination when resuming so verified clips can be reused.
 
 ## Open on the receiving phone
 
-1. Open the bookmark in Safari, tap **Reload latest**, then use **Share → Add to
+1. Open the companion in Safari, then use **Share → Add to
    Home Screen** if desired. Set up the library in the surface you intend to use;
    Safari and a Home Screen application can have separate browser storage.
-2. Choose **Receive screen** and your game. Under **Open your game library**, tap
+2. Choose **Receiver → Mobile OCR** and your game. Open **Library**, then tap
    the file picker, browse **On My iPhone** or your connected USB drive, and select the catalog and multiple
    voice ZIPs. You can open additional matching voice packs later.
 3. Check the bilingual row count, partial coverage notice, selected pack size
@@ -121,11 +121,11 @@ copied into the page, and fuzzy OCR indexing is delayed until needed. SHA-256 an
 
 ## Capture, matching and updates
 
-Direct pairing/reconnect and capture reports remain available; reconnecting
+Direct pairing and reconnect remain available; reconnecting
 does not clear your library or history. The gaming device must actually supply
 moving frames while the game is foregrounded. iPad Safari generally cannot
 provide that system capture; a native sender helper is still outside this build.
-Use a PC sender for receiver testing until a working mobile sender is available.
+Use a supported screen-sharing device, or choose **Paired PC** to receive the desktop transcript.
 A Home Screen shortcut does not add a missing screen-capture API.
 
 OCR runs in one pinned, self-hosted Tesseract.js 7 worker. Frames remain on the
@@ -160,68 +160,21 @@ GitHub release is required for an ordinary locally readable game-data update.
 Software updates cache only allowlisted application/OCR assets. The service
 worker waits rather than replacing an active session. Stop sharing, tap
 **Reload latest**, check the build version, then pair again. Application updates
-do not migrate or delete the catalog/history/preferences database.
+preserve and migrate the catalog/history/preferences database in place.
 The first visit requires Internet access. Start OCR once with each subtitle
 language you intend to use offline, so its worker, core and model are cached.
 Remembered catalogs and local voice playback do not require a model download.
 
-## Physical iPhone acceptance test
+## Reading and account tools
 
-Automated Chromium, Firefox and WebKit results do not establish physical iPhone
-reliability. Perform these checks on the actual phone:
+Choose **Receiver → Mobile OCR**, then use **Library** to open ZIPs, search catalog
+text, start/pause OCR and calibrate regions if necessary. Return to **Reader** for
+the current line and bilingual history. Favorites belong to this browser.
+**Settings** controls reading modes, translation visibility and encrypted Lexirise
+credentials. Paired PC reading does not need an exported library.
 
-1. Record the displayed build and actual persistence status. Open a catalog plus
-   multiple voice packs totaling **at least 2 GiB**. Record opening time/failures.
-2. Play a known original clip and favorite its line. Verify audio is local and
-   correct, and note playback timing in **Download library test report**.
-3. Reload: remembered text/history should return, while playback requests pack
-   reselection. Reselect, verify the accessible count, and play again.
-4. Reboot the phone, reopen and repeat selection/playback. Retain the Files
-   originals throughout. Check recovery if browser caching was unavailable.
-5. Once a newer application build is published, stop capture, update, and check
-   the same favorite, history and calibration before reselecting voices.
-6. Complete **15 minutes** of actual gameplay, with dialogue, a supported special
-   presentation, rotation/resolution changes, a pause and manual reconnect.
-   Confirm moving game frames, correct bilingual lines and original playback.
-7. Fill **Physical device verification** with only observed checks. Download the
-   library report and both devices' capture reports. Library reports contain
-   timings/counts/storage state and observations, without file names, original
-   text, game frames, pairing messages, account details or installation paths.
-
-To test large file providers without game content, contributors can generate
-an owned synthetic 2.15 GiB library:
-
-```powershell
-python scripts/generate-mobile-storage-test.py
-```
-
-Transfer the six generated ZIPs from ignored `output/mobile-storage-test`, open
-them and use **Find line → Storage test line 0** to play the small generated tone.
-This tests storage access, not real game voices or gameplay OCR.
-
-## Package and contributor checks
-
-Format `proxy-mobile-library-v1` uses STORE-only ZIPs capped at 512 MiB. Catalog
-NDJSON entries are approximately 4 MiB, with a 128 MiB/250,000-row total limit.
-Manifest and voice-entry limits are 8 MiB and 64 MiB. Stable dialogue/variant,
-revision, content and pack identities are retained; clips are deduplicated by
-content hash. Readers reject compression, unsafe names, overlapping/truncated
-entries, duplicate identities, mismatched packs and failed checksums. Imported
-strings are rendered as text.
-
-Run `npm run mobile:check`, repository checks and the public audit. Public CI
-uses only authored synthetic text, video and tone fixtures. For private footage:
-
-```powershell
-python scripts/prepare-mobile-replay.py
-node scripts/replay-mobile-ocr.mjs
-```
-
-The existing annotation manifest supplies positive/negative expectations.
-Local media, prepared catalogs, images and detailed results stay in ignored
-`output/`; the replay server binds only to loopback. Resized/padded footage
-checks crop/OCR behavior, not native game UI reflow. Record failures honestly and
-never mark a missing scene or chapter verified because packaging succeeded.
-
-See the [0.2.17 verification record](mobile-library-verification.md) for measured
-browser results, observed footage misses and the pending physical-device checks.
+Application updates migrate existing catalog, calibration and history storage in
+place. Clearing browser/site data removes these and your encrypted key. Keep
+original ZIPs. Updates wait for sharing and library operations to finish; select
+voice packs again after reloading. See the [main guide](../README.md) for vault
+locking and gateway data handling.
