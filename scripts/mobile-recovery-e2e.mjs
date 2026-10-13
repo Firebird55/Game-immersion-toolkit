@@ -12,7 +12,9 @@ const root=process.env.MOBILE_PREVIEW_DIR?pathToFileURL(resolve(process.env.MOBI
 const assets=ocrAssets(),names=readdirSync(root),relayModule='./'+names.find(n=>/^relay(?:\.[a-f0-9]+)?\.mjs$/.test(n));let endpoint='';
 const server=http.createServer((req,res)=>{
  const name=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';
- const data=/^recovery-config(?:\.[a-f0-9]+)?\.json$/.test(name)?Buffer.from(JSON.stringify({endpoint,origins:[origin]})):assets.get(name)??(names.includes(name)?readFileSync(new URL(name,root)):null);
+ let data=/^recovery-config(?:\.[a-f0-9]+)?\.json$/.test(name)?Buffer.from(JSON.stringify({endpoint,origins:[origin]})):assets.get(name)??(names.includes(name)?readFileSync(new URL(name,root)):null);
+ // Permit only this test's ephemeral signaling fixture; production CSP stays fixed.
+ if(name==='index.html'&&data)data=Buffer.from(data.toString().replace("connect-src 'self'",`connect-src 'self' ${endpoint} ${endpoint.replace('http:','ws:')}`));
  if(!data){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',mime(name));res.end(data);
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;

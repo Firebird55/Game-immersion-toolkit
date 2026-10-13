@@ -51,6 +51,7 @@ function updateRole() {
   $('instructions').textContent = sender ? 'Share the game window or screen and send the offer to the receiving device. Paste its answer back here, then open the game.' : 'Paste the gaming device’s offer below. Accept it, send the generated answer back, and keep this page open.';
   if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. For your iPad game → iPhone setup, the iPad remains the sender and the iPhone remains the receiver. A native capture helper is needed on the iPad; it is not included yet. Browser pairing cannot start this capture.';
   if(pcSender())$('instructions').textContent='Share the live PC transcript. Keep the desktop companion and this page running on the same network as the receiver.';
+  if(!caps.secure||!caps.webRTC)$('instructions').textContent='This browser cannot pair devices. Open the HTTPS companion in a browser with WebRTC support. Saved local transcripts remain available.';
   $('start').textContent=pcSender()?'Share transcript & create offer':'Share screen & create offer';
   $('start').hidden = !sender;
   $('resume-share').hidden = !sender || !identity || liveCapture();
@@ -442,5 +443,5 @@ for (const kind of ['pagehide', 'pageshow']) window.addEventListener(kind, e => 
 setInterval(() => { if (!document.hidden) { if (relay && $('preview').paused) void resumePlayback(); void automaticRecovery(); } }, 5000);
 updateRole();
 
-export const captureLifecycle={stop:cleanup,get active(){return Boolean(peer||identity||pendingCapture);},older:before=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.page(before);},audio:id=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.audio(id);}};
+export const captureLifecycle={stop:cleanup,get active(){return Boolean(peer||identity||pendingCapture);},older:before=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.page(before);},audio:row=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.audio(row.id,row);}};
 window.addEventListener('pagehide',()=>cleanup());

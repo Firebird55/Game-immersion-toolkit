@@ -7,7 +7,8 @@ const database=new Promise((resolve,reject)=>{
    state.put({version:2},'companion-schema');
   };
  };
- request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+ request.onsuccess=()=>{request.result.onversionchange=()=>request.result.close();resolve(request.result);};request.onerror=()=>reject(request.error);
+ request.onblocked=()=>reject(Error('Close other companion tabs, then reload to upgrade browser storage.'));
 });
 database.catch(()=>{});
 export async function get(key){const db=await database;return new Promise((resolve,reject)=>{const r=db.transaction('state').objectStore('state').get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}

@@ -23,6 +23,8 @@ test('paired channels exchange bounded pages and chunked original audio; stop re
  const receiver=createTranscriptChannel(b,{session,onRows:rows=>seen.push(...rows)});
  a.onopen();await new Promise(r=>setTimeout(r,5));assert.equal(seen.length,1);
  const audio=await receiver.audio(1);assert.deepEqual(new Uint8Array(await audio.arrayBuffer()),bytes);
+ await assert.rejects(receiver.audio(1,{source:'pc-another-source-123456',game:'zzz'}),/PC and game/);
+ await assert.rejects(receiver.audio(1,{source,game:'wuwa'}),/PC and game/);
  await sender.update([{...row,id:2}]);await new Promise(r=>setTimeout(r,5));assert.equal(seen.at(-1).id,2);
  sender.close();receiver.close();await assert.rejects(receiver.page(null));assert.equal(a.readyState,'closed');
 });

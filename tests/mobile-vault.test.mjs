@@ -21,3 +21,7 @@ test('unavailable storage never leaves a key unlocked',async()=>{
  const vault=createVault({get:async()=>{throw Error('Unavailable');},put:async()=>{throw Error('Unavailable');}});
  await assert.rejects(vault.connect('test',phrase,phrase));assert.equal(vault.unlocked,false);
 });
+test('a lock during derivation cannot restore an unlocked session',async()=>{
+ const record=await encryptKey('test-key',phrase,phrase),vault=createVault({get:async()=>record});
+ const attempt=vault.unlock(phrase);vault.lock();await assert.rejects(attempt,/cancelled/);assert.equal(vault.unlocked,false);
+});

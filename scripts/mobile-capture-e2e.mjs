@@ -33,6 +33,7 @@ async function downloadReport(page) {
   return JSON.parse(readFileSync(await (await pending).path(), 'utf8'));
 }
 async function verifyQrRendering(page){
+  await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();
   const text=pairingMessage({type:'offer',sdp:'v=0\r\n'+Array.from({length:90},(_,i)=>`a=fixture:${i}:${Math.sin(i)}`).join('\r\n')},'zzz',{sessionId:'qr-render-session-fixture',pairingId:'qr-render-pairing-fixture',attempt:1});
   await page.evaluate(message=>window.dispatchEvent(new CustomEvent('mobile-pairing-message',{detail:{message}})),text);
   await page.waitForFunction(()=>!document.querySelector('#qr-panel').hidden);
@@ -405,7 +406,7 @@ try {
     assert.equal(await receiver.locator('#begin-test').isEnabled(), false);
     assert.equal(await receiver.locator('#reload-build').isEnabled(), true);
     await receiver.click('#reload-build');
-    await receiver.waitForURL(/\?v=\d+/);
+    await receiver.waitForURL(/[?&]v=\d+/);
     await sender.click('#stop');
     assert(await sender.evaluate(() => window.originalCaptureTrack.readyState === 'ended'), 'Stop finishes the retained source capture');
     assert.equal(await sender.locator('#reconnect').isEnabled(), false);

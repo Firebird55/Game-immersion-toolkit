@@ -7,9 +7,9 @@ export function createPCProvider(game){
  const normalize=r=>({source,game,id:r.id,chinese:(r.chinese??'').slice(0,1200),english:(r.english??'').slice(0,1200),speakerChinese:(r.speaker_chinese??'').slice(0,120),speakerEnglish:(r.speaker_english??'').slice(0,120),createdAt:Math.max(0,Date.parse(r.created_at)||0),audio:Boolean(r.has_audio&&r.audio_source==='original')});
  return {source,game,
   subscribe(onRows){
-   let stopped=false,socket,timer;
-   const connect=()=>{if(stopped)return;socket=new WebSocket('ws://127.0.0.1:8766/api/ws');socket.onmessage=event=>{if(stopped)return;try{const m=JSON.parse(event.data);if(m.type==='line'&&m.line.game===game){const row=normalize(m.line);if(row.audio)known.add(row.id);while(known.size>1000)known.delete(known.values().next().value);onRows([row]);}}catch{}};socket.onclose=()=>{if(!stopped)timer=setTimeout(connect,2000);};};connect();
-   return ()=>{stopped=true;clearTimeout(timer);socket?.close();};
+   let stopped=false,socket,timer,opened=false;const abort=new AbortController(),refresh=this.page.bind(this);
+   const connect=()=>{if(stopped)return;socket=new WebSocket('ws://127.0.0.1:8766/api/ws');socket.onopen=()=>{if(opened)void refresh(null,AbortSignal.any([abort.signal,AbortSignal.timeout(10000)])).then(page=>{if(!stopped)onRows(page.rows);}).catch(()=>{});opened=true;};socket.onmessage=event=>{if(stopped)return;try{const m=JSON.parse(event.data);if(m.type==='line'&&m.line.game===game){const row=normalize(m.line);if(row.audio)known.add(row.id);while(known.size>1000)known.delete(known.values().next().value);onRows([row]);}}catch{}};socket.onclose=()=>{if(!stopped)timer=setTimeout(connect,2000);};};connect();
+   return ()=>{stopped=true;abort.abort();clearTimeout(timer);socket?.close();};
   },
   async page(before,signal){
    const query=new URLSearchParams({game,limit:String(PAGE_SIZE)});if(before!==null)query.set('before_id',String(before));

@@ -18,9 +18,9 @@ export function parseMessage(raw,session){
  if(!valid)throw Error('Invalid transcript message.');return m;
 }
 export function createTranscriptChannel(channel,{session,provider,onRows=()=>{},onState=()=>{},onCapabilities=()=>{}}){
- let closed=false,working=false,source=null,game=null;const pending=new Map(),abort=new AbortController();
+ let closed=false,working=false,source=null,game=null,updates=0;const pending=new Map(),abort=new AbortController();
  const state=message=>onState(message);
- function close(){if(closed)return;closed=true;abort.abort();channel.close();for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('Transcript connection closed. Pair again.'));}pending.clear();state('Disconnected. Local history is still available.');}
+ function close(message='Disconnected. Local history is still available.'){if(closed)return;closed=true;abort.abort();channel.close();for(const p of pending.values()){clearTimeout(p.timer);p.reject(Error('Transcript connection closed. Pair again.'));}pending.clear();state(message);}
  async function send(body){
   const raw=JSON.stringify({v:PROTOCOL,session,...body});if(new TextEncoder().encode(raw).length>MAX_MESSAGE)throw Error('Transcript message exceeds limit.');
   const started=Date.now();while(channel.bufferedAmount>128*1024){if(closed||channel.readyState!=='open'||Date.now()-started>10000)throw Error('Transcript connection stalled.');await new Promise(resolve=>setTimeout(resolve,20));}
@@ -38,10 +38,10 @@ export function createTranscriptChannel(channel,{session,provider,onRows=()=>{},
    if(provider){
     if(!['page-request','audio-request'].includes(m.type))throw Error('Unsupported receiver request.');
     if(working){await send({type:'error',request:m.request,message:'A transfer is already running. Retry shortly.'});return;}
-    working=true;
+    working=true;const signal=AbortSignal.any([abort.signal,AbortSignal.timeout(15000)]);
     try{
-     if(m.type==='page-request'){const page=await provider.page(m.before,abort.signal);await send({type:'page',request:m.request,...page});}
-     else{const blob=await provider.audio(m.id,abort.signal);if(blob.size>MAX_AUDIO||!['audio/mpeg','audio/wav','audio/ogg'].includes(blob.type))throw Error('Unsupported audio.');const bytes=new Uint8Array(await blob.arrayBuffer()),total=Math.ceil(bytes.length/12288);if(!total)throw Error('Empty audio.');for(let index=0;index<total;index++){const data=btoa(String.fromCharCode(...bytes.subarray(index*12288,(index+1)*12288)));await send({type:'audio',request:m.request,index,total,mime:blob.type,data});}}
+     if(m.type==='page-request'){const page=await provider.page(m.before,signal);await send({type:'page',request:m.request,...page});}
+     else{const blob=await provider.audio(m.id,signal);if(blob.size>MAX_AUDIO||!['audio/mpeg','audio/wav','audio/ogg'].includes(blob.type))throw Error('Unsupported audio.');const bytes=new Uint8Array(await blob.arrayBuffer()),total=Math.ceil(bytes.length/12288);if(!total)throw Error('Empty audio.');for(let index=0;index<total;index++){signal.throwIfAborted();const data=btoa(String.fromCharCode(...bytes.subarray(index*12288,(index+1)*12288)));await send({type:'audio',request:m.request,index,total,mime:blob.type,data});}}
     }catch{if(!closed)await send({type:'error',request:m.request,message:'The requested transcript or audio is unavailable. Reconnect or try another line.'});}finally{working=false;}
    }else{
     if(m.type==='capabilities'){if(source&&source!==m.source)throw Error('Source changed.');source=m.source;game=m.game;onCapabilities(m);void api.page(null).catch(e=>state(e.message));state('Connected to PC transcript.');}
@@ -56,10 +56,10 @@ export function createTranscriptChannel(channel,{session,provider,onRows=()=>{},
      if(p.chunks.length===p.total)complete(m.request,null,new Blob(p.chunks,{type:p.mime}));
     }else if(m.type==='error')complete(m.request,Error(m.message));else throw Error('Unsupported sender response.');
    }
-  }catch{state('Transcript protocol error. Stop and pair again.');close();}
+  }catch{close('Transcript protocol error. Stop and pair again.');}
  };
- channel.onclose=close;channel.onerror=close;
- channel.onopen=()=>{if(provider)void send({type:'capabilities',source:provider.source,game:provider.game,pageSize:PAGE_SIZE,audio:true}).catch(close);};
- const api={close,page:before=>request('page-request',{before}),audio:id=>request('audio-request',{id}),update:rows=>send({type:'update',rows,before:null})};
+ channel.onclose=()=>close();channel.onerror=()=>close();
+ channel.onopen=()=>{if(provider)void send({type:'capabilities',source:provider.source,game:provider.game,pageSize:PAGE_SIZE,audio:true}).catch(()=>close());};
+ const api={close,get closed(){return closed;},page:before=>request('page-request',{before}),audio:(id,expected)=>{if(expected&&(expected.source!==source||expected.game!==game))return Promise.reject(Error('Pair with the PC and game that supplied this line to play its original voice.'));return request('audio-request',{id});},async update(rows){if(++updates>16){updates--;close('Transcript connection fell behind. Reconnect to refresh history.');return;}try{await send({type:'update',rows,before:null});}finally{updates--;}}};
  return api;
 }

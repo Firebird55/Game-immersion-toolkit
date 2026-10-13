@@ -32,6 +32,7 @@ for(const name of ['core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs
 const ocr=ocrAssets();
 const escape = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 let html = source('index.html').replace('<html lang="en">', `<html lang="en" data-build-commit="${commit}" data-build-branch="${escape(branch)}" data-build-time="${builtAt}">`);
+html=html.replace(' http://127.0.0.1:8766 ws://127.0.0.1:8766','');
 if (!html.includes(`data-build-commit="${commit}"`)) throw new Error('Preview HTML must expose its build version.');
 for (const [name, hashedName] of assets) html = html.replaceAll(`./${name}`, `./${hashedName}`);
 writeFileSync(new URL('index.html', destination), html);

@@ -28,8 +28,8 @@ export function createVault(storage, {onLock=()=>{},now=Date.now}={}) {
     get unlocked(){return Boolean(key);}, get signal(){return controller.signal;},
     credential(){if(hiddenAt!==null&&now()-hiddenAt>=BACKGROUND_LOCK_MS)lock();if(!key)throw Error('Unlock Lexirise in Settings.');return key;},
     exists:async()=>Boolean(await storage.get('lexirise-vault')),
-    async connect(value,passphrase,confirmation){lock();const token=revision;const record=await encryptKey(value,passphrase,confirmation);if(token!==revision)throw Error('Connection cancelled.');await storage.put('lexirise-vault',record);if(token===revision)key=value.trim();},
-    async unlock(passphrase){lock();const token=revision;const value=await decryptKey(await storage.get('lexirise-vault'),passphrase);if(token===revision)key=value;},
+    async connect(value,passphrase,confirmation){lock();const token=revision;const record=await encryptKey(value,passphrase,confirmation);if(token!==revision)throw Error('Connection cancelled.');await storage.put('lexirise-vault',record);if(token!==revision)throw Error('Connection cancelled. The stored key remains locked.');key=value.trim();},
+    async unlock(passphrase){lock();const token=revision;const value=await decryptKey(await storage.get('lexirise-vault'),passphrase);if(token!==revision)throw Error('Unlock cancelled.');key=value;},
     async changePassphrase(passphrase,confirmation){const value=this.credential(),token=revision;const record=await encryptKey(value,passphrase,confirmation);if(token!==revision)throw Error('Vault locked. Unlock and retry.');await storage.put('lexirise-vault',record);},
     async forget(){lock();await storage.remove('lexirise-vault');}, lock,
     visibility(hidden){clearTimeout(timer);if(hidden){hiddenAt??=now();timer=setTimeout(lock,Math.max(0,BACKGROUND_LOCK_MS-(now()-hiddenAt)));}else{if(hiddenAt!==null&&now()-hiddenAt>=BACKGROUND_LOCK_MS)lock();hiddenAt=null;}}

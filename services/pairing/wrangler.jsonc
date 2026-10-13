@@ -5,7 +5,7 @@
   "compatibility_date": "2026-10-12",
   "workers_dev": true,
   "preview_urls": false,
-  "vars": { "ALLOWED_ORIGINS": "https://firebird55.github.io" },
+  "vars": { "ALLOWED_ORIGINS": "https://firebird55.github.io,http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001" },
   "durable_objects": { "bindings": [{ "name": "ROOMS", "class_name": "PairingRoom" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairingRoom"] }],
   "ratelimits": [{ "name": "ADMISSION", "namespace_id": "19701", "simple": { "limit": 60, "period": 60 } }],
