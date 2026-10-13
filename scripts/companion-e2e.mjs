@@ -5,6 +5,7 @@ import {resolve} from 'node:path';
 import * as engines from 'playwright';
 import {ocrAssets,mime} from './mobile-assets.mjs';
 import {TONE} from '../tests/mobile-media-fixtures.mjs';
+import {probeDataChannel} from './webrtc-runtime-probe.mjs';
 const root=resolve(process.env.MOBILE_PREVIEW_DIR??'public/mobile-capture'),assets=ocrAssets();
 const server=http.createServer((req,res)=>{let name=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html';const local=name.startsWith('local/');if(local)name=name.slice(6)||'index.html';if(name.includes('..')){res.writeHead(404).end();return;}try{const bytes=assets.get(name)??readFileSync(resolve(local?'public/mobile-capture':root,name));res.setHeader('Content-Type',mime(name));res.end(bytes);}catch{res.writeHead(404).end();}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
@@ -28,19 +29,13 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  await receiver.locator('input[name=pass]').fill('incorrect passphrase');await receiver.getByRole('button',{name:'Unlock',exact:true}).click();await receiver.getByRole('alert').filter({hasText:'Cannot unlock'}).waitFor();
  await receiver.locator('input[name=pass]').fill('a safe mock passphrase');await receiver.getByRole('button',{name:'Unlock',exact:true}).click();await receiver.getByRole('button',{name:'Lock',exact:true}).waitFor();await receiver.getByRole('button',{name:'Lock',exact:true}).click();
  await receiver.selectOption('#source','pc');await receiver.getByRole('button',{name:'Connection',exact:true}).click();
- let rtc={connected:true};
- if(name==='webkit')rtc=await receiver.evaluate(async()=>{
-  let a,b;try{
-   a=new RTCPeerConnection({iceServers:[]});b=new RTCPeerConnection({iceServers:[]});const channel=a.createDataChannel('runtime-probe');
-   const connected=new Promise(resolve=>{const timer=setTimeout(()=>resolve(false),12000);b.ondatachannel=e=>{e.channel.onmessage=()=>{clearTimeout(timer);resolve(true);};};channel.onopen=()=>channel.send('probe');});
-   const gather=peer=>peer.iceGatheringState==='complete'?Promise.resolve():new Promise(resolve=>{const timer=setTimeout(resolve,3000);peer.addEventListener('icegatheringstatechange',()=>{if(peer.iceGatheringState==='complete'){clearTimeout(timer);resolve();}});});
-   await a.setLocalDescription(await a.createOffer());await gather(a);await b.setRemoteDescription(a.localDescription);await b.setLocalDescription(await b.createAnswer());await gather(b);await a.setRemoteDescription(b.localDescription);
-   return {connected:await connected,offerCandidates:(a.localDescription.sdp.match(/a=candidate:/g)||[]).length,answerCandidates:(b.localDescription.sdp.match(/a=candidate:/g)||[]).length};
-  }catch(error){return {connected:false,error:error.name};}finally{a?.close();b?.close();}
- });
- if(name==='webkit')console.log('WebKit native echo probe',process.platform,rtc);
- if(name==='webkit'&&!rtc.connected&&process.platform!=='darwin'){
-  console.log(name+': role/layout/vault verified; native data-channel echo unavailable on '+process.platform+' '+JSON.stringify(rtc)+'. Full WebKit transcript checks run on macOS; physical Safari remains unverified.');
+ const probeSender=await senderContext.newPage();await probeSender.goto(base+'/local/');
+ const rtc=await probeDataChannel(probeSender,receiver);await probeSender.close();
+ console.log(name+' native cross-page echo probe',process.platform,rtc);
+ if(name!=='webkit')assert(rtc.connected,'Required browser runtime must support native data channels');
+ if(name==='webkit'&&!rtc.connected){
+  console.log(name+': role/layout/vault verified; native cross-page data channel unavailable on '+process.platform+' '+JSON.stringify(rtc)+'. Transcript transport is UNVERIFIED in this runtime, and physical Safari remains unverified.');
+  if(process.env.GITHUB_STEP_SUMMARY){const {appendFileSync}=await import('node:fs');appendFileSync(process.env.GITHUB_STEP_SUMMARY,'\nWebKit UI/vault checks passed. **WebKit transcript transport unavailable in this runtime**: native cross-page echo failed. This is not a Safari device pass.\n');}
  }else{
   const sender=await senderContext.newPage();sender.on('pageerror',e=>errors.push(e.message));await sender.goto(base+'/local/?pc=1');await sender.getByRole('button',{name:'Share transcript & create offer',exact:true}).waitFor();assert.equal(await sender.locator('#library-files').isVisible(),false);
   await sender.bringToFront();await sender.click('#start');await sender.waitForFunction(()=>document.querySelector('#outgoing').value.includes('"offer"')).catch(async error=>{console.error('Synthetic offer diagnostics',{engine:name,rtc,pageErrors:errors,status:await sender.locator('#status').textContent(),state:await sender.locator('#diagnostics').textContent()});throw error;});

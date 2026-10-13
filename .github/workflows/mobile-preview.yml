@@ -6,6 +6,7 @@ on:
       - 'public/mobile-capture/**'
       - 'mobile/**'
       - 'scripts/companion-e2e.mjs'
+      - 'scripts/webrtc-runtime-probe.mjs'
       - 'vendor/lexirise-components/**'
       - 'scripts/build-browser-reader.mjs'
       - 'services/lexirise-gateway/**'
@@ -63,7 +64,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: node scripts/prepare-mobile-assets.mjs
       - run: npx playwright install chromium webkit
-      - name: Verify WebKit transcript transport on its supported native platform
+      - name: Check WebKit UI and native transcript transport capability
         env:
           MOBILE_TEST_BROWSERS: webkit
         run: node scripts/companion-e2e.mjs

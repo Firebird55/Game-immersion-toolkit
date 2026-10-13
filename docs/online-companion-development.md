@@ -104,10 +104,16 @@ watcher continues to flag the website changes rather than silently editing vendo
 files. Both consumers passed their shared checks; Emulingo also passed Chromium,
 Firefox and isolated-world/Shadow DOM checks with mock account writes.
 
-WebKit transcript CI runs on macOS. On Windows and Linux, a native data-channel
-echo probe distinguishes platform WebRTC limitations from application failures;
-UI, vault, OCR, encrypted signaling and offline checks still run. This follows
+WebKit CI runs on macOS as well as Windows and Linux. A native data-channel echo
+probe serializes SDP between separate browser pages before testing the application
+protocol. A same-page echo alone does not verify network candidate exchange.
+Chromium and Firefox require a successful echo. If WebKit cannot exchange the
+native echo, its transport checks are reported as unavailable in the job log and
+Actions summary; UI, vault, OCR, encrypted signaling and offline checks still run.
+If the echo succeeds, all application transport assertions are required. This follows
 [Playwright's platform-specific WebRTC guidance](https://github.com/microsoft/playwright/issues/31016).
-The macOS check is required before Pages publication and is still not a physical
-iPad/iPhone test. Service workers are isolated from mocked API routes in the UI
+The macOS check is required before Pages publication, but a passing job with an
+unavailable transport does not verify Safari pairing. The October 13 macOS runner
+reported zero native ICE candidates in both headed and headless WebKit. A physical
+Safari session remains required for device acceptance. Service workers are isolated from mocked API routes in the UI
 suite; the separate update suite exercises real service-worker cache behavior.
