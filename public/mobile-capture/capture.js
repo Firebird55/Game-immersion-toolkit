@@ -106,7 +106,7 @@ function cleanup(message = 'Stopped.') {
 }
 function current(active, token) { return active === peer && token === generation; }
 function watchTracks(active, token) {
-  for (const track of stream.getTracks()) {
+  for (const track of stream?.getTracks() ?? []) {
     const record = kind => { if (current(active, token)) { trackSnapshot = trackStates(); event(kind, { track: privateTrackState(track) }); updateDiagnostics(); } };
     track.onmute = () => record('track_muted'); track.onunmute = () => record('track_unmuted');
     track.onended = () => {
@@ -137,7 +137,7 @@ function newPeer() {
     if (!current(active, token)) return;
     event(`connection_${active.connectionState}`);
     const interrupted = ['failed', 'disconnected', 'closed'].includes(active.connectionState);
-    status(`Connection: ${active.connectionState}${interrupted ? relay ? '. Automatic recovery will retry when both devices are online and screen sharing is active.' : sessionRole === 'sender' ? '. Capture is kept open. Tap Reconnect & create new offer, then exchange the new messages.' : '. Return to the iPad, tap Reconnect & create new offer, then accept its fresh offer here and send the new answer back.' : ''}`);
+    status(`Connection: ${active.connectionState}${interrupted ? relay ? '. Automatic recovery will retry while both devices are online and sharing is active.' : sessionRole === 'sender' ? '. Tap Reconnect & create new offer, then exchange the new messages.' : '. Ask the sending device for a fresh reconnect offer, then send its new answer back.' : ''}`);
     if (active.connectionState === 'connected' && connectedAt === null) connectedAt = Date.now();
     updateRole();
     if (interrupted) void automaticRecovery();
@@ -197,7 +197,7 @@ async function outputDescription(active, description, token) {
   window.dispatchEvent(new CustomEvent('mobile-pairing-message',{detail:{message:$('outgoing').value}}));
   $('copy').disabled = false; $('save-pairing').disabled = false;
   status('Pairing message ready. Send it to the other device.');
-  if (relay && await relay.send({kind:'pairing',message:$('outgoing').value}) && current(active, token)) status(sessionRole === 'receiver' ? 'Answer sent automatically. Keep this page open to receive the screen.' : 'Offer ready. Scan this QR on the phone once; its answer returns automatically.');
+  if (relay && await relay.send({kind:'pairing',message:$('outgoing').value}) && current(active, token)) status(sessionRole === 'receiver' ? 'Answer sent automatically. Keep this page open to receive the '+(transcriptMode()?'transcript.':'screen.') : 'Offer ready. Scan this QR on the receiving device once; its answer returns automatically.');
 }
 function connectRelay(descriptor, role) {
   relay?.close();
@@ -205,7 +205,7 @@ function connectRelay(descriptor, role) {
     onState(state) {
       if (relay !== client) return;
       event('recovery_service_' + state);
-      $('relay-status').textContent = state === 'ready' ? 'Automatic recovery connected. Video travels directly between your devices.' : state === 'expired' ? 'Recovery session expired after four hours. Stop and pair again.' : ['rejected','message_rejected'].includes(state) ? 'Recovery session rejected. Stop and pair again, or use direct QR pairing.' : 'Recovery service reconnecting. Your library and transcript are kept open.';
+      $('relay-status').textContent = state === 'ready' ? 'Automatic recovery connected. Shared content travels directly between your devices.' : state === 'expired' ? 'Recovery session expired after four hours. Stop and pair again.' : ['rejected','message_rejected'].includes(state) ? 'Recovery session rejected. Stop and pair again, or use direct QR pairing.' : 'Recovery service reconnecting. Your library and transcript are kept open.';
       if (state === 'ready') { const message = $('outgoing').value; if (message) void client.send({kind:'pairing',message}); void automaticRecovery(); }
     },
     onPartner(present) { if (relay === client && present) void automaticRecovery(); },
@@ -281,7 +281,7 @@ $('start').onclick = async () => {
     const active = newPeer();
     await createSenderOffer(active, token);
     if (current(active, token)) event('screen_share_started');
-  } catch (error) { if (generation === token) cleanup(`Cannot start capture: ${error.message}`); }
+  } catch (error) { if (generation === token) cleanup(`Cannot start ${pcSender()?'sharing':'capture'}: ${error.message}`); }
   finally { if (generation === token) { pendingCapture = false; busyPairing = false; updateRole(); } }
 };
 async function reconnectSender(automatic = false) {
@@ -290,13 +290,13 @@ async function reconnectSender(automatic = false) {
   busyPairing = true; recoveryAttempts++;
   identity = { ...identity, pairingId: crypto.randomUUID(), attempt: identity.attempt + 1 };
   event('reconnect_requested', { attempt: identity.attempt, automatic });
-  status('Capture is kept open. Preparing a fresh offer…'); updateRole();
+  status('Preparing a fresh sharing offer…'); updateRole();
   try { await createSenderOffer(newPeer(), token); }
   catch {
     if (generation === token) {
       token = detachConnection(true); watchTracks(null, token);
       event('connection_attempt_failed', { attempt: identity?.attempt ?? null });
-      status('Reconnect could not prepare an offer. Capture is kept open; tap Reconnect to try again.');
+      status('Reconnect could not prepare an offer. Tap Reconnect to try again.');
     }
   }
   finally { if (generation === token) { busyPairing = false; updateRole(); } }
@@ -327,17 +327,17 @@ async function applyMessage(text) {
     if (sender) {
       if (!peer || peer.signalingState !== 'have-local-offer') throw new Error('Create an offer on the sharing device first.');
       if (message.game !== $('game').value) throw new Error('Answer belongs to a different game.');
-      if (!samePairing(message, identity)) throw new Error('This answer is for an older or different offer. Reload both devices before a new test, or use the answer to the latest offer.');
+      if (!samePairing(message, identity)) throw new Error('This answer is for an older or different offer. Use the answer to the latest offer, or stop and pair again.');
       if (JSON.stringify(message.relay) !== JSON.stringify(identity?.relay)) throw Error('Answer belongs to a different recovery session.');
       const active = peer;
       await active.setRemoteDescription({ type: message.type, sdp: message.sdp });
-      if (current(active, token)) status('Answer accepted. Open the game and watch the phone preview.');
+      if (current(active, token)) status(transcriptMode()?'Answer accepted. Keep the companion and this sharing page running.':'Answer accepted. Open the game and watch the receiving device.');
     } else {
       const continuing = identity && message.sessionId === identity.sessionId;
       if (identity || peer || stream) {
-        if (message.game !== sessionGame) throw new Error('Offer belongs to a different game. Stop this test before changing games.');
-        if (!continuing) throw new Error('Offer belongs to a different capture session. Stop this test before accepting it.');
-        if (message.attempt <= identity.attempt || message.pairingId === identity.pairingId) throw new Error('This offer was already accepted or is older. Use the latest reconnect offer from the iPad.');
+        if (message.game !== sessionGame) throw new Error('Offer belongs to a different game. Stop sharing before changing games.');
+        if (!continuing) throw new Error('Offer belongs to a different sharing session. Stop sharing before accepting it.');
+        if (message.attempt <= identity.attempt || message.pairingId === identity.pairingId) throw new Error('This offer was already accepted or is older. Use the latest reconnect offer from the sending device.');
         if (JSON.stringify(message.relay) !== JSON.stringify(identity.relay)) throw Error('Offer belongs to a different recovery session.');
       }
       token = detachConnection(); replacingReceiver = true;
@@ -354,7 +354,7 @@ async function applyMessage(text) {
     }
   } catch (error) {
     if (generation === token) {
-      if (replacingReceiver) { token = detachConnection(); event('pairing_failed'); status('Pairing could not complete. Ask the iPad for a fresh reconnect offer and try again.'); }
+      if (replacingReceiver) { token = detachConnection(); event('pairing_failed'); status('Pairing could not complete. Ask the sending device for a fresh reconnect offer and try again.'); }
       else status(error.message);
     }
   }
