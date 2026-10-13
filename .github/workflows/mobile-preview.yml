@@ -62,7 +62,7 @@ jobs:
           node-version: '24'
       - run: npm ci --ignore-scripts
       - run: node scripts/prepare-mobile-assets.mjs
-      - run: npx playwright install webkit
+      - run: npx playwright install chromium webkit
       - name: Verify WebKit transcript transport on its supported native platform
         env:
           MOBILE_TEST_BROWSERS: webkit
