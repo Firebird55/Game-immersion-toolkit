@@ -27,7 +27,7 @@ export function operation(value){
   assert(!url.search);assert(object(p));
   if(route==='/v1/settings'&&method==='PATCH')settings(p);
   else if(['/v1/analyze/text','/v1/analyze/context','/v1/dictionary/lookup'].includes(route)&&method==='POST'){
-   fields(p,route==='/v1/analyze/context'?['text','language','word','question']:route==='/v1/analyze/text'?['text','language','fast']:['text','language'],['text','language']);assert(string(p.text)&&languages.has(p.language));if(p.fast!==undefined)assert(typeof p.fast==='boolean');if(p.word!==undefined)assert(string(p.word,256));if(p.question!==undefined)assert(string(p.question,2000));
+   fields(p,route==='/v1/analyze/context'?['text','language','charStart','charEnd','question']:route==='/v1/analyze/text'?['text','language','fast']:['text','language'],['text','language']);assert(string(p.text)&&languages.has(p.language));if(p.fast!==undefined)assert(typeof p.fast==='boolean');if(route==='/v1/analyze/context')assert(Number.isSafeInteger(p.charStart)&&Number.isSafeInteger(p.charEnd)&&p.charStart>=0&&p.charStart<p.charEnd&&p.charEnd<=p.text.length);if(p.question!==undefined)assert(string(p.question,2000));
   }else if(route==='/v1/vocabulary'&&method==='POST'){
    fields(p,['text','language','mode','translation','notes','tags','audioUrls','proficiency'],['text','language','mode']);assert(string(p.text)&&languages.has(p.language)&&['word','sentence'].includes(p.mode));vocabulary(p);
   }else if(/^\/v1\/vocabulary\/[1-9]\d{0,12}$/.test(route)&&method==='PATCH'){
@@ -46,9 +46,10 @@ function vocabulary(p){
  if(p.tags!==undefined)assert(Array.isArray(p.tags)&&p.tags.length<=10&&p.tags.every(t=>string(t,80)));
  if(p.audioUrls!==undefined)assert(Array.isArray(p.audioUrls)&&p.audioUrls.length<=10&&p.audioUrls.every(u=>{try{const x=new URL(u);return u.length<=2048&&x.protocol==='https:'&&!x.username&&!x.password;}catch{return false;}}));
 }
-async function bounded(stream,max){
+async function bounded(stream,max,signal){
  if(!stream)return new Uint8Array();const reader=stream.getReader(),parts=[];let size=0;
- try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>max){await reader.cancel();throw Error('size');}parts.push(value);}}finally{reader.releaseLock();}
+ const stop=()=>{void reader.cancel().catch(()=>{});};signal?.addEventListener('abort',stop,{once:true});
+ try{for(;;){signal?.throwIfAborted();const {done,value}=await reader.read();signal?.throwIfAborted();if(done)break;size+=value.length;if(size>max){await reader.cancel();throw Error('size');}parts.push(value);}}finally{signal?.removeEventListener('abort',stop);reader.releaseLock();}
  const result=new Uint8Array(size);let at=0;for(const p of parts){result.set(p,at);at+=p.length;}return result;
 }
 export async function handle(request,env,fetcher=fetch){
@@ -70,20 +71,20 @@ export async function handle(request,env,fetcher=fetch){
  if(!env.ADMISSION||!env.ACCOUNT)return reply(503,'Gateway rate limits are unavailable.');
  if(!(await env.ADMISSION.limit({key:request.headers.get('CF-Connecting-IP')??'local'})).success||!(await env.ACCOUNT.limit({key:fingerprint})).success){headers['Retry-After']='60';return reply(429,'Request limit reached. Wait a minute and retry.');}
  const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),25000);
- const stop=()=>abort.abort();request.signal.addEventListener('abort',stop,{once:true});
+ const stop=()=>abort.abort();request.signal.addEventListener('abort',stop,{once:true});if(request.signal.aborted)abort.abort();
  try{
   let op;
   try{
    if(route==='/v1/audio'){
     const type=request.headers.get('Content-Type');assert(['audio/mpeg','audio/wav','audio/ogg'].includes(type));
-    const data=await bounded(request.body,8*1024*1024);assert(data.length>0);const form=new FormData();form.append('file',new Blob([data],{type}),'voice.'+({'audio/mpeg':'mp3','audio/wav':'wav','audio/ogg':'ogg'}[type]));
+    const data=await bounded(request.body,8*1024*1024,abort.signal);assert(data.length>0);const form=new FormData();form.append('file',new Blob([data],{type}),'voice.'+({'audio/mpeg':'mp3','audio/wav':'wav','audio/ogg':'ogg'}[type]));
     op={url:UPSTREAM+'/v1/vocabulary/audio',method:'POST',body:form};
-   }else{assert(request.headers.get('Content-Type')?.split(';')[0]==='application/json');op=operation(JSON.parse(new TextDecoder().decode(await bounded(request.body,32768))));}
-  }catch{return reply(400,'Invalid or oversized operation.');}
+   }else{assert(request.headers.get('Content-Type')?.split(';')[0]==='application/json');op=operation(JSON.parse(new TextDecoder().decode(await bounded(request.body,32768,abort.signal))));}
+  }catch{if(abort.signal.aborted)throw Error('timeout');return reply(400,'Invalid or oversized operation.');}
   const response=await fetcher(op.url,{method:op.method,body:op.body,headers:{Authorization:authorization,...route==='/v1/request'?{'Content-Type':'application/json'}:{}},redirect:'manual',cache:'no-store',signal:abort.signal});
   if(response.status>=300&&response.status<400){await response.body?.cancel();return reply(502,'Upstream redirect rejected.');}
   if(!response.ok){await response.body?.cancel();if([401,403].includes(response.status))return reply(response.status,'Lexirise rejected or expired this key. Reconnect in Settings.');if(response.status===429){headers['Retry-After']='60';return reply(429,'Lexirise is throttling requests. Wait a minute and retry.');}return reply(502,'Lexirise could not complete the operation. Retry after checking its status.');}
-  const body=await bounded(response.body,2*1024*1024);JSON.parse(new TextDecoder().decode(body));
+  const body=await bounded(response.body,2*1024*1024,abort.signal);JSON.parse(new TextDecoder().decode(body));
   return new Response(body,{status:200,headers});
  }catch{return reply(abort.signal.aborted?504:502,abort.signal.aborted?'Lexirise timed out. Retry when ready.':'Lexirise response unavailable. Retry when ready.');}
  finally{clearTimeout(timer);request.signal.removeEventListener('abort',stop);}
