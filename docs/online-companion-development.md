@@ -103,3 +103,11 @@ uploaded by this adapter. The pinned shared 1.0.11 baseline is retained, so the
 watcher continues to flag the website changes rather than silently editing vendor
 files. Both consumers passed their shared checks; Emulingo also passed Chromium,
 Firefox and isolated-world/Shadow DOM checks with mock account writes.
+
+WebKit transcript CI runs on macOS. On Windows and Linux, a native data-channel
+echo probe distinguishes platform WebRTC limitations from application failures;
+UI, vault, OCR, encrypted signaling and offline checks still run. This follows
+[Playwright's platform-specific WebRTC guidance](https://github.com/microsoft/playwright/issues/31016).
+The macOS check is required before Pages publication and is still not a physical
+iPad/iPhone test. Service workers are isolated from mocked API routes in the UI
+suite; the separate update suite exercises real service-worker cache behavior.

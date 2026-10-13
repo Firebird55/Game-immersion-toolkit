@@ -52,6 +52,21 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run audit:public
+  webkit-transcript:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: node scripts/prepare-mobile-assets.mjs
+      - run: npx playwright install webkit
+      - name: Verify WebKit transcript transport on its supported native platform
+        env:
+          MOBILE_TEST_BROWSERS: webkit
+        run: node scripts/companion-e2e.mjs
   preview:
     needs: checked-build
     runs-on: ubuntu-latest
@@ -118,7 +133,7 @@ jobs:
           printf '### Tested mobile preview\n\nCommit: `%s`\n\nAllowlisted browser/OCR assets packaged; no game libraries or user data. HTTPS deployment runs when repository variable MOBILE_PREVIEW_ENABLED is true and GitHub Pages is configured.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
   publish:
     if: github.ref == 'refs/heads/main' && github.repository == 'Firebird55/Game-immersion-toolkit' && vars.MOBILE_PREVIEW_ENABLED == 'true'
-    needs: preview
+    needs: [preview, webkit-transcript]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

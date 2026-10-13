@@ -13,7 +13,7 @@ const api='http://127.0.0.1:8766',gateway='https://game-immersion-lexirise.boazb
 mkdirSync('output/playwright',{recursive:true});
 let browser;
 try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
- browser=await engines[name].launch();const context=await browser.newContext({viewport:{width:1280,height:900}}),errors=[],writes=[];let expectedWrites=0;const stored=[...fixture];
+ browser=await engines[name].launch();const context=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'}),errors=[],writes=[];let expectedWrites=0;const stored=[...fixture];
  await context.addInitScript(()=>{window.captureRequests=0;if(navigator.mediaDevices)navigator.mediaDevices.getDisplayMedia=async()=>{window.captureRequests++;throw Error('Transcript sharing must not capture');};});
  await context.route(api+'/**',route=>{const u=new URL(route.request().url());if(u.pathname==='/api/lines'){const before=Number(u.searchParams.get('before_id')??Infinity);return route.fulfill({json:stored.filter(r=>r.id<before).slice(0,8),headers:{'Access-Control-Allow-Origin':'*'}});}if(/^\/api\/lines\/\d+\/audio$/.test(u.pathname))return route.fulfill({body:Buffer.from(TONE,'base64'),contentType:'audio/mpeg',headers:{'Access-Control-Allow-Origin':'*'}});throw Error('Unexpected local API access: '+u.pathname);});
  const sockets=[];await context.routeWebSocket('ws://127.0.0.1:8766/api/ws',socket=>sockets.push(socket));
@@ -28,13 +28,23 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  await receiver.locator('input[name=pass]').fill('incorrect passphrase');await receiver.getByRole('button',{name:'Unlock',exact:true}).click();await receiver.getByRole('alert').filter({hasText:'Cannot unlock'}).waitFor();
  await receiver.locator('input[name=pass]').fill('a safe mock passphrase');await receiver.getByRole('button',{name:'Unlock',exact:true}).click();await receiver.getByRole('button',{name:'Lock',exact:true}).waitFor();await receiver.getByRole('button',{name:'Lock',exact:true}).click();
  await receiver.selectOption('#source','pc');await receiver.getByRole('button',{name:'Connection',exact:true}).click();
- if(name==='webkit'&&process.platform==='win32'){
-  console.log(name+': role/layout/vault verified; Windows WebKit WebRTC unavailable, transcript transport covered in other engines.');
+ let rtc={connected:true};
+ if(name==='webkit')rtc=await receiver.evaluate(async()=>{
+  let a,b;try{
+   a=new RTCPeerConnection({iceServers:[]});b=new RTCPeerConnection({iceServers:[]});const channel=a.createDataChannel('runtime-probe');
+   const connected=new Promise(resolve=>{const timer=setTimeout(()=>resolve(false),12000);b.ondatachannel=e=>{e.channel.onmessage=()=>{clearTimeout(timer);resolve(true);};};channel.onopen=()=>channel.send('probe');});
+   const gather=peer=>peer.iceGatheringState==='complete'?Promise.resolve():new Promise(resolve=>{const timer=setTimeout(resolve,3000);peer.addEventListener('icegatheringstatechange',()=>{if(peer.iceGatheringState==='complete'){clearTimeout(timer);resolve();}});});
+   await a.setLocalDescription(await a.createOffer());await gather(a);await b.setRemoteDescription(a.localDescription);await b.setLocalDescription(await b.createAnswer());await gather(b);await a.setRemoteDescription(b.localDescription);
+   return {connected:await connected,offerCandidates:(a.localDescription.sdp.match(/a=candidate:/g)||[]).length,answerCandidates:(b.localDescription.sdp.match(/a=candidate:/g)||[]).length};
+  }catch(error){return {connected:false,error:error.name};}finally{a?.close();b?.close();}
+ });
+ if(name==='webkit'&&!rtc.connected&&process.platform!=='darwin'){
+  console.log(name+': role/layout/vault verified; native data-channel echo unavailable on '+process.platform+' '+JSON.stringify(rtc)+'. Full WebKit transcript checks run on macOS; physical Safari remains unverified.');
  }else{
   const sender=await context.newPage();sender.on('pageerror',e=>errors.push(e.message));await sender.goto(base+'/local/?pc=1');await sender.getByRole('button',{name:'Share transcript & create offer',exact:true}).waitFor();assert.equal(await sender.locator('#library-files').isVisible(),false);
   await sender.click('#start');await sender.waitForFunction(()=>document.querySelector('#outgoing').value.includes('"offer"'));
   const pair=async()=>{await receiver.fill('#incoming',await sender.inputValue('#outgoing'));await receiver.click('#apply');await receiver.waitForFunction(()=>document.querySelector('#outgoing').value.includes('"answer"'));await sender.fill('#incoming',await receiver.inputValue('#outgoing'));await sender.click('#apply');};await pair();
-  await receiver.getByRole('button',{name:'Reader',exact:true}).click();await receiver.locator('.current-card').filter({hasText:'Hello, traveler. 12'}).waitFor({timeout:20000});assert.equal(await sender.evaluate(()=>window.captureRequests),0);
+  await receiver.getByRole('button',{name:'Reader',exact:true}).click();await receiver.locator('.current-card').filter({hasText:'Hello, traveler. 12'}).waitFor({timeout:20000}).catch(async error=>{console.error('Synthetic transcript diagnostics',{engine:name,pageErrors:errors,senderStatus:await sender.locator('#status').textContent(),receiverStatus:await receiver.locator('#status').textContent(),senderState:await sender.locator('#diagnostics').textContent(),receiverState:await receiver.locator('#diagnostics').textContent()});throw error;});assert.equal(await sender.evaluate(()=>window.captureRequests),0);
   assert.equal(await receiver.getByRole('button',{name:'★ Favorited',exact:true}).count(),0,'Receiver favorites do not copy PC favorites');await receiver.locator('.current-card').getByRole('button',{name:'☆ Favorite',exact:true}).click();await receiver.locator('.current-card').getByRole('button',{name:'★ Favorited',exact:true}).waitFor();
   await receiver.getByRole('button',{name:'Load older PC history'}).click();await receiver.waitForFunction(()=>document.querySelectorAll('.history-list .dialogue').length===12);assert.equal(await receiver.locator('.history-list .dialogue').count(),12);
   if(name==='chromium'){await receiver.locator('.current-card').getByRole('button',{name:'▶ Original voice'}).click();await receiver.waitForFunction(()=>document.querySelector('#voice-player').currentTime>0);}
@@ -48,7 +58,9 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
    await receiver.getByRole('button',{name:'Settings',exact:true}).click();await receiver.getByRole('button',{name:'Lock',exact:true}).click();await receiver.getByRole('button',{name:'Reader',exact:true}).click();
   }
   await sender.click('#stop');await receiver.waitForFunction(()=>document.querySelector('.connection-badge').textContent.includes('Not connected'));assert.equal(await receiver.locator('.history-list .dialogue').count(),13);
-  await receiver.getByRole('button',{name:'Favorites',exact:true}).click();assert.equal(await receiver.locator('.history-list .dialogue').count(),1);await sender.close();
+  await receiver.getByRole('button',{name:'Favorites',exact:true}).click();assert.equal(await receiver.locator('.history-list .dialogue').count(),1);
+  await receiver.evaluate(()=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'update'},rows:[{source:'pc-another-device-1234567890',game:'zzz',id:13,chinese:'旧设备',english:'A saved line from another PC.',speakerChinese:'',speakerEnglish:'',createdAt:Date.now()+86400000,audio:true}]}})));
+  await receiver.waitForTimeout(100);assert.match(await receiver.locator('.current-card').innerText(),/The next chapter/,'Another PC clock must not displace the active source current line');await sender.close();
   console.log(name+': transcript-only pairing, history pagination, local favorites, updates/deduplication, reconnect, stop and vault passed.');
  }
  assert.deepEqual(errors,[]);assert.equal(writes.length,expectedWrites);await context.close();await browser.close();browser=null;
