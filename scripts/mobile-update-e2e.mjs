@@ -36,7 +36,9 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  const offlineWorkerMessage=`/${new URL(base).host}/sw.js due to access control checks.`;
  page.on('pageerror',e=>{if(name==='webkit'&&offline&&!e.stack&&e.message===offlineWorkerMessage)offlineDiagnostics.push(e.message);else errors.push({message:e.message,offline});});
  context.on('requestfailed',r=>failures.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));await page.goto(base+'?developer=1');
- await page.waitForFunction(async()=>(await navigator.serviceWorker.getRegistration())?.active?.state==='activated'&&navigator.serviceWorker.controller!=null,{},{timeout:30000}).catch(error=>{console.error(name,{errors,failures,stage:'service worker activation and control'});throw error;});await page.reload();await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);
+ // clients.claim() already controls this page. Import immediately after that
+ // handoff; the two offline reloads below test controlled navigations explicitly.
+ await page.waitForFunction(async()=>(await navigator.serviceWorker.getRegistration())?.active?.state==='activated'&&navigator.serviceWorker.controller!=null,{},{timeout:30000}).catch(error=>{console.error(name,{errors,failures,stage:'service worker activation and control'});throw error;});
  await page.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows'));
  await page.fill('#find-text',row.english);await page.click('#find-line');await page.getByRole('button',{name:'Favorite',exact:true}).click();
  await page.locator('summary').filter({hasText:'Capture regions and calibration'}).click();await page.fill('#crop-left','9');await page.locator('#crop-left').dispatchEvent('change');
