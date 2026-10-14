@@ -5,6 +5,7 @@ import {readFileSync,mkdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import * as engines from 'playwright';
 import {mime} from './mobile-assets.mjs';
+import {TONE} from '../tests/mobile-media-fixtures.mjs';
 
 const root=resolve(process.env.MOBILE_PREVIEW_DIR??'public/mobile-capture');
 const server=http.createServer((req,res)=>{
@@ -129,6 +130,18 @@ try{
   await page.locator('.word-dictionary').waitFor();
   assert.equal(await page.locator('.word-sheet').evaluate(el=>getComputedStyle(el).fontSize),'14px','Lookup size is independent of transcript size');
   await page.getByRole('button',{name:'Close word lookup'}).click();
+  await page.evaluate(tone=>{
+   const bytes=Uint8Array.from(atob(tone),c=>c.charCodeAt(0));
+   document.querySelector('#voice-player').src=URL.createObjectURL(new Blob([bytes],{type:'audio/mpeg'}));
+  },TONE);
+  await page.locator('#voice-player').waitFor({state:'visible'});
+  await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
+  const player=await page.locator('#voice-player').boundingBox();
+  const finalActions=await page.locator('.history-list .dialogue').last().locator('.line-actions').boundingBox();
+  assert(finalActions.y+finalActions.height<=player.y,'Final history actions can scroll clear of fixed native audio controls');
+  assert(await page.locator('main').evaluate(el=>parseFloat(getComputedStyle(el).paddingBottom)>=100),'Playback reserves native control and safe-area clearance');
+  await page.evaluate(()=>{const player=document.querySelector('#voice-player');URL.revokeObjectURL(player.src);player.removeAttribute('src');player.load();});
+  assert.equal(await page.locator('main').evaluate(el=>parseFloat(getComputedStyle(el).paddingBottom)),32,'Inactive audio does not add empty page space');
   assert.deepEqual(errors,[]);
   assert(deferredResizes<=1,'WebKit must not enter a repeated resize loop');
   if(deferredResizes)console.log('webkit: one deferred initial ResizeObserver delivery; subsequent layout stable');

@@ -12,6 +12,7 @@ body.developer-mode #transcript,body.developer-mode .actions[hidden]{display:blo
    Include touch phones in landscape without changing short desktop windows. */
 @media (max-width:650px), (max-height:500px) and (pointer:coarse) {
   main { padding:12px max(10px,env(safe-area-inset-left)) max(32px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right)); }
+  body:has(#voice-player[src]) main { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
   .companion-header { flex-wrap:wrap; gap:8px; }
   .companion-header > div:first-child { min-width:0; flex:1 1 160px; }
   .companion-nav button { padding-inline:4px; overflow-wrap:anywhere; }
