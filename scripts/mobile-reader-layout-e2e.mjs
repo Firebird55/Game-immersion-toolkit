@@ -69,6 +69,10 @@ try{
     card:document.querySelector('.history-list .dialogue').getBoundingClientRect().height,
     actions:[...document.querySelectorAll('.current-dialogue .line-actions button')].map(b=>({top:b.getBoundingClientRect().top,height:b.getBoundingClientRect().height})),
    }));
+   if(layout.overflow){
+    console.error('Overflow geometry',name,viewport,await page.evaluate(()=>[...document.querySelectorAll('main,main *')].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName,id:el.id,classes:el.className,left:r.left,right:r.right,width:r.width};}).filter(r=>r.width>0&&(r.left<0||r.right>innerWidth+1)).slice(0,15)));
+    await page.screenshot({path:`output/playwright/mobile-layout-overflow-${name}-${viewport.width}.png`,fullPage:true});
+   }
    assert.equal(layout.overflow,false,`${name} page overflow at ${viewport.width}`);
    assert.equal(layout.innerPadding,'0px');
    assert(layout.actions.every(b=>b.height>=44));

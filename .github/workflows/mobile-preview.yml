@@ -122,7 +122,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mobile-test-diagnostics
-          path: output/playwright/mobile-library-*.png
+          path: |
+            output/playwright/mobile-library-*.png
+            output/playwright/mobile-reader-*.png
+            output/playwright/mobile-lookup-*.png
+            output/playwright/mobile-layout-overflow-*.png
           retention-days: 3
       - name: Retain reviewed static build
         uses: actions/upload-artifact@v4
