@@ -104,6 +104,11 @@ watcher continues to flag the website changes rather than silently editing vendo
 files. Both consumers passed their shared checks; Emulingo also passed Chromium,
 Firefox and isolated-world/Shadow DOM checks with mock account writes.
 
+The October 14 follow-up again found unchanged API documentation and endpoints.
+Reviewed the new public bundles' nine tabs, four definition sections, reading-aid
+values, global popup settings, language overrides and null-reset handling; the
+consumer contract remains compatible. No baseline or account settings were changed.
+
 WebKit CI runs on macOS as well as Windows and Linux. A native data-channel echo
 probe serializes SDP between separate browser pages before testing the application
 protocol. A same-page echo alone does not verify network candidate exchange.
@@ -117,3 +122,13 @@ unavailable transport does not verify Safari pairing. The October 13 macOS runne
 reported zero native ICE candidates in both headed and headless WebKit. A physical
 Safari session remains required for device acceptance. Service workers are isolated from mocked API routes in the UI
 suite; the separate update suite exercises real service-worker cache behavior.
+
+The offline update suite records browser `error` and `unhandledrejection` events
+across document replacements, in addition to Playwright `pageerror` events.
+WebKit can report browser-generated network diagnostics as `pageerror` (see
+[Playwright's upstream report](https://github.com/microsoft/playwright/issues/43120)).
+Only the exact same-origin `sw.js` access-control diagnostic while the test has
+disabled networking is counted separately. Actual script exceptions, rejected
+promises, other URLs and errors while online still fail. The test also requires
+the updated reader to load offline, retain its catalog/favorite/calibration and
+serve older cached modules; the exception does not waive functional assertions.

@@ -23,7 +23,19 @@ const manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title
 const catalog=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify(manifest)),'catalog/00000.ndjson':segment},{level:0}));
 let browser;
 try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
- files=new Map(baseline);browser=await engines[name].launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),errors=[],failures=[];page.on('pageerror',e=>errors.push(e.message));context.on('requestfailed',r=>failures.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));await page.goto(base+'?developer=1');
+ files=new Map(baseline);browser=await engines[name].launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),errors=[],failures=[],runtimeErrors=[],offlineDiagnostics=[];let offline=false;
+ // WebKit also emits browser-generated JS-source network diagnostics through
+ // Playwright's pageerror event. Keep actual script errors/rejections fatal,
+ // including those raised in an old document while navigation is in progress.
+ await context.exposeBinding('__reportRuntimeError',(_,error)=>runtimeErrors.push(error));
+ await context.addInitScript(()=>{
+  addEventListener('error',event=>{if(event instanceof ErrorEvent)void globalThis.__reportRuntimeError({type:'error',message:event.message});});
+  addEventListener('unhandledrejection',event=>{void globalThis.__reportRuntimeError({type:'unhandledrejection',message:String(event.reason)});});
+ });
+ // Playwright splits this console text at the first ':', leaving '/host/...'.
+ const offlineWorkerMessage=`/${new URL(base).host}/sw.js due to access control checks.`;
+ page.on('pageerror',e=>{if(name==='webkit'&&offline&&!e.stack&&e.message===offlineWorkerMessage)offlineDiagnostics.push(e.message);else errors.push({message:e.message,offline});});
+ context.on('requestfailed',r=>failures.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));await page.goto(base+'?developer=1');
  await page.waitForFunction(async()=>(await navigator.serviceWorker.getRegistration())?.active?.state==='activated'&&navigator.serviceWorker.controller!=null,{},{timeout:30000}).catch(error=>{console.error(name,{errors,failures,stage:'service worker activation and control'});throw error;});await page.reload();await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);
  await page.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows'));
  await page.fill('#find-text',row.english);await page.click('#find-line');await page.getByRole('button',{name:'Favorite',exact:true}).click();
@@ -31,7 +43,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  await page.waitForFunction(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('proxy-mobile-library');q.onsuccess=()=>r(q.result);q.onerror=j;});const value=await new Promise(r=>{const q=db.transaction('state').objectStore('state').get('preferences');q.onsuccess=()=>r(q.result);});db.close();return value?.zzz?.crop[0]===.09;});
  const oldBuild=await page.getAttribute('html','data-build-commit');
  assert(await page.evaluate(async base=>!!await caches.match(base+'/ocr/tesseract.esm.min.js'),base),'The application OCR loader must be cached before the first offline visit');
- await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1).catch(async error=>{console.error(name,{stage:'offline restore',errors,failures,library:await page.locator('#library-status').textContent()});throw error;});await page.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);await context.setOffline(false);
+ offline=true;await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1).catch(async error=>{console.error(name,{stage:'offline restore',errors,failures,library:await page.locator('#library-status').textContent()});throw error;});await page.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);await context.setOffline(false);offline=false;
  // Simulate an active capture's disabled role/update controls. Real WebRTC
  // reconnects are separately exercised by mobile-capture-e2e.
  await page.evaluate(()=>{document.querySelector('#role').disabled=true;document.querySelector('#reload-build').disabled=true;});
@@ -43,8 +55,9 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  assert.equal(await page.getAttribute('html','data-build-commit'),oldBuild,'Waiting update must not replace an active page');assert(await page.locator('#reload-build').isDisabled());
  await page.evaluate(()=>{document.querySelector('#role').disabled=false;document.querySelector('#reload-build').disabled=false;});await page.click('#reload-build');await page.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40));
  await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1);await page.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);assert.equal(await page.inputValue('#crop-left'),'9');
- await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40)).catch(async error=>{console.error('Offline update diagnostics',await page.evaluate(async()=>({build:document.documentElement.dataset.buildCommit,cache:await Promise.all((await caches.keys()).map(async name=>({name,build:(await(await(await caches.open(name)).match(new URL('./index.html',location.href)))?.text())?.match(/data-build-commit="([^"]+)/)?.[1]})))})));throw error;});await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1);
- assert.equal(await page.evaluate(async name=>(await fetch('./'+name)).status,ui),200,'Previously cached allowlisted modules remain readable for older open tabs');await context.setOffline(false);
- const keys=await page.evaluate(async()=>{const names=await caches.keys(),urls=[];for(const n of names)for(const r of await(await caches.open(n)).keys())urls.push(r.url);return urls;});assert(!keys.some(u=>u.endsWith('.zip')),'No selected catalog or voice files in application cache');assert.deepEqual(errors,[]);
+ offline=true;await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40)).catch(async error=>{console.error('Offline update diagnostics',await page.evaluate(async()=>({build:document.documentElement.dataset.buildCommit,cache:await Promise.all((await caches.keys()).map(async name=>({name,build:(await(await(await caches.open(name)).match(new URL('./index.html',location.href)))?.text())?.match(/data-build-commit="([^"]+)/)?.[1]})))})));throw error;});await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1);
+ assert.equal(await page.evaluate(async name=>(await fetch('./'+name)).status,ui),200,'Previously cached allowlisted modules remain readable for older open tabs');await context.setOffline(false);offline=false;
+ const keys=await page.evaluate(async()=>{const names=await caches.keys(),urls=[];for(const n of names)for(const r of await(await caches.open(n)).keys())urls.push(r.url);return urls;});assert(!keys.some(u=>u.endsWith('.zip')),'No selected catalog or voice files in application cache');assert.deepEqual(runtimeErrors,[],'No uncaught application errors or unhandled rejections');assert.deepEqual(errors,[]);
+ if(offlineDiagnostics.length)console.log(`${name}: ${offlineDiagnostics.length} browser-only offline sw.js fetch diagnostics; no script errors or unhandled rejections`);
  console.log(`${name}: offline application cache, waiting update, retained catalog/favorite/calibration and allowlist passed`);await context.close();await browser.close();browser=null;
 }}finally{await browser?.close();await new Promise(r=>server.close(r));}
