@@ -21,6 +21,22 @@ forms, raw counters and report downloads. The explicit `?developer=1` URL opens
 the expanded module-verification workspace used by the older capture/OCR tests.
 Normal UI tests use the default URL and assert that these controls are hidden.
 
+The phone reader uses a nearly full-width nonmodal lookup sheet, with a dynamic
+viewport height limit and safe-area margins. Its header and tabs stay visible
+while definitions scroll. Desktop keeps the shared anchored lookup. These are
+host presentation rules in `mobile/companion.css`; the shared source and vendor
+pin are unchanged. Phone current-line and history cards use one layer of padding,
+compact annotated text and a single row of 44px action targets.
+
+Run `node scripts/mobile-reader-layout-e2e.mjs` after bundling to verify populated
+cards and mocked lookups in Chromium, Firefox and WebKit, including 320–430px
+phones, touch landscape, a 260px effective viewport, high pixel density, large
+reading text, scrolling, tab access and keyboard/outside dismissal. It also runs
+against `MOBILE_PREVIEW_DIR` for packaged preview assets in CI. WebKit may defer
+one initial ResizeObserver delivery during asynchronous lookup mounting; the
+test requires stable geometry and rejects repeated deliveries. Browser fixtures
+do not establish physical iPhone/Safari verification.
+
 ## Lifecycle and storage
 
 The static React shell calls `captureLifecycle`, `pairingLifecycle` and

@@ -6,6 +6,7 @@ on:
       - 'public/mobile-capture/**'
       - 'mobile/**'
       - 'scripts/companion-e2e.mjs'
+      - 'scripts/mobile-reader-layout-e2e.mjs'
       - 'scripts/webrtc-runtime-probe.mjs'
       - 'vendor/lexirise-components/**'
       - 'scripts/build-browser-reader.mjs'
@@ -94,6 +95,10 @@ jobs:
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/companion-e2e.mjs
+      - name: Check phone reading density and lookup layout
+        env:
+          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
+        run: node scripts/mobile-reader-layout-e2e.mjs
       - name: Check packaged browser pairing and phone layouts
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
