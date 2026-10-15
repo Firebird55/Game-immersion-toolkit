@@ -175,3 +175,38 @@ def test_comic_bubbles_are_ordered_left_to_right_before_vertical_position() -> N
         "Second, lower-left.",
         "Third, upper-right.",
     ]
+
+
+def test_overlapping_comic_columns_keep_separate_bubbles_and_sound_effects() -> None:
+    def row(text, left, top, right, bottom):
+        return {"text": text, "bounding_rect": {
+            "x1": left, "x2": right, "x3": right, "x4": left,
+            "y1": top, "y2": top, "y3": bottom, "y4": bottom}}
+
+    groups = CaptureService._spatial_text_groups({"lines": [
+        row("Keep the gate closed", 495, 452, 996, 501),
+        row("until we return to", 494, 504, 1051, 553),
+        row("town.", 495, 563, 541, 603),
+        row("CRASH!", 1035, 583, 1463, 621),
+        row("The bridge is still", 70, 669, 655, 718),
+        row("too dangerous", 71, 728, 429, 768),
+        row("for us to cross.", 70, 778, 651, 825),
+        row("Will the supplies", 679, 986, 1245, 1040),
+        row("arrive soon?", 682, 1046, 1012, 1087),
+    ]})
+    assert groups == [
+        "The bridge is still too dangerous for us to cross.",
+        "Keep the gate closed until we return to town.",
+        "Will the supplies arrive soon?", "CRASH!",
+    ]
+
+
+def test_centered_short_final_comic_row_stays_in_its_bubble() -> None:
+    def row(text, left, top, right):
+        return {"text": text, "bounding_rect": {
+            "x1": left, "x2": right, "x3": right, "x4": left,
+            "y1": top, "y2": top, "y3": top + 20, "y4": top + 20}}
+    assert CaptureService._spatial_text_groups({"lines": [
+        row("We can continue our journey", 100, 100, 500),
+        row("tomorrow.", 250, 125, 350),
+    ]}) == ["We can continue our journey tomorrow."]

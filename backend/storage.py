@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from .models import TextMatch, TranscriptLine
+from .models import TextMatch, TranscriptLine, is_comic_text_id
 
 
 SCHEMA = """
@@ -210,6 +210,7 @@ class TranscriptStore:
         """
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
         cutoff = timestamp - timedelta(seconds=max(0.0, cooldown_seconds))
+        is_comic = match.game == "zzz" and channel == "cinematic" and is_comic_text_id(match.text_id)
         with self._connect() as connection:
             adjacent_cutoff = timestamp - timedelta(seconds=max(0.0, adjacent_seconds))
             adjacent = connection.execute(
@@ -220,8 +221,10 @@ class TranscriptStore:
                 """,
                 (match.game, adjacent_cutoff.isoformat()),
             ).fetchone()
-            if adjacent and self._prefix_text(adjacent["english"]) == self._prefix_text(
-                match.english
+            if (
+                adjacent
+                and not (is_comic or self._row_to_line(adjacent).is_comic)
+                and self._prefix_text(adjacent["english"]) == self._prefix_text(match.english)
             ):
                 return None, False
 
@@ -249,6 +252,10 @@ class TranscriptStore:
             ).fetchall()
             incoming_text = self._prefix_text(match.english)
             for recent in recent_rows:
+                # Each official comic ID is already a complete utterance.
+                # Similar wording in another bubble is not an OCR fragment.
+                if is_comic or self._row_to_line(recent).is_comic:
+                    continue
                 recent_text = self._prefix_text(recent["english"])
                 if (
                     len(incoming_text) >= 4
@@ -266,7 +273,7 @@ class TranscriptStore:
                 """,
                 (session_id, match.game, upgrade_cutoff.isoformat()),
             ).fetchone()
-            if previous:
+            if previous and not (is_comic or self._row_to_line(previous).is_comic):
                 previous_text = self._prefix_text(previous["english"])
                 complete_text = self._prefix_text(match.english)
                 is_completion = (
@@ -386,14 +393,15 @@ class TranscriptStore:
         ]
 
     def purge_unvoiced(self) -> list[tuple[int, str | None]]:
-        """Keep favorites and subtitle-confirmed voices, including pending audio."""
+        """Keep favorites, confirmed voices and official text-only comics."""
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT id, audio_path FROM transcript_lines
+                SELECT * FROM transcript_lines
                 WHERE game <> 'hito' AND voiced = 0 AND favorite = 0
                 """
             ).fetchall()
+            rows = [row for row in rows if not self._row_to_line(row).is_comic]
             if rows:
                 connection.executemany(
                     "DELETE FROM transcript_lines WHERE id = ?",

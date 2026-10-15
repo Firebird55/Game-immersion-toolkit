@@ -125,6 +125,12 @@ Reviewed the new public bundles' nine tabs, four definition sections, reading-ai
 values, global popup settings, language overrides and null-reset handling; the
 consumer contract remains compatible. No baseline or account settings were changed.
 
+The October 15 review again found unchanged API/AI documentation and endpoints.
+Inspected public settings merging, popup tab ordering/portal behavior, reading-aid
+and translation/interface-language handling; these remain compatible with the
+pinned consumer contract. The watcher advisory remains visible; no vendor
+baseline or real account settings were changed.
+
 WebKit CI runs on macOS as well as Windows and Linux. A native data-channel echo
 probe serializes SDP between separate browser pages before testing the application
 protocol. A same-page echo alone does not verify network candidate exchange.

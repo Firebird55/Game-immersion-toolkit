@@ -122,6 +122,12 @@ type TranscriptLine = {
   speaker_chinese?: string | null;
   favorite: boolean;
 };
+function isComicLine(line: TranscriptLine) {
+  return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}$/i.test(line.text_id);
+}
+function isReadableLine(line: TranscriptLine) {
+  return line.voiced || line.game === 'hito' || isComicLine(line);
+}
 type UpdateStatus = {
   state: string;
   message: string;
@@ -506,7 +512,7 @@ function CompanionClient() {
         }
         if (event.type === 'line') {
           const line = event.line as TranscriptLine;
-          if (!line.voiced && line.game !== 'hito') return;
+          if (!isReadableLine(line)) return;
           const isNew = !knownLineIds.current.has(line.id);
           knownLineIds.current.add(line.id);
           setLines((current) => {
@@ -578,12 +584,12 @@ function CompanionClient() {
   );
   const visibleLine = recentLines.find((line) =>
     line.session_id === status?.session.id
-    && (line.voiced || line.game === 'hito')
+    && isReadableLine(line)
     && status?.capture.running
     && status.capture.visible_text_ids?.includes(line.text_id)
   ) ?? null;
   const latestSessionLine = recentLines.find((line) =>
-    line.session_id === status?.session.id && (line.voiced || line.game === 'hito')
+    line.session_id === status?.session.id && isReadableLine(line)
   ) ?? null;
   // Free-roam subtitles disappear from the game almost immediately. Keep the
   // newest one available to read/Migaku until any later voiced line arrives.
@@ -828,7 +834,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -854,8 +860,8 @@ function CompanionClient() {
           <div className="current-empty">
             <ScanLine size={28} />
             <div>
-              <strong>{selectedGame === 'hito' ? 'No verified Hito text on screen' : 'No confirmed voiced subtitle on screen'}</strong>
-              <p>{selectedGame === 'hito' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
+              <strong>{selectedGame === 'hito' ? 'No verified Hito text on screen' : selectedGame === 'zzz' ? 'No confirmed subtitle on screen' : 'No confirmed voiced subtitle on screen'}</strong>
+              <p>{selectedGame === 'hito' || selectedGame === 'zzz' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
             </div>
           </div>
         )}

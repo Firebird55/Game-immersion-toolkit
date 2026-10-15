@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -22,6 +23,10 @@ class CaptureRegion(BaseModel):
 
 
 GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "honkai3"]
+
+
+def is_comic_text_id(text_id: str) -> bool:
+    return re.fullmatch(r"Comic_[0-9a-fA-F]{32}", text_id) is not None
 
 
 class AppSettings(BaseModel):
@@ -111,6 +116,11 @@ class TranscriptLine(BaseModel):
     speaker_english: str | None = None
     speaker_chinese: str | None = None
     favorite: bool = False
+
+    @property
+    def is_comic(self) -> bool:
+        """Official comic subtitles can be captured without a voice mapping."""
+        return self.game == "zzz" and self.channel == "cinematic" and is_comic_text_id(self.text_id)
 
 
 class CaptureSnapshot(BaseModel):
