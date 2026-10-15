@@ -12,8 +12,8 @@ from backend.models import TextMatch
 from backend.storage import TranscriptStore
 
 
-def fixture_service(tmp_path, channel="dialogue", mapped=True, game="zzz"):
-    match = TextMatch(game=game, text_id=f"{game}:spoken", english="Stay close to me.",
+def fixture_service(tmp_path, channel="dialogue", mapped=True, game="zzz", text_id=None):
+    match = TextMatch(game=game, text_id=text_id or f"{game}:spoken", english="Stay close to me.",
                       chinese="跟紧我。", source_ocr="Stay close to me.", score=100, kind="exact")
     index = SimpleNamespace(ready=True,
         match_lines=lambda lines, **kwargs: match if kwargs.get("channel", "dialogue") == channel else None,
@@ -112,3 +112,40 @@ def test_failed_original_extraction_keeps_subtitle_and_can_retry(tmp_path, game)
 def test_agent_routes_are_removed():
     from backend.api import app
     assert not any("/agents" in route.path for route in app.routes)
+
+
+@pytest.mark.parametrize("mapped", [True, False])
+def test_official_comic_publishes_once_and_survives_restart_without_voice(tmp_path, monkeypatch, mapped):
+    import backend.capture as module
+    from backend import api
+    from backend.textmaps import TextMapIndex
+
+    service, match, scheduled, published = fixture_service(
+        tmp_path, "cinematic", mapped, text_id="Comic_" + "a" * 32)
+    monkeypatch.setattr(module, "find_active_game_window", lambda settings:
+        (SimpleNamespace(id="zzz"), SimpleNamespace(bounds=(0, 0, 1920, 1080), title="ZZZ")))
+
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        for _ in range(5):
+            service._scan_once()
+        await asyncio.sleep(.02)
+
+    try:
+        asyncio.run(run())
+        assert len(published) == 1
+        assert len(scheduled) == int(mapped)
+        assert published[0].chinese == match.chinese
+        assert published[0].voiced == mapped
+        assert published[0].audio_pending == mapped
+        assert not published[0].has_audio
+        assert service.transcript.purge_unvoiced() == []
+        reopened = TranscriptStore(service.transcript.path)
+        monkeypatch.setattr(api, "runtime", SimpleNamespace(
+            transcript=reopened, speakers=SimpleNamespace(enrich=lambda line: line),
+            game_indexes={}, textmaps=TextMapIndex), raising=False)
+        lines = api.get_lines(limit=50, before_id=None, game="zzz")
+        assert len(lines) == 1 and lines[0].is_comic
+        assert lines[0].chinese == match.chinese
+    finally:
+        service._executor.shutdown()

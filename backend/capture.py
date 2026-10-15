@@ -18,7 +18,7 @@ from PIL import Image
 
 from .config import SettingsStore
 from .games import GAME_PROFILES
-from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine
+from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine, is_comic_text_id
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex, normalize_english
 from .bilingual import normalize_subtitle
@@ -495,7 +495,12 @@ class CaptureService:
                 threshold=max(settings.fuzzy_threshold, 88),
                 channel="cinematic",
             )
-            cinematic_matches = [item for item in cinematic_matches if self._mapped_voice(item)]
+            # Timeline comics can have official bilingual text without an
+            # authored voice link. Keep those bubbles independently of audio.
+            cinematic_matches = [
+                item for item in cinematic_matches
+                if self._mapped_voice(item) or (item.game == "zzz" and is_comic_text_id(item.text_id))
+            ]
             self._observe_visible_matches("cinematic", [item.text_id for item in cinematic_matches], monotonic_now)
             normalized_panel = normalize_subtitle(cinematic_raw_text)
             if (
@@ -541,9 +546,9 @@ class CaptureService:
                     phase = "matched"
                     count = len(emitted_cinematic_matches)
                     message = (
-                        "Voiced cinematic/comic line matched"
+                        "Official cinematic/comic line matched"
                         if count == 1
-                        else f"{count} voiced cinematic/comic lines matched"
+                        else f"{count} official cinematic/comic lines matched"
                     )
             else:
                 cinematic_match_score = max(
@@ -1064,10 +1069,16 @@ class CaptureService:
                     item["right"] - item["left"],
                     group["right"] - group["left"],
                 )
-                aligned = abs(item["left"] - group["line_left"]) <= max(
-                    60.0, group_height * 3.0
+                aligned = abs(item["left"] - group["left"]) <= max(
+                    12.0, group_height * 1.25
                 )
-                if overlap < narrow_width * 0.18 and not aligned:
+                centered = abs(
+                    (item["left"] + item["right"] - group["left"] - group["right"]) / 2
+                ) <= max(12.0, group_height * 1.25)
+                # Partial column overlap also occurs between separate bubbles.
+                # Centered short final rows need substantial containment; mere
+                # overlap must not join a diagonally adjacent bubble or effect.
+                if not aligned and not (centered and overlap >= narrow_width * 0.8):
                     continue
                 distance = abs(vertical_gap) + abs(item["left"] - group["line_left"]) * 0.15
                 if distance < best_distance:
@@ -1116,6 +1127,9 @@ class CaptureService:
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
         assets = self._assets_for(line.game)
         if not assets or not assets.has_variant(line.text_id, line.english):
+            if line.is_comic and self._event_loop is not None:
+                asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+                self._prune_history()
             return
         # Publish the official bilingual subtitle immediately, independently of
         # output devices, game volume, or the time needed to decode the WEM.
@@ -1145,6 +1159,9 @@ class CaptureService:
             self._remove_audio_file(audio_path)
             return
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+        self._prune_history()
+
+    def _prune_history(self) -> None:
         for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
             self._remove_audio_file(removed_audio)
             asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)

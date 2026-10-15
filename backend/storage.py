@@ -386,14 +386,15 @@ class TranscriptStore:
         ]
 
     def purge_unvoiced(self) -> list[tuple[int, str | None]]:
-        """Keep favorites and subtitle-confirmed voices, including pending audio."""
+        """Keep favorites, confirmed voices and official text-only comics."""
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT id, audio_path FROM transcript_lines
+                SELECT * FROM transcript_lines
                 WHERE game <> 'hito' AND voiced = 0 AND favorite = 0
                 """
             ).fetchall()
+            rows = [row for row in rows if not self._row_to_line(row).is_comic]
             if rows:
                 connection.executemany(
                     "DELETE FROM transcript_lines WHERE id = ?",

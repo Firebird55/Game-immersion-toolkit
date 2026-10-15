@@ -28,6 +28,10 @@ Lexirise for analysis, dictionary/character/context/example lookups, vocabulary
 choices and explicit sentence/deck saving. Migaku requires a supported browser
 extension; mobile browsers that cannot run it still show plain bilingual text.
 
+PC capture also keeps verified ZZZ comic bubbles when the game catalogue has no
+voice mapping. Their official Chinese and English text appears in Current line
+and History; audio stays unavailable unless an original voice is verified.
+
 ## Connect Lexirise
 
 In **Settings → Lexirise**, enter your own Pro API key and confirm a passphrase of

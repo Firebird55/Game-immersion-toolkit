@@ -279,3 +279,17 @@ def test_purge_unvoiced_keeps_confirmed_subtitles_and_favorites(tmp_path) -> Non
     assert store.get(cinematic.id) is not None
     assert store.get(favorite.id) is not None
     assert store.get(pending.id).audio_source == "original"
+
+
+def test_only_zzz_cinematic_comic_ids_are_exempt_from_voice_cleanup(tmp_path) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    match = TextMatch(text_id="Comic_" + "b" * 32, english="Please wait here.",
+                      chinese="请在这里等。", source_ocr="Please wait here.", score=100, kind="exact")
+    comic = store.add(match, "session", channel="cinematic")
+    wrong_channel = store.add(match, "session", channel="dialogue")
+    wrong_game = store.add(match.model_copy(update={"game": "pragmata"}), "session", channel="cinematic")
+    video = store.add(match.model_copy(update={"text_id": "Video_" + "c" * 32}), "session", channel="cinematic")
+    invalid = store.add(match.model_copy(update={"text_id": "Comic_not-an-official-id"}), "session", channel="cinematic")
+    removed = {line_id for line_id, _ in store.purge_unvoiced()}
+    assert removed == {wrong_channel.id, wrong_game.id, video.id, invalid.id}
+    assert TranscriptStore(store.path).get(comic.id) is not None
