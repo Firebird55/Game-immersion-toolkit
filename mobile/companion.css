@@ -3,3 +3,59 @@
 @media(max-width:650px){main{padding:22px 16px 100px}.companion-header{align-items:flex-start}h1{font-size:25px}.connection-badge{font-size:11px;padding:6px 9px}.companion-nav{padding-top:20px;gap:2px}.companion-nav button{min-width:0;flex:1;padding:10px 5px;font-size:14px}.device-bar{grid-template-columns:1fr;gap:0;padding-bottom:0}.device-bar label{margin:7px 0}.history-toolbar{flex-direction:column;align-items:stretch;gap:12px}.search-label{max-width:none}.current-card,section{padding:20px}.dialogue,.history-list .dialogue{padding:18px}.reader-toolbar{gap:10px}.reader-toolbar button{font-size:12px}.line-actions button{min-height:44px}.message{align-items:flex-start}.current-chinese{font-size:min(var(--lexirise-font-size,27px),32px)}.current-dialogue .current-chinese{font-size:min(calc(var(--lexirise-font-size,27px) * 1.1),34px)}}
 
 body.developer-mode #transcript,body.developer-mode .actions[hidden]{display:block!important}body.developer-mode [data-panel][data-role=receiver]{display:block!important}
+
+/* Keep page-level card and control styles out of the shared lookup portal. */
+:where(.word-sheet) section { margin:0; padding:0; border:0; border-radius:0; background:transparent; }
+:where(.word-sheet) button { padding:0; border:0; border-radius:0; background:transparent; font-weight:400; }
+
+/* The phone reader uses the full page width, with one layer of card padding.
+   Include touch phones in landscape without changing short desktop windows. */
+@media (max-width:650px), (max-height:500px) and (pointer:coarse) {
+  main { padding:12px max(10px,env(safe-area-inset-left)) max(32px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-right)); }
+  body:has(#voice-player[src]) main { padding-bottom:calc(100px + env(safe-area-inset-bottom)); }
+  .companion-header { flex-wrap:wrap; gap:8px; }
+  .companion-header > div:first-child { min-width:0; flex:1 1 160px; }
+  .companion-nav button { padding-inline:4px; overflow-wrap:anywhere; }
+  .reader-toolbar { margin:12px 0; flex-wrap:wrap; gap:8px; }
+  .current-card { padding:12px; margin:12px 0; }
+  .current-card > .eyebrow { margin-bottom:8px; }
+  .current-card .current-dialogue { padding:0; }
+  .history-toolbar { margin:20px 0 10px; gap:8px; }
+  .history-list { gap:8px; }
+  .history-list .dialogue { padding:12px; }
+  .line-meta { align-items:baseline; gap:8px; line-height:1.35; }
+  .line-meta strong { min-width:0; overflow-wrap:anywhere; }
+  .line-meta span { flex:none; white-space:nowrap; font-size:11px; }
+  .dialogue .current-chinese,.dialogue .reading-text { margin:10px 0 6px; line-height:1.7; letter-spacing:0; }
+  .dialogue .reading-text { overflow-wrap:break-word; line-break:strict; }
+  .history-list .current-chinese,.history-list .reading-text { font-size:min(var(--lexirise-font-size,27px),22px); }
+  .dialogue .reading-token { margin:0 1px 4px; }
+  .translation { margin:6px 0 10px; font-size:14px; line-height:1.5; }
+  .line-actions { display:grid; grid-template-columns:1.15fr 1fr 1.1fr; gap:5px; }
+  .line-actions button { min-width:0; min-height:44px; padding:6px 4px; font-size:11px; line-height:1.25; }
+  .message { padding:10px 12px; gap:8px; font-size:14px; }
+  .message button { flex:none; max-width:120px; padding:8px 10px; font-size:12px; }
+
+  /* This app presents lookup as a nonmodal bottom sheet on phones. Override
+     the anchor coordinates; desktop retains the shared anchored popover. */
+  .word-sheet-positioner {
+    position:fixed !important;
+    inset:auto max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)) !important;
+    transform:none !important;
+    width:auto !important;
+  }
+  .word-sheet {
+    width:100%; max-width:none; overflow:hidden;
+    max-height:calc(100dvh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius:14px; font-size:14px;
+  }
+  .word-sheet-top { padding:12px 56px 8px 12px; gap:8px; }
+  .word-sheet-headword { gap:8px; }
+  .word-sheet-title { font-size:30px; }
+  .word-sheet .word-sheet-close { top:6px; right:6px; width:44px; height:44px; min-height:44px; }
+  .word-sheet .word-speak { width:44px; height:44px; }
+  .word-sheet .word-levels button { width:40px; min-height:44px; }
+  .word-tabs { margin:0 12px; }
+  .word-sheet .word-tabs button { min-height:44px; padding:8px; font-size:13px; }
+  .word-sheet-body { padding:10px 12px 14px; font-size:14px; }
+}
