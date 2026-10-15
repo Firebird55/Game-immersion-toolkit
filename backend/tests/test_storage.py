@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import pytest
 
 from backend.models import TextMatch
 from backend.storage import TranscriptStore
@@ -293,3 +294,38 @@ def test_only_zzz_cinematic_comic_ids_are_exempt_from_voice_cleanup(tmp_path) ->
     removed = {line_id for line_id, _ in store.purge_unvoiced()}
     assert removed == {wrong_channel.id, wrong_game.id, video.id, invalid.id}
     assert TranscriptStore(store.path).get(comic.id) is not None
+
+
+@pytest.mark.parametrize("previous_comic,incoming_comic,previous_text,incoming_text", [
+    (False, True, "Please stay here.", "Please stay here. We will return tomorrow."),
+    (True, True, "Please stay here.", "Please stay here. We will return tomorrow."),
+    (True, True, "Please stay here. We will return tomorrow.", "Please stay here."),
+    (True, True, "Please stay here.", "Please stay here!"),
+    (True, False, "Please stay here.", "Please stay here. We will return tomorrow."),
+    (False, True, "Please stay here. We will return tomorrow.", "Please stay here."),
+])
+def test_comic_identity_preserves_independent_bubbles_and_prior_audio(
+    tmp_path, previous_comic, incoming_comic, previous_text, incoming_text,
+) -> None:
+    store = TranscriptStore(tmp_path / "transcript.db")
+    started = datetime.now(timezone.utc)
+    first = TextMatch(text_id="Comic_" + "a" * 32 if previous_comic else "GalGame_previous",
+                      english=previous_text, chinese="请在这里等。", source_ocr=previous_text, score=100, kind="exact")
+    previous = store.add(first, "session", created_at=started,
+                         channel="cinematic" if previous_comic else "dialogue")
+    store.update_audio(previous.id, "original-previous.mp3", True)
+    store.set_favorite(previous.id, True)
+    second = first.model_copy(update={
+        "text_id": "Comic_" + "b" * 32 if incoming_comic else "GalGame_next",
+        "english": incoming_text, "source_ocr": incoming_text, "chinese": "我们明天会回来。"})
+    channel = "cinematic" if incoming_comic else "dialogue"
+    incoming, upgraded = store.add_or_upgrade_recent(
+        second, "session", created_at=started + timedelta(seconds=1), channel=channel)
+    assert incoming is not None and incoming.id != previous.id and not upgraded
+    unchanged = store.get(previous.id)
+    assert unchanged.english == previous_text and unchanged.chinese == first.chinese
+    assert unchanged.voiced and unchanged.favorite and unchanged.has_audio
+    assert store.audio_path(previous.id) == "original-previous.mp3"
+    assert store.add_or_upgrade_recent(
+        second, "session", created_at=started + timedelta(seconds=2), channel=channel) == (None, False)
+    assert store.count() == 2

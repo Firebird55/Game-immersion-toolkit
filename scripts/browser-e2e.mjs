@@ -7,6 +7,7 @@ const region={left:.1,top:.6,width:.8,height:.25},settings={nte_region:{left:.10
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
 const comicLine={...line,id:6,text_id:'Comic_'+'a'.repeat(32),channel:'cinematic',voiced:false,english:'Keep the gate closed until tomorrow.',chinese:'请把门关到明天。'};
 let includeComic=false;
+let fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
 const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue fixture',text_id:'cyberpunk-fixture',has_audio:true,audio_source:'original'};
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
 const nteLine={...cyberpunkLine,id:4,game:'nte',english:'NTE dialogue fixture',text_id:'nte-fixture'};
@@ -16,7 +17,7 @@ mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 function response(path,query,method,body){
- if(path==='/api/status')return {capture:{running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']},textmaps:mapStatus,game_textmaps:{nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
+ if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
  if(path==='/api/settings'&&method==='PATCH'){Object.assign(settings,body);return settings;}
  if(path==='/api/lexirise')return {configured:true,decks:{},sent:{}};
  if(path==='/api/lines')return query.get('game')==='zzz'?(includeComic?[comicLine,line]:[line]):query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:query.get('game')==='nte'?[nteLine]:query.get('game')==='honkai3'?[honkaiLine]:[];
@@ -37,6 +38,7 @@ try{
  for(const[pw,ph,zoom]of sizes){
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
  includeComic=false;
+ fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
  let fixtureSocket;
  await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',socket=>{fixtureSocket=socket;});
  settings.cyberpunk_tip_region.left=.10; settings.wuwa_cinematic_region.left=.12;
@@ -173,12 +175,14 @@ try{
   await page.getByRole('button',{name:'Lexirise reading options',exact:true}).click();await dialog.waitFor();const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=w+1&&box.y+box.height<=h+1,'Resized toolkit settings fit');await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
  }}
  includeComic=true;
+ fixtureCapture={...fixtureCapture,running:true,phase:'matched',visible_text_ids:[comicLine.text_id]};
  fixtureSocket.send(JSON.stringify({type:'line',line:comicLine}));
- fixtureSocket.send(JSON.stringify({type:'capture_status',capture:{running:true,phase:'matched',active_game:'zzz',visible_text_ids:[comicLine.text_id]}}));
+ fixtureSocket.send(JSON.stringify({type:'capture_status',capture:fixtureCapture}));
  await page.locator('.current-line').getByText(comicLine.english,{exact:true}).waitFor();
  assert.match(await page.locator('.current-line .match-label').textContent(),/Game-file text/,'Text-only comic has no misleading voice check');
  assert(await page.getByRole('button',{name:'Original voice unavailable',exact:true}).isDisabled(),'Unmapped comic never offers unrelated audio');
- fixtureSocket.send(JSON.stringify({type:'capture_status',capture:{running:true,phase:'waiting',active_game:'zzz',visible_text_ids:[]}}));
+ fixtureCapture={...fixtureCapture,phase:'waiting',visible_text_ids:[]};
+ fixtureSocket.send(JSON.stringify({type:'capture_status',capture:fixtureCapture}));
  await page.locator('.current-empty').waitFor();
  await page.getByText(comicLine.english,{exact:true}).waitFor();
  await page.reload();
