@@ -5,6 +5,12 @@
 const FIELD = 'guidToData';
 const TYPE = 'System.Collections.Generic.Dictionary`2[[System.String, mscorlib],[System.String, mscorlib]], mscorlib';
 const VOICE = /^VO_Comic\/(?:[A-Za-z0-9_.-]+\/)*VO_[A-Za-z0-9]+\/Comic_[A-Za-z0-9_-]+$/i;
+function voiceSource(value) {
+  if (VOICE.test(value)) return true;
+  const variants=[...value.matchAll(/\{([MF])#([^{}]+)\}/g)];
+  return variants.length===2 && new Set(variants.map(match=>match[1])).size===2 &&
+    variants.map(match=>match[0]).join('')===value && variants.every(match=>VOICE.test(match[2]));
+}
 
 function stringAt(bytes, offset) {
   if (offset + 5 > bytes.length || bytes[offset] > 1) throw new Error('Unsupported Odin string');
@@ -46,7 +52,7 @@ export function comicVoicePairs(bytes) {
             const value = namedString(bytes, key.end, '$v');
             if (bytes[value.end] !== 0x05) throw new Error('Unclosed dictionary entry');
             if (!/^[a-f0-9]{32}$/i.test(key.value)) throw new Error('Invalid comic GUID');
-            if (VOICE.test(value.value)) dictionary.push({ text_id: `Comic_${key.value}`, source: value.value });
+            if (voiceSource(value.value)) dictionary.push({ text_id: `Comic_${key.value}`, source: value.value });
             offset = value.end + 1;
           }
           if (bytes[offset] !== 0x07 || bytes[offset + 1] !== 0x05) throw new Error('Unclosed dictionary array');

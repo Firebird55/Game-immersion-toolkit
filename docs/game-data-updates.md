@@ -20,11 +20,14 @@ installed game files. ZZZ also refreshes its external language/scene metadata.
 ZZZ comic discovery includes the authored `Data/ScriptConfig/Comic` namespace,
 separately from GalGame performances. Comic voice mappings read complete
 serialized GUID-to-voice dictionary entries; neighboring subtitle order is not
-used. Conflicting associations and incomplete dictionaries are rejected. The
-2026-10-10 installed-client check yielded 701 comic links, each present in both
-language maps and matched to an original Mandarin package source. Three sampled
-comic performances decoded successfully and were non-silent. The full refreshed
-manifest contained 52,637 exact voice mappings. These are installation-specific
+used. Discovery follows the catalog's explicit bundle dependencies, including
+voice dictionaries stored outside the root scene block. Patch catalogs take
+precedence over base catalogs. Gender variants require distinct authored text
+variants; unknown branches are not guessed. Conflicting associations and
+incomplete dictionaries are rejected. An installed-client regression found
+1,831 exact comic voice mappings where root-block-only discovery found 701,
+and decoded the reported missing bubble from its original Mandarin package.
+These are installation-specific
 counts, not evidence that every comic presentation passes OCR or that all future
 chapters are supported. Existing capture calibration is preserved.
 

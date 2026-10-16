@@ -1,3 +1,5 @@
+import {gunzipSync} from 'node:zlib';
+
 // Authored scene references, independent of version-specific table field names.
 export function sceneAssetPaths(value, category) {
   if (!['galgame', 'comic'].includes(category)) throw new Error('Unknown scene category');
@@ -17,4 +19,53 @@ export function sceneAssetPaths(value, category) {
   };
   visit(value);
   return [...paths].sort();
+}
+
+// A scene's root bundle references separately packed voice dictionaries. Read
+// the catalog's authored dependency graph and exact mhy1 byte ranges rather
+// than assuming all dependencies share the root's block.
+export function sceneBundleRangesFromCatalog(compressed, wantedHashes) {
+  const bytes = gunzipSync(compressed, {maxOutputLength: 128 * 1024 * 1024});
+  if (bytes.length < 52) throw Error('Truncated scene catalog');
+  const assets = bytes.readUInt32LE(8), blocks = bytes.readUInt32LE(12), bundles = bytes.readUInt32LE(16);
+  const assetsStart = bytes.readUInt32LE(20), blocksStart = Number(bytes.readBigUInt64LE(28));
+  const bundlesStart = Number(bytes.readBigUInt64LE(36)), dependenciesStart = Number(bytes.readBigUInt64LE(44));
+  if (assetsStart !== 52 || blocksStart !== assetsStart + assets * 12 ||
+      bundlesStart !== blocksStart + blocks * 9 || dependenciesStart !== bundlesStart + bundles * 28 ||
+      dependenciesStart > bytes.length || bundles > 2_000_000) throw Error('Unsupported scene catalog layout');
+  const roots = [], matchedHashes = [];
+  for (let i = 0; i < assets; i++) {
+    const offset = assetsStart + i * 12, hash = bytes.readBigUInt64LE(offset + 4);
+    if (!wantedHashes.has(hash)) continue;
+    const bundle = bytes.readUInt32LE(offset);
+    if (bundle >= bundles) throw Error('Scene bundle is outside catalog');
+    roots.push(bundle); matchedHashes.push(hash);
+  }
+  if (!roots.length) return {ranges: [], matchedHashes};
+  const dependencyOffsets = new Uint32Array(bundles);
+  let position = dependenciesStart;
+  for (let i = 0; i < bundles; i++) {
+    if (position + 4 > bytes.length) throw Error('Truncated scene dependencies');
+    dependencyOffsets[i] = position;
+    const count = bytes.readUInt32LE(position); position += 4;
+    if (count > bundles || position + count * 4 > bytes.length) throw Error('Invalid scene dependencies');
+    position += count * 4;
+  }
+  const selected = new Set(), queue = [...roots];
+  for (let next = 0; next < queue.length; next++) {
+    const bundle = queue[next];
+    if (selected.has(bundle)) continue;
+    if (bundle >= bundles) throw Error('Scene dependency is outside catalog');
+    selected.add(bundle);
+    const offset = dependencyOffsets[bundle], count = bytes.readUInt32LE(offset);
+    for (let i = 0; i < count; i++) queue.push(bytes.readUInt32LE(offset + 4 + i * 4));
+    if (queue.length > 5_000_000) throw Error('Scene dependency graph exceeds limit');
+  }
+  const ranges = [...selected].map(bundle => {
+    const offset = bundlesStart + bundle * 28, block = bytes.readUInt32LE(offset);
+    if (block >= blocks) throw Error('Scene block is outside catalog');
+    return {block: `Blocks/${bytes.readUInt32LE(blocksStart + block * 9 + 1)}.blk`,
+      offset: bytes.readUInt32LE(offset + 20), size: bytes.readUInt32LE(offset + 24)};
+  });
+  return {ranges, matchedHashes};
 }

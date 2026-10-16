@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -19,6 +20,20 @@ from backend.textmaps import localized_variants
 ONGOING_TEXT_ID = "PMNJCMFLJIL"
 ONGOING_FEMALE_VOICE = "DGFCDOGFFGP"
 ONGOING_MALE_VOICE = "EODLJIEIIGJ"
+
+
+def comic_voice_links(links: list[dict], english: dict[str, str]) -> list[dict]:
+    result = []
+    for link in links:
+        variants = dict(re.findall(r"\{([MF])#([^{}]+)\}", link["source"]))
+        if not variants:
+            result.append(link)
+            continue
+        translations = dict(re.findall(r"\{([MF])#([^{}]+)\}", english.get(link["text_id"], "")))
+        for gender, source in variants.items():
+            if gender in translations:
+                result.append({**link, "source": source, "english": translations[gender]})
+    return result
 
 
 def ongoing_voice_links(config: dict, english: dict[str, str]) -> list[dict[str, str]]:
@@ -139,7 +154,7 @@ def main() -> None:
     except (OSError, ValueError):
         previous = {}
     manifest = root / "data/voice-assets/manifest.json"
-    if previous.get("version") == 4 and previous.get("inventory") == current and manifest.exists():
+    if previous.get("version") == 5 and previous.get("inventory") == current and manifest.exists():
         print("Full local voice manifest is already current.")
         return
 
@@ -159,15 +174,19 @@ def main() -> None:
         link_files.append(tools / output_name)
     combined_links = []
     seen_links = set()
+    english = merged_english_maps(root)
     for link_file in link_files:
-        for link in json.loads(link_file.read_text(encoding="utf-8")):
-            key = (link["source"].casefold(), link["text_id"])
+        links = json.loads(link_file.read_text(encoding="utf-8"))
+        if "comic" in link_file.stem:
+            links = comic_voice_links(links, english)
+        for link in links:
+            key = (link["source"].casefold(), link["text_id"], link.get("english"))
             if key not in seen_links:
                 seen_links.add(key)
                 combined_links.append(link)
     ongoing = ongoing_voice_links(
         json.loads(ongoing_config.read_text(encoding="utf-8")),
-        merged_english_maps(root),
+        english,
     )
     for link in ongoing:
         key = (link["source"].casefold(), link["text_id"], link["english"])
@@ -183,7 +202,7 @@ def main() -> None:
         "--prefixes", str(prefixes),
         "--decoder-dir", str(decoder),
     ], **options)
-    atomic_json(state_path, {"version": 4, "inventory": inventory(game_data, sources)})
+    atomic_json(state_path, {"version": 5, "inventory": inventory(game_data, sources)})
     total = len(json.loads(manifest.read_text(encoding="utf-8"))["entries"])
     print(f"Full local Mandarin voice manifest ready: {total:,} exact lines.")
 

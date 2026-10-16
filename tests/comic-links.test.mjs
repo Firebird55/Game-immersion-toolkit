@@ -46,3 +46,10 @@ test('conflicting text or voice associations are rejected across blocks, duplica
   assert.deepEqual(uniqueComicLinks([pair, { ...pair, source: 'VO_Comic/VO_Test/Comic_Test_002' }]), []);
   assert.deepEqual(uniqueComicLinks([pair, { ...pair, text_id: `Comic_${'b'.repeat(32)}` }]), []);
 });
+
+test('authored protagonist variants survive dictionary extraction without choosing a voice',()=>{
+  const variants='{M#'+source+'}{F#VO_Comic/VO_Other/Comic_Test_001}';
+  assert.deepEqual(comicVoicePairs(dictionary([[guid,variants]])),[{text_id:`Comic_${guid}`,source:variants}]);
+  assert.deepEqual(comicVoicePairs(dictionary([[guid,variants+'unrelated']])),[]);
+  assert.deepEqual(comicVoicePairs(dictionary([[guid,'{M#'+source+'}{M#'+source+'}']])),[]);
+});

@@ -4,7 +4,7 @@ import { access, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
-import { sceneAssetPaths } from './scene-catalog.mjs';
+import { sceneAssetPaths, sceneBundleRangesFromCatalog } from './scene-catalog.mjs';
 import { comicVoicePairs, uniqueComicLinks } from './comic-links.mjs';
 
 const [gameDataArg, toolsArg, filter = 'zenkov', outputName = 'scene-links.json'] = process.argv.slice(2);
@@ -17,7 +17,7 @@ const source = await readFile(join(toolDir, 'galgame-perform.ts'), 'utf8');
 await writeFile(join(toolDir, 'galgame-perform.mjs'), ts.transpileModule(source + '\nexport { unpackMhyFile };', {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText);
-const { galGameBlockNamesFromCatalog, galGameLinksFromBlocks, unpackMhyFile } =
+const { galGameBlockNamesFromCatalog, galGameLinksFromBlocks, unpackMhyFile, xxHash64 } =
   await import(pathToFileURL(join(toolDir, 'galgame-perform.mjs')).href);
 const table = JSON.parse(await readFile(join(toolDir, 'PerformTemplateTb.json')));
 const category = filter.toLowerCase() === 'comic' ? 'comic' : 'galgame';
@@ -37,15 +37,26 @@ for (const [directory, versionFile] of [['StreamingAssets', 'res_version'], ['Pe
     if (/^Blocks\/\d+\.blk$/.test(entry.remoteName) && !entry.tags?.length) candidates.add(entry.remoteName);
   }
 }
-const blocks = new Set();
-for (const candidate of candidates) {
+const blocks = new Set(), ranges = new Map();
+const unresolved = new Set(paths.map(path => xxHash64(path)));
+for (const candidate of [...candidates].reverse()) {
   const path = await localFile(candidate);
   if (!path) continue;
   const bytes = await readFile(path);
   if (bytes[0] !== 31 || bytes[1] !== 139) continue;
   try {
-    const resolved = galGameBlockNamesFromCatalog(bytes, paths);
-    for (const block of resolved.blocks) blocks.add(block);
+    if (category === 'comic') {
+      const resolved = sceneBundleRangesFromCatalog(bytes, unresolved);
+      for (const hash of resolved.matchedHashes) unresolved.delete(hash);
+      for (const range of resolved.ranges) {
+        blocks.add(range.block);
+        const selected = ranges.get(range.block) ?? new Map();
+        selected.set(range.offset, range.size); ranges.set(range.block, selected);
+      }
+    } else {
+      const resolved = galGameBlockNamesFromCatalog(bytes, paths);
+      for (const block of resolved.blocks) blocks.add(block);
+    }
   } catch { /* not a compatible resource catalog */ }
 }
 if (!blocks.size) throw new Error('No local catalog mapped these scenes');
@@ -55,13 +66,11 @@ for (const block of blocks) {
   if (!path) throw new Error(`Missing game block: ${block}`);
   const bytes = await readFile(path);
   if (category === 'comic') {
-    let offset = 0;
-    while (offset + 8 <= bytes.length) {
-      while (bytes[offset] === 0) offset++;
-      if (offset + 8 > bytes.length) break;
+    for (const [offset, size] of ranges.get(block)) {
+      if (!size || offset + size > bytes.length) throw new Error('Scene bundle exceeds installed block');
       const unpacked = unpackMhyFile(bytes, offset);
+      if (unpacked.end !== offset + size) throw new Error('Scene bundle size changed during indexing');
       for (const cab of unpacked.files) links.push(...comicVoicePairs(cab));
-      offset = unpacked.end;
     }
     continue;
   }
