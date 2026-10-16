@@ -127,13 +127,20 @@ class TextMapIndex:
                             self._download(url, target)
                         else:
                             shutil.copyfile(source, target)
+                    digest = hashlib.sha256(b"".join((staging / f"{name}.json").read_bytes() for name in sorted(self.urls))).hexdigest()
+                    # Unchanged upstream bytes need no expensive lookup rebuild.
+                    # Keep the already prepared snapshot serving every OCR scan.
+                    if self.ready and active.name.split('-')[0] == digest:
+                        with self._lock:
+                            self.state = "ready"
+                            self.message = f"{self.entry_count:,} bilingual entries indexed"
+                        return
                     if progress:
                         progress("Building English lookup index")
                     candidate = TextMapIndex(staging, self.urls)
                     candidate.load()
                     if not candidate.ready or not candidate.entry_count:
                         raise ValueError("Downloaded TextMaps have no valid bilingual dialogue; previous index kept")
-                    digest = hashlib.sha256(b"".join((staging / f"{name}.json").read_bytes() for name in sorted(self.urls))).hexdigest()
                     destination = self.data_dir / "snapshots" / digest
                     if destination.exists() and not all((destination / f"{name}.json").is_file() and
                             (destination / f"{name}.json").read_bytes() == (staging / f"{name}.json").read_bytes() for name in self.urls):

@@ -24,6 +24,7 @@ class LocalVoiceAssetService:
         self._entries = {}
         self._install = None
         self._fingerprint = ""
+        self._loaded_signature = None
         self._lock = threading.RLock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"{game}-voice")
         self._slots = threading.BoundedSemaphore(8)
@@ -31,15 +32,23 @@ class LocalVoiceAssetService:
 
     def reload(self) -> bool:
         try:
-            payload = json.loads((self.data_dir / "textmap.json").read_text(encoding="utf-8"))
+            path = self.data_dir / "textmap.json"
+            stat = path.stat()
+            signature = (stat.st_mtime_ns, stat.st_size)
+            if self.ready and self._loaded_signature == signature:
+                return True
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
+            install = Path(payload["install"])
+            stamp = payload["fingerprint"]
+            ready = bool(entries and install.is_dir() and self.decoder.is_file() and ffmpeg_executable())
             with self._lock:
-                self._entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
-                self._install = Path(payload["install"])
-                self._fingerprint = payload["fingerprint"]
-                self.ready = bool(self._entries and self._install.is_dir() and self.decoder.is_file() and ffmpeg_executable())
+                self._entries, self._install, self._fingerprint = entries, install, stamp
+                self.ready = ready
+                self._loaded_signature = signature
                 self.last_error = None
         except (OSError, ValueError, KeyError, TypeError) as error:
-            self.ready, self.last_error = False, str(error)
+            self.last_error = str(error)
         return self.ready
 
     def status(self) -> dict:

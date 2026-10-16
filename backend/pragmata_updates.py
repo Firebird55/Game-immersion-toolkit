@@ -10,6 +10,7 @@ from typing import Callable
 
 from .pragmata import PragmataTextIndex
 from .pragmata_audio import INDEX_FORMAT, PragmataVoiceAssetService
+from .update_workers import INDEX_BUILD_LOCK, subprocess_options
 
 
 class PragmataUpdateManager:
@@ -116,7 +117,11 @@ class PragmataUpdateManager:
             self._set(state="updating", message="Indexing official PRAGMATA subtitles", progress=15)
             command = [sys.executable, str(self.project_root / "scripts/index_pragmata_assets.py")]
             command.extend(["--install", str(install)])
-            result = subprocess.run(command, cwd=self.project_root, capture_output=True, text=True)
+            with INDEX_BUILD_LOCK:
+                if self._stop.is_set():
+                    return
+                result = subprocess.run(command, cwd=self.project_root, capture_output=True, text=True,
+                                        **subprocess_options())
             if result.returncode:
                 raise RuntimeError(result.stderr.strip() or result.stdout.strip())
             if not self.index.load():

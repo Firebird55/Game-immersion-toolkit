@@ -12,6 +12,7 @@ from typing import Callable
 
 from .textmaps import TextMapIndex
 from .voice_assets import VoiceAssetService
+from .update_workers import INDEX_BUILD_LOCK, subprocess_options
 
 
 class BackgroundUpdateManager:
@@ -98,7 +99,7 @@ class BackgroundUpdateManager:
             capture_output=True,
             text=True,
             timeout=timeout,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            **subprocess_options(),
         )
         return (completed.stdout or completed.stderr).strip()
 
@@ -207,18 +208,22 @@ class BackgroundUpdateManager:
             def map_progress(message: str) -> None:
                 self._set("updating", message, next(map_steps, 49))
 
-            self.textmaps.prepare(force_download=True, progress=map_progress)
+            with INDEX_BUILD_LOCK:
+                self.textmaps.prepare(force_download=True, progress=map_progress)
         elif not self.textmaps.ready:
             self.textmaps.prepare(force_download=False)
 
         if self._stop.is_set():
             return
         self._set("updating", "Checking installed story, event, and comic voices", 55)
-        output = self._run_command(
-            [sys.executable, "-m", "scripts.update_voice_assets"],
-            cwd=self.project_root,
-            timeout=900,
-        )
+        with INDEX_BUILD_LOCK:
+            if self._stop.is_set():
+                return
+            output = self._run_command(
+                [sys.executable, "-m", "scripts.update_voice_assets"],
+                cwd=self.project_root,
+                timeout=900,
+            )
         if self.voice_assets.manifest.is_file():
             self.voice_assets.reload(self.voice_assets.manifest)
 

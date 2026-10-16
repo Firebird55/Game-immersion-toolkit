@@ -45,11 +45,16 @@ class PragmataTextIndex:
         self.message = "PRAGMATA dialogue has not been indexed"
         self.entry_count = 0
         self.audio_count = 0
+        self._loaded_signature = None
 
     def load(self) -> bool:
         if not self.path.is_file():
             return False
         try:
+            stat = self.path.stat()
+            signature = (stat.st_mtime_ns, stat.st_size)
+            if self.ready and self._loaded_signature == signature:
+                return True
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             records: dict[str, list[PragmataRecord]] = {}
             for item in payload.get("records", []):
@@ -62,9 +67,10 @@ class PragmataTextIndex:
                 for key, value in payload.get("speakers", {}).items()
                 if key and isinstance(value, list) and len(value) >= 2
             }
+            chinese = ChineseLookup(r for items in records.values() for r in items)
             with self._lock:
                 self._records = records
-                self._chinese_lookup = ChineseLookup(r for items in records.values() for r in items)
+                self._chinese_lookup = chinese
                 self._choices = list(records)
                 self._speaker_names = names
                 self.entry_count = sum(len(items) for items in records.values())
@@ -72,14 +78,14 @@ class PragmataTextIndex:
                     1 for items in records.values() for record in items if record.audio is not None
                 )
                 self.ready = True
+                self._loaded_signature = signature
                 self.state = "ready"
                 self.message = f"{self.entry_count:,} official PRAGMATA dialogue pairs indexed"
             return True
         except Exception as error:
             with self._lock:
-                self.ready = False
-                self.state = "error"
-                self.message = str(error)
+                self.state = "ready" if self.ready else "error"
+                self.message = "Refresh failed; keeping previous PRAGMATA dialogue" if self.ready else str(error)
             return False
 
     def status(self) -> dict[str, object]:

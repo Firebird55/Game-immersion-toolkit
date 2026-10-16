@@ -46,10 +46,15 @@ class LocalGameTextIndex:
         self._chinese = ChineseLookup([])
         self._chinese_anchors: dict[str, list[LocalDialogue]] = {}
         self.player_voice = "unconfigured"
+        self._loaded_signature = None
         self.load()
 
     def load(self) -> bool:
         try:
+            stat = self.path.stat()
+            signature = (stat.st_mtime_ns, stat.st_size)
+            if self.ready and self._loaded_signature == signature:
+                return True
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             records = [LocalDialogue(**item) for item in payload["records"]]
             voiced = [record for record in records if record.audio]
@@ -63,11 +68,13 @@ class LocalGameTextIndex:
                     lookup.setdefault(_english_key(english), []).append(record)
                 for chinese in dict.fromkeys([record.chinese, *(record.ocr_chinese or [])]):
                     chinese_anchors.setdefault(normalize_subtitle(chinese), []).append(record)
+            chinese = ChineseLookup(voiced)
             with self._lock:
-                self._records, self._chinese = lookup, ChineseLookup(voiced)
+                self._records, self._chinese = lookup, chinese
                 self._chinese_anchors = chinese_anchors
                 self.entry_count, self.audio_count = len(records), len(voiced)
                 self.ready, self.state = True, "ready" if voiced else "missing_voice"
+                self._loaded_signature = signature
                 self.message = payload.get("message") or f"{len(records):,} bilingual pairs; {len(voiced):,} Mandarin voices"
             return True
         except (OSError, ValueError, KeyError, TypeError) as error:
