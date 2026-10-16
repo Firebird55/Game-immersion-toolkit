@@ -28,7 +28,7 @@ function response(path,query,method,body){
  if(path.endsWith('/characters'))return {characters:[]};
  if(path.endsWith('/examples'))return {examples:[]};
  if(path.endsWith('/similar'))return {suggestions:[],generated:true};
- if(path.endsWith('/context'))return {meaning:'A greeting',conciseMeaning:'hello',reading:'nǐ hǎo'};
+ if(path.endsWith('/context'))return body.question==='Simulate busy AI'?{detail:'Lexirise returned no answer. Please ask again.'}:{meaning:method==='POST'?'The greeting is polite in this sentence.':'A greeting',conciseMeaning:'hello',reading:'nǐ hǎo'};
  return {};
 }
 try{
@@ -49,11 +49,21 @@ try{
  await page.route('http://127.0.0.1:8766/**',async route=>{const req=route.request(),url=new URL(req.url());const body=req.postData()?JSON.parse(req.postData()):{};
  if(req.method()==='PATCH'&&url.pathname==='/api/lexirise/settings')writes.push(body);
  if(req.method()!=='GET'&&req.method()!=='OPTIONS')localWrites.push({path:url.pathname,body});
- await route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,X-Proxy-Transcript','Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS'},body:JSON.stringify(response(url.pathname,url.searchParams,req.method(),body))});});
+ await route.fulfill({status:body.question==='Simulate busy AI'?503:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,X-Proxy-Transcript','Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS'},body:JSON.stringify(response(url.pathname,url.searchParams,req.method(),body))});});
  await page.goto('http://localhost:'+port);await page.locator('.reading-hanzi').first().click();await page.locator('.word-sheet').waitFor();
  await page.getByRole('tab',{name:'Context',exact:true}).waitFor();
  assert.deepEqual(await page.locator('.word-tabs').getByRole('tab').allTextContents(),['Context','Translation','Definition'],'Toolkit reads the account popup order and enable flags');
  assert.equal(await page.locator('.word-tabs').getByRole('tab',{selected:true}).textContent(),'Context','Toolkit opens the first account tab');
+ await page.getByRole('textbox',{name:'Ask Lexirise about this word',exact:true}).fill('Is this polite?');
+ await page.getByRole('button',{name:'Ask Lexirise',exact:true}).click();
+ await page.locator('.word-context-answer').filter({hasText:'The greeting is polite in this sentence.'}).waitFor();
+ assert.deepEqual(localWrites.at(-1),{path:'/api/lines/1/reading/context',body:{start:0,question:'Is this polite?'}});
+ await page.getByRole('textbox',{name:'Ask Lexirise about this word',exact:true}).fill('Simulate busy AI');
+ await page.getByRole('textbox',{name:'Ask Lexirise about this word',exact:true}).press('Enter');
+ await page.getByRole('alert').filter({hasText:'Lexirise returned no answer. Please ask again.'}).waitFor();
+ await page.getByRole('textbox',{name:'Ask Lexirise about this word',exact:true}).fill('Is this polite?');
+ await page.getByRole('textbox',{name:'Ask Lexirise about this word',exact:true}).press('Enter');
+ await page.getByRole('alert').filter({hasText:'Lexirise returned no answer. Please ask again.'}).waitFor({state:'hidden'});
  await page.getByRole('tab',{name:'Translation',exact:true}).click();assert.match(await page.locator('.word-sheet-body').textContent(),/Hello/);
  await page.getByRole('tab',{name:'Definition',exact:true}).click();
  if(name==='chromium'&&zoom===1&&[1920,390].includes(pw))await page.locator('.word-sheet').screenshot({path:`output/playwright/account-popup-${pw}.png`});

@@ -14,7 +14,12 @@ const reader=createReader({sourceLanguage:'zh',translationLanguage:'en',loadSett
  const query=new URLSearchParams();if(params.start!=null)query.set('start',String(params.start));
  let path=action==='analysis'?'':action==='save-example'?'/examples/'+params.index+'/save':'/'+action;
  const headers=new Headers(init.headers);if(init.method&&init.method!=='GET')headers.set('X-Proxy-Transcript','lexirise');
- return fetch('http://127.0.0.1:8766/api/lines/'+id+'/reading'+path+(query.size?'?'+query:''),{...init,headers});
+ const response=await fetch('http://127.0.0.1:8766/api/lines/'+id+'/reading'+path+(query.size?'?'+query:''),{...init,headers});
+ if(action==='context'&&!response.ok){
+  const error=await response.clone().json().catch(()=>null) as {detail?:unknown}|null;
+  throw new Error(typeof error?.detail==='string'?error.detail:'Lexirise could not answer. Please try again.');
+ }
+ return response;
 }});
 export function ReadingText(props:ComponentProps<typeof reader.ReadingText>){
  const [revision,setRevision]=useState(0);

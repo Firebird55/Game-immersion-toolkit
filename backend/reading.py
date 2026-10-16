@@ -320,13 +320,15 @@ class LexiriseReadingService:
             return None
         key = f"{text}:{start}:{question or ''}"
         cached = self._cached("context", key, 30 * 86400)
-        if cached is None:
+        if not cached or not cached.get("meaning"):
             payload = {"language": self.source_language, "text": text,
                        "charStart": token["start"], "charEnd": token["end"]}
             if question:
                 payload["question"] = question
-            response = self._post("/v1/analyze/context", payload, timeout=60)
-            cached = {name: response.get(name, "") for name in ("meaning", "conciseMeaning", "reading")}
+            response = self._post("/v1/analyze/context", payload, timeout=120)
+            cached = {name: response.get(name) or "" for name in ("meaning", "conciseMeaning", "reading")}
+            if not isinstance(cached["meaning"], str) or not cached["meaning"].strip():
+                raise LexiriseError("Lexirise returned no answer. Please ask again.")
             self._save("context", key, cached)
         return cached
 
