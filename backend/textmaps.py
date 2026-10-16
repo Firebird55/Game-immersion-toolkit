@@ -35,10 +35,8 @@ CINEMATIC_ID_MARKERS = (
     "comic",
     "video",
     "voice",
-    # Centered narration inside comic scenes can use GalGame dialogue IDs.
-    # CaptureService still requires a verified voice for every non-comic ID.
-    "galgame",
 )
+CINEMATIC_EXACT_ID_MARKERS = ("galgame",)
 GAMEPLAY_ID_MARKERS = ("ongoinglevel",)
 UI_LABELS = {"talk", "outputvalue", "searchsupply", "next", "select", "confirm", "cancel"}
 GENDER_VARIANT_RE = re.compile(r"\{[MF]#(.*?)\}", re.DOTALL)
@@ -216,11 +214,13 @@ class TextMapIndex:
                 chinese_lookup = ChineseLookup(record for records in index.values() for record in records)
                 for channel in ("dialogue", "tip", "cinematic", "gameplay"):
                     chinese_lookup._choices[channel] = [key for key, records in chinese_lookup.records.items()
-                        if any(self._is_allowed_record(record, channel) for record in records)]
+                        if any(self._is_allowed_record(record, channel)
+                               and (channel != "cinematic" or self._is_fuzzy_cinematic_record(record))
+                               for record in records)]
                 cinematic_choices = [
                     normalized for normalized, records in index.items()
                     if len(normalized) >= 20
-                    if any(self._is_allowed_record(record, "cinematic") for record in records)
+                    if any(self._is_fuzzy_cinematic_record(record) for record in records)
                 ]
                 gameplay_choices = [
                     normalized for normalized, records in index.items()
@@ -585,6 +585,15 @@ class TextMapIndex:
         return any(marker in text_id for marker in DIALOGUE_ID_MARKERS)
 
     @classmethod
+    def _is_fuzzy_cinematic_record(cls, record: _Record) -> bool:
+        # Keep the broad OCR search limited to authored comic/video content.
+        # Narration can use a GalGame ID, but adding every dialogue line to
+        # fuzzy/fragment searches makes full-frame OCR scans prohibitively slow.
+        return cls._is_allowed_record(record, "cinematic") and any(
+            marker in record.text_id.casefold() for marker in CINEMATIC_ID_MARKERS
+        )
+
+    @classmethod
     def _is_allowed_record(cls, record: _Record, channel: str) -> bool:
         text_id = record.text_id.casefold()
         # TextMap "SubTitle" is a menu subheading, not evidence of spoken
@@ -609,7 +618,7 @@ class TextMapIndex:
             text_id = record.text_id.casefold()
             if "name" in text_id or "speaker" in text_id:
                 return False
-            return any(marker in text_id for marker in CINEMATIC_ID_MARKERS)
+            return any(marker in text_id for marker in CINEMATIC_ID_MARKERS + CINEMATIC_EXACT_ID_MARKERS)
         if channel == "gameplay":
             if "name" in text_id or "speaker" in text_id:
                 return False

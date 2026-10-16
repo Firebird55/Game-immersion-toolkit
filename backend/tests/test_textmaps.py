@@ -254,3 +254,20 @@ def test_scrollable_comic_fragments_resolve_to_complete_official_lines(tmp_path)
     assert by_id["Comic_scroll_1"].english.endswith("things unfolded.")
     assert by_id["Comic_scroll_2"].english.endswith("carrot malfunctioned.")
     assert by_id["Comic_scroll_1"].source_ocr != by_id["Comic_scroll_1"].english
+
+
+def test_centered_dialogue_uses_exact_matches_without_widening_cinematic_fuzzy_search(tmp_path):
+    import json
+    from backend.textmaps import normalize_english
+    index = TextMapIndex(tmp_path / 'textmaps')
+    index.data_dir.mkdir()
+    narration = 'The hearing will begin shortly. Please welcome our next guest.'
+    for name, records in {'en_base': {'GalGame_Narration': narration, 'Comic_001': 'An unrelated comic bubble remains eligible.'},
+                          'zh_base': {'GalGame_Narration': '听证会即将开始。请欢迎下一位嘉宾。', 'Comic_001': '另一段漫画对白。'},
+                          'en_overwrite': {}, 'zh_overwrite': {}}.items():
+        index.file_path(name).write_text(json.dumps(records, ensure_ascii=False), encoding='utf-8')
+    index.load()
+    assert index.match_text(narration, channel='cinematic').text_id == 'GalGame_Narration'
+    assert normalize_english(narration) not in index._cinematic_choices
+    assert '听证会即将开始请欢迎下一位嘉宾' not in index._chinese_lookup._choices['cinematic']
+    assert index.match_text('The hearing begins soon. Welcome the next guest.', channel='cinematic') is None
