@@ -149,3 +149,64 @@ def test_official_comic_publishes_once_and_survives_restart_without_voice(tmp_pa
         assert lines[0].chinese == match.chinese
     finally:
         service._executor.shutdown()
+
+
+@pytest.mark.parametrize("comic_already_saved", [False, True])
+def test_comic_suffix_cannot_publish_as_unrelated_dialogue(tmp_path, monkeypatch, comic_already_saved):
+    """A lower crop sees home... while the broad crop sees the full court bubble."""
+    import json
+    import backend.capture as module
+    from backend.textmaps import TextMapIndex
+
+    service, _, scheduled, published = fixture_service(tmp_path)
+    full = ("The court proceedings will be streamed in full, and citizens are "
+            "encouraged to follow the proceedings from home...")
+    comic_id = "Comic_" + "b" * 32
+    home_id = "GalGame_unrelated_home"
+    index = TextMapIndex(tmp_path / "textmaps")
+    index.data_dir.mkdir()
+    for name, records in {
+        "en_base": {comic_id: full, home_id: "Home."},
+        "zh_base": {comic_id: "庭审将进行全程直播，市民可在家观看。", home_id: "在家吗。"},
+        "en_overwrite": {}, "zh_overwrite": {},
+    }.items():
+        index.file_path(name).write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
+    index.load()
+    service.textmaps = index
+    assert index.match_lines(["home..."]).text_id == home_id
+    if comic_already_saved:
+        service.transcript.add(index.match_text(full, channel="cinematic"),
+                               service.session_id, channel="cinematic")
+        service._cinematic_seen_ids.add(comic_id)
+    service._scan_index = 1  # No periodic header/tip OCR during these three scans.
+    service._tracker.configure(1)
+    service._capture = lambda bounds: Image.new("RGB", (800, 200), (4, 4, 4))
+    responses = iter([
+        ["home..."], [full],
+        ["home..."], [full],
+        ["Home."], ["Home."],
+    ])
+    service._engine = SimpleNamespace(recognize_pil=lambda image:
+        {"lines": [{"text": text, "confidence": .99} for text in next(responses)]})
+    monkeypatch.setattr(module, "find_active_game_window", lambda settings:
+        (SimpleNamespace(id="zzz"), SimpleNamespace(bounds=(0, 0, 1920, 1080), title="ZZZ")))
+
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        for _ in range(2):
+            service._scan_once()
+        await asyncio.sleep(.02)
+        assert service.transcript.count() == 1
+        assert all(line.text_id == comic_id for line in published)
+        assert all(args[0] == comic_id for args in scheduled)
+        assert home_id not in service.snapshot().visible_text_ids
+        # A later standalone utterance must remain eligible after the bubble clears.
+        service._scan_once()
+        await asyncio.sleep(.02)
+        assert service.transcript.count() == 2
+        assert published[-1].text_id == home_id
+
+    try:
+        asyncio.run(run())
+    finally:
+        service._executor.shutdown()

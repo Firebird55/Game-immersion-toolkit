@@ -356,6 +356,38 @@ class CaptureService:
 
         phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
         excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd"}
+        cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
+        cinematic_raw_text = ""
+        cinematic_confidence: float | None = None
+        cinematic_match_score: float | None = None
+        # A comic bubble can be added and voiced between two alternating scans.
+        # Once the filmstrip layout is visible, inspect it on every pass; retain
+        # the cheaper alternating cadence for ordinary gameplay/cutscenes.
+        scan_cinematic = self._visual_novel_layout or self._scan_index % 2 == 1
+        cinematic_matches: list[TextMatch] = []
+        # Resolve the broad region before publishing narrower crops: a comic
+        # bubble can extend into the dialogue crop and expose only its last word.
+        if not excluded_screen and scan_cinematic:
+            cinematic_image = self._capture(cinematic_bounds)
+            cinematic_image = self._ocr_image(cinematic_image, window)
+            cinematic_response = engine.recognize_pil(cinematic_image)
+            if epoch != self._scan_epoch:
+                return _ScanOutcome([])
+            cinematic_lines = self._spatial_text_groups(cinematic_response)
+            cinematic_raw_text = " ".join(cinematic_lines).strip()
+            cinematic_confidence = self._confidence(cinematic_response)
+            cinematic_matches = self.textmaps.match_line_groups(
+                cinematic_lines,
+                threshold=max(settings.fuzzy_threshold, 88),
+                channel="cinematic",
+            )
+            # Timeline comics can have official bilingual text without an
+            # authored voice link. Keep those bubbles independently of audio.
+            cinematic_matches = [
+                item for item in cinematic_matches
+                if self._mapped_voice(item) or (item.game == "zzz" and is_comic_text_id(item.text_id))
+            ]
+
         dialogue_match = (
             None
             if excluded_screen
@@ -382,6 +414,8 @@ class CaptureService:
             and not self._mapped_voice(dialogue_match)
         )
         match = None if unvoiced_gameplay_dialogue or not self._mapped_voice(raw_match) else raw_match
+        if self._is_cinematic_fragment(match, cinematic_matches):
+            match = None
         blocked_unvoiced_ids = (
             {dialogue_match.text_id} if unvoiced_gameplay_dialogue else set()
         )
@@ -443,7 +477,7 @@ class CaptureService:
             tip_match = None if excluded_screen else self.textmaps.match_lines(
                 tip_lines, threshold=settings.fuzzy_threshold, channel="tip"
             )
-            if not self._mapped_voice(tip_match):
+            if not self._mapped_voice(tip_match) or self._is_cinematic_fragment(tip_match, cinematic_matches):
                 tip_match = None
             tip_key = (
                 f"tip\0{tip_match.text_id}\0{tip_match.english}"
@@ -476,35 +510,7 @@ class CaptureService:
                     phase = "matched"
                     message = "Official top-right tip matched"
 
-        cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
-        cinematic_raw_text = ""
-        cinematic_confidence: float | None = None
-        cinematic_match_score: float | None = None
-        # A comic bubble can be added and voiced between two alternating scans.
-        # Once the filmstrip layout is visible, inspect it on every pass; retain
-        # the cheaper alternating cadence for ordinary gameplay/cutscenes.
-        scan_cinematic = self._visual_novel_layout or self._scan_index % 2 == 1
-        # Visible subtitles and exact game-file mappings confirm the voice.
         if not excluded_screen and tip_match is None and scan_cinematic:
-            cinematic_image = self._capture(cinematic_bounds)
-            cinematic_image = self._ocr_image(cinematic_image, window)
-            cinematic_response = engine.recognize_pil(cinematic_image)
-            if epoch != self._scan_epoch:
-                return _ScanOutcome([])
-            cinematic_lines = self._spatial_text_groups(cinematic_response)
-            cinematic_raw_text = " ".join(cinematic_lines).strip()
-            cinematic_confidence = self._confidence(cinematic_response)
-            cinematic_matches = self.textmaps.match_line_groups(
-                cinematic_lines,
-                threshold=max(settings.fuzzy_threshold, 88),
-                channel="cinematic",
-            )
-            # Timeline comics can have official bilingual text without an
-            # authored voice link. Keep those bubbles independently of audio.
-            cinematic_matches = [
-                item for item in cinematic_matches
-                if self._mapped_voice(item) or (item.game == "zzz" and is_comic_text_id(item.text_id))
-            ]
             self._observe_visible_matches("cinematic", [item.text_id for item in cinematic_matches], monotonic_now)
             normalized_panel = normalize_subtitle(cinematic_raw_text)
             if (
@@ -1228,6 +1234,27 @@ class CaptureService:
                 if timestamp >= cutoff
             }
         return True
+
+    @staticmethod
+    def _is_cinematic_fragment(match: TextMatch | None, cinematic_matches: list[TextMatch]) -> bool:
+        """Reject a narrow-crop match contained in a currently visible comic bubble."""
+        if match is None:
+            return False
+        source = normalize_subtitle(match.source_ocr)
+        if not source:
+            return False
+        for cinematic in cinematic_matches:
+            if not is_comic_text_id(cinematic.text_id):
+                continue
+            visible = normalize_subtitle(cinematic.source_ocr)
+            if len(visible) <= len(source) or source not in visible:
+                continue
+            for language in ("english", "chinese"):
+                fragment = normalize_subtitle(getattr(match, language))
+                full = normalize_subtitle(getattr(cinematic, language))
+                if fragment and len(fragment) + 8 <= len(full) and fragment in full:
+                    return True
+        return False
 
     def _is_redundant_visible_match(
         self, channel: str, matched_english: str, current_ocr: str
