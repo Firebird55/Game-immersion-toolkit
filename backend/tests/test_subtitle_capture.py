@@ -210,3 +210,45 @@ def test_comic_suffix_cannot_publish_as_unrelated_dialogue(tmp_path, monkeypatch
         asyncio.run(run())
     finally:
         service._executor.shutdown()
+
+
+@pytest.mark.parametrize('mapped', [True, False])
+def test_centered_galgame_narration_requires_verified_voice(tmp_path, monkeypatch, mapped):
+    import json
+    import backend.capture as module
+    from backend.textmaps import TextMapIndex
+    from backend.windows import WindowInfo
+
+    service, _, scheduled, published = fixture_service(tmp_path, mapped=mapped)
+    text_id = 'GalGame_Narration_001'
+    text = 'The hearing will begin shortly. Please welcome our next guest.'
+    index = TextMapIndex(tmp_path / 'textmaps')
+    index.data_dir.mkdir()
+    for name, records in {'en_base': {text_id: text}, 'zh_base': {text_id: '听证会即将开始。请欢迎下一位嘉宾。'},
+                          'en_overwrite': {}, 'zh_overwrite': {}}.items():
+        index.file_path(name).write_text(json.dumps(records, ensure_ascii=False), encoding='utf-8')
+    index.load()
+    service.textmaps = index
+    window = WindowInfo(1, 'Fixture game', 'game.exe', (0, 0, 1920, 1080))
+    cinematic_bounds = service._region_bounds(window, service.settings.get().cinematic_region)
+    def pixels(bounds):
+        image = Image.new('RGB', (800, 200), (4, 4, 4))
+        image.info['centered'] = bounds == cinematic_bounds
+        return image
+    service._capture = pixels
+    service._engine = SimpleNamespace(recognize_pil=lambda image:
+        {'lines': [{'text': text, 'confidence': .99}]} if image.info.get('centered') else {'lines': []})
+    monkeypatch.setattr(module, 'find_active_game_window', lambda _: (SimpleNamespace(id='zzz'), window))
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        service._scan_once()
+        await asyncio.sleep(.02)
+    try:
+        asyncio.run(run())
+        assert service.transcript.count() == int(mapped)
+        assert len(scheduled) == len(published) == int(mapped)
+        if mapped:
+            assert published[0].text_id == text_id
+            assert published[0].channel == 'cinematic' and published[0].voiced
+    finally:
+        service._executor.shutdown()

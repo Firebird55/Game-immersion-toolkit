@@ -35,6 +35,9 @@ CINEMATIC_ID_MARKERS = (
     "comic",
     "video",
     "voice",
+    # Centered narration inside comic scenes can use GalGame dialogue IDs.
+    # CaptureService still requires a verified voice for every non-comic ID.
+    "galgame",
 )
 GAMEPLAY_ID_MARKERS = ("ongoinglevel",)
 UI_LABELS = {"talk", "outputvalue", "searchsupply", "next", "select", "confirm", "cancel"}

@@ -109,6 +109,7 @@ def test_menu_subtitles_and_unvoiced_fairy_tutorials_are_not_dialogue() -> None:
     assert TextMapIndex.is_capture_text("Comic_123", "We have to leave!", "cinematic")
     assert TextMapIndex.is_capture_text("Video_123", "We have to leave!", "cinematic")
     assert TextMapIndex.is_capture_text("GalGame_123", "We have to leave!", "dialogue")
+    assert TextMapIndex.is_capture_text("GalGame_123", "A voiced narrator speaks here.", "cinematic")
     assert TextMapIndex.is_capture_text("Side_OngoingLevel_123", "We should go.", "gameplay")
     assert TextMapIndex.is_capture_text("Tips_1228010012", "To unlock it, you need to obtain an S-Rank in the previous battle.", "tip")
 
