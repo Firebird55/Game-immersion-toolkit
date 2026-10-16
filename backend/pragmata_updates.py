@@ -55,9 +55,9 @@ class PragmataUpdateManager:
 
     def start(self) -> None:
         with self._lock:
+            self._stop.clear()
             if self._thread and self._thread.is_alive():
                 return
-            self._stop.clear()
             self._set(state="checking", message="Checking installed PRAGMATA files", progress=5)
             self._thread = threading.Thread(target=self._loop, name="pragmata-index-update", daemon=True)
             self._thread.start()
@@ -115,7 +115,7 @@ class PragmataUpdateManager:
                 self._set(state="idle", message="PRAGMATA game files are current", progress=100, last_error=None)
                 return
             self._set(state="updating", message="Indexing official PRAGMATA subtitles", progress=15)
-            command = [sys.executable, str(self.project_root / "scripts/index_pragmata_assets.py")]
+            command = [sys.executable, str(Path(__file__).resolve().parents[1] / "scripts/index_pragmata_assets.py")]
             command.extend(["--install", str(install)])
             with INDEX_BUILD_LOCK:
                 if self._stop.is_set():

@@ -215,3 +215,5 @@ npm run dev
 ## Community and license
 
 Created by [Firebird55](https://github.com/Firebird55/Emulingo-Lexirise-userscript). Contributions are welcome through issues and pull requests; read [CONTRIBUTING.md](../CONTRIBUTING.md) and [AGENTS.md](../AGENTS.md). Original code uses the custom visible-attribution [license](LICENSE); external software and game content retain their own terms. See [notices](THIRD_PARTY_NOTICES.md) and [security guidance](SECURITY.md).
+
+App updates prepare a separate replacement while the current companion keeps translating. Use the new release's `scripts/update-companion.ps1 -SourceRoot <new-release> -Root <current-companion>` for a running installation. OCR and the selected game index warm before capture transfers; open readers reconnect automatically. Game-data rebuilds run at lower priority in separate processes, and matching keeps the previous complete index until the replacement is ready. Failed preparations keep the working version and local data.

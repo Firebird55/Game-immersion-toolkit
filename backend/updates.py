@@ -48,6 +48,7 @@ class BackgroundUpdateManager:
 
     def start(self) -> None:
         with self._lock:
+            self._stop.clear()
             if self._thread and self._thread.is_alive():
                 return
             self._thread = threading.Thread(target=self._run, name="zzz-background-updates", daemon=True)
@@ -221,7 +222,7 @@ class BackgroundUpdateManager:
                 return
             output = self._run_command(
                 [sys.executable, "-m", "scripts.update_voice_assets"],
-                cwd=self.project_root,
+                cwd=Path(__file__).resolve().parents[1],
                 timeout=900,
             )
         if self.voice_assets.manifest.is_file():

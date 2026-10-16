@@ -33,6 +33,7 @@ jobs:
       - run: npx playwright install chromium firefox webkit
       - run: node scripts/browser-e2e.mjs
       - run: node scripts/setup-e2e.mjs
+      - run: node scripts/update-companion-e2e.mjs
       - run: node scripts/companion-e2e.mjs
       - run: node scripts/mobile-capture-e2e.mjs
       - run: node scripts/mobile-recovery-e2e.mjs

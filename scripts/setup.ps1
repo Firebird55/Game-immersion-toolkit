@@ -39,10 +39,11 @@ try {
 } catch { }
 if ($wasRunning) {
     if (-not (Test-Path -LiteralPath (Join-Path $projectRoot 'data\processes.json'))) {
-        throw 'Stop the previous companion from its own folder before installing into a new location.'
+        throw 'Run update-companion.ps1 with -Root pointing to the current companion folder and -SourceRoot pointing to this release.'
     }
-    & (Join-Path $PSScriptRoot 'stop-companion.ps1')
-    Start-Sleep -Seconds 1
+    & (Join-Path $PSScriptRoot 'update-companion.ps1') -SourceRoot $projectRoot -Root $projectRoot
+    Write-Host 'The prepared update is active; capture stayed available during installation.'
+    return
 }
 
 if (-not (Test-Path -LiteralPath $venvPython)) {

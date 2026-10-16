@@ -511,10 +511,15 @@ class PragmataVoiceAssetService:
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
         self.ready = False
+        self._loaded_signature = None
         self.reload()
 
     def reload(self) -> bool:
         try:
+            stat = self.manifest.stat()
+            signature = (stat.st_mtime_ns, stat.st_size)
+            if self.ready and self._loaded_signature == signature:
+                return True
             payload = json.loads(self.manifest.read_text(encoding="utf-8"))
             entries: dict[str, PragmataAudioEntry] = {}
             for record in payload.get("records", []):
@@ -549,10 +554,10 @@ class PragmataVoiceAssetService:
                     and ffmpeg_executable()
                 )
                 self.last_error = None
+                self._loaded_signature = signature
             return self.ready
         except (OSError, ValueError, KeyError, TypeError) as error:
             with self._lock:
-                self.ready = False
                 self.last_error = str(error)
             return False
 

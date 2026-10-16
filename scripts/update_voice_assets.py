@@ -6,6 +6,7 @@ runtime manifest stays in data/voice-assets.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -114,7 +115,8 @@ def inventory(game_data: Path, sources: list[Path]) -> dict:
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[1]
+    code = Path(__file__).resolve().parents[1]
+    root = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", code))
     tools = root / "work/voice-assets"
     template = tools / "PerformTemplateTb.json"
     prefixes = tools / "VoiceData.json"
@@ -142,7 +144,7 @@ def main() -> None:
         return
 
     options = {
-        "cwd": root,
+        "cwd": code,
         "check": True,
         "timeout": 600,
         "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -151,7 +153,7 @@ def main() -> None:
     for category in ("galgame", "comic"):
         output_name = f"scene-links-{category}.json"
         subprocess.run([
-            "node", str(root / "scripts/extract_voice_links.mjs"),
+            "node", str(code / "scripts/extract_voice_links.mjs"),
             str(game_data), str(tools), category, output_name,
         ], **options)
         link_files.append(tools / output_name)

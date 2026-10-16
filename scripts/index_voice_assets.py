@@ -4,6 +4,7 @@ Run with python -m scripts.index_voice_assets --help. All game files are read-on
 """
 import argparse
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -17,7 +18,7 @@ def main():
     parser.add_argument("--prefixes", type=Path, required=True)
     parser.add_argument("--decoder-dir", type=Path, required=True)
     args = parser.parse_args()
-    project = Path(__file__).resolve().parents[1]
+    project = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
     output = project / "data/voice-assets"
     output.mkdir(parents=True, exist_ok=True)
     entries = index_mandarin(args.game_data)

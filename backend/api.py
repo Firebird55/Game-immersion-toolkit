@@ -30,6 +30,7 @@ from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError
 from .reading import LexiriseReadingService
+from .runtime_handoff import CaptureHandoff
 from .lexirise_settings import account_settings
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 from .installation import InstallationService
@@ -110,6 +111,9 @@ class EventHub:
 
 class Runtime:
     def __init__(self) -> None:
+        self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
+        self._updates_started = False
+        self.warm_task = None
         self.hub = EventHub()
         local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
@@ -138,8 +142,9 @@ class Runtime:
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
         self.speakers = SpeakerResolver(self.textmaps, self.voice_assets, self.transcript)
         self.event_loop = asyncio.get_running_loop()
-        removed_rows = self.transcript.purge_unvoiced()
-        removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
+        removed_rows = [] if self.standby else self.transcript.purge_unvoiced()
+        if not self.standby:
+            removed_rows.extend(self.transcript.prune(keep_nonfavorite=50))
         audio_dir = (DATA_DIR / "audio").resolve()
         for _, filename in removed_rows:
             if not filename:
@@ -162,8 +167,9 @@ class Runtime:
             game_indexes=self.game_indexes,
             game_voice_assets=self.game_voice_assets,
         )
-        for line in self.transcript.list(limit=50):
-            self.capture.repair_recorded_line(line)
+        if not self.standby:
+            for line in self.transcript.list(limit=50):
+                self.capture.repair_recorded_line(line)
         self.map_task: asyncio.Task[None] | None = None
         self.update_manager = BackgroundUpdateManager(
             PROJECT_ROOT, self.textmaps, self.voice_assets, self.on_update_thread
@@ -246,6 +252,25 @@ class Runtime:
             await asyncio.sleep(2)
         for updater in self.game_updaters.values():
             updater.start()
+
+    def start_updates(self) -> None:
+        if self._updates_started:
+            return
+        self._updates_started = True
+        self.update_manager.start()
+        self.index_task = asyncio.create_task(self.start_indexes_in_order(), name='voice-index-coordinator')
+
+    async def stop_updates(self) -> None:
+        if self.index_task:
+            self.index_task.cancel()
+            try:
+                await self.index_task
+            except asyncio.CancelledError:
+                pass
+            self.index_task = None
+        await asyncio.gather(*(asyncio.to_thread(updater.close) for updater in
+            [self.update_manager, self.pragmata_updater, *self.game_updaters.values()]))
+        self._updates_started = False
 
     async def on_line(self, line: TranscriptLine) -> None:
         audio_pending = line.audio_pending
@@ -334,7 +359,8 @@ class Runtime:
                 force_download=force,
                 progress=self.textmaps.set_message,
             )
-            await asyncio.to_thread(self.speakers.backfill)
+            if not self.standby:
+                await asyncio.to_thread(self.speakers.backfill)
         except Exception as error:
             self.textmaps.state = "ready" if self.textmaps.ready else "error"
             self.textmaps.message = "Refresh failed; keeping the previous complete TextMaps" if self.textmaps.ready else str(error)
@@ -350,13 +376,20 @@ async def lifespan(_app: FastAPI):
     runtime = Runtime()
     if runtime.textmaps.file_path("zh_base").is_file():
         runtime.start_map_prepare()
-    runtime.update_manager.start()
-    runtime.index_task = asyncio.create_task(runtime.start_indexes_in_order(), name="voice-index-coordinator")
-    if runtime.settings.get().auto_start and runtime.installation.completed:
+    if runtime.standby:
+        runtime.warm_task = asyncio.create_task(runtime.capture.warmup(), name='prepare-replacement-ocr')
+    else:
+        runtime.start_updates()
+    if not runtime.standby and runtime.settings.get().auto_start and runtime.installation.completed:
         runtime.capture.start()
     try:
         yield
     finally:
+        if runtime.warm_task:
+            try:
+                await runtime.warm_task
+            except (Exception, asyncio.CancelledError):
+                pass
         runtime.mobile_exports.cancel()
         if runtime.index_task:
             runtime.index_task.cancel()
@@ -400,6 +433,47 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def runtime_access(request: Request, action: str) -> None:
+    if request.url.hostname not in {'127.0.0.1', 'localhost'} or action != 'update':
+        raise HTTPException(403, 'Use the local companion updater')
+
+
+@app.get('/api/runtime/ready')
+def runtime_ready(game: str | None = None) -> dict:
+    indexes = {'zzz': runtime.textmaps, 'pragmata': runtime.pragmata, 'hito': runtime.hito, **runtime.game_indexes}
+    index_ready = game is None or (game in indexes and indexes[game].ready)
+    warm = runtime.warm_task is None or (runtime.warm_task.done() and not runtime.warm_task.cancelled()
+                                         and runtime.warm_task.exception() is None)
+    return {'ready': bool(index_ready and warm), 'standby': runtime.standby}
+
+
+@app.post('/api/runtime/quiesce')
+async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default='')) -> dict:
+    runtime_access(request, x_proxy_transcript)
+    running = runtime.capture.snapshot().running
+    # Stop resource-heavy refreshes while capture is still serving the old app.
+    await runtime.stop_updates()
+    await runtime.capture.stop()
+    runtime.standby = True
+    return runtime.capture.export_handoff(running).model_dump()
+
+
+@app.post('/api/runtime/activate')
+async def runtime_activate(payload: CaptureHandoff, request: Request,
+                           x_proxy_transcript: str = Header(default='')) -> dict:
+    runtime_access(request, x_proxy_transcript)
+    if not runtime_ready()['ready']:
+        raise HTTPException(409, 'Replacement OCR is still warming up')
+    if runtime.capture.snapshot().running:
+        return {'active': True}
+    runtime.capture.import_handoff(payload)
+    runtime.standby = False
+    if payload.running:
+        runtime.capture.start()
+    runtime.start_updates()
+    return {'active': True}
 
 
 @app.get("/api/status")

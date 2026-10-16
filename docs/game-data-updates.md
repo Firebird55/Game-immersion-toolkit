@@ -99,3 +99,5 @@ catalog with unchanged installed files. Verify that missing or ambiguous
 installed voices cannot replace the last playable index. Never commit catalogs,
 game text, audio, or credentials. Keep executable dependencies checksum pinned;
 data refresh must not install code from a moving branch.
+
+App updates prepare a separate replacement while the current companion keeps translating. Use the new release's `scripts/update-companion.ps1 -SourceRoot <new-release> -Root <current-companion>` for a running installation. OCR and the selected game index warm before capture transfers; open readers reconnect automatically. Game-data rebuilds run at lower priority in separate processes, and matching keeps the previous complete index until the replacement is ready. Failed preparations keep the working version and local data.

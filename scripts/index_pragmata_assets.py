@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import os
 import re
 import shutil
 import struct
@@ -25,7 +26,7 @@ from backend.pragmata_audio import (
 )
 
 
-DATA_DIR = PROJECT_ROOT / "data" / "pragmata"
+DATA_DIR = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", PROJECT_ROOT)) / "data" / "pragmata"
 RELEASE_LIST_URL = (
     "https://raw.githubusercontent.com/Ekey/REE.PAK.Tool/main/Projects/P_STM_Release.list"
 )

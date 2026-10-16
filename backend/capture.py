@@ -27,6 +27,7 @@ from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
 from .windows import WindowInfo, executable_path_for_window, find_active_game_window, find_game_window
 from .window_capture import BackgroundCapture
+from .runtime_handoff import CaptureHandoff
 from .voice_assets import VoiceAssetService
 
 
@@ -182,18 +183,54 @@ class CaptureService:
         self._task = asyncio.create_task(self._run(), name="zzz-capture")
         return True
 
+    async def warmup(self) -> None:
+        def prepare():
+            if self._engine is None:
+                self._engine = OcrEngine()
+        await asyncio.get_running_loop().run_in_executor(self._executor, prepare)
+
+    def export_handoff(self, running: bool) -> CaptureHandoff:
+        return CaptureHandoff(running=running, session_id=self.session_id,
+            last_emitted_at=self._last_emitted_at,
+            last_emitted_key_by_channel=self._last_emitted_key_by_channel,
+            cinematic_seen_ids=list(self._cinematic_seen_ids),
+            cinematic_panel_text=self._cinematic_panel_text)
+
+    def import_handoff(self, state: CaptureHandoff) -> None:
+        if state.session_id:
+            self.session_id = state.session_id
+        # This also covers migration from versions without a handoff endpoint.
+        now = time.monotonic()
+        for line in self.transcript.list(limit=50):
+            if line.session_id != self.session_id:
+                continue
+            key = f"{line.text_id}\0{line.english}"
+            created = line.created_at if line.created_at.tzinfo else line.created_at.replace(tzinfo=timezone.utc)
+            age = max(0, (datetime.now(timezone.utc) - created).total_seconds())
+            if age < 60:
+                self._last_emitted_at[key] = now - age
+            self._last_emitted_key_by_channel.setdefault(line.channel, f"{line.channel}\0{key}")
+        self._last_emitted_at.update(state.last_emitted_at)
+        self._last_emitted_key_by_channel.update(state.last_emitted_key_by_channel)
+        self._cinematic_seen_ids = set(state.cinematic_seen_ids)
+        self._cinematic_panel_text = state.cinematic_panel_text
+
     async def stop(self) -> bool:
         if not self._task or self._task.done():
             await asyncio.to_thread(self._background_capture.close)
             self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
             return False
         self._task.cancel()
+        self._scan_epoch += 1
         try:
             await self._task
         except asyncio.CancelledError:
             pass
         self._task = None
         await asyncio.to_thread(self._background_capture.close)
+        # A cancelled asyncio future cannot cancel native OCR. Drain its worker
+        # before exporting state so the retiring runtime cannot emit afterward.
+        await asyncio.wait_for(asyncio.get_running_loop().run_in_executor(self._executor, lambda: None), 15)
         snapshot = self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
         await self.on_status(snapshot)
         return True

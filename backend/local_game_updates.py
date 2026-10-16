@@ -42,6 +42,7 @@ class LocalGameUpdateManager:
 
     def request_check(self, force_catalog=False):
         with self._lock:
+            self._stop.clear()
             self._force_catalog = self._force_catalog or force_catalog
             self._wake.set()
             if self._status["state"] == "updating":
@@ -120,8 +121,9 @@ class LocalGameUpdateManager:
     def close(self):
         self._stop.set()
         self._wake.set()
-        if self._process and self._process.poll() is None:
-            self._process.terminate()
+        process = self._process
+        if process and process.poll() is None:
+            process.terminate()
         if self._thread:
             self._thread.join(timeout=2)
 

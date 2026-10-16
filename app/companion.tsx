@@ -486,7 +486,7 @@ function CompanionClient() {
 
     const connect = () => {
       socket = new WebSocket(WS_URL);
-      socket.onopen = () => setOnline(true);
+      socket.onopen = () => { setOnline(true); void loadSnapshot(); };
       socket.onmessage = (message) => {
         const event = JSON.parse(message.data);
         if (event.type === 'snapshot') {
@@ -548,8 +548,9 @@ function CompanionClient() {
         }
       };
       socket.onclose = () => {
-        setOnline(false);
-        if (!closed) reconnectTimer.current = setTimeout(connect, 1500);
+        // A prepared update replaces the socket while the local API stays
+        // available. Confirm service health without discarding the reader.
+        if (!closed) { void loadSnapshot(); reconnectTimer.current = setTimeout(connect, 1500); }
       };
       socket.onerror = () => socket?.close();
     };
