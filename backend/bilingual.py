@@ -6,20 +6,28 @@ import unicodedata
 from typing import Callable, Iterable
 
 from rapidfuzz import fuzz, process
+from opencc import OpenCC
 
 from .textmaps import display_text, normalize_english
 
 HAN_RE = re.compile(r"[\u3400-\u9fff\U00020000-\U0003134f]")
+_SIMPLIFIED = OpenCC("tw2s")
 
 
 def contains_han(value: str) -> bool:
     return bool(HAN_RE.search(value))
 
 
+def simplify_chinese(value: str) -> str:
+    return _SIMPLIFIED.convert(value)
+
+
 def normalize_chinese(value: str) -> str:
     # OCR spaces between ideographs and full-width punctuation are display
     # artifacts. Preserve Latin words/numbers that belong to Chinese dialogue.
-    return "".join(char for char in unicodedata.normalize("NFKC", display_text(value)).casefold()
+    # Convert lookup keys only; retain the official transcript and raw OCR.
+    value = simplify_chinese(unicodedata.normalize("NFKC", display_text(value)))
+    return "".join(char for char in value.casefold()
                    if char.isalnum())
 
 

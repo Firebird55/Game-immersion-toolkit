@@ -20,7 +20,9 @@ See [NTE and Honkai Impact 3rd support](nte-honkai-support.md) for NTE reader se
 A local, gameplay-first bilingual transcript companion for Zenless Zone Zero,
 PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3 and Neverness to Everness, with limited verified Honkai Impact 3rd coverage and game-text capture for Hito's World.
 
-It captures English or Chinese subtitles from the running game, automatically recognizes the language with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript.
+It captures English, Simplified Chinese or Traditional Chinese subtitles from the running game, automatically recognizes the language with local Windows OneOCR, matches it against the parallel English and Simplified-Chinese TextMaps, and saves the official pair to a local SQLite transcript. Traditional Chinese is converted locally for matching only; saved game text and Mandarin audio retain their verified source identity. Independently translated regional wording still needs a matching game-text entry.
+
+For mobile capture, choose Traditional Chinese or English and Traditional Chinese in Game subtitle language. Its OCR model is served locally and becomes available offline after it has loaded online once. Library search accepts either Chinese script.
 
 Three independent regions cover the lower subtitles, upper-right spoken prompts,
 and voiced cutscene/comic panels. Within the lower region, wide dark interaction

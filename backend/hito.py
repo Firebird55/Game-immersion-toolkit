@@ -14,10 +14,11 @@ import time
 from rapidfuzz import fuzz
 
 from .models import TextMatch
+from .bilingual import normalize_chinese, simplify_chinese
 
 
 def normalize(value: str) -> str:
-    return ''.join(c.casefold() for c in value if c.isalnum())
+    return normalize_chinese(value)
 
 
 def sentence_identity(value: str) -> str:
@@ -181,7 +182,7 @@ class HitoTextIndex:
         if process is None or process.poll() is not None:
             return []
         try:
-            process.stdin.write(json.dumps({'text': text}, ensure_ascii=False) + '\n')
+            process.stdin.write(json.dumps({'text': simplify_chinese(text)}, ensure_ascii=False) + '\n')
             process.stdin.flush()
             result = self._responses.get(timeout=3)
             return result.get('records', []) if result else []

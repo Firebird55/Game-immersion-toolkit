@@ -1298,7 +1298,7 @@ class CaptureService:
     @staticmethod
     def _classify_screen_header(lines: list[str]) -> str | None:
         text = " ".join(lines).casefold()
-        chinese = "".join(text.split())
+        chinese = normalize_subtitle(text)
         if "story recap" in text or any(title in chinese for title in ("前情回顾", "剧情回顾")):
             return "story_recap"
         if "knock knock" in text:

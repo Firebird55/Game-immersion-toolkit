@@ -1,6 +1,15 @@
 from backend.hito import HitoTextIndex, sentence_identity
 
 
+def test_hito_traditional_capture_keeps_verified_counterpart(tmp_path):
+    index = HitoTextIndex(tmp_path)
+    index._records = [dict(chinese='我应该写这个', english='I should write this')]
+    match = index.match_lines(['我應該寫這個'])
+    assert match is not None and match.score == 100
+    assert match.chinese == '我应该写这个'
+    assert match.source_ocr == '我應該寫這個'
+
+
 def test_hito_exact_pair_ignores_spacing_and_separate_pinyin(tmp_path):
     index = HitoTextIndex(tmp_path)
     index._records = [dict(chinese='我 收到 10元', english='I receive 10 yuan')]

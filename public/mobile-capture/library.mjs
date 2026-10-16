@@ -1,4 +1,6 @@
 // Files remain in the user's file provider. Only selected entries are read.
+import {Converter} from './ocr/opencc.mjs';
+const simplify = Converter({from:'tw',to:'cn'});
 export const FORMAT = 'proxy-mobile-library-v1';
 export const LIMIT = 512 * 1024 * 1024;
 export const GAMES = ['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','honkai3','hito'];
@@ -97,7 +99,7 @@ export function validateVoices(zip,catalog){
 }
 export async function readVoice(zip,sha){const bytes=await zip.read('audio/'+sha+'.mp3');if(await sha256(bytes)!==sha)fail('Voice checksum failed. Reselect an intact export.');return new Blob([bytes],{type:'audio/mpeg'});}
 
-export const normalize = text => String(text).normalize('NFKC').toLowerCase().replace(/<[^>]*>|\{[^{}]*\}|\[\/?(?:b|i|u|color|size|font)(?:=[^\]]*)?\]/g,'').replace(/[^\p{L}\p{N}]/gu,'');
+export const normalize = text => simplify(String(text).normalize('NFKC')).toLowerCase().replace(/<[^>]*>|\{[^{}]*\}|\[\/?(?:b|i|u|color|size|font)(?:=[^\]]*)?\]/g,'').replace(/[^\p{L}\p{N}]/gu,'');
 export function subtitleRows(blocks,crop,width,height,game){
  const rows=(blocks??[]).flatMap(block=>block.paragraphs??[]).flatMap(p=>p.lines??[]);
  if(!rows.length)return {lines:[],menu:false};

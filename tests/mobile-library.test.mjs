@@ -6,6 +6,15 @@ import {regions,candidates,cleanOcrBlocks} from '../public/mobile-capture/ocr-pi
 import {cacheBudget} from '../public/mobile-capture/storage.mjs';
 const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
 const row={id:hex,textId:'dialogue-one',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:hex,audio:voiceHash,channels:['dialogue','cinematic','gameplay']};
+test('Traditional Chinese OCR and search resolve the original performance',()=>{
+ const matcher=new DialogueMatcher([row]);
+ const match=matcher.match('燈籠很亮。');
+ assert.equal(match.score,100);assert.equal(match.row,row);assert.equal(match.row.chinese,'灯笼很亮。');
+ assert.equal(searchCatalog([row],'燈籠').total,1);
+ const collision={...row,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),chinese:'燈籠很亮。'};
+ assert.equal(new DialogueMatcher([row,collision]).match('燈籠很亮。').state,'ambiguous');
+ assert.equal(new DialogueMatcher([{...row,textId:'nte:verified'}]).match('燈籠很亮。').state,'matched');
+});
 const bytes=strToU8(JSON.stringify(row)+'\n');
 const manifest={format:FORMAT,kind:'catalog',game:'zzz',title:'Synthetic game',revision:hex,coverage:{dialogue:1},catalog:[{name:'catalog/00000.ndjson',size:bytes.length,sha256:await sha256(bytes)}],packs:[{id:hex,clips:[voiceHash]}]};
 const make=(entries,level=0)=>new File([zipSync(Object.fromEntries(Object.entries(entries).map(([key,value])=>[key,typeof value==='object'&&!(value instanceof Uint8Array)?strToU8(JSON.stringify(value)):value])),{level})],'library.zip');

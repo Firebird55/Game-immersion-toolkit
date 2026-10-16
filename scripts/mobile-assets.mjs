@@ -5,9 +5,13 @@ export function ocrAssets(){
  const files=new Map();
  for(const name of ['tesseract.esm.min.js','worker.min.js','worker.min.js.LICENSE.txt','tesseract.min.js.LICENSE.txt'])files.set('ocr/'+name,readFileSync('node_modules/tesseract.js/dist/'+name));
  for(const name of readdirSync('node_modules/tesseract.js-core').filter(n=>/^tesseract-core.*\.wasm(?:\.js)?$/.test(n)))files.set('ocr/core/'+name,readFileSync('node_modules/tesseract.js-core/'+name));
- for(const code of ['eng','chi_sim'])files.set('ocr/lang/'+code+'.traineddata.gz',readFileSync(`node_modules/@tesseract.js-data/${code}/4.0.0_best_int/${code}.traineddata.gz`));
+ for(const code of ['eng','chi_sim','chi_tra'])files.set('ocr/lang/'+code+'.traineddata.gz',readFileSync(`node_modules/@tesseract.js-data/${code}/4.0.0_best_int/${code}.traineddata.gz`));
+ files.set('ocr/opencc.mjs',readFileSync('node_modules/opencc-js/dist/esm/t2cn.js'));
+ files.set('ocr/LICENSE-OPENCC.txt',readFileSync('node_modules/opencc-js/LICENSE'));
+ files.set('ocr/NOTICE-OPENCC.txt',readFileSync('node_modules/opencc-js/THIRD_PARTY_LICENSES.md'));
+ files.set('ocr/LICENSE-OPENCC-APACHE.txt',readFileSync('node_modules/opencc-js/LICENSES/Apache-2.0.txt'));
  files.set('ocr/LICENSE-APACHE.txt',readFileSync('node_modules/tesseract.js-core/LICENSE'));
- files.set('ocr/NOTICE.txt',Buffer.from('Tesseract.js 7.0.0 and Tesseract.js-core 7.0.0: Apache-2.0. https://github.com/naptha/tesseract.js\nEnglish/Simplified Chinese traineddata: naptha/tessdata, Apache-2.0. https://github.com/naptha/tessdata/blob/gh-pages/LICENSE\nLanguage npm packaging: @tesseract.js-data/eng and chi_sim 1.0.0 (MIT metadata). Model files retain the upstream Apache license.\nAll files are served locally. No images are sent to an OCR service.\n'));
+ files.set('ocr/NOTICE.txt',Buffer.from('Tesseract.js 7.0.0 and Tesseract.js-core 7.0.0: Apache-2.0. https://github.com/naptha/tesseract.js\nEnglish/Simplified Chinese/Traditional Chinese traineddata: naptha/tessdata, Apache-2.0. https://github.com/naptha/tessdata/blob/gh-pages/LICENSE\nLanguage npm packaging: @tesseract.js-data/eng, chi_sim and chi_tra 1.0.0 (MIT metadata). Model files retain the upstream Apache license.\nOpenCC-JS 1.4.2: MIT implementation and Apache-2.0 dictionary derivatives. https://github.com/nk2028/opencc-js\nAll files are served locally. No images are sent to an OCR service.\n'));
  const checks=Object.fromEntries([...files].map(([name,data])=>[name,createHash('sha256').update(data).digest('hex')]));
  const trusted=JSON.parse(readFileSync(new URL('./mobile-ocr-integrity.json',import.meta.url))).files;
  for(const [name,sha] of Object.entries(trusted))if(checks[name]!==sha)throw new Error('Pinned OCR runtime bytes changed: '+name);

@@ -29,7 +29,7 @@ export function prepareImage(canvas,region,language){
  if(region.black&&black/total<.75)return false;
  if(region.raw)return true;
  if(region.ink&&bright/total>.55)return true; // dark text on a pale dialogue panel
- if(region.ink||language.includes('chi_sim')&&dark/total>.75){
+ if(region.ink||/chi_(sim|tra)/.test(language)&&dark/total>.75){
   const width=canvas.width,height=canvas.height,stride=width+1,outline=region.ink?new Uint32Array(stride*(height+1)):null;
   if(outline)for(let y=0;y<height;y++){let row=0;for(let x=0;x<width;x++){const i=(y*width+x)*4;row+=Math.max(pixels.data[i],pixels.data[i+1],pixels.data[i+2])<130?1:0;outline[(y+1)*stride+x+1]=outline[y*stride+x+1]+row;}}
   for(let i=0;i<pixels.data.length;i+=4){const r=pixels.data[i],g=pixels.data[i+1],b=pixels.data[i+2],high=Math.max(r,g,b),low=Math.min(r,g,b);let foreground=region.ink==='blue'?r>65&&g>80&&b>90&&(b-r>4||low>170)&&high-low<85:region.ink==='white'?low>95&&high-low<85||high>160&&low>35&&high-low>80:r+g+b>300;

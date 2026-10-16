@@ -76,6 +76,7 @@ next-env.d.ts
 *.voices-*.zip
 /eng.traineddata
 /chi_sim.traineddata
+/chi_tra.traineddata
 /public/mobile-capture/ocr/
 
 # Owned native reader intermediates must not enter source or distributions.

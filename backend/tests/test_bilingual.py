@@ -10,6 +10,23 @@ def test_chinese_normalization_keeps_dialogue_and_latin_names():
     assert normalize_chinese("你好") != normalize_chinese("再见")
 
 
+def test_traditional_chinese_matches_without_changing_official_text(tmp_path):
+    assert normalize_chinese("裡面的燈籠，ＩＤＵＳ！") == normalize_chinese("里面的灯笼，IDUS！")
+    index = make_index(tmp_path)
+    match = index.match_text("路上的戰鬥交給我們。")
+    assert match is not None and match.score == 100
+    assert match.chinese == "路上的战斗交给我们。"
+    assert match.source_ocr == "路上的戰鬥交給我們。"
+
+
+def test_traditional_exact_lookup_keeps_ambiguous_performances():
+    from types import SimpleNamespace
+    from backend.bilingual import ChineseLookup
+    records = [SimpleNamespace(chinese="头发很长。"), SimpleNamespace(chinese="頭髮很長。")]
+    lookup = ChineseLookup(records)
+    assert lookup.match("頭髮很長。", 88) == (records, 100.0)
+
+
 def test_zzz_both_languages_resolve_same_voice_identity(tmp_path):
     index = make_index(tmp_path)
     english = index.match_text("Leave any combat along the way to us.")
@@ -43,8 +60,10 @@ def test_chinese_header_filters_keep_zzz_unvoiced_screens_excluded():
     from backend.capture import CaptureService
     assert CaptureService._classify_screen_header(["前 情 回 顾"]) == "story_recap"
     assert CaptureService._classify_screen_header(["剧情回顾"]) == "story_recap"
+    assert CaptureService._classify_screen_header(["劇情回顧"]) == "story_recap"
     assert CaptureService._classify_screen_header(["剧情委托"]) == "hdd"
     assert CaptureService._classify_screen_header(["战斗委托"]) == "hdd"
+    assert CaptureService._classify_screen_header(["戰鬥委託"]) == "hdd"
     assert CaptureService._classify_screen_header(["我会保护你。"]) is None
 
 

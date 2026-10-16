@@ -103,7 +103,8 @@ class PragmataTextIndex:
         cleaned = display_text(value).strip(" .·•")
         result = self._speaker_names.get(normalize_english(cleaned))
         if contains_han(cleaned):
-            result = next((pair for pair in self._speaker_names.values() if pair[1] == cleaned), None)
+            result = next((pair for pair in self._speaker_names.values()
+                           if normalize_subtitle(pair[1]) == normalize_subtitle(cleaned)), None)
         return result if result else (cleaned, None)
 
     def match_lines(self, lines: Iterable[str], threshold: float = 82) -> TextMatch | None:

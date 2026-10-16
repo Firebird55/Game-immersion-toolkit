@@ -998,7 +998,7 @@ function CompanionClient() {
             </DialogDescription>
           </DialogHeader>
 
-          <p>Capture adjustments are saved on this PC. {selectedGame !== 'hito' && 'English or Chinese subtitles are detected automatically; study text and audio remain Mandarin.'}</p>
+          <p>Capture adjustments are saved on this PC. {selectedGame !== 'hito' && 'English, Simplified Chinese and Traditional Chinese subtitles are detected automatically; study text and audio remain Mandarin.'}</p>
           {selectedGame === 'cyberpunk' && draftSettings && <label>V voice
             <select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
               <option value="unconfigured">Choose V's voice to capture variant lines</option>

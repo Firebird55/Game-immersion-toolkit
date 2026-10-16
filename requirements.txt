@@ -3,6 +3,7 @@ httpx==0.28.1
 imageio-ffmpeg==0.6.0
 mss==10.2.0
 oneocr==1.0.12
+opencc-python-reimplemented==0.1.7
 pillow==12.3.0
 pypinyin==0.55.0
 numpy==1.26.4
