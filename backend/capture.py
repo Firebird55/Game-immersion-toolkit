@@ -26,6 +26,7 @@ from .pragmata import PragmataTextIndex
 from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
 from .windows import WindowInfo, executable_path_for_window, find_active_game_window, find_game_window
+from .window_capture import background_frame
 from .voice_assets import VoiceAssetService
 
 
@@ -104,6 +105,7 @@ class CaptureService:
         self._snapshot_lock = threading.RLock()
         self._preview = b""
         self._preview_lock = threading.RLock()
+        self._window_frame = threading.local()
         self._task: asyncio.Task[None] | None = None
         self._engine: OcrEngine | None = None
         self._tracker = StableMatchTracker()
@@ -149,6 +151,7 @@ class CaptureService:
         if active is None:
             return b""
         profile, window = active
+        self._prepare_window_capture(window)
         if profile.id in {"nte", "honkai3"}:
             window = self._picture_window(window, picture_area or getattr(settings, f"{profile.id}_picture_area"))
         image = self._capture(self._region_bounds(window, region))
@@ -277,6 +280,7 @@ class CaptureService:
             return _ScanOutcome([])
 
         profile, window = active
+        self._prepare_window_capture(window)
 
         engine = self._engine
         if engine is None:
@@ -1329,9 +1333,20 @@ class CaptureService:
         height = max(1, min(window_y + window_height - top, max(50, round(window_height * region.height))))
         return left, top, width, height
 
-    @staticmethod
-    def _capture(bounds: tuple[int, int, int, int]) -> Image.Image:
+    def _prepare_window_capture(self, window: WindowInfo) -> None:
+        # Each worker/preview request owns its frame; a timed-out OCR worker
+        # must not overwrite a replacement worker's capture or calibration.
+        self._window_frame.image = None
+        self._window_frame.bounds = window.bounds
+        self._window_frame.image = background_frame(window)
+
+    def _capture(self, bounds: tuple[int, int, int, int]) -> Image.Image:
         left, top, width, height = bounds
+        frame = getattr(getattr(self, '_window_frame', None), 'image', None)
+        if frame is not None:
+            origin_x, origin_y, _, _ = self._window_frame.bounds
+            return frame.crop((left - origin_x, top - origin_y,
+                               left - origin_x + width, top - origin_y + height))
         with mss.mss() as capture:
             shot = capture.grab({"left": left, "top": top, "width": width, "height": height})
         return Image.frombytes("RGB", shot.size, shot.rgb)
