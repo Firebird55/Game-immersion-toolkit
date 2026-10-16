@@ -1,8 +1,9 @@
-"""Capture a game's client surface even when another window covers it."""
+"""Unobscured game frames using Windows Graphics Capture."""
 from __future__ import annotations
 
 import ctypes
 import sys
+import threading
 from ctypes import wintypes
 
 from PIL import Image
@@ -10,78 +11,102 @@ from PIL import Image
 from .windows import WindowInfo
 
 
+class BackgroundCapture:
+    """Keep one GPU capture session alive while OCR reads the latest frame."""
+
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._control = None
+        self._target = None
+        self._state = None
+
+    def close(self):
+        with self._lock:
+            control, self._control = self._control, None
+            self._target = self._state = None
+            if control is not None:
+                control.stop()
+
+    def frame(self, window: WindowInfo) -> Image.Image | None:
+        if sys.platform != 'win32':
+            return None
+        user32 = ctypes.WinDLL('user32', use_last_error=True)
+        user32.GetForegroundWindow.restype = wintypes.HWND
+        with self._lock:
+            if user32.GetForegroundWindow() == window.handle:
+                self.close()
+                return None
+            target = (window.handle, window.bounds)
+            if self._control is None or self._target != target or self._control.is_finished():
+                self.close()
+                self._start(window)
+            ready, frames, errors = self._state
+            if not ready.wait(3):
+                self.close()
+                raise OSError('Background game capture timed out; keep the game restored in windowed or borderless mode')
+            if errors:
+                error = errors[-1]
+                self.close()
+                raise OSError('Could not read the background game frame') from error
+            if not frames:
+                self.close()
+                raise OSError('The game window closed before a frame was available')
+            return frames[-1]
+
+    def _start(self, window):
+        from windows_capture import WindowsCapture
+
+        # Callback state belongs to this session. A closing session must never
+        # overwrite frames from a replacement window or a resized client.
+        ready, frames, errors = threading.Event(), [], []
+        capture = WindowsCapture(window_hwnd=window.handle, cursor_capture=False,
+                                 draw_border=False, minimum_update_interval=100)
+
+        @capture.event
+        def on_frame_arrived(frame, capture_control):
+            try:
+                # Copy before returning: the mapped GPU buffer is valid only
+                # inside this callback, while OCR runs on a separate thread.
+                image = Image.frombytes('RGB', (frame.width, frame.height),
+                                        frame.frame_buffer.tobytes(), 'raw', 'BGRX')
+                frames[:] = [_client_crop(image, window)]
+            except Exception as error:
+                errors.append(error)
+                capture_control.stop()
+            finally:
+                ready.set()
+
+        @capture.event
+        def on_closed():
+            errors.append(OSError('Game window capture closed'))
+            ready.set()
+
+        self._control = capture.start_free_threaded()
+        self._target = (window.handle, window.bounds)
+        self._state = (ready, frames, errors)
+
+
 def background_frame(window: WindowInfo) -> Image.Image | None:
-    """Return an unobscured client frame, or None for the foreground game.
-
-    Never fall back to desktop pixels for a background window: those pixels
-    could belong to the reader or another app instead of the game.
-    """
-    if sys.platform != "win32":
-        return None
-    user32 = ctypes.WinDLL("user32", use_last_error=True)
-    user32.GetForegroundWindow.restype = wintypes.HWND
-    if user32.GetForegroundWindow() == window.handle:
-        return None
-    return _print_client(window, user32, ctypes.WinDLL("gdi32", use_last_error=True))
-
-
-def _print_client(window: WindowInfo, user32, gdi32) -> Image.Image:
-    # Explicit pointer-sized signatures are required on 64-bit Windows.
-    signatures = [
-        (user32.GetDC, [wintypes.HWND], wintypes.HDC),
-        (user32.ReleaseDC, [wintypes.HWND, wintypes.HDC], ctypes.c_int),
-        (user32.PrintWindow, [wintypes.HWND, wintypes.HDC, wintypes.UINT], wintypes.BOOL),
-        (gdi32.CreateCompatibleDC, [wintypes.HDC], wintypes.HDC),
-        (gdi32.CreateCompatibleBitmap, [wintypes.HDC, ctypes.c_int, ctypes.c_int], wintypes.HBITMAP),
-        (gdi32.SelectObject, [wintypes.HDC, wintypes.HANDLE], wintypes.HANDLE),
-        (gdi32.DeleteObject, [wintypes.HANDLE], wintypes.BOOL),
-        (gdi32.DeleteDC, [wintypes.HDC], wintypes.BOOL),
-        (gdi32.GetDIBits, [wintypes.HDC, wintypes.HBITMAP, wintypes.UINT,
-                         wintypes.UINT, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT], ctypes.c_int),
-    ]
-    for function, arguments, result in signatures:
-        function.argtypes, function.restype = arguments, result
-
-    class BitmapInfoHeader(ctypes.Structure):
-        _fields_ = [("size", wintypes.DWORD), ("width", wintypes.LONG),
-                    ("height", wintypes.LONG), ("planes", wintypes.WORD),
-                    ("bits", wintypes.WORD), ("compression", wintypes.DWORD),
-                    ("image_size", wintypes.DWORD), ("xppm", wintypes.LONG),
-                    ("yppm", wintypes.LONG), ("used", wintypes.DWORD),
-                    ("important", wintypes.DWORD)]
-
-    width, height = window.bounds[2:]
-    source = user32.GetDC(window.handle)
-    memory = bitmap = previous = None
+    """One-shot capture for diagnostics; the OCR service reuses its session."""
+    source = BackgroundCapture()
     try:
-        if not source:
-            raise OSError("Game window capture could not open its client surface")
-        memory = gdi32.CreateCompatibleDC(source)
-        bitmap = gdi32.CreateCompatibleBitmap(source, width, height) if memory else None
-        if not memory or not bitmap:
-            raise OSError("Game window capture could not allocate a frame")
-        previous = gdi32.SelectObject(memory, bitmap)
-        if not previous or previous == ctypes.c_void_p(-1).value:
-            previous = None
-            raise OSError("Game window capture could not select its frame")
-        # PW_CLIENTONLY | PW_RENDERFULLCONTENT includes accelerated content
-        # without title bars, borders, or pixels from overlapping windows.
-        if not user32.PrintWindow(window.handle, memory, 3):
-            raise OSError("Background game capture unavailable; keep the game restored in windowed or borderless mode")
-        gdi32.SelectObject(memory, previous)
-        previous = None
-        header = BitmapInfoHeader(size=ctypes.sizeof(BitmapInfoHeader), width=width,
-                                  height=-height, planes=1, bits=32)
-        pixels = ctypes.create_string_buffer(width * height * 4)
-        if gdi32.GetDIBits(memory, bitmap, 0, height, pixels, ctypes.byref(header), 0) != height:
-            raise OSError("Game window capture returned an incomplete frame")
-        return Image.frombytes("RGB", (width, height), pixels.raw, "raw", "BGRX")
+        return source.frame(window)
     finally:
-        if previous:
-            gdi32.SelectObject(memory, previous)
-        if bitmap:
-            gdi32.DeleteObject(bitmap)
-        if memory:
-            gdi32.DeleteDC(memory)
-        if source:
-            user32.ReleaseDC(window.handle, source)
+        source.close()
+
+
+def _client_crop(image: Image.Image, window: WindowInfo) -> Image.Image:
+    # WGC includes the title bar but excludes the invisible resize border.
+    # DWM extended bounds locate that frame in physical screen coordinates.
+    rect = wintypes.RECT()
+    dwmapi = ctypes.WinDLL('dwmapi')
+    dwmapi.DwmGetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD,
+                                            ctypes.c_void_p, wintypes.DWORD]
+    if dwmapi.DwmGetWindowAttribute(window.handle, 9, ctypes.byref(rect), ctypes.sizeof(rect)) != 0:
+        raise OSError('Game window bounds unavailable')
+    x, y, width, height = window.bounds
+    left, top = x - rect.left, y - rect.top
+    if (image.size != (rect.right - rect.left, rect.bottom - rect.top)
+            or left < 0 or top < 0 or left + width > image.width or top + height > image.height):
+        raise OSError('Game window resized during capture; retrying with current bounds')
+    return image.crop((left, top, left + width, top + height))

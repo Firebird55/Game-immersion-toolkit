@@ -26,7 +26,7 @@ from .pragmata import PragmataTextIndex
 from .hito import HitoTextIndex
 from .pragmata_audio import PragmataVoiceAssetService
 from .windows import WindowInfo, executable_path_for_window, find_active_game_window, find_game_window
-from .window_capture import background_frame
+from .window_capture import BackgroundCapture
 from .voice_assets import VoiceAssetService
 
 
@@ -106,6 +106,7 @@ class CaptureService:
         self._preview = b""
         self._preview_lock = threading.RLock()
         self._window_frame = threading.local()
+        self._background_capture = BackgroundCapture()
         self._task: asyncio.Task[None] | None = None
         self._engine: OcrEngine | None = None
         self._tracker = StableMatchTracker()
@@ -183,6 +184,7 @@ class CaptureService:
 
     async def stop(self) -> bool:
         if not self._task or self._task.done():
+            await asyncio.to_thread(self._background_capture.close)
             self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
             return False
         self._task.cancel()
@@ -191,6 +193,7 @@ class CaptureService:
         except asyncio.CancelledError:
             pass
         self._task = None
+        await asyncio.to_thread(self._background_capture.close)
         snapshot = self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
         await self.on_status(snapshot)
         return True
@@ -1338,7 +1341,7 @@ class CaptureService:
         # must not overwrite a replacement worker's capture or calibration.
         self._window_frame.image = None
         self._window_frame.bounds = window.bounds
-        self._window_frame.image = background_frame(window)
+        self._window_frame.image = self._background_capture.frame(window)
 
     def _capture(self, bounds: tuple[int, int, int, int]) -> Image.Image:
         left, top, width, height = bounds

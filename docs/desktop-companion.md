@@ -11,6 +11,8 @@ The [development guide](mobile-development.md) describes checked main-only Pages
 
 OCR scales to game-window height across small windows, 4K and ultrawide layouts, and windowed captures exclude title bars/borders. See [OCR resolution support and offline screenshot checks](ocr-resolutions.md).
 
+Capture continues when the game loses focus or another window covers it. Background capture uses Windows Graphics Capture and keeps the same client-area calibration. Keep the game restored in windowed or borderless mode; minimized games or games that pause rendering cannot supply new subtitle frames.
+
 See [Cyberpunk support and automatic subtitle languages](cyberpunk-support.md) for bilingual-mod compatibility, V voice selection, and the Where Winds Meet limitation.
 See [Wuthering Waves support](wuthering-support.md) for the Chinese voice-pack requirement and Rover selection, and [Witcher 3 support](witcher-support.md) for stock/dual subtitle compatibility. Both Witcher 3 and Cyberpunk work without a subtitle mod.
 See [NTE and Honkai Impact 3rd support](nte-honkai-support.md) for NTE reader setup and Honkai's limited verified catalog coverage.
