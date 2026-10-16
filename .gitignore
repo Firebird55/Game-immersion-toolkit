@@ -89,6 +89,11 @@ next-env.d.ts
 /data/transcript.db*
 /data/textmaps/
 /data/processes.json
+/data/processes.json.*
+/data/companion-runtime.json*
+/data/runtime-code/
+/data/runtime-logs/
+/data/runtime-assets/
 /install-progress.json
 /dependency-restore-progress.json
 /data/*.log
