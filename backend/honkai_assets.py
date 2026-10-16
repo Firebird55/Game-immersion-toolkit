@@ -104,13 +104,13 @@ def read_entry(path: Path, entry: PackageEntry) -> bytes:
     return data
 
 
-def bank_sources(data: bytes, bank_id: int) -> tuple[dict[int, int], dict[int, PackageEntry]]:
+def bank_sources(data: bytes, bank_id: int, *, language: str = MANDARIN) -> tuple[dict[int, int], dict[int, PackageEntry]]:
     """Wwise 135: accept one Play action targeting one language-specific sound.
 
     Reject switches, random containers, silence generators and multiple actions.
     IDs come from serialized event/action/source fields, never audio ordinals.
     """
-    if len(data) < 20 or data[:4] != b"BKHD" or struct.unpack_from("<3I", data, 8) != (135, bank_id, wwise_hash(MANDARIN)):
+    if len(data) < 20 or data[:4] != b"BKHD" or struct.unpack_from("<3I", data, 8) != (135, bank_id, wwise_hash(language)):
         raise ValueError("Unsupported Honkai Chinese voice bank")
     objects, media = {}, {}
     position, didx, data_start, data_size = 0, b"", 0, 0

@@ -73,7 +73,16 @@ try {
     $candidate=Start-CompanionSlot $Root $stage $python -Standby
     $newApi='http://127.0.0.1:'+$candidate.apiPort
     $game=''
-    try { $current=Invoke-RestMethod ($oldApi+'/api/status') -TimeoutSec 3; $game=[string]$current.capture.active_game } catch { }
+    try {
+        $current=Invoke-RestMethod ($oldApi+'/api/status') -TimeoutSec 3
+        $game=[string]$current.capture.active_game
+        if(-not $game -and $current.settings.preferred_game -and $current.settings.preferred_game -ne 'auto'){$game=[string]$current.settings.preferred_game}
+        if(-not $game){
+            $recent=@(Invoke-RestMethod ($oldApi+'/api/lines?limit=1') -TimeoutSec 3)
+            if($recent.Count -and $recent[0].game){$game=[string]$recent[0].game}
+            elseif($current.textmaps.ready){$game='zzz'}
+        }
+    } catch { }
     $query=if($game){'?game='+[uri]::EscapeDataString($game)}else{''}
     $ready=$false
     for($attempt=0;$attempt -lt ($ReadyTimeoutSeconds*2);$attempt++) {

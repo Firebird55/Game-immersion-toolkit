@@ -37,6 +37,25 @@ def fixture_service(tmp_path, channel="dialogue", mapped=True, game="zzz", text_
     return service, match, scheduled, published
 
 
+def test_new_voice_mapping_repairs_a_previously_unvoiced_saved_comic(tmp_path):
+    service, match, scheduled, published = fixture_service(tmp_path,channel='cinematic',text_id='Comic_'+'a'*32)
+    async def run():
+        saved=service.transcript.add(match,'test',channel='cinematic')
+        assert not saved.voiced and not saved.has_audio
+        finished=[]
+        assert service.repair_recorded_line(saved,completed=lambda:finished.append(True))
+        scheduled[0][2](saved.id,'official-comic-test.mp3',True)
+        await asyncio.sleep(.02)
+        repaired=service.transcript.get(saved.id)
+        assert repaired.voiced and repaired.has_audio and repaired.audio_source=='original'
+        assert published[-1].id==saved.id and published[-1].has_audio
+        assert finished==[True]
+    try:
+        asyncio.run(run())
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize("channel", ["dialogue", "gameplay", "tip", "cinematic"])
 @pytest.mark.parametrize("mapped", [True, False])
 def test_zzz_channels_capture_only_subtitles_with_game_voice_mapping(tmp_path, monkeypatch, channel, mapped):

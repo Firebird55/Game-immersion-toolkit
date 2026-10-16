@@ -37,6 +37,7 @@ CINEMATIC_ID_MARKERS = (
     "voice",
 )
 CINEMATIC_EXACT_ID_MARKERS = ("galgame",)
+CINEMATIC_ID_PREFIXES = ("cs_",)
 GAMEPLAY_ID_MARKERS = ("ongoinglevel",)
 UI_LABELS = {"talk", "outputvalue", "searchsupply", "next", "select", "confirm", "cancel"}
 GENDER_VARIANT_RE = re.compile(r"\{[MF]#(.*?)\}", re.DOTALL)
@@ -596,9 +597,9 @@ class TextMapIndex:
         # Keep the broad OCR search limited to authored comic/video content.
         # Narration can use a GalGame ID, but adding every dialogue line to
         # fuzzy/fragment searches makes full-frame OCR scans prohibitively slow.
-        return cls._is_allowed_record(record, "cinematic") and any(
+        return cls._is_allowed_record(record, "cinematic") and (any(
             marker in record.text_id.casefold() for marker in CINEMATIC_ID_MARKERS
-        )
+        ) or record.text_id.casefold().startswith(CINEMATIC_ID_PREFIXES))
 
     @classmethod
     def _is_allowed_record(cls, record: _Record, channel: str) -> bool:
@@ -625,7 +626,8 @@ class TextMapIndex:
             text_id = record.text_id.casefold()
             if "name" in text_id or "speaker" in text_id:
                 return False
-            return any(marker in text_id for marker in CINEMATIC_ID_MARKERS + CINEMATIC_EXACT_ID_MARKERS)
+            return (any(marker in text_id for marker in CINEMATIC_ID_MARKERS + CINEMATIC_EXACT_ID_MARKERS)
+                    or text_id.startswith(CINEMATIC_ID_PREFIXES))
         if channel == "gameplay":
             if "name" in text_id or "speaker" in text_id:
                 return False

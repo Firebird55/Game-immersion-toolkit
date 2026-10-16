@@ -104,7 +104,10 @@ def merge_valid_manifest_entries(previous: dict, refreshed: dict) -> dict:
             valid = (
                 stat.st_size == item["package_size"]
                 and stat.st_mtime_ns == item["package_mtime_ns"]
-                and voice_hash(item["source"]) == int(item["file_id"], 16)
+                and (voice_hash(item["source"]) == int(item["file_id"], 16)
+                     or (item.get("matched_by") == "authored_cinematic_event" and not item["source"]
+                         and re.fullmatch(r"Play_vo_[A-Za-z0-9_]+", item.get("event", ""), re.I)
+                         and 0 < int(item["file_id"], 16) <= 0xffffffff))
                 and 0 < item["size"] <= 64 * 1024 * 1024
                 and 28 <= item["offset"] < stat.st_size
                 and item["offset"] + item["size"] <= stat.st_size

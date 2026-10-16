@@ -1,5 +1,26 @@
 import {gunzipSync} from 'node:zlib';
 
+export function sceneCatalog(bytes) {
+  const data=gunzipSync(bytes,{maxOutputLength:128*1024*1024});
+  if(data.length<52)throw Error('Truncated scene catalog');
+  const assets=data.readUInt32LE(8),blocks=data.readUInt32LE(12),bundles=data.readUInt32LE(16);
+  const blocksStart=Number(data.readBigUInt64LE(28)),bundlesStart=Number(data.readBigUInt64LE(36)),end=Number(data.readBigUInt64LE(44));
+  if(data.readUInt32LE(20)!==52||blocksStart!==52+assets*12||bundlesStart!==blocksStart+blocks*9||end!==bundlesStart+bundles*28||end>data.length||bundles>2_000_000)throw Error('Unsupported scene catalog layout');
+  return{data,assets,blocks,bundles,blocksStart,bundlesStart,end};
+}
+
+export function cinematicBundleRanges(catalog) {
+  const{data,blocks,bundles,blocksStart,bundlesStart}=catalog,ranges=[];
+  for(let i=0;i<bundles;i++){
+    const p=bundlesStart+i*28,size=data.readUInt32LE(p+24);
+    // Timeline metadata is small; texture/movie payloads are never scanned.
+    if(size<=512||size>256*1024)continue;
+    const block=data.readUInt32LE(p);if(block>=blocks)throw Error('Scene block is outside catalog');
+    ranges.push({block:`Blocks/${data.readUInt32LE(blocksStart+block*9+1)}.blk`,offset:data.readUInt32LE(p+20),size});
+  }
+  return ranges;
+}
+
 // Authored scene references, independent of version-specific table field names.
 export function sceneAssetPaths(value, category) {
   if (!['galgame', 'comic'].includes(category)) throw new Error('Unknown scene category');

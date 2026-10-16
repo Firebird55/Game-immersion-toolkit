@@ -114,6 +114,7 @@ class Runtime:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
         self._updates_started = False
         self.warm_task = None
+        self.repair_task = None
         self.hub = EventHub()
         local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
@@ -167,9 +168,6 @@ class Runtime:
             game_indexes=self.game_indexes,
             game_voice_assets=self.game_voice_assets,
         )
-        if not self.standby:
-            for line in self.transcript.list(limit=50):
-                self.capture.repair_recorded_line(line)
         self.map_task: asyncio.Task[None] | None = None
         self.update_manager = BackgroundUpdateManager(
             PROJECT_ROOT, self.textmaps, self.voice_assets, self.on_update_thread
@@ -259,8 +257,34 @@ class Runtime:
         self._updates_started = True
         self.update_manager.start()
         self.index_task = asyncio.create_task(self.start_indexes_in_order(), name='voice-index-coordinator')
+        self.start_audio_repair()
+
+    def start_audio_repair(self) -> None:
+        if self.standby or not self._updates_started or (self.repair_task and not self.repair_task.done()):
+            return
+        self.repair_task = asyncio.create_task(self.repair_recent_audio(), name='repair-original-voices')
+
+    async def repair_recent_audio(self) -> None:
+        # One historical request at a time leaves decoding capacity available
+        # for the game. Newly discovered comic mappings repair existing rows.
+        loop = asyncio.get_running_loop()
+        for line in self.transcript.list(limit=50):
+            ready = asyncio.Event()
+            if self.capture.repair_recorded_line(line, completed=lambda: loop.call_soon_threadsafe(ready.set)):
+                try:
+                    await asyncio.wait_for(ready.wait(), 45)
+                except asyncio.TimeoutError:
+                    return
 
     async def stop_updates(self) -> None:
+        self._updates_started = False
+        if self.repair_task:
+            self.repair_task.cancel()
+            try:
+                await self.repair_task
+            except asyncio.CancelledError:
+                pass
+            self.repair_task = None
         if self.index_task:
             self.index_task.cancel()
             try:
@@ -287,6 +311,8 @@ class Runtime:
             self.hub.broadcast({"type": "update_status", "updates": self.update_status()}),
             self.event_loop,
         )
+        if update.get('state') in {'ready', 'idle'}:
+            self.event_loop.call_soon_threadsafe(self.start_audio_repair)
 
     async def on_delete(self, line_id: int) -> None:
         await self.hub.broadcast({"type": "line_deleted", "line_id": line_id})
@@ -391,20 +417,12 @@ async def lifespan(_app: FastAPI):
             except (Exception, asyncio.CancelledError):
                 pass
         runtime.mobile_exports.cancel()
-        if runtime.index_task:
-            runtime.index_task.cancel()
-            try:
-                await runtime.index_task
-            except asyncio.CancelledError:
-                pass
+        runtime.standby = True
+        await runtime.stop_updates()
         await runtime.capture.close()
         await asyncio.to_thread(runtime.hito.close)
-        await asyncio.to_thread(runtime.update_manager.close)
-        await asyncio.to_thread(runtime.pragmata_updater.close)
         runtime.voice_assets.close()
         runtime.pragmata_voice_assets.close()
-        for updater in runtime.game_updaters.values():
-            await asyncio.to_thread(updater.close)
         for voices in runtime.game_voice_assets.values():
             voices.close()
         if runtime.map_task and not runtime.map_task.done():

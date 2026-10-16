@@ -31,6 +31,17 @@ These are installation-specific
 counts, not evidence that every comic presentation passes OCR or that all future
 chapters are supported. Existing capture calibration is preserved.
 
+Animated ZZZ scenes also use `CS_` subtitles and separate audio timelines. The
+importer follows each typed Mandarin (`CH`) voice track to its authored subtitle
+ID and Wwise event, then follows that event's declared bank references to the
+original media. This includes media stored in a different bank from the event.
+Other languages, ambiguous branches and unsupported timeline edits are skipped.
+The reported comic bubble and animated-scene sentence both decoded from the
+installed Mandarin packages. No speaker/headset recording fallback is used.
+The first timeline scan runs in a background process; unchanged catalogs reuse
+its complete local cache. Newly discovered mappings also repair recent saved
+comic entries so their original audio becomes playable.
+
 Cyberpunk users select the main game installation, with Phantom Liberty installed
 under that same installation. Install its Simplified Chinese language/voice pack
 through the game launcher as well, then refresh. Setup reports whether the DLC

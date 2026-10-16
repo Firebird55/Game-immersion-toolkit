@@ -271,3 +271,16 @@ def test_centered_dialogue_uses_exact_matches_without_widening_cinematic_fuzzy_s
     assert normalize_english(narration) not in index._cinematic_choices
     assert '听证会即将开始请欢迎下一位嘉宾' not in index._chinese_lookup._choices['cinematic']
     assert index.match_text('The hearing begins soon. Welcome the next guest.', channel='cinematic') is None
+
+
+def test_authored_cs_subtitles_are_eligible_in_the_cinematic_region(tmp_path):
+    import json
+    index = TextMapIndex(tmp_path/'textmaps')
+    index.data_dir.mkdir()
+    for name, rows in {'en_base':{'CS_Synthetic_01':'A signal from the station?'},
+                       'zh_base':{'CS_Synthetic_01':'信号来自车站？'},'en_overwrite':{},'zh_overwrite':{}}.items():
+        index.file_path(name).write_text(json.dumps(rows,ensure_ascii=False),encoding='utf-8')
+    index.load()
+    for text in ['A signal from the station?','信号来自车站？']:
+        assert index.match_text(text,channel='cinematic').text_id=='CS_Synthetic_01'
+    assert index.is_capture_text('CS_Synthetic_01','A signal from the station?','cinematic')

@@ -17,6 +17,8 @@ def main():
     parser.add_argument("--links", type=Path, required=True)
     parser.add_argument("--prefixes", type=Path, required=True)
     parser.add_argument("--decoder-dir", type=Path, required=True)
+    parser.add_argument("--cinematic-links", type=Path)
+    parser.add_argument("--audio-resource", type=Path)
     args = parser.parse_args()
     project = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
     output = project / "data/voice-assets"
@@ -25,6 +27,11 @@ def main():
     links = json.loads(args.links.read_text(encoding="utf-8"))
     prefixes = json.loads(args.prefixes.read_text(encoding="utf-8"))["allPrefixes"]
     resolved = resolve_links(links, prefixes, entries)
+    if args.cinematic_links and args.audio_resource:
+        from backend.zzz_cinematics import resolve_cinematic_links
+        resolved.update(resolve_cinematic_links(
+            json.loads(args.cinematic_links.read_text(encoding="utf-8")), args.game_data,
+            json.loads(args.audio_resource.read_text(encoding="utf-8"))))
     stats = {}
     for record in resolved.values():
         package = record["package"]

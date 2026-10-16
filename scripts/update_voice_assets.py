@@ -139,7 +139,8 @@ def main() -> None:
     reader = tools / "galgame-perform.ts"
     ongoing_config = tools / "OngoingTipsConfigTemplateTb.json"
     state_path = root / "data/voice-assets/full-index-state.json"
-    required = [template, prefixes, reader, ongoing_config, decoder / "vgmstream-cli.exe"]
+    audio_resource = tools / "AudioResourceData.json"
+    required = [template, prefixes, reader, ongoing_config, audio_resource, decoder / "vgmstream-cli.exe"]
     game_data = discover_game_data(root)
     if game_data is None or not all(path.exists() for path in required) or not shutil.which("node"):
         print("Full voice refresh skipped; installed game files or indexing tools are unavailable. The last local manifest remains active.")
@@ -154,7 +155,7 @@ def main() -> None:
     except (OSError, ValueError):
         previous = {}
     manifest = root / "data/voice-assets/manifest.json"
-    if previous.get("version") == 5 and previous.get("inventory") == current and manifest.exists():
+    if previous.get("version") == 6 and previous.get("inventory") == current and manifest.exists():
         print("Full local voice manifest is already current.")
         return
 
@@ -195,14 +196,18 @@ def main() -> None:
             combined_links.append(link)
     combined_path = tools / "scene-links.json"
     atomic_json(combined_path, combined_links)
+    subprocess.run(["node", str(code / "scripts/extract_cinematic_links.mjs"),
+                    str(game_data), str(tools)], **options)
     subprocess.run([
         sys.executable, "-m", "scripts.index_voice_assets",
         "--game-data", str(game_data),
         "--links", str(tools / "scene-links.json"),
         "--prefixes", str(prefixes),
         "--decoder-dir", str(decoder),
+        "--cinematic-links", str(tools / "scene-links-cinematic.json"),
+        "--audio-resource", str(audio_resource),
     ], **options)
-    atomic_json(state_path, {"version": 5, "inventory": inventory(game_data, sources)})
+    atomic_json(state_path, {"version": 6, "inventory": inventory(game_data, sources)})
     total = len(json.loads(manifest.read_text(encoding="utf-8"))["entries"])
     print(f"Full local Mandarin voice manifest ready: {total:,} exact lines.")
 

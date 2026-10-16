@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from .game_paths import discover_install
 from .game_assets import asset_adapter, LOCAL_GAMES
-from .update_workers import INDEX_BUILD_LOCK, subprocess_options
+from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
 
 
 class LocalGameUpdateManager:
@@ -122,8 +122,7 @@ class LocalGameUpdateManager:
         self._stop.set()
         self._wake.set()
         process = self._process
-        if process and process.poll() is None:
-            process.terminate()
+        stop_process(process)
         if self._thread:
             self._thread.join(timeout=2)
 

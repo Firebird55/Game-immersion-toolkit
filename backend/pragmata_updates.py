@@ -10,7 +10,7 @@ from typing import Callable
 
 from .pragmata import PragmataTextIndex
 from .pragmata_audio import INDEX_FORMAT, PragmataVoiceAssetService
-from .update_workers import INDEX_BUILD_LOCK, subprocess_options
+from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
 
 
 class PragmataUpdateManager:
@@ -30,6 +30,7 @@ class PragmataUpdateManager:
         self.on_update = on_update
         self.interval = interval
         self._thread: threading.Thread | None = None
+        self._process = None
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._wake = threading.Event()
@@ -65,6 +66,7 @@ class PragmataUpdateManager:
     def close(self) -> None:
         self._stop.set()
         self._wake.set()
+        stop_process(self._process)
         if self._thread:
             self._thread.join(timeout=2)
 
@@ -120,10 +122,16 @@ class PragmataUpdateManager:
             with INDEX_BUILD_LOCK:
                 if self._stop.is_set():
                     return
-                result = subprocess.run(command, cwd=self.project_root, capture_output=True, text=True,
-                                        **subprocess_options())
-            if result.returncode:
-                raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+                process = subprocess.Popen(command, cwd=self.project_root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                           text=True, **subprocess_options())
+                self._process = process
+                try:
+                    output, error = process.communicate(timeout=1800)
+                finally:
+                    stop_process(process)
+                    self._process = None
+            if process.returncode:
+                raise RuntimeError(error.strip() or output.strip())
             if not self.index.load():
                 raise RuntimeError(self.index.message)
             self.voice_assets.reload()

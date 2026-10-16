@@ -1233,16 +1233,26 @@ class CaptureService:
             self._remove_audio_file(previous)
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
 
-    def repair_recorded_line(self, line: TranscriptLine) -> bool:
+    def repair_recorded_line(self, line: TranscriptLine, *, completed: Callable[[], None] | None = None) -> bool:
         assets = self._assets_for(line.game)
-        if not assets or not line.voiced or (line.audio_source == "original" and line.has_audio):
+        if not assets or (not line.voiced and not line.is_comic) or (line.audio_source == "original" and line.has_audio):
             return False
         if not assets.has_variant(line.text_id, line.english):
             return False
+        try:
+            self._event_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        if not line.voiced:
+            self.transcript.update_audio(line.id, None, True)
 
         def ready(line_id: int, audio_path: str | None, voiced: bool) -> None:
-            if voiced and audio_path:
-                self._story_original_ready(line_id, line.text_id, audio_path)
+            try:
+                if voiced and audio_path:
+                    self._story_original_ready(line_id, line.text_id, audio_path)
+            finally:
+                if completed:
+                    completed()
 
         return assets.schedule(line.text_id, line.id, ready, line.english)
 

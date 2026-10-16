@@ -8,6 +8,17 @@ import threading
 INDEX_BUILD_LOCK = threading.Lock()
 
 
+def stop_process(process) -> None:
+    if process is None or process.poll() is not None:
+        return
+    if os.name == 'nt':
+        subprocess.run(['taskkill.exe', '/PID', str(process.pid), '/T', '/F'],
+                       capture_output=True, timeout=10,
+                       creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    else:
+        process.terminate()
+
+
 def subprocess_options() -> dict:
     environment = dict(os.environ)
     for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS'):

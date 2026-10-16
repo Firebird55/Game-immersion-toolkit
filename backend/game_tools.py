@@ -20,6 +20,7 @@ READER_SHA = "176491a567b6152f5031b71ea7d742dba3228462d404a6abf03c2242c6ca2731"
 METADATA_BASE = "https://git.mero.moe/dimbreath/ZenlessData/raw/branch/master/"
 METADATA_FILES = {"PerformTemplateTb.json": "FileCfg/PerformTemplateTb.json",
                   "OngoingTipsConfigTemplateTb.json": "FileCfg/OngoingTipsConfigTemplateTb.json",
+                  "AudioResourceData.json": "Data/JsonBytes/Audio/AudioResourceData.json",
                   "VoiceData.json": "Data/_unsorted/VoiceData.json"}
 
 

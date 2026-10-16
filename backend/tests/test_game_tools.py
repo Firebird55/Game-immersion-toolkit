@@ -50,6 +50,7 @@ def test_unsafe_or_corrupt_tool_download_cannot_replace_working_tool(tmp_path, m
 
 def test_metadata_refresh_validates_entire_download_and_preserves_unchanged_times(tmp_path, monkeypatch):
     data = {"PerformTemplateTb.json": {"rows": [1]}, "OngoingTipsConfigTemplateTb.json": {"rows": [2]},
+            "AudioResourceData.json": {"eventReferenceBanks": [1, 2, 0]},
             "VoiceData.json": {"allPrefixes": ["synthetic/"]}}
     def download(url):
         return json.dumps(data[url.rsplit("/", 1)[1]]).encode()

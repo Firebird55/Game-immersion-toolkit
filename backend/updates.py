@@ -12,7 +12,7 @@ from typing import Callable
 
 from .textmaps import TextMapIndex
 from .voice_assets import VoiceAssetService
-from .update_workers import INDEX_BUILD_LOCK, subprocess_options
+from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
 
 
 class BackgroundUpdateManager:
@@ -57,8 +57,7 @@ class BackgroundUpdateManager:
     def close(self) -> None:
         self._stop.set()
         self._wake.set()
-        if self._process and self._process.poll() is None:
-            self._process.terminate()
+        stop_process(self._process)
         if self._thread:
             self._thread.join(timeout=5)
 
@@ -91,18 +90,20 @@ class BackgroundUpdateManager:
         if self.publish:
             self.publish(self.status())
 
-    @staticmethod
-    def _run_command(arguments: list[str], *, cwd: Path, timeout: int = 900) -> str:
-        completed = subprocess.run(
-            arguments,
-            cwd=cwd,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            **subprocess_options(),
-        )
-        return (completed.stdout or completed.stderr).strip()
+    def _run_command(self, arguments: list[str], *, cwd: Path, timeout: int = 900) -> str:
+        if self._stop.is_set():
+            raise RuntimeError('Background update stopped')
+        process = subprocess.Popen(arguments, cwd=cwd, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True, **subprocess_options())
+        self._process = process
+        try:
+            output, error = process.communicate(timeout=timeout)
+            if process.returncode:
+                raise RuntimeError(error.strip() or output.strip() or 'Background update stopped')
+            return (output or error).strip()
+        finally:
+            stop_process(process)
+            self._process = None
 
     def _read_state(self) -> dict:
         try:
@@ -148,9 +149,8 @@ class BackgroundUpdateManager:
             after = self._run_command([*git, "rev-parse", "HEAD"], cwd=repository, timeout=30)
 
         copied = False
-        sources = {"PerformTemplateTb.json": "FileCfg/PerformTemplateTb.json",
-                   "OngoingTipsConfigTemplateTb.json": "FileCfg/OngoingTipsConfigTemplateTb.json",
-                   "VoiceData.json": "Data/_unsorted/VoiceData.json"}
+        from .game_tools import METADATA_FILES
+        sources = METADATA_FILES
         for name, relative in sources.items():
             destination = self.project_root / "work/voice-assets" / name
             if dirty:
@@ -180,7 +180,10 @@ class BackgroundUpdateManager:
         if installed is None:
             self._set("waiting", "Choose your installed ZZZ folder in Setup; saved transcripts remain available", 100)
             return
-        from .game_tools import missing_tools
+        from .game_tools import METADATA_FILES, missing_tools, refresh_zzz_metadata
+        missing = missing_tools(self.project_root, "zzz")
+        if missing and set(missing) <= METADATA_FILES.keys():
+            refresh_zzz_metadata(self.project_root)
         if missing_tools(self.project_root, "zzz"):
             self._set("waiting", "Install ZZZ game tools in Setup to prepare original voices", 100)
             return
