@@ -14,8 +14,9 @@ from .textmaps import display_text
 
 
 def candidates(lines):
-    rows = [display_text(part) for line in lines for part in re.split(r'\s*[~～]\s*|(?<=[.!?。！？])\s+(?=[^\W\d_])|(?<=[。！？])\s*(?=[A-Za-z])|(?<=[.!?])\s*(?=[\u3400-\u9fff])', line) if display_text(part)]
-    values = []
+    cleaned = [display_text(line) for line in lines if display_text(line)]
+    rows = [display_text(part) for line in cleaned for part in re.split(r'\s*[~～]\s*|(?<=[.!?。！？])\s+(?=[^\W\d_])|(?<=[。！？])\s*(?=[A-Za-z])|(?<=[.!?])\s*(?=[\u3400-\u9fff])', line) if display_text(part)]
+    values = [' '.join(cleaned)] if cleaned else []
     for first in range(len(rows)):
         for last in range(first + 1, min(len(rows), first + 8) + 1):
             value = ' '.join(rows[first:last])
@@ -35,7 +36,7 @@ class MultilingualTextIndex:
         self.entry_count = self.audio_count = 0
         self.message, self.state = 'Prepare this game language in Setup', 'not_ready'
         self.lock = threading.RLock()
-        self._records, self._lookup = [], {}
+        self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._signature = None
         self.load()
 
@@ -50,7 +51,7 @@ class MultilingualTextIndex:
                 raise ValueError('Unsupported game language snapshot')
             locale = payload['source_locale']
             study_language(locale)
-            lookup = {}
+            lookup, context_pairs = {}, {}
             for row in payload['records']:
                 if row.get('source_locale') != locale or not isinstance(row.get('source_text'), str) or not row['source_text']:
                     raise ValueError('Incomplete game study text')
@@ -65,8 +66,18 @@ class MultilingualTextIndex:
                         key = normalize_text(display_text(value), language)
                         if len(key) >= 2:
                             lookup.setdefault(language, {}).setdefault(key, []).append(row)
+                    if row.get('member_text_ids') and (anchors := row.get('ocr_texts', {}).get(language)):
+                        last = anchors[0]
+                        if last and text.endswith(' ' + last):
+                            first = text[:-len(last)-1]
+                            pair = (language, normalize_text(first, language), normalize_text(last, language))
+                            context_pairs.setdefault(pair, []).append(row)
             with self.lock:
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
+                self._context_pairs = context_pairs
+                self._context_firsts = {}
+                for language, first, _ in context_pairs:
+                    self._context_firsts.setdefault(language, set()).add(first)
                 self.entry_count = len(payload['records'])
                 self.audio_count = sum(bool(r.get('audio')) for r in self._records)
                 self.ready = True
@@ -83,7 +94,7 @@ class MultilingualTextIndex:
                 'entry_count': self.entry_count, 'audio_count': self.audio_count, 'source_locale': self.source_locale}
 
     def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue'):
-        hits = []
+        hits, ambiguous = [], []
         with self.lock:
             for source in candidates(lines):
                 for locale, lookup in self._lookup.items():
@@ -93,10 +104,14 @@ class MultilingualTextIndex:
                         matches = process.extract(key, lookup.keys(), scorer=fuzz.ratio, score_cutoff=max(88, threshold), limit=2)
                         if matches and (len(matches) == 1 or matches[1][1] < matches[0][1] - 2):
                             rows, score = lookup[matches[0][0]], matches[0][1]
+                        elif matches:
+                            ambiguous.append(source)
                     rows = [r for r in rows if (not r.get('player_voice') or r['player_voice'] == self.player_voice)
                             and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
                     identities = {(json.dumps(r.get('audio'), sort_keys=True), r['source_text']) for r in rows}
                     if len(identities) != 1:
+                        if len(identities) > 1:
+                            ambiguous.append(source)
                         continue
                     row = rows[0]
                     target = resolve_locale(self.target_locale, row['texts'])
@@ -109,10 +124,43 @@ class MultilingualTextIndex:
         if not hits:
             return None
         best = max(hits, key=lambda hit: (hit.score, len(normalize_text(hit.source_ocr))))
+        key = normalize_text(best.source_ocr, 'zh-Hans')
+        longer = [hit for hit in hits if hit.score >= max(92, threshold)
+                  and len(normalize_text(hit.source_ocr, 'zh-Hans')) >= max(len(key) * 1.5, len(key) + 8)
+                  and key in normalize_text(hit.source_ocr, 'zh-Hans')]
+        if longer:
+            best = max(longer, key=lambda hit: (len(normalize_text(hit.source_ocr)), hit.score))
+        key = normalize_text(best.source_ocr, 'zh-Hans')
+        if any(len(normalize_text(text, 'zh-Hans')) >= len(key)
+               and key in normalize_text(text, 'zh-Hans') for text in ambiguous):
+            return None
         peers = [hit for hit in hits if hit.score == best.score and len(normalize_text(hit.source_ocr)) == len(normalize_text(best.source_ocr))]
         if len({hit.text_id for hit in peers}) != 1:
             return None
         return best
+
+    def context_fragments(self, lines):
+        """Recognize an observed first cue without choosing its performance."""
+        result = set()
+        with self.lock:
+            for text in candidates(lines):
+                for locale, firsts in self._context_firsts.items():
+                    key = normalize_text(text, locale)
+                    if key in firsts:
+                        result.add((locale, key))
+        return tuple(sorted(result))
+
+    def match_context(self, previous, lines):
+        """Resolve two exact observed cues only through an authored context pair."""
+        hits = {}
+        with self.lock:
+            for text in candidates(lines):
+                for locale, first in previous:
+                    for row in self._context_pairs.get((locale, first, normalize_text(text, locale)), []):
+                        hit = self.match_lines([row['texts'][locale]], exact_only=True)
+                        if hit and hit.text_id == row['text_id']:
+                            hits[hit.text_id] = hit.model_copy(update={'source_ocr': first + ' ' + text})
+        return next(iter(hits.values())) if len(hits) == 1 else None
 
     def match_line_groups(self, groups, threshold=88, channel='cinematic'):
         result = {}

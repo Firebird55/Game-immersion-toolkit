@@ -63,3 +63,18 @@ def test_cadence_expectations_cannot_silently_weaken_negative_annotations():
         replay.validate_clip({'game':'nte','duration':2,'expect_no_lines':True,'expected_by_fps':{'4':['nte:a']}})
     with pytest.raises(ValueError, match='FPS'):
         replay.validate_clip({'game':'nte','duration':2,'expected':['nte:a'],'expected_by_fps':{'8':['nte:a']}})
+
+
+def test_authored_context_preserves_independently_annotated_cue_identities():
+    context = 'beyond:SCENE:context-100-900'
+    members = ['beyond:SCENE:1', 'beyond:SCENE:2']
+    coverage = replay.authored_coverage([{'text_id': context, 'member_text_ids': members}])
+    lines = [SimpleNamespace(id=1, text_id=context, channel='dialogue')]
+    clip = {'name': 'Context', 'expected': members, 'expected_exact': True}
+    assert replay.validate_result(clip, lines, lines, {context}, coverage=coverage) == set(members)
+    with pytest.raises(AssertionError, match='unexpected'):
+        replay.validate_result({**clip, 'expected': members[:1]}, lines, lines, {context}, coverage=coverage)
+    with pytest.raises(ValueError, match='context members'):
+        replay.authored_coverage([{'text_id': context, 'member_text_ids': [members[0], 'beyond:OTHER:2']}])
+    with pytest.raises(ValueError, match='context members'):
+        replay.authored_coverage([{'text_id': context, 'member_text_ids': [{}, members[1]]}])

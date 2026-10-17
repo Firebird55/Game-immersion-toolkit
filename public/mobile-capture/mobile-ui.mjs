@@ -7,6 +7,7 @@ const reader=new Worker(new URL('./library-worker.mjs',import.meta.url),{type:'m
 let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, streamState=null, stable=null, emitted=new Map(), samples=[];
 let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,lastMediaTime=-1;
 let scanCompletion=Promise.resolve(),voiceBusy=false;
+let captionContext={epoch:-1,entries:[],candidate:null,count:0};
 reader.onmessage=({data})=>{const request=pending.get(data.id);if(!request)return;if(data.progress!=null||data.stage){if(request.selection===selection)text('library-status',data.stage??`Reading ${data.progress.toLocaleString()} verified dialogue rows…`);return;}pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
 reader.onerror=()=>{for(const request of pending.values())request.reject(new Error('Library worker unavailable. Reopen the files.'));pending.clear();};
 function request(action,body={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject,selection});reader.postMessage({id,action,...body});});}
@@ -112,7 +113,17 @@ async function scan(){
    const image=cropFrame(region.crop);
    const recognized=await recognizeRegion(engine,image,region,$('ocr-language').value,()=>token===epoch);if(token!==epoch)return;if(!recognized)continue;
    const parsed=candidates(recognized,region,image.width,image.height,currentGame());if(region.channel==='dialogue')dialogueMenu=parsed.menu;
-   const match=await request('match-candidates',{values:parsed.values,channel:region.channel,player:$('player-voice').value,fragment:region.fragment});if(token!==epoch)return;
+   let match=await request('match-candidates',{values:parsed.values,channel:region.channel,player:$('player-voice').value,fragment:region.fragment});if(token!==epoch)return;
+   if(currentGame()==='beyond'&&region.channel==='dialogue'){
+    if(captionContext.epoch!==token||parsed.menu)captionContext={epoch:token,entries:[],candidate:null,count:0};
+    const stamp=performance.now();captionContext.entries=captionContext.entries.filter(item=>stamp-item.time<=12000);
+    if(!parsed.menu){
+     if(match.state!=='matched'&&captionContext.entries.length){const contextual=await request('match-context',{previous:[...new Set(captionContext.entries.flatMap(item=>item.values))],values:parsed.values,channel:region.channel,player:$('player-voice').value});if(token!==epoch)return;if(contextual.state==='matched')match=contextual;}
+     const fragments=await request('context-fragments',{values:parsed.values});if(token!==epoch)return;const key=JSON.stringify(fragments);
+     captionContext.count=fragments.length&&captionContext.candidate===key?captionContext.count+1:fragments.length?1:0;captionContext.candidate=fragments.length?key:null;
+     if(captionContext.count>=2){captionContext.entries=captionContext.entries.filter(item=>JSON.stringify(item.values)!==key);captionContext.entries.push({time:stamp,values:fragments});captionContext.entries=captionContext.entries.slice(-8);}
+    }
+   }
    if(match.state==='ambiguous')ambiguous=true;
    if(match.state==='matched')accepted={...match,channel:region.channel};
    if(accepted)break;

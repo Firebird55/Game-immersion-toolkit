@@ -110,3 +110,21 @@ def test_stale_account_requests_cannot_read_or_write_with_new_credentials(tmp_pa
             headers={'X-Proxy-Transcript-Account': first['id'], 'X-Proxy-Transcript': 'lexirise'})
         assert response.status_code == 409
     assert client.post('/api/lexirise/accounts/select', json={'id': first['id']}).status_code == 403
+
+
+def test_account_selection_invalidates_a_pending_native_scan(tmp_path, monkeypatch):
+    from backend import api
+    store, _ = profile_store(tmp_path)
+    first = store.add('lx_first_fixture_credential_only')
+    store.add('lx_second_fixture_credential_only')
+    events = []
+    async def broadcast(event):
+        events.append(event)
+    capture = SimpleNamespace(_scan_epoch=7)
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(accounts=store, capture=capture,
+        hub=SimpleNamespace(broadcast=broadcast)), raising=False)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8766')
+    response = client.post('/api/lexirise/accounts/select', json={'id': first['id']},
+                           headers={'X-Proxy-Transcript': 'lexirise'})
+    assert response.status_code == 200 and capture._scan_epoch == 8
+    assert events == [{'type': 'account_changed', 'account': first['id']}]

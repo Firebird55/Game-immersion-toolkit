@@ -222,6 +222,9 @@ def test_unprepared_language_blocks_capture_before_ocr_but_allows_preview(monkey
     service._scan_index = 0
     service._tracker = StableMatchTracker(2)
     service.language_setup = lambda game: False
+    service.snapshot = lambda: SimpleNamespace(active_game=None)
+    service._caption_context = []
+    service._caption_context_tracker = StableMatchTracker(2)
     status = []
     service._update_snapshot = lambda **values: status.append(values)
     service._prepare_window_capture = lambda _: None

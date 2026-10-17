@@ -127,17 +127,22 @@ class CaptureService:
         self._visual_novel_layout = False
         self._visible_text_by_channel: dict[str, tuple[float, list[str]]] = {}
         self._local_chatter_trackers: dict[str, tuple[StableMatchTracker, float]] = {}
+        self._caption_context_scope = None
+        self._caption_context = []
+        self._caption_context_tracker = StableMatchTracker()
 
     def snapshot(self) -> CaptureSnapshot:
         with self._snapshot_lock:
             return self._snapshot.model_copy(deep=True)
 
     def _update_snapshot(self, **changes: object) -> CaptureSnapshot:
-        if changes.get("phase") in {"stopped", "starting", "error", "waiting_for_game", "excluded_screen"}:
+        if changes.get("phase") in {"stopped", "starting", "error", "waiting_for_game", "excluded_screen", "needs_language_setup"}:
             self._visible_text_by_channel.clear()
             for key in self._local_chatter_trackers:
                 self._visible_match_started.pop(key, None)
             self._local_chatter_trackers.clear()
+            self._caption_context.clear()
+            self._caption_context_tracker = StableMatchTracker()
             changes["visible_text_ids"] = []
         with self._snapshot_lock:
             self._snapshot = self._snapshot.model_copy(update=changes)
@@ -321,6 +326,10 @@ class CaptureService:
 
         profile, window = active
         language_setup = getattr(self, 'language_setup', None)
+        if profile.id != self.snapshot().active_game:
+            self._caption_context.clear()
+            self._caption_context_tracker = StableMatchTracker()
+            self._caption_context_scope = None
         if language_setup is not None and not language_setup(profile.id):
             self._tracker.observe(None)
             self._update_snapshot(running=True, active_game=profile.id, phase='needs_language_setup',
@@ -709,9 +718,21 @@ class CaptureService:
 
         settings = self.settings.get()
         match = index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold), exact_only=True) if game in {"nte", "honkai3"} else index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold))
+        monotonic_now = time.monotonic()
+        if hasattr(index, 'context_fragments') and not main_response.get('dialogue_menu'):
+            contextual = self._authored_caption_context(index, lines, monotonic_now,
+                (epoch, game, window.handle, window.bounds, crop_bounds, index.source_locale, index.target_locale,
+                 getattr(index, '_signature', None), getattr(self, 'context_scope', lambda: None)()),
+                settings.stable_frames)
+            if match is None:
+                match = contextual
+        elif main_response.get('dialogue_menu'):
+            self._caption_context.clear()
+            self._caption_context_tracker = StableMatchTracker()
+        if epoch != self._scan_epoch:
+            return _ScanOutcome([])
         if not self._mapped_voice(match):
             match = None
-        monotonic_now = time.monotonic()
         self._observe_visible_matches(game, [match.text_id] if match else [], monotonic_now)
         emitted: list[TranscriptLine] = []
         match_score = match.score if match else None
@@ -770,6 +791,23 @@ class CaptureService:
                                                         dialogue_menu=bool(main_response.get("dialogue_menu")),
                                                         presentation="cinematic"))
         return _ScanOutcome(emitted_lines=emitted)
+
+    def _authored_caption_context(self, index, lines, now, scope, stable_frames):
+        if scope != self._caption_context_scope:
+            self._caption_context_scope = scope
+            self._caption_context.clear()
+            self._caption_context_tracker = StableMatchTracker()
+        self._caption_context = [(when, tokens) for when, tokens in self._caption_context if now - when <= 12]
+        previous = {token for _, tokens in self._caption_context for token in tokens}
+        match = index.match_context(previous, lines) if previous else None
+        tokens = index.context_fragments(lines)
+        self._caption_context_tracker.configure(stable_frames)
+        self._caption_context_tracker.observe(repr(tokens) if tokens else None)
+        if tokens and self._caption_context_tracker.count >= self._caption_context_tracker.required_frames:
+            self._caption_context = [(when, value) for when, value in self._caption_context if value != tokens]
+            self._caption_context.append((now, tokens))
+            self._caption_context = self._caption_context[-8:]
+        return match
 
     @staticmethod
     def _local_subtitle_rows(response: dict, size: tuple[int, int],

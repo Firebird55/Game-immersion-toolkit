@@ -10,10 +10,10 @@ import wave
 from pathlib import Path
 
 from . import quantic_assets as q
-from .languages import GAME_LOCALES, resolve_locale
+from .languages import GAME_LOCALES, normalize_text, resolve_locale
 from .media_tools import ffmpeg_executable
 
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = GAME_LOCALES['beyond']
 TEXT_LOCALES = dict(zip(('fr','en','de','it','es-ES','nl','pt-PT','sv','da','no','fi','ru','pl','ja','ko','zh-Hant','el','cs','hu','hr','es-419','pt-BR','tr','zh-Hans'),
                        ('FRE','ENG','GER','ITA','SPA','DUT','POR','SWE','DAN','NOR','FIN','RUS','POL','JAP','KOR','CHI','GRE','CZE','HUN','CRO','MEX','BRA','TUR','CHS')))
@@ -45,6 +45,78 @@ def cues(text):
                 raise ValueError('Ambiguous official subtitle cue identity')
             result[identity] = value
     return result
+
+
+def group_short_cues(records):
+    """Collect ambiguous fragments with a following, uniquely authored cue.
+
+    Both cues must use one paragraph and one original performance. Only the
+    final cue is an OCR anchor: the earlier fragment alone cannot select a
+    performance, and cannot publish speech that has not appeared yet.
+    """
+    import json
+    choices, anchors, paragraphs, global_rows, global_choices = {}, {}, {}, {}, {}
+    for row in records:
+        values = {(locale, normalize_text(text, locale)) for locale, text in row['texts'].items()}
+        values.update((locale, normalize_text(text, locale))
+                      for locale, texts in row.get('ocr_texts', {}).items() for text in texts)
+        values = {(locale, text) for locale, text in values if len(text) >= 2}
+        anchors[row['text_id']] = values
+        for key in values:
+            identity = (json.dumps(row['audio'], sort_keys=True), row['source_text'])
+            choices.setdefault(key, set()).add(identity)
+            global_rows.setdefault(key[1], set()).add(row['text_id'])
+            global_choices.setdefault(key[1], set()).add(identity)
+        audio = row['audio']
+        paragraph = re.fullmatch(r'beyond:([A-Za-z0-9_]+):(?:\d+|TC:\d+\|\d+)', row['text_id'])
+        if paragraph and type(audio.get('start_ms')) is int and type(audio.get('end_ms')) is int:
+            performance = {key: value for key, value in audio.items() if key not in {'start_ms', 'end_ms'}}
+            key = (paragraph[1], json.dumps(performance, sort_keys=True), row.get('player_voice'))
+            paragraphs.setdefault(key, []).append(row)
+    replaced, used = {}, set()
+    for (paragraph, _, _), rows in paragraphs.items():
+        rows.sort(key=lambda row: row['audio']['start_ms'])
+        for first, following in zip(rows, rows[1:]):
+            if first['text_id'] in used or following['text_id'] in used:
+                continue
+            values = anchors[first['text_id']]
+            # Keep fragments that can already identify their own performance
+            # separate. Otherwise a later context record would repeat them.
+            if not values or any(len(text) > 24 or len(choices[(locale, text)]) == 1 for locale, text in values):
+                continue
+            ambiguous = {locale for locale, _ in values}
+            if any(len(global_choices[text]) == 1 and len(global_rows[text]) > 1
+                   for _, text in anchors[following['text_id']]):
+                continue
+            if not any(locale in ambiguous and len(choices[(locale, text)]) == 1
+                       for locale, text in anchors[following['text_id']]):
+                continue
+            start, end = first['audio']['start_ms'], following['audio']['end_ms']
+            if not first['audio']['end_ms'] <= following['audio']['start_ms'] <= first['audio']['end_ms'] + 12000:
+                continue
+            if first.get('channels') != following.get('channels') or first['source_locale'] != following['source_locale']:
+                continue
+            if not following['texts'].keys() <= first['texts'].keys():
+                continue
+            locales = first['texts'].keys() & following['texts'].keys()
+            texts = {locale: first['texts'][locale] + ' ' + following['texts'][locale] for locale in locales}
+            source = first['source_locale']
+            if source not in texts or len(texts[source]) > 2000:
+                continue
+            if any(normalize_text(text, locale) in global_rows for locale, text in texts.items()):
+                continue
+            row = {**first, 'text_id': f'beyond:{paragraph}:context-{start}-{end}',
+                   'source_text': texts[source], 'texts': texts,
+                   'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
+                   'audio': {**first['audio'], 'start_ms': start, 'end_ms': end},
+                   'member_text_ids': [first['text_id'], following['text_id']],
+                   'ocr_texts': {locale: list(dict.fromkeys([following['texts'][locale],
+                       *following.get('ocr_texts', {}).get(locale, [])])) for locale in locales}}
+            replaced[following['text_id']] = row
+            used.update((first['text_id'], following['text_id']))
+    # Retain the original short cues in the lookup. Removing them would make
+    # an identical fragment in a different performance falsely look unique.
+    return [replaced.get(row['text_id'], row) for row in records]
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _: None):
@@ -150,6 +222,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                         records.append(row); seen[text_id] = row
     if not records or fingerprint(install) != stamp:
         raise ValueError('BEYOND game files changed or dialogue was incomplete; previous table retained.')
+    records = group_short_cues(records)
+    diagnostics['context_groups'] = sum(bool(row.get('member_text_ids')) for row in records)
     return {'format': 2, 'game': 'beyond', 'source_locale': source_locale, 'install': str(install),
             'fingerprint': stamp, 'records': records, 'diagnostics': diagnostics,
             'missing_translation_locales': [target for target, locale in targets.items() if locale is None],

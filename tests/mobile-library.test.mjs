@@ -26,6 +26,29 @@ test('truncated and oversized ZIPs rejected before reading',async()=>{const file
 test('corrupt catalog and duplicate rows are rejected',async()=>{const bad=new Uint8Array(bytes);bad[0]=91;await assert.rejects(readCatalog(await openZip(make({'manifest.json':manifest,'catalog/00000.ndjson':bad}))),/checksum/);const duplicate=strToU8(JSON.stringify(row)+'\n'+JSON.stringify(row)+'\n');const m={...manifest,coverage:{dialogue:2},catalog:[{name:'catalog/00000.ndjson',size:duplicate.length,sha256:await sha256(duplicate)}]};await assert.rejects(readCatalog(await openZip(make({'manifest.json':m,'catalog/00000.ndjson':duplicate}))),/Duplicate/);});
 test('matching preserves anchors and requires unique original performances',()=>{const match=new DialogueMatcher([row]);assert.equal(match.match(row.chinese).row.id,hex);assert.equal(match.match('The lantern is bright').state,'matched');const ambiguous=new DialogueMatcher([row,{...row,id:'b'.repeat(64),sourceVoice:'b'.repeat(64)}]);assert.equal(ambiguous.match(row.english).state,'ambiguous');const player=new DialogueMatcher([{...row,playerVoice:'female'}]);assert.equal(player.match(row.english).state,'unmatched');assert.equal(player.match(row.english,'dialogue','female').state,'matched');});
 test('candidate ranking prefers exact dialogue over a longer fuzzy OCR fragment',()=>{const second={...row,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),english:'We can keep walking.'},matcher=new DialogueMatcher([row,second]);assert.equal(matcher.matchCandidates(['The lantern is really bright.','We can keep walking.']).row.id,second.id);});
+
+test('a wrapped full caption takes precedence over its isolated exact phrase',()=>{
+ const full={...row,id:'b'.repeat(64),textId:'beyond:full',sourceVoice:'b'.repeat(64),english:'Please get back to them immediately and STOP THEM!'},short={...row,id:'c'.repeat(64),textId:'beyond:short',sourceVoice:'c'.repeat(64),english:'STOP THEM!'};
+ const values=['Please get back to them immediatly and STOP THEM!','STOP THEM!'];
+ assert.equal(new DialogueMatcher([full,short]).matchCandidates(values).row.id,full.id);
+ const another={...full,id:'d'.repeat(64),sourceVoice:'d'.repeat(64)};
+ assert.equal(new DialogueMatcher([full,short,another]).matchCandidates(values).state,'ambiguous');
+ assert.equal(new DialogueMatcher([full,short,another]).matchCandidates(['STOP THEM!']).row.id,short.id);
+});
+
+test('authored Dutch context resolves two exact Chinese captions and retains ambiguity otherwise',()=>{
+ const first={...row,id:'b'.repeat(64),textId:'beyond:ONE:1',sourceVoice:'b'.repeat(64),sourceLanguage:'nl',sourceLocale:'nl',audioLocale:'nl',sourceText:'Goed.',translationLocale:'zh-Hans',translationText:'好的'},other={...first,id:'c'.repeat(64),textId:'beyond:OTHER:1',sourceVoice:'c'.repeat(64)};
+ const context={...first,id:'d'.repeat(64),textId:'beyond:ONE:context-100-900',sourceVoice:'d'.repeat(64),sourceText:'Goed. We gaan naar huis.',translationText:'好的 我们回家吧。',anchorsSource:['We gaan naar huis.'],anchorsTranslation:['我们回家吧。'],memberTextIds:['beyond:ONE:1','beyond:ONE:2']};
+ const collision={...other,sourceText:'Een andere tekst.',translationText:'我们回家吧。'};
+ const matcher=new DialogueMatcher([first,other,context,collision]);
+ assert.equal(matcher.matchCandidates(['好的']).state,'ambiguous');
+ assert.equal(matcher.matchCandidates(['我们回家吧。']).state,'ambiguous');
+ const previous=matcher.contextFragments(['好的']);
+ assert.equal(matcher.matchContext(previous,['我们回家吧。']).row.id,context.id);
+ assert.equal(matcher.matchContext([],['我们回家吧。']).state,'unmatched');
+ assert.deepEqual(validateRow(context).memberTextIds,context.memberTextIds);
+ assert.throws(()=>validateRow({...context,memberTextIds:['beyond:ONE:1','beyond:WRONG:2']}),/context members/);
+});
 test('fuzzy short text rejected; extra channels are exact only',()=>{const match=new DialogueMatcher([row]);assert.equal(match.match('The lantern is brlght.').state,'matched');assert.equal(match.match('The lantern is brlght.','gameplay').state,'unmatched');assert.equal(match.match('灯笼狠亮').state,'unmatched');assert.equal(ratio('abcd','abxd'),75);});
 test('Honkai/NTE require authored exact anchors, not similar unsupported rewrites',()=>{for(const game of ['honkai3','nte']){const match=new DialogueMatcher([{...row,textId:game+':verified'}]);assert.equal(match.match(row.english).state,'matched');assert.equal(match.match('The lantern is brlght.').state,'unmatched');}});
 test('comics use full utterances; authored anchors resolve one performance',()=>{const full={...row,english:'The lantern is bright. Let us continue walking.',anchorsEnglish:['Let us continue walking.']};const matcher=new DialogueMatcher([full]);assert.equal(matcher.match('Let us continue walking.').row.english,full.english);assert.equal(matcher.match('The lantern is bright','cinematic','unconfigured',true).row.english,full.english);});
@@ -78,6 +101,7 @@ test('Dutch catalog matches authored source pages and keeps unavailable translat
  const tagged={...row,textId:'beyond:test',english:'',chinese:'',sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige synthetische zin.',translationText:'',translationLocale:'zh-Hans',audioLocale:'nl',anchorsSource:['Een volledige','synthetische zin.']};
  const clean=validateRow(tagged),matcher=new DialogueMatcher([clean]);
  assert.equal(matcher.match('synthetische zin.').row.sourceLanguage,'nl');
- assert.equal(clean.translationText,'');assert.deepEqual(regions('beyond',undefined,false,false)[0].crop,[.10,.70,.80,.28]);
+ assert.equal(clean.translationText,'');assert.deepEqual(regions('beyond',undefined,false,false)[0].crop,[.05,.70,.90,.28]);
+ assert.deepEqual(regions('beyond',[.10,.70,.80,.28],false,false)[0].crop,[.10,.70,.80,.28]);
  assert.throws(()=>validateRow({...tagged,sourceLanguage:'../key'}));
 });

@@ -191,6 +191,7 @@ class Runtime:
                                              supported=self.reader_locales)
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
         self.capture.language_setup = self.capture_language_ready
+        self.capture.context_scope = lambda: self.accounts.generation
         self.installation = InstallationService(PROJECT_ROOT, settings=self.settings,
             game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
             account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
@@ -992,6 +993,8 @@ async def lexirise_select_account(payload: AccountSelection, request: Request,
         raise HTTPException(403, 'Use the companion account selector.')
     try:
         result = runtime.accounts.select(payload.id)
+        if hasattr(runtime, 'capture'):
+            runtime.capture._scan_epoch += 1
         await runtime.hub.broadcast({'type': 'account_changed', 'account': result['active']})
         return result
     except LexiriseError as error:

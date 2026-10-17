@@ -1,6 +1,7 @@
 """Synthetic Quantic resources only; no game text, voices or private paths."""
 import struct
 import io
+import json
 import math
 from types import SimpleNamespace
 import wave
@@ -99,6 +100,108 @@ def test_mixed_or_reserved_mpeg_sample_rates_are_rejected():
         beyond.mp3_format(first + changed)
     with pytest.raises(ValueError, match='Unsupported'):
         beyond.mp3_format(b'\xff\xfa\x9c\xc0' + bytes(380))
+
+
+def context_rows():
+    rows = []
+    for paragraph, voice, continuation in [('ONE', 1, 'We gaan naar huis.'), ('TWO', 2, 'Blijf nog even hier.')]:
+        for cue, source, target, start, end in [(1, 'Goed.', '好的', 100, 250),
+                                               (2, continuation, '第一段后续' if voice == 1 else '第二段后续', 400, 900)]:
+            rows.append({'text_id': f'beyond:{paragraph}:{cue}', 'source_locale': 'nl', 'audio_locale': 'nl',
+                         'source_text': source, 'texts': {'nl': source, 'zh-Hans': target},
+                         'english': '', 'chinese': target,
+                         'audio': {'index': 'BigFile_PC_DUT.idx', 'identity': voice, 'locale': 'nl',
+                                   'offsets': '', 'start_ms': start, 'end_ms': end}})
+    return rows
+
+
+def test_short_ambiguous_cue_is_collected_with_its_authored_following_context(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    from backend.local_game import LocalDialogue
+    rows = beyond.group_short_cues(context_rows())
+    assert len(rows) == 4
+    for row in rows:
+        LocalDialogue(**row)
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': rows}), encoding='utf-8')
+    index = MultilingualTextIndex('beyond', tmp_path)
+    index.target_locale = 'zh-Hans'
+    assert index.match_lines(['Goed.']) is None
+    assert index.match_lines(['好的']) is None
+    match = index.match_lines(['We gaan naar huis.'])
+    assert match.source_text == 'Goed. We gaan naar huis.'
+    assert match.translation_text == '好的 第一段后续'
+    grouped = next(row for row in rows if row['text_id'] == match.text_id)
+    assert grouped['audio']['identity'] == 1
+    assert (grouped['audio']['start_ms'], grouped['audio']['end_ms']) == (100, 900)
+    assert grouped['member_text_ids'] == ['beyond:ONE:1', 'beyond:ONE:2']
+    assert index.match_lines(['第一段后续']).text_id == match.text_id
+
+
+def test_context_keeps_unpaired_performances_ambiguous_and_never_crosses_voice_bindings(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    rows = context_rows()
+    rows[1]['audio']['identity'] = 99
+    rows = beyond.group_short_cues(rows)
+    assert rows[0]['text_id'] == 'beyond:ONE:1'
+    assert rows[1]['text_id'] == 'beyond:ONE:2'
+    assert any(row.get('member_text_ids') for row in rows)
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': rows}), encoding='utf-8')
+    index = MultilingualTextIndex('beyond', tmp_path)
+    # Removing another performance's fragment would turn this into a wrong,
+    # seemingly unique match. Context records must preserve those blockers.
+    assert index.match_lines(['Goed.']) is None
+
+
+def test_context_does_not_repeat_identifiable_fragments_or_invent_missing_translations():
+    rows = context_rows()
+    rows[0]['texts']['en'] = 'A unique fragment.'
+    result = beyond.group_short_cues(rows)
+    assert result[1]['text_id'] == 'beyond:ONE:2'
+    rows = context_rows()
+    del rows[0]['texts']['zh-Hans']
+    result = beyond.group_short_cues(rows)
+    assert result[1]['text_id'] == 'beyond:ONE:2'
+    assert result[1]['texts']['zh-Hans'] == rows[1]['texts']['zh-Hans']
+    rows = context_rows()
+    rows[1]['audio'].update(start_ms=14000, end_ms=15000)
+    assert beyond.group_short_cues(rows)[1]['text_id'] == 'beyond:ONE:2'
+
+
+def test_two_observed_cues_resolve_an_ambiguous_official_translation(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    from backend.tests.test_subtitle_capture import fixture_service
+    rows = context_rows()
+    other = {**rows[1], 'text_id': 'beyond:OTHER:complete', 'source_text': 'Een andere tekst.',
+             'texts': {'nl': 'Een andere tekst.', 'zh-Hans': rows[1]['texts']['zh-Hans']},
+             'audio': {'index': 'BigFile_PC_DUT.idx', 'identity': 99, 'locale': 'nl'}}
+    rows = beyond.group_short_cues([*rows, other])
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': rows}), encoding='utf-8')
+    index = MultilingualTextIndex('beyond', tmp_path)
+    index.target_locale = 'zh-Hans'
+    assert index.match_lines(['第一段后续']) is None
+    fragments = index.context_fragments(['好的'])
+    hit = index.match_context(fragments, ['第一段后续'])
+    assert hit.source_text == 'Goed. We gaan naar huis.'
+    assert hit.translation_text == '好的 第一段后续'
+    assert index.match_context([], ['第一段后续']) is None
+    service, *_ = fixture_service(tmp_path / 'capture')
+    try:
+        scope = ('window', 'nl', 'zh-Hans', 'account-generation-one')
+        assert service._authored_caption_context(index, ['好的'], 0, scope, 2) is None
+        assert service._authored_caption_context(index, ['第一段后续'], .1, scope, 2) is None
+        service._authored_caption_context(index, ['好的'], 1, scope, 2)
+        service._authored_caption_context(index, ['好的'], 1.25, scope, 2)
+        assert service._authored_caption_context(index, ['第一段后续'], 2, scope, 2).text_id == hit.text_id
+        assert service._authored_caption_context(index, ['第一段后续'], 2.25, (*scope, 'new-account'), 2) is None
+        service._authored_caption_context(index, ['好的'], 3, scope, 2)
+        service._authored_caption_context(index, ['好的'], 3.25, scope, 2)
+        assert service._authored_caption_context(index, ['第一段后续'], 16, scope, 2) is None
+        service._authored_caption_context(index, ['好的'], 17, scope, 2)
+        service._authored_caption_context(index, ['好的'], 17.25, scope, 2)
+        service._update_snapshot(phase='waiting_for_game')
+        assert service._authored_caption_context(index, ['第一段后续'], 18, scope, 2) is None
+    finally:
+        service._executor.shutdown()
 
 
 @pytest.mark.parametrize('single,silent', [(False, False), (True, False), (False, True), (True, True)])

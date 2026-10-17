@@ -83,7 +83,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     for number, original in enumerate(records):
         guard()
         row = {key: original[key] for key in ("textId", "english", "chinese", "speakerEnglish", "speakerChinese",
-               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice", "sourceLanguage", "sourceLocale", "sourceText", "translationLocale", "translationText", "audioLocale", "anchorsSource", "anchorsTranslation") if key in original}
+               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice", "sourceLanguage", "sourceLocale", "sourceText", "translationLocale", "translationText", "audioLocale", "anchorsSource", "anchorsTranslation", "memberTextIds") if key in original}
         source = original.get("sourceVoice")
         row["id"] = digest([game, row["textId"], row["english"], row["chinese"], row.get("playerVoice")])
         if row["id"] in identities:
@@ -409,6 +409,8 @@ def prepare_source(root, game, decode_dir):
                            translationText=item['texts'].get(locale, '') if locale else '', audioLocale=item['audio_locale'],
                            anchorsSource=item.get('ocr_texts', {}).get(payload['source_locale'], []),
                            anchorsTranslation=item.get('ocr_texts', {}).get(locale, []))
+                if item.get('member_text_ids'):
+                    row['memberTextIds'] = item['member_text_ids']
             for old, new in (("speaker_english", "speakerEnglish"), ("speaker_chinese", "speakerChinese"),
                              ("player_voice", "playerVoice"), ("ocr_english", "anchorsEnglish"), ("ocr_chinese", "anchorsChinese")):
                 if item.get(old):

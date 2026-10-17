@@ -20,6 +20,31 @@ const catalog=encode({'manifest.json':manifest,'catalog/00000.ndjson':segment}),
 const input=(name,buffer)=>({name,mimeType:'application/zip',buffer});
 mkdirSync('output/playwright',{recursive:true});
 const pipelinePath=[...files.keys()].find(p=>/\/ocr-pipeline(?:\.[a-f0-9]+)?\.mjs$/.test(p));
+const libraryWorkerPath=[...files.keys()].find(p=>/\/library-worker(?:\.[a-f0-9]+)?\.mjs$/.test(p));
+async function verifyBeyondContext(page){
+ const first={...row,id:'d'.repeat(64),textId:'beyond:ONE:1',sourceVoice:'d'.repeat(64),sourceLanguage:'nl',sourceLocale:'nl',audioLocale:'nl',sourceText:'Goed.',translationLocale:'zh-Hans',translationText:'好的'};
+ const other={...first,id:'e'.repeat(64),textId:'beyond:OTHER:1',sourceVoice:'e'.repeat(64)};
+ const paired={...first,id:'f'.repeat(64),textId:'beyond:ONE:context-100-900',sourceVoice:'f'.repeat(64),sourceText:'Goed. We gaan naar huis.',translationText:'好的 我们回家吧。',anchorsSource:['We gaan naar huis.'],anchorsTranslation:['我们回家吧。'],memberTextIds:['beyond:ONE:1','beyond:ONE:2']};
+ const collision={...other,id:'9'.repeat(64),sourceText:'Een andere tekst.',translationText:'我们回家吧。'};
+ const rows=[first,other,paired,collision],segment=Buffer.from(rows.map(value=>JSON.stringify(value)+'\n').join(''));
+ const bytes=encode({'manifest.json':{...manifest,game:'beyond',coverage:{dialogue:rows.length},catalog:[{name:'catalog/00000.ndjson',size:segment.length,sha256:hash(segment)}]},'catalog/00000.ndjson':segment});
+ const result=await page.evaluate(async({url,bytes})=>{
+  const worker=new Worker(url,{type:'module'});let id=0;const pending=new Map();
+  worker.onmessage=({data})=>{if(data.stage||data.progress!=null)return;const request=pending.get(data.id);if(!request)return;pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
+  const request=(action,body={})=>new Promise((resolve,reject)=>{const token=++id;pending.set(token,{resolve,reject});worker.postMessage({id:token,action,...body});});
+  try{
+   await request('open',{files:[new File([Uint8Array.from(bytes)],'synthetic-context.zip')]});
+   const first=await request('match-candidates',{values:['好的']}),last=await request('match-candidates',{values:['我们回家吧。']});
+   const previous=await request('context-fragments',{values:['好的']});
+   const paired=await request('match-context',{previous,values:['我们回家吧。']});
+   const isolated=await request('match-context',{previous:[],values:['我们回家吧。']});
+   return {first:first.state,last:last.state,paired,isolated:isolated.state};
+  }finally{worker.terminate();}
+ },{url:base+libraryWorkerPath,bytes:[...bytes]});
+ assert.equal(result.first,'ambiguous');assert.equal(result.last,'ambiguous');assert.equal(result.isolated,'unmatched');
+ assert.equal(result.paired.row.textId,paired.textId);assert.equal(result.paired.row.sourceLocale,'nl');assert.equal(result.paired.row.audioLocale,'nl');
+ assert.deepEqual(result.paired.row.memberTextIds,paired.memberTextIds);
+}
 async function diagnoseOcr(page,name,stage){
  await page.screenshot({path:`output/playwright/mobile-library-${name}-failure.png`,fullPage:true});
  const data=await page.evaluate(async({base,pipelinePath})=>{
@@ -35,7 +60,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({acceptDownloads:true,viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],external=[];
   page.on('pageerror',e=>errors.push(e.message));context.on('request',request=>{if(!request.url().startsWith(base)&&!request.url().startsWith('blob:')&&!request.url().startsWith('data:'))external.push(request.url());});
-  await page.goto(base+'?developer=1');await page.selectOption('#role','receiver');
+  await page.goto(base+'?developer=1');await verifyBeyondContext(page);await page.selectOption('#role','receiver');
   await page.setInputFiles('#library-files',[input('catalog.zip',catalog),input('voices.zip',voices)]);
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent()});throw error;});
   await page.fill('#find-text',quietRow.english+'\n'+quietRow.chinese);await page.click('#find-line');await page.getByRole('button',{name:'No verified original voice',exact:true}).waitFor();assert(await page.getByRole('button',{name:'No verified original voice',exact:true}).isDisabled());await page.click('#clear-history');

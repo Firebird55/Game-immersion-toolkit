@@ -21,7 +21,40 @@
       "expected_exact": true,
       "footage_language": "en",
       "chapter": "0101/0102",
-      "branch": "recorded opening"
+      "branch": "recorded opening",
+      "source_timestamps": [
+        0,
+        120
+      ]
+    },
+    {
+      "name": "beyond-police-phone-swat",
+      "game": "beyond",
+      "source_locale": "nl",
+      "translation_locale": "zh-Hans",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "path": "output/beyond-research/youtube-opening-120-240-fast.mp4",
+      "start": 0,
+      "duration": 120,
+      "source_timestamps": [
+        120,
+        240
+      ],
+      "chapter": "0102/0103",
+      "branch": "recorded police opening",
+      "footage_language": "en",
+      "presentation": "phone intercut, short/wrapped dialogue, SWAT uniform labels as negatives",
+      "expected_exact": true,
+      "expected": [
+        "beyond:IW_0103_CAR_PHONE_NDA55_C00002:1",
+        "beyond:IW_0103_CAR_PHONE_NDA55_C00002:2",
+        "beyond:IW_0103_CAR_PHONE_NDA55_C00002:3",
+        "beyond:IW_0102_POLICE_THEYCOME_JHO20_C00002:1",
+        "beyond:IW_0102_POLICE_THEYCOME_JHO20_C00002:2",
+        "beyond:IW_0102_POLICE_COMMANDO_COP_C00007:1",
+        "beyond:IW_0102_POLICE_COMMANDO_SWATLT_C00002:1"
+      ],
+      "evidence": "1080p PC recording; video transcoded for exact clip bounds without resizing; caption identities annotated before matcher replay"
     }
   ],
   "coverage_complete": false,
@@ -38,12 +71,16 @@
   "chapter_inventory": [
     {
       "archive_group": "0101_0102",
-      "status": "sampled 00:00-02:00 only",
+      "status": "sampled 00:00-04:00 only",
       "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
       "timestamps": [
         [
           0,
           120
+        ],
+        [
+          120,
+          240
         ]
       ]
     },

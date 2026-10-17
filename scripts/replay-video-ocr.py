@@ -65,8 +65,24 @@ def validate_clip(clip):
         raise ValueError('A negative case cannot also expect lines')
 
 
-def validate_result(clip, emitted, scheduled, mapped, fps=2):
-    actual = {line.text_id for line in emitted}
+def authored_coverage(records):
+    result = {}
+    for row in records:
+        identity = row['text_id']
+        members = row.get('member_text_ids')
+        if members is not None:
+            prefix, separator, _ = identity.partition(':context-')
+            if (not separator or not isinstance(members, list) or len(members) != 2
+                    or any(not isinstance(member, str) for member in members) or len(set(members)) != 2
+                    or any(not member.startswith(prefix + ':') or member == identity for member in members)):
+                raise ValueError('Invalid authored context members')
+        result[identity] = members or [identity]
+    return result
+
+
+def validate_result(clip, emitted, scheduled, mapped, fps=2, coverage=None):
+    coverage = coverage or {}
+    actual = {member for line in emitted for member in coverage.get(line.text_id, [line.text_id])}
     expected = set(clip.get('expected_by_fps', {}).get(str(fps), clip.get('expected', [])))
     assert expected <= actual, f"{clip['name']}: missed {expected-actual}"
     if clip.get('expected_exact'):
@@ -107,7 +123,8 @@ def replay(clip, resolution, data_dir, fps=2):
     assert index.ready and index.audio_count, f'{game}: prepared original-language index required'
     payload = json.loads(index.path.read_text(encoding='utf-8'))
     mapped = {r['text_id'] for r in payload['records'] if r.get('audio')}
-    scheduled = []
+    coverage = authored_coverage(payload['records'])
+    scheduled, events = [], []
     with tempfile.TemporaryDirectory(prefix='game-video-ocr-') as scratch:
         folder = Path(scratch)
         command = [str(ffmpeg_executable()), '-hide_banner', '-loglevel', 'error',
@@ -151,16 +168,33 @@ def replay(clip, resolution, data_dir, fps=2):
                      patch('backend.capture.datetime', SimpleNamespace(now=lambda *_: origin + timedelta(seconds=n / fps))):
                     outcome = service._scan_once()
                 emitted.extend(outcome.emitted_lines)
+                events.extend({'at': n / fps, 'text_id': line.text_id,
+                               'authored_ids': coverage.get(line.text_id, [line.text_id]),
+                               'ocr': service.snapshot().last_ocr} for line in outcome.emitted_lines)
                 frame_count += 1
         finally:
             service._executor.shutdown()
         assert frame_count, 'Replay contains no decoded frames'
-        actual = validate_result(clip, emitted, scheduled, mapped, fps)
-        return {'name': clip['name'], 'game': game, 'source_url': clip.get('source_url'),
+        actual = {member for line in emitted for member in coverage.get(line.text_id, [line.text_id])}
+        expected = set(clip.get('expected_by_fps', {}).get(str(fps), clip.get('expected', [])))
+        result = {'name': clip['name'], 'game': game, 'source_url': clip.get('source_url'),
+                'chapter': clip.get('chapter'), 'branch': clip.get('branch'),
+                'footage_language': clip.get('footage_language'), 'source_locale': clip.get('source_locale'),
+                'translation_locale': clip.get('translation_locale'), 'source_timestamps': clip.get('source_timestamps'),
                 'source_resolution': source_resolution, 'resolution': resolution,
                 'aspect_mode': clip.get('aspect_mode', 'fit'), 'presentation': clip.get('presentation'),
                 'fps': fps, 'frames': frame_count, 'emitted': len(emitted),
-                'ids': sorted(actual), 'channels': sorted({line.channel for line in emitted})}
+                'ids': sorted(actual), 'capture_ids': sorted({line.text_id for line in emitted}),
+                'expected': sorted(expected), 'misses': sorted(expected - actual),
+                'incorrect': sorted(actual - expected) if clip.get('expected_exact') else sorted(actual & set(clip.get('excluded', []))),
+                'events': events, 'channels': sorted({line.channel for line in emitted}), 'passed': False}
+        try:
+            validate_result(clip, emitted, scheduled, mapped, fps, coverage)
+        except AssertionError as error:
+            error.replay_report = result
+            raise
+        result['passed'] = True
+        return result
 
 
 if __name__ == '__main__':
@@ -177,7 +211,13 @@ if __name__ == '__main__':
     for clip in json.loads(args.manifest.read_text(encoding='utf-8'))['clips']:
         if clip.get('archived'):
             continue
-        result = replay(clip, resolution, args.data_dir, args.fps)
+        try:
+            result = replay(clip, resolution, args.data_dir, args.fps)
+        except AssertionError as error:
+            results.append(getattr(error, 'replay_report', {'name': clip['name'], 'passed': False, 'error': str(error)}))
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(results, indent=2), encoding='utf-8')
+            raise
         results.append(result)
         print(json.dumps(result), flush=True)
     args.output.parent.mkdir(parents=True, exist_ok=True)

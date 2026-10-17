@@ -69,10 +69,11 @@ export function validateRow(row){
  if(!row||!hex(row.id)||typeof row.textId!=='string'||row.textId.length>512||typeof row.english!=='string'||typeof row.chinese!=='string'||!tagged&&(!row.english.trim()||!row.chinese.trim())||row.english.length>8000||row.chinese.length>8000||row.audio!==null&&!hex(row.audio)||row.sourceVoice!=null&&!hex(row.sourceVoice))fail('Invalid dialogue record.');
  if(row.audio&&!hex(row.sourceVoice))fail('Missing original voice binding.');
  for(const field of ['anchorsEnglish','anchorsChinese','anchorsSource','anchorsTranslation'])if(row[field]!=null&&(!Array.isArray(row[field])||row[field].length>100||row[field].some(v=>typeof v!=='string'||v.length>8000)))fail('Invalid authored OCR anchors.');
+ if(row.memberTextIds!=null&&(!row.textId.includes(':context-')||!Array.isArray(row.memberTextIds)||row.memberTextIds.length!==2||row.memberTextIds.some(v=>typeof v!=='string'||v.length>512||!v.startsWith(row.textId.split(':context-')[0]+':'))||new Set(row.memberTextIds).size!==2))fail('Invalid authored context members.');
  if(row.playerVoice!=null&&!['male','female'].includes(row.playerVoice))fail('Unsupported player voice.');
  if(!Array.isArray(row.channels)||row.channels.some(c=>!['dialogue','cinematic','gameplay','tip'].includes(c)))fail('Invalid dialogue channels.');
  for(const field of ['speakerEnglish','speakerChinese'])if(row[field]!=null&&(typeof row[field]!=='string'||row[field].length>512))fail('Invalid speaker.');
- return Object.fromEntries(['id','textId','english','chinese','audio','sourceVoice','speakerEnglish','speakerChinese','playerVoice','anchorsEnglish','anchorsChinese','channels','sourceText','sourceLanguage','sourceLocale','translationText','translationLocale','audioLocale','anchorsSource','anchorsTranslation'].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
+ return Object.fromEntries(['id','textId','english','chinese','audio','sourceVoice','speakerEnglish','speakerChinese','playerVoice','anchorsEnglish','anchorsChinese','channels','sourceText','sourceLanguage','sourceLocale','translationText','translationLocale','audioLocale','anchorsSource','anchorsTranslation','memberTextIds'].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
 }
 export async function readCatalog(zip, progress=()=>{}){
  const m=zip.manifest;
@@ -127,12 +128,27 @@ export function ratio(a,b){if(!a.length||!b.length)return 0;const previous=new U
 const grams = text => [...new Set(Array.from({length:Math.max(0,text.length-2)},(_,i)=>text.slice(i,i+3)))];
 export class DialogueMatcher{
  constructor(rows){this.exact=new Map();this.grams=null;this.cache=new Map();this.hito=rows.some(r=>r.textId.startsWith('hito:'));this.exactOnly=rows.some(r=>/^(nte|honkai3):/.test(r.textId));for(const row of rows)for(const value of [row.sourceText??row.chinese,row.translationText??row.english,...row.anchorsSource??row.anchorsChinese??[],...row.anchorsTranslation??row.anchorsEnglish??[]]){const key=normalize(value);if(key.length<2||key.length>2000)continue;const list=this.exact.get(key)??[];if(!list.includes(row))list.push(row);this.exact.set(key,list);}
+  this.contextPairs=new Map();this.contextFirsts=new Set();
+  for(const row of rows)if(row.memberTextIds)for(const [full,anchors] of [[row.sourceText,row.anchorsSource],[row.translationText,row.anchorsTranslation]]){
+   const whole=normalize(full??''),last=normalize(anchors?.[0]??'');
+   if(last&&whole.endsWith(last)&&whole.length>last.length){const first=whole.slice(0,-last.length),key=JSON.stringify([first,last]);this.contextFirsts.add(first);const list=this.contextPairs.get(key)??[];list.push(row);this.contextPairs.set(key,list);}
+  }
+ }
+ contextFragments(values){return [...new Set(values.slice(0,128).map(normalize).filter(key=>this.contextFirsts.has(key)))];}
+ matchContext(previous,values,channel='dialogue',player='unconfigured'){
+  const hits=new Map();
+  for(const first of previous.slice(0,32))for(const value of values.slice(0,128)){
+   const last=normalize(value),rows=this.contextPairs.get(JSON.stringify([first,last]));if(!rows)continue;
+   const hit=this.match(first+last,channel,player,false,true);
+   if(hit.state==='matched'&&rows.some(row=>row.id===hit.row.id))hits.set(hit.row.id,hit);
+  }
+  return hits.size===1?[...hits.values()][0]:{state:hits.size?'ambiguous':'unmatched'};
  }
  match(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){const cacheKey=JSON.stringify([normalize(text),channel,player,fragment,exactOnly]);if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const result=this.lookup(text,channel,player,fragment,exactOnly);if(this.cache.size>=512)this.cache.clear();this.cache.set(cacheKey,result);return result;}
  matchCandidates(values,channel='dialogue',player='unconfigured',fragment=false){
   for(const exactOnly of [true,false]){
-   const results=values.slice(0,128).map(value=>({...this.match(value,channel,player,fragment,exactOnly),length:normalize(value).length})),hits=results.filter(r=>r.state==='matched').sort((a,b)=>b.score-a.score||b.length-a.length);
-   if(hits.length){const best=hits[0];if(results.some(r=>r.state==='ambiguous'&&r.length>=best.length)||hits.some(r=>r.score===best.score&&r.length===best.length&&r.row.sourceVoice!==best.row.sourceVoice))return {state:'ambiguous'};return best;}
+   const results=values.slice(0,128).map(value=>({...this.match(value,channel,player,fragment,exactOnly),key:normalize(value),length:normalize(value).length})),hits=results.filter(r=>r.state==='matched').sort((a,b)=>b.score-a.score||b.length-a.length);
+   if(hits.length){let best=hits[0];if(!this.exactOnly){const more=values.slice(0,128).filter(value=>normalize(value).includes(best.key)&&normalize(value).length>=Math.max(best.length*1.5,best.length+8)).map(value=>({...this.match(value,channel,player,fragment,false),length:normalize(value).length})),longer=more.filter(hit=>hit.state==='matched'&&hit.score>=92).sort((a,b)=>b.length-a.length||b.score-a.score);results.push(...more);if(longer.length){hits.push(...longer);best=longer[0];}}if(results.some(r=>r.state==='ambiguous'&&r.length>=best.length)||hits.some(r=>r.score===best.score&&r.length===best.length&&r.row.sourceVoice!==best.row.sourceVoice))return {state:'ambiguous'};return best;}
    if(exactOnly&&results.some(r=>r.state==='ambiguous'))return {state:'ambiguous'};
   }
   return {state:'unmatched'};

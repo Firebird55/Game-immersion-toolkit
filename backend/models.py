@@ -67,7 +67,7 @@ class AppSettings(BaseModel):
     witcher3_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=.63, width=.84, height=.34))
     witcher3_tip_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=0, width=.76, height=.74))
     witcher3_capture_chatter: bool = True
-    beyond_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
+    beyond_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.05, top=.70, width=.90, height=.28))
     nte_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
     nte_picture_area: Literal["window", "16:9"] = "window"
     nte_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"

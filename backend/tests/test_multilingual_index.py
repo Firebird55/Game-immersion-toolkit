@@ -5,6 +5,29 @@ import pytest
 from backend.multilingual_index import MultilingualTextIndex
 
 
+def test_wrapped_full_caption_outweighs_an_exact_unrelated_phrase(tmp_path):
+    def row(identity, text, voice):
+        return {'text_id': identity, 'english': text, 'chinese': '', 'source_locale': 'en',
+                'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en', 'audio': {'voice': voice}}
+    full = 'Please get back to them immediately and STOP THEM!'
+    rows = [row('cyberpunk:full', full, 1), row('cyberpunk:short', 'STOP THEM!', 2)]
+    value = index(tmp_path, 'en', rows)
+    observed = ['Please get back to them immediatly and', 'STOP THEM!']
+    assert value.match_lines(observed).text_id == 'cyberpunk:full'
+    rows.append(row('cyberpunk:another-full', full, 3))
+    value = index(tmp_path, 'en', rows)
+    assert value.match_lines(observed) is None
+    assert value.match_lines(['STOP THEM!']).text_id == 'cyberpunk:short'
+
+
+def test_a_complete_caption_is_not_limited_to_eight_sentence_fragments(tmp_path):
+    text = ' '.join(f'This is sentence number {number}.' for number in range(12))
+    rows = [{'text_id': 'cyberpunk:long', 'english': text, 'chinese': '', 'source_locale': 'en',
+             'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en', 'audio': {'voice': 1}}]
+    value = index(tmp_path, 'en', rows)
+    assert value.match_lines([text]).text_id == 'cyberpunk:long'
+
+
 def index(tmp_path, source='ko', rows=None):
     rows = rows or [{'text_id': 'cyberpunk:1:female', 'english': 'Stay close. I will protect you.',
         'chinese': '跟紧我。我会保护你。', 'source_locale': source, 'source_text': '가까이 있어요. 지켜줄게요.',

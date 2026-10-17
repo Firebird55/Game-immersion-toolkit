@@ -39,6 +39,7 @@ class LocalDialogue:
     audio_locale: str | None = None
     channels: list[str] | None = None
     ocr_texts: dict[str, list[str]] | None = None
+    member_text_ids: list[str] | None = None
 
 
 class LocalGameTextIndex:

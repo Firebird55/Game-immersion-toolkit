@@ -25,6 +25,19 @@ complete original performance and individual official OCR anchors. They are
 not assigned guessed per-page audio cuts. Ambiguous repeated performances
 remain unmatched.
 
+An ambiguous short caption can be collected with its following authored cue
+when both belong to the same original performance and have verified timings.
+The record contains both official texts and their original audio range. A
+continuation that is itself ambiguous requires the preceding caption to have
+been observed and confirmed; context expires and clears across account,
+window, calibration and language changes. Other performances retain their
+ambiguity rather than inheriting a misleading unique match. Context never
+combines different speakers or invents a missing sentence translation.
+
+The default crop includes wider captions near the screen edges. Existing
+saved calibration remains in effect. A reliable match for a complete wrapped
+caption takes precedence over an isolated phrase from that caption.
+
 Dutch asset validation found 5,446 records with 2,777 distinct original
 performances, including 5,437 aligned Simplified Chinese records. Missing target
 text remains unavailable. These counts describe the tested installation, not
@@ -39,13 +52,20 @@ rate while preserving authored silent partitions. Other voice packs still need
 installation-specific validation; synthetic locale fixtures are separate evidence.
 
 The checked-in [replay manifest](../backend/tests/fixtures/beyond-video-ocr.json)
-records the tested opening segment and the untested archive/chapter groups.
-The English PC recording from 00:00 to 02:00 covers opening narration, the
-police cutscene, letterboxing, brief and wrapped subtitles, and an initial menu
-negative. All six independently annotated original-performance identities pass
+records the two tested opening segments and the untested archive/chapter groups.
+The English PC recording from 00:00 to 04:00 covers opening narration, the
+police cutscene, a phone intercut, letterboxing, brief and wrapped subtitles,
+an initial menu negative, and uniform labels that must not become dialogue.
+All thirteen independently annotated authored cue identities pass
 production cropping, OneOCR, matching, confirmation, deduplication and SQLite
-storage at four frames per second. The native recording is 1080p; 720p and 4K
+storage at four frames per second. A context record can cover two annotated
+cues. Replay reports preserve both the captured record IDs and authored cue
+IDs, expected events, misses, incorrect captures, chapter, branch and source
+timestamps. The original recording is 1080p; 720p and 4K
 runs resize that recording and do not establish native-resolution coverage.
+Chinese caption sequences also pass synthetic native OCR checks with Dutch
+study text, official Chinese translation and extracted original Dutch audio.
+Those synthetic checks are separate from the English gameplay evidence.
 
 Every later chapter, alternate branch, optional scene, ending, DLC, and subtitle
 presentation absent from that segment remains untested. Dutch gameplay footage

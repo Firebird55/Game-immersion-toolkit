@@ -17,7 +17,7 @@ class GameProfile:
 GAME_PROFILES = {
     "beyond": GameProfile(id="beyond", name="BEYOND: Two Souls", process_names=("BeyondTwoSouls_Steam.exe",),
         title_needles=("BEYOND: Two Souls", "BEYOND Two Souls"),
-        subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
+        subtitle_region=CaptureRegion(left=.05, top=.70, width=.90, height=.28)),
     "nte": GameProfile(id="nte", name="Neverness to Everness", process_names=("HTGame.exe",),
         title_needles=("Neverness to Everness", "NTE", "异环"),
         subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
