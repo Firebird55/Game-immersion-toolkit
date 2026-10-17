@@ -120,6 +120,8 @@ class LexiriseService:
         session.source_language = source_language or self.source_language
         if session.source_language not in STUDY_LANGUAGES:
             raise LexiriseError('Unsupported study language.')
+        session.__dict__.pop('_settings_payload', None)
+        session.__dict__.pop('_settings_scope', None)
         cached = self._settings_cache.get(hashlib.sha256(session._api_key.encode()).hexdigest())
         if cached:
             session._settings_payload, session._settings_scope = cached

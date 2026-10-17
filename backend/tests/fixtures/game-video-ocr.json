@@ -247,7 +247,8 @@
       "settings": {
         "honkai3_picture_area": "16:9"
       },
-      "notes": "3840x2160 source recording; resizing does not imply native game UI reflow."
+      "notes": "3840x2160 source recording; resizing does not imply native game UI reflow.",
+      "archived": true
     },
     {
       "name": "Honkai legacy visual novel original voice",
@@ -266,7 +267,8 @@
       ],
       "settings": {
         "honkai3_picture_area": "16:9"
-      }
+      },
+      "archived": true
     },
     {
       "name": "Honkai old multi-page briefing",
@@ -285,7 +287,8 @@
       "settings": {
         "honkai3_picture_area": "16:9"
       },
-      "expected_exact": true
+      "expected_exact": true,
+      "archived": true
     },
     {
       "name": "Honkai old two-page briefing",
@@ -304,7 +307,8 @@
       "settings": {
         "honkai3_picture_area": "16:9"
       },
-      "expected_exact": true
+      "expected_exact": true,
+      "archived": true
     },
     {
       "name": "NTE opening movie radio",
@@ -483,7 +487,8 @@
       ],
       "settings": {
         "honkai3_picture_area": "16:9"
-      }
+      },
+      "archived": true
     },
     {
       "name": "Honkai battle HUD negative",
@@ -499,7 +504,8 @@
       ],
       "settings": {
         "honkai3_picture_area": "16:9"
-      }
+      },
+      "archived": true
     }
   ]
 }

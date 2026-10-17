@@ -80,6 +80,8 @@ class LanguagePreparation:
         key = (game, locale)
         try:
             self.build(game, locale, targets)
+            if self.stop_event.is_set():
+                return
             state = self.state(game, locale)
             if not state.get('ready'):
                 raise ValueError(state.get('message') or 'Language preparation is incomplete; check installed files and tools.')

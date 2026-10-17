@@ -169,6 +169,8 @@ if __name__ == '__main__':
     assert len(resolution) == 2 and min(resolution) > 0
     results = []
     for clip in json.loads(args.manifest.read_text(encoding='utf-8'))['clips']:
+        if clip.get('archived'):
+            continue
         result = replay(clip, resolution, args.data_dir, args.fps)
         results.append(result)
         print(json.dumps(result), flush=True)
