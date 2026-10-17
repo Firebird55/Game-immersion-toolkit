@@ -31,6 +31,13 @@ text remains unavailable. These counts describe the tested installation, not
 an exhaustive gameplay-coverage claim. Original game data and account
 diagnostics remain private and are never distributed.
 
+Installed English asset validation found 6,212 records covering the same count
+of distinct original performances. Both installed voice sets pass decoding of
+all 2,777 mapped performances. MPEG-1 Layer III streams retain their actual
+32, 44.1 or 48 kHz frame rate during validation, then resample to the shared WAV
+rate while preserving authored silent partitions. Other voice packs still need
+installation-specific validation; synthetic locale fixtures are separate evidence.
+
 The checked-in [replay manifest](../backend/tests/fixtures/beyond-video-ocr.json)
 records the tested opening segment and the untested archive/chapter groups.
 The English PC recording from 00:00 to 02:00 covers opening narration, the

@@ -1,5 +1,9 @@
 """Synthetic Quantic resources only; no game text, voices or private paths."""
 import struct
+import io
+import math
+from types import SimpleNamespace
+import wave
 
 import pytest
 
@@ -58,6 +62,43 @@ def test_short_mp3_tails_keep_exact_frame_samples_and_reject_truncation():
         beyond.mp3_samples(frame[:-1])
     with pytest.raises(ValueError, match='Unsupported'):
         beyond.mp3_samples(b'NULL' + bytes(414))
+
+
+@pytest.mark.parametrize('rate,header,length', [(44100, b'\xff\xfa\x92\xc0', 418),
+                                               (48000, b'\xff\xfa\x94\xc0', 384),
+                                               (32000, b'\xff\xfa\x98\xc0', 576)])
+def test_original_sample_rates_and_short_tail_resampling(tmp_path, monkeypatch, rate, header, length):
+    frame = header + bytes(length - 4)
+    assert beyond.mp3_format(frame) == (1152, rate)
+    assert beyond.mp3_format(frame * 2) == (2304, rate)
+    entry = SimpleNamespace(kind=4091, identity=42, read=lambda: b'partition')
+    monkeypatch.setattr(q, 'read_index', lambda _: [entry])
+    monkeypatch.setattr(q, 'partition_blocks', lambda *_: [frame])
+    monkeypatch.setattr(beyond, 'ffmpeg_executable', lambda: 'ffmpeg')
+    def decode(command, **_):
+        assert (tmp_path / 'run-0.mp3').read_bytes() == frame * 2
+        assert command[command.index('-ar')+1] == '44100'
+        return SimpleNamespace(stdout=b'\1\0' * math.ceil(2304 * 44100 / rate))
+    monkeypatch.setattr(beyond.subprocess, 'run', decode)
+    audio = {'locale': 'en', 'index': 'BigFile_PC.idx', 'identity': 42, 'offsets': ''}
+    data = beyond.extract_voice(tmp_path, audio, None, tmp_path)
+    with wave.open(io.BytesIO(data), 'rb') as wav:
+        assert wav.getframerate() == 44100 and wav.getnframes() == 44100
+        pcm = wav.readframes(44100)
+    kept = math.ceil(1152 * 44100 / rate)
+    assert pcm[:kept*2] == b'\1\0' * kept
+    assert pcm[kept*2:] == bytes((44100-kept)*2)
+    with pytest.raises(ValueError, match='exceeds'):
+        beyond.mp3_format(frame[:-1])
+
+
+def test_mixed_or_reserved_mpeg_sample_rates_are_rejected():
+    first = b'\xff\xfa\x94\xc0' + bytes(380)
+    changed = b'\xff\xfa\x92\xc0' + bytes(414)
+    with pytest.raises(ValueError, match='sample rate changed'):
+        beyond.mp3_format(first + changed)
+    with pytest.raises(ValueError, match='Unsupported'):
+        beyond.mp3_format(b'\xff\xfa\x9c\xc0' + bytes(380))
 
 
 @pytest.mark.parametrize('single,silent', [(False, False), (True, False), (False, True), (True, True)])
