@@ -22,7 +22,7 @@ def test_title_fallback_remains_available_when_explicitly_configured(monkeypatch
     assert find_game_window(settings) == custom
 
 
-@pytest.mark.parametrize("game,process", [("nte", "HTGame.exe"), ("honkai3", "BH3.exe")])
+@pytest.mark.parametrize("game,process", [("nte", "HTGame.exe")])
 def test_new_games_require_actual_game_process_instead_of_browser_or_launcher_title(monkeypatch, game, process):
     from backend.windows import find_active_game_window
     from backend.games import GAME_PROFILES

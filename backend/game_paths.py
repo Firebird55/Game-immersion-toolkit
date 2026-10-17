@@ -6,10 +6,10 @@ import os
 import threading
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "honkai3")
+GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte")
 GAME_NAMES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
               "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
-              "nte": "Neverness to Everness", "honkai3": "Honkai Impact 3rd"}
+              "nte": "Neverness to Everness"}
 _path_lock = threading.RLock()
 
 

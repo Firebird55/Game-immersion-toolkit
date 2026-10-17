@@ -1,6 +1,6 @@
 # Install Game immersion toolkit
 
-Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3, NTE and limited Honkai Impact 3rd transcripts, local subtitle OCR and Lexirise/Migaku reading.
+Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3, NTE transcripts, local subtitle OCR and Lexirise/Migaku reading.
 
 ## Install on a new PC
 
@@ -21,11 +21,10 @@ Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wu
 | Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 | Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Chinese voices; .NET 10 SDK for the local reader |
-| Honkai Impact 3rd | Contains BH3.exe and BH3_Data, or BH3_Data itself | Chinese story audio; limited verified catalog 4.7 coverage |
 
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 
-See [NTE and Honkai support](docs/nte-honkai-support.md) before configuring these games. NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). Honkai Impact 3rd captures only supported older bilingual dialogue with an exact installed Mandarin voice; newer chapters remain excluded.
+See [NTE support](docs/nte-honkai-support.md) before configuring NTE. Honkai Impact 3rd is archived and unsupported; it is not available in setup or capture. NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 Cyberpunk users can include **Phantom Liberty**: install the DLC and its Simplified Chinese voice pack through the game launcher, select the main Cyberpunk folder, then refresh. Setup checks its optional English/Chinese text and Mandarin voice archives; index status reports mapped DLC performances. V voice selection applies to DLC variants too. The base game works without the DLC. Witcher III refresh includes installed DLC localization and Mandarin speech automatically.
 
@@ -33,9 +32,9 @@ No game archives, audio packages, extracted voices, catalog data or captured cli
 
 ## After a game update or move
 
-Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, PRAGMATA/Cyberpunk/Wuthering/Witcher/NTE/Honkai about every two minutes, and Hito when its archive changes during use. A moved game can be selected and refreshed without restarting the companion.
+Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, PRAGMATA/Cyberpunk/Wuthering/Witcher/NTE about every two minutes, and Hito when its archive changes during use. A moved game can be selected and refreshed without restarting the companion.
 
-The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE movie bindings and Honkai bilingual catalogs check their fixed upstream sources daily, on detected game changes, and immediately on explicit refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. Honkai's available source still covers older 4.7 content; refreshing does not add missing newer chapters. See [game-data updates](docs/game-data-updates.md).
+The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE movie bindings check their fixed upstream sources daily, on detected game changes, and immediately on explicit refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. See [game-data updates](docs/game-data-updates.md).
 
 ## Capture and optional reading accounts
 
@@ -47,7 +46,7 @@ The PC can be off during play; the game device must supply a working screen stre
 
 In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with English or Chinese subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover/Zero voice selection. Automatic capture on startup is optional. A microphone is not needed.
 
-For NTE movie variants, select **Zero voice**. For NTE/Honkai games displayed as a centered 16:9 picture inside black bars, select that **Game picture area** option before adjusting the crop. Use **Full game window** when the game fills the window. **Use tested dialogue crop** explicitly applies the reviewed default; upgrading preserves existing calibration. Honkai dialogue pages sharing one voice capture the complete verified performance.
+For NTE movie variants, select **Zero voice**. For NTE displayed as a centered 16:9 picture inside black bars, select that **Game picture area** option before adjusting the crop. Use **Full game window** when the game fills the window. **Use tested dialogue crop** explicitly applies the reviewed default; upgrading preserves existing calibration.
 
 In **Setup → Reading**, choose Migaku or Lexirise. Migaku uses your installed browser extension. Lexirise reading preferences are local; account features are optional. **Set up local API key** opens a hidden-input prompt on this PC and stores the key encrypted for the Windows user. It is not sent through the browser. Choose an explicitly verified game-deck destination before exporting; account saves and uploads remain explicit actions.
 

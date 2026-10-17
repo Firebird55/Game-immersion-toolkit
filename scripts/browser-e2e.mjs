@@ -154,7 +154,7 @@ try{
   assert.deepEqual(last.cyberpunk_region,saved.body.cyberpunk_region,'Game calibration is independent');assert.equal(last.cyberpunk_v_voice,'male');
   assert.deepEqual(last.region,region,'New games preserve ZZZ calibration');assert.equal(writes.length,0,'New games never change account settings');
  }
- for(const[game,label,left]of [['nte','Neverness to Everness','10'],['honkai3','Honkai Impact 3rd','4']]){
+ for(const[game,label,left]of [['nte','Neverness to Everness','10']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' original voice is playable');
   assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'zh',label+' study language remains Chinese');
@@ -179,6 +179,7 @@ try{
   assert.equal(writes.length,0,'New games cause no account writes');
   if(name==='chromium'&&pw===320)await page.screenshot({path:`output/playwright/${game}-mobile.png`});
  }
+ assert.equal(await games.getByRole('button',{name:'Honkai Impact 3rd',exact:true}).count(),0,'Archived game is absent');
  await games.getByRole('button',{name:'Zenless Zone Zero',exact:true}).click();await page.locator('.current-line.game-zzz').waitFor();
  if(zoom===1&&pw===1920){for(const[w,h]of [[320,568],[1280,720],[568,320],[900,720]]){
   await page.setViewportSize({width:w,height:h});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Resize does not overflow');

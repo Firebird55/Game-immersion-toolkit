@@ -22,7 +22,6 @@ FOLDER_HINTS = {
     "wuwa": "Choose the installation root containing Client, or the Client folder itself.",
     "witcher3": "Choose the installation root containing bin and content.",
     "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
-    "honkai3": "Choose the Honkai Impact 3rd folder containing BH3.exe and BH3_Data, or BH3_Data itself.",
 }
 VOICE_HINTS = {
     "zzz": "Install the Mandarin voice pack through the game launcher.",
@@ -32,7 +31,6 @@ VOICE_HINTS = {
     "wuwa": "Download the Chinese voice pack in Wuthering Waves, then refresh game data.",
     "witcher3": "Install the official Chinese speech pack through your game launcher.",
     "nte": "Download Chinese voices in NTE. Only exact installed bilingual dialogue and Chinese voice sources are captured.",
-    "honkai3": "Download Chinese story audio in Honkai Impact 3rd. Only dialogue in the available bilingual catalog with verified original voices is supported. The default catalog covers older 4.7 content; refresh checks for compatible catalog updates.",
 }
 
 

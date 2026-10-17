@@ -59,7 +59,7 @@ and double-click **Install.cmd**. **Setup** locates your installed games, prepar
 reader tools and voice indexes, and configures capture and reading preferences.
 Game assets are never included in a release. Supported catalogs include Zenless
 Zone Zero, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher III, Neverness to
-Everness, limited Honkai Impact 3rd scenes and Hito's World. See each game's guide
+Everness and Hito's World. See each game's guide
 for coverage and required voice packs. Existing transcripts remain Chinese.
 
 ## Keeping your data
@@ -83,3 +83,5 @@ Screen installation does not add background capture capability.
 - [Contributing](CONTRIBUTING.md) · [Agent rules](AGENTS.md) · [Release / rollback](RELEASE.md)
 
 Created by [Firebird55](https://github.com/Firebird55/Game-immersion-toolkit).
+
+Honkai Impact 3rd is archived and unsupported. It is not available in setup, capture or the web UI. See [archived support](docs/archived-honkai.md).

@@ -59,7 +59,7 @@ def test_windowed_capture_uses_client_origin_without_borders(monkeypatch):
     assert windows._window_bounds(1) == (-1920, 150, 1280, 720)
 
 
-@pytest.mark.parametrize("game", ["nte", "honkai3"])
+@pytest.mark.parametrize("game", ["nte"])
 @pytest.mark.parametrize("size", [(800,600), (1920,1080), (3440,1440), (3840,2160)])
 def test_new_game_default_crops_agree_with_profiles_and_stay_in_client_bounds(game, size):
     from backend.models import AppSettings
@@ -92,16 +92,16 @@ def test_preview_uses_same_picture_coordinates_and_can_preview_unsaved_choice(tm
     from backend.tests.test_subtitle_capture import fixture_service
     import backend.capture as module
     service, _, _, _ = fixture_service(tmp_path)
-    service.settings.save(AppSettings(honkai3_picture_area='window'))
-    window = WindowInfo(1, 'Synthetic game', 'BH3.exe', (-800, 120, 800, 600))
-    monkeypatch.setattr(module, 'find_active_game_window', lambda _: (GAME_PROFILES['honkai3'], window))
+    service.settings.save(AppSettings(nte_picture_area='window'))
+    window = WindowInfo(1, 'Synthetic game', 'HTGame.exe', (-800, 120, 800, 600))
+    monkeypatch.setattr(module, 'find_active_game_window', lambda _: (GAME_PROFILES['nte'], window))
     seen = []
     service._capture = lambda bounds: seen.append(bounds) or Image.new('RGB', bounds[2:], 'white')
     try:
-        region = service.settings.get().honkai3_region
+        region = service.settings.get().nte_region
         assert service.preview_for_region(region, '16:9')
         assert seen[-1] == CaptureService._region_bounds(CaptureService._picture_window(window, '16:9'), region)
-        assert service.settings.get().honkai3_picture_area == 'window'
+        assert service.settings.get().nte_picture_area == 'window'
         assert service.preview_for_region(region)
         assert seen[-1] == CaptureService._region_bounds(window, region)
     finally:

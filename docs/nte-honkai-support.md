@@ -1,3 +1,5 @@
+> **Honkai Impact 3rd is archived and unsupported.** Honkai instructions and results below are historical research only. The game is absent from setup, automatic capture and the web UI. NTE remains supported.
+
 # Neverness to Everness and Honkai Impact 3rd
 
 Both games have separate transcript histories, favorites, capture calibration,

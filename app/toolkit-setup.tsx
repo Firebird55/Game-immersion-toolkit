@@ -7,7 +7,7 @@ import { MobileLibraryExport, type MobileExportStatus } from './mobile-library-e
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const API = 'http://127.0.0.1:8766';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'honkai3';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte';
 type GameSetup = {
   id: GameId; title: string; configured_path: string | null; detected_path: string | null;
   folder_state: string; folder_hint: string; voice_state: string; voice_hint: string;
