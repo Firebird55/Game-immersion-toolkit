@@ -631,8 +631,16 @@ def runtime_ready(game: str | None = None) -> dict:
         # without activating capture, building tables or reading an account API.
         account = runtime.accounts.status()['active']
         locale = runtime.languages.selected(game, account)
-        index_ready = bool(locale and runtime.languages.prepared(game, locale)
-                           and runtime.language_state(game, locale).get('ready'))
+        if locale:
+            index_ready = bool(runtime.languages.prepared(game, locale)
+                               and runtime.language_state(game, locale).get('ready'))
+        else:
+            # Older installations have no explicit language selection yet.
+            # Let their complete legacy index warm the upgrade; capture still
+            # requires explicit preparation in the replacement. Never reuse a
+            # locale index activated for a different account.
+            index = indexes.get(game)
+            index_ready = bool(index and index.ready and not getattr(index, 'source_locale', None))
     else:
         index_ready = game is None or (game in indexes and indexes[game].ready)
     warm = runtime.warm_task is None or (runtime.warm_task.done() and not runtime.warm_task.cancelled()

@@ -122,6 +122,11 @@ def test_standby_readiness_uses_only_the_active_accounts_prepared_language(monke
     states.clear()
     assert not client.get('/api/runtime/ready?game=beyond').json()['ready']
     assert states == []  # Never fall back to another account or prepare French.
+    active[0] = 'legacy-account-without-selection'
+    assert client.get('/api/runtime/ready?game=beyond').json()['ready']
+    fake.game_indexes['beyond'].source_locale = 'nl'
+    assert not client.get('/api/runtime/ready?game=beyond').json()['ready']
+    assert states == []
     assert client.get('/api/runtime/ready?game=hito').json()['ready']
     assert not client.get('/api/runtime/ready?game=unknown').json()['ready']
 
