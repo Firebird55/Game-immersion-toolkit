@@ -46,7 +46,7 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
   return <section className="toolkit-export-card" aria-label="Mobile library export">
     <div className="toolkit-card-heading"><Smartphone size={20} /><div><h3>Mobile library</h3><p>Take {title} transcripts and voices to your phone.</p></div></div>
     <label className="toolkit-setup-checkbox toolkit-export-option"><input type="checkbox" checked={includeAudio} disabled={active || textOnly}
-      onChange={event => setVoices(event.target.checked)} /><span><strong>Original Original voices</strong><small>{textOnly ? 'This game supports text only.' : 'Include playable audio. Uncheck for a smaller catalog-only export.'}</small></span></label>
+      onChange={event => setVoices(event.target.checked)} /><span><strong>Original game voices</strong><small>{textOnly ? 'This game supports text only.' : 'Include playable audio. Uncheck for a smaller catalog-only export.'}</small></span></label>
     <div className="toolkit-destination">
       <label htmlFor="mobile-export-folder">Save libraries to</label>
       <div className="toolkit-destination-row"><input id="mobile-export-folder" value={folder} disabled={active || status?.browseActive}
