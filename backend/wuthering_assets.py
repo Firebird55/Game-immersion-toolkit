@@ -28,6 +28,11 @@ EXTRACTOR_URL = "https://github.com/Herselfta/FModelCLI/releases/download/v1.0.2
 EXTRACTOR_SHA256 = "86426493c63f0af2ccf6d1d8b498a737723069f6c25a573a46e94d1a3f26e835"
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
+LANGUAGE_INDEX_VERSION = 1
+SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
+VOICE_LOCALES = {'en': ('en', 4), 'zh-Hans': ('zh', 7), 'zh-Hant': ('zh', 7), 'ja': ('ja', 5), 'ko': ('ko', 6)}
+TEXT_LOCALES = {locale: locale for locale in ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko', 'fr', 'de', 'ru', 'th', 'vi', 'id')}
+TEXT_LOCALES.update({'es-ES': 'es', 'pt-BR': 'pt'})
 
 
 def _download(url: str) -> bytes:
@@ -246,10 +251,77 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
                    f"{len(records):,} dialogue pairs indexed; download the Chinese voice pack in Wuthering Waves"}
 
 
+def build_language_records(db_root: Path, files: list[str], source_locale: str, target_locales) -> list[dict]:
+    from .languages import audio_locale
+    tables = {locale: dict(_rows(db_root / TEXT_LOCALES[locale] / 'lang_multi_text.db',
+        'SELECT Id, Content FROM MultiText WHERE Content IS NOT NULL')) for locale in {source_locale, *target_locales}}
+    sources = {path.casefold(): path for path in files if path.startswith(EXTERNAL_ROOT) and path.endswith('.wem')}
+    code, gender_slot = VOICE_LOCALES[source_locale]
+    records = []
+    for identity, blob in _rows(db_root / 'db_plot_audio.db', 'SELECT Id, BinData FROM plotaudio'):
+        text = display_text(tables[source_locale].get(identity, ''))
+        if not text or _string(blob, 0) != identity:
+            continue
+        texts = {locale: value for locale, table in tables.items() if (value := display_text(table.get(identity, '')))}
+        filename = _string(blob, 2)
+        for variant in (['female', 'male'] if _boolean(blob, gender_slot) else [None]):
+            suffix = '_F' if variant == 'female' else '_M' if variant else ''
+            resource = EXTERNAL_ROOT + code + '_' + filename + suffix + '.wem'
+            mapped = sources.get(resource.casefold()) if not _boolean(blob, 3) and '{' not in filename else None
+            records.append({'text_id': f'wuwa:{identity}' + (f':{variant}' if variant else ''),
+                'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''), 'source_text': text,
+                'source_locale': source_locale, 'texts': texts, 'audio_locale': audio_locale(source_locale),
+                'audio': {'depot': mapped, 'locale': audio_locale(source_locale)} if mapped else None, 'player_voice': variant})
+    return records
+
+
+def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
+    from .languages import resolve_locale
+    if source_locale not in SUPPORTED_LOCALES:
+        raise ValueError('Unsupported Wuthering study/audio locale')
+    stamp = fingerprint(install)
+    executable = ensure_extractor(data_dir / 'tools', data_dir.parent / 'voice-assets/vgmstream/vgmstream-cli.exe')
+    cache = data_dir / 'index-cache' / stamp[:16]
+    cache.mkdir(parents=True, exist_ok=True)
+    targets = {value: resolve_locale(value, TEXT_LOCALES) for value in target_locales}
+    requested = {source_locale, *(locale for locale in targets.values() if locale)}
+    for relative in ['db_plot_audio.db', *(TEXT_LOCALES[locale] + '/lang_multi_text.db' for locale in requested)]:
+        path = cache / 'Client/Content/Aki/ConfigDB' / relative
+        if not path.is_file():
+            progress(f'Reading selected Wuthering text table {relative}')
+            run_extractor(install, executable, cache, 'ConfigDB/' + relative)
+    for target, locale in list(targets.items()):
+        if locale and not (cache / 'Client/Content/Aki/ConfigDB' / TEXT_LOCALES[locale] / 'lang_multi_text.db').is_file():
+            targets[target] = None
+    inventory = cache / 'complete.json'
+    if not inventory.is_file():
+        progress('Checking installed original voice paths')
+        files = run_extractor(install, executable, None, 'WwiseExternalSource/')
+        pending = inventory.with_suffix('.pending'); pending.write_text(json.dumps(files), encoding='utf8'); pending.replace(inventory)
+    files = json.loads(inventory.read_text(encoding='utf8'))
+    records = build_language_records(cache / 'Client/Content/Aki/ConfigDB', files, source_locale,
+                                    {locale for locale in targets.values() if locale})
+    if not records or fingerprint(install) != stamp:
+        raise ValueError('Wuthering files changed or dialogue is incomplete; previous table retained.')
+    mapped = sum(bool(row['audio']) for row in records)
+    missing = [target for target, locale in targets.items() if locale is None]
+    return {'format': 2, 'game': 'wuwa', 'install': str(install), 'fingerprint': stamp,
+        'source_locale': source_locale, 'records': records, 'missing_translation_locales': missing,
+        'message': f'{len(records):,} official {source_locale} lines; {mapped:,} original voices' +
+        (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
+        ('; install the selected voice pack through the game launcher' if not mapped else '')}
+
+
+def _validate_voice(audio):
+    depot = audio.get('depot', '')
+    code = VOICE_LOCALES.get(audio.get('locale', 'zh-Hans'), (None,))[0]
+    if code is None or not depot.startswith(EXTERNAL_ROOT + code + '_') or not depot.endswith('.wem') or '..' in depot or ':' in depot:
+        raise ValueError('Invalid original voice locale or reference')
+    return depot
+
+
 def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
-    depot = audio["depot"]
-    if not depot.startswith(EXTERNAL_ROOT + "zh_") or not depot.endswith(".wem") or ".." in depot or ":" in depot:
-        raise ValueError("Invalid Mandarin voice reference")
+    depot = _validate_voice(audio)
     run_extractor(install, executable, destination, depot)
     path = (destination / depot).resolve()
     if not path.is_relative_to(destination.resolve()) or not path.is_file():
@@ -260,13 +332,11 @@ def extract_voice(install: Path, audio: dict, executable: Path, destination: Pat
 @lru_cache(maxsize=2)
 def _voice_inventory(path: Path, size: int, modified: int) -> tuple[str, ...]:
     values = json.loads(path.read_text(encoding='utf8'))
-    return tuple(sorted(p.casefold() for p in values if p.startswith(EXTERNAL_ROOT + 'zh_') and p.endswith('.wem')))
+    return tuple(sorted(p.casefold() for p in values if p.startswith(EXTERNAL_ROOT) and p.endswith('.wem')))
 
 
 def extract_voices(install: Path, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
-    depots = [audio.get('depot', '') for audio in audios]
-    if any(not p.startswith(EXTERNAL_ROOT + 'zh_') or not p.endswith('.wem') or '..' in p or ':' in p for p in depots):
-        raise ValueError('Invalid Mandarin voice reference')
+    depots = [_validate_voice(audio) for audio in audios]
     inventory_path = executable.parent.parent / 'index-cache' / fingerprint(install)[:16] / 'complete.json'
     try:
         stat = inventory_path.stat()

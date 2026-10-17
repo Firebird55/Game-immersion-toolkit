@@ -28,8 +28,8 @@ VOICE_HINTS = {
     "pragmata": "Mandarin voices are verified from the installed PAKs during indexing.",
     "hito": "Hito uses verified game text and does not need a voice decoder.",
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
-    "wuwa": "Download the Chinese voice pack in Wuthering Waves, then refresh game data.",
-    "witcher3": "Install the official Chinese speech pack through your game launcher.",
+    "wuwa": "Download the selected study language's voice pack in Wuthering Waves, then prepare it in Languages.",
+    "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
     "nte": "Download Chinese voices in NTE. Only exact installed bilingual dialogue and Chinese voice sources are captured.",
 }
 
