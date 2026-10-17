@@ -26,7 +26,7 @@ def voice(tmp_path, calls):
     return decode
 
 
-@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "honkai3", "hito"])
+@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "hito"])
 def test_export_roundtrip_and_private_allowlist(tmp_path, game):
     calls = []
     output = tmp_path / "export"

@@ -7,7 +7,7 @@ import pytest
 from backend.mobile_library import prepare_source, export_library, file_digest
 
 
-@pytest.mark.parametrize('game', ['zzz', 'pragmata', 'cyberpunk', 'witcher3', 'wuwa', 'nte', 'honkai3', 'hito'])
+@pytest.mark.parametrize('game', ['zzz', 'pragmata', 'cyberpunk', 'witcher3', 'wuwa', 'nte', 'hito'])
 def test_prepared_sources_enable_verified_batching_for_every_voiced_game(tmp_path, monkeypatch, game):
     from backend import voice_assets, pragmata_audio, local_voice, game_paths, nte_assets
     from scripts import index_pragmata_assets

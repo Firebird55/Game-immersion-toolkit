@@ -1,5 +1,5 @@
 export const PROTOCOL=1,CHANNEL='proxy-transcript-v1',PAGE_SIZE=8,MAX_MESSAGE=60000,MAX_AUDIO=8*1024*1024;
-const games=new Set(['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','honkai3','hito']);
+const games=new Set(['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','hito']);
 const str=(v,n)=>typeof v==='string'&&v.length<=n;
 const integer=(v,max)=>Number.isSafeInteger(v)&&v>=0&&v<=max;
 const fields=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>keys.includes(k));

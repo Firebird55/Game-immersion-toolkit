@@ -38,5 +38,5 @@ def test_retired_preference_preserves_unrelated_calibration():
 
 def test_archived_game_is_absent_from_ui_and_picker():
     root = Path(__file__).resolve().parents[2]
-    for name in ('app/companion.tsx', 'app/toolkit-setup.tsx', 'scripts/select-game-folders.ps1'):
+    for name in ('app/companion.tsx', 'app/toolkit-setup.tsx', 'scripts/select-game-folders.ps1', 'public/mobile-capture/index.html'):
         assert 'Honkai Impact 3rd' not in (root / name).read_text(encoding='utf-8')
