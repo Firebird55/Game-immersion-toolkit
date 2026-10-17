@@ -1,4 +1,4 @@
-"""Read-only Witcher 3 localization and original Mandarin speech containers.
+"""Read-only Witcher 3 localization and original speech containers.
 
 IDs are joined across RTSW string tables and CPSW speech tables. Format markers
 are public file-format constants, not account credentials or stored AES keys.
@@ -15,7 +15,15 @@ from .textmaps import display_text
 
 # RTSW/CPSW language format markers (English, legacy Traditional Chinese, and
 # unmasked formats including next-gen Simplified Chinese).
-_FORMAT_MAGIC = {0x43975139: 0x79321793, 0x18632176: 0x16875467, 0: 0}
+_FORMAT_MAGIC = {0x43975139: 0x79321793, 0x18632176: 0x16875467, 0: 0,
+    0x24987354: 0x21793217, 0x75886138: 0x42791159, 0x18796651: 0x42387566,
+    0x23863176: 0x75921975, 0x42378932: 0x67823218, 0x45931894: 0x12375973,
+    0x54834893: 0x59825646, 0x83496237: 0x73946816, 0x63481486: 0x42386347}
+LANGUAGE_INDEX_VERSION = 1
+SUPPORTED_LOCALES = ('en', 'fr', 'de', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans')
+TEXT_LOCALES = {'ar': 'ar', 'pt-BR': 'br', 'zh-Hans': 'cn', 'cs': 'cz', 'de': 'de',
+    'en': 'en', 'es-ES': 'es', 'es-419': 'esmx', 'fr': 'fr', 'hu': 'hu', 'it': 'it',
+    'ja': 'jp', 'ko': 'kr', 'pl': 'pl', 'ru': 'ru', 'zh-Hant': 'zh', 'tr': 'tr', 'uk': 'ua'}
 
 
 def _read(stream, size):
@@ -134,7 +142,7 @@ def read_speech(path: Path) -> dict[int, dict]:
 
 
 def archive_sources(install: Path) -> list[Path]:
-    names = {"en.w3strings", "cn.w3strings", "zh.w3strings", "cnpc.w3speech", "zhpc.w3speech"}
+    names = {name for code in TEXT_LOCALES.values() for name in (code + '.w3strings', code + 'pc.w3speech')}
     roots = [install / "content", install / "dlc"]
     return sorted({path for root in roots if root.is_dir() for path in root.rglob("*")
                    if path.is_file() and path.name.lower() in names}, key=lambda p: p.relative_to(install).as_posix())
@@ -191,10 +199,74 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
                    "Witcher subtitles indexed; install the official Chinese speech pack in Steam"}
 
 
+def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
+    from .languages import resolve_locale
+    if source_locale not in SUPPORTED_LOCALES:
+        raise ValueError('Unsupported Witcher study/audio locale')
+    stamp, paths = fingerprint(install), archive_sources(install)
+    available = {locale for locale, code in TEXT_LOCALES.items() if any(p.name.casefold() == code + '.w3strings' for p in paths)}
+    if source_locale not in available:
+        raise ValueError('Install the selected official Witcher text pack first.')
+    targets = {target: resolve_locale(target, available) for target in target_locales}
+    selected = {source_locale, *(locale for locale in targets.values() if locale)}
+    names = {TEXT_LOCALES[locale] + '.w3strings': locale for locale in selected}
+    tables, voices, priorities = {locale: {} for locale in selected}, {}, {}
+    def group(path):
+        parts = path.relative_to(install).parts
+        return '/'.join(parts[:2]) if parts[0].lower() == 'dlc' else 'base'
+    def priority(path):
+        patches = [int(m[1]) for part in path.relative_to(install).parts if (m := re.search(r'patch(\d+)', part, re.I))]
+        return max(patches, default=-1)
+    for path in sorted(paths, key=lambda p: (priority(p), p.as_posix().casefold())):
+        name = path.name.casefold()
+        if name in names:
+            locale = names[name]
+            progress(f'Reading selected Witcher {locale} text')
+            for identity, value in read_strings(path).items():
+                # The supported Dual Subtitles writer retains the file's own
+                # language first, even for two languages using the same script.
+                value = display_text(re.split(r'(?:<br\s*/?>\s*|\s+)~\s*', value, maxsplit=1, flags=re.I)[0])
+                if value:
+                    tables[locale][(group(path), identity)] = value
+        elif name == TEXT_LOCALES[source_locale] + 'pc.w3speech':
+            progress(f'Checking original Witcher {source_locale} voice bindings')
+            for identity, audio in read_speech(path).items():
+                key = (group(path), identity)
+                reference = {**audio, 'archive': path.relative_to(install).as_posix(), 'locale': source_locale}
+                if key in voices and priority(path) == priorities[key]:
+                    voices[key] = {'ambiguous': True}
+                else:
+                    voices[key], priorities[key] = reference, priority(path)
+    rows = []
+    for key, text in tables[source_locale].items():
+        texts = {locale: table[key] for locale, table in tables.items() if key in table}
+        voice = voices.get(key)
+        rows.append({'text_id': f'witcher3:{key[1]}' + (':' + key[0] if key[0] != 'base' else ''),
+            'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
+            'source_locale': source_locale, 'source_text': text, 'texts': texts, 'audio_locale': source_locale,
+            'audio': voice if voice and not voice.get('ambiguous') else None})
+    if not rows or fingerprint(install) != stamp:
+        raise ValueError('Witcher files changed or selected dialogue is incomplete; previous table retained.')
+    mapped = sum(bool(row['audio']) for row in rows)
+    missing = [target for target, locale in targets.items() if locale is None]
+    return {'format': 2, 'game': 'witcher3', 'source_locale': source_locale, 'install': str(install),
+        'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
+        'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
+        (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
+        ('; install the selected original speech pack' if not mapped else '')}
+
+
+def _validate_speech(install, audio):
+    path = (install / audio['archive']).resolve()
+    locale = audio.get('locale', 'zh-Hans')
+    if (locale not in SUPPORTED_LOCALES or path.name.casefold() != TEXT_LOCALES[locale] + 'pc.w3speech'
+            or not path.is_relative_to(install.resolve()) or path not in {p.resolve() for p in archive_sources(install)}):
+        raise ValueError('Invalid original Witcher speech locale or reference')
+    return path
+
+
 def extract_voice(install: Path, audio: dict, _executable: Path, _destination: Path) -> bytes:
-    path = (install / audio["archive"]).resolve()
-    if not path.is_relative_to(install.resolve()) or path.name.casefold() != "cnpc.w3speech":
-        raise ValueError("Invalid original Witcher Mandarin speech reference")
+    path = _validate_speech(install, audio)
     offset, size = int(audio["offset"]), int(audio["size"])
     if offset < 0 or size < 44 or size > 100 * 1024 * 1024 or offset + size > path.stat().st_size:
         raise ValueError("Invalid original Witcher speech bounds")
@@ -211,9 +283,7 @@ def extract_voices(install: Path, audios: list[dict], _executable: Path, _destin
     streams, result = {}, []
     with ExitStack() as stack:
         for audio in audios:
-            path = (install / audio['archive']).resolve()
-            if not path.is_relative_to(install.resolve()) or path.name.casefold() != 'cnpc.w3speech':
-                raise ValueError('Invalid original Witcher Mandarin speech reference')
+            path = _validate_speech(install, audio)
             offset, size = int(audio['offset']), int(audio['size'])
             if offset < 0 or not 44 <= size <= 100 * 1024 * 1024 or offset + size > path.stat().st_size:
                 raise ValueError('Invalid original Witcher speech bounds')
