@@ -52,7 +52,7 @@ rate while preserving authored silent partitions. Other voice packs still need
 installation-specific validation; synthetic locale fixtures are separate evidence.
 
 The checked-in [replay manifest](../backend/tests/fixtures/beyond-video-ocr.json)
-records the two tested opening segments and the untested archive/chapter groups.
+records the tested opening segments and the untested archive/chapter groups.
 The English PC recording from 00:00 to 04:00 covers opening narration, the
 police cutscene, a phone intercut, letterboxing, brief and wrapped subtitles,
 an initial menu negative, and uniform labels that must not become dialogue.
@@ -63,12 +63,18 @@ cues. Replay reports preserve both the captured record IDs and authored cue
 IDs, expected events, misses, incorrect captures, chapter, branch and source
 timestamps. The original recording is 1080p; 720p and 4K
 runs resize that recording and do not establish native-resolution coverage.
+An additional 04:00–06:00 segment passes at the recording's 1080p size. Its
+seven manually annotated caption appearances cover four authored performances,
+including one complete performance with four subtitle pages. Chapter titles and
+movement prompts do not become dialogue. Resized replay of this additional
+segment remains untested.
 Chinese caption sequences also pass synthetic native OCR checks with Dutch
 study text, official Chinese translation and extracted original Dutch audio.
 Those synthetic checks are separate from the English gameplay evidence.
 
-Every later chapter, alternate branch, optional scene, ending, DLC, and subtitle
-presentation absent from that segment remains untested. Dutch gameplay footage
+The remainder of the childhood chapter, every later chapter, alternate branch,
+optional scene, ending, DLC, and subtitle presentation absent from those
+segments remain untested. Dutch gameplay footage
 and language-specific footage outside English are not covered by that replay.
 Synthetic format regressions cover all twelve voice locales; they are distinct
 from installed Dutch asset checks and actual gameplay evidence. Mobile carries

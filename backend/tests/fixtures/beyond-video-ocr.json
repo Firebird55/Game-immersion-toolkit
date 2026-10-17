@@ -55,12 +55,42 @@
         "beyond:IW_0102_POLICE_COMMANDO_SWATLT_C00002:1"
       ],
       "evidence": "1080p PC recording; video transcoded for exact clip bounds without resizing; caption identities annotated before matcher replay"
+    },
+    {
+      "name": "beyond-police-ending-childhood-intro",
+      "game": "beyond",
+      "source_locale": "nl",
+      "translation_locale": "zh-Hans",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "path": "output/beyond-research/youtube-opening-240-360-fast.mp4",
+      "start": 0,
+      "duration": 120,
+      "source_timestamps": [
+        240,
+        360
+      ],
+      "chapter": "0102/0401",
+      "branch": "recorded police ending and childhood introduction",
+      "footage_language": "en",
+      "presentation": "letterboxed cutscene, spoken interaction prompts, chapter-title and motion-key HUD negatives",
+      "expected_exact": true,
+      "expected": [
+        "beyond:IW_0102_POLICE_DESTROYED_NDA55_C00002:complete",
+        "beyond:IW_0401_INTRO_CALL_JLE35_C00002:complete",
+        "beyond:IW_0401_INTRO_PLAY_JLE35_C00002:1",
+        "beyond:IW_0401_INTRO_GO_JLE35_C00002:complete"
+      ],
+      "annotation": "Seven readable caption appearances independently reviewed before matching; four authored performances, one containing four subtitle pages.",
+      "tested_resolutions": [
+        "1920x1080"
+      ],
+      "evidence": "1080p PC recording; exact-bound transcoding without resizing; seven caption appearances manually annotated before matcher replay, covering four authored performances"
     }
   ],
   "coverage_complete": false,
   "alternate_source": "https://www.youtube.com/watch?v=Llvr_JrxTV4",
   "untested": [
-    "All chapters after the sampled opening",
+    "All scene content after 06:00 and the remainder of the childhood chapter",
     "Alternate decisions and endings",
     "Optional scenes and Advanced Experiments DLC",
     "Internal thoughts, QTE speech, background and overlapping speakers not present in the sampled clip",
@@ -71,7 +101,7 @@
   "chapter_inventory": [
     {
       "archive_group": "0101_0102",
-      "status": "sampled 00:00-04:00 only",
+      "status": "sampled opening only, through police ending",
       "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
       "timestamps": [
         [
@@ -81,14 +111,23 @@
         [
           120,
           240
+        ],
+        [
+          240,
+          280
         ]
       ]
     },
     {
       "archive_group": "0401",
-      "status": "untested",
+      "status": "sampled introduction only",
       "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
-      "timestamps": []
+      "timestamps": [
+        [
+          300,
+          360
+        ]
+      ]
     },
     {
       "archive_group": "0501_0503",
