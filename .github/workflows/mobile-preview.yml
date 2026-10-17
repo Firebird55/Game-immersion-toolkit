@@ -82,7 +82,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Check capture and library logic
         run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: mobile-preview-${{ runner.os }}-playwright-1.64.0
