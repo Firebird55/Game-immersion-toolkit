@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {zipSync,strToU8} from 'fflate';
-import {openZip,readCatalog,readVoice,validateVoices,sha256,FORMAT,DialogueMatcher,ratio,subtitleRows,searchCatalog} from '../public/mobile-capture/library.mjs';
+import {openZip,readCatalog,readVoice,validateVoices,validateRow,sha256,FORMAT,DialogueMatcher,ratio,subtitleRows,searchCatalog} from '../public/mobile-capture/library.mjs';
 import {regions,candidates,cleanOcrBlocks} from '../public/mobile-capture/ocr-pipeline.mjs';
 import {cacheBudget} from '../public/mobile-capture/storage.mjs';
 const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
@@ -71,4 +71,13 @@ test('storage check compares catalog cache budget with browser quota, excluding 
  assert.equal(cacheBudget(m,{quota:100*1024**2,usage:0}).sufficient,true);
  assert.equal(cacheBudget(m,{quota:1024,usage:1024}).sufficient,false);
  assert.equal(cacheBudget(m,{quota:null,usage:null}).sufficient,null);
+});
+
+
+test('Dutch catalog matches authored source pages and keeps unavailable translation empty',()=>{
+ const tagged={...row,textId:'beyond:test',english:'',chinese:'',sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige synthetische zin.',translationText:'',translationLocale:'zh-Hans',audioLocale:'nl',anchorsSource:['Een volledige','synthetische zin.']};
+ const clean=validateRow(tagged),matcher=new DialogueMatcher([clean]);
+ assert.equal(matcher.match('synthetische zin.').row.sourceLanguage,'nl');
+ assert.equal(clean.translationText,'');assert.deepEqual(regions('beyond',undefined,false,false)[0].crop,[.10,.70,.80,.28]);
+ assert.throws(()=>validateRow({...tagged,sourceLanguage:'../key'}));
 });

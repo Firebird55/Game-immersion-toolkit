@@ -168,8 +168,9 @@ class MobileExportManager:
             raise ValueError('Unsupported game')
         folder, existing = self._validate_folder(destination_folder or self.destination())
         data = self.root / 'data'
+        from .language_preparation import selected_snapshot
         inputs = ([data / 'voice-assets/manifest.json', data / 'voice-assets/learned-manifest.json']
-                  if game == 'zzz' else [data / game / 'textmap.json'])
+                  if game == 'zzz' else [selected_snapshot(self.root, game)[0]])
         signature = tuple((str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in inputs if p.is_file())
         key = (game, signature)
         with self._lock:

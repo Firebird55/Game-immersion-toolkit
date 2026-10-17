@@ -16,7 +16,7 @@ import httpx
 
 GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
                   "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
-                  "nte": "Neverness to Everness"}
+                  "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls"}
 API_BASE = "https://api.lexirise.app"
 REQUEST_KEY = ContextVar('lexirise_request_key', default=None)
 

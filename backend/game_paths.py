@@ -6,10 +6,10 @@ import os
 import threading
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte")
+GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond")
 GAME_NAMES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
               "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
-              "nte": "Neverness to Everness"}
+              "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls"}
 _path_lock = threading.RLock()
 
 
@@ -37,6 +37,7 @@ def validate_install(game: str, path: Path) -> Path:
                 root = parent
                 break
     valid = {
+        "beyond": lambda: (root / "BeyondTwoSouls_Steam.exe").is_file() and (root / "BigFile_PC.idx").is_file(),
         "nte": lambda: (root / "Client/WindowsNoEditor/HT/Binaries/Win64/HTGame.exe").is_file()
         and any((root / "Client/WindowsNoEditor/HT/Content/Paks").glob("*.pak")),
         "honkai3": lambda: (root / "BH3.exe").is_file() and (root / "BH3_Data/StreamingAssets").is_dir(),
@@ -109,7 +110,9 @@ def discover_install(game: str) -> Path | None:
     if configured:
         return configured
     names = [GAME_NAMES[game]]
-    if game == "zzz":
+    if game == "beyond":
+        names = ["BEYOND Two Souls"]
+    elif game == "zzz":
         names = ["Zenless Zone Zero/games/ZenlessZoneZero Game", "Zenless Zone Zero", "ZenlessZoneZero Game"]
     elif game == "honkai3":
         names = ["HonkaiImpact3rd", "Honkai Impact 3rd", "Honkai Impact 3rd Games"]

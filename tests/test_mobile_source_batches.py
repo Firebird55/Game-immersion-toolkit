@@ -54,7 +54,7 @@ def test_prepared_sources_enable_verified_batching_for_every_voiced_game(tmp_pat
             pass
     monkeypatch.setattr(voice_assets, 'VoiceAssetService', lambda manifest, decoder, output, learned: Service(output))
     monkeypatch.setattr(pragmata_audio, 'PragmataVoiceAssetService', lambda data, decoder, output: Service(output))
-    monkeypatch.setattr(local_voice, 'LocalVoiceAssetService', lambda game, data, decoder, output: Service(output))
+    monkeypatch.setattr(local_voice, 'LocalVoiceAssetService', lambda game, data, decoder, output, **kwargs: Service(output))
     monkeypatch.setattr(index_pragmata_assets, 'fingerprint', lambda _: 'fixture')
     monkeypatch.setattr(nte_assets, 'ensure_extractor', lambda _: None)
     monkeypatch.setattr(game_paths, 'discover_install', lambda _: install)

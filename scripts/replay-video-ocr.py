@@ -97,9 +97,14 @@ class ReplayStore(TranscriptStore):
 def replay(clip, resolution, data_dir, fps=2):
     validate_clip(clip)
     game = clip['game']
-    index = LocalGameTextIndex(game, data_dir / game)
+    if clip.get('source_locale'):
+        from backend.multilingual_index import MultilingualTextIndex
+        index = MultilingualTextIndex(game, data_dir / 'languages' / game / clip['source_locale'])
+        index.target_locale = clip.get('translation_locale', 'en')
+    else:
+        index = LocalGameTextIndex(game, data_dir / game)
     index.player_voice = clip.get('player_voice', 'unconfigured')
-    assert index.ready and index.audio_count, f'{game}: installed Mandarin index required'
+    assert index.ready and index.audio_count, f'{game}: prepared original-language index required'
     payload = json.loads(index.path.read_text(encoding='utf-8'))
     mapped = {r['text_id'] for r in payload['records'] if r.get('audio')}
     scheduled = []
@@ -124,11 +129,12 @@ def replay(clip, resolution, data_dir, fps=2):
         service = CaptureService(settings, index, None, ReplayStore(folder / 'transcript.db'),
                                  ignore, ignore, ignore, folder / 'audio',
                                  game_indexes={game: index},
-                                 game_voice_assets={game: SimpleNamespace(has_variant=lambda text_id, *_: text_id in mapped)})
+                                 game_voice_assets={game: SimpleNamespace(locale=getattr(index, 'source_locale', 'zh-Hans'), has_variant=lambda text_id, *_: text_id in mapped)})
         # Collect original-asset requests; never record sound or write an account.
         service._schedule_line_audio = lambda line, *_args, **_kwargs: scheduled.append(line)
         engine = OcrEngine()
         service._engine = engine
+        service._prepare_window_capture = lambda _: None
         window = WindowInfo(0, clip['game'], '', (0, 0, *resolution))
         frame_count = 0
         emitted = []

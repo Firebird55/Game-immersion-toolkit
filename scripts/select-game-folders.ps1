@@ -29,7 +29,7 @@ $oldLocation = Get-Location
 try {
     Set-Location -LiteralPath $projectRoot
     $existing = (& $python -m scripts.configure_game_paths --list | ConvertFrom-Json)
-    $games = @(@('hito', "Hito's World"), @('zzz', 'Zenless Zone Zero'), @('pragmata', 'PRAGMATA'), @('cyberpunk', 'Cyberpunk 2077'), @('wuwa', 'Wuthering Waves'), @('witcher3', 'The Witcher 3'), @('nte', 'Neverness to Everness'))
+    $games = @(@('hito', "Hito's World"), @('zzz', 'Zenless Zone Zero'), @('pragmata', 'PRAGMATA'), @('cyberpunk', 'Cyberpunk 2077'), @('wuwa', 'Wuthering Waves'), @('witcher3', 'The Witcher 3'), @('nte', 'Neverness to Everness'), @('beyond', 'BEYOND: Two Souls'))
     for ($index = 0; $index -lt $games.Count; $index++) {
         $game = $games[$index][0]; $name = $games[$index][1]; $row = $index + 1
         $table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute', 55))) | Out-Null

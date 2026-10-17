@@ -1,0 +1,132 @@
+"""Synthetic Quantic resources only; no game text, voices or private paths."""
+import struct
+
+import pytest
+
+from backend import quantic_assets as q
+from backend.beyond_assets import cues, extract_voice
+from backend import beyond_assets as beyond
+
+
+def integers(*values):
+    return struct.pack('<' + 'I' * len(values), *values)
+
+
+def string(value, unicode=False):
+    encoded = value.encode('utf-16-le' if unicode else 'ascii')
+    return integers(len(encoded)) + encoded
+
+
+def localization():
+    data = b'COM_CONT' + integers(4, 1, 4091, 42) + b'\1'
+    data += b'LOADCONT' + integers(2) + b'LOCALIZ_' + integers(5) + b'\0' + integers(2)
+    for language, texts in [('DUT', ['{S}{*1}Test een.', '{*TC:100|900}Test twee.']),
+                            ('CHS', ['{*1}Synthetic target one.', '{*TC:100|900}Synthetic target two.'])]:
+        data += b'\1' + string(language) + integers(2)
+        for key, text in zip(['ONE', 'TWO'], texts):
+            data += string(key) + string(text, True) + integers(1)
+        data += integers(2) + string('ONE') + b'\1\1' + integers(4091, 42) + string('TWO') + b'\0'
+    return data
+
+
+def partition(single=False, silent=False):
+    payload = b'NULL' + integers(16000) if silent else b'\xff\xfa\x92\xc0' + bytes(12)
+    block = integers(0) + struct.pack('<2f', 0, .5) + integers(0)
+    block += integers(4) + b'000000000000' if single else integers(8, 16+len(payload)) + b'00000000'
+    block += payload
+    footer = b'PARTOFFS' + integers(2, 16, 4092, 7, 2, 0)
+    footer += b'STREAMAB' + integers(1, 0)
+    footer += b'HEADER__' + integers(6, 20, 1, 2, 1) + struct.pack('<2f', .1, .4)
+    data = b'PARTITIO' + integers(2, 2048+len(block)-16) + bytes(2032) + block + footer
+    offsets = b'TBOFFSET' + integers(4, 1, 0, len(block), len(block))
+    return data, offsets, payload
+
+
+def test_multiple_localized_paragraphs_keep_exact_official_bindings():
+    tables = q.localization(localization())
+    assert tables['DUT']['bindings'] == {'ONE': (4091, 42), 'TWO': None}
+    assert set(cues(tables['DUT']['texts']['TWO'])) == {'TC:100|900'}
+    assert set(cues(tables['CHS']['texts']['ONE'])) == {'1'}
+    assert cues('{S}Plain subtitle.') == {'complete': 'Plain subtitle.'}
+
+
+def test_short_mp3_tails_keep_exact_frame_samples_and_reject_truncation():
+    frame = b'\xff\xfa\x92\xc0' + bytes(414)
+    assert beyond.mp3_samples(frame) == 1152
+    assert beyond.mp3_samples(frame + frame) == 2304
+    with pytest.raises(ValueError, match='exceeds'):
+        beyond.mp3_samples(frame[:-1])
+    with pytest.raises(ValueError, match='Unsupported'):
+        beyond.mp3_samples(b'NULL' + bytes(414))
+
+
+@pytest.mark.parametrize('single,silent', [(False, False), (True, False), (False, True), (True, True)])
+def test_partition_uses_authored_sizes_and_preserves_silent_seconds(single, silent):
+    data, offsets, payload = partition(single, silent)
+    assert q.partition(data)[0] == 7
+    assert q.partition_blocks(data, offsets) == [None if silent else payload]
+
+
+@pytest.mark.parametrize('change', ['truncate', 'offset', 'frame', 'timing'])
+def test_changed_original_partitions_fail_closed(change):
+    data, offsets, _ = partition()
+    if change == 'truncate':
+        data = data[:-1]
+    elif change == 'offset':
+        offsets = offsets[:16] + integers(100000) + offsets[20:]
+    elif change == 'frame':
+        data = data[:2048] + integers(1) + data[2052:]
+    else:
+        data = data[:-8] + struct.pack('<2f', float('nan'), .4)
+    with pytest.raises(ValueError):
+        q.partition_blocks(data, offsets)
+
+
+def test_incomplete_localization_and_wrong_pack_are_not_guessed(tmp_path):
+    with pytest.raises(ValueError):
+        q.localization(localization()[:-1])
+    with pytest.raises(ValueError, match='locale'):
+        extract_voice(tmp_path, {'locale': 'nl', 'index': 'BigFile_PC_FRE.idx'}, None, tmp_path)
+    with pytest.raises(ValueError, match='reference'):
+        extract_voice(tmp_path, {'locale': 'nl', 'index': '../BigFile_PC_DUT.idx'}, None, tmp_path)
+
+
+def write_archive(path, entries):
+    content, rows = bytearray(), []
+    for kind, identity, data in entries:
+        rows.append(struct.pack('>7I', kind, 1, identity, len(content), len(data), 0, 0))
+        content.extend(data)
+    path.write_bytes(q.MAGIC + struct.pack('>2I', 17, 0) + b'ZEP'*24 + struct.pack('>I', len(rows)) + b''.join(rows))
+    path.with_suffix('.dat').write_bytes(content)
+
+
+@pytest.mark.parametrize('locale', beyond.SUPPORTED_LOCALES)
+def test_selected_locale_uses_authored_voice_and_official_translation_only(tmp_path, locale):
+    code = beyond.TEXT_LOCALES[locale]
+    language = beyond.LANGUAGE_IDS[code]
+    raw, offsets, _ = partition()
+    loc = b'COM_CONT' + integers(4, 1, 4091, 42) + b'\1'
+    loc += b'LOADCONT' + integers(2) + b'LOCALIZ_' + integers(5) + b'\0' + integers(2)
+    for tag, text in [(code, '{*1}Synthetic study text.'), ('CHS', '{*1}Synthetic official translation.')]:
+        loc += b'\1' + string(tag) + integers(1) + string('LINE') + string(text, True) + integers(1)
+        loc += integers(1) + string('LINE') + b'\1\1' + integers(4091, 42)
+    references = integers(1016, 100, 4091, 42) + bytes([language]) + integers(4092, 7)
+    info = b'DC_INFO ' + integers(2, 4+len(references), 3) + references
+    components = bytearray()
+    for kind, body in [(1016, loc), (4091, b'typed original metadata'), (4092, offsets)]:
+        header = integers(len(body)+4) + (bytes(9)+struct.pack('<H', language) if kind in (4091, 4092) else bytes(10))
+        components.extend(header + integers(0) + body)
+    metadata = b'QZIP\0' + info + b'DC_DATA ' + integers(20, len(components)) + components
+    write_archive(tmp_path/'BigFile_PC.idx', [(29, 9, metadata)])
+    write_archive(tmp_path/f'BigFile_PC_{code}.idx', [(4091, 42, raw)])
+    result = beyond.index_language(tmp_path, tmp_path/'cache', locale, ['zh-hans', 'ar'])
+    assert len(result['records']) == 1
+    row = result['records'][0]
+    assert row['source_locale'] == row['audio_locale'] == row['audio']['locale'] == locale
+    assert row['source_text'] == 'Synthetic study text.'
+    assert row['texts']['zh-Hans'] == 'Synthetic official translation.'
+    assert row['audio']['identity'] == 42 and row['audio']['start_ms'] == 100
+    assert 'ar' in result['missing_translation_locales'] and 'ar' not in row['texts']
+    (tmp_path/f'BigFile_PC_{code}.idx').unlink()
+    with pytest.raises(ValueError, match='voice pack'):
+        beyond.index_language(tmp_path, tmp_path/'cache', locale, ['zh-hans'])

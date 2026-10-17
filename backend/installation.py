@@ -15,6 +15,7 @@ from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
 
 FOLDER_HINTS = {
+    "beyond": "Choose the BEYOND Two Souls folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.",
     "zzz": "Choose the game folder containing ZenlessZoneZero_Data, or the Data folder itself.",
     "pragmata": "Choose the folder containing PRAGMATA.exe and re_chunk_*.pak archives.",
     "hito": "Choose the folder containing resources/app.asar.",
@@ -24,6 +25,7 @@ FOLDER_HINTS = {
     "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
 }
 VOICE_HINTS = {
+    "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
     "zzz": "Install the Mandarin voice pack through the game launcher.",
     "pragmata": "Mandarin voices are verified from the installed PAKs during indexing.",
     "hito": "Hito uses verified game text and does not need a voice decoder.",

@@ -114,7 +114,7 @@ def refresh_zzz_metadata(root: Path) -> tuple[str, bool]:
 
 
 def missing_tools(root: Path, game: str) -> list[str]:
-    if game == "hito":
+    if game in {"hito", "beyond"}:
         return []
     required = [("Voice decoder", root / "data/voice-assets/vgmstream/vgmstream-cli.exe")]
     if game == "zzz":
@@ -144,7 +144,7 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
     from .game_paths import GAMES
     if game not in GAMES:
         raise ValueError("Unsupported game")
-    if game == "hito":
+    if game in {"hito", "beyond"}:
         return
     decoder = root / "data/voice-assets/vgmstream"
     progress("Preparing the verified original-voice decoder")

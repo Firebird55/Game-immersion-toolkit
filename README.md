@@ -89,3 +89,6 @@ Honkai Impact 3rd is archived and unsupported. It is not available in setup, cap
 Use [Languages and local accounts](docs/languages-and-accounts.md) to explicitly
 prepare a game language, switch protected accounts and follow each learning
 language's Lexirise translation, dictionary and reading preferences.
+
+BEYOND: Two Souls adds explicit language preparation and original Dutch speech.
+See [setup and tested coverage](docs/beyond-support.md); full-game OCR acceptance remains incomplete.

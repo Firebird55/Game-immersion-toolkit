@@ -1,10 +1,10 @@
 export const PROTOCOL=1,CHANNEL='proxy-transcript-v1',PAGE_SIZE=8,MAX_MESSAGE=60000,MAX_AUDIO=8*1024*1024;
-const games=new Set(['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','hito']);
+const games=new Set(['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','beyond','hito']);
 const str=(v,n)=>typeof v==='string'&&v.length<=n;
 const integer=(v,max)=>Number.isSafeInteger(v)&&v>=0&&v<=max;
 const fields=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>keys.includes(k));
 export function rowKey(row){return JSON.stringify([row.source,row.game,String(row.id)]);}
-export function validRow(r){return fields(r,['source','game','id','chinese','english','speakerChinese','speakerEnglish','createdAt','audio'])&&/^pc-[a-zA-Z0-9-]{16,64}$/.test(r.source)&&games.has(r.game)&&Number.isSafeInteger(r.id)&&r.id>0&&str(r.chinese,1600)&&str(r.english,1600)&&r.chinese.length+r.english.length<=2400&&str(r.speakerChinese,120)&&str(r.speakerEnglish,120)&&integer(r.createdAt,Number.MAX_SAFE_INTEGER)&&typeof r.audio==='boolean';}
+export function validRow(r){return fields(r,['source','game','id','chinese','english','speakerChinese','speakerEnglish','createdAt','audio','sourceText','sourceLanguage','sourceLocale','translationText','translationLocale','audioLocale'])&&/^pc-[a-zA-Z0-9-]{16,64}$/.test(r.source)&&games.has(r.game)&&Number.isSafeInteger(r.id)&&r.id>0&&str(r.chinese,1600)&&str(r.english,1600)&&r.chinese.length+r.english.length<=2400&&str(r.speakerChinese,120)&&str(r.speakerEnglish,120)&&integer(r.createdAt,Number.MAX_SAFE_INTEGER)&&typeof r.audio==='boolean'&&['sourceText','translationText'].every(k=>r[k]==null||str(r[k],8000))&&['sourceLanguage','sourceLocale','translationLocale','audioLocale'].every(k=>r[k]==null||str(r[k],24)&&/^[a-zA-Z][a-zA-Z0-9-]*$/.test(r[k]));}
 export function parseMessage(raw,session){
  if(typeof raw!=='string'||new TextEncoder().encode(raw).length>MAX_MESSAGE)throw Error('Oversized transcript message.');
  const m=JSON.parse(raw);if(!m||m.v!==PROTOCOL||m.session!==session)throw Error('Transcript protocol or session mismatch. Pair again.');

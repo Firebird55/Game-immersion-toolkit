@@ -10,6 +10,20 @@ from datetime import datetime, timezone
 from .languages import GAME_LOCALES, LOCALE_NAMES, study_language
 
 
+def selected_snapshot(root: Path, game: str):
+    """Read an explicit host selection without preparing data or preferences."""
+    data = Path(root) / 'data'
+    if not (data / 'languages' / game).is_dir():
+        return data / game / 'textmap.json', None, 'legacy'
+    from .accounts import AccountStore
+    accounts = AccountStore()
+    account = accounts.status()['active']
+    selected = LanguagePreparation(None, None, None).selected(game, account)
+    if not selected:
+        raise ValueError('Select a prepared learning language before exporting.')
+    return data / 'languages' / game / selected / 'textmap.json', accounts, account
+
+
 class LanguagePreparation:
     def __init__(self, build, activate, state, *, path: Path | None = None, supported=None):
         self.path = path or Path(os.environ.get('LOCALAPPDATA', '.')) / 'Proxy Transcript/languages.json'

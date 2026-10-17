@@ -1,0 +1,189 @@
+{
+  "clips": [
+    {
+      "name": "beyond-prologue-narration-police",
+      "game": "beyond",
+      "source_locale": "nl",
+      "translation_locale": "zh-Hans",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "path": "output/beyond-research/youtube-prologue.mp4",
+      "start": 0,
+      "duration": 120,
+      "presentation": "opening narration, police cutscene, letterboxing, brief/wrapped subtitles; initial menu negative",
+      "expected": [
+        "beyond:IW_0101_PROLOGUE_STORY_JHO25_C00002:10",
+        "beyond:IW_0101_PROLOGUE_STORY_JHO25_C00002:11",
+        "beyond:IW_0101_PROLOGUE_STORY_JHO25_C00004:complete",
+        "beyond:IW_0101_PROLOGUE_STORY_JHO25_C00007:1",
+        "beyond:IW_0101_PROLOGUE_STORY_JHO25_C00007:2",
+        "beyond:IW_0102_POLICE_QUESTIONNING_COP_C00002:complete"
+      ],
+      "expected_exact": true,
+      "footage_language": "en",
+      "chapter": "0101/0102",
+      "branch": "recorded opening"
+    }
+  ],
+  "coverage_complete": false,
+  "alternate_source": "https://www.youtube.com/watch?v=Llvr_JrxTV4",
+  "untested": [
+    "All chapters after the sampled opening",
+    "Alternate decisions and endings",
+    "Optional scenes and Advanced Experiments DLC",
+    "Internal thoughts, QTE speech, background and overlapping speakers not present in the sampled clip",
+    "Native 720p/4K game capture",
+    "Dutch language gameplay footage",
+    "Language-specific footage outside English"
+  ],
+  "chapter_inventory": [
+    {
+      "archive_group": "0101_0102",
+      "status": "sampled 00:00-02:00 only",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": [
+        [
+          0,
+          120
+        ]
+      ]
+    },
+    {
+      "archive_group": "0401",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0501_0503",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0601",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0701",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0703",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0704",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0705",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0801_0802",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "0901_0903",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1001_1002",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1101_1102",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1201_1209",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1401",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1601",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1701_1707",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1801_1805",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "1901_1910",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "2001_2003",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "2101_2103",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "2201",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "2401_2408",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "2501_2617",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    },
+    {
+      "archive_group": "4000",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "timestamps": []
+    }
+  ]
+}

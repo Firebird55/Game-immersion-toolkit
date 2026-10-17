@@ -53,6 +53,21 @@ def test_catalog_only_never_decodes(tmp_path):
     assert len(list(Path(result["folder"]).glob("*.zip"))) == 1
 
 
+def test_dutch_catalog_preserves_source_and_official_target_without_private_references(tmp_path):
+    row = {**rows('beyond')[0], 'english': '', 'sourceLanguage': 'nl', 'sourceLocale': 'nl',
+           'sourceText': 'Een synthetische zin.', 'translationLocale': 'zh-Hans',
+           'translationText': '合成测试句子。', 'audioLocale': 'nl', 'anchorsSource': ['Een synthetische zin.'],
+           'archive': 'private-original-reference'}
+    result = export_library('beyond', [row], tmp_path, include_audio=False)
+    with zipfile.ZipFile(Path(result['folder']) / catalog_name('beyond')) as pack:
+        manifest = json.loads(pack.read('manifest.json'))
+        exported = json.loads(pack.read(manifest['catalog'][0]['name']).splitlines()[0])
+    assert manifest['languages'] == ['nl', 'zh-Hans']
+    assert exported['sourceText'] == row['sourceText'] and exported['audioLocale'] == 'nl'
+    assert exported['translationText'] == row['translationText']
+    assert exported['anchorsSource'] == row['anchorsSource'] and 'archive' not in exported
+
+
 def test_audio_size_estimate_tracks_deduplicated_completed_clips(tmp_path):
     records = rows()
     records[1]["sourceVoice"] = digest("voice2")

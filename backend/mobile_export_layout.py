@@ -49,18 +49,22 @@ def work_folder(output):
     return work
 
 
+def file_title(game):
+    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', '-', GAME_NAMES[game]).rstrip(' .')
+
+
 def catalog_name(game):
-    return f'{GAME_NAMES[game]} - Catalog.zip'
+    return f'{file_title(game)} - Catalog.zip'
 
 
 def voice_pack_name(game, number, total, identity):
-    return f'{GAME_NAMES[game]} - Voices {number:02d} of {total:02d} - {identity[:8]}.zip'
+    return f'{file_title(game)} - Voices {number:02d} of {total:02d} - {identity[:8]}.zip'
 
 
 def export_folder_name(game, revision):
     if not re.fullmatch('[a-f0-9]{64}', revision):
         raise ValueError('Invalid export revision')
-    return f'{GAME_NAMES[game]} - Mobile Library - {revision[:12]}'
+    return f'{file_title(game)} - Mobile Library - {revision[:12]}'
 
 
 def latest_export(output, game):

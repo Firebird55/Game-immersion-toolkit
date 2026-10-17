@@ -1074,7 +1074,7 @@ class CaptureService:
         if match is None:
             return False
         assets = self._assets_for(match.game)
-        return bool(assets and assets.has_variant(match.text_id, match.english))
+        return bool(assets and getattr(assets, 'locale', match.source_locale) == match.source_locale and assets.has_variant(match.text_id, match.english))
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
         self._visible_text_by_channel[channel] = (now, text_ids)
@@ -1185,7 +1185,7 @@ class CaptureService:
 
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
         assets = self._assets_for(line.game)
-        if not assets or not assets.has_variant(line.text_id, line.english):
+        if not assets or getattr(assets, 'locale', line.source_locale) != line.source_locale or not assets.has_variant(line.text_id, line.english):
             if line.is_comic and self._event_loop is not None:
                 asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
                 self._prune_history()
@@ -1246,7 +1246,7 @@ class CaptureService:
         assets = self._assets_for(line.game)
         if not assets or (not line.voiced and not line.is_comic) or (line.audio_source == "original" and line.has_audio):
             return False
-        if not assets.has_variant(line.text_id, line.english):
+        if getattr(assets, 'locale', line.source_locale) != line.source_locale or not assets.has_variant(line.text_id, line.english):
             return False
         try:
             self._event_loop = asyncio.get_running_loop()

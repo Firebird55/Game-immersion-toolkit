@@ -4,7 +4,7 @@ export function createPCProvider(game){
  if(!['localhost','127.0.0.1'].includes(location.hostname))throw Error('Start PC sharing from the local desktop companion.');
  let source=localStorage.getItem('proxy-transcript-source');if(!/^pc-[a-zA-Z0-9-]{16,64}$/.test(source??'')){source='pc-'+crypto.randomUUID();localStorage.setItem('proxy-transcript-source',source);}
  const known=new Set();
- const normalize=r=>({source,game,id:r.id,chinese:(r.chinese??'').slice(0,1200),english:(r.english??'').slice(0,1200),speakerChinese:(r.speaker_chinese??'').slice(0,120),speakerEnglish:(r.speaker_english??'').slice(0,120),createdAt:Math.max(0,Date.parse(r.created_at)||0),audio:Boolean(r.has_audio&&r.audio_source==='original')});
+ const normalize=r=>({source,game,id:r.id,sourceText:(r.source_text??r.chinese??'').slice(0,2000),sourceLanguage:r.source_language??'zh',sourceLocale:r.source_locale??'zh-Hans',translationText:(r.translation_text??r.english??'').slice(0,2000),translationLocale:r.translation_locale??'en',audioLocale:r.audio_locale??'zh-Hans',chinese:(r.chinese??'').slice(0,1200),english:(r.english??'').slice(0,1200),speakerChinese:(r.speaker_chinese??'').slice(0,120),speakerEnglish:(r.speaker_english??'').slice(0,120),createdAt:Math.max(0,Date.parse(r.created_at)||0),audio:Boolean(r.has_audio&&r.audio_source==='original')});
  return {source,game,
   subscribe(onRows){
    let stopped=false,socket,timer,opened=false;const abort=new AbortController(),refresh=this.page.bind(this);

@@ -5,6 +5,13 @@ import {pairingMessage,parsePairing} from '../public/mobile-capture/core.mjs';
 const source='pc-01234567-89ab-cdef-0123-456789abcdef',session='test-session';
 const row={source,game:'zzz',id:1,chinese:'你好',english:'Hello',speakerChinese:'',speakerEnglish:'',createdAt:1,audio:true};
 const message=value=>JSON.stringify({v:PROTOCOL,session,...value});
+
+test('Dutch PC rows retain explicit learning, audio and official translation locales',()=>{
+ const dutch={...row,game:'beyond',sourceText:'Een testzin.',sourceLanguage:'nl',sourceLocale:'nl',translationText:'测试句子。',translationLocale:'zh-Hans',audioLocale:'nl'};
+ const page=parseMessage(message({type:'page',request:'dutch',before:null,rows:[dutch]}),session);
+ assert.equal(page.rows[0].sourceLanguage,'nl');assert.equal(page.rows[0].translationLocale,'zh-Hans');
+ assert.throws(()=>parseMessage(message({type:'page',request:'bad',before:null,rows:[{...dutch,audioLocale:'../private'}]}),session));
+});
 test('QR preserves transcript-only mode with and without a relay',async()=>{
  const value=pairingMessage({type:'offer',sdp:'v=0\r\n'},'zzz',{sessionId:'transcript-session-123',pairingId:'transcript-pairing-123',attempt:1,mode:'transcript'});
  const frames=await pairingFrames(value),reader=new PairingQrReader();let result;for(const frame of frames)result=await reader.accept(frame,'offer');assert.equal(parsePairing(result.message,'offer').mode,'transcript');

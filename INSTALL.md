@@ -63,3 +63,7 @@ For a toolkit upgrade, stop the old companion, extract the new verified ZIP, and
 Read [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [RELEASE.md](RELEASE.md). Preserve unrelated work and local data, commit logical changes, and run checks before pushing. Edit shared UI in its source repository, then publish and synchronize consumers. Never publish game assets, captures, keys or private backups. Installation does not itself authorize publication or account changes.
 
 App updates prepare a separate replacement while the current companion keeps translating. Use the new release's `scripts/update-companion.ps1 -SourceRoot <new-release> -Root <current-companion>` for a running installation. OCR and the selected game index warm before capture transfers; open readers reconnect automatically. Game-data rebuilds run at lower priority in separate processes, and matching keeps the previous complete index until the replacement is ready. Failed preparations keep the working version and local data.
+
+For BEYOND: Two Souls, choose the folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.
+Install the selected original voice pack with Steam, enable matching subtitles in the game,
+then prepare that language in Setup → Languages. See [BEYOND coverage](docs/beyond-support.md).

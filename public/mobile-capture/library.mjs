@@ -3,7 +3,7 @@ import {Converter} from './ocr/opencc.mjs';
 const simplify = Converter({from:'tw',to:'cn'});
 export const FORMAT = 'proxy-mobile-library-v1';
 export const LIMIT = 512 * 1024 * 1024;
-export const GAMES = ['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','hito'];
+export const GAMES = ['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','beyond','hito'];
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const decoder = new TextDecoder('utf-8', {fatal:true});
 export const sha256 = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)), x => x.toString(16).padStart(2,'0')).join('');
@@ -62,14 +62,17 @@ export async function openZip(file,{timeoutMs=20000}={}){
  if(manifest?.format!==FORMAT||!GAMES.includes(manifest.game)||!['catalog','voices'].includes(manifest.kind))fail('Unsupported mobile library version or game.');
  return {file,entries,read,manifest};
 }
+const locale=value=>typeof value==='string'&&/^[a-zA-Z][a-zA-Z0-9-]{0,23}$/.test(value);
 export function validateRow(row){
- if(!row||!hex(row.id)||typeof row.textId!=='string'||row.textId.length>512||typeof row.english!=='string'||typeof row.chinese!=='string'||!row.english.trim()||!row.chinese.trim()||row.english.length>8000||row.chinese.length>8000||row.audio!==null&&!hex(row.audio)||row.sourceVoice!=null&&!hex(row.sourceVoice))fail('Invalid dialogue record.');
+ const tagged=row?.sourceText!=null;
+ if(tagged&&(!locale(row.sourceLanguage)||!locale(row.sourceLocale)||!locale(row.audioLocale)||!locale(row.translationLocale)||typeof row.sourceText!=='string'||!row.sourceText.trim()||row.sourceText.length>8000||typeof row.translationText!=='string'||row.translationText.length>8000))fail('Invalid dialogue language context.');
+ if(!row||!hex(row.id)||typeof row.textId!=='string'||row.textId.length>512||typeof row.english!=='string'||typeof row.chinese!=='string'||!tagged&&(!row.english.trim()||!row.chinese.trim())||row.english.length>8000||row.chinese.length>8000||row.audio!==null&&!hex(row.audio)||row.sourceVoice!=null&&!hex(row.sourceVoice))fail('Invalid dialogue record.');
  if(row.audio&&!hex(row.sourceVoice))fail('Missing original voice binding.');
- for(const field of ['anchorsEnglish','anchorsChinese'])if(row[field]!=null&&(!Array.isArray(row[field])||row[field].length>100||row[field].some(v=>typeof v!=='string'||v.length>8000)))fail('Invalid authored OCR anchors.');
+ for(const field of ['anchorsEnglish','anchorsChinese','anchorsSource','anchorsTranslation'])if(row[field]!=null&&(!Array.isArray(row[field])||row[field].length>100||row[field].some(v=>typeof v!=='string'||v.length>8000)))fail('Invalid authored OCR anchors.');
  if(row.playerVoice!=null&&!['male','female'].includes(row.playerVoice))fail('Unsupported player voice.');
  if(!Array.isArray(row.channels)||row.channels.some(c=>!['dialogue','cinematic','gameplay','tip'].includes(c)))fail('Invalid dialogue channels.');
  for(const field of ['speakerEnglish','speakerChinese'])if(row[field]!=null&&(typeof row[field]!=='string'||row[field].length>512))fail('Invalid speaker.');
- return Object.fromEntries(['id','textId','english','chinese','audio','sourceVoice','speakerEnglish','speakerChinese','playerVoice','anchorsEnglish','anchorsChinese','channels'].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
+ return Object.fromEntries(['id','textId','english','chinese','audio','sourceVoice','speakerEnglish','speakerChinese','playerVoice','anchorsEnglish','anchorsChinese','channels','sourceText','sourceLanguage','sourceLocale','translationText','translationLocale','audioLocale','anchorsSource','anchorsTranslation'].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
 }
 export async function readCatalog(zip, progress=()=>{}){
  const m=zip.manifest;
@@ -85,9 +88,9 @@ export async function readCatalog(zip, progress=()=>{}){
  if(rows.length!==m.coverage.dialogue||expected.size!==zip.entries.size)fail('Catalog coverage or contents disagree.');
  for(const pack of m.packs){if(!hex(pack.id)||packIds.has(pack.id)||!Array.isArray(pack.clips)||pack.clips.length>65530||pack.clips.some(sha=>!hex(sha)||!audio.has(sha)||packedAudio.has(sha)||(packedAudio.add(sha),false)))fail('Invalid or duplicate voice pack reference.');packIds.add(pack.id);}
  if(audio.size!==new Set(m.packs.flatMap(p=>p.clips)).size)fail('Missing voice pack references.');
- if(m.languages!=null&&(!Array.isArray(m.languages)||m.languages.length!==2||!m.languages.includes('zh-Hans')||!m.languages.includes('en')))fail('Unsupported catalog languages.');
+ if(m.languages!=null&&(!Array.isArray(m.languages)||!m.languages.length||m.languages.length>40||!m.languages.every(locale)))fail('Unsupported catalog languages.');
  // Do not retain arbitrary, deeply nested metadata from a selected file.
- const manifest={format:m.format,kind:m.kind,game:m.game,title:m.title,revision:m.revision,languages:['zh-Hans','en'],coverage:{dialogue:rows.length,mappedVoices:rows.filter(r=>r.sourceVoice).length,exportedVoices:rows.filter(r=>r.audio).length,partial:m.coverage.partial===true},catalog:m.catalog.map(p=>({name:p.name,size:p.size,sha256:p.sha256})),packs:m.packs.map(p=>({id:p.id,clips:p.clips}))};
+ const manifest={format:m.format,kind:m.kind,game:m.game,title:m.title,revision:m.revision,languages:m.languages??['zh-Hans','en'],coverage:{dialogue:rows.length,mappedVoices:rows.filter(r=>r.sourceVoice).length,exportedVoices:rows.filter(r=>r.audio).length,partial:m.coverage.partial===true},catalog:m.catalog.map(p=>({name:p.name,size:p.size,sha256:p.sha256})),packs:m.packs.map(p=>({id:p.id,clips:p.clips}))};
  return {manifest,rows};
 }
 export function validateVoices(zip,catalog){
@@ -123,7 +126,7 @@ export function subtitleRows(blocks,crop,width,height,game){
 export function ratio(a,b){if(!a.length||!b.length)return 0;const previous=new Uint16Array(b.length+1);for(let i=0;i<a.length;i++){let diagonal=0;for(let j=0;j<b.length;j++){const old=previous[j+1];previous[j+1]=a[i]===b[j]?diagonal+1:Math.max(previous[j+1],previous[j]);diagonal=old;}}return 200*previous[b.length]/(a.length+b.length);}
 const grams = text => [...new Set(Array.from({length:Math.max(0,text.length-2)},(_,i)=>text.slice(i,i+3)))];
 export class DialogueMatcher{
- constructor(rows){this.exact=new Map();this.grams=null;this.cache=new Map();this.hito=rows.some(r=>r.textId.startsWith('hito:'));this.exactOnly=rows.some(r=>/^(nte|honkai3):/.test(r.textId));for(const row of rows)for(const value of [row.english,row.chinese,...row.anchorsEnglish??[],...row.anchorsChinese??[]]){const key=normalize(value);if(key.length<2||key.length>2000)continue;const list=this.exact.get(key)??[];if(!list.includes(row))list.push(row);this.exact.set(key,list);}
+ constructor(rows){this.exact=new Map();this.grams=null;this.cache=new Map();this.hito=rows.some(r=>r.textId.startsWith('hito:'));this.exactOnly=rows.some(r=>/^(nte|honkai3):/.test(r.textId));for(const row of rows)for(const value of [row.sourceText??row.chinese,row.translationText??row.english,...row.anchorsSource??row.anchorsChinese??[],...row.anchorsTranslation??row.anchorsEnglish??[]]){const key=normalize(value);if(key.length<2||key.length>2000)continue;const list=this.exact.get(key)??[];if(!list.includes(row))list.push(row);this.exact.set(key,list);}
  }
  match(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){const cacheKey=JSON.stringify([normalize(text),channel,player,fragment,exactOnly]);if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const result=this.lookup(text,channel,player,fragment,exactOnly);if(this.cache.size>=512)this.cache.clear();this.cache.set(cacheKey,result);return result;}
  matchCandidates(values,channel='dialogue',player='unconfigured',fragment=false){
@@ -157,7 +160,7 @@ export function searchCatalog(rows,text,limit=20){
  if(!queries.length||queries.some(q=>q.length<2)||String(text).length>2000)return {rows:[],total:0};
  const exact=[],partial=[];let total=0;
  for(const row of rows){
-  const values=[row.english,row.chinese,...row.anchorsEnglish??[],...row.anchorsChinese??[]].map(normalize);
+  const values=[row.sourceText??row.chinese,row.translationText??row.english,...row.anchorsSource??row.anchorsChinese??[],...row.anchorsTranslation??row.anchorsEnglish??[]].map(normalize);
   if(!queries.every(q=>values.some(v=>v.includes(q))))continue;
   total++;const target=queries.every(q=>values.includes(q))?exact:partial;
   if(target.length<limit)target.push(row);

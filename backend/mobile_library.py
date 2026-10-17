@@ -83,7 +83,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     for number, original in enumerate(records):
         guard()
         row = {key: original[key] for key in ("textId", "english", "chinese", "speakerEnglish", "speakerChinese",
-               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice") if key in original}
+               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice", "sourceLanguage", "sourceLocale", "sourceText", "translationLocale", "translationText", "audioLocale", "anchorsSource", "anchorsTranslation") if key in original}
         source = original.get("sourceVoice")
         row["id"] = digest([game, row["textId"], row["english"], row["chinese"], row.get("playerVoice")])
         if row["id"] in identities:
@@ -253,7 +253,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     coverage = {"dialogue": len(rows), "mappedVoices": sum(bool(r.get("sourceVoice")) for r in rows),
                 "exportedVoices": sum(bool(r["audio"]) for r in rows), "partial": True}
     manifest = {"format": FORMAT, "kind": "catalog", "game": game, "title": GAME_NAMES[game],
-                "revision": revision, "languages": ["zh-Hans", "en"], "coverage": coverage,
+                "revision": revision, "languages": sorted({locale for row in rows for locale in (row.get("sourceLocale", "zh-Hans"), row.get("translationLocale", "en"))}), "coverage": coverage,
                 "catalog": catalog, "packs": packs}
     name = catalog_name(game)
     write_pack(staging / name, manifest, [(item["name"], value) for item, value in zip(catalog, segments)])
@@ -306,6 +306,7 @@ def prepare_source(root, game, decode_dir):
     data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
     watched = {}
     service = None
+    account_check = lambda: True
     if game == "zzz":
         from .voice_assets import VoiceAssetService
         index = TextMapIndex(data / "textmaps")
@@ -352,9 +353,21 @@ def prepare_source(root, game, decode_dir):
         inventory = package_inventory()
         source_check = lambda: package_inventory() == inventory
     else:
-        source = data / game / "textmap.json"
+        from .language_preparation import selected_snapshot
+        source, accounts, account = selected_snapshot(root, game)
+        directory = source.parent
         payload = json.loads(source.read_text(encoding="utf-8"))
         inputs = [source]
+        target = None
+        if payload.get('format') == 2:
+            from .lexirise import LexiriseService
+            from .lexirise_settings import account_settings
+            from .languages import study_language, translation_language, resolve_locale
+            client = LexiriseService(data / 'lexirise', accounts=accounts).pin(study_language(payload['source_locale']))
+            target = translation_language(account_settings(client), study_language(payload['source_locale']))
+            if target.casefold() not in {value.casefold() for value in payload.get('targets_requested', [])}:
+                raise ValueError('Prepare the account translation table in Languages before exporting.')
+            account_check = lambda: accounts.status()['active'] == account
         if game == "hito":
             from .game_paths import discover_install
             install = discover_install("hito")
@@ -375,7 +388,7 @@ def prepare_source(root, game, decode_dir):
             if game == 'nte':
                 from .nte_assets import ensure_extractor
                 ensure_extractor(data / game / 'tools')
-            service = LocalVoiceAssetService(game, data / game, decoder, decode_dir)
+            service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=data / game / "tools")
             source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
         records = []
         for item in payload["records"]:
@@ -389,6 +402,13 @@ def prepare_source(root, game, decode_dir):
             row = {"textId": text_id, "english": display_text(item["english"]), "chinese": display_text(item["chinese"]),
                    "channels": ["dialogue", "cinematic", "gameplay"],
                    "sourceVoice": digest([payload.get("fingerprint"), item["audio"]]) if item.get("audio") else None}
+            if payload.get('format') == 2:
+                locale = resolve_locale(target, item['texts'])
+                row.update(sourceLanguage=study_language(payload['source_locale']), sourceLocale=payload['source_locale'],
+                           sourceText=item['source_text'], translationLocale=locale or target,
+                           translationText=item['texts'].get(locale, '') if locale else '', audioLocale=item['audio_locale'],
+                           anchorsSource=item.get('ocr_texts', {}).get(payload['source_locale'], []),
+                           anchorsTranslation=item.get('ocr_texts', {}).get(locale, []))
             for old, new in (("speaker_english", "speakerEnglish"), ("speaker_chinese", "speakerChinese"),
                              ("player_voice", "playerVoice"), ("ocr_english", "anchorsEnglish"), ("ocr_chinese", "anchorsChinese")):
                 if item.get(old):
@@ -398,7 +418,7 @@ def prepare_source(root, game, decode_dir):
         watched[path] = (path.stat().st_size, path.stat().st_mtime_ns)
 
     def full_check():
-        if any((p.stat().st_size, p.stat().st_mtime_ns) != sig for p, sig in watched.items()) or source_check() is False:
+        if not account_check() or any((p.stat().st_size, p.stat().st_mtime_ns) != sig for p, sig in watched.items()) or source_check() is False:
             raise ValueError("Game or catalog changed; refresh game data and retry")
 
     last_check = [0.0]
