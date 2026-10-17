@@ -78,6 +78,9 @@ def test_runtime_activation_requires_local_action_and_ready_candidate(monkeypatc
         import_handoff=lambda state: calls.append(('import', state.session_id)), start=lambda: calls.append('capture'))
     fake = SimpleNamespace(textmaps=SimpleNamespace(ready=True), pragmata=None, hito=None,
         game_indexes={}, warm_task=SimpleNamespace(done=lambda: False), standby=True,
+        accounts=SimpleNamespace(status=lambda: {'active': 'account-one'}),
+        languages=SimpleNamespace(selected=lambda *_: 'zh-Hans', prepared=lambda *_: {'targets': ['en']}),
+        language_state=lambda *_: {'ready': True},
         capture=capture, start_updates=lambda: calls.append('updates'))
     monkeypatch.setattr(api, 'runtime', fake, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767')
@@ -90,6 +93,37 @@ def test_runtime_activation_requires_local_action_and_ready_candidate(monkeypatc
     response = client.post('/api/runtime/activate', headers=headers, json={'running': True, 'session_id': 'same-session'})
     assert response.status_code == 200
     assert calls == [('import', 'same-session'), 'capture', 'updates']
+
+
+def test_standby_readiness_uses_only_the_active_accounts_prepared_language(monkeypatch):
+    from backend import api
+    states = []
+    selected = {'account-one': 'nl', 'account-two': 'fr'}
+    prepared = {('beyond', 'nl'): {'targets': ['zh-hans']}}
+    active = ['account-one']
+    ready = [True]
+    def language_state(game, locale):
+        states.append((game, locale))
+        return {'ready': ready[0]}
+    fake = SimpleNamespace(textmaps=None, pragmata=None, hito=SimpleNamespace(ready=True),
+        game_indexes={'beyond': SimpleNamespace(ready=False)}, warm_task=None, standby=True,
+        accounts=SimpleNamespace(status=lambda: {'active': active[0]}),
+        languages=SimpleNamespace(selected=lambda game, account: selected.get(account),
+                                  prepared=lambda game, locale: prepared.get((game, locale))),
+        language_state=language_state)
+    monkeypatch.setattr(api, 'runtime', fake, raising=False)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8767')
+    assert client.get('/api/runtime/ready?game=beyond').json() == {'ready': True, 'standby': True}
+    assert states == [('beyond', 'nl')]
+    ready[0] = False
+    assert not client.get('/api/runtime/ready?game=beyond').json()['ready']
+    active[0] = 'account-two'
+    fake.game_indexes['beyond'].ready = True
+    states.clear()
+    assert not client.get('/api/runtime/ready?game=beyond').json()['ready']
+    assert states == []  # Never fall back to another account or prepare French.
+    assert client.get('/api/runtime/ready?game=hito').json()['ready']
+    assert not client.get('/api/runtime/ready?game=unknown').json()['ready']
 
 
 def test_old_capture_remains_active_until_background_work_has_quiesced(monkeypatch):

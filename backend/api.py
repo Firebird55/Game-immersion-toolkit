@@ -625,7 +625,16 @@ def runtime_access(request: Request, action: str) -> None:
 @app.get('/api/runtime/ready')
 def runtime_ready(game: str | None = None) -> dict:
     indexes = {'zzz': runtime.textmaps, 'pragmata': runtime.pragmata, 'hito': runtime.hito, **runtime.game_indexes}
-    index_ready = game is None or (game in indexes and indexes[game].ready)
+    if game in GAME_LOCALES:
+        # A standby replacement has not captured a frame yet, so its legacy
+        # index may still be empty. Check the explicitly prepared snapshot
+        # without activating capture, building tables or reading an account API.
+        account = runtime.accounts.status()['active']
+        locale = runtime.languages.selected(game, account)
+        index_ready = bool(locale and runtime.languages.prepared(game, locale)
+                           and runtime.language_state(game, locale).get('ready'))
+    else:
+        index_ready = game is None or (game in indexes and indexes[game].ready)
     warm = runtime.warm_task is None or (runtime.warm_task.done() and not runtime.warm_task.cancelled()
                                          and runtime.warm_task.exception() is None)
     return {'ready': bool(index_ready and warm), 'standby': runtime.standby}
