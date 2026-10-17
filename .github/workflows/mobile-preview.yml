@@ -134,7 +134,7 @@ jobs:
           name: companion-${{ github.sha }}
           path: ${{ steps.package.outputs.directory }}
           retention-days: 7
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: github.ref == 'refs/heads/main'
         with:
           path: ${{ steps.package.outputs.directory }}
