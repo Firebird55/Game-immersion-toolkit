@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';import {spawn,execFileSync} from 'node:c
 // Exercise the actual built Windows distribution, not the dev dependency optimizer.
 const port=4321,server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
 let browser;
-const region={left:.1,top:.6,width:.8,height:.25},settings={nte_region:{left:.10,top:.70,width:.80,height:.28},nte_picture_area:'window',nte_player_voice:'unconfigured',honkai3_picture_area:'window',honkai3_region:{left:.04,top:.72,width:.96,height:.24},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
+const region={left:.1,top:.6,width:.8,height:.25},settings={beyond_region:{left:.10,top:.70,width:.80,height:.28},nte_region:{left:.10,top:.70,width:.80,height:.28},nte_picture_area:'window',nte_player_voice:'unconfigured',honkai3_picture_area:'window',honkai3_region:{left:.04,top:.72,width:.96,height:.24},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
 const comicLine={...line,id:6,text_id:'Comic_'+'a'.repeat(32),channel:'cinematic',voiced:false,english:'Keep the gate closed until tomorrow.',chinese:'请把门关到明天。'};
 let includeComic=false;
@@ -11,18 +11,20 @@ let fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',acti
 const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue fixture',text_id:'cyberpunk-fixture',has_audio:true,audio_source:'original'};
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
 const nteLine={...cyberpunkLine,id:4,game:'nte',english:'NTE dialogue fixture',text_id:'nte-fixture'};
+const beyondLine={...cyberpunkLine,id:7,game:'beyond',text_id:'beyond-fixture',source_text:'Een volledige testzin.',source_language:'nl',source_locale:'nl',audio_locale:'nl',translation_locale:'zh-Hans',translation_text:'合成测试句子。',english:'',chinese:'合成测试句子。'};
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
 mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 function response(path,query,method,body){
- if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
+ if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
  if(path==='/api/settings'&&method==='PATCH'){Object.assign(settings,body);return settings;}
  if(path==='/api/lexirise')return {configured:true,decks:{},sent:{}};
- if(path==='/api/lines')return query.get('game')==='zzz'?(includeComic?[comicLine,line]:[line]):query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:query.get('game')==='nte'?[nteLine]:query.get('game')==='honkai3'?[honkaiLine]:[];
+ if(path==='/api/lines')return query.get('game')==='zzz'?(includeComic?[comicLine,line]:[line]):query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:query.get('game')==='nte'?[nteLine]:query.get('game')==='honkai3'?[honkaiLine]:query.get('game')==='beyond'?[beyondLine]:[];
  if(path==='/api/favorites')return [];
  if(path==='/api/lexirise/settings'){if(method==='PATCH'){Object.assign(account.global,body.global??{});for(const[l,changes]of Object.entries(body.languageSettings??{}))Object.assign(account.languageSettings[l]??={},changes);}return account;}
+ if(path==='/api/lines/7/reading')return {text:beyondLine.source_text,tokens:[{start:0,end:3,word:'Een',meaning:'一个',proficiency:0}],grammar:[]};
  if(/^\/api\/lines\/[12345]\/reading$/.test(path))return {text:'你好',tokens:[token],grammar:[]};
  if(path.endsWith('/lookup'))return {translations:[{meaning:'hello',partOfSpeech:['greeting'],examples:[]}],examples:[],dictionaries:[],alternateReadings:[],components:[]};
  if(path.endsWith('/characters'))return {characters:[]};
@@ -125,6 +127,15 @@ try{
  const saved=localWrites.find(w=>w.path==='/api/settings');
  assert.equal(saved.body.cyberpunk_tip_region.left,.12,'NPC calibration saved independently');assert.equal(saved.body.cyberpunk_v_voice,'male');assert.deepEqual(saved.body.cyberpunk_region,{left:.12,top:.59,width:.76,height:.37});
  assert.deepEqual(saved.body.region,region,'Saving Cyberpunk preserves ZZZ calibration');assert.equal(writes.length,0,'Game setup never changes account settings');
+ await games.getByRole('button',{name:'BEYOND: Two Souls',exact:true}).click();
+ await page.locator('.current-line.game-beyond').waitFor();
+ await page.locator('.current-line').getByText(beyondLine.source_text,{exact:true}).waitFor();
+ assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'nl','BEYOND uses Dutch study text');
+ assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'BEYOND uses original Dutch audio');
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'BEYOND fits the viewport');
+ await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
+ assert.equal(await capture.locator('input[type=range]').first().inputValue(),'10');
+ await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
  for(const[game,label]of [['wuwa','Wuthering Waves'],['witcher3','The Witcher 3']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   if(game==='witcher3'){
