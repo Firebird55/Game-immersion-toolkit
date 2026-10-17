@@ -1,9 +1,12 @@
 # BEYOND: Two Souls
 
-Choose the installed Steam folder in Setup, select the same spoken and subtitle
-language in the game, then explicitly prepare that learning language in
+Choose the installed Steam folder in Setup, select the original spoken
+language you are learning, then explicitly prepare that learning language in
 **Languages**. Steam downloads additional original voice packs when its game
 language changes. Wait for that download to finish before preparation.
+The game may display the prepared official translation language instead: for
+example, Chinese subtitles can match the Chinese table while the companion
+shows Dutch study text and plays its original Dutch performance.
 
 The reader recognizes English, French, Italian, German, Spanish (Spain), Dutch,
 Japanese, Polish, Portuguese (Portugal), Portuguese (Brazil), Russian and Spanish
