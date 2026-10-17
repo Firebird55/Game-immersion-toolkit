@@ -144,13 +144,18 @@ async def main(args):
     data = ROOT / "data"
     output = args.output.resolve()
     decoder = data / "voice-assets/vgmstream/vgmstream-cli.exe"
-    indexes = {"zzz": TextMapIndex(data / "textmaps"), "pragmata": PragmataTextIndex(data / "pragmata"),
-               **{game: LocalGameTextIndex(game, data / game) for game in LOCAL_GAMES}}
-    indexes["zzz"].load(); indexes["pragmata"].load()
-    voices = {"zzz": VoiceAssetService(data / "voice-assets/manifest.json", decoder, output / "audio",
-                data / "voice-assets/learned-manifest.json"),
-              "pragmata": PragmataVoiceAssetService(data / "pragmata", decoder, output / "audio"),
-              **{game: LocalVoiceAssetService(game, data / game, decoder, output / "audio") for game in LOCAL_GAMES}}
+    def source(game):
+        return data / game if not args.game or args.game == game else output / "unused" / game
+    indexes = {"zzz": TextMapIndex(source("zzz") if args.game and args.game != "zzz" else data / "textmaps"), "pragmata": PragmataTextIndex(source("pragmata")),
+               **{game: LocalGameTextIndex(game, source(game)) for game in LOCAL_GAMES}}
+    if not args.game or args.game == "zzz":
+        indexes["zzz"].load()
+    if not args.game or args.game == "pragmata":
+        indexes["pragmata"].load()
+    voices = {"zzz": VoiceAssetService((data / "voice-assets" if not args.game or args.game == "zzz" else source("zzz")) / "manifest.json", decoder, output / "audio",
+                (data / "voice-assets" if not args.game or args.game == "zzz" else source("zzz")) / "learned-manifest.json"),
+              "pragmata": PragmataVoiceAssetService(source("pragmata"), decoder, output / "audio"),
+              **{game: LocalVoiceAssetService(game, source(game), decoder, output / "audio") for game in LOCAL_GAMES}}
     if args.source_locale:
         from backend.multilingual_index import MultilingualTextIndex
         if args.game not in LOCAL_GAMES:
