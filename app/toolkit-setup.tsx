@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { MobileLibraryExport, type MobileExportStatus } from './mobile-library-export';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+import {LanguageSetup} from './language-setup';
+
 const API = 'http://127.0.0.1:8766';
 type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte';
 type GameSetup = {
@@ -30,7 +32,7 @@ const VOICE_LABELS: Record<string, string> = { present: 'Mandarin voice files fo
 export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged }: {
   online: boolean; game: GameId; onGameChange: (game: GameId) => void;
   readingMode: 'migaku' | 'lexirise'; onReadingMode: (mode: 'migaku' | 'lexirise') => void;
-  onCapture: () => void; onReading: () => void; onAccount: () => void; onChanged: () => void;
+  onCapture: () => void; onReading: () => void; onAccount: (language?:string) => void; onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false), [step, setStep] = useState(0);
   const [data, setData] = useState<Setup | null>(null), [folder, setFolder] = useState('');
@@ -166,6 +168,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
                 <p><a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">vgmstream</a>{' · '}<a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">ZZZ reader</a>{' · '}<a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">REE unpacker</a>{' · '}<a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">WolvenKit</a>{' · '}<a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">FModelCLI</a></p>
               </details>
             </section>
+            {game !== 'hito' && <LanguageSetup game={game} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
             <MobileLibraryExport game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={data.mobile_export} action={action} />
           </div>}
         </section>}

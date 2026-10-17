@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ctypes
+import copy
+from contextvars import ContextVar
 import hashlib
 import json
 import os
@@ -16,6 +18,7 @@ GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where
                   "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
                   "nte": "Neverness to Everness"}
 API_BASE = "https://api.lexirise.app"
+REQUEST_KEY = ContextVar('lexirise_request_key', default=None)
 
 
 class LexiriseError(Exception):
@@ -53,10 +56,13 @@ def save_api_key(directory: Path, key: str) -> None:
 
 
 class LexiriseService:
-    def __init__(self, directory: Path, *, transport=None, api_key: str | None = None):
+    def __init__(self, directory: Path, *, transport=None, api_key: str | None = None, accounts=None, source_language: str = "zh"):
+        self.accounts = accounts
+        self.source_language = source_language
+        self._settings_cache = {}
         self.directory = directory
         directory.mkdir(parents=True, exist_ok=True)
-        self.db_path = directory / "exports.db"
+        self.db_path = directory / "exports-v2.db"
         self.transport = transport
         self._api_key = api_key
         self._lock = threading.Lock()
@@ -78,7 +84,7 @@ class LexiriseService:
             db.close()
 
     def _key(self) -> str:
-        key = self._api_key or os.environ.get("LEXIRISE_API_KEY")
+        key = self._api_key or REQUEST_KEY.get() or (self.accounts.active_key() if self.accounts else None) or os.environ.get("LEXIRISE_API_KEY")
         if key:
             return key.strip()
         # A synced project can be used on several Windows PCs, but a DPAPI
@@ -105,8 +111,23 @@ class LexiriseService:
         return {"configured": configured, "decks": {game: {"id": value[0], "title": value[1]} for game, value in decks.items()},
                 "sent": {ref: json.loads(state)["deck_id"] for ref, state in rows if json.loads(state).get("complete")}}
 
+    def pin(self, source_language: str | None = None):
+        """Pin credentials and language before network work or background jobs."""
+        from .lexirise_settings import STUDY_LANGUAGES
+        session = copy.copy(self)
+        session._api_key = self._key()
+        session.accounts = None
+        session.source_language = source_language or self.source_language
+        if session.source_language not in STUDY_LANGUAGES:
+            raise LexiriseError('Unsupported study language.')
+        cached = self._settings_cache.get(hashlib.sha256(session._api_key.encode()).hexdigest())
+        if cached:
+            session._settings_payload, session._settings_scope = cached
+        return session
+
     def _scope(self):
-        return hashlib.sha256(self._key().encode()).hexdigest()
+        scope = hashlib.sha256(self._key().encode()).hexdigest()
+        return scope if self.source_language == 'zh' else scope + ':' + self.source_language
 
     def _decks(self) -> dict:
         with self._connect() as db:
@@ -123,15 +144,14 @@ class LexiriseService:
             raise LexiriseError("Could not verify deck ownership.")
         return account
 
-    @staticmethod
-    def _owned(deck, account):
-        return (deck.get("owner_user_id") == account and (deck.get("language") or deck.get("lang")) == "zh"
+    def _owned(self, deck, account):
+        return (deck.get("owner_user_id") == account and (deck.get("language") or deck.get("lang")) == self.source_language
                 and deck.get("unit_type") == "sentence" and deck.get("deck_type") == "snapshot")
 
     def available_decks(self):
         with self._client() as client:
             account = self._account(client)
-            return [{"id":d["id"],"title":d.get("title", "Untitled deck")} for d in self._items(client, "/v1/decks", "decks", language="zh") if self._owned(d, account)]
+            return [{"id":d["id"],"title":d.get("title", "Untitled deck")} for d in self._items(client, "/v1/decks", "decks", language=self.source_language) if self._owned(d, account)]
 
     def configure_game_deck(self, game, deck_id=None):
         """Only called by an explicit destination selection or create action."""
@@ -140,17 +160,17 @@ class LexiriseService:
         with self._lock, self._client() as client, self._connect() as db:
             account = self._account(client)
             if deck_id is None:
-                matches=[d for d in self._items(client,"/v1/decks","decks",language="zh") if self._owned(d,account) and d.get("title")==GAME_TITLES[game]]
+                matches=[d for d in self._items(client,"/v1/decks","decks",language=self.source_language) if self._owned(d,account) and d.get("title")==GAME_TITLES[game]]
                 if len(matches)>1:
                     raise LexiriseError("Several matching decks exist. Select a destination from the list.")
-                deck = matches[0] if matches else self._request(client, "POST", "/v1/decks", json={"title":GAME_TITLES[game],"language":"zh","unit_type":"sentence","deck_type":"snapshot","import_items":[]}).get("deck", {})
+                deck = matches[0] if matches else self._request(client, "POST", "/v1/decks", json={"title":GAME_TITLES[game],"language":self.source_language,"unit_type":"sentence","deck_type":"snapshot","import_items":[]}).get("deck", {})
                 deck_id = deck.get("id")
                 if type(deck_id) is not int or deck_id <= 0:
                     raise LexiriseError("Lexirise did not confirm the new deck ID.")
             # Read back even newly created destinations before storing them.
             deck = self._request(client, "GET", f"/v1/decks/{deck_id}", params={"limit":1}).get("deck", {})
             if not self._owned(deck, account):
-                raise LexiriseError("Choose your own Chinese sentence snapshot deck.")
+                raise LexiriseError("Choose your own sentence snapshot deck for the selected study language.")
             title = deck.get("title") or GAME_TITLES[game]
             db.execute("INSERT OR REPLACE INTO game_decks VALUES (?,?,?,?)", (self._scope(),game,deck_id,title))
             return {"id":deck_id,"title":title}
@@ -158,20 +178,20 @@ class LexiriseService:
     def ensure_game_decks(self) -> dict:
         """Explicit provisioning only; startup and status never create account data."""
         key = self._key()
-        scope = hashlib.sha256(key.encode()).hexdigest()
+        scope = self._scope()
         with self._lock, self._connect() as db, httpx.Client(
                 base_url=API_BASE, headers={"Authorization": f"Bearer {key}"},
                 transport=self.transport, timeout=30) as client:
             account_id = self._request(client, "GET", "/v1/me").get("user", {}).get("id")
             if account_id is None:
                 raise LexiriseError("Could not verify ownership of existing game decks.")
-            available = self._request(client, "GET", "/v1/decks", params={"language": "zh"}).get("decks", [])
+            available = self._request(client, "GET", "/v1/decks", params={"language": self.source_language}).get("decks", [])
             result = {}
             for game, title in GAME_TITLES.items():
                 saved = db.execute("SELECT deck_id FROM game_decks WHERE scope=? AND game=?", (scope, game)).fetchone()
                 candidates = [d for d in available if d.get("title") == title
                               and d.get("unit_type") == "sentence" and d.get("deck_type") == "snapshot"
-                              and (d.get("language") or d.get("lang")) == "zh"
+                              and (d.get("language") or d.get("lang")) == self.source_language
                               and d.get("owner_user_id") == account_id]
                 chosen = next((d for d in candidates if saved and d.get("id") == saved[0]), None)
                 if chosen is None:
@@ -180,7 +200,7 @@ class LexiriseService:
                     chosen = candidates[0] if candidates else None
                 if chosen is None:
                     chosen = self._request(client, "POST", "/v1/decks", json={
-                        "title": title, "language": "zh", "unit_type": "sentence", "deck_type": "snapshot",
+                        "title": title, "language": self.source_language, "unit_type": "sentence", "deck_type": "snapshot",
                         "import_items": []}).get("deck", {})
                 deck_id = chosen.get("id")
                 if not isinstance(deck_id, int) or isinstance(deck_id, bool):
@@ -247,7 +267,7 @@ class LexiriseService:
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
              audio: Path, audio_source: str = "original") -> dict:
         if game not in GAME_TITLES or not chinese.strip():
-            raise LexiriseError("This line has no supported game or Mandarin sentence.")
+            raise LexiriseError("This line has no supported game or study sentence.")
         if not self._lock.acquire(blocking=False):
             raise LexiriseError("Another sentence is being sent. Please try again in a moment.")
         try:
@@ -276,8 +296,8 @@ class LexiriseService:
                               timeout=60, follow_redirects=False, transport=self.transport) as client:
                 account = self._account(client)
                 deck = self._request(client, "GET", f"/v1/decks/{deck_id}", params={"limit": 1}).get("deck", {})
-                if (deck.get("lang") or deck.get("language")) != "zh" or deck.get("unit_type") != "sentence" or deck.get("deck_type") != "snapshot":
-                    raise LexiriseError(f"The {game_title} deck must be a Chinese sentence snapshot deck.")
+                if (deck.get("lang") or deck.get("language")) != self.source_language or deck.get("unit_type") != "sentence" or deck.get("deck_type") != "snapshot":
+                    raise LexiriseError(f"The {game_title} deck must be a sentence snapshot deck for the selected study language.")
                 if not self._owned(deck, account):
                     raise LexiriseError("This destination is not owned by the current account. Select your own deck.")
                 # Legacy ledger stays intact. Adopt completion only after read-only
@@ -298,7 +318,7 @@ class LexiriseService:
                 if not state.get("vocabulary_id"):
                     # Reconcile before creating: a previous request may have succeeded
                     # despite a lost response. Preserve existing study notes/proficiency.
-                    item = next((item for item in self._items(client, "/v1/vocabulary", "items", language="zh", mode="sentences", search=chinese)
+                    item = next((item for item in self._items(client, "/v1/vocabulary", "items", language=self.source_language, mode="sentences", search=chinese)
                                  if item.get("expression_text") == chinese), None)
                     if item:
                         vocabulary_id = item.get("id") or item.get("saved_expression_id")
@@ -308,7 +328,7 @@ class LexiriseService:
                         if state["audio_url"] not in urls:
                             self._request(client, "PATCH", f"/v1/vocabulary/{vocabulary_id}", json={"audioUrls": [*urls, state["audio_url"]]})
                     else:
-                        payload = {"language": "zh", "text": chinese, "mode": "sentence",
+                        payload = {"language": self.source_language, "text": chinese, "mode": "sentence",
                                    "notes": f"{game_title}{' — ' + speaker if speaker else ''}\nAudio: {audio_source}",
                                    "tags": [game], "audioUrls": [state["audio_url"]]}
                         if english:

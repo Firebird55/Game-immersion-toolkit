@@ -86,7 +86,25 @@ class AppSettings(BaseModel):
         return [item.strip() for item in value if item.strip()]
 
 
-class TextMatch(BaseModel):
+class LanguageContext(BaseModel):
+    source_language: str = 'zh'
+    source_locale: str = 'zh-Hans'
+    source_text: str | None = None
+    translation_locale: str = 'en'
+    translation_text: str | None = None
+    audio_locale: str = 'zh-Hans'
+    texts: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode='after')
+    def legacy_language_defaults(self):
+        if self.source_text is None:
+            self.source_text = getattr(self, 'chinese', '')
+        if self.translation_text is None:
+            self.translation_text = getattr(self, 'english', '')
+        return self
+
+
+class TextMatch(LanguageContext):
     game: GameId = "zzz"
     text_id: str
     english: str
@@ -99,7 +117,7 @@ class TextMatch(BaseModel):
     speaker_chinese: str | None = None
 
 
-class TranscriptLine(BaseModel):
+class TranscriptLine(LanguageContext):
     id: int
     created_at: datetime
     session_id: str

@@ -8,7 +8,7 @@ from backend.lexirise import LexiriseService, LexiriseError
 from backend.lexirise_settings import account_settings, validate_patch, STUDY_LANGUAGES
 from backend.reading import LexiriseReadingService
 
-def test_dictionary_translation_fallback_and_cache_scope_on_settings_reload(tmp_path):
+def test_dictionary_configured_target_and_cache_scope_on_settings_reload(tmp_path):
     calls=[]
     def reply(request):
         body=json.loads(request.content) if request.content else {}
@@ -20,7 +20,7 @@ def test_dictionary_translation_fallback_and_cache_scope_on_settings_reload(tmp_
             return httpx.Response(200,json={"occurrences":[{"isWordLike":True,"word":"你好","charStart":0,"charEnd":2,"entryId":1}],"entryMetaById":{"1":{"gloss":"greeting"}}})
         return httpx.Response(200,json={"translations":[{"target_lang":"fr","translation":"bonjour"}],"translation_target":"fr"})
     service=LexiriseService(tmp_path,api_key="fixture",transport=httpx.MockTransport(reply))
-    reader=LexiriseReadingService(tmp_path,service)
+    reader=LexiriseReadingService(tmp_path,service,translation_language="fr")
     try:
         result=reader.lookup("你好",0);assert result["translations"][0]["meaning"]=="bonjour"
         assert result["translationLanguage"]=="fr" and result["sourceLanguage"]=="zh"

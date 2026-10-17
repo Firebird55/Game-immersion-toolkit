@@ -63,6 +63,8 @@ def test_status_exposes_hito_capture_and_text_index():
     runtime.update_status = lambda: {}
     runtime.transcript = SimpleNamespace(count=lambda session_id=None: 2 if session_id else 30)
 
+    runtime.languages = SimpleNamespace(selected=lambda *_: None)
+    runtime.accounts = SimpleNamespace(status=lambda: {'active':'legacy'})
     status = runtime.status()
     assert status['capture']['active_game'] == 'hito'
     assert status['game_textmaps']['hito']['entry_count'] == 123

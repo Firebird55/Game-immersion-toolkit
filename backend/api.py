@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query, Header, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, JSONResponse
 from pydantic import BaseModel, Field, ConfigDict
 
 from .voice_assets import VoiceAssetService
@@ -28,10 +28,13 @@ from .local_game_updates import LocalGameUpdateManager
 from .game_assets import LOCAL_GAMES
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
-from .lexirise import LexiriseService, LexiriseError
+from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
 from .lexirise_settings import account_settings
+from .accounts import AccountStore
+from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
+from .language_preparation import LanguagePreparation
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 from .installation import InstallationService
 from .mobile_library import MobileExportManager
@@ -119,9 +122,11 @@ class Runtime:
         local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
-        self.transcript = TranscriptStore(DATA_DIR / "transcript.db")
-        self.lexirise = LexiriseService(DATA_DIR / "lexirise")
+        self.transcript = TranscriptStore(DATA_DIR / "transcript-v2.db")
+        self.accounts = AccountStore()
+        self.lexirise = LexiriseService(DATA_DIR / "lexirise", accounts=self.accounts)
         self.reading = LexiriseReadingService(DATA_DIR / "lexirise", self.lexirise)
+        self._readers = {}
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
@@ -177,11 +182,85 @@ class Runtime:
         )
         self.game_updaters = {game: LocalGameUpdateManager(game, self.game_indexes[game], voices,
             self.on_update_thread, project_root=PROJECT_ROOT) for game, voices in self.game_voice_assets.items()}
+        self.languages = LanguagePreparation(self.build_language, self.activate_language, self.language_state,
+                                             supported=self.reader_locales)
+        self.capture.language_setup = self.capture_language_ready
         self.installation = InstallationService(PROJECT_ROOT, settings=self.settings,
             game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
             account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
         self.index_task: asyncio.Task[None] | None = None
         self.mobile_exports = MobileExportManager(PROJECT_ROOT)
+
+    def account_preferences(self):
+        session = self.lexirise.pin()
+        if not hasattr(session, '_settings_payload'):
+            account_settings(session)
+        return session._settings_payload
+
+    def reader_locales(self, game):
+        # Each subsequent reader release supplies an explicit locale contract.
+        if game in LOCAL_GAMES:
+            from .game_assets import asset_adapter
+            adapter, _ = asset_adapter(game)
+            return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
+        return ('zh-Hans',)
+
+    def build_language(self, game, locale, targets):
+        if locale != 'zh-Hans' or any(target.lower() not in {'en', 'zh-hans', 'zh'} for target in targets):
+            raise ValueError('This language pair needs the multilingual reader update. No other language was substituted.')
+        if game == 'zzz':
+            self.update_manager.check_once()
+        elif game == 'pragmata':
+            self.pragmata_updater._run()
+        else:
+            self.game_updaters[game]._run()
+
+    def language_state(self, game, locale):
+        if game == 'zzz':
+            return {**self.textmaps.status(), 'audio_count': self.voice_assets.status().get('mapped_lines', 0)}
+        if game == 'pragmata':
+            return self.pragmata.status()
+        return self.game_indexes[game].status()
+
+    def activate_language(self, game, locale, account):
+        if account != self.accounts.status()['active'] or self.languages.selected(game, account) != locale:
+            return
+        # The language-specific snapshots added by readers are activated here.
+        # Legacy Mandarin readers already have the selected official snapshot.
+        self.capture._scan_epoch += 1
+
+    def capture_language_ready(self, game):
+        if game == 'hito':
+            return True
+        account = self.accounts.status()['active']
+        locale = self.languages.selected(game, account)
+        return bool(locale and self.languages.prepared(game, locale))
+
+    def reading_for(self, line: TranscriptLine):
+        session = self.lexirise.pin(line.source_language)
+        if not hasattr(session, '_settings_payload'):
+            account_settings(session)
+        target = translation_language(session._settings_payload, line.source_language)
+        key = (session._scope(), line.source_language, target, session._settings_scope)
+        if key not in self._readers:
+            self._readers[key] = LexiriseReadingService(DATA_DIR / 'lexirise', session,
+                source_language=line.source_language, translation_language=target)
+        return self._readers[key]
+
+    def present_line(self, line: TranscriptLine) -> TranscriptLine:
+        try:
+            target = translation_language(self.account_preferences(), line.source_language)
+        except LexiriseError:
+            if not self.lexirise.status()['configured']:
+                return line
+            target = ''
+        texts = line.texts or {'en': line.english, 'zh-Hans': line.chinese}
+        locale = resolve_locale(target, texts)
+        prepared = self.languages.prepared(line.game, line.source_locale)
+        if prepared and target not in prepared['targets']:
+            locale = None
+        return line.model_copy(update={'translation_locale': locale or target,
+                                      'translation_text': texts.get(locale, '') if locale else ''})
 
     def setup_install(self, game: str) -> Path | None:
         install = discover_install(game)
@@ -227,36 +306,18 @@ class Runtime:
     def refresh_game(self, game: str) -> bool:
         if game not in GAMES:
             raise ValueError("Unsupported game")
-        from .game_tools import missing_tools
-        if missing_tools(PROJECT_ROOT, game):
-            return False
-        if game == "zzz":
-            return self.update_manager.request_check()
-        if game == "pragmata":
-            return self.pragmata_updater.request_check()
-        if game == "hito":
-            self.hito.ensure_game_files(None)
-            return self.hito.refresh()
-        if game in {"nte", "honkai3"}:
-            return self.game_updaters[game].request_check(force_catalog=True)
-        return self.game_updaters[game].request_check()
-
-    async def start_indexes_in_order(self) -> None:
-        # Refresh exact game-file mappings before checking the second game.
-        while self.update_manager.state in {"checking", "updating"}:
-            await asyncio.sleep(2)
-        self.pragmata_updater.start()
-        while self.pragmata_updater.status()["state"] in {"checking", "updating"}:
-            await asyncio.sleep(2)
-        for updater in self.game_updaters.values():
-            updater.start()
+        if game != 'hito':
+            prepared = [(locale, targets) for title, locale, targets in self.languages.entries() if title == game]
+            return any([self.languages.request(game, locale, targets[0], refresh=True)
+                        for locale, targets in prepared if targets])
+        self.hito.ensure_game_files(None)
+        return self.hito.refresh()
 
     def start_updates(self) -> None:
         if self._updates_started:
             return
         self._updates_started = True
-        self.update_manager.start()
-        self.index_task = asyncio.create_task(self.start_indexes_in_order(), name='voice-index-coordinator')
+        self.languages.start()
         self.start_audio_repair()
 
     def start_audio_repair(self) -> None:
@@ -278,6 +339,7 @@ class Runtime:
 
     async def stop_updates(self) -> None:
         self._updates_started = False
+        self.languages.close()
         if self.repair_task:
             self.repair_task.cancel()
             try:
@@ -297,6 +359,7 @@ class Runtime:
         self._updates_started = False
 
     async def on_line(self, line: TranscriptLine) -> None:
+        line = self.present_line(line)
         audio_pending = line.audio_pending
         if line.game == "zzz":
             line = self.speakers.enrich(line)
@@ -364,6 +427,8 @@ class Runtime:
             "pragmata_voice_assets": self.pragmata_voice_assets.status(),
             "game_voice_assets": {game: v.status() for game, v in self.game_voice_assets.items()},
             "updates": self.update_status(),
+            "selected_languages": {game: {'source_locale': locale, 'source_language': study_language(locale)}
+                for game in GAME_LOCALES if (locale := self.languages.selected(game, self.accounts.status()['active']))},
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -400,7 +465,7 @@ runtime: Runtime
 async def lifespan(_app: FastAPI):
     global runtime
     runtime = Runtime()
-    if runtime.textmaps.file_path("zh_base").is_file():
+    if runtime.capture_language_ready('zzz') and runtime.textmaps.file_path("zh_base").is_file():
         runtime.start_map_prepare()
     if runtime.standby:
         runtime.warm_task = asyncio.create_task(runtime.capture.warmup(), name='prepare-replacement-ocr')
@@ -423,6 +488,8 @@ async def lifespan(_app: FastAPI):
         await asyncio.to_thread(runtime.hito.close)
         runtime.voice_assets.close()
         runtime.pragmata_voice_assets.close()
+        for reader in runtime._readers.values():
+            reader.pool.shutdown(wait=False, cancel_futures=True)
         for voices in runtime.game_voice_assets.values():
             voices.close()
         if runtime.map_task and not runtime.map_task.done():
@@ -434,6 +501,31 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Proxy Transcript API", version="0.1.0", lifespan=lifespan)
+
+
+@app.middleware('http')
+async def pin_account_request(request: Request, call_next):
+    current = globals().get('runtime')
+    guarded = request.url.path.startswith('/api/lexirise/settings') or request.url.path.startswith('/api/lexirise/decks') or (
+        request.url.path.startswith('/api/lines/') and ('/reading' in request.url.path or request.url.path.endswith('/lexirise')))
+    if not guarded or not hasattr(current, 'accounts'):
+        return await call_next(request)
+    with current.accounts.lock:
+        account = current.accounts.status()['active']
+        expected = request.headers.get('x-proxy-transcript-account')
+        if expected is not None and expected != account:
+            return JSONResponse({'detail': 'Account changed. Reload before retrying this operation.'}, status_code=409)
+        try:
+            key = current.lexirise._key()
+        except LexiriseError:
+            return JSONResponse({'detail': 'Configure a Lexirise account on this PC.'}, status_code=503)
+    token = REQUEST_KEY.set(key)
+    try:
+        return await call_next(request)
+    finally:
+        REQUEST_KEY.reset(token)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -514,6 +606,58 @@ def setup_access(request: Request, header: str | None = None, *, write: bool = F
 def setup_status(request: Request) -> dict:
     setup_access(request)
     return {**runtime.installation.status(), "mobile_export": runtime.mobile_exports.status() if hasattr(runtime, "mobile_exports") else None}
+
+
+class LanguageAction(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    locale: str = Field(min_length=2, max_length=24)
+    action: Literal['prepare', 'select', 'remove'] = 'prepare'
+    target: str | None = Field(default=None, max_length=24)
+
+
+@app.get('/api/setup/games/{game}/languages')
+def game_languages(game: str, request: Request) -> dict:
+    setup_access(request)
+    if game not in GAMES or game not in GAME_LOCALES:
+        raise HTTPException(404, 'Unsupported game language setup')
+    try:
+        result = runtime.languages.status(game, runtime.accounts.status()['active'])
+        try:
+            settings = runtime.account_preferences()
+            result['enabled_languages'] = settings['languages']
+            result['targets'] = {source: translation_language(settings, source) for source in settings['languages']}
+        except LexiriseError:
+            result['enabled_languages'] = None
+            result['targets'] = {}
+        return result
+    except (ValueError, LexiriseError) as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@app.post('/api/setup/games/{game}/languages')
+def prepare_game_language(game: str, payload: LanguageAction, request: Request,
+                          x_proxy_transcript: str = Header(default='')) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in GAMES or game not in GAME_LOCALES:
+        raise HTTPException(404, 'Unsupported game language setup')
+    try:
+        account = runtime.accounts.status()['active']
+        if payload.action == 'remove':
+            runtime.languages.remove(game, payload.locale)
+            return {'removed': True}
+        source = study_language(payload.locale)
+        settings = runtime.account_preferences() if runtime.lexirise.status()['configured'] else None
+        if settings and source not in settings['languages']:
+            raise ValueError('Enable this learning language in Lexirise before selecting it.')
+        if payload.action == 'select':
+            runtime.languages.select(game, payload.locale, account)
+            return {'selected': payload.locale}
+        target = translation_language(settings, source) if settings else payload.target
+        if not target:
+            raise ValueError('Choose a translation language or reload Lexirise settings.')
+        return {'started': runtime.languages.request(game, payload.locale, target, account)}
+    except (ValueError, LexiriseError) as error:
+        raise HTTPException(400, str(error)) from None
 
 
 class MobileExportOptions(BaseModel):
@@ -671,7 +815,7 @@ def get_lines(
     game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|honkai3)$"),
 ) -> list[TranscriptLine]:
     return [
-        runtime.speakers.enrich(line) if line.game == "zzz" else line
+        presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
         for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
         if line.game == "hito" or ((line.voiced or line.is_comic) and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
@@ -714,20 +858,69 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
 
 
 @app.get("/api/lexirise")
-def lexirise_status() -> dict:
-    status = runtime.lexirise.status()
-    if status["configured"] and not hasattr(runtime.lexirise, "_settings_scope"):
+def lexirise_status(language: str = 'zh') -> dict:
+    try:
+        session = runtime.lexirise.pin(language)
+    except LexiriseError:
+        return {'configured': False, 'sent': {}, 'decks': {}}
+    status = session.status()
+    if status["configured"] and not hasattr(session, "_settings_scope"):
         try:
-            account_settings(runtime.lexirise)
+            account_settings(session)
         except LexiriseError:
             pass  # Reading/panel errors remain actionable without blocking capture.
+    sources = {'zh'}
+    if hasattr(runtime, 'languages'):
+        account = runtime.accounts.status()['active']
+        sources.update(study_language(locale) for game in GAME_LOCALES
+                       if (locale := runtime.languages.selected(game, account)))
+    by_language = {source: runtime.lexirise.pin(source).status() for source in sources}
+    status['sent'] = {ref: deck for value in by_language.values() for ref, deck in value['sent'].items()}
+    status['by_language'] = by_language
+    status['account'] = runtime.accounts.status()['active'] if hasattr(runtime, 'accounts') else 'legacy'
     return status
 
 
-@app.get("/api/lexirise/decks")
-def lexirise_available_decks() -> dict:
+@app.get('/api/lexirise/accounts')
+def lexirise_accounts(request: Request) -> dict:
+    setup_access(request)
     try:
-        return {"decks":runtime.lexirise.available_decks()}
+        return runtime.accounts.status()
+    except LexiriseError as error:
+        raise HTTPException(503, str(error)) from None
+
+
+class AccountSelection(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    id: str = Field(min_length=1, max_length=80)
+
+
+@app.post('/api/lexirise/accounts/select')
+async def lexirise_select_account(payload: AccountSelection, request: Request,
+                                  x_proxy_transcript: str = Header(default='')) -> dict:
+    setup_access(request)
+    if x_proxy_transcript != 'lexirise':
+        raise HTTPException(403, 'Use the companion account selector.')
+    try:
+        result = runtime.accounts.select(payload.id)
+        await runtime.hub.broadcast({'type': 'account_changed', 'account': result['active']})
+        return result
+    except LexiriseError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+def line_reader(line):
+    return runtime.reading_for(line) if hasattr(runtime, 'reading_for') else runtime.reading
+
+
+def presented(line):
+    return runtime.present_line(line) if hasattr(runtime, 'present_line') else line
+
+
+@app.get("/api/lexirise/decks")
+def lexirise_available_decks(language: str = 'zh') -> dict:
+    try:
+        return {"decks":runtime.lexirise.pin(language).available_decks() if hasattr(runtime.lexirise, "pin") else runtime.lexirise.available_decks()}
     except LexiriseError as error:
         raise HTTPException(503,str(error)) from None
 
@@ -736,13 +929,14 @@ def lexirise_available_decks() -> dict:
 def lexirise_configure_deck(payload:dict,x_proxy_transcript:str=Header(default="")) -> dict:
     if x_proxy_transcript != "lexirise":
         raise HTTPException(403,"Use the companion's destination controls.")
-    if set(payload)-{"game","deck_id","create"} or type(payload.get("game")) is not str or (payload.get("create") is not True and type(payload.get("deck_id")) is not int):
+    if set(payload)-{"game","deck_id","create","language"} or type(payload.get("game")) is not str or (payload.get("create") is not True and type(payload.get("deck_id")) is not int):
         raise HTTPException(422,"Select a destination or explicitly create one.")
     if payload.get("create") is True and "deck_id" in payload:
         raise HTTPException(422,"Choose selection or creation, not both.")
     try:
-        runtime.lexirise.configure_game_deck(payload["game"],None if payload.get("create") is True else payload["deck_id"])
-        return runtime.lexirise.status()
+        session = runtime.lexirise.pin(payload.get("language", "zh")) if hasattr(runtime.lexirise, "pin") else runtime.lexirise
+        session.configure_game_deck(payload["game"],None if payload.get("create") is True else payload["deck_id"])
+        return session.status()
     except LexiriseError as error:
         raise HTTPException(503,str(error)) from None
 
@@ -750,7 +944,7 @@ def lexirise_configure_deck(payload:dict,x_proxy_transcript:str=Header(default="
 @app.get("/api/lexirise/settings")
 def lexirise_get_settings() -> dict:
     try:
-        return account_settings(runtime.lexirise)
+        return account_settings(runtime.lexirise.pin())
     except LexiriseError as error:
         raise HTTPException(status_code=502, detail=str(error)) from None
 
@@ -760,7 +954,7 @@ def lexirise_patch_settings(payload: dict, x_proxy_transcript: str = Header(defa
     if x_proxy_transcript != "lexirise":
         raise HTTPException(status_code=403, detail="Explicit Lexirise action required.")
     try:
-        return account_settings(runtime.lexirise, payload)
+        return account_settings(runtime.lexirise.pin(), payload)
     except LexiriseError as error:
         raise HTTPException(status_code=400, detail=str(error)) from None
 
@@ -771,7 +965,7 @@ def line_reading(line_id: int) -> dict:
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        return runtime.reading.analyze(line.chinese)
+        return line_reader(line).analyze(line.source_text)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
 
@@ -782,7 +976,7 @@ def line_word_lookup(line_id: int, start: int) -> dict:
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.lookup(line.chinese, start)
+        result = line_reader(line).lookup(line.source_text, start)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -799,7 +993,7 @@ def line_grammar_known(line_id: int, payload: GrammarKnownUpdate,
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.set_grammar_known(line.chinese, payload.slug, payload.known)
+        result = line_reader(line).set_grammar_known(line.source_text, payload.slug, payload.known)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -813,7 +1007,7 @@ def line_word_context(line_id: int, start: int = Query(ge=0)) -> dict:
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.context(line.chinese, start)
+        result = line_reader(line).context(line.source_text, start)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -827,7 +1021,7 @@ def line_word_notes(line_id: int, start: int = Query(ge=0)) -> dict:
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.notes(line.chinese, start)
+        result = line_reader(line).notes(line.source_text, start)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -847,7 +1041,7 @@ def ask_line_word_context(line_id: int, payload: WordContextQuestion,
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.context(line.chinese, payload.start, question)
+        result = line_reader(line).context(line.source_text, payload.start, question)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -861,7 +1055,7 @@ def line_word_examples(line_id: int, start: int = Query(ge=0)) -> dict:
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.examples(line.chinese, start)
+        result = line_reader(line).examples(line.source_text, start)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -875,7 +1069,7 @@ def line_word_similar(line_id: int, start: int = Query(ge=0)) -> dict:
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.similar(line.chinese, start)
+        result = line_reader(line).similar(line.source_text, start)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -892,7 +1086,7 @@ def save_line_word_example(line_id: int, example_index: int, start: int = Query(
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.save_example(line.chinese, start, example_index)
+        result = line_reader(line).save_example(line.source_text, start, example_index)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -906,7 +1100,7 @@ def line_word_characters(line_id: int, start: int = Query(ge=0)) -> dict:
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.characters(line.chinese, start)
+        result = line_reader(line).characters(line.source_text, start)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -923,7 +1117,7 @@ def line_word_proficiency(line_id: int, payload: WordProficiencyUpdate,
     if line is None:
         raise HTTPException(404, "Transcript line not found")
     try:
-        result = runtime.reading.set_proficiency(line.chinese, payload.start, payload.proficiency)
+        result = line_reader(line).set_proficiency(line.source_text, payload.start, payload.proficiency)
     except LexiriseError as error:
         raise HTTPException(503, str(error)) from None
     if result is None:
@@ -948,8 +1142,9 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
     if path.parent != root:
         raise HTTPException(404, "Voice file unavailable.")
     try:
-        return runtime.lexirise.send(ref=f"line:{line_id}", game=line.game, chinese=line.chinese,
-            english=line.english, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
+        line = presented(line)
+        return runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
+            english=line.translation_text, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
             audio=path, audio_source=line.audio_source)
     except LexiriseError as error:
         raise HTTPException(409, str(error)) from None
@@ -997,7 +1192,7 @@ async def capture_preview(
 
 @app.post("/api/textmaps/update")
 def update_textmaps() -> dict[str, object]:
-    started = runtime.start_map_prepare(force=True)
+    started = runtime.refresh_game("zzz")
     return {"started": started, "textmaps": runtime.textmaps.status()}
 
 
@@ -1006,7 +1201,7 @@ def update_local_game(game: str) -> dict:
     updater = runtime.game_updaters.get(game)
     if updater is None:
         raise HTTPException(404, "Unsupported game-file index")
-    return {"started": updater.request_check(), "updates": updater.status()}
+    return {"started": runtime.refresh_game(game), "updates": updater.status()}
 
 
 @app.post("/api/hito/update")
@@ -1017,10 +1212,9 @@ def update_hito_text() -> dict[str, object]:
 
 @app.post("/api/updates/check")
 def check_updates() -> dict[str, object]:
-    started = runtime.update_manager.request_check()
-    pragmata_started = runtime.pragmata_updater.request_check()
-    new_started = [updater.request_check() for updater in runtime.game_updaters.values()]
-    return {"started": started or pragmata_started or any(new_started), "updates": runtime.update_status()}
+    prepared = runtime.languages.entries()
+    runtime.languages.refresh_prepared()
+    return {"started": bool(prepared), "updates": runtime.update_status()}
 
 
 @app.post("/api/ingest", response_model=TranscriptLine)

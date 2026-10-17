@@ -23,12 +23,15 @@ def test_pragmata_keeps_checking_while_companion_is_open(tmp_path, monkeypatch):
     assert not manager._thread.is_alive()
 
 
-def test_persistent_pragmata_worker_does_not_block_other_game_indexes():
+def test_startup_only_starts_the_prepared_language_monitor():
     runtime = Runtime.__new__(Runtime)
     calls = []
-    runtime.update_manager = SimpleNamespace(state="ready")
-    runtime.pragmata_updater = SimpleNamespace(start=lambda: calls.append("pragmata"),
-        status=lambda: {"state": "idle"}, _thread=SimpleNamespace(is_alive=lambda: True))
-    runtime.game_updaters = {"cyberpunk": SimpleNamespace(start=lambda: calls.append("cyberpunk"))}
-    asyncio.run(asyncio.wait_for(runtime.start_indexes_in_order(), timeout=1))
-    assert calls == ["pragmata", "cyberpunk"]
+    runtime._updates_started = False
+    runtime.languages = SimpleNamespace(start=lambda: calls.append('prepared'))
+    runtime.start_audio_repair = lambda: calls.append('repair')
+    runtime.update_manager = SimpleNamespace(start=lambda: calls.append('unexpected-all-zzz'))
+    runtime.pragmata_updater = SimpleNamespace(start=lambda: calls.append('unexpected-all-pragmata'))
+    runtime.game_updaters = {'cyberpunk': SimpleNamespace(start=lambda: calls.append('unexpected-all-cyberpunk'))}
+    runtime.start_updates()
+    runtime.start_updates()
+    assert calls == ['prepared', 'repair']

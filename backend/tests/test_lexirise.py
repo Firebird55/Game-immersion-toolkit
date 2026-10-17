@@ -164,6 +164,7 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
         return {'sent': True, 'deck_id': 1951}
     runtime = SimpleNamespace(transcript=SimpleNamespace(get=lambda _: line, audio_path=lambda _: 'voice.mp3'),
                               speakers=SimpleNamespace(enrich=lambda x: x), lexirise=SimpleNamespace(send=send))
+    runtime.lexirise.pin = lambda _language: runtime.lexirise
     monkeypatch.setattr(api, 'runtime', runtime, raising=False)
     monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
     client = TestClient(api.app)  # No lifespan: never start real capture in tests.

@@ -36,7 +36,7 @@ def test_context_question_roundtrip_reports_service_errors(monkeypatch):
             raise LexiriseError('Lexirise returned no answer. Please ask again.')
         return {'meaning': 'A useful answer'}
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(
-        transcript=SimpleNamespace(get=lambda _: SimpleNamespace(chinese='你好')),
+        transcript=SimpleNamespace(get=lambda _: SimpleNamespace(chinese='你好',source_text='你好')),
         reading=SimpleNamespace(context=context)), raising=False)
     client = TestClient(api.app)
     headers = {'X-Proxy-Transcript': 'lexirise', 'X-Reader-Action': 'lexirise'}

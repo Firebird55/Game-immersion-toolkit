@@ -31,7 +31,7 @@ def test_popup_words_and_notes_read_dictionary_and_saved_vocabulary(tmp_path):
 def test_notes_endpoint_uses_only_the_selected_transcript_line(monkeypatch):
     from backend import api
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(
-        transcript=SimpleNamespace(get=lambda line_id: SimpleNamespace(chinese='的') if line_id == 1 else None),
+        transcript=SimpleNamespace(get=lambda line_id: SimpleNamespace(chinese='的',source_text='的') if line_id == 1 else None),
         reading=SimpleNamespace(notes=lambda text, start: {'notes': 'A saved note'} if text == '的' and start == 0 else None)), raising=False)
     client = TestClient(api.app)
     assert client.get('/api/lines/1/reading/notes?start=0').json() == {'notes': 'A saved note'}

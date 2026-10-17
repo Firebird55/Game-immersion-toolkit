@@ -85,3 +85,7 @@ Screen installation does not add background capture capability.
 Created by [Firebird55](https://github.com/Firebird55/Game-immersion-toolkit).
 
 Honkai Impact 3rd is archived and unsupported. It is not available in setup, capture or the web UI. See [archived support](docs/archived-honkai.md).
+
+Use [Languages and local accounts](docs/languages-and-accounts.md) to explicitly
+prepare a game language, switch protected accounts and follow each learning
+language's Lexirise translation, dictionary and reading preferences.

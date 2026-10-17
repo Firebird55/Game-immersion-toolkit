@@ -153,6 +153,13 @@ class CaptureService:
         if active is None:
             return b""
         profile, window = active
+        language_setup = getattr(self, 'language_setup', None)
+        if language_setup is not None and not language_setup(profile.id):
+            self._tracker.observe(None)
+            self._update_snapshot(running=True, active_game=profile.id, phase='needs_language_setup',
+                message='Choose and prepare a learning language in Setup → Languages', last_scan_at=now,
+                window_title=window.title, window_bounds=window.bounds, last_error=None, visible_text_ids=[])
+            return _ScanOutcome([])
         self._prepare_window_capture(window)
         if profile.id in {"nte", "honkai3"}:
             window = self._picture_window(window, picture_area or getattr(settings, f"{profile.id}_picture_area"))

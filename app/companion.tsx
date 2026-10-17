@@ -1,7 +1,8 @@
 'use client';
 
-import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings } from '@firebird55/lexirise-components';
+import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
+import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -107,6 +108,7 @@ type TranscriptLine = {
   session_id: string;
   game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte';
   source_ocr: string;
+  source_language?:string; source_locale?:string; source_text?:string; translation_text?:string; translation_locale?:string; audio_locale?:string;
   english: string;
   chinese: string;
   text_id: string;
@@ -139,6 +141,7 @@ type UpdateStatus = {
 type StatusPayload = {
   capture: CaptureStatus;
   textmaps: TextMapStatus;
+  selected_languages?:Partial<Record<GameId,{source_locale:string;source_language:string}>>;
   game_textmaps?: Record<GameId, TextMapStatus>;
   audio: { ready: boolean; message: string };
   updates?: UpdateStatus;
@@ -159,7 +162,7 @@ const GAME_NAMES: Record<GameId, string> = {
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
   return Date.parse(right.created_at) - Date.parse(left.created_at) || right.id - left.id;
 }
-type LexiriseStatus = { configured: boolean; sent: Record<string, number>; decks?:Record<string,{id:number;title:string}> };
+type LexiriseStatus = {account?:string; by_language?:Record<string,{decks?:Record<string,{id:number;title:string}>}>; configured: boolean; sent: Record<string, number>; decks?:Record<string,{id:number;title:string}> };
 type ReadingMode = 'migaku' | 'lexirise';
 const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
@@ -314,9 +317,10 @@ function EnglishTranslation({ line, summary, limit, current = false }: {
 }) {
   const [revealed, setRevealed] = useState<string | null>(null);
   const key = JSON.stringify([line.id, line.chinese, line.english, limit]);
-  const count = summary?.id === line.id && summary.text === line.chinese ? summary.unknownWords : null;
+  const count = summary?.id === line.id && summary.text === (line.source_text??line.chinese) ? summary.unknownWords : null;
   const hidden = shouldHideTranslation(limit, count) && revealed !== key;
-  if (!hidden) return <StableText className={current ? 'current-english' : undefined} text={line.english} />;
+  if (line.translation_text === '') return <p className="translation-unavailable">Official {line.translation_locale} translation unavailable. Prepare its table in Setup → Languages.</p>;
+  if (!hidden) return <StableText className={current ? 'current-english' : undefined} text={line.translation_text??line.english} />;
   return <button type="button" className={`english-reveal ${current ? 'current-english-reveal' : ''}`}
     onClick={() => setRevealed(key)} aria-label="Show English translation">
     <span>English hidden · Tap to reveal</span>
@@ -358,7 +362,7 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.chinese} sentenceTranslation={line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.chinese} />}
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
@@ -399,6 +403,7 @@ function CompanionClient() {
     setTranscriptTab(tab);
   }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
+  const [accountLanguage,setAccountLanguage]=useState('zh');
   const lastActiveGame = useRef<GameId | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownLineIds = useRef(new Set<number>());
@@ -417,7 +422,10 @@ function CompanionClient() {
   const saveReadingOptions = useCallback((next: LocalSettings) => {
     setReadingOptions(next);
     window.localStorage.setItem('proxy-transcript-reading-options', JSON.stringify(next));
-  }, []);
+    const language=status?.selected_languages?.[selectedGame]?.source_language??'zh';
+    window.localStorage.setItem('proxy-transcript-reading-options:'+ (lexirise.account??'legacy')+':'+language,JSON.stringify(next));
+    window.dispatchEvent(new Event('lexirise-local-reading-options'));
+  }, [selectedGame,status?.selected_languages,lexirise.account]);
 
   useEffect(() => {
     const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
@@ -488,6 +496,7 @@ function CompanionClient() {
       socket.onopen = () => { setOnline(true); void loadSnapshot(); };
       socket.onmessage = (message) => {
         const event = JSON.parse(message.data);
+        if (event.type === 'account_changed') {window.dispatchEvent(new Event('lexirise-credentials-changed'));void loadSnapshot();}
         if (event.type === 'snapshot') {
           setStatus(event.snapshot);
           if (!settingsOpenRef.current) setDraftSettings(event.snapshot.settings);
@@ -705,7 +714,7 @@ function CompanionClient() {
     setStudyMessage('Sending sentence and voice to Lexirise…');
     try {
       const response = await fetch(`${API_URL}/api/lines/${id}/lexirise`, {
-        method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise' },
+        method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':lexirise.account??'legacy' },
       });
       const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
@@ -796,7 +805,7 @@ function CompanionClient() {
         }}><option value="migaku">Migaku</option><option value="lexirise" disabled={!lexirise.configured}>Lexirise</option></select></label>
         {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setReaderSettingsOpen(true)}
           aria-label="Lexirise reading options"><Settings2 size={15} /> Reading options</button>}
-        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setAccountSettingsOpen(true)}>Account settings</button>}
+        <button type="button" className="reader-options-button" onClick={() => {setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>Account settings</button>
         </div>
       </nav>
 
@@ -845,7 +854,7 @@ function CompanionClient() {
               {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
             </div>}
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
-            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.chinese} sentenceTranslation={latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.chinese} lineId={latestLine.id} />}
+            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} />}
             <div className="current-actions">
               <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
@@ -982,12 +991,12 @@ function CompanionClient() {
           <ToolkitSetup online={online} game={selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
-            onReading={() => setReaderSettingsOpen(true)} onAccount={() => setAccountSettingsOpen(true)} onChanged={() => void loadSnapshot()} />
+            onReading={() => setReaderSettingsOpen(true)} onAccount={language => {setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
         </div>
       </footer>
 
-      {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage="zh" />}
-      {accountSettingsOpen && <SettingsPanel title="Lexirise account settings" showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage="zh" connection={selectedGame !== 'hito' ? <GameDeckSettings game={selectedGame} title={GAME_NAMES[selectedGame]} current={lexirise.decks?.[selectedGame]} onConfigured={() => void loadSnapshot()} /> : undefined} />}
+      {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:'zh'} />}
+      {accountSettingsOpen && <SettingsPanel title="Lexirise account settings" showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:'zh'} connection={<><AccountSwitcher onChanged={() => void loadSnapshot()}/>{selectedGame !== 'hito' && <GameDeckSettings game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} />}</>} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">

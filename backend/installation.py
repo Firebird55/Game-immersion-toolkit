@@ -178,7 +178,7 @@ class InstallationService:
                 flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             elif kind == "lexirise":
                 # The hidden-input prompt owns its console. No key is sent to the browser or command line.
-                args = [sys.executable, "-m", "scripts.set_lexirise_key"]
+                args = [sys.executable, "-m", "scripts.set_lexirise_key", "--account"]
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
             else:
                 args = [sys.executable, str(self.root / "scripts/check-capture-readiness.py"), "--pause"]

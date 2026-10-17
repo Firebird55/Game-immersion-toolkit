@@ -37,4 +37,6 @@ def account_settings(service: LexiriseService, payload: dict | None = None) -> d
     if not isinstance(result.get("languages"), list) or not isinstance(result.get("global"), dict) or not isinstance(result.get("languageSettings"), dict):
         raise LexiriseError("Lexirise returned invalid account settings.")
     service._settings_scope = hashlib.sha256(json.dumps({"global": result["global"], "languageSettings": result["languageSettings"]}, sort_keys=True).encode()).hexdigest()
+    service._settings_payload = result
+    service._settings_cache[hashlib.sha256(service._key().encode()).hexdigest()] = (result, service._settings_scope)
     return result

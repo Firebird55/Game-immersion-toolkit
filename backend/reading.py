@@ -89,7 +89,7 @@ class LexiriseReadingService:
             raise ValueError('Unsupported source language')
         self.source_language = source_language
         self.translation_language = translation_language
-        self.path = directory / "reading-cache.db"
+        self.path = directory / "reading-cache-v2.db"
         self.lexirise = lexirise
         self.lock = threading.RLock()
         self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
@@ -128,8 +128,7 @@ class LexiriseReadingService:
     def _translations(self, response: dict) -> list[dict]:
         items = [item for item in response.get("translations") or [] if isinstance(item, dict) and isinstance(item.get("translation"), str) and item["translation"].strip()]
         preferred = [item for item in items if item.get("target_lang") == self.translation_language]
-        target = response.get("translation_target") or (items[0].get("target_lang") if items else None)
-        return preferred or [item for item in items if item.get("target_lang") == target]
+        return preferred
 
     def _meaning(self, word: str) -> str:
         cached = self._cached("meaning", word, 30 * 86400)
@@ -224,8 +223,8 @@ class LexiriseReadingService:
         for token in tokens:
             token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
         with self.lock, closing(sqlite3.connect(self.path)) as db:
-            grammar_choices = {slug.split(":", 1)[-1]: level for slug, level in db.execute("SELECT slug,proficiency FROM grammar_choices")
-                               if slug.startswith(self.source_language + ":") or (self.source_language == "zh" and ":" not in slug)}
+            grammar_choices = {slug.rsplit(":", 1)[-1]: level for slug, level in db.execute("SELECT slug,proficiency FROM grammar_choices")
+                               if slug.startswith(self.lexirise._scope() + ":" + self.source_language + ":")}
         return {"text": text, "tokens": tokens, "pendingMeanings": pending,
                 "analysisPending": bool(result.get("morphoPending")),
                 "grammar": normalize_grammar(text, result, grammar_choices)}
@@ -238,7 +237,7 @@ class LexiriseReadingService:
             return None
         proficiency = 4 if known else 0
         with self.lock, closing(sqlite3.connect(self.path)) as db, db:
-            db.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (self.source_language + ":" + slug, proficiency))
+            db.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (self.lexirise._scope() + ":" + self.source_language + ":" + slug, proficiency))
         return {"slug": slug, "proficiency": proficiency, "localOverride": True}
 
     def lookup(self, text: str, start: int) -> dict | None:

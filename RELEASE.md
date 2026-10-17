@@ -17,6 +17,13 @@ Extract the distribution ZIP to a new folder. For a running installation, run th
 For guided setup, double-click Install.cmd instead. Its optional game-folder popup saves validated locations in LOCALAPPDATA/Proxy Transcript/game-paths.json, separately from capture settings/keys. Choose Game Folders.cmd or in-app Setup can reopen it later. Setup validates folders, prepares missing tools, checks voice packs/OCR, configures optional reading accounts and refreshes indexes after launcher updates without restarting. See INSTALL.md and the included CONTRIBUTING.md/AGENTS.md before agent work. Game assets are read from the user's own installation, never redistributed.
 Use Reload from Lexirise to read account preferences. Only Save to Lexirise writes remote settings; legacy local display preferences are not automatically uploaded.
 
+Language-aware releases use versioned transcript/export/reading stores and leave
+older database files untouched. Game language preparation is explicit; background
+refresh visits only prepared locales. Account profiles stay DPAPI protected on
+the host. Resolve translation targets per learning language, never from the
+global setting when a per-language effective target exists. See
+docs/languages-and-accounts.md for setup and storage behavior.
+
 ## Compatibility watch for agents
 npm run lexirise:watch reads public API/AI docs and website bundles, without a key. Exit 2 flags changes for review; .watch/report.md and .json summarize endpoint changes and settings/lookup/language review areas.
 It does not silently update code or account settings. Follow AGENTS.md, update the shared source and baseline after review, synchronize both apps and run Firefox/Chromium/mobile/zoom and capture regression checks.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -46,6 +47,8 @@ class TranscriptStore:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute(SCHEMA)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(transcript_lines)")}
+            if 'language_context' not in columns:
+                connection.execute("ALTER TABLE transcript_lines ADD COLUMN language_context TEXT NOT NULL DEFAULT '{}'")
             if "channel" not in columns:
                 connection.execute(
                     "ALTER TABLE transcript_lines ADD COLUMN channel TEXT NOT NULL DEFAULT 'dialogue'"
@@ -107,6 +110,7 @@ class TranscriptStore:
             speaker_english=row["speaker_english"],
             speaker_chinese=row["speaker_chinese"],
             favorite=bool(row["favorite"]),
+            **json.loads(row['language_context']),
         )
 
     def add(
@@ -123,8 +127,8 @@ class TranscriptStore:
                 INSERT INTO transcript_lines (
                     created_at, session_id, game, source_ocr, english, chinese,
                     text_id, score, match_kind, ambiguous, channel, voiced, audio_path,
-                    speaker_english, speaker_chinese, favorite
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    speaker_english, speaker_chinese, favorite, language_context
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     timestamp.isoformat(),
@@ -143,6 +147,8 @@ class TranscriptStore:
                     match.speaker_english,
                     match.speaker_chinese,
                     0,
+                    json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
+                        'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts')}, ensure_ascii=False),
                 ),
             )
             row = connection.execute(
@@ -209,6 +215,16 @@ class TranscriptStore:
         while a subtitle is still visible.
         """
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
+        if match.source_locale != 'zh-Hans':
+            with self._connect() as connection:
+                duplicate = connection.execute("""SELECT 1 FROM transcript_lines
+                    WHERE game=? AND text_id=? AND json_extract(language_context, '$.source_locale')=?
+                    AND json_extract(language_context, '$.source_text')=? AND datetime(created_at)>=datetime(?) LIMIT 1""",
+                    (match.game, match.text_id, match.source_locale, match.source_text,
+                     (timestamp-timedelta(seconds=max(0.0,cooldown_seconds))).isoformat())).fetchone()
+            if duplicate:
+                return None, False
+            return self.add(match, session_id, created_at=timestamp, channel=channel), False
         cutoff = timestamp - timedelta(seconds=max(0.0, cooldown_seconds))
         is_comic = match.game == "zzz" and channel == "cinematic" and is_comic_text_id(match.text_id)
         with self._connect() as connection:
@@ -216,7 +232,7 @@ class TranscriptStore:
             adjacent = connection.execute(
                 """
                 SELECT * FROM transcript_lines
-                WHERE game = ? AND datetime(created_at) >= datetime(?)
+                WHERE game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 1
                 """,
                 (match.game, adjacent_cutoff.isoformat()),
@@ -232,7 +248,7 @@ class TranscriptStore:
                 """
                 SELECT 1 FROM transcript_lines
                 WHERE text_id = ? AND english = ?
-                  AND game = ?
+                  AND game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans'
                   AND datetime(created_at) >= datetime(?)
                 LIMIT 1
                 """,
@@ -245,7 +261,7 @@ class TranscriptStore:
             recent_rows = connection.execute(
                 """
                 SELECT * FROM transcript_lines
-                WHERE game = ? AND datetime(created_at) >= datetime(?)
+                WHERE game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 8
                 """,
                 (match.game, fragment_cutoff.isoformat()),
@@ -268,7 +284,7 @@ class TranscriptStore:
             previous = connection.execute(
                 """
                 SELECT * FROM transcript_lines
-                WHERE session_id = ? AND game = ? AND datetime(created_at) >= datetime(?)
+                WHERE session_id = ? AND game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 1
                 """,
                 (session_id, match.game, upgrade_cutoff.isoformat()),
@@ -288,7 +304,7 @@ class TranscriptStore:
                         SET source_ocr = ?, english = ?, chinese = ?, text_id = ?,
                             score = ?, match_kind = ?, ambiguous = ?, channel = ?,
                             speaker_english = ?, speaker_chinese = ?,
-                            voiced = 0, audio_path = NULL
+                            voiced = 0, audio_path = NULL, language_context = ?
                         WHERE id = ?
                         """,
                         (
@@ -302,6 +318,8 @@ class TranscriptStore:
                             channel,
                             match.speaker_english,
                             match.speaker_chinese,
+                            json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
+                                'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts')}, ensure_ascii=False),
                             previous["id"],
                         ),
                     )

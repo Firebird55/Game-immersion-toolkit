@@ -1,0 +1,62 @@
+"""Game locales and Lexirise language contexts; never infer a different target."""
+from __future__ import annotations
+
+import unicodedata
+
+from .lexirise_settings import STUDY_LANGUAGES
+
+ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
+GAME_LOCALES = {
+    'zzz': ASIAN, 'wuwa': ASIAN, 'nte': ASIAN,
+    'pragmata': ('en', 'fr', 'it', 'de', 'es-ES', 'es-419', 'pt-BR', 'ru', 'zh-Hans', 'ja', 'ko'),
+    'cyberpunk': ('en', 'fr', 'it', 'de', 'es-ES', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans'),
+    'witcher3': ('en', 'fr', 'de', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans'),
+    'beyond': ('en', 'fr', 'it', 'de', 'es-ES', 'nl', 'ja', 'pl', 'pt-PT', 'pt-BR', 'ru', 'es-419'),
+    'heavyrain': ('en', 'fr', 'it', 'de', 'es-ES', 'nl', 'ja', 'pl', 'pt-PT', 'ru'),
+}
+LOCALE_NAMES = {'en': 'English', 'zh-Hans': 'Simplified Chinese', 'zh-Hant': 'Traditional Chinese',
+    'ja': 'Japanese', 'ko': 'Korean', 'fr': 'French', 'it': 'Italian', 'de': 'German',
+    'es-ES': 'Spanish — Spain', 'es-419': 'Spanish — Latin America', 'pt-BR': 'Portuguese — Brazil',
+    'pt-PT': 'Portuguese — Portugal', 'ru': 'Russian', 'pl': 'Polish', 'nl': 'Dutch'}
+
+
+def study_language(locale: str) -> str:
+    code = locale.split('-')[0].lower()
+    if code not in STUDY_LANGUAGES:
+        raise ValueError('Unsupported Lexirise study language')
+    return code
+
+
+def audio_locale(locale: str) -> str:
+    return 'zh-Hans' if locale == 'zh-Hant' else locale
+
+
+def translation_language(settings: dict, source: str) -> str:
+    language = settings.get('languageSettings', {}).get(source, {})
+    value = language.get('effectiveTranslationLanguage')
+    if not isinstance(value, str) or not value:
+        value = settings.get('global', {}).get('effectiveTranslationLanguage')
+    if not isinstance(value, str) or not value:
+        raise ValueError('Reload Lexirise settings to determine this learning language’s translation language.')
+    return value
+
+
+def resolve_locale(language: str, available) -> str | None:
+    choices = tuple(available)
+    exact = next((code for code in choices if code.casefold() == language.casefold()), None)
+    if exact:
+        return exact
+    canonical = {'zh-hans': 'zh-Hans', 'zh-hant': 'zh-Hant', 'zh': 'zh-Hans', 'es': 'es-ES', 'pt': 'pt-BR'}.get(language.casefold())
+    if canonical in choices:
+        return canonical
+    if language in {'es', 'pt'}:
+        return next((code for code in choices if code.startswith(language + '-')), None)
+    return None
+
+
+def normalize_text(text: str, locale: str = '') -> str:
+    value = unicodedata.normalize('NFKC', text).casefold()
+    if locale.startswith('zh'):
+        from .bilingual import simplify_chinese
+        value = simplify_chinese(value)
+    return ''.join(char for char in value if char.isalnum())
