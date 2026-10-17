@@ -37,9 +37,10 @@ try{
    if(request.method()==='OPTIONS')return route.fulfill({status:204,headers:{...headers,'Access-Control-Allow-Headers':'Authorization, Content-Type'}});
    const body=request.postDataJSON();requests.push(body);
    let data;
-   if(body.path==='/v1/settings')data={languages:['zh'],global:{},languageSettings:{zh:{}}};
+   if(body.path==='/v1/settings')data={languages:['zh','nl'],global:{effectiveTranslationLanguage:'en'},languageSettings:{zh:{},nl:{effectiveTranslationLanguage:'zh-hans',inlineGlossMode:'always'}}};
+   else if(body.path==='/v1/analyze/text'&&body.payload.language==='nl')data={occurrences:[{word:'Een',charStart:0,charEnd:3,isWordLike:true,entryId:99}],entryMetaById:{99:{gloss:'一个'}},stateByEntryId:{}};
    else if(body.path==='/v1/analyze/text')data={occurrences:segments.map(([word,transliteration],i)=>({word,transliteration,charStart:chinese.indexOf(word),charEnd:chinese.indexOf(word)+word.length,isWordLike:true,entryId:i+1,tones:[3,3]})),entryMetaById:Object.fromEntries(segments.map((s,i)=>[i+1,{gloss:s[2]}])),stateByEntryId:{}};
-   else if(body.path==='/v1/dictionary/lookup')data={word:body.payload.text,translations:[{target_lang:'en',translation:'hello; a greeting to welcome someone',part_of_speech:['interjection']}],supplementalEntries:[{dictionary_name:'Fixture dictionary',headword:body.payload.text,html:'<ul>'+Array.from({length:24},(_,i)=>'<li>Authored dictionary explanation '+(i+1)+' with enough detail to exercise scrolling.</li>').join('')+'</ul>'}],characterInfo:{pinyin:['nǐ'],gloss:'you'}};
+   else if(body.path==='/v1/dictionary/lookup')data={word:body.payload.text,translations:[{target_lang:body.payload.language==='nl'?'zh-hans':'en',translation:body.payload.language==='nl'?'荷兰语词义':'hello; a greeting to welcome someone',part_of_speech:['interjection']}],supplementalEntries:[{dictionary_name:'Fixture dictionary',headword:body.payload.text,html:'<ul>'+Array.from({length:24},(_,i)=>'<li>Authored dictionary explanation '+(i+1)+' with enough detail to exercise scrolling.</li>').join('')+'</ul>'}],characterInfo:{pinyin:['nǐ'],gloss:'you'}};
    else if(body.path==='/v1/analyze/context')data={meaning:'A friendly greeting used when meeting a traveler.'};
    else throw Error('Unexpected mock account request: '+body.path);
    return route.fulfill({json:data,headers});
@@ -142,6 +143,13 @@ try{
   assert(await page.locator('main').evaluate(el=>parseFloat(getComputedStyle(el).paddingBottom)>=100),'Playback reserves native control and safe-area clearance');
   await page.evaluate(()=>{const player=document.querySelector('#voice-player');URL.revokeObjectURL(player.src);player.removeAttribute('src');player.load();});
   assert.equal(await page.locator('main').evaluate(el=>parseFloat(getComputedStyle(el).paddingBottom)),32,'Inactive audio does not add empty page space');
+  await page.selectOption('#game','beyond');
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game:'beyond',id:7,createdAt:1700000010000,chinese:'合成测试句子。',english:'',speakerChinese:'',speakerEnglish:'',audio:false,sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige testzin.',translationLocale:'zh-Hans',translationText:'合成测试句子。',audioLocale:'nl'}]}})));
+  await page.locator('.current-card .reading-text[lang="nl"]').waitFor();
+  await page.locator('.current-card .reading-hanzi').first().click();
+  await page.locator('.word-sheet').getByText('荷兰语词义',{exact:false}).first().waitFor();
+  assert(requests.some(r=>r.path==='/v1/dictionary/lookup'&&r.payload.language==='nl'),'Dutch lookup uses its own learning language');
+  await page.getByRole('button',{name:'Close word lookup'}).click();
   assert.deepEqual(errors,[]);
   assert(deferredResizes<=1,'WebKit must not enter a repeated resize loop');
   if(deferredResizes)console.log('webkit: one deferred initial ResizeObserver delivery; subsequent layout stable');
