@@ -32,7 +32,8 @@ def normalize_chinese(value: str) -> str:
 
 
 def normalize_subtitle(value: str) -> str:
-    return normalize_chinese(value) if contains_han(value) else normalize_english(value)
+    return normalize_chinese(value) if contains_han(value) else ''.join(
+        char for char in unicodedata.normalize('NFKC', display_text(value)).casefold() if char.isalnum())
 
 
 def subtitle_candidates(lines: Iterable[str]) -> list[str]:

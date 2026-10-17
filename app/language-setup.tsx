@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {Button} from '@/components/ui/button';
 import {translationLanguages} from '@firebird55/lexirise-components';
 const API='http://127.0.0.1:8766';
 type Locale={locale:string;language:string;name:string;reader_available:boolean;prepared:null|{targets:string[];mapped_lines:number};job?:{state?:string;message?:string;progress?:number}};
@@ -28,9 +29,9 @@ export function LanguageSetup({game,onConfigure,onChanged}:{game:string;onConfig
  {selected?.prepared&&!selected.prepared.targets.includes(translation)&&<p>Prepare the official translation table for this learning language’s current target.</p>}
  {selected?.job?.message&&<p role="status">{selected.job.message}</p>}
  {preparing&&<progress aria-label="Language preparation progress" value={selected?.job?.progress??0} max={100}/>}
- <div className="toolkit-setup-actions"><button type="button" disabled={busy||preparing||!enabled||!selected?.reader_available} onClick={()=>void action('prepare')}>{selected?.prepared?'Rebuild / prepare translation table':'Prepare selected language'}</button>
- <button type="button" disabled={busy||preparing||!enabled||!selected?.prepared||data.selected===locale} onClick={()=>void action('select')}>Use this language</button>
- <button type="button" disabled={busy||preparing||!selected?.prepared} onClick={()=>void action('remove')}>Remove prepared table</button>
- <button type="button" disabled={!selected} onClick={()=>selected&&onConfigure(selected.language)}>Configure this language’s reading and dictionaries</button></div></>}
+ <div className="toolkit-setup-actions"><Button variant="outline" type="button" disabled={busy||preparing||!enabled||!selected?.reader_available} onClick={()=>void action('prepare')}>{selected?.prepared?'Rebuild / prepare translation table':'Prepare selected language'}</Button>
+ <Button variant="outline" type="button" disabled={busy||preparing||!enabled||!selected?.prepared||data.selected===locale} onClick={()=>void action('select')}>Use this language</Button>
+ <Button variant="outline" type="button" disabled={busy||preparing||!selected?.prepared} onClick={()=>void action('remove')}>Remove prepared table</Button>
+ <Button variant="outline" type="button" disabled={!selected} onClick={()=>selected&&onConfigure(selected.language)}>Configure this language’s reading and dictionaries</Button></div></>}
  {error&&<p role="alert" className="toolkit-setup-error">{error}</p>}</section>;
 }

@@ -1,6 +1,7 @@
 """Host-local, DPAPI protected account profiles. No credential leaves this host."""
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -22,14 +23,21 @@ class AccountStore:
         self.protect, self.transport = protect, transport
         self.lock = threading.RLock()
         self.generation = 0
+        self._cached_signature = None
+        self._cached_data = None
 
     def _read(self) -> dict:
         if not self.path.exists():
             return {'active': None, 'profiles': {}}
         try:
+            stat = self.path.stat()
+            signature = (stat.st_mtime_ns, stat.st_size)
+            if signature == self._cached_signature:
+                return copy.deepcopy(self._cached_data)
             value = json.loads(self.protect(self.path.read_bytes(), decrypt=True))
             if not isinstance(value.get('profiles'), dict) or value.get('active') not in {None, *value['profiles']}:
                 raise ValueError()
+            self._cached_signature, self._cached_data = signature, copy.deepcopy(value)
             return value
         except (OSError, ValueError, TypeError, KeyError):
             raise LexiriseError('Saved accounts could not be read for this Windows user.') from None
@@ -40,6 +48,7 @@ class AccountStore:
         pending = self.path.with_suffix('.pending')
         pending.write_bytes(data)
         pending.replace(self.path)
+        self._cached_signature = None
         self.generation += 1
 
     def active_key(self) -> str | None:

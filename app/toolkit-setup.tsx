@@ -26,7 +26,7 @@ type Setup = {
   jobs: Record<string, { state: string; message: string; progress: number }>;
   native: Record<string, boolean>; capture_check?: boolean | null;
 };
-const VOICE_LABELS: Record<string, string> = { present: 'Mandarin voice files found', missing: 'Mandarin voice pack needed',
+const VOICE_LABELS: Record<string, string> = { present: 'Original voice files found', missing: 'Selected voice pack needed',
   not_checked: 'Choose a game folder first', verify_during_indexing: 'Voice pack checked during indexing', not_required: 'Voice pack not required' };
 
 export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged }: {
@@ -133,7 +133,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>Game files</h3><p>Your installed files supply the subtitles and voices.</p></div></div>
               <div className="toolkit-readiness-grid">
                 <div><span>Installation</span><strong className={current.detected_path ? 'is-ready' : 'needs-setup'}>{current.detected_path ? 'Found' : 'Choose folder'}</strong></div>
-                <div><span>Mandarin voices</span><strong className={current.voice_state === 'present' || game === 'hito' ? 'is-ready' : 'needs-setup'}>{game === 'hito' ? 'Text only' : current.voice_state === 'present' ? 'Installed' : 'Needs setup'}</strong></div>
+                <div><span>Original voices</span><strong className={current.voice_state === 'present' || game === 'hito' ? 'is-ready' : 'needs-setup'}>{game === 'hito' ? 'Text only' : current.voice_state === 'present' ? 'Installed' : 'Needs setup'}</strong></div>
                 <div><span>Bilingual catalog</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : 'Not indexed'}</strong></div>
               </div>
               {current.detected_path && <code className="toolkit-installed-path">{current.detected_path}</code>}
@@ -178,7 +178,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
             <span className={item.ready ? 'is-ready' : 'needs-setup'}>{item.ready ? <Check size={16} /> : '!'} {item.title}: {item.ready ? 'Available' : 'Needs setup'}</span>
             {!item.ready && <p>{item.help}</p>}
           </li>)}</ul>
-          <p>Run the OCR/display test, then start your game with English or Chinese subtitles. Use Capture setup to check the live subtitle crop and choose V or Rover's voice where applicable.</p>
+          <p>Run the OCR/display test, then start your game with subtitles in a prepared language. Use Capture setup to check the live subtitle crop and choose V or Rover's voice where applicable.</p>
           <div className="toolkit-setup-actions"><Button variant="outline" disabled={busy || nativeBusy} onClick={() => void action('/api/setup/native/checks', {}, 'The read-only OCR and display test opened in a local console. Its output stays on this PC.')}>Run OCR and display test</Button>
             <Button onClick={() => leaveFor(onCapture)}>Open capture setup</Button></div>
           {data.capture_check !== null && data.capture_check !== undefined && <p role="status">{data.capture_check ? 'OCR and display test passed.' : 'OCR and display test needs attention. Re-run Install.cmd to repair dependencies.'}</p>}

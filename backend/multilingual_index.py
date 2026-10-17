@@ -1,0 +1,132 @@
+"""Locale-tagged official text matching with one verified source performance."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import re
+import threading
+
+from rapidfuzz import fuzz, process
+
+from .languages import audio_locale, normalize_text, resolve_locale, study_language
+from .models import TextMatch, is_comic_text_id
+from .textmaps import display_text
+
+
+def candidates(lines):
+    rows = [display_text(part) for line in lines for part in re.split(r'\s*[~～]\s*|(?<=[.!?。！？])\s+(?=[^\W\d_])|(?<=[。！？])\s*(?=[A-Za-z])|(?<=[.!?])\s*(?=[\u3400-\u9fff])', line) if display_text(part)]
+    values = []
+    for first in range(len(rows)):
+        for last in range(first + 1, min(len(rows), first + 8) + 1):
+            value = ' '.join(rows[first:last])
+            values.append(value)
+            if re.search(r'[:：]', value):
+                values.append(re.split(r'[:：]', value, maxsplit=1)[1].strip())
+    return list(dict.fromkeys(values))
+
+
+class MultilingualTextIndex:
+    def __init__(self, game: str, directory: Path):
+        self.game, self.path = game, directory / 'textmap.json'
+        self.ready = False
+        self.player_voice = 'unconfigured'
+        self.target_locale = 'en'
+        self.source_locale = ''
+        self.entry_count = self.audio_count = 0
+        self.message, self.state = 'Prepare this game language in Setup', 'not_ready'
+        self.lock = threading.RLock()
+        self._records, self._lookup = [], {}
+        self._signature = None
+        self.load()
+
+    def load(self):
+        try:
+            info = self.path.stat()
+            signature = (info.st_size, info.st_mtime_ns)
+            if signature == self._signature:
+                return True
+            payload = json.loads(self.path.read_text(encoding='utf-8'))
+            if payload.get('format') != 2 or payload.get('game') != self.game:
+                raise ValueError('Unsupported game language snapshot')
+            locale = payload['source_locale']
+            study_language(locale)
+            lookup = {}
+            for row in payload['records']:
+                if row.get('source_locale') != locale or not isinstance(row.get('source_text'), str) or not row['source_text']:
+                    raise ValueError('Incomplete game study text')
+                if not isinstance(row.get('texts'), dict) or row['texts'].get(locale) != row['source_text']:
+                    raise ValueError('Official text locales do not agree')
+                if row.get('audio_locale') != audio_locale(locale):
+                    raise ValueError('Original voice locale does not match study text')
+                if not row.get('audio') and not (self.game == 'zzz' and is_comic_text_id(row['text_id'])):
+                    continue
+                for language, text in row['texts'].items():
+                    for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
+                        key = normalize_text(display_text(value), language)
+                        if len(key) >= 2:
+                            lookup.setdefault(language, {}).setdefault(key, []).append(row)
+            with self.lock:
+                self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
+                self.entry_count = len(payload['records'])
+                self.audio_count = sum(bool(r.get('audio')) for r in self._records)
+                self.ready = True
+                self.state = 'ready' if self.audio_count else 'missing_voice'
+                self.message = payload.get('message', f'{self.entry_count:,} official lines; {self.audio_count:,} original voices')
+                self._signature = signature
+            return True
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            self.message = 'Previous complete language snapshot retained' if self.ready else str(error)
+            return False
+
+    def status(self):
+        return {'ready': self.ready, 'state': self.state, 'message': self.message,
+                'entry_count': self.entry_count, 'audio_count': self.audio_count, 'source_locale': self.source_locale}
+
+    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue'):
+        hits = []
+        with self.lock:
+            for source in candidates(lines):
+                for locale, lookup in self._lookup.items():
+                    key, score = normalize_text(source, locale), 100.
+                    rows = lookup.get(key, [])
+                    if not rows and not exact_only and len(key) >= 8:
+                        matches = process.extract(key, lookup.keys(), scorer=fuzz.ratio, score_cutoff=max(88, threshold), limit=2)
+                        if matches and (len(matches) == 1 or matches[1][1] < matches[0][1] - 2):
+                            rows, score = lookup[matches[0][0]], matches[0][1]
+                    rows = [r for r in rows if (not r.get('player_voice') or r['player_voice'] == self.player_voice)
+                            and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
+                    identities = {(json.dumps(r.get('audio'), sort_keys=True), r['source_text']) for r in rows}
+                    if len(identities) != 1:
+                        continue
+                    row = rows[0]
+                    target = resolve_locale(self.target_locale, row['texts'])
+                    hits.append(TextMatch(game=self.game, text_id=row['text_id'], english=row.get('english') or row['source_text'],
+                        chinese=row.get('chinese', ''), source_ocr=source, score=score, kind='exact' if score == 100 else 'fuzzy',
+                        source_language=study_language(self.source_locale), source_locale=self.source_locale,
+                        source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
+                        translation_locale=target or self.target_locale, translation_text=row['texts'].get(target, '') if target else '',
+                        speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese')))
+        if not hits:
+            return None
+        best = max(hits, key=lambda hit: (hit.score, len(normalize_text(hit.source_ocr))))
+        peers = [hit for hit in hits if hit.score == best.score and len(normalize_text(hit.source_ocr)) == len(normalize_text(best.source_ocr))]
+        if len({hit.text_id for hit in peers}) != 1:
+            return None
+        return best
+
+    def match_line_groups(self, groups, threshold=88, channel='cinematic'):
+        result = {}
+        for group in groups:
+            hit = self.match_lines([group], threshold, channel=channel)
+            if hit:
+                result.setdefault(hit.text_id, hit)
+        return list(result.values())
+
+    def match_text(self, text, threshold=88, channel='dialogue'):
+        return self.match_lines([text], threshold, channel=channel)
+
+    def is_capture_text(self, text_id, _english, channel):
+        return any(r['text_id'] == text_id and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay']) for r in self._records)
+
+    def resolve_display_name(self, _candidates):
+        return None

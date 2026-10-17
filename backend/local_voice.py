@@ -1,4 +1,4 @@
-"""Asynchronous original Mandarin playback for locally indexed games."""
+"""Asynchronous original voice playback for locally indexed game languages."""
 from __future__ import annotations
 
 import hashlib
@@ -16,9 +16,11 @@ from .game_assets import asset_adapter
 
 
 class LocalVoiceAssetService:
-    def __init__(self, game: str, data_dir: Path, decoder: Path, output_dir: Path):
+    def __init__(self, game: str, data_dir: Path, decoder: Path, output_dir: Path, *, tools_dir: Path | None = None):
         self._adapter, self._extractor = asset_adapter(game)
         self.game, self.data_dir, self.decoder, self.output_dir = game, data_dir, decoder, output_dir
+        self.tools_dir = tools_dir or data_dir / 'tools'
+        self.locale = 'zh-Hans'
         self.ready = False
         self.last_error = None
         self._entries = {}
@@ -34,10 +36,11 @@ class LocalVoiceAssetService:
         try:
             path = self.data_dir / "textmap.json"
             stat = path.stat()
-            signature = (stat.st_mtime_ns, stat.st_size)
-            if self.ready and self._loaded_signature == signature:
-                return True
+            signature = (stat.st_mtime_ns, stat.st_size, self.decoder.is_file(), bool(ffmpeg_executable()))
+            if self._loaded_signature == signature:
+                return self.ready
             payload = json.loads(path.read_text(encoding="utf-8"))
+            self.locale = payload.get('source_locale', 'zh-Hans')
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
             install = Path(payload["install"])
             stamp = payload["fingerprint"]
@@ -64,12 +67,12 @@ class LocalVoiceAssetService:
         if install is None or fingerprint(install) != stamp:
             raise ValueError("Game files changed; refresh the original voice index")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        identity = hashlib.sha256(f"{stamp}\0{text_id}".encode()).hexdigest()[:16]
+        identity = hashlib.sha256(f"{stamp}\0{self.locale}\0{text_id}".encode()).hexdigest()[:16]
         filename = f"official-{self.game}-{line_id}-{identity}.mp3"
         output = self.output_dir / filename
         with tempfile.TemporaryDirectory(prefix=f"{self.game}-voice-", dir=self.output_dir) as scratch_value:
             scratch = Path(scratch_value)
-            data = extract_voice(install, audio, self.data_dir / "tools" / self._extractor, scratch)
+            data = extract_voice(install, audio, self.tools_dir / self._extractor, scratch)
             wem, wav, mp3 = scratch / "voice.wem", scratch / "voice.wav", scratch / "voice.mp3"
             wem.write_bytes(data)
             options = {"check": True, "capture_output": True, "timeout": 90,
@@ -119,11 +122,11 @@ class LocalVoiceAssetService:
         if install is None or self._adapter.fingerprint(install) != stamp:
             raise ValueError('Game files changed; refresh the original voice index')
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        filenames = [f"official-{self.game}-{number}-{hashlib.sha256(f'{stamp}\0{text_id}'.encode()).hexdigest()[:16]}.mp3"
+        filenames = [f"official-{self.game}-{number}-{hashlib.sha256(f'{stamp}\0{self.locale}\0{text_id}'.encode()).hexdigest()[:16]}.mp3"
                      for text_id, number, english in requests]
         with tempfile.TemporaryDirectory(prefix=f'{self.game}-batch-', dir=self.output_dir) as value:
             scratch = Path(value)
-            extractor = self.data_dir / 'tools' / self._extractor
+            extractor = self.tools_dir / self._extractor
             source_ids, originals, indexes = {}, [], []
             for audio in audios:
                 source = json.dumps({k: v for k, v in audio.items() if k not in {'start_ms', 'end_ms', 'gain_db'}}, sort_keys=True)

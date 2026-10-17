@@ -27,7 +27,7 @@ VOICE_HINTS = {
     "zzz": "Install the Mandarin voice pack through the game launcher.",
     "pragmata": "Mandarin voices are verified from the installed PAKs during indexing.",
     "hito": "Hito uses verified game text and does not need a voice decoder.",
-    "cyberpunk": "Install the official Simplified Chinese voice pack through your game launcher.",
+    "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
     "wuwa": "Download the Chinese voice pack in Wuthering Waves, then refresh game data.",
     "witcher3": "Install the official Chinese speech pack through your game launcher.",
     "nte": "Download Chinese voices in NTE. Only exact installed bilingual dialogue and Chinese voice sources are captured.",
@@ -41,6 +41,8 @@ def _voice_state(game: str, install: Path | None, state: dict) -> str:
         return "not_checked"
     if state.get("audio_ready"):
         return "present"
+    if state.get('source_locale'):
+        return 'missing' if state.get('index_state') == 'missing_voice' else 'verify_during_indexing'
     if game == "zzz":
         present = any(any((install / "ZenlessZoneZero_Data" / layer / "Audio/Windows/Full/Cn").glob("*.pck"))
                       for layer in ("StreamingAssets", "Persistent"))
@@ -84,7 +86,7 @@ class InstallationService:
             state = self.game_state(game)
             if game == "cyberpunk" and install:
                 from .cyberpunk_assets import expansion_status
-                state = {**state, **expansion_status(install)}
+                state = {**state, **expansion_status(install, state.get('source_locale'))}
             configured = configured_install(game)
             folder_state = "configured" if configured else "invalid" if game in saved else "detected" if install else "missing"
             try:

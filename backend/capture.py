@@ -20,7 +20,7 @@ from .config import SettingsStore
 from .games import GAME_PROFILES
 from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine, is_comic_text_id
 from .storage import TranscriptStore
-from .textmaps import TextMapIndex, normalize_english
+from .textmaps import TextMapIndex
 from .bilingual import normalize_subtitle
 from .pragmata import PragmataTextIndex
 from .hito import HitoTextIndex
@@ -153,13 +153,6 @@ class CaptureService:
         if active is None:
             return b""
         profile, window = active
-        language_setup = getattr(self, 'language_setup', None)
-        if language_setup is not None and not language_setup(profile.id):
-            self._tracker.observe(None)
-            self._update_snapshot(running=True, active_game=profile.id, phase='needs_language_setup',
-                message='Choose and prepare a learning language in Setup → Languages', last_scan_at=now,
-                window_title=window.title, window_bounds=window.bounds, last_error=None, visible_text_ids=[])
-            return _ScanOutcome([])
         self._prepare_window_capture(window)
         if profile.id in {"nte", "honkai3"}:
             window = self._picture_window(window, picture_area or getattr(settings, f"{profile.id}_picture_area"))
@@ -327,6 +320,15 @@ class CaptureService:
             return _ScanOutcome([])
 
         profile, window = active
+        language_setup = getattr(self, 'language_setup', None)
+        if language_setup is not None and not language_setup(profile.id):
+            self._tracker.observe(None)
+            self._update_snapshot(running=True, active_game=profile.id, phase='needs_language_setup',
+                message='Choose and prepare a learning language in Setup → Languages', last_scan_at=now,
+                window_title=window.title, window_bounds=window.bounds, last_error=None, visible_text_ids=[])
+            return _ScanOutcome([])
+        # Activating a selected language invalidates scans already in progress.
+        epoch = self._scan_epoch
         self._prepare_window_capture(window)
 
         engine = self._engine
@@ -734,7 +736,7 @@ class CaptureService:
                     observed_at = self._visible_match_started[game][1]
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
-            message = f"{GAME_PROFILES[game].name} subtitle matched to original Mandarin voice"
+            message = f"{GAME_PROFILES[game].name} subtitle matched to original game voice"
 
         self._tip_tracker.observe(None)
         self._update_snapshot(
@@ -884,7 +886,7 @@ class CaptureService:
                                   f"last_{snapshot_prefix}_match_score": max((m.score for m in matches.values()), default=None)},
                               visible_text_ids=self._visible_text_ids(monotonic_now))
         if matches:
-            self._update_snapshot(phase="matched", message=f"{GAME_PROFILES[game].name} {'story card' if cinematic else 'extra subtitle'} matched to original Mandarin voice")
+            self._update_snapshot(phase="matched", message=f"{GAME_PROFILES[game].name} {'story card' if cinematic else 'extra subtitle'} matched to original game voice")
         return emitted
 
     def _scan_hito(
@@ -1317,8 +1319,8 @@ class CaptureService:
         self, channel: str, matched_english: str, current_ocr: str
     ) -> bool:
         """Reject a shorter match while the fuller subtitle remains visible."""
-        matched = normalize_english(matched_english)
-        visible = normalize_english(current_ocr)
+        matched = normalize_subtitle(matched_english)
+        visible = normalize_subtitle(current_ocr)
         previous = self._last_visible_match_by_channel.get(channel)
         redundant = bool(
             previous

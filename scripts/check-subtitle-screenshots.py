@@ -104,6 +104,7 @@ async def scan(image, game, indexes, voices, engine, directory, expected=None, e
         x -= origin[0]; y -= origin[1]
         return image.crop((x, y, x + w, y + h))
     service._capture = crop
+    service._prepare_window_capture = lambda _: None
     service._engine = engine
     service._event_loop = asyncio.get_running_loop()
     service._tip_tracker.configure(1)
@@ -150,8 +151,33 @@ async def main(args):
                 data / "voice-assets/learned-manifest.json"),
               "pragmata": PragmataVoiceAssetService(data / "pragmata", decoder, output / "audio"),
               **{game: LocalVoiceAssetService(game, data / game, decoder, output / "audio") for game in LOCAL_GAMES}}
+    if args.source_locale:
+        from backend.multilingual_index import MultilingualTextIndex
+        if args.game not in LOCAL_GAMES:
+            raise ValueError('Select a local game for a prepared language fixture')
+        directory = data / 'languages' / args.game / args.source_locale
+        indexes[args.game] = MultilingualTextIndex(args.game, directory)
+        voices[args.game].close()
+        voices[args.game] = LocalVoiceAssetService(args.game, directory, decoder, output / 'audio',
+                                                tools_dir=data / args.game / 'tools')
     engine = OcrEngine()
     try:
+        if args.source_locale and args.fixtures:
+            game, index = args.game, indexes[args.game]
+            payload = json.loads(index.path.read_text(encoding='utf-8'))
+            row = next(r for r in payload['records'] if r.get('audio') and not r.get('player_voice')
+                       and 35 <= len(r['source_text']) <= 80 and len(r['texts']) > 1
+                       and (hit := index.match_lines([r['source_text']])) and hit.text_id == r['text_id'])
+            target = next(text for locale, text in row['texts'].items() if locale != args.source_locale)
+            for resolution in args.resolution or [(1280, 720), (1920, 1080), (3840, 2160)]:
+                for language in ('en', 'zh', 'dual-inline', 'dual-wrapped'):
+                    directory = output / f'{game}-{args.source_locale}-{resolution[0]}x{resolution[1]}-{language}'
+                    directory.mkdir(parents=True, exist_ok=True)
+                    image = fixture_image(game, row['source_text'], target, language, resolution)
+                    image.save(directory / 'screenshot.png')
+                    await scan(image, game, indexes, voices, engine, directory, expected=row['text_id'])
+                    print(f'{game} {args.source_locale} {resolution} {language}: synthetic production OCR PASS', flush=True)
+            return
         if args.image:
             for number, path in enumerate(args.image):
                 with Image.open(path) as screenshot:
@@ -229,6 +255,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixtures", action="store_true")
     parser.add_argument("--game", choices=["zzz", "pragmata", *LOCAL_GAMES])
+    parser.add_argument('--source-locale', help='Explicitly prepared multilingual snapshot; fixtures remain synthetic')
     parser.add_argument("--image", action="append", type=Path)
     parser.add_argument("--resolution-matrix", action="store_true")
     parser.add_argument("--resolution", action="append", type=resolution)

@@ -33,6 +33,12 @@ class LocalDialogue:
     # text always use the complete utterance, never a guessed per-page cut.
     ocr_english: list[str] | None = None
     ocr_chinese: list[str] | None = None
+    source_locale: str | None = None
+    source_text: str | None = None
+    texts: dict[str, str] | None = None
+    audio_locale: str | None = None
+    channels: list[str] | None = None
+    ocr_texts: dict[str, list[str]] | None = None
 
 
 class LocalGameTextIndex:

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import os
+import json
+import sys
+import subprocess
+import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 from subprocess import TimeoutExpired
@@ -146,6 +150,7 @@ class Runtime:
         self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in LOCAL_GAMES}
         self.game_voice_assets = {game: LocalVoiceAssetService(game, DATA_DIR / game,
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
+        self._legacy_game_voices = tuple(self.game_voice_assets.values())
         self.speakers = SpeakerResolver(self.textmaps, self.voice_assets, self.transcript)
         self.event_loop = asyncio.get_running_loop()
         removed_rows = [] if self.standby else self.transcript.purge_unvoiced()
@@ -184,6 +189,7 @@ class Runtime:
             self.on_update_thread, project_root=PROJECT_ROOT) for game, voices in self.game_voice_assets.items()}
         self.languages = LanguagePreparation(self.build_language, self.activate_language, self.language_state,
                                              supported=self.reader_locales)
+        self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
         self.capture.language_setup = self.capture_language_ready
         self.installation = InstallationService(PROJECT_ROOT, settings=self.settings,
             game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
@@ -206,6 +212,40 @@ class Runtime:
         return ('zh-Hans',)
 
     def build_language(self, game, locale, targets):
+        from .game_assets import asset_adapter
+        from .multilingual_index import MultilingualTextIndex
+        if game in LOCAL_GAMES:
+            adapter, _ = asset_adapter(game)
+            if hasattr(adapter, 'index_language'):
+                install = self.setup_install(game)
+                if install is None:
+                    raise ValueError('Choose the installed game folder before preparing its language.')
+                directory = DATA_DIR / 'languages' / game / locale
+                directory.mkdir(parents=True, exist_ok=True)
+                path = directory / 'textmap.json'
+                stamp = adapter.fingerprint(install)
+                try:
+                    old = json.loads(path.read_text(encoding='utf-8'))
+                except (OSError, ValueError):
+                    old = {}
+                if (old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
+                        and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION):
+                    return
+                from .update_workers import INDEX_BUILD_LOCK, subprocess_options
+                with INDEX_BUILD_LOCK, tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
+                    output = Path(temporary) / 'textmap.json'
+                    command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
+                        '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
+                        '--targets', json.dumps(targets), '--output', str(output)]
+                    result = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
+                        capture_output=True, text=True, timeout=1800, **subprocess_options())
+                    if result.returncode:
+                        raise ValueError('Language extraction failed. Check installed text/voice packs and game tools; previous table retained.')
+                    candidate = MultilingualTextIndex(game, Path(temporary))
+                    if not candidate.ready or adapter.fingerprint(install) != stamp:
+                        raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
+                    output.replace(path)
+                return
         if locale != 'zh-Hans' or any(target.lower() not in {'en', 'zh-hans', 'zh'} for target in targets):
             raise ValueError('This language pair needs the multilingual reader update. No other language was substituted.')
         if game == 'zzz':
@@ -216,6 +256,15 @@ class Runtime:
             self.game_updaters[game]._run()
 
     def language_state(self, game, locale):
+        path = DATA_DIR / 'languages' / game / locale
+        if (path / 'textmap.json').is_file():
+            from .multilingual_index import MultilingualTextIndex
+            key = (game, locale)
+            index = self._locale_indexes.get(key)
+            if index is None:
+                index = self._locale_indexes[key] = MultilingualTextIndex(game, path)
+            index.load()
+            return index.status()
         if game == 'zzz':
             return {**self.textmaps.status(), 'audio_count': self.voice_assets.status().get('mapped_lines', 0)}
         if game == 'pragmata':
@@ -225,16 +274,38 @@ class Runtime:
     def activate_language(self, game, locale, account):
         if account != self.accounts.status()['active'] or self.languages.selected(game, account) != locale:
             return
-        # The language-specific snapshots added by readers are activated here.
-        # Legacy Mandarin readers already have the selected official snapshot.
-        self.capture._scan_epoch += 1
+        directory = DATA_DIR / 'languages' / game / locale
+        if (directory / 'textmap.json').is_file():
+            from .multilingual_index import MultilingualTextIndex
+            key = (game, locale)
+            index = self._locale_indexes.get(key)
+            if index is None:
+                index = self._locale_indexes[key] = MultilingualTextIndex(game, directory)
+            index.load()
+            voices = self._locale_voices.get(key)
+            if voices is None:
+                voices = self._locale_voices[key] = LocalVoiceAssetService(game, directory,
+                    DATA_DIR / 'voice-assets/vgmstream/vgmstream-cli.exe', DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools')
+            voices.reload()
+            try:
+                index.target_locale = translation_language(self.account_preferences(), study_language(locale))
+            except LexiriseError:
+                index.target_locale = self.languages.prepared(game, locale)['targets'][0]
+            self.game_indexes[game] = index
+            self.game_voice_assets[game] = voices
+        if self._active_locales.get(game) != locale:
+            self._active_locales[game] = locale
+            self.capture._scan_epoch += 1
 
     def capture_language_ready(self, game):
         if game == 'hito':
             return True
         account = self.accounts.status()['active']
         locale = self.languages.selected(game, account)
-        return bool(locale and self.languages.prepared(game, locale))
+        if not locale or not self.languages.prepared(game, locale):
+            return False
+        self.activate_language(game, locale, account)
+        return True
 
     def reading_for(self, line: TranscriptLine):
         session = self.lexirise.pin(line.source_language)
@@ -296,6 +367,7 @@ class Runtime:
         else:
             index, audio, update = self.game_indexes[game].status(), self.game_voice_assets[game].status(), self.game_updaters[game].status()
         return {"index_ready": bool(index.get("ready")), "index_state": index.get("state"),
+                'source_locale': index.get('source_locale'),
                 "index_message": index.get("message", ""), "indexed_lines": index.get("entry_count", 0),
                 "audio_ready": bool(audio.get("ready")), "update_state": update.get("state", "idle"),
                 "update_message": update.get("message", "Game data checks run automatically"),
@@ -490,7 +562,7 @@ async def lifespan(_app: FastAPI):
         runtime.pragmata_voice_assets.close()
         for reader in runtime._readers.values():
             reader.pool.shutdown(wait=False, cancel_futures=True)
-        for voices in runtime.game_voice_assets.values():
+        for voices in set([*runtime._legacy_game_voices, *runtime.game_voice_assets.values(), *runtime._locale_voices.values()]):
             voices.close()
         if runtime.map_task and not runtime.map_task.done():
             runtime.map_task.cancel()

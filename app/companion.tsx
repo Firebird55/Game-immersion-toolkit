@@ -812,7 +812,7 @@ function CompanionClient() {
       <section className="status-strip" aria-label="Companion status">
         <div>
           <Radio size={17} />
-          <span>{selectedGame === 'hito' ? 'Two-box OCR' : selectedGame !== 'zzz' ? 'Auto English/Chinese OCR + voice' : '3-zone OCR + voice'}</span>
+          <span>{selectedGame === 'hito' ? 'Two-box OCR' : selectedGame !== 'zzz' ? 'Subtitle OCR + original voice' : '3-zone OCR + voice'}</span>
           <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : 'Paused'} /></strong>
         </div>
         <div>
@@ -1007,7 +1007,7 @@ function CompanionClient() {
             </DialogDescription>
           </DialogHeader>
 
-          <p>Capture adjustments are saved on this PC. {selectedGame !== 'hito' && 'English, Simplified Chinese and Traditional Chinese subtitles are detected automatically; study text and audio remain Mandarin.'}</p>
+          <p>Capture adjustments are saved on this PC. {selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
           {selectedGame === 'cyberpunk' && draftSettings && <label>V voice
             <select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
               <option value="unconfigured">Choose V's voice to capture variant lines</option>
@@ -1081,7 +1081,7 @@ function CompanionClient() {
           </label>}
           {(selectedGame === 'nte') && <p className="setup-note">
             Choose the picture inside black bars only when your game is letterboxed. Check the live crop after changing resolution or subtitle size.
-            Movie captions use the game's original subtitle timings and Mandarin voices. Select Zero's voice to capture movies with player variants.
+            Movie captions use the game's original subtitle timings and Original voices. Select Zero's voice to capture movies with player variants.
           </p>}
           {(selectedGame === 'nte') && draftSettings && <button type="button" className="secondary-button"
             onClick={() => setDraftSettings(current => current ? { ...current, [`${selectedGame}_region`]: { left: .10, top: .70, width: .80, height: .28 } } : current)}>

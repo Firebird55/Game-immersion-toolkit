@@ -1,9 +1,11 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 type Deck={id:number;title:string};
 export function GameDeckSettings({game,title,current,onConfigured,language="zh"}:{game:string;title:string;current?:Deck;onConfigured:()=>void;language?:string}) {
  const [decks,setDecks]=useState<Deck[]>([]),[selected,setSelected]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+ const account=useRef<string|null>(null);
  async function request(method:string,body?:unknown){
-  const response=await fetch('http://127.0.0.1:8766/api/lexirise/decks?language='+encodeURIComponent(language),{method,cache:'no-store',headers:{'Content-Type':'application/json','X-Proxy-Transcript':'lexirise'},body:body===undefined?undefined:JSON.stringify(body)});
+  if(account.current===null){const response=await fetch('http://127.0.0.1:8766/api/lexirise/accounts',{cache:'no-store'});if(!response.ok)throw Error('Reload the account before configuring destinations.');const value=await response.json() as {active?:string};account.current=value.active??'legacy';}
+  const response=await fetch('http://127.0.0.1:8766/api/lexirise/decks?language='+encodeURIComponent(language),{method,cache:'no-store',headers:{'Content-Type':'application/json','X-Proxy-Transcript':'lexirise','X-Proxy-Transcript-Account':account.current},body:body===undefined?undefined:JSON.stringify(body)});
   const result=await response.json() as {detail?:unknown;decks?:Deck[]};if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'Could not configure destination.');return result;
  }
  async function reload(){setBusy(true);setMessage('');try{const result=await request('GET');setDecks(result.decks??[]);setSelected(current?String(current.id):'');}catch(error){setMessage(error instanceof Error?error.message:'Could not load destinations.');}finally{setBusy(false);}}

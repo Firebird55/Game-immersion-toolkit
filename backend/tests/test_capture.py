@@ -210,3 +210,25 @@ def test_centered_short_final_comic_row_stays_in_its_bubble() -> None:
         row("We can continue our journey", 100, 100, 500),
         row("tomorrow.", 250, 125, 350),
     ]}) == ["We can continue our journey tomorrow."]
+
+def test_unprepared_language_blocks_capture_before_ocr_but_allows_preview(monkeypatch):
+    from backend import capture as module
+    from backend.models import CaptureRegion
+    from backend.windows import WindowInfo
+    from backend.games import GAME_PROFILES
+    service = object.__new__(CaptureService)
+    service.settings = SimpleNamespace(get=lambda: SimpleNamespace())
+    service._scan_epoch = 0
+    service._scan_index = 0
+    service._tracker = StableMatchTracker(2)
+    service.language_setup = lambda game: False
+    status = []
+    service._update_snapshot = lambda **values: status.append(values)
+    service._prepare_window_capture = lambda _: None
+    service._capture = lambda bounds: Image.new('RGB', bounds[2:])
+    service._encode_preview = lambda image: b'preview'
+    monkeypatch.setattr(module, 'find_active_game_window', lambda _: (GAME_PROFILES['cyberpunk'],
+        WindowInfo(0, 'Cyberpunk', 'Cyberpunk2077.exe', (0, 0, 1280, 720))))
+    assert service._scan_once().emitted_lines == []
+    assert status[-1]['phase'] == 'needs_language_setup'
+    assert service.preview_for_region(CaptureRegion(left=0, top=0, width=1, height=1)) == b'preview'
