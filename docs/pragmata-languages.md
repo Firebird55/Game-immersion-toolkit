@@ -30,4 +30,4 @@ playback verification. Production OCR regressions cover every study language
 at 720p, 1080p and 4K using synthetic official text fixtures, including wrapped
 bilingual layouts. They are not native gameplay or full-game footage coverage.
 Chromium/Firefox reading checks exercise localized study text and original
-audio controls across desktop/mobile widths and Windows DPI settings.
+audio controls across desktop/mobile widths and browser zoom/DPR emulation.

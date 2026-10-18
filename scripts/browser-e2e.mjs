@@ -15,6 +15,7 @@ const beyondLine={...cyberpunkLine,id:7,game:'beyond',text_id:'beyond-fixture',s
 const heavyRainLine={...beyondLine,id:8,game:'heavyrain',text_id:'heavyrain-fixture'};
 const pragmataLine={...beyondLine,id:9,game:'pragmata',text_id:'pragmata-fixture',source_text:'Attendez ici un instant.',source_language:'fr',source_locale:'fr',audio_locale:'fr'};
 const wuwaLine={...nteLine,id:10,game:'wuwa',text_id:'wuwa-fixture'};
+const cyberpunkStudyLine={...cyberpunkLine,english:'',source_text:'Restez près de moi.',source_language:'fr',source_locale:'fr',audio_locale:'fr',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
 settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
@@ -24,6 +25,8 @@ const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏ�
 account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 account.languages.push('fr');account.languageSettings.fr={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 function response(path,query,method,body){
+ if(path==='/api/lines'&&query.get('game')==='cyberpunk')return [cyberpunkStudyLine];
+ if(path==='/api/lines/2/reading')return {text:cyberpunkStudyLine.source_text,tokens:[{start:0,end:6,word:'Restez',meaning:'留在',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='wuwa')return [wuwaLine];
  if(path==='/api/lines/10/reading')return {text:wuwaLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='pragmata')return [pragmataLine];
@@ -121,7 +124,8 @@ try{
  assert.equal(await games.getByRole('button',{name:'Where Winds Meet',exact:true}).count(),0,'Unverified WWM integration stays excluded');
  await games.getByRole('button',{name:'Cyberpunk 2077',exact:true}).click();
  await page.locator('.current-line.game-cyberpunk').waitFor();
- await page.locator('.current-line').getByText('Cyberpunk dialogue fixture',{exact:true}).waitFor();
+ await page.locator('.current-line').getByText(cyberpunkStudyLine.source_text,{exact:true}).waitFor();
+ assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'fr','Cyberpunk uses its selected French study language');
  assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Cyberpunk uses original audio');
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Cyberpunk tabs fit the viewport');
  if(pw===3840)await page.screenshot({path:`output/playwright/${name}-cyberpunk-4k-${zoom}.png`});

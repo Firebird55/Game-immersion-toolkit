@@ -62,6 +62,7 @@ def test_same_script_pairs_and_ambiguous_voices(tmp_path):
     hit = value.match_lines(['Restez près de moi. ~ Bleib in meiner Nähe.'])
     assert hit and hit.source_language == 'fr'
     assert value.match_lines(['Restez près de moi. Bleib in meiner Nähe.']).source_language == 'fr'
+    assert value.match_lines(['Restez près', 'de moi.', '~ Bleib in', 'meiner Nähe.']).text_id == row['text_id']
     value = index(tmp_path, 'fr', [row, {**row, 'text_id': 'cyberpunk:2:female', 'audio': {'depot': 'fr/two.wem'}}])
     assert value.match_lines(['Restez près de moi.']) is None
 

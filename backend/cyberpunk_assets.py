@@ -14,7 +14,7 @@ from .textmaps import display_text
 WOLVENKIT_VERSION = "9.0.1"
 WOLVENKIT_SHA256 = "364427384c0f4ebb6b157fa9abd01595258af1b7993c7b3a7edd2920f2016e92"
 WOLVENKIT_URL = f"https://github.com/WolvenKit/WolvenKit/releases/download/{WOLVENKIT_VERSION}/WolvenKit.Console-{WOLVENKIT_VERSION}.zip"
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'fr', 'it', 'de', 'es-ES', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans')
 TEXT_LOCALES = {'en': 'en', 'fr': 'fr', 'it': 'it', 'de': 'de', 'es-ES': 'es-es', 'es-419': 'es-mx',
     'ja': 'ja', 'ko': 'ko', 'pl': 'pl', 'pt-BR': 'pt', 'ru': 'ru', 'zh-Hans': 'zh-cn', 'zh-Hant': 'zh-tw',
@@ -223,6 +223,8 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
                 else:
                     tables[code_to_locale[code]][key] = entry
     rows = []
+    reused_ids = {identity for group, identity in tables[source_locale]
+                  if group == 'content' and ('ep1', identity) in tables[source_locale]}
     for (group, identity), entry in tables[source_locale].items():
         voice = voices.get((group, identity), {})
         seen = set()
@@ -238,7 +240,10 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
                 value = display_text(target.get(variant + 'Variant') or target.get('femaleVariant', ''))
                 if value:
                     texts[locale] = value
-            rows.append({'text_id': f'cyberpunk:{identity}:{variant}', 'english': texts.get('en', ''),
+            # An older unscoped ID cannot safely recover either performance
+            # when base and DLC reuse it. Cached historical clips stay intact.
+            scope = ':' + group if group != 'content' or identity in reused_ids else ''
+            rows.append({'text_id': f'cyberpunk:{identity}:{variant}' + scope, 'english': texts.get('en', ''),
                 'chinese': texts.get('zh-Hans', ''), 'source_locale': source_locale, 'source_text': text,
                 'texts': texts, 'audio_locale': source_locale,
                 'audio': {'archive': voice['archive'], 'depot': depot, 'locale': source_locale} if depot.casefold().endswith('.wem') else None,
@@ -247,10 +252,12 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     if not rows or fingerprint(install) != stamp:
         raise ValueError('Cyberpunk language files changed or contain no official dialogue; finish the launcher update and retry.')
     mapped = sum(bool(row['audio']) for row in rows)
-    missing = [code for code, locale in targets.items() if locale is None]
+    available = {locale for row in rows for locale in row['texts']}
+    missing = [code for code, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'cyberpunk', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
         'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
+                   (f'; {len(rows) - mapped:,} entries without a verified voice binding' if mapped < len(rows) else '') +
                    (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
                    ('; install the selected voice pack in the game launcher' if not mapped else '')}
 
@@ -291,6 +298,8 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
             raise ValueError('Invalid original voice resource')
         groups.setdefault(archive, []).append(depot)
         bindings.append((archive, depot))
+    if len({archive.name.removeprefix('ep1_') for archive in groups}) > 1:
+        raise ValueError('Original voice batch crosses study/audio locales')
     directories = {}
     for number, (archive, depots) in enumerate(groups.items()):
         directory = destination / str(number); directory.mkdir(parents=True, exist_ok=True)

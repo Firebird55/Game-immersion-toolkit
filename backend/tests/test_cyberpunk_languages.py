@@ -61,3 +61,42 @@ def test_source_voice_pack_missing_never_uses_another_locale(tmp_path, monkeypat
     result = assets.index_language(tmp_path / 'game', tmp_path / 'cache', 'ko', ['nl'])
     assert result['records'] and not any(r['audio'] for r in result['records'])
     assert result['missing_translation_locales'] == ['nl']
+
+
+def test_reused_base_and_expansion_ids_keep_independent_official_performances(tmp_path, monkeypatch):
+    root = tmp_path / 'game'
+    for group in ('content', 'ep1'):
+        directory = root / 'archive/pc' / group
+        directory.mkdir(parents=True)
+        for name in ('lang_fr_text.archive', 'lang_de_text.archive', 'lang_fr_voice.archive'):
+            (directory / name).touch()
+    monkeypatch.setattr(assets, 'ensure_wolvenkit', lambda _: Path('mock'))
+    def run(_tool, *args):
+        if args[0] == 'unbundle':
+            output = Path(args[args.index('-o') + 1]); output.mkdir(parents=True, exist_ok=True)
+            (output / ('voiceovermap.json.json' if '_voice.' in str(args[1]) else 'subtitles.json.json')).write_text('{}')
+    monkeypatch.setattr(assets, 'run_wolvenkit', run)
+    def entries(path):
+        group = path.parent.parent.name
+        if '_voice' in path.parent.name:
+            return [{'stringId': 123, 'femaleResPath': {'DepotPath': {'$value': group + '/spoken.wem'}}}]
+        if '_de_' in path.parent.name:
+            return []  # Installed archive containing no aligned official text.
+        return [{'stringId': 123, 'femaleVariant': 'Texte officiel ' + group + '.'}]
+    monkeypatch.setattr(assets, 'json_entries', entries)
+    payload = assets.index_language(root, tmp_path / 'cache', 'fr', ['de'])
+    assert payload['missing_translation_locales'] == ['de']
+    voiced = [r for r in payload['records'] if r['audio']]
+    assert {r['text_id'] for r in voiced} == {'cyberpunk:123:female:content', 'cyberpunk:123:female:ep1'}
+    assert {r['audio']['depot'] for r in voiced} == {'content/spoken.wem', 'ep1/spoken.wem'}
+    assert len({r['text_id'] for r in payload['records']}) == len(payload['records'])
+
+
+def test_mixed_voice_batches_are_rejected_before_any_extraction(tmp_path, monkeypatch):
+    directory = tmp_path / 'archive/pc/content'
+    directory.mkdir(parents=True)
+    for code in ('en', 'fr'):
+        (directory / f'lang_{code}_voice.archive').touch()
+    monkeypatch.setattr(assets, 'run_wolvenkit', lambda *_: pytest.fail('Mixed languages must not extract'))
+    with pytest.raises(ValueError, match='crosses study/audio locales'):
+        assets.extract_voices(tmp_path, [{'locale': code, 'archive': f'archive/pc/content/lang_{code}_voice.archive', 'depot': 'spoken.wem'} for code in ('en', 'fr')], Path('mock'), tmp_path)

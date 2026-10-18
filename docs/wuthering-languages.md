@@ -32,5 +32,5 @@ and 4K with source, translation, inline and wrapped layouts. Japanese and
 Korean OCR cases use explicitly mocked audio bindings; they do not establish
 installed voice-pack or native playback coverage. Browser checks exercise
 Japanese study text, original audio controls, desktop/mobile widths and
-Chromium/Firefox DPI settings. No complete gameplay chapter coverage is
+Chromium/Firefox zoom/DPR emulation. No complete gameplay chapter coverage is
 claimed from these asset and synthetic checks.
