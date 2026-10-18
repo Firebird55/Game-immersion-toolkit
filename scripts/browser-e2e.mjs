@@ -16,6 +16,7 @@ const heavyRainLine={...beyondLine,id:8,game:'heavyrain',text_id:'heavyrain-fixt
 const pragmataLine={...beyondLine,id:9,game:'pragmata',text_id:'pragmata-fixture',source_text:'Attendez ici un instant.',source_language:'fr',source_locale:'fr',audio_locale:'fr'};
 const wuwaLine={...nteLine,id:10,game:'wuwa',text_id:'wuwa-fixture'};
 const cyberpunkStudyLine={...cyberpunkLine,english:'',source_text:'Restez près de moi.',source_language:'fr',source_locale:'fr',audio_locale:'fr',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
+const witcherStudyLine={...witcherLine,english:'',source_text:'Bleib in meiner Nähe.',source_language:'de',source_locale:'de',audio_locale:'de',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
 settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
@@ -24,7 +25,10 @@ const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 account.languages.push('fr');account.languageSettings.fr={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
+account.languages.push('de');account.languageSettings.de={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 function response(path,query,method,body){
+ if(path==='/api/lines'&&query.get('game')==='witcher3')return [witcherStudyLine];
+ if(path==='/api/lines/3/reading')return {text:witcherStudyLine.source_text,tokens:[{start:0,end:5,word:'Bleib',meaning:'留下',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='cyberpunk')return [cyberpunkStudyLine];
  if(path==='/api/lines/2/reading')return {text:cyberpunkStudyLine.source_text,tokens:[{start:0,end:6,word:'Restez',meaning:'留在',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='wuwa')return [wuwaLine];
@@ -158,9 +162,9 @@ try{
  for(const[game,label]of [['wuwa','Wuthering Waves'],['witcher3','The Witcher 3']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   if(game==='witcher3'){
-   await page.locator('.current-line').getByText('Witcher dialogue fixture',{exact:true}).waitFor();
+   await page.locator('.current-line').getByText(witcherStudyLine.source_text,{exact:true}).waitFor();
    assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Witcher uses original audio');
-   assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'zh','Witcher study language stays Chinese');
+   assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'de','Witcher uses the selected German study language');
   }else{
    await page.getByText('Download the Chinese voice pack in Wuthering Waves',{exact:true}).waitFor();
    assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'ja','Wuthering retains the selected Japanese study language');

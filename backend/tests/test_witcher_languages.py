@@ -40,6 +40,7 @@ def test_dlc_reused_ids_and_ambiguous_performances_stay_separate(tmp_path):
         speech_file(folder/'frpc.w3speech',[77])
     rows=assets.index_language(tmp_path,tmp_path/'cache','fr',[])['records']
     assert len(rows)==2 and len({r['text_id'] for r in rows})==2
+    assert 'witcher3:77' not in {r['text_id'] for r in rows}
     assert all(r['audio'] for r in rows)
     speech_file(tmp_path/'content/content0/frpc.w3speech',[77,77])
     rows=assets.index_language(tmp_path,tmp_path/'cache','fr',[])['records']
@@ -51,3 +52,24 @@ def test_wrong_speech_locale_rejected(tmp_path):
     speech_file(folder/'enpc.w3speech',[77])
     with pytest.raises(ValueError,match='locale'):
         assets.extract_voice(tmp_path,{'archive':'content/content0/enpc.w3speech','locale':'fr','offset':0,'size':48},Path('unused'),tmp_path)
+
+
+def test_official_target_without_aligned_sentence_remains_unavailable(tmp_path):
+    folder = tmp_path / 'content/content0'
+    strings_file(folder / 'fr.w3strings', [(77, 'Restez près de moi.<br>~ Bleib in meiner Nähe.')])
+    strings_file(folder / 'de.w3strings', [(78, 'Ein anderer offizieller Satz.')])
+    speech_file(folder / 'frpc.w3speech', [77])
+    payload = assets.index_language(tmp_path, tmp_path / 'cache', 'fr', ['de'])
+    assert payload['missing_translation_locales'] == ['de']
+    row, = payload['records']
+    assert row['texts'] == {'fr': 'Restez près de moi.'}
+
+
+def test_batch_rejects_different_original_dubs_before_reading(tmp_path, monkeypatch):
+    folder = tmp_path / 'content/content0'
+    folder.mkdir(parents=True)
+    for code in ('en', 'fr'):
+        speech_file(folder / f'{code}pc.w3speech', [77])
+    monkeypatch.setattr(Path, 'open', lambda *_args, **_kwargs: pytest.fail('A mixed batch must not read clips'))
+    with pytest.raises(ValueError, match='crosses study/audio locales'):
+        assets.extract_voices(tmp_path, [{'archive': f'content/content0/{code}pc.w3speech', 'locale': code, 'offset': 0, 'size': 48} for code in ('en', 'fr')], Path('unused'), tmp_path)

@@ -19,7 +19,7 @@ _FORMAT_MAGIC = {0x43975139: 0x79321793, 0x18632176: 0x16875467, 0: 0,
     0x24987354: 0x21793217, 0x75886138: 0x42791159, 0x18796651: 0x42387566,
     0x23863176: 0x75921975, 0x42378932: 0x67823218, 0x45931894: 0x12375973,
     0x54834893: 0x59825646, 0x83496237: 0x73946816, 0x63481486: 0x42386347}
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'fr', 'de', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans')
 TEXT_LOCALES = {'ar': 'ar', 'pt-BR': 'br', 'zh-Hans': 'cn', 'cs': 'cz', 'de': 'de',
     'en': 'en', 'es-ES': 'es', 'es-419': 'esmx', 'fr': 'fr', 'hu': 'hu', 'it': 'it',
@@ -238,20 +238,28 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
                 else:
                     voices[key], priorities[key] = reference, priority(path)
     rows = []
+    groups_by_id = {}
+    for group_name, identity in tables[source_locale]:
+        groups_by_id.setdefault(identity, set()).add(group_name)
     for key, text in tables[source_locale].items():
         texts = {locale: table[key] for locale, table in tables.items() if key in table}
         voice = voices.get(key)
-        rows.append({'text_id': f'witcher3:{key[1]}' + (':' + key[0] if key[0] != 'base' else ''),
+        # Do not recover an older unscoped identity as the base performance
+        # when an installed DLC reuses it. Historical cached clips stay intact.
+        scope = ':' + key[0] if key[0] != 'base' or len(groups_by_id[key[1]]) > 1 else ''
+        rows.append({'text_id': f'witcher3:{key[1]}' + scope,
             'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
             'source_locale': source_locale, 'source_text': text, 'texts': texts, 'audio_locale': source_locale,
             'audio': voice if voice and not voice.get('ambiguous') else None})
     if not rows or fingerprint(install) != stamp:
         raise ValueError('Witcher files changed or selected dialogue is incomplete; previous table retained.')
     mapped = sum(bool(row['audio']) for row in rows)
-    missing = [target for target, locale in targets.items() if locale is None]
+    available = {locale for row in rows for locale in row['texts']}
+    missing = [target for target, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'witcher3', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
         'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
+        (f'; {len(rows) - mapped:,} entries without a verified voice binding' if mapped < len(rows) else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
         ('; install the selected original speech pack' if not mapped else '')}
 
@@ -280,10 +288,12 @@ def extract_voice(install: Path, audio: dict, _executable: Path, _destination: P
 
 def extract_voices(install: Path, audios: list[dict], _executable: Path, _destination: Path) -> list[bytes]:
     from contextlib import ExitStack
+    paths = [_validate_speech(install, audio) for audio in audios]
+    if len({path.name.casefold() for path in paths}) > 1:
+        raise ValueError('Original voice batch crosses study/audio locales')
     streams, result = {}, []
     with ExitStack() as stack:
-        for audio in audios:
-            path = _validate_speech(install, audio)
+        for audio, path in zip(audios, paths):
             offset, size = int(audio['offset']), int(audio['size'])
             if offset < 0 or not 44 <= size <= 100 * 1024 * 1024 or offset + size > path.stat().st_size:
                 raise ValueError('Invalid original Witcher speech bounds')
