@@ -25,9 +25,10 @@ def selected_snapshot(root: Path, game: str):
 
 
 class LanguagePreparation:
-    def __init__(self, build, activate, state, *, path: Path | None = None, supported=None):
+    def __init__(self, build, activate, state, *, path: Path | None = None, supported=None, rebuild=None):
         self.path = path or Path(os.environ.get('LOCALAPPDATA', '.')) / 'Proxy Transcript/languages.json'
         self.build, self.activate, self.state = build, activate, state
+        self.rebuild = rebuild or build
         self.supported = supported or (lambda _game: ('zh-Hans',))
         self.lock = threading.RLock()
         self.jobs = {}
@@ -72,7 +73,7 @@ class LanguagePreparation:
                  'job': dict(self.jobs.get((game, locale), {}))}
                 for locale in GAME_LOCALES[game]]}
 
-    def request(self, game: str, locale: str, target: str, account: str = 'legacy', *, refresh=False) -> bool:
+    def request(self, game: str, locale: str, target: str, account: str = 'legacy', *, refresh=False, rebuild=False) -> bool:
         if game not in GAME_LOCALES or locale not in GAME_LOCALES[game] or locale not in self.supported(game):
             raise ValueError('This game language needs a compatible reader before preparation.')
         if not isinstance(target, str) or not target or len(target) > 24:
@@ -84,16 +85,16 @@ class LanguagePreparation:
             old = self.prepared(game, locale)
             targets = tuple(dict.fromkeys([*(old or {}).get('targets', []), target]))
             self.jobs[key] = {'state': 'preparing', 'progress': 0, 'message': 'Preparing selected language'}
-            worker = threading.Thread(target=self._run, args=(game, locale, targets, account, refresh), daemon=True,
+            worker = threading.Thread(target=self._run, args=(game, locale, targets, account, refresh, rebuild), daemon=True,
                                       name=f'prepare-{game}-{locale}')
             self._workers.add(worker)
             worker.start()
             return True
 
-    def _run(self, game, locale, targets, account, refresh):
+    def _run(self, game, locale, targets, account, refresh, rebuild=False):
         key = (game, locale)
         try:
-            self.build(game, locale, targets)
+            (self.rebuild if rebuild else self.build)(game, locale, targets)
             if self.stop_event.is_set():
                 return
             state = self.state(game, locale)

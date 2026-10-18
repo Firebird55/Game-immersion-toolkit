@@ -74,6 +74,9 @@ try{
    await setup.getByRole('button',{name:'Prepare selected language',exact:true}).click();
    await setup.getByText('1 original voices mapped.',{exact:false}).waitFor();
    assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')),[{path:'/api/setup/games/zzz/languages',body:{locale:'zh-Hans',action:'prepare',target:'en'}}]);
+   const rebuilt=page.waitForResponse(r=>r.url().endsWith('/languages')&&r.request().method()==='POST');
+   await setup.getByRole('button',{name:'Rebuild prepared language',exact:true}).click();await rebuilt;
+   assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')).at(-1).body,{locale:'zh-Hans',action:'rebuild',target:'en'},'Explicit rebuild has a distinct forced operation');
    assert(!writes.some(w=>w.path==='/api/lexirise/settings'||w.path==='/api/lexirise/decks'),'Read/switch/setup does not provision account data');
    assert(await setup.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Language setup fits viewport');
    await setup.screenshot({path:`output/playwright/languages-${name}-${width}.png`});

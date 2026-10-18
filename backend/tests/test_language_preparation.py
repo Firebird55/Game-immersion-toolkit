@@ -61,3 +61,18 @@ def test_unprepared_selection_and_unknown_locales_are_rejected(tmp_path):
         manager.request('nte', 'ja', 'en')
     with pytest.raises(ValueError):
         manager.request('honkai3', 'zh-Hans', 'en')
+
+
+def test_explicit_rebuild_uses_forced_builder_but_automatic_refresh_does_not(tmp_path):
+    builds = []
+    manager = LanguagePreparation(lambda *args: builds.append(('cached', args)), lambda *_: None,
+        lambda *_: {'ready': True, 'audio_count': 1}, path=tmp_path / 'languages.json',
+        supported=lambda _: ('en',), rebuild=lambda *args: builds.append(('forced', args)))
+    manager.request('nte', 'en', 'zh-Hans', 'account')
+    finish(manager)
+    manager.request('nte', 'en', 'zh-Hans', 'account', rebuild=True)
+    finish(manager)
+    manager.refresh_prepared()
+    finish(manager)
+    assert [mode for mode, _ in builds] == ['cached', 'forced', 'cached']
+    assert all(args == ('nte', 'en', ('zh-Hans',)) for _, args in builds)

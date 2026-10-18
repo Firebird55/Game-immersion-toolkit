@@ -189,7 +189,8 @@ class Runtime:
         self.game_updaters = {game: LocalGameUpdateManager(game, self.game_indexes[game], voices,
             self.on_update_thread, project_root=PROJECT_ROOT) for game, voices in self.game_voice_assets.items()}
         self.languages = LanguagePreparation(self.build_language, self.activate_language, self.language_state,
-                                             supported=self.reader_locales)
+            supported=self.reader_locales,
+            rebuild=lambda game, locale, targets: self.build_language(game, locale, targets, force=True))
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
         self.capture.language_setup = self.capture_language_ready
         self.capture.context_scope = lambda: self.accounts.generation
@@ -213,7 +214,7 @@ class Runtime:
             return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
         return ('zh-Hans',)
 
-    def build_language(self, game, locale, targets):
+    def build_language(self, game, locale, targets, *, force=False):
         from .game_assets import asset_adapter
         from .multilingual_index import MultilingualTextIndex
         if game in {*LOCAL_GAMES, 'pragmata'}:
@@ -230,7 +231,7 @@ class Runtime:
                     old = json.loads(path.read_text(encoding='utf-8'))
                 except (OSError, ValueError):
                     old = {}
-                if (old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
+                if (not force and old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
                         and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION):
                     return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
@@ -709,7 +710,7 @@ def setup_status(request: Request) -> dict:
 class LanguageAction(BaseModel):
     model_config = ConfigDict(extra='forbid')
     locale: str = Field(min_length=2, max_length=24)
-    action: Literal['prepare', 'select', 'remove'] = 'prepare'
+    action: Literal['prepare', 'rebuild', 'select', 'remove'] = 'prepare'
     target: str | None = Field(default=None, max_length=24)
 
 
@@ -753,7 +754,8 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
         target = translation_language(settings, source) if settings else payload.target
         if not target:
             raise ValueError('Choose a translation language or reload Lexirise settings.')
-        return {'started': runtime.languages.request(game, payload.locale, target, account)}
+        return {'started': runtime.languages.request(game, payload.locale, target, account,
+                                                    rebuild=payload.action == 'rebuild')}
     except (ValueError, LexiriseError) as error:
         raise HTTPException(400, str(error)) from None
 

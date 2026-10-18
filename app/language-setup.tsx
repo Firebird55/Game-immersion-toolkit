@@ -15,10 +15,11 @@ export function LanguageSetup({game,onConfigure,onChanged}:{game:string;onConfig
  },[game]);
  const selected=data?.locales.find(item=>item.locale===locale);
  const translation=selected?(data?.targets[selected.language]??target):target;
- async function action(kind:'prepare'|'select'|'remove'){
-  setBusy(true);setError('');try{const response=await fetch(API+'/api/setup/games/'+game+'/languages',{method:'POST',headers:{'Content-Type':'application/json','X-Proxy-Transcript':'setup'},body:JSON.stringify({locale,action:kind,...kind==='prepare'?{target:translation}:{}})});if(!response.ok){const value=await response.json() as {detail?:string};throw Error(value.detail??'Language action failed.');}const refreshed=await fetch(API+'/api/setup/games/'+game+'/languages',{cache:'no-store'});if(refreshed.ok)setData(await refreshed.json() as Languages);onChanged();}catch(e){setError(e instanceof Error?e.message:'Language action failed.');}finally{setBusy(false);}}
+ async function action(kind:'prepare'|'rebuild'|'select'|'remove'){
+  setBusy(true);setError('');try{const response=await fetch(API+'/api/setup/games/'+game+'/languages',{method:'POST',headers:{'Content-Type':'application/json','X-Proxy-Transcript':'setup'},body:JSON.stringify({locale,action:kind,...(kind==='prepare'||kind==='rebuild')?{target:translation}:{}})});if(!response.ok){const value=await response.json() as {detail?:string};throw Error(value.detail??'Language action failed.');}const refreshed=await fetch(API+'/api/setup/games/'+game+'/languages',{cache:'no-store'});if(refreshed.ok)setData(await refreshed.json() as Languages);onChanged();}catch(e){setError(e instanceof Error?e.message:'Language action failed.');}finally{setBusy(false);}}
  const preparing=selected?.job?.state==='preparing';
  const enabled=!!selected&&(!data?.enabled_languages||data.enabled_languages.includes(selected.language));
+ const currentTargetPrepared=!!selected?.prepared?.targets.includes(translation);
  return <section className="toolkit-setup-card"><h3>Languages</h3><p>Prepare only the languages you want to play. Prepared languages refresh after game updates.</p>
  {data&&<><label>Learning language<select aria-label="Game learning language" value={locale} onChange={e=>setLocale(e.target.value)}>{data.locales.map(l=><option key={l.locale} value={l.locale}>{l.name}{l.prepared?' · prepared':''}</option>)}</select></label>
  <p>Translation for {selected?.name}: <strong>{translation}</strong></p>
@@ -29,7 +30,7 @@ export function LanguageSetup({game,onConfigure,onChanged}:{game:string;onConfig
  {selected?.prepared&&!selected.prepared.targets.includes(translation)&&<p>Prepare the official translation table for this learning language’s current target.</p>}
  {selected?.job?.message&&<p role="status">{selected.job.message}</p>}
  {preparing&&<progress aria-label="Language preparation progress" value={selected?.job?.progress??0} max={100}/>}
- <div className="toolkit-setup-actions"><Button variant="outline" type="button" disabled={busy||preparing||!enabled||!selected?.reader_available} onClick={()=>void action('prepare')}>{selected?.prepared?'Rebuild / prepare translation table':'Prepare selected language'}</Button>
+ <div className="toolkit-setup-actions"><Button variant="outline" type="button" disabled={busy||preparing||!enabled||!selected?.reader_available} onClick={()=>void action(currentTargetPrepared?'rebuild':'prepare')}>{currentTargetPrepared?'Rebuild prepared language':selected?.prepared?'Prepare translation table':'Prepare selected language'}</Button>
  <Button variant="outline" type="button" disabled={busy||preparing||!enabled||!selected?.prepared||data.selected===locale} onClick={()=>void action('select')}>Use this language</Button>
  <Button variant="outline" type="button" disabled={busy||preparing||!selected?.prepared} onClick={()=>void action('remove')}>Remove prepared table</Button>
  <Button variant="outline" type="button" disabled={!selected} onClick={()=>selected&&onConfigure(selected.language)}>Configure this language’s reading and dictionaries</Button></div></>}
