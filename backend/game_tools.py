@@ -94,9 +94,10 @@ def install_archive(url: str, digest: str, directory: Path, required: tuple[str,
                                   "files": {name: _digest(content) for name, content in files.items()}}).encode())
 
 
-def refresh_zzz_metadata(root: Path) -> tuple[str, bool]:
+def refresh_zzz_metadata(root: Path, *, revision=None) -> tuple[str, bool]:
     directory = root / "work/voice-assets"
-    payloads = {name: download(METADATA_BASE + source) for name, source in METADATA_FILES.items()}
+    base = METADATA_BASE.replace('/branch/master/', '/commit/' + revision + '/') if revision else METADATA_BASE
+    payloads = {name: download(base + source) for name, source in METADATA_FILES.items()}
     for name, data in payloads.items():
         value = json.loads(data)
         if not isinstance(value, dict) or not value:

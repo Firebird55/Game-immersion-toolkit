@@ -101,6 +101,7 @@ class CaptureService:
         self.audio_dir = audio_dir
         self.voice_assets = voice_assets
         self.pragmata_voice_assets = pragmata_voice_assets
+        self.recorded_voice_assets = None
         self.session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
         self._snapshot = CaptureSnapshot()
         self._snapshot_lock = threading.RLock()
@@ -359,6 +360,8 @@ class CaptureService:
             return self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
         if profile.id == "hito":
             return self._scan_hito(window, engine, epoch, now)
+
+        self.textmaps.player_voice = settings.zzz_proxy_voice
 
         crop_bounds = self._region_bounds(window, settings.region)
         # Normal 3D interactions and voiced visual-novel scenes use nearly the
@@ -1340,7 +1343,7 @@ class CaptureService:
         asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
 
     def repair_recorded_line(self, line: TranscriptLine, *, completed: Callable[[], None] | None = None) -> bool:
-        assets = self._assets_for(line.game)
+        assets = self.recorded_voice_assets(line) if self.recorded_voice_assets else self._assets_for(line.game)
         if not assets or (not line.voiced and not line.is_comic) or (line.audio_source == "original" and line.has_audio):
             return False
         if getattr(assets, 'locale', line.source_locale) != line.source_locale or not assets.has_variant(line.text_id, line.english):

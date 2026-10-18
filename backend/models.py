@@ -26,10 +26,11 @@ GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nt
 
 
 def is_comic_text_id(text_id: str) -> bool:
-    return re.fullmatch(r"Comic_[0-9a-fA-F]{32}", text_id) is not None
+    return re.fullmatch(r"Comic_[0-9a-fA-F]{32}(?::[MF])?", text_id) is not None
 
 
 class AppSettings(BaseModel):
+    zzz_proxy_voice: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
     preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain"] = "auto"
 
     @field_validator("preferred_game", mode="before")

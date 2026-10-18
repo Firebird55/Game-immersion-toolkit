@@ -1,7 +1,7 @@
 # Game immersion toolkit
 
-**Read the dialogue. Stay in the story.** Proxy Transcript brings Chinese/English
-game dialogue, original voices and reading tools to desktop, phone and tablet.
+**Read the dialogue. Stay in the story.** Proxy Transcript brings official game
+dialogue, original voices and language-specific reading tools to desktop, phone and tablet.
 
 Open the [online companion](https://firebird55.github.io/Game-immersion-toolkit/).
 Choose **Receiver**, then choose a transcript source:
@@ -29,7 +29,7 @@ choices and explicit sentence/deck saving. Migaku requires a supported browser
 extension; mobile browsers that cannot run it still show plain bilingual text.
 
 PC capture also keeps verified ZZZ comic bubbles when the game catalogue has no
-voice mapping. Their official Chinese and English text appears in Current line
+voice mapping. Their prepared official text appears in Current line
 and History; audio stays unavailable unless an original voice is verified.
 
 ## Connect Lexirise
@@ -102,3 +102,5 @@ PRAGMATA supports all eleven original dubs and fourteen official text locales;
 see [language preparation and validation](docs/pragmata-languages.md).
 Wuthering Waves supports all four original dubs and both Chinese scripts;
 see [language preparation and validation](docs/wuthering-languages.md).
+ZZZ supports all four original dubs and both Chinese scripts;
+see [language preparation and validation](docs/zzz-languages.md).

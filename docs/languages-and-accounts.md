@@ -23,6 +23,9 @@ are not prepared by opening setup, adding an account or starting the companion.
 Previously prepared languages check for compatible game updates automatically.
 Selecting another locale requires its own prepared table. A translation-target
 change offers preparation of that target instead of building every language.
+**Rebuild prepared language** explicitly rebuilds its index even when the game
+files have not changed. A failed or interrupted replacement retains the last
+complete table. Automatic refresh can reuse a verified unchanged index.
 **Configure this language’s reading and dictionaries** opens that language’s
 preferences. Per-device display overrides are stored by account and language.
 Removing a preparation disables capture for that selection and stops its

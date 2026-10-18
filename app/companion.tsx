@@ -57,6 +57,7 @@ type Settings = {
   cyberpunk_region: CaptureRegion;
   cyberpunk_tip_region: CaptureRegion;
   cyberpunk_capture_chatter: boolean;
+  zzz_proxy_voice: 'unconfigured' | 'female' | 'male';
   cyberpunk_v_voice: 'unconfigured' | 'female' | 'male';
   wuwa_region: CaptureRegion;
   wuwa_tip_region: CaptureRegion;
@@ -127,7 +128,7 @@ type TranscriptLine = {
   favorite: boolean;
 };
 function isComicLine(line: TranscriptLine) {
-  return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}$/i.test(line.text_id);
+  return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}(?::[MF])?$/i.test(line.text_id);
 }
 function isReadableLine(line: TranscriptLine) {
   return line.voiced || line.game === 'hito' || isComicLine(line);
@@ -1012,6 +1013,13 @@ function CompanionClient() {
           </DialogHeader>
 
           <p>Capture adjustments are saved on this PC. {selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
+          {selectedGame === 'zzz' && draftSettings && <label>Proxy voice
+            <select aria-label="Proxy voice" value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
+              onChange={event => setDraftSettings(current => current ? { ...current, zzz_proxy_voice: event.target.value as Settings['zzz_proxy_voice'] } : current)}>
+              <option value="unconfigured">Choose the Proxy for variant lines</option>
+              <option value="female">Belle</option><option value="male">Wise</option>
+            </select>
+          </label>}
           {selectedGame === 'cyberpunk' && draftSettings && <label>V voice
             <select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
               <option value="unconfigured">Choose V's voice to capture variant lines</option>

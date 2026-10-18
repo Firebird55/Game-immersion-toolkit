@@ -166,7 +166,7 @@ async def main(args):
               **{game: LocalVoiceAssetService(game, source(game), decoder, output / "audio") for game in LOCAL_GAMES}}
     if args.source_locale:
         from backend.multilingual_index import MultilingualTextIndex
-        if args.game not in {*LOCAL_GAMES, 'pragmata'}:
+        if args.game not in {*LOCAL_GAMES, 'pragmata', 'zzz'}:
             raise ValueError('Select a local game for a prepared language fixture')
         directory = data / 'languages' / args.game / args.source_locale
         indexes[args.game] = MultilingualTextIndex(args.game, directory)

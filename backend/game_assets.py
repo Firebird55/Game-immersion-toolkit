@@ -7,6 +7,7 @@ LOCAL_GAMES = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witche
 # adapters are not enumerated by setup, workers, detection or automatic updates.
 ARCHIVED_GAMES = {"honkai3": "Honkai Impact 3rd"}
 _ADAPTERS = {"heavyrain": ("heavy_rain_assets", ""), "beyond": ("beyond_assets", ""), "cyberpunk": ("cyberpunk_assets", "WolvenKit.CLI.exe"),
+             'zzz': ('zzz_assets', ''),
              'pragmata': ('pragmata_assets', 'REE.Unpacker.exe'),
              "wuwa": ("wuthering_assets", "FModelCLI.exe"), "witcher3": ("witcher_assets", ""),
              "nte": ("nte_assets", "NteReader.dll"), "honkai3": ("honkai_assets", "")}

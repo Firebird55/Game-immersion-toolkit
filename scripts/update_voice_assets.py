@@ -43,22 +43,18 @@ def ongoing_voice_links(config: dict, english: dict[str, str]) -> list[dict[str,
     fields are normally female/male protagonist variants, but also contain NPC,
     companion, and agent sources, so no speaker allowlist is used.
     """
-    rows = next((value for value in config.values() if isinstance(value, list)), [])
+    from backend.zzz_assets import ongoing_links
     links: list[dict[str, str]] = []
-    for row in rows:
-        if not isinstance(row, dict):
+    for link in ongoing_links(config):
+        text_id = link['text_id']
+        if 'gameplay' not in link['channels'] or text_id not in english:
             continue
-        text_id = str(row.get(ONGOING_TEXT_ID, "")).strip()
-        if "ongoinglevel" not in text_id.casefold() or text_id not in english:
-            continue
-        variants = localized_variants(english[text_id])
-        male = str(row.get(ONGOING_MALE_VOICE, "")).strip()
-        female = str(row.get(ONGOING_FEMALE_VOICE, "")).strip()
-        if male:
-            links.append({"source": male, "text_id": text_id, "english": variants[0]})
-        if female:
-            variant = variants[1] if len(variants) > 1 else variants[0]
-            links.append({"source": female, "text_id": text_id, "english": variant})
+        variants = dict(re.findall(r'\{([MF])#([^{}]+)\}', english[text_id]))
+        if variants and link.get('gender'):
+            values = [variants[link['gender']]] if link['gender'] in variants else []
+        else:
+            values = localized_variants(english[text_id])
+        links.extend({'source': link['source'], 'text_id': text_id, 'english': value} for value in values)
     return links
 
 

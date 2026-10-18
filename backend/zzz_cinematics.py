@@ -27,7 +27,7 @@ def event_bank_links(resource: dict) -> dict[int, set[int]]:
     return result
 
 
-def resolve_cinematic_links(links: list[dict], game_data: Path, resource: dict) -> dict[str, dict]:
+def resolve_cinematic_links(links: list[dict], game_data: Path, resource: dict, *, folder='Cn', namespace=MANDARIN) -> dict[str, dict]:
     events_by_text = defaultdict(set)
     names = {}
     for link in links:
@@ -42,20 +42,20 @@ def resolve_cinematic_links(links: list[dict], game_data: Path, resource: dict) 
     wanted_banks = set().union(*(event_banks.get(event, set()) for event in wanted))
     banks, sounds = {}, {}
     for layer in ('StreamingAssets', 'Persistent'):
-        for package in sorted((game_data / layer / 'Audio/Windows/Full/Cn').glob('*.pck')):
+        for package in sorted((game_data / layer / 'Audio/Windows/Full' / folder).glob('*.pck')):
             languages, package_banks, package_sounds = package_tables(package)
             for (identifier, language), entry in package_banks.items():
-                if languages[language] == MANDARIN:
+                if languages[language] == namespace:
                     banks[identifier] = (package, entry)
             for (identifier, language), entry in package_sounds.items():
-                if languages[language] == MANDARIN:
+                if languages[language] == namespace:
                     sounds[identifier] = (package, entry)
     candidates, bindings_by_bank, embedded_by_bank = defaultdict(dict), {}, {}
     for bank_id, (package, bank) in banks.items():
         if bank_id not in wanted_banks:
             continue
         try:
-            bindings, embedded = bank_sources(read_entry(package, bank), bank_id, language=MANDARIN)
+            bindings, embedded = bank_sources(read_entry(package, bank), bank_id, language=namespace)
         except (ValueError, struct.error):
             continue
         bindings_by_bank[bank_id] = bindings

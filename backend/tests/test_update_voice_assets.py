@@ -37,3 +37,11 @@ def test_comic_variants_follow_explicit_gender_labels_and_reject_ambiguous_text(
     assert comic_voice_links([link], {'Comic_test': 'No visible gender distinction.'}) == []
     plain = {**link, 'source': 'VO_Comic/VO_Test/Npc'}
     assert comic_voice_links([plain], {}) == [plain]
+
+
+def test_current_ongoing_schema_retains_legacy_chinese_manifest_bindings():
+    config = {'rows': [{'FGAHJLHNEDB': 'Main_OngoingLevel_Test',
+                       'CIBKAFBOGCI': 'Wise_source', 'PFOBGIIIICG': 'Belle_source'}]}
+    links = ongoing_voice_links(config, {'Main_OngoingLevel_Test': '{F#Belle line.}{M#Wise line.}'})
+    assert {(item['source'], item['english']) for item in links} == {
+        ('Wise_source', 'Wise line.'), ('Belle_source', 'Belle line.')}

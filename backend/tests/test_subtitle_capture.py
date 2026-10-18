@@ -56,6 +56,25 @@ def test_new_voice_mapping_repairs_a_previously_unvoiced_saved_comic(tmp_path):
         service._executor.shutdown()
 
 
+def test_historical_audio_repair_uses_its_stored_learning_locale(tmp_path):
+    service, match, active_scheduled, _ = fixture_service(tmp_path)
+    source = match.model_copy(update={'source_language': 'ja', 'source_locale': 'ja', 'audio_locale': 'ja',
+                                      'source_text': 'ここで待っていてください。'})
+    saved = service.transcript.add(source, 'test')
+    saved = service.transcript.update_audio(saved.id, None, True)
+    restored = []
+    service.voice_assets.locale = 'zh-Hans'
+    service.recorded_voice_assets = lambda line: SimpleNamespace(locale=line.source_locale,
+        has_variant=lambda *_: True, schedule=lambda *args: restored.append(args) or True)
+    try:
+        assert service.repair_recorded_line(saved)
+        assert len(restored) == 1 and not active_scheduled
+        service.recorded_voice_assets = lambda _: service.voice_assets
+        assert not service.repair_recorded_line(saved), 'Another language cannot repair the stored original'
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize("channel", ["dialogue", "gameplay", "tip", "cinematic"])
 @pytest.mark.parametrize("mapped", [True, False])
 def test_zzz_channels_capture_only_subtitles_with_game_voice_mapping(tmp_path, monkeypatch, channel, mapped):

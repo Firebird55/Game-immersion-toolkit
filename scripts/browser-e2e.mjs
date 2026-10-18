@@ -6,7 +6,7 @@ let browser;
 const region={left:.1,top:.6,width:.8,height:.25},settings={beyond_region:{left:.10,top:.70,width:.80,height:.28},nte_region:{left:.10,top:.70,width:.80,height:.28},nte_picture_area:'window',nte_player_voice:'unconfigured',honkai3_picture_area:'window',honkai3_region:{left:.04,top:.72,width:.96,height:.24},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
 const comicLine={...line,id:6,text_id:'Comic_'+'a'.repeat(32),channel:'cinematic',voiced:false,english:'Keep the gate closed until tomorrow.',chinese:'请把门关到明天。'};
-let includeComic=false;
+let includeComic=false,includeZzzStudy=false;
 let fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
 const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue fixture',text_id:'cyberpunk-fixture',has_audio:true,audio_source:'original'};
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
@@ -17,6 +17,7 @@ const pragmataLine={...beyondLine,id:9,game:'pragmata',text_id:'pragmata-fixture
 const wuwaLine={...nteLine,id:10,game:'wuwa',text_id:'wuwa-fixture'};
 const cyberpunkStudyLine={...cyberpunkLine,english:'',source_text:'Restez près de moi.',source_language:'fr',source_locale:'fr',audio_locale:'fr',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
 const witcherStudyLine={...witcherLine,english:'',source_text:'Bleib in meiner Nähe.',source_language:'de',source_locale:'de',audio_locale:'de',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
+const zzzStudyLine={...nteLine,id:11,game:'zzz',text_id:'GalGame_Japanese_fixture'};
 settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
@@ -27,6 +28,8 @@ account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiv
 account.languages.push('fr');account.languageSettings.fr={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 account.languages.push('de');account.languageSettings.de={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 function response(path,query,method,body){
+ if(path==='/api/lines'&&query.get('game')==='zzz'&&includeZzzStudy)return [zzzStudyLine];
+ if(path==='/api/lines/11/reading')return {text:zzzStudyLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='witcher3')return [witcherStudyLine];
  if(path==='/api/lines/3/reading')return {text:witcherStudyLine.source_text,tokens:[{start:0,end:5,word:'Bleib',meaning:'留下',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='cyberpunk')return [cyberpunkStudyLine];
@@ -59,7 +62,7 @@ try{
  const sizes=process.argv.includes('--reading-settings')?[[1920,1080,1],[390,844,1],[320,568,1],[768,1024,1.25]]:process.argv.includes('--game-support')?[[320,568,1],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]:[[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]];
  for(const[pw,ph,zoom]of sizes){
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
- includeComic=false;
+ includeComic=false;includeZzzStudy=false;settings.zzz_proxy_voice='unconfigured';
  fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
  let fixtureSocket;
  await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',socket=>{fixtureSocket=socket;});
@@ -244,6 +247,16 @@ try{
  await page.reload();
  await page.getByText(comicLine.english,{exact:true}).waitFor();
  assert.equal(await page.getByText(comicLine.english,{exact:true}).count(),1,'Comic remains in History after reload');
+ includeZzzStudy=true;
+ fixtureCapture={...fixtureCapture,phase:'matched',visible_text_ids:[zzzStudyLine.text_id]};
+ await page.reload();await page.locator('.current-line').getByText(zzzStudyLine.source_text,{exact:true}).waitFor();
+ assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'ja','ZZZ follows the selected Japanese study language');
+ assert(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),'ZZZ original Japanese audio is playable');
+ await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
+ await capture.getByLabel('Proxy voice',{exact:true}).selectOption('female');
+ await capture.getByRole('button',{name:'Save capture settings',exact:true}).click();await capture.waitFor({state:'hidden'});
+ assert.equal(localWrites.filter(w=>w.path==='/api/settings').at(-1).body.zzz_proxy_voice,'female','Explicit Belle voice choice is saved locally');
+ assert.equal(writes.length,0,'ZZZ study and Proxy choices do not change account settings');
  console.log(name+': toolkit '+width+'x'+height+' zoom/DPR '+zoom+' and text-only comic passed');await context.close();
  }await browser.close();browser=null;}
 }finally{await browser?.close();if(process.platform==='win32'){try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}}else server.kill();}

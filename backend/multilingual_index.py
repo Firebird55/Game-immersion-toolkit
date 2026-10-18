@@ -116,8 +116,12 @@ class MultilingualTextIndex:
                             rows, score = lookup[matches[0][0]], matches[0][1]
                         elif matches:
                             ambiguous.append(source)
-                    rows = [r for r in rows if (not r.get('player_voice') or r['player_voice'] == self.player_voice)
-                            and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
+                    rows = [r for r in rows if channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
+                    # ZZZ's authored M/F subtitles can themselves identify a
+                    # performance. Use the configured Proxy only when the
+                    # observed caption leaves more than one variant possible.
+                    if self.game != 'zzz' or len(rows) > 1:
+                        rows = [r for r in rows if not r.get('player_voice') or r['player_voice'] == self.player_voice]
                     identities = {(json.dumps(r.get('audio'), sort_keys=True), r['source_text']) for r in rows}
                     if self.game == 'heavyrain' and len(identities) > 1 and score == 100 and context_groups:
                         rows = [row for row in rows if self.authored_scene(row['text_id']) in context_groups]
@@ -187,7 +191,8 @@ class MultilingualTextIndex:
         return self.match_lines([text], threshold, channel=channel)
 
     def is_capture_text(self, text_id, _english, channel):
-        return any(r['text_id'] == text_id and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay']) for r in self._records)
+        return any((r['text_id'] == text_id or text_id in (r.get('member_text_ids') or []))
+                   and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay']) for r in self._records)
 
     def resolve_display_name(self, _candidates):
         return None

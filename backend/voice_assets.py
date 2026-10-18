@@ -120,7 +120,7 @@ def merge_valid_manifest_entries(previous: dict, refreshed: dict) -> dict:
     return merged
 
 
-def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, VoiceEntry]) -> dict[str, dict]:
+def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, VoiceEntry], *, namespace='chinese(prc)') -> dict[str, dict]:
     by_speaker: dict[str, list[str]] = {}
     for prefix in prefixes:
         if "/VO_" in prefix:
@@ -136,7 +136,7 @@ def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, Voi
         ]
         found = False
         for path in paths:
-            full = f"chinese(prc)/ex/{path}.wem"
+            full = f"{namespace}/ex/{path}.wem"
             hashed = voice_hash(full)
             if hashed in entries:
                 candidates.setdefault(manifest_key, {})[hashed] = full
@@ -166,7 +166,7 @@ def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, Voi
                     for minor in range(10):
                         for family in families:
                             path = f"{family}/Ver{major}_{minor}/VO_{speaker}/{source}"
-                            full = f"chinese(prc)/ex/{path}.wem"
+                            full = f"{namespace}/ex/{path}.wem"
                             hashed = voice_hash(full)
                             if hashed in entries:
                                 candidates.setdefault(manifest_key, {})[hashed] = full
