@@ -15,6 +15,9 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "heavyrain": GameProfile(id="heavyrain", name="HEAVY RAIN", process_names=("HeavyRain.exe",),
+        title_needles=("HEAVY RAIN", "Heavy Rain"),
+        subtitle_region=CaptureRegion(left=.05, top=.70, width=.90, height=.28)),
     "beyond": GameProfile(id="beyond", name="BEYOND: Two Souls", process_names=("BeyondTwoSouls_Steam.exe",),
         title_needles=("BEYOND: Two Souls", "BEYOND Two Souls"),
         subtitle_region=CaptureRegion(left=.05, top=.70, width=.90, height=.28)),

@@ -6,10 +6,10 @@ import os
 import threading
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond")
+GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain")
 GAME_NAMES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
               "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
-              "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls"}
+              "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
 _path_lock = threading.RLock()
 
 
@@ -27,6 +27,8 @@ def validate_install(game: str, path: Path) -> Path:
         root = root.parent
     if game == "wuwa" and root.name == "Client":
         root = root.parent
+    if game == "heavyrain" and root.name == "Resources":
+        root = root.parent
     if game == "honkai3" and root.name == "BH3_Data":
         root = root.parent
     if game == "nte":
@@ -37,6 +39,8 @@ def validate_install(game: str, path: Path) -> Path:
                 root = parent
                 break
     valid = {
+        "heavyrain": lambda: (root / "HeavyRain.exe").is_file() and (root / "Resources/BigFile_WIN.idx").is_file()
+        and (root / "Resources/GameData/GameData_WIN.idx").is_file(),
         "beyond": lambda: (root / "BeyondTwoSouls_Steam.exe").is_file() and (root / "BigFile_PC.idx").is_file(),
         "nte": lambda: (root / "Client/WindowsNoEditor/HT/Binaries/Win64/HTGame.exe").is_file()
         and any((root / "Client/WindowsNoEditor/HT/Content/Paks").glob("*.pak")),
@@ -112,6 +116,8 @@ def discover_install(game: str) -> Path | None:
     names = [GAME_NAMES[game]]
     if game == "beyond":
         names = ["BEYOND Two Souls"]
+    elif game == "heavyrain":
+        names = ["HEAVY RAIN"]
     elif game == "zzz":
         names = ["Zenless Zone Zero/games/ZenlessZoneZero Game", "Zenless Zone Zero", "ZenlessZoneZero Game"]
     elif game == "honkai3":

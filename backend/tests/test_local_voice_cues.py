@@ -1,5 +1,6 @@
 """Authored cuts must be bounded by decoded original audio; never recorded audio."""
 import json
+import io
 from types import SimpleNamespace
 import wave
 
@@ -43,5 +44,36 @@ def test_original_movie_cut_is_exact_and_invalid_cues_never_encode(tmp_path, mon
             assert command[command.index('-ss')+1] == '0.5'
             assert command[command.index('-t')+1] == '0.8'
             assert command[command.index('-af')+1] == 'volume=-6.000000dB'
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize('game', ['beyond', 'heavyrain'])
+def test_quantic_original_wav_is_trimmed_without_external_wem_decoder(tmp_path, monkeypatch, game):
+    data = tmp_path / 'cache'; data.mkdir()
+    buffer = io.BytesIO()
+    with wave.open(buffer, 'wb') as stream:
+        stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(44100)
+        stream.writeframes(bytes(44100 * 2))
+    identity = f'{game}:synthetic'
+    (data / 'textmap.json').write_text(json.dumps({'install': str(tmp_path), 'fingerprint': 'verified',
+        'source_locale': 'nl', 'records': [{'text_id': identity, 'audio': {'start_ms': 100, 'end_ms': 900}}]}))
+    adapter = SimpleNamespace(fingerprint=lambda _: 'verified', extract_voice=lambda *_: buffer.getvalue())
+    monkeypatch.setattr(module, 'asset_adapter', lambda _: (adapter, ''))
+    monkeypatch.setattr(module, 'ffmpeg_executable', lambda: 'encoder')
+    commands = []
+    def encode(args, **_):
+        assert args[0] == 'encoder', 'The game reader already decoded the original to WAV'
+        assert args[args.index('-ss') + 1] == '0.1'
+        assert args[args.index('-t') + 1] == '0.8'
+        commands.append(args)
+        from pathlib import Path
+        Path(args[-1]).write_bytes(bytes(200))
+    monkeypatch.setattr(module.subprocess, 'run', encode)
+    service = module.LocalVoiceAssetService(game, data, tmp_path / 'absent-decoder', tmp_path / 'clips')
+    try:
+        assert service.ready and service.has_variant(identity)
+        assert (service.output_dir / service.extract(identity, 1)).is_file()
+        assert len(commands) == 1
     finally:
         service.close()

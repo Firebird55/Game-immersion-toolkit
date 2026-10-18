@@ -36,6 +36,11 @@ def make_game(tmp_path, game):
         (root / "Client/WindowsNoEditor/HT/Binaries/Win64/HTGame.exe").touch()
         (root / "Client/WindowsNoEditor/HT/Content/Paks").mkdir(parents=True)
         (root / "Client/WindowsNoEditor/HT/Content/Paks/pakchunk0.pak").touch()
+    elif game == "heavyrain":
+        (root / "HeavyRain.exe").touch()
+        (root / "Resources/GameData").mkdir(parents=True)
+        (root / "Resources/BigFile_WIN.idx").touch()
+        (root / "Resources/GameData/GameData_WIN.idx").touch()
     elif game == "honkai3":
         (root / "BH3.exe").touch()
         (root / "BH3_Data/StreamingAssets").mkdir(parents=True)
@@ -45,7 +50,7 @@ def make_game(tmp_path, game):
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte"])
+@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "heavyrain"])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()
@@ -110,6 +115,14 @@ def test_use_automatic_detection_removes_only_selected_game(tmp_path):
 def test_wuthering_client_folder_is_normalized(tmp_path):
     root = make_game(tmp_path, "wuwa")
     assert validate_install("wuwa", root / "Client") == root
+
+
+def test_heavy_rain_resources_folder_requires_the_actual_game_and_story_archive(tmp_path):
+    root = make_game(tmp_path, 'heavyrain')
+    assert validate_install('heavyrain', root / 'Resources') == root
+    (root / 'Resources/GameData/GameData_WIN.idx').unlink()
+    with pytest.raises(ValueError, match='Required game files'):
+        validate_install('heavyrain', root)
 
 
 @pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte"])

@@ -22,7 +22,7 @@ class CaptureRegion(BaseModel):
         return self
 
 
-GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "honkai3"]
+GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "honkai3"]
 
 
 def is_comic_text_id(text_id: str) -> bool:
@@ -30,7 +30,7 @@ def is_comic_text_id(text_id: str) -> bool:
 
 
 class AppSettings(BaseModel):
-    preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond"] = "auto"
+    preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain"] = "auto"
 
     @field_validator("preferred_game", mode="before")
     @classmethod
@@ -68,6 +68,7 @@ class AppSettings(BaseModel):
     witcher3_tip_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=0, width=.76, height=.74))
     witcher3_capture_chatter: bool = True
     beyond_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.05, top=.70, width=.90, height=.28))
+    heavyrain_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.05, top=.70, width=.90, height=.28))
     nte_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
     nte_picture_area: Literal["window", "16:9"] = "window"
     nte_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"

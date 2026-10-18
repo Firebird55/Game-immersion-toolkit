@@ -36,7 +36,7 @@ class LocalVoiceAssetService:
         try:
             path = self.data_dir / "textmap.json"
             stat = path.stat()
-            signature = (stat.st_mtime_ns, stat.st_size, (self.game == 'beyond' or self.decoder.is_file()), bool(ffmpeg_executable()))
+            signature = (stat.st_mtime_ns, stat.st_size, (self.game in {'beyond', 'heavyrain'} or self.decoder.is_file()), bool(ffmpeg_executable()))
             if self._loaded_signature == signature:
                 return self.ready
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -44,7 +44,7 @@ class LocalVoiceAssetService:
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
             install = Path(payload["install"])
             stamp = payload["fingerprint"]
-            ready = bool(entries and install.is_dir() and (self.game == 'beyond' or self.decoder.is_file()) and ffmpeg_executable())
+            ready = bool(entries and install.is_dir() and (self.game in {'beyond', 'heavyrain'} or self.decoder.is_file()) and ffmpeg_executable())
             with self._lock:
                 self._entries, self._install, self._fingerprint = entries, install, stamp
                 self.ready = ready
@@ -77,7 +77,7 @@ class LocalVoiceAssetService:
             wem.write_bytes(data)
             options = {"check": True, "capture_output": True, "timeout": 90,
                        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
-            if self.game == "beyond":
+            if self.game in {"beyond", "heavyrain"}:
                 wav.write_bytes(data)
             else:
                 subprocess.run([str(self.decoder), "-i", "-o", str(wav), str(wem)], **options)
@@ -154,7 +154,7 @@ class LocalVoiceAssetService:
             del payloads
             options = {'check': True, 'capture_output': True, 'timeout': 90 * len(requests),
                        'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0)}
-            if self.game == 'beyond':
+            if self.game in {'beyond', 'heavyrain'}:
                 for wem in inputs:
                     Path(str(wem) + '.wav').write_bytes(wem.read_bytes())
             else:
