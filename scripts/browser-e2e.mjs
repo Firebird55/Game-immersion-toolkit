@@ -10,7 +10,7 @@ let includeComic=false;
 let fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
 const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue fixture',text_id:'cyberpunk-fixture',has_audio:true,audio_source:'original'};
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
-const nteLine={...cyberpunkLine,id:4,game:'nte',english:'NTE dialogue fixture',text_id:'nte-fixture'};
+const nteLine={...cyberpunkLine,id:4,game:'nte',english:'',text_id:'nte-fixture',source_text:'ここで少し待っていてください。',source_language:'ja',source_locale:'ja',audio_locale:'ja',translation_locale:'zh-Hans',translation_text:'请在这里稍等。',chinese:'请在这里稍等。'};
 const beyondLine={...cyberpunkLine,id:7,game:'beyond',text_id:'beyond-fixture',source_text:'Een volledige testzin.',source_language:'nl',source_locale:'nl',audio_locale:'nl',translation_locale:'zh-Hans',translation_text:'合成测试句子。',english:'',chinese:'合成测试句子。'};
 const heavyRainLine={...beyondLine,id:8,game:'heavyrain',text_id:'heavyrain-fixture'};
 settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
@@ -19,7 +19,9 @@ const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
 mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
+account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 function response(path,query,method,body){
+ if(path==='/api/lines/4/reading')return {text:nteLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='heavyrain')return [heavyRainLine];
  if(path==='/api/lines/8/reading')return {text:heavyRainLine.source_text,tokens:[{start:0,end:3,word:'Een',meaning:'一个',proficiency:0}],grammar:[]};
  if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
@@ -174,8 +176,9 @@ try{
  for(const[game,label,left]of [['nte','Neverness to Everness','10']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' original voice is playable');
-  assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'zh',label+' study language remains Chinese');
-  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Eight game tabs fit');
+  assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'ja',label+' uses its selected Japanese study language');
+  await page.locator('.current-line').getByText(nteLine.source_text,{exact:true}).waitFor();
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Game tabs fit');
   await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
   assert.equal(await capture.getByRole('button',{name:'NPC chatter',exact:true}).count(),0);
   assert.equal(await capture.getByRole('button',{name:'Top-right tips',exact:true}).count(),0);

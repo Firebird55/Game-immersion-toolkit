@@ -89,7 +89,7 @@ def subtitle_cues(text: str) -> list[dict]:
     return result
 
 
-def movie_records(bindings, subtitles, english, chinese, events) -> list[dict]:
+def movie_records(bindings, subtitles, english, chinese, events, *, require_han=True) -> list[dict]:
     result = []
     for binding in bindings:
         variants = events.get(binding['event'].lower())
@@ -104,7 +104,7 @@ def movie_records(bindings, subtitles, english, chinese, events) -> list[dict]:
         for cue in cues:
             key = (binding['namespace'], cue['key'])
             en, zh = display_text(english.get(key, '')), display_text(chinese.get(key, ''))
-            if not en or not contains_han(zh) or counts[cue['key']] != 1:
+            if not en or not zh or (require_han and not contains_han(zh)) or counts[cue['key']] != 1:
                 continue
             for variant in variants:
                 gender = variant['player_voice']

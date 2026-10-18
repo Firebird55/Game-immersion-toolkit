@@ -1,4 +1,4 @@
-"""Read NTE localization and exact Chinese Wwise event/source references.
+"""Read selected NTE localization and exact original Wwise event references.
 
 The native reader is toolkit-owned glue for separately downloaded UEExtractor.
 Only installed game data is extracted, into private caches outside the game.
@@ -26,6 +26,11 @@ READER_SHA = "e89ffece53cc11970d08f6d0a683b67ca58882e8c51fb99de07923175eb96660"
 READER_REVISION = "1dff3554320d530efff26a827819f0e011f1b892"
 METADATA_URL = "https://api.github.com/repos/BlueHeisenberg/SCSKiller/issues/14"
 MEDIA_ROOT = "HT/Content/WwiseAudio/Media/Chinese/"
+LANGUAGE_INDEX_VERSION = 3
+SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
+TEXT_LOCALES = {'en': 'en', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-Hant', 'ja': 'ja', 'ko': 'ko',
+    'fr': 'fr', 'de': 'de', 'es-ES': 'es', 'pt-BR': 'pt-BR', 'ru': 'ru', 'th': 'th', 'vi': 'vi', 'id': 'id'}
+VOICE_LOCALES = {'en': 'English', 'zh-Hans': 'Chinese', 'zh-Hant': 'Chinese', 'ja': 'Japanese', 'ko': 'Korean'}
 
 
 def wwise_hash(value: str) -> int:
@@ -133,7 +138,7 @@ def _archive_metadata(install: Path, stamp: str) -> str:
     return values[0]
 
 
-def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None) -> None:
+def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None) -> None:
     install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the game installation")
@@ -150,6 +155,12 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
     # via stdin. A host-protected cache allows playback without a network call.
     key = _archive_metadata(install, stamp)
     request = {"archive_metadata": key}
+    if locales is not None:
+        request['locales'] = locales
+    if voice_language is not None:
+        if voice_language not in set(VOICE_LOCALES.values()):
+            raise ValueError('Unsupported NTE voice locale')
+        request['voice_language'] = voice_language
     if depot is not None:
         request["depot"] = depot
     if depots is not None:
@@ -174,16 +185,53 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
             temporary.replace(path)
 
 
-def build_records(cache: Path, cinema_bindings: list[dict] | None = None) -> list[dict]:
+def punctuation_anchors(text):
+    # Native OCR can read the game's authored opening double dash as one or
+    # two Han horizontal strokes. Keep the official text and voice unchanged;
+    # ordinary words and unsupported dialogue rewrites remain exact-only.
+    match = re.match(r'^[—–―]{2,}\s*(.+)', text)
+    return [prefix + match[1] for prefix in ('一', '一一', 'ー', 'ーー')] if match else []
+
+
+def ocr_anchors(text, locale):
+    forms = [text, *punctuation_anchors(text)]
+    if locale == 'ja':
+        # A repeated vowel may be typeset small for expressive speech. Native
+        # OCR sometimes gives it full size. Do not fold digraphs such as ティ
+        # or small ゃ/ゅ/ょ, whose size can change the actual syllable.
+        vowels = [('あかがさざただなはばぱまやらわ', 'ぁ', 'あ'),
+                  ('いきぎしじちぢにひびぴみり', 'ぃ', 'い'),
+                  ('うくぐすずつづぬふぶぷむゆる', 'ぅ', 'う'),
+                  ('えけげせぜてでねへべぺめれ', 'ぇ', 'え'),
+                  ('おこごそぞとどのほぼぽもよろを', 'ぉ', 'お')]
+        for form in list(forms):
+            changes = [(i, full) for preceding, small, full in vowels for i in range(1, len(form))
+                       if form[i] == small and form[i - 1] in preceding]
+            if len(changes) <= 4:
+                for mask in range(1, 1 << len(changes)):
+                    value = list(form)
+                    for bit, (position, full) in enumerate(changes):
+                        if mask & (1 << bit):
+                            value[position] = full
+                    forms.append(''.join(value))
+    return list(dict.fromkeys(value for value in forms if value != text))
+
+
+def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, source_locale=None, target_locales=()) -> list[dict]:
     localization = json.loads((cache / "localization.json").read_text(encoding="utf-8"))
-    english = {(r["ns"], r["key"]): display_text(r["value"]) for r in localization["en"]}
-    chinese = {(r["ns"], r["key"]): display_text(r["value"]) for r in localization["zh-CN"]}
+    source_code = TEXT_LOCALES[source_locale] if source_locale else 'en'
+    if not localization.get(source_code):
+        raise ValueError('Install the selected official NTE text pack before preparing this language.')
+    english = {(r["ns"], r["key"]): display_text(r["value"]) for r in localization[source_code]}
+    chinese = english if source_locale else {(r["ns"], r["key"]): display_text(r["value"]) for r in localization['zh-CN']}
+    voice_language = VOICE_LOCALES[source_locale] if source_locale else 'Chinese'
+    media_root = 'HT/Content/WwiseAudio/Media/' + voice_language + '/'
     media = set(json.loads((cache / "media.json").read_text(encoding="utf-8")))
     events = {}
     cinema_events = {}
     for path in (cache / "banks").glob("Play_Vo_*.bnk"):
         data = path.read_bytes()
-        if len(data) < 20 or data[:4] != b"BKHD" or struct.unpack_from("<I", data, 16)[0] != wwise_hash("Chinese"):
+        if len(data) < 20 or data[:4] != b"BKHD" or struct.unpack_from("<I", data, 16)[0] != wwise_hash(voice_language):
             continue
         event = path.stem
         if struct.unpack_from("<I", data, 12)[0] != wwise_hash(event):
@@ -204,10 +252,10 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None) -> lis
             if len(selected) != 1:
                 continue
             layer = selected[0]
-            depot = f"{MEDIA_ROOT}{layer['media_id']}.wem"
+            depot = f"{media_root}{layer['media_id']}.wem"
             if depot not in media:
                 continue
-            audio = {"depot": depot, "event": event}
+            audio = {"depot": depot, "event": event, **({'locale': 'zh-Hans' if source_locale == 'zh-Hant' else source_locale} if source_locale else {})}
             if gender is None:
                 events[event.lower()] = audio
             if layer['delay_seconds'] == 0:
@@ -220,13 +268,30 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None) -> lis
     for (ns, key), en in english.items():
         zh = chinese.get((ns, key), "")
         audio = events.get(("Play_Vo_" + key).lower())
-        if en and contains_han(zh) and audio and len(pairs_by_key[key.lower()]) == 1:
+        if en and (source_locale or (contains_han(zh) and audio)) and len(pairs_by_key[key.lower()]) == 1:
             records.append({"text_id": f"nte:{ns}:{key}", "english": en, "chinese": zh, "audio": audio})
     if cinema_bindings:
         from .nte_cinematics import movie_records
         subtitles = json.loads((cache / 'cinema-subtitles.json').read_text(encoding='utf8'))
         existing = {r['text_id'] for r in records}
-        records.extend(r for r in movie_records(cinema_bindings, subtitles, english, chinese, cinema_events) if r['text_id'] not in existing)
+        movies = movie_records(cinema_bindings, subtitles, english, chinese, cinema_events, require_han=source_locale is None)
+        if source_locale:
+            movie_ids = {r['text_id'] for r in movies}
+            records = [r for r in records if r['audio'] or r['text_id'] not in movie_ids]
+            existing = {r['text_id'] for r in records}
+        records.extend(r for r in movies if r['text_id'] not in existing)
+    if source_locale:
+        from .languages import audio_locale
+        tables = {locale: {(r['ns'], r['key']): display_text(r['value']) for r in localization.get(TEXT_LOCALES[locale], [])}
+                  for locale in {source_locale, *target_locales}}
+        for row in records:
+            identity = row['text_id'].split(':', 2)[1:]
+            if row.get('player_voice'):
+                identity[1] = identity[1].removesuffix(':' + row['player_voice'])
+            texts = {locale: table[tuple(identity)] for locale, table in tables.items() if table.get(tuple(identity))}
+            row.update(source_text=row['english'], source_locale=source_locale, texts=texts,
+                       audio_locale=audio_locale(source_locale), english=texts.get('en', ''), chinese=texts.get('zh-Hans', ''))
+            row['ocr_texts'] = {locale: anchors for locale, text in texts.items() if (anchors := ocr_anchors(text, locale))}
     return records
 
 
@@ -266,10 +331,58 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
             "message": f"{len(records):,} verified bilingual NTE lines with original Mandarin voices"}
 
 
+def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
+    from .languages import resolve_locale
+    from .nte_cinematics import load_catalog, catalog_rows, movie_bindings, CATALOG_REVISION
+    from .game_catalogs import read_snapshot
+    if source_locale not in SUPPORTED_LOCALES:
+        raise ValueError('Unsupported NTE study/audio locale')
+    snapshot = read_snapshot('nte', data_dir)
+    bindings = movie_bindings(catalog_rows(snapshot['catalog']) if snapshot else load_catalog(data_dir / 'movie-catalog' / CATALOG_REVISION))
+    targets = {target: resolve_locale(target, TEXT_LOCALES) for target in target_locales}
+    selected = {source_locale, *(locale for locale in targets.values() if locale)}
+    stamp = fingerprint(install)
+    cache_id = hashlib.sha256(json.dumps([stamp, source_locale, sorted(selected),
+        snapshot['digest'] if snapshot else CATALOG_REVISION, LANGUAGE_INDEX_VERSION]).encode()).hexdigest()[:16]
+    cache = data_dir / 'language-cache' / cache_id
+    tool = ensure_extractor(data_dir / 'tools')
+    if not (cache / 'complete.json').is_file():
+        progress(f'Reading selected NTE {source_locale} text and original voice events')
+        with tempfile.TemporaryDirectory(prefix='nte-language-', dir=data_dir) as value:
+            staging = Path(value)
+            run_reader(install, tool, staging, 'index', cinema_events=sorted({r['event'] for r in bindings}),
+                       locales=[TEXT_LOCALES[locale] for locale in sorted(selected)], voice_language=VOICE_LOCALES[source_locale])
+            localization = json.loads((staging / 'localization.json').read_text(encoding='utf8'))
+            available = {locale for locale in selected if TEXT_LOCALES[locale] in localization}
+            rows = build_records(staging, bindings, source_locale=source_locale, target_locales=available - {source_locale})
+            if not rows or fingerprint(install) != stamp:
+                raise ValueError('NTE files changed or selected dialogue is incomplete; previous table retained.')
+            cache.mkdir(parents=True, exist_ok=True)
+            (cache / 'complete.json').write_text(json.dumps({'records': rows, 'available': sorted(available)}, ensure_ascii=False), encoding='utf8')
+    result = json.loads((cache / 'complete.json').read_text(encoding='utf8'))
+    if fingerprint(install) != stamp:
+        raise ValueError('NTE files changed during preparation; previous table retained.')
+    rows = result['records']; mapped = sum(bool(row.get('audio')) for row in rows)
+    missing = [target for target, locale in targets.items() if locale not in result['available']]
+    return {'format': 2, 'game': 'nte', 'source_locale': source_locale, 'install': str(install),
+        'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
+        'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
+        (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
+        ('; install the selected official voice pack' if not mapped else '')}
+
+
+def _voice_language(audio):
+    locale = audio.get('locale', 'zh-Hans')
+    language = VOICE_LOCALES.get(locale)
+    if language is None or not re.fullmatch(re.escape('HT/Content/WwiseAudio/Media/' + language + '/') + r'\d+\.wem', audio.get('depot', '')):
+        raise ValueError('Invalid NTE original voice locale or reference')
+    return language
+
+
 def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
-    if not re.fullmatch(re.escape(MEDIA_ROOT) + r"\d+\.wem", audio.get("depot", "")):
-        raise ValueError("Invalid NTE Mandarin source reference")
-    run_reader(install, executable, destination, "voice", audio["depot"])
+    language = _voice_language(audio)
+    options = {'voice_language': language} if audio.get('locale') else {}
+    run_reader(install, executable, destination, "voice", audio["depot"], **options)
     data = (destination / "voice.wem").read_bytes()
     if data[:4] != b"RIFF":
         raise ValueError("NTE voice is not a supported original WEM")
@@ -278,9 +391,11 @@ def extract_voice(install: Path, audio: dict, executable: Path, destination: Pat
 
 def extract_voices(install: Path, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
     depots = [audio.get('depot', '') for audio in audios]
-    if not 1 <= len(depots) <= 8 or any(not re.fullmatch(re.escape(MEDIA_ROOT) + r'\d+\.wem', p) for p in depots):
-        raise ValueError('Invalid NTE Mandarin source reference')
-    run_reader(install, executable, destination, 'voices', depots=depots)
+    languages = {_voice_language(audio) for audio in audios}
+    if not 1 <= len(depots) <= 8 or len(languages) != 1:
+        raise ValueError('NTE batches require one selected original voice language')
+    options = {'voice_language': next(iter(languages))} if any(audio.get('locale') for audio in audios) else {}
+    run_reader(install, executable, destination, 'voices', depots=depots, **options)
     result = [(destination / f'{i}.wem').read_bytes() for i in range(len(depots))]
     if any(data[:4] != b'RIFF' for data in result):
         raise ValueError('NTE voice is not a supported original WEM')

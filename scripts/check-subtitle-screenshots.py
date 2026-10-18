@@ -64,11 +64,14 @@ def fixture_image(game, english, chinese, language, resolution=(3840, 2160), fon
               font=ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf", max(10, round(34 * density))), fill="#9faebb")
     region = GAME_PROFILES[game].subtitle_region
     left, top, width, height = CaptureService._region_bounds(WindowInfo(0, "fixture", "", (0, 0, *resolution)), region)
-    font = ImageFont.truetype(r"C:\Windows\Fonts\msyh.ttc", max(10, round(58 * density * font_scale)))
     blocks = ([chinese] if language == "zh" else [english] if language == "en" else
               [f"{chinese} ~ {english}"] if language == "dual-inline" else
               [english, "~ " + chinese] if language == "dual-wrapped" else [chinese, english])
-    rows = [row for block in blocks for row in wrap(block, font, width - round(150 * density))]
+    rows = []
+    for block in blocks:
+        font_path = r"C:\Windows\Fonts\malgun.ttf" if any('\uac00' <= char <= '\ud7af' for char in block) else r"C:\Windows\Fonts\msyh.ttc"
+        font = ImageFont.truetype(font_path, max(10, round(58 * density * font_scale)))
+        rows.extend((row, font) for row in wrap(block, font, width - round(150 * density)))
     y = top + round(60 * density)
     if game == 'nte':
         # Reviewed NTE captions sit below the speaker/HUD strip. Short mixed
@@ -77,7 +80,7 @@ def fixture_image(game, english, chinese, language, resolution=(3840, 2160), fon
     if game == 'heavyrain':
         # The reviewed PC subtitle lane is below documents and thought options.
         y = max(y, round(screen_height * .81))
-    for row in rows:
+    for row, font in rows:
         x = left + (width - font.getlength(row)) / 2
         draw.text((x, y), row, font=font, fill="white", stroke_width=max(1, round(2 * density)), stroke_fill="#101010")
         y += round(80 * density * font_scale)
