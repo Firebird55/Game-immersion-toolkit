@@ -27,7 +27,8 @@ type Setup = {
   native: Record<string, boolean>; capture_check?: boolean | null;
 };
 const VOICE_LABELS: Record<string, string> = { present: 'Original voice files found', missing: 'Selected voice pack needed',
-  not_checked: 'Choose a game folder first', verify_during_indexing: 'Voice pack checked during indexing', not_required: 'Voice pack not required' };
+  not_checked: 'Choose a game folder first', verify_during_indexing: 'Voice pack checked during indexing', not_required: 'Voice pack not required',
+  needs_language_setup: 'Choose a learning language' };
 
 export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged }: {
   online: boolean; game: GameId; onGameChange: (game: GameId) => void;

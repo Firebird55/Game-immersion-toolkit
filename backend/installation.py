@@ -28,13 +28,13 @@ FOLDER_HINTS = {
 VOICE_HINTS = {
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
-    "zzz": "Install the Mandarin voice pack through the game launcher.",
-    "pragmata": "Mandarin voices are verified from the installed PAKs during indexing.",
+    "zzz": "Install the selected study language's original voice pack through the launcher, then prepare it in Languages.",
+    "pragmata": "The selected study language's original voices are verified from installed PAKs during language preparation.",
     "hito": "Hito uses verified game text and does not need a voice decoder.",
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
     "wuwa": "Download the selected study language's voice pack in Wuthering Waves, then prepare it in Languages.",
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
-    "nte": "Download Chinese voices in NTE. Only exact installed bilingual dialogue and Chinese voice sources are captured.",
+    "nte": "Download the selected study language's original voice pack, then prepare its authored dialogue and cinematic bindings in Languages.",
 }
 
 
@@ -43,6 +43,8 @@ def _voice_state(game: str, install: Path | None, state: dict) -> str:
         return "not_required"
     if not install:
         return "not_checked"
+    if state.get('index_state') == 'needs_language_setup':
+        return 'needs_language_setup'
     if state.get("audio_ready"):
         return "present"
     if state.get('source_locale'):

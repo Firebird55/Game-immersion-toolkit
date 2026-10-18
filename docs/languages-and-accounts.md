@@ -20,6 +20,11 @@ prepared. Available locale choices depend on the installed toolkit reader;
 an unavailable reader or voice pack is reported, never substituted. Languages
 are not prepared by opening setup, adding an account or starting the companion.
 
+Setup reads readiness and mapped counts from that account's selected prepared
+snapshot, even before a game window starts capture. Reading this status does
+not activate a language, extract files or call the account API. Missing or
+mismatched snapshots cannot borrow another language's index or original voices.
+
 Previously prepared languages check for compatible game updates automatically.
 Selecting another locale requires its own prepared table. A translation-target
 change offers preparation of that target instead of building every language.

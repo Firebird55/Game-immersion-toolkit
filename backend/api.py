@@ -269,6 +269,8 @@ class Runtime:
 
     def language_state(self, game, locale):
         path = DATA_DIR / 'languages' / game / locale
+        missing = {'ready': False, 'state': 'not_ready', 'message': 'The selected language table is unavailable; prepare or rebuild it in Languages.',
+                   'source_locale': locale, 'entry_count': 0, 'audio_count': 0}
         if (path / 'textmap.json').is_file():
             from .multilingual_index import MultilingualTextIndex
             key = (game, locale)
@@ -276,12 +278,19 @@ class Runtime:
             if index is None:
                 index = self._locale_indexes[key] = MultilingualTextIndex(game, path)
             index.load()
-            return index.status()
+            return index.status() if index.source_locale == locale else missing
+        if locale != 'zh-Hans' or path.parent.is_dir():
+            return missing
         if game == 'zzz':
-            return {**self.textmaps.status(), 'audio_count': self.voice_assets.status().get('mapped_lines', 0)}
-        if game == 'pragmata':
-            return self.pragmata.status()
-        return self.game_indexes[game].status()
+            index = getattr(self, '_legacy_zzz_index', self.textmaps).status()
+            count = getattr(self, '_legacy_zzz_voice', self.voice_assets).status().get('mapped_lines', 0)
+        elif game == 'pragmata':
+            index = getattr(self, '_legacy_pragmata_index', self.pragmata).status()
+            count = getattr(self, '_legacy_pragmata_voice', self.pragmata_voice_assets).status().get('mapped_lines', 0)
+        else:
+            index = getattr(self, '_legacy_game_indexes', self.game_indexes)[game].status()
+            count = index.get('audio_count', 0)
+        return {**index, 'source_locale': locale, 'audio_count': count} if index.get('source_locale') in (None, locale) else missing
 
     def activate_language(self, game, locale, account):
         if account != self.accounts.status()['active'] or self.languages.selected(game, account) != locale:
@@ -417,14 +426,34 @@ class Runtime:
         return None
 
     def setup_game_state(self, game: str) -> dict:
-        if game == "zzz":
-            index, audio, update = self.textmaps.status(), self.voice_assets.status(), self.update_manager.status()
+        account = self.accounts.status()['active']
+        locale = self.languages.selected(game, account) if game in GAME_LOCALES else None
+        if locale:
+            prepared = self.languages.prepared(game, locale)
+            index = self.language_state(game, locale) if prepared else {'ready': False, 'state': 'not_ready', 'source_locale': locale,
+                'message': 'Prepare the selected learning language in Languages.'}
+            audio = {'ready': bool(index.get('ready') and index.get('audio_count'))}
+            with self.languages.lock:
+                job = dict(self.languages.jobs.get((game, locale), {}))
+            pending = job.get('state') in {'preparing', 'error'}
+            update = {'state': job['state'] if pending else index.get('state', 'waiting'), 'progress': job.get('progress', 100),
+                      'message': job.get('message', '') if pending else index.get('message', ''), 'last_checked': (prepared or {}).get('prepared_at'),
+                      'last_error': job.get('message') if job.get('state') == 'error' else None}
+        elif game in GAME_LOCALES and account != 'legacy':
+            index = {'ready': False, 'state': 'needs_language_setup', 'message': 'Select and prepare a learning language in Languages.'}
+            audio, update = {}, {'state': 'waiting', 'progress': 0}
+        elif game == "zzz":
+            index = getattr(self, '_legacy_zzz_index', self.textmaps).status()
+            audio, update = getattr(self, '_legacy_zzz_voice', self.voice_assets).status(), self.update_manager.status()
         elif game == "pragmata":
-            index, audio, update = self.pragmata.status(), self.pragmata_voice_assets.status(), self.pragmata_updater.status()
+            index = getattr(self, '_legacy_pragmata_index', self.pragmata).status()
+            audio, update = getattr(self, '_legacy_pragmata_voice', self.pragmata_voice_assets).status(), self.pragmata_updater.status()
         elif game == "hito":
             index, audio, update = self.hito.status(), {}, {"state": "automatic", "progress": 100}
         else:
-            index, audio, update = self.game_indexes[game].status(), self.game_voice_assets[game].status(), self.game_updaters[game].status()
+            index = getattr(self, '_legacy_game_indexes', self.game_indexes)[game].status()
+            audio = getattr(self, '_legacy_game_voice_map', self.game_voice_assets)[game].status()
+            update = self.game_updaters[game].status()
         return {"index_ready": bool(index.get("ready")), "index_state": index.get("state"),
                 'source_locale': index.get('source_locale'),
                 "index_message": index.get("message", ""), "indexed_lines": index.get("entry_count", 0),
@@ -755,9 +784,11 @@ def setup_status(request: Request, game: str | None = None) -> dict:
     setup_access(request)
     if game is not None and game not in GAMES:
         raise HTTPException(404, 'Unsupported game')
-    exports = runtime.mobile_exports if hasattr(runtime, 'mobile_exports') else None
-    status = (exports.status(game) if game and hasattr(exports, 'require_scope') else exports.status()) if exports else None
-    return {**runtime.installation.status(), 'mobile_export': status}
+    accounts = getattr(runtime, 'accounts', None)
+    with accounts.lock if accounts else nullcontext():
+        exports = runtime.mobile_exports if hasattr(runtime, 'mobile_exports') else None
+        status = (exports.status(game) if game and hasattr(exports, 'require_scope') else exports.status()) if exports else None
+        return {**runtime.installation.status(), 'mobile_export': status}
 
 
 class LanguageAction(BaseModel):
