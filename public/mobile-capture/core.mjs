@@ -1,5 +1,5 @@
 export const TEST_DURATION_MS = 15 * 60 * 1000;
-export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'hito'];
+export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'beyond', 'heavyrain', 'hito'];
 const PAIRING_FIELDS = ['sessionId', 'pairingId', 'attempt'];
 const PAIRING_ID = /^[A-Za-z0-9_-]{16,64}$/;
 export function parseRelay(value) {

@@ -1,5 +1,6 @@
 """Synthetic older Quantic PC resources; no game text, files or recordings."""
 import struct
+import json
 import zlib
 
 import pytest
@@ -208,3 +209,36 @@ def test_shipped_sample_offset_before_zero_is_an_authored_timing_origin(origin_m
     assert legacy.partition(data)[1] == [(0, .4)]
     with pytest.raises(ValueError, match='times'):
         legacy.partition(data[:-8] + struct.pack('>2f', -1, 400))
+
+
+def test_runtime_page_needs_a_long_exact_unique_bound_paragraph(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    first = 'We vertrekken morgen samen vroeg. Neem de blauwe koffer mee naar het station.'
+    second = 'We vertrekken morgen samen vroeg. Laat de groene koffer hier in de slaapkamer.'
+    rows = []
+    for identity, text in enumerate([first, second]):
+        rows.append({'text_id': f'heavyrain:synthetic:{identity}', 'source_locale': 'nl', 'audio_locale': 'nl',
+            'source_text': text, 'texts': {'nl': text, 'zh-Hans': f'第{identity}个合成段落。请把蓝色行李箱带到车站去。'},
+            'audio': {'identity': identity}})
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'heavyrain', 'source_locale': 'nl', 'records': rows}), encoding='utf-8')
+    index = MultilingualTextIndex('heavyrain', tmp_path); index.target_locale = 'zh-Hans'
+    hit = index.match_text('Neem de blauwe koffer mee naar het station.')
+    assert hit.text_id == rows[0]['text_id'] and hit.source_text == first
+    assert hit.translation_text == rows[0]['texts']['zh-Hans']
+    assert not index.match_text('We vertrekken morgen samen vroeg.')
+    assert not index.match_text('koffer mee')
+    assert not index.match_lines(['Neem de blauwe koffers mee naar het station.'], exact_only=True)
+    assert not index.match_text('Neem de blauwe koffer mee naar het station.', channel='tip')
+
+
+def test_document_text_above_subtitles_cannot_capture_its_spoken_paragraph():
+    from backend.capture import CaptureService
+    from backend.models import CaptureRegion
+    def row(text, y):
+        return {'text': text, 'bounding_rect': {'x1': 100, 'x2': 800, 'x3': 800, 'x4': 100,
+            'y1': y, 'y2': y, 'y3': y + 20, 'y4': y + 20}}
+    document = row('Een volledig leesbare brief in de spelwereld.', 30)
+    caption = row('De gesproken ondertitel blijft onderaan staan.', 160)
+    response = CaptureService._local_subtitle_rows({'lines': [document, caption]}, (1000, 280),
+        CaptureRegion(left=0, top=.70, width=1, height=.28), 'heavyrain')
+    assert response['lines'] == [caption]

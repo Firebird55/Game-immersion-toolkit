@@ -92,3 +92,6 @@ language's Lexirise translation, dictionary and reading preferences.
 
 BEYOND: Two Souls adds explicit language preparation and original Dutch speech.
 See [setup and tested coverage](docs/beyond-support.md); full-game OCR acceptance remains incomplete.
+
+HEAVY RAIN adds official text and original audio in ten voiced languages,
+including Dutch with aligned Chinese translations. See [tested coverage](docs/heavy-rain-support.md).

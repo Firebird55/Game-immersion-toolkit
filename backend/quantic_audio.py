@@ -72,4 +72,3 @@ def mp3_format(data):
     if not samples:
         raise ValueError('Original MPEG dialogue is empty')
     return samples, rate
-

@@ -143,13 +143,15 @@ try{
   assert(await page.locator('main').evaluate(el=>parseFloat(getComputedStyle(el).paddingBottom)>=100),'Playback reserves native control and safe-area clearance');
   await page.evaluate(()=>{const player=document.querySelector('#voice-player');URL.revokeObjectURL(player.src);player.removeAttribute('src');player.load();});
   assert.equal(await page.locator('main').evaluate(el=>parseFloat(getComputedStyle(el).paddingBottom)),32,'Inactive audio does not add empty page space');
-  await page.selectOption('#game','beyond');
-  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game:'beyond',id:7,createdAt:1700000010000,chinese:'合成测试句子。',english:'',speakerChinese:'',speakerEnglish:'',audio:false,sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige testzin.',translationLocale:'zh-Hans',translationText:'合成测试句子。',audioLocale:'nl'}]}})));
+  for(const game of ['beyond','heavyrain']){
+  await page.selectOption('#game',game);
+  await page.evaluate(game=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game,id:7,createdAt:1700000010000,chinese:'合成测试句子。',english:'',speakerChinese:'',speakerEnglish:'',audio:false,sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige testzin.',translationLocale:'zh-Hans',translationText:'合成测试句子。',audioLocale:'nl'}]}})),game);
   await page.locator('.current-card .reading-text[lang="nl"]').waitFor();
   await page.locator('.current-card .reading-hanzi').first().click();
   await page.locator('.word-sheet').getByText('荷兰语词义',{exact:false}).first().waitFor();
   assert(requests.some(r=>r.path==='/v1/dictionary/lookup'&&r.payload.language==='nl'),'Dutch lookup uses its own learning language');
   await page.getByRole('button',{name:'Close word lookup'}).click();
+  }
   assert.deepEqual(errors,[]);
   assert(deferredResizes<=1,'WebKit must not enter a repeated resize loop');
   if(deferredResizes)console.log('webkit: one deferred initial ResizeObserver delivery; subsequent layout stable');

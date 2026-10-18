@@ -12,12 +12,16 @@ const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue f
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
 const nteLine={...cyberpunkLine,id:4,game:'nte',english:'NTE dialogue fixture',text_id:'nte-fixture'};
 const beyondLine={...cyberpunkLine,id:7,game:'beyond',text_id:'beyond-fixture',source_text:'Een volledige testzin.',source_language:'nl',source_locale:'nl',audio_locale:'nl',translation_locale:'zh-Hans',translation_text:'合成测试句子。',english:'',chinese:'合成测试句子。'};
+const heavyRainLine={...beyondLine,id:8,game:'heavyrain',text_id:'heavyrain-fixture'};
+settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
 mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 function response(path,query,method,body){
+ if(path==='/api/lines'&&query.get('game')==='heavyrain')return [heavyRainLine];
+ if(path==='/api/lines/8/reading')return {text:heavyRainLine.source_text,tokens:[{start:0,end:3,word:'Een',meaning:'一个',proficiency:0}],grammar:[]};
  if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
  if(path==='/api/settings'&&method==='PATCH'){Object.assign(settings,body);return settings;}
  if(path==='/api/lexirise')return {configured:true,decks:{},sent:{}};
@@ -127,15 +131,17 @@ try{
  const saved=localWrites.find(w=>w.path==='/api/settings');
  assert.equal(saved.body.cyberpunk_tip_region.left,.12,'NPC calibration saved independently');assert.equal(saved.body.cyberpunk_v_voice,'male');assert.deepEqual(saved.body.cyberpunk_region,{left:.12,top:.59,width:.76,height:.37});
  assert.deepEqual(saved.body.region,region,'Saving Cyberpunk preserves ZZZ calibration');assert.equal(writes.length,0,'Game setup never changes account settings');
- await games.getByRole('button',{name:'BEYOND: Two Souls',exact:true}).click();
- await page.locator('.current-line.game-beyond').waitFor();
+ for(const[game,label,left]of [['beyond','BEYOND: Two Souls','10'],['heavyrain','HEAVY RAIN','5']]){
+ await games.getByRole('button',{name:label,exact:true}).click();
+ await page.locator(`.current-line.game-${game}`).waitFor();
  await page.locator('.current-line').getByText(beyondLine.source_text,{exact:true}).waitFor();
- assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'nl','BEYOND uses Dutch study text');
- assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'BEYOND uses original Dutch audio');
- assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'BEYOND fits the viewport');
+ assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'nl',label+' uses Dutch study text');
+ assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' uses original Dutch audio');
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' fits the viewport');
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
- assert.equal(await capture.locator('input[type=range]').first().inputValue(),'10');
+ assert.equal(await capture.locator('input[type=range]').first().inputValue(),left);
  await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
+ }
  for(const[game,label]of [['wuwa','Wuthering Waves'],['witcher3','The Witcher 3']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   if(game==='witcher3'){

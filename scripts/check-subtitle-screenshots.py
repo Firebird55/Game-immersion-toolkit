@@ -74,6 +74,9 @@ def fixture_image(game, english, chinese, language, resolution=(3840, 2160), fon
         # Reviewed NTE captions sit below the speaker/HUD strip. Short mixed
         # Chinese/Latin lines above this band are intentionally rejected.
         y = max(y, round(screen_height * .81))
+    if game == 'heavyrain':
+        # The reviewed PC subtitle lane is below documents and thought options.
+        y = max(y, round(screen_height * .81))
     for row in rows:
         x = left + (width - font.getlength(row)) / 2
         draw.text((x, y), row, font=font, fill="white", stroke_width=max(1, round(2 * density)), stroke_fill="#101010")

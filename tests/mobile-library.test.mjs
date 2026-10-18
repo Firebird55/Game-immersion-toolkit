@@ -98,10 +98,36 @@ test('storage check compares catalog cache budget with browser quota, excluding 
 
 
 test('Dutch catalog matches authored source pages and keeps unavailable translation empty',()=>{
- const tagged={...row,textId:'beyond:test',english:'',chinese:'',sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige synthetische zin.',translationText:'',translationLocale:'zh-Hans',audioLocale:'nl',anchorsSource:['Een volledige','synthetische zin.']};
+ for(const game of ['beyond','heavyrain']){
+ const tagged={...row,game,textId:game+':test',english:'',chinese:'',sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige synthetische zin.',translationText:'',translationLocale:'zh-Hans',audioLocale:'nl',anchorsSource:['Een volledige','synthetische zin.']};
  const clean=validateRow(tagged),matcher=new DialogueMatcher([clean]);
  assert.equal(matcher.match('synthetische zin.').row.sourceLanguage,'nl');
- assert.equal(clean.translationText,'');assert.deepEqual(regions('beyond',undefined,false,false)[0].crop,[.05,.70,.90,.28]);
- assert.deepEqual(regions('beyond',[.10,.70,.80,.28],false,false)[0].crop,[.10,.70,.80,.28]);
+ assert.equal(clean.translationText,'');assert.deepEqual(regions(game,undefined,false,false)[0].crop,[.05,.70,.90,.28]);
+ assert.deepEqual(regions(game,[.10,.70,.80,.28],false,false)[0].crop,[.10,.70,.80,.28]);
  assert.throws(()=>validateRow({...tagged,sourceLanguage:'../key'}));
+ }
+});
+
+test('HEAVY RAIN runtime pages require exact unique paragraphs, while document rows are excluded',()=>{
+ const a={...row,textId:'heavyrain:a',sourceText:'We vertrekken morgen samen vroeg. Neem de blauwe koffer mee naar het station.',sourceLanguage:'nl',sourceLocale:'nl',translationText:'这是第一个合成测试段落。',translationLocale:'zh-Hans',audioLocale:'nl'},
+ b={...a,id:'b'.repeat(64),textId:'heavyrain:b',sourceVoice:'b'.repeat(64),sourceText:'We vertrekken morgen samen vroeg. Laat de groene koffer hier in de slaapkamer.'};
+ const matcher=new DialogueMatcher([a,b]);
+ assert.equal(matcher.match('Neem de blauwe koffer mee naar het station.').row,a);
+ assert.equal(matcher.match('We vertrekken morgen samen vroeg.').state,'ambiguous');
+ assert.equal(matcher.match('koffer mee').state,'unmatched');
+ assert.equal(matcher.match('Neem de blauwe koffers mee naar het station.','dialogue','unconfigured',false,true).state,'unmatched');
+ const document={text:a.sourceText,confidence:99,bbox:{x0:100,x1:800,y0:30,y1:50}},caption={...document,text:'Gesproken ondertitel onderaan.',bbox:{x0:100,x1:800,y0:160,y1:180}};
+ assert.deepEqual(subtitleRows([{paragraphs:[{lines:[document,caption]}]}],[0,.70,1,.28],1000,280,'heavyrain').lines,[caption.text]);
+});
+
+test('HEAVY RAIN authored group narrows exact short captions without combining speakers',()=>{
+ const child={...row,textId:'heavyrain:100:00000001',sourceText:'Pap!',sourceLanguage:'nl',sourceLocale:'nl',translationText:'爸爸！',translationLocale:'zh-Hans',audioLocale:'nl'},
+ other={...child,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),textId:'heavyrain:200:00000002'},
+ father={...child,id:'c'.repeat(64),sourceVoice:'c'.repeat(64),textId:'heavyrain:100:00000003',sourceText:'Rustig aan, jullie rennen me nog omver!',translationText:'慢一点，你们差点把我撞倒！'};
+ const matcher=new DialogueMatcher([child,other,father]),values=['Pap!',father.sourceText];
+ const initial=matcher.sceneMatches(values);assert.equal(initial.matches.length,1);assert.deepEqual(initial.groups,['heavyrain:100']);
+ const contextual=matcher.sceneMatches(values,initial.groups);assert.deepEqual(new Set(contextual.matches.map(hit=>hit.row.id)),new Set([child.id,father.id]));
+ assert.equal(matcher.sceneMatches(['Pap!']).matches.length,0);
+ assert.equal(matcher.sceneMatches(['Pap!'],['heavyrain:100','heavyrain:200']).matches.length,0);
+ assert.equal(matcher.sceneMatches(['Papp!'],['heavyrain:100']).matches.length,0);
 });

@@ -1,0 +1,683 @@
+{
+  "clips": [
+    {
+      "name": "heavyrain-prologue-family-overlap-qte",
+      "game": "heavyrain",
+      "source_locale": "nl",
+      "translation_locale": "zh-Hans",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "path": "output/heavy-rain-research/youtube-family-900-1020.mp4",
+      "start": 0,
+      "duration": 120,
+      "source_timestamps": [
+        900,
+        1020
+      ],
+      "chapter": "Prologue",
+      "branch": "recorded family return and helping with plates",
+      "footage_language": "en",
+      "presentation": "ordinary dialogue, simultaneous child/adult captions, brief reply over another speaker, wrapped and runtime-paginated paragraphs, QTE instruction/glyph and shirt/shopping-bag text negatives",
+      "expected": [
+        "heavyrain:104:517e930c",
+        "heavyrain:104:e9e446d6",
+        "heavyrain:104:9ee37640",
+        "heavyrain:104:56135715",
+        "heavyrain:104:7780d375",
+        "heavyrain:104:b81d3639",
+        "heavyrain:104:998eb259",
+        "heavyrain:107:cc857e2a",
+        "heavyrain:107:5aec8a11",
+        "heavyrain:108:2da9f2a0",
+        "heavyrain:108:bbc0069b",
+        "heavyrain:108:c3a7938c",
+        "heavyrain:108:55ce67b7",
+        "heavyrain:131:c1562f14"
+      ],
+      "expected_exact": true,
+      "evidence": "17 independently annotated spoken events; repeated calls and paginated paragraphs share 14 original performance identities. Literal authored localization IDs reviewed before production replay; 1080p source geometry."
+    },
+    {
+      "name": "heavyrain-prologue-thought-letter",
+      "game": "heavyrain",
+      "source_locale": "nl",
+      "translation_locale": "zh-Hans",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "path": "output/heavy-rain-research/youtube-home-120-240.mp4",
+      "start": 0,
+      "duration": 120,
+      "source_timestamps": [
+        120,
+        240
+      ],
+      "chapter": "Prologue",
+      "branch": "recorded shower thought and letter reading",
+      "footage_language": "en",
+      "presentation": "internal thought with two displayed pages, letter voiceover with four displayed pages; thought option, handwritten text, book titles and action glyph negatives",
+      "expected": [
+        "heavyrain:2588:73be8be3",
+        "heavyrain:2566:92486ec2"
+      ],
+      "expected_exact": true,
+      "evidence": "six readable caption appearances independently annotated at source 143.5â€“146 and 163.5â€“172.5 seconds, then aligned to two full authored performances; original 1080p geometry"
+    },
+    {
+      "name": "heavyrain-prologue-menu-movement-negative",
+      "game": "heavyrain",
+      "source_locale": "nl",
+      "translation_locale": "zh-Hans",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "path": "output/heavy-rain-research/youtube-opening-0-120.mp4",
+      "start": 0,
+      "duration": 120,
+      "source_timestamps": [
+        0,
+        120
+      ],
+      "chapter": "Prologue",
+      "branch": "recorded PC opening",
+      "footage_language": "en",
+      "presentation": "save-slot menu, confirmation, date/time labels and movement tutorial; no readable spoken subtitles",
+      "expected": [],
+      "expect_no_lines": true,
+      "expected_exact": true,
+      "evidence": "1080p PC recording, transcoded without resizing; sequential frames independently reviewed before matcher replay"
+    }
+  ],
+  "coverage_status": "incomplete",
+  "untested": "Remaining prologue, all subsequent chapters, alternate branches, optional scenes, endings, DLC, Dutch gameplay footage, other language-specific footage and native 720p/4K presentations. Resized recordings are separate evidence.",
+  "chapters": [
+    {
+      "chapter_id": "S004006C00",
+      "title": "Prologue",
+      "status": "partially reviewed",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [
+        [
+          0,
+          240
+        ],
+        [
+          900,
+          1020
+        ]
+      ],
+      "branches": "recorded path only; all alternative branches untested"
+    },
+    {
+      "chapter_id": "S004006C01",
+      "title": "The Mall",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C02",
+      "title": "Father & Son",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C03",
+      "title": "Blackout",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C04",
+      "title": "Sleazy Place",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C05",
+      "title": "Wake Up",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C06",
+      "title": "Crime Scene",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C07",
+      "title": "The Shrink",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C08",
+      "title": "The Park",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C09",
+      "title": "Second Blackout",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C10",
+      "title": "Where's Shaun?",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C11",
+      "title": "Welcome, Norman!",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C12",
+      "title": "Hassan's Shop",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C13",
+      "title": "Sleepless Night",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C14",
+      "title": "Paparazzi",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C15",
+      "title": "Lexington Station",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C16",
+      "title": "The Motel",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C17",
+      "title": "Kick Off Meeting",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C18",
+      "title": "Nathaniel",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C19",
+      "title": "Suicide Baby",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C20",
+      "title": "The Bear",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C21",
+      "title": "First Encounter",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C22",
+      "title": "Covered Market",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C23",
+      "title": "A Visitor",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C24",
+      "title": "Kramer's Party",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C25",
+      "title": "The Butterfly",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C26",
+      "title": "The Nurse",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C27",
+      "title": "Police News",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C28",
+      "title": "Shrink & Punches",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C29",
+      "title": "The Golf Club",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C30",
+      "title": "The Lizard",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C31",
+      "title": "Fugitive",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C32",
+      "title": "Jayden Blues",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C33",
+      "title": "Under Arrest",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C34",
+      "title": "Manfred",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C35",
+      "title": "The Shark",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C36",
+      "title": "The Doc",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C37",
+      "title": "Mad Jack",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C38",
+      "title": "Eureka",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C39",
+      "title": "The Cemetery",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C40",
+      "title": "Twins",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C41",
+      "title": "Flowers On The Grave",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C42",
+      "title": "Sexy Girl",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C43",
+      "title": "Fish Tank",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C44",
+      "title": "On The Loose",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C45",
+      "title": "Trapped",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C46",
+      "title": "Face To Face",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C47",
+      "title": "Ann Sheppard",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C48",
+      "title": "The Rat",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C49",
+      "title": "Solving The Puzzle",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C50",
+      "title": "Goodbye Lauren",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C51",
+      "title": "Hold My Hand",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C52",
+      "title": "Origami Killer",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C53",
+      "title": "Killer's Place",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C54",
+      "title": "The Old Warehouse",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C55",
+      "title": "Epilogue - News Report",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C56",
+      "title": "Epilogue - Ethan's Grave",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C57",
+      "title": "Epilogue - A New Start",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C58",
+      "title": "Epilogue - A New Life",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C59",
+      "title": "Epilogue - Innocent",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C60",
+      "title": "Epilogue - Dead Heroine",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C61",
+      "title": "Epilogue - Heroine",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C62",
+      "title": "Epilogue - Uploaded",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C63",
+      "title": "Epilogue - Resignation",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C64",
+      "title": "Epilogue - Case Closed",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C65",
+      "title": "Epilogue - Origami's Grave",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C66",
+      "title": "Epilogue - A Mother's Revenge",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C67",
+      "title": "Epilogue - Unpunished",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C68",
+      "title": "Epilogue - Origami Blues",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C69",
+      "title": "Epilogue - Tears In The Rain",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C70",
+      "title": "Epilogue - Helpless",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C71",
+      "title": "Epilogue - Square One",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    },
+    {
+      "chapter_id": "S004006C72",
+      "title": "Epilogue - Smoking Mirror",
+      "status": "untested",
+      "source_url": "https://www.youtube.com/watch?v=CUVLK0cXkzg",
+      "timestamps": [],
+      "branches": "all branches untested"
+    }
+  ]
+}

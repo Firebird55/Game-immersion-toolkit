@@ -14,11 +14,15 @@ def test_local_game_routes_to_its_own_original_voice_and_preserves_retry(tmp_pat
     service.game_indexes = {game: service.textmaps}
     service.textmaps.audio_count = 1
     service.game_voice_assets = {game: service.voice_assets}
+    if game == 'heavyrain':
+        service.textmaps.source_locale, service.textmaps.target_locale = 'zh-Hans', 'en'
+        service.textmaps.authored_scene = lambda _: None
+        service.textmaps.match_line_groups = lambda *_, **kwargs: [match]
     service.voice_assets = SimpleNamespace(has_variant=lambda *_: True,
         schedule=lambda *_: pytest.fail("Cyberpunk must never use ZZZ's audio adapter"))
     async def run():
         service._event_loop = asyncio.get_running_loop()
-        window = SimpleNamespace(bounds=(0, 0, 1920, 1080), title="Cyberpunk 2077")
+        window = SimpleNamespace(handle=0, bounds=(0, 0, 1920, 1080), title="Cyberpunk 2077")
         for _ in range(2):
             service._scan_pragmata(window, service.settings.get().cyberpunk_region,
                 service._engine, 0, datetime.now(timezone.utc), game=game)

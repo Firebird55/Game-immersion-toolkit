@@ -67,3 +67,7 @@ App updates prepare a separate replacement while the current companion keeps tra
 For BEYOND: Two Souls, choose the folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.
 Install the selected original voice pack with Steam, enable matching subtitles in the game,
 then prepare that language in Setup → Languages. See [BEYOND coverage](docs/beyond-support.md).
+
+For HEAVY RAIN, choose the folder containing HeavyRain.exe and Resources.
+Select matching spoken audio in the game, then explicitly prepare the learning
+language in Setup → Languages. See [HEAVY RAIN coverage](docs/heavy-rain-support.md).

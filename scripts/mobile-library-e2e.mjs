@@ -45,6 +45,24 @@ async function verifyBeyondContext(page){
  assert.equal(result.paired.row.textId,paired.textId);assert.equal(result.paired.row.sourceLocale,'nl');assert.equal(result.paired.row.audioLocale,'nl');
  assert.deepEqual(result.paired.row.memberTextIds,paired.memberTextIds);
 }
+async function verifyHeavyRainPages(page){
+ const source={...row,textId:'heavyrain:100:00000003',sourceLanguage:'nl',sourceLocale:'nl',audioLocale:'nl',sourceText:'We vertrekken morgen samen vroeg. Neem de blauwe koffer mee naar het station.',translationLocale:'zh-Hans',translationText:'我们明天一起出发。请把蓝色行李箱带到车站去。'};
+ const child={...source,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),textId:'heavyrain:100:00000001',sourceText:'Pap!',translationText:'爸爸！'},other={...child,id:'c'.repeat(64),sourceVoice:'c'.repeat(64),textId:'heavyrain:200:00000002'};
+ const segment=Buffer.from([source,child,other].map(value=>JSON.stringify(value)+'\n').join('')),bytes=encode({'manifest.json':{...manifest,game:'heavyrain',coverage:{dialogue:3,exportedVoices:3},catalog:[{name:'catalog/00000.ndjson',sha256:hash(segment),size:segment.length}]},'catalog/00000.ndjson':segment});
+ const result=await page.evaluate(async({url,bytes})=>{
+  const worker=new Worker(url,{type:'module'});let id=0;const pending=new Map();
+  worker.onmessage=({data})=>{if(data.stage||data.progress!=null)return;const request=pending.get(data.id);if(!request)return;pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
+  const request=(action,body={})=>new Promise((resolve,reject)=>{const token=++id;pending.set(token,{resolve,reject});worker.postMessage({id:token,action,...body});});
+  try{
+   await request('open',{files:[new File([Uint8Array.from(bytes)],'synthetic-heavy-rain.zip')]});
+   const values=['Pap!','Neem de blauwe koffer mee naar het station.'],initial=await request('scene-matches',{values}),contextual=await request('scene-matches',{values,groups:initial.groups});
+   return {initial,contextual,dutch:await request('match-candidates',{values:['Neem de blauwe koffer mee naar het station.']}),chinese:await request('match-candidates',{values:['请把蓝色行李箱带到车站去。']}),short:await request('match-candidates',{values:['koffer mee']})};
+  }finally{worker.terminate();}
+ },{url:base+libraryWorkerPath,bytes:[...bytes]});
+ for(const hit of [result.dutch,result.chinese]){assert.equal(hit.state,'matched');assert.equal(hit.row.sourceLocale,'nl');assert.equal(hit.row.audioLocale,'nl');assert.equal(hit.row.translationLocale,'zh-Hans');}
+ assert.equal(result.short.state,'unmatched');
+ assert.equal(result.initial.matches.length,1);assert.equal(result.contextual.matches.length,2);assert.deepEqual(result.initial.groups,['heavyrain:100']);
+}
 async function diagnoseOcr(page,name,stage){
  await page.screenshot({path:`output/playwright/mobile-library-${name}-failure.png`,fullPage:true});
  const data=await page.evaluate(async({base,pipelinePath})=>{
@@ -60,7 +78,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({acceptDownloads:true,viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],external=[];
   page.on('pageerror',e=>errors.push(e.message));context.on('request',request=>{if(!request.url().startsWith(base)&&!request.url().startsWith('blob:')&&!request.url().startsWith('data:'))external.push(request.url());});
-  await page.goto(base+'?developer=1');await verifyBeyondContext(page);await page.selectOption('#role','receiver');
+  await page.goto(base+'?developer=1');await verifyBeyondContext(page);await verifyHeavyRainPages(page);await page.selectOption('#role','receiver');
   await page.setInputFiles('#library-files',[input('catalog.zip',catalog),input('voices.zip',voices)]);
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent()});throw error;});
   await page.fill('#find-text',quietRow.english+'\n'+quietRow.chinese);await page.click('#find-line');await page.getByRole('button',{name:'No verified original voice',exact:true}).waitFor();assert(await page.getByRole('button',{name:'No verified original voice',exact:true}).isDisabled());await page.click('#clear-history');

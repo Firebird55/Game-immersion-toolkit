@@ -36,6 +36,7 @@ self.onmessage=async({data})=>{
   else if(action==='match')result=matcher?matcher.match(data.text,data.channel,data.player,data.fragment):{state:'no_library'};
   else if(action==='match-candidates')result=matcher?matcher.matchCandidates(data.values,data.channel,data.player,data.fragment):{state:'no_library'};
   else if(action==='context-fragments')result=matcher?matcher.contextFragments(data.values):[];
+  else if(action==='scene-matches')result=matcher?matcher.sceneMatches(data.values,data.groups):{matches:[],groups:[]};
   else if(action==='match-context')result=matcher?matcher.matchContext(data.previous,data.values,data.channel,data.player):{state:'no_library'};
   else if(action==='voice'){const zip=voices.get(data.sha);if(!zip)throw new Error('Reselect the voice ZIPs from Files, keeping a USB drive connected if used.');result=await readVoice(zip,data.sha);}
   else if(action==='cancel-open'){epoch++;result=true;}

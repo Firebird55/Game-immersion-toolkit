@@ -141,6 +141,7 @@ class CaptureService:
             for key in self._local_chatter_trackers:
                 self._visible_match_started.pop(key, None)
             self._local_chatter_trackers.clear()
+            self._heavy_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
             changes["visible_text_ids"] = []
@@ -305,6 +306,7 @@ class CaptureService:
         active = find_active_game_window(settings)
         now = datetime.now(timezone.utc).astimezone()
         if active is None:
+            self._heavy_context_scope = None
             self._excluded_screen = None
             self._tracker.observe(None)
             self._tip_tracker.observe(None)
@@ -327,6 +329,7 @@ class CaptureService:
         profile, window = active
         language_setup = getattr(self, 'language_setup', None)
         if profile.id != self.snapshot().active_game:
+            self._heavy_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
             self._caption_context_scope = None
@@ -729,17 +732,31 @@ class CaptureService:
         elif main_response.get('dialogue_menu'):
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
+        heavy_matches = []
+        if game == 'heavyrain':
+            heavy_matches = self._heavy_rain_matches(index, lines, monotonic_now,
+                (epoch, game, window.handle, window.bounds, crop_bounds, index.source_locale, index.target_locale,
+                 getattr(index, '_signature', None), getattr(self, 'context_scope', lambda: None)()),
+                settings.stable_frames, bool(main_response.get('dialogue_menu')))
+            heavy_matches = [hit for hit in heavy_matches if self._mapped_voice(hit)]
+            match = max(heavy_matches, key=lambda hit: hit.score, default=None)
         if epoch != self._scan_epoch:
             return _ScanOutcome([])
         if not self._mapped_voice(match):
             match = None
-        self._observe_visible_matches(game, [match.text_id] if match else [], monotonic_now)
+        self._observe_visible_matches(game, [hit.text_id for hit in heavy_matches] if game == 'heavyrain' else [match.text_id] if match else [], monotonic_now)
         emitted: list[TranscriptLine] = []
         match_score = match.score if match else None
         if match is None:
+            if game == 'heavyrain':
+                self._emit_heavy_rain_matches([], monotonic_now, now)
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
             phase = "unmatched" if raw_text else "listening"
             message = f"Reading {GAME_PROFILES[game].name} subtitles"
+        elif game == 'heavyrain':
+            emitted = self._emit_heavy_rain_matches(heavy_matches, monotonic_now, now)
+            phase = 'matched'
+            message = 'HEAVY RAIN subtitles matched to original game voices'
         else:
             key = f"{game}\0{match.text_id}\0{match.english}"
             fresh = self._is_fresh_match(game, key, monotonic_now)
@@ -792,6 +809,44 @@ class CaptureService:
                                                         presentation="cinematic"))
         return _ScanOutcome(emitted_lines=emitted)
 
+    def _heavy_rain_matches(self, index, lines, now, scope, stable_frames, menu=False):
+        if scope != getattr(self, '_heavy_context_scope', None) or menu:
+            for identity in getattr(self, '_heavy_trackers', {}):
+                self._visible_match_started.pop('heavyrain:' + identity, None)
+            self._heavy_context_scope = scope
+            self._heavy_context, self._heavy_group_counts, self._heavy_trackers = {}, {}, {}
+        if menu:
+            return []
+        self._heavy_context = {group: stamp for group, stamp in self._heavy_context.items() if now - stamp <= 12}
+        unique = index.match_line_groups(lines, channel='dialogue')
+        observed = {group for hit in unique if hit.kind == 'exact' and len(normalize_subtitle(hit.source_ocr)) >= 8
+                    if (group := index.authored_scene(hit.text_id))}
+        self._heavy_group_counts = {group: self._heavy_group_counts.get(group, 0) + 1 for group in observed}
+        for group, count in self._heavy_group_counts.items():
+            if count >= stable_frames:
+                self._heavy_context[group] = now
+        self._heavy_context = dict(sorted(self._heavy_context.items(), key=lambda item: item[1], reverse=True)[:16])
+        # Only exact text ambiguity may be narrowed by a confirmed authored
+        # localization group. Several speakers retain independent performances.
+        return index.match_line_groups(lines, channel='dialogue', context_groups=set(self._heavy_context))
+
+    def _emit_heavy_rain_matches(self, matches, now, captured_at):
+        active, emitted = {hit.text_id for hit in matches}, []
+        for identity in set(self._heavy_trackers) - active:
+            del self._heavy_trackers[identity]
+            self._visible_match_started.pop('heavyrain:' + identity, None)
+        for hit in matches:
+            tracker = self._heavy_trackers.setdefault(hit.text_id, StableMatchTracker())
+            tracker.configure(self.settings.get().stable_frames)
+            channel, key = 'heavyrain:' + hit.text_id, f'heavyrain\0{hit.text_id}\0{hit.english}'
+            fresh = self._is_fresh_match(channel, key, now)
+            if fresh and tracker.observe(key) and self._can_emit(key, now):
+                line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=captured_at, channel='dialogue')
+                if line is not None:
+                    emitted.append(line)
+                    self._schedule_line_audio(line, now, observed_at=self._visible_match_started[channel][1])
+        return emitted
+
     def _authored_caption_context(self, index, lines, now, scope, stable_frames):
         if scope != self._caption_context_scope:
             self._caption_context_scope = scope
@@ -840,6 +895,10 @@ class CaptureService:
             short_label = (len(re.findall(r"[a-zA-Z]+", text)) == 1 and len(normalize_subtitle(text)) < 12)
             short_label |= bool(re.search(r"[\u3400-\u9fff]", text) and len(normalize_subtitle(text)) < 4)
             caption_band = (.80, .87) if game == "witcher3" else (.85, .96) if game == "cyberpunk" else (.72, .96) if game == "honkai3" else (.79, .96)
+            # HEAVY RAIN's documents and thought options can repeat the spoken
+            # paragraph above its centered subtitle lane.
+            if game == 'heavyrain' and not caption_band[0] <= top <= caption_band[1]:
+                continue
             # Moving harvest names can match a unique voiced word exactly. Keep
             # single short words only in the observed centered caption band.
             if (short_label or known_ui_label) and not caption_band[0] <= top <= caption_band[1]:

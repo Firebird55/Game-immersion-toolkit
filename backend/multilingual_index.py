@@ -93,13 +93,23 @@ class MultilingualTextIndex:
         return {'ready': self.ready, 'state': self.state, 'message': self.message,
                 'entry_count': self.entry_count, 'audio_count': self.audio_count, 'source_locale': self.source_locale}
 
-    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue'):
+    @staticmethod
+    def authored_scene(text_id):
+        return text_id.rsplit(':', 1)[0] if re.fullmatch(r'heavyrain:\d+:[a-f0-9]{8}', text_id) else None
+
+    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=()):
         hits, ambiguous = [], []
         with self.lock:
             for source in candidates(lines):
                 for locale, lookup in self._lookup.items():
                     key, score = normalize_text(source, locale), 100.
                     rows = lookup.get(key, [])
+                    # HEAVY RAIN paginates some authored paragraphs at runtime.
+                    # A sufficiently long, exact contiguous page can identify
+                    # the whole bound performance; never infer page audio cuts.
+                    minimum = 12 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 24
+                    if self.game == 'heavyrain' and channel == 'dialogue' and len(key) >= minimum:
+                        rows = [row for text, matches in lookup.items() if key in text for row in matches]
                     if not rows and not exact_only and len(key) >= 8:
                         matches = process.extract(key, lookup.keys(), scorer=fuzz.ratio, score_cutoff=max(88, threshold), limit=2)
                         if matches and (len(matches) == 1 or matches[1][1] < matches[0][1] - 2):
@@ -109,6 +119,9 @@ class MultilingualTextIndex:
                     rows = [r for r in rows if (not r.get('player_voice') or r['player_voice'] == self.player_voice)
                             and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
                     identities = {(json.dumps(r.get('audio'), sort_keys=True), r['source_text']) for r in rows}
+                    if self.game == 'heavyrain' and len(identities) > 1 and score == 100 and context_groups:
+                        rows = [row for row in rows if self.authored_scene(row['text_id']) in context_groups]
+                        identities = {(json.dumps(row.get('audio'), sort_keys=True), row['source_text']) for row in rows}
                     if len(identities) != 1:
                         if len(identities) > 1:
                             ambiguous.append(source)
@@ -162,10 +175,10 @@ class MultilingualTextIndex:
                             hits[hit.text_id] = hit.model_copy(update={'source_ocr': first + ' ' + text})
         return next(iter(hits.values())) if len(hits) == 1 else None
 
-    def match_line_groups(self, groups, threshold=88, channel='cinematic'):
+    def match_line_groups(self, groups, threshold=88, channel='cinematic', context_groups=()):
         result = {}
         for group in groups:
-            hit = self.match_lines([group], threshold, channel=channel)
+            hit = self.match_lines([group], threshold, channel=channel, context_groups=context_groups)
             if hit:
                 result.setdefault(hit.text_id, hit)
         return list(result.values())

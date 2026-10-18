@@ -3,7 +3,7 @@ import {Converter} from './ocr/opencc.mjs';
 const simplify = Converter({from:'tw',to:'cn'});
 export const FORMAT = 'proxy-mobile-library-v1';
 export const LIMIT = 512 * 1024 * 1024;
-export const GAMES = ['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','beyond','hito'];
+export const GAMES = ['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','beyond','heavyrain','hito'];
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const decoder = new TextDecoder('utf-8', {fatal:true});
 export const sha256 = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)), x => x.toString(16).padStart(2,'0')).join('');
@@ -114,6 +114,7 @@ export function subtitleRows(blocks,crop,width,height,game){
   const left=crop[0]+box.x0/width*crop[2],right=crop[0]+box.x1/width*crop[2],top=crop[1]+box.y0/height*crop[3],value=row.text.trim(),key=normalize(value);
   if(row.confidence!=null&&row.confidence<40)continue;
   const band=game==='witcher3'?[.80,.87]:game==='cyberpunk'?[.85,.96]:game==='honkai3'?[.72,.96]:[.79,.96];
+  if(game==='heavyrain'&&(top<band[0]||top>band[1]))continue;
   const short=(value.match(/[a-z]+/gi)?.length===1&&key.length<12)||(/[\u3400-\u9fff]/.test(value)&&key.length<4);
   if(game==='honkai3'&&crop[0]<.2&&key.length<25&&top<.79&&!/[.!?。！？]$/.test(value))continue;
   if((short||labels.has(key))&&(top<band[0]||top>band[1]))continue;
@@ -135,6 +136,20 @@ export class DialogueMatcher{
   }
  }
  contextFragments(values){return [...new Set(values.slice(0,128).map(normalize).filter(key=>this.contextFirsts.has(key)))];}
+ sceneMatches(values,groups=[]){
+  const scene=row=>/^heavyrain:\d+:[a-f0-9]{8}$/.test(row.textId)?row.textId.slice(0,row.textId.lastIndexOf(':')):null;
+  const allowed=new Set(groups.slice(0,16)),hits=new Map(),observed=new Set();
+  for(const value of values.slice(0,128)){
+   const key=normalize(value);let hit=this.match(value);
+   if(hit.state==='matched'&&hit.score===100&&key.length>=8&&scene(hit.row))observed.add(scene(hit.row));
+   if(hit.state==='ambiguous'&&allowed.size){
+    const candidates=[...this.exact].filter(([text])=>text===key||key.length>=(/\p{Script=Han}/u.test(key)?12:24)&&text.includes(key)).flatMap(([,rows])=>rows).filter(row=>allowed.has(scene(row))&&row.channels.includes('dialogue'));
+    if(new Set(candidates.map(row=>row.sourceVoice??row.id)).size===1)hit={state:'matched',row:candidates[0],score:100};
+   }
+   if(hit.state==='matched')hits.set(hit.row.id,hit);
+  }
+  return {matches:[...hits.values()],groups:[...observed]};
+ }
  matchContext(previous,values,channel='dialogue',player='unconfigured'){
   const hits=new Map();
   for(const first of previous.slice(0,32))for(const value of values.slice(0,128)){
@@ -156,6 +171,8 @@ export class DialogueMatcher{
  lookup(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){
   const key=normalize(text);if(key.length<2||key.length>2000)return {state:'unmatched'};
   let keys=this.exact.has(key)?[[key,100]]:[];
+  const paragraphPage=channel==='dialogue'&&key.length>=(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(key)?12:24);
+  if(paragraphPage){const pages=[];for(const [candidate,records] of this.exact)if(candidate.includes(key)&&records.some(r=>r.textId.startsWith('heavyrain:')))pages.push([candidate,100]);if(pages.length)keys=pages;}
   if(!keys.length&&!exactOnly&&!this.exactOnly&&channel==='dialogue'&&key.length>=(/\p{Script=Han}/u.test(key)?6:8)){
    if(!this.grams){this.grams=new Map();for(const [candidate,records] of this.exact)if(records.some(r=>r.sourceVoice))for(const gram of grams(candidate)){const keys=this.grams.get(gram)??[];keys.push(candidate);this.grams.set(gram,keys);}}
    const counts=new Map();for(const gram of grams(key))for(const candidate of this.grams.get(gram)??[])if(Math.abs(candidate.length-key.length)<Math.max(6,key.length*.25))counts.set(candidate,(counts.get(candidate)??0)+1);

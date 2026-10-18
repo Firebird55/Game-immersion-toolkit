@@ -8,6 +8,7 @@ let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), hist
 let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,lastMediaTime=-1;
 let scanCompletion=Promise.resolve(),voiceBusy=false;
 let captionContext={epoch:-1,entries:[],candidate:null,count:0};
+let heavyContext={epoch:-1,groups:new Map(),counts:new Map(),stable:new Map()};
 reader.onmessage=({data})=>{const request=pending.get(data.id);if(!request)return;if(data.progress!=null||data.stage){if(request.selection===selection)text('library-status',data.stage??`Reading ${data.progress.toLocaleString()} verified dialogue rows…`);return;}pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
 reader.onerror=()=>{for(const request of pending.values())request.reject(new Error('Library worker unavailable. Reopen the files.'));pending.clear();};
 function request(action,body={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject,selection});reader.postMessage({id,action,...body});});}
@@ -24,7 +25,7 @@ function libraryStatus(){
  declaredAudio=new Set(library.manifest.packs.flatMap(p=>p.clips));
  text('library-status',`${library.manifest.title} · ${library.rowCount.toLocaleString()} bilingual rows · ${available.size.toLocaleString()} unique voice clips accessible this session${coverage.partial?' · Partial catalog: newer/unmapped scenes remain unsupported':''}. ${available.size?'Audio packs are open.':'Reselect voice ZIPs for playback.'}`);
  text('pack-status',`${selectedPacks} voice packs selected · ${(selectedBytes/1024**3).toFixed(2)} GiB selected. Audio is read per clip, without importing whole packs.`);
- const coverageNotes={beyond:'Opening narration and police cutscene replay pass desktop OCR. Other chapters, branches and mobile OCR footage are unverified.',zzz:'Comic crops pass synthetic layout checks; real mobile comic footage verification remains pending.',wuwa:'Sampled dialogue and centered cards pass; some resized movie/story captions still miss.',pragmata:'Mobile layout checks use synthetic scenes; real browser footage verification remains pending.',cyberpunk:'Small overhead captions still miss in recorded footage. Verify your subtitle size and crop.',witcher3:'Sampled cutscene captions pass; top-edge NPC captions still miss in recorded footage.',nte:'Sampled movie radio/intro cards pass; wrapped subtitles and some movie variants still miss.',honkai3:'Sampled modern, legacy and multi-page panels pass both tested resolutions. Newer chapters remain outside the verified catalog.',hito:'Fixed catalog rows are text-only. Mobile does not run the desktop grammar generator.'};
+ const coverageNotes={heavyrain:'Original-voice bindings use installed game assets. Gameplay OCR verification is in progress; untested chapters and branches remain outside verified coverage.',beyond:'Opening narration and police cutscene replay pass desktop OCR. Other chapters, branches and mobile OCR footage are unverified.',zzz:'Comic crops pass synthetic layout checks; real mobile comic footage verification remains pending.',wuwa:'Sampled dialogue and centered cards pass; some resized movie/story captions still miss.',pragmata:'Mobile layout checks use synthetic scenes; real browser footage verification remains pending.',cyberpunk:'Small overhead captions still miss in recorded footage. Verify your subtitle size and crop.',witcher3:'Sampled cutscene captions pass; top-edge NPC captions still miss in recorded footage.',nte:'Sampled movie radio/intro cards pass; wrapped subtitles and some movie variants still miss.',honkai3:'Sampled modern, legacy and multi-page panels pass both tested resolutions. Newer chapters remain outside the verified catalog.',hito:'Fixed catalog rows are text-only. Mobile does not run the desktop grammar generator.'};
  text('coverage-status','Browser OCR coverage: '+coverageNotes[library.manifest.game]);
 }
 $('library-files').onchange=async event=>{
@@ -106,7 +107,7 @@ async function scan(){
  lastMediaTime=$('preview').currentTime;
  busy=true;let finishScan;scanCompletion=new Promise(resolve=>finishScan=resolve);const token=epoch,start=performance.now();
  try{
-  let accepted=null,ambiguous=false,dialogueMenu=false;
+  let accepted=null,acceptedMany=null,ambiguous=false,dialogueMenu=false;
   for(const region of regions()){
    if(token!==epoch)return;
    if(region.channel!=='dialogue'&&dialogueMenu)continue;
@@ -114,6 +115,19 @@ async function scan(){
    const recognized=await recognizeRegion(engine,image,region,$('ocr-language').value,()=>token===epoch);if(token!==epoch)return;if(!recognized)continue;
    const parsed=candidates(recognized,region,image.width,image.height,currentGame());if(region.channel==='dialogue')dialogueMenu=parsed.menu;
    let match=await request('match-candidates',{values:parsed.values,channel:region.channel,player:$('player-voice').value,fragment:region.fragment});if(token!==epoch)return;
+   if(currentGame()==='heavyrain'&&region.channel==='dialogue'){
+    if(heavyContext.epoch!==token||parsed.menu)heavyContext={epoch:token,groups:new Map(),counts:new Map(),stable:new Map()};
+    const stamp=performance.now();heavyContext.groups=new Map([...heavyContext.groups].filter(([,time])=>stamp-time<=12000));
+    if(!parsed.menu){
+     let result=await request('scene-matches',{values:parsed.values,groups:[...heavyContext.groups.keys()]});if(token!==epoch)return;
+     heavyContext.counts=new Map(result.groups.map(group=>[group,(heavyContext.counts.get(group)??0)+1]));
+     for(const[group,count]of heavyContext.counts)if(count>=2)heavyContext.groups.set(group,stamp);
+     heavyContext.groups=new Map([...heavyContext.groups].sort((a,b)=>b[1]-a[1]).slice(0,16));
+     result=await request('scene-matches',{values:parsed.values,groups:[...heavyContext.groups.keys()]});if(token!==epoch)return;
+     acceptedMany=result.matches.map(hit=>({...hit,channel:region.channel}));accepted=acceptedMany[0]??null;
+    }
+    break;
+   }
    if(currentGame()==='beyond'&&region.channel==='dialogue'){
     if(captionContext.epoch!==token||parsed.menu)captionContext={epoch:token,entries:[],candidate:null,count:0};
     const stamp=performance.now();captionContext.entries=captionContext.entries.filter(item=>stamp-item.time<=12000);
@@ -129,14 +143,19 @@ async function scan(){
    if(accepted)break;
   }
   const elapsed=performance.now()-start;samples.push({kind:'ocr',ms:elapsed});samples=samples.slice(-120);
-  if(!accepted){stable=null;text('match-status',ambiguous?'Ambiguous dialogue/voice; skipped.':'No verified match: unsupported scene, incomplete text, or crop needs calibration.');return;}
-  const key=accepted.row.id;stable=stable?.key===key?{key,count:stable.count+1}:{key,count:1};
-  text('match-status',`Verified ${accepted.channel} match · ${elapsed.toFixed(0)} ms${stable.count<2?' · confirming…':''}`);
+  if(!accepted){stable=null;if(currentGame()==='heavyrain')heavyContext.stable.clear();text('match-status',ambiguous?'Ambiguous dialogue/voice; skipped.':'No verified match: unsupported scene, incomplete text, or crop needs calibration.');return;}
+  const matches=acceptedMany??[accepted];let changed=false;
+  if(acceptedMany)heavyContext.stable=new Map(matches.map(hit=>[hit.row.id,(heavyContext.stable.get(hit.row.id)??0)+1]));
+  for(const hit of matches){
+  const key=hit.row.id;stable=acceptedMany?{key,count:heavyContext.stable.get(key)}:stable?.key===key?{key,count:stable.count+1}:{key,count:1};
+  text('match-status',`Verified ${hit.channel} match · ${elapsed.toFixed(0)} ms${stable.count<2?' · confirming…':''}`);
   if(stable.count===2&&(!emitted.has(key)||Date.now()-emitted.get(key)>10000)&&!history.some(r=>r.id===key&&Date.now()-r.createdAt<10000)){
-   emitted.set(key,Date.now());history.push({...accepted.row,score:accepted.score,matching:accepted.score===100?'exact':'fuzzy',game:currentGame(),createdAt:Date.now(),favorite:false});await saveHistory();render();
+   emitted.set(key,Date.now());history.push({...hit.row,score:hit.score,matching:hit.score===100?'exact':'fuzzy',game:currentGame(),createdAt:Date.now(),favorite:false});changed=true;
    if(emitted.size>2048){const cutoff=Date.now()-10000;for(const [id,time] of emitted)if(time<cutoff)emitted.delete(id);}
   }
- }catch(e){if(token===epoch)text('match-status',`OCR needs attention: ${e.message}`);}finally{busy=false;finishScan();}
+  }
+  if(changed){await saveHistory();render();}
+ }catch(e){if(token===epoch){heavyContext.epoch=-1;text('match-status',`OCR needs attention: ${e.message}`);}}finally{busy=false;finishScan();}
 }
 // One in-flight scan: the next scan always uses the latest video frame.
 setInterval(()=>void scan(),600);
