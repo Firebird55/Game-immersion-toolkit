@@ -40,6 +40,8 @@ RESOLUTIONS = [(800, 600), (1280, 720), (1366, 768), (1280, 800), (1920, 1080),
 
 
 def wrap(text: str, font, width: int) -> list[str]:
+    if '\n' in text:
+        return [row for paragraph in text.splitlines() for row in wrap(paragraph, font, width)]
     rows, current = [], ""
     words = list(text) if any("\u3400" <= c <= "\u9fff" for c in text) else text.split()
     separator = "" if words == list(text) else " "
@@ -164,13 +166,14 @@ async def main(args):
               **{game: LocalVoiceAssetService(game, source(game), decoder, output / "audio") for game in LOCAL_GAMES}}
     if args.source_locale:
         from backend.multilingual_index import MultilingualTextIndex
-        if args.game not in LOCAL_GAMES:
+        if args.game not in {*LOCAL_GAMES, 'pragmata'}:
             raise ValueError('Select a local game for a prepared language fixture')
         directory = data / 'languages' / args.game / args.source_locale
         indexes[args.game] = MultilingualTextIndex(args.game, directory)
         voices[args.game].close()
-        voices[args.game] = LocalVoiceAssetService(args.game, directory, decoder, output / 'audio',
-                                                tools_dir=data / args.game / 'tools')
+        voices[args.game] = (PragmataVoiceAssetService(directory, decoder, output / 'audio', tools_dir=data / args.game / 'tools')
+            if args.game == 'pragmata' else LocalVoiceAssetService(args.game, directory, decoder, output / 'audio',
+                                                tools_dir=data / args.game / 'tools'))
     engine = OcrEngine()
     try:
         if args.source_locale and args.fixtures:

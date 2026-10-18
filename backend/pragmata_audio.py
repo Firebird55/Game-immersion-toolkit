@@ -7,6 +7,7 @@ import struct
 import subprocess
 import tempfile
 import threading
+import uuid
 import wave
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -287,7 +288,7 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
     return events
 
 
-def build_sound_id_audio_map(graph: dict[str, object], bank_root: Path | None = None) -> dict[int, dict[str, object]]:
+def build_sound_id_audio_map(graph: dict[str, object], bank_root: Path | None = None, locale_code='zhcn') -> dict[int, dict[str, object]]:
     """Map RE Engine MSG SoundIDs to a unique Mandarin Wwise media object."""
     records = graph.get("source_event_records", [])
     source_events = graph.get("source_events", {})
@@ -304,7 +305,7 @@ def build_sound_id_audio_map(graph: dict[str, object], bank_root: Path | None = 
 
     localized_media: dict[str, set[int]] = {}
     for path, links in dict(graph.get("media_links", {})).items():
-        if not str(path).casefold().endswith(".sbnk.1.x64.zhcn") or not isinstance(links, dict):
+        if not str(path).casefold().endswith(f'.sbnk.1.x64.{locale_code}') or not isinstance(links, dict):
             continue
         for localized_bank, media_ids in links.items():
             localized_media.setdefault(str(localized_bank), set()).update(map(int, media_ids))
@@ -313,12 +314,12 @@ def build_sound_id_audio_map(graph: dict[str, object], bank_root: Path | None = 
     mapped: dict[int, dict[str, object]] = {}
     ambiguous: set[int] = set()
     for bank, events in dict(graph.get("bank_events", {})).items():
-        localized_bank = f"{bank}.zhcn"
+        localized_bank = f"{bank}.{locale_code}"
         available = localized_media.get(localized_bank, set())
         package = packages.get(localized_bank)
         if not available or not isinstance(package, dict):
             continue
-        bank_path = bank_root / f'{bank}.sbnk.1.x64.zhcn' if bank_root else None
+        bank_path = bank_root / f'{bank}.sbnk.1.x64.{locale_code}' if bank_root else None
         play_layers = read_bank_play_layers(bank_path) if bank_path and bank_path.is_file() else {}
         for event_id, event in dict(events).items():
             index = record_index.get((str(bank), int(event_id)))
@@ -353,18 +354,18 @@ def build_sound_id_audio_map(graph: dict[str, object], bank_root: Path | None = 
     return mapped
 
 
-def cutscene_audio_for_bank(graph: dict[str, object], bank: str, bank_root: Path | None = None) -> dict[str, object] | None:
-    localized_bank = f"{bank}.zhcn"
+def cutscene_audio_for_bank(graph: dict[str, object], bank: str, bank_root: Path | None = None, locale_code='zhcn') -> dict[str, object] | None:
+    localized_bank = f"{bank}.{locale_code}"
     package = dict(graph.get("media_packages", {})).get(localized_bank)
     if not isinstance(package, dict):
         return None
     media_ids: set[int] = set()
     for path, links in dict(graph.get("media_links", {})).items():
-        if str(path).casefold().endswith(f"/{bank}.sbnk.1.x64.zhcn") and isinstance(links, dict):
+        if str(path).casefold().endswith(f"/{bank}.sbnk.1.x64.{locale_code}") and isinstance(links, dict):
             media_ids.update(map(int, links.get(localized_bank, [])))
     layers = []
     if len(media_ids) > 1 and bank_root:
-        path = bank_root / f'{bank}.sbnk.1.x64.zhcn'
+        path = bank_root / f'{bank}.sbnk.1.x64.{locale_code}'
         if path.is_file():
             candidates = [ls for ls in read_bank_play_layers(path).values()
                           if {x['media_id'] for x in ls} == media_ids]
@@ -493,15 +494,16 @@ def mix_voice_batches(requests):
 
 
 class PragmataVoiceAssetService:
-    """Extract exact Mandarin PRAGMATA voice media lazily from the installed PAKs."""
+    """Extract the selected original PRAGMATA voice lazily from installed PAKs."""
 
-    def __init__(self, data_dir: Path, decoder: Path, output_dir: Path):
+    def __init__(self, data_dir: Path, decoder: Path, output_dir: Path, *, tools_dir: Path | None = None):
         self.data_dir = data_dir.resolve()
         self.manifest = data_dir / "textmap.json"
         self.manifest = self.manifest.resolve()
         self.decoder = decoder.resolve()
         self.output_dir = output_dir.resolve()
-        self.tools = (self.data_dir / "tools").resolve()
+        self.tools = (tools_dir or self.data_dir / 'tools').resolve()
+        self.locale = 'zh-Hans'
         self._entries: dict[str, PragmataAudioEntry] = {}
         self._install: Path | None = None
         self._fingerprint: str | None = None
@@ -517,15 +519,23 @@ class PragmataVoiceAssetService:
     def reload(self) -> bool:
         try:
             stat = self.manifest.stat()
-            signature = (stat.st_mtime_ns, stat.st_size)
-            if self.ready and self._loaded_signature == signature:
-                return True
+            signature = (stat.st_mtime_ns, stat.st_size, self.decoder.is_file(),
+                         (self.tools / 'REE.Unpacker.exe').is_file(), bool(ffmpeg_executable()))
+            if self._loaded_signature == signature:
+                return self.ready
             payload = json.loads(self.manifest.read_text(encoding="utf-8"))
+            locale = payload.get('source_locale', 'zh-Hans')
             entries: dict[str, PragmataAudioEntry] = {}
             for record in payload.get("records", []):
                 audio = record.get("audio")
                 if not isinstance(audio, dict):
                     continue
+                if payload.get('format') == 2:
+                    from .pragmata_assets import VOICE_LOCALES
+                    code = VOICE_LOCALES.get(locale)
+                    if code is None or audio.get('locale') != locale or any(
+                            value and not str(value).endswith('.' + code) for value in [audio.get('index'), audio.get('streaming')]):
+                        raise ValueError('PRAGMATA original voice locale does not match its study text')
                 raw_id = str(record["text_id"])
                 text_id = raw_id if raw_id.startswith("pragmata:") else f"pragmata:{raw_id}"
                 entries[text_id] = PragmataAudioEntry(
@@ -542,6 +552,7 @@ class PragmataVoiceAssetService:
                 )
             install_value = payload.get("install")
             with self._lock:
+                self.locale = locale
                 self._entries = entries
                 self._install = Path(str(install_value)) if install_value else None
                 self._fingerprint = str(payload.get("fingerprint") or "")
@@ -606,23 +617,20 @@ class PragmataVoiceAssetService:
         virtuals = [value for value in (entry.streaming, entry.index) if value]
         if not virtuals:
             raise ValueError("PRAGMATA audio package path is missing")
-        project = self.tools / "Projects" / "P_PRAGMATA_CURRENT.list"
+        project = self.tools / 'Projects' / ('P_PRAGMATA_' + uuid.uuid4().hex + '.list')
         project.parent.mkdir(parents=True, exist_ok=True)
         project.write_text("\n".join(virtuals) + "\n", encoding="utf-8")
         cache.mkdir(parents=True, exist_ok=True)
-        for archive in sorted(install.glob("re_chunk_*.pak*"), key=_archive_order):
-            result = subprocess.run(
-                [str(self.tools / "REE.Unpacker.exe"), "P_PRAGMATA_CURRENT", str(archive), str(cache)],
-                cwd=self.tools,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=120,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            if result.returncode:
-                raise RuntimeError(result.stderr.strip() or result.stdout[-1000:])
+        try:
+            for archive in sorted(install.glob("re_chunk_*.pak*"), key=_archive_order):
+                result = subprocess.run(
+                    [str(self.tools / 'REE.Unpacker.exe'), project.stem, str(archive), str(cache)],
+                    cwd=self.tools, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+                if result.returncode:
+                    raise RuntimeError('PRAGMATA voice extraction failed; check the installed archives')
+        finally:
+            project.unlink(missing_ok=True)
         for virtual in virtuals:
             candidate = cache / Path(virtual.replace("/", "\\"))
             if candidate.is_file():
@@ -641,7 +649,7 @@ class PragmataVoiceAssetService:
             raise KeyError(text_id)
         package = self._package(entry)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"official-pragmata-{line_id}-{entry.media_id}.mp3"
+        filename = f"official-pragmata-{line_id}-{self.locale}-{entry.media_id}.mp3"
         destination = self.output_dir / filename
         with tempfile.TemporaryDirectory(prefix="pragmata-voice-", dir=self.output_dir) as scratch_value:
             scratch = Path(scratch_value)
@@ -696,7 +704,7 @@ class PragmataVoiceAssetService:
         if sum(len(entry.media_ids) for entry in entries) > 64:
             return [self.extract(*request) for request in requests]
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        filenames = [f'official-pragmata-{number}-{entry.media_id}.mp3' for entry, (text_id, number, english) in zip(entries, requests)]
+        filenames = [f'official-pragmata-{number}-{self.locale}-{entry.media_id}.mp3' for entry, (text_id, number, english) in zip(entries, requests)]
         with tempfile.TemporaryDirectory(prefix='pragmata-batch-', dir=self.output_dir) as value:
             scratch = Path(value)
             sources, clips = {}, []

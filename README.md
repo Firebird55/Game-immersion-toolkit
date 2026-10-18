@@ -95,3 +95,8 @@ See [setup and tested coverage](docs/beyond-support.md); full-game OCR acceptanc
 
 HEAVY RAIN adds official text and original audio in ten voiced languages,
 including Dutch with aligned Chinese translations. See [tested coverage](docs/heavy-rain-support.md).
+
+NTE supports all four original dubs and both Chinese scripts; see
+[language preparation and validation](docs/nte-languages.md).
+PRAGMATA supports all eleven original dubs and fourteen official text locales;
+see [language preparation and validation](docs/pragmata-languages.md).

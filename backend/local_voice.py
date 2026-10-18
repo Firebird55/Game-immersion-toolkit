@@ -40,12 +40,13 @@ class LocalVoiceAssetService:
             if self._loaded_signature == signature:
                 return self.ready
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.locale = payload.get('source_locale', 'zh-Hans')
+            locale = payload.get('source_locale', 'zh-Hans')
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
             install = Path(payload["install"])
             stamp = payload["fingerprint"]
             ready = bool(entries and install.is_dir() and (self.game in {'beyond', 'heavyrain'} or self.decoder.is_file()) and ffmpeg_executable())
             with self._lock:
+                self.locale = locale
                 self._entries, self._install, self._fingerprint = entries, install, stamp
                 self.ready = ready
                 self._loaded_signature = signature

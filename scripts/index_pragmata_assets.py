@@ -69,7 +69,7 @@ def read_strings(pool: bytes) -> dict[int, str]:
     return result
 
 
-def read_msg(path: Path) -> list[dict[str, object]]:
+def read_msg(path: Path, locales=None) -> list[dict[str, object]]:
     """Read the subset of RE Engine MSG v23 needed for localization indexing."""
     with path.open("rb") as stream:
         version, magic = struct.unpack("<I4s", stream.read(8))
@@ -114,7 +114,7 @@ def read_msg(path: Path) -> list[dict[str, object]]:
     language_positions = {language: index for index, language in enumerate(languages)}
     english_index = language_positions.get(1)
     chinese_index = language_positions.get(13)
-    if english_index is None or chinese_index is None:
+    if locales is None and (english_index is None or chinese_index is None):
         return []
 
     def text(offset: int) -> str:
@@ -125,8 +125,10 @@ def read_msg(path: Path) -> list[dict[str, object]]:
             "guid": message_guid,
             "sound_id": sound_id,
             "name": text(name_offset),
-            "english": text(content_offsets[english_index]),
-            "chinese": text(content_offsets[chinese_index]),
+            "english": text(content_offsets[english_index]) if english_index is not None else '',
+            "chinese": text(content_offsets[chinese_index]) if chinese_index is not None else '',
+            **({'texts': {locale: text(content_offsets[language_positions[index]]) for locale, index in locales.items()
+                          if index in language_positions}} if locales is not None else {}),
         }
         for message_guid, sound_id, name_offset, _values_offset, content_offsets in headers
     ]
@@ -161,7 +163,7 @@ def fingerprint(install: Path) -> str:
     )
 
 
-def update_asset_list(tools: Path) -> None:
+def update_asset_list(tools: Path, locale_code='zhcn') -> None:
     projects = tools / "Projects"
     projects.mkdir(parents=True, exist_ok=True)
     release = projects / "P_STM_Release.list"
@@ -178,7 +180,7 @@ def update_asset_list(tools: Path) -> None:
         if line.casefold().startswith("natives/stm/message/")
         or (
             line.casefold().startswith("natives/stm/sound/wwise/")
-            and line.casefold().endswith("dialogue.sbnk.1.x64.zhcn")
+            and line.casefold().endswith(f'dialogue.sbnk.1.x64.{locale_code}')
         )
         or (
             line.casefold().startswith("natives/stm/event/cs/")
@@ -194,13 +196,16 @@ def archive_order(path: Path) -> tuple[int, str]:
     return (int("patch" in name), name)
 
 
-def extract_assets(install: Path, destination: Path, tools: Path) -> None:
+def extract_assets(install: Path, destination: Path, tools: Path, locale_code=None) -> None:
     unpacker = tools / "REE.Unpacker.exe"
     if not unpacker.is_file():
         raise FileNotFoundError(
             "PRAGMATA extractor is missing. Re-run the Proxy Transcript installer/update."
         )
-    update_asset_list(tools)
+    if locale_code is None:
+        update_asset_list(tools)
+    else:
+        update_asset_list(tools, locale_code)
     destination.mkdir(parents=True, exist_ok=True)
     for archive in sorted(install.glob("re_chunk_*.pak*"), key=archive_order):
         result = subprocess.run(
@@ -226,8 +231,8 @@ def clean_text(value: str, references: dict[str, tuple[str, str]], language: int
     return "\n".join(" ".join(line.split()) for line in value.splitlines()).strip()
 
 
-def load_sound_graph() -> dict[str, object]:
-    path = DATA_DIR / "sound-graph.json.gz"
+def load_sound_graph(directory=None) -> dict[str, object]:
+    path = (directory or DATA_DIR) / "sound-graph.json.gz"
     try:
         request = urllib.request.Request(SOUND_GRAPH_URL, headers={"User-Agent": "ProxyTranscript/1"})
         with urllib.request.urlopen(request, timeout=60) as response:

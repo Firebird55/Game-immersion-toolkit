@@ -147,6 +147,7 @@ class Runtime:
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
             DATA_DIR / "audio",
         )
+        self._legacy_pragmata_voice = self.pragmata_voice_assets
         self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in LOCAL_GAMES}
         self.game_voice_assets = {game: LocalVoiceAssetService(game, DATA_DIR / game,
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
@@ -206,7 +207,7 @@ class Runtime:
 
     def reader_locales(self, game):
         # Each subsequent reader release supplies an explicit locale contract.
-        if game in LOCAL_GAMES:
+        if game in {*LOCAL_GAMES, 'pragmata'}:
             from .game_assets import asset_adapter
             adapter, _ = asset_adapter(game)
             return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
@@ -215,7 +216,7 @@ class Runtime:
     def build_language(self, game, locale, targets):
         from .game_assets import asset_adapter
         from .multilingual_index import MultilingualTextIndex
-        if game in LOCAL_GAMES:
+        if game in {*LOCAL_GAMES, 'pragmata'}:
             adapter, _ = asset_adapter(game)
             if hasattr(adapter, 'index_language'):
                 install = self.setup_install(game)
@@ -285,15 +286,22 @@ class Runtime:
             index.load()
             voices = self._locale_voices.get(key)
             if voices is None:
-                voices = self._locale_voices[key] = LocalVoiceAssetService(game, directory,
-                    DATA_DIR / 'voice-assets/vgmstream/vgmstream-cli.exe', DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools')
+                decoder = DATA_DIR / 'voice-assets/vgmstream/vgmstream-cli.exe'
+                voices = (PragmataVoiceAssetService(directory, decoder, DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools')
+                          if game == 'pragmata' else LocalVoiceAssetService(game, directory, decoder,
+                              DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools'))
+                self._locale_voices[key] = voices
             voices.reload()
             try:
                 index.target_locale = translation_language(self.account_preferences(), study_language(locale))
             except LexiriseError:
                 index.target_locale = self.languages.prepared(game, locale)['targets'][0]
-            self.game_indexes[game] = index
-            self.game_voice_assets[game] = voices
+            if game == 'pragmata':
+                self.pragmata = self.capture.pragmata = index
+                self.pragmata_voice_assets = self.capture.pragmata_voice_assets = voices
+            else:
+                self.game_indexes[game] = index
+                self.game_voice_assets[game] = voices
         if self._active_locales.get(game) != locale:
             self._active_locales[game] = locale
             self.capture._scan_epoch += 1
@@ -560,7 +568,7 @@ async def lifespan(_app: FastAPI):
         await runtime.capture.close()
         await asyncio.to_thread(runtime.hito.close)
         runtime.voice_assets.close()
-        runtime.pragmata_voice_assets.close()
+        runtime._legacy_pragmata_voice.close()
         for reader in runtime._readers.values():
             reader.pool.shutdown(wait=False, cancel_futures=True)
         for voices in set([*runtime._legacy_game_voices, *runtime.game_voice_assets.values(), *runtime._locale_voices.values()]):

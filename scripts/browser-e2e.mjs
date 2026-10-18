@@ -13,6 +13,7 @@ const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialog
 const nteLine={...cyberpunkLine,id:4,game:'nte',english:'',text_id:'nte-fixture',source_text:'ここで少し待っていてください。',source_language:'ja',source_locale:'ja',audio_locale:'ja',translation_locale:'zh-Hans',translation_text:'请在这里稍等。',chinese:'请在这里稍等。'};
 const beyondLine={...cyberpunkLine,id:7,game:'beyond',text_id:'beyond-fixture',source_text:'Een volledige testzin.',source_language:'nl',source_locale:'nl',audio_locale:'nl',translation_locale:'zh-Hans',translation_text:'合成测试句子。',english:'',chinese:'合成测试句子。'};
 const heavyRainLine={...beyondLine,id:8,game:'heavyrain',text_id:'heavyrain-fixture'};
+const pragmataLine={...beyondLine,id:9,game:'pragmata',text_id:'pragmata-fixture',source_text:'Attendez ici un instant.',source_language:'fr',source_locale:'fr',audio_locale:'fr'};
 settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
@@ -20,7 +21,10 @@ mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
+account.languages.push('fr');account.languageSettings.fr={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 function response(path,query,method,body){
+ if(path==='/api/lines'&&query.get('game')==='pragmata')return [pragmataLine];
+ if(path==='/api/lines/9/reading')return {text:pragmataLine.source_text,tokens:[{start:0,end:8,word:'Attendez',meaning:'等一下',proficiency:0}],grammar:[]};
  if(path==='/api/lines/4/reading')return {text:nteLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='heavyrain')return [heavyRainLine];
  if(path==='/api/lines/8/reading')return {text:heavyRainLine.source_text,tokens:[{start:0,end:3,word:'Een',meaning:'一个',proficiency:0}],grammar:[]};
@@ -199,6 +203,11 @@ try{
   assert.equal(writes.length,0,'New games cause no account writes');
   if(name==='chromium'&&pw===320)await page.screenshot({path:`output/playwright/${game}-mobile.png`});
  }
+ await games.getByRole('button',{name:'PRAGMATA',exact:true}).click();await page.locator('.current-line.game-pragmata').waitFor();
+ assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'fr','PRAGMATA retains the selected French study language');
+ await page.locator('.current-line').getByText(pragmataLine.source_text,{exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Localized PRAGMATA original voice is playable');
+ assert.equal(writes.length,0,'Reading a PRAGMATA locale never changes account settings');
  assert.equal(await games.getByRole('button',{name:'Honkai Impact 3rd',exact:true}).count(),0,'Archived game is absent');
  await games.getByRole('button',{name:'Zenless Zone Zero',exact:true}).click();await page.locator('.current-line.game-zzz').waitFor();
  if(zoom===1&&pw===1920){for(const[w,h]of [[320,568],[1280,720],[568,320],[900,720]]){
