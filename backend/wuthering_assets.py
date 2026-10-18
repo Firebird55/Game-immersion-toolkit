@@ -1,4 +1,4 @@
-"""Read installed Wuthering Waves dialogue and exact Mandarin external sources.
+"""Read selected Wuthering Waves text and authored original voice sources.
 
 The PlotAudio FlatBuffer fields and filename rules follow the game's shipped
 Core/Define/Config/PlotAudio.js and Game/Module/Plot/PlotAudioModel.js. No event
@@ -28,7 +28,7 @@ EXTRACTOR_URL = "https://github.com/Herselfta/FModelCLI/releases/download/v1.0.2
 EXTRACTOR_SHA256 = "86426493c63f0af2ccf6d1d8b498a737723069f6c25a573a46e94d1a3f26e835"
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_LOCALES = {'en': ('en', 4), 'zh-Hans': ('zh', 7), 'zh-Hant': ('zh', 7), 'ja': ('ja', 5), 'ko': ('ko', 6)}
 TEXT_LOCALES = {locale: locale for locale in ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko', 'fr', 'de', 'ru', 'th', 'vi', 'id')}
@@ -253,8 +253,12 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
 
 def build_language_records(db_root: Path, files: list[str], source_locale: str, target_locales) -> list[dict]:
     from .languages import audio_locale
+    if not (db_root / TEXT_LOCALES[source_locale] / 'lang_multi_text.db').is_file():
+        raise ValueError('Install the selected official Wuthering text pack before preparing it.')
     tables = {locale: dict(_rows(db_root / TEXT_LOCALES[locale] / 'lang_multi_text.db',
         'SELECT Id, Content FROM MultiText WHERE Content IS NOT NULL')) for locale in {source_locale, *target_locales}}
+    if not tables[source_locale]:
+        raise ValueError('The selected official Wuthering text pack is empty; no other language was substituted.')
     sources = {path.casefold(): path for path in files if path.startswith(EXTERNAL_ROOT) and path.endswith('.wem')}
     code, gender_slot = VOICE_LOCALES[source_locale]
     records = []
@@ -304,12 +308,14 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     if not records or fingerprint(install) != stamp:
         raise ValueError('Wuthering files changed or dialogue is incomplete; previous table retained.')
     mapped = sum(bool(row['audio']) for row in records)
-    missing = [target for target, locale in targets.items() if locale is None]
+    available = {locale for row in records for locale in row['texts']}
+    missing = [target for target, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'wuwa', 'install': str(install), 'fingerprint': stamp,
         'source_locale': source_locale, 'records': records, 'missing_translation_locales': missing,
         'message': f'{len(records):,} official {source_locale} lines; {mapped:,} original voices' +
+        (f'; {len(records) - mapped:,} entries without a verified voice binding' if mapped < len(records) else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
-        ('; install the selected voice pack through the game launcher' if not mapped else '')}
+        ('; check the selected voice pack through the game launcher' if not mapped else '')}
 
 
 def _validate_voice(audio):
@@ -325,7 +331,7 @@ def extract_voice(install: Path, audio: dict, executable: Path, destination: Pat
     run_extractor(install, executable, destination, depot)
     path = (destination / depot).resolve()
     if not path.is_relative_to(destination.resolve()) or not path.is_file():
-        raise FileNotFoundError("The original Mandarin clip is missing from the installed voice pack")
+        raise FileNotFoundError("The selected original clip is missing from the installed voice pack")
     return path.read_bytes()
 
 
@@ -336,7 +342,11 @@ def _voice_inventory(path: Path, size: int, modified: int) -> tuple[str, ...]:
 
 
 def extract_voices(install: Path, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
+    if not audios:
+        return []
     depots = [_validate_voice(audio) for audio in audios]
+    if len({VOICE_LOCALES[audio.get('locale', 'zh-Hans')][0] for audio in audios}) != 1:
+        raise ValueError('Original voice batch crosses study/audio locales')
     inventory_path = executable.parent.parent / 'index-cache' / fingerprint(install)[:16] / 'complete.json'
     try:
         stat = inventory_path.stat()
@@ -361,7 +371,7 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
         for depot in group:
             path = (directory / depot).resolve()
             if not path.is_relative_to(directory.resolve()) or not path.is_file():
-                raise FileNotFoundError('Original Mandarin clip is missing from the installed voice pack')
+                raise FileNotFoundError('The selected original clip is missing from the installed voice pack')
             locations[depot] = path
     extract(sorted(set(depots)), 'sources')
     return [locations[depot].read_bytes() for depot in depots]

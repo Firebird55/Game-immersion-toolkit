@@ -100,3 +100,5 @@ NTE supports all four original dubs and both Chinese scripts; see
 [language preparation and validation](docs/nte-languages.md).
 PRAGMATA supports all eleven original dubs and fourteen official text locales;
 see [language preparation and validation](docs/pragmata-languages.md).
+Wuthering Waves supports all four original dubs and both Chinese scripts;
+see [language preparation and validation](docs/wuthering-languages.md).
