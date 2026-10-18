@@ -21,6 +21,22 @@ const input=(name,buffer)=>({name,mimeType:'application/zip',buffer});
 mkdirSync('output/playwright',{recursive:true});
 const pipelinePath=[...files.keys()].find(p=>/\/ocr-pipeline(?:\.[a-f0-9]+)?\.mjs$/.test(p));
 const libraryWorkerPath=[...files.keys()].find(p=>/\/library-worker(?:\.[a-f0-9]+)?\.mjs$/.test(p));
+async function verifyZzzProxy(page){
+ const female={...row,id:'7'.repeat(64),textId:'GalGame_fixture:F',sourceVoice:'7'.repeat(64),playerVoice:'female',sourceLanguage:'ja',sourceLocale:'ja',audioLocale:'ja',sourceText:'私の言葉です。',translationLocale:'zh-Hans',translationText:'这句话的字幕相同。',memberTextIds:['GalGame_fixture']},
+ male={...female,id:'6'.repeat(64),textId:'GalGame_fixture:M',sourceVoice:'6'.repeat(64),playerVoice:'male',sourceText:'僕の言葉です。',memberTextIds:['GalGame_fixture']};
+ const segment=Buffer.from([female,male].map(value=>JSON.stringify(value)+'\n').join('')),bytes=encode({'manifest.json':{...manifest,game:'zzz',coverage:{dialogue:2},catalog:[{name:'catalog/00000.ndjson',size:segment.length,sha256:hash(segment)}]},'catalog/00000.ndjson':segment});
+ const result=await page.evaluate(async({url,bytes})=>{
+  const worker=new Worker(url,{type:'module'});let id=0;const pending=new Map();
+  worker.onmessage=({data})=>{if(data.stage||data.progress!=null)return;const request=pending.get(data.id);if(!request)return;pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
+  const request=(action,body={})=>new Promise((resolve,reject)=>{const token=++id;pending.set(token,{resolve,reject});worker.postMessage({id:token,action,...body});});
+  try{
+   await request('open',{files:[new File([Uint8Array.from(bytes)],'synthetic-zzz-proxy.zip')]});
+   return {unique:await request('match-candidates',{values:['私の言葉です。']}),ambiguous:await request('match-candidates',{values:['这句话的字幕相同。']}),male:await request('match-candidates',{values:['这句话的字幕相同。'],player:'male'})};
+  }finally{worker.terminate();}
+ },{url:base+libraryWorkerPath,bytes:[...bytes]});
+ assert.equal(result.unique.row.textId,female.textId);assert.equal(result.unique.row.sourceLocale,'ja');assert.equal(result.unique.row.audioLocale,'ja');assert.equal(result.unique.row.memberTextIds,undefined);
+ assert.notEqual(result.ambiguous.state,'matched');assert.equal(result.male.row.textId,male.textId);
+}
 async function verifyBeyondContext(page){
  const first={...row,id:'d'.repeat(64),textId:'beyond:ONE:1',sourceVoice:'d'.repeat(64),sourceLanguage:'nl',sourceLocale:'nl',audioLocale:'nl',sourceText:'Goed.',translationLocale:'zh-Hans',translationText:'好的'};
  const other={...first,id:'e'.repeat(64),textId:'beyond:OTHER:1',sourceVoice:'e'.repeat(64)};
@@ -83,7 +99,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({acceptDownloads:true,viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],external=[];
   page.on('pageerror',e=>errors.push(e.message));context.on('request',request=>{if(!request.url().startsWith(base)&&!request.url().startsWith('blob:')&&!request.url().startsWith('data:'))external.push(request.url());});
-  await page.goto(base+'?developer=1');await verifyBeyondContext(page);await verifyHeavyRainPages(page);await page.selectOption('#role','receiver');
+  await page.goto(base+'?developer=1');await verifyZzzProxy(page);await verifyBeyondContext(page);await verifyHeavyRainPages(page);await page.selectOption('#role','receiver');
   await page.setInputFiles('#library-files',[input('catalog.zip',catalog),input('voices.zip',voices)]);
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent()});throw error;});
   await page.fill('#find-text',quietRow.english+'\n'+quietRow.chinese);await page.click('#find-line');await page.getByRole('button',{name:'No verified original voice',exact:true}).waitFor();assert(await page.getByRole('button',{name:'No verified original voice',exact:true}).isDisabled());await page.click('#clear-history');

@@ -142,3 +142,17 @@ test('BEYOND overlapping voices stay independent while wrapped fragments and amb
  assert.deepEqual(new DialogueMatcher([full,fragment,background,duplicate]).simultaneousMatches([full.english,fragment.english,background.english]).map(hit=>hit.row.id),[background.id]);
  assert.deepEqual(matcher.simultaneousMatches(['7654','LOOK MOVE','O □ + ☆']),[]);
 });
+
+test('ZZZ Proxy variants retain authored identity and old aliases are not caption contexts',()=>{
+ const female={...row,id:'b'.repeat(64),textId:'GalGame_fixture:F',sourceVoice:'b'.repeat(64),playerVoice:'female',
+  sourceLanguage:'ja',sourceLocale:'ja',audioLocale:'ja',sourceText:'私の言葉です。',translationLocale:'zh-Hans',translationText:'这是她的话。',memberTextIds:['GalGame_fixture']},
+ male={...female,id:'c'.repeat(64),textId:'GalGame_fixture:M',sourceVoice:'c'.repeat(64),playerVoice:'male',sourceText:'僕の言葉です。',translationText:'这是他的话。'};
+ const clean=validateRow(female);assert.equal(clean.memberTextIds,undefined);assert.deepEqual(female.memberTextIds,['GalGame_fixture']);
+ assert.equal(new DialogueMatcher([clean,male],'zzz').match(female.sourceText).row.id,female.id);
+ const shared={...male,sourceText:female.sourceText};
+ const matcher=new DialogueMatcher([clean,shared],'zzz');
+ assert.equal(matcher.match(female.sourceText).state,'unmatched');
+ assert.equal(matcher.match(female.sourceText,'dialogue','male').row.id,male.id);
+ assert.throws(()=>validateRow({...female,memberTextIds:['Unrelated_identity']}),/context members/);
+ assert.equal(new DialogueMatcher([clean],'cyberpunk').match(female.sourceText).state,'unmatched');
+});

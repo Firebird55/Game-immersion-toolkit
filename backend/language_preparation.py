@@ -52,6 +52,16 @@ class LanguagePreparation:
         with self.lock:
             return self.data['selected'].get(account, {}).get(game)
 
+    def selection_generation(self, game: str, account: str = 'legacy') -> int:
+        with self.lock:
+            return self.data.get('selection_generations', {}).get(account, {}).get(game, 0)
+
+    def _select(self, game, locale, account):
+        if self.data['selected'].get(account, {}).get(game) != locale:
+            versions = self.data.setdefault('selection_generations', {}).setdefault(account, {})
+            versions[game] = versions.get(game, 0) + 1
+        self.data['selected'].setdefault(account, {})[game] = locale
+
     def prepared(self, game: str, locale: str) -> dict | None:
         with self.lock:
             value = self.data['prepared'].get(game, {}).get(locale)
@@ -105,7 +115,7 @@ class LanguagePreparation:
                     'targets': list(targets), 'prepared_at': datetime.now(timezone.utc).isoformat(),
                     'mapped_lines': state.get('audio_count', 0)}
                 if not refresh:
-                    self.data['selected'].setdefault(account, {})[game] = locale
+                    self._select(game, locale, account)
                 self._save()
                 self.jobs[key] = {'state': 'ready', 'progress': 100, 'message': state.get('message', 'Language prepared')}
             self.activate(game, locale, account)
@@ -120,7 +130,7 @@ class LanguagePreparation:
         with self.lock:
             if not self.prepared(game, locale):
                 raise ValueError('Prepare this language first.')
-            self.data['selected'].setdefault(account, {})[game] = locale
+            self._select(game, locale, account)
             self._save()
         self.activate(game, locale, account)
 
@@ -129,8 +139,9 @@ class LanguagePreparation:
             if self.jobs.get((game, locale), {}).get('state') == 'preparing':
                 raise ValueError('Wait for language preparation before removing its table.')
             self.data['prepared'].get(game, {}).pop(locale, None)
-            for values in self.data['selected'].values():
+            for account, values in self.data['selected'].items():
                 if values.get(game) == locale:
+                    self._select(game, None, account)
                     del values[game]
             self.jobs.pop((game, locale), None)
             self._save()

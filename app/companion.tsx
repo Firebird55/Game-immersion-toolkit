@@ -993,7 +993,7 @@ function CompanionClient() {
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={!online || !draftSettings}>
             <Settings2 /> Capture setup
           </Button>
-          <ToolkitSetup online={online} game={selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
+          <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
             onReading={() => setReaderSettingsOpen(true)} onAccount={language => {setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />

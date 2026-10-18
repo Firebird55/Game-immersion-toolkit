@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -35,8 +36,10 @@ def stop_export_process(process):
 
 
 class MobileExportManager:
-    def __init__(self, root):
+    def __init__(self, root, *, scope=None, guard=None, account_signature=None, source_locale=None):
         self.root = Path(root).resolve()
+        self.scope, self.guard = scope, guard or (lambda: True)
+        self.account_signature, self.source_locale = account_signature, source_locale
         self._lock = threading.RLock()
         self._cancel = threading.Event()
         self._thread = self._process = self._picker = self._picker_result = None
@@ -47,7 +50,17 @@ class MobileExportManager:
 
     @property
     def preferences_path(self):
+        if self.scope:
+            identity = hashlib.sha256(json.dumps(self.scope).encode()).hexdigest()[:24]
+            return settings_path().parent / 'mobile-library' / (identity + '.json')
         return settings_path().with_name('mobile-library.json')
+
+    def output_folder(self, folder, game):
+        if not self.scope:
+            return Path(folder) / game
+        account, locale = self.scope
+        profile = hashlib.sha256(account.encode()).hexdigest()[:16]
+        return Path(folder) / ('profile-' + profile) / locale / game
 
     def destination(self):
         try:
@@ -59,6 +72,8 @@ class MobileExportManager:
         return self.root / 'output/mobile-libraries'
 
     def _save_destination(self, folder):
+        if not self.guard():
+            raise ValueError('Account or learning language changed; reopen Setup.')
         path = self.preferences_path
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.pending')
@@ -92,6 +107,9 @@ class MobileExportManager:
         return path, existing
 
     def _finish_picker(self):
+        if self._picker and not self.guard():
+            self.close_picker()
+            return
         if self._picker and self._picker.poll() is None and not Path(str(self._picker_result) + '.ready').exists() and time.monotonic() - self._picker_started > 25:
             self.close_picker()
             self._picker_message = 'Windows did not show the folder browser. Paste a folder path or try Browse again.'
@@ -166,18 +184,21 @@ class MobileExportManager:
     def preview(self, game, include_audio=True, destination_folder=None):
         if game not in GAMES:
             raise ValueError('Unsupported game')
+        if not self.guard():
+            raise ValueError('Account or learning language changed; reopen Setup.')
         folder, existing = self._validate_folder(destination_folder or self.destination())
         data = self.root / 'data'
         from .language_preparation import selected_snapshot
+        legacy_zzz = game == 'zzz' and not (data / 'languages/zzz').is_dir()
         inputs = ([data / 'voice-assets/manifest.json', data / 'voice-assets/learned-manifest.json']
-                  if game == 'zzz' else [selected_snapshot(self.root, game)[0]])
+                  if legacy_zzz else [selected_snapshot(self.root, game)[0]])
         signature = tuple((str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in inputs if p.is_file())
         key = (game, signature)
         with self._lock:
             cached = self._estimates.get(key)
         if cached is None:
             records, count = [], 0
-            if game == 'zzz':
+            if legacy_zzz:
                 entries = {}
                 for path in inputs:
                     if path.is_file():
@@ -197,7 +218,7 @@ class MobileExportManager:
         estimated = cached['catalog'] + audio
         basis = cached['basis'] if include_audio else 'Catalog metadata estimate; no voices included'
         # A previous completed export is a better starting point than typical sizes.
-        output = folder / game
+        output = self.output_folder(folder, game)
         try:
             completed, catalog_path = latest_export(output, game)
             if catalog_path.is_file():
@@ -242,7 +263,7 @@ class MobileExportManager:
                 return False
             preview = self.preview(game, include_audio, destination_folder)
             folder, _ = self._validate_folder(preview['destinationFolder'])
-            output = folder / game
+            output = self.output_folder(folder, game)
             output.mkdir(parents=True, exist_ok=True)
             probe = output / ('.write-check-' + uuid.uuid4().hex)
             try:
@@ -260,6 +281,8 @@ class MobileExportManager:
     def _worker_args(self, game, include_audio, output):
         args = [sys.executable, '-u', '-m', 'backend.mobile_export_worker', '--root', str(self.root),
                 '--game', game, '--output', str(output)]
+        if self.account_signature is not None:
+            args += ['--account-signature', self.account_signature, '--source-locale', self.source_locale]
         return args if include_audio else [*args, '--catalog-only']
 
     def _run(self, game, include_audio, output):
@@ -267,6 +290,8 @@ class MobileExportManager:
         try:
             args = self._worker_args(game, include_audio, output)
             with self._lock:
+                if not self.guard():
+                    self._cancel.set()
                 if self._cancel.is_set():
                     return
                 process = subprocess.Popen(args, cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -274,6 +299,9 @@ class MobileExportManager:
                     start_new_session=sys.platform != 'win32', env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
                 self._process = process
             for line in process.stdout:
+                if not self.guard():
+                    self.cancel()
+                    break
                 try:
                     values = json.loads(line)
                 except ValueError:

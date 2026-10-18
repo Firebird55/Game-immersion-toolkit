@@ -5,7 +5,7 @@ import { Check, Download, FolderOpen, Smartphone, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Estimate = { estimatedBytes: number; estimateLowBytes: number; estimateHighBytes: number; workingBytes: number; freeBytes: number; rows: number; basis: string };
-export type MobileExportStatus = { state: string; game?: string; progress: number; message: string; folder?: string; bytes?: number;
+export type MobileExportStatus = { state: string; game?: string; selectedGame?: string; scope?: string; sourceLocale?: string; progress: number; message: string; folder?: string; bytes?: number;
   destinationFolder?: string; outputFolder?: string; browseActive?: boolean; browsePhase?: string | null; browseMessage?: string; estimatedCatalogBytes?: number; estimatedAudioBytes?: number; audioBytes?: number;
   done?: number; total?: number; estimate?: Estimate; coverage?: { dialogue: number; exportedVoices: number } };
 const activeStates = ['preparing', 'exporting', 'cancelling'];
@@ -18,16 +18,18 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
   const [voices, setVoices] = useState(true), [folder, setFolder] = useState('');
   const [estimate, setEstimate] = useState<Estimate | null>(null), [estimating, setEstimating] = useState(false), [estimateError, setEstimateError] = useState('');
   const dirty = useRef(false);
+  const languageMissing = status?.sourceLocale === 'unconfigured';
   const active = activeStates.includes(status?.state ?? ''), stopping = status?.state === 'cancelling';
   const thisJob = status?.game === game, includeAudio = voices && !textOnly;
   useEffect(() => { if (!dirty.current && status?.destinationFolder) setFolder(status.destinationFolder); }, [status?.destinationFolder]);
   useEffect(() => {
-    if (!folder || active) return;
+    if (!folder || active || languageMissing) return;
     const controller = new AbortController();
     setEstimating(true); setEstimateError(''); setEstimate(null);
     const timer = window.setTimeout(() => {
       void fetch(`http://127.0.0.1:8766/api/setup/games/${game}/mobile-export/preview`, { method: 'POST', signal: controller.signal,
-        headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup' },
+        headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup',
+          ...(status?.scope ? {'X-Proxy-Transcript-Export-Scope':status.scope} : {}) },
         body: JSON.stringify({ include_audio: includeAudio, destination_folder: folder }) })
         .then(async response => { const value = await response.json() as Estimate & { detail?: string }; if (!response.ok) throw new Error(value.detail || 'Estimate unavailable.'); return value; })
         .then(value => { if (!controller.signal.aborted) setEstimate(value); })
@@ -35,13 +37,13 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
         .finally(() => { if (!controller.signal.aborted) setEstimating(false); });
     }, 400);
     return () => { controller.abort(); window.clearTimeout(timer); };
-  }, [game, includeAudio, folder, active]);
+  }, [game, includeAudio, folder, active, status?.scope, languageMissing]);
   const currentEstimate = active && thisJob ? status?.estimate : estimate;
   const measuredEstimate = thisJob && active && status?.estimatedAudioBytes != null
     ? status.estimatedAudioBytes + (status.estimatedCatalogBytes ?? 0) : currentEstimate?.estimatedBytes;
   const completed = thisJob && status?.state === 'complete';
   const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase();
-  const completedHere = completed && !!status.outputFolder && normalizePath(status.outputFolder) === normalizePath(`${folder}/${game}`);
+  const completedHere = completed && !!status.outputFolder && !!status.destinationFolder && normalizePath(status.destinationFolder) === normalizePath(folder);
   const visibleStatus = thisJob && status?.state !== 'idle';
   return <section className="toolkit-export-card" aria-label="Mobile library export">
     <div className="toolkit-card-heading"><Smartphone size={20} /><div><h3>Mobile library</h3><p>Take {title} transcripts and voices to your phone.</p></div></div>
@@ -51,12 +53,12 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
       <label htmlFor="mobile-export-folder">Save libraries to</label>
       <div className="toolkit-destination-row"><input id="mobile-export-folder" value={folder} disabled={active || status?.browseActive}
         spellCheck={false} autoComplete="off" placeholder="Choose a folder on this PC" onChange={event => { dirty.current = true; setFolder(event.target.value); }} />
-        <Button variant="outline" disabled={busy || active || status?.browseActive} onClick={() => { dirty.current = false;
-          void action('/api/setup/mobile-export/browse', { destination_folder: folder || undefined }, 'Opening the Windows folder browser…'); }}><FolderOpen />{status?.browseActive ? status.browsePhase === 'open' ? 'Picker open…' : 'Opening…' : 'Browse'}</Button></div>
+        <Button variant="outline" disabled={busy || active || languageMissing || status?.browseActive} onClick={() => { dirty.current = false;
+          void action('/api/setup/mobile-export/browse', { game, destination_folder: folder || undefined }, 'Opening the Windows folder browser…'); }}><FolderOpen />{status?.browseActive ? status.browsePhase === 'open' ? 'Picker open…' : 'Opening…' : 'Browse'}</Button></div>
       {status?.browseActive && <div className="toolkit-setup-actions"><p role="status" className="toolkit-setup-note">{status.browsePhase === 'open' ? 'Choose a folder in the Windows dialog. If it stalls, close it here and paste a path.' : 'Starting the folder browser. You can close it here if no window appears.'}</p>
-        <Button variant="outline" onClick={() => void action('/api/setup/mobile-export/browse/cancel', {}, 'Folder browser closed.')}>Close picker</Button></div>}
+        <Button variant="outline" onClick={() => void action('/api/setup/mobile-export/browse/cancel', {game}, 'Folder browser closed.')}>Close picker</Button></div>}
       {status?.browseMessage && <p role="status" className="toolkit-setup-note">{status.browseMessage}</p>}
-      <small>Creates a separate folder for each game. This choice is remembered on this PC.</small>
+      <small>Creates separate folders for this account, learning language and game. This destination is remembered on this PC.</small>
     </div>
     <div className="toolkit-export-estimate" aria-live="polite">
       <div><span>{completedHere ? 'Exported size' : 'Estimated export size'}</span><strong>{completedHere && status.bytes != null ? gb(status.bytes)
@@ -72,10 +74,11 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
     {!ready && <p className="toolkit-setup-warning">Refresh game data before exporting.</p>}
     {active && !thisJob && <p role="status">Another game is exporting. Cancel it below or wait for completion.</p>}
     <div className="toolkit-setup-actions toolkit-export-actions">
-      <Button disabled={busy || !ready || active || !estimate || estimating || !!estimateError || status?.browseActive}
+      <Button disabled={busy || !ready || languageMissing || active || !estimate || estimating || !!estimateError || status?.browseActive}
         onClick={() => void action(`/api/setup/games/${game}/mobile-export`, { include_audio: includeAudio, destination_folder: folder }, 'Export started. You can close Setup while it runs.')}><Download />{thisJob && status?.state === 'cancelled' ? 'Resume export' : 'Export mobile library'}</Button>
-      {active && <Button variant="outline" disabled={stopping} onClick={() => void action('/api/setup/mobile-export/cancel', {}, 'Stopping export…')}><Square size={14} />{stopping ? 'Stopping…' : 'Cancel export'}</Button>}
+      {active && <Button variant="outline" disabled={stopping} onClick={() => void action('/api/setup/mobile-export/cancel', {game}, 'Stopping export…')}><Square size={14} />{stopping ? 'Stopping…' : 'Cancel export'}</Button>}
     </div>
+    {languageMissing && <p className="toolkit-setup-note">Select and prepare a learning language in Languages before exporting.</p>}
     {visibleStatus && <div className={`toolkit-export-progress ${completed ? 'is-complete' : ''}`}>
       <div className="toolkit-export-progress-heading"><strong>{completed ? <><Check size={16} /> Ready to transfer</> : status.message}</strong><span>{status.state === 'preparing' ? 'Preparing…' : `${Math.round(status.progress)}%`}</span></div>
       <progress aria-label="Mobile export progress" max={100} value={status.state === 'preparing' ? undefined : status.progress} />

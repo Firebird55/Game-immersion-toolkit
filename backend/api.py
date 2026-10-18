@@ -7,7 +7,7 @@ import sys
 import subprocess
 import tempfile
 import threading
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager, nullcontext
 from pathlib import Path
 from subprocess import TimeoutExpired
 from typing import Literal
@@ -42,7 +42,7 @@ from .languages import translation_language, study_language, resolve_locale, GAM
 from .language_preparation import LanguagePreparation
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 from .installation import InstallationService
-from .mobile_library import MobileExportManager
+from .scoped_mobile_exports import ScopedMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 
 
@@ -206,7 +206,7 @@ class Runtime:
             game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
             account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
         self.index_task: asyncio.Task[None] | None = None
-        self.mobile_exports = MobileExportManager(PROJECT_ROOT)
+        self.mobile_exports = ScopedMobileExports(PROJECT_ROOT, self.accounts, self.languages)
 
     def account_preferences(self):
         session = self.lexirise.pin()
@@ -612,7 +612,7 @@ async def lifespan(_app: FastAPI):
                 await runtime.warm_task
             except (Exception, asyncio.CancelledError):
                 pass
-        runtime.mobile_exports.cancel()
+        runtime.mobile_exports.cancel_all()
         runtime.standby = True
         await runtime.stop_updates()
         await runtime.capture.close()
@@ -751,9 +751,13 @@ def setup_access(request: Request, header: str | None = None, *, write: bool = F
 
 
 @app.get("/api/setup")
-def setup_status(request: Request) -> dict:
+def setup_status(request: Request, game: str | None = None) -> dict:
     setup_access(request)
-    return {**runtime.installation.status(), "mobile_export": runtime.mobile_exports.status() if hasattr(runtime, "mobile_exports") else None}
+    if game is not None and game not in GAMES:
+        raise HTTPException(404, 'Unsupported game')
+    exports = runtime.mobile_exports if hasattr(runtime, 'mobile_exports') else None
+    status = (exports.status(game) if game and hasattr(exports, 'require_scope') else exports.status()) if exports else None
+    return {**runtime.installation.status(), 'mobile_export': status}
 
 
 class LanguageAction(BaseModel):
@@ -813,6 +817,19 @@ class MobileExportOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_audio: bool = True
     destination_folder: str | None = None
+    game: str | None = Field(default=None, min_length=1, max_length=24)
+
+
+@contextmanager
+def export_scope(request, game=None):
+    accounts = getattr(runtime, 'accounts', None)
+    with accounts.lock if accounts else nullcontext():
+        if hasattr(runtime.mobile_exports, 'require_scope'):
+            try:
+                runtime.mobile_exports.require_scope(game, request.headers.get('x-proxy-transcript-export-scope'))
+            except ValueError as error:
+                raise HTTPException(409, str(error)) from None
+        yield
 
 
 @app.post("/api/setup/games/{game}/mobile-export")
@@ -822,7 +839,8 @@ def mobile_export(game: str, payload: MobileExportOptions, request: Request,
     if game not in GAMES:
         raise HTTPException(404, "Unsupported game")
     try:
-        return {"started": runtime.mobile_exports.start(game, payload.include_audio, payload.destination_folder)}
+        with export_scope(request, game):
+            return {"started": runtime.mobile_exports.start(game, payload.include_audio, payload.destination_folder)}
     except (ValueError, OSError):
         raise HTTPException(400, "Choose a writable private export folder outside game files and source repositories.") from None
 
@@ -834,7 +852,8 @@ def mobile_export_preview(game: str, payload: MobileExportOptions, request: Requ
     if game not in GAMES:
         raise HTTPException(404, "Unsupported game")
     try:
-        return runtime.mobile_exports.preview(game, payload.include_audio, payload.destination_folder)
+        with export_scope(request, game):
+            return runtime.mobile_exports.preview(game, payload.include_audio, payload.destination_folder)
     except (ValueError, OSError):
         raise HTTPException(400, "Choose an absolute folder outside game files and source repositories. Refresh game data if its estimate is unavailable.") from None
 
@@ -844,30 +863,40 @@ def mobile_export_browse(payload: MobileExportOptions, request: Request,
                          x_proxy_transcript: str | None = Header(default=None)) -> dict:
     setup_access(request, x_proxy_transcript, write=True)
     try:
-        return {"started": runtime.mobile_exports.browse(payload.destination_folder)}
+        with export_scope(request, payload.game):
+            return {'started': runtime.mobile_exports.browse(payload.destination_folder, game=payload.game)
+                    if payload.game else runtime.mobile_exports.browse(payload.destination_folder)}
     except (ValueError, OSError):
         raise HTTPException(400, "Could not open the Windows folder picker. Paste a private destination folder instead.") from None
 
 
 @app.get("/api/setup/mobile-export")
-def mobile_export_status(request: Request) -> dict:
+def mobile_export_status(request: Request, game: str | None = None) -> dict:
     setup_access(request)
-    return runtime.mobile_exports.status()
+    if game is not None and game not in GAMES:
+        raise HTTPException(404, 'Unsupported game')
+    return runtime.mobile_exports.status(game) if game and hasattr(runtime.mobile_exports, 'require_scope') else runtime.mobile_exports.status()
 
 
 @app.post("/api/setup/mobile-export/browse/cancel")
-def mobile_export_browse_cancel(request: Request, x_proxy_transcript: str | None = Header(default=None)) -> dict:
+def mobile_export_browse_cancel(request: Request, payload: MobileExportOptions | None = None,
+                                x_proxy_transcript: str | None = Header(default=None)) -> dict:
     setup_access(request, x_proxy_transcript, write=True)
+    game = payload.game if payload else None
     try:
-        return {"cancelled": runtime.mobile_exports.close_picker()}
+        with export_scope(request, game):
+            return {'cancelled': runtime.mobile_exports.close_picker(game) if game else runtime.mobile_exports.close_picker()}
     except (OSError, TimeoutExpired):
         raise HTTPException(409, "Windows is still closing the folder browser. Try Close picker again.") from None
 
 
 @app.post("/api/setup/mobile-export/cancel")
-def mobile_export_cancel(request: Request, x_proxy_transcript: str | None = Header(default=None)) -> dict:
+def mobile_export_cancel(request: Request, payload: MobileExportOptions | None = None,
+                         x_proxy_transcript: str | None = Header(default=None)) -> dict:
     setup_access(request, x_proxy_transcript, write=True)
-    return {"cancelled": runtime.mobile_exports.cancel()}
+    game = payload.game if payload else None
+    with export_scope(request, game):
+        return {'cancelled': runtime.mobile_exports.cancel(game) if game else runtime.mobile_exports.cancel()}
 
 
 @app.get("/api/setup/report")
@@ -1052,6 +1081,8 @@ async def lexirise_select_account(payload: AccountSelection, request: Request,
         raise HTTPException(403, 'Use the companion account selector.')
     try:
         result = runtime.accounts.select(payload.id)
+        if hasattr(runtime, 'mobile_exports') and hasattr(runtime.mobile_exports, 'cancel_all'):
+            runtime.mobile_exports.cancel_all()
         if hasattr(runtime, 'capture'):
             runtime.capture._scan_epoch += 1
         await runtime.hub.broadcast({'type': 'account_changed', 'account': result['active']})

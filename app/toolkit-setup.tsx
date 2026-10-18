@@ -39,18 +39,21 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   const [autoStart, setAutoStart] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('');
   const firstLoad = useRef(false), dirty = useRef(false);
+  const refreshSequence = useRef(0);
+  const exportStatus = data?.mobile_export?.selectedGame && data.mobile_export.selectedGame !== game ? undefined : data?.mobile_export;
   const current = data?.games.find(item => item.id === game);
   const job = data?.jobs[game];
   const preparing = Object.values(data?.jobs ?? {}).some(item => item.state === 'preparing');
   const nativeBusy = Object.values(data?.native ?? {}).some(Boolean) || !!data?.mobile_export?.browseActive;
   const refresh = useCallback(async () => {
-    const response = await fetch(`${API}/api/setup`, { cache: 'no-store' });
+    const sequence = ++refreshSequence.current;
+    const response = await fetch(`${API}/api/setup?game=${game}`, { cache: 'no-store' });
     if (!response.ok) throw new Error('Could not load setup. Make sure the companion is running.');
     const value = await response.json() as Setup;
     if (!Array.isArray(value.games) || !Array.isArray(value.requirements)) throw new Error('Setup requires the latest companion backend.');
-    setData(value);
+    if (sequence === refreshSequence.current) setData(value);
     return value;
-  }, []);
+  }, [game]);
   useEffect(() => {
     if (!online || firstLoad.current) return;
     let active = true;
@@ -82,7 +85,8 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
     setBusy(true); setError(''); setMessage('');
     try {
       const response = await fetch(`${API}${path}`, { method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup' }, body: JSON.stringify(body) });
+        headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup',
+          ...(path.includes('/mobile-export') && data?.mobile_export?.scope ? {'X-Proxy-Transcript-Export-Scope':data.mobile_export.scope} : {}) }, body: JSON.stringify(body) });
       const result = await response.json() as { detail?: string; started?: boolean; cancelled?: boolean };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Setup action failed. Please retry.');
       await refresh(); onChanged();
@@ -169,7 +173,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               </details>
             </section>
             {game !== 'hito' && <LanguageSetup game={game} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
-            <MobileLibraryExport game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={data.mobile_export} action={action} />
+            <MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} />
           </div>}
         </section>}
         {data && step === 1 && <section className="toolkit-setup-section" aria-label="Capture checks">

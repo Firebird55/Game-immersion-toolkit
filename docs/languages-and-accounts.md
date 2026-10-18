@@ -41,6 +41,23 @@ must be an owned sentence snapshot deck in that language. Selection, creation,
 exports and preference writes are explicit actions. In-flight operations pin
 their credentials, and stale account requests cannot run under another account.
 
+Mobile library destinations and job status are also separate for each account
+and learning locale. New transfer folders include separate profile, language
+and game folders even when accounts choose the same destination. Existing
+exports and legacy preferences remain untouched. Account or learning-language
+switches discard pending folder choices and prevent an earlier export from
+publishing under the new selection, including a switch away and back. Routine
+refresh of a previously prepared table does not count as changing the selection.
+
+Prepared mobile libraries use that selected source table, its exact original
+voice service and the account's per-language official sentence target. ZZZ's
+prepared tables and PRAGMATA's scoped voice tools follow this same path.
+Unprepared named-account languages require explicit preparation; export does
+not create tables or dictionaries. Legacy independent Chinese/Migaku libraries
+remain available. ZZZ Proxy variants keep separate original bindings on mobile;
+a unique authored caption can identify its performance, while a shared caption
+requires choosing the Proxy voice.
+
 The language-aware runtime uses new versioned transcript, export and reading
 cache stores. Older local files remain untouched; their history is not silently
 migrated or deleted. Game folders, calibration, protected credentials and

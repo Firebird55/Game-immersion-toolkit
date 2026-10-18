@@ -23,14 +23,14 @@ self.onmessage=async({data})=>{
    for(const zip of packs)for(const sha of validateVoices(zip,candidate))incoming.set(sha,zip);
    if(token!==epoch)throw new Error('File opening cancelled.');
    self.postMessage({id,stage:'Preparing dialogue lookup…'});
-   const lookup=new DialogueMatcher(candidate.rows);
+   const lookup=new DialogueMatcher(candidate.rows,candidate.manifest.game);
    catalog=candidate;matcher=lookup;voices=incoming;
    result={catalog:summary(),available:[...voices.keys()],selectedBytes:[...new Set(voices.values())].reduce((n,z)=>n+z.file.size,0),selectedPacks:new Set(voices.values()).size};
   }else if(action==='restore'){
    const token=++epoch;
    const saved=data.catalog??await get('catalog');
    if(token!==epoch)throw new Error('Catalog restoration superseded by file selection.');
-   if(saved){catalog=saved;matcher=new DialogueMatcher(catalog.rows);}voices.clear();result={catalog:summary(),available:[]};
+   if(saved){catalog=saved;matcher=new DialogueMatcher(catalog.rows,catalog.manifest.game);}voices.clear();result={catalog:summary(),available:[]};
   }else if(action==='cache'){if(!catalog)throw new Error('Open a catalog first.');await put('catalog',catalog);result=true;}
   else if(action==='search')result=catalog?searchCatalog(catalog.rows,data.text):{rows:[],total:0};
   else if(action==='match')result=matcher?matcher.match(data.text,data.channel,data.player,data.fragment):{state:'no_library'};

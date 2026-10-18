@@ -70,3 +70,53 @@ def test_prepared_sources_enable_verified_batching_for_every_voiced_game(tmp_pat
         assert callable(voice.batch) and len(service.batches) == 1 and not service.scalars
         assert any(event.get('batchSize') == 8 for event in events)
         assert result['coverage']['exportedVoices'] == 1
+
+
+@pytest.mark.parametrize('game', ['zzz', 'pragmata', 'cyberpunk', 'witcher3', 'wuwa', 'nte', 'beyond', 'heavyrain'])
+def test_selected_multilingual_exports_use_the_selected_decoder_and_official_target(tmp_path, monkeypatch, game):
+    from backend import language_preparation, lexirise, lexirise_settings, local_voice, pragmata_audio, nte_assets
+    from scripts import index_pragmata_assets
+    directory = tmp_path / 'data/languages' / game / 'ja'; directory.mkdir(parents=True)
+    identity = 'GalGame_fixture:F' if game == 'zzz' else game + ':fixture'
+    row = {'text_id': identity, 'english': '', 'chinese': '合成字幕。', 'source_text': '合成の字幕です。',
+           'source_locale': 'ja', 'audio_locale': 'ja', 'texts': {'ja': '合成の字幕です。', 'zh-Hans': '合成字幕。'},
+           'audio': {'locale': 'ja', 'fixture': 1}, 'channels': ['cinematic'], 'player_voice': 'female'}
+    if game == 'zzz': row['member_text_ids'] = ['GalGame_fixture']
+    path = directory / 'textmap.json'
+    path.write_text(json.dumps({'format': 2, 'game': game, 'source_locale': 'ja', 'targets_requested': ['zh-hans'],
+        'install': str(tmp_path / 'game'), 'fingerprint': 'fixture', 'records': [row]}), encoding='utf-8')
+    state = {'active': 'one'}; protected = tmp_path / 'protected-fixture'; protected.write_bytes(b'one-profile-first-generation')
+    accounts = SimpleNamespace(status=lambda: state, path=protected)
+    monkeypatch.setattr(language_preparation, 'selected_snapshot', lambda *args: (path, accounts, 'one'))
+    monkeypatch.setattr(language_preparation, 'LanguagePreparation', lambda *_: SimpleNamespace(selection_generation=lambda *_: 0))
+    monkeypatch.setattr(lexirise, 'LexiriseService', lambda *args, **kwargs: SimpleNamespace(pin=lambda language: language))
+    monkeypatch.setattr(lexirise_settings, 'account_settings', lambda client: {'global': {'effectiveTranslationLanguage': 'fr'},
+        'languageSettings': {'ja': {'effectiveTranslationLanguage': 'zh-hans'}}})
+    calls = []
+    class Service:
+        _adapter = SimpleNamespace(fingerprint=lambda _: 'fixture')
+        def __init__(self, data, decoder, output, **kwargs):
+            calls.append((data, kwargs)); self.output = output; self._entries = {identity: row['audio']}
+        def has_variant(self, *_): return True
+        def extract_batch(self, requests):
+            self.output.mkdir(parents=True, exist_ok=True)
+            for _, number, _ in requests: (self.output / f'{number}.mp3').write_bytes(b'ID3' + bytes(200))
+            return [f'{number}.mp3' for _, number, _ in requests]
+        def close(self): pass
+    monkeypatch.setattr(local_voice, 'LocalVoiceAssetService', lambda game, *args, **kwargs: Service(*args, **kwargs))
+    monkeypatch.setattr(pragmata_audio, 'PragmataVoiceAssetService', Service)
+    monkeypatch.setattr(index_pragmata_assets, 'fingerprint', lambda _: 'fixture')
+    monkeypatch.setattr(nte_assets, 'ensure_extractor', lambda _: None)
+    records, voice, check, service = prepare_source(tmp_path, game, tmp_path / 'decoded')
+    assert calls[0] == (directory, {'tools_dir': tmp_path / 'data' / game / 'tools'})
+    assert records[0]['sourceLocale'] == records[0]['audioLocale'] == 'ja'
+    assert records[0]['translationLocale'] == 'zh-Hans' and records[0]['translationText'] == row['texts']['zh-Hans']
+    assert records[0]['channels'] == ['cinematic'] and records[0]['playerVoice'] == 'female'
+    assert 'memberTextIds' not in records[0], 'A historical ZZZ alias is not a two-caption context'
+    check.force()
+    result = export_library(game, records, tmp_path / 'export', voice=voice, check=check)
+    assert result['coverage']['exportedVoices'] == 1
+    state['active'] = 'two'
+    with pytest.raises(ValueError, match='changed'): check.force()
+    state['active'] = 'one'; protected.write_bytes(b'one-profile-after-switching-back')
+    with pytest.raises(ValueError, match='changed'): check.force()

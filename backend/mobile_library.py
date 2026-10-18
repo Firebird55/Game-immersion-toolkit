@@ -300,14 +300,23 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     return result
 
 
-def prepare_source(root, game, decode_dir):
+def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None):
     """Adapt owned indexes and decoders without touching the user's transcript/audio history."""
     root, decode_dir = Path(root), Path(decode_dir)
     data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
     watched = {}
     service = None
     account_check = lambda: True
-    if game == "zzz":
+    if expected_account_signature is not None:
+        from .accounts import AccountStore
+        from .scoped_mobile_exports import account_signature
+        scoped_accounts = AccountStore()
+        account_check = lambda: account_signature(scoped_accounts) == expected_account_signature
+        if not account_check():
+            raise ValueError('Account changed before export preparation.')
+    if game == "zzz" and not (data / 'languages/zzz').is_dir():
+        if expected_source_locale not in (None, 'zh-Hans'):
+            raise ValueError('The selected language table is unavailable; prepare it before exporting.')
         from .voice_assets import VoiceAssetService
         index = TextMapIndex(data / "textmaps")
         index.load(prepare_matching=False)
@@ -359,6 +368,10 @@ def prepare_source(root, game, decode_dir):
         payload = json.loads(source.read_text(encoding="utf-8"))
         inputs = [source]
         target = None
+        if payload.get('format') != 2 and expected_source_locale not in (None, 'zh-Hans'):
+            raise ValueError('The selected language table is unavailable; prepare it before exporting.')
+        if payload.get('format') == 2 and expected_source_locale and payload['source_locale'] != expected_source_locale:
+            raise ValueError('Learning language changed before export preparation.')
         if payload.get('format') == 2:
             from .lexirise import LexiriseService
             from .lexirise_settings import account_settings
@@ -367,7 +380,17 @@ def prepare_source(root, game, decode_dir):
             target = translation_language(account_settings(client), study_language(payload['source_locale']))
             if target.casefold() not in {value.casefold() for value in payload.get('targets_requested', [])}:
                 raise ValueError('Prepare the account translation table in Languages before exporting.')
-            account_check = lambda: accounts.status()['active'] == account
+            prior_check = account_check
+            if hasattr(accounts, 'path'):
+                from .scoped_mobile_exports import account_signature
+                from .language_preparation import LanguagePreparation
+                signature = account_signature(accounts)
+                selection = LanguagePreparation(None, None, None).selection_generation(game, account)
+                account_check = lambda: (prior_check() and accounts.status()['active'] == account
+                    and account_signature(accounts) == signature and selected_snapshot(root, game)[0] == source
+                    and LanguagePreparation(None, None, None).selection_generation(game, account) == selection)
+            else:
+                account_check = lambda: prior_check() and accounts.status()['active'] == account
         if game == "hito":
             from .game_paths import discover_install
             install = discover_install("hito")
@@ -381,7 +404,8 @@ def prepare_source(root, game, decode_dir):
         elif game == "pragmata":
             from .pragmata_audio import PragmataVoiceAssetService
             from scripts.index_pragmata_assets import fingerprint
-            service = PragmataVoiceAssetService(data / game, decoder, decode_dir)
+            service = (PragmataVoiceAssetService(directory, decoder, decode_dir, tools_dir=data / game / 'tools')
+                       if payload.get('format') == 2 else PragmataVoiceAssetService(directory, decoder, decode_dir))
             source_check = lambda: fingerprint(Path(payload["install"])) == payload["fingerprint"]
         else:
             from .local_voice import LocalVoiceAssetService
@@ -400,7 +424,7 @@ def prepare_source(root, game, decode_dir):
             if game == "pragmata" and not text_id.startswith("pragmata:"):
                 text_id = "pragmata:" + text_id
             row = {"textId": text_id, "english": display_text(item["english"]), "chinese": display_text(item["chinese"]),
-                   "channels": ["dialogue", "cinematic", "gameplay"],
+                   "channels": item.get('channels') or ["dialogue", "cinematic", "gameplay"],
                    "sourceVoice": digest([payload.get("fingerprint"), item["audio"]]) if item.get("audio") else None}
             if payload.get('format') == 2:
                 locale = resolve_locale(target, item['texts'])
@@ -409,7 +433,7 @@ def prepare_source(root, game, decode_dir):
                            translationText=item['texts'].get(locale, '') if locale else '', audioLocale=item['audio_locale'],
                            anchorsSource=item.get('ocr_texts', {}).get(payload['source_locale'], []),
                            anchorsTranslation=item.get('ocr_texts', {}).get(locale, []))
-                if item.get('member_text_ids'):
+                if item.get('member_text_ids') and ':context-' in text_id:
                     row['memberTextIds'] = item['member_text_ids']
             for old, new in (("speaker_english", "speakerEnglish"), ("speaker_chinese", "speakerChinese"),
                              ("player_voice", "playerVoice"), ("ocr_english", "anchorsEnglish"), ("ocr_chinese", "anchorsChinese")):
