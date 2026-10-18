@@ -85,15 +85,198 @@
         "1920x1080"
       ],
       "evidence": "1080p PC recording; exact-bound transcoding without resizing; seven caption appearances manually annotated before matcher replay, covering four authored performances"
+    },
+    {
+      "name": "beyond-lab-corridor-card-experiment",
+      "game": "beyond",
+      "source_locale": "nl",
+      "translation_locale": "zh-Hans",
+      "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
+      "path": "output/beyond-research/youtube-opening-360-480-fast.mp4",
+      "start": 0,
+      "duration": 120,
+      "chapter": "0401",
+      "branch": "recorded laboratory corridor/card experiment",
+      "footage_language": "en",
+      "presentation": "overlapping background conversations, brief replies, wrapped experiment instructions; device/card/HUD negatives",
+      "source_timestamps": [
+        360,
+        480
+      ],
+      "expected_exact": true,
+      "expected": [
+        "beyond:IW_0401_BACKGROUND_MACHINE_MANGENSJE_C00004:complete",
+        "beyond:IW_0401_BACKGROUND_WALKING01_MANGENCVA_C00041:complete",
+        "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00035:complete",
+        "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00038:complete",
+        "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00048:complete",
+        "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00051:complete",
+        "beyond:IW_0401_CORRIDOR_PBY1_JLE35_C00004:1",
+        "beyond:IW_0401_CORRIDOR_PBY2_0401PBY2_C00002:1",
+        "beyond:IW_0401_EXPROOM_ARRIVAL_JLE35_C00002:1",
+        "beyond:IW_0401_EXPROOM_CARD01_JLE35_C00002:1",
+        "beyond:IW_0401_EXPROOM_DAWKINS_JHO9_C00004:1",
+        "beyond:IW_0401_EXPROOM_DAWKINS_NDA55_C00002:1",
+        "beyond:IW_0401_EXPROOM_DAWKINS_NDA55_C00002:2",
+        "beyond:IW_0401_EXPROOM_HELMET_JLE35_C00002:complete",
+        "beyond:IW_0401_EXPROOM_HELMET_NDA55_C00004:complete",
+        "beyond:IW_0401_EXPROOM_INSTRUCTIONS_JLE35_C00002:complete",
+        "beyond:IW_0401_EXPROOM_INTERCOM_JLE35_C00002:complete",
+        "beyond:IW_0401_EXPROOM_LETSGO_JLE35_C00002:1"
+      ],
+      "annotated_appearances": 27,
+      "tested_resolutions": [
+        "1280x720",
+        "1920x1080",
+        "3840x2160"
+      ],
+      "evidence": "1080p PC recording; exact-bound video-only transcoding, no resizing. 27 caption appearances annotated before asset lookup or matcher; 18 authored cues captured with zero misses or incorrect captures at 250-ms cadence. Paragraphs retain complete original performances. Resized 720p/4K replay also passes; not native-resolution game captures.",
+      "expected_events": [
+        {
+          "start": 363.25,
+          "end": 366.75,
+          "text_id": "beyond:IW_0401_BACKGROUND_MACHINE_MANGENSJE_C00004:complete"
+        },
+        {
+          "start": 363.25,
+          "end": 367,
+          "text_id": "beyond:IW_0401_CORRIDOR_PBY1_JLE35_C00004:1"
+        },
+        {
+          "start": 371.25,
+          "end": 372,
+          "text_id": "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00035:complete"
+        },
+        {
+          "start": 373,
+          "end": 374.5,
+          "text_id": "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00051:complete"
+        },
+        {
+          "start": 375.25,
+          "end": 377.75,
+          "text_id": "beyond:IW_0401_CORRIDOR_PBY2_0401PBY2_C00002:1"
+        },
+        {
+          "start": 375.75,
+          "end": 376.75,
+          "text_id": "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00038:complete"
+        },
+        {
+          "start": 378.75,
+          "end": 380,
+          "text_id": "beyond:IW_0401_BACKGROUND_WALKING01_MANGENCVA_C00041:complete"
+        },
+        {
+          "start": 381.5,
+          "end": 382.5,
+          "text_id": "beyond:IW_0401_EXPROOM_ARRIVAL_JLE35_C00002:1"
+        },
+        {
+          "start": 381.75,
+          "end": 383,
+          "text_id": "beyond:IW_0401_BACKGROUND_WALKING01_MANGENDGO_C00048:complete"
+        },
+        {
+          "start": 390.25,
+          "end": 391,
+          "text_id": "beyond:IW_0401_EXPROOM_DAWKINS_NDA55_C00002:1"
+        },
+        {
+          "start": 391.5,
+          "end": 392.75,
+          "text_id": "beyond:IW_0401_EXPROOM_DAWKINS_NDA55_C00002:2"
+        },
+        {
+          "start": 393.25,
+          "end": 394.25,
+          "text_id": "beyond:IW_0401_EXPROOM_DAWKINS_JHO9_C00004:1"
+        },
+        {
+          "start": 406.5,
+          "end": 408.25,
+          "text_id": "beyond:IW_0401_EXPROOM_HELMET_JLE35_C00002:complete"
+        },
+        {
+          "start": 409,
+          "end": 411,
+          "text_id": "beyond:IW_0401_EXPROOM_HELMET_JLE35_C00002:complete"
+        },
+        {
+          "start": 414.75,
+          "end": 420.25,
+          "text_id": "beyond:IW_0401_EXPROOM_HELMET_JLE35_C00002:complete"
+        },
+        {
+          "start": 422.5,
+          "end": 423.25,
+          "text_id": "beyond:IW_0401_EXPROOM_HELMET_NDA55_C00004:complete"
+        },
+        {
+          "start": 424.25,
+          "end": 425.5,
+          "text_id": "beyond:IW_0401_EXPROOM_HELMET_NDA55_C00004:complete"
+        },
+        {
+          "start": 426,
+          "end": 428,
+          "text_id": "beyond:IW_0401_EXPROOM_HELMET_NDA55_C00004:complete"
+        },
+        {
+          "start": 440.25,
+          "end": 441.5,
+          "text_id": "beyond:IW_0401_EXPROOM_INTERCOM_JLE35_C00002:complete"
+        },
+        {
+          "start": 447,
+          "end": 448.25,
+          "text_id": "beyond:IW_0401_EXPROOM_INSTRUCTIONS_JLE35_C00002:complete"
+        },
+        {
+          "start": 448.75,
+          "end": 450,
+          "text_id": "beyond:IW_0401_EXPROOM_INSTRUCTIONS_JLE35_C00002:complete"
+        },
+        {
+          "start": 450.5,
+          "end": 452.25,
+          "text_id": "beyond:IW_0401_EXPROOM_INSTRUCTIONS_JLE35_C00002:complete"
+        },
+        {
+          "start": 453,
+          "end": 457.5,
+          "text_id": "beyond:IW_0401_EXPROOM_INSTRUCTIONS_JLE35_C00002:complete"
+        },
+        {
+          "start": 458.25,
+          "end": 459.25,
+          "text_id": "beyond:IW_0401_EXPROOM_INSTRUCTIONS_JLE35_C00002:complete"
+        },
+        {
+          "start": 465,
+          "end": 465.25,
+          "text_id": "beyond:IW_0401_EXPROOM_INSTRUCTIONS_JLE35_C00002:complete"
+        },
+        {
+          "start": 466,
+          "end": 467,
+          "text_id": "beyond:IW_0401_EXPROOM_LETSGO_JLE35_C00002:1"
+        },
+        {
+          "start": 468.75,
+          "end": 469.5,
+          "text_id": "beyond:IW_0401_EXPROOM_CARD01_JLE35_C00002:1"
+        }
+      ]
     }
   ],
   "coverage_complete": false,
   "alternate_source": "https://www.youtube.com/watch?v=Llvr_JrxTV4",
   "untested": [
-    "All scene content after 06:00 and the remainder of the childhood chapter",
+    "All scene content after 08:00 and the remainder of the card experiment/childhood chapter",
     "Alternate decisions and endings",
     "Optional scenes and Advanced Experiments DLC",
-    "Internal thoughts, QTE speech, background and overlapping speakers not present in the sampled clip",
+    "Internal thoughts, QTE speech and background/overlap presentations outside the explicitly annotated segments",
     "Native 720p/4K game capture",
     "Dutch language gameplay footage",
     "Language-specific footage outside English"
@@ -120,12 +303,16 @@
     },
     {
       "archive_group": "0401",
-      "status": "sampled introduction only",
+      "status": "sampled introduction, laboratory corridor and start of card experiment only",
       "source_url": "https://www.youtube.com/watch?v=3qIhVlmbp5Y",
       "timestamps": [
         [
           300,
           360
+        ],
+        [
+          360,
+          480
         ]
       ]
     },

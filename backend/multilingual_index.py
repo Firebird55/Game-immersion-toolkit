@@ -97,7 +97,7 @@ class MultilingualTextIndex:
     def authored_scene(text_id):
         return text_id.rsplit(':', 1)[0] if re.fullmatch(r'heavyrain:\d+:[a-f0-9]{8}', text_id) else None
 
-    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=()):
+    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False):
         hits, ambiguous = [], []
         with self.lock:
             for source in candidates(lines):
@@ -138,6 +138,23 @@ class MultilingualTextIndex:
                         source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
                         translation_locale=target or self.target_locale, translation_text=row['texts'].get(target, '') if target else '',
                         speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese')))
+        if multiple:
+            # Retain independent visible speakers, but never turn a wrapped
+            # caption's fragment into another performance. The same ambiguity
+            # guard used by single-caption matching applies to every result.
+            result = {}
+            for hit in hits:
+                key = normalize_text(hit.source_ocr)
+                if any(other.score >= max(92, threshold) and key != (larger := normalize_text(other.source_ocr))
+                       and key in larger for other in hits):
+                    continue
+                if any(key in normalize_text(text) for text in ambiguous):
+                    continue
+                peers = {other.text_id for other in hits if normalize_text(other.source_ocr) == key
+                         and other.score == hit.score}
+                if len(peers) == 1:
+                    result.setdefault(hit.text_id, hit)
+            return list(result.values())
         if not hits:
             return None
         best = max(hits, key=lambda hit: (hit.score, len(normalize_text(hit.source_ocr))))
@@ -186,6 +203,9 @@ class MultilingualTextIndex:
             if hit:
                 result.setdefault(hit.text_id, hit)
         return list(result.values())
+
+    def match_simultaneous_lines(self, lines, threshold=88):
+        return self.match_lines(lines, threshold=threshold, multiple=True)
 
     def match_text(self, text, threshold=88, channel='dialogue'):
         return self.match_lines([text], threshold, channel=channel)

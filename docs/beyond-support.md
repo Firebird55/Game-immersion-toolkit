@@ -37,6 +37,11 @@ combines different speakers or invents a missing sentence translation.
 The default crop includes wider captions near the screen edges. Existing
 saved calibration remains in effect. A reliable match for a complete wrapped
 caption takes precedence over an isolated phrase from that caption.
+Overlapping speakers confirm independently, so a longer foreground caption
+cannot hide a brief background reply. Each accepted performance queues its
+own original asset. Wrapped fragments and ambiguous performances remain
+excluded, and pending confirmations clear across account or capture changes.
+The mobile catalog worker follows the same matching and confirmation behavior.
 
 Dutch asset validation found 5,446 records with 2,777 distinct original
 performances, including 5,437 aligned Simplified Chinese records. Missing target
@@ -68,11 +73,22 @@ seven manually annotated caption appearances cover four authored performances,
 including one complete performance with four subtitle pages. Chapter titles and
 movement prompts do not become dialogue. Resized replay of this additional
 segment remains untested.
+The 06:00–08:00 laboratory corridor and start of the card experiment also pass
+at the recording's 1080p size. Twenty-seven independently annotated caption
+appearances map to eighteen authored cue identities and seventeen stored
+performances, with no misses or incorrect captures. These include simultaneous
+foreground/background speakers, brief greetings, wrapped instructions and
+paragraph pages. Card symbols, device numerals, clothing/badge lettering and
+unspoken LOOK/MOVE prompts stay out of the transcript. This segment exposed
+three missed overlapping cues; independent confirmation fixes all three.
+Resized 720p and 4K replay also pass for this segment. Those runs retain the
+recording's layout and do not establish native-resolution game coverage.
 Chinese caption sequences also pass synthetic native OCR checks with Dutch
 study text, official Chinese translation and extracted original Dutch audio.
 Those synthetic checks are separate from the English gameplay evidence.
 
-The remainder of the childhood chapter, every later chapter, alternate branch,
+All footage after 08:00, including the remainder of the card experiment and
+childhood chapter, every later chapter, alternate branch,
 optional scene, ending, DLC, and subtitle presentation absent from those
 segments remain untested. Dutch gameplay footage
 and language-specific footage outside English are not covered by that replay.

@@ -142,7 +142,7 @@ class CaptureService:
             for key in self._local_chatter_trackers:
                 self._visible_match_started.pop(key, None)
             self._local_chatter_trackers.clear()
-            self._heavy_context_scope = None
+            self._quantic_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
             changes["visible_text_ids"] = []
@@ -307,7 +307,7 @@ class CaptureService:
         active = find_active_game_window(settings)
         now = datetime.now(timezone.utc).astimezone()
         if active is None:
-            self._heavy_context_scope = None
+            self._quantic_context_scope = None
             self._excluded_screen = None
             self._tracker.observe(None)
             self._tip_tracker.observe(None)
@@ -330,7 +330,7 @@ class CaptureService:
         profile, window = active
         language_setup = getattr(self, 'language_setup', None)
         if profile.id != self.snapshot().active_game:
-            self._heavy_context_scope = None
+            self._quantic_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
             self._caption_context_scope = None
@@ -723,8 +723,13 @@ class CaptureService:
             return _ScanOutcome([])
 
         settings = self.settings.get()
-        match = index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold), exact_only=True) if game in {"nte", "honkai3"} else index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold))
+        simultaneous = getattr(index, 'match_simultaneous_lines', None) if game == 'beyond' else None
+        parallel = simultaneous(lines, max(84.0, settings.fuzzy_threshold)) if simultaneous else None
+        match = (max(parallel, key=lambda hit: (hit.score, len(hit.source_ocr)), default=None) if parallel is not None else
+                 index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold), exact_only=True) if game in {"nte", "honkai3"} else
+                 index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold)))
         monotonic_now = time.monotonic()
+        contextual = None
         if hasattr(index, 'context_fragments') and not main_response.get('dialogue_menu'):
             contextual = self._authored_caption_context(index, lines, monotonic_now,
                 (epoch, game, window.handle, window.bounds, crop_bounds, index.source_locale, index.target_locale,
@@ -735,31 +740,32 @@ class CaptureService:
         elif main_response.get('dialogue_menu'):
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
-        heavy_matches = []
-        if game == 'heavyrain':
-            heavy_matches = self._heavy_rain_matches(index, lines, monotonic_now,
-                (epoch, game, window.handle, window.bounds, crop_bounds, index.source_locale, index.target_locale,
+        quantic_matches = []
+        if game in {'beyond', 'heavyrain'}:
+            quantic_matches = self._quantic_matches(index, lines, monotonic_now,
+                (epoch, game, window.handle, window.bounds, crop_bounds, getattr(index, 'source_locale', 'zh-Hans'), getattr(index, 'target_locale', 'en'),
                  getattr(index, '_signature', None), getattr(self, 'context_scope', lambda: None)()),
-                settings.stable_frames, bool(main_response.get('dialogue_menu')))
-            heavy_matches = [hit for hit in heavy_matches if self._mapped_voice(hit)]
-            match = max(heavy_matches, key=lambda hit: hit.score, default=None)
+                settings.stable_frames, bool(main_response.get('dialogue_menu')), primary=contextual or match,
+                threshold=max(84.0, settings.fuzzy_threshold), matches=parallel)
+            quantic_matches = [hit for hit in quantic_matches if self._mapped_voice(hit)]
+            match = max(quantic_matches, key=lambda hit: hit.score, default=None)
         if epoch != self._scan_epoch:
             return _ScanOutcome([])
         if not self._mapped_voice(match):
             match = None
-        self._observe_visible_matches(game, [hit.text_id for hit in heavy_matches] if game == 'heavyrain' else [match.text_id] if match else [], monotonic_now)
+        self._observe_visible_matches(game, [hit.text_id for hit in quantic_matches] if game in {'beyond', 'heavyrain'} else [match.text_id] if match else [], monotonic_now)
         emitted: list[TranscriptLine] = []
         match_score = match.score if match else None
         if match is None:
-            if game == 'heavyrain':
-                self._emit_heavy_rain_matches([], monotonic_now, now)
+            if game in {'beyond', 'heavyrain'}:
+                self._emit_quantic_matches([], monotonic_now, now)
             self._tracker.observe(None if not raw_text else f"unmatched:{raw_text.casefold()}")
             phase = "unmatched" if raw_text else "listening"
             message = f"Reading {GAME_PROFILES[game].name} subtitles"
-        elif game == 'heavyrain':
-            emitted = self._emit_heavy_rain_matches(heavy_matches, monotonic_now, now)
+        elif game in {'beyond', 'heavyrain'}:
+            emitted = self._emit_quantic_matches(quantic_matches, monotonic_now, now)
             phase = 'matched'
-            message = 'HEAVY RAIN subtitles matched to original game voices'
+            message = f'{GAME_PROFILES[game].name} subtitles matched to original game voices'
         else:
             key = f"{game}\0{match.text_id}\0{match.english}"
             fresh = self._is_fresh_match(game, key, monotonic_now)
@@ -812,36 +818,46 @@ class CaptureService:
                                                         presentation="cinematic"))
         return _ScanOutcome(emitted_lines=emitted)
 
-    def _heavy_rain_matches(self, index, lines, now, scope, stable_frames, menu=False):
-        if scope != getattr(self, '_heavy_context_scope', None) or menu:
-            for identity in getattr(self, '_heavy_trackers', {}):
-                self._visible_match_started.pop('heavyrain:' + identity, None)
-            self._heavy_context_scope = scope
-            self._heavy_context, self._heavy_group_counts, self._heavy_trackers = {}, {}, {}
+    def _quantic_matches(self, index, lines, now, scope, stable_frames, menu=False, *, primary=None, threshold=88, matches=None):
+        if scope != getattr(self, '_quantic_context_scope', None) or menu:
+            for identity in getattr(self, '_quantic_trackers', {}):
+                self._visible_match_started.pop(getattr(self, '_quantic_game', index.game) + ':' + identity, None)
+            self._quantic_context_scope, self._quantic_game = scope, index.game
+            self._quantic_context, self._quantic_group_counts, self._quantic_trackers = {}, {}, {}
         if menu:
             return []
-        self._heavy_context = {group: stamp for group, stamp in self._heavy_context.items() if now - stamp <= 12}
+        if index.game == 'beyond':
+            simultaneous = getattr(index, 'match_simultaneous_lines', None)
+            hits = matches if matches is not None else simultaneous(lines, threshold) if simultaneous else []
+            if primary:
+                key = normalize_subtitle(primary.source_ocr)
+                hits = [hit for hit in hits if hit.text_id != primary.text_id
+                        and normalize_subtitle(hit.source_ocr) not in key]
+                hits.append(primary)
+            return hits
+        self._quantic_context = {group: stamp for group, stamp in self._quantic_context.items() if now - stamp <= 12}
         unique = index.match_line_groups(lines, channel='dialogue')
         observed = {group for hit in unique if hit.kind == 'exact' and len(normalize_subtitle(hit.source_ocr)) >= 8
                     if (group := index.authored_scene(hit.text_id))}
-        self._heavy_group_counts = {group: self._heavy_group_counts.get(group, 0) + 1 for group in observed}
-        for group, count in self._heavy_group_counts.items():
+        self._quantic_group_counts = {group: self._quantic_group_counts.get(group, 0) + 1 for group in observed}
+        for group, count in self._quantic_group_counts.items():
             if count >= stable_frames:
-                self._heavy_context[group] = now
-        self._heavy_context = dict(sorted(self._heavy_context.items(), key=lambda item: item[1], reverse=True)[:16])
+                self._quantic_context[group] = now
+        self._quantic_context = dict(sorted(self._quantic_context.items(), key=lambda item: item[1], reverse=True)[:16])
         # Only exact text ambiguity may be narrowed by a confirmed authored
         # localization group. Several speakers retain independent performances.
-        return index.match_line_groups(lines, channel='dialogue', context_groups=set(self._heavy_context))
+        return index.match_line_groups(lines, channel='dialogue', context_groups=set(self._quantic_context))
 
-    def _emit_heavy_rain_matches(self, matches, now, captured_at):
+    def _emit_quantic_matches(self, matches, now, captured_at):
+        game = self._quantic_game
         active, emitted = {hit.text_id for hit in matches}, []
-        for identity in set(self._heavy_trackers) - active:
-            del self._heavy_trackers[identity]
-            self._visible_match_started.pop('heavyrain:' + identity, None)
+        for identity in set(self._quantic_trackers) - active:
+            del self._quantic_trackers[identity]
+            self._visible_match_started.pop(game + ':' + identity, None)
         for hit in matches:
-            tracker = self._heavy_trackers.setdefault(hit.text_id, StableMatchTracker())
+            tracker = self._quantic_trackers.setdefault(hit.text_id, StableMatchTracker())
             tracker.configure(self.settings.get().stable_frames)
-            channel, key = 'heavyrain:' + hit.text_id, f'heavyrain\0{hit.text_id}\0{hit.english}'
+            channel, key = game + ':' + hit.text_id, f'{game}\0{hit.text_id}\0{hit.english}'
             fresh = self._is_fresh_match(channel, key, now)
             if fresh and tracker.observe(key) and self._can_emit(key, now):
                 line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=captured_at, channel='dialogue')

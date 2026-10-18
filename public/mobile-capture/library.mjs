@@ -155,9 +155,23 @@ export class DialogueMatcher{
   for(const first of previous.slice(0,32))for(const value of values.slice(0,128)){
    const last=normalize(value),rows=this.contextPairs.get(JSON.stringify([first,last]));if(!rows)continue;
    const hit=this.match(first+last,channel,player,false,true);
-   if(hit.state==='matched'&&rows.some(row=>row.id===hit.row.id))hits.set(hit.row.id,hit);
+   if(hit.state==='matched'&&rows.some(row=>row.id===hit.row.id))hits.set(hit.row.id,{...hit,key:first+last});
   }
   return hits.size===1?[...hits.values()][0]:{state:hits.size?'ambiguous':'unmatched'};
+ }
+ simultaneousMatches(values,player='unconfigured',primary=null){
+  const results=values.slice(0,128).map(value=>({...this.match(value,'dialogue',player),key:normalize(value)})),hits=results.filter(hit=>hit.state==='matched'),selected=new Map();
+  for(const hit of hits){
+   if(hits.some(other=>other.score>=92&&other.key!==hit.key&&other.key.includes(hit.key)))continue;
+   if(results.some(other=>other.state==='ambiguous'&&other.key.includes(hit.key)))continue;
+   if(new Set(hits.filter(other=>other.key===hit.key&&other.score===hit.score).map(other=>other.row.sourceVoice??other.row.id)).size!==1)continue;
+   selected.set(hit.row.id,hit);
+  }
+  if(primary?.state==='matched'){
+   for(const [id,hit]of selected)if(primary.key?.includes(hit.key))selected.delete(id);
+   selected.set(primary.row.id,primary);
+  }
+  return [...selected.values()];
  }
  match(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){const cacheKey=JSON.stringify([normalize(text),channel,player,fragment,exactOnly]);if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const result=this.lookup(text,channel,player,fragment,exactOnly);if(this.cache.size>=512)this.cache.clear();this.cache.set(cacheKey,result);return result;}
  matchCandidates(values,channel='dialogue',player='unconfigured',fragment=false){

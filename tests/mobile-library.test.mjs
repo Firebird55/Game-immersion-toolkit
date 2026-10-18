@@ -131,3 +131,14 @@ test('HEAVY RAIN authored group narrows exact short captions without combining s
  assert.equal(matcher.sceneMatches(['Pap!'],['heavyrain:100','heavyrain:200']).matches.length,0);
  assert.equal(matcher.sceneMatches(['Papp!'],['heavyrain:100']).matches.length,0);
 });
+
+test('BEYOND overlapping voices stay independent while wrapped fragments and ambiguity stay excluded',()=>{
+ const main={...row,textId:'beyond:main',english:'Welcome back to the laboratory.'},background={...row,id:'b'.repeat(64),textId:'beyond:background',sourceVoice:'b'.repeat(64),english:'I said it is almost ready!'},
+ full={...row,id:'c'.repeat(64),textId:'beyond:wrapped',sourceVoice:'c'.repeat(64),english:'Please return and help us immediately!'},fragment={...row,id:'d'.repeat(64),textId:'beyond:fragment',sourceVoice:'d'.repeat(64),english:'help us immediately!'};
+ const matcher=new DialogueMatcher([main,background,full,fragment]);
+ assert.deepEqual(new Set(matcher.simultaneousMatches([main.english,background.english]).map(hit=>hit.row.id)),new Set([main.id,background.id]));
+ assert.deepEqual(new Set(matcher.simultaneousMatches([full.english,fragment.english,background.english]).map(hit=>hit.row.id)),new Set([full.id,background.id]));
+ const duplicate={...full,id:'e'.repeat(64),sourceVoice:'e'.repeat(64)};
+ assert.deepEqual(new DialogueMatcher([full,fragment,background,duplicate]).simultaneousMatches([full.english,fragment.english,background.english]).map(hit=>hit.row.id),[background.id]);
+ assert.deepEqual(matcher.simultaneousMatches(['7654','LOOK MOVE','O □ + ☆']),[]);
+});

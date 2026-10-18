@@ -13,6 +13,7 @@ def test_local_game_routes_to_its_own_original_voice_and_preserves_retry(tmp_pat
     service, match, scheduled, published = fixture_service(tmp_path, game=game, mapped=mapped)
     service.game_indexes = {game: service.textmaps}
     service.textmaps.audio_count = 1
+    service.textmaps.game = game
     service.game_voice_assets = {game: service.voice_assets}
     if game == 'heavyrain':
         service.textmaps.source_locale, service.textmaps.target_locale = 'zh-Hans', 'en'

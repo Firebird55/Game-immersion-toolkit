@@ -26,7 +26,8 @@ async function verifyBeyondContext(page){
  const other={...first,id:'e'.repeat(64),textId:'beyond:OTHER:1',sourceVoice:'e'.repeat(64)};
  const paired={...first,id:'f'.repeat(64),textId:'beyond:ONE:context-100-900',sourceVoice:'f'.repeat(64),sourceText:'Goed. We gaan naar huis.',translationText:'好的 我们回家吧。',anchorsSource:['We gaan naar huis.'],anchorsTranslation:['我们回家吧。'],memberTextIds:['beyond:ONE:1','beyond:ONE:2']};
  const collision={...other,id:'9'.repeat(64),sourceText:'Een andere tekst.',translationText:'我们回家吧。'};
- const rows=[first,other,paired,collision],segment=Buffer.from(rows.map(value=>JSON.stringify(value)+'\n').join(''));
+ const background={...first,id:'8'.repeat(64),textId:'beyond:BACKGROUND:complete',sourceVoice:'8'.repeat(64),sourceText:'Ik zei dat het bijna klaar is!',translationText:'我说快准备好了！'};
+ const rows=[first,other,paired,collision,background],segment=Buffer.from(rows.map(value=>JSON.stringify(value)+'\n').join(''));
  const bytes=encode({'manifest.json':{...manifest,game:'beyond',coverage:{dialogue:rows.length},catalog:[{name:'catalog/00000.ndjson',size:segment.length,sha256:hash(segment)}]},'catalog/00000.ndjson':segment});
  const result=await page.evaluate(async({url,bytes})=>{
   const worker=new Worker(url,{type:'module'});let id=0;const pending=new Map();
@@ -38,12 +39,16 @@ async function verifyBeyondContext(page){
    const previous=await request('context-fragments',{values:['好的']});
    const paired=await request('match-context',{previous,values:['我们回家吧。']});
    const isolated=await request('match-context',{previous:[],values:['我们回家吧。']});
-   return {first:first.state,last:last.state,paired,isolated:isolated.state};
+   const simultaneous=await request('simultaneous-matches',{values:['我们回家吧。','我说快准备好了！'],primary:paired});
+   const unresolved=await request('simultaneous-matches',{values:['好的','我说快准备好了！']});
+   return {first:first.state,last:last.state,paired,isolated:isolated.state,simultaneous,unresolved};
   }finally{worker.terminate();}
  },{url:base+libraryWorkerPath,bytes:[...bytes]});
  assert.equal(result.first,'ambiguous');assert.equal(result.last,'ambiguous');assert.equal(result.isolated,'unmatched');
  assert.equal(result.paired.row.textId,paired.textId);assert.equal(result.paired.row.sourceLocale,'nl');assert.equal(result.paired.row.audioLocale,'nl');
  assert.deepEqual(result.paired.row.memberTextIds,paired.memberTextIds);
+ assert.deepEqual(new Set(result.simultaneous.map(hit=>hit.row.id)),new Set([paired.id,background.id]));
+ assert.deepEqual(result.unresolved.map(hit=>hit.row.id),[background.id]);
 }
 async function verifyHeavyRainPages(page){
  const source={...row,textId:'heavyrain:100:00000003',sourceLanguage:'nl',sourceLocale:'nl',audioLocale:'nl',sourceText:'We vertrekken morgen samen vroeg. Neem de blauwe koffer mee naar het station.',translationLocale:'zh-Hans',translationText:'我们明天一起出发。请把蓝色行李箱带到车站去。'};
