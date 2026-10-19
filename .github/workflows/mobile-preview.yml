@@ -133,6 +133,7 @@ jobs:
             output/playwright/mobile-reader-*.png
             output/playwright/mobile-lookup-*.png
             output/playwright/mobile-layout-overflow-*.png
+            output/playwright/games-guide-overflow-*.png
           retention-days: 3
       - name: Retain reviewed static build
         uses: actions/upload-artifact@v4
