@@ -4,6 +4,10 @@
 dialogue, original voices and language-specific reading tools to desktop, phone and tablet.
 
 Open the [online companion](https://firebird55.github.io/Game-immersion-toolkit/).
+Browse [Games & Languages](https://firebird55.github.io/Game-immersion-toolkit/games.html)
+for every game's learning/audio languages, official translation combinations,
+setup instructions and validation limits. Storefront-only or ambiguous locales
+are labelled separately from toolkit support.
 Choose **Receiver**, then choose a transcript source:
 
 - **Mobile OCR:** open a privately exported game catalog and optional voice ZIPs
@@ -55,12 +59,15 @@ deck or writes account settings. Account writes require your explicit controls.
 ## Install the Windows companion
 
 Download a [release](https://github.com/Firebird55/Game-immersion-toolkit/releases)
-and double-click **Install.cmd**. **Setup** locates your installed games, prepares
-reader tools and voice indexes, and configures capture and reading preferences.
+and double-click **Install.cmd**. **Setup** locates your installed games and checks
+reader tools. In each game's **Languages**, explicitly prepare your chosen
+learning language and its official translation table, then configure capture and reading preferences.
 Game assets are never included in a release. Supported catalogs include Zenless
 Zone Zero, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher III, Neverness to
-Everness and Hito's World. See each game's guide
-for coverage and required voice packs. Existing transcripts remain Chinese.
+Everness, BEYOND: Two Souls, HEAVY RAIN and Hito's World. See each game's guide
+for coverage and required voice packs. Learning languages use matching original
+audio, with official translations resolved separately for each learning language.
+Historical Chinese transcripts retain their original language.
 
 ## Keeping your data
 

@@ -59,3 +59,7 @@ body.developer-mode #transcript,body.developer-mode .actions[hidden]{display:blo
   .word-sheet .word-tabs button { min-height:44px; padding:8px; font-size:13px; }
   .word-sheet-body { padding:10px 12px 14px; font-size:14px; }
 }
+
+.public-guide { margin:0 0 16px; font-size:14px; }
+.public-guide a { color:#8ee9ce; text-underline-offset:3px; }
+.public-guide a:focus-visible { outline:3px solid #f5c56c; outline-offset:4px; }

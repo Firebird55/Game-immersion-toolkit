@@ -64,7 +64,7 @@ writer; Ctrl+C interrupts its current command.
 
 Voice conversion automatically uses up to eight parallel workers, scaled to
 the PC's CPU count. Existing audio quality and cinematic timing are preserved.
-All seven voice-supported games convert up to eight clips per worker batch
+All eight voice-supported games convert up to eight clips per worker batch
 to reduce decoder launches. Archive extraction groups compatible resources,
 including Cyberpunk DLC, and reuses package tables within each batch. Wuthering
 uses shared prefixes only when its installed inventory bounds the extraction.
@@ -85,17 +85,24 @@ same destination when resuming so verified clips can be reused.
    and the count of voice clips **accessible this session**. Remembered catalog
    information does not mean the audio files are currently open.
 4. Pair with the device sending the game using the existing offer/answer flow.
-   Select English or Simplified Chinese subtitles, and the player voice if the
+   Select English, Simplified Chinese or Traditional Chinese subtitles, and the player voice if the
    game has player variants. Tap **Start OCR**. Keep the receiving page visible.
    A small live preview stays visible while OCR runs, including when you scroll
    to the transcript; browsers can suspend video that moves off screen.
-5. Read the Chinese/English transcript and tap **Play original voice**. If Safari
+5. Read the prepared learning/translation transcript and tap **Play original voice**. If Safari
    requires another playback gesture, use the visible audio control. **Find line**
    searches English or Chinese fragments without a live stream. Multiple scenes
    or voice variants are listed for explicit selection. Unvoiced bilingual text
    is retained and labeled **No verified original voice**, rather than silently
    omitted. Existing voice-only exports need a newly exported catalog for that
    additional text; unchanged voice-pack identities remain usable.
+
+See [Games & Languages](https://firebird55.github.io/Game-immersion-toolkit/games.html)
+for each game's learning/audio and official translation combinations. Catalogs
+retain the selected learning, translation and audio locales. Mobile OCR's three
+recognition models do not cover every learning language; use supported in-game
+subtitle text that exists in the prepared catalog, or use the paired-PC reader.
+Full-game footage coverage remains incomplete.
 
 After reopening or rebooting, text/history can be restored from browser storage,
 but select the voice ZIPs again. Files permissions and objects are session-only.

@@ -1,6 +1,8 @@
 # Game immersion toolkit
 
-Local Windows OCR, verified bilingual transcripts and original game audio for Hito's World, Zenless Zone Zero, PRAGMATA, Cyberpunk 2077, Wuthering Waves and The Witcher 3. Shared Lexirise settings/readings/lookups support 31 study languages; Migaku remains a separate reading mode. Existing game transcripts remain Chinese.
+Local Windows OCR, official multilingual transcripts and original game audio for Zenless Zone Zero, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3, Neverness to Everness, BEYOND: Two Souls and HEAVY RAIN. Hito's World provides Chinese/English text without verified original audio. Migaku remains a separate reading mode. Historical Chinese transcripts retain their language.
+
+See [Games & Languages](https://firebird55.github.io/Game-immersion-toolkit/games.html) for per-game learning/audio and translation combinations, missing-pack requirements and validation limits. Explicitly prepare your selected language in **Setup → game → Languages**. Named Windows accounts use DPAPI-protected credentials. Translation targets and reading options follow each learning language's settings; opening settings never prepares all languages or provisions dictionaries. The older Chinese-specific examples below describe the legacy mode; prepared multilingual reading follows [Languages and local accounts](languages-and-accounts.md).
 
 Download a public release ZIP and double-click **Install.cmd**. The optional game-folder popup locates your own installed files. The in-app Setup screen guides game tools and voice packs, capture checks, local reading accounts and refreshes after game patches; saved locations remain per PC. Game assets are never bundled or uploaded. See [installation guide](../INSTALL.md), [mobile-friendly installer page](../INSTALL.html), [contributing](../CONTRIBUTING.md), [agent rules](../AGENTS.md) and [release/rollback](../RELEASE.md).
 
@@ -15,7 +17,7 @@ Capture continues when the game loses focus or another window covers it. Backgro
 
 See [Cyberpunk support and automatic subtitle languages](cyberpunk-support.md) for bilingual-mod compatibility, V voice selection, and the Where Winds Meet limitation.
 See [Wuthering Waves support](wuthering-support.md) for the Chinese voice-pack requirement and Rover selection, and [Witcher 3 support](witcher-support.md) for stock/dual subtitle compatibility. Both Witcher 3 and Cyberpunk work without a subtitle mod.
-See [NTE and Honkai Impact 3rd support](nte-honkai-support.md) for NTE reader setup and Honkai's limited verified catalog coverage.
+See [NTE languages](nte-languages.md), [BEYOND](beyond-support.md) and [HEAVY RAIN](heavy-rain-support.md) for setup and tested coverage. Honkai Impact 3rd is archived and unsupported.
 
 ## Detailed behavior (Proxy Transcript companion)
 

@@ -26,8 +26,10 @@ function asset(name, content) {
   return hashedName;
 }
 const source = name => readFileSync(new URL(`public/mobile-capture/${name}`, root), 'utf8');
-for(const name of ['core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','transcript-channel.mjs','pc-provider.mjs','vault.mjs','capture.js','companion.js','companion.css','style.css','icon.svg','icon.png','manifest.webmanifest']){
- let content=name.endsWith('.png')?readFileSync(new URL('public/mobile-capture/'+name,root)):source(name);if(typeof content==='string')for(const [original,hashed] of assets)content=content.replaceAll('./'+original,'./'+hashed);asset(name,content);
+for(const name of ['games-data.json','games.css','games.mjs','core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','transcript-channel.mjs','pc-provider.mjs','vault.mjs','capture.js','companion.js','companion.css','style.css','icon.svg','icon.png','manifest.webmanifest']){
+ let content=name.endsWith('.png')?readFileSync(new URL('public/mobile-capture/'+name,root)):source(name);
+ if(name==='games-data.json')content=JSON.stringify({...JSON.parse(content),releaseVersion:JSON.parse(readFileSync(new URL('package.json',root),'utf8')).version})+'\n';
+ if(typeof content==='string')for(const [original,hashed] of assets)content=content.replaceAll('./'+original,'./'+hashed);asset(name,content);
 }
 const ocr=ocrAssets();
 const escape = value => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -36,20 +38,23 @@ html=html.replace(' http://127.0.0.1:8766 ws://127.0.0.1:8766','');
 if (!html.includes(`data-build-commit="${commit}"`)) throw new Error('Preview HTML must expose its build version.');
 for (const [name, hashedName] of assets) html = html.replaceAll(`./${name}`, `./${hashedName}`);
 writeFileSync(new URL('index.html', destination), html);
+let gamesHtml=source('games.html').replace('<html lang="en">',`<html lang="en" data-build-commit="${commit}">`);
+for(const [name,hashedName]of assets)gamesHtml=gamesHtml.replaceAll('./'+name,'./'+hashedName);
+writeFileSync(new URL('games.html',destination),gamesHtml);
 writeFileSync(new URL('build.json', destination), JSON.stringify({ format: 'proxy-mobile-preview-v1', commit, branch, builtAt }) + '\n');
 writeFileSync(new URL('.nojekyll', destination), '');
 // Only these generated files are eligible for publication. Stale hashed files
 // from prior local builds stay outside the final publication directory.
 const publish = new URL('output/mobile-preview-publish/', root);
 mkdirSync(publish, { recursive: true });
-const files = ['index.html', 'build.json', '.nojekyll', 'sw.js', ...assets.values(), ...ocr.keys()];
-const cacheName='proxy-mobile-'+createHash('sha256').update([...assets.values(),...[...ocr].map(([name,data])=>name+':'+createHash('sha256').update(data).digest('hex'))].join('\n')).digest('hex').slice(0,16);
+const files = ['index.html', 'games.html', 'build.json', '.nojekyll', 'sw.js', ...assets.values(), ...ocr.keys()];
+const cacheName='proxy-mobile-'+createHash('sha256').update([html,gamesHtml,...assets.values(),...[...ocr].map(([name,data])=>name+':'+createHash('sha256').update(data).digest('hex'))].join('\n')).digest('hex').slice(0,16);
 writeFileSync(new URL('sw.js',destination),`const NAME=${JSON.stringify(cacheName)},FILES=${JSON.stringify(files.filter(n=>n!=='sw.js'))};
 const ROOT=new URL('./',self.location),ALLOW=new Set(FILES.map(n=>new URL(n,ROOT).href)),NAMES=new Set(${JSON.stringify([...assets.keys(),...ocr.keys()])});
 self.addEventListener('install',event=>event.waitUntil(caches.open(NAME).then(cache=>cache.addAll(FILES.filter(n=>!n.startsWith('ocr/')||n==='ocr/tesseract.esm.min.js'||n==='ocr/opencc.mjs')))));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{const clients=await self.clients.matchAll({includeUncontrolled:true});if(clients.length<=1){const names=(await caches.keys()).filter(n=>n.startsWith('proxy-mobile-'));const keep=new Set([NAME,...names.filter(n=>n!==NAME).slice(-1)]);await Promise.all(names.filter(n=>!keep.has(n)).map(n=>caches.delete(n)));}await self.clients.claim();})()));
 self.addEventListener('message',event=>{if(event.data==='activate-update')self.skipWaiting();});
-self.addEventListener('fetch',event=>{if(event.request.method!=='GET'||event.request.headers.has('Authorization'))return;const url=new URL(event.request.url);if(event.request.mode==='navigate'&&url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname)){event.respondWith(fetch(event.request).catch(()=>caches.open(NAME).then(cache=>cache.match(new URL('index.html',ROOT).href))));return;}const prior=url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname)&&!url.search&&NAMES.has(url.pathname.slice(ROOT.pathname.length).replace(/\\.[a-f0-9]{16}(?=\\.[^.]+$)/,''));if(!ALLOW.has(url.href)&&!prior)return;event.respondWith(caches.open(NAME).then(async cache=>{const saved=await cache.match(event.request)??await caches.match(event.request);if(saved)return saved;const response=await fetch(event.request);if(response.ok)await cache.put(event.request,response.clone());return response;}));});
+self.addEventListener('fetch',event=>{if(event.request.method!=='GET'||event.request.headers.has('Authorization'))return;const url=new URL(event.request.url);if(event.request.mode==='navigate'&&url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname)){const page=url.pathname===new URL('games.html',ROOT).pathname?'games.html':'index.html';event.respondWith(fetch(event.request).catch(()=>caches.open(NAME).then(cache=>cache.match(new URL(page,ROOT).href))));return;}const prior=url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname)&&!url.search&&NAMES.has(url.pathname.slice(ROOT.pathname.length).replace(/\\.[a-f0-9]{16}(?=\\.[^.]+$)/,''));if(!ALLOW.has(url.href)&&!prior)return;event.respondWith(caches.open(NAME).then(async cache=>{const saved=await cache.match(event.request)??await caches.match(event.request);if(saved)return saved;const response=await fetch(event.request);if(response.ok)await cache.put(event.request,response.clone());return response;}));});
 `);
 // The publisher must use a fresh directory rather than accumulate older assets.
 // No recursive deletion: version each package by its content and build time.

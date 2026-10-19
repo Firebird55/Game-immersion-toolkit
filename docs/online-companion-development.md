@@ -154,3 +154,18 @@ disabled networking is counted separately. Actual script exceptions, rejected
 promises, other URLs and errors while online still fail. The test also requires
 the updated reader to load offline, retain its catalog/favorite/calibration and
 serve older cached modules; the exception does not waive functional assertions.
+# Games & Languages guide
+
+`public/mobile-capture/games-data.json` records reviewed storefront language
+availability separately from toolkit learning and official translation support.
+Update its verification date and coverage notes when reviewing sources; never
+derive a supported translation from an interface checkmark or reserved/empty
+resource slot. Regional identities must be verified rather than guessed. The
+public reader capability contract is checked against the Python readers by
+`backend/tests/test_public_game_support.py`.
+
+The static guide is served at `games.html`, with optional `game`, `study` and
+`target` query parameters. It needs no account or local service. The Pages builder
+injects its release version, hashes its assets and allowlists both HTML entry
+points for offline navigation. Run `node scripts/mobile-games-e2e.mjs` for the
+three-engine guide, keyboard, mobile/zoom, offline and previous-cache checks.

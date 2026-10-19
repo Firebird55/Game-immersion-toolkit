@@ -1,0 +1,109 @@
+{
+  "format": 1,
+  "readerRelease": "0.16.1",
+  "checkedAt": "2026-10-19",
+  "languages": {
+    "en": "English", "zh-Hans": "Simplified Chinese", "zh-Hant": "Traditional Chinese",
+    "ja": "Japanese", "ko": "Korean", "fr": "French", "it": "Italian", "de": "German",
+    "es-ES": "Spanish — Spain", "es-419": "Spanish — Latin America", "pt-BR": "Portuguese — Brazil",
+    "pt-PT": "Portuguese — Portugal", "ru": "Russian", "pl": "Polish", "nl": "Dutch",
+    "ar": "Arabic", "cs": "Czech", "hu": "Hungarian", "th": "Thai", "tr": "Turkish",
+    "uk": "Ukrainian", "da": "Danish", "fi": "Finnish", "el": "Greek", "no": "Norwegian",
+    "sv": "Swedish", "id": "Indonesian", "vi": "Vietnamese"
+  },
+  "games": [
+    {
+      "id": "zzz", "name": "Zenless Zone Zero", "guide": "zzz-languages.md",
+      "source": "https://store.epicgames.com/p/zenless-zone-zero-c7c151", "sourceName": "Epic Games Store",
+      "study": ["en", "zh-Hans", "zh-Hant", "ja", "ko"], "audio": ["en", "zh-Hans", "ja", "ko"],
+      "officialText": ["en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "de", "es-419", "pt-BR", "ru", "th", "vi", "id"],
+      "targets": ["en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "de", "pt-BR", "ru", "th", "vi", "id"],
+      "unverified": {"es-419": "The storefront lists Latin American Spanish; the released reader labels its ES table Spanish — Spain. The regional identity needs verification before advertising this pair."},
+      "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
+      "coverage": "English, Mandarin and Japanese asset samples cover dialogue, comics, gameplay, tips and cutscenes. Korean native playback is untested. All five study locales have synthetic OCR checks; complete gameplay chapter and branch coverage is unverified."
+    },
+    {
+      "id": "wuwa", "name": "Wuthering Waves", "guide": "wuthering-languages.md",
+      "source": "https://store.steampowered.com/app/3513350/Wuthering_Waves/", "sourceName": "Steam",
+      "study": ["en", "zh-Hans", "zh-Hant", "ja", "ko"], "audio": ["en", "zh-Hans", "ja", "ko"],
+      "officialText": ["en", "fr", "de", "es-ES", "ja", "zh-Hans", "zh-Hant", "ko", "th", "pt-BR"],
+      "targets": ["en", "fr", "de", "es-ES", "ja", "zh-Hans", "zh-Hant", "ko", "th", "pt-BR"],
+      "unverified": {},
+      "notes": "Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.",
+      "coverage": "English and Mandarin original voice samples were decoded. Japanese and Korean native playback is untested. Synthetic OCR covers all five study locales. Mobile footage is sampled; some resized movie/story captions still miss. Full chapter and branch coverage is unverified."
+    },
+    {
+      "id": "nte", "name": "Neverness to Everness", "guide": "nte-languages.md",
+      "source": "https://store.epicgames.com/p/nte-neverness-to-everness-965a32", "sourceName": "Epic Games Store",
+      "study": ["en", "zh-Hans", "zh-Hant", "ja", "ko"], "audio": ["en", "zh-Hans", "ja", "ko"],
+      "officialText": ["en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "de", "es-ES", "ru"],
+      "targets": ["en", "zh-Hans", "zh-Hant", "ja", "ko"],
+      "unverified": {"fr": "Listed by the storefront and recognized by the reader, but a nonempty aligned table has not been verified.", "de": "Listed by the storefront and recognized by the reader, but a nonempty aligned table has not been verified.", "es-ES": "Listed by the storefront and recognized by the reader, but a nonempty aligned table has not been verified.", "ru": "Listed by the storefront and recognized by the reader, but a nonempty aligned table has not been verified."},
+      "notes": "Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.",
+      "coverage": "Ordinary dialogue and cinematic asset samples decode in all four dubs. All five study locales have synthetic OCR checks. Sampled mobile movie cards pass, but wrapped subtitles and some movie variants still miss. Full chapter and branch coverage is unverified."
+    },
+    {
+      "id": "pragmata", "name": "PRAGMATA", "guide": "pragmata-languages.md",
+      "source": "https://store.steampowered.com/app/3357650/PRAGMATA/", "sourceName": "Steam",
+      "study": ["en", "fr", "it", "de", "es-ES", "es-419", "pt-BR", "ru", "zh-Hans", "ja", "ko"],
+      "audio": ["en", "fr", "it", "de", "es-ES", "es-419", "pt-BR", "ru", "zh-Hans", "ja", "ko"],
+      "officialText": ["en", "fr", "it", "de", "es-ES", "ar", "es-419", "pt-BR", "pl", "ru", "zh-Hans", "zh-Hant", "ja", "ko"],
+      "targets": ["en", "fr", "it", "de", "es-ES", "ar", "es-419", "pt-BR", "pl", "ru", "zh-Hans", "zh-Hant", "ja", "ko"],
+      "unverified": {},
+      "notes": "Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.",
+      "coverage": "Dialogue and cutscene asset samples decode in all eleven dubs. Synthetic OCR covers all study locales. Real mobile gameplay footage and complete chapter coverage remain unverified."
+    },
+    {
+      "id": "cyberpunk", "name": "Cyberpunk 2077", "guide": "cyberpunk-languages.md",
+      "source": "https://store.steampowered.com/app/1091500/Cyberpunk_2077/", "sourceName": "Steam",
+      "study": ["en", "fr", "it", "de", "es-ES", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"],
+      "audio": ["en", "fr", "it", "de", "es-ES", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"],
+      "officialText": ["en", "fr", "it", "de", "es-ES", "ar", "cs", "hu", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans", "es-419", "th", "zh-Hant", "tr", "uk"],
+      "targets": ["en", "fr", "it", "de", "es-ES", "ar", "cs", "hu", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans", "es-419", "th", "zh-Hant", "tr", "uk"],
+      "unverified": {},
+      "notes": "Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.",
+      "coverage": "Official study text was extracted in all eleven locales. English and Mandarin native voice samples pass; other dubs use binding fixtures. Phantom Liberty native playback is untested. Small overhead captions still miss in sampled mobile footage. Full gameplay coverage is unverified."
+    },
+    {
+      "id": "witcher3", "name": "The Witcher 3: Wild Hunt", "guide": "witcher-languages.md",
+      "source": "https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/", "sourceName": "Steam",
+      "study": ["en", "fr", "de", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"],
+      "audio": ["en", "fr", "de", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"],
+      "officialText": ["en", "fr", "it", "de", "es-ES", "ar", "cs", "hu", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hant", "tr", "zh-Hans", "es-419", "uk"],
+      "targets": ["en", "fr", "it", "de", "es-ES", "ar", "cs", "hu", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hant", "tr", "zh-Hans", "es-419", "uk"],
+      "unverified": {},
+      "notes": "Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.",
+      "coverage": "Official study text was extracted in all nine locales. English and Mandarin native voice samples pass; other dubs use binding fixtures. Expansion native playback is untested. Top-edge NPC captions still miss in sampled mobile footage. Full gameplay coverage is unverified."
+    },
+    {
+      "id": "beyond", "name": "BEYOND: Two Souls", "guide": "beyond-support.md",
+      "source": "https://store.steampowered.com/app/960990/Beyond_Two_Souls/", "sourceName": "Steam",
+      "study": ["en", "fr", "it", "de", "es-ES", "nl", "ja", "pl", "pt-PT", "pt-BR", "ru", "es-419"],
+      "audio": ["en", "fr", "it", "de", "es-ES", "nl", "ja", "pl", "pt-PT", "pt-BR", "ru", "es-419"],
+      "officialText": ["en", "fr", "it", "de", "es-ES", "cs", "da", "nl", "fi", "el", "hu", "ja", "ko", "no", "pl", "pt-PT", "pt-BR", "ru", "zh-Hans", "es-419", "sv", "zh-Hant", "tr"],
+      "targets": ["en", "fr", "it", "de", "es-ES", "cs", "da", "nl", "fi", "el", "hu", "ja", "ko", "no", "pl", "pt-PT", "pt-BR", "ru", "zh-Hans", "es-419", "sv", "zh-Hant", "tr"],
+      "unverified": {},
+      "notes": "Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.",
+      "coverage": "All mapped Dutch and English original performances decode. English PC footage from 00:00–08:00 covers opening narration, police, laboratory overlap and the start of the card experiment. Later chapters, alternate branches and other-language footage remain untested. Dutch/Chinese capture has separate synthetic OCR evidence; mobile gameplay footage is unverified."
+    },
+    {
+      "id": "heavyrain", "name": "HEAVY RAIN", "guide": "heavy-rain-support.md",
+      "source": "https://store.steampowered.com/app/960910/Heavy_Rain/", "sourceName": "Steam",
+      "study": ["en", "fr", "it", "de", "es-ES", "nl", "ja", "pl", "pt-PT", "ru"],
+      "audio": ["en", "fr", "it", "de", "es-ES", "nl", "ja", "pl", "pt-PT", "ru"],
+      "officialText": ["en", "fr", "it", "de", "es-ES", "da", "nl", "fi", "ja", "ko", "no", "pl", "pt-PT", "ru", "zh-Hans", "sv", "zh-Hant"],
+      "targets": ["en", "fr", "it", "de", "es-ES", "da", "nl", "fi", "ja", "ko", "no", "pl", "pt-PT", "ru", "zh-Hans", "sv", "zh-Hant"],
+      "unverified": {},
+      "notes": "Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.",
+      "coverage": "All mapped Dutch original performances decode; each other dub has a decoded asset sample. English PC footage from 00:00–04:00 and 15:00–17:00 covers thoughts, letters, family overlap, QTE speech and brief replies. Other chapters, epilogues, branches and other-language footage remain untested. Mobile gameplay footage is unverified."
+    },
+    {
+      "id": "hito", "name": "Hito's World", "guide": "desktop-companion.md#hitos-world",
+      "source": "https://store.steampowered.com/app/4934190/Hitos_World/", "sourceName": "Steam (upcoming edition)",
+      "study": ["zh-Hans"], "audio": ["en"], "officialText": ["en"], "targets": ["en"],
+      "textOnly": true, "unverified": {},
+      "notes": "The existing PC reader supports Chinese study text with English translation from the installed game's catalog. It provides no verified original audio. The upcoming Steam edition lists English and describes in-game Chinese/Japanese learning; those listings do not extend toolkit support.",
+      "coverage": "PC fixed dialogue and grammar-generated sentences have reader regressions. Mobile libraries contain fixed text only and do not run the desktop grammar generator. Upcoming Steam builds and Japanese study are unverified."
+    }
+  ]
+}

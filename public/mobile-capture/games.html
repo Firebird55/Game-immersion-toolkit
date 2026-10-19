@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="description" content="Find supported game learning languages, original voices and official translation combinations in Game immersion toolkit.">
+  <title>Games &amp; Languages — Game immersion toolkit</title>
+  <link rel="stylesheet" href="./games.css">
+  <script type="module" src="./games.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#combinations">Skip to language combinations</a>
+  <header><a class="brand" href="./">Game immersion toolkit</a><nav aria-label="Guide"><a href="./">Open companion</a><a href="#setup">Setup</a><a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest">Download latest</a></nav></header>
+  <main>
+    <div class="intro"><p class="eyebrow">Games &amp; Languages</p><h1>Your game.<br>Your learning language.</h1><p class="lead">Read official dialogue, hear its original voice and use reading tools that follow the language you are learning.</p><p id="release-info" class="muted">Loading support information…</p><a class="button" href="./">Open online companion</a> <a href="#setup">Set up on Windows</a><p id="guide-update" hidden>A site update is ready. Stop sharing in other companion tabs before updating. <button id="update-guide" type="button">Update guide</button></p></div>
+    <section id="combinations" aria-labelledby="combinations-title">
+      <h2 id="combinations-title">Find a language combination</h2>
+      <p>Learning text uses its matching original voice. Translation text comes from aligned official game subtitles. Each line needs an available translation and a verified voice binding.</p>
+      <form id="language-filters" action="./games.html" method="get"><div class="filters">
+        <label>Game<select id="guide-game" name="game"><option value="all">All supported games</option></select></label>
+        <label>Learning language<select id="guide-study" name="study"><option value="all">All learning languages</option></select></label>
+        <label>Translation language<select id="guide-target" name="target"><option value="all">All translation languages</option></select></label>
+      </div></form>
+      <p id="filter-status" role="status" aria-live="polite">Loading games…</p><a id="selection-link" href="./games.html">Link to this selection</a>
+      <p class="muted">Choose either language to compare games. Every listed learning language can use any listed supported translation target for that game, subject to installed assets and sentence alignment. A same-language choice is reading practice, rather than a translation.</p>
+      <div id="game-results"></div>
+      <noscript>Enable JavaScript to view and filter the language tables. No account is needed. The <a href="https://github.com/Firebird55/Game-immersion-toolkit#readme">project README</a> also links each game's guide.</noscript>
+    </section>
+    <section id="setup" aria-labelledby="setup-title"><p class="eyebrow">Start playing</p><h2 id="setup-title">Prepare the languages you choose</h2>
+      <ol><li>Download the <a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest">latest Windows release</a>, extract it and open <strong>Install.cmd</strong>. Select your installed game folders.</li><li>Install the original voice pack for the language you are learning. In <strong>Setup → game → Languages</strong>, explicitly prepare that learning language and the required official translation table.</li><li>Connect your Lexirise account if desired. The Windows account switcher keeps named credentials protected with Windows DPAPI. Translation language, dictionaries, inline glosses and reading options follow each learning language's settings. The global translation target is used only when that language has no target.</li><li>Choose matching spoken audio in the game and calibrate capture. For example, Dutch learning with Chinese translation is supported in BEYOND and HEAVY RAIN; Chinese subtitles can match the prepared official table.</li></ol>
+      <p>Opening settings or adding an account does not prepare every language or create dictionaries. Prepare new translation tables explicitly. Updates refresh only languages already prepared. Word lookups happen when you request them.</p>
+      <p>Missing official translations stay unavailable. There is no generated translation or English substitution. Original game assets stay on your PC and are never included in downloads.</p>
+    </section>
+    <section aria-labelledby="devices-title"><h2 id="devices-title">Read on desktop, phone or tablet</h2>
+      <div class="device-grid"><article><h3>Windows capture</h3><p>Prepare installed game languages, capture subtitles and read locally with original voice playback, history and language-specific reading tools.</p></article><article><h3>Paired PC reader</h3><p>Share the Windows transcript to the online companion on your phone or tablet. The PC stays on and provides the prepared language text and original voices over the private pairing connection.</p></article><article><h3>Independent mobile OCR</h3><p>Open a privately exported catalog and optional voice ZIPs. Recognition currently covers English, Simplified Chinese and Traditional Chinese subtitles, including English/Chinese combinations. It does not recognize every learning language listed above. The PC can be off after export.</p></article></div>
+      <p>Lexirise reading aids, inline glosses and lookups use the learning language's preferences. Dictionary setup is explicit. Migaku remains an independent mode and requires a compatible browser extension. Browser screen capture can be unavailable on iPad or stop in the background; the native iPad capture helper is not included.</p>
+    </section>
+    <section aria-labelledby="coverage-title"><h2 id="coverage-title">What “supported” means</h2><p>Storefront language lists describe the game. Toolkit tables describe implemented readers; they do not promise every subtitle is captured. Unverified locales are labelled separately. Missing packs, ambiguous performances and untranslated lines remain unavailable.</p><p>Asset decoding, synthetic OCR, recorded gameplay and mobile checks are different evidence. Resized footage is not native-resolution testing, and browser display scaling is not physical Windows DPI testing. Full chapter and branch coverage remains incomplete. Uncaptioned speech is outside capture coverage.</p><p>Cyberpunk and Witcher retain supported dual-language subtitle mods, including wrapped and same-writing-system pairs. A mod is optional.</p><p class="muted">Honkai Impact 3rd is archived and unsupported. It is excluded from supported-game lists and setup.</p></section>
+  </main>
+  <footer><a href="./">Online companion</a><a href="https://github.com/Firebird55/Game-immersion-toolkit">Source &amp; documentation</a><a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest">Latest release</a></footer>
+</body>
+</html>
