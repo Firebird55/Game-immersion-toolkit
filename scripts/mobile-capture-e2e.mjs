@@ -7,6 +7,7 @@ import {createHash} from 'node:crypto';
 import {zipSync,strToU8} from 'fflate';
 import {ocrAssets,mime} from './mobile-assets.mjs';
 import {pairingMessage} from '../public/mobile-capture/core.mjs';
+import {verifyPreviewAssets} from './mobile-publication.mjs';
 const { chromium, firefox, webkit } = await import(process.env.PLAYWRIGHT_MODULE_PATH ? pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href : 'playwright');
 
 const root = process.env.MOBILE_PREVIEW_DIR ? pathToFileURL(resolve(process.env.MOBILE_PREVIEW_DIR) + sep) : new URL('../public/mobile-capture/', import.meta.url);
@@ -221,11 +222,7 @@ try {
     await unsupported.close();
     if (expectedBuild) {
       assert.match(await receiver.locator('#build-info').innerText(), new RegExp(expectedBuild.commit.slice(0, 8)));
-      // Google Drive can add desktop.ini to a local package. It is not one of
-      // the copied publication files and is absent on the Linux publisher.
-      const names = readdirSync(root).filter(name => name !== 'desktop.ini').sort();
-      assert.equal(names.length, 27, 'Publication contains only the allowlisted companion, QR and OCR assets');
-      assert(names.every(name => /^(index\.html|build\.json|\.nojekyll|sw\.js|ocr|pairing|(?:capture|core|relay|recovery-config|qr-pairing|qr-render|qr-ui|style|library|storage|library-worker|mobile-ui|ocr-pipeline|icon|manifest|transcript-channel|pc-provider|vault|companion)\.[0-9a-f]{16}\.(?:js|mjs|json|css|svg|png|webmanifest))$/.test(name)));
+      verifyPreviewAssets(root,ocr);
     }
     for (const [width, height, scale] of [[320, 568, 1], [390, 844, 1], [768, 1024, 1], [1920, 1080, 2]]) {
       await receiver.setViewportSize({ width, height });

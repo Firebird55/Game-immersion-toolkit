@@ -8,6 +8,7 @@ on:
       - 'scripts/companion-e2e.mjs'
       - 'scripts/mobile-reader-layout-e2e.mjs'
       - 'scripts/mobile-games-e2e.mjs'
+      - 'scripts/mobile-publication.mjs'
       - 'scripts/webrtc-runtime-probe.mjs'
       - 'vendor/lexirise-components/**'
       - 'scripts/build-browser-reader.mjs'
@@ -82,7 +83,7 @@ jobs:
       - name: Install locked browser and OCR dependencies
         run: npm ci --ignore-scripts
       - name: Check capture and library logic
-        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs
+        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright

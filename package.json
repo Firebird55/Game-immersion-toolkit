@@ -21,7 +21,7 @@
     "mobile:dev": "node scripts/serve-mobile-capture.mjs --local",
     "pairing:dev": "wrangler dev --config services/pairing/wrangler.jsonc --local",
     "pairing:deploy": "wrangler deploy --config services/pairing/wrangler.jsonc",
-    "mobile:check": "node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs && node scripts/companion-e2e.mjs && node scripts/mobile-reader-layout-e2e.mjs && node scripts/mobile-capture-e2e.mjs && node scripts/mobile-recovery-e2e.mjs && node scripts/mobile-library-e2e.mjs && node scripts/mobile-update-e2e.mjs && node scripts/mobile-layout-e2e.mjs",
+    "mobile:check": "node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs && node scripts/companion-e2e.mjs && node scripts/mobile-reader-layout-e2e.mjs && node scripts/mobile-capture-e2e.mjs && node scripts/mobile-recovery-e2e.mjs && node scripts/mobile-library-e2e.mjs && node scripts/mobile-update-e2e.mjs && node scripts/mobile-layout-e2e.mjs && node scripts/mobile-games-e2e.mjs",
     "audit:public": "node scripts/secret-check.mjs --public",
     "gateway:deploy": "wrangler deploy --config services/lexirise-gateway/wrangler.jsonc"
   },
