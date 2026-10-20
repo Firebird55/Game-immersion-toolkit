@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MobileLibraryExport, type MobileExportStatus } from './mobile-library-export';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+import {InterfaceLanguage,useInterfaceLanguage} from '@/lib/interface-language';
 import {LanguageSetup} from './language-setup';
 
 const API = 'http://127.0.0.1:8766';
@@ -35,6 +36,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   readingMode: 'migaku' | 'lexirise'; onReadingMode: (mode: 'migaku' | 'lexirise') => void;
   onCapture: () => void; onReading: () => void; onAccount: (language?:string) => void; onChanged: () => void;
 }) {
+  const {t}=useInterfaceLanguage();
   const [open, setOpen] = useState(false), [step, setStep] = useState(0);
   const [data, setData] = useState<Setup | null>(null), [folder, setFolder] = useState('');
   const [autoStart, setAutoStart] = useState<boolean | null>(null);
@@ -116,17 +118,17 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   }
   return <>
     <Button variant="outline" disabled={!online} onClick={() => { setAutoStart(null); setError(''); setMessage(''); setStep(0); setOpen(true); }}>
-      <Settings2 /> Setup
+      <Settings2 /> {t('Settings')}
     </Button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="toolkit-setup-dialog sm:max-w-6xl">
         <DialogHeader>
-          <DialogTitle>Toolkit setup</DialogTitle>
-          <DialogDescription>Connect your own installed games. Game archives and voices stay on this PC.</DialogDescription>
+          <DialogTitle>{t('Settings')}</DialogTitle>
+          <DialogDescription>{t('Prepare only your chosen languages. Your game files stay on this PC.')}</DialogDescription>
         </DialogHeader>
         <nav className="toolkit-setup-tabs" aria-label="Setup sections">
-          {['Games', 'Capture', 'Reading'].map((name, index) => <button key={name} type="button" aria-pressed={step === index}
-            onClick={() => setStep(index)}>{index + 1}. {name}</button>)}
+          {['Games & Languages', 'Capture', 'Reading', 'Accounts', 'Storage', 'General & Updates'].map((name, index) => <button key={name} type="button" aria-pressed={step === index}
+            onClick={() => setStep(index)}>{t(name)}</button>)}
         </nav>
         {!data && <p role="status">Loading local setup…</p>}
         {data && step === 0 && <section className="toolkit-setup-section" aria-label="Game files">
@@ -197,11 +199,15 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
           <p>Chinese game transcripts keep their original language. Reading preferences are stored locally.</p>
           {readingMode === 'migaku' ? <p>Use your installed Migaku browser extension with the selectable transcript text. You can switch reading modes at any time.</p> : <>
             <Button variant="outline" onClick={() => leaveFor(onReading)}>Configure reading options</Button>
-            <h3>Optional Lexirise account</h3><p>{data.lexirise_configured ? 'An API key is configured on this PC.' : 'Add your own Lexirise API key to use lookups and explicit sentence exports.'}</p>
+          </>}
+        </section>}
+        {data && step === 3 && <section className="toolkit-setup-section">            <h3>Optional Lexirise account</h3><p>{data.lexirise_configured ? 'An API key is configured on this PC.' : 'Add your own Lexirise API key to use lookups and explicit sentence exports.'}</p>
             <Button variant="outline" disabled={busy || nativeBusy} onClick={() => void action('/api/setup/native/lexirise', {}, 'A hidden-input prompt opened on this PC. Enter your key there; it is stored encrypted for this Windows user.')}>{data.lexirise_configured ? 'Replace local API key' : 'Set up local API key'}</Button>
             <Button variant="outline" disabled={!data.lexirise_configured} onClick={() => leaveFor(onAccount)}>Account and game deck</Button>
             <p className="toolkit-setup-note">Choose a destination for each game before exporting. Account writes and sentence uploads require your explicit action.</p>
-          </>}
+        </section>}
+        {data && step === 4 && <section className="toolkit-setup-section">{game !== 'hito' ? <LanguageSetup game={game} storageOnly onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/> : <p>Hito uses its existing text catalog.</p>}</section>}
+        {data && step === 5 && <section className="toolkit-setup-section"><InterfaceLanguage/>
           <h3>Toolkit updates and support</h3><p><a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest" target="_blank" rel="noreferrer">Get the latest toolkit release</a> · Installed version {data.version}</p>
           <Button variant="outline" onClick={() => void report()}>Download setup report</Button>
           <p className="toolkit-setup-note">The report includes versions and readiness flags. It excludes folder paths, credentials, account details and transcript contents.</p>
@@ -209,9 +215,9 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
         {error && <p role="alert" className="toolkit-setup-error">{error}</p>}
         {message && <p role="status" className="toolkit-setup-note">{message}</p>}
         <div className="toolkit-setup-navigation">
-          {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)}>Back</Button>}
-          {step < 2 && <Button disabled={!data} onClick={() => setStep(step + 1)}>Next</Button>}
-          {step === 2 && <Button disabled={busy || !data} onClick={() => { void action('/api/setup/complete', { auto_start: autoStart ?? data?.auto_start ?? false }, 'Setup saved.').then(saved => { if (saved) setOpen(false); }); }}>Finish setup</Button>}
+          {step > 0 && <Button variant="outline" onClick={() => setStep(step - 1)}>{t('Back')}</Button>}
+          {step < 5 && <Button disabled={!data} onClick={() => setStep(step + 1)}>{t('Next')}</Button>}
+          {step === 5 && <Button disabled={busy || !data} onClick={() => { void action('/api/setup/complete', { auto_start: autoStart ?? data?.auto_start ?? false }, 'Setup saved.').then(saved => { if (saved) setOpen(false); }); }}>{t('Finish setup')}</Button>}
         </div>
       </DialogContent>
     </Dialog>

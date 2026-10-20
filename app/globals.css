@@ -858,3 +858,30 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 .current-chinese.reading-text { line-height:2.2; }
 @media (max-width:700px) { .reading-controls { width:100%; margin-left:0; padding:4px 8px; } .reading-text { line-height:2.15; } .reading-meaning { font-size:.46em; } }
 @media (max-width:420px) { .word-sheet-top { padding:14px 32px 10px 12px; gap:8px; } .word-sheet-headword { gap:8px; } .word-levels button { width:30px; min-height:36px; font-size:14px; } .word-tabs { margin:0 12px; } .word-tabs button { padding:8px; font-size:13px; } .word-sheet-body { padding:12px; } .word-component-cards { grid-template-columns:1fr; } .word-example { align-items:flex-start; } .word-example-actions { flex-direction:column; } }
+.language-manager { grid-column: 1 / -1; }
+.language-table-scroll { overflow-x: auto; border: 1px solid #343b45; border-radius: 12px; }
+.language-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.language-table th,.language-table td { padding: 12px; text-align: left; border-bottom: 1px solid #343b45; }
+.language-table th { color: #b5c0ce; font-size: 12px; }
+.language-table td button { text-align: left; font-weight: 600; color: inherit; padding: 5px 0; }
+.language-table tr.is-selected { background: #243b42; }
+.language-table td small { display: block; }
+.language-badge { display: inline-block; font-size: 12px; color: #c4cfdf; }
+.language-badge.ready { color: #87e0bf; }
+.language-detail { padding: 18px 0; display: grid; gap: 12px; }
+.language-detail h4 { font-size: 18px; font-weight: 600; }
+.language-cleanup { border: 1px solid #b87e42; border-radius: 12px; padding: 16px; }
+.storage-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 12px; margin-top: 18px; }
+.storage-summary > div { background: #1b222b; padding: 14px; border-radius: 10px; }
+.storage-summary dt { font-size: 12px; color: #b6c2d0; }
+.storage-summary dd { margin: 8px 0 0; font-size: 16px; font-weight: 600; }
+.toolkit-setup-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.toolkit-setup-tabs button { flex: 1 1 auto; padding: 10px 14px; border-radius: 8px; text-align: left; }
+.toolkit-setup-tabs button[aria-pressed=true] { background: #244b4b; color: #b3f4dd; }
+@media (min-width: 900px) {
+ .toolkit-setup-dialog { display: grid !important; grid-template-columns: 180px minmax(0,1fr); }
+ .toolkit-setup-dialog > [data-slot=dialog-header] { grid-column: 1 / -1; }
+ .toolkit-setup-tabs { grid-column: 1; grid-row: 2 / 6; align-content: start; flex-direction: column; }
+ .toolkit-setup-section,.toolkit-setup-navigation,.toolkit-setup-dialog > [role=status],.toolkit-setup-dialog > [role=alert] { grid-column: 2; }
+}
+@media (max-width: 540px) { .language-table th,.language-table td { padding: 8px; font-size: 12px; } }

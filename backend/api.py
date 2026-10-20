@@ -40,6 +40,7 @@ from .lexirise_settings import account_settings
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
 from .language_preparation import LanguagePreparation
+from .language_inventory import LanguageInventory
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 from .installation import InstallationService
 from .scoped_mobile_exports import ScopedMobileExports
@@ -207,6 +208,7 @@ class Runtime:
             account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
         self.index_task: asyncio.Task[None] | None = None
         self.mobile_exports = ScopedMobileExports(PROJECT_ROOT, self.accounts, self.languages)
+        self.language_inventory = LanguageInventory(DATA_DIR, PROJECT_ROOT / 'public/mobile-capture/games-data.json', self.setup_install)
 
     def account_preferences(self):
         session = self.lexirise.pin()
@@ -794,7 +796,7 @@ def setup_status(request: Request, game: str | None = None) -> dict:
 class LanguageAction(BaseModel):
     model_config = ConfigDict(extra='forbid')
     locale: str = Field(min_length=2, max_length=24)
-    action: Literal['prepare', 'rebuild', 'select', 'remove'] = 'prepare'
+    action: Literal['prepare', 'rebuild', 'select', 'remove', 'cleanup'] = 'prepare'
     target: str | None = Field(default=None, max_length=24)
 
 
@@ -805,6 +807,10 @@ def game_languages(game: str, request: Request) -> dict:
         raise HTTPException(404, 'Unsupported game language setup')
     try:
         result = runtime.languages.status(game, runtime.accounts.status()['active'])
+        inventory = runtime.language_inventory.status(game, result)
+        for row in result['locales']:
+            row.update(inventory['locales'].get(row['locale'], {}))
+        result.update({key: value for key, value in inventory.items() if key != 'locales'})
         try:
             settings = runtime.account_preferences()
             result['enabled_languages'] = settings['languages']
@@ -825,6 +831,13 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
         raise HTTPException(404, 'Unsupported game language setup')
     try:
         account = runtime.accounts.status()['active']
+        if payload.action == 'cleanup':
+            busy = runtime.mobile_exports.status(game).get('state') in {'preparing', 'exporting', 'cancelling'}
+            result = runtime.language_inventory.cleanup(game, payload.locale, runtime.languages, busy)
+            runtime.capture._scan_epoch += 1
+            runtime._locale_indexes.pop((game, payload.locale), None)
+            runtime._locale_voices.pop((game, payload.locale), None)
+            return result
         if payload.action == 'remove':
             runtime.languages.remove(game, payload.locale)
             return {'removed': True}
