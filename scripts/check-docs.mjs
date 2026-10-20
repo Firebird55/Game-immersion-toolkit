@@ -1,6 +1,7 @@
 import {execFileSync} from 'node:child_process';
 import {existsSync,readFileSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
+execFileSync(process.execPath,['scripts/generate-language-docs.mjs','--check'],{stdio:'inherit'});
 const files=execFileSync('git',['ls-files','*.md'],{encoding:'utf8'}).trim().split('\n');
 const failures=[];
 for(const file of files) {
