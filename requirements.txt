@@ -6,7 +6,7 @@ windows-capture==2.0.1; sys_platform == 'win32'
 opencv-python==4.11.0.86; sys_platform == 'win32'
 oneocr==1.0.12
 opencc-python-reimplemented==0.1.7
-pillow==12.3.0
+pillow==13.0.0
 pypinyin==0.55.0
 numpy==1.26.4
 scipy==1.14.1
