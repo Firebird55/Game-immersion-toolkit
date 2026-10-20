@@ -4,7 +4,7 @@ Issues and pull requests are welcome. Describe the problem and expected behavior
 
 Fork the repository, create a focused branch (agents use `codex/`), and install Node.js 24 with `npm ci`. Use a GitHub noreply commit email. Read AGENTS.md and RELEASE.md, preserve unrelated work, and commit each completed logical change after relevant checks.
 
-Run `npm run check` and `npm run audit:public` before submitting. Account-write tests must use mocks; never include API keys or require another person's game installation. CI builds without credentials. Keep local data, game assets, recordings, screenshots of personal accounts and diagnostics outside Git.
+Run `npm run check:changed -- --base origin/main` before submitting. Use `npm run check:full` for an explicit comprehensive run. Unknown changes select the full gate. Account-write tests must use mocks; never include API keys or require another person's game installation. CI builds without credentials. Keep local data, game assets, recordings, screenshots of personal accounts and diagnostics outside Git.
 
 Shared reader, lookup, reading settings and CSS are maintained in [Lexirise shared components](https://github.com/Firebird55/Lexirise-shared-components). Never edit consumer vendor copies. Propose shared changes there; the maintainer publishes a version and runs `npm run shared:update -- --version <version> --all` to test and commit both consumer integrations.
 
@@ -15,3 +15,5 @@ Game adapters must verify bilingual text IDs and original Mandarin sources from 
 By submitting original contributions you agree to license them under the included Firebird55 Attribution License. Retain upstream notices for third-party work and document its origin. No copyright transfer or CLA is required. This custom visible-attribution license is not MIT and makes no claim of OSI approval.
 
 Maintainers release from clean main with the documented release command, verify hosted checks, download packages, and verify checksums/provenance. Releases use GitHub-hosted Actions. Previously published release assets and tags are immutable; fix regressions with a new version.
+
+Routine development: use `npm run check:changed` for uncommitted changes or `npm run check:changed -- --base origin/main` for a branch. The selector runs relevant checks; full browser and packaging validation belongs to release CI. Record timings in ignored output/checks.

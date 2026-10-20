@@ -7,7 +7,7 @@ GitHub-hosted Actions only, never Argo or cluster dependencies.
 ## Explicit release
 From clean main: npm run release -- --version 0.2.0 (increment for later releases).
 Keep the running companion available. Run checks and builds from a separate checkout because Windows locks a frontend while it is serving. Prepare the release there, then run its `scripts/update-companion.ps1 -SourceRoot <prepared-checkout-or-release> -Root <current-companion-folder>`. Add `-PreparedBuild` when reusing a locally verified build. The updater stages dependencies and warms OCR and the selected game index before transferring capture to the replacement. Later updates use a stable local router; existing requests finish and open readers reconnect automatically. A failed preparation keeps the current runtime active.
-The command runs integration checks, validates the vendor pin, scans secrets/history, updates metadata, commits and pushes an annotated version tag.
+The command validates the vendor pin and documentation, scans secrets/history, updates metadata, commits and pushes an annotated version tag. Comprehensive checks run once on that release commit in hosted CI.
 Monitor gh run list and gh run watch <id> --exit-status. Tag workflow rebuilds and tests before publishing.
 Download using gh release download <tag> --repo Firebird55/Game-immersion-toolkit --dir <empty-folder>.
 Verify each SHA256SUMS entry and PROVENANCE sourceCommit against the release tag before installation.
@@ -30,3 +30,5 @@ It does not silently update code or account settings. Follow AGENTS.md, update t
 
 ## Rollback
 Download and install a prior release using the same steps. Keep user data, local preferences and keys. Do not rewrite tags. For dependency rollback, import the prior shared release using shared:update, then publish new consumer versions.
+
+Routine development: use `npm run check:changed` for uncommitted changes or `npm run check:changed -- --base origin/main` for a branch. The selector runs relevant checks; full browser and packaging validation belongs to release CI. Record timings in ignored output/checks.

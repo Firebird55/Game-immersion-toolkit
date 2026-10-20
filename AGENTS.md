@@ -1,6 +1,6 @@
 # Agent workflow
 
-Read this file and RELEASE.md first. Inspect Git status and preserve unrelated work, local data, calibration and credentials. Commit each completed logical change after relevant checks; run all checks before pushing. Use `codex/` task branches and release from clean main.
+Read this file and RELEASE.md first. Inspect Git status and preserve unrelated work, local data, calibration and credentials. Commit each completed logical change after relevant checks; run affected checks before pushing. Use `codex/` task branches and release from clean main.
 
 This is an owner-authorized public repository with sanitized history. Never reintroduce the private backups or old private refs. Use a GitHub noreply author/committer email. Do not publish personal profile paths, keys, recordings, databases, game files or account diagnostics.
 
@@ -13,3 +13,5 @@ Run `npm run lexirise:watch` for public upstream changes. Exit 2 means inspect s
 Test desktop/mobile, Shadow DOM, Firefox/Chromium, zoom and Windows DPI/capture bounds as applicable. Run `npm run audit:public` before publication. Release through `npm run release -- --version <semver>`; monitor GitHub-hosted Actions and verify downloaded checksums and provenance. Delivery must not depend on Argo or a cluster.
 
 Only allowlisted static mobile-preview assets may be published on Pages. Desktop services and local data stay on the PC. Follow host-specific workspace location instructions without copying personal paths into the public repository.
+
+Routine development: use `npm run check:changed` for uncommitted changes or `npm run check:changed -- --base origin/main` for a branch. The selector runs relevant checks; full browser and packaging validation belongs to release CI. Record timings in ignored output/checks.

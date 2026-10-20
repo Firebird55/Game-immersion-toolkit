@@ -2,14 +2,26 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    groups:
+      routine-updates:
+        patterns: ["*"]
+        update-types: [minor, patch]
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
   - package-ecosystem: github-actions
     directory: /
+    groups:
+      routine-updates:
+        patterns: ["*"]
+        update-types: [minor, patch]
     schedule:
       interval: weekly
   - package-ecosystem: pip
     directory: /
+    groups:
+      routine-updates:
+        patterns: ["*"]
+        update-types: [minor, patch]
     schedule:
       interval: weekly

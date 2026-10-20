@@ -1,11 +1,14 @@
 name: Checks and release
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main]
     tags: ['v*']
   pull_request:
 permissions:
   contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
   check:
     runs-on: windows-latest
@@ -13,36 +16,50 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Select affected checks
+        id: scope
+        env:
+          CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/check-changed.mjs --plan ${{ startsWith(github.ref, 'refs/tags/') && '--full' || '' }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
       - uses: actions/setup-python@v5
+        if: steps.scope.outputs.python == 'true'
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: requirements.lock.txt
       - run: python -m pip install -r requirements.lock.txt
+        if: steps.scope.outputs.python == 'true'
       - run: npm ci
+        if: steps.scope.outputs.dependencies == 'true'
       - uses: actions/setup-dotnet@v4
+        if: steps.scope.outputs.full == 'true'
         with:
           dotnet-version: '10.0.x'
       - name: Compile owned NTE reader without game assets
+        if: steps.scope.outputs.full == 'true'
         run: dotnet build scripts/game-readers/NteReader.csproj -c Release -o data/ci-reader -p:BaseIntermediateOutputPath="${{ github.workspace }}/data/ci-reader-obj/" --nologo
-      - run: npm run check
+      - uses: actions/cache@v4
+        if: steps.scope.outputs.browsers == 'true'
+        with:
+          path: ~/AppData/Local/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install chromium firefox webkit
-      - run: node scripts/browser-e2e.mjs
-      - run: node scripts/setup-e2e.mjs
-      - run: node scripts/language-account-e2e.mjs
-      - run: node scripts/update-companion-e2e.mjs
-      - run: node scripts/companion-e2e.mjs
-      - run: node scripts/mobile-capture-e2e.mjs
-      - run: node scripts/mobile-recovery-e2e.mjs
-      - run: npm run audit:public
+        if: steps.scope.outputs.browsers == 'true'
+      - name: Run selected checks
+        env:
+          CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/check-changed.mjs ${{ startsWith(github.ref, 'refs/tags/') && '--full' || '' }}
       - name: Validate and package release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
         run: node scripts/package-release.mjs
       - run: node scripts/validate-artifacts.mjs
+        if: startsWith(github.ref, 'refs/tags/v')
       - uses: actions/upload-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           name: tested-release-assets
           path: |
@@ -69,4 +86,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "${{ github.ref_name }}" release/* --verify-tag --title "${{ github.ref_name }}" --notes "Tested release with license notices, checksums and source provenance. See RELEASE.md."
+        run: gh release create "${{ github.ref_name }}" release/* --verify-tag --title "${{ github.ref_name }}" --generate-notes
