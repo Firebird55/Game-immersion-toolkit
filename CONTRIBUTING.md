@@ -17,3 +17,5 @@ By submitting original contributions you agree to license them under the include
 Maintainers release from clean main with the documented release command, verify hosted checks, download packages, and verify checksums/provenance. Releases use GitHub-hosted Actions. Previously published release assets and tags are immutable; fix regressions with a new version.
 
 Routine development: use `npm run check:changed` for uncommitted changes or `npm run check:changed -- --base origin/main` for a branch. The selector runs relevant checks; full browser and packaging validation belongs to release CI. Record timings in ignored output/checks.
+
+See [development checks](docs/development-checks.md) for selective validation, browser caching and generated language guides.

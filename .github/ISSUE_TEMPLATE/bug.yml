@@ -18,3 +18,18 @@ body:
     id: checks
     attributes:
       label: Checks or synthetic example
+  - type: input
+    id: languages
+    attributes:
+      label: Game and languages (if relevant)
+      description: Game, spoken language, on-screen subtitle language, and desired translation. No pack export is required.
+  - type: dropdown
+    id: capture
+    attributes:
+      label: Where did it happen?
+      options:
+        - Windows companion
+        - Paired phone/tablet reader
+        - Independent mobile OCR
+        - Installation or update
+        - Documentation / other

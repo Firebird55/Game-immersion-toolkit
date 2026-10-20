@@ -1,15 +1,18 @@
 import {execFileSync} from 'node:child_process';
-import {appendFileSync, mkdirSync, writeFileSync} from 'node:fs';
+import {appendFileSync, mkdirSync, writeFileSync, readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
 // Unknown inputs deliberately select the comprehensive gate.
 export function selectChecks(files, full = false) {
   const selected = new Set(full ? ['full'] : []);
   for (const file of files) {
+    if(file==='lib/interface-language.tsx'){selected.add('desktop');selected.add('mobile');continue;}
+    if(file==='public/mobile-capture/games-data.json'){selected.add('mobile');selected.add('python');selected.add('docs');continue;}
+    if(['scripts/generate-language-docs.mjs','scripts/check-docs.mjs'].includes(file)){selected.add('docs');continue;}
     if (/^(docs\/.*|[^/]+)\.(md|html)$/.test(file) || /^\.github\/(ISSUE_TEMPLATE\/|dependabot\.yml)/.test(file)) selected.add('docs');
     else if (/^backend\/|^tests\/.*\.py$/.test(file)) selected.add('python');
     else if (/^(app|components|hooks|lib|styles)\//.test(file)) selected.add('desktop');
-    else if (/^(mobile|public\/mobile-capture|services)\//.test(file) || /^scripts\/(mobile-|companion-e2e|build-mobile|build-browser|prepare-mobile|serve-mobile|webrtc)/.test(file) || /^tests\/mobile-/.test(file)) selected.add('mobile');
+    else if (/^(mobile|public\/mobile-capture|services)\//.test(file) || /^scripts\/(ocr-|mobile-|companion-e2e|build-mobile|build-browser|prepare-mobile|serve-mobile|webrtc)/.test(file) || /^tests\/mobile-/.test(file)) selected.add('mobile');
     else selected.add('full');
   }
   return selected.has('full') ? ['full'] : [...selected].sort();
@@ -31,19 +34,19 @@ export function executeChecks(checks) {
     run('npm',['run','check']);
     for(const script of ['browser-e2e','setup-e2e','language-account-e2e','update-companion-e2e'])
       run(process.execPath,[`scripts/${script}.mjs`]);
-    run('npm',['run','mobile:check']);
+    for(const script of ['companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'])
+      run(process.execPath,[`scripts/${script}.mjs`]);
   } else {
     if(checks.includes('python')) run('npm',['run','test:python']);
+    if(checks.includes('desktop'))run('npm',['run','typecheck']);
+    if(checks.includes('desktop')||checks.includes('mobile'))run('npm',['test']);
     if(checks.includes('desktop')) {
-      run('npm',['run','typecheck']);
-      run('npm',['run','test']);
       run('npm',['run','build']);
       run(process.execPath,['scripts/language-account-e2e.mjs']);
     }
     if(checks.includes('mobile')) {
-      run('npm',['test']);
       run('npm',['run','mobile:build']);
-      for(const script of ['companion-e2e','mobile-games-e2e'])
+      for(const script of ['companion-e2e','mobile-games-e2e','ocr-packs-e2e'])
         run(process.execPath,[`scripts/${script}.mjs`]);
     }
   }
@@ -53,7 +56,13 @@ export function executeChecks(checks) {
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
   const baseIndex=process.argv.indexOf('--base');
   const base=baseIndex>=0?process.argv[baseIndex+1]:process.env.CHECK_BASE;
-  const checks=selectChecks(changedFiles(base),process.argv.includes('--full'));
+  // An atomic release push has a separate tag run for this exact commit.
+  // The main run keeps documentation/audit gates but delegates comprehensive work.
+  const releaseTag='v'+JSON.parse(readFileSync('package.json','utf8')).version;
+  const delegated=process.env.GITHUB_EVENT_NAME==='push'&&process.env.GITHUB_REF==='refs/heads/main'
+    &&git('tag','--points-at','HEAD').split('\n').includes(releaseTag);
+  const checks=delegated?[]:process.argv.includes('--full')?['full']:selectChecks(changedFiles(base));
+  if(delegated)console.log('Comprehensive checks run on '+releaseTag+' for this same commit.');
   console.log('Selected checks: '+(checks.join(', ')||'publication only'));
   if(process.env.GITHUB_OUTPUT) for(const [key,value] of Object.entries({
     checks:JSON.stringify(checks),dependencies:checks.some(x=>x!=='docs'),

@@ -5,6 +5,8 @@ on:
     paths:
       - 'public/mobile-capture/**'
       - 'mobile/**'
+      - 'lib/interface-language.tsx'
+      - 'scripts/ocr-packs-e2e.mjs'
       - 'scripts/companion-e2e.mjs'
       - 'scripts/mobile-reader-layout-e2e.mjs'
       - 'scripts/mobile-games-e2e.mjs'
@@ -87,32 +89,12 @@ jobs:
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/companion-e2e.mjs
-      - name: Check phone reading density and lookup layout
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/mobile-reader-layout-e2e.mjs
-      - name: Check packaged browser pairing and phone layouts
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/mobile-capture-e2e.mjs
-      - name: Check automatic recovery against a local Cloudflare runtime
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/mobile-recovery-e2e.mjs
-      - name: Check private file reading, OCR and original-voice playback in three engines
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/mobile-library-e2e.mjs
-      - name: Check application updates and offline data preservation
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/mobile-update-e2e.mjs
       - name: Check games guide, combinations, links and offline navigation
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/mobile-games-e2e.mjs
-      - name: Check game-layout crops with owned synthetic scenes
-        run: node scripts/mobile-layout-e2e.mjs
+      - name: Check optional OCR pack lifecycle
+        run: node scripts/ocr-packs-e2e.mjs
       - name: Retain owned browser-fixture diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

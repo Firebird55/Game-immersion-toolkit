@@ -9,7 +9,7 @@ const text={
 };
 const switches='[English](README.md) · [Nederlands](README.nl.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)';
 function output(path,content){
- if(process.argv.includes('--check')){if(!existsSync(path)||readFileSync(path,'utf8')!==content)throw Error(`Regenerate language documentation: ${path}`);}
+ if(process.argv.includes('--check')){if(!existsSync(path)||readFileSync(path,'utf8').replaceAll('\r\n','\n')!==content)throw Error(`Regenerate language documentation: ${path}`);}
  else writeFileSync(path,content);
 }
 mkdirSync('docs/languages',{recursive:true});

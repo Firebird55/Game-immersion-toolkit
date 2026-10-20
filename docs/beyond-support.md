@@ -100,3 +100,15 @@ is still pending. Full-game capture acceptance is **incomplete**.
 Reader format research: [Quantic BigFile format](https://github.com/Ekey/QD.BIG.Tool)
 and [BEYOND subtitle/audio research](https://hugo.fyi/projects/reverse-engineering-b2s).
 No extractor implementation, assets or recordings from those sources are bundled.
+
+## Short OCR interruptions
+
+BEYOND now retains a pending caption across one missed scan for up to 750 ms.
+It still requires two agreeing observations; menu transitions and longer gaps
+reset confirmation. An exact first observation also requests a prompt rescan.
+
+The opening 120-second recorded fixture was replayed through native desktop OCR
+at 1920 × 1080 and four frames per second: six expected authored lines, six
+captured, no incorrect lines. Separate regression fixtures cover overlapping
+speakers, wrapped captions, short dropouts and stale candidates. This does not
+extend the documented chapter coverage or guarantee every live subtitle.

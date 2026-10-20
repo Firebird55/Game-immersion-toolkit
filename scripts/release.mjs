@@ -15,5 +15,5 @@ writeFileSync('VERSION',version+'\n');writeFileSync('release-version.json',JSON.
 if(existsSync('src/userscript-header.txt')){const path='src/userscript-header.txt';writeFileSync(path,readFileSync(path,'utf8').replace(/(@version\s+)\S+/,(_,prefix)=>prefix+version));}
 run('git',['add','package.json','package-lock.json','VERSION','release-version.json',...(existsSync('src/userscript-header.txt')?['src/userscript-header.txt']:[])]);
 run('git',['commit','-m','Release '+version]);run('git',['tag','-a','v'+version,'-m','Release '+version]);
-run('git',['push','origin','main']);run('git',['push','origin','refs/tags/v'+version]);
+run('git',['push','--atomic','origin','main','refs/tags/v'+version]);
 console.log('Tagged '+version+'. Monitor gh run list and gh run watch; do not declare success until the hosted release and downloads pass.');
