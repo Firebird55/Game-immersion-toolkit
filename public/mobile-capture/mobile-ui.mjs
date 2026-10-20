@@ -1,3 +1,4 @@
+import {confirmCaptions} from './caption-confirmation.mjs';
 import {get,put,remove,storageStatus,cacheBudget} from './storage.mjs';
 import Tesseract from './ocr/tesseract.esm.min.js';
 const {createWorker}=Tesseract;
@@ -147,11 +148,11 @@ async function scan(){
    if(accepted)break;
   }
   const elapsed=performance.now()-start;samples.push({kind:'ocr',ms:elapsed});samples=samples.slice(-120);
-  if(!accepted){stable=null;if(['heavyrain','beyond'].includes(currentGame()))parallelContext.stable.clear();text('match-status',ambiguous?'Ambiguous dialogue/voice; skipped.':'No verified match: unsupported scene, incomplete text, or crop needs calibration.');return;}
+  if(!accepted){stable=null;if(['heavyrain','beyond'].includes(currentGame()))parallelContext.stable=confirmCaptions(parallelContext.stable,[],performance.now(),currentGame()==='beyond'&&!ambiguous);text('match-status',ambiguous?'Ambiguous dialogue/voice; skipped.':'No verified match: unsupported scene, incomplete text, or crop needs calibration.');return;}
   const matches=acceptedMany??[accepted];let changed=false;
-  if(acceptedMany)parallelContext.stable=new Map(matches.map(hit=>[hit.row.id,(parallelContext.stable.get(hit.row.id)??0)+1]));
+  if(acceptedMany)parallelContext.stable=confirmCaptions(parallelContext.stable,matches.map(hit=>hit.row.id),performance.now(),currentGame()==='beyond');
   for(const hit of matches){
-  const key=hit.row.id;stable=acceptedMany?{key,count:parallelContext.stable.get(key)}:stable?.key===key?{key,count:stable.count+1}:{key,count:1};
+  const key=hit.row.id;stable=acceptedMany?{key,count:parallelContext.stable.get(key)?.count??1}:stable?.key===key?{key,count:stable.count+1}:{key,count:1};
   text('match-status',`Verified ${hit.channel} match · ${elapsed.toFixed(0)} ms${stable.count<2?' · confirming…':''}`);
   if(stable.count===2&&(!emitted.has(key)||Date.now()-emitted.get(key)>10000)&&!history.some(r=>r.id===key&&Date.now()-r.createdAt<10000)){
    emitted.set(key,Date.now());history.push({...hit.row,score:hit.score,matching:hit.score===100?'exact':'fuzzy',game:currentGame(),createdAt:Date.now(),favorite:false});changed=true;

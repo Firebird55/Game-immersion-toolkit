@@ -150,6 +150,7 @@ class TranscriptLine(LanguageContext):
 
 
 class CaptureSnapshot(BaseModel):
+    match_reason: str | None = None
     visible_text_ids: list[str] = Field(default_factory=list)
     running: bool = False
     phase: str = "stopped"

@@ -26,7 +26,7 @@ function asset(name, content) {
   return hashedName;
 }
 const source = name => readFileSync(new URL(`public/mobile-capture/${name}`, root), 'utf8');
-for(const name of ['games-data.json','games.css','games.mjs','core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','transcript-channel.mjs','pc-provider.mjs','vault.mjs','capture.js','companion.js','companion.css','style.css','icon.svg','icon.png','manifest.webmanifest']){
+for(const name of ['caption-confirmation.mjs','games-data.json','games.css','games.mjs','core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','transcript-channel.mjs','pc-provider.mjs','vault.mjs','capture.js','companion.js','companion.css','style.css','icon.svg','icon.png','manifest.webmanifest']){
  let content=name.endsWith('.png')?readFileSync(new URL('public/mobile-capture/'+name,root)):source(name);
  if(name==='games-data.json')content=JSON.stringify({...JSON.parse(content),releaseVersion:JSON.parse(readFileSync(new URL('package.json',root),'utf8')).version})+'\n';
  if(typeof content==='string')for(const [original,hashed] of assets)content=content.replaceAll('./'+original,'./'+hashed);asset(name,content);

@@ -52,6 +52,31 @@ def test_wrapped_caption_wins_over_fragment_and_ambiguous_wrap_cannot_supply_one
     assert index.match_simultaneous_lines(['7654', 'LOOK MOVE', 'O □ + ☆']) == []
 
 
+def test_single_ocr_dropout_does_not_discard_a_pending_caption(tmp_path):
+    index, rows = make_index(tmp_path)
+    service, _, _, _ = fixture_service(tmp_path, game='beyond')
+    service._schedule_line_audio = lambda *_args, **_kwargs: None
+    captured = []
+    try:
+        for stamp, texts in [(0, [rows[0]['source_text']]), (.25, []), (.5, [rows[0]['source_text']])]:
+            hits = service._quantic_matches(index, texts, stamp, ('account', 'window', 'nl'), 2)
+            captured += service._emit_quantic_matches(hits, stamp, datetime.now(timezone.utc))
+        assert len(captured) == 1
+    finally:
+        service._executor.shutdown()
+
+
+def test_long_dropout_never_confirms_a_stale_caption(tmp_path):
+    index, rows = make_index(tmp_path)
+    service, _, _, _ = fixture_service(tmp_path, game='beyond')
+    try:
+        for stamp in (0, 1):
+            hits = service._quantic_matches(index, [rows[0]['source_text']], stamp, ('account', 'window', 'nl'), 2)
+            assert not service._emit_quantic_matches(hits, stamp, datetime.now(timezone.utc))
+    finally:
+        service._executor.shutdown()
+
+
 def test_observed_chinese_context_resolves_a_dutch_performance_beside_another_speaker(tmp_path, monkeypatch):
     first = {'text_id': 'beyond:ONE:1', 'source_locale': 'nl', 'audio_locale': 'nl',
              'source_text': 'Goed.', 'texts': {'nl': 'Goed.', 'zh-Hans': '好的'}, 'audio': {'identity': 'first'}}

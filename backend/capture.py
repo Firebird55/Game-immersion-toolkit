@@ -296,7 +296,9 @@ class CaptureService:
                     )
                     await self.on_status(snapshot)
                 elapsed = loop.time() - scan_started
-                await asyncio.sleep(max(0.01, settings.scan_interval_ms / 1000 - elapsed))
+                interval = min(settings.scan_interval_ms, 100) if getattr(self, '_early_rescan', False) else settings.scan_interval_ms
+                self._early_rescan = False
+                await asyncio.sleep(max(0.01, interval / 1000 - elapsed))
         except asyncio.CancelledError:
             raise
 
@@ -741,12 +743,14 @@ class CaptureService:
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
         quantic_matches = []
+        missing_voice = False
         if game in {'beyond', 'heavyrain'}:
             quantic_matches = self._quantic_matches(index, lines, monotonic_now,
                 (epoch, game, window.handle, window.bounds, crop_bounds, getattr(index, 'source_locale', 'zh-Hans'), getattr(index, 'target_locale', 'en'),
                  getattr(index, '_signature', None), getattr(self, 'context_scope', lambda: None)()),
                 settings.stable_frames, bool(main_response.get('dialogue_menu')), primary=contextual or match,
                 threshold=max(84.0, settings.fuzzy_threshold), matches=parallel)
+            missing_voice = bool(quantic_matches) and not any(self._mapped_voice(hit) for hit in quantic_matches)
             quantic_matches = [hit for hit in quantic_matches if self._mapped_voice(hit)]
             match = max(quantic_matches, key=lambda hit: hit.score, default=None)
         if epoch != self._scan_epoch:
@@ -766,6 +770,7 @@ class CaptureService:
             emitted = self._emit_quantic_matches(quantic_matches, monotonic_now, now)
             phase = 'matched'
             message = f'{GAME_PROFILES[game].name} subtitles matched to original game voices'
+            self._update_snapshot(match_reason='captured' if emitted else 'confirming_or_already_captured')
         else:
             key = f"{game}\0{match.text_id}\0{match.english}"
             fresh = self._is_fresh_match(game, key, monotonic_now)
@@ -786,6 +791,9 @@ class CaptureService:
             message = f"{GAME_PROFILES[game].name} subtitle matched to original game voice"
 
         self._tip_tracker.observe(None)
+        if game in {'beyond', 'heavyrain'} and match is None:
+            self._update_snapshot(match_reason='voice_unavailable' if missing_voice else
+                                  'no_unique_catalog_match' if raw_text else 'no_text_in_crop')
         self._update_snapshot(
             running=True,
             phase=phase,
@@ -824,6 +832,7 @@ class CaptureService:
                 self._visible_match_started.pop(getattr(self, '_quantic_game', index.game) + ':' + identity, None)
             self._quantic_context_scope, self._quantic_game = scope, index.game
             self._quantic_context, self._quantic_group_counts, self._quantic_trackers = {}, {}, {}
+            self._quantic_seen, self._quantic_misses = {}, {}
         if menu:
             return []
         if index.game == 'beyond':
@@ -851,10 +860,20 @@ class CaptureService:
     def _emit_quantic_matches(self, matches, now, captured_at):
         game = self._quantic_game
         active, emitted = {hit.text_id for hit in matches}, []
+        seen = self._quantic_seen
+        misses = self._quantic_misses
         for identity in set(self._quantic_trackers) - active:
+            misses[identity] = misses.get(identity, 0) + 1
+            if game == 'beyond' and misses[identity] <= 1 and now - seen.get(identity, -100) <= .75:
+                continue
             del self._quantic_trackers[identity]
+            seen.pop(identity, None)
+            misses.pop(identity, None)
             self._visible_match_started.pop(game + ':' + identity, None)
         for hit in matches:
+            if now - seen.get(hit.text_id, now) > .75:
+                self._quantic_trackers.pop(hit.text_id, None)
+            seen[hit.text_id], misses[hit.text_id] = now, 0
             tracker = self._quantic_trackers.setdefault(hit.text_id, StableMatchTracker())
             tracker.configure(self.settings.get().stable_frames)
             channel, key = game + ':' + hit.text_id, f'{game}\0{hit.text_id}\0{hit.english}'
@@ -864,6 +883,8 @@ class CaptureService:
                 if line is not None:
                     emitted.append(line)
                     self._schedule_line_audio(line, now, observed_at=self._visible_match_started[channel][1])
+            elif game == 'beyond' and hit.kind == 'exact' and tracker.count == 1:
+                self._early_rescan = True
         return emitted
 
     def _authored_caption_context(self, index, lines, now, scope, stable_frames):
