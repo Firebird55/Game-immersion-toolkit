@@ -1,4 +1,5 @@
 'use client';
+import {useInterfaceTranslation} from './interface-language.js';
 import { capabilities, type StudyLanguage } from './capabilities.js';
 
 import { memo, useEffect, useRef, useState, type ComponentProps } from 'react';
@@ -187,12 +188,13 @@ function pronunciationTone(reading: string): number {
 function DefinitionComponents({ character, hint, strokeCount, components, options }: {
   character: string; hint?: string; strokeCount?: number; components: Component[]; options: ReadingOptions;
 }) {
+ const uiText=useInterfaceTranslation();
   if (!hint && !components.length && strokeCount == null) return null;
   return <section className="word-definition-components" aria-label={`${character} character explanation`}>
-    <h3>{character} <span>Character explanation</span>{strokeCount != null && <small>{strokeCount} strokes</small>}</h3>
+    <h3>{character} <span>{uiText("Character explanation")}</span>{strokeCount != null && <small>{strokeCount} {uiText("strokes")}</small>}</h3>
     {hint && <p className="word-character-hint">{hint}</p>}
     {!!components.length && <>
-      <h4>Components <small>{components.length}</small></h4>
+      <h4>{uiText("Components")}<small>{components.length}</small></h4>
       <div className="word-component-cards">{components.map((part, index) => <article key={index}>
         <div className="word-component-glyph"><small>{part.pinyin?.join(' · ')}</small>
           <strong lang={language} dir={capability.direction} style={enabled(options.toneColors, true) && part.pinyin?.length ?
@@ -202,7 +204,7 @@ function DefinitionComponents({ character, hint, strokeCount, components, option
           {part.gloss && <p className="word-component-gloss">{part.gloss}</p>}
           {(part.hint || part.characterHint) && <p>{part.hint || part.characterHint}</p>}
           {part.hint && part.characterHint && part.hint !== part.characterHint &&
-            <details><summary>Character explanation</summary><p>{part.characterHint}</p></details>}
+            <details><summary>{uiText("Character explanation")}</summary><p>{part.characterHint}</p></details>}
         </div>
       </article>)}</div>
     </>}
@@ -218,6 +220,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
   onGrammarRetry: () => void;
   preferences: ReturnType<typeof usePopupPreferences>; sentenceTranslation?: string;
 }) {
+ const uiText=useInterfaceTranslation();
   const available: WordTab[] = ['definition', 'context', 'translation', ...(capability.characters ? ['components' as const] : []), 'examples', 'similar', ...(lookup?.topWords?.length ? ['words' as const] : []), ...(token.savedExpressionId ? ['notes' as const] : []), ...(capability.grammar ? ['grammar' as const] : [])];
   const tabs = orderWordPopupTabs(preferences.layout, available);
   const [chosenTab, setChosenTab] = useState<WordTab | null>(null);
@@ -382,17 +385,17 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
       collisionPadding={12} collisionAvoidance={{ side: 'flip', align: 'shift', fallbackAxisSide: 'none' }}
       className="word-sheet-positioner">
     <Popover.Popup className="word-sheet" initialFocus={keyboard} finalFocus={keyboard ? () => anchor : false}>
-      <Popover.Close className="word-sheet-close" aria-label="Close word lookup"><X size={17} /></Popover.Close>
+      <Popover.Close className="word-sheet-close" aria-label={uiText("Close word lookup")}><X size={17} /></Popover.Close>
       <div className="word-sheet-top">
         <div className="word-sheet-identity">
           <div className="word-sheet-headword"><Popover.Title className="word-sheet-title"
             style={enabled(options.toneColors, token.proficiency < 4) ? toneStyle(token.tones || [], token.word, options.palette) : undefined}>{token.word}</Popover.Title>
-            <button type="button" className="word-speak" onClick={() => speakChinese(token.word)} title="Speak using this device's source-language voice" aria-label={`Pronounce ${token.word}`}><Play size={17} fill="currentColor" /></button>
+            <button type="button" className="word-speak" onClick={() => speakChinese(token.word)} title={uiText("Speak using this device's source-language voice")} aria-label={`Pronounce ${token.word}`}><Play size={17} fill="currentColor" /></button>
           </div>
           <div className="word-sheet-reading">{token.pinyin}{lookup?.alternateReadings?.length ? ` · ${lookup.alternateReadings.join(' · ')}` : ''}</div>
           {enabled(options.zhuyin, token.proficiency < 4) && token.zhuyin && <div className="word-sheet-zhuyin">{token.zhuyin}</div>}
         </div>
-        <div className="word-levels" role="group" aria-label="Lexirise vocabulary status">
+        <div className="word-levels" role="group" aria-label={uiText("Lexirise vocabulary status")}>
           {WORD_LEVELS.map(level => <button key={level.value} type="button"
             className={token.proficiency === level.value ? `active level-${level.value}` : ''}
             disabled={saving !== null} onClick={() => void setLevel(level.value)}
@@ -401,7 +404,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
         </div>
       </div>
       {saveError && <p className="word-sheet-error" role="alert">{saveError}</p>}
-      <div className="word-tabs" role="tablist" aria-label="Word details">
+      <div className="word-tabs" role="tablist" aria-label={uiText("Word details")}>
         {tabs.map(value =>
           <button key={value} type="button" role="tab" aria-selected={tab === value}
             id={`word-tab-${id}-${token.start}-${value}`} aria-controls={`word-panel-${id}-${token.start}`} tabIndex={tab === value ? 0 : -1}
@@ -409,25 +412,23 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             className={tab === value ? 'active' : ''} onClick={() => setTab(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}
       </div>
       <div className="word-sheet-body" role="tabpanel" id={`word-panel-${id}-${token.start}`} aria-labelledby={`word-tab-${id}-${token.start}-${tab}`}>
-        {preferences.settingsError && <p role="status">Popup preferences unavailable. Using the default layout; reload Lexirise settings to retry.</p>}
+        {preferences.settingsError && <p role="status">{uiText("Popup preferences unavailable. Using the default layout; reload Lexirise settings to retry.")}</p>}
         {tab === 'definition' && tabs.includes('grammar') && (unknownGrammar.length > 0 || analysisPending) &&
-          <section className="word-grammar-summary" aria-label="Unknown grammar for this word">
-            <small>Unknown grammar</small>
+          <section className="word-grammar-summary" aria-label={uiText("Unknown grammar for this word")}>
+            <small>{uiText("Unknown grammar")}</small>
             {unknownGrammar.slice(0, 3).map(rule => <button type="button" key={rule.slug}
               title={`${rule.title}: ${rule.subtitle}`} onClick={() => setTab('grammar')}>
               <strong lang={language} dir={capability.direction}>{rule.title}</strong><span>{rule.subtitle}</span>
             </button>)}
             {unknownGrammar.length > 3 && <button type="button" className="word-grammar-more"
-              onClick={() => setTab('grammar')}>+{unknownGrammar.length - 3} more</button>}
-            {analysisPending && <small>Checking grammar…</small>}
+              onClick={() => setTab('grammar')}>+{unknownGrammar.length - 3} {uiText("more")}</button>}
+            {analysisPending && <small>{uiText("Checking grammar…")}</small>}
           </section>}
         {tab === 'grammar' && <div className="word-grammar-details">
-          <h3>Grammar in this sentence</h3>
+          <h3>{uiText("Grammar in this sentence")}</h3>
           <p className="word-grammar-sentence" lang={language} dir={capability.direction}>{text}</p>
-          {analysisPending && <p className="word-grammar-note">Detailed analysis is still running.
-            <button type="button" onClick={onGrammarRetry}>Check again</button></p>}
-          {!grammar.length && !analysisPending && <p>No grammar rules were returned for this sentence.
-            <button type="button" className="word-retry" onClick={onGrammarRetry}>Retry grammar analysis</button></p>}
+          {analysisPending && <p className="word-grammar-note">{uiText("Detailed analysis is still running.")}<button type="button" onClick={onGrammarRetry}>{uiText("Check again")}</button></p>}
+          {!grammar.length && !analysisPending && <p>{uiText("No grammar rules were returned for this sentence.")}<button type="button" className="word-retry" onClick={onGrammarRetry}>{uiText("Retry grammar analysis")}</button></p>}
           {sortedGrammar.map(rule => <article key={rule.slug}
             className={`${rule.proficiency >= 4 ? 'is-known' : ''} ${appliesToWord(rule, token.start, token.end) ? 'uses-selected-word' : ''}`}>
             <div className="word-grammar-heading"><a href={grammarUrl(rule.slug, language)} target="_blank" rel="noopener noreferrer"
@@ -443,13 +444,13 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
                 {savingGrammar === rule.slug ? 'Saving…' : rule.proficiency >= 4 ? 'Mark unknown' : 'Mark known'}</button></div>
           </article>)}
           {grammarSaveError && <p className="word-sheet-error" role="alert">{grammarSaveError}</p>}
-          <small className="word-grammar-note">Status changes are saved on this browser. Lexirise's API currently provides read-only grammar states; use the rule links to read more or update them on Lexirise.</small>
+          <small className="word-grammar-note">{uiText("Status changes are saved on this browser. Lexirise's API currently provides read-only grammar states; use the rule links to read more or update them on Lexirise.")}</small>
         </div>}
         {!lookup && !lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
-          <p>{token.meaning || 'Looking up word details…'}<small className="word-loading-note">Loading dictionary details…</small></p>}
+          <p>{token.meaning || 'Looking up word details…'}<small className="word-loading-note">{uiText("Loading dictionary details…")}</small></p>}
         {lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
-          <p>Dictionary details are unavailable. {token.meaning}
-          <button type="button" className="word-retry" onClick={onRetry}>Retry dictionary lookup</button></p>}
+          <p>{uiText("Dictionary details are unavailable.")}{token.meaning}
+          <button type="button" className="word-retry" onClick={onRetry}>{uiText("Retry dictionary lookup")}</button></p>}
         {tab === 'definition' && lookup && <div className="word-definition-sections">
           {sections.includes('senses') && <div className="word-definition-senses" style={sectionStyle('senses')}>{lookup.translations.length ? lookup.translations.map((sense, index) =>
             <div className="word-definition-lead" key={index}><span>{sense.meaning}</span>
@@ -457,12 +458,12 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             </div>) : <p>{token.meaning || 'No definition yet'}</p>}</div>}
           {sections.includes('breakdown') && <div style={sectionStyle('breakdown')}>
           {token.word.length > 1 && <section className="word-character-summary">
-            <h3>Characters</h3>
+            <h3>{uiText("Characters")}</h3>
             {characters ? <div className="word-character-summary-list">{characters.characters.map((character, index) =>
               <div key={index} className="word-character-summary-item">
                 <span><small>{character.pinyin?.join(' · ')}</small><strong>{character.character}</strong></span>
                 <p>{character.gloss || (character.unavailable ? 'Details unavailable' : '')}</p>
-              </div>)}</div> : <p>{charactersError ? <button type="button" className="word-retry" onClick={() => setCharactersError(false)}>Retry character details</button> : 'Loading character details…'}</p>}
+              </div>)}</div> : <p>{charactersError ? <button type="button" className="word-retry" onClick={() => setCharactersError(false)}>{uiText("Retry character details")}</button> : 'Loading character details…'}</p>}
           </section>}
           {token.word.length === 1 ? <DefinitionComponents character={lookup.character || token.word} options={options}
             hint={lookup.characterHint} strokeCount={lookup.strokeCount}
@@ -470,9 +471,9 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             characters?.characters.map((character, index) => <DefinitionComponents key={index} options={options}
               character={character.character} hint={character.hint} strokeCount={character.strokeCount} components={character.components} />)}
           {charactersError && <button type="button" className="word-retry"
-            onClick={() => setCharactersError(false)}>Retry component details</button>}
+            onClick={() => setCharactersError(false)}>{uiText("Retry component details")}</button>}
           {characters?.partial && <button type="button" className="word-retry"
-            onClick={() => setCharacters(null)}>Retry missing character explanations</button>}
+            onClick={() => setCharacters(null)}>{uiText("Retry missing character explanations")}</button>}
           </div>}
           {sections.includes('dictionaries') && <div style={sectionStyle('dictionaries')}>{lookup.dictionaries.map((dictionary, index) => <section className="word-dictionary" key={index}>
             <h3>{dictionary.name}</h3>
@@ -480,8 +481,8 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             <ul>{dictionary.definitions.map((meaning, item) => <li key={item}>{meaning}</li>)}</ul>
           </section>)}</div>}
           {sections.includes('frequency') && <div style={sectionStyle('frequency')}>
-          {lookup.hskLevel != null && <span className="word-hsk">HSK {lookup.hskLevel}</span>}
-          {lookup.rank != null && <div className="word-frequency"><span>Frequency</span>
+          {lookup.hskLevel != null && <span className="word-hsk">{uiText("HSK")}{lookup.hskLevel}</span>}
+          {lookup.rank != null && <div className="word-frequency"><span>{uiText("Frequency")}</span>
             {lookup.frequencyScore != null && <span className="word-frequency-bars" aria-label={`Frequency score ${Math.round(lookup.frequencyScore * 100)} percent`}>
               {Array.from({ length: 4 }, (_, index) => <i key={index} className={lookup.frequencyScore! >= (index + 1) / 4 ? 'on' : ''} />)}
             </span>}
@@ -490,20 +491,19 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
           </div>}
         </div>}
         {tab === 'translation' && <div className="word-context"><p lang={language} dir={capability.direction}>{text}</p><p>{sentenceTranslation || 'No sentence translation is available for this line.'}</p></div>}
-        {tab === 'words' && <div className="word-similar"><h3>Words containing {token.word}</h3>{lookup?.topWords?.map((word, index) => <article key={index}><strong lang={language}>{word.word}</strong>{word.trad && word.trad !== word.word && <small>{word.trad}</small>}<p>{word.gloss}</p>{word.share != null && <small>{Math.round(word.share * 100)}% of occurrences</small>}</article>)}</div>}
-        {tab === 'notes' && <div className="word-context"><h3>Notes</h3>{notes ? <p className="word-notes">{notes.notes || 'No notes saved for this word.'}</p> : <p>{notesError ? <>Notes unavailable. <button type="button" onClick={() => setNotesError(false)}>Retry notes</button></> : 'Loading notes…'}</p>}<a href={`https://lexirise.app/vocabulary?language=${language}`} target="_blank" rel="noopener noreferrer">Edit notes on Lexirise ↗</a></div>}
+        {tab === 'words' && <div className="word-similar"><h3>{uiText("Words containing")}{token.word}</h3>{lookup?.topWords?.map((word, index) => <article key={index}><strong lang={language}>{word.word}</strong>{word.trad && word.trad !== word.word && <small>{word.trad}</small>}<p>{word.gloss}</p>{word.share != null && <small>{Math.round(word.share * 100)}{uiText("% of occurrences")}</small>}</article>)}</div>}
+        {tab === 'notes' && <div className="word-context"><h3>{uiText("Notes")}</h3>{notes ? <p className="word-notes">{notes.notes || 'No notes saved for this word.'}</p> : <p>{notesError ? <>{uiText("Notes unavailable.")}<button type="button" onClick={() => setNotesError(false)}>{uiText("Retry notes")}</button></> : 'Loading notes…'}</p>}<a href={`https://lexirise.app/vocabulary?language=${language}`} target="_blank" rel="noopener noreferrer">{uiText("Edit notes on Lexirise ↗")}</a></div>}
         {tab === 'context' && <div className="word-context">
           <p lang={language} dir={capability.direction}>{text}</p>
           {context ? <><strong>{context.conciseMeaning || token.meaning}</strong><p>{context.meaning}</p>
-            {context.reading && <small>In this line: {context.reading}</small>}</> :
-            <p>{contextError ? <>Context explanation unavailable.
-              <button type="button" className="word-retry" onClick={() => setContextError(false)}>Retry context</button></> :
+            {context.reading && <small>{uiText("In this line:")}{context.reading}</small>}</> :
+            <p>{contextError ? <>{uiText("Context explanation unavailable.")}<button type="button" className="word-retry" onClick={() => setContextError(false)}>{uiText("Retry context")}</button></> :
               'Explaining this word in the line…'}</p>}
           {questionAnswer && <div className="word-context-answer">{questionAnswer}</div>}
           <form className="word-context-question" onSubmit={event => void askQuestion(event)}>
             <input value={contextQuestion} maxLength={500} onChange={event => setContextQuestion(event.target.value)}
-              placeholder="Ask about nuance, grammar, or tone" aria-label="Ask Lexirise about this word" />
-            <button type="submit" disabled={!contextQuestion.trim() || questionBusy} aria-label="Ask Lexirise">{questionBusy ? '…' : '↑'}</button>
+              placeholder={uiText("Ask about nuance, grammar, or tone")} aria-label={uiText("Ask Lexirise about this word")} />
+            <button type="submit" disabled={!contextQuestion.trim() || questionBusy} aria-label={uiText("Ask Lexirise")}>{questionBusy ? '…' : '↑'}</button>
           </form>
           {questionError && <p className="word-sheet-error" role="alert">{questionError}</p>}
         </div>}
@@ -512,47 +512,44 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
             <div className="word-example-main"><ExampleChinese text={example.text} tokens={example.tokens} options={options} />
               <p>{example.translation}</p></div>
             <div className="word-example-actions">
-              <button type="button" onClick={() => speakChinese(example.text)} title="Play with this device's Chinese voice" aria-label={`Play example ${index + 1}`}><Volume2 size={18} /></button>
+              <button type="button" onClick={() => speakChinese(example.text)} title={uiText("Play with this device's Chinese voice")} aria-label={`Play example ${index + 1}`}><Volume2 size={18} /></button>
               <button type="button" onClick={() => void saveExample(index)} disabled={savingExample !== null || savedExamples[index]}
-                className={savedExamples[index] ? 'saved' : ''} title="Save example sentence to Lexirise (text only)"
+                className={savedExamples[index] ? 'saved' : ''} title={uiText("Save example sentence to Lexirise (text only)")}
                 aria-label={savedExamples[index] ? `Example ${index + 1} saved` : `Save example ${index + 1} to Lexirise`}><Bookmark size={18} /></button>
             </div>
-          </article>) : <p>Lexirise has no example sentences for this word.</p> :
-            <p>{examplesError ? <>Examples unavailable.
-              <button type="button" className="word-retry" onClick={() => setExamplesError(false)}>Retry examples</button></> : 'Loading examples…'}</p>}
+          </article>) : <p>{uiText("Lexirise has no example sentences for this word.")}</p> :
+            <p>{examplesError ? <>{uiText("Examples unavailable.")}<button type="button" className="word-retry" onClick={() => setExamplesError(false)}>{uiText("Retry examples")}</button></> : 'Loading examples…'}</p>}
           {exampleSaveError && <p className="word-sheet-error" role="alert">{exampleSaveError}</p>}
-          <small>Example playback uses this device’s Chinese speech voice. Bookmarks save text and translation to Lexirise.</small>
+          <small>{uiText("Example playback uses this device’s Chinese speech voice. Bookmarks save text and translation to Lexirise.")}</small>
         </div>}
         {tab === 'similar' && <div className="word-similar">
-          <h3>Close in meaning</h3>
+          <h3>{uiText("Close in meaning")}</h3>
           {similar ? similar.suggestions.length ? similar.suggestions.map((suggestion, index) => <article key={index}>
             <span className="word-similar-reading">{suggestion.pinyin}</span>
             <strong style={enabled(options.toneColors, true) ? toneStyle(suggestion.tones || [], suggestion.word, options.palette) : undefined}>{suggestion.word}</strong>
             <p>{suggestion.meaning}</p><small>{suggestion.usage}</small>
-          </article>) : <p>Lexirise did not return verified similar words for this use.</p> :
-            <p>{similarError ? <>Similar words unavailable.
-              <button type="button" className="word-retry" onClick={() => setSimilarError(false)}>Retry similar words</button></> : 'Finding similar words…'}</p>}
-          <small>Usage notes are AI suggestions; each displayed word was checked against Lexirise’s dictionary.</small>
+          </article>) : <p>{uiText("Lexirise did not return verified similar words for this use.")}</p> :
+            <p>{similarError ? <>{uiText("Similar words unavailable.")}<button type="button" className="word-retry" onClick={() => setSimilarError(false)}>{uiText("Retry similar words")}</button></> : 'Finding similar words…'}</p>}
+          <small>{uiText("Usage notes are AI suggestions; each displayed word was checked against Lexirise’s dictionary.")}</small>
         </div>}
         {tab === 'components' && <div className="word-components">
           {token.word.length > 1 ? characters ? characters.characters.map((character, charIndex) => <section className="word-character" key={charIndex}>
-            <h3>{character.character} {character.strokeCount != null && <small>{character.strokeCount} strokes</small>}</h3>
+            <h3>{character.character} {character.strokeCount != null && <small>{character.strokeCount} {uiText("strokes")}</small>}</h3>
             {character.hint && <p>{character.hint}</p>}
-            {character.unavailable && <p>Character details unavailable right now.</p>}
+            {character.unavailable && <p>{uiText("Character details unavailable right now.")}</p>}
             {character.components.map((part, index) => <div key={index} className="word-component">
               <strong>{part.character}</strong><span>{part.type.join(', ') || 'Component'}{part.hint && <small>{part.hint}</small>}</span>
             </div>)}
-          </section>) : <p>{charactersError ? <>Character details are unavailable.
-            <button type="button" className="word-retry" onClick={() => setCharactersError(false)}>Retry components</button></> :
+          </section>) : <p>{charactersError ? <>{uiText("Character details are unavailable.")}<button type="button" className="word-retry" onClick={() => setCharactersError(false)}>{uiText("Retry components")}</button></> :
             'Loading character components…'}</p> : lookup && <>
             {lookup.characterHint && <p>{lookup.characterHint}</p>}
-            {lookup.strokeCount != null && <small>{lookup.strokeCount} strokes</small>}
+            {lookup.strokeCount != null && <small>{lookup.strokeCount} {uiText("strokes")}</small>}
             {lookup.components.length ? lookup.components.map((part, index) => <div key={index} className="word-component">
               <strong>{part.character}</strong><span>{part.type.join(', ') || 'Component'}{part.hint && <small>{part.hint}</small>}</span>
-            </div>) : <p>Lexirise has no character components for this word.</p>}
+            </div>) : <p>{uiText("Lexirise has no character components for this word.")}</p>}
           </>}
           {token.word.length > 1 && characters?.partial && <button type="button" className="word-retry"
-            onClick={() => setCharacters(null)}>Retry missing characters</button>}
+            onClick={() => setCharacters(null)}>{uiText("Retry missing characters")}</button>}
         </div>}
       </div>
     </Popover.Popup>

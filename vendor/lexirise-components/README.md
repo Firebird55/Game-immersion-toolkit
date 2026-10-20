@@ -20,3 +20,7 @@ Account settings are read when the panel opens or reconnects. Local display sett
 Capability data was reviewed against [Lexirise API reference](https://lexirise.app/api-reference) and public language options on 2026-10-09.
 
 Original software by [Firebird55](https://github.com/Firebird55/Emulingo-Lexirise-userscript), under the included custom visible-attribution license. See LICENSE and THIRD_PARTY_NOTICES.md.
+
+## Interface localization
+
+Wrap readers and settings in `InterfaceLanguageProvider` with `locale="en"`, `"nl"`, `"zh-Hans"` or `"zh-Hant"`. An optional `translate(message)` callback supports host-owned copy. Missing messages fall back to English. Interface language never changes study language, translation targets, account settings or stored preferences. Structured account fields stay available under expandable controls.
