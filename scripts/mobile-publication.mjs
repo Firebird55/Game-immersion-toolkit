@@ -5,7 +5,7 @@ import {ocrAssets} from './mobile-assets.mjs';
 
 // Independent publication boundary: adding a builder asset requires an explicit
 // review here. A file-count increase alone must never admit an arbitrary file.
-export const previewSources=['caption-confirmation.mjs','games-data.json','games.css','games.mjs','core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','transcript-channel.mjs','pc-provider.mjs','vault.mjs','capture.js','companion.js','companion.css','style.css','icon.svg','icon.png','manifest.webmanifest'];
+export const previewSources=['interface-copy.mjs','interface-language.mjs','ocr-models.json','caption-confirmation.mjs','games-data.json','games.css','games.mjs','core.mjs','recovery-config.json','relay.mjs','qr-pairing.mjs','qr-render.mjs','qr-ui.mjs','library.mjs','storage.mjs','ocr-packs.mjs','library-worker.mjs','ocr-pipeline.mjs','mobile-ui.mjs','transcript-channel.mjs','pc-provider.mjs','vault.mjs','capture.js','companion.js','companion.css','style.css','icon.svg','icon.png','manifest.webmanifest'];
 export function verifyPreviewAssets(root,runtimeAssets=ocrAssets()){
  const names=readdirSync(root).filter(name=>name!=='desktop.ini');
  const expected=['index.html','games.html','build.json','.nojekyll','sw.js','ocr','pairing'];

@@ -6,11 +6,11 @@
 
   <meta charset="utf-8">
 
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://game-immersion-pairing.boazbrak.workers.dev wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev http://127.0.0.1:8766 ws://127.0.0.1:8766; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://game-immersion-pairing.boazbrak.workers.dev wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev http://127.0.0.1:8766 ws://127.0.0.1:8766; object-src 'none'; base-uri 'self'; form-action 'none'">
 
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
-  <title>Proxy Transcript â€” Mobile game companion</title>
+  <title>Proxy Transcript — Mobile game companion</title>
 
   <link rel="manifest" href="./manifest.webmanifest">
 
@@ -52,7 +52,7 @@
 
     <label><input id="auto-recovery" type="checkbox" disabled> Automatically recover the connection when returning</label>
 
-    <p id="relay-status" class="hint" role="status">Checking recovery service configurationâ€¦</p>
+    <p id="relay-status" class="hint" role="status">Checking recovery service configuration…</p>
 
     <p id="instructions"></p>
 
@@ -68,13 +68,13 @@
 
     </div>
 
-    <button id="scan-pairing">Scan the other deviceâ€™s QR</button>
+    <button id="scan-pairing">Scan the other device’s QR</button>
 
     <div id="qr-scan-panel" hidden><video id="qr-camera" autoplay muted playsinline aria-label="Pairing camera"></video><button id="stop-scan">Stop camera</button></div>
 
-    <p id="qr-feedback" role="status">Scan the senderâ€™s offer on the phone, then scan the phoneâ€™s answer on the sender. QR transfer stays between your devices.</p>
+    <p id="qr-feedback" role="status">Scan the sender’s offer on the phone, then scan the phone’s answer on the sender. QR transfer stays between your devices.</p>
 
-    <p class="hint">With automatic recovery, scan the senderâ€™s offer once; the answer returns automatically. Without it, scan the answer back too. The recovery service exchanges encrypted connection details; game video and libraries stay on your devices.</p>
+    <p class="hint">With automatic recovery, scan the sender’s offer once; the answer returns automatically. Without it, scan the answer back too. The recovery service exchanges encrypted connection details; game video and libraries stay on your devices.</p>
 
     <label>Your pairing message <textarea id="outgoing" readonly spellcheck="false" placeholder="Generated here"></textarea></label>
 
@@ -124,7 +124,7 @@
 
     <h2>Your game library</h2>
 
-    <p>Open the exported Catalog and Voices ZIPs from Files â†’ On My iPhone, or directly from a connected USB drive. Keep them zipped. Only the catalog and individual voice clips are read; game content is never uploaded.</p>
+    <p>Open the exported Catalog and Voices ZIPs from Files → On My iPhone, or directly from a connected USB drive. Keep them zipped. Only the catalog and individual voice clips are read; game content is never uploaded.</p>
 
     <label>Catalog and voice ZIPs <input id="library-files" type="file" multiple accept=".zip,application/zip,application/octet-stream"></label>
 
@@ -138,7 +138,7 @@
 
     <p id="cache-status" class="hint"></p>
 
-    <p class="hint">With USB files, keep the drive connected and the phone unlocked. The app does not copy voice packs into browser storage; Safari or Files may stage selected files temporarily. Exact iPhone disk space is shown in Settings â†’ General â†’ iPhone Storage.</p>
+    <p class="hint">With USB files, keep the drive connected and the phone unlocked. The app does not copy voice packs into browser storage; Safari or Files may stage selected files temporarily. Exact iPhone disk space is shown in Settings → General → iPhone Storage.</p>
 
     <button id="forget-library">Forget remembered library</button>
 
@@ -151,6 +151,8 @@
     <h2>OCR and transcript</h2>
 
     <label>Game subtitle language <select id="ocr-language"><option value="eng">English</option><option value="chi_sim">Simplified Chinese</option><option value="chi_tra">Traditional Chinese</option><option value="eng+chi_sim">English and Simplified Chinese</option><option value="eng+chi_tra">English and Traditional Chinese</option></select></label>
+
+    <div class="ocr-pack-controls"><h3>OCR language packs</h3><p id="ocr-pack-status" role="status"></p><progress id="ocr-pack-progress" max="1" value="0" hidden></progress><div class="actions"><button id="ocr-pack-download">Download selected pack</button><button id="ocr-pack-remove">Remove selected pack</button></div></div>
 
     <label>Player voice <select id="player-voice"><option value="unconfigured">Not configured (ambiguous lines skipped)</option><option value="female">Female</option><option value="male">Male</option></select></label>
 

@@ -67,19 +67,25 @@ try{
    assert.equal(await page.getByText('FIRST ACCOUNT ONLY',{exact:true}).count(),0,'Old response cannot populate the new account');
    assert(requests.some(r=>r.path.endsWith('/lookup')&&r.account==='second'));
    await page.keyboard.press('Escape');
-   await page.getByRole('button',{name:'Setup',exact:true}).click();
-   const setup=page.getByRole('dialog',{name:'Toolkit setup'});
-   await setup.getByLabel('Game learning language').waitFor();
+   await page.getByRole('button',{name:'Settings',exact:true}).click();
+   const setup=page.getByRole('dialog',{name:'Settings'});
+   await setup.locator('.language-table button').first().waitFor();
    assert.equal(writes.filter(w=>w.path.endsWith('/languages')).length,0,'Opening setup never prepares languages');
-   await setup.getByRole('button',{name:'Prepare selected language',exact:true}).click();
-   await setup.getByText('1 original voices mapped.',{exact:false}).waitFor();
+   await setup.getByRole('button',{name:'Prepare language',exact:true}).click();
+   await setup.getByRole('button',{name:'Use this language',exact:true}).waitFor();
    assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')),[{path:'/api/setup/games/zzz/languages',body:{locale:'zh-Hans',action:'prepare',target:'en'}}]);
+   await setup.getByText('Advanced',{exact:true}).click();
    const rebuilt=page.waitForResponse(r=>r.url().endsWith('/languages')&&r.request().method()==='POST');
-   await setup.getByRole('button',{name:'Rebuild prepared language',exact:true}).click();await rebuilt;
+   await setup.getByRole('button',{name:'Rebuild table',exact:true}).click();await rebuilt;
    assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')).at(-1).body,{locale:'zh-Hans',action:'rebuild',target:'en'},'Explicit rebuild has a distinct forced operation');
    assert(!writes.some(w=>w.path==='/api/lexirise/settings'||w.path==='/api/lexirise/decks'),'Read/switch/setup does not provision account data');
    assert(await setup.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Language setup fits viewport');
    await setup.screenshot({path:`output/playwright/languages-${name}-${width}.png`});
+   await setup.getByRole('button',{name:'General & Updates',exact:true}).click();
+   const writesBefore=writes.length;
+   for(const [locale,label] of [['nl','Instellingen'],['zh-Hans','设置'],['zh-Hant','設定']]){await page.getByRole('dialog').locator('select').selectOption(locale);await page.getByRole('dialog',{name:label,exact:true}).waitFor();assert.equal(await page.locator('html').getAttribute('lang'),locale);}
+   assert.equal(writes.length,writesBefore,'Interface language is local and never changes learning/account data');
+   await page.getByRole('dialog').locator('select').selectOption('en');
    console.log(`${name}: isolated account responses and manual per-language setup ${width} passed`);
    await context.close();
   }

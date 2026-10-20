@@ -34,7 +34,7 @@ try{for(const name of process.env.MOBILE_TEST_BROWSERS.split(',')){
  for(const game of ['beyond','heavyrain']){await page.selectOption('#guide-game',game);await page.selectOption('#guide-study','nl');await page.selectOption('#guide-target','zh-Hant');assert.match(await page.locator('.tag').textContent(),/Supported with installed assets/);}
  await page.selectOption('#guide-game','heavyrain');await page.selectOption('#guide-target','pt-BR');assert.match(await page.locator('.game-card .warning').first().textContent(),/No official toolkit translation/);
  await page.selectOption('#guide-game','zzz');await page.selectOption('#guide-study','ja');await page.selectOption('#guide-target','es-419');assert.match(await page.locator('.game-card .warning').first().textContent(),/Translation locale unverified/);
- await page.selectOption('#guide-game','nte');await page.selectOption('#guide-target','fr');assert.match(await page.locator('.game-card .warning').first().textContent(),/Translation locale unverified/);
+ await page.selectOption('#guide-game','nte');await page.selectOption('#guide-target','fr');assert.match(await page.locator('.game-card .warning').first().textContent(),/Expected with installed assets/);
  await page.selectOption('#guide-game','all');await page.selectOption('#guide-study','all');await page.selectOption('#guide-target','all');assert.equal(await page.locator('.game-card').count(),9);assert.equal(await page.locator('#guide-game option[value="honkai3"]').count(),0);
  async function fits(message){const result=await page.evaluate(()=>({fits:document.documentElement.scrollWidth<=innerWidth+1,viewport:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('body *')].map(el=>({tag:el.tagName,className:el.className,text:el.textContent.slice(0,80),left:el.getBoundingClientRect().left,right:el.getBoundingClientRect().right})).filter(el=>el.right>innerWidth+1||el.left< -1).slice(0,15)}));if(!result.fits){mkdirSync('output/playwright',{recursive:true});await page.screenshot({path:'output/playwright/games-guide-overflow-'+name+'.png',fullPage:true});console.error(message,result);}assert(result.fits,message);}
  for(const width of [320,390,768,1280]){await page.setViewportSize({width,height:900});await fits(name+' no horizontal overflow at '+width);}
@@ -49,6 +49,13 @@ try{for(const name of process.env.MOBILE_TEST_BROWSERS.split(',')){
  await page.getByRole('link',{name:'Open companion',exact:true}).click();await page.getByRole('button',{name:'Reader',exact:true}).waitFor();await page.locator('.public-guide a').click();await page.locator('.game-card').first().waitFor();assert.equal(await page.title(),'Games & Languages — Game immersion toolkit');
  await context.setOffline(false);await page.goto(base+'games.html?game=bad&study=bad&target=bad');await page.locator('.game-card').first().waitFor();assert.equal(await page.inputValue('#guide-game'),'all');
  if(name==='chromium'){mkdirSync('output/playwright',{recursive:true});await page.goto(base+'games.html?game=beyond&study=nl&target=zh-Hans');await page.locator('.tag').waitFor();await page.screenshot({path:'output/playwright/games-guide.png',fullPage:true});}
+ await page.goto(base+'games.html?game=beyond&study=nl&target=zh-Hans');await page.locator('.tag').waitFor();
+ for(const [locale,title] of [['nl','Vind een taalcombinatie'],['zh-Hans','查找语言组合'],['zh-Hant','尋找語言組合']]){
+  await page.selectOption('#guide-interface',locale);await page.getByRole('heading',{name:title,exact:true}).waitFor();
+  assert.equal(await page.inputValue('#guide-study'),'nl');assert.equal(await page.inputValue('#guide-target'),'zh-Hans');
+  await page.setViewportSize({width:390,height:844});await fits(name+' localized '+locale);
+  await page.reload();await page.getByRole('heading',{name:title,exact:true}).waitFor();
+ }
  assert.deepEqual(errors,[]);await context.close();
  // Synthetic old-site cache: no guide assets, and navigation falls back to the
  // companion. Upgrading must explicitly install the new guide without clearing storage.

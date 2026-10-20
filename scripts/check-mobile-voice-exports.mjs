@@ -7,7 +7,7 @@ import {resolve} from 'node:path';
 import {chromium} from 'playwright';
 import {openZip,readCatalog} from '../public/mobile-capture/library.mjs';
 import {ocrAssets,mime} from './mobile-assets.mjs';
-const allowed=new Set(['index.html','capture.js','core.mjs','qr-pairing.mjs','qr-ui.mjs','style.css','library.mjs','library-worker.mjs','mobile-ui.mjs','ocr-pipeline.mjs','storage.mjs','manifest.webmanifest','icon.svg','icon.png']);
+const allowed=new Set(['index.html','capture.js','core.mjs','qr-pairing.mjs','qr-ui.mjs','style.css','library.mjs','library-worker.mjs','interface-copy.mjs','interface-language.mjs','ocr-models.json','ocr-packs.mjs','caption-confirmation.mjs','mobile-ui.mjs','ocr-pipeline.mjs','storage.mjs','manifest.webmanifest','icon.svg','icon.png']);
 const root=resolve(process.env.MOBILE_PRIVATE_EXPORT_ROOT??'output/mobile-library-voice-check'),assets=ocrAssets(),server=http.createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname,name=path==='/'?'index.html':path.slice(1);try{if(!allowed.has(name)&&!assets.has(name))throw Error();const bytes=assets.get(name)??readFileSync(resolve('public/mobile-capture',name));res.setHeader('Content-Type',mime(name));res.end(bytes);}catch{res.writeHead(404);res.end();}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{browser=await chromium.launch({headless:true});for(const game of ['nte','honkai3','pragmata','cyberpunk','witcher3','wuwa']){

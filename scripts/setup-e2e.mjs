@@ -58,7 +58,7 @@ try{
     await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(value)});
    });
    await page.goto('http://localhost:'+port);
-   const dialog=page.getByRole('dialog',{name:'Toolkit setup'});
+   const dialog=page.getByRole('dialog',{name:'Settings'});
    await dialog.waitFor();
    await dialog.getByText('Change installation folder',{exact:true}).click();
    const field=dialog.getByLabel('Installed game folder');
@@ -70,6 +70,7 @@ try{
    await dialog.getByRole('button',{name:'Install game tools',exact:true}).click();
    await dialog.getByRole('button',{name:'Refresh game data',exact:true}).click();
    await dialog.getByText('3 pairs',{exact:true}).waitFor();
+   await dialog.locator('.toolkit-mobile-export > summary').click();
    await dialog.getByText('≈ 5.00 GB',{exact:true}).waitFor();
    await dialog.getByRole('button',{name:'Browse',exact:true}).click();
    await dialog.getByText('Starting the folder browser. You can close it here if no window appears.',{exact:true}).waitFor();
@@ -127,16 +128,18 @@ try{
    await dialog.getByLabel('Start capture automatically when I open the toolkit').check();
    await dialog.getByRole('button',{name:'Next',exact:true}).click();
    await dialog.getByLabel('Reading mode',{exact:true}).selectOption('lexirise');
+   await dialog.getByRole('button',{name:'Next',exact:true}).click();
    await dialog.getByRole('button',{name:'Set up local API key',exact:true}).click();
    assert.equal(await dialog.locator('input[type=password]').count(),0);
+   await dialog.getByRole('button',{name:'General & Updates',exact:true}).click();
    const downloaded=page.waitForEvent('download');await dialog.getByRole('button',{name:'Download setup report',exact:true}).click();
    const report=JSON.parse(readFileSync(await (await downloaded).path(),'utf8'));assert(!JSON.stringify(report).includes('F:/Games'));assert.equal(report.version,'fixture');
    await dialog.getByRole('button',{name:'Finish setup',exact:true}).click();await dialog.waitFor({state:'hidden'});
    assert.equal(setup.auto_start,true);assert.equal(await page.evaluate(()=>localStorage.getItem('proxy-transcript-reading-mode')),'lexirise');
    assert(writes.every(write=>write.path.startsWith('/api/setup/')),'Setup performed an account write');
    assert.deepEqual(writes.find(write=>write.path==='/api/setup/native/lexirise').body,{});
-   await page.reload();await page.getByRole('button',{name:'Setup',exact:true}).waitFor();
-   assert.equal(await page.getByRole('dialog',{name:'Toolkit setup'}).count(),0);
+   await page.reload();await page.getByRole('button',{name:'Settings',exact:true}).waitFor();
+   assert.equal(await page.getByRole('dialog',{name:'Settings'}).count(),0);
    await context.close();console.log(name+': first-run setup, folder validation, refresh, native actions, report and persistence '+width+'x'+height+' passed');
   }
   await browser.close();browser=null;

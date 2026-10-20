@@ -62,6 +62,19 @@ class LanguageInventory:
             catalog = json.loads(self.catalog.read_text(encoding='utf-8'))
             entry = next(row for row in catalog['games'] if row['id'] == game)
             install = self.install_lookup(game)
+            installed_bytes = None
+            fingerprint = None
+            if install:
+                try:
+                    from .game_assets import asset_adapter
+                    adapter, _ = asset_adapter(game)
+                    fingerprint = adapter.fingerprint(install)
+                    if hasattr(adapter, 'archive_sources'):
+                        sources = {p.resolve() for p in adapter.archive_sources(install)
+                                   if not p.is_symlink() and p.resolve().is_relative_to(install.resolve())}
+                        installed_bytes = sum(p.stat().st_size for p in sources) if sources else None
+                except (OSError, ValueError, KeyError):
+                    pass
             locales = {}
             for row in preparation['locales']:
                 path = self.table(game, row['locale'])
@@ -74,10 +87,8 @@ class LanguageInventory:
                 # A prepared table proves bindings, not continued pack installation.
                 if size and install:
                     try:
-                        from .game_assets import asset_adapter
-                        adapter, _ = asset_adapter(game)
                         payload = json.loads(path.read_text(encoding='utf-8'))
-                        if payload.get('fingerprint') == adapter.fingerprint(install):
+                        if fingerprint and payload.get('fingerprint') == fingerprint:
                             locales[row['locale']]['voice_state'] = 'present'
                             locales[row['locale']]['support'] = 'prepared'
                     except (OSError, ValueError, KeyError):
@@ -88,7 +99,7 @@ class LanguageInventory:
                      'storage': {'tables_bytes': sum(row['table_bytes'] for row in locales.values()),
                                  'audio_cache_bytes': directory_bytes(self.data / 'audio'),
                                  'shared_tools_bytes': directory_bytes(self.data / 'voice-assets'),
-                                 'installed_game_bytes': None, 'exports_bytes': None,
+                                 'installed_game_bytes': installed_bytes, 'exports_bytes': None,
                                  'measured_at': time.time(),
                                  'note': 'Audio and tools are shared across languages. Game packs and external exports are managed separately.'}}
             self._cache[key] = (now, value)

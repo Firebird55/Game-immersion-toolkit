@@ -4,9 +4,9 @@ import {createHash} from 'node:crypto';
 import {readFileSync,writeFileSync,existsSync,mkdirSync,readdirSync} from 'node:fs';
 function fingerprint(){
  const hash=createHash('sha256');
- for(const root of ['mobile','vendor/lexirise-components','public/mobile-capture']){
+ for(const root of ['mobile','lib','vendor/lexirise-components','public/mobile-capture']){
   for(const file of readdirSync(root,{recursive:true}).map(String).sort()){
-   if(!/\.(?:jsx?|tsx?|css|json|mjs)$/.test(file)||file==='companion.js'||file==='companion.css'||file.startsWith('ocr'))continue;
+   if(!/\.(?:jsx?|tsx?|css|json|mjs)$/.test(file)||file==='companion.js'||file==='companion.css'||file.replaceAll('\\','/').startsWith('ocr/'))continue;
    const path=root+'/'+file;hash.update(path);hash.update(readFileSync(path));
   }
  }

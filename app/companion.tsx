@@ -1,4 +1,5 @@
 'use client';
+import {useInterfaceTranslation} from '../lib/interface-language';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
@@ -172,12 +173,13 @@ type ReadingMode = 'migaku' | 'lexirise';
 const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
 }) {
+  const uiText=useInterfaceTranslation();
   if (game === 'hito') return null;
   const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${GAME_NAMES[game]}`;
   return <button type="button" className={`lexirise-send ${sent ? 'is-sent' : ''}`} translate="no"
     disabled={disabled || busy || sent} onClick={onClick} title={title} aria-label={title} aria-busy={busy}>
     {busy ? <Loader2 size={16} className="animate-spin" /> : sent ? <Check size={16} /> : <Send size={16} />}
-    {!compact && <span>{busy ? 'Sending…' : sent ? 'Sent to Lexirise' : 'Lexirise'}</span>}
+    {!compact && <span>{busy ? uiText("Sending…") : sent ? uiText("Sent to Lexirise") : uiText("Lexirise")}</span>}
   </button>;
 });
 
@@ -320,16 +322,17 @@ const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId }: { te
 function EnglishTranslation({ line, summary, limit, current = false }: {
   line: TranscriptLine; summary: ReadingSummary | null; limit: TranslationLimit; current?: boolean;
 }) {
+ const uiText=useInterfaceTranslation();
   const [revealed, setRevealed] = useState<string | null>(null);
   const key = JSON.stringify([line.id, line.chinese, line.english, limit]);
   const count = summary?.id === line.id && summary.text === (line.source_text??line.chinese) ? summary.unknownWords : null;
   const hidden = shouldHideTranslation(limit, count) && revealed !== key;
-  if (line.translation_text === '') return <p className="translation-unavailable">Official {line.translation_locale} translation unavailable. Prepare its table in Setup → Languages.</p>;
-  if (!hidden) return <StableText className={current ? 'current-english' : undefined} text={line.translation_text??line.english} />;
+  if (line.translation_text === '') return <p className="translation-unavailable">{uiText("Official")} {line.translation_locale} {uiText("translation unavailable. Prepare its table in Setup → Languages.")}</p>;
+  if (!hidden) return <StableText className={current ? "current-english" : undefined} text={line.translation_text??line.english} />;
   return <button type="button" className={`english-reveal ${current ? 'current-english-reveal' : ''}`}
-    onClick={() => setRevealed(key)} aria-label="Show English translation">
-    <span>English hidden · Tap to reveal</span>
-    <small>{count} unknown {count === 1 ? 'word' : 'words'}</small>
+    onClick={() => setRevealed(key)} aria-label={uiText("Show English translation")}>
+    <span>{uiText("English hidden · Tap to reveal")}</span>
+    <small>{count} {uiText("unknown")} {count === 1 ? uiText("word") : uiText("words")}</small>
   </button>;
 }
 
@@ -354,26 +357,27 @@ const TranscriptRow = memo(function TranscriptRow({
   onToggleFavorite: (line: TranscriptLine) => void;
   onSendToLexirise: (kind: 'line', id: number | string) => void;
 }) {
+  const uiText=useInterfaceTranslation();
   const [readingSummary, setReadingSummary] = useState<ReadingSummary | null>(null);
   const ref = `line:${line.id}`;
   return <article className="transcript-line">
     <div className="line-time">
       <time dateTime={line.created_at}>{formatTime(line.created_at)}</time>
-      <small className={line.channel !== 'dialogue' ? 'is-tip' : ''}>{line.channel === 'tip' ? line.game === 'hito' ? 'TOP BOX' : 'TOP-RIGHT' : line.channel === 'cinematic' ? 'CINEMATIC' : line.channel === 'gameplay' ? 'GAMEPLAY' : 'DIALOGUE'}</small>
+      <small className={line.channel !== 'dialogue' ? "is-tip" : ''}>{line.channel === 'tip' ? line.game === 'hito' ? uiText("TOP BOX") : uiText("TOP-RIGHT") : line.channel === 'cinematic' ? uiText("CINEMATIC") : line.channel === 'gameplay' ? uiText("GAMEPLAY") : uiText("DIALOGUE")}</small>
     </div>
     <div className="line-language">
       {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
-      <EnglishTranslation line={line} summary={readingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} />
+      <EnglishTranslation line={line} summary={readingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : "off"} />
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
       {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
-      <span className={line.score < 90 ? 'is-low-score' : ''}>{Math.round(line.score)}%</span>
+      <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>
       <div className="line-actions">
         <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`Play voice line: ${line.english}`} title="Play voice line"><Volume2 size={16} /></button>
-        <button type="button" className={line.favorite ? 'is-favorite' : ''} onClick={() => onToggleFavorite(line)} aria-label={line.favorite ? 'Remove from favorites' : 'Favorite line'} title={line.favorite ? 'Remove favorite' : 'Keep forever'}><Star size={16} fill={line.favorite ? 'currentColor' : 'none'} /></button>
+        <button type="button" className={line.favorite ? "is-favorite" : ''} onClick={() => onToggleFavorite(line)} aria-label={line.favorite ? uiText("Remove from favorites") : uiText("Favorite line")} title={line.favorite ? uiText("Remove favorite") : uiText("Keep forever")}><Star size={16} fill={line.favorite ? "currentColor" : "none"} /></button>
         <LexiriseButton
           sent={sentToLexirise}
           busy={sendingRef === ref}
@@ -388,6 +392,7 @@ const TranscriptRow = memo(function TranscriptRow({
 });
 
 function CompanionClient() {
+ const uiText=useInterfaceTranslation();
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
@@ -786,56 +791,56 @@ function CompanionClient() {
       <header className="topbar">
         <div>
           <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
-          <h1>Proxy Transcript</h1>
-          <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">Share transcript to another device</a>
+          <h1>{uiText("Proxy Transcript")}</h1>
+          <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
           <span className="live-pulse" />
-          <StableInline text={online ? phaseLabel(capture?.phase ?? 'starting') : 'Service offline'} />
+          <StableInline text={online ? phaseLabel(capture?.phase ?? 'starting') : "Service offline"} />
         </div>
       </header>
 
-      <nav className="game-tabs" aria-label="Game transcript">
-        <span><Gamepad2 size={15} /> Game</span>
+      <nav className="game-tabs" aria-label={uiText("Game transcript")}>
+        <span><Gamepad2 size={15} /> {uiText("Game")}</span>
         {(Object.keys(GAME_NAMES) as GameId[]).map(game => <button key={game} type="button"
-          className={selectedGame === game ? 'is-active' : ''} aria-pressed={selectedGame === game}
+          className={selectedGame === game ? "is-active" : ''} aria-pressed={selectedGame === game}
           onClick={() => { setSelectedGame(game); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue'); }}>
           {GAME_NAMES[game]}
         </button>)}
-        {status?.capture.active_game && <small>Capturing {GAME_NAMES[status.capture.active_game]}</small>}
-        <div className="reading-controls" aria-label="Chinese reading options">
-        <label>Reading <select value={readingMode} onChange={event => {
+        {status?.capture.active_game && <small>{uiText("Capturing")}{GAME_NAMES[status.capture.active_game]}</small>}
+        <div className="reading-controls" aria-label={uiText("Chinese reading options")}>
+        <label>{uiText("Reading")}<select value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
           setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
-        }}><option value="migaku">Migaku</option><option value="lexirise" disabled={!lexirise.configured}>Lexirise</option></select></label>
+        }}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise" disabled={!lexirise.configured}>{uiText("Lexirise")}</option></select></label>
         {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setReaderSettingsOpen(true)}
-          aria-label="Lexirise reading options"><Settings2 size={15} /> Reading options</button>}
-        <button type="button" className="reader-options-button" onClick={() => {setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>Account settings</button>
+          aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> {uiText("Reading options")}</button>}
+        <button type="button" className="reader-options-button" onClick={() => {setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>{uiText("Account settings")}</button>
         </div>
       </nav>
 
-      <section className="status-strip" aria-label="Companion status">
+      <section className="status-strip" aria-label={uiText("Companion status")}>
         <div>
           <Radio size={17} />
-          <span>{selectedGame === 'hito' ? 'Two-box OCR' : selectedGame !== 'zzz' ? 'Subtitle OCR + original voice' : '3-zone OCR + voice'}</span>
-          <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : 'Paused'} /></strong>
+          <span>{selectedGame === 'hito' ? uiText("Two-box OCR") : selectedGame !== 'zzz' ? uiText("Subtitle OCR + original voice") : uiText("3-zone OCR + voice")}</span>
+          <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : "Paused"} /></strong>
         </div>
         <div>
           <Database size={17} />
-          <span>{selectedGame !== 'zzz' ? 'Official game text' : 'TextMaps'}</span>
+          <span>{selectedGame !== 'zzz' ? uiText("Official game text") : uiText("TextMaps")}</span>
           <strong><StableInline text={mapStatus?.ready && mapStatus.state !== 'missing_voice' ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'} /></strong>
         </div>
         <div>
           <Activity size={17} />
-          <span>This session</span>
+          <span>{uiText("This session")}</span>
           <strong><StableInline text={`${currentCount} ${currentCount === 1 ? 'line' : 'lines'}`} /></strong>
         </div>
       </section>
 
-      {updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label="Automatic data update status">
+      {updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
         <div className="update-progress-copy">
-          <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? 'is-spinning' : ''} />
-          <strong>Automatic updates</strong>
+          <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
+          <strong>{uiText("Automatic updates")}</strong>
           <StableInline text={updateStatus.message} />
         </div>
         <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />
@@ -844,7 +849,7 @@ function CompanionClient() {
 
       <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
-          <span id="current-heading"><Crosshair size={16} /> Current line</span>
+          <span id="current-heading"><Crosshair size={16} /> {uiText("Current line")}</span>
           {latestLine ? (
             <StableInline
               className="match-label"
@@ -887,36 +892,35 @@ function CompanionClient() {
       <section className="transcript" aria-labelledby="transcript-heading">
         <div className="transcript-heading">
           <div>
-            <p className="eyebrow">Saved transcript</p>
-            <h2 id="transcript-heading">{transcriptTab === 'favorites' ? 'Favorites' : 'Earlier lines'}</h2>
+            <p className="eyebrow">{uiText("Saved transcript")}</p>
+            <h2 id="transcript-heading">{transcriptTab === 'favorites' ? uiText("Favorites") : uiText("Earlier lines")}</h2>
           </div>
-          <p>{transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : '10 at a time · up to 50 recent lines'}</p>
+          <p>{transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : uiText("10 at a time · up to 50 recent lines")}</p>
         </div>
 
-        <div className="transcript-tabs" role="tablist" aria-label="Transcript view">
+        <div className="transcript-tabs" role="tablist" aria-label={uiText("Transcript view")}>
           <button
             type="button"
             role="tab"
             aria-selected={transcriptTab === 'history'}
-            className={transcriptTab === 'history' ? 'is-active' : ''}
+            className={transcriptTab === 'history' ? "is-active" : ''}
             onClick={() => changeTranscriptTab('history', true)}
           >
-            History
-          </button>
+            {uiText("History")}</button>
           <button
             type="button"
             role="tab"
             aria-selected={transcriptTab === 'favorites'}
-            className={transcriptTab === 'favorites' ? 'is-active' : ''}
+            className={transcriptTab === 'favorites' ? "is-active" : ''}
             onClick={() => changeTranscriptTab('favorites', true)}
           >
-            <Star size={14} fill={transcriptTab === 'favorites' ? 'currentColor' : 'none'} />
-            Favorites <span>{favoriteLines.length}</span>
+            <Star size={14} fill={transcriptTab === 'favorites' ? "currentColor" : "none"} />
+            {uiText("Favorites")}<span>{favoriteLines.length}</span>
           </button>
         </div>
 
         <div className="column-labels" aria-hidden="true">
-          <span>Time / type</span><span>English</span><span>中文</span><span>Match</span>
+          <span>{uiText("Time / type")}</span><span>{uiText("English")}</span><span>中文</span><span>{uiText("Match")}</span>
         </div>
         <div className="line-list" ref={historyList}>
           {visibleTranscriptLines.length ? visibleTranscriptLines.map((line) => (
@@ -942,37 +946,35 @@ function CompanionClient() {
           )}
         </div>
         {transcriptTab === 'history' && historyLines.length > HISTORY_PAGE_SIZE && (
-          <nav className="history-pagination" aria-label="Transcript history pages">
+          <nav className="history-pagination" aria-label={uiText("Transcript history pages")}>
             <button
               type="button"
               onClick={() => setHistoryPage(Math.max(0, currentHistoryPage - 1))}
               disabled={currentHistoryPage === 0}
             >
-              Newer 10
-            </button>
+              {uiText("Newer 10")}</button>
             <span>
-              {currentHistoryPage * HISTORY_PAGE_SIZE + 1}–{Math.min((currentHistoryPage + 1) * HISTORY_PAGE_SIZE, historyLines.length)} of {historyLines.length}
+              {currentHistoryPage * HISTORY_PAGE_SIZE + 1}–{Math.min((currentHistoryPage + 1) * HISTORY_PAGE_SIZE, historyLines.length)} {uiText("of")}{historyLines.length}
             </span>
             <button
               type="button"
               onClick={() => setHistoryPage(Math.min(historyPageCount - 1, currentHistoryPage + 1))}
               disabled={currentHistoryPage >= historyPageCount - 1}
             >
-              Previous 10
-            </button>
+              {uiText("Previous 10")}</button>
           </nav>
         )}
       </section>
 
       <footer className="capture-footer">
-        <span className={capture?.phase === 'error' ? 'has-error' : ''}>
+        <span className={capture?.phase === 'error' ? "has-error" : ''}>
           <span className="live-pulse" /> <StableInline text={capture?.message ?? 'Connecting to local capture service'} />
         </span>
         <div className="footer-actions">
           <label className="playback-speed">
             <Volume2 size={16} />
-            <span>Speed</span>
-            <select value={playbackRate} onChange={(event) => changePlaybackRate(Number(event.target.value))} aria-label="Voice playback speed">
+            <span>{uiText("Speed")}</span>
+            <select value={playbackRate} onChange={(event) => changePlaybackRate(Number(event.target.value))} aria-label={uiText("Voice playback speed")}>
               <option value={1}>1×</option>
               <option value={0.85}>0.85×</option>
               <option value={0.75}>0.75×</option>
@@ -981,18 +983,17 @@ function CompanionClient() {
           </label>
           <Button
             variant="outline"
-            className={capture?.running ? 'capture-toggle is-running' : 'capture-toggle'}
+            className={capture?.running ? "capture-toggle is-running" : "capture-toggle"}
             onClick={toggleCapture}
             disabled={!online || !status}
           >
             <Pause className="capture-pause-icon" />
             <Play className="capture-play-icon" />
-            <span className="capture-pause-label">Pause</span>
-            <span className="capture-play-label">Start</span>
+            <span className="capture-pause-label">{uiText("Pause")}</span>
+            <span className="capture-play-label">{uiText("Start")}</span>
           </Button>
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={!online || !draftSettings}>
-            <Settings2 /> Capture setup
-          </Button>
+            <Settings2 /> {uiText("Capture setup")}</Button>
           <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
@@ -1000,105 +1001,93 @@ function CompanionClient() {
         </div>
       </footer>
 
-      {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:'zh'} />}
-      {accountSettingsOpen && <SettingsPanel title="Lexirise account settings" showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:'zh'} connection={<><AccountSwitcher onChanged={() => void loadSnapshot()}/>{selectedGame !== 'hito' && <GameDeckSettings game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} />}</>} />}
+      {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:"zh"} />}
+      {accountSettingsOpen && <SettingsPanel title={uiText("Lexirise account settings")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<><AccountSwitcher onChanged={() => void loadSnapshot()}/>{selectedGame !== 'hito' && <GameDeckSettings game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} />}</>} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Capture setup</DialogTitle>
+            <DialogTitle>{uiText("Capture setup")}</DialogTitle>
             <DialogDescription>
-              {selectedGame === 'hito' ? 'Tune the bottom dialogue box and top message box independently.' : selectedGame === 'zzz' ? 'Tune dialogue, top-right subtitles, and cinematics independently.' : 'Tune the subtitle area, including wrapped English and Chinese lines.'}
+              {selectedGame === 'hito' ? uiText("Tune the bottom dialogue box and top message box independently.") : selectedGame === 'zzz' ? uiText("Tune dialogue, top-right subtitles, and cinematics independently.") : uiText("Tune the subtitle area, including wrapped English and Chinese lines.")}
             </DialogDescription>
           </DialogHeader>
 
-          <p>Capture adjustments are saved on this PC. {selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
-          {selectedGame === 'zzz' && draftSettings && <label>Proxy voice
-            <select aria-label="Proxy voice" value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
+          <p>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
+          {selectedGame === 'zzz' && draftSettings && <label>{uiText("Proxy voice")}<select aria-label={uiText("Proxy voice")} value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, zzz_proxy_voice: event.target.value as Settings['zzz_proxy_voice'] } : current)}>
-              <option value="unconfigured">Choose the Proxy for variant lines</option>
-              <option value="female">Belle</option><option value="male">Wise</option>
+              <option value="unconfigured">{uiText("Choose the Proxy for variant lines")}</option>
+              <option value="female">{uiText("Belle")}</option><option value="male">{uiText("Wise")}</option>
             </select>
           </label>}
-          {selectedGame === 'cyberpunk' && draftSettings && <label>V voice
-            <select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
-              <option value="unconfigured">Choose V's voice to capture variant lines</option>
-              <option value="female">Female</option><option value="male">Male</option>
+          {selectedGame === 'cyberpunk' && draftSettings && <label>{uiText("V voice")}<select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
+              <option value="unconfigured">{uiText("Choose V's voice to capture variant lines")}</option>
+              <option value="female">{uiText("Female")}</option><option value="male">{uiText("Male")}</option>
             </select>
           </label>}
-          {selectedGame === 'wuwa' && draftSettings && <label>Rover voice
-            <select value={draftSettings.wuwa_rover_voice} onChange={event => setDraftSettings(current => current ? { ...current, wuwa_rover_voice: event.target.value as Settings['wuwa_rover_voice'] } : current)}>
-              <option value="unconfigured">Choose Rover's voice to capture variant lines</option>
-              <option value="female">Female</option><option value="male">Male</option>
+          {selectedGame === 'wuwa' && draftSettings && <label>{uiText("Rover voice")}<select value={draftSettings.wuwa_rover_voice} onChange={event => setDraftSettings(current => current ? { ...current, wuwa_rover_voice: event.target.value as Settings['wuwa_rover_voice'] } : current)}>
+              <option value="unconfigured">{uiText("Choose Rover's voice to capture variant lines")}</option>
+              <option value="female">{uiText("Female")}</option><option value="male">{uiText("Male")}</option>
             </select>
           </label>}
-          {selectedGame === 'nte' && draftSettings && <label>Zero voice
-            <select aria-label="Zero voice" value={draftSettings.nte_player_voice ?? 'unconfigured'}
+          {selectedGame === 'nte' && draftSettings && <label>{uiText("Zero voice")}<select aria-label={uiText("Zero voice")} value={draftSettings.nte_player_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, nte_player_voice: event.target.value as Settings['nte_player_voice'] } : current)}>
-              <option value="unconfigured">Choose Zero's voice for movie variants</option>
-              <option value="female">Female</option><option value="male">Male</option>
+              <option value="unconfigured">{uiText("Choose Zero's voice for movie variants")}</option>
+              <option value="female">{uiText("Female")}</option><option value="male">{uiText("Male")}</option>
             </select>
           </label>}
           {selectedGame === 'hito' && draftSettings && <label>
             <input type="checkbox" checked={draftSettings.hito_auto_regions}
               onChange={event => setDraftSettings(current => current ? { ...current, hito_auto_regions: event.target.checked } : current)} />
-            {' '}Automatically follow Hito message boxes at the current resolution and zoom
-          </label>}
+            {' '}{uiText("Automatically follow Hito message boxes at the current resolution and zoom")}</label>}
 
           {(selectedGame === 'cyberpunk' || selectedGame === 'wuwa' || selectedGame === 'witcher3') && draftSettings && <label>
             <input type="checkbox" checked={draftSettings[`${selectedGame}_capture_chatter`]}
               onChange={event => setDraftSettings(current => current ? { ...current, [`${selectedGame}_capture_chatter`]: event.target.checked } : current)} />
-            {' '}{selectedGame === 'wuwa' ? 'Capture top-right voices (experimental; off by default)' : 'Capture conversations above NPC heads'}
+            {' '}{selectedGame === 'wuwa' ? uiText("Capture top-right voices (experimental; off by default)") : uiText("Capture conversations above NPC heads")}
           </label>}
           {(selectedGame === 'cyberpunk' || selectedGame === 'witcher3' || selectedGame === 'wuwa') && <p className="setup-note">
-            Extra voices require an exact subtitle match. Main dialogue takes priority; response choices are excluded.
-          </p>}
+            {uiText("Extra voices require an exact subtitle match. Main dialogue takes priority; response choices are excluded.")}</p>}
 
           {selectedGame === 'wuwa' && draftSettings && <label>
             <input type="checkbox" checked={draftSettings.wuwa_capture_cinematic}
               onChange={event => setDraftSettings(current => current ? { ...current, wuwa_capture_cinematic: event.target.checked } : current)} />
-            {' '}Capture centered story cards on dark backgrounds
-          </label>}
+            {' '}{uiText("Capture centered story cards on dark backgrounds")}</label>}
 
-          <div className="capture-tabs" role="tablist" aria-label="Capture region">
+          <div className="capture-tabs" role="tablist" aria-label={uiText("Capture region")}>
             <button
               type="button"
-              className={setupChannel === 'dialogue' ? 'is-active' : ''}
+              className={setupChannel === 'dialogue' ? "is-active" : ''}
               onClick={() => setSetupChannel('dialogue')}
             >
-              <MessageSquareText size={16} /> Dialogue
-            </button>
+              <MessageSquareText size={16} /> {uiText("Dialogue")}</button>
             {(selectedGame === 'zzz' || selectedGame === 'hito' || selectedGame === 'wuwa' || selectedGame === 'cyberpunk' || selectedGame === 'witcher3') && <button
               type="button"
-              className={setupChannel === 'tip' ? 'is-active' : ''}
+              className={setupChannel === 'tip' ? "is-active" : ''}
               onClick={() => setSetupChannel('tip')}
             >
-              <ScanLine size={16} /> {selectedGame === 'hito' ? 'Top box' : selectedGame === 'cyberpunk' || selectedGame === 'witcher3' ? 'NPC chatter' : 'Top-right tips'}
+              <ScanLine size={16} /> {selectedGame === 'hito' ? uiText("Top box") : selectedGame === 'cyberpunk' || selectedGame === 'witcher3' ? uiText("NPC chatter") : uiText("Top-right tips")}
             </button>}
             {(selectedGame === 'zzz' || selectedGame === 'wuwa') && <button
               type="button"
-              className={setupChannel === 'cinematic' ? 'is-active' : ''}
+              className={setupChannel === 'cinematic' ? "is-active" : ''}
               onClick={() => setSetupChannel('cinematic')}
             >
-              <Volume2 size={16} /> {selectedGame === 'wuwa' ? 'Centered story cards' : 'Cutscenes & comics'}
+              <Volume2 size={16} /> {selectedGame === 'wuwa' ? uiText("Centered story cards") : uiText("Cutscenes & comics")}
             </button>}
           </div>
 
-          {(selectedGame === 'nte') && draftSettings && <label>Game picture area
-            <select aria-label="Game picture area" value={draftSettings[`${selectedGame}_picture_area`] ?? 'window'}
+          {(selectedGame === 'nte') && draftSettings && <label>{uiText("Game picture area")}<select aria-label={uiText("Game picture area")} value={draftSettings[`${selectedGame}_picture_area`] ?? 'window'}
               onChange={event => setDraftSettings(current => current ? { ...current, [`${selectedGame}_picture_area`]: event.target.value } : current)}>
-              <option value="window">Full game window</option>
-              <option value="16:9">Centered 16:9 picture inside black bars</option>
+              <option value="window">{uiText("Full game window")}</option>
+              <option value="16:9">{uiText("Centered 16:9 picture inside black bars")}</option>
             </select>
           </label>}
           {(selectedGame === 'nte') && <p className="setup-note">
-            Choose the picture inside black bars only when your game is letterboxed. Check the live crop after changing resolution or subtitle size.
-            Movie captions use the game's original subtitle timings and Original voices. Select Zero's voice to capture movies with player variants.
-          </p>}
+            {uiText("Choose the picture inside black bars only when your game is letterboxed. Check the live crop after changing resolution or subtitle size. Movie captions use the game's original subtitle timings and Original voices. Select Zero's voice to capture movies with player variants.")}</p>}
           {(selectedGame === 'nte') && draftSettings && <button type="button" className="secondary-button"
             onClick={() => setDraftSettings(current => current ? { ...current, [`${selectedGame}_region`]: { left: .10, top: .70, width: .80, height: .28 } } : current)}>
-            Use tested dialogue crop
-          </button>}
+            {uiText("Use tested dialogue crop")}</button>}
 
           <div className="capture-preview">
             {capture?.active_game === selectedGame && capture?.window_bounds ? (
@@ -1108,9 +1097,9 @@ function CompanionClient() {
                 alt={`Live preview of the ${setupRegionLabel.toLowerCase()} capture region`}
               />
             ) : (
-              <div className="preview-placeholder"><ScanLine /> Start the selected game to see the capture preview.</div>
+              <div className="preview-placeholder"><ScanLine /> {uiText("Start the selected game to see the capture preview.")}</div>
             )}
-            <span>{setupRegionLabel} live crop</span>
+            <span>{setupRegionLabel} {uiText("live crop")}</span>
           </div>
 
           {draftSettings ? (
@@ -1137,18 +1126,18 @@ function CompanionClient() {
           ) : null}
 
           <div className="ocr-readout">
-            <span>Latest OCR</span>
+            <span>{uiText("Latest OCR")}</span>
             <StableText text={(setupChannel === 'tip' ? capture?.last_tip_ocr : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr : capture?.last_ocr) || 'No subtitle text detected in the current region.'} />
-            <small><StableInline text={(setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ? `${Math.round((setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ?? 0)}% OCR confidence` : 'Waiting for text'} /></small>
+            <small><StableInline text={(setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ? `${Math.round((setupChannel === 'tip' ? capture?.last_tip_ocr_confidence : setupChannel === 'cinematic' ? capture?.last_cinematic_ocr_confidence : capture?.last_ocr_confidence) ?? 0)}% OCR confidence` : "Waiting for text"} /></small>
           </div>
 
           <div className="setup-actions">
             <Button variant="outline" onClick={refreshTextMaps} disabled={refreshingMaps}>
-              <RefreshCw className={refreshingMaps ? 'is-spinning' : ''} />
-              <StableInline text={refreshingMaps ? 'Updating…' : selectedGame === 'hito' ? 'Refresh from game' : 'Update TextMaps'} />
+              <RefreshCw className={refreshingMaps ? "is-spinning" : ''} />
+              <StableInline text={refreshingMaps ? "Updating…" : selectedGame === 'hito' ? "Refresh from game" : "Update TextMaps"} />
             </Button>
             <Button onClick={saveSettings} disabled={!draftSettings || saving}>
-              <StableInline text={saving ? 'Saving…' : 'Save capture settings'} />
+              <StableInline text={saving ? "Saving…" : "Save capture settings"} />
             </Button>
           </div>
         </DialogContent>

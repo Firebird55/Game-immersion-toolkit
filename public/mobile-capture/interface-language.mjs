@@ -1,3 +1,4 @@
+import productCopy from './interface-copy.mjs';
 export const interfaceLanguages={'en':'English','nl':'Nederlands','zh-Hans':'简体中文','zh-Hant':'繁體中文'};
 const messages = {
  'Settings':['Instellingen','设置','設定'],
@@ -103,7 +104,7 @@ export function setInterfaceLanguage(value){
  if(typeof window!=='undefined')window.dispatchEvent(new Event('toolkit-interface-language'));
 }
 export function translate(message,locale=current){
- return locale==='en'?message:messages[message]?.[['nl','zh-Hans','zh-Hant'].indexOf(locale)]??message;
+ return locale==='en'?message:(messages[message]??productCopy[message])?.[['nl','zh-Hans','zh-Hant'].indexOf(locale)]??message;
 }
 export function languageName(code,locale=current){
  try{return new Intl.DisplayNames([locale],{type:'language'}).of(code)||code;}catch{return code;}
@@ -113,4 +114,32 @@ export function formatBytes(bytes,locale=current){
  const unit=bytes>=1073741824?'GiB':bytes>=1048576?'MiB':bytes>=1024?'KiB':'B';
  const divisor={GiB:1073741824,MiB:1048576,KiB:1024,B:1}[unit];
  return `${new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(bytes/divisor)} ${unit}`;
+}
+/** Bind only original application markup; never walk later user transcript content. */
+export function bindStaticTranslation(root){
+ const entries=[];
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+ for(let node=walker.nextNode();node;node=walker.nextNode()){
+  if(node.parentElement?.closest('script,style,code,pre,textarea'))continue;
+  const original=node.textContent,trimmed=original.trim();
+  if(trimmed&&(messages[trimmed]||productCopy[trimmed])){
+   const target=node;let last=original;
+   entries.push(()=>{if(target.textContent!==last)return;last=original.replace(trimmed,translate(trimmed));target.textContent=last;});
+  }
+ }
+ const attributes=[];
+ for(const element of root.querySelectorAll('[aria-label],[title],[placeholder]')){
+  for(const attribute of ['aria-label','title','placeholder']){
+   const original=element.getAttribute(attribute);
+   if(original){let last=original;attributes.push(()=>{if(element.getAttribute(attribute)!==last)return;last=translate(original);element.setAttribute(attribute,last);});}
+  }
+ }
+ const update=()=>{for(const apply of [...entries,...attributes])apply();};
+ update();const unsubscribe=subscribeInterfaceLanguage(update);return unsubscribe;
+}
+if(typeof window!=='undefined'){
+ initializeInterfaceLanguage();
+ window.addEventListener('toolkit-interface-language',()=>{
+  initializeInterfaceLanguage();for(const callback of listeners)callback();
+ });
 }

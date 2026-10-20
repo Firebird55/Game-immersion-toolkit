@@ -1,9 +1,12 @@
+import {manifest as ocrManifest,loadModel,modelStatus,removeModel} from './ocr-packs.mjs';
+import {translate,languageName,formatBytes,bindStaticTranslation} from './interface-language.mjs';
 import {confirmCaptions} from './caption-confirmation.mjs';
 import {get,put,remove,storageStatus,cacheBudget} from './storage.mjs';
 import Tesseract from './ocr/tesseract.esm.min.js';
 const {createWorker}=Tesseract;
+bindStaticTranslation(document.body);
 import {crops,extraCrops,cropFrame as drawCrop,recognizeRegion,candidates,regions as captureRegions} from './ocr-pipeline.mjs';
-const $=id=>document.getElementById(id), text=(id,message)=>$(id).textContent=message;
+const $=id=>document.getElementById(id), text=(id,message)=>$(id).textContent=translate(message);
 const reader=new Worker(new URL('./library-worker.mjs',import.meta.url),{type:'module'}), pending=new Map();
 let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, streamState=null, stable=null, emitted=new Map(), samples=[];
 let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,lastMediaTime=-1;
@@ -94,10 +97,17 @@ async function initEngine(){
  const base=new URL('./ocr/',import.meta.url),lang=$('ocr-language').value;
  if(engine&&engineLanguage!==lang){await scanCompletion;await engine.terminate();engine=null;}
  if(engine)return engine;if(loading)return loading;
- loading=createWorker(lang,1,{workerPath:new URL('worker.min.js',base).href,corePath:new URL('core/',base).href,langPath:new URL('lang/',base).href,cachePath:'proxy-mobile-ocr-7-best-int-1',workerBlobURL:false,logger:value=>{if(value.status==='loading language traineddata')text('match-status','Preparing private on-device OCR…');}}).then(async value=>{await value.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});engine=value;engineLanguage=lang;return value;}).finally(()=>loading=null);
+ loading=Promise.all(lang.split('+').map(code=>loadModel(code))).then(models=>createWorker(models,1,{workerPath:new URL('worker.min.js',base).href,corePath:new URL('core/',base).href,langPath:new URL('lang/',base).href,cacheMethod:'none',workerBlobURL:false,logger:value=>{if(value.status==='loading language traineddata')text('match-status','Preparing private on-device OCR…');}})).then(async value=>{await value.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});engine=value;engineLanguage=lang;return value;}).finally(()=>loading=null);
  return loading;
 }
-$('ocr-language').onchange=()=>{epoch++;stable=null;scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
+async function refreshPackStatus(){
+ try{const models=await Promise.all($('ocr-language').value.split('+').map(modelStatus));text('ocr-pack-status',models.map(m=>`${translate(m.builtin?'Bundled with application':m.installed?'Available offline':'Download required')} · ${formatBytes(m.bytes)}`).join(' + '));$('ocr-pack-download').disabled=models.every(m=>m.installed);$('ocr-pack-remove').disabled=models.every(m=>m.builtin||!m.installed);}catch(e){text('ocr-pack-status',e.message);}
+}
+void ocrManifest().then(data=>{const present=new Set([...$('ocr-language').options].map(o=>o.value));for(const [locale,code] of Object.entries(data.locales)){if(!present.has(code)){$('ocr-language').add(new Option(languageName(locale),code));present.add(code);}}return refreshPackStatus();}).catch(e=>text('ocr-pack-status',e.message));
+$('ocr-pack-download').onclick=async()=>{const codes=$('ocr-language').value.split('+');$('ocr-pack-download').disabled=true;$('ocr-pack-progress').hidden=false;try{for(const code of codes)await loadModel(code,{download:true,onProgress:value=>$('ocr-pack-progress').value=value});}catch(e){text('ocr-pack-status',e.message);return;}finally{$('ocr-pack-download').disabled=false;$('ocr-pack-progress').hidden=true;}await refreshPackStatus();};
+$('ocr-pack-remove').onclick=async()=>{scanning=false;epoch++;stable=null;updatePreview();await resetting;await scanCompletion;if(loading)await loading.catch(()=>{});if(engine){await engine.terminate();engine=null;engineLanguage=null;}try{for(const code of $('ocr-language').value.split('+'))if(!(await modelStatus(code)).builtin)await removeModel(code);await refreshPackStatus();}catch(e){text('ocr-pack-status',e.message);}};
+window.addEventListener('toolkit-interface-language',()=>void refreshPackStatus());
+$('ocr-language').onchange=()=>{void refreshPackStatus();epoch++;stable=null;scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
 $('ocr-start').onclick=async()=>{const token=++epoch;try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;updatePreview();text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){text('match-status',e.message);}};
 $('ocr-pause').onclick=()=>{scanning=false;updatePreview();epoch++;stable=null;text('match-status','OCR paused.');};
 window.addEventListener('mobile-stream',event=>{if(!streamState||streamState.generation!==event.detail.generation||streamState.state!==event.detail.state){epoch++;stable=null;lastMediaTime=-1;}streamState=event.detail;updatePreview();});

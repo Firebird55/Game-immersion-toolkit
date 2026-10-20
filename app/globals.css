@@ -885,3 +885,17 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
  .toolkit-setup-section,.toolkit-setup-navigation,.toolkit-setup-dialog > [role=status],.toolkit-setup-dialog > [role=alert] { grid-column: 2; }
 }
 @media (max-width: 540px) { .language-table th,.language-table td { padding: 8px; font-size: 12px; } }
+
+/* Short landscape windows need one scroll surface, not a zero-height body. */
+@media(max-height:520px){.toolkit-setup-dialog{display:flex!important;overflow-y:auto}.toolkit-setup-section{flex-shrink:0;overflow:visible}.toolkit-setup-tabs{flex-direction:row;flex-wrap:nowrap;overflow-x:auto}.toolkit-setup-tabs button{flex:0 0 auto}}
+
+@media(min-width:800px) and (min-height:521px){
+ .toolkit-setup-dialog{height:min(820px,calc(100dvh - 32px));grid-template-rows:auto minmax(0,1fr) auto auto auto}
+ .toolkit-setup-tabs{grid-row:2;align-self:start}
+ .toolkit-setup-tabs button{flex:0 0 auto}
+ .toolkit-setup-section{grid-row:2;align-self:stretch}
+ .toolkit-setup-dialog>[role=alert]{grid-row:3}
+ .toolkit-setup-dialog>[role=status]{grid-row:4}
+ .toolkit-setup-navigation{grid-row:5}
+}
+.toolkit-mobile-export{grid-column:1/-1;border-top:1px solid var(--border);padding-top:12px}

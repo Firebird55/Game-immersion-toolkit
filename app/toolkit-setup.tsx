@@ -1,4 +1,5 @@
 'use client';
+import {useInterfaceTranslation} from '../lib/interface-language';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Download, FolderOpen, RefreshCw, Settings2 } from 'lucide-react';
@@ -36,6 +37,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   readingMode: 'migaku' | 'lexirise'; onReadingMode: (mode: 'migaku' | 'lexirise') => void;
   onCapture: () => void; onReading: () => void; onAccount: (language?:string) => void; onChanged: () => void;
 }) {
+ const uiText=useInterfaceTranslation();
   const {t}=useInterfaceLanguage();
   const [open, setOpen] = useState(false), [step, setStep] = useState(0);
   const [data, setData] = useState<Setup | null>(null), [folder, setFolder] = useState('');
@@ -126,91 +128,91 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
           <DialogTitle>{t('Settings')}</DialogTitle>
           <DialogDescription>{t('Prepare only your chosen languages. Your game files stay on this PC.')}</DialogDescription>
         </DialogHeader>
-        <nav className="toolkit-setup-tabs" aria-label="Setup sections">
+        <nav className="toolkit-setup-tabs" aria-label={uiText("Setup sections")}>
           {['Games & Languages', 'Capture', 'Reading', 'Accounts', 'Storage', 'General & Updates'].map((name, index) => <button key={name} type="button" aria-pressed={step === index}
             onClick={() => setStep(index)}>{t(name)}</button>)}
         </nav>
-        {!data && <p role="status">Loading local setup…</p>}
-        {data && step === 0 && <section className="toolkit-setup-section" aria-label="Game files">
-          <label>Game to configure<select aria-label="Game to configure" value={game} onChange={event => { dirty.current = false; setError(''); setMessage(''); onGameChange(event.target.value as GameId); }}>
+        {!data && <p role="status">{uiText("Loading local setup…")}</p>}
+        {data && step === 0 && <section className="toolkit-setup-section" aria-label={uiText("Game files")}>
+          <label>{uiText("Game to configure")}<select aria-label={uiText("Game to configure")} value={game} onChange={event => { dirty.current = false; setError(''); setMessage(''); onGameChange(event.target.value as GameId); }}>
             {data.games.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select></label>
           {current && <div className="toolkit-game-grid">
-            <section className="toolkit-game-card" aria-label="Installed game readiness">
-              <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>Game files</h3><p>Your installed files supply the subtitles and voices.</p></div></div>
+            <section className="toolkit-game-card" aria-label={uiText("Installed game readiness")}>
+              <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>{uiText("Game files")}</h3><p>{uiText("Your installed files supply the subtitles and voices.")}</p></div></div>
               <div className="toolkit-readiness-grid">
-                <div><span>Installation</span><strong className={current.detected_path ? 'is-ready' : 'needs-setup'}>{current.detected_path ? 'Found' : 'Choose folder'}</strong></div>
-                <div><span>Original voices</span><strong className={current.voice_state === 'present' || game === 'hito' ? 'is-ready' : 'needs-setup'}>{game === 'hito' ? 'Text only' : current.voice_state === 'present' ? 'Installed' : 'Needs setup'}</strong></div>
-                <div><span>Bilingual catalog</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : 'Not indexed'}</strong></div>
+                <div><span>{uiText("Installation")}</span><strong className={current.detected_path ? "is-ready" : "needs-setup"}>{current.detected_path ? uiText("Found") : uiText("Choose folder")}</strong></div>
+                <div><span>{uiText("Original voices")}</span><strong className={current.voice_state === 'present' || game === 'hito' ? "is-ready" : "needs-setup"}>{game === 'hito' ? uiText("Text only") : current.voice_state === 'present' ? uiText("Installed") : uiText("Needs setup")}</strong></div>
+                <div><span>{uiText("Bilingual catalog")}</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : uiText("Not indexed")}</strong></div>
               </div>
               {current.detected_path && <code className="toolkit-installed-path">{current.detected_path}</code>}
               <details className="toolkit-folder-details" open={!current.detected_path}>
-                <summary>{current.detected_path ? 'Change installation folder' : 'Choose installation folder'}</summary>
+                <summary>{current.detected_path ? uiText("Change installation folder") : uiText("Choose installation folder")}</summary>
                 <p className="toolkit-setup-note">{current.folder_hint}</p>
-                {game === 'nte' && current.tools_missing.includes('.NET 10 SDK') && <p>NTE needs the <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noreferrer">Microsoft .NET 10 SDK</a>. Install it, then prepare game tools.</p>}
-                <label>Installed game folder<input value={folder} onChange={event => { dirty.current = true; setFolder(event.target.value); }} placeholder="Paste the installed game folder" spellCheck={false} autoComplete="off" /></label>
+                {game === 'nte' && current.tools_missing.includes('.NET 10 SDK') && <p>{uiText("NTE needs the")} <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noreferrer">{uiText("Microsoft .NET 10 SDK")}</a>{uiText(". Install it, then prepare game tools.")}</p>}
+                <label>{uiText("Installed game folder")}<input value={folder} onChange={event => { dirty.current = true; setFolder(event.target.value); }} placeholder={uiText("Paste the installed game folder")} spellCheck={false} autoComplete="off" /></label>
                 <div className="toolkit-setup-actions">
-                  <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action('/api/setup/native/folders', {}, 'The Windows folder picker opened. Save your folders there.'); }}><FolderOpen /> Browse game folders</Button>
-                  <Button disabled={busy || nativeBusy || !folder.trim()} onClick={() => void saveFolder()}>Save game folder</Button>
-                  <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action(`/api/setup/games/${game}`, { use_automatic: true }, 'Automatic detection enabled.'); }}>Auto-detect</Button>
+                  <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action('/api/setup/native/folders', {}, 'The Windows folder picker opened. Save your folders there.'); }}><FolderOpen /> {uiText("Browse game folders")}</Button>
+                  <Button disabled={busy || nativeBusy || !folder.trim()} onClick={() => void saveFolder()}>{uiText("Save game folder")}</Button>
+                  <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action(`/api/setup/games/${game}`, { use_automatic: true }, 'Automatic detection enabled.'); }}>{uiText("Auto-detect")}</Button>
                 </div>
               </details>
               {current.voice_state !== 'present' && game !== 'hito' && <p className="toolkit-setup-warning">{VOICE_LABELS[current.voice_state] ?? current.voice_state}. {current.voice_hint}</p>}
               {current.expansion_message && <p role="status" className="toolkit-setup-note">{current.expansion_message}</p>}
               <div className="toolkit-setup-actions">
-                {current.tools_missing.length > 0 && game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools.')}><Download /> Install game tools</Button>}
+                {current.tools_missing.length > 0 && game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools.')}><Download /> {uiText("Install game tools")}</Button>}
                 <Button variant="outline" disabled={busy || preparing || !current.detected_path || !!current.tools_missing.length || ['preparing','exporting','cancelling'].includes(data.mobile_export?.state ?? '')}
-                  onClick={() => void action(`/api/setup/games/${game}/refresh`)}><RefreshCw /> Refresh game data</Button>
+                  onClick={() => void action(`/api/setup/games/${game}/refresh`)}><RefreshCw /> {uiText("Refresh game data")}</Button>
               </div>
-              {job && <p role="status" className={job.state === 'error' ? 'toolkit-setup-error' : 'toolkit-setup-note'}>{job.message}</p>}
+              {job && <p role="status" className={job.state === 'error' ? "toolkit-setup-error" : "toolkit-setup-note"}>{job.message}</p>}
               <p role="status" className="toolkit-setup-note">{current.update_message}</p>
-              {current.catalog_message && <p role="status" className={current.catalog_warning ? 'toolkit-setup-warning' : 'toolkit-setup-note'}>{current.catalog_message}</p>}
-              {(current.update_state === 'checking' || current.update_state === 'updating' || job?.state === 'preparing') && <progress aria-label="Game setup progress" value={job?.state === 'preparing' ? job.progress : current.progress} max={100} />}
-              {current.needs_attention && <p className="toolkit-setup-error">Indexing needs attention. Let the launcher finish downloading, check the voice pack, and retry.</p>}
-              {current.last_checked && <small>Last checked {new Date(current.last_checked).toLocaleString()}</small>}
-              <details className="toolkit-export-help"><summary>Game updates and tools</summary>
-                <p>After a launcher update, refresh game data here. Compatible updates need no new toolkit release. A failed refresh keeps the previous complete index. Changed formats may require a toolkit update.</p>
-                {game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Repairing game tools.')}><Download /> Repair game tools</Button>}
-                <p>Reader tools are downloaded separately and checksum verified. Game files stay in place.</p>
-                <p><a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">vgmstream</a>{' · '}<a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">ZZZ reader</a>{' · '}<a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">REE unpacker</a>{' · '}<a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">WolvenKit</a>{' · '}<a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">FModelCLI</a></p>
+              {current.catalog_message && <p role="status" className={current.catalog_warning ? "toolkit-setup-warning" : "toolkit-setup-note"}>{current.catalog_message}</p>}
+              {(current.update_state === 'checking' || current.update_state === 'updating' || job?.state === 'preparing') && <progress aria-label={uiText("Game setup progress")} value={job?.state === 'preparing' ? job.progress : current.progress} max={100} />}
+              {current.needs_attention && <p className="toolkit-setup-error">{uiText("Indexing needs attention. Let the launcher finish downloading, check the voice pack, and retry.")}</p>}
+              {current.last_checked && <small>{uiText("Last checked")}: {new Date(current.last_checked).toLocaleString()}</small>}
+              <details className="toolkit-export-help"><summary>{uiText("Game updates and tools")}</summary>
+                <p>{uiText("After a launcher update, refresh game data here. Compatible updates need no new toolkit release. A failed refresh keeps the previous complete index. Changed formats may require a toolkit update.")}</p>
+                {game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Repairing game tools.')}><Download /> {uiText("Repair game tools")}</Button>}
+                <p>{uiText("Reader tools are downloaded separately and checksum verified. Game files stay in place.")}</p>
+                <p><a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">{uiText("vgmstream")}</a>{' · '}<a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">{uiText("ZZZ reader")}</a>{' · '}<a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">{uiText("REE unpacker")}</a>{' · '}<a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">{uiText("WolvenKit")}</a>{' · '}<a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">{uiText("FModelCLI")}</a></p>
               </details>
             </section>
             {game !== 'hito' && <LanguageSetup game={game} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
-            <MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} />
+            <details className="toolkit-mobile-export"><summary>{uiText("Export mobile library")}</summary><MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} /></details>
           </div>}
         </section>}
-        {data && step === 1 && <section className="toolkit-setup-section" aria-label="Capture checks">
-          <h3>Capture and audio requirements</h3>
+        {data && step === 1 && <section className="toolkit-setup-section" aria-label={uiText("Capture checks")}>
+          <h3>{uiText("Capture and audio requirements")}</h3>
           <ul className="toolkit-setup-checks">{data.requirements.map(item => <li key={item.id}>
-            <span className={item.ready ? 'is-ready' : 'needs-setup'}>{item.ready ? <Check size={16} /> : '!'} {item.title}: {item.ready ? 'Available' : 'Needs setup'}</span>
+            <span className={item.ready ? "is-ready" : "needs-setup"}>{item.ready ? <Check size={16} /> : '!'} {item.title}: {item.ready ? uiText("Available") : uiText("Needs setup")}</span>
             {!item.ready && <p>{item.help}</p>}
           </li>)}</ul>
-          <p>Run the OCR/display test, then start your game with subtitles in a prepared language. Use Capture setup to check the live subtitle crop and choose V or Rover's voice where applicable.</p>
-          <div className="toolkit-setup-actions"><Button variant="outline" disabled={busy || nativeBusy} onClick={() => void action('/api/setup/native/checks', {}, 'The read-only OCR and display test opened in a local console. Its output stays on this PC.')}>Run OCR and display test</Button>
-            <Button onClick={() => leaveFor(onCapture)}>Open capture setup</Button></div>
-          {data.capture_check !== null && data.capture_check !== undefined && <p role="status">{data.capture_check ? 'OCR and display test passed.' : 'OCR and display test needs attention. Re-run Install.cmd to repair dependencies.'}</p>}
-          {data.free_gb !== null && <p>{data.free_gb} GB free on the toolkit drive. Extracted indexes and played voice clips use additional local space.</p>}
-          <label className="toolkit-setup-checkbox"><input type="checkbox" checked={autoStart ?? data.auto_start} onChange={event => setAutoStart(event.target.checked)} /> Start capture automatically when I open the toolkit</label>
-          <p className="toolkit-setup-note">No microphone setup is needed: the toolkit reads visible subtitles and plays original audio from installed files.</p>
+          <p>{uiText("Run the OCR/display test, then start your game with subtitles in a prepared language. Use Capture setup to check the live subtitle crop and choose V or Rover's voice where applicable.")}</p>
+          <div className="toolkit-setup-actions"><Button variant="outline" disabled={busy || nativeBusy} onClick={() => void action('/api/setup/native/checks', {}, 'The read-only OCR and display test opened in a local console. Its output stays on this PC.')}>{uiText("Run OCR and display test")}</Button>
+            <Button onClick={() => leaveFor(onCapture)}>{uiText("Open capture setup")}</Button></div>
+          {data.capture_check !== null && data.capture_check !== undefined && <p role="status">{data.capture_check ? uiText("OCR and display test passed.") : uiText("OCR and display test needs attention. Re-run Install.cmd to repair dependencies.")}</p>}
+          {data.free_gb !== null && <p>{data.free_gb} {uiText("GB free on the toolkit drive. Extracted indexes and played voice clips use additional local space.")}</p>}
+          <label className="toolkit-setup-checkbox"><input type="checkbox" checked={autoStart ?? data.auto_start} onChange={event => setAutoStart(event.target.checked)} /> {uiText("Start capture automatically when I open the toolkit")}</label>
+          <p className="toolkit-setup-note">{uiText("No microphone setup is needed: the toolkit reads visible subtitles and plays original audio from installed files.")}</p>
         </section>}
-        {data && step === 2 && <section className="toolkit-setup-section" aria-label="Reading setup">
-          <h3>Choose your reading mode</h3>
-          <label>Reading mode<select aria-label="Reading mode" value={readingMode} onChange={event => onReadingMode(event.target.value as 'migaku' | 'lexirise')}><option value="migaku">Migaku</option><option value="lexirise">Lexirise</option></select></label>
-          <p>Chinese game transcripts keep their original language. Reading preferences are stored locally.</p>
-          {readingMode === 'migaku' ? <p>Use your installed Migaku browser extension with the selectable transcript text. You can switch reading modes at any time.</p> : <>
-            <Button variant="outline" onClick={() => leaveFor(onReading)}>Configure reading options</Button>
+        {data && step === 2 && <section className="toolkit-setup-section" aria-label={uiText("Reading setup")}>
+          <h3>{uiText("Choose your reading mode")}</h3>
+          <label>{uiText("Reading mode")}<select aria-label={uiText("Reading mode")} value={readingMode} onChange={event => onReadingMode(event.target.value as 'migaku' | 'lexirise')}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise">{uiText("Lexirise")}</option></select></label>
+          <p>{uiText("Chinese game transcripts keep their original language. Reading preferences are stored locally.")}</p>
+          {readingMode === 'migaku' ? <p>{uiText("Use your installed Migaku browser extension with the selectable transcript text. You can switch reading modes at any time.")}</p> : <>
+            <Button variant="outline" onClick={() => leaveFor(onReading)}>{uiText("Configure reading options")}</Button>
           </>}
         </section>}
-        {data && step === 3 && <section className="toolkit-setup-section">            <h3>Optional Lexirise account</h3><p>{data.lexirise_configured ? 'An API key is configured on this PC.' : 'Add your own Lexirise API key to use lookups and explicit sentence exports.'}</p>
-            <Button variant="outline" disabled={busy || nativeBusy} onClick={() => void action('/api/setup/native/lexirise', {}, 'A hidden-input prompt opened on this PC. Enter your key there; it is stored encrypted for this Windows user.')}>{data.lexirise_configured ? 'Replace local API key' : 'Set up local API key'}</Button>
-            <Button variant="outline" disabled={!data.lexirise_configured} onClick={() => leaveFor(onAccount)}>Account and game deck</Button>
-            <p className="toolkit-setup-note">Choose a destination for each game before exporting. Account writes and sentence uploads require your explicit action.</p>
+        {data && step === 3 && <section className="toolkit-setup-section">            <h3>{uiText("Optional Lexirise account")}</h3><p>{data.lexirise_configured ? uiText("An API key is configured on this PC.") : uiText("Add your own Lexirise API key to use lookups and explicit sentence exports.")}</p>
+            <Button variant="outline" disabled={busy || nativeBusy} onClick={() => void action('/api/setup/native/lexirise', {}, 'A hidden-input prompt opened on this PC. Enter your key there; it is stored encrypted for this Windows user.')}>{data.lexirise_configured ? uiText("Replace local API key") : uiText("Set up local API key")}</Button>
+            <Button variant="outline" disabled={!data.lexirise_configured} onClick={() => leaveFor(onAccount)}>{uiText("Account and game deck")}</Button>
+            <p className="toolkit-setup-note">{uiText("Choose a destination for each game before exporting. Account writes and sentence uploads require your explicit action.")}</p>
         </section>}
-        {data && step === 4 && <section className="toolkit-setup-section">{game !== 'hito' ? <LanguageSetup game={game} storageOnly onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/> : <p>Hito uses its existing text catalog.</p>}</section>}
+        {data && step === 4 && <section className="toolkit-setup-section">{game !== 'hito' ? <LanguageSetup game={game} storageOnly onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/> : <p>{uiText("Hito uses its existing text catalog.")}</p>}</section>}
         {data && step === 5 && <section className="toolkit-setup-section"><InterfaceLanguage/>
-          <h3>Toolkit updates and support</h3><p><a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest" target="_blank" rel="noreferrer">Get the latest toolkit release</a> · Installed version {data.version}</p>
-          <Button variant="outline" onClick={() => void report()}>Download setup report</Button>
-          <p className="toolkit-setup-note">The report includes versions and readiness flags. It excludes folder paths, credentials, account details and transcript contents.</p>
+          <h3>{uiText("Toolkit updates and support")}</h3><p><a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest" target="_blank" rel="noreferrer">{uiText("Get the latest toolkit release")}</a> {uiText("· Installed version")} {data.version}</p>
+          <Button variant="outline" onClick={() => void report()}>{uiText("Download setup report")}</Button>
+          <p className="toolkit-setup-note">{uiText("The report includes versions and readiness flags. It excludes folder paths, credentials, account details and transcript contents.")}</p>
         </section>}
         {error && <p role="alert" className="toolkit-setup-error">{error}</p>}
         {message && <p role="status" className="toolkit-setup-note">{message}</p>}
