@@ -65,11 +65,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/AppData/Local/ms-playwright
-          key: offline-firefox-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
-      - run: npx playwright install firefox
-      - name: Check Windows Firefox offline cache and updates
-        env:
-          MOBILE_TEST_BROWSERS: firefox
+          key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
+      - run: npx playwright install chromium firefox webkit
+      - run: npm run build
+      - name: Check Windows offline cache and updates after production build
         run: node scripts/mobile-update-e2e.mjs
   webkit-transcript:
     if: inputs.check != 'offline'

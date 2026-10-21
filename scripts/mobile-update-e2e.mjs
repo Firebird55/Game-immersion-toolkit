@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {readFileSync,readdirSync,statSync} from 'node:fs';
+import {readFileSync,readdirSync,statSync,mkdtempSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
@@ -23,7 +23,15 @@ const manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title
 const catalog=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify(manifest)),'catalog/00000.ndjson':segment},{level:0}));
 let browser;
 try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
- files=new Map(baseline);browser=await engines[name].launch({headless:true});const context=await browser.newContext(),page=await context.newPage(),errors=[],failures=[],runtimeErrors=[],offlineDiagnostics=[];let offline=false;
+ files=new Map(baseline);
+ // Exercise Firefox's durable site storage in a fresh owned profile. Its
+ // ephemeral test context can lose its controller and cache mid-session on
+ // Windows; the restart below also verifies the actual offline-use contract.
+ const profile=name==='firefox'?mkdtempSync(resolve('output/offline-firefox-')):null;
+ let context;
+ if(profile){context=await engines[name].launchPersistentContext(profile,{headless:true});browser=context.browser();}
+ else{browser=await engines[name].launch({headless:true});context=await browser.newContext();}
+ const page=await context.newPage(),errors=[],failures=[],runtimeErrors=[],offlineDiagnostics=[];let offline=false;
  // WebKit also emits browser-generated JS-source network diagnostics through
  // Playwright's pageerror event. Keep actual script errors/rejections fatal,
  // including those raised in an old document while navigation is in progress.
@@ -64,5 +72,15 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  offline=true;await context.setOffline(true);await page.goto(base+'/games.html?game=beyond&study=nl&target=zh-Hans');await page.locator('.tag').waitFor();assert.match(await page.locator('.tag').textContent(),/Dutch → Simplified Chinese: Supported/);await context.setOffline(false);offline=false;
  const keys=await page.evaluate(async()=>{const names=await caches.keys(),urls=[];for(const n of names)for(const r of await(await caches.open(n)).keys())urls.push(r.url);return urls;});assert(!keys.some(u=>u.endsWith('.zip')),'No selected catalog or voice files in application cache');assert.deepEqual(runtimeErrors,[],'No uncaught application errors or unhandled rejections');assert.deepEqual(errors,[]);
  if(offlineDiagnostics.length)console.log(`${name}: ${offlineDiagnostics.length} browser-only offline sw.js fetch diagnostics; no script errors or unhandled rejections`);
- console.log(`${name}: offline application cache, waiting update, retained catalog/favorite/calibration and allowlist passed`);await context.close();await browser.close();browser=null;
+ await context.close();await browser.close();browser=null;
+ if(profile){
+  context=await engines[name].launchPersistentContext(profile,{headless:true});browser=context.browser();
+  await context.setOffline(true);const reopened=await context.newPage(),restartErrors=[];reopened.on('pageerror',error=>restartErrors.push(error.message));
+  await reopened.goto(base+'?developer=1');
+  await reopened.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40)&&document.querySelectorAll('.transcript-line').length===1);
+  await reopened.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await reopened.inputValue('#crop-left'),'9');
+  assert(await reopened.evaluate(()=>caches.match(new URL('./ocr/tesseract.esm.min.js',location.href)).then(Boolean)),'OCR loader survives a real browser restart');
+  assert.deepEqual(restartErrors,[]);await context.close();await browser.close();browser=null;
+ }
+ console.log(`${name}: offline application cache, waiting update, retained catalog/favorite/calibration and allowlist passed${profile?' including a browser restart':''}`);
 }}finally{await browser?.close();await new Promise(r=>server.close(r));}

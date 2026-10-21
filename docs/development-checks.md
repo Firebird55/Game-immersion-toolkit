@@ -16,8 +16,9 @@ owns the full browser matrix.
 
 For Windows-specific offline failures, run the **Online companion** workflow
 manually with `check: offline` and the branch being investigated. This exercises
-Firefox cache activation, offline reloads and updates without rebuilding the
-desktop or running unrelated browser matrices. Browser caches follow the pinned
+the production build and browser cache activation, offline reloads and updates
+without running unrelated browser matrices. Firefox uses a fresh owned profile
+and also verifies reopening after a real browser restart. Browser caches follow the pinned
 Playwright runtime, so an application version bump does not invalidate them.
 
 Unchanged browser bundles are reused only when both source fingerprints and
