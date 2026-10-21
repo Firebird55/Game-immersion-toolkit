@@ -14,12 +14,20 @@ pushes do not duplicate pull-request checks. Pages retains browser smoke tests,
 Mac WebKit transport verification and publication validation; the release gate
 owns the full browser matrix.
 
+Release checks build the frontend once, then run desktop, setup, capture, offline
+storage and OCR checks in separate Windows jobs using that same build. All groups
+must pass before packaging. A failed group can be retried without rerunning the
+successful groups. Manual **Checks and release** runs exercise this complete gate
+on a branch without publishing a release. Local `check:full` still runs every group.
+
 For Windows-specific offline failures, run the **Online companion** workflow
 manually with `check: offline` and the branch being investigated. This exercises
 the production build and browser cache activation, offline reloads and updates
 without running unrelated browser matrices. Firefox uses a fresh owned profile
 and also verifies reopening after a real browser restart. Browser caches follow the pinned
 Playwright runtime, so an application version bump does not invalidate them.
+Offline checks log their current operation and report errors before browser
+cleanup, so a stalled WebKit process cannot hide the original failure.
 
 Unchanged browser bundles are reused only when both source fingerprints and
 output hashes match. A local no-change browser build took 0.04 seconds on the

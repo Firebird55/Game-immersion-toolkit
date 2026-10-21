@@ -1,6 +1,7 @@
 import {execFileSync} from 'node:child_process';
 import {appendFileSync, mkdirSync, writeFileSync, readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+import {runBrowserSuite} from './check-browser-suite.mjs';
 
 // Unknown inputs deliberately select the comprehensive gate.
 export function selectChecks(files, full = false) {
@@ -32,10 +33,7 @@ const run = (command,args) => execFileSync(command,args,{stdio:'inherit',shell:p
 export function executeChecks(checks) {
   if(checks.includes('full')) {
     run('npm',['run','check']);
-    for(const script of ['browser-e2e','setup-e2e','language-account-e2e','update-companion-e2e'])
-      run(process.execPath,[`scripts/${script}.mjs`]);
-    for(const script of ['companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'])
-      run(process.execPath,[`scripts/${script}.mjs`]);
+    if(process.env.CHECK_SPLIT_BROWSER_TESTS !== 'true') runBrowserSuite('all');
   } else {
     if(checks.includes('python')) run('npm',['run','test:python']);
     if(checks.includes('desktop'))run('npm',['run','typecheck']);
