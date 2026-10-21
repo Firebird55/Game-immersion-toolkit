@@ -46,7 +46,7 @@ jobs:
         if: steps.scope.outputs.browsers == 'true'
         with:
           path: ~/AppData/Local/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
       - run: npx playwright install chromium firefox webkit
         if: steps.scope.outputs.browsers == 'true'
       - name: Run selected checks

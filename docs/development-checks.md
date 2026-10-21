@@ -14,6 +14,12 @@ pushes do not duplicate pull-request checks. Pages retains browser smoke tests,
 Mac WebKit transport verification and publication validation; the release gate
 owns the full browser matrix.
 
+For Windows-specific offline failures, run the **Online companion** workflow
+manually with `check: offline` and the branch being investigated. This exercises
+Firefox cache activation, offline reloads and updates without rebuilding the
+desktop or running unrelated browser matrices. Browser caches follow the pinned
+Playwright runtime, so an application version bump does not invalidate them.
+
 Unchanged browser bundles are reused only when both source fingerprints and
 output hashes match. A local no-change browser build took 0.04 seconds on the
 maintainer's machine; this is a cache-hit measurement, not a clean-build promise.
