@@ -7,6 +7,7 @@ on:
       - 'mobile/**'
       - 'lib/interface-language.tsx'
       - 'scripts/ocr-packs-e2e.mjs'
+      - 'scripts/ocr-worker-compat.js'
       - 'scripts/companion-e2e.mjs'
       - 'scripts/mobile-reader-layout-e2e.mjs'
       - 'scripts/mobile-games-e2e.mjs'

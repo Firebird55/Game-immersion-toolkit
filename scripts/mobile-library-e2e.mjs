@@ -113,7 +113,7 @@ try{
   const videoSource=async sources=>page.evaluate(async sources=>{const video=document.querySelector('#preview');video.loop=true;for(const [base64,type] of sources){const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));video.src=URL.createObjectURL(new Blob([bytes],{type}));try{await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:1,state:'connected',live:true,game:'zzz',role:'receiver'}}));return;}catch{}}throw new Error('Test browser cannot decode MP4 or WebM.');},sources);
   await videoSource([[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
   await page.click('#ocr-start');
-  await page.waitForFunction(()=>document.body.classList.contains('ocr-running'));
+  await page.waitForFunction(()=>document.body.classList.contains('ocr-running')).catch(async error=>{console.error({stage:'OCR startup',status:await page.locator('#match-status').textContent(),errors});throw error;});
   assert(await page.evaluate(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;}),'The live preview stays visible while reading the transcript');
   await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000}).catch(async error=>{console.error({stage:'English OCR',status:await page.locator('#match-status').textContent(),errors});await diagnoseOcr(page,name,'English OCR');throw error;});
   assert.equal(await page.locator('.transcript-chinese').textContent(),row.chinese);

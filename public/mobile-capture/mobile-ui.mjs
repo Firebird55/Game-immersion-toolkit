@@ -97,7 +97,7 @@ async function initEngine(){
  const base=new URL('./ocr/',import.meta.url),lang=$('ocr-language').value;
  if(engine&&engineLanguage!==lang){await scanCompletion;await engine.terminate();engine=null;}
  if(engine)return engine;if(loading)return loading;
- loading=Promise.all(lang.split('+').map(code=>loadModel(code))).then(models=>createWorker(models,1,{workerPath:new URL('worker.min.js',base).href,corePath:new URL('core/',base).href,langPath:new URL('lang/',base).href,cacheMethod:'none',workerBlobURL:false,logger:value=>{if(value.status==='loading language traineddata')text('match-status','Preparing private on-device OCR…');}})).then(async value=>{await value.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});engine=value;engineLanguage=lang;return value;}).finally(()=>loading=null);
+ loading=Promise.all(lang.split('+').map(code=>loadModel(code))).then(models=>createWorker(models,1,{workerPath:new URL('verified-worker.js',base).href,corePath:new URL('core/',base).href,langPath:new URL('lang/',base).href,cacheMethod:'none',workerBlobURL:false,logger:value=>{if(value.status==='loading language traineddata')text('match-status','Preparing private on-device OCR…');}})).then(async value=>{await value.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});engine=value;engineLanguage=lang;return value;}).finally(()=>loading=null);
  return loading;
 }
 async function refreshPackStatus(){

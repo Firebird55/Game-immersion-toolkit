@@ -3,6 +3,7 @@ import {createHash} from 'node:crypto';
 // Exact npm versions/integrities are pinned in package-lock.json. No game files enter this map.
 export function ocrAssets(){
  const files=new Map();
+ files.set('ocr/verified-worker.js',readFileSync('scripts/ocr-worker-compat.js'));
  for(const name of ['tesseract.esm.min.js','worker.min.js','worker.min.js.LICENSE.txt','tesseract.min.js.LICENSE.txt'])files.set('ocr/'+name,readFileSync('node_modules/tesseract.js/dist/'+name));
  for(const name of readdirSync('node_modules/tesseract.js-core').filter(n=>/^tesseract-core.*\.wasm(?:\.js)?$/.test(n)))files.set('ocr/core/'+name,readFileSync('node_modules/tesseract.js-core/'+name));
  for(const code of ['eng','chi_sim','chi_tra'])files.set('ocr/lang/'+code+'.traineddata.gz',readFileSync(`node_modules/@tesseract.js-data/${code}/4.0.0_best_int/${code}.traineddata.gz`));
