@@ -26,7 +26,7 @@ if ((Test-CompanionEndpoint ('http://127.0.0.1:'+$ApiPort+'/api/health')) -and
 
 # Only application source and owned frontend assets enter the candidate. Live
 # databases, credentials, game indexes, recordings and calibration stay put.
-foreach ($name in @('backend','scripts','public','vendor','assets','lib','app','components','hooks','styles')) {
+foreach ($name in @('backend','scripts','public','vendor','assets','lib','app','components','hooks','styles','mobile')) {
     $source = Join-Path $SourceRoot $name
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $stage -Recurse -Force }
 }
