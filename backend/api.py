@@ -197,8 +197,8 @@ class Runtime:
         self.game_updaters = {game: LocalGameUpdateManager(game, self.game_indexes[game], voices,
             self.on_update_thread, project_root=PROJECT_ROOT) for game, voices in self.game_voice_assets.items()}
         self.languages = LanguagePreparation(self.build_language, self.activate_language, self.language_state,
-            supported=self.reader_locales,
-            rebuild=lambda game, locale, targets: self.build_language(game, locale, targets, force=True))
+            supported=self.reader_locales, cancellable=True,
+            rebuild=lambda game, locale, targets, **options: self.build_language(game, locale, targets, force=True, **options))
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
         self._locale_voice_lock = threading.RLock()
         self.capture.recorded_voice_assets = self.recorded_voice_assets
@@ -225,9 +225,11 @@ class Runtime:
             return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
         return ('zh-Hans',)
 
-    def build_language(self, game, locale, targets, *, force=False):
+    def build_language(self, game, locale, targets, *, force=False, job=None):
         from .game_assets import asset_adapter
         from .multilingual_index import MultilingualTextIndex
+        if job:
+            job.checkpoint()
         if game in {*LOCAL_GAMES, 'pragmata', 'zzz'}:
             adapter, _ = asset_adapter(game)
             if hasattr(adapter, 'index_language'):
@@ -247,19 +249,23 @@ class Runtime:
                         and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION):
                     return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
-                with INDEX_BUILD_LOCK, tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
+                with (job.acquire(INDEX_BUILD_LOCK) if job else INDEX_BUILD_LOCK), tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
                     output = Path(temporary) / 'textmap.json'
                     command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
                         '--targets', json.dumps(targets), '--output', str(output)]
-                    result = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
-                        capture_output=True, text=True, timeout=1800, **subprocess_options())
-                    if result.returncode:
+                    if job:
+                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800, **subprocess_options())
+                    else:
+                        returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
+                    if returncode:
                         raise ValueError('Language extraction failed. Check installed text/voice packs and game tools; previous table retained.')
                     candidate = MultilingualTextIndex(game, Path(temporary))
                     if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
-                    output.replace(path)
+                    with job.publication() if job else nullcontext():
+                        output.replace(path)
                 return
         if locale != 'zh-Hans' or any(target.lower() not in {'en', 'zh-hans', 'zh'} for target in targets):
             raise ValueError('This language pair needs the multilingual reader update. No other language was substituted.')
@@ -502,7 +508,7 @@ class Runtime:
 
     async def stop_updates(self) -> None:
         self._updates_started = False
-        self.languages.close()
+        await asyncio.to_thread(self.languages.close)
         if self.repair_task:
             self.repair_task.cancel()
             try:

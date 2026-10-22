@@ -5,9 +5,11 @@ import json
 import os
 from pathlib import Path
 import threading
+import time
 from datetime import datetime, timezone
 
 from .languages import GAME_LOCALES, LOCALE_NAMES, study_language
+from .preparation_worker import PreparationCancelled, PreparationJob
 
 
 def selected_snapshot(root: Path, game: str):
@@ -25,14 +27,17 @@ def selected_snapshot(root: Path, game: str):
 
 
 class LanguagePreparation:
-    def __init__(self, build, activate, state, *, path: Path | None = None, supported=None, rebuild=None):
+    def __init__(self, build, activate, state, *, path: Path | None = None, supported=None, rebuild=None, cancellable=False):
         self.path = path or Path(os.environ.get('LOCALAPPDATA', '.')) / 'Proxy Transcript/languages.json'
         self.build, self.activate, self.state = build, activate, state
         self.rebuild = rebuild or build
+        self.cancellable = cancellable
         self.supported = supported or (lambda _game: ('zh-Hans',))
         self.lock = threading.RLock()
+        self._lifecycle_lock = threading.Lock()
         self.jobs = {}
         self._workers = set()
+        self._monitors = set()
         self.stop_event = threading.Event()
         self.monitor = None
         try:
@@ -89,28 +94,31 @@ class LanguagePreparation:
         if not isinstance(target, str) or not target or len(target) > 24:
             raise ValueError('Reload the translation language from Lexirise.')
         with self.lock:
+            if self.stop_event.is_set():
+                return False
             key = (game, locale)
             if self.jobs.get(key, {}).get('state') == 'preparing':
                 return False
             old = self.prepared(game, locale)
             targets = tuple(dict.fromkeys([*(old or {}).get('targets', []), target]))
             self.jobs[key] = {'state': 'preparing', 'progress': 0, 'message': 'Preparing selected language'}
-            worker = threading.Thread(target=self._run, args=(game, locale, targets, account, refresh, rebuild), daemon=True,
+            worker = threading.Thread(target=self._run, args=(PreparationJob(self, self.stop_event), game, locale, targets, account, refresh, rebuild), daemon=True,
                                       name=f'prepare-{game}-{locale}')
             self._workers.add(worker)
             worker.start()
             return True
 
-    def _run(self, game, locale, targets, account, refresh, rebuild=False):
+    def _run(self, job, game, locale, targets, account, refresh, rebuild=False):
         key = (game, locale)
         try:
-            (self.rebuild if rebuild else self.build)(game, locale, targets)
-            if self.stop_event.is_set():
-                return
+            job.checkpoint()
+            builder = self.rebuild if rebuild else self.build
+            builder(game, locale, targets, **({'job': job} if self.cancellable else {}))
+            job.checkpoint()
             state = self.state(game, locale)
             if not state.get('ready'):
                 raise ValueError(state.get('message') or 'Language preparation is incomplete; check installed files and tools.')
-            with self.lock:
+            with job.publication():
                 self.data['prepared'].setdefault(game, {})[locale] = {
                     'targets': list(targets), 'prepared_at': datetime.now(timezone.utc).isoformat(),
                     'mapped_lines': state.get('audio_count', 0)}
@@ -118,10 +126,14 @@ class LanguagePreparation:
                     self._select(game, locale, account)
                 self._save()
                 self.jobs[key] = {'state': 'ready', 'progress': 100, 'message': state.get('message', 'Language prepared')}
-            self.activate(game, locale, account)
+                job.checkpoint()
+                self.activate(game, locale, account)
+        except PreparationCancelled:
+            pass
         except Exception as error:
             with self.lock:
-                self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error)}
+                if job.current():
+                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error)}
         finally:
             with self.lock:
                 self._workers.discard(threading.current_thread())
@@ -156,17 +168,52 @@ class LanguagePreparation:
                 self.request(game, locale, targets[0], refresh=True)
 
     def start(self):
-        if self.monitor and self.monitor.is_alive():
-            return
-        self.stop_event.clear()
-        def run():
-            while not self.stop_event.is_set():
-                self.refresh_prepared()
-                self.stop_event.wait(120)
-        self.monitor = threading.Thread(target=run, daemon=True, name='prepared-language-updates')
-        self.monitor.start()
+        with self._lifecycle_lock, self.lock:
+            if self.monitor and self.monitor.is_alive() and not self.stop_event.is_set():
+                return
+            self.stop_event.set()
+            self.stop_event = cancelled = threading.Event()
+            # Retired workers may still be unwinding after a failed quiesce.
+            # Their immutable token prevents publication into this generation.
+            for key, job in self.jobs.items():
+                if job.get('state') == 'preparing':
+                    self.jobs[key] = {'state': 'cancelled', 'progress': 0, 'message': 'Preparation stopped'}
+            def run():
+                try:
+                    while not cancelled.is_set():
+                        with self.lock:
+                            if self.stop_event is not cancelled:
+                                return
+                            self.refresh_prepared()
+                        cancelled.wait(120)
+                finally:
+                    with self.lock:
+                        self._monitors.discard(threading.current_thread())
+            self.monitor = threading.Thread(target=run, daemon=True, name='prepared-language-updates')
+            self._monitors.add(self.monitor)
+            self.monitor.start()
 
-    def close(self):
+    def close(self, timeout=5):
+        deadline = time.monotonic() + timeout
         self.stop_event.set()
-        if self.monitor:
-            self.monitor.join(timeout=2)
+        message = 'Language preparation did not stop before the quiesce deadline.'
+        if not self._lifecycle_lock.acquire(timeout=max(0, deadline - time.monotonic())):
+            raise TimeoutError(message)
+        try:
+            self.stop_event.set()
+            if not self.lock.acquire(timeout=max(0, deadline - time.monotonic())):
+                raise TimeoutError(message)
+            try:
+                workers = [*self._workers, *self._monitors]
+                for key, job in self.jobs.items():
+                    if job.get('state') == 'preparing':
+                        self.jobs[key] = {'state': 'cancelled', 'progress': 0, 'message': 'Preparation stopped'}
+            finally:
+                self.lock.release()
+            for worker in workers:
+                if worker is not threading.current_thread():
+                    worker.join(timeout=max(0, deadline - time.monotonic()))
+            if any(worker.is_alive() for worker in workers):
+                raise TimeoutError(message)
+        finally:
+            self._lifecycle_lock.release()
