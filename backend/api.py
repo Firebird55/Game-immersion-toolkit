@@ -273,6 +273,8 @@ class Runtime:
                     with job.publication() if job else nullcontext():
                         output.replace(path)
                 return
+        if job:
+            raise ValueError('This reader cannot prepare a cancellable language snapshot; previous table retained.')
         if locale != 'zh-Hans' or any(target.lower() not in {'en', 'zh-hans', 'zh'} for target in targets):
             raise ValueError('This language pair needs the multilingual reader update. No other language was substituted.')
         if game == 'zzz':

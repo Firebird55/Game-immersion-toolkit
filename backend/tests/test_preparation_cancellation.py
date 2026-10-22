@@ -44,8 +44,12 @@ def builder(tmp_path, monkeypatch):
     runtime.languages = manager
     path = api.DATA_DIR / 'languages/beyond/en/textmap.json'
     path.parent.mkdir(parents=True)
-    path.write_text('previous complete index', encoding='utf-8')
-    yield SimpleNamespace(runtime=runtime, manager=manager, path=path, activations=activations, adapter=adapter)
+    path.write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'en', 'records': [
+        {'text_id': 'previous', 'source_locale': 'en', 'source_text': 'Previous complete line',
+         'audio_locale': 'en', 'texts': {'en': 'Previous complete line'}, 'audio': None}]}), encoding='utf-8')
+    from backend.multilingual_index import MultilingualTextIndex
+    assert MultilingualTextIndex('beyond', path.parent).ready
+    yield SimpleNamespace(runtime=runtime, manager=manager, path=path, original=path.read_bytes(), activations=activations, adapter=adapter)
     manager.close()
 
 
@@ -84,7 +88,7 @@ def test_close_kills_and_joins_owned_extraction_without_replacing_complete_index
     assert time.monotonic() - begin < 3
     assert processes[0].poll() is not None
     assert not manager._workers and old_token.is_set()
-    assert builder.path.read_text() == 'previous complete index'
+    assert builder.path.read_bytes() == builder.original
     assert not manager.path.exists() and not builder.activations
     assert not list(builder.path.parent.glob('language-*'))
     assert not manager.request('beyond', 'en', 'nl')
@@ -94,7 +98,7 @@ def test_close_kills_and_joins_owned_extraction_without_replacing_complete_index
     assert manager.stop_event is not old_token and old_token.is_set()
     assert manager.request('beyond', 'en', 'nl', 'second')
     wait_for(lambda: not manager._workers)
-    assert json.loads(builder.path.read_text())['source_locale'] == 'en'
+    assert json.loads(builder.path.read_text())['records'][0]['source_text'] == 'Synthetic line'
     assert manager.selected('beyond', 'second') == 'en'
     assert builder.activations == [('beyond', 'en', 'second')]
 
@@ -105,7 +109,7 @@ def test_waiting_for_index_build_lock_is_cancellable_without_launching_process(b
         assert builder.manager.request('beyond', 'en', 'nl')
         builder.manager.close(timeout=1)
     assert not builder.manager._workers
-    assert builder.path.read_text() == 'previous complete index'
+    assert builder.path.read_bytes() == builder.original
     assert not builder.manager.path.exists()
 
 
@@ -131,7 +135,7 @@ def test_failed_quiesce_then_restart_cannot_publish_retired_candidate(builder, m
         with pytest.raises(TimeoutError, match='quiesce deadline'):
             manager.close(timeout=.05)
         assert time.monotonic() - begin < .5
-        assert builder.path.read_text() == 'previous complete index'
+        assert builder.path.read_bytes() == builder.original
         assert not manager.path.exists() and not builder.activations
         manager.start()
         assert manager.stop_event is not old_token and old_token.is_set()
@@ -266,4 +270,43 @@ def test_extraction_timeout_reaps_child_and_reports_failure_without_metadata(tmp
         assert manager.jobs[('cyberpunk', 'zh-Hans')]['state'] == 'error'
         assert not manager.path.exists()
     finally:
+        manager.close()
+
+
+def test_all_supported_language_adapters_have_owned_subprocess_builders():
+    from backend.game_assets import asset_adapter
+    from backend.languages import GAME_LOCALES
+    assert all(callable(getattr(asset_adapter(game)[0], 'index_language', None)) for game in GAME_LOCALES)
+
+
+def test_cancellable_builder_never_falls_back_to_an_unowned_legacy_updater(builder, monkeypatch):
+    monkeypatch.setattr('backend.game_assets.asset_adapter', lambda _: (SimpleNamespace(), None))
+    builder.runtime.update_manager = SimpleNamespace(check_once=lambda: pytest.fail('Unowned legacy build'))
+    job = PreparationJob(builder.manager, builder.manager.stop_event)
+    with pytest.raises(ValueError, match='cancellable language snapshot'):
+        builder.runtime.build_language('zzz', 'zh-Hans', ('en',), job=job)
+    assert builder.path.read_bytes() == builder.original
+
+
+def test_first_monitor_start_preserves_foreground_preparation_in_standby(tmp_path):
+    entered, release = threading.Event(), threading.Event()
+    activated = []
+    def build(*_, job):
+        entered.set()
+        assert release.wait(3)
+        job.checkpoint()
+    manager = LanguagePreparation(build, lambda *args: activated.append(args), lambda *_: {'ready': True},
+        path=tmp_path / 'languages.json', cancellable=True)
+    token = manager.stop_event
+    try:
+        assert manager.request('cyberpunk', 'zh-Hans', 'en', 'owner')
+        assert entered.wait(1)
+        manager.start()
+        assert manager.stop_event is token and not token.is_set()
+        release.set()
+        wait_for(lambda: not manager._workers)
+        assert manager.selected('cyberpunk', 'owner') == 'zh-Hans'
+        assert activated == [('cyberpunk', 'zh-Hans', 'owner')]
+    finally:
+        release.set()
         manager.close()

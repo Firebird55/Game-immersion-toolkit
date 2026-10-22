@@ -171,13 +171,16 @@ class LanguagePreparation:
         with self._lifecycle_lock, self.lock:
             if self.monitor and self.monitor.is_alive() and not self.stop_event.is_set():
                 return
-            self.stop_event.set()
-            self.stop_event = cancelled = threading.Event()
-            # Retired workers may still be unwinding after a failed quiesce.
-            # Their immutable token prevents publication into this generation.
-            for key, job in self.jobs.items():
-                if job.get('state') == 'preparing':
-                    self.jobs[key] = {'state': 'cancelled', 'progress': 0, 'message': 'Preparation stopped'}
+            if self.stop_event.is_set():
+                self.stop_event = threading.Event()
+                # Retired workers may still unwind after a failed quiesce.
+                # Their immutable token cannot publish into this generation.
+                for key, job in self.jobs.items():
+                    if job.get('state') == 'preparing':
+                        self.jobs[key] = {'state': 'cancelled', 'progress': 0, 'message': 'Preparation stopped'}
+            # The constructor already owns the initial generation. Attaching
+            # its first monitor must preserve explicit preparation in standby.
+            cancelled = self.stop_event
             def run():
                 try:
                     while not cancelled.is_set():
