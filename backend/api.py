@@ -536,13 +536,18 @@ class Runtime:
         self._updates_started = False
 
     async def on_line(self, line: TranscriptLine) -> None:
-        line = self.present_line(line)
+        # Capture/audio threads can queue this coroutine before a favorite,
+        # audio completion or deletion. Publish the current row, not that old
+        # object with a new revision; deleted rows must stay deleted.
         audio_pending = line.audio_pending
+        line = self.transcript.get(line.id)
+        if line is None:
+            return
+        line = self.present_line(line)
         if line.game == "zzz":
             line = self.speakers.enrich(line)
-        if audio_pending and not line.audio_pending:
-            # Speaker enrichment can round-trip through SQLite; preserve this
-            # transient delivery state on the WebSocket payload.
+        if audio_pending and not line.has_audio:
+            # Preserve this transient notice only until original audio is ready.
             line = line.model_copy(update={"audio_pending": True})
         await self.hub.broadcast({"type": "line", "line": line.model_dump(mode="json")})
 
