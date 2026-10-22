@@ -284,9 +284,12 @@ try{
   await page.locator('.current-card .reading-hanzi').first().click();
   await page.locator('.word-sheet').getByText('Nederlandse betekenis',{exact:false}).first().waitFor();
   assert(requests.some(r=>r.path==='/v1/dictionary/lookup'&&r.payload.language==='de'),'German lookup resolves its own Dutch target');
-  await releaseDecks();await page.waitForTimeout(100);
-  assert.equal(await page.getByLabel('Save destination').locator('option[value="42"]').count(),0,'Late Dutch decks cannot populate German reader context');
+  // Returning to the same cached source session still starts a new UI scope.
   await page.getByRole('button',{name:'Close word lookup'}).click();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game:'heavyrain',id:9,createdAt:1700000012000,chinese:'测试',english:'',audio:false,sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een terugkeer.',translationLocale:'nl',translationText:'Fixture return'}]}})));
+  await page.locator('.current-card .reading-text[lang="nl"]').waitFor();
+  await releaseDecks();await page.waitForTimeout(100);
+  assert.equal(await page.getByLabel('Save destination').locator('option[value="42"]').count(),0,'Late Dutch decks cannot populate a returned Dutch reader generation');
   // Mount the same shipped application with its reader portal in a Shadow
   // root from the start, so React registers native events at the proper root.
   const shadowPage=await context.newPage();shadowPage.on('pageerror',e=>errors.push(e.message));
