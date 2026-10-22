@@ -8,8 +8,14 @@ import subprocess
 import tempfile
 import time
 
+from .windows_preparation_process import WindowsPreparationProcess
+
 
 class PreparationCancelled(Exception):
+    pass
+
+
+class PreparationCleanupError(RuntimeError):
     pass
 
 
@@ -28,7 +34,7 @@ class PreparationJob:
 
     @contextmanager
     def publication(self):
-        with self.owner.lock:
+        with self.owner._publication_lock:
             self.checkpoint()
             yield
 
@@ -45,13 +51,18 @@ class PreparationJob:
     def run(self, command, *, cwd, timeout, **options):
         """Keep ownership until the extraction process has exited and been reaped."""
         self.checkpoint()
-        # Files avoid pipe deadlocks if an extraction tool inherits stdout.
-        with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
-            if os.name != 'nt':
-                options['start_new_session'] = True
-            with self.publication():
-                process = subprocess.Popen(command, cwd=cwd, stdout=stdout, stderr=stderr, **options)
-            try:
+        # The Windows bootstrap joins its owned job before spawning extraction.
+        # POSIX workers retain their own session/process group.
+        tree = WindowsPreparationProcess() if os.name == 'nt' else None
+        process = None
+        try:
+            # Files avoid pipe deadlocks if an extraction tool inherits stdout.
+            with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
+                if tree is None:
+                    options['start_new_session'] = True
+                with self.publication():
+                    process = subprocess.Popen(tree.command(command) if tree else command,
+                        cwd=cwd, stdout=stdout, stderr=stderr, **options)
                 deadline = time.monotonic() + timeout
                 while True:
                     self.checkpoint()
@@ -64,24 +75,32 @@ class PreparationJob:
                         return result
                     except subprocess.TimeoutExpired:
                         pass
-            finally:
-                if process.poll() is None:
-                    if os.name == 'nt':
-                        # Popen retains the owned process handle while taskkill
-                        # terminates its extraction-tool descendants as well.
-                        try:
-                            subprocess.run(['taskkill.exe', '/PID', str(process.pid), '/T', '/F'],
-                                capture_output=True, timeout=1,
-                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-                        except (OSError, subprocess.TimeoutExpired):
-                            pass
-                    else:
-                        try:
-                            os.killpg(process.pid, signal.SIGKILL)
-                        except ProcessLookupError:
-                            pass
+        finally:
+            failure = None
+            try:
+                if process is not None:
                     if process.poll() is None:
-                        process.kill()
-                # A close deadline expiring here is a failed quiesce, not a
-                # successful handoff with an untracked extraction process.
-                process.wait()
+                        if tree is not None:
+                            process.kill()
+                        else:
+                            try:
+                                os.killpg(process.pid, signal.SIGKILL)
+                            except ProcessLookupError:
+                                pass
+                    # Stop/reap the bootstrap before an empty job can prove
+                    # shutdown: it must never join/spawn after that observation.
+                    process.wait(timeout=3)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                failure = error
+            if tree is not None:
+                try:
+                    tree.terminate()
+                except (OSError, TimeoutError) as error:
+                    failure = error
+                finally:
+                    try:
+                        tree.close()
+                    except OSError as error:
+                        failure = error
+            if failure is not None:
+                raise PreparationCleanupError('Preparation process cleanup could not be confirmed; restart the companion.') from failure

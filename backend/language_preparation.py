@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timezone
 
 from .languages import GAME_LOCALES, LOCALE_NAMES, study_language
-from .preparation_worker import PreparationCancelled, PreparationJob
+from .preparation_worker import PreparationCancelled, PreparationCleanupError, PreparationJob
 
 
 def selected_snapshot(root: Path, game: str):
@@ -35,8 +35,12 @@ class LanguagePreparation:
         self.supported = supported or (lambda _game: ('zh-Hans',))
         self.lock = threading.RLock()
         self._lifecycle_lock = threading.Lock()
+        # External activation may acquire account locks. Never hold the data
+        # lock while calling it; this separate gate owns generation publication.
+        self._publication_lock = threading.RLock()
         self.jobs = {}
         self._workers = set()
+        self._cleanup_failures = []
         self._monitors = set()
         self.stop_event = threading.Event()
         self.monitor = None
@@ -94,7 +98,7 @@ class LanguagePreparation:
         if not isinstance(target, str) or not target or len(target) > 24:
             raise ValueError('Reload the translation language from Lexirise.')
         with self.lock:
-            if self.stop_event.is_set():
+            if self.stop_event.is_set() or self._cleanup_failures:
                 return False
             key = (game, locale)
             if self.jobs.get(key, {}).get('state') == 'preparing':
@@ -119,17 +123,23 @@ class LanguagePreparation:
             if not state.get('ready'):
                 raise ValueError(state.get('message') or 'Language preparation is incomplete; check installed files and tools.')
             with job.publication():
-                self.data['prepared'].setdefault(game, {})[locale] = {
-                    'targets': list(targets), 'prepared_at': datetime.now(timezone.utc).isoformat(),
-                    'mapped_lines': state.get('audio_count', 0)}
-                if not refresh:
-                    self._select(game, locale, account)
-                self._save()
-                self.jobs[key] = {'state': 'ready', 'progress': 100, 'message': state.get('message', 'Language prepared')}
+                with self.lock:
+                    self.data['prepared'].setdefault(game, {})[locale] = {
+                        'targets': list(targets), 'prepared_at': datetime.now(timezone.utc).isoformat(),
+                        'mapped_lines': state.get('audio_count', 0)}
+                    if not refresh:
+                        self._select(game, locale, account)
+                    self._save()
+                    self.jobs[key] = {'state': 'ready', 'progress': 100, 'message': state.get('message', 'Language prepared')}
                 job.checkpoint()
                 self.activate(game, locale, account)
         except PreparationCancelled:
             pass
+        except PreparationCleanupError as error:
+            with self.lock:
+                self._cleanup_failures.append(error)
+                if job.current():
+                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error)}
         except Exception as error:
             with self.lock:
                 if job.current():
@@ -168,7 +178,7 @@ class LanguagePreparation:
                 self.request(game, locale, targets[0], refresh=True)
 
     def start(self):
-        with self._lifecycle_lock, self.lock:
+        with self._lifecycle_lock, self._publication_lock, self.lock:
             if self.monitor and self.monitor.is_alive() and not self.stop_event.is_set():
                 return
             if self.stop_event.is_set():
@@ -218,5 +228,7 @@ class LanguagePreparation:
                     worker.join(timeout=max(0, deadline - time.monotonic()))
             if any(worker.is_alive() for worker in workers):
                 raise TimeoutError(message)
+            if self._cleanup_failures:
+                raise TimeoutError('Preparation process cleanup could not be confirmed; restart the companion.')
         finally:
             self._lifecycle_lock.release()
