@@ -94,6 +94,260 @@ function Stop-CompanionProcess($Record,[string]$Root) {
         Write-Host 'Controlled PS5 retirement parsing passed: multiple/single/empty/null/malformed records; no processes opened or stopped.'
     }finally{Remove-Item -LiteralPath $temporary -Recurse -Force}
 }
+function Test-LauncherRecovery {
+    $recoveryRoot = Join-Path ([IO.Path]::GetTempPath()) ('companion-recovery-'+[guid]::NewGuid().ToString('N'))
+    $recoveryScripts = Join-Path $recoveryRoot 'scripts'
+    $recoveryData = Join-Path $recoveryRoot 'data'
+    $recoveryRecordFile = Join-Path $recoveryData 'processes.json'
+    $recoveryStateFile = Join-Path $recoveryData 'companion-runtime.json'
+    $node = (Get-Command node -ErrorAction Stop).Source
+    $launchers = @()
+    New-Item -ItemType Directory -Path $recoveryScripts,$recoveryData,(Join-Path $recoveryRoot 'dist\server') -Force | Out-Null
+    foreach ($name in @('start-companion.ps1','update-companion.ps1','companion-runtime.ps1','companion-router.mjs')) {
+        Copy-Item (Join-Path $repository ('scripts\'+$name)) (Join-Path $recoveryScripts $name)
+    }
+    [IO.File]::WriteAllText((Join-Path $recoveryRoot 'dist\server\wrangler.json'),'{}')
+    # Real HTTP fixture processes retain session/capture state. An activation
+    # refuses to run alongside any other live fixture capturer, including one
+    # whose health/status endpoints have failed. No game or account is loaded.
+    [IO.File]::WriteAllText((Join-Path $recoveryScripts 'service-fixture.mjs'),@'
+import http from 'node:http';
+import {appendFileSync,existsSync,readFileSync,writeFileSync,readdirSync} from 'node:fs';
+import {join} from 'node:path';
+const [role,port,root,standby]=process.argv.slice(2),data=join(root,'data');
+const own=join(data,`capture-${process.pid}.json`),events=join(data,'recovery-events.jsonl');
+let running=role==='backend'&&standby!=='true',session='fixture-session';
+const note=name=>appendFileSync(events,JSON.stringify({name,role,pid:process.pid})+'\n');
+const publish=()=>{if(role==='backend')writeFileSync(own,JSON.stringify({running,pid:process.pid}));};
+const alive=pid=>{try{process.kill(pid,0);return true;}catch{return false;}};
+const others=()=>readdirSync(data).filter(x=>/^capture-\d+\.json$/.test(x)).map(x=>JSON.parse(readFileSync(join(data,x),'utf8'))).filter(x=>x.pid!==process.pid&&x.running&&alive(x.pid));
+publish();note('started');
+http.createServer(async(request,response)=>{
+ let body='';for await(const chunk of request)body+=chunk;
+ const send=(value,status=200)=>{response.writeHead(status,{'Content-Type':'application/json'});response.end(JSON.stringify(value));};
+ let control={};try{control=JSON.parse(readFileSync(join(data,'failure.json'),'utf8'));}catch{}
+ if(role==='frontend'){send({ok:true});return;}
+ if(control.pid===process.pid&&(control.mode==='unresponsive'||request.url==='/api/health')){send({failed:true},503);return;}
+ if(request.url==='/api/runtime/ready'){send({ready:true});return;}
+ if(request.url==='/api/setup'){
+  let setup={};try{setup=JSON.parse(readFileSync(join(data,'startup-policy.json'),'utf8'));}catch{}
+  send({completed:setup.completed!==false,auto_start:setup.auto_start!==false});return;
+ }
+ if(request.url==='/api/runtime/quiesce'){
+  const handoff={running,session_id:session};running=false;publish();note('quiesced');send(handoff);return;
+ }
+ if(request.url==='/api/runtime/activate'){
+  const handoff=JSON.parse(body);if(handoff.running&&others().length){note('capture-overlap');send({overlap:true},409);return;}
+  running=!!handoff.running;session=handoff.session_id||session;publish();note('activated');send({active:true});return;
+ }
+ send({status:'ok',capture:{running},session:{id:session}});
+}).listen(Number(port),'127.0.0.1');
+'@)
+    # Only executable selection is adapted. Identity acquisition, ports, HTTP,
+    # router, launcher, locks and process-tree termination are production code.
+    Add-Content (Join-Path $recoveryScripts 'companion-runtime.ps1') @'
+$script:FixtureNativeStart = ${function:Start-CompanionProcess}
+$script:FixtureOwnedLookup = ${function:Get-CompanionOwnedProcess}
+function Get-CompanionOwnedProcess($Record,[string]$Root) {
+    $controlFile = Join-Path $Root 'data\identity-failure.json'
+    if ((Test-Path $controlFile) -and (Test-Path (Join-Path $Root 'data\identity-failure-armed'))) {
+        $control = Get-Content $controlFile -Raw | ConvertFrom-Json
+        if ($Record.id -eq $control.id) { return $null }
+    }
+    return & $script:FixtureOwnedLookup $Record $Root
+}
+function Start-CompanionProcess([string]$Executable,[string[]]$Arguments,[string]$Directory,[string]$Log,[switch]$LowPriority) {
+    $role = if ($Arguments -contains 'backend.main') {'backend'} elseif ($Arguments -contains 'dev') {'frontend'} else {''}
+    if ($role) {
+        $port = $Arguments[[Array]::IndexOf($Arguments,'--port')+1]
+        $standby = ($Arguments -contains '--standby').ToString().ToLowerInvariant()
+        $Executable = (Get-Command node -ErrorAction Stop).Source
+        $Arguments = @((Join-Path $Directory 'scripts\service-fixture.mjs'),$role,$port,$Directory,$standby)
+        if ($role -eq 'frontend') { Start-Sleep -Milliseconds 700 }
+        if ($role -eq 'backend' -and $standby -eq 'true' -and (Test-Path (Join-Path $Directory 'data\identity-failure.json'))) {
+            [IO.File]::WriteAllText((Join-Path $Directory 'data\identity-failure-armed'),'armed after initial ownership read')
+        }
+    }
+    $process = & $script:FixtureNativeStart $Executable $Arguments $Directory $Log -LowPriority:$LowPriority
+    Save-CompanionJson (Join-Path $Directory ('data\fixture-owned-'+$process.Id+'.json')) (New-CompanionProcessRecord $process $Directory)
+    return $process
+}
+'@
+    . (Join-Path $recoveryScripts 'companion-runtime.ps1')
+    function Read-RecoveryRecords { return Read-CompanionProcesses $recoveryRecordFile $recoveryRoot }
+    function Read-RecoveryStatus { return Invoke-RestMethod 'http://127.0.0.1:8766/api/status' -TimeoutSec 3 }
+    function Start-RecoveryLauncher {
+        $process = Start-CompanionProcess $shell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $recoveryScripts 'start-companion.ps1'),'-NoBrowser') $recoveryRoot (Join-Path $recoveryData ('launch-'+[guid]::NewGuid().ToString('N')))
+        $script:recoveryLaunchers += ,$process
+        return $process
+    }
+    function Complete-RecoveryLauncher($Process,[bool]$Reject=$false) {
+        if (-not $Process.WaitForExit(60000)) { throw 'Recovery launcher timed out.' }
+        if (($Reject -and $Process.ExitCode -eq 0) -or (-not $Reject -and $Process.ExitCode -ne 0)) {
+            $logs = @(Get-ChildItem $recoveryData -Filter '*.err.log' | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+            throw ('Recovery launcher returned an unexpected exit code: '+$Process.ExitCode+'. '+$logs)
+        }
+    }
+    function Invoke-RecoveryLauncher { Complete-RecoveryLauncher (Start-RecoveryLauncher) }
+    function Assert-RecoveryStable($Before,[string[]]$Names,[bool]$Running=$true) {
+        $after = Read-RecoveryRecords
+        foreach ($name in $Names) {
+            if ($after[$name].id -ne $Before[$name].id -or $after[$name].started -ne $Before[$name].started) { throw ('Recovery unnecessarily replaced the healthy '+$name) }
+        }
+        $status = Read-RecoveryStatus
+        if ([bool]$status.capture.running -ne $Running -or $status.session.id -ne 'fixture-session') { throw 'Recovery lost the healthy capture session.' }
+    }
+    $script:recoveryLaunchers = @()
+    try {
+        $slot = Start-CompanionSlot $recoveryRoot $recoveryRoot $node
+        Wait-CompanionService ('http://127.0.0.1:'+$slot.apiPort) $slot.processRecords.backend $recoveryRoot -Backend
+        Wait-CompanionService ('http://127.0.0.1:'+$slot.frontendPort) $slot.processRecords.frontend $recoveryRoot
+        Save-CompanionJson $recoveryStateFile @{version=1;active=$slot}
+        $router = Start-CompanionRouter $recoveryRoot $recoveryRoot
+        Save-CompanionJson $recoveryRecordFile @{backend=$slot.processRecords.backend;frontend=$slot.processRecords.frontend;router=(New-CompanionProcessRecord $router $recoveryRoot)}
+        Wait-CompanionService 'http://127.0.0.1:3000' (New-CompanionProcessRecord $router $recoveryRoot) $recoveryRoot
+        $before = Read-RecoveryRecords
+        Invoke-RecoveryLauncher
+        Assert-RecoveryStable $before @('backend','frontend','router')
+
+        Stop-CompanionProcess $before.frontend $recoveryRoot
+        Invoke-RecoveryLauncher
+        Assert-RecoveryStable $before @('backend','router')
+        $after = Read-RecoveryRecords
+        if ($after.frontend.id -eq $before.frontend.id) { throw 'Crashed frontend was not replaced.' }
+        Write-Host 'Frontend crash: healthy backend identity/session and router preserved.'
+
+        $before = $after
+        Stop-CompanionProcess $before.router $recoveryRoot
+        Invoke-RecoveryLauncher
+        Assert-RecoveryStable $before @('backend','frontend')
+        Write-Host 'Router crash: healthy backend identity/session and frontend preserved.'
+
+        $before = Read-RecoveryRecords
+        Stop-CompanionProcess $before.backend $recoveryRoot
+        Invoke-RecoveryLauncher
+        Assert-RecoveryStable $before @('frontend','router')
+        $after = Read-RecoveryRecords
+        if ($after.backend.id -eq $before.backend.id) { throw 'Crashed backend was not replaced.' }
+        Write-Host 'Backend crash: standby replacement activated without replacing frontend/router.'
+
+        foreach ($mode in @('unhealthy','unresponsive')) {
+            $before = Read-RecoveryRecords
+            $old = Get-CompanionOwnedProcess $before.backend $recoveryRoot
+            try {
+                Save-CompanionJson (Join-Path $recoveryData 'failure.json') @{pid=$before.backend.id;mode=$mode}
+                Invoke-RecoveryLauncher
+                if (-not $old.WaitForExit(5000)) { throw 'Old unhealthy backend survived replacement activation.' }
+                Assert-RecoveryStable $before @('frontend','router')
+            } finally { $old.Dispose() }
+        }
+        Write-Host 'Unhealthy/unresponsive live backend: owned tree stopped before replacement capture; responsive handoff preserves session.'
+
+        $before = Read-RecoveryRecords
+        $old = Get-CompanionOwnedProcess $before.backend $recoveryRoot
+        try {
+            Save-CompanionJson (Join-Path $recoveryData 'failure.json') @{pid=$before.backend.id;mode='unresponsive'}
+            Save-CompanionJson (Join-Path $recoveryData 'identity-failure.json') @{id=$before.backend.id}
+            Complete-RecoveryLauncher (Start-RecoveryLauncher) $true
+            Assert-Alive $old 'Capture handoff stopped a backend after its identity became unverifiable.'
+        } finally {
+            $old.Dispose()
+            Remove-Item (Join-Path $recoveryData 'failure.json'),(Join-Path $recoveryData 'identity-failure.json'),(Join-Path $recoveryData 'identity-failure-armed') -ErrorAction SilentlyContinue
+        }
+        Assert-RecoveryStable $before @('backend','frontend','router')
+        Write-Host 'Late identity acquisition failure: no candidate activation, original capturer retained.'
+
+        $before = Read-RecoveryRecords
+        $foreign = Start-CompanionProcess $shell @('-NoProfile','-Command','Start-Sleep -Seconds 180') $recoveryRoot ''
+        $foreignIdentity = New-CompanionProcessRecord $foreign $recoveryRoot
+        $wrong = @{};foreach ($key in $foreignIdentity.Keys) { $wrong[$key] = $foreignIdentity[$key] }
+        $wrong.started = ([long]$wrong.started-1).ToString()
+        $badRecords = [ordered]@{backend=$wrong;frontend=$before.frontend;router=$before.router}
+        Save-CompanionJson $recoveryRecordFile $badRecords
+        Complete-RecoveryLauncher (Start-RecoveryLauncher) $true
+        Assert-Alive $foreign 'Recovery stopped a foreign process from a stale PID record.'
+        Save-CompanionJson (Join-Path $recoveryData 'failure.json') @{pid=$before.backend.id;mode='unresponsive'}
+        Complete-RecoveryLauncher (Start-RecoveryLauncher) $true
+        Assert-Alive $foreign 'Recovery stopped a foreign process while the real backend was unresponsive.'
+        Remove-Item (Join-Path $recoveryData 'failure.json')
+        Save-CompanionJson $recoveryRecordFile $before
+        Assert-RecoveryStable $before @('backend','frontend','router')
+        Write-Host 'Stale foreign PID record: launcher rejects reuse and leaves every real service and foreign fixture alive.'
+
+        $before = Read-RecoveryRecords
+        Stop-CompanionProcess $before.frontend $recoveryRoot
+        $first = Start-RecoveryLauncher
+        $second = Start-RecoveryLauncher
+        Complete-RecoveryLauncher $first
+        Complete-RecoveryLauncher $second
+        Assert-RecoveryStable $before @('backend','router')
+        $liveFrontends = @(Get-ChildItem $recoveryData -Filter 'fixture-owned-*.json' | ForEach-Object {
+            $identity = Get-Content $_.FullName -Raw | ConvertFrom-Json
+            if (Test-CompanionProcess $identity $recoveryRoot) {
+                $events = Get-Content (Join-Path $recoveryData 'recovery-events.jsonl') | ForEach-Object { $_ | ConvertFrom-Json }
+                if ($events | Where-Object { $_.pid -eq $identity.id -and $_.role -eq 'frontend' -and $_.name -eq 'started' }) { $identity }
+            }
+        })
+        if ($liveFrontends.Count -ne 1) { throw 'Concurrent starts created duplicate frontend processes.' }
+        Write-Host 'Concurrent launchers: a single frontend replacement; existing backend/capture preserved.'
+
+        foreach ($policy in @(@{completed=$true;auto_start=$false},@{completed=$false;auto_start=$true})) {
+            $before = Read-RecoveryRecords
+            Stop-CompanionProcess $before.backend $recoveryRoot
+            Save-CompanionJson (Join-Path $recoveryData 'startup-policy.json') $policy
+            Invoke-RecoveryLauncher
+            Assert-RecoveryStable $before @('frontend','router') $false
+        }
+        Write-Host 'Crash recovery respects disabled auto-start and unfinished setup.'
+
+        # Exercise the no-state installation path with the same fixture process
+        # adapter. Its placeholder executable is never executed by the adapter.
+        $before = Read-RecoveryRecords
+        foreach ($name in @('backend','frontend','router')) { Stop-CompanionProcess $before[$name] $recoveryRoot }
+        Remove-Item $recoveryRecordFile,$recoveryStateFile
+        $fixturePython = Join-Path $recoveryRoot 'Programs\Proxy Transcript\venv\Scripts'
+        New-Item -ItemType Directory -Path $fixturePython -Force | Out-Null
+        [IO.File]::WriteAllText((Join-Path $fixturePython 'python.exe'),'fixture placeholder')
+        $previousAppData = $env:LOCALAPPDATA
+        try { $env:LOCALAPPDATA = $recoveryRoot; Invoke-RecoveryLauncher }
+        finally { $env:LOCALAPPDATA = $previousAppData }
+        Assert-RecoveryStable (Read-RecoveryRecords) @('backend','frontend','router') $false
+        Write-Host 'Fresh installation keeps capture off until setup is complete.'
+
+        # The actual updater must wait for the same installation lock. An
+        # intentionally invalid package stops it before preparation after release.
+        [IO.File]::WriteAllText((Join-Path $recoveryRoot 'package.json'),'{"name":"lock-fixture"}')
+        $operation = Enter-CompanionOperation $recoveryRoot
+        try {
+            $updater = Start-CompanionProcess $shell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $recoveryScripts 'update-companion.ps1'),'-Root',$recoveryRoot,'-SourceRoot',$recoveryRoot) $recoveryRoot (Join-Path $recoveryData 'updater')
+            $script:recoveryLaunchers += ,$updater
+            Start-Sleep -Milliseconds 1200
+            $updater.Refresh()
+            if ($updater.HasExited) { throw 'Updater bypassed the shared installation operation lock.' }
+        } finally { $operation.Dispose() }
+        Complete-RecoveryLauncher $updater $true
+        if ((Get-Content (Join-Path $recoveryData 'updater.err.log') -Raw) -notmatch 'Choose an extracted toolkit release') { throw 'Updater failed before testing the operation lock.' }
+        $events = Get-Content (Join-Path $recoveryData 'recovery-events.jsonl') | ForEach-Object { $_ | ConvertFrom-Json }
+        if ($events | Where-Object { $_.name -eq 'capture-overlap' }) { throw 'At least two fixture backends captured concurrently.' }
+        Write-Host 'Start/update share one operation lock; no concurrent capture activation in any recovery scenario.'
+    } catch {
+        foreach ($log in @(Get-ChildItem $recoveryData -Recurse -Filter '*.err.log')) {
+            $detail = Get-Content $log.FullName -Raw
+            if ($detail) { Write-Host ($log.Name+': '+$detail) }
+        }
+        throw
+    } finally {
+        foreach ($process in $script:recoveryLaunchers) {
+            try { Stop-CompanionProcessHandle $process } finally { $process.Dispose() }
+        }
+        foreach ($file in @(Get-ChildItem $recoveryData -Filter 'fixture-owned-*.json')) {
+            $identity = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            Stop-CompanionProcess $identity $recoveryRoot
+        }
+        Remove-Item -LiteralPath $recoveryRoot -Recurse -Force
+    }
+}
+
 if ($ImageFixturesOnly) { Test-ImageAcquisition; return }
 if ($RetirementFixturesOnly) { Test-RetirementParsing; return }
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'Process tree fixtures require Windows; no Windows verification was performed.' }
@@ -307,6 +561,8 @@ Start-Sleep -Seconds 180
     finally { Remove-Item Function:\Start-Sleep }
     if (-not $retired.WaitForExit(10000)) { throw 'Retirement did not stop its correctly identified fixture.' }
     Assert-Alive $unrelated 'Retirement stopped a fixture with the wrong start time.'
+
+    Test-LauncherRecovery
 
     # Run the actual launcher; only network probes and process creation are
     # controlled. A healthy endpoint alone must not prove process ownership.
