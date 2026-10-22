@@ -11,7 +11,7 @@ test('explicit release gate is full even without changes',()=>assert.deepEqual(s
 test('isolated browser suites retain every comprehensive check exactly once',()=>{
  const scripts=Object.values(browserSuites).flat();
  assert.equal(new Set(scripts).size,scripts.length);
- assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','ui-state-e2e','update-companion-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
+ assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','ui-state-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
  assert.throws(()=>runBrowserSuite('typo'),/Unknown browser suite/);
 });
 
@@ -25,7 +25,7 @@ test('shared interface and support catalog select their consumer checks',()=>{
 test('API changes run actual backend/browser contract scenarios',()=>{
  const files=['backend/api.py'], checks=selectChecks(files), scenarios=scenarioPlan(files,checks);
  assert.ok(checks.includes('python'));
- for(const name of ['language-account-e2e','local-access-e2e','update-companion-e2e','setup-e2e']) assert.ok(scenarios.browser.includes(name));
+ for(const name of ['language-account-e2e','local-access-e2e','setup-e2e']) assert.ok(scenarios.browser.includes(name));
  const commands=[];
  executeChecks(checks,{scenarios,runCommand:(command,args)=>commands.push([command,...args]),platform:'darwin',splitBrowsers:false});
  for(const name of scenarios.browser) assert.ok(commands.some(command=>command.includes(`scripts/${name}.mjs`)));
@@ -39,7 +39,7 @@ test('process lifecycle sources require owned Windows fixtures on the executing 
  for(const file of ['scripts/start-companion.ps1','scripts/update-companion.ps1','scripts/companion-runtime.ps1']) {
   const checks=selectChecks([file]),scenarios=scenarioPlan([file],checks),commands=[];
   const unavailable=executeChecks(checks,{scenarios,runCommand:(...args)=>commands.push(args),platform:'darwin'});
-  assert.deepEqual(unavailable.unavailable,['companion-process-identity-e2e']);
+  assert.ok(unavailable.unavailable.includes('companion-process-identity-e2e'));
   assert.ok(!commands.some(([command])=>command==='powershell.exe'));
   executeChecks(checks,{scenarios,runCommand:(...args)=>commands.push(args),platform:'win32'});
   assert.ok(commands.some(([command,args])=>command==='powershell.exe'&&args.includes('scripts/companion-process-identity-e2e.ps1')));
@@ -50,7 +50,8 @@ test('split browser CI still executes Windows fixtures and records full unknown 
  executeChecks(checks,{scenarios,runCommand:(command,args)=>commands.push([command,...args]),platform:'win32',splitBrowsers:true});
  assert.deepEqual(checks,['full']);
  assert.equal(commands.filter(command=>command[0]==='powershell.exe').length,2);
- assert.ok(!commands.some(command=>command.some(arg=>arg.endsWith('-e2e.mjs'))));
+ assert.equal(commands.filter(command=>command.includes('scripts/update-companion-e2e.mjs')).length,1);
+ assert.ok(!commands.some(command=>command.includes('scripts/ui-state-e2e.mjs')));
 });
 
 test('state sources select the real backend-to-browser scenario and its Python dependency',()=>{
@@ -58,4 +59,21 @@ test('state sources select the real backend-to-browser scenario and its Python d
   const checks=selectChecks([file]);assert.ok(checks.includes('python'),file);
   assert.ok(scenarioPlan([file],checks).browser.includes('ui-state-e2e'),file);
  }
+});
+
+test('updater and runtime helper changes execute native update handoff with Python available',()=>{
+ for(const file of ['scripts/update-companion.ps1','scripts/companion-runtime.ps1']){
+  const checks=selectChecks([file]),scenarios=scenarioPlan([file],checks),commands=[];
+  assert.ok(checks.includes('python'),file+' needs the Python update fixture');
+  assert.ok(scenarios.windows.includes('update-companion-e2e'),file+' must exercise prepared updates');
+  executeChecks(checks,{scenarios,runCommand:(command,args)=>commands.push([command,...args]),platform:'win32',splitBrowsers:true});
+  assert.equal(commands.filter(args=>args.includes('scripts/update-companion-e2e.mjs')).length,1);
+ }
+});
+test('native update scenarios are recorded unavailable off Windows and never silently pass',()=>{
+ const scenarios=scenarioPlan(['backend/api.py']),commands=[];
+ assert.ok(scenarios.windows.includes('update-companion-e2e'));
+ const result=executeChecks(selectChecks(['backend/api.py']),{scenarios,runCommand:(command,args)=>commands.push([command,...args]),platform:'darwin',splitBrowsers:true});
+ assert.ok(result.unavailable.includes('update-companion-e2e'));
+ assert.ok(!commands.some(args=>args.includes('scripts/update-companion-e2e.mjs')));
 });

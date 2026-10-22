@@ -9,7 +9,8 @@ export function selectChecks(files, full = false) {
   for (const file of files) {
     if (['scripts/check-changed.mjs','scripts/check-browser-suite.mjs','tests/check-selection.test.mjs'].includes(file)) { selected.add('selector'); continue; }
     if (['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
-    if (/^scripts\/(start-companion|update-companion|companion-runtime|companion-process-identity-e2e).*\.ps1$/.test(file)) { selected.add('windows'); continue; }
+    if (['scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file)) { selected.add('python'); selected.add('windows'); continue; }
+    if (/^scripts\/(start-companion|companion-process-identity-e2e).*\.ps1$/.test(file)) { selected.add('windows'); continue; }
     if(file==='lib/interface-language.tsx'){selected.add('desktop');selected.add('mobile');continue;}
     if(file==='public/mobile-capture/games-data.json'){selected.add('mobile');selected.add('python');selected.add('docs');continue;}
     if(['scripts/generate-language-docs.mjs','scripts/check-docs.mjs'].includes(file)){selected.add('docs');continue;}
@@ -36,11 +37,12 @@ const run = (command,args) => execFileSync(command,args,{stdio:'inherit',shell:p
 // These are executable scenarios, not just categories. Source dependencies below
 // augment the normal consumer gates; unknown files still require the full gate.
 export function scenarioPlan(files, checks = selectChecks(files)) {
-  if (checks.includes('full')) return {browser: Object.values(browserSuites).flat(), windows: ['companion-process-identity-e2e', 'setup-e2e']};
+  if (checks.includes('full')) return {browser: Object.values(browserSuites).flat(), windows: ['companion-process-identity-e2e', 'setup-e2e', 'update-companion-e2e']};
   const browser = new Set(), windows = new Set();
   if (checks.includes('desktop')) browser.add('language-account-e2e');
   if (checks.includes('mobile')) for (const name of ['companion-e2e','mobile-reader-layout-e2e','mobile-games-e2e','ocr-packs-e2e']) browser.add(name);
-  if (files.some(file => ['backend/api.py','backend/state_version.py'].includes(file))) for (const name of ['setup-e2e','local-access-e2e','update-companion-e2e']) browser.add(name);
+  if (files.some(file => ['backend/api.py','backend/state_version.py'].includes(file))) for (const name of ['setup-e2e','local-access-e2e']) browser.add(name);
+  if (files.some(file => ['backend/api.py','backend/state_version.py','scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file))) windows.add('update-companion-e2e');
   if (files.some(file => ['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file))) browser.add('ui-state-e2e');
   if (checks.includes('windows')) windows.add('companion-process-identity-e2e');
   return {browser: [...browser].sort(), windows: [...windows].sort()};
@@ -58,7 +60,10 @@ export function executeChecks(checks, {scenarios = scenarioPlan([], checks), run
   if (!splitBrowsers) for (const script of scenarios.browser) runCommand(process.execPath,[`scripts/${script}.mjs`]);
   const unavailable = [];
   for (const script of scenarios.windows) {
-    if (platform === 'win32') runCommand('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',`scripts/${script}.ps1`,'-VerifyBaseline']);
+    if (platform === 'win32') {
+      if (script === 'update-companion-e2e') runCommand(process.execPath,[`scripts/${script}.mjs`]);
+      else runCommand('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',`scripts/${script}.ps1`,'-VerifyBaseline']);
+    }
     else { unavailable.push(script); console.log('Requires hosted Windows validation: ' + script); }
   }
   runCommand(process.execPath,['scripts/check-docs.mjs']);
