@@ -39,17 +39,67 @@ function Test-CompanionProcess($Record, [string]$Root) {
     return $true
 }
 
+function Get-CompanionChildProcessHandles($Parent, [long]$Started, $Seen) {
+    # The caller holds the parent's handle, including after termination, so its
+    # PID cannot be reused while child identities are checked. A stale parent
+    # ID left by an earlier process must also fail the creation-time check.
+    $children = @()
+    try {
+        $candidates = @(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$Parent.Id) -ErrorAction Stop)
+        foreach ($candidate in $candidates) {
+            $child = $null
+            try {
+                if ($Seen.ContainsKey([int]$candidate.ProcessId)) { continue }
+                $child = Get-Process -Id ([int]$candidate.ProcessId) -ErrorAction SilentlyContinue
+                if (-not $child) { continue }
+                $null = $child.Handle
+                $live = Get-CimInstance Win32_Process -Filter ('ProcessId='+$child.Id) -ErrorAction Stop
+                if (-not $child.HasExited -and $live.ParentProcessId -eq $Parent.Id -and
+                    $child.StartTime.ToUniversalTime().Ticks -ge $Started) {
+                    $Seen[$child.Id] = $true
+                    $children += ,$child
+                    $child = $null # Transfer this retained handle to the caller.
+                }
+            } catch {
+                # A child can finish between enumeration and handle acquisition.
+                if (-not $child -or -not $child.HasExited) { throw }
+            } finally { if ($child) { $child.Dispose() } }
+        }
+        return $children
+    } catch {
+        foreach ($child in $children) { $child.Dispose() }
+        throw 'Windows could not verify companion child processes; cleanup may be incomplete.'
+    }
+}
+
+function Stop-CompanionProcessTreeNode($Process, $Seen) {
+    $started = $Process.StartTime.ToUniversalTime().Ticks
+    if (-not $Process.HasExited) {
+        try { $Process.Kill() }
+        catch { if (-not $Process.HasExited) { throw 'Windows refused to stop a verified companion process.' } }
+        if (-not $Process.WaitForExit(5000)) { throw 'A verified companion process did not stop.' }
+    }
+    # Stop each parent before enumerating its children: it cannot spawn another
+    # child after this snapshot. Retained handles reserve every ancestor PID.
+    $children = @(Get-CompanionChildProcessHandles $Process $started $Seen)
+    $failure = $null
+    try {
+        foreach ($child in $children) {
+            try { Stop-CompanionProcessTreeNode $child $Seen }
+            catch { if (-not $failure) { $failure = $_ } }
+        }
+    } finally { foreach ($child in $children) { $child.Dispose() } }
+    if ($failure) { throw $failure }
+}
+
 function Stop-CompanionProcessHandle($Process) {
     # Call only with a validated identity handle or the exact Start-Process
     # object owned by this invocation, including partial-start cleanup.
-    $null=$Process.Handle
+    $null = $Process.Handle
     if ($Process.HasExited) { return }
-    try { & taskkill.exe /PID $Process.Id /T /F 2>$null | Out-Null; $exitCode=$LASTEXITCODE }
-    catch { if (-not $Process.HasExited) { throw }; $exitCode=0 }
-    if (-not $Process.WaitForExit(5000)) {
-        if ($exitCode -ne 0) { throw 'Windows refused to stop a verified companion process.' }
-        throw 'A verified companion process did not stop.'
-    }
+    $seen = @{}
+    $seen[$Process.Id] = $true
+    Stop-CompanionProcessTreeNode $Process $seen
 }
 
 function Stop-CompanionProcess($Record, [string]$Root) {
