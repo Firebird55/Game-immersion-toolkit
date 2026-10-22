@@ -242,23 +242,13 @@ function transcriptLineEqual(left: TranscriptLine, right: TranscriptLine) {
 
 function mergeTranscriptSnapshot(current: TranscriptLine[], snapshot: TranscriptLine[]) {
   const currentById = new Map(current.map((line) => [line.id, line]));
-  const snapshotIds = new Set(snapshot.map((line) => line.id));
-  const newestSnapshotAt: Partial<Record<GameId, number>> = {};
-  for (const line of snapshot) {
-    newestSnapshotAt[line.game] = Math.max(newestSnapshotAt[line.game] ?? 0, Date.parse(line.created_at));
-  }
-
-  const merged = snapshot.map((line) => {
+  // The complete snapshot has already replayed newer live events. Missing IDs
+  // are authoritative (including deletions missed while disconnected); retaining
+  // the previous newest row here would resurrect an empty game indefinitely.
+  return snapshot.map((line) => {
     const existing = currentById.get(line.id);
     return existing && transcriptLineEqual(existing, line) ? existing : line;
-  });
-  for (const line of current) {
-    if (snapshotIds.has(line.id)) continue;
-    // WebSocket lines can arrive before their audio is ready and therefore
-    // before /api/lines returns them. Keep those lines through background sync.
-    if (line.audio_pending || Date.parse(line.created_at) > (newestSnapshotAt[line.game] ?? 0)) merged.push(line);
-  }
-  return merged.sort(newestFirst);
+  }).sort(newestFirst);
 }
 
 function phaseLabel(phase: string) {

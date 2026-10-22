@@ -124,3 +124,25 @@ def test_pending_audio_notice_is_preserved_while_audio_is_unavailable(tmp_path):
     asyncio.run(api.Runtime.on_line(runtime, line.model_copy(update={'audio_pending': True})))
     assert events[0]['line']['has_audio'] is False
     assert events[0]['line']['audio_pending'] is True
+
+
+def test_complete_snapshot_contains_confirmed_lines_before_audio_is_ready(tmp_path, monkeypatch):
+    runtime, line, _ = line_publication_fixture(tmp_path)
+    # This is the persistence step performed before CaptureService publishes a
+    # pending-original-audio event. A missing file must not remove that row.
+    runtime.transcript.update_audio(line.id, None, True)
+    clock = StateVersion()
+    runtime.context = lambda: clock.snapshot(0)
+    runtime.accounts = SimpleNamespace(generation=0)
+    runtime.status = lambda: {}
+    runtime.speakers = SimpleNamespace(enrich=lambda item: item)
+    runtime.pragmata = SimpleNamespace(is_capture_text=lambda *_: True)
+    runtime.game_indexes = {}
+    runtime.textmaps = SimpleNamespace(is_capture_text=lambda *_: True)
+    monkeypatch.setattr(api, 'runtime', runtime, raising=False)
+    monkeypatch.setattr(api, 'integration_status', lambda **_: {'configured': False})
+    response = TestClient(api.app, base_url='http://127.0.0.1:8766').get('/api/snapshot')
+    assert response.status_code == 200
+    rows = response.json()['lines']
+    assert len(rows) == 1 and rows[0]['id'] == line.id
+    assert rows[0]['voiced'] is True and rows[0]['has_audio'] is False

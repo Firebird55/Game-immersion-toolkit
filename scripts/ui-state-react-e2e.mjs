@@ -15,16 +15,25 @@ try {
   for(const width of [1280,390]) {
    const context=await browser.newContext({locale:'en-US',viewport:{width,height:900}}),page=await context.newPage();
    const errors=[],requests=[];page.on('pageerror',error=>errors.push(error.message));
-   let socket,active='first',runtimeId='react-fixture',generation=0,revision=0,holdSnapshot=false,releaseSnapshot,extraLine=false;
+   let socket,active='first',runtimeId='react-fixture',generation=0,revision=0,holdSnapshot=false,releaseSnapshot,extraLine=false,emptySnapshot=false,sourceText='Hello';
    const stateContext=()=>({runtime_id:runtimeId,state_version:revision,account_generation:generation});
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
    const capture={running:true,active_game:'zzz',visible_text_ids:['fixture'],phase:'matched',message:'Ready'};
-   const line=(id=1)=>({id,game:'zzz',created_at:id===1?'2026-01-01T10:00:00Z':'2026-01-01T09:00:00Z',session_id:'fixture',source_ocr:'Hello',english:id===1?'Hello':'Snapshot-only-line',chinese:id===1?'你好':'快照行',source_language:'en',source_locale:'en',source_text:id===1?'Hello':'Snapshot-only-line',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:id===1?'fixture':'extra',channel:'dialogue',score:100,match_kind:'exact',voiced:true,has_audio:true,favorite:false});
-   const snapshot=()=>({context:stateContext(),status:{capture,textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:extraLine?2:1,total_line_count:extraLine?2:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:extraLine?[line(),line(2)]:[line()],lexirise:{configured:true,account:active,sent:{},decks:{}}});
+   const line=(id=1)=>({id,game:'zzz',created_at:id===1?'2026-01-01T10:00:00Z':'2026-01-01T09:00:00Z',session_id:'fixture',source_ocr:'Hello',english:id===1?'Hello':'Snapshot-only-line',chinese:id===1?'你好':'快照行',source_language:'en',source_locale:'en',source_text:id===1?sourceText:'Snapshot-only-line',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:id===1?'fixture':'extra',channel:'dialogue',score:100,match_kind:'exact',voiced:true,has_audio:true,favorite:false});
+   const snapshot=()=>({context:stateContext(),status:{capture,textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:extraLine?2:1,total_line_count:extraLine?2:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:emptySnapshot?[]:extraLine?[line(),line(2)]:[line()],lexirise:{configured:true,account:active,sent:{},decks:{}}});
    const sendEvent=(type,payload={},version=++revision)=>socket.send(JSON.stringify({type,context:{...stateContext(),state_version:version},...payload}));
    const until=async predicate=>{for(let attempt=0;attempt<100;attempt++){if(await predicate())return;await sleep(20);}throw Error('React fixture condition timed out');};
-   await page.addInitScript(()=>localStorage.setItem('proxy-transcript-reading-mode','migaku'));
+   await page.addInitScript(()=>{
+    localStorage.setItem('proxy-transcript-reading-mode','migaku');
+    // Capture the real React polling callback, so ordinary polls can be invoked
+    // deterministically without account-reset events or ten-second sleeps.
+    const nativeInterval=window.setInterval.bind(window);
+    window.setInterval=(callback,delay,...args)=>{
+     if(delay===10000)window.runCompanionPoll=callback;
+     return nativeInterval(callback,delay,...args);
+    };
+   });
    await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',ws=>{socket=ws;});
    await page.route('http://127.0.0.1:8766/**',async route=>{
     const request=route.request(),path=new URL(request.url()).pathname;
@@ -77,6 +86,28 @@ try {
    const timer=setInterval(()=>sendEvent('capture_status',{capture}),10);
    try {await sleep(120);await releaseSnapshot();await until(()=>send.isEnabled());await sleep(100);} finally {clearInterval(timer);}
    assert.equal(requests.filter(r=>r.path==='/api/snapshot').length,reads,'Capture events must not force snapshot retries');
+   // A pending audio line published after the HTTP read remains visible when
+   // that older full payload is reconciled, even without an audio file yet.
+   holdSnapshot=true;releaseSnapshot=null;
+   await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));await until(()=>!!releaseSnapshot);
+   sendEvent('capture_status',{capture:{...capture,visible_text_ids:['pending']}});
+   sendEvent('line',{line:{...line(),id:3,text_id:'pending',created_at:'2026-01-01T10:01:00Z',source_text:'PENDING ORIGINAL AUDIO',has_audio:false,audio_pending:true}});
+   await current.getByText('PENDING ORIGINAL AUDIO',{exact:true}).waitFor();
+   await releaseSnapshot();await current.getByRole('button',{name:'Preparing original voice',exact:true}).waitFor();
+   assert.equal(await current.getByText('PENDING ORIGINAL AUDIO',{exact:true}).count(),1);
+   sendEvent('line_deleted',{line_id:3});sendEvent('capture_status',{capture});
+   sendEvent('line',{line:line()});await until(()=>send.isEnabled());
+   // Ordinary polling (without account/connection resets) is authoritative for
+   // changed fields and an empty game, while keeping the account available.
+   sourceText='HTTP SNAPSHOT UPDATED';revision++;
+   await page.evaluate(()=>window.runCompanionPoll());
+   await current.getByText('HTTP SNAPSHOT UPDATED',{exact:true}).waitFor();
+   emptySnapshot=true;revision++;
+   await page.evaluate(()=>window.runCompanionPoll());
+   await until(async()=>await current.locator('.current-pair').count()===0);
+   assert.equal(await page.locator('.transcript-line').count(),0);
+   emptySnapshot=false;revision++;
+   await page.evaluate(()=>window.runCompanionPoll());await until(()=>send.isEnabled());
    // Observe the account boundary in any event, even if account_changed arrives
    // later. An old A generation can never resume A after a B→A round trip.
    for(const account of ['second','first']) {
@@ -105,6 +136,13 @@ try {
    socket.send(JSON.stringify({type:'line',context:{...retiredContext,state_version:1000},line:{...line(),source_text:'RETIRED RUNTIME'}}));
    await sleep(50);assert.equal(await page.getByText('RETIRED RUNTIME',{exact:true}).count(),0);
    assert.equal(await page.getByText('Snapshot-only-line',{exact:true}).count(),0);
+   // The last row can be removed while this socket is disconnected. An empty
+   // authoritative snapshot must remove it, including on same-runtime reconnect.
+   emptySnapshot=true;revision++;
+   const disconnectedSocket=socket;disconnectedSocket.close();
+   await until(()=>socket!==disconnectedSocket);
+   await until(async()=>await current.locator('.current-pair').count()===0);
+   assert.equal(await page.locator('.transcript-line').count(),0);
    assert.deepEqual(errors,[]);await context.close();
    console.log(`${name}: actual React partial-event ordering, snapshot reconciliation and account generations ${width} passed`);
   }
