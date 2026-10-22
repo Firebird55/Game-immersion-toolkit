@@ -11,7 +11,7 @@ test('explicit release gate is full even without changes',()=>assert.deepEqual(s
 test('isolated browser suites retain every comprehensive check exactly once',()=>{
  const scripts=Object.values(browserSuites).flat();
  assert.equal(new Set(scripts).size,scripts.length);
- assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','update-companion-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
+ assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','update-companion-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
  assert.throws(()=>runBrowserSuite('typo'),/Unknown browser suite/);
 });
 

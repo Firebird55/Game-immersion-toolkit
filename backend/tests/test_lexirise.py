@@ -167,7 +167,7 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
     runtime.lexirise.pin = lambda _language: runtime.lexirise
     monkeypatch.setattr(api, 'runtime', runtime, raising=False)
     monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
-    client = TestClient(api.app)  # No lifespan: never start real capture in tests.
+    client = TestClient(api.app, base_url="http://127.0.0.1:8766")  # No lifespan: never start real capture in tests.
     assert client.post('/api/lines/1/lexirise').status_code == 403
     assert client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'},
                        json={'game': 'zzz', 'audio': 'C:/private/file'}).status_code == 200

@@ -1,13 +1,8 @@
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'companion-runtime.ps1')
 $processFile = Join-Path $projectRoot 'data\processes.json'
-
-if (Test-Path -LiteralPath $processFile) {
-    $record = Get-Content -Raw -LiteralPath $processFile | ConvertFrom-Json
-    foreach ($property in $record.PSObject.Properties) {
-        $processId = [int]$property.Value
-        if ($processId -gt 0) {
-            & taskkill.exe /PID $processId /T /F | Out-Null
-        }
-    }
+$record = Read-CompanionProcesses $processFile $projectRoot
+foreach ($name in @($record.Keys)) {
+    Stop-CompanionProcess $record[$name] $projectRoot
 }

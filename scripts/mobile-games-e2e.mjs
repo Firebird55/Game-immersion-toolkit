@@ -21,7 +21,7 @@ const data=JSON.parse([...files].find(([name])=>/^games-data\.[a-f0-9]+\.json$/.
 let browser;
 try{for(const name of process.env.MOBILE_TEST_BROWSERS.split(',')){
  browser=await engines[name].launch({headless:true});
- const context=await browser.newContext({viewport:{width:1280,height:900}}),page=await context.newPage(),errors=[],requests=[];
+ const context=await browser.newContext({viewport:{width:1280,height:900},locale:'en-US'}),page=await context.newPage(),errors=[],requests=[];
  page.on('pageerror',error=>errors.push(error.message));context.on('request',request=>requests.push(request.url()));
  await page.goto(base+'games.html?game=beyond&study=nl&target=zh-Hans');
  await page.getByRole('heading',{name:'BEYOND: Two Souls',exact:true}).waitFor();
@@ -62,7 +62,7 @@ try{for(const name of process.env.MOBILE_TEST_BROWSERS.split(',')){
  const legacy=new Map(files);for(const key of legacy.keys())if(key.startsWith('games'))legacy.delete(key);
  legacy.set('index.html',Buffer.from('<!doctype html><html><title>Previous companion cache fixture</title><body>Previous companion</body></html>'));
  legacy.set('sw.js',Buffer.from(`const NAME='proxy-mobile-guide-previous';self.addEventListener('install',e=>e.waitUntil(caches.open(NAME).then(c=>c.add('./index.html'))));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>caches.open(NAME).then(c=>c.match('./index.html'))));});`));
- served=legacy;const prior=await browser.newContext(),old=await prior.newPage();await old.goto(base);await old.evaluate(()=>navigator.serviceWorker.register('./sw.js'));await old.waitForFunction(()=>navigator.serviceWorker.controller!==null);await old.evaluate(()=>localStorage.setItem('guide-upgrade-fixture','retained'));
+ served=legacy;const prior=await browser.newContext({locale:'en-US'}),old=await prior.newPage();await old.goto(base);await old.evaluate(()=>navigator.serviceWorker.register('./sw.js'));await old.waitForFunction(()=>navigator.serviceWorker.controller!==null);await old.evaluate(()=>localStorage.setItem('guide-upgrade-fixture','retained'));
  served=files;await old.goto(base+'games.html?game=beyond&study=nl&target=zh-Hans');await old.locator('.tag').waitFor();await old.getByRole('button',{name:'Update guide',exact:true}).waitFor();await old.getByRole('button',{name:'Update guide',exact:true}).click();await old.locator('.tag').waitFor();await old.waitForFunction(async()=>!(await navigator.serviceWorker.getRegistration()).waiting);await prior.setOffline(true);await old.reload();await old.locator('.tag').waitFor();assert.match(await old.locator('.tag').textContent(),/Dutch → Simplified Chinese/);assert.equal(await old.evaluate(()=>localStorage.getItem('guide-upgrade-fixture')),'retained');await prior.close();
  console.log(`${name}: guide languages, regional exclusions, direct links, keyboard, mobile/zoom, offline navigation and previous-site cache upgrade passed`);await browser.close();browser=null;
 }}finally{await browser?.close();await new Promise(r=>server.close(r));}

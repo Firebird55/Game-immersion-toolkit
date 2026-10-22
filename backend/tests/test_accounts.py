@@ -102,7 +102,7 @@ def test_stale_account_requests_cannot_read_or_write_with_new_credentials(tmp_pa
     service = LexiriseService(tmp_path / 'service', accounts=store)
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(accounts=store, lexirise=service), raising=False)
     store.add('lx_second_fixture_credential_only')
-    client = TestClient(api.app)
+    client = TestClient(api.app, base_url="http://127.0.0.1:8766")
     for method, path, body in [('GET', '/api/lines/1/reading', None),
                                ('POST', '/api/lines/1/lexirise', {}),
                                ('PATCH', '/api/lexirise/settings', {})]:
