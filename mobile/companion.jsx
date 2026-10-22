@@ -49,14 +49,17 @@ function App(){
  // Shared SettingsPanel reloads when adapter identity changes. Keep drafts
  // stable while the owner publishes loading/ready revisions.
  const settingsAdapter=useRef({load:()=>readerOwner.current.reload(),patch:p=>readerOwner.current.patch(p)});
- const session=useRef(null),reader=useRef(null),vault=useRef(null),audioUrl=useRef(null),hydrated=useRef(false),busy=useRef(false),mediaRevision=useRef(0);
+ const session=useRef(null),reader=useRef(null),vault=useRef(null),audioUrl=useRef(null),hydrated=useRef(false),busy=useRef(null),mediaRevision=useRef(0);
+ function retireReaderAction(){if(busy.current?.reader){busy.current=null;setWorking(false);}}
  if(!vault.current)vault.current=cryptoVault.createVault(storage,{onLock:()=>{readerOwner.current?.reset();session.current=null;reader.current=null;setUnlocked(false);setAccountOpen(false);setDecks([]);setDeck('');setDeckTitle('');setRevision(r=>r+1);}});
  // Abort may reject before React commits, so retire account actions immediately.
- if(!readerOwner.current)readerOwner.current=createMobileReaderContext({request:transport,createSession:createReadingSession,createReader,onChange:()=>{activeReaderGeneration.current++;setRevision(r=>r+1);}});
+ if(!readerOwner.current)readerOwner.current=createMobileReaderContext({request:transport,createSession:createReadingSession,createReader,onChange:()=>{activeReaderGeneration.current++;retireReaderAction();setRevision(r=>r+1);}});
  const refresh=()=>setRows([...library.libraryLifecycle.history,...pcHistory]);
- const run=async(fn,isCurrent=()=>true)=>{if(busy.current)return;busy.current=true;setWorking(true);setError('');try{await fn();}catch(e){if(isCurrent())setError(e.message??'This action could not complete. Retry when ready.');}finally{busy.current=false;setWorking(false);}};
+ const run=async(fn,isCurrent=()=>true,readerAction=false)=>{if(busy.current)return;const action={reader:readerAction};busy.current=action;setWorking(true);setError('');try{await fn();}catch(e){if(busy.current===action&&isCurrent())setError(e.message??'This action could not complete. Retry when ready.');}finally{if(busy.current===action){busy.current=null;setWorking(false);}}};
+ // Retired requests may ignore abort. Their completion cannot release a newer
+ // action; vault operations keep their gate when they internally lock/reset.
  // Async failures belong to the initiating reader just like successful results.
- const runReader=fn=>{const generation=activeReaderGeneration.current,client=session.current,isCurrent=()=>session.current===client&&activeReaderGeneration.current===generation;return run(()=>fn({client,isCurrent}),isCurrent);};
+ const runReader=fn=>{const generation=activeReaderGeneration.current,client=session.current,isCurrent=()=>session.current===client&&activeReaderGeneration.current===generation;return run(()=>fn({client,isCurrent}),isCurrent,true);};
  useEffect(()=>{
   const change=()=>{setRole($('role').value);setSource($('source').value);setGame($('game').value);setLimit(30);setBefore(null);refresh();};
   const stop=()=>{mediaRevision.current++;capture.captureLifecycle.stop();pairing.pairingLifecycle.stop();library.libraryLifecycle.stop();setConnected(false);if($('role').value==='sender')setView('connection');change();};
@@ -108,7 +111,7 @@ function App(){
  const selected=rows.filter(r=>r.game===game&&(source==='mobile'?r.source==='mobile-ocr':r.source?.startsWith('pc-'))).sort((a,b)=>b.createdAt-a.createdAt||Number(b.id)-Number(a.id));
  const matches=selected.filter(r=>(filter!=='favorites'||r.favorite)&&(!search||[r.sourceText??r.chinese,r.translationText??r.english,r.speakerChinese,r.speakerEnglish].some(t=>t?.toLowerCase().includes(search.toLowerCase()))));
  const current=source==='pc'&&pcSource?selected.find(r=>r.source===pcSource):selected[0];
- useEffect(()=>{activeReaderGeneration.current++;const pair=unlocked?sessionFor(current):null;session.current=pair?.session??null;reader.current=pair?.reader??null;setDecks([]);setDeck('');},[unlocked,current?.game,current?.sourceLocale,current?.sourceLanguage,revision]);
+ useEffect(()=>{activeReaderGeneration.current++;retireReaderAction();const pair=unlocked?sessionFor(current):null;session.current=pair?.session??null;reader.current=pair?.reader??null;setDecks([]);setDeck('');},[unlocked,current?.game,current?.sourceLocale,current?.sourceLanguage,revision]);
  const lineProps=row=>({Reader:unlocked?sessionFor(row)?.reader.ReadingText:null,readerContext:JSON.stringify([revision,mode,sessionFor(row)?.key]),mode,unlocked,chinese,english,options,working,connected,onPlay:play,onFavorite:favorite,onSave:saveSentence});
  const go=next=>{setView(next);setError('');};
  const applyUpdate=()=>run(async()=>{if($('role').disabled||capture.captureLifecycle.active||library.libraryLifecycle.busy)throw Error('Stop sharing and finish library operations before updating.');vault.current.lock();const registration=update??await navigator.serviceWorker?.getRegistration();await registration?.update().catch(()=>{});const installing=registration?.installing;if(installing)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>finish(Error('The update is still downloading. Try again shortly.')),15000);const check=()=>{if(['installed','redundant'].includes(installing.state))finish();};function finish(error){clearTimeout(timer);installing.removeEventListener('statechange',check);error?reject(error):resolve();}installing.addEventListener('statechange',check);check();});if(capture.captureLifecycle.active||library.libraryLifecycle.busy)throw Error('Finish sharing and library operations before applying the update.');if(registration?.waiting){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});registration.waiting.postMessage('activate-update');}else {const url=new URL(location.href);url.searchParams.set('v',String(Date.now()));location.replace(url);}});

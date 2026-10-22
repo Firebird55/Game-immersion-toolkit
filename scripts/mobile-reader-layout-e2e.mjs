@@ -25,6 +25,17 @@ try{
  for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({locale:'en-US',viewport:{width:390,height:844},hasTouch:true,deviceScaleFactor:3,serviceWorkers:'block'});
+  // A cancelled transport may settle later (including intercepted WebKit
+  // requests). Exercise that boundary explicitly instead of relying on abort.
+  await context.addInitScript(()=>{
+   const nativeFetch=window.fetch.bind(window);
+   window.fetch=(input,options)=>{
+    if(window.ignoreNextDeckAbort&&typeof options?.body==='string'&&JSON.parse(options.body).path?.startsWith('/v1/decks?')){
+     window.ignoreNextDeckAbort=false;const {signal,...retained}=options;return nativeFetch(input,retained);
+    }
+    return nativeFetch(input,options);
+   };
+  });
   const page=await context.newPage(),errors=[],requests=[];
   let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks,failInitialSettings=true,heldAction=null,releaseAction;
   page.on('pageerror',e=>{
@@ -311,7 +322,7 @@ try{
   };
   const holdAction=(path,method='GET',result={status:503,json:{detail:'Synthetic delayed account failure'}})=>{heldAction={path,method,result};releaseAction=null;};
   const waitForAction=async()=>{for(let attempt=0;!releaseAction&&attempt<100;attempt++)await page.waitForTimeout(20);assert(releaseAction,'Synthetic account action must be in flight');};
-  const finishRetiredAction=async reason=>{await releaseAction();await page.waitForTimeout(100);assert.equal(await page.getByRole('alert').count(),0,reason+': retired failure must stay out of current UI');};
+  const finishRetiredAction=async(reason,release=releaseAction)=>{await release();await page.waitForTimeout(100);assert.equal(await page.getByRole('alert').count(),0,reason+': retired failure must stay out of current UI');};
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   holdAction('/v1/decks?');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await waitForAction();
   await changeActionSource('de');await changeActionSource('nl');
@@ -320,10 +331,15 @@ try{
   dutchTarget='zh-hans';await page.evaluate(()=>{window.actionTargetNode=document.querySelector('.current-card .reading-text');window.dispatchEvent(new Event('lexirise-account-settings'));});
   await page.waitForFunction(()=>!window.actionTargetNode.isConnected&&document.querySelector('.current-card .reading-text'));
   await finishRetiredAction('Effective target change during deck creation');
-  holdAction('/v1/decks?');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await waitForAction();
-  await page.getByRole('button',{name:'Lock',exact:true}).click();await page.getByRole('button',{name:'Unlock',exact:true}).waitFor();
+  await page.evaluate(()=>window.ignoreNextDeckAbort=true);
+  holdAction('/v1/decks?');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await waitForAction();const releaseLockedAction=releaseAction;
+  await page.getByRole('button',{name:'Lock',exact:true}).click();await page.getByRole('button',{name:'Unlock',exact:true}).waitFor({timeout:3000});
   assert.equal(await page.getByRole('alert').count(),0,'Explicit lock does not report an aborted account action as an error');
-  await page.locator('input[name=pass]').fill('second layout fixture passphrase');await page.getByRole('button',{name:'Unlock',exact:true}).click();await page.getByRole('button',{name:'Lock',exact:true}).waitFor();await finishRetiredAction('Vault lock and unlock');await page.getByText('Sentence saving and decks',{exact:true}).click();
+  await page.locator('input[name=pass]').fill('second layout fixture passphrase');await page.getByRole('button',{name:'Unlock',exact:true}).click();await page.getByRole('button',{name:'Lock',exact:true}).waitFor();await page.getByText('Sentence saving and decks',{exact:true}).click();
+  holdAction('/v1/decks?');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await waitForAction();
+  await finishRetiredAction('Vault lock and unlock',releaseLockedAction);
+  assert(await page.getByRole('button',{name:'Load my decks',exact:true}).isDisabled(),'Finishing old account work cannot release the current action gate');
+  await releaseAction();await page.getByRole('alert').filter({hasText:'Lexirise returned HTTP 503'}).waitFor();await page.getByRole('alert').getByRole('button',{name:'Dismiss',exact:true}).click();
   holdAction('/v1/vocabulary','POST');await page.getByRole('button',{name:'Reader',exact:true}).click();await page.locator('.current-card').getByRole('button',{name:'Save sentence',exact:true}).click();await waitForAction();
   await changeActionSource('de');await finishRetiredAction('Source change during sentence saving');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
