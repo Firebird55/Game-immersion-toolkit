@@ -57,12 +57,6 @@ jobs:
           CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           CHECK_SPLIT_BROWSER_TESTS: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
         run: node scripts/check-changed.mjs ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
-      - name: Verify process identity on owned Windows fixtures
-        if: steps.scope.outputs.full == 'true'
-        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/companion-process-identity-e2e.ps1 -VerifyBaseline
-      - name: Verify Windows source and prebuilt setup control flow
-        if: steps.scope.outputs.full == 'true'
-        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-e2e.ps1 -VerifyBaseline
       - uses: actions/upload-artifact@v4
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:

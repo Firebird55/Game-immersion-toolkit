@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {selectChecks} from '../scripts/check-changed.mjs';
+import {selectChecks,scenarioPlan,executeChecks} from '../scripts/check-changed.mjs';
 import {browserSuites,runBrowserSuite} from '../scripts/check-browser-suite.mjs';
 test('documentation avoids application builds',()=>assert.deepEqual(selectChecks(['README.md','docs/beyond-support.md']),['docs']));
 test('backend and frontend changes combine their gates',()=>assert.deepEqual(selectChecks(['backend/capture.py','app/companion.tsx']),['desktop','python']));
@@ -19,4 +19,36 @@ test('shared interface and support catalog select their consumer checks',()=>{
  assert.deepEqual(selectChecks(['lib/interface-language.tsx']),['desktop','mobile']);
  assert.deepEqual(selectChecks(['public/mobile-capture/games-data.json']),['docs','mobile','python']);
  assert.deepEqual(selectChecks(['scripts/generate-language-docs.mjs']),['docs']);
+});
+
+
+test('API changes run actual backend/browser contract scenarios',()=>{
+ const files=['backend/api.py'], checks=selectChecks(files), scenarios=scenarioPlan(files,checks);
+ assert.ok(checks.includes('python'));
+ for(const name of ['language-account-e2e','local-access-e2e','update-companion-e2e','setup-e2e']) assert.ok(scenarios.browser.includes(name));
+ const commands=[];
+ executeChecks(checks,{scenarios,runCommand:(command,args)=>commands.push([command,...args]),platform:'darwin',splitBrowsers:false});
+ for(const name of scenarios.browser) assert.ok(commands.some(command=>command.includes(`scripts/${name}.mjs`)));
+});
+test('mobile reader source includes reader layout and Shadow DOM regression execution',()=>{
+ const files=['mobile/companion.jsx'],checks=selectChecks(files),scenarios=scenarioPlan(files,checks),commands=[];
+ executeChecks(checks,{scenarios,runCommand:(_command,args)=>commands.push(args),platform:'darwin',splitBrowsers:false});
+ assert.ok(commands.some(args=>args.includes('scripts/mobile-reader-layout-e2e.mjs')));
+});
+test('process lifecycle sources require owned Windows fixtures on the executing platform',()=>{
+ for(const file of ['scripts/start-companion.ps1','scripts/update-companion.ps1','scripts/companion-runtime.ps1']) {
+  const checks=selectChecks([file]),scenarios=scenarioPlan([file],checks),commands=[];
+  const unavailable=executeChecks(checks,{scenarios,runCommand:(...args)=>commands.push(args),platform:'darwin'});
+  assert.deepEqual(unavailable.unavailable,['companion-process-identity-e2e']);
+  assert.ok(!commands.some(([command])=>command==='powershell.exe'));
+  executeChecks(checks,{scenarios,runCommand:(...args)=>commands.push(args),platform:'win32'});
+  assert.ok(commands.some(([command,args])=>command==='powershell.exe'&&args.includes('scripts/companion-process-identity-e2e.ps1')));
+ }
+});
+test('split browser CI still executes Windows fixtures and records full unknown fallback',()=>{
+ const checks=selectChecks(['unrecognized/file']),scenarios=scenarioPlan([],checks),commands=[];
+ executeChecks(checks,{scenarios,runCommand:(command,args)=>commands.push([command,...args]),platform:'win32',splitBrowsers:true});
+ assert.deepEqual(checks,['full']);
+ assert.equal(commands.filter(command=>command[0]==='powershell.exe').length,2);
+ assert.ok(!commands.some(command=>command.some(arg=>arg.endsWith('-e2e.mjs'))));
 });
