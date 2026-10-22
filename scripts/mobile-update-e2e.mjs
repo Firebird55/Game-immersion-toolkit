@@ -54,6 +54,9 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  // clients.claim() already controls this page. Import immediately after that
  // handoff; the two offline reloads below test controlled navigations explicitly.
  await page.waitForFunction(async()=>(await navigator.serviceWorker.getRegistration())?.active?.state==='activated'&&navigator.serviceWorker.controller!=null,{},{timeout:30000}).catch(error=>{console.error(name,{errors,failures,stage:'service worker activation and control'});throw error;});
+ // Worker activation can finish before the dynamically imported library UI.
+ // Select the file only once its real change handler can consume the event.
+ await page.waitForFunction(()=>typeof document.querySelector('#library-files').onchange==='function');
  mark('import catalog and save preferences');await page.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows')).catch(async error=>{console.error('Import fixture diagnostics',{errors,failures,runtimeErrors,state:await page.evaluate(()=>({language:navigator.language,documentLanguage:document.documentElement.lang,status:document.querySelector('#library-status').textContent,summaries:[...document.querySelectorAll('summary')].map(el=>el.textContent)}))});throw error;});
  await page.fill('#find-text',row.english);await page.click('#find-line');await page.getByRole('button',{name:'Favorite',exact:true}).click();
  await page.locator('summary').filter({hasText:'Capture regions and calibration'}).click();await page.fill('#crop-left','9');await page.locator('#crop-left').dispatchEvent('change');
