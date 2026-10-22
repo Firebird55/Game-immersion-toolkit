@@ -1,4 +1,4 @@
-// Exercise the shipped reader with authored dialogue and mocked account reads.
+// Exercise the shipped reader with authored dialogue and mocked account requests.
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {readFileSync,mkdirSync} from 'node:fs';
@@ -26,7 +26,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({locale:'en-US',viewport:{width:390,height:844},hasTouch:true,deviceScaleFactor:3,serviceWorkers:'block'});
   const page=await context.newPage(),errors=[],requests=[];
-  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks,failInitialSettings=true;
+  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks,failInitialSettings=true,heldAction=null,releaseAction;
   page.on('pageerror',e=>{
    // WebKit can defer one observer delivery while the anchored library mounts
    // and asynchronous dictionary data resizes the phone sheet. Require stable
@@ -38,12 +38,15 @@ try{
    const request=route.request(),headers={'Access-Control-Allow-Origin':'*','Cache-Control':'no-store'};
    if(request.method()==='OPTIONS')return route.fulfill({status:204,headers:{...headers,'Access-Control-Allow-Headers':'Authorization, Content-Type'}});
    const body=request.postDataJSON();requests.push(body);if(body.path==='/v1/analyze/text')analysisAccounts.push(request.headers().authorization==='Bearer mock-layout-key-second'?'second':'first');
+   if(heldAction&&body.method===heldAction.method&&body.path.startsWith(heldAction.path)){const result=heldAction.result;heldAction=null;releaseAction=()=>route.fulfill({...result,headers}).catch(()=>{});return;}
    let data;
    if(body.path==='/v1/settings'&&failInitialSettings){failInitialSettings=false;return route.fulfill({status:503,json:{detail:'Synthetic settings outage'},headers});}
    if(body.path==='/v1/settings')data={languages:['zh','nl','de'],global:{effectiveTranslationLanguage:'en'},languageSettings:{zh:{},nl:{effectiveTranslationLanguage:dutchTarget,inlineGlossMode:'always'},de:{effectiveTranslationLanguage:'nl'}}};
    else if(body.path==='/v1/analyze/text'&&['nl','de'].includes(body.payload.language))data={occurrences:[{word:'Een',charStart:0,charEnd:3,isWordLike:true,entryId:99}],entryMetaById:{99:{gloss:'一个'}},stateByEntryId:{}};
    else if(body.path==='/v1/analyze/text')data={occurrences:segments.map(([word,transliteration],i)=>({word,transliteration,charStart:chinese.indexOf(word),charEnd:chinese.indexOf(word)+word.length,isWordLike:true,entryId:i+1,tones:[3,3]})),entryMetaById:Object.fromEntries(segments.map((s,i)=>[i+1,{gloss:s[2]}])),stateByEntryId:{}};
    else if(body.path==='/v1/dictionary/lookup')data={word:body.payload.text,translations:[{target_lang:'en',translation:'hello; a greeting to welcome someone',part_of_speech:['interjection']},{target_lang:'zh-hans',translation:'荷兰语词义',part_of_speech:[]},{target_lang:'nl',translation:'Nederlandse betekenis',part_of_speech:[]}],supplementalEntries:[{dictionary_name:'Fixture dictionary',headword:body.payload.text,html:'<ul>'+Array.from({length:24},(_,i)=>'<li>Authored dictionary explanation '+(i+1)+' with enough detail to exercise scrolling.</li>').join('')+'</ul>'}],characterInfo:{pinyin:['nǐ'],gloss:'you'}};
+   else if(body.path==='/v1/vocabulary')data={item:{id:77}};
+   else if(/^\/v1\/decks\/\d+\/items$/.test(body.path))data={added_count:1};
    else if(body.path==='/v1/me')data={user:{id:1}};
    else if(body.path.startsWith('/v1/decks?'))data={decks:[{id:42,title:'Previous Dutch deck',owner_user_id:1,language:'nl',unit_type:'sentence',deck_type:'snapshot'}]};
    else if(body.path==='/v1/analyze/context')data={meaning:'A friendly greeting used when meeting a traveler.'};
@@ -298,6 +301,42 @@ try{
   await page.locator('.current-card .reading-text[lang="nl"]').waitFor();
   await releaseDecks();await page.waitForTimeout(100);
   assert.equal(await page.getByLabel('Save destination').locator('option[value="42"]').count(),0,'Late Dutch decks cannot populate a returned Dutch reader generation');
+  // A retired action owns its failures as well as its successful results. Real
+  // fetch/abort paths must not publish errors into the replacement reader.
+  let actionRowId=100;
+  const changeActionSource=async language=>{
+   await page.evaluate(({language,id})=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game:'heavyrain',id,createdAt:1700000100000+id,chinese:'测试',english:'',audio:false,sourceLanguage:language,sourceLocale:language,sourceText:'Een actie.',translationLocale:'nl',translationText:'Authored action fixture'}]}})),{language,id:actionRowId++});
+   await page.locator('.current-card .reading-text[lang="'+language+'"]').waitFor({state:'attached'});
+   await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+  };
+  const holdAction=(path,method='GET',result={status:503,json:{detail:'Synthetic delayed account failure'}})=>{heldAction={path,method,result};releaseAction=null;};
+  const waitForAction=async()=>{for(let attempt=0;!releaseAction&&attempt<100;attempt++)await page.waitForTimeout(20);assert(releaseAction,'Synthetic account action must be in flight');};
+  const finishRetiredAction=async reason=>{await releaseAction();await page.waitForTimeout(100);assert.equal(await page.getByRole('alert').count(),0,reason+': retired failure must stay out of current UI');};
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  holdAction('/v1/decks?');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await waitForAction();
+  await changeActionSource('de');await changeActionSource('nl');
+  await finishRetiredAction('Source A to B to A');
+  holdAction('/v1/decks','POST');await page.getByLabel('New deck name',{exact:true}).fill('Authored pending deck');await page.getByRole('button',{name:'Create deck',exact:true}).click();await waitForAction();
+  dutchTarget='zh-hans';await page.evaluate(()=>{window.actionTargetNode=document.querySelector('.current-card .reading-text');window.dispatchEvent(new Event('lexirise-account-settings'));});
+  await page.waitForFunction(()=>!window.actionTargetNode.isConnected&&document.querySelector('.current-card .reading-text'));
+  await finishRetiredAction('Effective target change during deck creation');
+  holdAction('/v1/decks?');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await waitForAction();
+  await page.getByRole('button',{name:'Lock',exact:true}).click();await page.getByRole('button',{name:'Unlock',exact:true}).waitFor();
+  assert.equal(await page.getByRole('alert').count(),0,'Explicit lock does not report an aborted account action as an error');
+  await page.locator('input[name=pass]').fill('second layout fixture passphrase');await page.getByRole('button',{name:'Unlock',exact:true}).click();await page.getByRole('button',{name:'Lock',exact:true}).waitFor();await finishRetiredAction('Vault lock and unlock');await page.getByText('Sentence saving and decks',{exact:true}).click();
+  holdAction('/v1/vocabulary','POST');await page.getByRole('button',{name:'Reader',exact:true}).click();await page.locator('.current-card').getByRole('button',{name:'Save sentence',exact:true}).click();await waitForAction();
+  await changeActionSource('de');await finishRetiredAction('Source change during sentence saving');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await changeActionSource('nl');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await page.getByLabel('Save destination').selectOption('42');
+  const deckWritesBefore=requests.filter(r=>/^\/v1\/decks\/\d+\/items$/.test(r.path)).length;
+  holdAction('/v1/vocabulary','POST',{status:200,json:{item:{id:77}}});await page.getByRole('button',{name:'Reader',exact:true}).click();await page.locator('.current-card').getByRole('button',{name:'Save sentence',exact:true}).click();await waitForAction();
+  await changeActionSource('de');await finishRetiredAction('Retired sentence success');
+  assert.equal(requests.filter(r=>/^\/v1\/decks\/\d+\/items$/.test(r.path)).length,deckWritesBefore,'Retired sentence save cannot issue a later deck mutation');
+  assert.equal(await page.getByRole('status').filter({hasText:'Sentence saved to Lexirise'}).count(),0,'Retired sentence success cannot update current reader status');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  holdAction('/v1/decks?');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await waitForAction();await releaseAction();
+  await page.getByRole('alert').filter({hasText:'Lexirise returned HTTP 503'}).waitFor();
+  await page.getByRole('alert').getByRole('button',{name:'Dismiss',exact:true}).click();
   // Mount the same shipped application with its reader portal in a Shadow
   // root from the start, so React registers native events at the proper root.
   const shadowPage=await context.newPage();shadowPage.on('pageerror',e=>errors.push(e.message));
@@ -320,8 +359,8 @@ try{
   assert.deepEqual(errors,[]);
   assert(deferredResizes<=1,'WebKit must not enter a repeated resize loop');
   if(deferredResizes)console.log('webkit: one deferred initial ResizeObserver delivery; subsequent layout stable');
-  assert(requests.every(r=>r.method==='GET'||r.path.startsWith('/v1/analyze/')||r.path.startsWith('/v1/dictionary/')),'Layout verification never writes account data');
-  console.log(`${name}: phone, landscape, display scaling, compact cards, lookup scrolling/tabs/dismissal and desktop passed`);
+  assert.deepEqual(requests.filter(r=>r.method!=='GET'&&!r.path.startsWith('/v1/analyze/')&&!r.path.startsWith('/v1/dictionary/')).map(r=>r.method+' '+r.path),['POST /v1/decks','POST /v1/vocabulary','POST /v1/vocabulary'],'Only explicit synthetic account mutation fixtures are exercised');
+  console.log(`${name}: phone, landscape, display scaling, compact cards, lookup scrolling/tabs/dismissal, retired account actions and desktop passed`);
   await context.close();await browser.close();browser=null;
  }
 }finally{await browser?.close();await new Promise(r=>server.close(r));}
