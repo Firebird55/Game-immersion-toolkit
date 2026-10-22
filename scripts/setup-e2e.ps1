@@ -34,12 +34,15 @@ public class SetupPythonFixture {
         if ($args.Count -eq 1 -and $args[0] -eq '--version') { $global:LASTEXITCODE=0; return 'v24.0.0' }
         throw 'DIRECT_VINEXT_BYPASSED_ASSET_PREPARATION'
     }
+    # Functions called by setup.ps1 see that file's $script: scope. Mutate this
+    # shared object so the fixture retains both its scenario and call count.
+    $fixtureState=@{scenario='';buildCalls=0}
     function npm {
         if ($args[0] -eq '--version') { $global:LASTEXITCODE=0; return '10.0.0' }
         if ($args[0] -eq 'ci') { $global:LASTEXITCODE=0; return }
         if (($args -join ' ') -ne 'run build') { throw 'Unexpected npm command in installer fixture.' }
-        $script:buildCalls++
-        if ($script:scenario -eq 'asset-failure') { $global:LASTEXITCODE=42; return }
+        $fixtureState.buildCalls++
+        if ($fixtureState.scenario -eq 'asset-failure') { $global:LASTEXITCODE=42; return }
         New-Item -ItemType Directory -Path 'dist\server','public\mobile-capture' -Force | Out-Null
         [IO.File]::WriteAllText((Join-Path (Get-Location) 'dist\server\wrangler.json'),'{}')
         [IO.File]::WriteAllText((Join-Path (Get-Location) 'public\mobile-capture\companion.js'),'generated fixture')
@@ -48,8 +51,8 @@ public class SetupPythonFixture {
     $scenarios=@('clean-source','prebuilt','mismatched-provenance','asset-failure')
     if($VerifyBaseline){$scenarios=@('baseline')+$scenarios}
     foreach($scenario in $scenarios){
-        $script:scenario=$scenario
-        $script:buildCalls=0
+        $fixtureState.scenario=$scenario
+        $fixtureState.buildCalls=0
         $root=Join-Path $temporary $scenario
         $scripts=Join-Path $root 'scripts'
         New-Item -ItemType Directory -Path $scripts -Force | Out-Null
@@ -68,20 +71,22 @@ public class SetupPythonFixture {
         }
         $failed=$null;$output=''
         try{$output=& (Join-Path $scripts 'setup.ps1') 6>&1|Out-String}catch{$failed=$_}
+        $diagnostic=(@{scenario=$fixtureState.scenario;buildCalls=$fixtureState.buildCalls;
+            assetPresent=(Test-Path (Join-Path $root 'public\mobile-capture\companion.js'))}|ConvertTo-Json -Compress)
         if($scenario -eq 'baseline'){
             if(-not $failed -or $failed.Exception.Message -notmatch 'DIRECT_VINEXT_BYPASSED_ASSET_PREPARATION'){throw 'Baseline did not reproduce the canonical build regression.'}
             Write-Host 'Baseline regression reproduced: setup calls vinext directly and bypasses generated assets.'
             continue
         }
         if($scenario -eq 'asset-failure'){
-            if(-not $failed -or $failed.Exception.Message -notmatch 'Frontend build failed'){throw 'Asset preparation failure did not abort setup.'}
+            if(-not $failed -or $failed.Exception.Message -notmatch 'Frontend build failed' -or $fixtureState.buildCalls -ne 1){throw ('Asset preparation failure did not abort its canonical build. '+$diagnostic)}
             if((Test-Path (Join-Path $root 'shortcuts-created')) -or $output -match 'Proxy Transcript is ready'){throw 'Setup reported success after asset preparation failed.'}
         }else{
             if($failed){throw $failed}
             if($output -notmatch 'Proxy Transcript is ready' -or -not (Test-Path (Join-Path $root 'shortcuts-created'))){throw 'Successful installer did not finish.'}
             if($scenario -eq 'prebuilt'){
-                if($buildCalls -ne 0 -or (Get-Content (Join-Path $root 'dist\server\wrangler.json')) -ne 'preserved prebuilt fixture'){throw 'Valid prebuilt release was rebuilt.'}
-            }elseif($buildCalls -ne 1 -or -not (Test-Path (Join-Path $root 'public\mobile-capture\companion.js'))){throw 'Source or mismatched provenance did not use the canonical build.'}
+                if($fixtureState.buildCalls -ne 0 -or (Get-Content (Join-Path $root 'dist\server\wrangler.json')) -ne 'preserved prebuilt fixture'){throw ('Valid prebuilt release was rebuilt. '+$diagnostic)}
+            }elseif($fixtureState.buildCalls -ne 1 -or -not (Test-Path (Join-Path $root 'public\mobile-capture\companion.js'))){throw ('Source or mismatched provenance did not use the canonical build. '+$diagnostic)}
         }
         Write-Host ('Windows installer fixture passed: '+$scenario)
     }
