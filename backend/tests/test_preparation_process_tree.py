@@ -102,7 +102,7 @@ def test_windows_cancellation_reaps_bootstrap_before_it_can_join_the_job(tmp_pat
         script = ('import pathlib,runpy,sys,time; '
             f'pathlib.Path({str(marker)!r}).touch(); time.sleep(60); '
             f'sys.argv={wrapped[1:]!r}; runpy.run_path(sys.argv[0],run_name="__main__")')
-        return [sys.executable, '-c', script]
+        return [wrapped[0], '-c', script]
     monkeypatch.setattr(worker.WindowsPreparationProcess, 'command', delayed)
     def build(*_, job):
         script = f'import pathlib; pathlib.Path({str(extracted)!r}).touch()'
@@ -116,3 +116,20 @@ def test_windows_cancellation_reaps_bootstrap_before_it_can_join_the_job(tmp_pat
         assert not manager._workers and not extracted.exists()
     finally:
         manager.close()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows venv redirector boundary')
+def test_windows_venv_bootstrap_uses_the_retained_real_interpreter(tmp_path):
+    import venv
+    environment = tmp_path/'venv'
+    venv.EnvBuilder(with_pip=False).create(environment)
+    python = environment/'Scripts/python.exe'
+    script = ('import json,sys; '
+        'from backend.windows_preparation_process import WindowsPreparationProcess; '
+        'tree=WindowsPreparationProcess(); '
+        'print(json.dumps({"venv":sys.executable,"bootstrap":tree.command([sys.executable,"-c","pass"])[0]})); '
+        'tree.close()')
+    result = subprocess.run([str(python), '-c', script], check=True, capture_output=True, text=True, timeout=15)
+    paths = json.loads(result.stdout)
+    assert os.path.samefile(paths['venv'], python)
+    assert not os.path.samefile(paths['bootstrap'], python)

@@ -47,6 +47,7 @@ def _kernel():
         'AssignProcessToJobObject': ([wintypes.HANDLE, wintypes.HANDLE], wintypes.BOOL),
         'TerminateJobObject': ([wintypes.HANDLE, wintypes.UINT], wintypes.BOOL),
         'GetCurrentProcess': ([], wintypes.HANDLE),
+        'GetModuleFileNameW': ([wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD], wintypes.DWORD),
         'CloseHandle': ([wintypes.HANDLE], wintypes.BOOL),
     }
     for name, (arguments, result) in functions.items():
@@ -75,7 +76,15 @@ class WindowsPreparationProcess:
             raise
 
     def command(self, command):
-        return [sys.executable, str(Path(__file__).resolve()), self.name, *command]
+        # venv python.exe can be a redirector that launches another interpreter.
+        # The stdlib-only bootstrap must be the retained Popen process itself;
+        # use this process's real executable image, retaining the venv command
+        # for the actual extraction inside the job.
+        image = ctypes.create_unicode_buffer(32768)
+        length = _check(self.kernel.GetModuleFileNameW(None, image, len(image)))
+        if length >= len(image):
+            raise OSError('Windows preparation interpreter path was truncated.')
+        return [image.value, str(Path(__file__).resolve()), self.name, *command]
 
     def terminate(self, timeout=3):
         _check(self.kernel.TerminateJobObject(self.handle, 1))
