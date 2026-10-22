@@ -1,4 +1,4 @@
-param([string]$BaselineRevision, [switch]$VerifyBaseline, [switch]$ImageFixturesOnly)
+param([string]$BaselineRevision, [switch]$VerifyBaseline, [switch]$ImageFixturesOnly, [switch]$RetirementFixturesOnly)
 $ErrorActionPreference = 'Stop'
 $repository = Split-Path -Parent $PSScriptRoot
 $shell = (Get-Process -Id $PID).Path
@@ -59,7 +59,43 @@ function Test-ImageAcquisition {
     }
     Write-Host 'Controlled kernel image acquisition passed: retained handle, module independence, native failure, empty/invalid image, exit/start change and identity mismatch rejection.'
 }
+function Test-RetirementParsing([string]$Source) {
+    if(-not $Source){$Source=Get-Content (Join-Path $repository 'scripts\retire-companion.ps1') -Raw}
+    $temporary=Join-Path ([IO.Path]::GetTempPath()) ('companion-retirement-'+[guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $temporary|Out-Null
+    $retirementCalls=[Collections.ArrayList]::new()
+    # Preserve an array as one pipeline object, as ConvertFrom-Json does in PS5.
+    function ConvertFrom-Json {
+        param([Parameter(ValueFromPipeline=$true)][string]$InputObject)
+        process{return ,(Microsoft.PowerShell.Utility\ConvertFrom-Json -InputObject $InputObject)}
+    }
+    function Start-Sleep { }
+    try{
+        [IO.File]::WriteAllText((Join-Path $temporary 'retire-companion.ps1'),$Source)
+        [IO.File]::WriteAllText((Join-Path $temporary 'companion-runtime.ps1'),@'
+function Stop-CompanionProcess($Record,[string]$Root) {
+    if($Record -is [array]){throw 'Retirement received a nested identity array.'}
+    if($null -ne $Record){$null=$retirementCalls.Add([string]$Record.id)}
+}
+'@)
+        $jsonFile=Join-Path $temporary 'retire.json'
+        foreach($case in @(
+            @{json='[{"id":101},{"id":202}]';expected='101,202'},
+            @{json='[{"id":101}]';expected='101'},
+            @{json='[]';expected=''},
+            @{json='null';expected=''},
+            @{json='{broken';expected=''}
+        )){
+            $retirementCalls.Clear()
+            [IO.File]::WriteAllText($jsonFile,$case.json)
+            & (Join-Path $temporary 'retire-companion.ps1') -Record $jsonFile -Root $temporary
+            if(($retirementCalls -join ',') -ne $case.expected){throw 'Retirement parsing did not visit the expected individual identities.'}
+        }
+        Write-Host 'Controlled PS5 retirement parsing passed: multiple/single/empty/null/malformed records; no processes opened or stopped.'
+    }finally{Remove-Item -LiteralPath $temporary -Recurse -Force}
+}
 if ($ImageFixturesOnly) { Test-ImageAcquisition; return }
+if ($RetirementFixturesOnly) { Test-RetirementParsing; return }
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'Process tree fixtures require Windows; no Windows verification was performed.' }
 $clock = [Diagnostics.Stopwatch]::StartNew()
 if ($VerifyBaseline) {
@@ -69,7 +105,7 @@ if ($VerifyBaseline) {
     if ($baselineExit -eq 0 -or $output -notmatch 'UNVERIFIED_PID_WAS_STOPPED') { throw 'Baseline did not reproduce the expected unverified PID regression.' }
     Write-Host 'Baseline regression reproduced: a legacy PID-only record terminates an unrelated fixture without ownership evidence.'
 }
-if (-not $BaselineRevision) { Test-ImageAcquisition }
+if (-not $BaselineRevision) { Test-ImageAcquisition; Test-RetirementParsing }
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ('companion-identity-'+[guid]::NewGuid().ToString('N'))
 $scripts = Join-Path $root 'scripts'
 $data = Join-Path $root 'data'
