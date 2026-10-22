@@ -34,8 +34,12 @@ results. Keep the original transcript text and independent Migaku mode.
 
 Language preparation owns each worker and its extraction process tree. On Windows,
 a bootstrap joins a kill-on-close Job Object before launching the extractor. The
-backend retains the job handle, reaps the bootstrap, terminates the job, and
-confirms zero active processes before reporting successful shutdown. Unconfirmed
+backend retains the job handle and reaps the bootstrap, then retains process
+handles from the job and verifies their membership before terminating them. It
+explicitly waits for those process objects to signal and repeats for descendants
+spawned before their parents stopped. Successful shutdown requires these waits
+and an empty job within the deadline; zero active-process accounting alone is
+not proof of completed termination. Unconfirmed
 cleanup remains a quiesce failure after a worker exits or updates restart, and
 blocks new preparation until the backend is restarted. Restarting preparation
 after close creates a fresh cancellation event/generation. Close cancels and joins owned

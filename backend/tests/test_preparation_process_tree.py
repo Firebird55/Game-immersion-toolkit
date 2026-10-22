@@ -86,7 +86,8 @@ def test_windows_job_reaps_extraction_child_and_grandchild(tmp_path, parent_exit
             assert manager.jobs[('cyberpunk', 'zh-Hans')]['state'] == 'ready'
         manager.close()
         assert not manager._workers
-        assert all(kernel.WaitForSingleObject(handle, 0) == 0 for handle in handles)
+        results = [(handle, kernel.WaitForSingleObject(handle, 0)) for handle in handles]
+        assert all(result == 0 for _, result in results), results
     finally:
         manager.close()
         for handle in handles:

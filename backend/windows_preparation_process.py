@@ -2,12 +2,15 @@
 
 The parent retains the kill-on-close job handle. A tiny bootstrap joins that job
 before launching the requested command, closing the usual spawn/assign race.
-Only documented Win32 job-object APIs are used; no PID enumeration or taskkill.
+Only documented Win32 APIs are used. Process IDs come from this job, and each
+retained process handle is checked for membership before it can be terminated.
 """
 from __future__ import annotations
 
+from contextlib import ExitStack
 import ctypes
 from ctypes import wintypes
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -45,7 +48,10 @@ def _kernel():
         'SetInformationJobObject': ([wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD], wintypes.BOOL),
         'QueryInformationJobObject': ([wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p], wintypes.BOOL),
         'AssignProcessToJobObject': ([wintypes.HANDLE, wintypes.HANDLE], wintypes.BOOL),
-        'TerminateJobObject': ([wintypes.HANDLE, wintypes.UINT], wintypes.BOOL),
+        'OpenProcess': ([wintypes.DWORD, wintypes.BOOL, wintypes.DWORD], wintypes.HANDLE),
+        'IsProcessInJob': ([wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)], wintypes.BOOL),
+        'TerminateProcess': ([wintypes.HANDLE, wintypes.UINT], wintypes.BOOL),
+        'WaitForSingleObject': ([wintypes.HANDLE, wintypes.DWORD], wintypes.DWORD),
         'GetCurrentProcess': ([], wintypes.HANDLE),
         'GetModuleFileNameW': ([wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD], wintypes.DWORD),
         'CloseHandle': ([wintypes.HANDLE], wintypes.BOOL),
@@ -86,18 +92,79 @@ class WindowsPreparationProcess:
             raise OSError('Windows preparation interpreter path was truncated.')
         return [image.value, str(Path(__file__).resolve()), self.name, *command]
 
-    def terminate(self, timeout=3):
-        _check(self.kernel.TerminateJobObject(self.handle, 1))
-        deadline = time.monotonic() + timeout
+    def _process_ids(self, deadline):
+        capacity = 64
         while True:
-            accounting = _Accounting()
-            _check(self.kernel.QueryInformationJobObject(self.handle, 1,
-                ctypes.byref(accounting), ctypes.sizeof(accounting), None))
-            if accounting.active_processes == 0:
-                return
             if time.monotonic() >= deadline:
                 raise TimeoutError('Windows preparation descendants did not stop.')
-            time.sleep(.01)
+            class ProcessIds(ctypes.Structure):
+                _fields_ = [('assigned', wintypes.DWORD), ('count', wintypes.DWORD),
+                    ('process_ids', ctypes.c_size_t * capacity)]
+            processes = ProcessIds()
+            result = self.kernel.QueryInformationJobObject(self.handle, 3,
+                ctypes.byref(processes), ctypes.sizeof(processes), None)
+            if not result and ctypes.get_last_error() != 234:  # ERROR_MORE_DATA
+                _check(result)
+            if result and processes.count == processes.assigned:
+                return list(processes.process_ids[:processes.count])
+            capacity = max(capacity * 2, processes.assigned)
+
+    def _wait(self, handle, deadline):
+        remaining_ms = max(0, math.ceil((deadline - time.monotonic()) * 1000))
+        result = self.kernel.WaitForSingleObject(handle, remaining_ms)
+        if result == 0:  # WAIT_OBJECT_0: the process object is signaled.
+            return
+        if result == 258:  # WAIT_TIMEOUT
+            raise TimeoutError('Windows preparation descendants did not stop.')
+        if result == 0xffffffff:  # WAIT_FAILED
+            _check(False)
+        raise OSError('Unexpected Windows preparation process wait result.')
+
+    def terminate(self, timeout=3):
+        # The caller has already reaped the bootstrap, so it cannot join/spawn
+        # after an empty-job observation. Do not mass-terminate first: job
+        # accounting may reach zero before the process objects are signaled.
+        deadline = time.monotonic() + timeout
+        while True:
+            process_ids = self._process_ids(deadline)
+            if not process_ids:
+                accounting = _Accounting()
+                _check(self.kernel.QueryInformationJobObject(self.handle, 1,
+                    ctypes.byref(accounting), ctypes.sizeof(accounting), None))
+                if accounting.active_processes == 0:
+                    return
+                continue
+            with ExitStack() as handles:
+                owned = []
+                # Retain the whole snapshot before stopping any member. A
+                # parent's shutdown may also cause its children to exit.
+                for pid in process_ids:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError('Windows preparation descendants did not stop.')
+                    handle = self.kernel.OpenProcess(0x101001, False, pid)
+                    # SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | TERMINATE
+                    if not handle and ctypes.get_last_error() == 87:
+                        continue  # ERROR_INVALID_PARAMETER: the process exited.
+                    _check(handle)
+                    handles.callback(lambda handle=handle: _check(self.kernel.CloseHandle(handle)))
+                    member = wintypes.BOOL()
+                    _check(self.kernel.IsProcessInJob(handle, self.handle, ctypes.byref(member)))
+                    if member.value:
+                        owned.append(handle)
+                    elif self.kernel.WaitForSingleObject(handle, 0) != 0:
+                        # Membership alone cannot distinguish PID reuse from
+                        # an exit still completing. Never terminate that handle.
+                        raise OSError('Windows preparation process ownership could not be confirmed.')
+                for handle in owned:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError('Windows preparation descendants did not stop.')
+                    if not self.kernel.TerminateProcess(handle, 1):
+                        error = ctypes.get_last_error()
+                        if error != 5:  # Already exited processes report ACCESS_DENIED.
+                            raise ctypes.WinError(error)
+                    self._wait(handle, deadline)
+            # A member may have spawned after the snapshot but before its
+            # termination. Its descendants remain in the job for the next pass.
 
     def close(self):
         if self.handle:
