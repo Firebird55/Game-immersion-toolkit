@@ -11,7 +11,7 @@ test('explicit release gate is full even without changes',()=>assert.deepEqual(s
 test('isolated browser suites retain every comprehensive check exactly once',()=>{
  const scripts=Object.values(browserSuites).flat();
  assert.equal(new Set(scripts).size,scripts.length);
- assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','ui-state-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
+ assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','ui-state-e2e', 'ui-state-react-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
  assert.throws(()=>runBrowserSuite('typo'),/Unknown browser suite/);
 });
 
@@ -55,9 +55,9 @@ test('split browser CI still executes Windows fixtures and records full unknown 
 });
 
 test('state sources select the real backend-to-browser scenario and its Python dependency',()=>{
- for(const file of ['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs']){
+ for(const file of ['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-react-e2e.mjs']){
   const checks=selectChecks([file]);assert.ok(checks.includes('python'),file);
-  assert.ok(scenarioPlan([file],checks).browser.includes('ui-state-e2e'),file);
+  for (const name of ['ui-state-e2e','ui-state-react-e2e']) assert.ok(scenarioPlan([file],checks).browser.includes(name),file+' requires '+name);
  }
 });
 

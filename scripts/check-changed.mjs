@@ -8,7 +8,7 @@ export function selectChecks(files, full = false) {
   const selected = new Set(full ? ['full'] : []);
   for (const file of files) {
     if (['scripts/check-changed.mjs','scripts/check-browser-suite.mjs','tests/check-selection.test.mjs'].includes(file)) { selected.add('selector'); continue; }
-    if (['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
+    if (['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-react-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
     if (['scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file)) { selected.add('python'); selected.add('windows'); continue; }
     if (/^scripts\/(start-companion|companion-process-identity-e2e).*\.ps1$/.test(file)) { selected.add('windows'); continue; }
     if(file==='lib/interface-language.tsx'){selected.add('desktop');selected.add('mobile');continue;}
@@ -43,7 +43,7 @@ export function scenarioPlan(files, checks = selectChecks(files)) {
   if (checks.includes('mobile')) for (const name of ['companion-e2e','mobile-reader-layout-e2e','mobile-games-e2e','ocr-packs-e2e']) browser.add(name);
   if (files.some(file => ['backend/api.py','backend/state_version.py'].includes(file))) for (const name of ['setup-e2e','local-access-e2e']) browser.add(name);
   if (files.some(file => ['backend/api.py','backend/state_version.py','scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file))) windows.add('update-companion-e2e');
-  if (files.some(file => ['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file))) browser.add('ui-state-e2e');
+  if (files.some(file => ['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-react-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file))) for (const name of ['ui-state-e2e','ui-state-react-e2e']) browser.add(name);
   if (checks.includes('windows')) windows.add('companion-process-identity-e2e');
   return {browser: [...browser].sort(), windows: [...windows].sort()};
 }

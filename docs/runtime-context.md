@@ -11,7 +11,10 @@ and `account_generation` (including A → B → A transitions). A complete HTTP
 snapshot takes this stamp **before** reading its payload. A WebSocket publication
 increments the revision before sending. A delayed payload must never be relabelled
 with the current revision after its work finishes. Consumers commit a snapshot as
-one unit and reject it if a newer event was accepted while it was in flight.
+one unit. Independent event domains may arrive out of order: only a newer event
+for the same domain or transcript record supersedes an older one. Before
+committing a complete HTTP snapshot, replay accepted events newer than its stamp
+so capture traffic cannot erase line changes or starve complete snapshot reads.
 
 A connection or account reset invalidates all outstanding requests. Only the
 current connection/request scope may adopt a different runtime ID. Revisions from
