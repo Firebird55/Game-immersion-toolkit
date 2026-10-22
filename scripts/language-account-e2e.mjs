@@ -9,11 +9,12 @@ let browser;
 mkdirSync('output/playwright',{recursive:true});
 try{
  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Account preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes(':'+port)){clearTimeout(timer);resolve();}});server.once('error',reject);});
- for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){
+ for(const[name,engine]of [['chromium',chromium],['firefox',firefox]].filter(([name])=>!process.env.ACCOUNT_TEST_BROWSERS||process.env.ACCOUNT_TEST_BROWSERS.split(',').includes(name))){
   browser=await engine.launch({headless:true});
   for(const[width,height]of [[1280,900],[390,844]]){
-   const context=await browser.newContext({viewport:{width,height}}),page=await context.newPage();
-   let active='first',prepared=false,releaseOld;
+   const context=await browser.newContext({locale:'en-US',viewport:{width,height}}),page=await context.newPage();
+   let active='first',prepared=false,releaseOld,releaseExport,exportMode='success',configured=true,deckMode='normal',releaseDeck;
+   const sent={first:{},second:{},legacy:{}}; const unexpected=[];
    const writes=[],requests=[];
    const preferences=()=>({languages:['en','zh'],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
     languageSettings:{en:{effectiveTranslationLanguage:active==='first'?'zh-hans':'nl',inlineGlossMode:'always',wordPopup:{tabs:[{id:'definition',enabled:true}],openOn:'first'}},zh:{effectiveTranslationLanguage:'en',inlineGlossMode:'off'}}});
@@ -30,16 +31,30 @@ try{
     const request=route.request(),url=new URL(request.url()),path=url.pathname,body=request.postData()?JSON.parse(request.postData()):{};
     requests.push({path,method:request.method(),account:request.headers()['x-proxy-transcript-account']});
     if(!['GET','OPTIONS'].includes(request.method()))writes.push({path,body});
-    const respond=value=>route.fulfill({status:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'},body:JSON.stringify(value)});
+    const respond=(value,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'},body:JSON.stringify(value)});
+    if(request.method()==='OPTIONS')return respond({});
+    if((/^\/api\/lines\/\d+\/(reading|lexirise)/.test(path)||path==='/api/lexirise/decks'||path==='/api/lexirise/settings'&&request.headers()['x-proxy-transcript-account']!==undefined)&&request.headers()['x-proxy-transcript-account']!==active)return respond({detail:'Account changed. Retry with the selected account.'},409);
     if(path==='/api/status')return respond({capture:{running:true,active_game:'zzz',visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}});
     if(path==='/api/lines')return respond(url.searchParams.get('game')==='zzz'?[line()]:[]);
     if(path==='/api/favorites')return respond([]);
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[game],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,mobile_export:{state:'idle'},free_gb:10});
-    if(path==='/api/lexirise')return respond({configured:true,account:active,sent:{},decks:{}});
+    if(path==='/api/lexirise')return respond({configured,account:active,sent:sent[active],decks:{}});
     if(path==='/api/lexirise/accounts')return respond({active,profiles:[{id:'first',name:'First account'},{id:'second',name:'Second account'}]});
     if(path==='/api/lexirise/accounts/select'){active=body.id;return respond({active});}
     if(path==='/api/lexirise/settings')return respond(preferences());
-    if(path==='/api/lexirise/decks')return respond({decks:[]});
+    if(path==='/api/lexirise/decks'){
+     const result=request.method()==='GET'?{decks:[{id:active==='first'?11:active==='second'?22:33,title:active+' destination'}]}:{deck:{id:body.deck_id??44,title:active+' destination'}};
+     if(deckMode===(request.method()==='GET'?'hold-get':'hold-post')){deckMode='normal';releaseDeck=()=>respond(result);return;}
+     if(['GET','POST'].includes(request.method()))return respond(result);
+    }
+    if(path==='/api/lines/1/lexirise'&&request.method()==='POST'){
+     const account=active;
+     const complete=()=>{sent[account]['line:1']=account==='first'?11:account==='second'?22:33;return respond({deck_id:sent[account]['line:1']});};
+     if(exportMode==='hold'){releaseExport=complete;return;}
+     if(exportMode==='conflict')return respond({detail:'Synthetic account conflict'},409);
+     if(exportMode==='network')return route.abort('failed');
+     return complete();
+    }
     if(path==='/api/setup/games/zzz/languages'){
      if(request.method()==='POST')prepared=true;
      return respond(languages());
@@ -50,9 +65,16 @@ try{
      if(active==='first'){releaseOld=()=>respond(result);return;}
      return respond(result);
     }
-    return respond({});
+    unexpected.push(request.method()+' '+path);return respond({detail:'Unexpected fixture route'},500);
    });
    await page.goto('http://localhost:'+port);
+   const send=page.locator('.current-line .lexirise-send');
+   await send.waitFor();
+   await send.click();
+   await page.waitForTimeout(100);
+   assert.equal(requests.filter(r=>r.path==='/api/lines/1/lexirise').at(-1).account,'first','Initial missing account resolves to current account before export');
+   await page.getByText('Sentence and voice saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor({timeout:5000});
+
    await page.locator('.current-line .reading-hanzi').click();
    await page.waitForTimeout(100);
    assert(releaseOld,'Old-account lookup is pending');
@@ -67,6 +89,68 @@ try{
    assert.equal(await page.getByText('FIRST ACCOUNT ONLY',{exact:true}).count(),0,'Old response cannot populate the new account');
    assert(requests.some(r=>r.path.endsWith('/lookup')&&r.account==='second'));
    await page.keyboard.press('Escape');
+   const switchAccount=async account=>{
+    await page.getByRole('button',{name:'Account settings',exact:true}).click();
+    const panel=page.getByRole('dialog',{name:'Lexirise account settings'});
+    await panel.getByLabel('Active Lexirise account').selectOption(account);
+    await panel.getByText('Selected account loaded.',{exact:true}).waitFor();
+    await panel.getByLabel('Game export destination').locator('option').filter({hasText:account+' destination'}).waitFor({state:'attached'});
+    assert.equal(await panel.getByLabel('Game export destination').locator('option').filter({hasText:(account==='first'?'second':'first')+' destination'}).count(),0,'Decks belong to the selected account');
+    await panel.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
+   };
+   // Retry failures clear busy, and synchronous clicks still dispatch once.
+   for(const failure of ['conflict','network']){
+    exportMode=failure;const before=requests.filter(r=>r.path==='/api/lines/1/lexirise').length;
+    await send.evaluate(el=>{el.click();el.click();});
+    await page.waitForFunction(()=>document.querySelector('.current-line .lexirise-send')?.getAttribute('aria-busy')==='false');
+    assert.equal(requests.filter(r=>r.path==='/api/lines/1/lexirise').length,before+1);
+    assert.equal(await send.isEnabled(),true,'Failed export becomes retryable');
+   }
+   exportMode='hold';await send.click();await page.waitForTimeout(100);assert(releaseExport);
+   await switchAccount('first');await switchAccount('second');await releaseExport();
+   await page.waitForFunction(()=>document.querySelector('.current-line .lexirise-send')?.getAttribute('aria-busy')==='false');
+   assert.equal(await page.getByText('Sentence and voice saved in Lexirise · Zenless Zone Zero.',{exact:true}).count(),0,'Old export feedback cannot appear under a different account');
+   assert.equal(await send.getAttribute('aria-busy'),'false');
+   assert.equal(await send.isEnabled(),true,'A→B→A rejects a completion from the previous account generation');
+   await switchAccount('first');await switchAccount('second');
+   assert.equal(await send.isEnabled(),false,'Returning to the exported account loads its own sent state');
+   exportMode='success';await switchAccount('legacy');await send.click();
+   await page.getByText('Sentence and voice saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor();
+   assert.equal(requests.filter(r=>r.path==='/api/lines/1/lexirise').at(-1).account,'legacy');
+   await switchAccount('first');
+   // Every deck load gets a fresh account scope; both old reads and writes are
+   // discarded after a switch, including a round trip to the same identifier.
+   await page.getByRole('button',{name:'Account settings',exact:true}).click();
+   const deckPanel=page.getByRole('dialog',{name:'Lexirise account settings'});
+   const chooseInPanel=async account=>{
+    await deckPanel.getByLabel('Active Lexirise account').selectOption(account);
+    await deckPanel.getByText('Selected account loaded.',{exact:true}).waitFor();
+    await deckPanel.getByLabel('Game export destination').locator('option').filter({hasText:account+' destination'}).waitFor({state:'attached'});
+   };
+   await deckPanel.getByLabel('Game export destination').locator('option').filter({hasText:'first destination'}).waitFor({state:'attached'});
+   deckMode='hold-get';releaseDeck=null;await deckPanel.getByRole('button',{name:'Reload destinations',exact:true}).click();
+   await page.waitForTimeout(100);assert(releaseDeck);await chooseInPanel('second');await releaseDeck();
+   assert.equal(await deckPanel.getByLabel('Game export destination').locator('option').filter({hasText:'first destination'}).count(),0,'Old A deck response does not replace B destinations');
+   await chooseInPanel('first');await deckPanel.getByLabel('Game export destination').selectOption('11');
+   deckMode='hold-post';releaseDeck=null;const deckWritesBefore=writes.filter(w=>w.path==='/api/lexirise/decks').length;
+   await deckPanel.getByRole('button',{name:'Use selected deck',exact:true}).evaluate(el=>{el.click();el.click();});
+   await page.waitForTimeout(100);assert(releaseDeck);assert.equal(writes.filter(w=>w.path==='/api/lexirise/decks').length,deckWritesBefore+1,'Deck double click dispatches once');
+   await chooseInPanel('second');await chooseInPanel('first');await releaseDeck();
+   await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+   assert.equal(await deckPanel.getByText('Destination saved for this account.',{exact:true}).count(),0,'Previous A generation cannot report saved in the new A generation');
+   await deckPanel.getByLabel('Game export destination').selectOption('11');
+   await deckPanel.getByRole('button',{name:'Use selected deck',exact:true}).click();
+   await deckPanel.getByText('Destination saved for this account.',{exact:true}).waitFor();
+   assert.deepEqual(writes.filter(w=>w.path==='/api/lexirise/decks').at(-1).body,{game:'zzz',language:'en',deck_id:11});
+   await deckPanel.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
+   configured=false;
+   const unconfiguredResponse=page.waitForResponse(r=>r.url().endsWith('/api/lexirise'));
+   await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));await unconfiguredResponse;
+   const exportsBefore=requests.filter(r=>r.path==='/api/lines/1/lexirise').length;
+   assert.equal(await send.isEnabled(),false,'Unconfigured export stays disabled');await send.evaluate(el=>el.click());
+   assert.equal(requests.filter(r=>r.path==='/api/lines/1/lexirise').length,exportsBefore,'Unconfigured account cannot export');
+   configured=true;await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
+   assert.deepEqual(unexpected,[],'Every API route must be explicitly mocked');
    await page.getByRole('button',{name:'Settings',exact:true}).click();
    const setup=page.getByRole('dialog',{name:'Settings'});
    await setup.locator('.language-table button').first().waitFor();
@@ -78,7 +162,8 @@ try{
    const rebuilt=page.waitForResponse(r=>r.url().endsWith('/languages')&&r.request().method()==='POST');
    await setup.getByRole('button',{name:'Rebuild table',exact:true}).click();await rebuilt;
    assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')).at(-1).body,{locale:'zh-Hans',action:'rebuild',target:'en'},'Explicit rebuild has a distinct forced operation');
-   assert(!writes.some(w=>w.path==='/api/lexirise/settings'||w.path==='/api/lexirise/decks'),'Read/switch/setup does not provision account data');
+   assert(!writes.some(w=>w.path==='/api/lexirise/settings'),'Read/switch/setup does not write reading preferences');
+   assert.equal(writes.filter(w=>w.path==='/api/lexirise/decks').length,2,'Only explicit destination buttons write decks');
    assert(await setup.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Language setup fits viewport');
    await setup.screenshot({path:`output/playwright/languages-${name}-${width}.png`});
    await setup.getByRole('button',{name:'General & Updates',exact:true}).click();
@@ -86,6 +171,7 @@ try{
    for(const [locale,label] of [['nl','Instellingen'],['zh-Hans','设置'],['zh-Hant','設定']]){await page.getByRole('dialog').locator('select').selectOption(locale);await page.getByRole('dialog',{name:label,exact:true}).waitFor();assert.equal(await page.locator('html').getAttribute('lang'),locale);}
    assert.equal(writes.length,writesBefore,'Interface language is local and never changes learning/account data');
    await page.getByRole('dialog').locator('select').selectOption('en');
+   assert.deepEqual(unexpected,[],'No unexpected API routes during the full scenario');
    console.log(`${name}: isolated account responses and manual per-language setup ${width} passed`);
    await context.close();
   }

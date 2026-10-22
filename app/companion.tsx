@@ -421,6 +421,8 @@ function CompanionClient() {
   const playback = useRef<HTMLAudioElement | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
+  // A generation distinguishes A → B → A from an outstanding request for A.
+  const accountScope = useRef({ account: 'legacy', generation: 0, ready: false });
   const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
@@ -458,6 +460,7 @@ function CompanionClient() {
   }, [settingsOpen]);
 
   const loadSnapshot = useCallback(async () => {
+    const generation = accountScope.current.generation;
     try {
       const games = Object.keys(GAME_NAMES) as GameId[];
       const responses = await Promise.all([
@@ -465,11 +468,14 @@ function CompanionClient() {
         ...games.map(game => fetch(`${API_URL}/api/lines?limit=50&game=${game}`, { cache: 'no-store' })),
         ...games.map(game => fetch(`${API_URL}/api/favorites?game=${game}`, { cache: 'no-store' })),
       ]);
+      if (generation !== accountScope.current.generation) return;
       if (responses.some(response => !response.ok)) throw new Error('Companion service unavailable');
       const nextStatus = await responses[0].json() as StatusPayload;
+      if (generation !== accountScope.current.generation) return;
       setStatus(nextStatus);
       if (!settingsOpenRef.current) setDraftSettings(nextStatus.settings);
       const snapshots = await Promise.all(responses.slice(1).map(response => response.json() as Promise<TranscriptLine[]>));
+      if (generation !== accountScope.current.generation) return;
       const recentLines = snapshots.slice(0, games.length).flat();
       const favoriteLines = snapshots.slice(games.length).flat();
       const nextLines = Array.from(
@@ -485,11 +491,31 @@ function CompanionClient() {
       // Integration status must not prevent the transcript from loading.
       void fetch(`${API_URL}/api/lexirise`, { cache: 'no-store' })
         .then(response => response.ok ? response.json() : null)
-        .then(value => { if (value) setLexirise(value as LexiriseStatus); }).catch(() => undefined);
+        .then(value => {
+          if (!value || generation !== accountScope.current.generation) return;
+          const next = value as LexiriseStatus;
+          const account = next.account ?? 'legacy';
+          if (account !== accountScope.current.account) { accountScope.current.generation++; setStudyMessage(''); }
+          accountScope.current.account = account;
+          accountScope.current.ready = next.configured;
+          setLexirise(next);
+        }).catch(() => undefined);
     } catch {
-      setOnline(false);
+      if (generation === accountScope.current.generation) setOnline(false);
     }
   }, []);
+
+  useEffect(() => {
+    const changed = () => {
+      accountScope.current.generation++;
+      accountScope.current.ready = false;
+      setLexirise({ configured: false, sent: {} });
+      setStudyMessage('');
+      void loadSnapshot();
+    };
+    window.addEventListener('lexirise-credentials-changed', changed);
+    return () => window.removeEventListener('lexirise-credentials-changed', changed);
+  }, [loadSnapshot]);
 
   useEffect(() => {
     void loadSnapshot();
@@ -717,21 +743,24 @@ function CompanionClient() {
   }, [playbackRate]);
 
   const sendToLexirise = useCallback(async (kind: 'line', id: number | string, game: GameId) => {
-    if (sendingStudy.current) return;
+    if (sendingStudy.current || !accountScope.current.ready) return;
+    const scope = { ...accountScope.current };
+    const isCurrent = () => scope.generation === accountScope.current.generation && scope.account === accountScope.current.account && accountScope.current.ready;
     sendingStudy.current = true;
     const ref = `${kind}:${id}`;
     setSendingRef(ref);
     setStudyMessage('Sending sentence and voice to Lexirise…');
     try {
       const response = await fetch(`${API_URL}/api/lines/${id}/lexirise`, {
-        method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':lexirise.account??'legacy' },
+        method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':scope.account },
       });
       const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
+      if (!isCurrent()) return;
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
       setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
     } catch (error) {
-      setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
+      if (isCurrent()) setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
     } finally {
       sendingStudy.current = false;
       setSendingRef(null);
@@ -1002,7 +1031,7 @@ function CompanionClient() {
       </footer>
 
       {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:"zh"} />}
-      {accountSettingsOpen && <SettingsPanel title={uiText("Lexirise account settings")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<><AccountSwitcher onChanged={() => void loadSnapshot()}/>{selectedGame !== 'hito' && <GameDeckSettings game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} />}</>} />}
+      {accountSettingsOpen && <SettingsPanel title={uiText("Lexirise account settings")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<><AccountSwitcher onChanged={() => void loadSnapshot()}/>{selectedGame !== 'hito' && <GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} />}</>} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">
