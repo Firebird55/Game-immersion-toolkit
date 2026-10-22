@@ -26,7 +26,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({locale:'en-US',viewport:{width:390,height:844},hasTouch:true,deviceScaleFactor:3,serviceWorkers:'block'});
   const page=await context.newPage(),errors=[],requests=[];
-  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];
+  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans';
   page.on('pageerror',e=>{
    // WebKit can defer one observer delivery while the anchored library mounts
    // and asynchronous dictionary data resizes the phone sheet. Require stable
@@ -39,10 +39,10 @@ try{
    if(request.method()==='OPTIONS')return route.fulfill({status:204,headers:{...headers,'Access-Control-Allow-Headers':'Authorization, Content-Type'}});
    const body=request.postDataJSON();requests.push(body);if(body.path==='/v1/analyze/text')analysisAccounts.push(request.headers().authorization==='Bearer mock-layout-key-second'?'second':'first');
    let data;
-   if(body.path==='/v1/settings')data={languages:['zh','nl'],global:{effectiveTranslationLanguage:'en'},languageSettings:{zh:{},nl:{effectiveTranslationLanguage:'zh-hans',inlineGlossMode:'always'}}};
-   else if(body.path==='/v1/analyze/text'&&body.payload.language==='nl')data={occurrences:[{word:'Een',charStart:0,charEnd:3,isWordLike:true,entryId:99}],entryMetaById:{99:{gloss:'一个'}},stateByEntryId:{}};
+   if(body.path==='/v1/settings')data={languages:['zh','nl','de'],global:{effectiveTranslationLanguage:'en'},languageSettings:{zh:{},nl:{effectiveTranslationLanguage:dutchTarget,inlineGlossMode:'always'},de:{effectiveTranslationLanguage:'nl'}}};
+   else if(body.path==='/v1/analyze/text'&&['nl','de'].includes(body.payload.language))data={occurrences:[{word:'Een',charStart:0,charEnd:3,isWordLike:true,entryId:99}],entryMetaById:{99:{gloss:'一个'}},stateByEntryId:{}};
    else if(body.path==='/v1/analyze/text')data={occurrences:segments.map(([word,transliteration],i)=>({word,transliteration,charStart:chinese.indexOf(word),charEnd:chinese.indexOf(word)+word.length,isWordLike:true,entryId:i+1,tones:[3,3]})),entryMetaById:Object.fromEntries(segments.map((s,i)=>[i+1,{gloss:s[2]}])),stateByEntryId:{}};
-   else if(body.path==='/v1/dictionary/lookup')data={word:body.payload.text,translations:[{target_lang:body.payload.language==='nl'?'zh-hans':'en',translation:body.payload.language==='nl'?'荷兰语词义':'hello; a greeting to welcome someone',part_of_speech:['interjection']}],supplementalEntries:[{dictionary_name:'Fixture dictionary',headword:body.payload.text,html:'<ul>'+Array.from({length:24},(_,i)=>'<li>Authored dictionary explanation '+(i+1)+' with enough detail to exercise scrolling.</li>').join('')+'</ul>'}],characterInfo:{pinyin:['nǐ'],gloss:'you'}};
+   else if(body.path==='/v1/dictionary/lookup')data={word:body.payload.text,translations:[{target_lang:'en',translation:'hello; a greeting to welcome someone',part_of_speech:['interjection']},{target_lang:'zh-hans',translation:'荷兰语词义',part_of_speech:[]},{target_lang:'nl',translation:'Nederlandse betekenis',part_of_speech:[]}],supplementalEntries:[{dictionary_name:'Fixture dictionary',headword:body.payload.text,html:'<ul>'+Array.from({length:24},(_,i)=>'<li>Authored dictionary explanation '+(i+1)+' with enough detail to exercise scrolling.</li>').join('')+'</ul>'}],characterInfo:{pinyin:['nǐ'],gloss:'you'}};
    else if(body.path==='/v1/analyze/context')data={meaning:'A friendly greeting used when meeting a traveler.'};
    else throw Error('Unexpected mock account request: '+body.path);
    if(body.path==='/v1/dictionary/lookup'&&holdLookup){holdLookup=false;releaseLookup=()=>route.fulfill({json:{...data,translations:[{target_lang:'en',translation:'FIRST ACCOUNT PENDING',part_of_speech:[]}]},headers}).catch(()=>{});return;}
@@ -244,6 +244,27 @@ try{
   assert(requests.some(r=>r.path==='/v1/dictionary/lookup'&&r.payload.language==='nl'),'Dutch lookup uses its own learning language');
   await page.getByRole('button',{name:'Close word lookup'}).click();
   }
+  // Resolve changed settings before constructing a new pinned-target session.
+  await page.evaluate(()=>{window.previousTargetReader=document.querySelector('.current-card .reading-hanzi');window.dispatchEvent(new Event('lexirise-account-settings'));});
+  await page.waitForFunction(()=>!window.previousTargetReader.isConnected);
+  await page.locator('.current-card .reading-hanzi').first().waitFor();
+  holdLookup=true;releaseLookup=null;await page.locator('.current-card .reading-hanzi').first().click();
+  await page.waitForTimeout(100);assert(releaseLookup,'Target change has a pending old lookup');
+  dutchTarget='nl';
+  await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-account-settings')));
+  await page.locator('.word-sheet').waitFor({state:'detached'});
+  await page.locator('.current-card .reading-hanzi').first().waitFor();
+  await releaseLookup();
+  await page.locator('.current-card .reading-hanzi').first().click();
+  await page.locator('.word-sheet').getByText('Nederlandse betekenis',{exact:false}).first().waitFor();
+  assert.equal(await page.getByText('FIRST ACCOUNT PENDING',{exact:true}).count(),0,'Previous target cannot publish after settings change');
+  await page.getByRole('button',{name:'Close word lookup'}).click();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game:'heavyrain',id:8,createdAt:1700000011000,chinese:'测试',english:'',audio:false,sourceLanguage:'de',sourceLocale:'de',sourceText:'Een',translationLocale:'nl',translationText:'Een fixture'}]}})));
+  await page.locator('.current-card .reading-text[lang="de"]').waitFor();
+  await page.locator('.current-card .reading-hanzi').first().click();
+  await page.locator('.word-sheet').getByText('Nederlandse betekenis',{exact:false}).first().waitFor();
+  assert(requests.some(r=>r.path==='/v1/dictionary/lookup'&&r.payload.language==='de'),'German lookup resolves its own Dutch target');
+  await page.getByRole('button',{name:'Close word lookup'}).click();
   // Mount the same shipped application with its reader portal in a Shadow
   // root from the start, so React registers native events at the proper root.
   const shadowPage=await context.newPage();shadowPage.on('pageerror',e=>errors.push(e.message));

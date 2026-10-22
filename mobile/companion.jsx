@@ -6,6 +6,7 @@ import {createPortal} from 'react-dom';
 import {createReader,createReadingSession,restoreLocalSettings,ReadingOptionsDialog,SettingsPanel,shouldHideTranslation} from '@firebird55/lexirise-components';
 import '@firebird55/lexirise-components/styles.css';
 import './companion.css';
+import {createMobileReaderContext} from './reader-context.mjs';
 
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -44,9 +45,10 @@ function App(){
  const [rows,setRows]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[status,setStatus]=useState('Ready to connect'),[filter,setFilter]=useState('history'),[search,setSearch]=useState(''),[limit,setLimit]=useState(30),[before,setBefore]=useState(null),[connected,setConnected]=useState(false),[pcSource,setPCSource]=useState(null);
  const [options,setOptions]=useState(restoreLocalSettings(null)),[mode,setMode]=useState('migaku'),[chinese,setChinese]=useState(true),[english,setEnglish]=useState(true),[optionsOpen,setOptionsOpen]=useState(false),[accountOpen,setAccountOpen]=useState(false),[dev,setDev]=useState(params.get('developer')==='1');
  const [unlocked,setUnlocked]=useState(false),[hasVault,setHasVault]=useState(false),[vaultAction,setVaultAction]=useState(''),[working,setWorking]=useState(false),[revision,setRevision]=useState(0),[decks,setDecks]=useState([]),[deck,setDeck]=useState(''),[deckTitle,setDeckTitle]=useState(''),[update,setUpdate]=useState(null);
- const languageSessions=useRef(new Map());
+ const readerOwner=useRef(null);
  const session=useRef(null),reader=useRef(null),vault=useRef(null),audioUrl=useRef(null),hydrated=useRef(false),busy=useRef(false),mediaRevision=useRef(0);
- if(!vault.current)vault.current=cryptoVault.createVault(storage,{onLock:()=>{for(const pair of languageSessions.current.values())pair.session.dispose();languageSessions.current.clear();session.current?.dispose();session.current=null;reader.current?.resetReadingCaches();reader.current=null;setUnlocked(false);setAccountOpen(false);setDecks([]);setDeck('');setDeckTitle('');setRevision(r=>r+1);}});
+ if(!vault.current)vault.current=cryptoVault.createVault(storage,{onLock:()=>{readerOwner.current?.reset();session.current=null;reader.current=null;setUnlocked(false);setAccountOpen(false);setDecks([]);setDeck('');setDeckTitle('');setRevision(r=>r+1);}});
+ if(!readerOwner.current)readerOwner.current=createMobileReaderContext({request:transport,createSession:createReadingSession,createReader,onChange:()=>setRevision(r=>r+1)});
  const refresh=()=>setRows([...library.libraryLifecycle.history,...pcHistory]);
  const run=async fn=>{if(busy.current)return;busy.current=true;setWorking(true);setError('');try{await fn();}catch(e){setError(e.message??'This action could not complete. Retry when ready.');}finally{busy.current=false;setWorking(false);}};
  useEffect(()=>{
@@ -58,11 +60,11 @@ function App(){
   const capabilities=e=>setPCSource(e.detail.source);window.addEventListener('pc-capabilities',capabilities);
   const stream=e=>{setConnected(e.detail.state==='connected');setGame($('game').value);};window.addEventListener('mobile-stream',stream);
   const observer=new MutationObserver(()=>setStatus($('status').textContent));observer.observe($('status'),{childList:true,subtree:true,characterData:true});
-  const settingsChanged=()=>{for(const pair of languageSessions.current.values())pair.reader.resetReadingCaches();setRevision(n=>n+1);};window.addEventListener('lexirise-account-settings',settingsChanged);
+  const settingsChanged=()=>{if(vault.current.unlocked)void readerOwner.current.reload().catch(e=>{if(e.name!=='AbortError')setError(e.message);});};window.addEventListener('lexirise-account-settings',settingsChanged);
   const visibility=()=>vault.current.visibility(document.hidden),exit=()=>vault.current.lock();document.addEventListener('visibilitychange',visibility);window.addEventListener('pagehide',exit);
   void (async()=>{try{pcHistory=await storage.get('pc-history')??[];const preferences=await storage.get('browser-reading')??{};setOptions(restoreLocalSettings(preferences.options));setMode(preferences.mode==='lexirise'?'lexirise':'migaku');setChinese(preferences.chinese!==false);setEnglish(preferences.english!==false);setHasVault(await vault.current.exists());refresh();}catch{setError('Browser storage is unavailable. Reading works this session; reconnect your library to restore local content.');}finally{hydrated.current=true;setLoading(false);}})();
   if(document.documentElement.dataset.buildCommit&&'serviceWorker' in navigator)void (async()=>{const existing=await navigator.serviceWorker.getRegistration();const reg=existing??await navigator.serviceWorker.register('./sw.js');if(reg.waiting)setUpdate(reg);reg.addEventListener('updatefound',()=>{reg.installing?.addEventListener('statechange',()=>{if(reg.waiting)setUpdate(reg);});});if(existing&&navigator.onLine)void reg.update().catch(()=>{});})().catch(()=>{});
-  return ()=>{observer.disconnect();window.removeEventListener('lexirise-account-settings',settingsChanged);$('role').removeEventListener('change',stop);$('source').removeEventListener('change',stop);$('game').removeEventListener('change',change);window.removeEventListener('mobile-history',history);window.removeEventListener('pc-transcript',pc);window.removeEventListener('pc-capabilities',capabilities);window.removeEventListener('mobile-stream',stream);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',exit);};
+  return ()=>{vault.current.lock();observer.disconnect();window.removeEventListener('lexirise-account-settings',settingsChanged);$('role').removeEventListener('change',stop);$('source').removeEventListener('change',stop);$('game').removeEventListener('change',change);window.removeEventListener('mobile-history',history);window.removeEventListener('pc-transcript',pc);window.removeEventListener('pc-capabilities',capabilities);window.removeEventListener('mobile-stream',stream);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pagehide',exit);};
  },[]);
  useEffect(()=>{document.body.dataset.role=role;document.body.dataset.source=source;document.body.dataset.view=view;document.body.classList.toggle('developer-mode',dev);$('source-control').hidden=role==='sender';for(const panel of document.querySelectorAll('[data-panel]'))panel.hidden=!dev&&(panel.dataset.panel!==view||panel.dataset.role&&panel.dataset.role!==role);$('video-surface').hidden=source==='pc';},[view,role,source,dev]);
  useEffect(()=>{if(hydrated.current)void storage.put('browser-reading',{version:1,options,mode,chinese,english}).catch(()=>setError('Reading preferences could not be saved.'));},[options,mode,chinese,english]);
@@ -70,13 +72,13 @@ function App(){
   const key=vault.current.credential(),response=await fetch(gateway+'/v1/request',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({path,method,...payload===undefined?{}:{payload}}),cache:'no-store',signal:AbortSignal.any([signal,vault.current.signal,AbortSignal.timeout(30000)])});
   return {status:response.status,responseText:await response.text()};
  }
- function sessionFor(language){let pair=languageSessions.current.get(language);if(!pair){const client=createReadingSession({sourceLanguage:language,request:transport});pair={session:client,reader:createReader({sourceLanguage:language,loadSettings:()=>client.loadSettings(),request:(...args)=>client.requestReading(...args)})};languageSessions.current.set(language,pair);}return pair;}
- function openSession(){const pair=sessionFor(current?.sourceLanguage??'zh');session.current=pair.session;reader.current=pair.reader;setUnlocked(true);setRevision(r=>r+1);}
+ function sessionFor(row){return readerOwner.current.pair({game:row?.game??game,sourceLocale:row?.sourceLocale??'zh-Hans',sourceLanguage:row?.sourceLanguage??'zh'});}
+ async function openSession(){await readerOwner.current.reload();if(!vault.current.unlocked)return;setUnlocked(true);}
  async function submitVault(event){event.preventDefault();const form=event.currentTarget,data=new FormData(form),action=vaultAction||(!hasVault?'connect':'unlock');const key=data.get('key'),pass=data.get('pass'),confirm=data.get('confirm');form.reset();await run(async()=>{
   if(action==='change')await vault.current.changePassphrase(pass,confirm);
   else if(action==='unlock')await vault.current.unlock(pass);
   else await vault.current.connect(key,pass,confirm);
-  if(action!=='change')openSession();setHasVault(true);setVaultAction('');setNotice('Lexirise unlocked for this session.');
+  if(action!=='change')await openSession();setHasVault(true);setVaultAction('');setNotice('Lexirise unlocked for this session.');
  });}
  async function blobFor(row){return row.source==='mobile-ocr'?library.libraryLifecycle.voice(row):capture.captureLifecycle.audio(row);}
  async function play(row){await run(async()=>{const token=mediaRevision.current,blob=await blobFor(row);if(token!==mediaRevision.current)return;if(audioUrl.current)URL.revokeObjectURL(audioUrl.current);audioUrl.current=URL.createObjectURL(blob);$('voice-player').src=audioUrl.current;await $('voice-player').play();});}
@@ -87,7 +89,7 @@ function App(){
   setDecks(found);
  }
  async function saveSentence(row){await run(async()=>{
-  if(!session.current)throw Error('Unlock Lexirise in Settings first.');if((row.sourceLanguage??'zh')!==(current?.sourceLanguage??'zh'))throw Error('Select this learning language before choosing a sentence deck.');const client=sessionFor(row.sourceLanguage??'zh').session,signal=vault.current.signal,credential=vault.current.credential();
+  if(!session.current)throw Error('Unlock Lexirise in Settings first.');if((row.sourceLanguage??'zh')!==(current?.sourceLanguage??'zh'))throw Error('Select this learning language before choosing a sentence deck.');const client=sessionFor(row).session,signal=vault.current.signal,credential=vault.current.credential();
   const payload={language:row.sourceLanguage??'zh',text:row.sourceText??row.chinese,mode:'sentence',translation:row.translationText??row.english,notes:[row.game,row.speakerChinese||row.speakerEnglish].filter(Boolean).join(' — '),tags:[row.game]};
   if(row.audio){const blob=await blobFor(row);const response=await fetch(gateway+'/v1/audio',{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':blob.type},body:blob,cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(30000)])});if(!response.ok)throw Error('Original voice upload failed. Retry saving when ready.');const uploaded=await response.json();if(!/^https:\/\//.test(uploaded.publicUrl))throw Error('Audio upload was not confirmed.');payload.audioUrls=[uploaded.publicUrl];}
   const result=await client.requestAccount('POST','/v1/vocabulary',payload),id=result.item?.id??result.item?.saved_expression_id;if(!Number.isSafeInteger(id))throw Error('Sentence save was not confirmed. Retry to check.');
@@ -96,8 +98,8 @@ function App(){
  const selected=rows.filter(r=>r.game===game&&(source==='mobile'?r.source==='mobile-ocr':r.source?.startsWith('pc-'))).sort((a,b)=>b.createdAt-a.createdAt||Number(b.id)-Number(a.id));
  const matches=selected.filter(r=>(filter!=='favorites'||r.favorite)&&(!search||[r.sourceText??r.chinese,r.translationText??r.english,r.speakerChinese,r.speakerEnglish].some(t=>t?.toLowerCase().includes(search.toLowerCase()))));
  const current=source==='pc'&&pcSource?selected.find(r=>r.source===pcSource):selected[0];
- useEffect(()=>{if(unlocked){const pair=sessionFor(current?.sourceLanguage??'zh');session.current=pair.session;reader.current=pair.reader;setDecks([]);setDeck('');setRevision(r=>r+1);}},[unlocked,current?.sourceLanguage]);
- const lineProps=row=>({Reader:unlocked?sessionFor(row.sourceLanguage??'zh').reader.ReadingText:null,readerContext:JSON.stringify([revision,mode,row.sourceLanguage??'zh']),mode,unlocked,chinese,english,options,working,connected,onPlay:play,onFavorite:favorite,onSave:saveSentence});
+ useEffect(()=>{const pair=unlocked?sessionFor(current):null;session.current=pair?.session??null;reader.current=pair?.reader??null;setDecks([]);setDeck('');},[unlocked,current?.game,current?.sourceLocale,current?.sourceLanguage,revision]);
+ const lineProps=row=>({Reader:unlocked?sessionFor(row)?.reader.ReadingText:null,readerContext:JSON.stringify([revision,mode,sessionFor(row)?.key]),mode,unlocked,chinese,english,options,working,connected,onPlay:play,onFavorite:favorite,onSave:saveSentence});
  const go=next=>{setView(next);setError('');};
  const applyUpdate=()=>run(async()=>{if($('role').disabled||capture.captureLifecycle.active||library.libraryLifecycle.busy)throw Error('Stop sharing and finish library operations before updating.');vault.current.lock();const registration=update??await navigator.serviceWorker?.getRegistration();await registration?.update().catch(()=>{});const installing=registration?.installing;if(installing)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>finish(Error('The update is still downloading. Try again shortly.')),15000);const check=()=>{if(['installed','redundant'].includes(installing.state))finish();};function finish(error){clearTimeout(timer);installing.removeEventListener('statechange',check);error?reject(error):resolve();}installing.addEventListener('statechange',check);check();});if(capture.captureLifecycle.active||library.libraryLifecycle.busy)throw Error('Finish sharing and library operations before applying the update.');if(registration?.waiting){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});registration.waiting.postMessage('activate-update');}else {const url=new URL(location.href);url.searchParams.set('v',String(Date.now()));location.replace(url);}});
  $('reload-build').onclick=applyUpdate;
@@ -125,7 +127,7 @@ function App(){
    <section><h2>{uiText("This device")}</h2><p>{uiText("Local transcripts, favorites and calibration are kept in browser storage. Clearing site data removes them and your encrypted key. Reselect voice ZIPs after reopening; voice packs are never copied into browser storage.")}</p><label><input type="checkbox" checked={dev} onChange={e=>setDev(e.target.checked)}/> {uiText("Enable developer mode")}</label><p className="hint">{uiText("Shows capture observations, raw metrics and device verification tools for this session.")}</p></section>
   </div>,$('settings-root'))}
   {optionsOpen&&<ReadingOptionsDialog sourceLanguage={current?.sourceLanguage??'zh'} initial={options} onChange={setOptions} onClose={()=>setOptionsOpen(false)}/>}
-  {accountOpen&&unlocked&&<SettingsPanel sourceLanguage={current?.sourceLanguage??'zh'} initial={options} onChange={setOptions} onClose={()=>setAccountOpen(false)} adapter={{load:()=>session.current.loadSettings(),patch:p=>session.current.patchSettings(p)}} showReadingOptions={false} title={uiText("Lexirise account settings")}/>}
+  {accountOpen&&unlocked&&<SettingsPanel sourceLanguage={current?.sourceLanguage??'zh'} initial={options} onChange={setOptions} onClose={()=>setAccountOpen(false)} adapter={{load:()=>readerOwner.current.reload(),patch:p=>readerOwner.current.patch(p)}} showReadingOptions={false} title={uiText("Lexirise account settings")}/>}
   <footer>{uiText("By")} <a href="https://github.com/Firebird55/Game-immersion-toolkit" target="_blank" rel="noreferrer">{uiText("Firebird55")}</a> {uiText("· Game content stays on your devices. Lexirise actions use its API.")}</footer>
  </>;
 }
