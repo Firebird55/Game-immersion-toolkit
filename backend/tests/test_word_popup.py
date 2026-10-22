@@ -33,7 +33,7 @@ def test_notes_endpoint_uses_only_the_selected_transcript_line(monkeypatch):
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(
         transcript=SimpleNamespace(get=lambda line_id: SimpleNamespace(chinese='的',source_text='的') if line_id == 1 else None),
         reading=SimpleNamespace(notes=lambda text, start: {'notes': 'A saved note'} if text == '的' and start == 0 else None)), raising=False)
-    client = TestClient(api.app)
+    client = TestClient(api.app, base_url="http://127.0.0.1:8766")
     assert client.get('/api/lines/1/reading/notes?start=0').json() == {'notes': 'A saved note'}
     assert client.get('/api/lines/1/reading/notes?start=1').status_code == 404
     assert client.get('/api/lines/2/reading/notes?start=0').status_code == 404

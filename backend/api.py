@@ -45,6 +45,7 @@ from .windows import list_visible_windows, game_data_directory, installed_zzz_ga
 from .installation import InstallationService
 from .scoped_mobile_exports import ScopedMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
+from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
 
 
 PROJECT_ROOT = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
@@ -690,16 +691,14 @@ async def pin_account_request(request: Request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ],
+    allow_origins=sorted(COMPANION_ORIGINS),
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["*"],
 )
+# Outermost: reject HTTP/preflight and WebSocket requests before account pinning,
+# endpoint side effects, acceptance, or capture/status snapshots.
+app.add_middleware(LocalAccessMiddleware)
 
 
 @app.get("/api/health")
@@ -771,12 +770,8 @@ def get_status() -> dict[str, object]:
 
 
 def setup_access(request: Request, header: str | None = None, *, write: bool = False) -> None:
-    if request.url.hostname not in {"localhost", "127.0.0.1"}:
+    if not local_access_allowed(request.scope.get('headers', [])):
         raise HTTPException(403, "Setup is available only on this PC")
-    origin = request.headers.get("origin")
-    if origin and origin not in {"http://localhost:3000", "http://127.0.0.1:3000",
-                                  "http://localhost:3001", "http://127.0.0.1:3001"}:
-        raise HTTPException(403, "Use the local companion to configure setup")
     if write and header != "setup":
         raise HTTPException(403, "Setup action header required")
 
