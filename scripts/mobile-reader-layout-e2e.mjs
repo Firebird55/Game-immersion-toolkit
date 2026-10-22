@@ -26,7 +26,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({locale:'en-US',viewport:{width:390,height:844},hasTouch:true,deviceScaleFactor:3,serviceWorkers:'block'});
   const page=await context.newPage(),errors=[],requests=[];
-  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans';
+  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks;
   page.on('pageerror',e=>{
    // WebKit can defer one observer delivery while the anchored library mounts
    // and asynchronous dictionary data resizes the phone sheet. Require stable
@@ -43,9 +43,12 @@ try{
    else if(body.path==='/v1/analyze/text'&&['nl','de'].includes(body.payload.language))data={occurrences:[{word:'Een',charStart:0,charEnd:3,isWordLike:true,entryId:99}],entryMetaById:{99:{gloss:'一个'}},stateByEntryId:{}};
    else if(body.path==='/v1/analyze/text')data={occurrences:segments.map(([word,transliteration],i)=>({word,transliteration,charStart:chinese.indexOf(word),charEnd:chinese.indexOf(word)+word.length,isWordLike:true,entryId:i+1,tones:[3,3]})),entryMetaById:Object.fromEntries(segments.map((s,i)=>[i+1,{gloss:s[2]}])),stateByEntryId:{}};
    else if(body.path==='/v1/dictionary/lookup')data={word:body.payload.text,translations:[{target_lang:'en',translation:'hello; a greeting to welcome someone',part_of_speech:['interjection']},{target_lang:'zh-hans',translation:'荷兰语词义',part_of_speech:[]},{target_lang:'nl',translation:'Nederlandse betekenis',part_of_speech:[]}],supplementalEntries:[{dictionary_name:'Fixture dictionary',headword:body.payload.text,html:'<ul>'+Array.from({length:24},(_,i)=>'<li>Authored dictionary explanation '+(i+1)+' with enough detail to exercise scrolling.</li>').join('')+'</ul>'}],characterInfo:{pinyin:['nǐ'],gloss:'you'}};
+   else if(body.path==='/v1/me')data={user:{id:1}};
+   else if(body.path.startsWith('/v1/decks?'))data={decks:[{id:42,title:'Previous Dutch deck',owner_user_id:1,language:'nl',unit_type:'sentence',deck_type:'snapshot'}]};
    else if(body.path==='/v1/analyze/context')data={meaning:'A friendly greeting used when meeting a traveler.'};
    else throw Error('Unexpected mock account request: '+body.path);
    if(body.path==='/v1/dictionary/lookup'&&holdLookup){holdLookup=false;releaseLookup=()=>route.fulfill({json:{...data,translations:[{target_lang:'en',translation:'FIRST ACCOUNT PENDING',part_of_speech:[]}]},headers}).catch(()=>{});return;}
+   if(body.path.startsWith('/v1/decks?')&&holdDecks){holdDecks=false;releaseDecks=()=>route.fulfill({json:data,headers}).catch(()=>{});return;}
    return route.fulfill({json:data,headers});
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
@@ -58,6 +61,17 @@ try{
   await page.locator('input[name=confirm]').fill('safe layout fixture passphrase');
   await page.getByRole('button',{name:'Connect Lexirise',exact:true}).click();
   await page.getByRole('button',{name:'Lock',exact:true}).waitFor();
+  const settingsBefore=requests.filter(r=>r.path==='/v1/settings').length;
+  await page.getByRole('button',{name:'Account settings',exact:true}).click();
+  const accountDialog=page.getByRole('dialog',{name:'Lexirise account settings',exact:true});
+  await page.waitForTimeout(250);
+  assert.equal(requests.filter(r=>r.path==='/v1/settings').length-settingsBefore,1,'Opening the panel must not create an adapter reload loop');
+  await accountDialog.getByLabel('translationLanguage',{exact:true}).selectOption('de');
+  await page.evaluate(()=>document.querySelector('#status').textContent='Settings draft fixture');
+  await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+  assert.equal(await accountDialog.getByLabel('translationLanguage',{exact:true}).inputValue(),'de','Unrelated parent update preserves the settings draft');
+  assert.equal(requests.filter(r=>r.path==='/v1/settings').length-settingsBefore,1,'Parent updates keep settings adapter identity');
+  await accountDialog.getByRole('button',{name:'Close Lexirise settings'}).click();
   await page.getByLabel('Reader mode').selectOption('lexirise');
   await page.getByRole('button',{name:'Reader',exact:true}).click();
   await page.locator('.current-card .reading-hanzi').first().waitFor();
@@ -259,11 +273,19 @@ try{
   await page.locator('.word-sheet').getByText('Nederlandse betekenis',{exact:false}).first().waitFor();
   assert.equal(await page.getByText('FIRST ACCOUNT PENDING',{exact:true}).count(),0,'Previous target cannot publish after settings change');
   await page.getByRole('button',{name:'Close word lookup'}).click();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByText('Sentence saving and decks',{exact:true}).click();holdDecks=true;
+  await page.getByRole('button',{name:'Load my decks',exact:true}).click();
+  for(let attempt=0;!releaseDecks&&attempt<100;attempt++)await page.waitForTimeout(20);
+  assert(releaseDecks,'A previous source deck read is pending');
+  await page.getByRole('button',{name:'Reader',exact:true}).click();
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game:'heavyrain',id:8,createdAt:1700000011000,chinese:'测试',english:'',audio:false,sourceLanguage:'de',sourceLocale:'de',sourceText:'Een',translationLocale:'nl',translationText:'Een fixture'}]}})));
   await page.locator('.current-card .reading-text[lang="de"]').waitFor();
   await page.locator('.current-card .reading-hanzi').first().click();
   await page.locator('.word-sheet').getByText('Nederlandse betekenis',{exact:false}).first().waitFor();
   assert(requests.some(r=>r.path==='/v1/dictionary/lookup'&&r.payload.language==='de'),'German lookup resolves its own Dutch target');
+  await releaseDecks();await page.waitForTimeout(100);
+  assert.equal(await page.getByLabel('Save destination').locator('option[value="42"]').count(),0,'Late Dutch decks cannot populate German reader context');
   await page.getByRole('button',{name:'Close word lookup'}).click();
   // Mount the same shipped application with its reader portal in a Shadow
   // root from the start, so React registers native events at the proper root.
