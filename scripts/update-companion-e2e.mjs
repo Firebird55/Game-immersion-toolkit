@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import {spawn,execFileSync} from 'node:child_process';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync,existsSync,readdirSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync,existsSync,readdirSync,realpathSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join,resolve,sep} from 'node:path';
+import {join,sep} from 'node:path';
 import net from 'node:net';
 
 if(process.platform!=='win32'){console.log('Prepared companion updates require Windows.');process.exit(0);}
-const repository=process.cwd(),temporary=mkdtempSync(join(tmpdir(),'companion-update-'));
+const repository=process.cwd(),temporary=realpathSync.native(mkdtempSync(join(tmpdir(),'companion-update-')));
 const pythonLocal=join(process.env.LOCALAPPDATA??'','Programs/Proxy Transcript/venv/Scripts/python.exe');
 const python=existsSync(pythonLocal)?pythonLocal:execFileSync('python',['-c','import sys; print(sys.executable)'],{encoding:'utf8'}).trim();
 const children=[],fixture=join(repository,'scripts/fixtures/companion-update');
@@ -65,7 +65,7 @@ try{
    const events=readFileSync(join(root,'data/events.log'),'utf8').trim().split(/\r?\n/).map(line=>JSON.parse(line));
    assert(events.findIndex(event=>event.name==='ready')<events.findIndex(event=>event.name==='quiesced'),'Old capture paused before the replacement was ready');
    const records=JSON.parse(readFileSync(join(root,'data/processes.json'),'utf8'));
-   assert.equal(typeof records.backend.started,'string');assert.equal(records.backend.root,root);assert.equal(records.router.id,router.pid);
+   assert.equal(typeof records.backend.started,'string');assert.equal(realpathSync.native(records.backend.root),realpathSync.native(root));assert.equal(records.router.id,router.pid);
    stopRecorded(root,true);
   }
   terminate(router);terminate(old);
@@ -76,7 +76,7 @@ try{
  for(const name of ['successful update','failed update']){
   stopRecorded(join(temporary,name));
  }
- const checked=resolve(temporary),prefix=resolve(tmpdir())+sep+'companion-update-';
+ const checked=realpathSync.native(temporary),prefix=realpathSync.native(tmpdir())+sep+'companion-update-';
  if(!checked.startsWith(prefix))throw Error('Unexpected fixture cleanup path');
  rmSync(checked,{recursive:true,force:true,maxRetries:3,retryDelay:100});
 }
