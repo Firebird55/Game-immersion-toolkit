@@ -6,7 +6,7 @@ import os
 import threading
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain")
+GAMES = ("zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain")
 GAME_NAMES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
               "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
               "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}

@@ -241,19 +241,3 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 | Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
 
 </details>
-
-<a id="hito"></a>
-
-## Hito's World
-
-[Officiële taallijst](https://store.steampowered.com/app/4934190/Hitos_World/) · [Dekkingsnotities](../desktop-companion.md#hitos-world)
-
-<details>
-<summary>Taaldetails</summary>
-
-| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
-| :--- | :---: | :---: | :---: | :--- |
-| Engels | ✓ | — | ✓ | Reader geïmplementeerd |
-| Chinees (vereenvoudigd) | — | Alleen tekst | — | Reader geïmplementeerd |
-
-</details>

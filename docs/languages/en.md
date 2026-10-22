@@ -241,19 +241,3 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Traditional Chinese | — | — | ✓ | Reader implemented |
 
 </details>
-
-<a id="hito"></a>
-
-## Hito's World
-
-[Official language listing](https://store.steampowered.com/app/4934190/Hitos_World/) · [Coverage notes](../desktop-companion.md#hitos-world)
-
-<details>
-<summary>Language details</summary>
-
-| Language | Original voice | Learning | Translation | Evidence |
-| :--- | :---: | :---: | :---: | :--- |
-| English | ✓ | — | ✓ | Reader implemented |
-| Simplified Chinese | — | Text only | — | Reader implemented |
-
-</details>

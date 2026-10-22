@@ -50,7 +50,7 @@ def make_game(tmp_path, game):
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "heavyrain"])
+@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "heavyrain"])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()
@@ -59,22 +59,22 @@ def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
 
 
 def test_zzz_data_folder_is_normalized_and_other_games_preserved(tmp_path):
-    hito = make_game(tmp_path, "hito")
+    pragmata = make_game(tmp_path, "pragmata")
     zzz = make_game(tmp_path, "zzz")
-    save_install("hito", hito)
+    save_install("pragmata", pragmata)
     save_install("zzz", zzz / "ZenlessZoneZero_Data")
     assert configured_install("zzz") == zzz.resolve()
-    assert configured_install("hito") == hito.resolve()
+    assert configured_install("pragmata") == pragmata.resolve()
 
 
 def test_bad_or_missing_install_does_not_overwrite_existing_location(tmp_path):
-    root = make_game(tmp_path, "hito")
-    save_install("hito", root)
+    root = make_game(tmp_path, "pragmata")
+    save_install("pragmata", root)
     with pytest.raises(ValueError):
-        save_install("hito", tmp_path)
-    assert configured_install("hito") == root.resolve()
-    (root / "resources/app.asar").unlink()
-    assert configured_install("hito") is None
+        save_install("pragmata", tmp_path)
+    assert configured_install("pragmata") == root.resolve()
+    (root / "PRAGMATA.exe").unlink()
+    assert configured_install("pragmata") is None
 
 
 def test_configured_zzz_is_used_when_game_is_closed(tmp_path, monkeypatch):
@@ -93,23 +93,12 @@ def test_configured_pragmata_is_used_outside_steam(tmp_path):
     assert find_install() == root.resolve()
 
 
-def test_hito_configured_archive_is_used_without_running_game(tmp_path, monkeypatch):
-    from backend.hito import HitoTextIndex
-    root = make_game(tmp_path, "hito")
-    save_install("hito", root)
-    calls = []
-    index = HitoTextIndex(tmp_path / "cache")
-    monkeypatch.setattr(index, "_ensure_archive", lambda archive: calls.append(archive))
-    index.ensure_game_files(None)
-    assert calls == [root / "resources/app.asar"]
-
-
 def test_use_automatic_detection_removes_only_selected_game(tmp_path):
-    save_install("hito", make_game(tmp_path, "hito"))
+    save_install("pragmata", make_game(tmp_path, "pragmata"))
     save_install("zzz", make_game(tmp_path, "zzz"))
     clear_install("zzz")
     assert "zzz" not in load_paths()
-    assert configured_install("hito") is not None
+    assert configured_install("pragmata") is not None
 
 
 def test_wuthering_client_folder_is_normalized(tmp_path):
@@ -125,7 +114,7 @@ def test_heavy_rain_resources_folder_requires_the_actual_game_and_story_archive(
         validate_install('heavyrain', root)
 
 
-@pytest.mark.parametrize("game", ["zzz", "hito", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte"])
+@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte"])
 def test_auto_discovery_accepts_all_supported_games(monkeypatch, game):
     def absent(*_args):
         raise FileNotFoundError("synthetic absent game")

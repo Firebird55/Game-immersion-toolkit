@@ -137,7 +137,6 @@ class Runtime:
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
         self.hito = HitoTextIndex(DATA_DIR / "hito")
-        self.hito.ensure_game_files(None)
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
@@ -1432,8 +1431,7 @@ def update_local_game(game: str) -> dict:
 
 @app.post("/api/hito/update")
 def update_hito_text() -> dict[str, object]:
-    started = runtime.hito.refresh()
-    return {"started": started, "hito": runtime.hito.status()}
+    raise HTTPException(status_code=410, detail="Hito's World support is disabled. Existing history is preserved.")
 
 
 @app.post("/api/updates/check")

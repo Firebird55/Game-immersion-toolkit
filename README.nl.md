@@ -29,7 +29,6 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [The Witcher 3: Wild Hunt](docs/languages/nl.md#witcher3) | Engels · Frans · Duits · Japans · Koreaans · Pools · Portugees (Brazilië) · Russisch · Chinees (vereenvoudigd) | 18 |
 | [BEYOND: Two Souls](docs/languages/nl.md#beyond) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Nederlands · Japans · Pools · Portugees (Portugal) · Portugees (Brazilië) · Russisch · Spaans (Latijns-Amerika) | 23 |
 | [HEAVY RAIN](docs/languages/nl.md#heavyrain) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Nederlands · Japans · Pools · Portugees (Portugal) · Russisch | 17 |
-| [Hito's World](docs/languages/nl.md#hito) | Chinees (vereenvoudigd) | 1 |
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

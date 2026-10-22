@@ -29,7 +29,6 @@
 | [The Witcher 3: Wild Hunt](docs/languages/zh-Hans.md#witcher3) | 英语 · 法语 · 德语 · 日语 · 韩语 · 波兰语 · 巴西葡萄牙语 · 俄语 · 简体中文 | 18 |
 | [BEYOND: Two Souls](docs/languages/zh-Hans.md#beyond) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 荷兰语 · 日语 · 波兰语 · 欧洲葡萄牙语 · 巴西葡萄牙语 · 俄语 · 拉丁美洲西班牙语 | 23 |
 | [HEAVY RAIN](docs/languages/zh-Hans.md#heavyrain) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 荷兰语 · 日语 · 波兰语 · 欧洲葡萄牙语 · 俄语 | 17 |
-| [Hito's World](docs/languages/zh-Hans.md#hito) | 简体中文 | 1 |
 
 [语言详情](docs/languages/zh-Hans.md) · [打开在线伴侣](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

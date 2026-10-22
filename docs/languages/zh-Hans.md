@@ -241,19 +241,3 @@
 | 繁体中文 | — | — | ✓ | 已实现读取器 |
 
 </details>
-
-<a id="hito"></a>
-
-## Hito's World
-
-[官方语言列表](https://store.steampowered.com/app/4934190/Hitos_World/) · [覆盖范围说明](../desktop-companion.md#hitos-world)
-
-<details>
-<summary>语言详情</summary>
-
-| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
-| :--- | :---: | :---: | :---: | :--- |
-| 英语 | ✓ | — | ✓ | 已实现读取器 |
-| 简体中文 | — | 仅文本 | — | 已实现读取器 |
-
-</details>

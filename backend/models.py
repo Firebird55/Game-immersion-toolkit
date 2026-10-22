@@ -31,12 +31,12 @@ def is_comic_text_id(text_id: str) -> bool:
 
 class AppSettings(BaseModel):
     zzz_proxy_voice: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
-    preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain"] = "auto"
+    preferred_game: Literal["auto", "zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain"] = "auto"
 
     @field_validator("preferred_game", mode="before")
     @classmethod
     def retire_archived_game(cls, value):
-        return "auto" if value == "honkai3" else value
+        return "auto" if value in {"honkai3", "hito"} else value
     process_names: list[str] = Field(default_factory=lambda: ["ZenlessZoneZero.exe"])
     window_title_contains: list[str] = Field(
         default_factory=lambda: ["Zenless Zone Zero", "ZenlessZoneZero"]

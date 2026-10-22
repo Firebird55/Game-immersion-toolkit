@@ -570,30 +570,6 @@
       "notes": "Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.",
       "coverage": "All mapped Dutch original performances decode; each other dub has a decoded asset sample. English PC footage from 00:00–04:00 and 15:00–17:00 covers thoughts, letters, family overlap, QTE speech and brief replies. Other chapters, epilogues, branches and other-language footage remain untested. Mobile gameplay footage is unverified.",
       "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
-    },
-    {
-      "id": "hito",
-      "name": "Hito's World",
-      "guide": "desktop-companion.md#hitos-world",
-      "source": "https://store.steampowered.com/app/4934190/Hitos_World/",
-      "sourceName": "Steam (upcoming edition)",
-      "study": [
-        "zh-Hans"
-      ],
-      "audio": [
-        "en"
-      ],
-      "officialText": [
-        "en"
-      ],
-      "targets": [
-        "en"
-      ],
-      "textOnly": true,
-      "unverified": {},
-      "notes": "The existing PC reader supports Chinese study text with English translation from the installed game's catalog. It provides no verified original audio. The upcoming Steam edition lists English and describes in-game Chinese/Japanese learning; those listings do not extend toolkit support.",
-      "coverage": "PC fixed dialogue and grammar-generated sentences have reader regressions. Mobile libraries contain fixed text only and do not run the desktop grammar generator. Upcoming Steam builds and Japanese study are unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
     }
   ]
 }

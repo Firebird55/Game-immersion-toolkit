@@ -5,7 +5,7 @@ LOCAL_GAMES = {"cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witche
                "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
 # Retained for offline format research and regression fixtures only. Archived
 # adapters are not enumerated by setup, workers, detection or automatic updates.
-ARCHIVED_GAMES = {"honkai3": "Honkai Impact 3rd"}
+ARCHIVED_GAMES = {"honkai3": "Honkai Impact 3rd", "hito": "Hito's World"}
 _ADAPTERS = {"heavyrain": ("heavy_rain_assets", ""), "beyond": ("beyond_assets", ""), "cyberpunk": ("cyberpunk_assets", "WolvenKit.CLI.exe"),
              'zzz': ('zzz_assets', ''),
              'pragmata': ('pragmata_assets', 'REE.Unpacker.exe'),

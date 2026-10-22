@@ -78,7 +78,8 @@ def test_hito_update_endpoint_refreshes_last_detected_archive(monkeypatch):
     )
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(hito=hito), raising=False)
 
-    assert api.update_hito_text() == {
-        'started': True,
-        'hito': {'ready': True, 'entry_count': 321},
-    }
+    import pytest
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as error:
+        api.update_hito_text()
+    assert error.value.status_code == 410

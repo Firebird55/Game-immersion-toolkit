@@ -459,7 +459,7 @@ function CompanionClient() {
 
   const loadSnapshot = useCallback(async () => {
     try {
-      const games = Object.keys(GAME_NAMES) as GameId[];
+      const games = Object.keys(GAME_NAMES).filter(game => game !== 'hito') as GameId[];
       const responses = await Promise.all([
         fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
         ...games.map(game => fetch(`${API_URL}/api/lines?limit=50&game=${game}`, { cache: 'no-store' })),
@@ -802,7 +802,7 @@ function CompanionClient() {
 
       <nav className="game-tabs" aria-label={uiText("Game transcript")}>
         <span><Gamepad2 size={15} /> {uiText("Game")}</span>
-        {(Object.keys(GAME_NAMES) as GameId[]).map(game => <button key={game} type="button"
+        {(Object.keys(GAME_NAMES).filter(game => game !== 'hito') as GameId[]).map(game => <button key={game} type="button"
           className={selectedGame === game ? "is-active" : ''} aria-pressed={selectedGame === game}
           onClick={() => { setSelectedGame(game); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue'); }}>
           {GAME_NAMES[game]}
