@@ -3,27 +3,51 @@ $ErrorActionPreference = 'Stop'
 # Runtime state retains numeric backend/frontend fields for the router and
 # capture handoff. Only these separately recorded identities authorize process
 # reuse or termination. Ticks are strings so JSON readers cannot round them.
-function Get-CompanionProcessExecutable($Process) {
-    $null = $Process.Handle
-    # MainModule can be null before Windows finishes loading a new process.
-    # Retry only that missing value, on the same retained process handle.
-    for ($attempt=0; $attempt -lt 40; $attempt++) {
-        if ($Process.HasExited) { throw 'Companion process exited while its executable identity was being read.' }
-        # Invoke the getter explicitly so PowerShell cannot hide its exception
-        # as an empty property value (which would look like startup loading).
-        try { $module = $Process.get_MainModule(); $executable = if ($module) { $module.FileName } else { $null } }
-        catch { throw 'Windows could not read the companion executable identity.' }
-        if (-not [string]::IsNullOrEmpty($executable)) {
-            if (-not [IO.Path]::IsPathRooted($executable)) { throw 'Windows returned an invalid companion executable identity.' }
-            try { return [IO.Path]::GetFullPath($executable) }
-            catch { throw 'Windows returned an invalid companion executable identity.' }
-        }
-        if ($attempt -lt 39) {
-            Start-Sleep -Milliseconds 50
-            $Process.Refresh()
+function Read-CompanionProcessImage([IntPtr]$Handle) {
+    if (-not ('ProxyTranscript.CompanionProcessImage' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+namespace ProxyTranscript {
+    public static class CompanionProcessImage {
+        [DllImport("kernel32.dll", ExactSpelling=true, CharSet=CharSet.Unicode, SetLastError=true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool QueryFullProcessImageNameW(IntPtr process, uint flags, StringBuilder image, ref uint size);
+        public static string Read(IntPtr process) {
+            const int capacity = 32768;
+            var image = new StringBuilder(capacity);
+            uint size = capacity;
+            if (!QueryFullProcessImageNameW(process, 0, image, ref size)) {
+                int error = Marshal.GetLastWin32Error();
+                throw new Win32Exception(error, "Windows could not read the companion executable identity (error " + error + ").");
+            }
+            if (size == 0 || size >= capacity || image.Length != size) {
+                throw new InvalidOperationException("Windows returned an invalid companion executable identity.");
+            }
+            return image.ToString();
         }
     }
-    throw 'Companion executable identity remained unavailable after startup.'
+}
+'@
+    }
+    return [ProxyTranscript.CompanionProcessImage]::Read($Handle)
+}
+
+function Get-CompanionProcessExecutable($Process) {
+    $handle = $Process.Handle
+    if ($Process.HasExited) { throw 'Companion process exited while its executable identity was being read.' }
+    # Module lists can be missing or inconsistent during startup. Query the
+    # kernel image using the already retained handle, without reopening a PID.
+    try { $executable = Read-CompanionProcessImage $handle }
+    finally { [GC]::KeepAlive($Process) }
+    if ($Process.HasExited) { throw 'Companion process exited while its executable identity was being read.' }
+    if ([string]::IsNullOrEmpty($executable) -or -not [IO.Path]::IsPathRooted($executable)) {
+        throw 'Windows returned an invalid companion executable identity.'
+    }
+    try { return [IO.Path]::GetFullPath($executable) }
+    catch { throw 'Windows returned an invalid companion executable identity.' }
 }
 
 function New-CompanionProcessRecord($Process, [string]$Root) {

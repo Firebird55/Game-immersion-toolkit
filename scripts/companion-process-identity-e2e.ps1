@@ -4,54 +4,60 @@ $repository = Split-Path -Parent $PSScriptRoot
 $shell = (Get-Process -Id $PID).Path
 . (Join-Path $repository 'scripts\companion-runtime.ps1')
 function Test-ImageAcquisition {
-    # These synthetic Process-shaped objects exercise only the image boundary.
-    # No PID is opened or terminated; the Windows suite below uses real children.
-    function New-ImageProbe([int]$ReadyAfter=1) {
-        $probe=[pscustomobject]@{Id=1;Handle=1;HasExited=$false;StartTime=[datetime]::new(2026,1,1,0,0,0,[DateTimeKind]::Utc);
-            Executable=$shell;ReadyAfter=$ReadyAfter;ImageReads=0;RefreshCount=0;ExitOnRefresh=$false;ImageError=$false;Disposed=$false}
-        $probe|Add-Member -MemberType ScriptMethod -Name get_MainModule -Value {
-            $this.ImageReads++
-            if($this.ImageError){throw 'CONTROLLED_IMAGE_ACCESS_FAILURE'}
-            if($this.ImageReads -ge $this.ReadyAfter){return [pscustomobject]@{FileName=$this.Executable}}
-        }
-        $probe|Add-Member -MemberType ScriptProperty -Name Path -Value {$module=$this.get_MainModule();if($module){return $module.FileName}}
-        $probe|Add-Member -MemberType ScriptMethod -Name Refresh -Value {$this.RefreshCount++;if($this.ExitOnRefresh){$this.HasExited=$true}}
+    # Mock only the native image-query boundary. Synthetic handles never reach
+    # Windows; real current-process and fresh-child queries run below on Windows.
+    function New-ImageProbe {
+        $probe=[pscustomobject]@{Id=1;Handle=[IntPtr]1024;HasExited=$false;StartTime=[datetime]::new(2026,1,1,0,0,0,[DateTimeKind]::Utc);
+            Executable=$shell;Queries=0;ExitOnQuery=$false;ChangeStartOnQuery=$false;QueryError=$false;Disposed=$false;
+            Path=(Join-Path $repository 'unstable-module.exe')}
+        $probe|Add-Member -MemberType ScriptMethod -Name get_MainModule -Value {return [pscustomobject]@{FileName=$this.Path}}
         $probe|Add-Member -MemberType ScriptMethod -Name Dispose -Value {$this.Disposed=$true}
         return $probe
     }
-    function Start-Sleep {param([int]$Milliseconds);if($Milliseconds -ne 50){throw 'Unexpected image retry interval.'}}
-    function Get-Process {param([int]$Id,[string]$ErrorAction);if($Id -ne $imageLookup.Id){throw 'Unexpected synthetic PID lookup.'};return $imageLookup}
-    $probe=New-ImageProbe 3
-    $identity=New-CompanionProcessRecord $probe $repository
-    if($probe.ImageReads -ne 3 -or $probe.RefreshCount -ne 2 -or $identity.executable -ne [IO.Path]::GetFullPath($shell)){
-        throw 'Delayed main module did not produce the expected identity.'
+    function Read-CompanionProcessImage([IntPtr]$Handle) {
+        if($Handle -ne $nativeProbe.Handle){throw 'Image query did not receive the retained process handle.'}
+        $nativeProbe.Queries++
+        if($nativeProbe.QueryError){throw [ComponentModel.Win32Exception]::new(5,'CONTROLLED_NATIVE_QUERY_FAILURE')}
+        if($nativeProbe.ExitOnQuery){$nativeProbe.HasExited=$true}
+        if($nativeProbe.ChangeStartOnQuery){$nativeProbe.StartTime=$nativeProbe.StartTime.AddTicks(1)}
+        return $nativeProbe.Executable
     }
-    $imageLookup=New-ImageProbe 3
+    function Get-Process {param([int]$Id,[string]$ErrorAction);if($Id -ne $imageLookup.Id){throw 'Unexpected synthetic PID lookup.'};return $imageLookup}
+    $nativeProbe=New-ImageProbe
+    $identity=New-CompanionProcessRecord $nativeProbe $repository
+    if($nativeProbe.Queries -ne 1 -or $identity.executable -ne [IO.Path]::GetFullPath($shell)){
+        throw 'Native image query did not supply the executable identity independently of module metadata.'
+    }
+    $nativeProbe=New-ImageProbe
+    $imageLookup=$nativeProbe
     $verified=Get-CompanionOwnedProcess $identity $repository
-    if(-not $verified -or $imageLookup.ImageReads -ne 3 -or $imageLookup.RefreshCount -ne 2){throw 'Owned lookup did not wait for its missing image.'}
+    if(-not $verified -or $nativeProbe.Queries -ne 1){throw 'Owned lookup did not use its retained handle image query.'}
     $verified.Dispose()
-    $imageLookup=New-ImageProbe
+    $nativeProbe=New-ImageProbe
+    $imageLookup=$nativeProbe
     $mismatch=@{id=$identity.id;started=([long]$identity.started-1).ToString();executable=$identity.executable;root=$identity.root}
-    if((Get-CompanionOwnedProcess $mismatch $repository) -or $imageLookup.ImageReads -ne 0){throw 'Start-time mismatch was retried.'}
-    $imageLookup=New-ImageProbe
+    if((Get-CompanionOwnedProcess $mismatch $repository) -or $nativeProbe.Queries -ne 0){throw 'Start-time mismatch reached the image query.'}
+    $nativeProbe=New-ImageProbe
+    $imageLookup=$nativeProbe
     $mismatch.started=$identity.started
     $mismatch.executable=Join-Path $repository 'different-executable.exe'
-    if((Get-CompanionOwnedProcess $mismatch $repository) -or $imageLookup.ImageReads -ne 1 -or $imageLookup.RefreshCount -ne 0){throw 'Executable mismatch was retried.'}
-    foreach($case in @('unavailable','exited','invalid','access')){
-        $probe=New-ImageProbe 100
-        $expected='remained unavailable'
+    if((Get-CompanionOwnedProcess $mismatch $repository) -or $nativeProbe.Queries -ne 1){throw 'Executable mismatch was accepted or retried.'}
+    foreach($case in @('empty','exited','invalid','access','changed-start')){
+        $nativeProbe=New-ImageProbe
+        $expected='invalid companion executable'
         switch($case){
-            exited {$probe.ExitOnRefresh=$true;$expected='exited'}
-            invalid {$probe.ReadyAfter=1;$probe.Executable='relative.exe';$expected='invalid companion executable'}
-            access {$probe.ImageError=$true;$expected='could not read the companion executable'}
+            empty {$nativeProbe.Executable=''}
+            exited {$nativeProbe.ExitOnQuery=$true;$expected='exited'}
+            invalid {$nativeProbe.Executable='relative.exe'}
+            access {$nativeProbe.QueryError=$true;$expected='CONTROLLED_NATIVE_QUERY_FAILURE'}
+            changed-start {$nativeProbe.ChangeStartOnQuery=$true;$expected='changed or exited'}
         }
         $rejected=$false
-        try{New-CompanionProcessRecord $probe $repository|Out-Null}catch{if($_.Exception.Message -notmatch $expected){throw};$rejected=$true}
+        try{New-CompanionProcessRecord $nativeProbe $repository|Out-Null}catch{if($_.Exception.Message -notmatch $expected){throw};$rejected=$true}
         if(-not $rejected){throw ('Image acquisition accepted '+$case)}
-        if($case -eq 'unavailable' -and ($probe.ImageReads -ne 40 -or $probe.RefreshCount -ne 39)){throw 'Missing image retry was not bounded.'}
-        if($case -ne 'unavailable' -and $probe.ImageReads -ne 1){throw ('Image acquisition retried '+$case)}
+        if($nativeProbe.Queries -ne 1){throw ('Image acquisition retried '+$case)}
     }
-    Write-Host 'Controlled image acquisition passed: delayed image, lookup, bounded missing image, exited/access/invalid image and immediate identity mismatch rejection.'
+    Write-Host 'Controlled kernel image acquisition passed: retained handle, module independence, native failure, empty/invalid image, exit/start change and identity mismatch rejection.'
 }
 if ($ImageFixturesOnly) { Test-ImageAcquisition; return }
 if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'Process tree fixtures require Windows; no Windows verification was performed.' }
@@ -84,7 +90,7 @@ function Assert-FixtureIdentity($Record, [string]$Stage) {
         $details.live=(-not $observed.HasExited)
         $details.idMatches=($observed.Id -eq $Record.id)
         $details.startedMatches=($observed.StartTime.ToUniversalTime().Ticks.ToString() -eq [string]$Record.started)
-        $details.executableMatches=([IO.Path]::GetFullPath($observed.Path) -eq [IO.Path]::GetFullPath([string]$Record.executable))
+        $details.executableMatches=((Get-CompanionProcessExecutable $observed) -eq [IO.Path]::GetFullPath([string]$Record.executable))
     }catch{$details.exceptionType=$_.Exception.GetType().FullName}
     finally{if($observed){$observed.Dispose()}}
     throw ('Owned fixture identity was rejected: '+($details|ConvertTo-Json -Compress))
@@ -107,6 +113,14 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'Cannot read baseline scripts.' }
             [IO.File]::WriteAllText((Join-Path $scripts $name), ($source -join "`n"))
         } else { Copy-Item (Join-Path $repository ('scripts\'+$name)) (Join-Path $scripts $name) }
+    }
+    if (-not $BaselineRevision) {
+        $current=Get-Process -Id $PID
+        try{
+            $currentRecord=New-FixtureRecord $current 'native current process'
+            Assert-FixtureIdentity $currentRecord 'native current process'
+        }finally{$current.Dispose()}
+        Write-Host 'Native current-process image identity captured and verified.'
     }
     $unrelated=Start-Fixture
     $valid=New-FixtureRecord $unrelated 'initial sleeper'
