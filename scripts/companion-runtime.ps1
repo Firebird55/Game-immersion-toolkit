@@ -151,7 +151,8 @@ function Stop-CompanionProcessHandle($Process) {
     # Call only with a validated identity handle or the exact Start-Process
     # object owned by this invocation, including partial-start cleanup.
     $null = $Process.Handle
-    if ($Process.HasExited) { return }
+    # An exited parent can still own live descendants. Its retained handle
+    # reserves the PID while the tree walker verifies their parentage/start time.
     $seen = @{}
     $seen[$Process.Id] = $true
     Stop-CompanionProcessTreeNode $Process $seen
@@ -261,7 +262,8 @@ function Enter-CompanionOperation([string]$Root, [int]$TimeoutSeconds=1200) {
     }
 }
 
-function Start-CompanionBackend([string]$Root, [string]$Source, [string]$Python, [int]$Port, [switch]$Standby) {
+function Start-CompanionBackend([string]$Root, [string]$Source, [string]$Python, [int]$Port, [switch]$Standby,
+                                [Collections.Generic.List[Diagnostics.Process]]$OwnedProcesses) {
     $logs = Join-Path $Root 'data\runtime-logs'
     New-Item -ItemType Directory -Path $logs -Force | Out-Null
     $previousRoot = $env:PROXY_TRANSCRIPT_PROJECT_ROOT
@@ -271,14 +273,19 @@ function Start-CompanionBackend([string]$Root, [string]$Source, [string]$Python,
     $process = $null
     try {
         $process = Start-CompanionProcess $Python $arguments $Source (Join-Path $logs "api-$Port") -LowPriority:$Standby
+        if ($null -ne $OwnedProcesses) { $OwnedProcesses.Add($process) }
         return New-CompanionProcessRecord $process $Root
     } catch {
         if ($process) { Stop-CompanionProcessHandle $process }
         throw
-    } finally { $env:PROXY_TRANSCRIPT_PROJECT_ROOT = $previousRoot }
+    } finally {
+        if ($process -and $null -eq $OwnedProcesses) { $process.Dispose() }
+        $env:PROXY_TRANSCRIPT_PROJECT_ROOT = $previousRoot
+    }
 }
 
-function Start-CompanionFrontend([string]$Root, [string]$Source, [int]$Port) {
+function Start-CompanionFrontend([string]$Root, [string]$Source, [int]$Port,
+                                 [Collections.Generic.List[Diagnostics.Process]]$OwnedProcesses) {
     $logs = Join-Path $Root 'data\runtime-logs'
     New-Item -ItemType Directory -Path $logs -Force | Out-Null
     $node = (Get-Command node -ErrorAction Stop).Source
@@ -286,11 +293,12 @@ function Start-CompanionFrontend([string]$Root, [string]$Source, [int]$Port) {
     $process = $null
     try {
         $process = Start-CompanionProcess $node @($wrangler,'dev','--config','dist/server/wrangler.json','--ip','127.0.0.1','--port',[string]$Port,'--inspector-port',[string]($Port+16000)) $Source (Join-Path $logs "frontend-$Port")
+        if ($null -ne $OwnedProcesses) { $OwnedProcesses.Add($process) }
         return New-CompanionProcessRecord $process $Root
     } catch {
         if ($process) { Stop-CompanionProcessHandle $process }
         throw
-    }
+    } finally { if ($process -and $null -eq $OwnedProcesses) { $process.Dispose() } }
 }
 
 function Start-CompanionSlot([string]$Root, [string]$Source, [string]$Python, [switch]$Standby) {
@@ -350,10 +358,17 @@ function Repair-CompanionRuntime([string]$Root, [string]$Python, $Started, $Stat
     # update. A frontend-only repair does not migrate or pause capture.
     if (-not $State -and $publicApi) {
         if (-not $publicFrontend) {
-            if ($Started.Contains('frontend')) { Stop-CompanionProcess $Started.frontend $Root }
-            $Started.frontend = Start-CompanionFrontend $Root $Root 3000
-            Save-CompanionJson $processFile $Started
-            Wait-CompanionService 'http://127.0.0.1:3000' $Started.frontend $Root
+            $createdProcesses = [Collections.Generic.List[Diagnostics.Process]]::new()
+            try {
+                if ($Started.Contains('frontend')) { Stop-CompanionProcess $Started.frontend $Root }
+                $Started.frontend = Start-CompanionFrontend $Root $Root 3000 -OwnedProcesses $createdProcesses
+                Save-CompanionJson $processFile $Started
+                Wait-CompanionService 'http://127.0.0.1:3000' $Started.frontend $Root
+            } catch {
+                $failure = $_
+                foreach ($process in $createdProcesses) { try { Stop-CompanionProcessHandle $process } catch { Write-Warning 'A newly started companion process could not be cleaned up.' } }
+                throw $failure
+            } finally { foreach ($process in $createdProcesses) { $process.Dispose() } }
         }
         return
     }
@@ -400,22 +415,22 @@ function Repair-CompanionRuntime([string]$Root, [string]$Python, $Started, $Stat
         if (-not $backendReady -and -not (Test-Path -LiteralPath $Python)) { throw 'Run scripts\setup.ps1 first.' }
         if (-not (Test-Path -LiteralPath (Join-Path $source 'dist\server\wrangler.json'))) { throw 'The frontend is not built. Run scripts\setup.ps1 first.' }
     }
-    $created = @()
+    # Retain exact Start-Process handles until publication succeeds or rollback
+    # finishes. A later image/identity lookup failure must not orphan capture.
+    $createdProcesses = [Collections.Generic.List[Diagnostics.Process]]::new()
     $running = [ordered]@{}
     foreach ($key in $Started.Keys) { $running[$key] = $Started[$key] }
     try {
         if (-not $frontendReady) {
             if ($running.Contains('frontend')) { Stop-CompanionProcess $running.frontend $Root }
             $active.frontendPort = Get-CompanionPort 3001 3039
-            $running.frontend = Start-CompanionFrontend $Root $source $active.frontendPort
-            $created += ,$running.frontend
+            $running.frontend = Start-CompanionFrontend $Root $source $active.frontendPort -OwnedProcesses $createdProcesses
             Wait-CompanionService ('http://127.0.0.1:'+$active.frontendPort) $running.frontend $Root
         }
         if (-not $backendReady) {
             $oldApi = 'http://127.0.0.1:'+$active.apiPort
             $active.apiPort = Get-CompanionPort 8767 8799
-            $candidate = Start-CompanionBackend $Root $source $Python $active.apiPort -Standby
-            $created += ,$candidate
+            $candidate = Start-CompanionBackend $Root $source $Python $active.apiPort -Standby -OwnedProcesses $createdProcesses
             $newApi = 'http://127.0.0.1:'+$active.apiPort
             Wait-CompanionService $newApi $candidate $Root -Backend
             $handoff = Get-CompanionStartupHandoff $newApi
@@ -441,9 +456,8 @@ function Repair-CompanionRuntime([string]$Root, [string]$Python, $Started, $Stat
         if (-not $running.Contains('router') -or -not (Wait-CompanionRoutes)) {
             if ($running.Contains('router')) { Stop-CompanionProcess $running.router $Root }
             $router = Start-CompanionRouter $Root $source
-            try { $running.router = New-CompanionProcessRecord $router $Root }
-            catch { Stop-CompanionProcessHandle $router; throw }
-            $created += ,$running.router
+            $createdProcesses.Add($router)
+            $running.router = New-CompanionProcessRecord $router $Root
             Save-CompanionJson $processFile $running
         }
         for ($attempt=0; $attempt -lt 120; $attempt++) {
@@ -453,9 +467,11 @@ function Repair-CompanionRuntime([string]$Root, [string]$Python, $Started, $Stat
         throw 'Companion did not finish starting; see data/runtime-logs.'
     } catch {
         $failure = $_
-        foreach ($record in $created) { try { Stop-CompanionProcess $record $Root } catch { Write-Warning 'A newly started companion process could not be cleaned up.' } }
+        for ($index=$createdProcesses.Count-1; $index -ge 0; $index--) {
+            try { Stop-CompanionProcessHandle $createdProcesses[$index] } catch { Write-Warning 'A newly started companion process could not be cleaned up.' }
+        }
         throw $failure
-    }
+    } finally { foreach ($process in $createdProcesses) { $process.Dispose() } }
 }
 
 function Copy-CompanionAssets([string]$Source, [string]$Root) {

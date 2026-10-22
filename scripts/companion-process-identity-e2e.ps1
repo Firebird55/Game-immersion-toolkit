@@ -148,7 +148,29 @@ http.createServer(async(request,response)=>{
     Add-Content (Join-Path $recoveryScripts 'companion-runtime.ps1') @'
 $script:FixtureNativeStart = ${function:Start-CompanionProcess}
 $script:FixtureOwnedLookup = ${function:Get-CompanionOwnedProcess}
+$script:FixtureSaveJson = ${function:Save-CompanionJson}
+function Save-CompanionJson([string]$Path,$Value) {
+    $controlFile = Join-Path (Split-Path $Path -Parent) 'commit-failure.json'
+    if ([IO.Path]::GetFileName($Path) -eq 'processes.json' -and (Test-Path $controlFile)) {
+        $control = Get-Content $controlFile -Raw | ConvertFrom-Json
+        $candidate = $Value[$control.role]
+        if ($candidate -and $candidate.id -ne $control.id) {
+            if ($control.role -eq 'backend') {
+                $events = Get-Content (Join-Path (Split-Path $Path -Parent) 'recovery-events.jsonl') | ForEach-Object { $_ | ConvertFrom-Json }
+                if (-not ($events | Where-Object { $_.pid -eq $candidate.id -and $_.name -eq 'activated' })) { throw 'Commit failure fixture did not reach capture activation.' }
+            }
+            [IO.File]::WriteAllText((Join-Path (Split-Path $Path -Parent) 'commit-failure-armed.json'),($candidate|ConvertTo-Json -Depth 12))
+            throw [IO.IOException]::new('CONTROLLED_RUNTIME_PUBLICATION_FAILURE')
+        }
+    }
+    & $script:FixtureSaveJson $Path $Value
+}
 function Get-CompanionOwnedProcess($Record,[string]$Root) {
+    $commitFailure = Join-Path $Root 'data\commit-failure-armed.json'
+    if (Test-Path $commitFailure) {
+        $lost = Get-Content $commitFailure -Raw | ConvertFrom-Json
+        if ($Record.id -eq $lost.id) { return $null }
+    }
     $controlFile = Join-Path $Root 'data\identity-failure.json'
     if ((Test-Path $controlFile) -and (Test-Path (Join-Path $Root 'data\identity-failure-armed'))) {
         $control = Get-Content $controlFile -Raw | ConvertFrom-Json
@@ -257,6 +279,34 @@ function Start-CompanionProcess([string]$Executable,[string[]]$Arguments,[string
         Assert-RecoveryStable $before @('backend','frontend','router')
         Write-Host 'Late identity acquisition failure: no candidate activation, original capturer retained.'
 
+        # Failure after startup (including capture activation) must reap exact
+        # owned processes even when a later identity query becomes unavailable.
+        foreach ($failedRole in @('backend','frontend','router')) {
+            $before = Read-RecoveryRecords
+            Stop-CompanionProcess $before[$failedRole] $recoveryRoot
+            Save-CompanionJson (Join-Path $recoveryData 'commit-failure.json') @{role=$failedRole;id=$before[$failedRole].id}
+            try {
+                Complete-RecoveryLauncher (Start-RecoveryLauncher) $true
+                $armed = Join-Path $recoveryData 'commit-failure-armed.json'
+                if (-not (Test-Path $armed)) { throw ('Publication fault did not reach the new '+$failedRole) }
+                $candidate = Get-Content $armed -Raw | ConvertFrom-Json
+                $survivor = & $script:FixtureOwnedLookup $candidate $recoveryRoot
+                if ($survivor) {
+                    $survivor.Dispose()
+                    throw ('UNTRACKED_RUNTIME_PROCESS_SURVIVED_PUBLICATION_FAILURE: '+$failedRole)
+                }
+                $remaining = Read-RecoveryRecords
+                foreach ($healthyRole in @('backend','frontend','router') | Where-Object { $_ -ne $failedRole }) {
+                    if ($remaining[$healthyRole].id -ne $before[$healthyRole].id -or $remaining[$healthyRole].started -ne $before[$healthyRole].started) { throw ('Publication rollback replaced healthy '+$healthyRole) }
+                }
+            } finally {
+                Remove-Item (Join-Path $recoveryData 'commit-failure.json'),(Join-Path $recoveryData 'commit-failure-armed.json') -ErrorAction SilentlyContinue
+            }
+            Invoke-RecoveryLauncher
+            Assert-RecoveryStable $before (@('backend','frontend','router') | Where-Object { $_ -ne $failedRole })
+        }
+        Write-Host 'Post-start publication failures: activated backend, frontend and router reaped with exact owned handles despite identity lookup failure; healthy processes retained.'
+
         $before = Read-RecoveryRecords
         $foreign = Start-CompanionProcess $shell @('-NoProfile','-Command','Start-Sleep -Seconds 180') $recoveryRoot ''
         $foreignIdentity = New-CompanionProcessRecord $foreign $recoveryRoot
@@ -313,6 +363,30 @@ function Start-CompanionProcess([string]$Executable,[string[]]$Arguments,[string
         finally { $env:LOCALAPPDATA = $previousAppData }
         Assert-RecoveryStable (Read-RecoveryRecords) @('backend','frontend','router') $false
         Write-Host 'Fresh installation keeps capture off until setup is complete.'
+
+        # Legacy direct-port installations also own their new frontend until
+        # its identity is persisted. A failed publication must retain the backend.
+        $before = Read-RecoveryRecords
+        foreach ($name in @('backend','frontend','router')) { Stop-CompanionProcess $before[$name] $recoveryRoot }
+        Remove-Item $recoveryRecordFile,$recoveryStateFile
+        $directBackend = Start-CompanionBackend $recoveryRoot $recoveryRoot $node 8766
+        Wait-CompanionService 'http://127.0.0.1:8766' $directBackend $recoveryRoot -Backend
+        Save-CompanionJson $recoveryRecordFile @{backend=$directBackend}
+        Save-CompanionJson (Join-Path $recoveryData 'commit-failure.json') @{role='frontend';id=0}
+        try {
+            Complete-RecoveryLauncher (Start-RecoveryLauncher) $true
+            $armed = Join-Path $recoveryData 'commit-failure-armed.json'
+            if (-not (Test-Path $armed)) { throw 'Direct frontend publication fault was not reached.' }
+            $candidate = Get-Content $armed -Raw | ConvertFrom-Json
+            $survivor = & $script:FixtureOwnedLookup $candidate $recoveryRoot
+            if ($survivor) { $survivor.Dispose(); throw 'An untracked direct frontend survived publication failure.' }
+            if (-not (Test-CompanionProcess $directBackend $recoveryRoot)) { throw 'Direct frontend rollback stopped the healthy backend.' }
+        } finally {
+            Remove-Item (Join-Path $recoveryData 'commit-failure.json'),(Join-Path $recoveryData 'commit-failure-armed.json') -ErrorAction SilentlyContinue
+        }
+        Invoke-RecoveryLauncher
+        Assert-RecoveryStable @{backend=$directBackend} @('backend')
+        Write-Host 'Direct-port frontend publication failure reaped the new process and preserved the healthy capture backend.'
 
         # The actual updater must wait for the same installation lock. An
         # intentionally invalid package stops it before preparation after release.
@@ -552,6 +626,31 @@ Start-Sleep -Seconds 180
     }
     Assert-Alive $unrelated 'Owned process tree termination affected an unrelated fixture.'
     Write-Host 'Real owned parent, child and grandchild terminated successfully.'
+
+    # Keep the original parent handle open after it exits; a surviving child is
+    # still owned and must not escape rollback merely because the parent is gone.
+    Remove-Item (Join-Path $root 'tree-0.json'),(Join-Path $root 'tree-1.json'),(Join-Path $root 'tree-2.json')
+    $orphanArguments='-NoProfile -ExecutionPolicy Bypass -File "'+$treeScript+'" -Shell "'+$shell+'" -Root "'+$root+'" -Depth 1'
+    $exitedParent=Start-Process $shell -ArgumentList $orphanArguments -PassThru -WindowStyle Hidden
+    $null=$exitedParent.Handle
+    $children+=,$exitedParent
+    $null=New-FixtureRecord $exitedParent 'exiting owned parent'
+    $childIdentityFile=Join-Path $root 'tree-0.json'
+    $deadline=[DateTime]::UtcNow.AddSeconds(30)
+    while(-not (Test-Path $childIdentityFile)){
+        if([DateTime]::UtcNow -gt $deadline){throw 'Exited-parent child did not become ready.'}
+        Start-Sleep -Milliseconds 50
+    }
+    $childIdentity=Get-Content $childIdentityFile -Raw|ConvertFrom-Json
+    $orphan=Get-CompanionOwnedProcess $childIdentity $root
+    if(-not $orphan){throw 'Exited-parent child identity was not verified.'}
+    $children+=,$orphan
+    $exitedParent.Kill();$exitedParent.WaitForExit()
+    Assert-Alive $orphan 'The exited-parent fixture did not leave a live child.'
+    Stop-CompanionProcessHandle $exitedParent
+    if(-not $orphan.WaitForExit(10000)){throw 'A live owned child survived rollback after its retained parent exited.'}
+    Assert-Alive $unrelated 'Exited-parent cleanup affected an unrelated fixture.'
+    Write-Host 'Exited owned parent handle retained: surviving child terminated with verified native CIM parentage.'
 
     $retired=Start-Fixture
     $retireFile=Join-Path $data 'retire.json'
