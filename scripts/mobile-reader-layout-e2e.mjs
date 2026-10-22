@@ -26,7 +26,7 @@ try{
   browser=await engines[name].launch({headless:true});
   const context=await browser.newContext({locale:'en-US',viewport:{width:390,height:844},hasTouch:true,deviceScaleFactor:3,serviceWorkers:'block'});
   const page=await context.newPage(),errors=[],requests=[];
-  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks;
+  let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks,failInitialSettings=true;
   page.on('pageerror',e=>{
    // WebKit can defer one observer delivery while the anchored library mounts
    // and asynchronous dictionary data resizes the phone sheet. Require stable
@@ -39,6 +39,7 @@ try{
    if(request.method()==='OPTIONS')return route.fulfill({status:204,headers:{...headers,'Access-Control-Allow-Headers':'Authorization, Content-Type'}});
    const body=request.postDataJSON();requests.push(body);if(body.path==='/v1/analyze/text')analysisAccounts.push(request.headers().authorization==='Bearer mock-layout-key-second'?'second':'first');
    let data;
+   if(body.path==='/v1/settings'&&failInitialSettings){failInitialSettings=false;return route.fulfill({status:503,json:{detail:'Synthetic settings outage'},headers});}
    if(body.path==='/v1/settings')data={languages:['zh','nl','de'],global:{effectiveTranslationLanguage:'en'},languageSettings:{zh:{},nl:{effectiveTranslationLanguage:dutchTarget,inlineGlossMode:'always'},de:{effectiveTranslationLanguage:'nl'}}};
    else if(body.path==='/v1/analyze/text'&&['nl','de'].includes(body.payload.language))data={occurrences:[{word:'Een',charStart:0,charEnd:3,isWordLike:true,entryId:99}],entryMetaById:{99:{gloss:'一个'}},stateByEntryId:{}};
    else if(body.path==='/v1/analyze/text')data={occurrences:segments.map(([word,transliteration],i)=>({word,transliteration,charStart:chinese.indexOf(word),charEnd:chinese.indexOf(word)+word.length,isWordLike:true,entryId:i+1,tones:[3,3]})),entryMetaById:Object.fromEntries(segments.map((s,i)=>[i+1,{gloss:s[2]}])),stateByEntryId:{}};
@@ -60,6 +61,13 @@ try{
   await page.locator('input[name=pass]').fill('safe layout fixture passphrase');
   await page.locator('input[name=confirm]').fill('safe layout fixture passphrase');
   await page.getByRole('button',{name:'Connect Lexirise',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'Lexirise settings could not be loaded'}).waitFor();
+  await page.getByRole('button',{name:'Unlock',exact:true}).waitFor({timeout:3000});
+  assert.equal(await page.locator('input[name=key]').count(),0,'A stored key survives a temporary settings failure');
+  assert.equal(await page.locator('input[name=confirm]').count(),0,'Retry unlock only needs the existing passphrase');
+  assert(await page.evaluate(async()=>Boolean(await(await import('./storage.mjs')).get('lexirise-vault'))),'Encrypted vault was saved before settings failed');
+  await page.locator('input[name=pass]').fill('safe layout fixture passphrase');
+  await page.getByRole('button',{name:'Unlock',exact:true}).click();
   await page.getByRole('button',{name:'Lock',exact:true}).waitFor();
   const settingsBefore=requests.filter(r=>r.path==='/v1/settings').length;
   await page.getByRole('button',{name:'Account settings',exact:true}).click();

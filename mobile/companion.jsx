@@ -81,7 +81,11 @@ function App(){
   if(action==='change')await vault.current.changePassphrase(pass,confirm);
   else if(action==='unlock')await vault.current.unlock(pass);
   else await vault.current.connect(key,pass,confirm);
-  if(action!=='change')await openSession();setHasVault(true);setVaultAction('');setNotice('Lexirise unlocked for this session.');
+  // Persisted vault state survives a temporary settings outage. Retrying only
+  // needs the passphrase; reader sessions still wait for resolved settings.
+  setHasVault(true);setVaultAction('');
+  if(action!=='change')try{await openSession();}catch(error){vault.current.lock();throw error;}
+  setNotice('Lexirise unlocked for this session.');
  });}
  async function blobFor(row){return row.source==='mobile-ocr'?library.libraryLifecycle.voice(row):capture.captureLifecycle.audio(row);}
  async function play(row){await run(async()=>{const token=mediaRevision.current,blob=await blobFor(row);if(token!==mediaRevision.current)return;if(audioUrl.current)URL.revokeObjectURL(audioUrl.current);audioUrl.current=URL.createObjectURL(blob);$('voice-player').src=audioUrl.current;await $('voice-player').play();});}
