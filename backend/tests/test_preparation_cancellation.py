@@ -310,3 +310,57 @@ def test_first_monitor_start_preserves_foreground_preparation_in_standby(tmp_pat
     finally:
         release.set()
         manager.close()
+
+
+def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_capture(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    entered, release = threading.Event(), threading.Event()
+    audio_restarts, activated = [], []
+    runtime = api.Runtime.__new__(api.Runtime)
+    runtime.standby = False
+    runtime._updates_started = True
+    runtime.textmaps = runtime.pragmata = runtime.hito = None
+    runtime.game_indexes, runtime.warm_task = {}, None
+    runtime.start_audio_repair = lambda: audio_restarts.append(True)
+    def untouched(*_):
+        pytest.fail('Rollback must preserve the running capture and its session')
+    runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True, session_id='preserved'),
+        stop=untouched, start=untouched, import_handoff=untouched)
+    def build(*_, job):
+        if job.cancelled is old_token:
+            entered.set()
+            assert release.wait(3)
+        job.checkpoint()
+    manager = runtime.languages = LanguagePreparation(build, lambda *args: activated.append(args),
+        lambda *_: {'ready': True}, path=tmp_path / 'languages.json', cancellable=True)
+    manager.start()
+    old_token = manager.stop_event
+    close = manager.close
+    monkeypatch.setattr(manager, 'close', lambda: close(timeout=.05))
+    monkeypatch.setattr(api, 'runtime', runtime, raising=False)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8767', raise_server_exceptions=False)
+    headers = {'X-Proxy-Transcript': 'update'}
+    try:
+        assert manager.request('cyberpunk', 'zh-Hans', 'en', 'retired')
+        assert entered.wait(1)
+        assert client.post('/api/runtime/quiesce', headers=headers).status_code == 500
+        assert old_token.is_set() and not runtime._updates_started
+        payload = {'running': True, 'session_id': 'must-not-replace-preserved-session'}
+        response = client.post('/api/runtime/activate', headers=headers, json=payload)
+        assert response.status_code == 200
+        assert runtime._updates_started and not runtime.standby
+        assert manager.stop_event is not old_token and not manager.stop_event.is_set()
+        assert audio_restarts == [True]
+        monitor = manager.monitor
+        assert monitor.is_alive()
+        assert manager.request('cyberpunk', 'zh-Hans', 'en', 'current')
+        wait_for(lambda: manager.selected('cyberpunk', 'current') == 'zh-Hans')
+        release.set()
+        wait_for(lambda: not manager._workers)
+        assert manager.selected('cyberpunk', 'retired') is None
+        assert activated == [('cyberpunk', 'zh-Hans', 'current')]
+        assert client.post('/api/runtime/activate', headers=headers, json=payload).status_code == 200
+        assert manager.monitor is monitor and audio_restarts == [True]
+    finally:
+        release.set()
+        close(timeout=2)

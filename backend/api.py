@@ -774,6 +774,10 @@ async def runtime_activate(payload: CaptureHandoff, request: Request,
     if not runtime_ready()['ready']:
         raise HTTPException(409, 'Replacement OCR is still warming up')
     if runtime.capture.snapshot().running:
+        # A failed quiesce may stop updates while leaving capture serving.
+        # Rollback resumes that work without replacing its live session.
+        runtime.standby = False
+        runtime.start_updates()
         return {'active': True}
     runtime.capture.import_handoff(payload)
     runtime.standby = False
