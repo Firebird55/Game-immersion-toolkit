@@ -8,7 +8,7 @@ export function selectChecks(files, full = false) {
   const selected = new Set(full ? ['full'] : []);
   for (const file of files) {
     if (['scripts/check-changed.mjs','scripts/check-browser-suite.mjs','tests/check-selection.test.mjs'].includes(file)) { selected.add('selector'); continue; }
-    if (['backend/api.py','backend/state_version.py'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
+    if (['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
     if (/^scripts\/(start-companion|update-companion|companion-runtime|companion-process-identity-e2e).*\.ps1$/.test(file)) { selected.add('windows'); continue; }
     if(file==='lib/interface-language.tsx'){selected.add('desktop');selected.add('mobile');continue;}
     if(file==='public/mobile-capture/games-data.json'){selected.add('mobile');selected.add('python');selected.add('docs');continue;}
@@ -41,6 +41,7 @@ export function scenarioPlan(files, checks = selectChecks(files)) {
   if (checks.includes('desktop')) browser.add('language-account-e2e');
   if (checks.includes('mobile')) for (const name of ['companion-e2e','mobile-reader-layout-e2e','mobile-games-e2e','ocr-packs-e2e']) browser.add(name);
   if (files.some(file => ['backend/api.py','backend/state_version.py'].includes(file))) for (const name of ['setup-e2e','local-access-e2e','update-companion-e2e']) browser.add(name);
+  if (files.some(file => ['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file))) browser.add('ui-state-e2e');
   if (checks.includes('windows')) windows.add('companion-process-identity-e2e');
   return {browser: [...browser].sort(), windows: [...windows].sort()};
 }
@@ -74,7 +75,7 @@ if(process.argv[1]===fileURLToPath(import.meta.url)) {
     &&git('tag','--points-at','HEAD').split('\n').includes(releaseTag);
   const files=changedFiles(base);
   const checks=delegated?[]:process.argv.includes('--full')?['full']:selectChecks(files);
-  const scenarios=scenarioPlan(files,checks);
+  const scenarios=delegated?{browser:[],windows:[]}:scenarioPlan(files,checks);
   console.log('Required scenarios: '+JSON.stringify(scenarios));
   if(delegated)console.log('Comprehensive checks run on '+releaseTag+' for this same commit.');
   console.log('Selected checks: '+(checks.join(', ')||'publication only'));
