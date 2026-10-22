@@ -10,8 +10,9 @@ try{
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){
   browser=await engine.launch({headless:true});
   for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[640,480,2],[640,360,2],[568,320,1],[768,1024,1.25]]){
-   const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[];
+   const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[],unexpected=[];
    let pickerAttempts=0,setupOffline=false,exportRevision=0,exportLocale='ja';
+   const fixtureContext={runtime_id:'setup-fixture',state_version:0,account_generation:0};
    const exportScope=game=>'fixture-'+game+'-'+exportRevision;
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={nte_region:region,honkai3_region:region,preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,cyberpunk_region:region,cyberpunk_tip_region:region,wuwa_region:region,wuwa_tip_region:region,wuwa_cinematic_region:region,witcher3_region:region,witcher3_tip_region:region,auto_start:false};
@@ -24,6 +25,7 @@ try{
    await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
    await page.route('http://127.0.0.1:8766/**',async route=>{
     const request=route.request(),url=new URL(request.url()),path=url.pathname,method=request.method(),body=request.postData()?JSON.parse(request.postData()):{};
+    if(method==='OPTIONS'){await route.fulfill({status:204,headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'}});return;}
     let status=200,value={};
     if(method==='POST'){writes.push({path,body,headers:request.headers()});assert.equal(request.headers()['x-proxy-transcript'],'setup');}
     if(method==='POST'&&path.includes('/mobile-export')){
@@ -32,9 +34,14 @@ try{
       await route.fulfill({status:409,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({detail:'Account or learning language changed. Reload Setup before retrying.'})});return;
      }
     }
-    if(path==='/api/snapshot')value={context:{runtime_id:'setup-fixture',state_version:0,account_generation:0},status:{capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}},lines:[],lexirise:{configured:false,sent:{}}};
+    if(path==='/api/snapshot')value={context:fixtureContext,status:{capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}},lines:[],lexirise:{configured:false,sent:{}}};
     else if(path==='/api/status')value={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}};
     else if(path==='/api/setup'){if(setupOffline){await route.abort();return;}const selected=url.searchParams.get('game')??'zzz';value={...setup,mobile_export:{...setup.mobile_export,scope:exportScope(selected),sourceLocale:exportLocale,selectedGame:selected}};}
+    else if(/^\/api\/setup\/games\/[^/]+\/languages$/.test(path)&&method==='GET'){
+     const selected=path.split('/')[4];assert(games.some(game=>game.id===selected&&game.id!=='hito'),'Unexpected language fixture game: '+selected);
+     value={context:fixtureContext,selected:null,enabled_languages:null,targets:{},translation_locales:['en','zh-Hans'],locales:[
+      {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:null,table_bytes:0,reclaimable_bytes:0,voice_state:'not_checked'}]};
+    }
     else if(path==='/api/setup/report')value={version:'fixture',platform:'Windows',requirements:{ocr:true},games:[{id:'zzz',folder_state:'configured'}]};
     else if(path==='/api/setup/games/zzz'){
      if(body.path==='F:/wrong'){status=400;value={detail:'Required game files were not found. Previous folder kept.'};}
@@ -55,12 +62,15 @@ try{
     else if(path.startsWith('/api/setup/native/'))value={started:true};
     else if(path==='/api/setup/complete'){setup.completed=true;setup.auto_start=body.auto_start;value={completed:true};}
     else if(path==='/api/lines'||path==='/api/favorites')value=[];
-    else if(path==='/api/lexirise')value={configured:false,sent:{},decks:{}};
+    else if(path==='/api/lexirise')value={context:fixtureContext,account:'legacy',configured:false,sent:{},decks:{}};
+    else {unexpected.push(method+' '+path);status=500;value={detail:'Unexpected setup fixture route'};}
     await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(value)});
    });
    await page.goto('http://localhost:'+port);
    const dialog=page.getByRole('dialog',{name:'Settings'});
    await dialog.waitFor();
+   await dialog.locator('.language-table').waitFor();
+   assert.equal(await dialog.getByRole('alert').count(),0,'All setup data must load before testing folder validation');
    await dialog.getByText('Change installation folder',{exact:true}).click();
    const field=dialog.getByLabel('Installed game folder');
    await field.fill('F:/wrong');await dialog.getByRole('button',{name:'Save game folder',exact:true}).click();
@@ -141,6 +151,8 @@ try{
    assert.deepEqual(writes.find(write=>write.path==='/api/setup/native/lexirise').body,{});
    await page.reload();await page.getByRole('button',{name:'Settings',exact:true}).waitFor();
    assert.equal(await page.getByRole('dialog',{name:'Settings'}).count(),0);
+   assert.deepEqual(unexpected,[],'Every setup API route must be explicitly mocked');
+   assert.equal(await page.getByRole('alert').count(),0,'Successful setup leaves no hidden fixture errors');
    await context.close();console.log(name+': first-run setup, folder validation, refresh, native actions, report and persistence '+width+'x'+height+' passed');
   }
   await browser.close();browser=null;
