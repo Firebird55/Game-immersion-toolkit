@@ -4,16 +4,34 @@ import {chromium,firefox} from 'playwright';
 
 // Exercise the actual built CompanionClient, including its HTTP/WS bindings.
 // Every account request is handled locally; no real credentials or account writes.
-const port=4343;
-const server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
-let browser,serverErrors='';server.stderr.on('data',data=>serverErrors+=data);
+const port=4343,host='127.0.0.1',origin='http://'+host+':'+port;
+const server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip',host],{stdio:['ignore','pipe','pipe']});
+let browser,serverOutput='',serverErrors='',serverExit=null;
+const tail=(value,data)=>(value+data).slice(-8000);
+server.stdout.on('data',data=>serverOutput=tail(serverOutput,data));
+server.stderr.on('data',data=>serverErrors=tail(serverErrors,data));
+server.once('exit',(code,signal)=>serverExit={code,signal});
+const started=Date.now(),phase=message=>console.log(`React fixture +${Date.now()-started}ms: ${message}`);
+const requestInfo=request=>({method:request.method(),type:request.resourceType(),url:request.url()});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try {
- await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('React state preview startup timeout: '+serverErrors)),30000);server.stdout.on('data',data=>{if(String(data).includes(':'+port)){clearTimeout(timer);resolve();}});server.once('error',reject);});
+ await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('React state preview startup timeout: '+serverErrors)),30000);server.stdout.on('data',data=>{if(String(data).includes(origin)){clearTimeout(timer);resolve();}});server.once('error',reject);});
  for(const[name,engine] of Object.entries({chromium,firefox})) {
-  browser=await engine.launch();
+  phase(name+': launching browser');
+  browser=await engine.launch();phase(name+': browser launched');
   for(const width of [1280,390]) {
+   phase(`${name} ${width}: creating context and page`);
    const context=await browser.newContext({locale:'en-US',viewport:{width,height:900}}),page=await context.newPage();
+   phase(`${name} ${width}: page created`);
+   const pendingRequests=new Map(),network=[];
+   const record=value=>{network.push({elapsed_ms:Date.now()-started,...value});if(network.length>80)network.shift();};
+   page.on('request',request=>{const info=requestInfo(request);pendingRequests.set(request,info);record({event:'request',...info});});
+   page.on('response',response=>record({event:'response',status:response.status(),url:response.url()}));
+   page.on('requestfinished',request=>pendingRequests.delete(request));
+   page.on('requestfailed',request=>{pendingRequests.delete(request);record({event:'requestfailed',...requestInfo(request),failure:request.failure()?.errorText});});
+   page.on('domcontentloaded',()=>record({event:'domcontentloaded',url:page.url()}));
+   page.on('load',()=>record({event:'load',url:page.url()}));
+   page.on('crash',()=>record({event:'crash'}));
    const errors=[],requests=[];page.on('pageerror',error=>errors.push(error.message));
    let socket,active='first',runtimeId='react-fixture',generation=0,revision=0,holdSnapshot=false,releaseSnapshot,extraLine=false,emptySnapshot=false,sourceText='Hello';
    const stateContext=()=>({runtime_id:runtimeId,state_version:revision,account_generation:generation});
@@ -49,7 +67,21 @@ try {
     if(path==='/api/lines/1/lexirise'&&request.method()==='POST')return respond({detail:'Synthetic failure; account was inspected without exporting'},409);
     errors.push('Unexpected fixture route: '+request.method()+' '+path);return respond({},500);
    });
-   await page.goto('http://localhost:'+port);
+   try {
+    // Use the same numeric address as the listener, and prove the HTTP server
+    // answers before attributing a navigation stall to the browser. A readiness
+    // failure stays a failure; neither the probe nor navigation is retried.
+    phase(`${name} ${width}: checking HTTP readiness at ${origin}`);
+    const response=await fetch(origin,{signal:AbortSignal.timeout(5000)});
+    await response.arrayBuffer();assert.equal(response.status,200,'React preview HTTP readiness');
+    phase(`${name} ${width}: HTTP ready; navigating`);
+    await page.goto(origin,{waitUntil:'load',timeout:30000});
+    phase(`${name} ${width}: navigation loaded`);
+   } catch(error) {
+    console.error('React fixture navigation diagnostics: '+JSON.stringify({browser:name,width,origin,
+     url:page.url(),serverExit,pending:[...pendingRequests.values()],network,serverOutput,serverErrors},null,2));
+    throw error;
+   }
    const current=page.locator('.current-line'),send=current.locator('.lexirise-send');
    await send.waitFor();await until(()=>send.isEnabled());
    // Independent domains can arrive out of publication order. The older line
