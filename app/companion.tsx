@@ -3,7 +3,7 @@ import {useInterfaceTranslation} from '../lib/interface-language';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
-import {StatePoll, type StateContext} from './state-sync';
+import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
@@ -466,6 +466,8 @@ function CompanionClient() {
 
   useEffect(() => {
     let accountContext = '';
+    type StateEvent = {context:StateContext; type:string; line?:TranscriptLine; line_id?:number; capture?:CaptureStatus; settings?:Settings; textmaps?:StatusPayload['textmaps']; updates?:StatusPayload['updates']};
+    const events = new StateEvents<StateEvent>();
     const retireAccount = () => {
       accountScope.current.generation++;
       accountScope.current.ready = false;
@@ -478,7 +480,11 @@ function CompanionClient() {
       return await response.json() as CompanionSnapshot;
     }, value => {
       const key = `${value.context.runtime_id}:${value.context.account_generation}`;
-      if (key !== accountContext) {retireAccount(); accountContext = key;}
+      if (key !== accountContext) {
+        const previous = accountContext;
+        retireAccount(); accountContext = key;
+        if (previous) window.dispatchEvent(new CustomEvent('lexirise-credentials-changed', {detail:owner}));
+      }
       // One synchronous commit after the complete, versioned payload is ready.
       setStatus(value.status);
       if (!settingsOpenRef.current) setDraftSettings(value.status.settings);
@@ -492,9 +498,30 @@ function CompanionClient() {
       setLexirise(value.lexirise);
       setOnline(true);
       setSnapshotLoaded(true);
-    }, () => setOnline(false));
+    }, () => setOnline(false), value => events.reconcile(value, (snapshot,event) => {
+      if (event.type === 'line' && event.line && isReadableLine(event.line)) {
+        const exists = snapshot.lines.some(line => line.id === event.line!.id);
+        return {...snapshot, lines:[...snapshot.lines.filter(line => line.id !== event.line!.id), event.line],
+          status:{...snapshot.status, session:{...snapshot.status.session,
+            line_count:snapshot.status.session.line_count + (exists ? 0 : 1),
+            total_line_count:snapshot.status.session.total_line_count + (exists ? 0 : 1)}}};
+      }
+      if (event.type === 'line_deleted') {
+        const exists = snapshot.lines.some(line => line.id === event.line_id);
+        return {...snapshot, lines:snapshot.lines.filter(line => line.id !== event.line_id),
+          status:{...snapshot.status, session:{...snapshot.status.session,
+            line_count:Math.max(0,snapshot.status.session.line_count - (exists ? 1 : 0)),
+            total_line_count:Math.max(0,snapshot.status.session.total_line_count - (exists ? 1 : 0))}}};
+      }
+      if (event.type === 'capture_status' && event.capture) return {...snapshot,status:{...snapshot.status,capture:event.capture}};
+      if (event.type === 'settings' && event.settings) return {...snapshot,status:{...snapshot.status,settings:event.settings}};
+      if (event.type === 'textmaps_status' && event.textmaps) return {...snapshot,status:{...snapshot.status,textmaps:event.textmaps}};
+      if (event.type === 'update_status' && event.updates) return {...snapshot,status:{...snapshot.status,updates:event.updates}};
+      return snapshot;
+    }));
     pollOwner.current = owner;
-    const changed = () => {
+    const changed = (event:Event) => {
+      if (event instanceof CustomEvent && event.detail === owner) return;
       owner.reset();
       retireAccount();
       void owner.request();
@@ -511,6 +538,8 @@ function CompanionClient() {
       socket.onopen = () => {
         if (closed || socket !== connection) return;
         owner.reset(true);
+        events.reset();
+        accountContext = '';
         retireAccount();
         window.dispatchEvent(new Event('companion-runtime-reset'));
         setOnline(true);
@@ -520,15 +549,25 @@ function CompanionClient() {
         if (closed || socket !== connection) return;
         let event;
         try {event = JSON.parse(message.data);} catch {return;}
-        if (!owner.accept(event.context)) return;
-        if (event.type === 'account_changed') {
-          window.dispatchEvent(new Event('lexirise-credentials-changed'));
-          return;
+        if (!owner.accept(event.context, true)) return;
+        const key = `${event.context.runtime_id}:${event.context.account_generation}`;
+        if (key !== accountContext) {
+          const previous = accountContext;
+          accountContext = key;
+          events.reset();
+          retireAccount();
+          if (previous) {
+            owner.reset();
+            window.dispatchEvent(new CustomEvent('lexirise-credentials-changed', {detail:owner}));
+            void owner.request();
+          }
         }
-        if (event.type === 'snapshot') {
-          setStatus(event.snapshot);
-          if (!settingsOpenRef.current) setDraftSettings(event.snapshot.settings);
-        }
+        // The initial WS snapshot contains only status. The complete HTTP read
+        // owns snapshot publication; a late status-only read must not replace it.
+        if (event.type === 'snapshot' || event.type === 'account_changed') return;
+        const domain = event.type === 'line' ? `line:${event.line?.id}`
+          : event.type === 'line_deleted' ? `line:${event.line_id}` : event.type;
+        if (!events.record(domain,event)) return;
         if (event.type === 'capture_status') {
           const nextCapture = event.capture as CaptureStatus;
           setStatus((current) => current && !captureStatusEqual(current.capture, nextCapture, settingsOpenRef.current)
@@ -589,6 +628,8 @@ function CompanionClient() {
         if (!closed && socket === connection) {
           socket = null;
           owner.reset(true);
+          events.reset();
+          accountContext = '';
           retireAccount();
           window.dispatchEvent(new Event('companion-runtime-reset'));
           reconnectTimer.current = setTimeout(connect, 1500);

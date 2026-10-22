@@ -52,3 +52,33 @@ test('a late failed HTTP poll cannot mark a newer WebSocket state offline',async
  owner.accept(context(2));pending[0].reject(Error('old disconnected request'));await old;assert.deepEqual(errors,[]);
  const current=owner.request();await tick();pending[1].reject(Error('current failure'));await current;assert.deepEqual(errors,['failed']);owner.close();
 });
+
+test('reconciled snapshots keep independent newer events without a read retry',async()=>{
+ const {StateEvents}=await import('../app/state-sync.ts');
+ const events=new StateEvents(),commits=[];let resolve,reads=0;
+ const owner=new StatePoll(()=>{reads++;return new Promise(done=>resolve=done);},value=>commits.push(value),()=>assert.fail('Unexpected failure'),value=>events.reconcile(value,(snapshot,event)=>({...snapshot,[event.key]:event.value})));
+ const pending=owner.request();await tick();
+ for(const [version,key,value] of [[2,'capture','new capture'],[1,'line','new line']]) {
+  const event={context:context(version),key,value};assert(owner.accept(event.context,true));assert(events.record(key,event));
+ }
+ assert(!events.record('line',{context:context(0),key:'line',value:'stale'}));
+ resolve({context:context(0),line:'old line',capture:'old capture',ledger:'independent snapshot'});await pending;
+ assert.deepEqual(commits.map(({line,capture,ledger})=>({line,capture,ledger})),[{line:'new line',capture:'new capture',ledger:'independent snapshot'}]);
+ assert.equal(reads,1);assert.equal(owner.context.state_version,2);
+ events.reconcile({context:context(2)},value=>value);
+ assert(!events.record('line',{context:context(2),key:'line',value:'already snapshotted'}));
+ owner.close();
+});
+
+test('partial-event acceptance cannot regress account generations or runtimes',()=>{
+ const {owner}=fixture();assert(owner.accept(context(8,4)));
+ assert(owner.accept(context(7,4),true));assert.equal(owner.context.state_version,8);
+ assert(!owner.accept(context(9,3),true));assert(!owner.accept(context(9,4,'retired-runtime'),true));owner.close();
+});
+
+
+test('an independent late partial event also supersedes an outstanding failure',async()=>{
+ const {owner,pending,errors}=fixture();owner.accept(context(2));const old=owner.request();await tick();
+ assert(owner.accept(context(1),true));pending[0].reject(Error('old poll'));await old;
+ assert.deepEqual(errors,[]);assert.equal(owner.context.state_version,2);owner.close();
+});

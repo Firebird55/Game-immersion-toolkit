@@ -15,20 +15,22 @@ export class StatePoll<T extends {context:StateContext}> {
   private load:(signal:AbortSignal)=>Promise<T>;
   private commit:(value:T)=>void;
   private failed:()=>void;
-  constructor(load:(signal:AbortSignal)=>Promise<T>, commit:(value:T)=>void, failed:()=>void = ()=>{}) {
-    this.load = load; this.commit = commit; this.failed = failed;
+  private reconcile?: (value:T)=>T;
+  constructor(load:(signal:AbortSignal)=>Promise<T>, commit:(value:T)=>void, failed:()=>void = ()=>{}, reconcile?: (value:T)=>T) {
+    this.load = load; this.commit = commit; this.failed = failed; this.reconcile = reconcile;
   }
 
   get context() { return this.current; }
   get generation() { return this.scope; }
   owns(scope:number) { return !this.closed && this.scope === scope; }
 
-  accept(context:StateContext) {
+  accept(context:StateContext, partial = false) {
     if (this.closed || !validContext(context)) return false;
     const old = this.current;
-    if (old && (context.runtime_id !== old.runtime_id || context.state_version < old.state_version
+    if (old && (context.runtime_id !== old.runtime_id || (!partial && context.state_version < old.state_version)
       || context.account_generation < old.account_generation)) return false;
-    this.current = context;
+    this.current = !old || context.state_version >= old.state_version ? context
+      : {...context, state_version:old.state_version};
     return true;
   }
 
@@ -50,7 +52,8 @@ export class StatePoll<T extends {context:StateContext}> {
     const flight = {controller, promise:Promise.resolve()};
     this.flight = flight;
     flight.promise = Promise.resolve().then(()=>this.load(controller.signal)).then(value=>{
-      if (this.owns(scope) && !controller.signal.aborted && this.accept(value.context)) this.commit(value);
+      if (this.owns(scope) && !controller.signal.aborted && this.accept(value.context, !!this.reconcile))
+        this.commit(this.reconcile ? this.reconcile(value) : value);
     }).catch(()=>{
       // A newer accepted event also invalidates a late HTTP failure indicator.
       if (this.owns(scope) && !controller.signal.aborted && this.current === observedContext) this.failed();
@@ -60,5 +63,34 @@ export class StatePoll<T extends {context:StateContext}> {
       if (this.queued) {this.queued = false; void this.request();}
     });
     return flight.promise;
+  }
+}
+
+/** A partial event only supersedes the same domain/record. Complete snapshots
+ * replay newer events before committing, so frequent capture updates cannot
+ * starve transcript/account reads or erase an independent late line event. */
+export class StateEvents<E extends {context:StateContext}> {
+  private snapshot:StateContext|null = null;
+  private events = new Map<string,E>();
+  reset() {this.snapshot = null; this.events.clear();}
+  record(key:string,event:E) {
+    const context = event.context, previous = this.events.get(key)?.context;
+    if (!validContext(context)) return false;
+    if (this.snapshot && (context.runtime_id !== this.snapshot.runtime_id
+      || context.account_generation < this.snapshot.account_generation
+      || context.state_version <= this.snapshot.state_version)) return false;
+    if (previous && context.state_version <= previous.state_version) return false;
+    this.events.set(key,event);
+    return true;
+  }
+  reconcile<T extends {context:StateContext}>(value:T, apply:(value:T,event:E)=>T):T {
+    const context=value.context;
+    for(const [key,event] of this.events) {
+      if (event.context.runtime_id !== context.runtime_id || event.context.account_generation !== context.account_generation
+        || event.context.state_version <= context.state_version) this.events.delete(key);
+    }
+    const pending=[...this.events.values()].sort((a,b)=>a.context.state_version-b.context.state_version);
+    this.snapshot=context;
+    return pending.reduce(apply,value);
   }
 }
