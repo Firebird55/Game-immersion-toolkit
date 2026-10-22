@@ -27,7 +27,10 @@ const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏ�
 account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 account.languages.push('fr');account.languageSettings.fr={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 account.languages.push('de');account.languageSettings.de={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
+let stateRevision=0;
+const stateContext=()=>({runtime_id:'browser-fixture',state_version:stateRevision,account_generation:0});
 function response(path,query,method,body){
+ if(path==='/api/snapshot')return {context:stateContext(),status:response('/api/status',query,'GET',{}),lines:['zzz','pragmata','hito','cyberpunk','wuwa','witcher3','nte','beyond','heavyrain'].flatMap(game=>response('/api/lines',new URLSearchParams({game}),'GET',{})),lexirise:response('/api/lexirise',query,'GET',{})};
  if(path==='/api/lines'&&query.get('game')==='zzz'&&includeZzzStudy)return [zzzStudyLine];
  if(path==='/api/lines/11/reading')return {text:zzzStudyLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='witcher3')return [witcherStudyLine];
@@ -235,13 +238,13 @@ try{
  }}
  includeComic=true;
  fixtureCapture={...fixtureCapture,running:true,phase:'matched',visible_text_ids:[comicLine.text_id]};
- fixtureSocket.send(JSON.stringify({type:'line',line:comicLine}));
- fixtureSocket.send(JSON.stringify({type:'capture_status',capture:fixtureCapture}));
+ stateRevision++;fixtureSocket.send(JSON.stringify({context:stateContext(),type:'line',line:comicLine}));
+ stateRevision++;fixtureSocket.send(JSON.stringify({context:stateContext(),type:'capture_status',capture:fixtureCapture}));
  await page.locator('.current-line').getByText(comicLine.english,{exact:true}).waitFor();
  assert.match(await page.locator('.current-line .match-label').textContent(),/Game-file text/,'Text-only comic has no misleading voice check');
  assert(await page.getByRole('button',{name:'Original voice unavailable',exact:true}).isDisabled(),'Unmapped comic never offers unrelated audio');
  fixtureCapture={...fixtureCapture,phase:'waiting',visible_text_ids:[]};
- fixtureSocket.send(JSON.stringify({type:'capture_status',capture:fixtureCapture}));
+ stateRevision++;fixtureSocket.send(JSON.stringify({context:stateContext(),type:'capture_status',capture:fixtureCapture}));
  await page.locator('.current-empty').waitFor();
  await page.getByText(comicLine.english,{exact:true}).waitFor();
  await page.reload();

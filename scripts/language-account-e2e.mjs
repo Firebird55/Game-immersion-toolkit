@@ -13,6 +13,7 @@ try{
   browser=await engine.launch({headless:true});
   for(const[width,height]of [[1280,900],[390,844]]){
    const context=await browser.newContext({locale:'en-US',viewport:{width,height}}),page=await context.newPage();
+   let generation=0;const stateContext=()=>({runtime_id:'account-fixture',state_version:generation,account_generation:generation});
    let active='first',prepared=false,releaseOld,releaseExport,exportMode='success',configured=true,deckMode='normal',releaseDeck;
    const sent={first:{},second:{},legacy:{}}; const unexpected=[];
    const writes=[],requests=[];
@@ -21,7 +22,7 @@ try{
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
    const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:'en',source_locale:'en',source_text:'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:true,has_audio:true,favorite:false});
-   const languages=()=>({selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
+   const languages=()=>({context:stateContext(),selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
     {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:prepared?{targets:['en'],mapped_lines:1}:null},
     {locale:'ko',language:'ko',name:'Korean',reader_available:false,prepared:null}]});
    const game={id:'zzz',title:'Zenless Zone Zero',detected_path:'F:/Games/ZZZ',configured_path:null,folder_state:'detected',folder_hint:'Choose game folder',voice_state:'present',tools_missing:[],index_ready:true,indexed_lines:1,audio_ready:true,update_state:'idle',update_message:'Ready',progress:100};
@@ -34,13 +35,14 @@ try{
     const respond=(value,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'},body:JSON.stringify(value)});
     if(request.method()==='OPTIONS')return respond({});
     if((/^\/api\/lines\/\d+\/(reading|lexirise)/.test(path)||path==='/api/lexirise/decks'||path==='/api/lexirise/settings'&&request.headers()['x-proxy-transcript-account']!==undefined)&&request.headers()['x-proxy-transcript-account']!==active)return respond({detail:'Account changed. Retry with the selected account.'},409);
+    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:'zzz',visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
     if(path==='/api/status')return respond({capture:{running:true,active_game:'zzz',visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}});
     if(path==='/api/lines')return respond(url.searchParams.get('game')==='zzz'?[line()]:[]);
     if(path==='/api/favorites')return respond([]);
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[game],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,mobile_export:{state:'idle'},free_gb:10});
     if(path==='/api/lexirise')return respond({configured,account:active,sent:sent[active],decks:{}});
     if(path==='/api/lexirise/accounts')return respond({active,profiles:[{id:'first',name:'First account'},{id:'second',name:'Second account'}]});
-    if(path==='/api/lexirise/accounts/select'){active=body.id;return respond({active});}
+    if(path==='/api/lexirise/accounts/select'){active=body.id;generation++;return respond({active});}
     if(path==='/api/lexirise/settings')return respond(preferences());
     if(path==='/api/lexirise/decks'){
      const result=request.method()==='GET'?{decks:[{id:active==='first'?11:active==='second'?22:33,title:active+' destination'}]}:{deck:{id:body.deck_id??44,title:active+' destination'}};
@@ -144,7 +146,7 @@ try{
    assert.deepEqual(writes.filter(w=>w.path==='/api/lexirise/decks').at(-1).body,{game:'zzz',language:'en',deck_id:11});
    await deckPanel.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
    configured=false;
-   const unconfiguredResponse=page.waitForResponse(r=>r.url().endsWith('/api/lexirise'));
+   const unconfiguredResponse=page.waitForResponse(r=>r.url().endsWith('/api/snapshot'));
    await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));await unconfiguredResponse;
    const exportsBefore=requests.filter(r=>r.path==='/api/lines/1/lexirise').length;
    assert.equal(await send.isEnabled(),false,'Unconfigured export stays disabled');await send.evaluate(el=>el.click());

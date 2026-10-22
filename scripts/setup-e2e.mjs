@@ -32,7 +32,8 @@ try{
       await route.fulfill({status:409,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify({detail:'Account or learning language changed. Reload Setup before retrying.'})});return;
      }
     }
-    if(path==='/api/status')value={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}};
+    if(path==='/api/snapshot')value={context:{runtime_id:'setup-fixture',state_version:0,account_generation:0},status:{capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}},lines:[],lexirise:{configured:false,sent:{}}};
+    else if(path==='/api/status')value={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}};
     else if(path==='/api/setup'){if(setupOffline){await route.abort();return;}const selected=url.searchParams.get('game')??'zzz';value={...setup,mobile_export:{...setup.mobile_export,scope:exportScope(selected),sourceLocale:exportLocale,selectedGame:selected}};}
     else if(path==='/api/setup/report')value={version:'fixture',platform:'Windows',requirements:{ocr:true},games:[{id:'zzz',folder_state:'configured'}]};
     else if(path==='/api/setup/games/zzz'){

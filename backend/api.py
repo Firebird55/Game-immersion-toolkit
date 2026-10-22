@@ -36,6 +36,7 @@ from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
+from .state_version import StateVersion
 from .lexirise_settings import account_settings
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
@@ -91,7 +92,8 @@ class SetupAction(BaseModel):
 
 
 class EventHub:
-    def __init__(self) -> None:
+    def __init__(self, context=None) -> None:
+        self.context = context
         self.clients: set[WebSocket] = set()
         self._lock = asyncio.Lock()
 
@@ -105,6 +107,9 @@ class EventHub:
             self.clients.discard(websocket)
 
     async def broadcast(self, event: dict[str, object]) -> None:
+        # Stamp before the first await: a delayed send retains its publication revision.
+        if self.context:
+            event = {**event, 'context': self.context()}
         async with self._lock:
             clients = list(self.clients)
         stale: list[WebSocket] = []
@@ -125,7 +130,8 @@ class Runtime:
         self._updates_started = False
         self.warm_task = None
         self.repair_task = None
-        self.hub = EventHub()
+        self.state_version = StateVersion()
+        self.hub = EventHub(lambda: self.state_version.publish(self.accounts.generation))
         local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
@@ -579,8 +585,13 @@ class Runtime:
                 return current
         return update
 
+    def context(self):
+        return self.state_version.snapshot(self.accounts.generation)
+
     def status(self) -> dict[str, object]:
+        context = self.context()
         return {
+            "context": context,
             "capture": self.capture.snapshot().model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
             "game_textmaps": {
@@ -775,6 +786,30 @@ def get_status() -> dict[str, object]:
     return runtime.status()
 
 
+def read_context():
+    # Lightweight fixture runtimes may omit the transport clock.
+    return runtime.context() if hasattr(runtime, 'context') else None
+
+
+def check_read_context(context):
+    if context is not None and context['account_generation'] != runtime.accounts.generation:
+        raise HTTPException(409, 'Account changed while reading. Reload the current context.')
+
+
+@app.get('/api/snapshot')
+def companion_snapshot() -> dict:
+    context = read_context()  # Before status, SQLite, enrichment or account reads.
+    status = runtime.status()
+    lines = {}
+    for game in GAMES:
+        for line in [*get_lines(limit=50, before_id=None, game=game), *get_favorites(game=game)]:
+            lines[line.id] = line.model_dump(mode='json')
+    # This ledger read does not request remote account preferences.
+    integration = integration_status(refresh_settings=False)
+    check_read_context(context)
+    return {'context': context, 'status': status, 'lines': list(lines.values()), 'lexirise': integration}
+
+
 def setup_access(request: Request, header: str | None = None, *, write: bool = False) -> None:
     if not local_access_allowed(request.scope.get('headers', [])):
         raise HTTPException(403, "Setup is available only on this PC")
@@ -806,6 +841,7 @@ def game_languages(game: str, request: Request) -> dict:
     setup_access(request)
     if game not in GAMES or game not in GAME_LOCALES:
         raise HTTPException(404, 'Unsupported game language setup')
+    context = read_context()
     try:
         result = runtime.languages.status(game, runtime.accounts.status()['active'])
         inventory = runtime.language_inventory.status(game, result)
@@ -819,7 +855,8 @@ def game_languages(game: str, request: Request) -> dict:
         except LexiriseError:
             result['enabled_languages'] = None
             result['targets'] = {}
-        return result
+        check_read_context(context)
+        return {**result, 'context': context}
     except (ValueError, LexiriseError) as error:
         raise HTTPException(400, str(error)) from None
 
@@ -1082,12 +1119,20 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
 
 @app.get("/api/lexirise")
 def lexirise_status(language: str = 'zh') -> dict:
+    context = read_context()
+    result = integration_status(language)
+    check_read_context(context)
+    return {**result, 'context': context}
+
+
+def integration_status(language: str = 'zh', *, refresh_settings=True) -> dict:
+    account = runtime.accounts.status()['active'] if hasattr(runtime, 'accounts') else 'legacy'
     try:
         session = runtime.lexirise.pin(language)
     except LexiriseError:
-        return {'configured': False, 'sent': {}, 'decks': {}}
+        return {'configured': False, 'sent': {}, 'decks': {}, 'account': account}
     status = session.status()
-    if status["configured"] and not hasattr(session, "_settings_scope"):
+    if refresh_settings and status["configured"] and not hasattr(session, "_settings_scope"):
         try:
             account_settings(session)
         except LexiriseError:
@@ -1100,7 +1145,7 @@ def lexirise_status(language: str = 'zh') -> dict:
     by_language = {source: runtime.lexirise.pin(source).status() for source in sources}
     status['sent'] = {ref: deck for value in by_language.values() for ref, deck in value['sent'].items()}
     status['by_language'] = by_language
-    status['account'] = runtime.accounts.status()['active'] if hasattr(runtime, 'accounts') else 'legacy'
+    status['account'] = account
     return status
 
 
@@ -1478,7 +1523,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     await runtime.hub.connect(websocket)
     try:
         snapshot = await asyncio.to_thread(runtime.status)
-        await websocket.send_json({"type": "snapshot", "snapshot": snapshot})
+        event = {"type": "snapshot", "snapshot": snapshot}
+        if 'context' in snapshot:
+            event['context'] = snapshot['context']
+        await websocket.send_json(event)
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:

@@ -1,24 +1,56 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
+import {StatePoll, type StateContext} from './state-sync';
 import {Button} from '@/components/ui/button';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {formatBytes,languageName} from '../public/mobile-capture/interface-language.mjs';
 const API='http://127.0.0.1:8766';
 type Locale={locale:string;language:string;name:string;reader_available:boolean;table_bytes?:number;reclaimable_bytes?:number;voice_state?:string;support?:string;prepared:null|{targets:string[];mapped_lines:number};job?:{state?:string;message?:string;progress?:number}};
-type Languages={selected:string|null;locales:Locale[];enabled_languages:string[]|null;targets:Record<string,string>;translation_locales?:string[];expected_targets?:string[];storage?:{tables_bytes:number;audio_cache_bytes:number|null;shared_tools_bytes:number|null;installed_game_bytes:number|null;exports_bytes:number|null}};
+type Languages={context:StateContext;selected:string|null;locales:Locale[];enabled_languages:string[]|null;targets:Record<string,string>;translation_locales?:string[];expected_targets?:string[];storage?:{tables_bytes:number;audio_cache_bytes:number|null;shared_tools_bytes:number|null;installed_game_bytes:number|null;exports_bytes:number|null}};
 export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false}:{game:string;onConfigure:(language:string)=>void;onChanged:()=>void;storageOnly?:boolean}){
  const {t,locale:uiLocale}=useInterfaceLanguage();
  const [data,setData]=useState<Languages|null>(null),[locale,setLocale]=useState(''),[target,setTarget]=useState('en'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[search,setSearch]=useState(''),[confirm,setConfirm]=useState(false);
+ const pollOwner=useRef<StatePoll<Languages>|null>(null);
+ const actionAbort=useRef<AbortController|null>(null);
  useEffect(()=>{
-  let active=true;
-  async function load(){try{const response=await fetch(API+'/api/setup/games/'+game+'/languages',{cache:'no-store'});if(!response.ok)throw Error('Language setup unavailable.');const value=await response.json() as Languages;if(!active||!Array.isArray(value.locales))return;setData(value);setLocale(previous=>value.locales.some(l=>l.locale===previous)?previous:value.selected??value.locales.find(l=>value.enabled_languages?.includes(l.language))?.locale??value.locales[0]?.locale??'');}catch(e){if(active)setError(e instanceof Error?e.message:'Language setup unavailable.');}}
-  setData(null);setLocale('');setConfirm(false);setError('');void load();const timer=setInterval(()=>void load(),5000);
-  return()=>{active=false;clearInterval(timer);};
+  const owner=new StatePoll<Languages>(async signal=>{
+   const response=await fetch(API+'/api/setup/games/'+game+'/languages',{cache:'no-store',signal});
+   if(!response.ok)throw Error('Language setup unavailable.');
+   const value=await response.json() as Languages;
+   if(!Array.isArray(value.locales))throw Error('Language setup unavailable.');
+   return value;
+  },value=>{
+   setData(value);setError('');
+   setLocale(previous=>value.locales.some(l=>l.locale===previous)?previous:value.selected??value.locales.find(l=>value.enabled_languages?.includes(l.language))?.locale??value.locales[0]?.locale??'');
+  },()=>setError('Language setup unavailable.'));
+  pollOwner.current=owner;
+  const reset=(event?:Event)=>{
+   owner.reset(event?.type==='companion-runtime-reset');actionAbort.current?.abort();
+   setData(null);setLocale('');setConfirm(false);setError('');setBusy(false);
+   void owner.request();
+  };
+  reset();const timer=setInterval(()=>void owner.request(),5000);
+  window.addEventListener('lexirise-credentials-changed',reset);
+  window.addEventListener('companion-runtime-reset',reset);
+  return()=>{owner.close();actionAbort.current?.abort();if(pollOwner.current===owner)pollOwner.current=null;clearInterval(timer);window.removeEventListener('lexirise-credentials-changed',reset);window.removeEventListener('companion-runtime-reset',reset);};
  },[game]);
  const selected=data?.locales.find(item=>item.locale===locale);
  const translation=selected?(data?.targets[selected.language]??target):target;
  async function action(kind:'prepare'|'rebuild'|'select'|'cleanup'){
-  setBusy(true);setError('');try{const response=await fetch(API+'/api/setup/games/'+game+'/languages',{method:'POST',headers:{'Content-Type':'application/json','X-Proxy-Transcript':'setup'},body:JSON.stringify({locale,action:kind,...(kind==='prepare'||kind==='rebuild')?{target:translation}:{}})});if(!response.ok){const value=await response.json() as {detail?:string};throw Error(value.detail??'Language action failed.');}const refreshed=await fetch(API+'/api/setup/games/'+game+'/languages',{cache:'no-store'});if(refreshed.ok)setData(await refreshed.json() as Languages);setConfirm(false);onChanged();}catch(e){setError(e instanceof Error?e.message:'Language action failed.');}finally{setBusy(false);}}
+  const owner=pollOwner.current;if(!owner||actionAbort.current&&!actionAbort.current.signal.aborted)return;
+  const scope=owner.generation,controller=new AbortController();actionAbort.current=controller;
+  setBusy(true);setError('');
+  try{
+   const response=await fetch(API+'/api/setup/games/'+game+'/languages',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json','X-Proxy-Transcript':'setup'},body:JSON.stringify({locale,action:kind,...(kind==='prepare'||kind==='rebuild')?{target:translation}:{}})});
+   if(!owner.owns(scope)||controller.signal.aborted)return;
+   if(!response.ok){const value=await response.json() as {detail?:string};throw Error(value.detail??'Language action failed.');}
+   // Invalidate the older poll before refreshing the result of this action.
+   owner.reset();await owner.request();
+   if(controller.signal.aborted||pollOwner.current!==owner)return;
+   setConfirm(false);onChanged();
+  }catch(e){if(owner.owns(scope)&&!controller.signal.aborted)setError(e instanceof Error?e.message:'Language action failed.');}
+  finally{if(actionAbort.current===controller){actionAbort.current=null;if(!controller.signal.aborted)setBusy(false);}}
+ }
  const preparing=selected?.job?.state==='preparing';
  const enabled=!!selected&&(!data?.enabled_languages||data.enabled_languages.includes(selected.language));
  const prepared=!!selected?.prepared?.targets.some(code=>code.toLowerCase()===translation.toLowerCase());

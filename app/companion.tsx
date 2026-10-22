@@ -3,6 +3,7 @@ import {useInterfaceTranslation} from '../lib/interface-language';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
+import {StatePoll, type StateContext} from './state-sync';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
@@ -152,6 +153,7 @@ type StatusPayload = {
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
+type CompanionSnapshot = {context:StateContext; status:StatusPayload; lines:TranscriptLine[]; lexirise:LexiriseStatus};
 type TranscriptTab = 'history' | 'favorites';
 type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
 const GAME_NAMES: Record<GameId, string> = {
@@ -416,6 +418,7 @@ function CompanionClient() {
   const [accountLanguage,setAccountLanguage]=useState('zh');
   const lastActiveGame = useRef<GameId | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollOwner = useRef<StatePoll<CompanionSnapshot> | null>(null);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
   const playback = useRef<HTMLAudioElement | null>(null);
@@ -459,80 +462,69 @@ function CompanionClient() {
     settingsOpenRef.current = settingsOpen;
   }, [settingsOpen]);
 
-  const loadSnapshot = useCallback(async () => {
-    const generation = accountScope.current.generation;
-    try {
-      const games = Object.keys(GAME_NAMES) as GameId[];
-      const responses = await Promise.all([
-        fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
-        ...games.map(game => fetch(`${API_URL}/api/lines?limit=50&game=${game}`, { cache: 'no-store' })),
-        ...games.map(game => fetch(`${API_URL}/api/favorites?game=${game}`, { cache: 'no-store' })),
-      ]);
-      if (generation !== accountScope.current.generation) return;
-      if (responses.some(response => !response.ok)) throw new Error('Companion service unavailable');
-      const nextStatus = await responses[0].json() as StatusPayload;
-      if (generation !== accountScope.current.generation) return;
-      setStatus(nextStatus);
-      if (!settingsOpenRef.current) setDraftSettings(nextStatus.settings);
-      const snapshots = await Promise.all(responses.slice(1).map(response => response.json() as Promise<TranscriptLine[]>));
-      if (generation !== accountScope.current.generation) return;
-      const recentLines = snapshots.slice(0, games.length).flat();
-      const favoriteLines = snapshots.slice(games.length).flat();
-      const nextLines = Array.from(
-        new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
-      ).sort(newestFirst);
-      setLines((current) => {
-        const merged = mergeTranscriptSnapshot(current, nextLines);
-        knownLineIds.current = new Set(merged.map((line) => line.id));
-        return merged;
-      });
-      setOnline(true);
-      setSnapshotLoaded(true);
-      // Integration status must not prevent the transcript from loading.
-      void fetch(`${API_URL}/api/lexirise`, { cache: 'no-store' })
-        .then(response => response.ok ? response.json() : null)
-        .then(value => {
-          if (!value || generation !== accountScope.current.generation) return;
-          const next = value as LexiriseStatus;
-          const account = next.account ?? 'legacy';
-          if (account !== accountScope.current.account) { accountScope.current.generation++; setStudyMessage(''); }
-          accountScope.current.account = account;
-          accountScope.current.ready = next.configured;
-          setLexirise(next);
-        }).catch(() => undefined);
-    } catch {
-      if (generation === accountScope.current.generation) setOnline(false);
-    }
-  }, []);
+  const loadSnapshot = useCallback(() => pollOwner.current?.request() ?? Promise.resolve(), []);
 
   useEffect(() => {
-    const changed = () => {
+    let accountContext = '';
+    const retireAccount = () => {
       accountScope.current.generation++;
       accountScope.current.ready = false;
       setLexirise({ configured: false, sent: {} });
       setStudyMessage('');
-      void loadSnapshot();
+    };
+    const owner = new StatePoll<CompanionSnapshot>(async signal => {
+      const response = await fetch(`${API_URL}/api/snapshot`, {cache:'no-store', signal});
+      if (!response.ok) throw Error('Companion service unavailable');
+      return await response.json() as CompanionSnapshot;
+    }, value => {
+      const key = `${value.context.runtime_id}:${value.context.account_generation}`;
+      if (key !== accountContext) {retireAccount(); accountContext = key;}
+      // One synchronous commit after the complete, versioned payload is ready.
+      setStatus(value.status);
+      if (!settingsOpenRef.current) setDraftSettings(value.status.settings);
+      setLines(current => {
+        const merged = mergeTranscriptSnapshot(current, value.lines);
+        knownLineIds.current = new Set(merged.map(line => line.id));
+        return merged;
+      });
+      accountScope.current.account = value.lexirise.account ?? 'legacy';
+      accountScope.current.ready = value.lexirise.configured;
+      setLexirise(value.lexirise);
+      setOnline(true);
+      setSnapshotLoaded(true);
+    }, () => setOnline(false));
+    pollOwner.current = owner;
+    const changed = () => {
+      owner.reset();
+      retireAccount();
+      void owner.request();
     };
     window.addEventListener('lexirise-credentials-changed', changed);
-    return () => window.removeEventListener('lexirise-credentials-changed', changed);
-  }, [loadSnapshot]);
-
-  useEffect(() => {
-    void loadSnapshot();
-    const poll = window.setInterval(loadSnapshot, 10000);
-    return () => window.clearInterval(poll);
-  }, [loadSnapshot]);
-
-  useEffect(() => {
+    void owner.request();
+    const poll = window.setInterval(() => void owner.request(), 10000);
     let closed = false;
     let socket: WebSocket | null = null;
 
     const connect = () => {
       socket = new WebSocket(WS_URL);
-      socket.onopen = () => { setOnline(true); void loadSnapshot(); };
+      const connection = socket;
+      socket.onopen = () => {
+        if (closed || socket !== connection) return;
+        owner.reset(true);
+        retireAccount();
+        window.dispatchEvent(new Event('companion-runtime-reset'));
+        setOnline(true);
+        void owner.request();
+      };
       socket.onmessage = (message) => {
-        const event = JSON.parse(message.data);
-        if (event.type === 'account_changed') {window.dispatchEvent(new Event('lexirise-credentials-changed'));void loadSnapshot();}
+        if (closed || socket !== connection) return;
+        let event;
+        try {event = JSON.parse(message.data);} catch {return;}
+        if (!owner.accept(event.context)) return;
+        if (event.type === 'account_changed') {
+          window.dispatchEvent(new Event('lexirise-credentials-changed'));
+          return;
+        }
         if (event.type === 'snapshot') {
           setStatus(event.snapshot);
           if (!settingsOpenRef.current) setDraftSettings(event.snapshot.settings);
@@ -594,14 +586,24 @@ function CompanionClient() {
       socket.onclose = () => {
         // A prepared update replaces the socket while the local API stays
         // available. Confirm service health without discarding the reader.
-        if (!closed) { void loadSnapshot(); reconnectTimer.current = setTimeout(connect, 1500); }
+        if (!closed && socket === connection) {
+          socket = null;
+          owner.reset(true);
+          retireAccount();
+          window.dispatchEvent(new Event('companion-runtime-reset'));
+          reconnectTimer.current = setTimeout(connect, 1500);
+        }
       };
-      socket.onerror = () => socket?.close();
+      socket.onerror = () => connection.close();
     };
 
     connect();
     return () => {
       closed = true;
+      owner.close();
+      if (pollOwner.current === owner) pollOwner.current = null;
+      window.clearInterval(poll);
+      window.removeEventListener('lexirise-credentials-changed', changed);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       socket?.close();
     };
@@ -702,10 +704,10 @@ function CompanionClient() {
         body: JSON.stringify(draftSettings),
       });
       if (!response.ok) throw new Error('Could not save capture settings');
-      const saved = (await response.json()) as Settings;
-      setDraftSettings(saved);
-      setStatus((current) => current ? { ...current, settings: saved } : current);
+      // The response can arrive after a newer settings event. Refresh through
+      // the same versioned owner instead of publishing an unversioned result.
       setSettingsOpen(false);
+      await loadSnapshot();
     } finally {
       setSaving(false);
     }
@@ -757,6 +759,7 @@ function CompanionClient() {
       const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
       if (!isCurrent()) return;
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
+      pollOwner.current?.reset(); // A previously read ledger cannot erase this completed export.
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
       setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
     } catch (error) {
