@@ -16,7 +16,14 @@ const json=(path,value)=>writeFileSync(path,JSON.stringify(value));
 const powershell=process.env.PWSH||'powershell.exe';
 async function ready(url){for(let i=0;i<100;i++){try{if((await fetch(url)).ok)return;}catch{}await wait(50);}throw Error('Fixture did not start');}
 function child(command,args,options={}){const value=spawn(command,args,{stdio:['ignore','pipe','pipe'],...options});children.push(value);return value;}
-function terminate(id){try{execFileSync('taskkill',['/PID',String(id),'/T','/F'],{stdio:'ignore'});}catch{}}
+const psQuote=value=>"'"+String(value).replaceAll("'","''")+"'";
+function shell(command){return execFileSync(powershell,['-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8'});}
+function identity(child,root){return JSON.parse(shell(`. ${psQuote(join(repository,'scripts/companion-runtime.ps1'))}; New-CompanionProcessRecord (Get-Process -Id ${child.pid}) ${psQuote(root)} | ConvertTo-Json -Compress`));}
+function stopRecorded(root,exceptRouter=false){
+ const record=join(root,'data/processes.json');if(!existsSync(record))return;
+ shell(`. ${psQuote(join(repository,'scripts/companion-runtime.ps1'))}; $records=Read-CompanionProcesses ${psQuote(record)} ${psQuote(root)}; foreach($name in @($records.Keys)){if(${exceptRouter?"$name -ne 'router'":'$true'}){Stop-CompanionProcess $records[$name] ${psQuote(root)}}}`);
+}
+function terminate(child){if(child.exitCode===null&&!child.killed)child.kill();}
 
 try{
  for(const fail of [false,true]){
@@ -36,7 +43,7 @@ try{
   await ready('http://127.0.0.1:'+oldPort+'/api/health');
   const state=join(root,'data/companion-runtime.json');json(state,{version:1,active:{apiPort:oldPort,frontendPort:oldPort,python,source}});
   const router=child(process.execPath,[join(repository,'scripts/companion-router.mjs'),'--state',state,'--assets',join(root,'data/runtime-assets'),'--api-port',String(api),'--frontend-port',String(front)]);
-  await ready('http://127.0.0.1:'+api+'/api/health');json(join(root,'data/processes.json'),{router:router.pid,backend:old.pid,frontend:old.pid});
+  await ready('http://127.0.0.1:'+api+'/api/health');const oldRecord=identity(old,root);json(join(root,'data/processes.json'),{router:identity(router,root),backend:oldRecord,frontend:oldRecord});
   const update=child(powershell,['-NoProfile','-ExecutionPolicy','Bypass','-File',join(repository,'scripts/update-companion.ps1'),'-Root',root,'-SourceRoot',source,'-ApiPort',String(api),'-FrontendPort',String(front),'-ReadyTimeoutSeconds',fail?'3':'30']);
   let output='';const collect=b=>{output+=b;if(process.argv.includes('--verbose'))process.stdout.write(b);};update.stdout.on('data',collect);update.stderr.on('data',collect);
   let done=false;const completion=new Promise(resolve=>update.on('exit',code=>{done=true;resolve(code);}));
@@ -57,16 +64,17 @@ try{
    assert.equal(current.worker,'new');assert(current.capture.running);assert.equal(current.session.id,'continuous-session');
    const events=readFileSync(join(root,'data/events.log'),'utf8').trim().split(/\r?\n/).map(line=>JSON.parse(line));
    assert(events.findIndex(event=>event.name==='ready')<events.findIndex(event=>event.name==='quiesced'),'Old capture paused before the replacement was ready');
-   const records=JSON.parse(readFileSync(join(root,'data/processes.json'),'utf8'));for(const [name,id]of Object.entries(records))if(name!=='router')terminate(id);
+   const records=JSON.parse(readFileSync(join(root,'data/processes.json'),'utf8'));
+   assert.equal(typeof records.backend.started,'string');assert.equal(records.backend.root,root);assert.equal(records.router.id,router.pid);
+   stopRecorded(root,true);
   }
-  terminate(router.pid);terminate(old.pid);
+  terminate(router);terminate(old);
   console.log(fail?'Failed candidate leaves live translations available.':'Prepared replacement preserves availability, capture state and session.');
  }
 }finally{
- for(const process of children)terminate(process.pid);
+ for(const process of children)terminate(process);
  for(const name of ['successful update','failed update']){
-  const record=join(temporary,name,'data/processes.json');
-  if(existsSync(record))for(const id of Object.values(JSON.parse(readFileSync(record,'utf8'))))terminate(id);
+  stopRecorded(join(temporary,name));
  }
  const checked=resolve(temporary),prefix=resolve(tmpdir())+sep+'companion-update-';
  if(!checked.startsWith(prefix))throw Error('Unexpected fixture cleanup path');

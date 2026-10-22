@@ -1,5 +1,80 @@
 $ErrorActionPreference = 'Stop'
 
+# Runtime state retains numeric backend/frontend fields for the router and
+# capture handoff. Only these separately recorded identities authorize process
+# reuse or termination. Ticks are strings so JSON readers cannot round them.
+function New-CompanionProcessRecord($Process, [string]$Root) {
+    $null = $Process.Handle
+    if ($Process.HasExited) { throw 'Companion process exited before its identity could be recorded.' }
+    return [ordered]@{id=$Process.Id; started=$Process.StartTime.ToUniversalTime().Ticks.ToString();
+        executable=[System.IO.Path]::GetFullPath($Process.Path); root=[System.IO.Path]::GetFullPath($Root)}
+}
+
+function Get-CompanionOwnedProcess($Record, [string]$Root) {
+    $process = $null
+    try {
+        # PID-only records, partial writes and inaccessible processes are never
+        # sufficient evidence that a live process belongs to this installation.
+        if (-not $Record -or $Record -is [ValueType] -or $Record -is [string]) { return $null }
+        if ([string]$Record.id -notmatch '^[1-9][0-9]*$' -or [string]$Record.started -notmatch '^[1-9][0-9]*$') { return $null }
+        if (-not [System.IO.Path]::IsPathRooted([string]$Record.executable) -or -not [System.IO.Path]::IsPathRooted([string]$Record.root)) { return $null }
+        if ([System.IO.Path]::GetFullPath([string]$Record.root) -ne [System.IO.Path]::GetFullPath($Root)) { return $null }
+        $process = Get-Process -Id ([int]$Record.id) -ErrorAction SilentlyContinue
+        if (-not $process) { return $null }
+        # Keep the process handle open while checking and stopping it. Windows
+        # cannot recycle this process ID while this handle is held.
+        $null = $process.Handle
+        if ($process.HasExited -or $process.StartTime.ToUniversalTime().Ticks.ToString() -ne [string]$Record.started -or
+            [System.IO.Path]::GetFullPath($process.Path) -ne [System.IO.Path]::GetFullPath([string]$Record.executable)) {
+            $process.Dispose(); return $null
+        }
+        return $process
+    } catch { if ($process) { $process.Dispose() }; return $null }
+}
+
+function Test-CompanionProcess($Record, [string]$Root) {
+    $process = Get-CompanionOwnedProcess $Record $Root
+    if (-not $process) { return $false }
+    $process.Dispose()
+    return $true
+}
+
+function Stop-CompanionProcessHandle($Process) {
+    # Call only with a validated identity handle or the exact Start-Process
+    # object owned by this invocation, including partial-start cleanup.
+    $null=$Process.Handle
+    if ($Process.HasExited) { return }
+    try { & taskkill.exe /PID $Process.Id /T /F 2>$null | Out-Null; $exitCode=$LASTEXITCODE }
+    catch { if (-not $Process.HasExited) { throw }; $exitCode=0 }
+    if (-not $Process.WaitForExit(5000)) {
+        if ($exitCode -ne 0) { throw 'Windows refused to stop a verified companion process.' }
+        throw 'A verified companion process did not stop.'
+    }
+}
+
+function Stop-CompanionProcess($Record, [string]$Root) {
+    $process = Get-CompanionOwnedProcess $Record $Root
+    if (-not $process) { return }
+    try {
+        Stop-CompanionProcessHandle $process
+    }
+    finally { $process.Dispose() }
+}
+
+function Read-CompanionProcesses([string]$Path, [string]$Root) {
+    $result = [ordered]@{}
+    try {
+        $record = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        if ($record -isnot [System.Management.Automation.PSCustomObject]) { return $result }
+        foreach ($property in $record.PSObject.Properties) {
+            if ($property.Name -match '^(backend|frontend|router|retired_[0-9]+|retirer_[0-9]+)$' -and (Test-CompanionProcess $property.Value $Root)) {
+                $result[$property.Name] = $property.Value
+            }
+        }
+    } catch { }
+    return $result
+}
+
 function Test-CompanionEndpoint([string]$Url) {
     try { return (Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200 }
     catch { return $false }
@@ -52,12 +127,22 @@ function Start-CompanionSlot([string]$Root, [string]$Source, [string]$Python, [s
     $backendArguments = @('-m','backend.main','--port',[string]$apiPort)
     if ($Standby) { $backendArguments += '--standby' }
     $backend = Start-CompanionProcess $Python $backendArguments $Source (Join-Path $logs "api-$apiPort") -LowPriority:$Standby
+    $frontend = $null
     try {
+        $backendRecord = New-CompanionProcessRecord $backend $Root
         $wrangler = Join-Path $Source 'node_modules\wrangler\bin\wrangler.js'
         $frontend = Start-CompanionProcess $node @($wrangler,'dev','--config','dist/server/wrangler.json','--ip','127.0.0.1','--port',[string]$frontendPort,'--inspector-port',[string]($frontendPort+16000)) $Source (Join-Path $logs "frontend-$frontendPort")
-    } catch { & taskkill.exe /PID $backend.Id /T /F | Out-Null; throw }
+        $frontendRecord = New-CompanionProcessRecord $frontend $Root
+    } catch {
+        $failure=$_
+        foreach($process in @($frontend,$backend)) {
+            if($process){try{Stop-CompanionProcessHandle $process}catch{Write-Warning 'A newly started companion process could not be cleaned up.'}}
+        }
+        throw $failure
+    }
     return [ordered]@{source=$Source; python=$Python; apiPort=$apiPort; frontendPort=$frontendPort;
-                       backend=$backend.Id; frontend=$frontend.Id}
+                       backend=$backend.Id; frontend=$frontend.Id;
+                       processRecords=@{backend=$backendRecord;frontend=$frontendRecord}}
 }
 
 function Copy-CompanionAssets([string]$Source, [string]$Root) {
@@ -78,11 +163,25 @@ function Start-CompanionRouter([string]$Root, [string]$Source, [int]$ApiPort=876
     return Start-CompanionProcess $node @((Join-Path $Source 'scripts\companion-router.mjs'),'--state',(Join-Path $Root 'data\companion-runtime.json'),'--assets',$assets,'--api-port',[string]$ApiPort,'--frontend-port',[string]$FrontendPort) $Source (Join-Path $logs 'router')
 }
 
-function Set-CompanionNormalPriority([int]$ProcessId) {
-    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-    if ($process) { try { $process.PriorityClass='Normal' } catch { } }
-    # venv launchers can have one real Python child. Promote it before the new
-    # runtime starts its own explicitly lower-priority indexing processes.
-    Get-CimInstance Win32_Process -Filter "ParentProcessId=$ProcessId" -ErrorAction SilentlyContinue |
-        ForEach-Object { Set-CompanionNormalPriority ([int]$_.ProcessId) }
+function Set-CompanionNormalPriority($Record, [string]$Root) {
+    $process = Get-CompanionOwnedProcess $Record $Root
+    if (-not $process) { throw 'Replacement backend exited before activation; current capture was kept active.' }
+    try {
+        try { $process.PriorityClass='Normal' } catch { }
+        # venv launchers can have one real Python child. Hold both process
+        # handles and recheck parentage before recording/promoting that child.
+        Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$process.Id) -ErrorAction SilentlyContinue | ForEach-Object {
+            $child=$null
+            try {
+                $child=Get-Process -Id ([int]$_.ProcessId) -ErrorAction Stop
+                $null=$child.Handle
+                $live=Get-CimInstance Win32_Process -Filter ('ProcessId='+$child.Id) -ErrorAction Stop
+                if (-not $child.HasExited -and $live.ParentProcessId -eq $process.Id -and
+                    $child.StartTime.ToUniversalTime().Ticks -ge $process.StartTime.ToUniversalTime().Ticks) {
+                    Set-CompanionNormalPriority (New-CompanionProcessRecord $child $Root) $Root
+                }
+            } catch { }
+            finally { if($child){$child.Dispose()} }
+        }
+    } finally { $process.Dispose() }
 }
