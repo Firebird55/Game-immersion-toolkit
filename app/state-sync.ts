@@ -45,13 +45,16 @@ export class StatePoll<T extends {context:StateContext}> {
   request():Promise<void> {
     if (this.closed) return Promise.resolve();
     if (this.flight) { this.queued = true; return this.flight.promise; }
-    const scope = this.scope, controller = new AbortController();
+    const scope = this.scope, observedContext = this.current, controller = new AbortController();
     // Defer load so a synchronous loader still sees its owning flight.
     const flight = {controller, promise:Promise.resolve()};
     this.flight = flight;
     flight.promise = Promise.resolve().then(()=>this.load(controller.signal)).then(value=>{
       if (this.owns(scope) && !controller.signal.aborted && this.accept(value.context)) this.commit(value);
-    }).catch(()=>{ if (this.owns(scope) && !controller.signal.aborted) this.failed(); }).finally(()=>{
+    }).catch(()=>{
+      // A newer accepted event also invalidates a late HTTP failure indicator.
+      if (this.owns(scope) && !controller.signal.aborted && this.current === observedContext) this.failed();
+    }).finally(()=>{
       if (this.flight !== flight) return;
       this.flight = null;
       if (this.queued) {this.queued = false; void this.request();}

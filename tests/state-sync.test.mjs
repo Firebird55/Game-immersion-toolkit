@@ -46,3 +46,9 @@ test('missing revisions and lower account generations are never state',()=>{
  const {owner}=fixture();assert(!owner.accept(undefined));assert(!owner.accept({runtime_id:'x'}));assert(owner.accept(context(8,4)));
  assert(!owner.accept(context(9,3)));assert(!owner.accept(context(7,5)));assert(owner.accept(context(8,4)));owner.close();
 });
+
+test('a late failed HTTP poll cannot mark a newer WebSocket state offline',async()=>{
+ const {owner,pending,errors}=fixture();const old=owner.request();await tick();
+ owner.accept(context(2));pending[0].reject(Error('old disconnected request'));await old;assert.deepEqual(errors,[]);
+ const current=owner.request();await tick();pending[1].reject(Error('current failure'));await current;assert.deepEqual(errors,['failed']);owner.close();
+});
