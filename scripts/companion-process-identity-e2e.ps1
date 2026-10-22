@@ -1,8 +1,60 @@
-param([string]$BaselineRevision, [switch]$VerifyBaseline)
+param([string]$BaselineRevision, [switch]$VerifyBaseline, [switch]$ImageFixturesOnly)
 $ErrorActionPreference = 'Stop'
-if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'Process tree fixtures require Windows; no Windows verification was performed.' }
 $repository = Split-Path -Parent $PSScriptRoot
 $shell = (Get-Process -Id $PID).Path
+. (Join-Path $repository 'scripts\companion-runtime.ps1')
+function Test-ImageAcquisition {
+    # These synthetic Process-shaped objects exercise only the image boundary.
+    # No PID is opened or terminated; the Windows suite below uses real children.
+    function New-ImageProbe([int]$ReadyAfter=1) {
+        $probe=[pscustomobject]@{Id=1;Handle=1;HasExited=$false;StartTime=[datetime]::new(2026,1,1,0,0,0,[DateTimeKind]::Utc);
+            Executable=$shell;ReadyAfter=$ReadyAfter;ImageReads=0;RefreshCount=0;ExitOnRefresh=$false;ImageError=$false;Disposed=$false}
+        $probe|Add-Member -MemberType ScriptMethod -Name get_MainModule -Value {
+            $this.ImageReads++
+            if($this.ImageError){throw 'CONTROLLED_IMAGE_ACCESS_FAILURE'}
+            if($this.ImageReads -ge $this.ReadyAfter){return [pscustomobject]@{FileName=$this.Executable}}
+        }
+        $probe|Add-Member -MemberType ScriptProperty -Name Path -Value {$module=$this.get_MainModule();if($module){return $module.FileName}}
+        $probe|Add-Member -MemberType ScriptMethod -Name Refresh -Value {$this.RefreshCount++;if($this.ExitOnRefresh){$this.HasExited=$true}}
+        $probe|Add-Member -MemberType ScriptMethod -Name Dispose -Value {$this.Disposed=$true}
+        return $probe
+    }
+    function Start-Sleep {param([int]$Milliseconds);if($Milliseconds -ne 50){throw 'Unexpected image retry interval.'}}
+    function Get-Process {param([int]$Id,[string]$ErrorAction);if($Id -ne $imageLookup.Id){throw 'Unexpected synthetic PID lookup.'};return $imageLookup}
+    $probe=New-ImageProbe 3
+    $identity=New-CompanionProcessRecord $probe $repository
+    if($probe.ImageReads -ne 3 -or $probe.RefreshCount -ne 2 -or $identity.executable -ne [IO.Path]::GetFullPath($shell)){
+        throw 'Delayed main module did not produce the expected identity.'
+    }
+    $imageLookup=New-ImageProbe 3
+    $verified=Get-CompanionOwnedProcess $identity $repository
+    if(-not $verified -or $imageLookup.ImageReads -ne 3 -or $imageLookup.RefreshCount -ne 2){throw 'Owned lookup did not wait for its missing image.'}
+    $verified.Dispose()
+    $imageLookup=New-ImageProbe
+    $mismatch=@{id=$identity.id;started=([long]$identity.started-1).ToString();executable=$identity.executable;root=$identity.root}
+    if((Get-CompanionOwnedProcess $mismatch $repository) -or $imageLookup.ImageReads -ne 0){throw 'Start-time mismatch was retried.'}
+    $imageLookup=New-ImageProbe
+    $mismatch.started=$identity.started
+    $mismatch.executable=Join-Path $repository 'different-executable.exe'
+    if((Get-CompanionOwnedProcess $mismatch $repository) -or $imageLookup.ImageReads -ne 1 -or $imageLookup.RefreshCount -ne 0){throw 'Executable mismatch was retried.'}
+    foreach($case in @('unavailable','exited','invalid','access')){
+        $probe=New-ImageProbe 100
+        $expected='remained unavailable'
+        switch($case){
+            exited {$probe.ExitOnRefresh=$true;$expected='exited'}
+            invalid {$probe.ReadyAfter=1;$probe.Executable='relative.exe';$expected='invalid companion executable'}
+            access {$probe.ImageError=$true;$expected='could not read the companion executable'}
+        }
+        $rejected=$false
+        try{New-CompanionProcessRecord $probe $repository|Out-Null}catch{if($_.Exception.Message -notmatch $expected){throw};$rejected=$true}
+        if(-not $rejected){throw ('Image acquisition accepted '+$case)}
+        if($case -eq 'unavailable' -and ($probe.ImageReads -ne 40 -or $probe.RefreshCount -ne 39)){throw 'Missing image retry was not bounded.'}
+        if($case -ne 'unavailable' -and $probe.ImageReads -ne 1){throw ('Image acquisition retried '+$case)}
+    }
+    Write-Host 'Controlled image acquisition passed: delayed image, lookup, bounded missing image, exited/access/invalid image and immediate identity mismatch rejection.'
+}
+if ($ImageFixturesOnly) { Test-ImageAcquisition; return }
+if ([Environment]::OSVersion.Platform -ne 'Win32NT') { throw 'Process tree fixtures require Windows; no Windows verification was performed.' }
 $clock = [Diagnostics.Stopwatch]::StartNew()
 if ($VerifyBaseline) {
     $ErrorActionPreference = 'Continue'
@@ -11,7 +63,7 @@ if ($VerifyBaseline) {
     if ($baselineExit -eq 0 -or $output -notmatch 'UNVERIFIED_PID_WAS_STOPPED') { throw 'Baseline did not reproduce the expected unverified PID regression.' }
     Write-Host 'Baseline regression reproduced: a legacy PID-only record terminates an unrelated fixture without ownership evidence.'
 }
-. (Join-Path $repository 'scripts\companion-runtime.ps1')
+if (-not $BaselineRevision) { Test-ImageAcquisition }
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ('companion-identity-'+[guid]::NewGuid().ToString('N'))
 $scripts = Join-Path $root 'scripts'
 $data = Join-Path $root 'data'
@@ -43,6 +95,10 @@ function Start-Fixture {
     $script:children+=,$process
     return $process
 }
+function New-FixtureRecord($Process,[string]$Stage) {
+    try{return New-CompanionProcessRecord $Process $root}
+    catch{throw ('Fixture identity capture failed at '+$Stage+': '+$_.Exception.Message)}
+}
 function Invoke-Stop { & (Join-Path $scripts 'stop-companion.ps1') }
 try {
     foreach ($name in @('stop-companion.ps1','start-companion.ps1','retire-companion.ps1','companion-runtime.ps1')) {
@@ -53,7 +109,7 @@ try {
         } else { Copy-Item (Join-Path $repository ('scripts\'+$name)) (Join-Path $scripts $name) }
     }
     $unrelated=Start-Fixture
-    $valid=New-CompanionProcessRecord $unrelated $root
+    $valid=New-FixtureRecord $unrelated 'initial sleeper'
     if (-not $BaselineRevision) {
         Assert-FixtureIdentity $valid 'initial capture'
         Write-Host 'Owned fixture identity capture passed.'
@@ -91,7 +147,7 @@ try {
             return [pscustomobject]@{ProcessId=$unrelated.Id;ParentProcessId=$priorityParent.Id}
         }
     }
-    $priorityRecord=New-CompanionProcessRecord $priorityParent $root
+    $priorityRecord=New-FixtureRecord $priorityParent 'stale-parent sleeper'
     try{
         Assert-FixtureIdentity $priorityRecord 'synthetic stale parent'
         Set-CompanionNormalPriority $priorityRecord $root
@@ -113,6 +169,14 @@ try {
     Assert-Alive $unrelated 'Termination refusal fixture unexpectedly exited.'
     Write-Host 'Controlled native termination refusal was reported.'
 
+    foreach($attempt in 1..4){
+        $fresh=Start-Fixture
+        $freshRecord=New-FixtureRecord $fresh ('fresh startup '+$attempt)
+        Assert-FixtureIdentity $freshRecord ('fresh startup '+$attempt)
+        $fresh.Kill();$fresh.WaitForExit()
+    }
+    Write-Host 'Four consecutive fresh Windows process identities captured and verified.'
+
     foreach ($invalid in @($valid.id, @{id=$valid.id}, @{id=$valid.id;started=$valid.started},
         @{id=$valid.id;started=$valid.started;executable=$valid.executable;root=(Join-Path $root 'other')},
         @{id=$valid.id;started=$valid.started;executable=(Join-Path $root 'other.exe');root=$root})) {
@@ -128,14 +192,14 @@ try {
     Remove-Item $recordFile
     Invoke-Stop
     $exited=Start-Fixture
-    $exitedRecord=New-CompanionProcessRecord $exited $root
+    $exitedRecord=New-FixtureRecord $exited 'exit-no-op sleeper'
     $exited.Kill();$exited.WaitForExit()
     Save-CompanionJson $recordFile @{backend=$exitedRecord}
     Invoke-Stop
     Assert-Alive $unrelated 'Exited process record affected an unrelated fixture.'
 
     $owned=Start-Fixture
-    $ownedRecord=New-CompanionProcessRecord $owned $root
+    $ownedRecord=New-FixtureRecord $owned 'owned-stop sleeper'
     Save-CompanionJson $recordFile @{backend=$ownedRecord}
     Invoke-Stop
     if (-not $owned.WaitForExit(10000)) { throw 'A correctly identified owned process was not stopped.' }
@@ -163,7 +227,7 @@ Start-Sleep -Seconds 180
     $treeParent=Start-Process $shell -ArgumentList $treeArguments -PassThru -WindowStyle Hidden
     $null=$treeParent.Handle
     $children+=,$treeParent
-    $treeRecord=New-CompanionProcessRecord $treeParent $root
+    $treeRecord=New-FixtureRecord $treeParent 'owned-tree parent'
     $treeDescendants=@()
     foreach($depth in @(1,0)){
         $identityFile=Join-Path $root ('tree-'+$depth+'.json')
@@ -187,7 +251,7 @@ Start-Sleep -Seconds 180
 
     $retired=Start-Fixture
     $retireFile=Join-Path $data 'retire.json'
-    Save-CompanionJson $retireFile @($wrongStart,(New-CompanionProcessRecord $retired $root))
+    Save-CompanionJson $retireFile @($wrongStart,(New-FixtureRecord $retired 'retirement sleeper'))
     function Start-Sleep { }
     try { & (Join-Path $scripts 'retire-companion.ps1') -Record $retireFile -Root $root }
     finally { Remove-Item Function:\Start-Sleep }

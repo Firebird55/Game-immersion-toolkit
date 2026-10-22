@@ -3,11 +3,38 @@ $ErrorActionPreference = 'Stop'
 # Runtime state retains numeric backend/frontend fields for the router and
 # capture handoff. Only these separately recorded identities authorize process
 # reuse or termination. Ticks are strings so JSON readers cannot round them.
+function Get-CompanionProcessExecutable($Process) {
+    $null = $Process.Handle
+    # MainModule can be null before Windows finishes loading a new process.
+    # Retry only that missing value, on the same retained process handle.
+    for ($attempt=0; $attempt -lt 40; $attempt++) {
+        if ($Process.HasExited) { throw 'Companion process exited while its executable identity was being read.' }
+        # Invoke the getter explicitly so PowerShell cannot hide its exception
+        # as an empty property value (which would look like startup loading).
+        try { $module = $Process.get_MainModule(); $executable = if ($module) { $module.FileName } else { $null } }
+        catch { throw 'Windows could not read the companion executable identity.' }
+        if (-not [string]::IsNullOrEmpty($executable)) {
+            if (-not [IO.Path]::IsPathRooted($executable)) { throw 'Windows returned an invalid companion executable identity.' }
+            try { return [IO.Path]::GetFullPath($executable) }
+            catch { throw 'Windows returned an invalid companion executable identity.' }
+        }
+        if ($attempt -lt 39) {
+            Start-Sleep -Milliseconds 50
+            $Process.Refresh()
+        }
+    }
+    throw 'Companion executable identity remained unavailable after startup.'
+}
+
 function New-CompanionProcessRecord($Process, [string]$Root) {
     $null = $Process.Handle
     if ($Process.HasExited) { throw 'Companion process exited before its identity could be recorded.' }
-    return [ordered]@{id=$Process.Id; started=$Process.StartTime.ToUniversalTime().Ticks.ToString();
-        executable=[System.IO.Path]::GetFullPath($Process.Path); root=[System.IO.Path]::GetFullPath($Root)}
+    $started = $Process.StartTime.ToUniversalTime().Ticks.ToString()
+    $executable = Get-CompanionProcessExecutable $Process
+    if ($Process.HasExited -or $Process.StartTime.ToUniversalTime().Ticks.ToString() -ne $started) {
+        throw 'Companion process changed or exited before its identity could be recorded.'
+    }
+    return [ordered]@{id=$Process.Id; started=$started; executable=$executable; root=[IO.Path]::GetFullPath($Root)}
 }
 
 function Get-CompanionOwnedProcess($Record, [string]$Root) {
@@ -24,8 +51,12 @@ function Get-CompanionOwnedProcess($Record, [string]$Root) {
         # Keep the process handle open while checking and stopping it. Windows
         # cannot recycle this process ID while this handle is held.
         $null = $process.Handle
+        if ($process.HasExited -or $process.StartTime.ToUniversalTime().Ticks.ToString() -ne [string]$Record.started) {
+            $process.Dispose(); return $null
+        }
+        $executable = Get-CompanionProcessExecutable $process
         if ($process.HasExited -or $process.StartTime.ToUniversalTime().Ticks.ToString() -ne [string]$Record.started -or
-            [System.IO.Path]::GetFullPath($process.Path) -ne [System.IO.Path]::GetFullPath([string]$Record.executable)) {
+            $executable -ne [System.IO.Path]::GetFullPath([string]$Record.executable)) {
             $process.Dispose(); return $null
         }
         return $process
