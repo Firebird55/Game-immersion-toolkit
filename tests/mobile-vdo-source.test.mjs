@@ -138,18 +138,24 @@ test('native stop and restart on the same link reconnects automatically with one
  assert.equal(f.source.getState().status, 'live'); f.source.dispose();
 });
 
-test('frozen PNG replies cannot block recovery and repeated failures use bounded backoff', async () => {
+test('frozen PNG replies cannot block recovery and repeated failures use bounded backoff', async t => {
+ t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
  const f = fixture({ reconnectBaseMs: 15, reconnectMaxMs: 40, freezeReconnectMs: 45, decodeImage: async () => ({ width: 2, height: 2, pixel: 1, close() {} }) });
+ t.after(() => f.source.dispose());
  f.source.connect({ url: link });
  const first = f.source.readFrame(); f.reply(); (await first).release();
- for (let i = 0; i < 3; i++) { await sleep(10); const repeat = f.source.readFrame(); f.reply(); assert.equal(await repeat, null); }
- await sleep(20); assert.equal(f.source.getState().status, 'reconnecting'); assert.equal(f.container.children.length, 0);
- await sleep(15); assert.equal(f.frames.length, 2);
+ for (let i = 0; i < 3; i++) { t.mock.timers.tick(10); const repeat = f.source.readFrame(); f.reply(); assert.equal(await repeat, null); }
+ t.mock.timers.tick(15); assert.equal(f.source.getState().status, 'reconnecting'); assert.equal(f.container.children.length, 0);
+ t.mock.timers.tick(14); assert.equal(f.frames.length, 1);
+ t.mock.timers.tick(1); assert.equal(f.frames.length, 2);
  f.frames.at(-1).dispatchEvent(new Event('error'));
- await sleep(20); assert.equal(f.frames.length, 2, 'Second failure waits for the doubled backoff');
- await sleep(20); assert.equal(f.frames.length, 3);
+ t.mock.timers.tick(29); assert.equal(f.frames.length, 2, 'Second failure waits for the doubled backoff');
+ t.mock.timers.tick(1); assert.equal(f.frames.length, 3);
  f.frames.at(-1).dispatchEvent(new Event('error'));
- f.source.disconnect(); const count = f.frames.length; await sleep(60);
+ t.mock.timers.tick(39); assert.equal(f.frames.length, 3, 'Further failures use the maximum delay');
+ t.mock.timers.tick(1); assert.equal(f.frames.length, 4);
+ f.frames.at(-1).dispatchEvent(new Event('error'));
+ f.source.disconnect(); const count = f.frames.length; t.mock.timers.tick(100);
  assert.equal(f.frames.length, count, 'Manual stop cancels retries'); assert.equal(f.container.children.length, 0); f.source.dispose();
 });
 
