@@ -127,6 +127,13 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('node_modules/playwright/package.json') }}
+      - name: Use the primary Ubuntu package mirror
+        run: |
+          for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+            if [ -f "$sources" ]; then
+              sudo sed -i 's|://azure.archive.ubuntu.com/ubuntu|://archive.ubuntu.com/ubuntu|g' "$sources"
+            fi
+          done
       - name: Install browsers
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Package public preview files
