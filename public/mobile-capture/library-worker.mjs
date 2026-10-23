@@ -12,7 +12,7 @@ self.onmessage=async({data})=>{
    const opened=await openLibraryFiles(data.files,stage=>self.postMessage({id,stage}),()=>{if(token!==epoch)throw new Error('File opening cancelled.');});
    const chosen=opened.filter(z=>z.manifest.kind==='catalog');if(chosen.length>1)throw new Error('Open one game catalog at a time.');
    const packs=opened.filter(z=>z.manifest.kind==='voices');if(new Set(packs.map(p=>p.manifest.id)).size!==packs.length)throw new Error('Select each voice pack only once.');
-   const candidate=chosen.length?await readCatalog(chosen[0],count=>self.postMessage({id,progress:count})):catalog;
+   const candidate=chosen.length?await readCatalog(chosen[0],count=>{if(token!==epoch)throw new Error('File opening cancelled.');self.postMessage({id,progress:count});}):catalog;
    if(!candidate)throw new Error('These are voice-only ZIPs. Also select the Catalog ZIP, or open the new single Mobile Library ZIP.');
    if(data.expectedGame&&candidate.manifest.game!==data.expectedGame)throw new Error('Stop capture before opening a different game.');
    const incoming=new Map(chosen.length?[]:voices);

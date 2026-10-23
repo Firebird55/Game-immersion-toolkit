@@ -42,7 +42,7 @@ def write_bundle(catalog, destination, *, guard=lambda: None, progress=lambda va
     target = destination / bundle_name(manifest['game'], locales)
     destination.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix('.zip.pending')
-    total, copied = sum(path.stat().st_size for _, path in parts), 0
+    total, copied, reported = sum(path.stat().st_size for _, path in parts), 0, 0
     try:
         with zipfile.ZipFile(temporary, 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as bundle:
             info = zipfile.ZipInfo('manifest.json', (2026, 1, 1, 0, 0, 0))
@@ -60,8 +60,10 @@ def write_bundle(catalog, destination, *, guard=lambda: None, progress=lambda va
                         guard()
                         dest.write(data)
                         copied += len(data)
-                        progress({'state': 'exporting', 'progress': 97 + int(2 * copied / max(1, total)),
-                                  'message': 'Finishing your single mobile library file'})
+                        if copied - reported >= 16 * 1024**2 or copied == total:
+                            reported = copied
+                            progress({'state': 'exporting', 'progress': 97 + int(2 * copied / max(1, total)),
+                                      'message': 'Finishing your single mobile library file'})
         guard()
         os.replace(temporary, target)
     finally:

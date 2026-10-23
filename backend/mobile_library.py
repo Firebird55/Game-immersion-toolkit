@@ -206,7 +206,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         required = path.stat().st_size + 1024
         if required + 2048 > pack_limit or path.stat().st_size > 64 * 1024 * 1024:
             raise ValueError("A voice clip is too large for a mobile pack")
-        if current and size + required > pack_limit:
+        if current and (size + required > pack_limit or len(current) >= 65530):
             chunks.append(current)
             current, size = [], 2048
         current.append((sha, path)); size += required
@@ -264,11 +264,12 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     getattr(check, "force", check)()
     # Inner packs remain private and resumable; only the bundle is transferred.
     parts = parts_root / revision
-    if parts.exists():
-        if parts.resolve().parent != parts_root.resolve() or parts.is_symlink():
-            raise ValueError("Unsafe private pack location")
-        parts.rename(work / (revision + ".previous-parts-" + str(time.time_ns())))
-    staging.replace(parts)
+    if parts.resolve().parent != parts_root.resolve() or parts.is_symlink():
+        raise ValueError("Unsafe private pack location")
+    parts.mkdir(exist_ok=True)
+    for path in staging.iterdir():
+        path.replace(parts / path.name)
+    staging.rmdir()
     transfer = work / (revision + ".transfer.pending")
     bundle = write_bundle(parts / name, transfer, guard=guard, progress=progress)
     write_instructions(output, transfer, transfer_folder=destination, library=bundle.name)

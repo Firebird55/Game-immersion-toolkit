@@ -17,7 +17,7 @@ export async function openZip(file,{timeoutMs=20000,container=false}={}){
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<start||end>file.size)fail('Invalid ZIP range.');
   let timer;
   try{
-   const bytes=await Promise.race([file.slice(start,end).arrayBuffer(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('File read timed out. Keep the USB connected and unlocked, then retry. You can also copy the ZIPs into On My iPhone.')),timeoutMs);})]);
+   const bytes=await Promise.race([file.slice(start,end).arrayBuffer(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('File read timed out. Download the library into On My iPhone first, or reconnect and unlock your USB drive, then retry.')),timeoutMs);})]);
    if(bytes.byteLength!==end-start)fail('The selected file is incomplete or no longer accessible. Reselect it from Files.');
    return bytes;
   }finally{clearTimeout(timer);}
@@ -29,7 +29,9 @@ export async function openZip(file,{timeoutMs=20000,container=false}={}){
  const uint64=(v,p)=>{const n=v.getBigUint64(p,true);if(n>BigInt(Number.MAX_SAFE_INTEGER))fail('ZIP64 value is too large.');return Number(n);};
  let count=view.getUint16(end+10,true), size=view.getUint32(end+12,true), offset=view.getUint32(end+16,true),directoryEnd=file.size-tail.length+end;
  if(view.getUint16(end+4,true)||view.getUint16(end+6,true)||view.getUint16(end+8,true)!==count)fail('Unsupported ZIP layout.');
- if(count===65535||size===0xffffffff||offset===0xffffffff){
+ // Python and other writers emit ZIP64 records above 2 GiB even when the
+ // ordinary EOCD values still fit in 32 bits. Honor their locator too.
+ if(count===65535||size===0xffffffff||offset===0xffffffff||(container&&end>=20&&view.getUint32(end-20,true)===0x07064b50)){
   if(!container||end<20||view.getUint32(end-20,true)!==0x07064b50||view.getUint32(end-16,true)!==0||view.getUint32(end-4,true)!==1)fail('Unsupported ZIP64 layout.');
   const start=uint64(view,end-12),record=new DataView(await range(start,start+56));
   if(record.getUint32(0,true)!==0x06064b50||uint64(record,4)!==44||record.getUint32(16,true)||record.getUint32(20,true)||uint64(record,24)!==uint64(record,32)||start+56!==directoryEnd-20)fail('Unsupported ZIP64 directory.');

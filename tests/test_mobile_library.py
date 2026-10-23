@@ -297,3 +297,43 @@ def test_batch_failures_never_replace_valid_export_and_resume_from_completed_cli
     result = export_library('zzz', records, output, voice=voice, workers=2)
     assert len(calls) == 21 - completed
     assert result['coverage']['exportedVoices'] == 21
+
+
+def test_python_zip64_bundle_is_readable_in_the_mobile_reader(tmp_path, monkeypatch):
+    import subprocess
+    import shutil
+    from backend.mobile_bundle import write_bundle
+    if not shutil.which('node'):
+        pytest.skip('Node is required for exporter/browser interoperability')
+    result = export_library('zzz', rows(), tmp_path / 'out', voice=voice(tmp_path, []))
+    # Python starts ZIP64 earlier than 4 GiB and retains ordinary EOCD values.
+    # Lower its threshold to exercise that exact layout with tiny synthetic data.
+    monkeypatch.setattr(zipfile, 'ZIP64_LIMIT', 1000)
+    bundle = write_bundle(result['catalog'], tmp_path / 'zip64')
+    script = r"""
+import {openSync,readSync,fstatSync,closeSync} from 'node:fs';
+import {openLibraryFiles,readCatalog,validateVoices,readVoice} from './public/mobile-capture/library.mjs';
+const fd=openSync(process.argv[1],'r'),size=fstatSync(fd).size;
+const file={size,slice(start,end){const data=Buffer.alloc(end-start);let n=0;while(n<data.length){const got=readSync(fd,data,n,data.length-n,start+n);if(!got)throw Error('EOF');n+=got;}return new Blob([data]);}};
+try{const opened=await openLibraryFiles([file]),catalog=await readCatalog(opened[0]);const hashes=validateVoices(opened[1],catalog);const blob=await readVoice(opened[1],hashes[0]);console.log(JSON.stringify({rows:catalog.rows.length,clips:hashes.length,bytes:blob.size}));}finally{closeSync(fd);}
+"""
+    completed = subprocess.run(['node', '--input-type=module', '-e', script, str(bundle)],
+                               cwd=Path(__file__).resolve().parents[1], check=True, capture_output=True, text=True)
+    assert json.loads(completed.stdout) == {'rows': 2, 'clips': 1, 'bytes': 515}
+    assert bundle.name == 'Zenless Zone Zero - Mandarin - Mobile Library.zip'
+
+
+def test_cancel_during_single_file_packaging_keeps_previous_pointer(tmp_path):
+    output = tmp_path / 'out'
+    good = export_library('zzz', rows(), output, voice=voice(tmp_path, []))
+    before = (output / 'latest.json').read_bytes()
+    cancel = threading.Event()
+    def progress(value):
+        if value.get('message') == 'Finishing your single mobile library file':
+            cancel.set()
+    with pytest.raises(ExportCancelled):
+        export_library('zzz', rows() + [dict(rows()[0], textId='extra')], output,
+                       voice=voice(tmp_path, []), cancel=cancel, progress=progress)
+    assert (output / 'latest.json').read_bytes() == before
+    with zipfile.ZipFile(good['bundle']) as archive:
+        assert archive.testzip() is None
