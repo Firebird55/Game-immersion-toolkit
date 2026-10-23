@@ -29,6 +29,9 @@
 | [The Witcher 3: Wild Hunt](docs/languages/zh-Hant.md#witcher3) | 英文 · 法文 · 德文 · 日文 · 韓文 · 波蘭文 · 葡萄牙文（巴西） · 俄文 · 簡體中文 | 18 |
 | [BEYOND: Two Souls](docs/languages/zh-Hant.md#beyond) | 英文 · 法文 · 義大利文 · 德文 · 西班牙文（西班牙） · 荷蘭文 · 日文 · 波蘭文 · 葡萄牙文（葡萄牙） · 葡萄牙文（巴西） · 俄文 · 西班牙文（拉丁美洲） | 23 |
 | [HEAVY RAIN](docs/languages/zh-Hant.md#heavyrain) | 英文 · 法文 · 義大利文 · 德文 · 西班牙文（西班牙） · 荷蘭文 · 日文 · 波蘭文 · 葡萄牙文（葡萄牙） · 俄文 | 17 |
+| [Honkai: Star Rail](docs/languages/zh-Hant.md#starrail) | 英文 · 簡體中文 · 繁體中文 · 日文 · 韓文 | 13 |
+| [Genshin Impact](docs/languages/zh-Hant.md#genshin) | 英文 · 簡體中文 · 繁體中文 · 日文 · 韓文 | 15 |
+| [Arknights: Endfield](docs/languages/zh-Hant.md#endfield) | 英文 · 簡體中文 · 繁體中文 · 日文 · 韓文 | 14 |
 
 [語言詳細資訊](docs/languages/zh-Hant.md) · [開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

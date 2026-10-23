@@ -172,3 +172,44 @@ agreement, are covered by unit tests. This session could not validate live game
 capture or Windows DPI interactively: the Windows input desktop was inaccessible
 and native screen acquisition failed. Offline footage results do not imply that
 live desktop preflight passed.
+
+
+## Starrail Genshin Endfield
+
+Honkai: Star Rail, Genshin Impact and Arknights: Endfield use independent bottom
+dialogue crops (`.10, .70, .80, .28`). Each keeps its own calibration and player
+voice choice. Short, repeated interjections are withheld when they cannot safely
+identify an authored scene.
+
+| Source | Reviewed segments (source seconds) | Expected capture |
+| --- | --- | --- |
+| [Star Rail opening](https://www.youtube.com/watch?v=_ZkiGS6Eug0&t=100) | 100–140 | Six opening conversation identities |
+| Same Star Rail recording | 165–185 | Zero combat HUD entries |
+| [Genshin opening](https://www.youtube.com/watch?v=rdEhIflJCUA&t=320) | 320–355 | Five Paimon traversal dialogue identities |
+| Same Genshin recording | 195–215; 110–120 | Zero controls-menu or ambiguous movie-interjection entries |
+| [Endfield opening](https://www.youtube.com/watch?v=ORNaegEfhL4&t=315) | 315–340; 370–415 | Six radio dialogue identities during the opening, combat and traversal |
+| Same Endfield recording | 300–314 | Zero combat HUD entries |
+
+All **16 cases passed**: eight independently annotated segments at both 1280×720
+and 1920×1080. Each resolution produced exactly the 17 expected identities,
+with no missed or unexpected entries. Native OneOCR ran on sequential frames
+through production cropping, multilingual matching, confirmation, deduplication
+and isolated transcript storage. English footage matched the prepared Chinese
+study catalog and its official English translations.
+
+The [annotation manifest](../backend/tests/fixtures/new-rpg-video-ocr.json)
+contains provenance, timestamps and expected IDs, without game dialogue or media.
+Reacquire the clips locally to reproduce the checks:
+
+```powershell
+python scripts/replay-video-ocr.py backend/tests/fixtures/new-rpg-video-ocr.json --catalog-bindings-only --resolution 1280x720 --output output/new-rpg-video-720.json
+python scripts/replay-video-ocr.py backend/tests/fixtures/new-rpg-video-ocr.json --catalog-bindings-only --resolution 1920x1080 --output output/new-rpg-video-1080.json
+```
+
+Use the companion virtual environment with native OneOCR. The explicit
+`--catalog-bindings-only` mode uses temporary authored voice bindings for OCR
+verification; its audio sink is mocked and it does not alter prepared indexes.
+Original playback separately resolves exact installed source hashes. A locally
+installed Star Rail Mandarin source also decoded successfully to original MP3.
+Recordings, extracted frames, catalogs, tools and playback caches remain ignored
+local artifacts.

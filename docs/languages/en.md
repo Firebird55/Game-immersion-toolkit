@@ -241,3 +241,87 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Traditional Chinese | — | — | ✓ | Reader implemented |
 
 </details>
+
+<a id="starrail"></a>
+
+## Honkai: Star Rail
+
+[Official language listing](https://store.epicgames.com/p/honkai-star-rail) · [Coverage notes](../starrail-languages.md)
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Reader implemented |
+| Simplified Chinese | ✓ | ✓ | ✓ | Reader implemented |
+| Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Reader implemented |
+| Japanese | ✓ | ✓ | ✓ | Reader implemented |
+| Korean | ✓ | ✓ | ✓ | Reader implemented |
+| French | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+| Thai | — | — | ✓ | Reader implemented |
+| Vietnamese | — | — | ✓ | Reader implemented |
+| Indonesian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="genshin"></a>
+
+## Genshin Impact
+
+[Official language listing](https://store.epicgames.com/p/genshin-impact) · [Coverage notes](../genshin-languages.md)
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Reader implemented |
+| Simplified Chinese | ✓ | ✓ | ✓ | Reader implemented |
+| Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Reader implemented |
+| Japanese | ✓ | ✓ | ✓ | Reader implemented |
+| Korean | ✓ | ✓ | ✓ | Reader implemented |
+| French | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+| Thai | — | — | ✓ | Reader implemented |
+| Vietnamese | — | — | ✓ | Reader implemented |
+| Indonesian | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| Turkish | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="endfield"></a>
+
+## Arknights: Endfield
+
+[Official language listing](https://store.epicgames.com/p/arknightsendfield-f0f167) · [Coverage notes](../endfield-languages.md)
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Reader implemented |
+| Simplified Chinese | ✓ | ✓ | ✓ | Reader implemented |
+| Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Reader implemented |
+| Japanese | ✓ | ✓ | ✓ | Reader implemented |
+| Korean | ✓ | ✓ | ✓ | Reader implemented |
+| French | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+| Thai | — | — | ✓ | Reader implemented |
+| Vietnamese | — | — | ✓ | Reader implemented |
+| Indonesian | — | — | ✓ | Reader implemented |
+
+</details>

@@ -59,7 +59,7 @@ def test_windowed_capture_uses_client_origin_without_borders(monkeypatch):
     assert windows._window_bounds(1) == (-1920, 150, 1280, 720)
 
 
-@pytest.mark.parametrize("game", ["nte"])
+@pytest.mark.parametrize("game", ["nte", "starrail", "genshin", "endfield"])
 @pytest.mark.parametrize("size", [(800,600), (1920,1080), (3440,1440), (3840,2160)])
 def test_new_game_default_crops_agree_with_profiles_and_stay_in_client_bounds(game, size):
     from backend.models import AppSettings

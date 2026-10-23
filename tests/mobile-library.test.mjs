@@ -6,6 +6,19 @@ import {regions,candidates,cleanOcrBlocks} from '../public/mobile-capture/ocr-pi
 import {cacheBudget} from '../public/mobile-capture/storage.mjs';
 const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
 const row={id:hex,textId:'dialogue-one',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:hex,audio:voiceHash,channels:['dialogue','cinematic','gameplay']};
+
+test('new RPG libraries preserve locale text, crops and ambiguous-interjection rejection',()=>{
+ for(const game of ['starrail','genshin','endfield']){
+  const original={...row,textId:game+':test',sourceText:'合成されたテスト文です。',sourceLanguage:'ja',sourceLocale:'ja',translationText:'A deliberately synthetic subtitle.',translationLocale:'en',audioLocale:'ja'};
+  assert.equal(validateRow(original).sourceLocale,'ja');
+  const matcher=new DialogueMatcher([original],game);
+  assert.equal(matcher.match(original.sourceText).state,'matched');
+  assert.equal(matcher.match(original.translationText).state,'matched');
+  const brief=new DialogueMatcher([{...original,translationText:"Wait, don't go!"}],game);
+  assert.equal(brief.match("Wait, don't go!").state,'unmatched');
+  assert.deepEqual(regions(game,undefined,false,false)[0].crop,[.10,.70,.80,.28]);
+ }
+});
 test('Traditional Chinese OCR and search resolve the original performance',()=>{
  const matcher=new DialogueMatcher([row]);
  const match=matcher.match('燈籠很亮。');

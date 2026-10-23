@@ -135,3 +135,14 @@ def test_archived_honkai_is_rejected_even_with_valid_files(tmp_path):
     (tmp_path / "StarRail.exe").touch()
     with pytest.raises(ValueError):
         validate_install("honkai3", tmp_path)
+
+
+def test_saving_an_active_game_preserves_archived_local_locations(tmp_path):
+    import json
+    from backend.game_paths import settings_path
+    path = settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'hito': 'retained-local-location'}), encoding='utf-8')
+    save_install('zzz', make_game(tmp_path, 'zzz'))
+    assert 'hito' not in load_paths()
+    assert json.loads(path.read_text())['hito'] == 'retained-local-location'

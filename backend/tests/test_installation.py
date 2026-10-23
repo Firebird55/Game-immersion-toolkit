@@ -51,7 +51,7 @@ def test_support_report_has_no_paths_account_details_errors_or_transcript_text(s
     save_install("zzz", root)
     installs["zzz"] = root
     snapshot = service.status()
-    assert snapshot["games"][0]["configured_path"] == str(root)
+    assert next(game for game in snapshot["games"] if game['id'] == 'zzz')["configured_path"] == str(root)
     report = json.dumps(service.report())
     assert str(tmp_path) not in report
     assert "private transcript marker" not in report

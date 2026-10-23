@@ -15,6 +15,9 @@ from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
 
 FOLDER_HINTS = {
+    "starrail": "Choose Star Rail Games containing StarRail.exe and StarRail_Data; the launcher folder is also accepted.",
+    "genshin": "Choose Genshin Impact game containing GenshinImpact.exe and GenshinImpact_Data; YuanShen clients are accepted too.",
+    "endfield": "Choose the Endfield folder containing Endfield.exe and Endfield_Data/StreamingAssets/VFS.",
     "heavyrain": "Choose the HEAVY RAIN folder containing HeavyRain.exe and the Resources archives.",
     "beyond": "Choose the BEYOND Two Souls folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.",
     "zzz": "Choose the game folder containing ZenlessZoneZero_Data, or the Data folder itself.",
@@ -26,6 +29,9 @@ FOLDER_HINTS = {
     "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
 }
 VOICE_HINTS = {
+    "starrail": "Install your chosen original voice in the game, then prepare its learning language and translation in Languages.",
+    "genshin": "Install your chosen voice pack through the game's language settings, then prepare it in Languages.",
+    "endfield": "Install the matching voice pack and Microsoft .NET 10 SDK, then prepare tools and the selected language.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
     "zzz": "Install the selected study language's original voice pack through the launcher, then prepare it in Languages.",

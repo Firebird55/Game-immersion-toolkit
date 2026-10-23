@@ -3,7 +3,7 @@ import {Converter} from './ocr/opencc.mjs';
 const simplify = Converter({from:'tw',to:'cn'});
 export const FORMAT = 'proxy-mobile-library-v1';
 export const LIMIT = 512 * 1024 * 1024;
-export const GAMES = ['zzz','wuwa','pragmata','cyberpunk','witcher3','nte','beyond','heavyrain','hito'];
+export const GAMES = ['starrail','genshin','endfield','zzz','wuwa','pragmata','cyberpunk','witcher3','nte','beyond','heavyrain','hito'];
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const decoder = new TextDecoder('utf-8', {fatal:true});
 export const sha256 = async bytes => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)), x => x.toString(16).padStart(2,'0')).join('');
@@ -190,6 +190,7 @@ export class DialogueMatcher{
  }
  lookup(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){
   const key=normalize(text);if(key.length<2||key.length>2000)return {state:'unmatched'};
+  if(['starrail','genshin','endfield'].includes(this.game)&&key.length<(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(key)?5:12))return {state:'unmatched'};
   let keys=this.exact.has(key)?[[key,100]]:[];
   const paragraphPage=channel==='dialogue'&&key.length>=(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(key)?12:24);
   if(paragraphPage){const pages=[];for(const [candidate,records] of this.exact)if(candidate.includes(key)&&records.some(r=>r.textId.startsWith('heavyrain:')))pages.push([candidate,100]);if(pages.length)keys=pages;}

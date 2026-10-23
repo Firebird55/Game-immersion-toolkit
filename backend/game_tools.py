@@ -138,6 +138,11 @@ def missing_tools(root: Path, game: str) -> list[str]:
                      ("NTE archive reader", root / "data/nte/tools/upstream/UEExtractor.dll"),
                      ("NTE decompression", root / "data/nte/tools/upstream/oodle-data-shared.dll"),
                      ("NTE decompression", root / "data/nte/tools/upstream/zlib-ng2.dll")]
+    if game == "endfield":
+        from .nte_assets import dotnet_sdk
+        if dotnet_sdk() is None:
+            required.append((".NET 10 SDK", root / "data/endfield/tools/missing-sdk"))
+        required.append(("Endfield reader", root / "data/endfield/tools/EndfieldReader.dll"))
     return list(dict.fromkeys(name for name, path in required if not path.is_file()))
 
 
@@ -163,6 +168,10 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
         _atomic_file(directory / "ZENLESS-VOICE-LICENSE.txt", license_text)
         shutil.copytree(decoder, directory / "vgmstream", dirs_exist_ok=True)
         refresh_zzz_metadata(root)
+    elif game == "endfield":
+        from .endfield_assets import ensure_extractor
+        progress("Preparing the verified Endfield VFS voice reader")
+        ensure_extractor(root / "data/endfield/tools")
     elif game == "pragmata":
         progress("Preparing the separately downloaded PRAGMATA extractor")
         install_archive(REE_URL, REE_SHA, root / "data/pragmata/tools", ("REE.Unpacker.exe",))

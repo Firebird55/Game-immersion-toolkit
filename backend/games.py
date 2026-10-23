@@ -15,6 +15,15 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "starrail": GameProfile(id="starrail", name="Honkai: Star Rail", process_names=("StarRail.exe",),
+        title_needles=("Honkai: Star Rail", "崩坏：星穹铁道", "崩壞：星穹鐵道"),
+        subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
+    "genshin": GameProfile(id="genshin", name="Genshin Impact", process_names=("GenshinImpact.exe", "YuanShen.exe"),
+        title_needles=("Genshin Impact", "原神"),
+        subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
+    "endfield": GameProfile(id="endfield", name="Arknights: Endfield", process_names=("Endfield.exe",),
+        title_needles=("Arknights: Endfield", "Endfield", "明日方舟：终末地", "明日方舟：終末地"),
+        subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
     "heavyrain": GameProfile(id="heavyrain", name="HEAVY RAIN", process_names=("HeavyRain.exe",),
         title_needles=("HEAVY RAIN", "Heavy Rain"),
         subtitle_region=CaptureRegion(left=.05, top=.70, width=.90, height=.28)),

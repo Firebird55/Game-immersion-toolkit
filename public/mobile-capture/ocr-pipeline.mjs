@@ -1,5 +1,5 @@
 import {normalize,subtitleRows} from './library.mjs';
-export const crops={heavyrain:[.05,.70,.90,.28],beyond:[.05,.70,.90,.28],zzz:[.08,.67,.84,.25],wuwa:[.10,.64,.80,.32],pragmata:[.08,.67,.84,.25],cyberpunk:[.12,.59,.76,.37],witcher3:[.08,.63,.84,.34],nte:[.10,.80,.80,.18],honkai3:[.04,.72,.96,.24],hito:[.35,.765,.365,.18]};
+export const crops={starrail:[.10,.70,.80,.28],genshin:[.10,.70,.80,.28],endfield:[.10,.70,.80,.28],heavyrain:[.05,.70,.90,.28],beyond:[.05,.70,.90,.28],zzz:[.08,.67,.84,.25],wuwa:[.10,.64,.80,.32],pragmata:[.08,.67,.84,.25],cyberpunk:[.12,.59,.76,.37],witcher3:[.08,.63,.84,.34],nte:[.10,.80,.80,.18],honkai3:[.04,.72,.96,.24],hito:[.35,.765,.365,.18]};
 export const extraCrops={cyberpunk:{overhead:[.10,.12,.70,.62]},witcher3:{overhead:[.08,0,.76,.74]},wuwa:{card:[.12,.20,.76,.43]},zzz:{comic:[.04,.06,.92,.88]},honkai3:{panel:[.39,.72,.61,.16]},nte:{compact:[.10,.80,.80,.09]}};
 export function regions(game,crop=crops[game],extra=true,cinematic=true,custom={}){
  const result=[{crop,channel:'dialogue',ink:game==='hito'?null:game==='cyberpunk'?'blue':'white'}];

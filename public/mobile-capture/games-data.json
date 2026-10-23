@@ -1,7 +1,7 @@
 {
   "format": 1,
   "readerRelease": "0.17.0",
-  "checkedAt": "2026-10-19",
+  "checkedAt": "2026-10-23",
   "languages": {
     "en": "English",
     "zh-Hans": "Simplified Chinese",
@@ -570,6 +570,174 @@
       "notes": "Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.",
       "coverage": "All mapped Dutch original performances decode; each other dub has a decoded asset sample. English PC footage from 00:00–04:00 and 15:00–17:00 covers thoughts, letters, family overlap, QTE speech and brief replies. Other chapters, epilogues, branches and other-language footage remain untested. Mobile gameplay footage is unverified.",
       "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+    },
+    {
+      "id": "starrail",
+      "name": "Honkai: Star Rail",
+      "guide": "starrail-languages.md",
+      "source": "https://store.epicgames.com/p/honkai-star-rail",
+      "sourceName": "Epic Games Store",
+      "study": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko"
+      ],
+      "audio": [
+        "en",
+        "zh-Hans",
+        "ja",
+        "ko"
+      ],
+      "officialText": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
+      ],
+      "targets": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
+      ],
+      "unverified": {},
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
+    },
+    {
+      "id": "genshin",
+      "name": "Genshin Impact",
+      "guide": "genshin-languages.md",
+      "source": "https://store.epicgames.com/p/genshin-impact",
+      "sourceName": "Epic Games Store",
+      "study": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko"
+      ],
+      "audio": [
+        "en",
+        "zh-Hans",
+        "ja",
+        "ko"
+      ],
+      "officialText": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id",
+        "it",
+        "tr"
+      ],
+      "targets": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id",
+        "it",
+        "tr"
+      ],
+      "unverified": {},
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
+    },
+    {
+      "id": "endfield",
+      "name": "Arknights: Endfield",
+      "guide": "endfield-languages.md",
+      "source": "https://store.epicgames.com/p/arknightsendfield-f0f167",
+      "sourceName": "Epic Games Store",
+      "study": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko"
+      ],
+      "audio": [
+        "en",
+        "zh-Hans",
+        "ja",
+        "ko"
+      ],
+      "officialText": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "it",
+        "es-419",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
+      ],
+      "targets": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "it",
+        "es-419",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
+      ],
+      "unverified": {},
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
     }
   ]
 }

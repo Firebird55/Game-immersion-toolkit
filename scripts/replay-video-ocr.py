@@ -110,7 +110,26 @@ class ReplayStore(TranscriptStore):
             connection.close()
 
 
-def replay(clip, resolution, data_dir, fps=2):
+def replay(clip, resolution, data_dir, fps=2, catalog_bindings_only=False):
+    if catalog_bindings_only:
+        # Verify the production OCR/matcher using authored catalog bindings,
+        # independently of which voice packs this PC has downloaded. Native
+        # audio is neither decoded nor asserted by this explicit test mode.
+        game = clip['game']
+        relative = Path('languages') / game / clip['source_locale'] if clip.get('source_locale') else Path(game)
+        payload = json.loads((data_dir / relative / 'textmap.json').read_text(encoding='utf-8'))
+        if game not in {'starrail', 'genshin', 'endfield'}:
+            raise ValueError('Catalog-only replay requires an authored RPG dialogue catalog.')
+        with tempfile.TemporaryDirectory(prefix='catalog-video-replay-') as temporary:
+            target = Path(temporary) / relative
+            target.mkdir(parents=True)
+            for row in payload['records']:
+                if not row.get('audio'):
+                    row['audio'] = {'catalog_binding_only': row['text_id']}
+            (target / 'textmap.json').write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
+            result = replay(clip, resolution, Path(temporary), fps)
+            result['voice_evidence'] = 'authored catalog bindings; original audio mocked for OCR replay'
+            return result
     validate_clip(clip)
     game = clip['game']
     if clip.get('source_locale'):
@@ -203,6 +222,8 @@ if __name__ == '__main__':
     parser.add_argument('--resolution', default='1920x1080')
     parser.add_argument('--fps', type=int, choices=[2, 4], default=2)
     parser.add_argument('--data-dir', type=Path, default=Path('data'))
+    parser.add_argument('--catalog-bindings-only', action='store_true',
+                        help='Check authored subtitle matching with mocked audio, independently of installed voice packs')
     parser.add_argument('--output', type=Path, default=Path('output/video-ocr.json'))
     args = parser.parse_args()
     resolution = tuple(map(int, args.resolution.split('x')))
@@ -212,7 +233,7 @@ if __name__ == '__main__':
         if clip.get('archived'):
             continue
         try:
-            result = replay(clip, resolution, args.data_dir, args.fps)
+            result = replay(clip, resolution, args.data_dir, args.fps, args.catalog_bindings_only)
         except AssertionError as error:
             results.append(getattr(error, 'replay_report', {'name': clip['name'], 'passed': False, 'error': str(error)}))
             args.output.parent.mkdir(parents=True, exist_ok=True)

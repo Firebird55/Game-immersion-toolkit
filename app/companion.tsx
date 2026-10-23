@@ -46,7 +46,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -68,6 +68,12 @@ type Settings = {
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   beyond_region: CaptureRegion;
   heavyrain_region: CaptureRegion;
+  starrail_region: CaptureRegion;
+  starrail_player_voice: 'unconfigured' | 'female' | 'male';
+  genshin_region: CaptureRegion;
+  genshin_player_voice: 'unconfigured' | 'female' | 'male';
+  endfield_region: CaptureRegion;
+  endfield_player_voice: 'unconfigured' | 'female' | 'male';
   nte_region: CaptureRegion;
   nte_picture_area: 'window' | '16:9';
   nte_player_voice: 'unconfigured' | 'female' | 'male';
@@ -87,7 +93,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -110,7 +116,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
+  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
   source_ocr: string;
   source_language?:string; source_locale?:string; source_text?:string; translation_text?:string; translation_locale?:string; audio_locale?:string;
   english: string;
@@ -153,7 +159,7 @@ type StatusPayload = {
   session: { id: string; line_count: number; total_line_count: number };
 };
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
 const GAME_NAMES: Record<GameId, string> = {
   zzz: 'Zenless Zone Zero',
   pragmata: 'PRAGMATA',
@@ -163,6 +169,9 @@ const GAME_NAMES: Record<GameId, string> = {
   nte: 'Neverness to Everness',
   beyond: 'BEYOND: Two Souls',
   heavyrain: 'HEAVY RAIN',
+  starrail: 'Honkai: Star Rail',
+  genshin: 'Genshin Impact',
+  endfield: 'Arknights: Endfield',
   hito: "Hito's World",
 };
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
@@ -653,7 +662,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'heavyrain' ? 'heavyrain_region' : selectedGame === 'beyond' ? 'beyond_region' : selectedGame === 'nte' ? 'nte_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'starrail' ? 'starrail_region' : selectedGame === 'genshin' ? 'genshin_region' : selectedGame === 'endfield' ? 'endfield_region' : selectedGame === 'heavyrain' ? 'heavyrain_region' : selectedGame === 'beyond' ? 'beyond_region' : selectedGame === 'nte' ? 'nte_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -688,7 +697,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -756,7 +765,7 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'heavyrain' ? draftSettings.heavyrain_region : selectedGame === 'beyond' ? draftSettings.beyond_region : selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'starrail' ? draftSettings.starrail_region : selectedGame === 'genshin' ? draftSettings.genshin_region : selectedGame === 'endfield' ? draftSettings.endfield_region : selectedGame === 'heavyrain' ? draftSettings.heavyrain_region : selectedGame === 'beyond' ? draftSettings.beyond_region : selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
@@ -1030,6 +1039,12 @@ function CompanionClient() {
               <option value="female">{uiText("Female")}</option><option value="male">{uiText("Male")}</option>
             </select>
           </label>}
+          {(['starrail', 'genshin', 'endfield'] as const).map(game => selectedGame === game && draftSettings && <label key={game}>
+            {{starrail: 'Trailblazer voice', genshin: 'Traveler voice', endfield: 'Endministrator voice'}[game]}
+            <select aria-label={{starrail: 'Trailblazer voice', genshin: 'Traveler voice', endfield: 'Endministrator voice'}[game]} value={draftSettings[`${game}_player_voice`] ?? 'unconfigured'}
+              onChange={event => setDraftSettings(current => current ? {...current, [`${game}_player_voice`]: event.target.value} : current)}>
+              <option value="unconfigured">Choose when needed</option><option value="female">Female</option><option value="male">Male</option>
+            </select></label>)}
           {selectedGame === 'nte' && draftSettings && <label>{uiText("Zero voice")}<select aria-label={uiText("Zero voice")} value={draftSettings.nte_player_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, nte_player_voice: event.target.value as Settings['nte_player_voice'] } : current)}>
               <option value="unconfigured">{uiText("Choose Zero's voice for movie variants")}</option>

@@ -25,7 +25,7 @@ def test_explicit_deck_creation_is_repeatable_and_account_scoped(tmp_path):
     assert "wwm" not in service.status()["decks"]
     first = service.ensure_game_decks()
     assert first == service.ensure_game_decks()
-    assert len(creates) == 9
+    assert len(creates) == 12
     assert service.status()["decks"]["cyberpunk"]["id"] == 2103
     assert service.status()["decks"]["wuwa"]["id"] == 2104
     assert service.status()["decks"]["witcher3"]["id"] == 2105

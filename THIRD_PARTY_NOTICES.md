@@ -24,3 +24,10 @@ The component uses documented Lexirise interfaces; this repository does not redi
 JavaScript and Python dependencies retain their distribution licenses. The locked manifests identify exact dependencies; installed packages carry their upstream notices. Do not describe all repository or runtime content as covered by the Firebird55 license.
 
 Toolkit release bundles include THIRD_PARTY_LICENSES.txt with the complete license/notice files from the locked JavaScript dependency installation used for the build. This includes libraries bundled into the prebuilt frontend.
+
+
+Endfield game tools download pinned MIT-licensed reader sources from
+[EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio). Their license
+notice remains beside the locally built reader. Sources, native binaries,
+archive metadata and game data stay in ignored local tool storage and are not
+bundled in the repository, release ZIP or public mobile preview.

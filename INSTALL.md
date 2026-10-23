@@ -1,6 +1,6 @@
 # Install Game immersion toolkit
 
-Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3, NTE transcripts, local subtitle OCR and Lexirise/Migaku reading.
+Windows companion for official multilingual ZZZ, PRAGMATA, Cyberpunk 2077, Wuthering Waves, The Witcher 3, NTE, Honkai: Star Rail, Genshin Impact and Arknights: Endfield transcripts, local subtitle OCR and Lexirise/Migaku reading.
 
 ## Install on a new PC
 
@@ -14,13 +14,15 @@ Windows companion for verified bilingual Hito, ZZZ, PRAGMATA, Cyberpunk 2077, Wu
 
 | Game | Folder to choose | Voice requirement |
 | --- | --- | --- |
-| Hito's World | Contains resources/app.asar | Verified game text; no voice decoder needed |
 | Zenless Zone Zero | Contains ZenlessZoneZero_Data, or the Data folder itself | Mandarin voice pack installed through the game launcher |
 | PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
 | Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 | Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Chinese voices; .NET 10 SDK for the local reader |
+| Honkai: Star Rail | Contains StarRail.exe and StarRail_Data | Selected English, Mandarin, Japanese or Korean voice pack |
+| Genshin Impact | Contains GenshinImpact.exe and GenshinImpact_Data (YuanShen clients accepted) | Selected English, Mandarin, Japanese or Korean voice pack |
+| Arknights: Endfield | Contains Endfield.exe and Endfield_Data/StreamingAssets/VFS | Selected voice pack and .NET 10 SDK |
 
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 
@@ -32,7 +34,7 @@ No game archives, audio packages, extracted voices, catalog data or captured cli
 
 ## After a game update or move
 
-Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, PRAGMATA/Cyberpunk/Wuthering/Witcher/NTE about every two minutes, and Hito when its archive changes during use. A moved game can be selected and refreshed without restarting the companion.
+Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, prepared language tables about every two minutes. A moved game can be selected and refreshed without restarting the companion.
 
 The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE movie bindings check their fixed upstream sources daily, on detected game changes, and immediately on explicit refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. See [game-data updates](docs/game-data-updates.md).
 
@@ -44,7 +46,7 @@ and open them in the [public mobile companion](https://firebird55.github.io/Game
 See [mobile library setup, recovery and physical device checks](docs/mobile-library.md).
 The PC can be off during play; the game device must supply a working screen stream.
 
-In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with English or Chinese subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover/Zero voice selection. Automatic capture on startup is optional. A microphone is not needed.
+In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with the prepared study or translation subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover/Zero voice selection. Automatic capture on startup is optional. A microphone is not needed.
 
 For NTE movie variants, select **Zero voice**. For NTE displayed as a centered 16:9 picture inside black bars, select that **Game picture area** option before adjusting the crop. Use **Full game window** when the game fills the window. **Use tested dialogue crop** explicitly applies the reviewed default; upgrading preserves existing calibration.
 
@@ -71,3 +73,10 @@ then prepare that language in Setup → Languages. See [BEYOND coverage](docs/be
 For HEAVY RAIN, choose the folder containing HeavyRain.exe and Resources.
 Select matching spoken audio in the game, then explicitly prepare the learning
 language in Setup → Languages. See [HEAVY RAIN coverage](docs/heavy-rain-support.md).
+
+
+Honkai: Star Rail, Genshin Impact and Arknights: Endfield support English, both
+Chinese scripts, Japanese and Korean as study languages, paired with every
+listed official translation. See [Star Rail](docs/starrail-languages.md),
+[Genshin](docs/genshin-languages.md) and [Endfield](docs/endfield-languages.md).
+Hito’s World is [disabled](docs/archived-hito.md); existing records and calibration are retained.

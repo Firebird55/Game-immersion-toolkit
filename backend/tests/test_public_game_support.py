@@ -4,6 +4,7 @@ from pathlib import Path
 
 from backend import beyond_assets, cyberpunk_assets, heavy_rain_assets, nte_assets
 from backend import pragmata_assets, witcher_assets, wuthering_assets, zzz_assets
+from backend import starrail_assets, genshin_assets, endfield_assets
 from backend.languages import GAME_LOCALES, audio_locale
 
 
@@ -12,6 +13,7 @@ def test_public_game_support_matches_readers():
     readers = dict(zip(('beyond', 'cyberpunk', 'heavyrain', 'nte', 'pragmata', 'witcher3', 'wuwa', 'zzz'),
                        (beyond_assets, cyberpunk_assets, heavy_rain_assets, nte_assets,
                         pragmata_assets, witcher_assets, wuthering_assets, zzz_assets)))
+    readers.update(starrail=starrail_assets, genshin=genshin_assets, endfield=endfield_assets)
     assert {game['id'] for game in data['games']} == set(GAME_LOCALES)
     for game in data['games']:
         assert set(game['targets']) <= set(game['officialText']) | ({'en'} if game['id'] == 'hito' else set())
