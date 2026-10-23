@@ -25,6 +25,7 @@ const server = http.createServer((req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${server.address().port}/`;
 const qrModule=[...files.keys()].find(path=>/^\/qr-pairing(?:\.[a-f0-9]+)?\.mjs$/.test(path));
+const captureModule=[...files.keys()].find(path=>/^\/capture(?:\.[a-f0-9]+)?\.js$/.test(path));
 mkdirSync('output/playwright', { recursive: true });
 const libraryId='a'.repeat(64),libraryRow={id:libraryId,textId:'reconnect-check',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:libraryId,audio:null,channels:['dialogue']},libraryRows=strToU8(JSON.stringify(libraryRow)+'\n');
 const reconnectLibrary=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify({format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title:'Synthetic reconnect verification',revision:libraryId,coverage:{dialogue:1},catalog:[{name:'catalog/00000.ndjson',size:libraryRows.length,sha256:createHash('sha256').update(libraryRows).digest('hex')}],packs:[]})),'catalog/00000.ndjson':libraryRows},{level:0}));
@@ -214,7 +215,7 @@ try {
     assert.equal(await unsupported.locator('#role').inputValue(), 'sender');
     assert.equal(await unsupported.locator('#start').isEnabled(), false);
     assert.equal(await unsupported.locator('#reconnect').isEnabled(), false);
-    assert.match(await unsupported.locator('#instructions').innerText(), /native capture helper/i);
+    assert.match(await unsupported.locator('#instructions').innerText(), /native VDO\.Ninja app/i);
     await unsupported.selectOption('#role', 'receiver');
     assert.equal(await unsupported.locator('#start').isVisible(), false);
     assert.equal(await unsupported.locator('#reconnect').isVisible(), false);
@@ -371,7 +372,24 @@ try {
     assert.equal(await receiver.locator('#notes').inputValue(), report.notes, 'Recovery preserves test notes');
     assert.equal(await receiver.locator('#result').inputValue(), 'game_visible', 'Recovery preserves the manual result');
     assert.equal(await receiver.locator('#begin-test').isEnabled(), false, 'Recovery preserves the observation rather than enabling a new one');
-    if (await receiver.evaluate(() => Boolean(window.pendingFrameCallbacks))) assert.equal(await receiver.evaluate(() => window.maximumFrameCallbacks), 1, 'Recovery keeps exactly one frame monitor');
+    if (await receiver.evaluate(() => Boolean(window.pendingFrameCallbacks))) {
+      // capture.js owns the diagnostic monitor; the video source independently
+      // owns one fresh-frame monitor on that same video/decoder. Check ownership
+      // by removing just the source, rather than merely relaxing the old limit.
+      const monitors = await receiver.evaluate(async modulePath => {
+        const {receiverSource} = await import(modulePath);
+        const before = window.pendingFrameCallbacks.size, paused = [], resumed = [];
+        for (let cycle = 0; cycle < 3; cycle++) {
+          receiverSource.pause(); paused.push(window.pendingFrameCallbacks.size);
+          await receiverSource.resume(); resumed.push(window.pendingFrameCallbacks.size);
+        }
+        return {before,paused,resumed,maximum:window.maximumFrameCallbacks};
+      }, captureModule);
+      assert.equal(monitors.before, 2, 'Diagnostics and the frame source each own one monitor');
+      assert.deepEqual(monitors.paused, [1,1,1], 'Pausing the frame source removes only its own monitor');
+      assert.deepEqual(monitors.resumed, [2,2,2], 'Resuming creates one replacement monitor per source session');
+      assert.equal(monitors.maximum, 2, 'Recovery and repeated source resume never accumulate monitors');
+    }
     await receiver.evaluate(() => { window.recoveredReceiverPeer = window.testPeer; window.recoveredReceivedStream = document.getElementById('preview').srcObject; });
     for (const duplicate of [originalOfferText, failedRecoveryOfferText, recoveryOfferText]) {
       await receiver.fill('#incoming', duplicate); await receiver.click('#apply');
@@ -397,6 +415,11 @@ try {
     const privateValues = [originalOffer.sessionId, originalOffer.pairingId, recoveryOffer.pairingId, await sender.evaluate(() => window.originalCaptureTrack.id)];
     for (const output of [senderReport, recoveredReport]) for (const value of privateValues) assert(!JSON.stringify(output).includes(value), 'Report excludes pairing and capture identifiers');
     await receiver.click('#stop');
+    if (await receiver.evaluate(() => Boolean(window.pendingFrameCallbacks))) {
+      assert.equal(await receiver.evaluate(() => window.pendingFrameCallbacks.size), 0, 'Stop removes both diagnostic and source monitors');
+      await receiver.waitForTimeout(200);
+      assert.equal(await receiver.evaluate(() => window.pendingFrameCallbacks.size), 0, 'Stopped callbacks cannot schedule another monitor');
+    }
     assert.match(await receiver.locator('#metrics').innerText(), /^Stopped/);
     assert.equal(await receiver.locator('#role').isEnabled(), true);
     assert.equal(await receiver.locator('#outgoing').inputValue(), '');

@@ -6,7 +6,7 @@
 
   <meta charset="utf-8">
 
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://game-immersion-pairing.boazbrak.workers.dev wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev http://127.0.0.1:8766 ws://127.0.0.1:8766; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src https://vdo.ninja; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://game-immersion-pairing.boazbrak.workers.dev wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev http://127.0.0.1:8766 ws://127.0.0.1:8766; object-src 'none'; base-uri 'self'; form-action 'none'">
 
   <meta name="viewport" content="width=device-width,initial-scale=1">
 
@@ -46,9 +46,22 @@
 
   <section class="build-panel" data-panel="settings" hidden aria-label="App version"><p id="build-info">Local development source</p><button id="reload-build">Reload latest</button><p class="hint">Stop sharing before updating. Pair the devices again after reloading.</p></section>
 
-  <section data-panel="connection" hidden><h2>Choose a connection</h2><p id="capability" role="status" class="developer-only"></p><p>Keep both devices on the same network. Allow local network access when requested. Pair using the QR code or a private pairing message.</p><p class="capture-limit">Browser screen capture may be unavailable on iPad or stop when switching apps. The native iPad capture helper is not included.</p></section>
+  <section data-panel="connection" hidden><h2>Choose a connection</h2><p id="capability" role="status" class="developer-only"></p>
+    <div id="frame-source-controls"><label>Game screen source <select id="frame-source"><option value="browser">Browser screen pairing</option><option value="vdo">VDO.Ninja native iPhone / iPad</option></select></label>
+      <div id="native-setup" hidden>
+        <p>Use two iOS devices: the native VDO.Ninja app shares the gaming device; this page reads the screen on the other iPhone or iPad. A PC is not required during play.</p>
+        <ol><li>On the gaming device, open VDO.Ninja and choose SCREEN. Start with the Balanced preset.</li><li>Open the broadcast picker, select VDO.Ninja Screen Recorder, then Start Broadcast. Open the game.</li><li>First confirm moving gameplay in the app’s standard viewer link. Then paste the complete viewer link here, including its password and routing parameters.</li></ol>
+        <label>Private VDO.Ninja viewer link <input id="vdo-url" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the complete HTTPS viewer link"></label>
+        <p class="hint">The link is kept only for this page session. The hosted viewer uses VDO.Ninja services; this route is not guaranteed to stay on your local network. Keep this receiver visible. An unchanged image cannot confirm that capture is still running.</p>
+        <div class="actions"><button id="vdo-connect">Connect native screen</button><button id="vdo-stop" disabled>Stop native receiver</button></div>
+        <p id="source-status" role="status" aria-live="polite">Paste the native app’s viewer link to connect.</p>
+        <p class="hint">Then open your catalog in Library and start OCR. If locking the gaming device stops capture, restart SCREEN there. This receiver and OCR recover automatically when the same link returns. A changed link needs a new connection. Stop native receiver cancels recovery; stop the iOS broadcast on the gaming device separately.</p>
+      </div>
+    </div>
+    <div class="browser-connection-copy"><p>Keep both devices on the same network. Allow local network access when requested. Pair using the QR code or a private pairing message.</p><p class="capture-limit">Browser screen capture may be unavailable on iPad or stop when switching apps. For native iOS capture, choose VDO.Ninja native iPhone / iPad above.</p></div>
+  </section>
 
-  <section data-panel="connection" hidden><h2>Pair your devices</h2>
+  <section class="browser-pairing" data-panel="connection" hidden><h2>Pair your devices</h2>
 
     <label><input id="auto-recovery" type="checkbox" disabled> Automatically recover the connection when returning</label>
 
@@ -98,11 +111,13 @@
 
 <aside id="video-surface">    <video id="preview" autoplay muted playsinline aria-label="Received game screen"></video>
 
+    <div id="vdo-viewer" hidden aria-label="Native game screen viewer"></div>
+
     <button id="play-preview" hidden>Play video</button>
 
 </aside>
 
-  <section class="developer-only" data-panel="connection" hidden><h2>Capture observation</h2>
+  <section class="developer-only browser-pairing" data-panel="connection" hidden><h2>Capture observation</h2>
 
     <p id="metrics" role="status">No incoming frames yet.</p>
 

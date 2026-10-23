@@ -1,11 +1,21 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdirSync,mkdtempSync,writeFileSync,unlinkSync,rmSync} from 'node:fs';
+import {mkdirSync,mkdtempSync,writeFileSync,unlinkSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve,sep,dirname} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {previewSources,verifyPreviewAssets} from '../scripts/mobile-publication.mjs';
+
+test('native receiver adds only the reviewed viewer frame origin and source assets',()=>{
+ const html=readFileSync(new URL('../public/mobile-capture/index.html',import.meta.url),'utf8');
+ const csp=html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
+ const directives=new Map(csp.split(';').map(value=>value.trim().split(/\s+/)).filter(parts=>parts[0]).map(([name,...values])=>[name,values]));
+ assert.deepEqual(directives.get('frame-src'),['https://vdo.ninja']);
+ assert.deepEqual(directives.get('script-src'),["'self'","'wasm-unsafe-eval'"]);
+ assert.ok(!directives.get('connect-src').some(value=>/vdo|meshcast|\*/.test(value)));
+ for(const name of ['frame-source.mjs','vdo-source.mjs','receiver-source.mjs'])assert.ok(previewSources.includes(name));
+});
 
 test('publication boundary admits the guide and rejects substitutions, extra files and changed nested assets',t=>{
  const parent=resolve(tmpdir()),directory=mkdtempSync(resolve(parent,'game-publication-')),root=pathToFileURL(directory+sep);

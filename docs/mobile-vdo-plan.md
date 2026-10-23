@@ -1,6 +1,6 @@
 # Native iOS screen source implementation plan
 
-Status: implementation in progress. Public upstream baseline: `df2f38a80dcc0e8818f0cc9c59db51e5edf929b8` (2026-10-23), including merged PRs #26 and #27. No release or deployment is part of this change.
+Status: implementation and local automated checks complete; physical two-device acceptance remains pending. The draft PR records final packaged-build and hosted check results. Public upstream baseline: `df2f38a80dcc0e8818f0cc9c59db51e5edf929b8` (2026-10-23), including merged PRs #26 and #27. No release or deployment is part of this change.
 
 ## Decision and boundaries
 
@@ -10,13 +10,15 @@ Use a bounded iframe frame bridge initially: the official viewer handles its nat
 
 The SDK direct `view()` and a WHEP receiver are different transports. Do not add an SDK dependency unless a published, pinned release demonstrably supports the selected native route. This design adds no SDK package; the official hosted viewer remains an external, unpinned service, and that compatibility limit must be documented and tested. App Store 5.0.108 is current at review; 5.0.102 notes Meshcast viewer delivery while the screen guide also describes direct/WHIP delivery. Native binary compatibility and background stability require physical-device acceptance.
 
-## Shared contract (agree before implementation)
+## Shared contract (reviewed by both implementers)
 
 `frame-source.mjs` defines one source with `connect(options)`, `disconnect()`, `dispose()`, `subscribe(listener)`, `getState()` and `readFrame({signal} = {})`. State has an opaque `sessionId`, `status` (`ready`, `connecting`, `live`, `stalled`, `reconnecting`, `ended`, `error`, `paused`), dimensions, last frame timestamp and a safe user message. A successful `readFrame` returns `{sessionId, sequence, timestamp, width, height, image, release()}`; `image` is drawable by canvas. No fresh frame returns `null`. Timestamp means receiver observation time, not capture latency. A frame is owned by its consumer until `release`, which is idempotent.
 
 Only one request/decode may be active per source. Each connect has a new opaque identity. Disconnect/dispose invalidate every pending request and decoded frame, remove listeners/timers/iframe or owned tracks, and cannot publish an old result. A cancelled caller may not leave a second request queue. Status uses actual frame progress rather than connection events alone; unchanged screenshots cannot prove live capture. Hidden receivers pause requests/OCR and invalidate pending results. Resume requires a new frame before publication. Resolution changes preserve normalized crop coordinates.
 
-An existing-video adapter wraps the toolkit preview without creating another peer or decoder; capture.js retains its current transport ownership. A synthetic second source demonstrates replacement without exposing VDO objects to OCR. A small receiver controller may own source selection and lifecycle, but this is not a general plugin framework. Final exported signatures and lifecycle ownership are recorded here when both implementers have reviewed them.
+The native sender can stop when the gaming phone locks. While receiving intent remains active, the adapter must automatically recover using the same private viewer link after the broadcast restarts. Bound retry delays, keep only one iframe/connection, renew session identity and discard old frames/OCR during recovery. Preserve OCR intent across temporary outages; explicit receiver Stop/dispose cancels every retry. The receiver cannot start an iOS system broadcast. Test both a real transport outage and an unchanged picture, without presenting the latter as proof of a network failure.
+
+An existing-video adapter wraps the toolkit preview without creating another peer or decoder; capture.js retains its current transport ownership. A synthetic second source demonstrates replacement without exposing VDO objects to OCR. `createReceiverSource(factories)` in `receiver-source.mjs` owns source selection, private in-memory options, cancellation and pause/resume. Its `connect(kind, options)`, `disconnect()`, `pause()`, `resume()`, `dispose()`, `subscribe()`, `getState()` and `readFrame()` methods wrap the source contract above. `capture.js` exports the single receiver controller consumed by `mobile-ui.mjs`; OCR receives only generic frame envelopes. Both implementers cross-reviewed these boundaries and the lifecycle fixes.
 
 ## File ownership
 

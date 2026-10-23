@@ -17,11 +17,15 @@ export function regions(game,crop=crops[game],extra=true,cinematic=true,custom={
  return result;
 }
 export function cropFrame(source,canvas,region,picture='window'){
+ // Frame envelopes are the OCR boundary. Direct drawables remain accepted for
+ // layout fixtures and existing private footage replay tools.
+ const image=source.image??source;
  const w=source.videoWidth??source.naturalWidth??source.width,h=source.videoHeight??source.naturalHeight??source.height;
  if(!w||!h)throw new Error('Connect the receiving game screen first.');
+ if(!Array.isArray(region)||region.length!==4||region.some(v=>!Number.isFinite(v)||v<0||v>1)||region[2]<=0||region[3]<=0||region[0]+region[2]>1.00001||region[1]+region[3]>1.00001)throw new Error('Keep the crop inside the video.');
  let x=0,y=0,pw=w,ph=h;if(picture==='16:9'){if(w/h>16/9){pw=h*16/9;x=(w-pw)/2;}else{ph=w*9/16;y=(h-ph)/2;}}
  const [left,top,width,height]=region,cw=pw*width,ch=ph*height,scale=Math.min(2,1440/h,2304/cw,1024/ch);
- canvas.width=Math.max(1,Math.round(cw*scale));canvas.height=Math.max(1,Math.round(ch*scale));canvas.getContext('2d',{willReadFrequently:true}).drawImage(source,x+pw*left,y+ph*top,cw,ch,0,0,canvas.width,canvas.height);return canvas;
+ canvas.width=Math.max(1,Math.round(cw*scale));canvas.height=Math.max(1,Math.round(ch*scale));canvas.getContext('2d',{willReadFrequently:true}).drawImage(image,x+pw*left,y+ph*top,cw,ch,0,0,canvas.width,canvas.height);return canvas;
 }
 export function prepareImage(canvas,region,language){
  const context=canvas.getContext('2d',{willReadFrequently:true}),pixels=context.getImageData(0,0,canvas.width,canvas.height);let dark=0,total=0,black=0,bright=0;
@@ -54,17 +58,19 @@ function comicBubbles(canvas){
  return found.sort((a,b)=>b.area-a.area).slice(0,4);
 }
 export async function recognizeRegion(worker,canvas,region,language,isCurrent=()=>true){
+ if(!isCurrent())return null;
  let original=null;if(region.channel==='gameplay'||region.channel==='dialogue'){original=document.createElement('canvas');original.width=canvas.width;original.height=canvas.height;original.getContext('2d').drawImage(canvas,0,0);}
  if(!prepareImage(canvas,region,language))return null;
  await worker.setParameters({tessedit_pageseg_mode:region.fragment?'11':region.line?'7':'6'});
+ if(!isCurrent())return null;
  const result=await worker.recognize(canvas,{}, {text:true,blocks:true});if(!isCurrent())return result.data;
- if(region.fragment){const refined=[];for(const b of comicBubbles(canvas)){if(!isCurrent())break;const scale=Math.min(1.5,1280/b.w,512/b.h),image=document.createElement('canvas');image.width=Math.round(b.w*scale);image.height=Math.round(b.h*scale);image.getContext('2d').drawImage(canvas,b.x,b.y,Math.min(b.w,canvas.width-b.x),Math.min(b.h,canvas.height-b.y),0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}return {...result.data,refinedTexts:refined};}
+ if(region.fragment){const refined=[];for(const b of comicBubbles(canvas)){if(!isCurrent())break;const scale=Math.min(1.5,1280/b.w,512/b.h),image=document.createElement('canvas');image.width=Math.round(b.w*scale);image.height=Math.round(b.h*scale);image.getContext('2d').drawImage(canvas,b.x,b.y,Math.min(b.w,canvas.width-b.x),Math.min(b.h,canvas.height-b.y),0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});if(!isCurrent())return null;const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}return {...result.data,refinedTexts:refined};}
  if(!original)return result.data;
  const words=(result.data.blocks??[]).flatMap(b=>b.paragraphs??[]).flatMap(p=>p.lines??[]).filter(l=>(l.confidence??0)>=45&&l.bbox?.x1-l.bbox?.x0>canvas.width*.25&&l.bbox?.y1-l.bbox?.y0<canvas.height*.25).flatMap(l=>l.words??[]).filter(w=>w.bbox&&w.confidence<85&&normalize(w.text).length>=4).sort((a,b)=>a.confidence-b.confidence).slice(0,3);
  for(const word of words){
   if(!isCurrent())return result.data;
   const b=word.bbox,x=Math.max(0,b.x0-4),y=Math.max(0,b.y0-4),w=Math.min(original.width-x,b.x1-b.x0+8),h=Math.min(original.height-y,b.y1-b.y0+8),scale=Math.min(3,1600/w,256/h),image=document.createElement('canvas');image.width=Math.round(w*scale);image.height=Math.round(h*scale);image.getContext('2d').drawImage(original,x,y,w,h,0,0,image.width,image.height);
-  await worker.setParameters({tessedit_pageseg_mode:'7'});const reread=await worker.recognize(image,{}, {text:true});if(reread.data.confidence>=80&&reread.data.text.trim()&&reread.data.text.trim().length<150){word.text=reread.data.text.trim();word.confidence=reread.data.confidence;}
+  await worker.setParameters({tessedit_pageseg_mode:'7'});if(!isCurrent())return null;const reread=await worker.recognize(image,{}, {text:true});if(reread.data.confidence>=80&&reread.data.text.trim()&&reread.data.text.trim().length<150){word.text=reread.data.text.trim();word.confidence=reread.data.confidence;}
  }
  if(words.length){for(const line of (result.data.blocks??[]).flatMap(b=>b.paragraphs??[]).flatMap(p=>p.lines??[]))if(line.words?.length)line.text=line.words.map(w=>w.text).join(' ');result.data.text=(result.data.blocks??[]).flatMap(b=>b.paragraphs??[]).flatMap(p=>p.lines??[]).map(l=>l.text).join('\n');}
  if(region.channel!=='gameplay')return result.data;
