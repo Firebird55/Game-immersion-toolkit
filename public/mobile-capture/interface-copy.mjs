@@ -1,7 +1,6 @@
 // Product copy shared by the desktop and browser interfaces.
 export default {
  "Game screen source":["Bron van het gamescherm","游戏画面来源","遊戲畫面來源"],
- "Browser screen pairing":["Scherm koppelen via browser","浏览器画面配对","瀏覽器畫面配對"],
  "VDO.Ninja native iPhone / iPad":["VDO.Ninja native iPhone / iPad","VDO.Ninja 原生 iPhone / iPad","VDO.Ninja 原生 iPhone / iPad"],
  "Private VDO.Ninja viewer link":["Privé VDO.Ninja-kijklink","私密 VDO.Ninja 观看链接","私人 VDO.Ninja 觀看連結"],
  "Paste the complete HTTPS viewer link":["Plak de volledige HTTPS-kijklink","粘贴完整的 HTTPS 观看链接","貼上完整的 HTTPS 觀看連結"],
@@ -356,7 +355,6 @@ export default {
  "Pair your devices":["Koppel je apparaten","配对设备","配對裝置"],
  "Automatically recover the connection when returning":["Verbinding automatisch herstellen bij terugkeer","返回时自动恢复连接","返回時自動恢復連線"],
  "Keep both devices on the same network. Allow local network access when requested. Pair using the QR code or a private pairing message.":["Verbind beide apparaten met hetzelfde netwerk. Sta lokaal netwerkgebruik toe en koppel met de QR-code of een privébericht.","请将两台设备连接至同一网络，并在提示时允许本地网络访问。使用二维码或私人配对消息进行配对。","請將兩台裝置連接至同一網路，並在提示時允許區域網路存取。使用 QR 碼或私人配對訊息進行配對。"],
- "Share screen & create offer":["Scherm delen en koppeling starten","共享屏幕并创建配对请求","分享螢幕並建立配對要求"],
  "Resume screen sharing":["Schermdelen hervatten","恢复屏幕共享","恢復螢幕分享"],
  "Reconnect & create new offer":["Opnieuw verbinden en koppelen","重新连接并创建配对请求","重新連線並建立配對要求"],
  "Stop":["Stoppen","停止","停止"],

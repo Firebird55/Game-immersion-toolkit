@@ -89,3 +89,7 @@ test('native update scenarios are recorded unavailable off Windows and never sil
  assert.ok(result.unavailable.includes('update-companion-e2e'));
  assert.ok(!commands.some(args=>args.includes('scripts/update-companion-e2e.mjs')));
 });
+
+test('library exporter and worker changes execute one-file browser import scenarios',()=>{
+ for(const file of ['backend/mobile_bundle.py','backend/mobile_library.py','public/mobile-capture/library.mjs','public/mobile-capture/library-worker.mjs'])assert.ok(scenarioPlan([file]).browser.includes('mobile-library-e2e'),file);
+});

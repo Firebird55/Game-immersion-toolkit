@@ -51,6 +51,7 @@ export function scenarioPlan(files, checks = selectChecks(files)) {
     for (const name of ['mobile-vdo-source-e2e','mobile-source-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-layout-e2e']) browser.add(name);
   }
   if (files.some(file => publicationInputs.includes(file))) browser.add('mobile-update-e2e');
+  if(files.some(file=>/^(public\/mobile-capture\/library(?:-worker)?\.mjs|backend\/mobile_(?:library|bundle|export_layout)\.py|scripts\/(?:bundle|export)-mobile-library\.py|tests\/mobile-library\.test\.mjs)$/.test(file)))browser.add('mobile-library-e2e');
   if (files.some(file => ['backend/api.py','backend/state_version.py'].includes(file))) for (const name of ['setup-e2e','local-access-e2e']) browser.add(name);
   if (files.some(file => ['backend/api.py','backend/state_version.py','scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file))) windows.add('update-companion-e2e');
   if (files.some(file => ['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-react-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file))) for (const name of ['ui-state-e2e','ui-state-react-e2e']) browser.add(name);
