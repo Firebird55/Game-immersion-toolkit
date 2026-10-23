@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {spawn, execFileSync} from 'node:child_process';
-import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
+import {cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
+import {rm} from 'node:fs/promises';
 import {dirname, delimiter, join, resolve} from 'node:path';
 import net from 'node:net';
 import {chromium, firefox} from 'playwright';
@@ -107,8 +108,18 @@ try{
  console.log(temporary?'Clean canonical source build includes all generated mobile assets.':'Extracted distribution serves its own generated mobile assets.');
 }finally{
  await browser?.close();
- if(server&&server.exitCode===null){server.kill();await Promise.race([new Promise(r=>server.once('exit',r)),delay(5000)]);}
- if(temporary)rmSync(temporary,{recursive:true,force:true,maxRetries:6,retryDelay:250});
+ if(server&&server.exitCode===null){
+  if(process.platform==='win32'){try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}}
+  else server.kill();
+  await Promise.race([new Promise(r=>server.once('close',r)),delay(5000)]);
+ }
+ if(temporary){
+  assert.equal(realpathSync(dirname(temporary)),realpathSync(tmpdir()),'Cleanup must stay inside the owned temporary directory');
+  // Unlink dependencies so recursive cleanup stays within the owned fixture.
+  const dependencyLink=join(temporary,'node_modules');
+  if(existsSync(dependencyLink)){assert(lstatSync(dependencyLink).isSymbolicLink());unlinkSync(dependencyLink);}
+  await rm(temporary,{recursive:true,force:true,maxRetries:6,retryDelay:250});
+ }
  mkdirSync(join(repository,'output/checks'),{recursive:true});
  writeFileSync(join(repository,'output/checks',baseline?'windows-source-build-baseline.json':temporary?'windows-source-build.json':'windows-packaged-assets.json'),JSON.stringify({check:baseline?'legacy-setup-build':temporary?'clean-source-build':'packaged-assets',platform:process.platform,elapsedMs:Date.now()-started,passed,nativeOcr:'OPEN: native Windows capture requires hardware verification'},null,2));
 }
