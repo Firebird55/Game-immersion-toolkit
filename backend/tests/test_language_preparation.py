@@ -6,6 +6,65 @@ import pytest
 from backend.language_preparation import LanguagePreparation
 
 
+@pytest.mark.parametrize('action', ['prepare', 'rebuild', 'select'])
+def test_account_membership_does_not_block_local_source_language(monkeypatch, action):
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from backend import api
+
+    calls = []
+    preferences = {'languages': ['zh'], 'global': {'effectiveTranslationLanguage': 'de'}, 'languageSettings': {}}
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(
+        accounts=SimpleNamespace(status=lambda: {'active': 'synthetic'}),
+        lexirise=SimpleNamespace(status=lambda: {'configured': True}),
+        account_preferences=lambda: preferences,
+        languages=SimpleNamespace(select=lambda *args: calls.append(('select', args)),
+            request=lambda *args, **kwargs: calls.append(('prepare', args, kwargs)) or True)), raising=False)
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/setup/games/beyond/languages',
+                       'headers': [(b'host', b'127.0.0.1:8766')], 'server': ('127.0.0.1', 8766), 'scheme': 'http'})
+    api.prepare_game_language('beyond', api.LanguageAction(locale='nl', action=action, target='en'), request, 'setup')
+    if action == 'select':
+        assert calls == [('select', ('beyond', 'nl', 'synthetic'))]
+    else:
+        assert calls == [('prepare', ('beyond', 'nl', 'en', 'synthetic'), {'rebuild': action == 'rebuild'})]
+    assert preferences['languages'] == ['zh'], 'Local language preparation must not change the account'
+
+
+def test_enabled_source_keeps_its_account_translation_target(monkeypatch):
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from backend import api
+
+    calls = []
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(
+        accounts=SimpleNamespace(status=lambda: {'active': 'synthetic'}),
+        lexirise=SimpleNamespace(status=lambda: {'configured': True}),
+        account_preferences=lambda: {'languages': ['nl'], 'global': {'effectiveTranslationLanguage': 'en'},
+            'languageSettings': {'nl': {'effectiveTranslationLanguage': 'fr'}}},
+        languages=SimpleNamespace(request=lambda *args, **kwargs: calls.append(args) or True)), raising=False)
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/setup/games/beyond/languages',
+                       'headers': [(b'host', b'127.0.0.1:8766')], 'server': ('127.0.0.1', 8766), 'scheme': 'http'})
+    api.prepare_game_language('beyond', api.LanguageAction(locale='nl', target='en'), request, 'setup')
+    assert calls == [('beyond', 'nl', 'fr', 'synthetic')]
+
+
+def test_independent_preparation_without_account(monkeypatch):
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from backend import api
+
+    calls = []
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(
+        accounts=SimpleNamespace(status=lambda: {'active': 'synthetic'}),
+        lexirise=SimpleNamespace(status=lambda: {'configured': False}),
+        account_preferences=lambda: pytest.fail('No account request in Migaku mode'),
+        languages=SimpleNamespace(request=lambda *args, **kwargs: calls.append(args) or True)), raising=False)
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/setup/games/beyond/languages',
+                       'headers': [(b'host', b'127.0.0.1:8766')], 'server': ('127.0.0.1', 8766), 'scheme': 'http'})
+    api.prepare_game_language('beyond', api.LanguageAction(locale='nl', target='en'), request, 'setup')
+    assert calls == [('beyond', 'nl', 'en', 'synthetic')]
+
+
 def finish(manager):
     deadline = time.monotonic() + 3
     while manager._workers and time.monotonic() < deadline:

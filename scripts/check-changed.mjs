@@ -10,6 +10,7 @@ export function selectChecks(files, full = false) {
     if (['scripts/check-changed.mjs','scripts/check-browser-suite.mjs','tests/check-selection.test.mjs'].includes(file)) { selected.add('selector'); continue; }
     if (['.github/workflows/mobile-preview.yml','tests/fixtures/mobile-native-chinese.png'].includes(file)) { selected.add('mobile'); continue; }
     if (file === 'tests/fixtures/mobile-native-chinese.md') { selected.add('docs'); continue; }
+    if (['scripts/language-account-e2e.mjs','scripts/browser-e2e.mjs'].includes(file)) { selected.add('desktop'); continue; }
     if (['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-react-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
     if (['scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file)) { selected.add('python'); selected.add('windows'); continue; }
     if (/^scripts\/(start-companion|companion-process-identity-e2e).*\.ps1$/.test(file)) { selected.add('windows'); continue; }
@@ -42,6 +43,7 @@ export function scenarioPlan(files, checks = selectChecks(files)) {
   if (checks.includes('full')) return {browser: Object.values(browserSuites).flat(), windows: ['companion-process-identity-e2e', 'setup-e2e', 'update-companion-e2e']};
   const browser = new Set(), windows = new Set();
   if (checks.includes('desktop')) browser.add('language-account-e2e');
+  if (files.includes('scripts/browser-e2e.mjs')) browser.add('browser-e2e');
   if (checks.includes('mobile')) for (const name of ['companion-e2e','mobile-reader-layout-e2e','mobile-games-e2e','ocr-packs-e2e']) browser.add(name);
   // A source change must exercise actual frames through the receiver as well as
   // the retained QR/PC transport; selecting only layout checks misses lifecycle bugs.

@@ -7,7 +7,7 @@ import {formatBytes,languageName} from '../public/mobile-capture/interface-langu
 const API='http://127.0.0.1:8766';
 type Locale={locale:string;language:string;name:string;reader_available:boolean;table_bytes?:number;reclaimable_bytes?:number;voice_state?:string;support?:string;prepared:null|{targets:string[];mapped_lines:number};job?:{state?:string;message?:string;progress?:number}};
 type Languages={context:StateContext;selected:string|null;locales:Locale[];enabled_languages:string[]|null;targets:Record<string,string>;translation_locales?:string[];expected_targets?:string[];storage?:{tables_bytes:number;audio_cache_bytes:number|null;shared_tools_bytes:number|null;installed_game_bytes:number|null;exports_bytes:number|null}};
-export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false}:{game:string;onConfigure:(language:string)=>void;onChanged:()=>void;storageOnly?:boolean}){
+export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false,targetLanguage}:{game:string;onConfigure:(language:string)=>void;onChanged:()=>void;storageOnly?:boolean;targetLanguage?:string}){
  const {t,locale:uiLocale}=useInterfaceLanguage();
  const [data,setData]=useState<Languages|null>(null),[locale,setLocale]=useState(''),[target,setTarget]=useState('en'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[search,setSearch]=useState(''),[confirm,setConfirm]=useState(false);
  const pollOwner=useRef<StatePoll<Languages>|null>(null);
@@ -21,7 +21,7 @@ export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false}:{ga
    return value;
   },value=>{
    setData(value);setError('');
-   setLocale(previous=>value.locales.some(l=>l.locale===previous)?previous:value.selected??value.locales.find(l=>value.enabled_languages?.includes(l.language))?.locale??value.locales[0]?.locale??'');
+   setLocale(previous=>value.locales.some(l=>l.locale===previous)?previous:value.locales.find(l=>l.language===targetLanguage)?.locale??value.selected??value.locales.find(l=>value.enabled_languages?.includes(l.language))?.locale??value.locales[0]?.locale??'');
   },()=>setError('Language setup unavailable.'));
   pollOwner.current=owner;
   const reset=(event?:Event)=>{
@@ -33,7 +33,7 @@ export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false}:{ga
   window.addEventListener('lexirise-credentials-changed',reset);
   window.addEventListener('companion-runtime-reset',reset);
   return()=>{owner.close();actionAbort.current?.abort();if(pollOwner.current===owner)pollOwner.current=null;clearInterval(timer);window.removeEventListener('lexirise-credentials-changed',reset);window.removeEventListener('companion-runtime-reset',reset);};
- },[game]);
+ },[game,targetLanguage]);
  const selected=data?.locales.find(item=>item.locale===locale);
  const translation=selected?(data?.targets[selected.language]??target):target;
  async function action(kind:'prepare'|'rebuild'|'select'|'cleanup'){
@@ -52,7 +52,7 @@ export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false}:{ga
   finally{if(actionAbort.current===controller){actionAbort.current=null;if(!controller.signal.aborted)setBusy(false);}}
  }
  const preparing=selected?.job?.state==='preparing';
- const enabled=!!selected&&(!data?.enabled_languages||data.enabled_languages.includes(selected.language));
+ const inAccount=!!selected&&!!data?.enabled_languages?.includes(selected.language);
  const prepared=!!selected?.prepared?.targets.some(code=>code.toLowerCase()===translation.toLowerCase());
  const choices=data?.translation_locales??['en','zh-Hans','zh-Hant'];
  const supportedTarget=choices.some(code=>code.toLowerCase()===translation.toLowerCase());
@@ -66,13 +66,14 @@ export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false}:{ga
  </tbody></table></div>{!rows.length&&<p>{t('No languages match your search.')}</p>}
  <p className="toolkit-setup-note">{t('Expected support uses the same reader format; it does not require an export of every language.')}</p>
  {selected&&<div className="language-detail"><h4>{languageName(locale,uiLocale)}</h4>
- {!storageOnly&&<><label>{t('Translation language')}<select aria-label={t('Translation language')} disabled={!!data.enabled_languages} value={translation} onChange={e=>setTarget(e.target.value)}>{[...new Set([translation,...choices])].map(code=><option key={code} value={code}>{languageName(code,uiLocale)}{data.expected_targets?.includes(code)?' · '+t('Expected support'):''}</option>)}</select></label>
+ {!storageOnly&&<><label>{t('Translation language')}<select aria-label={t('Translation language')} disabled={inAccount} value={translation} onChange={e=>setTarget(e.target.value)}>{[...new Set([translation,...choices])].map(code=><option key={code} value={code}>{languageName(code,uiLocale)}{data.expected_targets?.includes(code)?' · '+t('Expected support'):''}</option>)}</select></label>
  {!supportedTarget&&<p role="status">{t('This game has no official translation in the selected language.')}</p>}
- {!enabled&&<p>{t('Enable this learning language in Lexirise to use it with this account.')}</p>}
+ {data.enabled_languages&&!inAccount&&<p>{t('This source language is not in your Lexirise account. You can still prepare and play it.')}</p>}
+ {targetLanguage&&selected.language!==targetLanguage&&<p>{t('Subtitle source differs from your target language. You can still use this language.')}</p>}
  {selected.prepared&&<p>{selected.prepared.mapped_lines.toLocaleString(uiLocale)} · {selected.prepared.targets.map(code=>languageName(code,uiLocale)).join(', ')}</p>}
  {selected.job?.message&&<p role="status">{selected.job.message}</p>}{preparing&&<progress aria-label={t('Preparing…')} value={selected.job?.progress??0} max={100}/>}
- <div className="toolkit-setup-actions"><Button disabled={busy||preparing||!enabled||!supportedTarget||!selected.reader_available||(prepared&&data.selected===locale)} onClick={()=>void action(prepared?'select':'prepare')}>{t(prepared?'Use this language':selected.prepared?'Prepare translation':'Prepare language')}</Button><Button variant="outline" onClick={()=>onConfigure(selected.language)}>{t('Reading and dictionaries')}</Button></div></>}
- <details open={storageOnly}><summary>{t(storageOnly?'Storage':'Advanced')}</summary><div className="toolkit-setup-actions"><Button variant="outline" disabled={busy||preparing||!enabled||!selected.reader_available} onClick={()=>void action('rebuild')}>{t('Rebuild table')}</Button><Button variant="outline" disabled={busy||preparing||!(selected.table_bytes??0)} onClick={()=>setConfirm(true)}>{t('Remove table and free space')} · {formatBytes(selected.reclaimable_bytes??0,uiLocale)}</Button></div></details>
+ <div className="toolkit-setup-actions"><Button disabled={busy||preparing||!supportedTarget||!selected.reader_available||(prepared&&data.selected===locale)} onClick={()=>void action(prepared?'select':'prepare')}>{t(prepared?'Use this language':selected.prepared?'Prepare translation':'Prepare language')}</Button><Button variant="outline" onClick={()=>onConfigure(selected.language)}>{t('Reading and dictionaries')}</Button></div></>}
+ <details open={storageOnly}><summary>{t(storageOnly?'Storage':'Advanced')}</summary><div className="toolkit-setup-actions"><Button variant="outline" disabled={busy||preparing||!selected.reader_available} onClick={()=>void action('rebuild')}>{t('Rebuild table')}</Button><Button variant="outline" disabled={busy||preparing||!(selected.table_bytes??0)} onClick={()=>setConfirm(true)}>{t('Remove table and free space')} · {formatBytes(selected.reclaimable_bytes??0,uiLocale)}</Button></div></details>
  {confirm&&<div className="language-cleanup" role="alert"><h4>{t('Remove prepared table?')}</h4><p>{t('Game files, history, favorites and credentials are kept. Prepare the table again to restore original-voice lookup.')}</p><p>{t('This clears the language selection for all local accounts.')}</p><div className="toolkit-setup-actions"><Button disabled={busy} onClick={()=>void action('cleanup')}>{t('Remove')} · {formatBytes(selected.reclaimable_bytes??0,uiLocale)}</Button><Button variant="outline" disabled={busy} onClick={()=>setConfirm(false)}>{t('Cancel')}</Button></div></div>}
  </div>}
  {data.storage&&<><dl className="storage-summary">{([['Language tables',data.storage.tables_bytes],['Shared audio cache',data.storage.audio_cache_bytes],['Shared tools',data.storage.shared_tools_bytes],['External exports',data.storage.exports_bytes]] as [string,number|null][]).map(([label,bytes])=><div key={label}><dt>{t(label)}</dt><dd>{formatBytes(bytes,uiLocale)}</dd></div>)}<div><dt>{t('Game packs')}</dt><dd>{data.storage.installed_game_bytes==null?t('Managed by game launcher'):formatBytes(data.storage.installed_game_bytes,uiLocale)}</dd></div></dl><p className="toolkit-setup-note">{t('Shared storage is counted once, not once per language.')}</p></>}

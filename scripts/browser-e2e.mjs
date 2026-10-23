@@ -53,7 +53,7 @@ function response(path,query,method,body){
  if(path==='/api/lines/8/reading')return {text:heavyRainLine.source_text,tokens:[{start:0,end:3,word:'Een',meaning:'一个',proficiency:0}],grammar:[]};
  if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{starrail:mapStatus,genshin:mapStatus,endfield:mapStatus,beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
  if(path==='/api/settings'&&method==='PATCH'){Object.assign(settings,body);return settings;}
- if(path==='/api/lexirise')return {configured:true,decks:{},sent:{}};
+ if(path==='/api/lexirise')return {configured:true,account:'legacy',decks:{},sent:{}};
  if(path==='/api/lines')return query.get('game')==='zzz'?(includeComic?[comicLine,line]:[line]):query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:query.get('game')==='nte'?[nteLine]:query.get('game')==='honkai3'?[honkaiLine]:query.get('game')==='beyond'?[beyondLine]:[];
  if(path==='/api/favorites')return [];
  if(path==='/api/lexirise/settings'){if(method==='PATCH'){Object.assign(account.global,body.global??{});for(const[l,changes]of Object.entries(body.languageSettings??{}))Object.assign(account.languageSettings[l]??={},changes);}return account;}
@@ -139,6 +139,7 @@ try{
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();const capture=page.getByRole('dialog',{name:'Capture setup'});await capture.waitFor();b=await capture.boundingBox();assert(b&&b.x>=0&&b.x+b.width<=width+1,'Capture setup fits');
  await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
  const games=page.getByRole('navigation',{name:'Game transcript'});
+ await page.getByLabel('Target language',{exact:true}).selectOption('ja');
  assert.equal(await games.getByRole('button',{name:'Where Winds Meet',exact:true}).count(),0,'Unverified WWM integration stays excluded');
  await games.getByRole('button',{name:'Cyberpunk 2077',exact:true}).click();
  await page.locator('.current-line.game-cyberpunk').waitFor();
@@ -173,7 +174,7 @@ try{
  assert.equal(await capture.locator('input[type=range]').first().inputValue(),left);
  await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
  }
- for(const[game,label]of [['wuwa','Wuthering Waves'],['witcher3','The Witcher 3']]){
+ for(const[game,label]of [['wuwa','Wuthering Waves'],['witcher3','The Witcher 3: Wild Hunt']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   if(game==='witcher3'){
    await page.locator('.current-line').getByText(witcherStudyLine.source_text,{exact:true}).waitFor();
