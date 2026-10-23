@@ -50,6 +50,25 @@ async function waitText(page,text){await page.waitForFunction(text=>document.que
 async function connect(page){await page.fill('#vdo-url','https://vdo.ninja/?view=owned_fixture&password=owned_fixture_secret');await page.click('#vdo-connect');await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'),null,{timeout:15000});}
 async function hide(page,hidden){await page.evaluate(hidden=>{Object.defineProperty(document,'hidden',{configurable:true,value:hidden});document.dispatchEvent(new Event('visibilitychange'));},hidden);}
 async function release(page){await page.evaluate(()=>{window.testGate=null;for(const deliver of window.testHeld.splice(0))deliver();});}
+async function probeFixtureVideo(page){
+ // Probe a separate native media element: an application/adapter failure must
+ // never be mistaken for a missing runner codec. No playback properties mocked.
+ return page.evaluate(async sources=>{
+  const video=document.createElement('video');video.muted=true;video.playsInline=true;
+  const failures=[];
+  for(let index=0;index<sources.length;index++){
+   const [base64,type]=sources[index],url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type}));let timer;
+   video.src=url;
+   try{
+    await Promise.race([video.play(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new DOMException('Fixture playback timed out','TimeoutError')),8000);})]);
+    if(!video.videoWidth||!video.videoHeight)throw new Error('Fixture has no decoded dimensions');
+    return {index,failures};
+   }catch(error){failures.push({type,error:error.name,mediaCode:video.error?.code??null});}
+   finally{clearTimeout(timer);video.pause();video.removeAttribute('src');video.load();URL.revokeObjectURL(url);}
+  }
+  return {index:null,failures};
+ },[[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
+}
 try{
  for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
   browser=await engines[name].launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[];
@@ -158,8 +177,16 @@ try{
   // Existing video adapter remains interchangeable without a second connection.
   stage='existing browser video adapter';
   await page.selectOption('#frame-source','browser');
-  await page.evaluate(async sources=>{const video=document.querySelector('#preview');video.loop=true;for(const [base64,type]of sources){video.src=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type}));try{await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:200,role:'receiver',state:'connected',live:true,game:'zzz'}}));return;}catch{}}throw Error('Fixture video decoding unavailable.');},[[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
-  await page.click('#clear-history');await page.click('#ocr-start');await waitText(page,row.chinese);await page.click('#ocr-pause');
+  const capability=await probeFixtureVideo(page);
+  if(capability.index===null){
+   assert(name==='webkit'&&process.platform==='win32'&&capability.failures.length===2&&capability.failures.every(f=>f.error==='NotSupportedError'||f.mediaCode===4),`Unexpected fixture video failure: ${JSON.stringify(capability)}`);
+   console.log(`webkit Windows: native media probe cannot decode MP4/WebM ${JSON.stringify(capability.failures)}. Browser-video adapter is UNVERIFIED here; native PNG/OCR/recovery tests continue. Media coverage runs on macOS and Linux.`);
+  }else{
+   await page.evaluate(async([base64,type])=>{const video=document.querySelector('#preview');video.loop=true;window.fixtureVideoUrl=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type}));video.src=window.fixtureVideoUrl;await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:200,role:'receiver',state:'connected',live:true,game:'zzz'}}));},[[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']][capability.index]);
+   await page.click('#clear-history');await page.click('#ocr-start');await waitText(page,row.chinese);await page.click('#ocr-pause');
+   await page.evaluate(()=>{const video=document.querySelector('#preview');video.pause();video.removeAttribute('src');video.load();URL.revokeObjectURL(window.fixtureVideoUrl);delete window.fixtureVideoUrl;});
+   console.log(`${name}: decoded browser-video adapter reached real OCR and catalog.`);
+  }
   await page.selectOption('#frame-source','vdo');await connect(page);
   stage='native Chinese PNG and real OCR';
   const frame=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
