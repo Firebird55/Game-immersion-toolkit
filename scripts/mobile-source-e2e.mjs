@@ -152,7 +152,10 @@ try{
   assert(nativeLoads>beforeRecovery,'lost native stream triggers bounded automatic viewer reconnect');
   assert.equal(await page.locator('#transcript .transcript-line').count(),0,'nothing stale while source is unavailable');
   streamAvailable=true;
-  await page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/')).evaluate(()=>fixture.available=true).catch(()=>{});
+  // Recovery may currently be between iframes. Future viewer loads already use
+  // streamAvailable; only update an existing viewer if one is still attached.
+  const recoveringViewer=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
+  if(recoveringViewer)await recoveringViewer.evaluate(()=>fixture.available=true).catch(()=>{});
   await waitText(page,row.chinese);
   assert(await page.evaluate(()=>document.body.classList.contains('ocr-running')),'same-link restart resumes OCR without another Start click');
   console.log(`${name}: same-link sender restart resumed OCR automatically.`);
