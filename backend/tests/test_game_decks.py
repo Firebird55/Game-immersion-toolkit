@@ -64,7 +64,7 @@ def test_destination_api_requires_explicit_action_and_guard_header(monkeypatch):
     writes=[]
     service=SimpleNamespace(available_decks=lambda:[],configure_game_deck=lambda game,deck_id:writes.append((game,deck_id)),status=lambda:{'configured':True,'decks':{},'sent':{}})
     monkeypatch.setattr(api,'runtime',SimpleNamespace(lexirise=service),raising=False)
-    client=TestClient(api.app);headers={'X-Proxy-Transcript':'lexirise'}
+    client=TestClient(api.app, base_url="http://127.0.0.1:8766");headers={'X-Proxy-Transcript':'lexirise'}
     assert client.get('/api/lexirise/decks').status_code==200 and writes==[]
     assert client.post('/api/lexirise/decks',json={'game':'zzz','create':True}).status_code==403
     for payload in [{'game':'zzz'},{'game':'zzz','deck_id':True},{'game':'zzz','create':True,'deck_id':42}]:

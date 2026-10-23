@@ -38,7 +38,7 @@ def test_context_question_roundtrip_reports_service_errors(monkeypatch):
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(
         transcript=SimpleNamespace(get=lambda _: SimpleNamespace(chinese='你好',source_text='你好')),
         reading=SimpleNamespace(context=context)), raising=False)
-    client = TestClient(api.app)
+    client = TestClient(api.app, base_url="http://127.0.0.1:8766")
     headers = {'X-Proxy-Transcript': 'lexirise', 'X-Reader-Action': 'lexirise'}
     body = {'start': 0, 'question': ' Is this polite? '}
     assert client.post('/api/lines/1/reading/context', json=body).status_code == 403

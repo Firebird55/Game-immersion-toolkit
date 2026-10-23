@@ -2,64 +2,18 @@ param([switch]$NoBrowser)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'companion-runtime.ps1')
-$dataDir = Join-Path $projectRoot 'data'
-$processFile = Join-Path $dataDir 'processes.json'
-$statePath = Join-Path $dataDir 'companion-runtime.json'
 $python = Join-Path $env:LOCALAPPDATA 'Programs\Proxy Transcript\venv\Scripts\python.exe'
-New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
-$started = [ordered]@{}
-if (Test-Path -LiteralPath $processFile) {
-    $previous = Get-Content -LiteralPath $processFile -Raw | ConvertFrom-Json
-    foreach ($property in $previous.PSObject.Properties) {
-        if (Get-Process -Id ([int]$property.Value) -ErrorAction SilentlyContinue) {
-            $started[$property.Name] = [int]$property.Value
-        }
-    }
-}
-$state = $null
-if (Test-Path -LiteralPath $statePath) { $state=Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json }
-if (-not ((Test-CompanionEndpoint 'http://127.0.0.1:8766/api/health') -and (Test-CompanionEndpoint 'http://127.0.0.1:3000/'))) {
-    if (-not $state -and (Test-CompanionEndpoint 'http://127.0.0.1:8766/api/health')) {
-        # Existing direct-port installs remain usable until the updater performs
-        # their first prepared handover. Do not stop a working capture service.
-        $node=(Get-Command node -ErrorAction Stop).Source
-        $wrangler=Join-Path $projectRoot 'node_modules\wrangler\bin\wrangler.js'
-        $frontend=Start-CompanionProcess $node @($wrangler,'dev','--config','dist/server/wrangler.json','--port','3000') $projectRoot ''
-        $started.frontend=$frontend.Id
-    } else {
-        $source=$projectRoot
-        if ($state -and (Test-Path -LiteralPath $state.active.source)) {
-            $source=$state.active.source
-            $python=$state.active.python
-        }
-        if (-not (Test-Path -LiteralPath $python)) { throw 'Run scripts\setup.ps1 first.' }
-        if (-not (Test-Path -LiteralPath (Join-Path $source 'dist\server\wrangler.json'))) { throw 'The frontend is not built. Run scripts\setup.ps1 first.' }
-        $slotReady=$state -and (Test-CompanionEndpoint ('http://127.0.0.1:'+$state.active.apiPort+'/api/health')) -and (Test-CompanionEndpoint ('http://127.0.0.1:'+$state.active.frontendPort+'/'))
-        if (-not $slotReady) {
-            foreach ($name in @('backend','frontend')) { if($started.Contains($name)){$started['retired_'+$started[$name]]=$started[$name]} }
-            $slot=Start-CompanionSlot $projectRoot $source $python
-            $state=@{version=1;active=$slot}
-            Save-CompanionJson $statePath $state
-            $started.backend=$slot.backend
-            $started.frontend=$slot.frontend
-        }
-        if (-not $started.Contains('router')) {
-            # A legacy frontend without its backend can still own port 3000.
-            if (Test-CompanionEndpoint 'http://127.0.0.1:3000/') {
-                foreach($name in @($started.Keys | Where-Object {$_ -like 'retired_*'})) { & taskkill.exe /PID $started[$name] /T /F | Out-Null }
-            }
-            $router=Start-CompanionRouter $projectRoot $source
-            $started.router=$router.Id
-        }
-    }
-    Save-CompanionJson $processFile $started
-}
-$ready=$false
-for($attempt=0;$attempt -lt 120;$attempt++) {
-    if ((Test-CompanionEndpoint 'http://127.0.0.1:8766/api/health') -and (Test-CompanionEndpoint 'http://127.0.0.1:3000/')) {$ready=$true;break}
-    Start-Sleep -Milliseconds 500
-}
-if(-not $ready){throw 'Companion did not finish starting; see data/runtime-logs.'}
+$operation = Enter-CompanionOperation $projectRoot
+try {
+    # Read after acquiring the lock: another launcher/updater may have replaced
+    # every process while this invocation was waiting.
+    $processFile = Join-Path $projectRoot 'data\processes.json'
+    $statePath = Join-Path $projectRoot 'data\companion-runtime.json'
+    $started = Read-CompanionProcesses $processFile $projectRoot
+    $state = $null
+    try { if (Test-Path -LiteralPath $statePath) { $state = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json } } catch { }
+    Repair-CompanionRuntime $projectRoot $python $started $state
+} finally { $operation.Dispose() }
 
 if ($NoBrowser) { return }
 

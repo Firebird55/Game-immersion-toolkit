@@ -71,7 +71,6 @@ foreach ($name in @('oneocr.dll', 'oneocr.onemodel', 'onnxruntime.dll')) {
 if ($LASTEXITCODE -ne 0) { throw 'Native OCR initialization failed.' }
 
 
-$vinext = Join-Path $projectRoot 'node_modules\vinext\dist\cli.js'
 & npm ci
 if ($LASTEXITCODE -ne 0) { throw 'Locked frontend dependency installation failed.' }
 
@@ -84,7 +83,7 @@ if ((Test-Path -LiteralPath $provenancePath) -and (Test-Path -LiteralPath (Join-
 }
 if ($prebuilt) { Write-Host 'Using the prebuilt frontend from this verified release.' }
 else {
-    & node $vinext build
+    & npm run build
     if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed.' }
 }
 

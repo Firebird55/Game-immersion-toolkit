@@ -34,9 +34,10 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  // ephemeral test context can lose its controller and cache mid-session on
  // Windows; the restart below also verifies the actual offline-use contract.
  const profile=name==='firefox'?mkdtempSync(resolve('output/offline-firefox-')):null;
+ // This fixture's text assertions require English on every host, including restart.
  let context;
- if(profile){context=await engines[name].launchPersistentContext(profile,{headless:true});browser=context.browser();}
- else{browser=await engines[name].launch({headless:true});context=await browser.newContext();}
+ if(profile){context=await engines[name].launchPersistentContext(profile,{headless:true,locale:'en-US'});browser=context.browser();}
+ else{browser=await engines[name].launch({headless:true});context=await browser.newContext({locale:'en-US'});}
  const page=await context.newPage(),errors=[],failures=[],runtimeErrors=[],offlineDiagnostics=[];let offline=false;
  // WebKit also emits browser-generated JS-source network diagnostics through
  // Playwright's pageerror event. Keep actual script errors/rejections fatal,
@@ -53,7 +54,10 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  // clients.claim() already controls this page. Import immediately after that
  // handoff; the two offline reloads below test controlled navigations explicitly.
  await page.waitForFunction(async()=>(await navigator.serviceWorker.getRegistration())?.active?.state==='activated'&&navigator.serviceWorker.controller!=null,{},{timeout:30000}).catch(error=>{console.error(name,{errors,failures,stage:'service worker activation and control'});throw error;});
- mark('import catalog and save preferences');await page.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows'));
+ // Worker activation can finish before the dynamically imported library UI.
+ // Select the file only once its real change handler can consume the event.
+ await page.waitForFunction(()=>typeof document.querySelector('#library-files').onchange==='function');
+ mark('import catalog and save preferences');await page.setInputFiles('#library-files',{name:'synthetic.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 bilingual rows')).catch(async error=>{console.error('Import fixture diagnostics',{errors,failures,runtimeErrors,state:await page.evaluate(()=>({language:navigator.language,documentLanguage:document.documentElement.lang,status:document.querySelector('#library-status').textContent,summaries:[...document.querySelectorAll('summary')].map(el=>el.textContent)}))});throw error;});
  await page.fill('#find-text',row.english);await page.click('#find-line');await page.getByRole('button',{name:'Favorite',exact:true}).click();
  await page.locator('summary').filter({hasText:'Capture regions and calibration'}).click();await page.fill('#crop-left','9');await page.locator('#crop-left').dispatchEvent('change');
  await page.waitForFunction(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('proxy-mobile-library');q.onsuccess=()=>r(q.result);q.onerror=j;});const value=await new Promise(r=>{const q=db.transaction('state').objectStore('state').get('preferences');q.onsuccess=()=>r(q.result);});db.close();return value?.zzz?.crop[0]===.09;});
@@ -85,7 +89,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  mark('close browser');await context.close();await browser.close();browser=null;
  if(profile){
   mark('restart browser offline');
-  context=await engines[name].launchPersistentContext(profile,{headless:true});browser=context.browser();
+  context=await engines[name].launchPersistentContext(profile,{headless:true,locale:'en-US'});browser=context.browser();
   await context.setOffline(true);const reopened=await context.newPage(),restartErrors=[];reopened.on('pageerror',error=>restartErrors.push(error.message));
   await reopened.goto(base+'?developer=1');
   await reopened.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40)&&document.querySelectorAll('.transcript-line').length===1);

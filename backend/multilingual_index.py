@@ -13,6 +13,9 @@ from .models import TextMatch, is_comic_text_id
 from .textmaps import display_text
 
 
+DEFAULT_CAPTURE_CHANNELS = frozenset(('dialogue', 'tip', 'cinematic', 'gameplay'))
+
+
 def candidates(lines):
     cleaned = [display_text(line) for line in lines if display_text(line)]
     rows = [display_text(part) for line in cleaned for part in re.split(r'\s*[~～]\s*|(?<=[.!?。！？])\s+(?=[^\W\d_])|(?<=[。！？])\s*(?=[A-Za-z])|(?<=[.!?])\s*(?=[\u3400-\u9fff])', line) if display_text(part)]
@@ -37,6 +40,7 @@ class MultilingualTextIndex:
         self.message, self.state = 'Prepare this game language in Setup', 'not_ready'
         self.lock = threading.RLock()
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
+        self._capture_channels = {}
         self._signature = None
         self.load()
 
@@ -51,7 +55,7 @@ class MultilingualTextIndex:
                 raise ValueError('Unsupported game language snapshot')
             locale = payload['source_locale']
             study_language(locale)
-            lookup, context_pairs = {}, {}
+            lookup, context_pairs, capture_channels = {}, {}, {}
             for row in payload['records']:
                 if row.get('source_locale') != locale or not isinstance(row.get('source_text'), str) or not row['source_text']:
                     raise ValueError('Incomplete game study text')
@@ -59,6 +63,12 @@ class MultilingualTextIndex:
                     raise ValueError('Official text locales do not agree')
                 if row.get('audio_locale') != audio_locale(locale):
                     raise ValueError('Original voice locale does not match study text')
+                # Historical membership includes every official record, even
+                # rows excluded from OCR matching because they have no audio.
+                channels = frozenset(row.get('channels', DEFAULT_CAPTURE_CHANNELS))
+                for identity in [row['text_id'], *(row.get('member_text_ids') or [])]:
+                    previous = capture_channels.get(identity)
+                    capture_channels[identity] = channels if previous is None else previous | channels
                 if not row.get('audio') and not (self.game == 'zzz' and is_comic_text_id(row['text_id'])):
                     continue
                 for language, text in row['texts'].items():
@@ -74,6 +84,7 @@ class MultilingualTextIndex:
                             context_pairs.setdefault(pair, []).append(row)
             with self.lock:
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
+                self._capture_channels = capture_channels
                 self._context_pairs = context_pairs
                 self._context_firsts = {}
                 for language, first, _ in context_pairs:
@@ -218,8 +229,8 @@ class MultilingualTextIndex:
         return self.match_lines([text], threshold, channel=channel)
 
     def is_capture_text(self, text_id, _english, channel):
-        return any((r['text_id'] == text_id or text_id in (r.get('member_text_ids') or []))
-                   and channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay']) for r in self._records)
+        with self.lock:
+            return channel in self._capture_channels.get(text_id, ())
 
     def resolve_display_name(self, _candidates):
         return None

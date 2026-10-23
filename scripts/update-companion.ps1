@@ -5,6 +5,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'companion-runtime.ps1')
 $Root = (Resolve-Path -LiteralPath $Root).Path
 $SourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
+$operation = Enter-CompanionOperation $Root
+try {
 $data = Join-Path $Root 'data'
 $statePath = Join-Path $data 'companion-runtime.json'
 $processFile = Join-Path $data 'processes.json'
@@ -18,15 +20,15 @@ $logs = Join-Path $data 'runtime-logs'
 New-Item -ItemType Directory -Path $stage,$logs -Force | Out-Null
 $originalState = $null
 if (Test-Path -LiteralPath $statePath) { $originalState = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json }
-$oldProcesses = [ordered]@{}
-if (Test-Path -LiteralPath $processFile) {
-    $record = Get-Content -LiteralPath $processFile -Raw | ConvertFrom-Json
-    foreach ($property in $record.PSObject.Properties) { $oldProcesses[$property.Name]=[int]$property.Value }
+$oldProcesses = Read-CompanionProcesses $processFile $Root
+if ((Test-CompanionEndpoint ('http://127.0.0.1:'+$ApiPort+'/api/health')) -and
+    -not ($oldProcesses.Contains('backend') -and (-not $originalState -or $oldProcesses.Contains('router')))) {
+    throw 'The running service has no verified companion process identity. Close the existing launcher before updating this installation.'
 }
 
 # Only application source and owned frontend assets enter the candidate. Live
 # databases, credentials, game indexes, recordings and calibration stay put.
-foreach ($name in @('backend','scripts','public','vendor','assets','lib','app','components','hooks','styles')) {
+foreach ($name in @('backend','scripts','public','vendor','assets','lib','app','components','hooks','styles','mobile')) {
     $source = Join-Path $SourceRoot $name
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $stage -Recurse -Force }
 }
@@ -90,7 +92,7 @@ try {
             $warm=Invoke-RestMethod ($newApi+'/api/runtime/ready'+$query) -TimeoutSec 2
             if($warm.ready -and (Test-CompanionEndpoint ('http://127.0.0.1:'+$candidate.frontendPort+'/'))){$ready=$true;break}
         } catch { }
-        if(-not (Get-Process -Id $candidate.backend -ErrorAction SilentlyContinue)){throw 'Replacement backend exited; current capture was kept active.'}
+        if(-not (Test-CompanionProcess $candidate.processRecords.backend $Root)){throw 'Replacement backend exited; current capture was kept active.'}
         Start-Sleep -Milliseconds 500
     }
     if(-not $ready){throw 'Replacement was not ready. The current companion was kept active.'}
@@ -108,27 +110,34 @@ try {
             if(-not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 404){throw}
             $null=Invoke-RestMethod -Method Post ($oldApi+'/api/capture/stop') -TimeoutSec 20
         }
-    } else { $handoff=@{running=$true} }
-    Set-CompanionNormalPriority $candidate.backend
+    } else {
+        if ($oldProcesses.Contains('backend') -and (Test-CompanionProcess $oldProcesses.backend $Root)) {
+            throw 'The current backend did not provide capture state. Restart the companion before updating; the replacement remains in standby.'
+        }
+        $handoff=Get-CompanionStartupHandoff $newApi
+    }
+    Set-CompanionNormalPriority $candidate.processRecords.backend $Root
     $null=Invoke-RestMethod -Method Post ($newApi+'/api/runtime/activate') -Headers $headers -ContentType 'application/json' -Body ($handoff|ConvertTo-Json -Depth 12) -TimeoutSec 15
     Save-CompanionJson $statePath @{version=1;active=$candidate}
-    $running=[ordered]@{backend=$candidate.backend;frontend=$candidate.frontend}
-    if($originalState -and $oldProcesses.Contains('router') -and (Get-Process -Id $oldProcesses.router -ErrorAction SilentlyContinue)) {
+    $running=[ordered]@{backend=$candidate.processRecords.backend;frontend=$candidate.processRecords.frontend}
+    foreach($name in @($oldProcesses.Keys | Where-Object {$_ -match '^retire[dr]_[0-9]+$'})) {
+        if(Test-CompanionProcess $oldProcesses[$name] $Root){$running[$name]=$oldProcesses[$name]}
+    }
+    if($originalState -and $oldProcesses.Contains('router') -and (Test-CompanionProcess $oldProcesses.router $Root)) {
         $running.router=$oldProcesses.router
     } else {
         # One-time migration from the direct-port launcher. Capture in the warm
         # replacement is already active while the stable local router starts.
         foreach($name in @('backend','frontend')) {
-            if($oldProcesses.Contains($name)){& taskkill.exe /PID $oldProcesses[$name] /T /F | Out-Null}
+            if($oldProcesses.Contains($name)){Stop-CompanionProcess $oldProcesses[$name] $Root}
         }
         $router=Start-CompanionRouter $Root $stage $ApiPort $FrontendPort
-        $running.router=$router.Id
+        $running.router=New-CompanionProcessRecord $router $Root
     }
     $retiring=@()
     foreach($name in @('backend','frontend')) {
         if($oldProcesses.Contains($name)){
-            $process=Get-Process -Id $oldProcesses[$name] -ErrorAction SilentlyContinue
-            if($process){$running['retired_'+$process.Id]=$process.Id;$retiring+=@{id=$process.Id;started=$process.StartTime.ToUniversalTime().Ticks}}
+            if(Test-CompanionProcess $oldProcesses[$name] $Root){$running['retired_'+$oldProcesses[$name].id]=$oldProcesses[$name];$retiring+=,$oldProcesses[$name]}
         }
     }
     Save-CompanionJson $processFile $running
@@ -145,8 +154,8 @@ try {
         $retireFile=Join-Path $logs ('retire-'+[guid]::NewGuid().ToString('N')+'.json')
         Save-CompanionJson $retireFile $retiring
         $shell=(Get-Process -Id $PID).Path
-        $retirer=Start-CompanionProcess $shell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $stage 'scripts\retire-companion.ps1'),'-Record',$retireFile) $stage ''
-        $running['retirer_'+$retirer.Id]=$retirer.Id
+        $retirer=Start-CompanionProcess $shell @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $stage 'scripts\retire-companion.ps1'),'-Record',$retireFile,'-Root',$Root) $stage ''
+        $running['retirer_'+$retirer.Id]=New-CompanionProcessRecord $retirer $Root
         Save-CompanionJson $processFile $running
     }
     Write-Host ('Update '+$package.version+' is active. Capture, local data and open reading sessions were preserved.')
@@ -154,10 +163,15 @@ try {
     $failure=$_
     try{if($originalState){Save-CompanionJson $statePath $originalState}}catch{}
     try{if($oldProcesses.Count){Save-CompanionJson $processFile $oldProcesses}}catch{}
+    if($candidate){
+        Stop-CompanionCaptureOwner $candidate.processRecords.backend $Root
+        Stop-CompanionProcess $candidate.processRecords.frontend $Root
+    }
     if($quiesced){
         try {$null=Invoke-RestMethod -Method Post ($oldApi+'/api/runtime/activate') -Headers $headers -ContentType 'application/json' -Body ($handoff|ConvertTo-Json -Depth 12) -TimeoutSec 10}
         catch {if($handoff.running){try {$null=Invoke-RestMethod -Method Post ($oldApi+'/api/capture/start') -TimeoutSec 10} catch { }}}
     }
-    if($candidate){foreach($name in @('backend','frontend')){& taskkill.exe /PID $candidate[$name] /T /F | Out-Null}}
     throw $failure
 }
+
+} finally { $operation.Dispose() }
