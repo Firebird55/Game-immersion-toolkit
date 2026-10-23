@@ -121,6 +121,29 @@ test('iframe reload changes session identity and rejects an old cib on the same 
 });
 
 const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+test('slow frame consumers defer freeze recovery but not a real disconnect', async t => {
+ t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+ const f = fixture({ stallAfterMs: 8, freezeReconnectMs: 30, reconnectBaseMs: 10 });
+ t.after(() => f.source.dispose());
+ f.source.connect({ url: link });
+ const waiting = f.source.readFrame(); f.reply(); const held = await waiting;
+ const session = held.sessionId;
+ for (let i = 0; i < 3; i++) {
+  t.mock.timers.tick(30);
+  assert.equal(f.source.getState().sessionId, session, 'Consumer backpressure must not replace the source');
+  assert.equal(f.frames.length, 1); assert.equal(f.decoded[0].closed, 0);
+ }
+ assert.equal(f.source.getState().status, 'stalled', 'The visible-progress status remains honest');
+ held.release(); t.mock.timers.tick(30);
+ assert.equal(f.source.getState().status, 'reconnecting', 'An unobserved source recovers once the consumer releases it');
+ t.mock.timers.tick(10);
+ const next = f.source.readFrame(); f.reply(); const interrupted = await next;
+ f.emit({ action: 'view-connection', value: false, streamID: 'synthetic' });
+ assert.notEqual(f.source.getState().sessionId, interrupted.sessionId);
+ assert.equal(f.decoded[1].closed, 1, 'An actual transport disconnect still retires held frames');
+ assert.equal(f.container.children.length, 0); interrupted.release();
+});
+
 test('native stop and restart on the same link reconnects automatically with one viewer', async () => {
  const f = fixture({ reconnectBaseMs: 10, reconnectMaxMs: 30 }); f.source.connect({ url: link });
  const first = f.source.readFrame(); f.reply(); (await first).release();

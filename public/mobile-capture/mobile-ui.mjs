@@ -117,7 +117,10 @@ window.addEventListener('toolkit-interface-language',()=>void refreshPackStatus(
 $('ocr-language').onchange=()=>{void refreshPackStatus();invalidate();scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
 $('ocr-start').onclick=async()=>{const token=invalidate();try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;updatePreview();text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){if(token===epoch)text('match-status',e.message);}};
 $('ocr-pause').onclick=()=>{scanning=false;updatePreview();invalidate();text('match-status','OCR paused.');};
-receiverSource.subscribe(value=>{if(!sourceState||sourceState.revision!==value.revision||sourceState.sessionId!==value.sessionId||sourceState.status!==value.status&&['ended','error','paused','stalled'].includes(value.status))invalidate();sourceState=value;updatePreview();});
+// A scan owns the only frame until recognition/matching finishes. During a slow
+// scan no new pixels can be observed, so a same-session stall is not evidence
+// that its captured frame is invalid. Session changes and terminal states are.
+receiverSource.subscribe(value=>{if(!sourceState||sourceState.revision!==value.revision||sourceState.sessionId!==value.sessionId||sourceState.status!==value.status&&['ended','error','paused'].includes(value.status))invalidate();sourceState=value;updatePreview();});
 window.addEventListener('mobile-source-changed',()=>{scanning=false;invalidate();updatePreview();text('match-status','Screen source changed. Connect it, then start OCR.');});
 document.addEventListener('visibilitychange',()=>{invalidate();updatePreview();if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
 for(const kind of ['freeze','pagehide'])window.addEventListener(kind,()=>{invalidate();updatePreview();});

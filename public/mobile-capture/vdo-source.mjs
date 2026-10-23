@@ -120,7 +120,12 @@ export function createVdoFrameSource({ container, window = globalThis.window, do
   clearTimeout(recoveryTimer);
   // Repeated PNG responses of a disconnected/frozen last video frame must not
   // keep the dead viewer forever. Static screens remain honestly unconfirmed.
-  recoveryTimer = setTimeout(() => scheduleReconnect('No visible screen progress. Reconnecting automatically; a static screen may also cause this.'), freezeReconnectMs);
+  recoveryTimer = setTimeout(() => {
+   // OCR owns the only snapshot: lack of another sample during that work says
+   // nothing about transport health. Connection errors still reconnect at once.
+   if (life.occupied()) { armRecovery(); return; }
+   scheduleReconnect('No visible screen progress. Reconnecting automatically; a static screen may also cause this.');
+  }, freezeReconnectMs);
   recoveryTimer.unref?.();
  }
  function attach(status = 'connecting') {

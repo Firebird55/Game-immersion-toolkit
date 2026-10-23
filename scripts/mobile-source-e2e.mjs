@@ -82,6 +82,25 @@ try{
   console.log(`${name}: native frames reached real OCR and catalog.`);
   await page.locator('.companion-nav button').first().click();
   assert((await page.locator('#reader-root').textContent()).includes(row.chinese),'real crop → OCR → catalog → reader');
+  // A real OCR/catalog reply delayed beyond the production 8-second progress
+  // window must still count as the first sighting; later fast scans cannot mask
+  // its loss. Hold further frames until that exact result has been accepted.
+  stage='slow same-session OCR result';
+  await page.click('#ocr-pause');await page.click('#clear-history');
+  await page.evaluate(()=>{window.testGate='match';});await page.click('#ocr-start');
+  await page.waitForFunction(()=>window.testHeld.length===1,null,{timeout:30000});
+  const slowViewer=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
+  const slowLoads=nativeLoads,slowRecognitions=await page.evaluate(()=>window.testRecognitions);
+  await page.waitForTimeout(9000);
+  assert((await page.locator('#source-status').textContent()).includes('No visible frame changes'));
+  assert.equal(nativeLoads,slowLoads);assert.equal(await page.evaluate(()=>window.testRecognitions),slowRecognitions);
+  await slowViewer.evaluate(()=>fixture.available=false);
+  await release(page);
+  await page.waitForFunction(()=>document.querySelector('#match-status').textContent.includes('confirming'),null,{timeout:2500});
+  assert.equal(await page.evaluate(()=>window.testRecognitions),slowRecognitions,'The delayed result itself is accepted without another recognition');
+  assert.equal(await page.locator('#transcript .transcript-line').count(),0,'The second fresh sighting is still required');
+  await slowViewer.evaluate(()=>fixture.available=true);await waitText(page,row.chinese);
+  console.log(`${name}: slow same-session OCR survives the progress timeout and confirms from fresh frames.`);
   // Delayed real worker replies cannot publish into a changed source/session.
   for(const gate of ['ocr','match']){
    stage=`late ${gate} response invalidation`;

@@ -69,6 +69,10 @@ frame request times out after four seconds, with a 15-second startup grace;
 30 seconds without pixel progress also replaces a frozen viewer. Identical PNG
 replies cannot indefinitely postpone this recovery. A static scene remains
 explicitly unconfirmed rather than being presented as a proven network failure.
+While OCR owns a frame, the no-progress reconnect is deferred because the
+single-frame source cannot acquire another sample. A same-session progress stall
+does not cancel that scan. Actual disconnects, session changes, pause and Stop
+still invalidate pending results; after release, normal probing/recovery resumes.
 
 ## Native assumptions requiring a device test
 
