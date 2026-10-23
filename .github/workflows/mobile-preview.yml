@@ -107,7 +107,8 @@ jobs:
           retention-days: 3
   preview:
     if: inputs.check != 'offline'
-    runs-on: ubuntu-latest
+    # Keep the WebKit build and its system libraries on the same Ubuntu image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +126,14 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
+          key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('node_modules/playwright/package.json') }}
+      - name: Use the primary Ubuntu package mirror
+        run: |
+          for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+            if [ -f "$sources" ]; then
+              sudo sed -i 's|://azure.archive.ubuntu.com/ubuntu|://archive.ubuntu.com/ubuntu|g' "$sources"
+            fi
+          done
       - name: Install browsers
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Package public preview files
