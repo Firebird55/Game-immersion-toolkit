@@ -20,6 +20,8 @@ on:
       - 'scripts/build-mobile-preview.mjs'
       - 'scripts/serve-mobile-capture.mjs'
       - 'scripts/mobile-capture-e2e.mjs'
+      - 'scripts/mobile-source-e2e.mjs'
+      - 'scripts/mobile-vdo-source-e2e.mjs'
       - 'scripts/mobile-recovery-e2e.mjs'
       - 'services/pairing/**'
       - 'tests/mobile-recovery.test.mjs'
@@ -32,6 +34,7 @@ on:
       - 'tests/mobile-library.test.mjs'
       - 'tests/mobile-pairing-qr.test.mjs'
       - 'tests/mobile-media-fixtures.mjs'
+      - 'tests/fixtures/mobile-native-chinese.png'
       - 'package.json'
       - 'package-lock.json'
       - 'tests/mobile-capture.test.mjs'
@@ -89,6 +92,19 @@ jobs:
         env:
           MOBILE_TEST_BROWSERS: webkit
         run: node scripts/companion-e2e.mjs
+      - name: Check native screen frames, OCR and recovery in WebKit
+        env:
+          MOBILE_TEST_BROWSERS: webkit
+        run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
+      - name: Retain owned native WebKit fixture diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-webkit-diagnostics
+          path: |
+            output/playwright/mobile-source-*.png
+            output/playwright/mobile-source-*-failure.json
+          retention-days: 3
   preview:
     if: inputs.check != 'offline'
     runs-on: ubuntu-latest
@@ -105,7 +121,7 @@ jobs:
         run: npm ci --ignore-scripts
       - run: npm run audit:public
       - name: Check capture and library logic
-        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs
+        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs tests/mobile-frame-source.test.mjs tests/mobile-vdo-source.test.mjs tests/mobile-receiver-source.test.mjs
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -119,6 +135,10 @@ jobs:
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/companion-e2e.mjs
+      - name: Check published native frames, OCR and automatic recovery
+        env:
+          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
+        run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
       - name: Check games guide, combinations, links and offline navigation
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
@@ -136,6 +156,8 @@ jobs:
             output/playwright/mobile-lookup-*.png
             output/playwright/mobile-layout-overflow-*.png
             output/playwright/games-guide-overflow-*.png
+            output/playwright/mobile-source-*.png
+            output/playwright/mobile-source-*-failure.json
           retention-days: 3
       - name: Retain reviewed static build
         uses: actions/upload-artifact@v4

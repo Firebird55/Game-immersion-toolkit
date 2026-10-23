@@ -2,6 +2,9 @@ import {CHANNEL,createTranscriptChannel} from './transcript-channel.mjs';
 import {createPCProvider} from './pc-provider.mjs';
 import { TEST_DURATION_MS, parsePairing, pairingMessage, samePairing, privateTrackState, privateRtcSample, frameHealth, imageSignature } from './core.mjs';
 import {createRelay, RelayClient} from './relay.mjs';
+import {createReceiverSource} from './receiver-source.mjs';
+import {createVideoFrameSource} from './frame-source.mjs';
+import {createVdoFrameSource,parseVdoViewerUrl} from './vdo-source.mjs';
 
 const $ = id => document.getElementById(id);
 const build = document.documentElement.dataset.buildCommit ? {
@@ -13,6 +16,9 @@ if (build) $('build-info').textContent = `Build ${build.commit.slice(0, 8)} · $
 let transcript=null, provider=null, unsubscribe=null;
 const pcSender=()=>new URLSearchParams(location.search).get('pc')==='1'&&['localhost','127.0.0.1'].includes(location.hostname)&&$('role').value==='sender';
 const transcriptMode=()=>pcSender()||$('source')?.value==='pc';
+const nativeMode=()=>$('role').value==='receiver'&&!transcriptMode()&&$('frame-source').value==='vdo';
+export const receiverSource=createReceiverSource({browser:()=>createVideoFrameSource({video:$('preview')}),vdo:()=>createVdoFrameSource({container:$('vdo-viewer')})});
+let receiverGeneration=null;
 let peer = null, stream = null, generation = 0, frameCallback = null;
 let connectedAt = null, attemptStartedAt = null, lastFrameAt = null, delivered = 0, changed = 0, dark = false;
 let lastHash = null, lastMediaTime = -1, observation = null, events = [];
@@ -44,19 +50,23 @@ function updateDiagnostics() {
   $('diagnostics').textContent = `Connection: ${peer?.connectionState ?? 'closed'} · ICE: ${peer?.iceConnectionState ?? 'closed'} · ${recoveryAttempts} reconnect attempts · Page: ${document.hidden ? 'background' : 'visible'} · Network: ${navigator.onLine ? 'online' : 'offline'}`;
 }
 function updateRole() {
-  window.dispatchEvent(new CustomEvent('mobile-stream', {detail:{generation,game:sessionGame??$('game').value,role:sessionRole??$('role').value,state:peer?.connectionState??'closed',live:liveCapture()}}));
+  const native=nativeMode(),source=receiverSource.getState();
+  document.body.dataset.frameSource=native?'vdo':'browser';
+  $('native-setup').hidden=!native;$('vdo-viewer').hidden=!native;
+  $('vdo-connect').disabled=native&&receiverSource.active;$('vdo-stop').disabled=!native||!receiverSource.active;
+  window.dispatchEvent(new CustomEvent('mobile-stream', {detail:native?{transport:'vdo',generation:source.revision,game:$('game').value,role:'receiver',state:source.status==='live'?'connected':source.status,live:source.status==='live'}:{generation,game:sessionGame??$('game').value,role:sessionRole??$('role').value,state:peer?.connectionState??'closed',live:liveCapture()}}));
   const sender = $('role').value === 'sender', caps = capability();
   if(pcSender())caps.screenCapture=true;
   $('capability').textContent = `Secure context: ${caps.secure ? 'yes' : 'no'} · Screen capture API: ${caps.screenCapture ? 'available (background capture unverified)' : 'unavailable'} · WebRTC: ${caps.webRTC ? 'available' : 'unavailable'} · ${caps.userAgent}`;
   $('instructions').textContent = sender ? 'Share the game window or screen and send the offer to the receiving device. Paste its answer back here, then open the game.' : 'Paste the gaming device’s offer below. Accept it, send the generated answer back, and keep this page open.';
-  if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. For your iPad game → iPhone setup, the iPad remains the sender and the iPhone remains the receiver. A native capture helper is needed on the iPad; it is not included yet. Browser pairing cannot start this capture.';
+  if (sender && !caps.screenCapture) $('instructions').textContent = 'This browser cannot share its screen. On the gaming iPhone or iPad, use the native VDO.Ninja app’s SCREEN broadcast. On the other device choose Receiver, Mobile OCR and VDO.Ninja native iPhone / iPad.';
   if(pcSender())$('instructions').textContent='Share the live PC transcript. Keep the desktop companion and this page running on the same network as the receiver.';
   if(!caps.secure||!caps.webRTC)$('instructions').textContent='This browser cannot pair devices. Open the HTTPS companion in a browser with WebRTC support. Saved local transcripts remain available.';
   $('start').textContent=pcSender()?'Share transcript & create offer':'Share screen & create offer';
   $('start').hidden = !sender;
   $('resume-share').hidden = !sender || !identity || liveCapture();
   $('resume-share').disabled = pendingCapture || busyPairing || !caps.screenCapture;
-  const sessionActive = Boolean(peer) || Boolean(stream) || Boolean(identity);
+  const sessionActive = Boolean(peer) || Boolean(stream) || Boolean(identity) || native&&receiverSource.active;
   $('start').disabled = sessionActive || pendingCapture || busyPairing || !caps.secure || !caps.screenCapture || !caps.webRTC;
   $('reconnect').hidden = !sender;
   $('reconnect').disabled = !liveCapture() || pendingCapture || busyPairing || !caps.secure || !caps.webRTC;
@@ -96,6 +106,7 @@ function detachConnection(keepCapture = false) {
   return generation;
 }
 function cleanup(message = 'Stopped.') {
+  receiverGeneration=null;receiverSource.disconnect();
   relayAbort?.abort(); relayAbort = null; relay?.close(); relay = null;
   detachConnection(); pendingCapture = false; busyPairing = false;
   identity = null;
@@ -315,6 +326,7 @@ $('resume-share').onclick = async () => {
   finally { if (generation === token) { pendingCapture = false; busyPairing = false; updateRole(); } }
 };
 async function applyMessage(text) {
+  if(nativeMode()){status('Choose Browser screen pairing to accept a pairing message.');return;}
   busyPairing = true; updateRole();
   let token = generation;
   let replacingReceiver = false;
@@ -443,5 +455,29 @@ for (const kind of ['pagehide', 'pageshow']) window.addEventListener(kind, e => 
 setInterval(() => { if (!document.hidden) { if (relay && $('preview').paused) void resumePlayback(); void automaticRecovery(); } }, 5000);
 updateRole();
 
-export const captureLifecycle={stop:cleanup,get active(){return Boolean(peer||identity||pendingCapture);},older:before=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.page(before);},audio:row=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.audio(row.id,row);}};
+receiverSource.subscribe(value=>{
+ if(!nativeMode())return;
+ $('source-status').textContent=value.message+(value.width?` · ${value.width} × ${value.height}`:'');
+ status($('source-status').textContent);
+ updateRole();
+});
+window.addEventListener('mobile-stream',({detail})=>{
+ if(detail.transport==='vdo'||nativeMode())return;
+ if(detail.role==='receiver'&&!transcriptMode()&&detail.state==='connected'&&detail.live!==false){
+  if(receiverGeneration!==detail.generation||!receiverSource.active){receiverGeneration=detail.generation;void receiverSource.connect('browser');if(document.hidden)receiverSource.pause();}
+ }else if(receiverSource.active){receiverGeneration=null;receiverSource.disconnect();}
+});
+$('frame-source').onchange=()=>{cleanup();window.dispatchEvent(new CustomEvent('mobile-source-changed'));};
+$('vdo-connect').onclick=async()=>{
+ if(!nativeMode())return;
+ const url=$('vdo-url').value.trim();
+ try{parseVdoViewerUrl(url);}catch(error){$('source-status').textContent=error.message;return;}
+ await receiverSource.connect('vdo',{url});$('vdo-url').value='';if(document.hidden)receiverSource.pause();
+};
+$('vdo-stop').onclick=()=>cleanup();
+document.addEventListener('visibilitychange',()=>{if(document.hidden)receiverSource.pause();else void receiverSource.resume();});
+document.addEventListener('freeze',()=>receiverSource.pause());
+document.addEventListener('resume',()=>{if(!document.hidden)void receiverSource.resume();});
+window.addEventListener('pageshow',()=>{if(!document.hidden)void receiverSource.resume();});
+export const captureLifecycle={stop:cleanup,get active(){return Boolean(peer||identity||pendingCapture||receiverSource.active);},older:before=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.page(before);},audio:row=>{if(!transcript)throw Error('Pair with the PC first.');return transcript.audio(row.id,row);}};
 window.addEventListener('pagehide',()=>cleanup());

@@ -1,6 +1,55 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { createServer } from 'node:net';
+import { fileURLToPath } from 'node:url';
 import { parsePairing, pairingMessage, samePairing, privateTrackState, privateRtcSample, frameHealth, imageSignature } from '../public/mobile-capture/core.mjs';
+
+test('local capture server loads native source modules without opening private routes or extra frame origins', { timeout: 15000 }, async t => {
+  const reservation = createServer();
+  reservation.listen(0, '127.0.0.1');
+  await once(reservation, 'listening');
+  const port = reservation.address().port;
+  await new Promise(resolve => reservation.close(resolve));
+  const child = spawn(process.execPath, [fileURLToPath(new URL('../scripts/serve-mobile-capture.mjs', import.meta.url)), '--local', '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] });
+  t.after(async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      const stopped = once(child, 'exit');
+      child.kill();
+      await stopped;
+    }
+  });
+  let errors = '';
+  child.stderr.on('data', data => { errors += data; });
+  await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', code => reject(new Error(`Capture server exited (${code}): ${errors}`)));
+    child.stdout.on('data', data => { if (String(data).includes('Mobile capture test:')) resolve(); });
+  });
+  const get = (path, options = {}) => fetch(`http://127.0.0.1:${port}${path}`, { ...options, signal: AbortSignal.timeout(5000) });
+  const page = await get('/');
+  assert.equal(page.status, 200);
+  const directives = new Map(page.headers.get('content-security-policy').split(';').map(value => value.trim().split(/\s+/)).filter(parts => parts[0]).map(([name, ...values]) => [name, values]));
+  assert.deepEqual(directives.get('frame-src'), ['https://vdo.ninja']);
+  assert.deepEqual(directives.get('script-src'), ["'self'", "'wasm-unsafe-eval'"]);
+  assert.ok(!directives.get('connect-src').some(value => /vdo|meshcast|\*/.test(value)));
+  await page.text();
+  for (const name of ['frame-source.mjs', 'vdo-source.mjs', 'receiver-source.mjs']) {
+    const response = await get('/' + name);
+    assert.equal(response.status, 200, name);
+    assert.match(response.headers.get('content-type'), /javascript/);
+    assert.match(await response.text(), /export /);
+  }
+  for (const path of ['/package.json', '/.git/config', '/output/checks/private.json']) {
+    const response = await get(path);
+    assert.equal(response.status, 404, path);
+    await response.text();
+  }
+  const write = await get('/frame-source.mjs', { method: 'POST' });
+  assert.equal(write.status, 404);
+  await write.text();
+});
 
 test('manual pairing rejects malformed, oversized and wrong-role descriptions', () => {
   const offer = pairingMessage({ type: 'offer', sdp: 'v=0\r\nfixture' }, 'zzz');

@@ -84,7 +84,10 @@ same destination when resuming so verified clips can be reused.
 3. Check the bilingual row count, partial coverage notice, selected pack size
    and the count of voice clips **accessible this session**. Remembered catalog
    information does not mean the audio files are currently open.
-4. Pair with the device sending the game using the existing offer/answer flow.
+4. Connect the gaming device in **Connection**: choose **VDO.Ninja native iPhone /
+   iPad** and its complete private viewer link for two iOS devices, or **Browser
+   screen pairing** for the existing offer/answer flow. Follow the
+   [native SCREEN instructions](mobile-capture.md#two-ios-devices-with-native-vdoninja).
    Select English, Simplified Chinese or Traditional Chinese subtitles, and the player voice if the
    game has player variants. Tap **Start OCR**. Keep the receiving page visible.
    A small live preview stays visible while OCR runs, including when you scroll
@@ -131,13 +134,19 @@ copied into the page, and fuzzy OCR indexing is delayed until needed. SHA-256 an
 Direct pairing and reconnect remain available; reconnecting
 does not clear your library or history. The gaming device must actually supply
 moving frames while the game is foregrounded. iPad Safari generally cannot
-provide that system capture; a native sender helper is still outside this build.
-Use a supported screen-sharing device, or choose **Paired PC** to receive the desktop transcript.
+provide that system capture. The native VDO.Ninja **SCREEN** route uses the
+gaming iOS device's broadcast extension and the other device's static receiver;
+no PC is required during play. Physical two-device acceptance remains pending.
+Use a supported browser sender, or choose **Paired PC** to receive the desktop transcript.
 A Home Screen shortcut does not add a missing screen-capture API.
 
-OCR runs in one pinned, self-hosted Tesseract.js 7 worker. Frames remain on the
-devices. Scans use the newest frame, without a queued backlog, and suspend when
-paused, hidden, disconnected or superseded by a new stream/game. Two stable
+OCR runs in one pinned, self-hosted Tesseract.js 7 worker on the receiver. Native
+stream delivery uses the external hosted viewer and may involve VDO.Ninja relay
+services; OCR does not upload frames. Scans use the newest frame, without a queued backlog, and suspend when
+paused, hidden, disconnected or superseded by a new stream/game. Each resume or
+source switch invalidates pending frames, OCR and catalog replies. Normalized
+crop coordinates survive changing frame dimensions; recheck subtitle placement
+after rotation. Two stable
 sightings confirm an accepted line. Short/ambiguous text and response menus are
 rejected; additional presentations retain stricter, exact matching.
 

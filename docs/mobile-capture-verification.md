@@ -2,7 +2,50 @@
 
 The mobile companion retains this capture/reconnect test alongside its local-file
 library, OCR, bilingual transcript and original-voice features. Follow
-[mobile library setup](mobile-library.md) for those features. These procedures require explicit Developer mode. The native iPad sender remains unfinished.
+[mobile library setup](mobile-library.md) for those features. Developer mode is
+needed only for the existing browser diagnostic forms. The native VDO.Ninja
+receiver is implemented; physical two-iOS acceptance is still outstanding.
+
+## Native VDO.Ninja two-iOS acceptance (60 minutes)
+
+Use the actual gaming iPhone/iPad and a separate receiving iPhone/iPad. Allocate
+60 minutes after installing the apps, preparing a catalog and selecting local
+voice ZIPs. Keep power available, use a game scene with repeated dialogue and
+Chinese text, and begin with VDO.Ninja **Balanced**. Do not change quality until
+the baseline has been recorded. Repeat for every device/game combination claimed.
+
+Keep a private local note with: date, toolkit build commit, both device models,
+iOS versions, native VDO.Ninja app version, game/version, subtitle language and
+size, preset, network type, receiver Safari or Home Screen, and each timed result.
+The reviewed App Store baseline is **5.0.108**; **5.0.102** notes Meshcast delivery,
+so record the *route type* used without recording its private link or token.
+Never commit links, recordings, account diagnostics, game images or full reports.
+An ignored `output/` report or a local Files note is suitable; manual notes are
+necessary because the browser observation form measures the browser-pairing
+transport, not native VDO delivery.
+
+| Elapsed | Procedure | Record and pass condition |
+| --- | --- | --- |
+| 00–05 min | On device 1: VDO.Ninja **SCREEN → broadcast picker → VDO.Ninja Screen Recorder → Start Broadcast**, then open the game. On device 2 open the complete link in the **standard VDO.Ninja/Meshcast viewer first**. | Correct game, moving pixels, legible Chinese, no wrong screen/black output. If this fails, record the failure and stop: toolkit OCR cannot repair the native source. |
+| 05–10 min | Keep playing a demanding scene in the standard viewer. Include a short dialogue and a cutscene. Estimate end-to-end delay by observing a deliberate menu highlight change on both screens three times. | Record approximate observed delays and interruptions; do not infer latency from receiver timestamps or frame counters. Note thermal warnings and visible quality loss. |
+| 10–15 min | Close the standard viewer. On device 2 open toolkit **Receiver → Mobile OCR → Connection → VDO.Ninja native iPhone / iPad**, paste the complete link, connect. Verify dimensions/status before starting OCR. Open catalog/voices, preview crop, choose the subtitle language and **Start OCR**. | A changing preview, correct crop, unique known Chinese/catalog line in Reader; compare text and original voice to the selected local pack. An iframe alone is a failure of programmable-frame acceptance. |
+| 15–30 min | Play 15 continuous minutes of demanding gameplay, dialogue and cutscenes. Include at least ten known catalog lines with Chinese characters; count correct, missing and incorrect matches separately. Keep the receiver foregrounded. | No incorrect line accepted; note unsupported/ambiguous scenes separately. Report text legibility, OCR delay and longest visible interruption. No automatic “pass” from delivery counters. |
+| 30–35 min | On sender, switch game → native app → game. Rotate landscape/portrait and back where the game permits; change resolution if the app exposes it. Recheck crop. | Correct source returns; normalized crop stays in bounds and follows new dimensions. Recalibration is explicit if the game itself moves subtitles. No old scene appears as a new line after the switch. |
+| 35–40 min | Background receiver for 30 seconds; reopen. Lock receiver for 30 seconds; unlock. Then lock sender briefly and unlock. | Receiver hidden state stops OCR; return waits for a new frame. Record whether sender lock terminates broadcast. If ended, restart SCREEN manually using the same link. The still-open toolkit receiver and OCR must resume automatically from fresh frames; iOS broadcast restart itself remains manual. |
+| 40–45 min | Turn sender Wi-Fi off for 30 seconds and back on; repeat on receiver. Use a controlled network and note if cellular fallback occurs. | Observe stall/unconfirmed status, recovery time and any required manual reconnect. A static scene is not automatically a network fault. No stale OCR is published during recovery. |
+| 45–50 min | Reload the toolkit receiver. Paste current link again and reconnect; reselect voice ZIPs and start OCR. Then tap **Stop native receiver** during dialogue and reconnect. | Link is not restored from storage. Catalog/history/calibration remain; voices require reselection. Stop removes iframe and pending output. New session uses fresh frames. |
+| 50–55 min | Stop the actual iOS broadcast on sender. Confirm toolkit detects lack of progress. Restart **SCREEN → broadcast picker → VDO.Ninja Screen Recorder → Start Broadcast** with the same link, leaving toolkit and OCR running. | No false ongoing-live claim from an unchanged frame. Receiver and OCR recover automatically without Connect or Start OCR, with two fresh confirmed sightings. If the native app changes the link, record that separately and reconnect explicitly. After **Stop native receiver**, wait and verify no automatic restart. |
+| 55–60 min | Resume demanding gameplay and Chinese dialogue; compare ten new known lines and original voice. Save the private notes. | Record total usable minutes, interruptions/restarts, correct/missing/incorrect matches and the outcome for this exact configuration. |
+
+Acceptance requires both standard viewer delivery and toolkit programmable frames,
+crop, OCR/catalog matching and reader to work. State interrupted/failed checks
+explicitly, including workarounds and recovery times; do not label the whole
+hour uninterrupted if manual restarts were required. Desktop WebKit, synthetic
+pixels and an API response are not physical iOS/ReplayKit/background proof. The
+native viewer is an external unpinned dependency and delivery may use relays;
+these checks do not establish local-only/P2P routing.
+
+## Browser pairing regression protocol
 
 ## Open on iPad and phone
 
@@ -19,8 +62,8 @@ when capture is unavailable.
 
 1. Open the bookmark on iPad and iPhone on the same Wi-Fi; tap **Reload latest**.
 2. On iPad choose **Share screen** and the game. Check **Screen capture API**.
-3. If unavailable, this browser page cannot send the game. A native iPad capture
-   helper is still required and is not included. Do not switch the iPad to receiving
+3. If unavailable, this browser page cannot send the game. Use the native
+   VDO.Ninja protocol above. Do not switch the iPad to receiving
    as a substitute for this setup. A Home Screen shortcut does not add capture.
 4. If available, tap **Share screen & create offer**. On iPhone choose
    **Receive screen → Scan the other device’s QR** and point at the sender’s QR.
@@ -85,8 +128,8 @@ See [operating the recovery service](mobile-recovery-service.md).
 
 ## Optional PC streaming check
 
-Use **PC → iPhone** to check the receiving phone and pairing independently while
-the native iPad sender is unfinished. This does not validate capturing an iPad game.
+Use **PC → iPhone** to check the receiving phone and browser pairing independently
+of native VDO.Ninja. This does not validate capturing an iPad game.
 
 1. Open the bookmark in Chrome/Edge on the PC and Safari on the iPhone, on the same Wi-Fi.
 2. On the PC select **Share screen** and the game, then **Share screen & create offer**.
@@ -172,8 +215,8 @@ The test never automatically claims background capture succeeded.
 Proceed to browser OCR and catalog matching only after actual-device evidence
 confirms 15 minutes of usable capture for the target game. If sharing is unavailable,
 freezes, captures only Safari, or produces black game content, stop this approach
-and report it. A native iPad capture helper with a browser phone panel is the next
-architecture to evaluate; it is not implemented by this milestone.
+and report it. Evaluate the native VDO.Ninja route with the separate protocol
+above; browser-pairing results cannot establish native-broadcast behavior.
 
 ## Checks
 

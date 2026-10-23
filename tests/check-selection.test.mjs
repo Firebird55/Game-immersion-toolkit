@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {selectChecks,scenarioPlan,executeChecks} from '../scripts/check-changed.mjs';
 import {browserSuites,runBrowserSuite} from '../scripts/check-browser-suite.mjs';
-test('documentation avoids application builds',()=>assert.deepEqual(selectChecks(['README.md','docs/beyond-support.md']),['docs']));
+test('documentation avoids application builds',()=>assert.deepEqual(selectChecks(['README.md','docs/beyond-support.md','tests/fixtures/mobile-native-chinese.md']),['docs']));
 test('backend and frontend changes combine their gates',()=>assert.deepEqual(selectChecks(['backend/capture.py','app/companion.tsx']),['desktop','python']));
 test('unknown and dependency changes require the full gate',()=>{
   for(const file of ['package-lock.json','.github/workflows/ci-release.yml','new-system/file.ts'])assert.deepEqual(selectChecks([file]),['full']);
@@ -11,7 +11,7 @@ test('explicit release gate is full even without changes',()=>assert.deepEqual(s
 test('isolated browser suites retain every comprehensive check exactly once',()=>{
  const scripts=Object.values(browserSuites).flat();
  assert.equal(new Set(scripts).size,scripts.length);
- assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','ui-state-e2e', 'ui-state-react-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
+ assert.deepEqual([...scripts].sort(),['browser-e2e','setup-e2e','language-account-e2e','ui-state-e2e', 'ui-state-react-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-vdo-source-e2e','mobile-source-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'].sort());
  assert.throws(()=>runBrowserSuite('typo'),/Unknown browser suite/);
 });
 
@@ -19,6 +19,18 @@ test('shared interface and support catalog select their consumer checks',()=>{
  assert.deepEqual(selectChecks(['lib/interface-language.tsx']),['desktop','mobile']);
  assert.deepEqual(selectChecks(['public/mobile-capture/games-data.json']),['docs','mobile','python']);
  assert.deepEqual(selectChecks(['scripts/generate-language-docs.mjs']),['docs']);
+});
+
+test('frame sources and publication execute the frame pipeline and retained pairing scenarios',()=>{
+ for(const file of ['public/mobile-capture/frame-source.mjs','public/mobile-capture/vdo-source.mjs','public/mobile-capture/receiver-source.mjs','public/mobile-capture/mobile-ui.mjs','public/mobile-capture/index.html','tests/mobile-vdo-source.test.mjs','tests/mobile-receiver-source.test.mjs','tests/fixtures/mobile-native-chinese.png','scripts/mobile-source-e2e.mjs','scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','.github/workflows/mobile-preview.yml']) {
+  const checks=selectChecks([file]),scenarios=scenarioPlan([file],checks),commands=[];
+  assert.deepEqual(checks,['mobile'],file);
+  executeChecks(checks,{scenarios,runCommand:(_command,args)=>commands.push(args),platform:'darwin',splitBrowsers:false});
+  for(const name of ['mobile-source-e2e','mobile-vdo-source-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-layout-e2e'])
+   assert.ok(commands.some(args=>args.includes(`scripts/${name}.mjs`)),file+' requires '+name);
+ }
+ for(const file of ['scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','tests/mobile-publication.test.mjs','.github/workflows/mobile-preview.yml'])
+  assert.ok(scenarioPlan([file]).browser.includes('mobile-update-e2e'));
 });
 
 

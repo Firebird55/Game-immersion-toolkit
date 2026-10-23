@@ -34,6 +34,23 @@ output hashes match. A local no-change browser build took 0.04 seconds on the
 maintainer's machine; this is a cache-hit measurement, not a clean-build promise.
 Checks record elapsed time under ignored `output/checks/`.
 
+Mobile frame-source changes also select the native frame bridge and complete
+receiver/OCR/reader scenarios, alongside the retained browser pairing and
+recovery checks. `scripts/mobile-vdo-source-e2e.mjs` uses deterministic synthetic
+cross-origin viewers in normal CI; `scripts/mobile-source-e2e.mjs` exercises real
+OCR and catalog matching in Chromium, Firefox and WebKit. Private live-device
+checks are opt-in and must never publish viewer links or captured game images.
+See [the native source decision](mobile-vdo-decision.md) and
+[physical acceptance protocol](mobile-capture-verification.md).
+
+The native scenario separately probes real MP4/WebM playback before exercising
+the existing browser-video adapter. Only the known Windows/WebKit runtime with
+both codecs explicitly unsupported may leave that subcase unverified; timeouts,
+unexpected playback failures and adapter/OCR failures still fail the check.
+The complete native PNG, English/Chinese OCR, slow-result, explicit-Stop and
+automatic-recovery scenarios continue on Windows/WebKit. Real browser-video
+adapter coverage remains required on macOS/WebKit and Linux/Chromium/Firefox/WebKit.
+
 Update the capability catalog in `public/mobile-capture/games-data.json`, then
 run `npm run docs:generate`. All four README and language-matrix versions are
 generated together; `npm run docs:check` detects drift. Keep storefront language
