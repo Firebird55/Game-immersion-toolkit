@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {selectChecks,scenarioPlan,executeChecks} from '../scripts/check-changed.mjs';
 import {browserSuites,runBrowserSuite} from '../scripts/check-browser-suite.mjs';
-test('documentation avoids application builds',()=>assert.deepEqual(selectChecks(['README.md','docs/beyond-support.md']),['docs']));
+test('documentation avoids application builds',()=>assert.deepEqual(selectChecks(['README.md','docs/beyond-support.md','tests/fixtures/mobile-native-chinese.md']),['docs']));
 test('backend and frontend changes combine their gates',()=>assert.deepEqual(selectChecks(['backend/capture.py','app/companion.tsx']),['desktop','python']));
 test('unknown and dependency changes require the full gate',()=>{
   for(const file of ['package-lock.json','.github/workflows/ci-release.yml','new-system/file.ts'])assert.deepEqual(selectChecks([file]),['full']);
@@ -22,7 +22,7 @@ test('shared interface and support catalog select their consumer checks',()=>{
 });
 
 test('frame sources and publication execute the frame pipeline and retained pairing scenarios',()=>{
- for(const file of ['public/mobile-capture/frame-source.mjs','public/mobile-capture/vdo-source.mjs','public/mobile-capture/receiver-source.mjs','public/mobile-capture/mobile-ui.mjs','public/mobile-capture/index.html','tests/mobile-vdo-source.test.mjs','tests/mobile-receiver-source.test.mjs','scripts/mobile-source-e2e.mjs','scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','.github/workflows/mobile-preview.yml']) {
+ for(const file of ['public/mobile-capture/frame-source.mjs','public/mobile-capture/vdo-source.mjs','public/mobile-capture/receiver-source.mjs','public/mobile-capture/mobile-ui.mjs','public/mobile-capture/index.html','tests/mobile-vdo-source.test.mjs','tests/mobile-receiver-source.test.mjs','tests/fixtures/mobile-native-chinese.png','scripts/mobile-source-e2e.mjs','scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','.github/workflows/mobile-preview.yml']) {
   const checks=selectChecks([file]),scenarios=scenarioPlan([file],checks),commands=[];
   assert.deepEqual(checks,['mobile'],file);
   executeChecks(checks,{scenarios,runCommand:(_command,args)=>commands.push(args),platform:'darwin',splitBrowsers:false});

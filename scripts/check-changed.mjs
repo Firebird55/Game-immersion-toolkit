@@ -8,7 +8,8 @@ export function selectChecks(files, full = false) {
   const selected = new Set(full ? ['full'] : []);
   for (const file of files) {
     if (['scripts/check-changed.mjs','scripts/check-browser-suite.mjs','tests/check-selection.test.mjs'].includes(file)) { selected.add('selector'); continue; }
-    if (file === '.github/workflows/mobile-preview.yml') { selected.add('mobile'); continue; }
+    if (['.github/workflows/mobile-preview.yml','tests/fixtures/mobile-native-chinese.png'].includes(file)) { selected.add('mobile'); continue; }
+    if (file === 'tests/fixtures/mobile-native-chinese.md') { selected.add('docs'); continue; }
     if (['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-react-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
     if (['scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file)) { selected.add('python'); selected.add('windows'); continue; }
     if (/^scripts\/(start-companion|companion-process-identity-e2e).*\.ps1$/.test(file)) { selected.add('windows'); continue; }
@@ -46,7 +47,7 @@ export function scenarioPlan(files, checks = selectChecks(files)) {
   // the retained QR/PC transport; selecting only layout checks misses lifecycle bugs.
   const frameInputs = /^(public\/mobile-capture\/(frame-source|vdo-source|receiver-source|mobile-ui|ocr-pipeline|capture|index|style)\.|tests\/mobile-(frame-source|vdo-source|receiver-source|source)|scripts\/mobile-(vdo-source|source)-e2e\.mjs$)/;
   const publicationInputs = ['scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','tests/mobile-publication.test.mjs','.github/workflows/mobile-preview.yml'];
-  if (files.some(file => frameInputs.test(file) || publicationInputs.includes(file))) {
+  if (files.some(file => frameInputs.test(file) || file === 'tests/fixtures/mobile-native-chinese.png' || publicationInputs.includes(file))) {
     for (const name of ['mobile-vdo-source-e2e','mobile-source-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-layout-e2e']) browser.add(name);
   }
   if (files.some(file => publicationInputs.includes(file))) browser.add('mobile-update-e2e');

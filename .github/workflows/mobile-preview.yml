@@ -34,6 +34,7 @@ on:
       - 'tests/mobile-library.test.mjs'
       - 'tests/mobile-pairing-qr.test.mjs'
       - 'tests/mobile-media-fixtures.mjs'
+      - 'tests/fixtures/mobile-native-chinese.png'
       - 'package.json'
       - 'package-lock.json'
       - 'tests/mobile-capture.test.mjs'
@@ -95,6 +96,15 @@ jobs:
         env:
           MOBILE_TEST_BROWSERS: webkit
         run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
+      - name: Retain owned native WebKit fixture diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-webkit-diagnostics
+          path: |
+            output/playwright/mobile-source-*.png
+            output/playwright/mobile-source-*-failure.json
+          retention-days: 3
   preview:
     if: inputs.check != 'offline'
     runs-on: ubuntu-latest
@@ -146,6 +156,8 @@ jobs:
             output/playwright/mobile-lookup-*.png
             output/playwright/mobile-layout-overflow-*.png
             output/playwright/games-guide-overflow-*.png
+            output/playwright/mobile-source-*.png
+            output/playwright/mobile-source-*-failure.json
           retention-days: 3
       - name: Retain reviewed static build
         uses: actions/upload-artifact@v4

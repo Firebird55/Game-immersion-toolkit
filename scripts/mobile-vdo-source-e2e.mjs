@@ -20,36 +20,46 @@ const base = `http://127.0.0.1:${server.address().port}/`;
 // Blob cloning + browser PNG decoding; no VDO network or account in normal CI.
 const fixture = `<!doctype html><canvas width="640" height="360"></canvas><script>
 let sequence=0, mode='moving', last=null;
+window.fixtureMetrics={requests:0,replies:0,firstReplyDelayMs:750,lastBlobBytes:0,lastBlobType:null};
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
 window.fixtureMode=value=>{mode=value;};
 window.addEventListener('message',async event=>{
  const req=event.data;if(!req?.getVideoFrame)return;
+ const requestNumber=++fixtureMetrics.requests;
  if(mode==='silent')return;
  if(mode==='moving')sequence++;
  canvas.width=mode==='portrait'?360:640;canvas.height=mode==='portrait'?640:360;
  ctx.fillStyle='rgb('+sequence+',80,90)';ctx.fillRect(0,0,canvas.width,canvas.height);
  ctx.fillStyle='white';ctx.font='28px sans-serif';ctx.fillText('Screen '+sequence,20,80);
  const imageData=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+ fixtureMetrics.lastBlobBytes=imageData?.size??0;fixtureMetrics.lastBlobType=imageData?.type??null;
  const response={action:'image-frame-capture',value:{imageData,imageType:'png',cib:req.cib,...(req.UUID?{UUID:req.UUID}:{streamID:req.streamID})}};
  last=response;
  if(mode==='wrong-cib')response.value.cib='wrong';
  if(mode==='bad-schema')response.value.imageType='jpeg';
  if(mode==='delayed')await new Promise(resolve=>setTimeout(resolve,250));
+ if(requestNumber===1)await new Promise(resolve=>setTimeout(resolve,fixtureMetrics.firstReplyDelayMs));
+ fixtureMetrics.replies++;
  parent.postMessage(response,event.origin);
 });
 window.replay=()=>last&&parent.postMessage(last,'*');
 window.announce=()=>parent.postMessage({action:'video-element-created',UUID:'whep_aaaaaaaaaaaaaaaaaaaaaaaaa',value:'videosource_whep_aaaaaaaaaaaaaaaaaaaaaaaaa'},'*');
+window.fixtureReady=true;
 </script>`;
 
 async function connect(page, url = 'https://vdo.ninja/?view=synthetic&p=0') {
  await page.evaluate(async ({ adapter, url }) => {
   const { createVdoFrameSource } = await import(`./${adapter}`);
   window.source?.dispose();
-  window.source = createVdoFrameSource({ container: document.querySelector('#viewer'), requestTimeoutMs: 500, stallAfterMs: 600, reconnectBaseMs: 50, reconnectMaxMs: 200 });
+  // Exercise the production deadlines (4 s request, 8 s stall). A 500 ms
+  // test-only timeout confuses cold PNG encoding/decoding with a broken bridge.
+  window.source = createVdoFrameSource({ container: document.querySelector('#viewer') });
   window.source.connect({ url });
  }, { adapter, url });
- await page.waitForFunction(() => window.source.getState().status === 'reconnecting');
- return page.frames().find(frame => frame.url().startsWith('https://vdo.ninja/'));
+ const child = await (await page.locator('#viewer iframe').elementHandle()).contentFrame();
+ await child.waitForFunction(() => window.fixtureReady === true, null, { timeout: 15000 });
+ await page.waitForFunction(() => window.source.getState().status === 'reconnecting', null, { timeout: 15000 });
+ return child;
 }
 async function read(page) {
  return page.evaluate(async () => {
@@ -62,24 +72,51 @@ async function read(page) {
  });
 }
 
+async function requireFrame(page, child, label) {
+ const frame = await read(page);
+ if (frame) return frame;
+ const receiver = await page.evaluate(() => {
+  const state = source.getState();
+  return { status: state.status, message: state.message, width: state.width, height: state.height, hidden: document.hidden, imageBitmapAvailable: typeof createImageBitmap === 'function', iframes: document.querySelectorAll('#viewer iframe').length, messages: window.bridgeMetrics };
+ });
+ const sender = await child.evaluate(() => ({ ready: window.fixtureReady, ...window.fixtureMetrics })).catch(() => ({ detached: true }));
+ assert.fail(`${label}: no decoded frame within the production request deadline ${JSON.stringify({ receiver, sender })}`);
+}
+
 async function deterministic(name, type) {
  const browser = await type.launch({ headless: true });
  try {
   const context = await browser.newContext();
   await context.route('https://vdo.ninja/**', route => route.fulfill({ contentType: 'text/html', body: fixture }));
   const page = await context.newPage(); await page.goto(base);
+  await page.evaluate(() => {
+   window.bridgeMetrics = { frames: 0, pngBlobs: 0, currentWindow: 0, expectedOrigin: 0, announcements: 0 };
+   addEventListener('message', event => {
+    if (event.data?.action === 'video-element-created') bridgeMetrics.announcements++;
+    if (event.data?.action !== 'image-frame-capture') return;
+    bridgeMetrics.frames++;
+    if (event.data.value?.imageData instanceof Blob && event.data.value.imageData.type === 'image/png') bridgeMetrics.pngBlobs++;
+    if (event.source === document.querySelector('#viewer iframe')?.contentWindow) bridgeMetrics.currentWindow++;
+    if (event.origin === 'https://vdo.ninja') bridgeMetrics.expectedOrigin++;
+   });
+  });
   let child = await connect(page);
-  const first = await read(page), second = await read(page);
-  assert(first && second, `${name}: decoded frames arrive`); assert.notDeepEqual(first.pixel, second.pixel);
+  const first = await requireFrame(page, child, `${name}: initial delayed PNG`), second = await requireFrame(page, child, `${name}: second moving PNG`);
+  assert.notDeepEqual(first.pixel, second.pixel);
+  assert.equal(first.sessionId, second.sessionId, 'Cold frame delivery must not reconnect or replace the session');
+  assert.deepEqual(await child.evaluate(() => ({ requests: fixtureMetrics.requests, replies: fixtureMetrics.replies })), { requests: 2, replies: 2 }, 'Both original requests must succeed; no retry may mask a dropped response');
   assert.equal(await page.evaluate(() => source.getState().status), 'live');
   await child.evaluate(() => fixtureMode('frozen'));
-  assert(await read(page), 'A fresh stable observation can confirm OCR during recent progress');
+  await requireFrame(page, child, 'Fresh stable observation during recent progress');
   await page.waitForFunction(() => source.getState().status === 'stalled');
   assert.equal(await read(page), null, 'A frozen frame cannot restore live status');
-  await child.evaluate(() => fixtureMode('moving')); assert(await read(page));
+  await child.evaluate(() => fixtureMode('moving')); await requireFrame(page, child, 'Visible changes recover from a static screen');
   assert.equal(await page.evaluate(() => source.getState().status), 'live');
   await child.evaluate(() => fixtureMode('portrait'));
-  const portrait = await read(page); assert.equal(portrait.width, 360); assert.equal(portrait.height, 640);
+  const portrait = await requireFrame(page, child, 'Portrait frame'); assert.equal(portrait.width, 360); assert.equal(portrait.height, 640);
+  // Isolate the intentional request timeout from the older session's recovery
+  // watchdog/startup grace. Automatic restart is exercised explicitly below.
+  child = await connect(page);
   await child.evaluate(() => fixtureMode('silent'));
   await page.evaluate(() => { window.pending = source.readFrame(); });
   // A message from the parent window (wrong source and origin) must be ignored.
@@ -92,24 +129,25 @@ async function deterministic(name, type) {
   const oldSession = await page.evaluate(() => source.getState().sessionId);
   child = await connect(page);
   assert.notEqual(await page.evaluate(() => source.getState().sessionId), oldSession);
-  assert(await read(page));
+  await requireFrame(page, child, 'Fresh connection after cancellation');
   await child.evaluate(() => fixtureMode('silent'));
   await page.evaluate(() => { window.pending = source.readFrame(); });
   const interruptedSession = await page.evaluate(() => source.getState().sessionId);
-  const resumed = page.waitForEvent('framenavigated', { predicate: frame => frame !== child && frame.url().startsWith('https://vdo.ninja/'), timeout: 5000 });
+  const resumed = page.waitForEvent('framenavigated', { predicate: frame => frame !== child && frame.url().startsWith('https://vdo.ninja/'), timeout: 15000 });
   await child.evaluate(() => parent.postMessage({ action: 'view-connection', streamID: 'synthetic', value: false }, '*'));
   assert.equal(await page.evaluate(() => pending), null);
   child = await resumed;
-  await child.waitForFunction(() => typeof fixtureMode === 'function');
+  await child.waitForFunction(() => window.fixtureReady === true, null, { timeout: 15000 });
   assert.notEqual(await page.evaluate(() => source.getState().sessionId), interruptedSession);
-  assert(await read(page), 'Same-link native restart recovers without a new Connect action');
-  assert(await read(page)); assert.equal(await page.evaluate(() => source.getState().status), 'live');
+  await requireFrame(page, child, 'Same-link native restart without a new Connect action');
+  await requireFrame(page, child, 'Moving frame after same-link restart'); assert.equal(await page.evaluate(() => source.getState().status), 'live');
   await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
   assert.equal(await page.locator('#viewer iframe').count(), 0); assert.equal(await read(page), null);
   await page.evaluate(() => { delete document.hidden; });
   child = await connect(page, 'https://vdo.ninja/?whepplay=https://de1.meshcast.io/whep/synthetic');
   assert.equal(await read(page), null); await child.evaluate(() => announce());
-  assert(await read(page), 'WHEP UUID selection reaches the same frame contract');
+  await page.waitForFunction(() => bridgeMetrics.announcements > 0);
+  await requireFrame(page, child, 'WHEP UUID selection reaches the same frame contract');
   await child.evaluate(() => fixtureMode('bad-schema')); assert.equal(await read(page), null);
   assert.equal(await page.evaluate(() => source.getState().status), 'reconnecting');
   await page.evaluate(() => source.dispose()); assert.equal(await page.locator('iframe').count(), 0);

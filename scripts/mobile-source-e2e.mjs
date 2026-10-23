@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {readFileSync,readdirSync,statSync,mkdirSync} from 'node:fs';
+import {readFileSync,readdirSync,statSync,mkdirSync,writeFileSync} from 'node:fs';
 import {resolve,sep} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {zipSync,strToU8} from 'fflate';
 import {ocrAssets,mime} from './mobile-assets.mjs';
-import {VIDEO,WEBM_VIDEO,CHINESE_VIDEO,CHINESE_WEBM} from '../tests/mobile-media-fixtures.mjs';
+import {VIDEO,WEBM_VIDEO} from '../tests/mobile-media-fixtures.mjs';
 const engines=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href:'playwright');
 const root=process.env.MOBILE_PREVIEW_DIR?pathToFileURL(resolve(process.env.MOBILE_PREVIEW_DIR)+sep):new URL('../public/mobile-capture/',import.meta.url),ocr=ocrAssets();
 const files=new Map(readdirSync(root,{recursive:true}).filter(n=>statSync(new URL(n.replaceAll('\\','/'),root)).isFile()).map(n=>['/'+n.replaceAll('\\','/'),n.replaceAll('\\','/')]));files.set('/','index.html');
@@ -15,16 +15,20 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.
 const row={id:'a'.repeat(64),textId:'synthetic-moving-source',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:null,audio:null,channels:['dialogue']},chinese={...row,id:'b'.repeat(64),textId:'synthetic-chinese-source',english:'We can keep walking.',chinese:'我们可以继续走了。'};
 const rows=strToU8([row,chinese].map(value=>JSON.stringify(value)+'\n').join('')),manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title:'Synthetic screen source',revision:'a'.repeat(64),coverage:{dialogue:2},catalog:[{name:'catalog/00000.ndjson',size:rows.length,sha256:createHash('sha256').update(rows).digest('hex')}],packs:[]};
 const catalog=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify(manifest)),'catalog/00000.ndjson':rows},{level:0}));
+// Lossless raster of the authored Chinese subtitle card in mobile-media-fixtures.
+// Native transport sends PNGs: testing it must not require a second H264/WebM
+// decoder inside the viewer, nor depend on the runner's installed CJK fonts.
+const chinesePng=readFileSync(new URL('../tests/fixtures/mobile-native-chinese.png',import.meta.url)).toString('base64');
 // Owned fixture served at the real cross-origin viewer boundary. The production
 // adapter still performs its normal origin/source/cib/blob/decode validation.
 const fixture=`<!doctype html><canvas id="screen"></canvas><script>
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
-window.fixture={width:1280,height:720,tick:0,requests:0,video:null,available:AVAILABLE};
+window.fixture={width:1280,height:720,tick:0,requests:0,image:null,available:AVAILABLE};
 addEventListener('message',async event=>{
  if(!event.data?.getVideoFrame)return;
  const f=window.fixture;f.requests++;if(!f.available)return;canvas.width=f.width;canvas.height=f.height;
  ctx.fillStyle='#111';ctx.fillRect(0,0,canvas.width,canvas.height);
- if(f.video)ctx.drawImage(f.video,0,0,canvas.width,canvas.height);
+ if(f.image)ctx.drawImage(f.image,0,0,canvas.width,canvas.height);
  else{ctx.fillStyle='white';ctx.font=Math.round(canvas.width/1280*44)+'px Arial';ctx.fillText('The lantern is bright.',canvas.width*.14,canvas.height*.79);}
  ctx.fillStyle=++f.tick%2?'#f00':'#0f0';ctx.fillRect(20+f.tick%60,20,40,40);
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
@@ -32,7 +36,16 @@ addEventListener('message',async event=>{
 });
 </script>`;
 mkdirSync('output/playwright',{recursive:true});
-let browser;
+let browser,activePage,activeName,stage='startup';
+async function diagnoseFailure(page,name,error){
+ const state=await page.evaluate(()=>({sourceStatus:document.querySelector('#source-status')?.textContent,matchStatus:document.querySelector('#match-status')?.textContent,language:document.querySelector('#ocr-language')?.value,hidden:document.hidden,ocrRunning:document.body.classList.contains('ocr-running'),ocrJobs:window.testJobs,maxOcrJobs:window.testMaxJobs,recognitions:window.testRecognitions,heldReplies:window.testHeld?.length,ocrResults:window.testOcrResults,matchResults:window.testMatchResults,transcriptRows:document.querySelectorAll('#transcript .transcript-line').length})).catch(()=>({pageUnavailable:true}));
+ const child=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
+ state.fixture=await child?.evaluate(()=>({width:fixture.width,height:fixture.height,requests:fixture.requests,tick:fixture.tick,available:fixture.available,imageLoaded:Boolean(fixture.image?.complete),imageWidth:fixture.image?.naturalWidth??0,imageHeight:fixture.image?.naturalHeight??0})).catch(()=>({unavailable:true}));
+ const report={browser:name,stage,error:error.name,...state};
+ console.error('Mobile source fixture failure:',JSON.stringify(report));
+ writeFileSync(`output/playwright/mobile-source-${name}-failure.json`,JSON.stringify(report,null,2)+'\n');
+ await page.screenshot({path:`output/playwright/mobile-source-${name}-failure.png`,fullPage:true}).catch(()=>{});
+}
 async function waitText(page,text){await page.waitForFunction(text=>document.querySelector('#transcript').textContent.includes(text),text,{timeout:45000});}
 async function connect(page){await page.fill('#vdo-url','https://vdo.ninja/?view=owned_fixture&password=owned_fixture_secret');await page.click('#vdo-connect');await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'),null,{timeout:15000});}
 async function hide(page,hidden){await page.evaluate(hidden=>{Object.defineProperty(document,'hidden',{configurable:true,value:hidden});document.dispatchEvent(new Event('visibilitychange'));},hidden);}
@@ -40,17 +53,18 @@ async function release(page){await page.evaluate(()=>{window.testGate=null;for(c
 try{
  for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
   browser=await engines[name].launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[];
+  activePage=page;activeName=name;stage='initial native screen and English OCR';
   page.on('pageerror',error=>errors.push(error.message));
   let streamAvailable=true,nativeLoads=0;
   await context.route('https://vdo.ninja/**',route=>{nativeLoads++;return route.fulfill({contentType:'text/html',body:fixture.replace('AVAILABLE',String(streamAvailable))});});
   await page.addInitScript(()=>{
-   window.testHeld=[];window.testGate=null;window.testJobs=0;window.testMaxJobs=0;window.testRecognitions=0;window.testWorkers=0;window.testHistory=[];
+   window.testHeld=[];window.testGate=null;window.testJobs=0;window.testMaxJobs=0;window.testRecognitions=0;window.testWorkers=0;window.testHistory=[];window.testOcrResults=[];window.testMatchResults=[];
    addEventListener('mobile-history',event=>window.testHistory.push(event.detail.map(row=>row.id)));
    const Native=window.Worker;
    window.Worker=class extends Native{
     constructor(url,options){super(url,options);this.library=String(url).includes('library-worker');this.matches=new Set();if(!this.library)window.testWorkers++;}
     postMessage(data,...rest){if(data.action==='recognize'){window.testJobs++;window.testRecognitions++;window.testMaxJobs=Math.max(window.testMaxJobs,window.testJobs);}if(data.action==='match-candidates')this.matches.add(data.id);return super.postMessage(data,...rest);}
-    set onmessage(handler){super.onmessage=event=>{const data=event.data,recognition=data.action==='recognize'&&['resolve','reject'].includes(data.status),match=this.matches.delete(data.id);if(recognition)window.testJobs--;if((window.testGate==='ocr'&&recognition||window.testGate==='match'&&match)&&!window.testHeld.length){window.testHeld.push(()=>handler(event));return;}handler(event);};}
+    set onmessage(handler){super.onmessage=event=>{const data=event.data,recognition=data.action==='recognize'&&['resolve','reject'].includes(data.status),match=this.matches.delete(data.id);if(recognition){window.testJobs--;window.testOcrResults.push({status:data.status,text:data.data?.text?.slice(0,160),confidence:data.data?.confidence});window.testOcrResults=window.testOcrResults.slice(-6);}if(match){window.testMatchResults.push({state:data.result?.state,score:data.result?.score});window.testMatchResults=window.testMatchResults.slice(-6);}if((window.testGate==='ocr'&&recognition||window.testGate==='match'&&match)&&!window.testHeld.length){window.testHeld.push(()=>handler(event));return;}handler(event);};}
    };
   });
   await page.goto(base+'?developer=1');await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();await page.waitForFunction(()=>document.body.dataset.role==='sender');await page.selectOption('#role','receiver');await page.waitForFunction(()=>document.body.dataset.role==='receiver');
@@ -70,6 +84,7 @@ try{
   assert((await page.locator('#reader-root').textContent()).includes(row.chinese),'real crop → OCR → catalog → reader');
   // Delayed real worker replies cannot publish into a changed source/session.
   for(const gate of ['ocr','match']){
+   stage=`late ${gate} response invalidation`;
    await page.click('#ocr-pause');await page.click('#clear-history');
    await page.evaluate(gate=>{window.testGate=gate;window.testHistory=[];},gate);await page.click('#ocr-start');
    await page.waitForFunction(()=>window.testHeld.length===1,null,{timeout:30000});
@@ -84,6 +99,7 @@ try{
   }
   // Sender lock/stop is modeled by missing frames; a manual native restart on
   // the same private link must recover the receiver AND existing OCR intent.
+  stage='same-link native restart';
   await page.click('#clear-history');streamAvailable=false;const beforeRecovery=nativeLoads;
   await page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/')).evaluate(()=>fixture.available=false);
   await page.waitForFunction(()=>/stalled|fresh|Retry|retry|reconnect|Waiting/i.test(document.querySelector('#source-status').textContent),null,{timeout:15000});
@@ -96,6 +112,7 @@ try{
   assert(await page.evaluate(()=>document.body.classList.contains('ocr-running')),'same-link restart resumes OCR without another Start click');
   console.log(`${name}: same-link sender restart resumed OCR automatically.`);
   // Session restart, rotation and zoom preserve bounded normalized calibration.
+  stage='rotation, zoom and repeated lifecycle';
   await page.click('#ocr-pause');
   for(const [width,height]of [[720,1280],[1920,1080],[1280,720]]){
    const frame=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
@@ -113,17 +130,24 @@ try{
   await page.evaluate(()=>document.documentElement.style.zoom='1');await page.setViewportSize({width:390,height:844});
   for(let cycle=0;cycle<3;cycle++){await hide(page,true);assert.equal(await page.locator('#vdo-viewer iframe').count(),0);await hide(page,false);await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'));await page.click('#vdo-stop');await connect(page);}
   // Existing video adapter remains interchangeable without a second connection.
+  stage='existing browser video adapter';
   await page.selectOption('#frame-source','browser');
   await page.evaluate(async sources=>{const video=document.querySelector('#preview');video.loop=true;for(const [base64,type]of sources){video.src=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type}));try{await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:200,role:'receiver',state:'connected',live:true,game:'zzz'}}));return;}catch{}}throw Error('Fixture video decoding unavailable.');},[[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
   await page.click('#clear-history');await page.click('#ocr-start');await waitText(page,row.chinese);await page.click('#ocr-pause');
   await page.selectOption('#frame-source','vdo');await connect(page);
+  stage='native Chinese PNG and real OCR';
   const frame=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
-  await frame.evaluate(async sources=>{const video=document.createElement('video');video.loop=true;video.muted=true;video.playsInline=true;document.body.append(video);for(const [base64,type]of sources){video.src=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type}));try{await video.play();fixture.video=video;return;}catch{}}throw Error('Chinese fixture decoding unavailable.');},[[CHINESE_VIDEO,'video/mp4'],[CHINESE_WEBM,'video/webm']]);
+  const imageSize=await frame.evaluate(async png=>{const image=new Image();image.src='data:image/png;base64,'+png;await image.decode();fixture.image=image;return{width:image.naturalWidth,height:image.naturalHeight};},chinesePng);
+  assert.deepEqual(imageSize,{width:1280,height:720},'The owned native Chinese PNG decodes before OCR starts');
+  await page.evaluate(()=>{window.testOcrResults=[];window.testMatchResults=[];});
   await page.selectOption('#ocr-language','chi_sim');await page.click('#clear-history');await page.click('#ocr-start');await waitText(page,chinese.chinese);
+  assert((await page.locator('#source-status').textContent()).includes('1280 × 720'),'Chinese PNG reaches the bounded source frame envelope');
+  assert((await page.locator('#reader-root').textContent()).includes(chinese.chinese),'Real Chinese OCR reaches the reader');
+  stage='privacy and final cleanup';
   assert.equal(await page.evaluate(()=>window.testMaxJobs),1,'one real OCR worker job at a time');
   const privateState=await page.evaluate(async()=>{const keys=await indexedDB.databases(),result={localStorage:{...localStorage},stores:[]};for(const entry of keys){const db=await new Promise(resolve=>{const request=indexedDB.open(entry.name);request.onsuccess=()=>resolve(request.result);});for(const name of db.objectStoreNames){const rows=await new Promise(resolve=>{const request=db.transaction(name).objectStore(name).getAll();request.onsuccess=()=>resolve(request.result);});result.stores.push(rows);}db.close();}return JSON.stringify(result);});
   assert(!privateState.includes('owned_fixture_secret'),'viewer credentials never enter persisted storage');
   await page.click('#vdo-stop');assert.equal(await page.locator('#vdo-viewer iframe').count(),0);await page.screenshot({path:`output/playwright/mobile-source-${name}.png`,fullPage:true});assert.deepEqual(errors,[]);
-  await context.close();await browser.close();browser=null;console.log(`${name}: moving native fixture, real OCR/catalog/reader, stale replies, source replacement, lifecycle, Chinese and mobile zoom passed.`);
+  await context.close();await browser.close();browser=null;activePage=null;console.log(`${name}: moving native fixture, real OCR/catalog/reader, stale replies, source replacement, lifecycle, Chinese and mobile zoom passed.`);
  }
-}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
+}catch(error){if(activePage)await diagnoseFailure(activePage,activeName,error).catch(()=>{});throw error;}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
