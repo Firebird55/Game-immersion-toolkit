@@ -32,10 +32,11 @@ const VOICE_LABELS: Record<string, string> = { present: 'Original voice files fo
   not_checked: 'Choose a game folder first', verify_during_indexing: 'Voice pack checked during indexing', not_required: 'Voice pack not required',
   needs_language_setup: 'Choose a learning language' };
 
-export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged }: {
+export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged, targetLanguage, allowedGames }: {
   online: boolean; game: GameId; onGameChange: (game: GameId) => void;
   readingMode: 'migaku' | 'lexirise'; onReadingMode: (mode: 'migaku' | 'lexirise') => void;
   onCapture: () => void; onReading: () => void; onAccount: (language?:string) => void; onChanged: () => void;
+  targetLanguage?: string; allowedGames?: string[];
 }) {
  const uiText=useInterfaceTranslation();
   const {t}=useInterfaceLanguage();
@@ -134,10 +135,11 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
         </nav>
         {!data && <p role="status">{uiText("Loading local setup…")}</p>}
         {data && step === 0 && <section className="toolkit-setup-section" aria-label={uiText("Game files")}>
-          <label>{uiText("Game to configure")}<select aria-label={uiText("Game to configure")} value={game} onChange={event => { dirty.current = false; setError(''); setMessage(''); onGameChange(event.target.value as GameId); }}>
-            {data.games.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
+          <label>{uiText("Game to configure")}<select aria-label={uiText("Game to configure")} value={allowedGames?.includes(game) === false ? '' : game} onChange={event => { dirty.current = false; setError(''); setMessage(''); onGameChange(event.target.value as GameId); }}>
+            {allowedGames?.includes(game) === false && <option value="">{t('No matching game selected')}</option>}
+            {data.games.filter(item => !allowedGames || allowedGames.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select></label>
-          {current && <div className="toolkit-game-grid">
+          {current && (!allowedGames || allowedGames.includes(game)) && <div className="toolkit-game-grid">
             <section className="toolkit-game-card" aria-label={uiText("Installed game readiness")}>
               <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>{uiText("Game files")}</h3><p>{uiText("Your installed files supply the subtitles and voices.")}</p></div></div>
               <div className="toolkit-readiness-grid">
@@ -177,7 +179,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
                 <p><a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">{uiText("vgmstream")}</a>{' · '}<a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">{uiText("ZZZ reader")}</a>{' · '}<a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">{uiText("REE unpacker")}</a>{' · '}<a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">{uiText("WolvenKit")}</a>{' · '}<a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">{uiText("FModelCLI")}</a></p>
               </details>
             </section>
-            {game !== 'hito' && <LanguageSetup game={game} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
+            {game !== 'hito' && <LanguageSetup game={game} targetLanguage={targetLanguage} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
             <details className="toolkit-mobile-export"><summary>{uiText("Export mobile library")}</summary><MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} /></details>
           </div>}
         </section>}

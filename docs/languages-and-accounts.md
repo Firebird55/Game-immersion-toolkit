@@ -1,5 +1,19 @@
 # Languages and local accounts
 
+The desktop **Target language** picker filters games by their original voiced
+languages. In Lexirise reading mode it lists only the active account's learning
+languages. **Add language to Lexirise** offers voiced game languages missing
+from that account; its explicit save preserves the other learning languages.
+Reload languages to pick up account changes made elsewhere. Migaku mode lists
+all voiced game languages without requiring Lexirise membership.
+
+Search the game cards to find a title. Selecting it shows the toolkit-supported
+subtitle languages, marking differences from the target and current source.
+These differences do not block local play or preparation. Browsing does not
+change capture or prepare files: Settings → Games & Languages suggests the
+target as the source, and lets you explicitly prepare another supported source.
+Languages without matching game voices show an empty game list.
+
 Open **Account settings → Lexirise accounts on this PC** to choose a saved
 account. **Add account securely** opens a local hidden-input prompt. The key is
 verified with the read-only identity endpoint and protected with Windows DPAPI.

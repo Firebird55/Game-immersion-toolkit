@@ -891,13 +891,12 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
             runtime.languages.remove(game, payload.locale)
             return {'removed': True}
         source = study_language(payload.locale)
-        settings = runtime.account_preferences() if runtime.lexirise.status()['configured'] else None
-        if settings and source not in settings['languages']:
-            raise ValueError('Enable this learning language in Lexirise before selecting it.')
         if payload.action == 'select':
             runtime.languages.select(game, payload.locale, account)
             return {'selected': payload.locale}
-        target = translation_language(settings, source) if settings else payload.target
+        settings = runtime.account_preferences() if runtime.lexirise.status()['configured'] else None
+        # Account membership controls the picker and account features, not local play.
+        target = translation_language(settings, source) if settings and source in settings['languages'] else payload.target
         if not target:
             raise ValueError('Choose a translation language or reload Lexirise settings.')
         return {'started': runtime.languages.request(game, payload.locale, target, account,
