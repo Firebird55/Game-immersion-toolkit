@@ -12,7 +12,8 @@ for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>
 export function crc32(bytes){let c=0xffffffff;for(const byte of bytes)c=table[(c^byte)&255]^(c>>>8);return (c^0xffffffff)>>>0;}
 const fail = message => {throw new Error(message);};
 export async function openZip(file,{timeoutMs=20000,container=false}={}){
- if(!file || !Number.isSafeInteger(file.size) || file.size<22 || file.size>(container?64*1024**3:LIMIT))fail('Choose an exported ZIP of at most 512 MiB.');
+ if(!file || !Number.isSafeInteger(file.size) || file.size<22)fail('This file is empty or incomplete. Download the Mobile Library ZIP fully, then retry.');
+ if(file.size>(container?64*1024**3:LIMIT))fail(container?'This library exceeds the supported 64 GiB size.':'Choose an exported ZIP of at most 512 MiB.');
  async function range(start,end){
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<start||end>file.size)fail('Invalid ZIP range.');
   let timer;

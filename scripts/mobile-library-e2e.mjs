@@ -112,7 +112,7 @@ try{
   await page.locator('.current-card').getByRole('button',{name:'☆ Favorite',exact:true}).click();
   await page.locator('.current-card').getByRole('button',{name:'★ Favorited',exact:true}).waitFor();
   await page.setInputFiles('#library-files',input('broken.zip',Buffer.from('broken')));
-  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('512 MiB'));
+  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('incomplete'));
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'A bad replacement preserves working voices');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Reopen library for voices'));
   await page.getByRole('button',{name:'Reopen voice library',exact:true}).waitFor();
