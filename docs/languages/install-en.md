@@ -15,7 +15,7 @@
 
 **Phone with paired PC:** Share the Windows transcript to your phone. No mobile catalog export is required; keep the PC running.
 
-**Independent mobile OCR:** Open your private catalog and voice ZIPs. Download only the OCR languages you need; the PC can then be off. Browser capture and background operation depend on your device.
+**Independent mobile OCR:** Open one private Mobile Library ZIP, connect the native VDO.Ninja screen broadcast, and tap Start playing. The PC can be off. Keep the receiving page visible.
 
 ## Understand storage
 
@@ -25,7 +25,7 @@ The language manager shows actual table sizes. Shared audio/tools are counted on
 
 - Missing voice pack: install the matching spoken language through the game launcher, then prepare again.
 - Skipped captions: check the subtitle crop, resolution and on-screen subtitle language. BEYOND tolerates one brief OCR dropout while still requiring confirmation.
-- Mobile offline: download the chosen OCR pack first. Keep catalog and voice ZIPs available; browser storage can be cleared by the operating system.
+- Mobile offline: download the chosen OCR pack first. Keep your Mobile Library ZIP available; browser storage can be cleared by the operating system.
 - Account settings: reload to read existing preferences. Only explicit save controls change your account.
 
 Lexirise is optional. Migaku remains an independent mode where the browser extension is supported. Existing Chinese transcripts keep their original language.

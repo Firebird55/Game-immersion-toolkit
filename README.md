@@ -43,7 +43,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 | :--- | :--- |
 | **Windows capture** | Capture game subtitles and read locally. Game files and account keys stay on your PC. |
 | **Phone with paired PC** | Share the Windows transcript to your phone. No mobile catalog export is required; keep the PC running. |
-| **Independent mobile OCR** | Open your private catalog and voice ZIPs. Download only the OCR languages you need; the PC can then be off. Browser capture and background operation depend on your device. |
+| **Independent mobile OCR** | Open one private Mobile Library ZIP, connect the native VDO.Ninja screen broadcast, and tap Start playing. The PC can be off. Keep the receiving page visible. |
 
 Lexirise is optional. Migaku remains an independent mode where the browser extension is supported. Existing Chinese transcripts keep their original language.
 
