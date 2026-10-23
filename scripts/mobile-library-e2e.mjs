@@ -95,7 +95,7 @@ try{
   assert.equal(await page.locator('.companion-nav button').count(),2);
   await page.setInputFiles('#library-files',input('old-voices.zip',voices));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('voice-only'));
-  await page.setInputFiles('#library-files',input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));
+  const chooser=page.waitForEvent('filechooser');await page.click('#open-library');await(await chooser).setFiles(input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
   assert.match(await page.locator('#selected-library').textContent(),/Mandarin - Mobile Library/);
   await page.waitForFunction(()=>!document.querySelector('#library-files').disabled);
@@ -115,7 +115,8 @@ try{
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('512 MiB'));
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'A bad replacement preserves working voices');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Reopen library for voices'));
-  assert(await page.getByRole('button',{name:'Reopen voice library',exact:true}).isVisible());
+  await page.getByRole('button',{name:'Reopen voice library',exact:true}).waitFor();
+  assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isDisabled());
   await page.locator('.current-card').getByRole('button',{name:'★ Favorited',exact:true}).waitFor();
   await page.setInputFiles('#library-files',input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
