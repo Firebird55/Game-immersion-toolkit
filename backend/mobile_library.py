@@ -14,6 +14,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
+from .mobile_bundle import write_bundle
 from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions, archive_previous_exports, hide_work_metadata
 
 FORMAT = "proxy-mobile-library-v1"
@@ -211,6 +212,8 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         current.append((sha, path)); size += required
     if current:
         chunks.append(current)
+    parts_root = work / 'libraries'
+    parts_root.mkdir(exist_ok=True)
     packs = []
     for pack_number, chunk in enumerate(chunks):
         guard()
@@ -220,7 +223,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         packs.append({"id": pack_id, "name": name, "clips": list(index)})
         target = staging / name
         manifest = {"format": FORMAT, "kind": "voices", "game": game, "id": pack_id, "clips": index}
-        candidates = [*output.glob("*/" + name), *(work / 'previous-libraries').glob("*/" + name)]
+        candidates = [*parts_root.glob("*/" + name), *output.glob("*/" + name), *(work / 'previous-libraries').glob("*/" + name)]
         previous = next((p for p in candidates
                          if (p.parent / catalog_name(game)).is_file()), None)
         if previous and previous.stat().st_size <= PACK_LIMIT:
@@ -257,32 +260,28 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
                 "catalog": catalog, "packs": packs}
     name = catalog_name(game)
     write_pack(staging / name, manifest, [(item["name"], value) for item, value in zip(catalog, segments)])
-    write_instructions(output, staging, transfer_folder=destination)
+    guard()
+    getattr(check, "force", check)()
+    # Inner packs remain private and resumable; only the bundle is transferred.
+    parts = parts_root / revision
+    if parts.exists():
+        if parts.resolve().parent != parts_root.resolve() or parts.is_symlink():
+            raise ValueError("Unsafe private pack location")
+        parts.rename(work / (revision + ".previous-parts-" + str(time.time_ns())))
+    staging.replace(parts)
+    transfer = work / (revision + ".transfer.pending")
+    bundle = write_bundle(parts / name, transfer, guard=guard, progress=progress)
+    write_instructions(output, transfer, transfer_folder=destination, library=bundle.name)
     guard()
     getattr(check, "force", check)()
     if destination.exists():
-        try:
-            with zipfile.ZipFile(destination / name) as previous_catalog:
-                valid = json.loads(previous_catalog.read("manifest.json")) == manifest and previous_catalog.testzip() is None
-            for pack in packs:
-                with zipfile.ZipFile(destination / pack["name"]) as previous_pack:
-                    valid = valid and previous_pack.testzip() is None
-        except (OSError, ValueError, KeyError, zipfile.BadZipFile):
-            valid = False
-        if not valid:
-            # Checked, same-parent private move; retain damaged files for diagnosis.
-            if destination.resolve().parent != output.resolve():
-                raise ValueError("Unsafe export destination")
-            destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
-    if not destination.exists():
-        staging.replace(destination)
-    else:
-        # An identical revision is immutable. Leave resumable staging private.
-        for path in staging.iterdir():
-            path.unlink()
-        staging.rmdir()
+        if destination.resolve().parent != output.resolve() or destination.is_symlink():
+            raise ValueError("Unsafe export destination")
+        destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
+    transfer.replace(destination)
+    bundle = destination / bundle.name
     pointer = output / "latest.pending"
-    pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": name, "coverage": coverage}))
+    pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": bundle.name, "bundle": bundle.name, "coverage": coverage}))
     guard()
     getattr(check, "force", check)()
     os.replace(pointer, output / "latest.json")
@@ -293,9 +292,9 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         archive_previous_exports(output, game, destination)
     except (OSError, ValueError, KeyError, zipfile.BadZipFile):
         pass
-    result = {"state": "complete", "progress": 100, "message": "Copy the catalog and voice ZIPs to On My iPhone",
+    result = {"state": "complete", "progress": 100, "message": "Open the single Mobile Library ZIP on your phone",
               "done": len(rows), "total": len(rows),
-              "folder": str(destination), "coverage": coverage, "bytes": sum(p.stat().st_size for p in destination.glob("*.zip"))}
+              "folder": str(destination), "bundle": str(bundle), "catalog": str(parts / name), "coverage": coverage, "bytes": sum(p.stat().st_size for p in destination.glob("*.zip"))}
     progress(result)
     return result
 

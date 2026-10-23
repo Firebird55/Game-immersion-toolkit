@@ -11,9 +11,10 @@ const table = new Uint32Array(256);
 for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;table[n]=c>>>0;}
 export function crc32(bytes){let c=0xffffffff;for(const byte of bytes)c=table[(c^byte)&255]^(c>>>8);return (c^0xffffffff)>>>0;}
 const fail = message => {throw new Error(message);};
-export async function openZip(file,{timeoutMs=20000}={}){
- if(!file || !Number.isSafeInteger(file.size) || file.size<22 || file.size>LIMIT)fail('Choose an exported ZIP of at most 512 MiB.');
+export async function openZip(file,{timeoutMs=20000,container=false}={}){
+ if(!file || !Number.isSafeInteger(file.size) || file.size<22 || file.size>(container?64*1024**3:LIMIT))fail('Choose an exported ZIP of at most 512 MiB.');
  async function range(start,end){
+  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<start||end>file.size)fail('Invalid ZIP range.');
   let timer;
   try{
    const bytes=await Promise.race([file.slice(start,end).arrayBuffer(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('File read timed out. Keep the USB connected and unlocked, then retry. You can also copy the ZIPs into On My iPhone.')),timeoutMs);})]);
@@ -25,18 +26,36 @@ export async function openZip(file,{timeoutMs=20000}={}){
  let end=-1;
  for(let i=tail.length-22;i>=0;i--)if(view.getUint32(i,true)===0x06054b50&&i+22+view.getUint16(i+20,true)===tail.length){end=i;break;}
  if(end<0)fail('Not a complete mobile ZIP.');
- const count=view.getUint16(end+10,true), size=view.getUint32(end+12,true), offset=view.getUint32(end+16,true);
- if(view.getUint16(end+4,true)||view.getUint16(end+6,true)||view.getUint16(end+8,true)!==count||count===65535||size>16*1024*1024||offset+size!==file.size-tail.length+end)fail('Unsupported ZIP layout.');
+ const uint64=(v,p)=>{const n=v.getBigUint64(p,true);if(n>BigInt(Number.MAX_SAFE_INTEGER))fail('ZIP64 value is too large.');return Number(n);};
+ let count=view.getUint16(end+10,true), size=view.getUint32(end+12,true), offset=view.getUint32(end+16,true),directoryEnd=file.size-tail.length+end;
+ if(view.getUint16(end+4,true)||view.getUint16(end+6,true)||view.getUint16(end+8,true)!==count)fail('Unsupported ZIP layout.');
+ if(count===65535||size===0xffffffff||offset===0xffffffff){
+  if(!container||end<20||view.getUint32(end-20,true)!==0x07064b50||view.getUint32(end-16,true)!==0||view.getUint32(end-4,true)!==1)fail('Unsupported ZIP64 layout.');
+  const start=uint64(view,end-12),record=new DataView(await range(start,start+56));
+  if(record.getUint32(0,true)!==0x06064b50||uint64(record,4)!==44||record.getUint32(16,true)||record.getUint32(20,true)||uint64(record,24)!==uint64(record,32)||start+56!==directoryEnd-20)fail('Unsupported ZIP64 directory.');
+  count=uint64(record,32);size=uint64(record,40);offset=uint64(record,48);directoryEnd=start;
+ }
+ if(count>65534||size>16*1024*1024||offset+size!==directoryEnd)fail('Unsupported ZIP layout.');
+ const zip64=(v,p,length,values)=>{
+  const stop=p+length;let found=false;
+  while(p<stop){if(p+4>stop)fail('Invalid ZIP extra field.');const id=v.getUint16(p,true),n=v.getUint16(p+2,true);p+=4;if(p+n>stop)fail('Invalid ZIP extra field.');
+   if(id===1){if(found)fail('Duplicate ZIP64 field.');found=true;let at=p;for(const key of ['size','compressed','start'])if(values[key]===0xffffffff){if(at+8>p+n)fail('Incomplete ZIP64 field.');values[key]=uint64(v,at);at+=8;}}
+   p+=n;
+  }
+  if(Object.values(values).includes(0xffffffff))fail('Missing ZIP64 field.');return values;
+ };
  const data=new Uint8Array(await range(offset,offset+size)), central=new DataView(data.buffer), entries=new Map();
  let pos=0;
  for(let n=0;n<count;n++){
   if(pos+46>data.length||central.getUint32(pos,true)!==0x02014b50)fail('Invalid ZIP directory.');
-  const flags=central.getUint16(pos+8,true), method=central.getUint16(pos+10,true), crc=central.getUint32(pos+16,true), compressed=central.getUint32(pos+20,true), length=central.getUint32(pos+24,true);
-  const nameSize=central.getUint16(pos+28,true), extra=central.getUint16(pos+30,true), comment=central.getUint16(pos+32,true), start=central.getUint32(pos+42,true);
+  const flags=central.getUint16(pos+8,true), method=central.getUint16(pos+10,true), crc=central.getUint32(pos+16,true);
+  let compressed=central.getUint32(pos+20,true), length=central.getUint32(pos+24,true);
+  const nameSize=central.getUint16(pos+28,true), extra=central.getUint16(pos+30,true), comment=central.getUint16(pos+32,true);let start=central.getUint32(pos+42,true);
   if(pos+46+nameSize+extra+comment>data.length||!nameSize||nameSize>128)fail('Invalid ZIP entry.');
   const name=decoder.decode(data.slice(pos+46,pos+46+nameSize));
-  if(!/^(manifest\.json|catalog\/[0-9]{5}\.ndjson|audio\/[a-f0-9]{64}\.mp3)$/.test(name)||entries.has(name)||method!==0||flags&~0x800||compressed!==length||start+30+nameSize+length>offset||central.getUint16(pos+34,true)!==0)fail('Unsupported or unsafe mobile ZIP entry.');
-  if(length>(name==='manifest.json'?8*1024*1024:name.startsWith('catalog/')?4*1024*1024+16384:64*1024*1024))fail('Mobile ZIP entry is too large.');
+  if([length,compressed,start].includes(0xffffffff)){if(!container)fail('Unsupported ZIP64 entry.');const v=zip64(central,pos+46+nameSize,extra,{size:length,compressed,start});length=v.size;compressed=v.compressed;start=v.start;}
+  if(!/^(manifest\.json|catalog\/[0-9]{5}\.ndjson|audio\/[a-f0-9]{64}\.mp3)$/.test(name)&&!(container&&/^library\/(catalog|voices\/[a-f0-9]{64})\.zip$/.test(name))||entries.has(name)||method!==0||flags&~0x800||compressed!==length||start+30+nameSize+length>offset||central.getUint16(pos+34,true)!==0)fail('Unsupported or unsafe mobile ZIP entry.');
+  if(length>(name==='manifest.json'?8*1024*1024:name.startsWith('library/')?LIMIT:name.startsWith('catalog/')?4*1024*1024+16384:64*1024*1024))fail('Mobile ZIP entry is too large.');
   entries.set(name,{name,nameSize,flags,size:length,crc,start,limit:offset});pos+=46+nameSize+extra+comment;
  }
  if(pos!==data.length||!entries.has('manifest.json'))fail('Missing mobile manifest.');
@@ -47,20 +66,50 @@ export async function openZip(file,{timeoutMs=20000}={}){
  }
  // USB providers make each File.slice expensive. Validate the complete directory
  // now, then verify a local header, bounds and CRC before reading that entry.
- async function read(name){
+ async function entryFile(name){
   const e=entries.get(name);if(!e)fail('Missing mobile ZIP entry.');
   if(e.offset==null){
    const bytes=await range(e.start,e.start+30+e.nameSize),head=new DataView(bytes);
-   if(head.getUint32(0,true)!==0x04034b50||head.getUint16(6,true)!==e.flags||head.getUint16(8,true)!==0||head.getUint32(14,true)!==e.crc||head.getUint32(18,true)!==e.size||head.getUint32(22,true)!==e.size||head.getUint16(26,true)!==e.nameSize)fail('ZIP headers disagree.');
+   if(head.getUint32(0,true)!==0x04034b50||head.getUint16(6,true)!==e.flags||head.getUint16(8,true)!==0||head.getUint32(14,true)!==e.crc||head.getUint16(26,true)!==e.nameSize)fail('ZIP headers disagree.');
    const localName=decoder.decode(new Uint8Array(bytes,30,e.nameSize)),dataOffset=e.start+30+e.nameSize+head.getUint16(28,true);
    if(localName!==name||dataOffset+e.size>e.limit)fail('Invalid ZIP entry bounds.');
+   const local={size:head.getUint32(22,true),compressed:head.getUint32(18,true)};
+   if(Object.values(local).includes(0xffffffff)){if(!container)fail('Unsupported local ZIP64 entry.');zip64(new DataView(await range(e.start+30+e.nameSize,dataOffset)),0,head.getUint16(28,true),local);}
+   if(local.size!==e.size||local.compressed!==e.size)fail('ZIP headers disagree.');
    e.offset=dataOffset;
   }
+  return {size:e.size,name,slice:(start=0,end=e.size)=>file.slice(e.offset+Math.max(0,start),e.offset+Math.min(e.size,end))};
+ }
+ async function read(name){
+  await entryFile(name);const e=entries.get(name);
   const bytes=new Uint8Array(await range(e.offset,e.offset+e.size));if(crc32(bytes)!==e.crc)fail('Corrupt mobile ZIP entry.');return bytes;
  }
  const manifest=JSON.parse(decoder.decode(await read('manifest.json')));
+ if(container&&manifest?.format==='proxy-mobile-bundle-v1'&&manifest.kind==='bundle'&&GAMES.includes(manifest.game))return {file,entries,read,entryFile,manifest};
+ if(file.size>LIMIT)fail('This large ZIP is not a mobile library bundle. Update the exporter and try again.');
  if(manifest?.format!==FORMAT||!GAMES.includes(manifest.game)||!['catalog','voices'].includes(manifest.kind))fail('Unsupported mobile library version or game.');
  return {file,entries,read,manifest};
+}
+// A bundle is a directory of bounded packs, not a giant decoded Blob.
+export async function openLibraryFiles(files,progress=()=>{},guard=()=>{}){
+ const opened=[];
+ for(const file of files){
+  guard();const zip=await openZip(file,{container:true});guard();
+  if(zip.manifest.kind!=='bundle'){opened.push(zip);continue;}
+  const m=zip.manifest;
+  if(files.length!==1)fail('Select the single mobile library file on its own.');
+  if(!hex(m.revision)||m.catalog!=='library/catalog.zip'||!Array.isArray(m.voices)||m.voices.length>10000||m.voices.some(n=>typeof n!=='string'||!/^library\/voices\/[a-f0-9]{64}\.zip$/.test(n))||new Set(m.voices).size!==m.voices.length||zip.entries.size!==m.voices.length+2)fail('Invalid mobile bundle manifest.');
+  const catalog=await openZip(await zip.entryFile(m.catalog));guard();
+  if(catalog.manifest.kind!=='catalog'||catalog.manifest.game!==m.game||catalog.manifest.revision!==m.revision||!Array.isArray(catalog.manifest.packs)||catalog.manifest.packs.length!==m.voices.length)fail('Bundle catalog does not match.');
+  opened.push(catalog);
+  for(let i=0;i<m.voices.length;i++){
+   progress(`Opening voices ${i+1} of ${m.voices.length}…`);guard();
+   const part=await openZip(await zip.entryFile(m.voices[i]));guard();
+   if(part.manifest.kind!=='voices'||part.manifest.game!==m.game||m.voices[i]!==`library/voices/${part.manifest.id}.zip`)fail('Bundle voice identity does not match.');
+   opened.push(part);
+  }
+ }
+ return opened;
 }
 const locale=value=>typeof value==='string'&&/^[a-zA-Z][a-zA-Z0-9-]{0,23}$/.test(value);
 export function validateRow(row){

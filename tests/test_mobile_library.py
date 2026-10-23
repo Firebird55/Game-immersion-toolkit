@@ -32,7 +32,7 @@ def test_export_roundtrip_and_private_allowlist(tmp_path, game):
     output = tmp_path / "export"
     result = export_library(game, rows(game), output, voice=voice(tmp_path, calls))
     folder = Path(result["folder"])
-    with zipfile.ZipFile(folder / catalog_name(game)) as pack:
+    with zipfile.ZipFile(Path(result["catalog"])) as pack:
         manifest = json.loads(pack.read("manifest.json"))
         catalog = [json.loads(line) for item in manifest["catalog"] for line in pack.read(item["name"]).splitlines()]
         assert manifest["format"] == FORMAT
@@ -42,7 +42,10 @@ def test_export_roundtrip_and_private_allowlist(tmp_path, game):
         assert catalog[0]["audio"] == catalog[1]["audio"]
         assert all(info.compress_type == zipfile.ZIP_STORED for info in pack.infolist())
     assert len(calls) == 1
-    assert len(list(folder.glob("*.zip"))) == 2
+    assert len(list(folder.glob("*.zip"))) == 1
+    with zipfile.ZipFile(result["bundle"]) as bundle:
+        assert bundle.testzip() is None
+        assert json.loads(bundle.read("manifest.json"))["kind"] == "bundle"
     export_library(game, rows(game), output, voice=voice(tmp_path, calls))
     assert len(calls) == 1
 
@@ -59,7 +62,7 @@ def test_dutch_catalog_preserves_source_and_official_target_without_private_refe
            'translationText': '合成测试句子。', 'audioLocale': 'nl', 'anchorsSource': ['Een synthetische zin.'],
            'archive': 'private-original-reference'}
     result = export_library('beyond', [row], tmp_path, include_audio=False)
-    with zipfile.ZipFile(Path(result['folder']) / catalog_name('beyond')) as pack:
+    with zipfile.ZipFile(Path(result['catalog'])) as pack:
         manifest = json.loads(pack.read('manifest.json'))
         exported = json.loads(pack.read(manifest['catalog'][0]['name']).splitlines()[0])
     assert manifest['languages'] == ['nl', 'zh-Hans']
@@ -118,9 +121,9 @@ def test_changed_catalog_reuses_same_voice_pack(tmp_path):
     newer = rows(); newer[0]["english"] = "The lantern shines brightly."
     second = export_library("zzz", newer, tmp_path / "out", voice=voice(tmp_path, calls))
     assert first["folder"] != second["folder"]
-    archived = work_folder(tmp_path / 'out') / 'previous-libraries' / Path(first['folder']).name
+    archived = Path(first['catalog']).parent
     a = next(archived.glob("*Voices*.zip"))
-    b = next(Path(second["folder"]).glob("*Voices*.zip"))
+    b = next(Path(second["catalog"]).parent.glob("*Voices*.zip"))
     assert a.name == b.name and a.read_bytes() == b.read_bytes()
 
 
@@ -136,10 +139,10 @@ def test_corrupt_completed_pack_is_repaired_from_verified_cache(tmp_path):
     calls = []
     output = tmp_path / "out"
     first = export_library("zzz", rows(), output, voice=voice(tmp_path, calls))
-    pack = next(Path(first["folder"]).glob("*Voices*.zip"))
+    pack = next(Path(first["catalog"]).parent.glob("*Voices*.zip"))
     pack.write_bytes(b"broken")
     second = export_library("zzz", rows(), output, voice=voice(tmp_path, calls))
-    with zipfile.ZipFile(next(Path(second["folder"]).glob("*Voices*.zip"))) as archive:
+    with zipfile.ZipFile(next(Path(second["catalog"]).parent.glob("*Voices*.zip"))) as archive:
         assert archive.testzip() is None
     assert len(calls) == 1
     assert list(work_folder(output).glob("*.invalid-*"))
