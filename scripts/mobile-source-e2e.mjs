@@ -195,7 +195,7 @@ try{
   await page.evaluate(()=>{window.testOcrResults=[];window.testMatchResults=[];});
   await page.selectOption('#ocr-language','chi_sim');await page.click('#clear-history');await page.click('#ocr-start');await waitText(page,chinese.chinese);
   assert((await page.locator('#source-status').textContent()).includes('1280 × 720'),'Chinese PNG reaches the bounded source frame envelope');
-  assert((await page.locator('#reader-root').textContent()).includes(chinese.chinese),'Real Chinese OCR reaches the reader');
+  await page.waitForFunction(text=>document.querySelector('#reader-root').textContent.includes(text),chinese.chinese,{timeout:15000});
   stage='privacy and final cleanup';
   assert.equal(await page.evaluate(()=>window.testMaxJobs),1,'one real OCR worker job at a time');
   const privateState=await page.evaluate(async()=>{const keys=await indexedDB.databases(),result={localStorage:{...localStorage},stores:[]};for(const entry of keys){const db=await new Promise(resolve=>{const request=indexedDB.open(entry.name);request.onsuccess=()=>resolve(request.result);});for(const name of db.objectStoreNames){const rows=await new Promise(resolve=>{const request=db.transaction(name).objectStore(name).getAll();request.onsuccess=()=>resolve(request.result);});result.stores.push(rows);}db.close();}return JSON.stringify(result);});
