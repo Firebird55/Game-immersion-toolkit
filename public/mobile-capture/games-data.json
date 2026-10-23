@@ -1,7 +1,7 @@
 {
   "format": 1,
   "readerRelease": "0.17.0",
-  "checkedAt": "2026-10-19",
+  "checkedAt": "2026-10-23",
   "languages": {
     "en": "English",
     "zh-Hans": "Simplified Chinese",
@@ -572,28 +572,172 @@
       "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
     },
     {
-      "id": "hito",
-      "name": "Hito's World",
-      "guide": "desktop-companion.md#hitos-world",
-      "source": "https://store.steampowered.com/app/4934190/Hitos_World/",
-      "sourceName": "Steam (upcoming edition)",
+      "id": "starrail",
+      "name": "Honkai: Star Rail",
+      "guide": "starrail-languages.md",
+      "source": "https://store.epicgames.com/p/honkai-star-rail",
+      "sourceName": "Epic Games Store",
       "study": [
-        "zh-Hans"
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko"
       ],
       "audio": [
-        "en"
+        "en",
+        "zh-Hans",
+        "ja",
+        "ko"
       ],
       "officialText": [
-        "en"
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
       ],
       "targets": [
-        "en"
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
       ],
-      "textOnly": true,
       "unverified": {},
-      "notes": "The existing PC reader supports Chinese study text with English translation from the installed game's catalog. It provides no verified original audio. The upcoming Steam edition lists English and describes in-game Chinese/Japanese learning; those listings do not extend toolkit support.",
-      "coverage": "PC fixed dialogue and grammar-generated sentences have reader regressions. Mobile libraries contain fixed text only and do not run the desktop grammar generator. Upcoming Steam builds and Japanese study are unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
+    },
+    {
+      "id": "genshin",
+      "name": "Genshin Impact",
+      "guide": "genshin-languages.md",
+      "source": "https://store.epicgames.com/p/genshin-impact",
+      "sourceName": "Epic Games Store",
+      "study": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko"
+      ],
+      "audio": [
+        "en",
+        "zh-Hans",
+        "ja",
+        "ko"
+      ],
+      "officialText": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id",
+        "it",
+        "tr"
+      ],
+      "targets": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es-ES",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id",
+        "it",
+        "tr"
+      ],
+      "unverified": {},
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
+    },
+    {
+      "id": "endfield",
+      "name": "Arknights: Endfield",
+      "guide": "endfield-languages.md",
+      "source": "https://store.epicgames.com/p/arknightsendfield-f0f167",
+      "sourceName": "Epic Games Store",
+      "study": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko"
+      ],
+      "audio": [
+        "en",
+        "zh-Hans",
+        "ja",
+        "ko"
+      ],
+      "officialText": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "it",
+        "es-419",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
+      ],
+      "targets": [
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "it",
+        "es-419",
+        "pt-BR",
+        "ru",
+        "th",
+        "vi",
+        "id"
+      ],
+      "unverified": {},
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
     }
   ]
 }

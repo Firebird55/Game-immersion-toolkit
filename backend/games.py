@@ -15,6 +15,15 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "starrail": GameProfile(id="starrail", name="Honkai: Star Rail", process_names=("StarRail.exe",),
+        title_needles=("Honkai: Star Rail", "崩坏：星穹铁道", "崩壞：星穹鐵道"),
+        subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
+    "genshin": GameProfile(id="genshin", name="Genshin Impact", process_names=("GenshinImpact.exe", "YuanShen.exe"),
+        title_needles=("Genshin Impact", "原神"),
+        subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
+    "endfield": GameProfile(id="endfield", name="Arknights: Endfield", process_names=("Endfield.exe",),
+        title_needles=("Arknights: Endfield", "Endfield", "明日方舟：终末地", "明日方舟：終末地"),
+        subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),
     "heavyrain": GameProfile(id="heavyrain", name="HEAVY RAIN", process_names=("HeavyRain.exe",),
         title_needles=("HEAVY RAIN", "Heavy Rain"),
         subtitle_region=CaptureRegion(left=.05, top=.70, width=.90, height=.28)),
@@ -33,13 +42,6 @@ GAME_PROFILES = {
     "cyberpunk": GameProfile(id="cyberpunk", name="Cyberpunk 2077", process_names=("Cyberpunk2077.exe",),
         title_needles=("Cyberpunk 2077",),
         subtitle_region=CaptureRegion(left=.12, top=.59, width=.76, height=.37)),
-    "hito": GameProfile(
-        id="hito",
-        name="Hito's World Playtest",
-        process_names=("Hito's World.exe", "Hito's World Playtest.exe"),
-        title_needles=("Hito's World",),
-        subtitle_region=CaptureRegion(left=0.365, top=0.815, width=0.34, height=0.125),
-    ),
     "zzz": GameProfile(
         id="zzz",
         name="Zenless Zone Zero",

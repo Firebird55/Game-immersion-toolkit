@@ -6,8 +6,8 @@ import os
 import threading
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain")
-GAME_NAMES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
+GAMES = ("zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield")
+GAME_NAMES = {"starrail": "Honkai: Star Rail", "genshin": "Genshin Impact", "endfield": "Arknights: Endfield", "zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
               "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
               "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
 _path_lock = threading.RLock()
@@ -23,6 +23,14 @@ def validate_install(game: str, path: Path) -> Path:
     root = path.expanduser().resolve(strict=True)
     if not root.is_dir():
         raise ValueError("Choose the installed game folder, not an archive or executable")
+    if game in {'starrail', 'genshin', 'endfield'}:
+        folders = {'starrail': ('StarRail_Data',), 'genshin': ('GenshinImpact_Data', 'YuanShen_Data'),
+                   'endfield': ('Endfield_Data',)}[game]
+        nested = {'starrail': 'games/Star Rail Games', 'genshin': 'games/Genshin Impact game', 'endfield': '.'}[game]
+        for candidate in (root, root.parent, root / nested):
+            if any((candidate / name).is_dir() for name in folders):
+                root = candidate
+                break
     if game == "zzz" and root.name == "ZenlessZoneZero_Data":
         root = root.parent
     if game == "wuwa" and root.name == "Client":
@@ -39,6 +47,10 @@ def validate_install(game: str, path: Path) -> Path:
                 root = parent
                 break
     valid = {
+        "starrail": lambda: (root / 'StarRail.exe').is_file() and (root / 'StarRail_Data/StreamingAssets').is_dir(),
+        "genshin": lambda: any((root / exe).is_file() and (root / data / 'StreamingAssets').is_dir()
+            for exe, data in [('GenshinImpact.exe', 'GenshinImpact_Data'), ('YuanShen.exe', 'YuanShen_Data')]),
+        "endfield": lambda: (root / 'Endfield.exe').is_file() and (root / 'Endfield_Data/StreamingAssets/VFS').is_dir(),
         "heavyrain": lambda: (root / "HeavyRain.exe").is_file() and (root / "Resources/BigFile_WIN.idx").is_file()
         and (root / "Resources/GameData/GameData_WIN.idx").is_file(),
         "beyond": lambda: (root / "BeyondTwoSouls_Steam.exe").is_file() and (root / "BigFile_PC.idx").is_file(),
@@ -101,6 +113,15 @@ def clear_install(game: str) -> None:
 
 def _write_paths(values: dict[str, str]) -> None:
     target = settings_path()
+    # Retiring an adapter must not erase its old local location when another
+    # game's selection changes. Archived entries are never enumerated by setup.
+    try:
+        old = json.loads(target.read_text(encoding="utf-8-sig"))
+        for key in ('hito', 'honkai3'):
+            if isinstance(old.get(key), str):
+                values[key] = old[key]
+    except (OSError, ValueError, AttributeError):
+        pass
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(".tmp")
     temporary.write_text(json.dumps(values, indent=2), encoding="utf-8")
@@ -114,7 +135,13 @@ def discover_install(game: str) -> Path | None:
     if configured:
         return configured
     names = [GAME_NAMES[game]]
-    if game == "beyond":
+    if game == "starrail":
+        names = ["HonkaiStarRail/games/Star Rail Games", "Star Rail Games", "Honkai Star Rail"]
+    elif game == "genshin":
+        names = ["GenshinImpact/games/Genshin Impact game", "Genshin Impact game", "Genshin Impact"]
+    elif game == "endfield":
+        names = ["Arknights Endfield", "Endfield", "Endfield Game"]
+    elif game == "beyond":
         names = ["BEYOND Two Souls"]
     elif game == "heavyrain":
         names = ["HEAVY RAIN"]
@@ -139,7 +166,7 @@ def discover_install(game: str) -> Path | None:
         pass
     for letter in "CDEFGHIJKLMNOPQRSTUVWXYZ":
         candidates.extend(Path(f"{letter}:/") / suffix / name for name in names for suffix in
-                          ("SteamLibrary/steamapps/common", "Program Files (x86)/Steam/steamapps/common"))
+                          ("SteamLibrary/steamapps/common", "Program Files (x86)/Steam/steamapps/common", "Epic", "Epic Games", "Program Files/Epic Games", "Program Files/HoYoPlay/games"))
     for path in candidates:
         try:
             return validate_install(game, path)

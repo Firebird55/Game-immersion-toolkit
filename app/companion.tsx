@@ -3,6 +3,7 @@ import {useInterfaceTranslation} from '../lib/interface-language';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
+import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
@@ -46,7 +47,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -68,6 +69,12 @@ type Settings = {
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   beyond_region: CaptureRegion;
   heavyrain_region: CaptureRegion;
+  starrail_region: CaptureRegion;
+  starrail_player_voice: 'unconfigured' | 'female' | 'male';
+  genshin_region: CaptureRegion;
+  genshin_player_voice: 'unconfigured' | 'female' | 'male';
+  endfield_region: CaptureRegion;
+  endfield_player_voice: 'unconfigured' | 'female' | 'male';
   nte_region: CaptureRegion;
   nte_picture_area: 'window' | '16:9';
   nte_player_voice: 'unconfigured' | 'female' | 'male';
@@ -87,7 +94,7 @@ type CaptureStatus = {
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -110,7 +117,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
+  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
   source_ocr: string;
   source_language?:string; source_locale?:string; source_text?:string; translation_text?:string; translation_locale?:string; audio_locale?:string;
   english: string;
@@ -152,8 +159,9 @@ type StatusPayload = {
   settings: Settings;
   session: { id: string; line_count: number; total_line_count: number };
 };
+type CompanionSnapshot = {context:StateContext; status:StatusPayload; lines:TranscriptLine[]; lexirise:LexiriseStatus};
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
 const GAME_NAMES: Record<GameId, string> = {
   zzz: 'Zenless Zone Zero',
   pragmata: 'PRAGMATA',
@@ -163,6 +171,9 @@ const GAME_NAMES: Record<GameId, string> = {
   nte: 'Neverness to Everness',
   beyond: 'BEYOND: Two Souls',
   heavyrain: 'HEAVY RAIN',
+  starrail: 'Honkai: Star Rail',
+  genshin: 'Genshin Impact',
+  endfield: 'Arknights: Endfield',
   hito: "Hito's World",
 };
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
@@ -240,23 +251,13 @@ function transcriptLineEqual(left: TranscriptLine, right: TranscriptLine) {
 
 function mergeTranscriptSnapshot(current: TranscriptLine[], snapshot: TranscriptLine[]) {
   const currentById = new Map(current.map((line) => [line.id, line]));
-  const snapshotIds = new Set(snapshot.map((line) => line.id));
-  const newestSnapshotAt: Partial<Record<GameId, number>> = {};
-  for (const line of snapshot) {
-    newestSnapshotAt[line.game] = Math.max(newestSnapshotAt[line.game] ?? 0, Date.parse(line.created_at));
-  }
-
-  const merged = snapshot.map((line) => {
+  // The complete snapshot has already replayed newer live events. Missing IDs
+  // are authoritative (including deletions missed while disconnected); retaining
+  // the previous newest row here would resurrect an empty game indefinitely.
+  return snapshot.map((line) => {
     const existing = currentById.get(line.id);
     return existing && transcriptLineEqual(existing, line) ? existing : line;
-  });
-  for (const line of current) {
-    if (snapshotIds.has(line.id)) continue;
-    // WebSocket lines can arrive before their audio is ready and therefore
-    // before /api/lines returns them. Keep those lines through background sync.
-    if (line.audio_pending || Date.parse(line.created_at) > (newestSnapshotAt[line.game] ?? 0)) merged.push(line);
-  }
-  return merged.sort(newestFirst);
+  }).sort(newestFirst);
 }
 
 function phaseLabel(phase: string) {
@@ -413,9 +414,11 @@ function CompanionClient() {
     setTranscriptTab(tab);
   }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
+  const archivedHistory = selectedGame === 'hito';
   const [accountLanguage,setAccountLanguage]=useState('zh');
   const lastActiveGame = useRef<GameId | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollOwner = useRef<StatePoll<CompanionSnapshot> | null>(null);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
   const playback = useRef<HTMLAudioElement | null>(null);
@@ -459,84 +462,113 @@ function CompanionClient() {
     settingsOpenRef.current = settingsOpen;
   }, [settingsOpen]);
 
-  const loadSnapshot = useCallback(async () => {
-    const generation = accountScope.current.generation;
-    try {
-      const games = Object.keys(GAME_NAMES) as GameId[];
-      const responses = await Promise.all([
-        fetch(`${API_URL}/api/status`, { cache: 'no-store' }),
-        ...games.map(game => fetch(`${API_URL}/api/lines?limit=50&game=${game}`, { cache: 'no-store' })),
-        ...games.map(game => fetch(`${API_URL}/api/favorites?game=${game}`, { cache: 'no-store' })),
-      ]);
-      if (generation !== accountScope.current.generation) return;
-      if (responses.some(response => !response.ok)) throw new Error('Companion service unavailable');
-      const nextStatus = await responses[0].json() as StatusPayload;
-      if (generation !== accountScope.current.generation) return;
-      setStatus(nextStatus);
-      if (!settingsOpenRef.current) setDraftSettings(nextStatus.settings);
-      const snapshots = await Promise.all(responses.slice(1).map(response => response.json() as Promise<TranscriptLine[]>));
-      if (generation !== accountScope.current.generation) return;
-      const recentLines = snapshots.slice(0, games.length).flat();
-      const favoriteLines = snapshots.slice(games.length).flat();
-      const nextLines = Array.from(
-        new Map([...recentLines, ...favoriteLines].map((line) => [line.id, line])).values(),
-      ).sort(newestFirst);
-      setLines((current) => {
-        const merged = mergeTranscriptSnapshot(current, nextLines);
-        knownLineIds.current = new Set(merged.map((line) => line.id));
-        return merged;
-      });
-      setOnline(true);
-      setSnapshotLoaded(true);
-      // Integration status must not prevent the transcript from loading.
-      void fetch(`${API_URL}/api/lexirise`, { cache: 'no-store' })
-        .then(response => response.ok ? response.json() : null)
-        .then(value => {
-          if (!value || generation !== accountScope.current.generation) return;
-          const next = value as LexiriseStatus;
-          const account = next.account ?? 'legacy';
-          if (account !== accountScope.current.account) { accountScope.current.generation++; setStudyMessage(''); }
-          accountScope.current.account = account;
-          accountScope.current.ready = next.configured;
-          setLexirise(next);
-        }).catch(() => undefined);
-    } catch {
-      if (generation === accountScope.current.generation) setOnline(false);
-    }
-  }, []);
+  const loadSnapshot = useCallback(() => pollOwner.current?.request() ?? Promise.resolve(), []);
 
   useEffect(() => {
-    const changed = () => {
+    let accountContext = '';
+    type StateEvent = {context:StateContext; type:string; line?:TranscriptLine; line_id?:number; capture?:CaptureStatus; settings?:Settings; textmaps?:StatusPayload['textmaps']; updates?:StatusPayload['updates']};
+    const events = new StateEvents<StateEvent>();
+    const retireAccount = () => {
       accountScope.current.generation++;
       accountScope.current.ready = false;
       setLexirise({ configured: false, sent: {} });
       setStudyMessage('');
-      void loadSnapshot();
+    };
+    const owner = new StatePoll<CompanionSnapshot>(async signal => {
+      const response = await fetch(`${API_URL}/api/snapshot`, {cache:'no-store', signal});
+      if (!response.ok) throw Error('Companion service unavailable');
+      return await response.json() as CompanionSnapshot;
+    }, value => {
+      const key = `${value.context.runtime_id}:${value.context.account_generation}`;
+      if (key !== accountContext) {
+        const previous = accountContext;
+        retireAccount(); accountContext = key;
+        if (previous) window.dispatchEvent(new CustomEvent('lexirise-credentials-changed', {detail:owner}));
+      }
+      // One synchronous commit after the complete, versioned payload is ready.
+      setStatus(value.status);
+      if (!settingsOpenRef.current) setDraftSettings(value.status.settings);
+      setLines(current => {
+        const merged = mergeTranscriptSnapshot(current, value.lines);
+        knownLineIds.current = new Set(merged.map(line => line.id));
+
+        return merged;
+      });
+      accountScope.current.account = value.lexirise.account ?? 'legacy';
+      accountScope.current.ready = value.lexirise.configured;
+      setLexirise(value.lexirise);
+      setOnline(true);
+      setSnapshotLoaded(true);
+    }, () => setOnline(false), value => events.reconcile(value, (snapshot,event) => {
+      if (event.type === 'line' && event.line && isReadableLine(event.line)) {
+        const exists = snapshot.lines.some(line => line.id === event.line!.id);
+        return {...snapshot, lines:[...snapshot.lines.filter(line => line.id !== event.line!.id), event.line],
+          status:{...snapshot.status, session:{...snapshot.status.session,
+            line_count:snapshot.status.session.line_count + (exists ? 0 : 1),
+            total_line_count:snapshot.status.session.total_line_count + (exists ? 0 : 1)}}};
+      }
+      if (event.type === 'line_deleted') {
+        const exists = snapshot.lines.some(line => line.id === event.line_id);
+        return {...snapshot, lines:snapshot.lines.filter(line => line.id !== event.line_id),
+          status:{...snapshot.status, session:{...snapshot.status.session,
+            line_count:Math.max(0,snapshot.status.session.line_count - (exists ? 1 : 0)),
+            total_line_count:Math.max(0,snapshot.status.session.total_line_count - (exists ? 1 : 0))}}};
+      }
+      if (event.type === 'capture_status' && event.capture) return {...snapshot,status:{...snapshot.status,capture:event.capture}};
+      if (event.type === 'settings' && event.settings) return {...snapshot,status:{...snapshot.status,settings:event.settings}};
+      if (event.type === 'textmaps_status' && event.textmaps) return {...snapshot,status:{...snapshot.status,textmaps:event.textmaps}};
+      if (event.type === 'update_status' && event.updates) return {...snapshot,status:{...snapshot.status,updates:event.updates}};
+      return snapshot;
+    }));
+    pollOwner.current = owner;
+    const changed = (event:Event) => {
+      if (event instanceof CustomEvent && event.detail === owner) return;
+      owner.reset();
+      retireAccount();
+      void owner.request();
     };
     window.addEventListener('lexirise-credentials-changed', changed);
-    return () => window.removeEventListener('lexirise-credentials-changed', changed);
-  }, [loadSnapshot]);
-
-  useEffect(() => {
-    void loadSnapshot();
-    const poll = window.setInterval(loadSnapshot, 10000);
-    return () => window.clearInterval(poll);
-  }, [loadSnapshot]);
-
-  useEffect(() => {
+    void owner.request();
+    const poll = window.setInterval(() => void owner.request(), 10000);
     let closed = false;
     let socket: WebSocket | null = null;
 
     const connect = () => {
       socket = new WebSocket(WS_URL);
-      socket.onopen = () => { setOnline(true); void loadSnapshot(); };
+      const connection = socket;
+      socket.onopen = () => {
+        if (closed || socket !== connection) return;
+        owner.reset(true);
+        events.reset();
+        accountContext = '';
+        retireAccount();
+        window.dispatchEvent(new Event('companion-runtime-reset'));
+        setOnline(true);
+        void owner.request();
+      };
       socket.onmessage = (message) => {
-        const event = JSON.parse(message.data);
-        if (event.type === 'account_changed') {window.dispatchEvent(new Event('lexirise-credentials-changed'));void loadSnapshot();}
-        if (event.type === 'snapshot') {
-          setStatus(event.snapshot);
-          if (!settingsOpenRef.current) setDraftSettings(event.snapshot.settings);
+        if (closed || socket !== connection) return;
+        let event;
+        try {event = JSON.parse(message.data);} catch {return;}
+        if (!owner.accept(event.context, true)) return;
+        const key = `${event.context.runtime_id}:${event.context.account_generation}`;
+        if (key !== accountContext) {
+          const previous = accountContext;
+          accountContext = key;
+          events.reset();
+          retireAccount();
+          if (previous) {
+            owner.reset();
+            window.dispatchEvent(new CustomEvent('lexirise-credentials-changed', {detail:owner}));
+            void owner.request();
+          }
         }
+        // The initial WS snapshot contains only status. The complete HTTP read
+        // owns snapshot publication; a late status-only read must not replace it.
+        if (event.type === 'snapshot' || event.type === 'account_changed') return;
+        const domain = event.type === 'line' ? `line:${event.line?.id}`
+          : event.type === 'line_deleted' ? `line:${event.line_id}` : event.type;
+        if (!events.record(domain,event)) return;
         if (event.type === 'capture_status') {
           const nextCapture = event.capture as CaptureStatus;
           setStatus((current) => current && !captureStatusEqual(current.capture, nextCapture, settingsOpenRef.current)
@@ -594,14 +626,26 @@ function CompanionClient() {
       socket.onclose = () => {
         // A prepared update replaces the socket while the local API stays
         // available. Confirm service health without discarding the reader.
-        if (!closed) { void loadSnapshot(); reconnectTimer.current = setTimeout(connect, 1500); }
+        if (!closed && socket === connection) {
+          socket = null;
+          owner.reset(true);
+          events.reset();
+          accountContext = '';
+          retireAccount();
+          window.dispatchEvent(new Event('companion-runtime-reset'));
+          reconnectTimer.current = setTimeout(connect, 1500);
+        }
       };
-      socket.onerror = () => socket?.close();
+      socket.onerror = () => connection.close();
     };
 
     connect();
     return () => {
       closed = true;
+      owner.close();
+      if (pollOwner.current === owner) pollOwner.current = null;
+      window.clearInterval(poll);
+      window.removeEventListener('lexirise-credentials-changed', changed);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       socket?.close();
     };
@@ -639,7 +683,7 @@ function CompanionClient() {
   // Free-roam subtitles disappear from the game almost immediately. Keep the
   // newest one available to read/Migaku until any later voiced line arrives.
   // Other presentation modes still disappear from Current line with the game.
-  const latestLine = visibleLine ?? (
+  const latestLine = archivedHistory ? null : visibleLine ?? (
     latestSessionLine && (latestSessionLine.channel === 'gameplay' || latestSessionLine.game !== 'zzz')
       ? latestSessionLine
       : null
@@ -679,7 +723,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'heavyrain' ? 'heavyrain_region' : selectedGame === 'beyond' ? 'beyond_region' : selectedGame === 'nte' ? 'nte_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'starrail' ? 'starrail_region' : selectedGame === 'genshin' ? 'genshin_region' : selectedGame === 'endfield' ? 'endfield_region' : selectedGame === 'heavyrain' ? 'heavyrain_region' : selectedGame === 'beyond' ? 'beyond_region' : selectedGame === 'nte' ? 'nte_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -702,10 +746,10 @@ function CompanionClient() {
         body: JSON.stringify(draftSettings),
       });
       if (!response.ok) throw new Error('Could not save capture settings');
-      const saved = (await response.json()) as Settings;
-      setDraftSettings(saved);
-      setStatus((current) => current ? { ...current, settings: saved } : current);
+      // The response can arrive after a newer settings event. Refresh through
+      // the same versioned owner instead of publishing an unversioned result.
       setSettingsOpen(false);
+      await loadSnapshot();
     } finally {
       setSaving(false);
     }
@@ -714,7 +758,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -757,6 +801,7 @@ function CompanionClient() {
       const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
       if (!isCurrent()) return;
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
+      pollOwner.current?.reset(); // A previously read ledger cannot erase this completed export.
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
       setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
     } catch (error) {
@@ -785,7 +830,7 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'heavyrain' ? draftSettings.heavyrain_region : selectedGame === 'beyond' ? draftSettings.beyond_region : selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'starrail' ? draftSettings.starrail_region : selectedGame === 'genshin' ? draftSettings.genshin_region : selectedGame === 'endfield' ? draftSettings.endfield_region : selectedGame === 'heavyrain' ? draftSettings.heavyrain_region : selectedGame === 'beyond' ? draftSettings.beyond_region : selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
@@ -821,7 +866,7 @@ function CompanionClient() {
         <div>
           <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
           <h1>{uiText("Proxy Transcript")}</h1>
-          <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>
+          {!archivedHistory && <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>}
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
           <span className="live-pulse" />
@@ -831,7 +876,7 @@ function CompanionClient() {
 
       <nav className="game-tabs" aria-label={uiText("Game transcript")}>
         <span><Gamepad2 size={15} /> {uiText("Game")}</span>
-        {(Object.keys(GAME_NAMES) as GameId[]).map(game => <button key={game} type="button"
+        {(Object.keys(GAME_NAMES).filter(game => game !== 'hito') as GameId[]).map(game => <button key={game} type="button"
           className={selectedGame === game ? "is-active" : ''} aria-pressed={selectedGame === game}
           onClick={() => { setSelectedGame(game); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue'); }}>
           {GAME_NAMES[game]}
@@ -851,13 +896,13 @@ function CompanionClient() {
       <section className="status-strip" aria-label={uiText("Companion status")}>
         <div>
           <Radio size={17} />
-          <span>{selectedGame === 'hito' ? uiText("Two-box OCR") : selectedGame !== 'zzz' ? uiText("Subtitle OCR + original voice") : uiText("3-zone OCR + voice")}</span>
-          <strong><StableInline text={capture?.running ? phaseLabel(capture.phase) : "Paused"} /></strong>
+          <span>{archivedHistory ? 'Archived history' : selectedGame !== 'zzz' ? uiText("Subtitle OCR + original voice") : uiText("3-zone OCR + voice")}</span>
+          <strong><StableInline text={archivedHistory ? "Capture disabled" : capture?.running ? phaseLabel(capture.phase) : "Paused"} /></strong>
         </div>
         <div>
           <Database size={17} />
-          <span>{selectedGame !== 'zzz' ? uiText("Official game text") : uiText("TextMaps")}</span>
-          <strong><StableInline text={mapStatus?.ready && mapStatus.state !== 'missing_voice' ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'} /></strong>
+          <span>{archivedHistory ? 'Saved records' : selectedGame !== 'zzz' ? uiText("Official game text") : uiText("TextMaps")}</span>
+          <strong><StableInline text={archivedHistory ? `${recentLines.length} saved lines` : mapStatus?.ready && mapStatus.state !== 'missing_voice' ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'} /></strong>
         </div>
         <div>
           <Activity size={17} />
@@ -866,7 +911,7 @@ function CompanionClient() {
         </div>
       </section>
 
-      {updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
+      {!archivedHistory && updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
         <div className="update-progress-copy">
           <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
           <strong>{uiText("Automatic updates")}</strong>
@@ -876,7 +921,7 @@ function CompanionClient() {
         <span className="update-progress-value">{updateStatus.progress}%</span>
       </section>}
 
-      <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
+      {!archivedHistory && <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
           <span id="current-heading"><Crosshair size={16} /> {uiText("Current line")}</span>
           {latestLine ? (
@@ -908,22 +953,29 @@ function CompanionClient() {
           <div className="current-empty">
             <ScanLine size={28} />
             <div>
-              <strong>{selectedGame === 'hito' ? 'No verified Hito text on screen' : selectedGame === 'zzz' ? 'No confirmed subtitle on screen' : 'No confirmed voiced subtitle on screen'}</strong>
-              <p>{selectedGame === 'hito' || selectedGame === 'zzz' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
+              <strong>{selectedGame === 'zzz' ? 'No confirmed subtitle on screen' : 'No confirmed voiced subtitle on screen'}</strong>
+              <p>{selectedGame === 'zzz' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
       <div className="study-status" role="status" aria-live="polite">
         {studyMessage || (online && !lexirise.configured ? 'Lexirise is not configured on this computer.' : '')}
       </div>
+      {archivedHistory && <p role="status">Hito’s World capture is disabled. Your saved history and favorites remain available.</p>}
       <section className="transcript" aria-labelledby="transcript-heading">
         <div className="transcript-heading">
           <div>
             <p className="eyebrow">{uiText("Saved transcript")}</p>
             <h2 id="transcript-heading">{transcriptTab === 'favorites' ? uiText("Favorites") : uiText("Earlier lines")}</h2>
           </div>
+          {lines.some(line => line.game === 'hito') && <label className="playback-speed archived-history">Archived game history
+            <select aria-label="Archived game history" value={archivedHistory ? 'hito' : ''} onChange={event => {
+              setSelectedGame(event.target.value === 'hito' ? 'hito' : status?.capture.active_game && status.capture.active_game !== 'hito' ? status.capture.active_game : 'zzz');
+              setHistoryPage(0); changeTranscriptTab('history', true);
+            }}><option value="">Active games</option><option value="hito">Hito's World (archived)</option></select>
+          </label>}
           <p>{transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : uiText("10 at a time · up to 50 recent lines")}</p>
         </div>
 
@@ -1014,18 +1066,18 @@ function CompanionClient() {
             variant="outline"
             className={capture?.running ? "capture-toggle is-running" : "capture-toggle"}
             onClick={toggleCapture}
-            disabled={!online || !status}
+            disabled={archivedHistory || !online || !status}
           >
             <Pause className="capture-pause-icon" />
             <Play className="capture-play-icon" />
             <span className="capture-pause-label">{uiText("Pause")}</span>
             <span className="capture-play-label">{uiText("Start")}</span>
           </Button>
-          <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={!online || !draftSettings}>
+          <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
-          <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
+          <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
-            onCapture={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
+            onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
             onReading={() => setReaderSettingsOpen(true)} onAccount={language => {setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
         </div>
       </footer>
@@ -1059,6 +1111,12 @@ function CompanionClient() {
               <option value="female">{uiText("Female")}</option><option value="male">{uiText("Male")}</option>
             </select>
           </label>}
+          {(['starrail', 'genshin', 'endfield'] as const).map(game => selectedGame === game && draftSettings && <label key={game}>
+            {{starrail: 'Trailblazer voice', genshin: 'Traveler voice', endfield: 'Endministrator voice'}[game]}
+            <select aria-label={{starrail: 'Trailblazer voice', genshin: 'Traveler voice', endfield: 'Endministrator voice'}[game]} value={draftSettings[`${game}_player_voice`] ?? 'unconfigured'}
+              onChange={event => setDraftSettings(current => current ? {...current, [`${game}_player_voice`]: event.target.value} : current)}>
+              <option value="unconfigured">Choose when needed</option><option value="female">Female</option><option value="male">Male</option>
+            </select></label>)}
           {selectedGame === 'nte' && draftSettings && <label>{uiText("Zero voice")}<select aria-label={uiText("Zero voice")} value={draftSettings.nte_player_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, nte_player_voice: event.target.value as Settings['nte_player_voice'] } : current)}>
               <option value="unconfigured">{uiText("Choose Zero's voice for movie variants")}</option>

@@ -36,6 +36,7 @@ from .updates import BackgroundUpdateManager
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
+from .state_version import StateVersion
 from .lexirise_settings import account_settings
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
@@ -91,7 +92,8 @@ class SetupAction(BaseModel):
 
 
 class EventHub:
-    def __init__(self) -> None:
+    def __init__(self, context=None) -> None:
+        self.context = context
         self.clients: set[WebSocket] = set()
         self._lock = asyncio.Lock()
 
@@ -105,6 +107,9 @@ class EventHub:
             self.clients.discard(websocket)
 
     async def broadcast(self, event: dict[str, object]) -> None:
+        # Stamp before the first await: a delayed send retains its publication revision.
+        if self.context:
+            event = {**event, 'context': self.context()}
         async with self._lock:
             clients = list(self.clients)
         stale: list[WebSocket] = []
@@ -125,7 +130,8 @@ class Runtime:
         self._updates_started = False
         self.warm_task = None
         self.repair_task = None
-        self.hub = EventHub()
+        self.state_version = StateVersion()
+        self.hub = EventHub(lambda: self.state_version.publish(self.accounts.generation))
         local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
@@ -138,7 +144,6 @@ class Runtime:
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
         self.hito = HitoTextIndex(DATA_DIR / "hito")
-        self.hito.ensure_game_files(None)
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
             DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
@@ -197,8 +202,8 @@ class Runtime:
         self.game_updaters = {game: LocalGameUpdateManager(game, self.game_indexes[game], voices,
             self.on_update_thread, project_root=PROJECT_ROOT) for game, voices in self.game_voice_assets.items()}
         self.languages = LanguagePreparation(self.build_language, self.activate_language, self.language_state,
-            supported=self.reader_locales,
-            rebuild=lambda game, locale, targets: self.build_language(game, locale, targets, force=True))
+            supported=self.reader_locales, cancellable=True,
+            rebuild=lambda game, locale, targets, **options: self.build_language(game, locale, targets, force=True, **options))
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
         self._locale_voice_lock = threading.RLock()
         self.capture.recorded_voice_assets = self.recorded_voice_assets
@@ -225,9 +230,11 @@ class Runtime:
             return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
         return ('zh-Hans',)
 
-    def build_language(self, game, locale, targets, *, force=False):
+    def build_language(self, game, locale, targets, *, force=False, job=None):
         from .game_assets import asset_adapter
         from .multilingual_index import MultilingualTextIndex
+        if job:
+            job.checkpoint()
         if game in {*LOCAL_GAMES, 'pragmata', 'zzz'}:
             adapter, _ = asset_adapter(game)
             if hasattr(adapter, 'index_language'):
@@ -247,20 +254,26 @@ class Runtime:
                         and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION):
                     return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
-                with INDEX_BUILD_LOCK, tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
+                with (job.acquire(INDEX_BUILD_LOCK) if job else INDEX_BUILD_LOCK), tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
                     output = Path(temporary) / 'textmap.json'
                     command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
                         '--targets', json.dumps(targets), '--output', str(output)]
-                    result = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
-                        capture_output=True, text=True, timeout=1800, **subprocess_options())
-                    if result.returncode:
+                    if job:
+                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800, **subprocess_options())
+                    else:
+                        returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
+                            capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
+                    if returncode:
                         raise ValueError('Language extraction failed. Check installed text/voice packs and game tools; previous table retained.')
                     candidate = MultilingualTextIndex(game, Path(temporary))
                     if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
-                    output.replace(path)
+                    with job.publication() if job else nullcontext():
+                        output.replace(path)
                 return
+        if job:
+            raise ValueError('This reader cannot prepare a cancellable language snapshot; previous table retained.')
         if locale != 'zh-Hans' or any(target.lower() not in {'en', 'zh-hans', 'zh'} for target in targets):
             raise ValueError('This language pair needs the multilingual reader update. No other language was substituted.')
         if game == 'zzz':
@@ -502,7 +515,7 @@ class Runtime:
 
     async def stop_updates(self) -> None:
         self._updates_started = False
-        self.languages.close()
+        await asyncio.to_thread(self.languages.close)
         if self.repair_task:
             self.repair_task.cancel()
             try:
@@ -522,13 +535,18 @@ class Runtime:
         self._updates_started = False
 
     async def on_line(self, line: TranscriptLine) -> None:
-        line = self.present_line(line)
+        # Capture/audio threads can queue this coroutine before a favorite,
+        # audio completion or deletion. Publish the current row, not that old
+        # object with a new revision; deleted rows must stay deleted.
         audio_pending = line.audio_pending
+        line = self.transcript.get(line.id)
+        if line is None:
+            return
+        line = self.present_line(line)
         if line.game == "zzz":
             line = self.speakers.enrich(line)
-        if audio_pending and not line.audio_pending:
-            # Speaker enrichment can round-trip through SQLite; preserve this
-            # transient delivery state on the WebSocket payload.
+        if audio_pending and not line.has_audio:
+            # Preserve this transient notice only until original audio is ready.
             line = line.model_copy(update={"audio_pending": True})
         await self.hub.broadcast({"type": "line", "line": line.model_dump(mode="json")})
 
@@ -573,8 +591,13 @@ class Runtime:
                 return current
         return update
 
+    def context(self):
+        return self.state_version.snapshot(self.accounts.generation)
+
     def status(self) -> dict[str, object]:
+        context = self.context()
         return {
+            "context": context,
             "capture": self.capture.snapshot().model_dump(mode="json"),
             "textmaps": self.textmaps.status(),
             "game_textmaps": {
@@ -755,6 +778,10 @@ async def runtime_activate(payload: CaptureHandoff, request: Request,
     if not runtime_ready()['ready']:
         raise HTTPException(409, 'Replacement OCR is still warming up')
     if runtime.capture.snapshot().running:
+        # A failed quiesce may stop updates while leaving capture serving.
+        # Rollback resumes that work without replacing its live session.
+        runtime.standby = False
+        runtime.start_updates()
         return {'active': True}
     runtime.capture.import_handoff(payload)
     runtime.standby = False
@@ -767,6 +794,31 @@ async def runtime_activate(payload: CaptureHandoff, request: Request,
 @app.get("/api/status")
 def get_status() -> dict[str, object]:
     return runtime.status()
+
+
+def read_context():
+    # Lightweight fixture runtimes may omit the transport clock.
+    return runtime.context() if hasattr(runtime, 'context') else None
+
+
+def check_read_context(context):
+    if context is not None and context['account_generation'] != runtime.accounts.generation:
+        raise HTTPException(409, 'Account changed while reading. Reload the current context.')
+
+
+@app.get('/api/snapshot')
+def companion_snapshot() -> dict:
+    context = read_context()  # Before status, SQLite, enrichment or account reads.
+    status = runtime.status()
+    lines = {}
+    # Retired capture adapters still have read-only transcript/favorite history.
+    for game in (*GAMES, 'hito'):
+        for line in [*get_lines(limit=50, before_id=None, game=game), *get_favorites(game=game)]:
+            lines[line.id] = line.model_dump(mode='json')
+    # This ledger read does not request remote account preferences.
+    integration = integration_status(refresh_settings=False)
+    check_read_context(context)
+    return {'context': context, 'status': status, 'lines': list(lines.values()), 'lexirise': integration}
 
 
 def setup_access(request: Request, header: str | None = None, *, write: bool = False) -> None:
@@ -800,6 +852,7 @@ def game_languages(game: str, request: Request) -> dict:
     setup_access(request)
     if game not in GAMES or game not in GAME_LOCALES:
         raise HTTPException(404, 'Unsupported game language setup')
+    context = read_context()
     try:
         result = runtime.languages.status(game, runtime.accounts.status()['active'])
         inventory = runtime.language_inventory.status(game, result)
@@ -813,7 +866,8 @@ def game_languages(game: str, request: Request) -> dict:
         except LexiriseError:
             result['enabled_languages'] = None
             result['targets'] = {}
-        return result
+        check_read_context(context)
+        return {**result, 'context': context}
     except (ValueError, LexiriseError) as error:
         raise HTTPException(400, str(error)) from None
 
@@ -1029,7 +1083,7 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield)$"),
 ) -> list[TranscriptLine]:
     return [
         presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
@@ -1046,7 +1100,7 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield)$"),
 ) -> list[TranscriptLine]:
     return [runtime.speakers.enrich(line) if line.game == "zzz" else line
             for line in runtime.transcript.list_favorites(game=game)]
@@ -1076,12 +1130,20 @@ async def update_line_favorite(line_id: int, payload: FavoriteUpdate) -> Transcr
 
 @app.get("/api/lexirise")
 def lexirise_status(language: str = 'zh') -> dict:
+    context = read_context()
+    result = integration_status(language)
+    check_read_context(context)
+    return {**result, 'context': context}
+
+
+def integration_status(language: str = 'zh', *, refresh_settings=True) -> dict:
+    account = runtime.accounts.status()['active'] if hasattr(runtime, 'accounts') else 'legacy'
     try:
         session = runtime.lexirise.pin(language)
     except LexiriseError:
-        return {'configured': False, 'sent': {}, 'decks': {}}
+        return {'configured': False, 'sent': {}, 'decks': {}, 'account': account}
     status = session.status()
-    if status["configured"] and not hasattr(session, "_settings_scope"):
+    if refresh_settings and status["configured"] and not hasattr(session, "_settings_scope"):
         try:
             account_settings(session)
         except LexiriseError:
@@ -1094,7 +1156,7 @@ def lexirise_status(language: str = 'zh') -> dict:
     by_language = {source: runtime.lexirise.pin(source).status() for source in sources}
     status['sent'] = {ref: deck for value in by_language.values() for ref, deck in value['sent'].items()}
     status['by_language'] = by_language
-    status['account'] = runtime.accounts.status()['active'] if hasattr(runtime, 'accounts') else 'legacy'
+    status['account'] = account
     return status
 
 
@@ -1427,8 +1489,7 @@ def update_local_game(game: str) -> dict:
 
 @app.post("/api/hito/update")
 def update_hito_text() -> dict[str, object]:
-    started = runtime.hito.refresh()
-    return {"started": started, "hito": runtime.hito.status()}
+    raise HTTPException(status_code=410, detail="Hito's World support is disabled. Existing history is preserved.")
 
 
 @app.post("/api/updates/check")
@@ -1472,7 +1533,10 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     await runtime.hub.connect(websocket)
     try:
         snapshot = await asyncio.to_thread(runtime.status)
-        await websocket.send_json({"type": "snapshot", "snapshot": snapshot})
+        event = {"type": "snapshot", "snapshot": snapshot}
+        if 'context' in snapshot:
+            event['context'] = snapshot['context']
+        await websocket.send_json(event)
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:

@@ -1,0 +1,203 @@
+{
+  "format": 1,
+  "audio_evidence": "Authored catalog bindings; use --catalog-bindings-only for OCR replay without installed voice packs.",
+  "clips": [
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Star Rail opening conversation",
+      "game": "starrail",
+      "path": "work/footage/starrail-intro.mp4",
+      "start": 0,
+      "duration": 40,
+      "source_url": "https://www.youtube.com/watch?v=_ZkiGS6Eug0&t=100",
+      "source_timestamps": [
+        100,
+        140
+      ],
+      "presentation": "dialogue",
+      "expected_exact": true,
+      "expected": [
+        "starrail:200010205",
+        "starrail:200010206",
+        "starrail:200010207",
+        "starrail:200010208",
+        "starrail:200010209",
+        "starrail:200010210"
+      ]
+    },
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Star Rail combat HUD negative",
+      "game": "starrail",
+      "path": "work/footage/starrail-intro.mp4",
+      "start": 65,
+      "duration": 20,
+      "source_url": "https://www.youtube.com/watch?v=_ZkiGS6Eug0&t=165",
+      "source_timestamps": [
+        165,
+        185
+      ],
+      "presentation": "HUD-or-menu",
+      "expected_exact": true,
+      "expect_no_lines": true
+    },
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Genshin Paimon traversal dialogue",
+      "game": "genshin",
+      "path": "work/footage/genshin-paimon.mp4",
+      "start": 20,
+      "duration": 35,
+      "source_url": "https://www.youtube.com/watch?v=rdEhIflJCUA&t=320",
+      "source_timestamps": [
+        320,
+        355
+      ],
+      "presentation": "dialogue",
+      "expected_exact": true,
+      "expected": [
+        "genshin:3510005",
+        "genshin:3510006",
+        "genshin:3510001",
+        "genshin:3510007",
+        "genshin:3510008"
+      ]
+    },
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Genshin controls menu negative",
+      "game": "genshin",
+      "path": "work/footage/genshin-dialogue.mp4",
+      "start": 25,
+      "duration": 20,
+      "source_url": "https://www.youtube.com/watch?v=rdEhIflJCUA&t=195",
+      "source_timestamps": [
+        195,
+        215
+      ],
+      "presentation": "HUD-or-menu",
+      "expected_exact": true,
+      "expect_no_lines": true
+    },
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Genshin repeated movie interjection negative",
+      "game": "genshin",
+      "path": "work/footage/genshin-intro.mp4",
+      "start": 80,
+      "duration": 10,
+      "source_url": "https://www.youtube.com/watch?v=rdEhIflJCUA&t=110",
+      "source_timestamps": [
+        110,
+        120
+      ],
+      "presentation": "HUD-or-menu",
+      "expected_exact": true,
+      "expect_no_lines": true
+    },
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Endfield opening radio conversation",
+      "game": "endfield",
+      "path": "work/footage/endfield-intro.mp4",
+      "start": 15,
+      "duration": 25,
+      "source_url": "https://www.youtube.com/watch?v=ORNaegEfhL4&t=315",
+      "source_timestamps": [
+        315,
+        340
+      ],
+      "presentation": "dialogue",
+      "expected_exact": true,
+      "expected": [
+        "endfield:radio_e0m0_5d6_002",
+        "endfield:radio_e0m0_5d6_003"
+      ]
+    },
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Endfield radio during combat and traversal",
+      "game": "endfield",
+      "path": "work/footage/endfield-intro.mp4",
+      "start": 70,
+      "duration": 45,
+      "source_url": "https://www.youtube.com/watch?v=ORNaegEfhL4&t=370",
+      "source_timestamps": [
+        370,
+        415
+      ],
+      "presentation": "dialogue",
+      "expected_exact": true,
+      "expected": [
+        "endfield:radio_e0m0_8d4_001",
+        "endfield:radio_e0m0_8d4_002",
+        "endfield:radio_e0m0_8d8_001",
+        "endfield:radio_e0m0_8d8_002"
+      ]
+    },
+    {
+      "source_locale": "zh-Hans",
+      "translation_locale": "en",
+      "footage_language": "en",
+      "allowed_channels": [
+        "dialogue"
+      ],
+      "aspect_mode": "fit",
+      "name": "Endfield combat HUD negative",
+      "game": "endfield",
+      "path": "work/footage/endfield-intro.mp4",
+      "start": 0,
+      "duration": 14,
+      "source_url": "https://www.youtube.com/watch?v=ORNaegEfhL4&t=300",
+      "source_timestamps": [
+        300,
+        314
+      ],
+      "presentation": "HUD-or-menu",
+      "expected_exact": true,
+      "expect_no_lines": true
+    }
+  ]
+}

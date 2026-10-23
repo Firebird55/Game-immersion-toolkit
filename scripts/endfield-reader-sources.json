@@ -1,0 +1,20 @@
+{
+  "repository": "EIHRTeam/EndfieldStudio",
+  "revision": "48c40a5e6a931b08223384077b74b41b484a540f",
+  "files": {
+    "AnimeStudio.Endfield/BlockHashes.cs": "55e3ac8617e68b3178d8982a1278451790c467e27dd520a7371a7f433e268d39",
+    "AnimeStudio.Endfield/BlockType.cs": "4cd8c8c08f982f91667ec888913b8a918d689129cce896828e30e6fd0df99911",
+    "AnimeStudio.Endfield/ChaCha20.cs": "ff40e8f6432afa8f6ec2120ea6296310bceb06db105aa230809bce40b50624ca",
+    "AnimeStudio.Endfield/Keys.cs": "07aea4fdd6b5c5d21269e0dc4ea1117d0ea1beac275061556715c563f79d1d9e",
+    "AnimeStudio.Endfield/Processors/AkpkCrypto.cs": "9f8a84a43b8f36902783695986813782f8a65780f9f9193efb888a361e3ea4ff",
+    "AnimeStudio.Endfield/Processors/AkpkPackage.cs": "baa97818f608d34b4e261958353a92529b17ba0c10da678d58e0f42c4cdd82df",
+    "AnimeStudio.Endfield/Processors/AudioMap.cs": "a8c3bfe3416918ee212370ff19790519ab026cf407424f601a48679074ed7e42",
+    "AnimeStudio.Endfield/Processors/LuaProcessor.cs": "5210e166277e133978241575304d100a0660c1ef7109a0a1871c2244dee25725",
+    "AnimeStudio.Endfield/Processors/SparkBuffer.cs": "366dbaf7c19763d1d8f988a4c1f5eccfc35daa49754316b30a806244397cb5a4",
+    "AnimeStudio.Endfield/Processors/UsmDemuxer.cs": "c92f63c4944a2cc00e978fbec569adbc7470f44619348e80b517bfda4ba00b23",
+    "AnimeStudio.Endfield/Types.cs": "7b5bf8f629722023051562cde9bd4543dddd4b46aeafae4b03e65230e1e1fa9b",
+    "AnimeStudio.Endfield/VfsLoader.cs": "8c38efa57611341d61bece16ad8af8206a94513c62c3029b756313290f29a20d",
+    "AnimeStudio.Endfield/VfsParser.cs": "225c4d837420ec64c000d564b69523a2a695248a2496f8055d6c51408bac791f",
+    "AnimeStudio.Endfield/Xxtea.cs": "e62aa560ee2f760c1d6bba8ef3609dd4d7c011b3f469ec9e9d3b40d8d674e484"
+  }
+}

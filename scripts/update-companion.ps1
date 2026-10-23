@@ -5,6 +5,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'companion-runtime.ps1')
 $Root = (Resolve-Path -LiteralPath $Root).Path
 $SourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
+$operation = Enter-CompanionOperation $Root
+try {
 $data = Join-Path $Root 'data'
 $statePath = Join-Path $data 'companion-runtime.json'
 $processFile = Join-Path $data 'processes.json'
@@ -108,7 +110,12 @@ try {
             if(-not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 404){throw}
             $null=Invoke-RestMethod -Method Post ($oldApi+'/api/capture/stop') -TimeoutSec 20
         }
-    } else { $handoff=@{running=$true} }
+    } else {
+        if ($oldProcesses.Contains('backend') -and (Test-CompanionProcess $oldProcesses.backend $Root)) {
+            throw 'The current backend did not provide capture state. Restart the companion before updating; the replacement remains in standby.'
+        }
+        $handoff=Get-CompanionStartupHandoff $newApi
+    }
     Set-CompanionNormalPriority $candidate.processRecords.backend $Root
     $null=Invoke-RestMethod -Method Post ($newApi+'/api/runtime/activate') -Headers $headers -ContentType 'application/json' -Body ($handoff|ConvertTo-Json -Depth 12) -TimeoutSec 15
     Save-CompanionJson $statePath @{version=1;active=$candidate}
@@ -156,10 +163,15 @@ try {
     $failure=$_
     try{if($originalState){Save-CompanionJson $statePath $originalState}}catch{}
     try{if($oldProcesses.Count){Save-CompanionJson $processFile $oldProcesses}}catch{}
+    if($candidate){
+        Stop-CompanionCaptureOwner $candidate.processRecords.backend $Root
+        Stop-CompanionProcess $candidate.processRecords.frontend $Root
+    }
     if($quiesced){
         try {$null=Invoke-RestMethod -Method Post ($oldApi+'/api/runtime/activate') -Headers $headers -ContentType 'application/json' -Body ($handoff|ConvertTo-Json -Depth 12) -TimeoutSec 10}
         catch {if($handoff.running){try {$null=Invoke-RestMethod -Method Post ($oldApi+'/api/capture/start') -TimeoutSec 10} catch { }}}
     }
-    if($candidate){foreach($name in @('backend','frontend')){Stop-CompanionProcess $candidate.processRecords[$name] $Root}}
     throw $failure
 }
+
+} finally { $operation.Dispose() }

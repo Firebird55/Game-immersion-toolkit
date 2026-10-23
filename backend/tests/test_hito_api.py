@@ -64,7 +64,8 @@ def test_status_exposes_hito_capture_and_text_index():
     runtime.transcript = SimpleNamespace(count=lambda session_id=None: 2 if session_id else 30)
 
     runtime.languages = SimpleNamespace(selected=lambda *_: None)
-    runtime.accounts = SimpleNamespace(status=lambda: {'active':'legacy'})
+    runtime.accounts = SimpleNamespace(generation=0, status=lambda: {'active':'legacy'})
+    runtime.state_version = api.StateVersion()
     status = runtime.status()
     assert status['capture']['active_game'] == 'hito'
     assert status['game_textmaps']['hito']['entry_count'] == 123
@@ -78,7 +79,8 @@ def test_hito_update_endpoint_refreshes_last_detected_archive(monkeypatch):
     )
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(hito=hito), raising=False)
 
-    assert api.update_hito_text() == {
-        'started': True,
-        'hito': {'ready': True, 'entry_count': 321},
-    }
+    import pytest
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as error:
+        api.update_hito_text()
+    assert error.value.status_code == 410

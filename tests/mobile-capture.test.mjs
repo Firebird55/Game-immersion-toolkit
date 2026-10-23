@@ -14,11 +14,12 @@ test('manual pairing rejects malformed, oversized and wrong-role descriptions', 
 const identity = { sessionId: 'session_1234567890', pairingId: 'pairing-1234567890', attempt: 1 };
 const description = { type: 'offer', sdp: 'v=0\r\nfixture' };
 
-test('Quantic games pair for capture and transcript reading with the existing protocol',()=>{
- for(const game of ['beyond','heavyrain'])for(const mode of [undefined,'transcript']){
+test('supported games pair for capture and transcript reading with the existing protocol',()=>{
+ for(const game of ['beyond','heavyrain','starrail','genshin','endfield'])for(const mode of [undefined,'transcript']){
   const value=parsePairing(pairingMessage(description,game,{...identity,...(mode?{mode}:{})}),'offer');
   assert.equal(value.game,game);assert.equal(value.mode,mode);
  }
+ assert.throws(()=>parsePairing(pairingMessage(description,'hito',identity),'offer'));
 });
 test('reconnect metadata round trips without changing the legacy pairing format', () => {
   const message = pairingMessage(description, 'zzz', identity);

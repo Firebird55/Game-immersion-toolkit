@@ -51,7 +51,7 @@ def test_support_report_has_no_paths_account_details_errors_or_transcript_text(s
     save_install("zzz", root)
     installs["zzz"] = root
     snapshot = service.status()
-    assert snapshot["games"][0]["configured_path"] == str(root)
+    assert next(game for game in snapshot["games"] if game['id'] == 'zzz')["configured_path"] == str(root)
     report = json.dumps(service.report())
     assert str(tmp_path) not in report
     assert "private transcript marker" not in report
@@ -61,31 +61,31 @@ def test_support_report_has_no_paths_account_details_errors_or_transcript_text(s
 
 def test_setup_mutations_need_local_host_origin_and_explicit_action_header(setup, tmp_path):
     _, _, refreshes, _ = setup
-    root = make_game(tmp_path, "hito")
+    root = make_game(tmp_path, "pragmata")
     client = TestClient(api.app, base_url="http://127.0.0.1:8766")
-    path = "/api/setup/games/hito"
+    path = "/api/setup/games/pragmata"
     assert client.post(path, json={"path": str(root)}).status_code == 403
     headers = {"X-Proxy-Transcript": "setup", "Origin": "https://example.test"}
     assert client.post(path, headers=headers, json={"path": str(root)}).status_code == 403
     headers = {"X-Proxy-Transcript": "setup", "Origin": "http://localhost:3000"}
     assert client.post(path, headers={**headers, "Host": "example.test"}, json={"path": str(root)}).status_code == 403
     assert client.post(path, headers=headers, json={"path": str(root)}).status_code == 200
-    assert load_paths()["hito"] == str(root)
-    assert refreshes == ["hito"]
+    assert load_paths()["pragmata"] == str(root)
+    assert refreshes == ["pragmata"]
 
 
 def test_bad_path_or_conflicting_folder_action_preserves_existing_settings(setup, tmp_path):
     _, _, _, _ = setup
-    root = make_game(tmp_path, "hito")
-    save_install("hito", root)
+    root = make_game(tmp_path, "pragmata")
+    save_install("pragmata", root)
     client = TestClient(api.app, base_url="http://127.0.0.1:8766")
     headers = {"X-Proxy-Transcript": "setup"}
     for payload in ({"path": str(tmp_path)}, {"path": str(root), "use_automatic": True}, {},
                     {"path": str(root), "unexpected": True}, {"use_automatic": "yes"}):
-        assert client.post("/api/setup/games/hito", headers=headers, json=payload).status_code in {400, 422}
-        assert load_paths()["hito"] == str(root)
-    assert client.post("/api/setup/games/hito", headers=headers, json={"use_automatic": True}).status_code == 200
-    assert "hito" not in load_paths()
+        assert client.post("/api/setup/games/pragmata", headers=headers, json=payload).status_code in {400, 422}
+        assert load_paths()["pragmata"] == str(root)
+    assert client.post("/api/setup/games/pragmata", headers=headers, json={"use_automatic": True}).status_code == 200
+    assert "pragmata" not in load_paths()
 
 
 def test_tools_run_in_background_and_duplicate_preparation_is_rejected(setup, monkeypatch):
@@ -136,10 +136,10 @@ def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, 
 
 def test_manual_refresh_dispatches_only_the_selected_game(setup, tmp_path, monkeypatch):
     _, _, refreshes, installs = setup
-    installs["hito"] = make_game(tmp_path, "hito")
+    installs["pragmata"] = make_game(tmp_path, "pragmata")
     monkeypatch.setattr("backend.game_tools.missing_tools", lambda *_: [])
     client = TestClient(api.app, base_url="http://127.0.0.1:8766")
-    response = client.post("/api/setup/games/hito/refresh", headers={"X-Proxy-Transcript": "setup"}, json={})
+    response = client.post("/api/setup/games/pragmata/refresh", headers={"X-Proxy-Transcript": "setup"}, json={})
     assert response.status_code == 200
-    assert refreshes == ["hito"]
+    assert refreshes == ["pragmata"]
     assert client.post("/api/setup/games/unknown/refresh", headers={"X-Proxy-Transcript": "setup"}, json={}).status_code == 404

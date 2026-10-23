@@ -10,26 +10,28 @@ from backend.models import AppSettings, CaptureRegion
 from backend.windows import WindowInfo, find_active_game_window
 
 
-def test_archived_game_has_no_active_entry_points(tmp_path, monkeypatch):
-    assert 'honkai3' in ARCHIVED_GAMES
+@pytest.mark.parametrize('game', ['honkai3', 'hito'])
+def test_archived_game_has_no_active_entry_points(tmp_path, monkeypatch, game):
+    assert game in ARCHIVED_GAMES
     for registry in (GAMES, LOCAL_GAMES, GAME_PROFILES, GAME_TITLES):
-        assert 'honkai3' not in registry
-    assert all(p.id != 'honkai3' for p in ordered_profiles('honkai3'))
+        assert game not in registry
+    assert all(p.id != game for p in ordered_profiles(game))
     with pytest.raises(ValueError, match='Unsupported game'):
-        discover_install('honkai3')
+        discover_install(game)
     with pytest.raises(ValueError, match='Unsupported game'):
-        validate_install('honkai3', tmp_path)
+        validate_install(game, tmp_path)
     monkeypatch.setattr('backend.windows.list_visible_windows', lambda: [
         WindowInfo(1, 'Honkai Impact 3rd', 'BH3.exe', (0, 0, 1920, 1080))])
     assert find_active_game_window(AppSettings()) is None
     service = LexiriseService(tmp_path / 'account', api_key='fixture')
     with pytest.raises(LexiriseError, match='supported game'):
-        service.configure_game_deck('honkai3')
+        service.configure_game_deck(game)
 
 
-def test_retired_preference_preserves_unrelated_calibration():
+@pytest.mark.parametrize('game', ['honkai3', 'hito'])
+def test_retired_preference_preserves_unrelated_calibration(game):
     region = CaptureRegion(left=.2, top=.5, width=.6, height=.3)
-    settings = AppSettings.model_validate({'preferred_game': 'honkai3', 'region': region,
+    settings = AppSettings.model_validate({'preferred_game': game, 'region': region,
                                            'stable_frames': 4, 'auto_start': False})
     assert settings.preferred_game == 'auto'
     assert settings.region == region and settings.stable_frames == 4

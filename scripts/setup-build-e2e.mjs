@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {spawn, execFileSync} from 'node:child_process';
-import {cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync} from 'node:fs';
+import {cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
+import {rm} from 'node:fs/promises';
 import {dirname, delimiter, join, resolve} from 'node:path';
 import net from 'node:net';
 import {chromium, firefox} from 'playwright';
@@ -76,13 +77,14 @@ try{
   page.on('console',message=>{if(message.type()==='error'&&!message.text().includes('net::ERR'))errors.push(message.text());});
   await context.route('http://127.0.0.1:8766/**',route=>{
    const path=new URL(route.request().url()).pathname;
-   if(route.request().method()!=='GET'||!['/api/status','/api/lexirise','/api/lines','/api/favorites','/api/setup'].includes(path)){
+   if(route.request().method()!=='GET'||!['/api/snapshot','/api/status','/api/lexirise','/api/lines','/api/favorites','/api/setup'].includes(path)){
     unexpected.push(route.request().method()+' '+path);
     return route.fulfill({status:500,json:{detail:'Unexpected packaged browser API request'}});
    }
    if(path==='/api/setup')return route.fulfill({json:{completed:true,version:'fixture',games:[],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:false,mobile_export:{state:'idle'},free_gb:10}});
    const region={left:.1,top:.6,width:.8,height:.25};
-   const value=path==='/api/status'?{capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Fixture'},audio:{ready:false},settings:{auto_start:false,preferred_game:'auto',region,tip_region:region,cinematic_region:region},session:{id:'fixture',line_count:0,total_line_count:0}}:path==='/api/lexirise'?{configured:false,sent:{}}:[];
+   const status={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Fixture'},audio:{ready:false},settings:{auto_start:false,preferred_game:'auto',region,tip_region:region,cinematic_region:region},session:{id:'fixture',line_count:0,total_line_count:0}};
+   const value=path==='/api/snapshot'?{context:{runtime_id:'build-fixture',state_version:0,account_generation:0},status,lines:[],lexirise:{configured:false,sent:{}}}:path==='/api/status'?status:path==='/api/lexirise'?{configured:false,sent:{}}:[];
    return route.fulfill({json:value,headers:{'Access-Control-Allow-Origin':'*'}});
   });
   await context.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
@@ -106,8 +108,18 @@ try{
  console.log(temporary?'Clean canonical source build includes all generated mobile assets.':'Extracted distribution serves its own generated mobile assets.');
 }finally{
  await browser?.close();
- if(server&&server.exitCode===null){server.kill();await Promise.race([new Promise(r=>server.once('exit',r)),delay(5000)]);}
- if(temporary)rmSync(temporary,{recursive:true,force:true,maxRetries:6,retryDelay:250});
+ if(server&&server.exitCode===null){
+  if(process.platform==='win32'){try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}}
+  else server.kill();
+  await Promise.race([new Promise(r=>server.once('close',r)),delay(5000)]);
+ }
+ if(temporary){
+  assert.equal(realpathSync(dirname(temporary)),realpathSync(tmpdir()),'Cleanup must stay inside the owned temporary directory');
+  // Unlink dependencies so recursive cleanup stays within the owned fixture.
+  const dependencyLink=join(temporary,'node_modules');
+  if(existsSync(dependencyLink)){assert(lstatSync(dependencyLink).isSymbolicLink());unlinkSync(dependencyLink);}
+  await rm(temporary,{recursive:true,force:true,maxRetries:6,retryDelay:250});
+ }
  mkdirSync(join(repository,'output/checks'),{recursive:true});
  writeFileSync(join(repository,'output/checks',baseline?'windows-source-build-baseline.json':temporary?'windows-source-build.json':'windows-packaged-assets.json'),JSON.stringify({check:baseline?'legacy-setup-build':temporary?'clean-source-build':'packaged-assets',platform:process.platform,elapsedMs:Date.now()-started,passed,nativeOcr:'OPEN: native Windows capture requires hardware verification'},null,2));
 }

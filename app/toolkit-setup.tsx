@@ -11,7 +11,7 @@ import {InterfaceLanguage,useInterfaceLanguage} from '@/lib/interface-language';
 import {LanguageSetup} from './language-setup';
 
 const API = 'http://127.0.0.1:8766';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
 type GameSetup = {
   id: GameId; title: string; configured_path: string | null; detected_path: string | null;
   folder_state: string; folder_hint: string; voice_state: string; voice_hint: string;

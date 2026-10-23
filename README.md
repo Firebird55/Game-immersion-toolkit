@@ -29,7 +29,9 @@ Follow official game dialogue, replay original voices, and learn with reading to
 | [The Witcher 3: Wild Hunt](docs/languages/en.md#witcher3) | English · French · German · Japanese · Korean · Polish · Brazilian Portuguese · Russian · Simplified Chinese | 18 |
 | [BEYOND: Two Souls](docs/languages/en.md#beyond) | English · French · Italian · German · European Spanish · Dutch · Japanese · Polish · European Portuguese · Brazilian Portuguese · Russian · Latin American Spanish | 23 |
 | [HEAVY RAIN](docs/languages/en.md#heavyrain) | English · French · Italian · German · European Spanish · Dutch · Japanese · Polish · European Portuguese · Russian | 17 |
-| [Hito's World](docs/languages/en.md#hito) | Simplified Chinese | 1 |
+| [Honkai: Star Rail](docs/languages/en.md#starrail) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 13 |
+| [Genshin Impact](docs/languages/en.md#genshin) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 15 |
+| [Arknights: Endfield](docs/languages/en.md#endfield) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 14 |
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

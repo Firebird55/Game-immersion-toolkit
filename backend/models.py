@@ -22,7 +22,7 @@ class CaptureRegion(BaseModel):
         return self
 
 
-GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "honkai3"]
+GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "honkai3", "starrail", "genshin", "endfield"]
 
 
 def is_comic_text_id(text_id: str) -> bool:
@@ -31,12 +31,12 @@ def is_comic_text_id(text_id: str) -> bool:
 
 class AppSettings(BaseModel):
     zzz_proxy_voice: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
-    preferred_game: Literal["auto", "zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain"] = "auto"
+    preferred_game: Literal["auto", "zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield"] = "auto"
 
     @field_validator("preferred_game", mode="before")
     @classmethod
     def retire_archived_game(cls, value):
-        return "auto" if value == "honkai3" else value
+        return "auto" if value in {"honkai3", "hito"} else value
     process_names: list[str] = Field(default_factory=lambda: ["ZenlessZoneZero.exe"])
     window_title_contains: list[str] = Field(
         default_factory=lambda: ["Zenless Zone Zero", "ZenlessZoneZero"]
@@ -70,6 +70,12 @@ class AppSettings(BaseModel):
     witcher3_capture_chatter: bool = True
     beyond_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.05, top=.70, width=.90, height=.28))
     heavyrain_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.05, top=.70, width=.90, height=.28))
+    starrail_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
+    starrail_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
+    genshin_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
+    genshin_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
+    endfield_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
+    endfield_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
     nte_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
     nte_picture_area: Literal["window", "16:9"] = "window"
     nte_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"

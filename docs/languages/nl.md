@@ -242,18 +242,86 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 </details>
 
-<a id="hito"></a>
+<a id="starrail"></a>
 
-## Hito's World
+## Honkai: Star Rail
 
-[Officiële taallijst](https://store.steampowered.com/app/4934190/Hitos_World/) · [Dekkingsnotities](../desktop-companion.md#hitos-world)
+[Officiële taallijst](https://store.epicgames.com/p/honkai-star-rail) · [Dekkingsnotities](../starrail-languages.md)
 
 <details>
 <summary>Taaldetails</summary>
 
 | Taal | Originele stem | Leren | Vertaling | Onderbouwing |
 | :--- | :---: | :---: | :---: | :--- |
-| Engels | ✓ | — | ✓ | Reader geïmplementeerd |
-| Chinees (vereenvoudigd) | — | Alleen tekst | — | Reader geïmplementeerd |
+| Engels | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | Gedeelde Mandarijnse stem | ✓ | ✓ | Reader geïmplementeerd |
+| Japans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Koreaans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Frans | — | — | ✓ | Reader geïmplementeerd |
+| Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | — | — | ✓ | Reader geïmplementeerd |
+| Thai | — | — | ✓ | Reader geïmplementeerd |
+| Vietnamees | — | — | ✓ | Reader geïmplementeerd |
+| Indonesisch | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="genshin"></a>
+
+## Genshin Impact
+
+[Officiële taallijst](https://store.epicgames.com/p/genshin-impact) · [Dekkingsnotities](../genshin-languages.md)
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | Gedeelde Mandarijnse stem | ✓ | ✓ | Reader geïmplementeerd |
+| Japans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Koreaans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Frans | — | — | ✓ | Reader geïmplementeerd |
+| Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | — | — | ✓ | Reader geïmplementeerd |
+| Thai | — | — | ✓ | Reader geïmplementeerd |
+| Vietnamees | — | — | ✓ | Reader geïmplementeerd |
+| Indonesisch | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Turks | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="endfield"></a>
+
+## Arknights: Endfield
+
+[Officiële taallijst](https://store.epicgames.com/p/arknightsendfield-f0f167) · [Dekkingsnotities](../endfield-languages.md)
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | Gedeelde Mandarijnse stem | ✓ | ✓ | Reader geïmplementeerd |
+| Japans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Koreaans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Frans | — | — | ✓ | Reader geïmplementeerd |
+| Duits | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | — | — | ✓ | Reader geïmplementeerd |
+| Thai | — | — | ✓ | Reader geïmplementeerd |
+| Vietnamees | — | — | ✓ | Reader geïmplementeerd |
+| Indonesisch | — | — | ✓ | Reader geïmplementeerd |
 
 </details>

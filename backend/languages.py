@@ -7,7 +7,7 @@ from .lexirise_settings import STUDY_LANGUAGES
 
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
-    'zzz': ASIAN, 'wuwa': ASIAN, 'nte': ASIAN,
+    'starrail': ASIAN, 'genshin': ASIAN, 'endfield': ASIAN, 'zzz': ASIAN, 'wuwa': ASIAN, 'nte': ASIAN,
     'pragmata': ('en', 'fr', 'it', 'de', 'es-ES', 'es-419', 'pt-BR', 'ru', 'zh-Hans', 'ja', 'ko'),
     'cyberpunk': ('en', 'fr', 'it', 'de', 'es-ES', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans'),
     'witcher3': ('en', 'fr', 'de', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans'),

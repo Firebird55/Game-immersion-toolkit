@@ -114,6 +114,13 @@ class MultilingualTextIndex:
             for source in candidates(lines):
                 for locale, lookup in self._lookup.items():
                     key, score = normalize_text(source, locale), 100.
+                    if self.game in {'starrail', 'genshin', 'endfield'}:
+                        # Short interjections recur across unrelated scenes,
+                        # including movies without per-caption voice bindings.
+                        # Their spelling alone cannot identify a performance.
+                        minimum = 5 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 12
+                        if len(key) < minimum:
+                            continue
                     rows = lookup.get(key, [])
                     # HEAVY RAIN paginates some authored paragraphs at runtime.
                     # A sufficiently long, exact contiguous page can identify

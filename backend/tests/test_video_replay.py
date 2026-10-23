@@ -78,3 +78,37 @@ def test_authored_context_preserves_independently_annotated_cue_identities():
         replay.authored_coverage([{'text_id': context, 'member_text_ids': [members[0], 'beyond:OTHER:2']}])
     with pytest.raises(ValueError, match='context members'):
         replay.authored_coverage([{'text_id': context, 'member_text_ids': [{}, members[1]]}])
+
+
+def test_catalog_only_ocr_replay_is_explicit_temporary_and_never_claims_native_audio(tmp_path, monkeypatch):
+    import json
+    source = tmp_path / 'genshin/textmap.json'
+    source.parent.mkdir()
+    source.write_text(json.dumps({'records': [{'text_id': 'genshin:1', 'audio': None}]}))
+    original = source.read_bytes()
+    directories = []
+    def fake_replay(clip, resolution, directory, fps):
+        directories.append(directory)
+        assert directory != tmp_path
+        row, = json.loads((directory / 'genshin/textmap.json').read_text())['records']
+        assert row['audio'] == {'catalog_binding_only': 'genshin:1'}
+        return {'passed': True}
+    run = replay.replay
+    monkeypatch.setattr(replay, 'replay', fake_replay)
+    result = run({'game': 'genshin'}, (1280, 720), tmp_path, catalog_bindings_only=True)
+    assert result['passed'] and 'mocked' in result['voice_evidence']
+    assert source.read_bytes() == original
+    assert not directories[0].exists()
+
+
+def test_new_rpg_footage_cases_have_meaningful_positive_and_negative_annotations():
+    import json
+    path = Path(__file__).with_name('fixtures') / 'new-rpg-video-ocr.json'
+    cases = json.loads(path.read_text())['clips']
+    for game in ('starrail', 'genshin', 'endfield'):
+        clips = [clip for clip in cases if clip['game'] == game]
+        assert any(clip.get('expected') for clip in clips)
+        assert any(clip.get('expect_no_lines') for clip in clips)
+        for clip in clips:
+            replay.validate_clip(clip)
+            assert clip['expected_exact'] and 'youtube.com/watch' in clip['source_url']

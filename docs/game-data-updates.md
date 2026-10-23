@@ -115,3 +115,15 @@ game text, audio, or credentials. Keep executable dependencies checksum pinned;
 data refresh must not install code from a moving branch.
 
 App updates prepare a separate replacement while the current companion keeps translating. Use the new release's `scripts/update-companion.ps1 -SourceRoot <new-release> -Root <current-companion>` for a running installation. OCR and the selected game index warm before capture transfers; open readers reconnect automatically. Game-data rebuilds run at lower priority in separate processes, and matching keeps the previous complete index until the replacement is ready. Failed preparations keep the working version and local data.
+
+
+## Honkai: Star Rail, Genshin Impact and Arknights: Endfield
+
+Language preparation resolves one immutable revision of the fixed game-data
+source. Subtitle tables, dialogue identifiers and voice source paths stay on that
+revision for the complete candidate build. Genshin includes Medium and split
+subtitle tables; Star Rail includes Main and split tables. Endfield uses its
+explicit dialogue and audio tables with the selected installed VFS voice group.
+Prepared locales refresh through the normal language worker. Compatible data
+changes need no toolkit release; new archive or schema formats require a reader
+update. Hito’s World is disabled and no longer refreshes automatically.

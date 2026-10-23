@@ -19,7 +19,11 @@ const cyberpunkStudyLine={...cyberpunkLine,english:'',source_text:'Restez près 
 const witcherStudyLine={...witcherLine,english:'',source_text:'Bleib in meiner Nähe.',source_language:'de',source_locale:'de',audio_locale:'de',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
 const zzzStudyLine={...nteLine,id:11,game:'zzz',text_id:'GalGame_Japanese_fixture'};
 settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
+const newRpgs=[['starrail','Honkai: Star Rail','Trailblazer voice'],['genshin','Genshin Impact','Traveler voice'],['endfield','Arknights: Endfield','Endministrator voice']];
+const newRpgLines=Object.fromEntries(newRpgs.map(([game],i)=>[game,{...nteLine,game,id:20+i,text_id:game+'-fixture'}]));
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
+const hitoHistory={...line,id:30,game:'hito',session_id:'archived',english:'Archived Hito history fixture',text_id:'archived-history'};
+const hitoFavorite={...hitoHistory,id:31,english:'Archived Hito favorite fixture',text_id:'archived-favorite',favorite:true};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
 mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
@@ -27,7 +31,13 @@ const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏ�
 account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 account.languages.push('fr');account.languageSettings.fr={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
 account.languages.push('de');account.languageSettings.de={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
+let stateRevision=0;
+const stateContext=()=>({runtime_id:'browser-fixture',state_version:stateRevision,account_generation:0});
 function response(path,query,method,body){
+ if(path==='/api/lines'&&newRpgLines[query.get('game')])return [newRpgLines[query.get('game')]];
+ if(/^\/api\/lines\/2[012]\/reading$/.test(path))return {text:nteLine.source_text,tokens:[],grammar:[]};
+ if(path==='/api/snapshot')return {context:stateContext(),status:response('/api/status',query,'GET',{}),lines:['zzz','pragmata','cyberpunk','wuwa','witcher3','nte','beyond','heavyrain','starrail','genshin','endfield','hito'].flatMap(game=>response('/api/lines',new URLSearchParams({game}),'GET',{})),lexirise:response('/api/lexirise',query,'GET',{})};
+ if(path==='/api/lines'&&query.get('game')==='hito')return [hitoHistory,hitoFavorite];
  if(path==='/api/lines'&&query.get('game')==='zzz'&&includeZzzStudy)return [zzzStudyLine];
  if(path==='/api/lines/11/reading')return {text:zzzStudyLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='witcher3')return [witcherStudyLine];
@@ -41,7 +51,7 @@ function response(path,query,method,body){
  if(path==='/api/lines/4/reading')return {text:nteLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='heavyrain')return [heavyRainLine];
  if(path==='/api/lines/8/reading')return {text:heavyRainLine.source_text,tokens:[{start:0,end:3,word:'Een',meaning:'一个',proficiency:0}],grammar:[]};
- if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
+ if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{starrail:mapStatus,genshin:mapStatus,endfield:mapStatus,beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
  if(path==='/api/settings'&&method==='PATCH'){Object.assign(settings,body);return settings;}
  if(path==='/api/lexirise')return {configured:true,decks:{},sent:{}};
  if(path==='/api/lines')return query.get('game')==='zzz'?(includeComic?[comicLine,line]:[line]):query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:query.get('game')==='nte'?[nteLine]:query.get('game')==='honkai3'?[honkaiLine]:query.get('game')==='beyond'?[beyondLine]:[];
@@ -63,6 +73,7 @@ try{
  for(const[pw,ph,zoom]of sizes){
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
  includeComic=false;includeZzzStudy=false;settings.zzz_proxy_voice='unconfigured';
+ for(const[game]of newRpgs){settings[game+'_region']={left:.10,top:.70,width:.80,height:.28};settings[game+'_player_voice']='unconfigured';}
  fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
  let fixtureSocket;
  await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',socket=>{fixtureSocket=socket;});
@@ -196,7 +207,7 @@ try{
   assert.deepEqual(last.cyberpunk_region,saved.body.cyberpunk_region,'Game calibration is independent');assert.equal(last.cyberpunk_v_voice,'male');
   assert.deepEqual(last.region,region,'New games preserve ZZZ calibration');assert.equal(writes.length,0,'New games never change account settings');
  }
- for(const[game,label,left]of [['nte','Neverness to Everness','10']]){
+ for(const[game,label,left]of [['nte','Neverness to Everness','10'],...newRpgs.map(([game,label])=>[game,label,'10'])]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
   assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' original voice is playable');
   assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'ja',label+' uses its selected Japanese study language');
@@ -206,17 +217,19 @@ try{
   assert.equal(await capture.getByRole('button',{name:'NPC chatter',exact:true}).count(),0);
   assert.equal(await capture.getByRole('button',{name:'Top-right tips',exact:true}).count(),0);
   assert.equal(await capture.locator('input[type=range]').first().inputValue(),left,'Independent default crop');
-  await capture.getByRole('button',{name:'Use tested dialogue crop',exact:true}).click();
+  if(game==='nte')await capture.getByRole('button',{name:'Use tested dialogue crop',exact:true}).click();
   assert.equal(await capture.locator('input[type=range]').first().inputValue(),left);
-  await capture.getByLabel('Game picture area',{exact:true}).selectOption('16:9');
-  if(game==='nte')await capture.getByLabel('Zero voice',{exact:true}).selectOption('female');
+  if(game==='nte')await capture.getByLabel('Game picture area',{exact:true}).selectOption('16:9');
+  const voiceLabel=game==='nte'?'Zero voice':newRpgs.find(([id])=>id===game)[2];
+  await capture.getByLabel(voiceLabel,{exact:true}).selectOption('female');
   await capture.locator('input[type=range]').first().fill('11');
   await capture.getByRole('button',{name:'Update TextMaps',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.setup-actions button')?.textContent.includes('Update TextMaps'));
   assert(localWrites.some(w=>w.path===`/api/games/${game}/update`),'Correct game updater');
   await capture.getByRole('button',{name:'Save capture settings',exact:true}).click();await capture.waitFor({state:'hidden'});
   const savedGame=localWrites.filter(w=>w.path==='/api/settings').at(-1).body;
-  assert.equal(savedGame[`${game}_picture_area`],'16:9','Picture area persists independently');
+  if(game==='nte')assert.equal(savedGame.nte_picture_area,'16:9','Picture area persists independently');
+  assert.equal(savedGame[game+'_player_voice'],'female','Explicit player voice survives game refresh');
   assert.equal(savedGame.nte_player_voice,'female','Explicit Zero voice survives other game calibration');
   assert.equal(savedGame[`${game}_region`].left,.11,'New crop persists');assert.deepEqual(savedGame.region,region,'ZZZ crop stays independent');
   assert.equal(writes.length,0,'New games cause no account writes');
@@ -227,7 +240,24 @@ try{
  await page.locator('.current-line').getByText(pragmataLine.source_text,{exact:true}).waitFor();
  assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Localized PRAGMATA original voice is playable');
  assert.equal(writes.length,0,'Reading a PRAGMATA locale never changes account settings');
+ assert.equal(await games.getByRole('button',{name:"Hito's World",exact:true}).count(),0,'Archived Hito is absent');
  assert.equal(await games.getByRole('button',{name:'Honkai Impact 3rd',exact:true}).count(),0,'Archived game is absent');
+ if(zoom===1&&[1920,320].includes(pw)){
+  const beforeArchive=localWrites.length;
+  await page.getByLabel('Archived game history',{exact:true}).selectOption('hito');
+  await page.locator('.line-list').getByText(hitoHistory.english,{exact:true}).waitFor();
+  await page.locator('.line-list').getByText(hitoFavorite.english,{exact:true}).waitFor();
+  assert.equal(await page.locator('.current-line.game-hito').count(),0,'Archive has no live capture panel');
+  assert(await page.getByRole('button',{name:'Capture setup',exact:true}).isDisabled());
+  assert(await page.locator('.capture-toggle').isDisabled());
+  assert.equal(await page.getByRole('link',{name:'Share transcript to another device',exact:true}).count(),0);
+  await page.getByRole('tab',{name:/Favorites/}).click();
+  assert.equal(await page.locator('.line-list .transcript-line').count(),1,'Archived favorites remain accessible');
+  await page.locator('.line-list').getByText(hitoFavorite.english,{exact:true}).waitFor();
+  assert.equal(localWrites.length,beforeArchive,'Viewing retired history does not write or refresh game assets');
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Archived history fits');
+  await page.getByLabel('Archived game history',{exact:true}).selectOption('');
+ }
  await games.getByRole('button',{name:'Zenless Zone Zero',exact:true}).click();await page.locator('.current-line.game-zzz').waitFor();
  if(zoom===1&&pw===1920){for(const[w,h]of [[320,568],[1280,720],[568,320],[900,720]]){
   await page.setViewportSize({width:w,height:h});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Resize does not overflow');
@@ -235,13 +265,13 @@ try{
  }}
  includeComic=true;
  fixtureCapture={...fixtureCapture,running:true,phase:'matched',visible_text_ids:[comicLine.text_id]};
- fixtureSocket.send(JSON.stringify({type:'line',line:comicLine}));
- fixtureSocket.send(JSON.stringify({type:'capture_status',capture:fixtureCapture}));
+ stateRevision++;fixtureSocket.send(JSON.stringify({context:stateContext(),type:'line',line:comicLine}));
+ stateRevision++;fixtureSocket.send(JSON.stringify({context:stateContext(),type:'capture_status',capture:fixtureCapture}));
  await page.locator('.current-line').getByText(comicLine.english,{exact:true}).waitFor();
  assert.match(await page.locator('.current-line .match-label').textContent(),/Game-file text/,'Text-only comic has no misleading voice check');
  assert(await page.getByRole('button',{name:'Original voice unavailable',exact:true}).isDisabled(),'Unmapped comic never offers unrelated audio');
  fixtureCapture={...fixtureCapture,phase:'waiting',visible_text_ids:[]};
- fixtureSocket.send(JSON.stringify({type:'capture_status',capture:fixtureCapture}));
+ stateRevision++;fixtureSocket.send(JSON.stringify({context:stateContext(),type:'capture_status',capture:fixtureCapture}));
  await page.locator('.current-empty').waitFor();
  await page.getByText(comicLine.english,{exact:true}).waitFor();
  await page.reload();

@@ -112,7 +112,8 @@ def test_unprepared_named_account_cannot_borrow_a_legacy_language_or_start_prepa
     with pytest.raises(ValueError, match='prepare'): exports.require_scope('beyond', state['scope'])
     with pytest.raises(ValueError, match='prepare'): exports.preview('beyond')
     assert not (exports.root / 'data/languages/beyond').exists()
-    assert exports.status('hito')['sourceLocale'] == 'zh-Hans'  # Independent legacy text-only mode.
+    with pytest.raises(ValueError, match='Unsupported export game'):
+        exports.status('hito')
     from backend import accounts as module
     from backend.mobile_library import prepare_source
     monkeypatch.setattr(module, 'AccountStore', lambda: accounts)
