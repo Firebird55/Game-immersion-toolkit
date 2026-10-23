@@ -107,7 +107,8 @@ jobs:
           retention-days: 3
   preview:
     if: inputs.check != 'offline'
-    runs-on: ubuntu-latest
+    # Keep the WebKit build and its system libraries on the same Ubuntu image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +126,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
+          key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('node_modules/playwright/package.json') }}
       - name: Install browsers
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Package public preview files
