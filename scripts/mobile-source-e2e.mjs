@@ -113,7 +113,14 @@ try{
    await release(page);await page.waitForTimeout(800);
    assert.equal(await page.locator('#transcript .transcript-line').count(),0,'old reply cannot publish');
    assert(!(await page.evaluate(()=>window.testHistory)).some(rows=>rows.length),'no transient stale reader event');
-   if(gate==='ocr')await connect(page);else{await hide(page,false);await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'));}
+   if(gate==='ocr'){
+    const stoppedRecognitions=await page.evaluate(()=>window.testRecognitions);
+    await connect(page);await page.waitForTimeout(1500);
+    assert.equal(await page.evaluate(()=>window.testRecognitions),stoppedRecognitions,'Reconnecting after explicit Stop must not restart OCR');
+    assert.equal(await page.locator('#transcript .transcript-line').count(),0);
+    assert.equal(await page.evaluate(()=>document.body.classList.contains('ocr-running')),false,'OCR intent stays stopped until Start');
+    console.log(`${name}: explicit native Stop cancels OCR intent across reconnect.`);
+   }else{await hide(page,false);await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'));}
    await page.click('#ocr-start');await waitText(page,row.chinese);
   }
   // Sender lock/stop is modeled by missing frames; a manual native restart on

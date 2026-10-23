@@ -116,7 +116,11 @@ $('ocr-pack-remove').onclick=async()=>{scanning=false;invalidate();updatePreview
 window.addEventListener('toolkit-interface-language',()=>void refreshPackStatus());
 $('ocr-language').onchange=()=>{void refreshPackStatus();invalidate();scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
 $('ocr-start').onclick=async()=>{const token=invalidate();try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;updatePreview();text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){if(token===epoch)text('match-status',e.message);}};
-$('ocr-pause').onclick=()=>{scanning=false;updatePreview();invalidate();text('match-status','OCR paused.');};
+function pauseOcr(){scanning=false;updatePreview();invalidate();text('match-status','OCR paused.');}
+$('ocr-pause').onclick=pauseOcr;
+// An explicit receiver Stop also cancels the user's OCR intent (including a
+// pending Start). Automatic source reconnect/pause events retain that intent.
+$('vdo-stop').addEventListener('click',pauseOcr);
 // A scan owns the only frame until recognition/matching finishes. During a slow
 // scan no new pixels can be observed, so a same-session stall is not evidence
 // that its captured frame is invalid. Session changes and terminal states are.
