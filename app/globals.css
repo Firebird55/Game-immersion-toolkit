@@ -551,6 +551,8 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
   outline: 0;
 }
 .playback-speed select option { background: #171c22; color: var(--foreground); }
+.archived-history { display: grid; gap: 4px; min-width: 0; max-width: 100%; white-space: normal; }
+.archived-history select { min-width: 0; max-width: 100%; }
 .capture-footer [data-slot="button"] { height: 38px; border-radius: 2px; padding-inline: 14px; }
 .transcript-empty { min-height: 240px; display: grid; place-content: center; justify-items: center; gap: 12px; color: var(--muted-foreground); text-align: center; }
 .transcript-empty p { max-width: 360px; margin-bottom: 0; line-height: 1.5; }

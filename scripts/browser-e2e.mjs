@@ -22,6 +22,8 @@ settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
 const newRpgs=[['starrail','Honkai: Star Rail','Trailblazer voice'],['genshin','Genshin Impact','Traveler voice'],['endfield','Arknights: Endfield','Endministrator voice']];
 const newRpgLines=Object.fromEntries(newRpgs.map(([game],i)=>[game,{...nteLine,game,id:20+i,text_id:game+'-fixture'}]));
 const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue fixture',text_id:'honkai-fixture'};
+const hitoHistory={...line,id:30,game:'hito',session_id:'archived',english:'Archived Hito history fixture',text_id:'archived-history'};
+const hitoFavorite={...hitoHistory,id:31,english:'Archived Hito favorite fixture',text_id:'archived-favorite',favorite:true};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
 mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
@@ -34,7 +36,8 @@ const stateContext=()=>({runtime_id:'browser-fixture',state_version:stateRevisio
 function response(path,query,method,body){
  if(path==='/api/lines'&&newRpgLines[query.get('game')])return [newRpgLines[query.get('game')]];
  if(/^\/api\/lines\/2[012]\/reading$/.test(path))return {text:nteLine.source_text,tokens:[],grammar:[]};
- if(path==='/api/snapshot')return {context:stateContext(),status:response('/api/status',query,'GET',{}),lines:['zzz','pragmata','cyberpunk','wuwa','witcher3','nte','beyond','heavyrain','starrail','genshin','endfield'].flatMap(game=>response('/api/lines',new URLSearchParams({game}),'GET',{})),lexirise:response('/api/lexirise',query,'GET',{})};
+ if(path==='/api/snapshot')return {context:stateContext(),status:response('/api/status',query,'GET',{}),lines:['zzz','pragmata','cyberpunk','wuwa','witcher3','nte','beyond','heavyrain','starrail','genshin','endfield','hito'].flatMap(game=>response('/api/lines',new URLSearchParams({game}),'GET',{})),lexirise:response('/api/lexirise',query,'GET',{})};
+ if(path==='/api/lines'&&query.get('game')==='hito')return [hitoHistory,hitoFavorite];
  if(path==='/api/lines'&&query.get('game')==='zzz'&&includeZzzStudy)return [zzzStudyLine];
  if(path==='/api/lines/11/reading')return {text:zzzStudyLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='witcher3')return [witcherStudyLine];
@@ -239,6 +242,22 @@ try{
  assert.equal(writes.length,0,'Reading a PRAGMATA locale never changes account settings');
  assert.equal(await games.getByRole('button',{name:"Hito's World",exact:true}).count(),0,'Archived Hito is absent');
  assert.equal(await games.getByRole('button',{name:'Honkai Impact 3rd',exact:true}).count(),0,'Archived game is absent');
+ if(zoom===1&&[1920,320].includes(pw)){
+  const beforeArchive=localWrites.length;
+  await page.getByLabel('Archived game history',{exact:true}).selectOption('hito');
+  await page.locator('.line-list').getByText(hitoHistory.english,{exact:true}).waitFor();
+  await page.locator('.line-list').getByText(hitoFavorite.english,{exact:true}).waitFor();
+  assert.equal(await page.locator('.current-line.game-hito').count(),0,'Archive has no live capture panel');
+  assert(await page.getByRole('button',{name:'Capture setup',exact:true}).isDisabled());
+  assert(await page.locator('.capture-toggle').isDisabled());
+  assert.equal(await page.getByRole('link',{name:'Share transcript to another device',exact:true}).count(),0);
+  await page.getByRole('tab',{name:/Favorites/}).click();
+  assert.equal(await page.locator('.line-list .transcript-line').count(),1,'Archived favorites remain accessible');
+  await page.locator('.line-list').getByText(hitoFavorite.english,{exact:true}).waitFor();
+  assert.equal(localWrites.length,beforeArchive,'Viewing retired history does not write or refresh game assets');
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Archived history fits');
+  await page.getByLabel('Archived game history',{exact:true}).selectOption('');
+ }
  await games.getByRole('button',{name:'Zenless Zone Zero',exact:true}).click();await page.locator('.current-line.game-zzz').waitFor();
  if(zoom===1&&pw===1920){for(const[w,h]of [[320,568],[1280,720],[568,320],[900,720]]){
   await page.setViewportSize({width:w,height:h});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Resize does not overflow');

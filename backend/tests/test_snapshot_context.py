@@ -7,7 +7,7 @@ from backend import api
 from backend.state_version import StateVersion
 
 
-def test_snapshot_stamps_before_any_payload_read_and_includes_active_games(monkeypatch):
+def test_snapshot_stamps_before_any_payload_read_and_includes_archived_history(monkeypatch):
     clock = StateVersion()
     accounts = SimpleNamespace(generation=0)
     visits = []
@@ -23,9 +23,28 @@ def test_snapshot_stamps_before_any_payload_read_and_includes_active_games(monke
     assert response.status_code == 200
     assert response.json()['context']['state_version'] == 0
     assert clock.snapshot(0)['state_version'] == 1
-    assert visits == [(kind, game) for game in api.GAMES for kind in ['lines', 'favorites']]
-    assert ('lines', 'hito') not in visits
+    assert visits == [(kind, game) for game in (*api.GAMES, 'hito') for kind in ['lines', 'favorites']]
+    assert ('lines', 'hito') in visits
+    assert 'hito' not in api.GAMES, 'History must not restore setup or capture support'
     assert all(('lines', game) in visits for game in ('starrail', 'genshin', 'endfield'))
+
+
+
+def test_snapshot_keeps_retired_hito_favorites_without_duplicate_rows(monkeypatch):
+    from backend.models import TranscriptLine
+    row = TranscriptLine(id=99, created_at='2020-01-01T00:00:00Z', session_id='archived',
+        game='hito', source_ocr='Synthetic history', english='Synthetic saved line',
+        chinese='已保存的合成文字。', text_id='archived-fixture', score=100, match_kind='exact', favorite=True)
+    clock = StateVersion()
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(context=lambda: clock.snapshot(0),
+        accounts=SimpleNamespace(generation=0), status=lambda: {}), raising=False)
+    monkeypatch.setattr(api, 'get_lines', lambda **kw: [row] if kw['game'] == 'hito' else [])
+    monkeypatch.setattr(api, 'get_favorites', lambda **kw: [row] if kw['game'] == 'hito' else [])
+    monkeypatch.setattr(api, 'integration_status', lambda **kw: {'configured': False})
+    response = TestClient(api.app, base_url='http://127.0.0.1:8766').get('/api/snapshot')
+    assert response.status_code == 200
+    assert response.json()['lines'] == [row.model_dump(mode='json')]
+    assert 'hito' not in api.GAMES
 
 
 def test_snapshot_rejects_account_switch_during_reads(monkeypatch):

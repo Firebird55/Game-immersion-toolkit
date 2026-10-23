@@ -811,7 +811,8 @@ def companion_snapshot() -> dict:
     context = read_context()  # Before status, SQLite, enrichment or account reads.
     status = runtime.status()
     lines = {}
-    for game in GAMES:
+    # Retired capture adapters still have read-only transcript/favorite history.
+    for game in (*GAMES, 'hito'):
         for line in [*get_lines(limit=50, before_id=None, game=game), *get_favorites(game=game)]:
             lines[line.id] = line.model_dump(mode='json')
     # This ledger read does not request remote account preferences.
