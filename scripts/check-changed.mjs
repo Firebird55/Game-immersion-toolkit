@@ -11,6 +11,7 @@ export function selectChecks(files, full = false) {
     if (['.github/workflows/mobile-preview.yml','tests/fixtures/mobile-native-chinese.png'].includes(file)) { selected.add('mobile'); continue; }
     if (file === 'tests/fixtures/mobile-native-chinese.md') { selected.add('docs'); continue; }
     if (['scripts/language-account-e2e.mjs','scripts/browser-e2e.mjs'].includes(file)) { selected.add('desktop'); continue; }
+    if (file === 'scripts/python-tests.mjs') { selected.add('python'); continue; }
     if (['backend/api.py','backend/state_version.py','app/companion.tsx','app/language-setup.tsx','app/state-sync.ts','scripts/ui-state-e2e.mjs','scripts/ui-state-react-e2e.mjs','scripts/ui-state-browser-server.py','tests/state-sync.test.mjs'].includes(file)) { selected.add('python'); selected.add('desktop'); continue; }
     if (['scripts/update-companion.ps1','scripts/companion-runtime.ps1'].includes(file)) { selected.add('python'); selected.add('windows'); continue; }
     if (/^scripts\/(start-companion|companion-process-identity-e2e).*\.ps1$/.test(file)) { selected.add('windows'); continue; }

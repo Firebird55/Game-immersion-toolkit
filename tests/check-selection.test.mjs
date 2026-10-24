@@ -4,6 +4,7 @@ import {selectChecks,scenarioPlan,executeChecks} from '../scripts/check-changed.
 import {browserSuites,runBrowserSuite} from '../scripts/check-browser-suite.mjs';
 test('documentation avoids application builds',()=>assert.deepEqual(selectChecks(['README.md','docs/beyond-support.md','tests/fixtures/mobile-native-chinese.md']),['docs']));
 test('backend and frontend changes combine their gates',()=>assert.deepEqual(selectChecks(['backend/capture.py','app/companion.tsx']),['desktop','python']));
+test('Python runner changes execute the Python suite',()=>assert.deepEqual(selectChecks(['scripts/python-tests.mjs']),['python']));
 test('language account browser changes select their executable desktop scenario',()=>{
  for (const name of ['language-account-e2e','browser-e2e']) {
   const files=[`scripts/${name}.mjs`];
