@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spawnSync} from 'node:child_process';
-import {mkdtempSync, readFileSync, rmSync} from 'node:fs';
+import {execFileSync, spawnSync} from 'node:child_process';
+import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -154,4 +154,55 @@ test('evidence uploads stay limited to JSON and survive failed checks', () => {
     for (const line of content.split('\n').filter(line => /^\s+(?:path: )?output\//.test(line)))
       assert.match(line, /output\/checks\/(?:ci\/[a-z-]+\.json|runs\/\*\.json|latest\.json)$/);
   }
+});
+
+
+test('gate CLI preserves verified merge identity and cannot reuse stale checkout evidence', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'ci-gate-identity-'));
+  const git = (...args) => execFileSync('git', args, {cwd, encoding:'utf8', stdio:['ignore','pipe','pipe']}).trim();
+  const script = fileURLToPath(new URL('../scripts/check-ci-gate.mjs', import.meta.url));
+  const recordPath = join(cwd,'output/checks/ci/required-checks.json');
+  try {
+    git('init','-q','-b','main');
+    git('config','user.name','Synthetic CI Fixture');
+    git('config','user.email','synthetic@users.noreply.github.com');
+    git('config','commit.gpgsign','false');
+    writeFileSync(join(cwd,'base.txt'),'base');git('add','.');git('commit','-qm','Synthetic base');
+    git('branch','feature');
+    writeFileSync(join(cwd,'main.txt'),'main');git('add','.');git('commit','-qm','Synthetic main');
+    const base = git('rev-parse','HEAD');
+    git('checkout','-q','feature');
+    writeFileSync(join(cwd,'feature.txt'),'feature');git('add','.');git('commit','-qm','Synthetic feature');
+    const head = git('rev-parse','HEAD');
+    git('checkout','-q','main');git('merge','--no-ff','-qm','Synthetic event merge','feature');
+    const merge = git('rev-parse','HEAD');
+    const environment = {...process.env, GITHUB_STEP_SUMMARY:'', GITHUB_EVENT_NAME:'pull_request',
+      GITHUB_SHA:merge, CI_PR_BASE_SHA:base, CI_PR_HEAD_SHA:head,
+      CI_SCOPE_VALID:'true', CI_SCOPE_FULL:'true', CI_AUDIT_RESULT:'success', CI_CHECK_RESULT:'success', CI_BROWSER_RESULT:'success'};
+    const run = (mode, overrides={}) => spawnSync(process.execPath,[script,...mode],{cwd,encoding:'utf8',env:{...environment,...overrides}});
+    const read = () => JSON.parse(readFileSync(recordPath,'utf8'));
+    const assertIdentity = result => {
+      assert.equal(result.testedSha,merge);assert.equal(result.workflowSha,merge);
+      assert.equal(result.headSha,head);assert.equal(result.baseSha,base);
+      assert.equal(result.source,'event-merge');assert.equal(result.baseFreshness,'event-only');
+      assert.equal(result.identityStatus,'verified');
+    };
+    assert.equal(run(['checkout','required-checks']).status,0);
+    assert.equal(read().status,'verified');
+    assert.equal(run(['required']).status,0);
+    assert.equal(read().status,'success');assertIdentity(read());
+    assert.notEqual(run(['required'],{CI_BROWSER_RESULT:'failure'}).status,0);
+    assert.equal(read().status,'failure');assertIdentity(read());
+    // A previous valid checkout file must not let altered event parents pass.
+    assert.equal(run(['checkout','required-checks']).status,0);
+    assert.notEqual(run(['required'],{CI_PR_BASE_SHA:'f'.repeat(40)}).status,0);
+    assert.equal(read().status,'failure');assert.equal(read().identityStatus,'unavailable');
+    assert.equal(read().testedSha,undefined);assert.equal(read().headSha,undefined);
+    // Even an existing successful aggregate cannot bless a different checkout.
+    assert.equal(run(['required']).status,0);
+    git('checkout','-q','feature');
+    assert.notEqual(run(['required']).status,0);
+    assert.equal(read().status,'failure');assert.equal(read().identityStatus,'unavailable');
+    assert.equal(read().testedSha,undefined);
+  } finally {rmSync(cwd,{recursive:true,force:true});}
 });

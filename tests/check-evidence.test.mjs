@@ -98,6 +98,48 @@ test('source mutation while checks execute invalidates otherwise successful resu
   assert.equal(readCurrentEvidence({cwd, base}), null);
 });
 
+for (const flag of ['assume-unchanged', 'skip-worktree']) {
+  test(`${flag} blocks source proof and selects conservative checks without changing the index`, t => {
+    silentErrors(t);
+    const {cwd, base, git, write} = fixture(t);
+    const passed = runChangedChecks({cwd, base, environment: {}, runCommand: noOp});
+    assert.equal(readCurrentEvidence({cwd, base}).id, passed.record.id);
+    git('update-index', `--${flag}`, 'README.md');
+    const flaggedIndex = git('ls-files', '-v');
+    // Even before any byte changes, an older result cannot certify this index.
+    assert.equal(readCurrentEvidence({cwd, base}), null);
+    write('README.md', 'Hidden source mutation\n');
+    assert.ok(changedFiles(base, {cwd}).includes('__hidden_index_entries__'));
+    assert.deepEqual(selectChecks(changedFiles(base, {cwd})), ['full']);
+    let executions = 0;
+    const result = runChangedChecks({cwd, base, environment: {}, runCommand: () => executions++});
+    assert.equal(executions, 0);
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.record.status, 'invalid');
+    assert.equal(result.record.sourceBefore.sourceIssue, 'hidden-index-entries');
+    assert.ok(result.record.issues.includes('hidden-index-entries'));
+    assert.ok(result.record.commands.every(command => command.status === 'not-run'));
+    assert.equal(git('ls-files', '-v'), flaggedIndex);
+    assert.equal(readCurrentEvidence({cwd, base}), null);
+    assert.ok(!JSON.stringify(result.record).includes('README.md'));
+  });
+
+  test(`${flag} enabled during execution invalidates successful commands`, t => {
+    const {cwd, base, git, write} = fixture(t);
+    const result = runChangedChecks({cwd, base, environment: {}, runCommand: () => {
+      git('update-index', `--${flag}`, 'README.md');
+      write('README.md', 'Source changed behind an index flag\n');
+    }});
+    assert.equal(result.record.sourceBefore.sourceStatus, 'available');
+    assert.equal(result.record.sourceAfter.sourceIssue, 'hidden-index-entries');
+    assert.equal(result.exitCode, 2);
+    assert.equal(result.record.status, 'invalid');
+    assert.ok(result.record.issues.includes('hidden-index-entries'));
+    assert.ok(result.record.commands.every(command => command.status === 'passed'));
+    assert.equal(readCurrentEvidence({cwd, base}), null);
+  });
+}
+
 test('untracked source bytes and names affect identity, ignored outputs do not', t => {
   const {cwd, base, write} = fixture(t);
   const initial = captureSourceSnapshot({cwd, base});

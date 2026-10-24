@@ -2,7 +2,7 @@ import {execFileSync} from 'node:child_process';
 import {appendFileSync, readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {browserSuites} from './check-browser-suite.mjs';
-import {startCheckRun} from './check-evidence.mjs';
+import {hasHiddenIndexEntries, startCheckRun} from './check-evidence.mjs';
 
 // Unknown inputs deliberately select the comprehensive gate.
 export function selectChecks(files, full = false) {
@@ -31,6 +31,8 @@ export function selectChecks(files, full = false) {
 export function changedFiles(base, {cwd = process.cwd()} = {}) {
   const files = new Set();
   const readGit = (...args) => execFileSync('git', args, {cwd, encoding: 'utf8', stdio: ['ignore','pipe','pipe']});
+  try { if (hasHiddenIndexEntries(cwd)) files.add('__hidden_index_entries__'); }
+  catch { files.add('__unknown_index__'); }
   if (base !== undefined) {
     try {
       if (typeof base !== 'string' || !base) throw new Error('Missing base');
@@ -130,7 +132,9 @@ export function runChangedChecks({base, full = false, cwd = process.cwd(), envir
     const options = {scenarios, platform, environment, releaseDelegated, splitBrowsers: environment.CHECK_SPLIT_BROWSER_TESTS === 'true', runCommand, evidence};
     evidence.setPlan(checks, commandPlan(checks, options));
     if (evidence.record.sourceBefore.base.status === 'unavailable' || evidence.record.sourceBefore.sourceStatus !== 'available') {
-      console.error('Check source or requested base is unavailable; no valid check evidence can be produced.');
+      console.error(evidence.record.sourceBefore.sourceIssue === 'hidden-index-entries'
+        ? 'Git assume-unchanged or skip-worktree flags hide source changes; no checks ran and no valid evidence can be produced.'
+        : 'Check source or requested base is unavailable; no valid check evidence can be produced.');
     } else executeChecks(checks, options);
   } catch (error) { console.error(error); failed = true; }
   return evidence.finish({failed});

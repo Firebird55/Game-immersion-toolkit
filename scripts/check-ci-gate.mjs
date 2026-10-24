@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {appendFileSync, mkdirSync, writeFileSync} from 'node:fs';
+import {appendFileSync, mkdirSync, renameSync, rmSync, writeFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 
 const sha = value => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value);
@@ -65,7 +66,11 @@ export function requiredChecks({scopeValid, full, audit, check, browsers}) {
 
 function record(name, value) {
   mkdirSync('output/checks/ci', {recursive: true});
-  writeFileSync(`output/checks/ci/${name}.json`, JSON.stringify(value, null, 2) + '\n');
+  const path = `output/checks/ci/${name}.json`, temporary = `${path}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporary, JSON.stringify(value, null, 2) + '\n', {flag: 'wx'});
+    renameSync(temporary, path);
+  } finally { rmSync(temporary, {force: true}); }
   if (process.env.GITHUB_STEP_SUMMARY) {
     const lines = [`### CI ${name}`, '', `Status: ${value.status}`, ''];
     if (value.testedSha) {
@@ -76,6 +81,16 @@ function record(name, value) {
     if (value.errors) lines.push(...value.errors);
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
   }
+}
+
+function checkoutIdentity(kind) {
+  const [commit, ...parents] = execFileSync('git', ['rev-list', '--parents', '-n', '1', 'HEAD'], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim().split(/\s+/);
+  return verifyCheckout({
+    kind, event: process.env.GITHUB_EVENT_NAME, expectedSha: process.env.GITHUB_SHA,
+    headSha: process.env.CI_PR_HEAD_SHA, baseSha: process.env.CI_PR_BASE_SHA, commit, parents,
+  });
 }
 
 function main() {
@@ -90,11 +105,7 @@ function main() {
       appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${key === 'checks' ? JSON.stringify(value) : value}\n`);
     console.log('CI scope outputs validated.');
   } else if (mode === 'checkout') {
-    const [commit, ...parents] = execFileSync('git', ['rev-list', '--parents', '-n', '1', 'HEAD'], {encoding: 'utf8'}).trim().split(/\s+/);
-    const identity = verifyCheckout({
-      kind: process.argv[3], event: process.env.GITHUB_EVENT_NAME, expectedSha: process.env.GITHUB_SHA,
-      headSha: process.env.CI_PR_HEAD_SHA, baseSha: process.env.CI_PR_BASE_SHA, commit, parents,
-    });
+    const identity = checkoutIdentity(process.argv[3]);
     record(identity.kind, identity);
     console.log(`Verified ${identity.source}: ${identity.testedSha}`);
   } else if (mode === 'required') {
@@ -103,7 +114,16 @@ function main() {
       audit: process.env.CI_AUDIT_RESULT, check: process.env.CI_CHECK_RESULT,
       browsers: process.env.CI_BROWSER_RESULT,
     });
-    record('required-checks', gate);
+    // Revalidate the actual checkout instead of trusting an earlier JSON file.
+    // Preserve its verified source fields when the aggregate replaces the
+    // checkout-step record, including when a selected job failed.
+    let identity;
+    try { identity = checkoutIdentity('required-checks'); }
+    catch {
+      gate.status = 'failure';
+      gate.errors.unshift('Gate checkout identity could not be verified');
+    }
+    record('required-checks', {...identity, ...gate, identityStatus: identity ? 'verified' : 'unavailable'});
     if (gate.status !== 'success') throw new Error(gate.errors.join('; '));
     console.log('All required checks succeeded.');
   } else throw new Error('Expected scope, checkout, or required mode');

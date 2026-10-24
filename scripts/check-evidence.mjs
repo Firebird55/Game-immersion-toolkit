@@ -11,10 +11,16 @@ const checkNames = new Set(['full','python','desktop','mobile','windows','select
 const sha = value => typeof value === 'string' && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value) && !/^0+$/.test(value) ? value : null;
 const git = (cwd, args, encoding = 'utf8') => execFileSync('git', args, {cwd, encoding, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore','pipe','pipe']});
 
+// Git diff may hide changed bytes behind either index flag. Do not clear the
+// user's flags or publish paths; these checkouts cannot supply source proof.
+export function hasHiddenIndexEntries(cwd = process.cwd()) {
+  return git(cwd, ['ls-files','-v','-z']).split('\0').some(entry => /^[a-zS] /.test(entry));
+}
+
 // Hash source identities and bytes, never persist file names, diffs, or contents.
 // Ignored runtime data and generated artifacts are deliberately outside the input.
 export function captureSourceSnapshot({cwd = process.cwd(), base} = {}) {
-  const snapshot = {head: null, base: {status: base === undefined ? 'not-requested' : 'unavailable', sha: null}, sourceHash: null, sourceStatus: 'unavailable'};
+  const snapshot = {head: null, base: {status: base === undefined ? 'not-requested' : 'unavailable', sha: null}, sourceHash: null, sourceStatus: 'unavailable', sourceIssue: null};
   try { snapshot.head = sha(git(cwd, ['rev-parse','--verify','HEAD']).trim()); } catch {}
   if (base !== undefined) {
     try {
@@ -24,6 +30,10 @@ export function captureSourceSnapshot({cwd = process.cwd(), base} = {}) {
     } catch {}
   }
   try {
+    if (hasHiddenIndexEntries(cwd)) {
+      snapshot.sourceIssue = 'hidden-index-entries';
+      return snapshot;
+    }
     const hash = createHash('sha256');
     const add = bytes => { hash.update(String(bytes.length)); hash.update(':'); hash.update(bytes); };
     add(git(cwd, ['ls-files','--stage','-z'], null));
@@ -123,6 +133,7 @@ export function startCheckRun({cwd = process.cwd(), base, environment = process.
     },
     finish({failed = false} = {}) {
       record.sourceAfter = captureSourceSnapshot({cwd, base});
+      if ([record.sourceBefore, record.sourceAfter].some(source => source.sourceIssue === 'hidden-index-entries')) record.issues.push('hidden-index-entries');
       if (record.sourceBefore.base.status === 'unavailable' || record.sourceAfter.base.status === 'unavailable') record.issues.push('base-unavailable');
       if (record.sourceBefore.sourceStatus !== 'available' || record.sourceAfter.sourceStatus !== 'available') record.issues.push('source-unavailable');
       if (!record.issues.length && !sourceMatches(record.sourceBefore, record.sourceAfter)) record.issues.push('source-changed');
