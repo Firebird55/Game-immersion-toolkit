@@ -660,21 +660,22 @@ function CompanionClient() {
     return () => window.clearInterval(timer);
   }, [settingsOpen]);
 
+  const activeGameAvailable = gamePicker.games.some(game => game.id === status?.capture.active_game);
   useEffect(() => {
     const active = status?.capture.active_game;
-    if (active && active !== lastActiveGame.current) {
+    if (active && activeGameAvailable && active !== lastActiveGame.current) {
       lastActiveGame.current = active;
-      if (gamePicker.games.some(game => game.id === active)) setSelectedGame(active);
+      setSelectedGame(active);
       setHistoryPage(0);
     }
-  }, [changeTranscriptTab, status?.capture.active_game, transcriptTab]);
+  }, [activeGameAvailable, status?.capture.active_game]);
 
   useEffect(() => {
     if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
-      setSelectedGame(gamePicker.games[0].id as GameId);
+      setSelectedGame((activeGameAvailable ? status!.capture.active_game : gamePicker.games[0].id) as GameId);
       setHistoryPage(0);
     }
-  }, [gamePicker.target, selectedGame]);
+  }, [gamePicker.target, selectedGame, activeGameAvailable, status?.capture.active_game]);
 
   const recentLines = useMemo(
     () => lines.filter((line) => line.game === selectedGame).slice(0, HISTORY_LIMIT),

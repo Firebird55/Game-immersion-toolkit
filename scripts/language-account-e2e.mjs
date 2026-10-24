@@ -18,7 +18,7 @@ try{
    const sent={first:{},second:{},legacy:{}}; const unexpected=[];
    const writes=[],requests=[];
    const accountLanguages={first:['en','zh'],second:['en','zh'],legacy:['en','zh']};
-   let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead;
+   let failLanguageWrite=false,holdLanguageRead=true,releaseLanguageRead,captureGame='genshin';
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
     languageSettings:{en:{effectiveTranslationLanguage:active==='first'?'zh-hans':'nl',inlineGlossMode:'always',wordPopup:{tabs:[{id:'definition',enabled:true}],openOn:'first'}},zh:{effectiveTranslationLanguage:'en',inlineGlossMode:'off'}}});
    const region={left:.1,top:.6,width:.8,height:.25};
@@ -37,8 +37,8 @@ try{
     const respond=(value,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'},body:JSON.stringify(value)});
     if(request.method()==='OPTIONS')return respond({});
     if((/^\/api\/lines\/\d+\/(reading|lexirise)/.test(path)||path==='/api/lexirise/decks'||path==='/api/lexirise/settings'&&request.headers()['x-proxy-transcript-account']!==undefined)&&request.headers()['x-proxy-transcript-account']!==active)return respond({detail:'Account changed. Retry with the selected account.'},409);
-    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:'zzz',visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
-    if(path==='/api/status')return respond({capture:{running:true,active_game:'zzz',visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}});
+    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
+    if(path==='/api/status')return respond({capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}});
     if(path==='/api/lines')return respond(url.searchParams.get('game')==='zzz'?[line()]:[]);
     if(path==='/api/favorites')return respond([]);
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[game],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,mobile_export:{state:'idle'},free_gb:10});
@@ -79,6 +79,13 @@ try{
     unexpected.push(request.method()+' '+path);return respond({detail:'Unexpected fixture route'},500);
    });
    await page.goto('http://localhost:'+port);
+   await page.waitForFunction(()=>document.querySelector('select[aria-label="Target language"]')?.disabled);
+   for(let i=0;i<100&&!releaseLanguageRead;i++)await page.waitForTimeout(20);
+   assert(releaseLanguageRead,'Initial account-language read is held after the capture snapshot');
+   await releaseLanguageRead();
+   await page.getByRole('navigation',{name:'Game transcript'}).getByRole('button',{name:'Genshin Impact',exact:true,pressed:true}).waitFor();
+   captureGame='zzz';
+   await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
    const send=page.locator('.current-line .lexirise-send');
    await send.waitFor();
    await send.click();
