@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join, relative} from 'node:path';
-import {runDoctor, parsePythonLock, parseDoctorArgs, prerequisitePlan, probePython} from '../scripts/dev-doctor.mjs';
+import {runDoctor, parsePythonLock, parseDoctorArgs, prerequisitePlan, probePython, probeBrowsers} from '../scripts/dev-doctor.mjs';
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'toolkit-doctor-'));
@@ -153,4 +153,56 @@ test('PowerShell override only applies to the update fixture, never setup or ide
   const update = await runDoctor({...options, root, env:{PWSH:override}, checks:['windows'], scenarios:{browser:[],windows:['update-companion-e2e']}, commandProbe: command => {updateCommands.push(command); return true;}});
   assert.deepEqual(updateCommands,[override]);
   assert.equal(update.status,'pass');
+});
+
+
+test('selector scope requires the npm packages and assets used by its npm test command', async t => {
+  const {root} = fixture(t);
+  rmSync(join(root, 'node_modules'), {recursive: true});
+  const report = await runDoctor({root, files: ['tests/check-selection.test.mjs'], env: {}, nodeVersion: '24.1.0',
+    pythonProbe: () => {throw Error('No Python in selector scope');}, browserProbe: () => {throw Error('No browser scenarios in selector scope');}});
+  assert.deepEqual(report.plan.checks, ['selector']);
+  assert.equal(report.status, 'unavailable');
+  assert.equal(item(report, 'npm-packages').status, 'unavailable');
+  assert.equal(item(report, 'generated-assets').status, 'unavailable');
+  assert.equal(item(report, 'python'), undefined);
+});
+
+function browserModules({version = '1.64.0', coreVersion = '1.64.0', registry = true} = {}) {
+  return name => {
+    if (name === 'playwright/package.json') return {version};
+    if (name === 'playwright-core/package.json') return {version: coreVersion};
+    if (name === 'playwright') return Object.fromEntries(['chromium','firefox','webkit'].map(engine => [engine, {executablePath: () => `synthetic/${engine}`} ]));
+    if (name === 'playwright-core/lib/coreBundle') return registry ? {registry: {registry: {findExecutable: name => {
+      assert.equal(name, 'chromium-headless-shell');
+      return {executablePath: () => 'synthetic/chromium-headless-shell'};
+    }}}} : {};
+    throw Error('Unexpected metadata import');
+  };
+}
+
+test('Chromium prerequisites follow the pinned headless launch executable without launching', () => {
+  const engines = ['chromium','firefox','webkit'];
+  const regularOnly = probeBrowsers({engines, loadModule: browserModules(), exists: path => !path.endsWith('headless-shell')});
+  assert.deepEqual(regularOnly, {chromium: false, firefox: true, webkit: true});
+  const shellOnly = probeBrowsers({engines, loadModule: browserModules(), exists: path => path.endsWith('headless-shell')});
+  assert.deepEqual(shellOnly, {chromium: true, firefox: false, webkit: false});
+  assert.deepEqual(probeBrowsers({engines: ['chromium'], loadModule: browserModules(), exists: () => false}), {chromium: false});
+});
+
+test('Chromium metadata fails closed for an unreviewed version or missing registry export', () => {
+  for (const options of [{version: '1.65.0'}, {coreVersion: '1.65.0'}, {registry: false}]) {
+    assert.deepEqual(probeBrowsers({engines: ['chromium'], loadModule: browserModules(options), exists: () => true}), {chromium: false});
+  }
+  assert.deepEqual(probeBrowsers({engines: ['chromium'], loadModule: () => {throw Error('Unavailable metadata');}, exists: () => true}), {chromium: false});
+});
+
+test('hidden or uninspectable Git index entries cannot report ready prerequisites', async t => {
+  const {root} = fixture(t);
+  for (const sentinel of ['__hidden_index_entries__', '__unknown_index__']) {
+    const report = await runDoctor({...options, root, files: [sentinel], checks: ['full']});
+    assert.equal(report.status, 'fail');
+    assert.equal(item(report, 'git-source').status, 'fail');
+    assert.equal(item(report, 'git-source').required, true);
+  }
 });

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {join} from 'node:path';
+import {mkdtempSync, rmSync, symlinkSync} from 'node:fs';
+import {tmpdir} from 'node:os';
 import {resolvePython} from '../scripts/python-runtime.mjs';
 
 const root = join('synthetic', 'checkout');
@@ -22,5 +24,22 @@ test('PATH fallback never examines an installed companion or LOCALAPPDATA', () =
     const result = resolvePython({root, env: {LOCALAPPDATA: 'private-install'}, platform, exists: path => { paths.push(path); return false; }});
     assert.deepEqual(result, {command: platform === 'win32' ? 'python' : 'python3', source: 'path'});
     assert.ok(paths.every(path => path.startsWith(join(root, '.venv'))));
+  }
+});
+
+
+test('a dangling project venv symlink remains selected instead of falling back', {skip: process.platform === 'win32'}, t => {
+  const project = mkdtempSync(join(tmpdir(), 'python-runtime-'));
+  t.after(() => rmSync(project, {recursive: true, force: true}));
+  symlinkSync(join(project, 'missing-target'), join(project, '.venv'));
+  assert.deepEqual(resolvePython({root: project, env: {}, platform: process.platform}), {command: join(project, '.venv', 'bin', 'python'), source: 'project-venv'});
+});
+
+test('an existing or unreadable venv entry fails closed on every platform', () => {
+  for (const platform of ['win32', 'darwin', 'linux']) {
+    for (const lstat of [() => ({}), () => {throw Object.assign(Error('Synthetic inaccessible entry'), {code: 'EACCES'});}]) {
+      const result = resolvePython({root, env: {}, platform, exists: () => false, lstat});
+      assert.equal(result.source, 'project-venv');
+    }
   }
 });

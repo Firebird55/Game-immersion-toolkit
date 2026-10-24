@@ -19,7 +19,7 @@ const atLeast = (actual, minimum) => {
 };
 
 export function prerequisitePlan(checks, scenarios) {
-  const application = checks.some(check => ['full', 'desktop', 'mobile', 'python'].includes(check));
+  const application = checks.some(check => ['full', 'desktop', 'mobile', 'python', 'selector'].includes(check));
   const engines = new Set();
   for (const scenario of scenarios.browser) {
     for (const engine of threeEngineScenarios.has(scenario) ? allEngines : scenario === 'mobile-layout-e2e' ? ['chromium'] : ['chromium', 'firefox']) engines.add(engine);
@@ -50,10 +50,25 @@ export function probePython({command, root, env, spawn = spawnSync}) {
   try { return {available: true, ...JSON.parse(result.stdout)}; } catch { return {available: false}; }
 }
 
-export function probeBrowsers({root, engines, exists}) {
+export function probeBrowsers({root = process.cwd(), engines, exists = existsSync, loadModule}) {
   try {
-    const playwright = createRequire(join(root, 'package.json'))('playwright');
-    return Object.fromEntries(engines.map(name => [name, exists(playwright[name].executablePath())]));
+    const load = loadModule || createRequire(join(root, 'package.json'));
+    const playwright = load('playwright');
+    let headlessExecutable;
+    if (engines.includes('chromium')) {
+      // Pinned Playwright 1.64.0 launches chromium-headless-shell by default;
+      // chromium.executablePath() instead identifies headed Chromium. Its
+      // exported registry supplies the exact platform/revision-specific path.
+      // Recheck this internal metadata contract when upgrading Playwright.
+      if (load('playwright/package.json').version === '1.64.0' && load('playwright-core/package.json').version === '1.64.0') {
+        const registry = load('playwright-core/lib/coreBundle')?.registry?.registry;
+        headlessExecutable = registry?.findExecutable?.('chromium-headless-shell')?.executablePath?.();
+      }
+    }
+    return Object.fromEntries(engines.map(name => {
+      const executable = name === 'chromium' ? headlessExecutable : playwright[name]?.executablePath();
+      return [name, typeof executable === 'string' && !!executable && exists(executable)];
+    }));
   } catch { return Object.fromEntries(engines.map(name => [name, false])); }
 }
 
@@ -67,6 +82,7 @@ export async function runDoctor({root = process.cwd(), env = process.env, platfo
   const items = [];
   const add = (id, status, required, message, remediation, details) => items.push({id, status, required, message, ...(remediation ? {remediation} : {}), ...(details ? {details} : {})});
   if (files.includes('__unknown_base__')) add('git-base', 'fail', true, 'The requested Git base is unavailable; the selected scope cannot be verified.', 'Fetch or choose an existing base commit, then rerun the doctor with --base.');
+  if (files.some(file => ['__hidden_index_entries__', '__unknown_index__'].includes(file))) add('git-source', 'fail', true, 'Git source visibility could not be verified; tracked changes may be hidden by index flags.', 'Inspect the Git index for assume-unchanged or skip-worktree flags and resolve source visibility before checking.');
   let manifest, lock;
   try { manifest = json(read, join(root, 'package.json')); lock = json(read, join(root, 'package-lock.json')); }
   catch { add('npm-lock', 'fail', true, 'Project package metadata is missing or unreadable.', 'Restore package.json and package-lock.json from the checkout.'); }
