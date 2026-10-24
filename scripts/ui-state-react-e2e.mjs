@@ -12,7 +12,7 @@ const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try {
  for(const[name,engine] of Object.entries({chromium,firefox})) {
   phase(name+': launching browser');
-  browser=await engine.launch();phase(name+': browser launched');
+  browser=await preview.launchBrowser(engine);phase(name+': browser launched');
   for(const width of [1280,390]) {
    phase(`${name} ${width}: creating context and page`);
    const context=await browser.newContext({locale:'en-US',viewport:{width,height:900}}),page=await context.newPage();
@@ -175,5 +175,5 @@ try {
   await browser.close();browser=null;
  }
 }finally{
- try{await browser?.close();}finally{await preview.stop();}
+ await preview.stop();
 }

@@ -31,6 +31,9 @@ Development runners choose `PYTHON`, then this project's `.venv`, then PATH
 (`python` on Windows, `python3` elsewhere). An incomplete project venv is an
 error; a running companion's installed environment is never used as a fallback.
 The production updater keeps its independent environment validation.
+The doctor also checks prerequisites for selector tests and the actual Chromium
+headless-shell executable used by default launches, rather than accepting only
+the regular Chromium executable.
 
 `npm run test:infra` runs dependency-light regression tests for selection,
 evidence, environment detection, CI aggregation and preview isolation. It does
@@ -46,6 +49,10 @@ resolved base, a hash of tracked changes and nonignored untracked content, comma
 statuses and elapsed times. Source changes during execution invalidate the run.
 An interrupted run left `running` is unfinished, not a pass. A failed aggregate
 `npm run check` does not claim its inner scripts passed.
+Git `assume-unchanged` or `skip-worktree` flags can hide modified source files.
+Such a checkout cannot produce valid evidence: checks stop without clearing
+those flags. Inspect the flagged files or use a complete clean checkout before
+retrying. The doctor reports the same source limitation.
 
 Commands are recorded as passed, failed, not-run, delegated or unavailable.
 Split browser jobs and the source-audit job supply separate evidence; delegation
@@ -64,13 +71,19 @@ The browser matrix may be skipped only for validated selective scope, whose
 selected browser scenarios run inline. Maintainers must select `required-checks`
 in branch rules and require an up-to-date base. Parent verification alone proves
 only the event snapshot. Manual dispatch evidence does not replace this PR gate.
+The final gate report preserves the verified tested, workflow, head and base
+commits alongside the selected jobs' results, and rechecks the checkout before
+writing the aggregate outcome.
 
 The desktop, setup, language/account and React-state preview harnesses use
 OS-assigned ports retained by their own Wrangler listeners, unique temporary
 registry/persistence directories and per-run `output/e2e/` artifacts. Cleanup
 targets only owned processes. Offline update tests keep one origin through
 update and browser restart, then remove their owned profile.
-SIGINT/SIGTERM clean up owned previews. If a Windows parent has already exited,
+SIGINT/SIGTERM await both owned browser and preview-server cleanup, including a
+browser whose launch is still pending. The shared preview launcher disables
+Playwright's competing signal exits so they cannot interrupt server cleanup.
+If a Windows parent has already exited,
 its remaining descendants cannot be safely identified: cleanup fails explicitly
 and retains the temporary runtime. Forced OS termination cannot run cleanup.
 

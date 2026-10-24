@@ -6,7 +6,7 @@ const preview=await startPreview('setup');
 let browser;
 try{
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){
-  browser=await engine.launch({headless:true});
+  browser=await preview.launchBrowser(engine,{headless:true});
   for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[640,480,2],[640,360,2],[568,320,1],[768,1024,1.25]]){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[],unexpected=[];
    let pickerAttempts=0,setupOffline=false,exportRevision=0,exportLocale='ja';
@@ -159,5 +159,5 @@ try{
   await browser.close();browser=null;
  }
 }finally{
- try{await browser?.close();}finally{await preview.stop();}
+ await preview.stop();
 }

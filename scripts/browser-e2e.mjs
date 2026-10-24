@@ -66,7 +66,7 @@ function response(path,query,method,body){
  return {};
 }
 try{
- for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){browser=await engine.launch({headless:true});
+ for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){browser=await preview.launchBrowser(engine,{headless:true});
  const sizes=process.argv.includes('--reading-settings')?[[1920,1080,1],[390,844,1],[320,568,1],[768,1024,1.25]]:process.argv.includes('--game-support')?[[320,568,1],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]:[[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]];
  for(const[pw,ph,zoom]of sizes){
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
@@ -289,5 +289,5 @@ try{
  console.log(name+': toolkit '+width+'x'+height+' zoom/DPR '+zoom+' and text-only comic passed');await context.close();
  }await browser.close();browser=null;}
 }finally{
- try{await browser?.close();}finally{await preview.stop();}
+ await preview.stop();
 }

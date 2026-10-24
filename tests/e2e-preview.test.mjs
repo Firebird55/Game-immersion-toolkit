@@ -3,7 +3,7 @@ import test from 'node:test';
 import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {EventEmitter, once} from 'node:events';
-import {existsSync, mkdtempSync, rmSync} from 'node:fs';
+import {existsSync, mkdtempSync, readFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {startOwnedServer, stopOwnedProcess} from '../scripts/e2e-preview.mjs';
@@ -89,6 +89,47 @@ test('Windows cleanup fails closed for exited parents and failed taskkill', asyn
   }}), /cleanup is unverified/);
 });
 
+test('preview cleanup waits for a pending browser launch and disables competing signal handlers', async () => {
+  const cwd=mkdtempSync(join(tmpdir(),'toolkit-preview-browser-start-'));
+  let preview, closed=false;
+  try {
+    preview=await startOwnedServer({name:'browser-start',cwd,args:['-e',serverCode]});
+    const pending=preview.launchBrowser({launch: async options => {
+      assert.equal(options.handleSIGINT,false);assert.equal(options.handleSIGTERM,false);
+      assert.equal(options.headless,true);
+      await new Promise(resolve=>setTimeout(resolve,40));
+      return {close: async()=>{await new Promise(resolve=>setTimeout(resolve,40));closed=true;}};
+    }},{headless:true,handleSIGINT:true,handleSIGTERM:true});
+    await preview.stop();await pending;
+    assert.equal(closed,true);
+    await assert.rejects(fetch(preview.origin));
+    assert.throws(()=>preview.launchBrowser({launch:()=>{throw Error('must not launch');}}),/cleanup started/);
+  } finally {await preview?.stop();rmSync(cwd,{recursive:true,force:true});}
+});
+
+test('failed browser cleanup still stops the server and runs every other cleanup', async () => {
+  const cwd=mkdtempSync(join(tmpdir(),'toolkit-preview-browser-fail-'));
+  let preview,runtime,otherClosed=false;
+  try {
+    preview=await startOwnedServer({name:'browser-fail',cwd,args:directory=>{runtime=directory;return ['-e',serverCode];}});
+    await preview.launchBrowser({launch:async()=>({close:async()=>{throw Error('Synthetic close failure');}})});
+    preview.addCleanup(async()=>{otherClosed=true;});
+    await assert.rejects(preview.stop(),/Synthetic close failure/);
+    assert.equal(otherClosed,true);await assert.rejects(fetch(preview.origin));
+    assert(existsSync(runtime),'Failed cleanup keeps its owned runtime for diagnosis');
+  } finally {await Promise.allSettled([preview?.stop()]);if(runtime)rmSync(runtime,{recursive:true,force:true});rmSync(cwd,{recursive:true,force:true});}
+});
+
+test('a rejected browser launch still permits complete preview cleanup', async () => {
+  const cwd=mkdtempSync(join(tmpdir(),'toolkit-preview-browser-reject-'));
+  let preview,runtime;
+  try {
+    preview=await startOwnedServer({name:'browser-reject',cwd,args:directory=>{runtime=directory;return ['-e',serverCode];}});
+    await assert.rejects(preview.launchBrowser({launch:async()=>{throw Error('Synthetic launch failure');}}),/Synthetic launch failure/);
+    await preview.stop();await assert.rejects(fetch(preview.origin));assert(!existsSync(runtime));
+  } finally {await preview?.stop();rmSync(cwd,{recursive:true,force:true});}
+});
+
 async function messageFrom(child) {
   let timer;
   try { return await Promise.race([once(child,'message').then(([value])=>value), new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Signal fixture timed out')),10000);})]); }
@@ -107,10 +148,27 @@ test('SIGINT and SIGTERM stop owned preview descendants and retain default signa
       const server="const {spawn}=require('node:child_process');"+
         "const child=spawn(process.execPath,['-e',"+JSON.stringify(descendant)+"],{stdio:['ignore','ignore','ignore','ipc']});"+
         "child.on('message',message=>process.send(message));setInterval(()=>{},1000);";
+      const marker=join(cwd,'browser-closed-'+signal);
       const source=`import {startOwnedServer} from ${JSON.stringify(helper)};
+        import assert from 'node:assert/strict';
+        import {writeFileSync} from 'node:fs';
         const preview=await startOwnedServer({name:'signal',cwd:process.cwd(),args:['-e',${JSON.stringify(server)}]});
         const body=await (await fetch(preview.origin)).json();
-        process.send({origin:preview.origin,runtime:body.registry+'/..',pid:preview.child.pid});`;
+        const pending=preview.launchBrowser({launch:async options=>{
+          // Emulate Playwright's competing exit handler without requiring a
+          // downloaded browser in the dependency-light Node test suite.
+          if(options.handleSIGINT!==false)process.on('SIGINT',()=>process.exit(130));
+          if(options.handleSIGTERM!==false)process.on('SIGTERM',()=>process.exit(143));
+          await new Promise(resolve=>setTimeout(resolve,200));
+          return {close:async()=>{
+            // A server added after the signal snapshot would escape cleanup.
+            // Stop it in the failing fixture so a regression cannot leak it.
+            await assert.rejects(startOwnedServer({name:'late',cwd:process.cwd(),args:['-e',${JSON.stringify(serverCode)}]}).then(late=>late.stop()),/cleanup started/);
+            await new Promise(resolve=>setTimeout(resolve,50));writeFileSync(${JSON.stringify(marker)},'closed');
+          }};
+        }});
+        process.send({origin:preview.origin,runtime:body.registry+'/..',pid:preview.child.pid});
+        await pending;`;
       harness=spawn(process.execPath,['--input-type=module','-e',source],{cwd,stdio:['ignore','ignore','pipe','ipc']});
       let stderr='';harness.stderr.on('data',data=>{stderr+=data;});
       preview=await messageFrom(harness);
@@ -118,6 +176,7 @@ test('SIGINT and SIGTERM stop owned preview descendants and retain default signa
       const exit=once(harness,'exit');harness.kill(signal);
       const [code,actualSignal]=await exit;
       assert.equal(code,null,stderr);assert.equal(actualSignal,signal,stderr);
+      assert.equal(readFileSync(marker,'utf8'),'closed','Signals await browser cleanup, including an unfinished launch');
       assert(!existsSync(preview.runtime));await assert.rejects(fetch(preview.origin));
       assert.equal(await (await fetch('http://127.0.0.1:'+unrelated.address().port)).text(),'unrelated');
       preview=null;harness=null;

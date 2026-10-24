@@ -7,7 +7,7 @@ const preview=await startPreview('language-account');
 let browser;
 try{
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]].filter(([name])=>!process.env.ACCOUNT_TEST_BROWSERS||process.env.ACCOUNT_TEST_BROWSERS.split(',').includes(name))){
-  browser=await engine.launch({headless:true});
+  browser=await preview.launchBrowser(engine,{headless:true});
   for(const[width,height]of [[1280,900],[390,844]]){
    const context=await browser.newContext({locale:'en-US',viewport:{width,height}}),page=await context.newPage();
    let generation=0;const stateContext=()=>({runtime_id:'account-fixture',state_version:generation,account_generation:generation});
@@ -265,5 +265,5 @@ try{
   await browser.close();browser=null;
  }
 }finally{
- try{await browser?.close();}finally{await preview.stop();}
+ await preview.stop();
 }

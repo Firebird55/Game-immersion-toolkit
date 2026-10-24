@@ -63,14 +63,41 @@ export async function stopOwnedProcess(child, {graceMs = 1500, platform = proces
 // lets its listener retain the allocated port, avoiding reserve/close races.
 export async function startOwnedServer({name, command = process.execPath, args,
   cwd = process.cwd(), env = process.env, timeoutMs = 30000}) {
+  if (handlingSignal) throw new Error('Cannot start a server after preview signal cleanup started');
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error('Invalid test server name');
   const runtime = mkdtempSync(join(tmpdir(), `toolkit-${name}-`));
   const output = resolve(cwd, 'output/e2e', `${name}-${randomUUID()}`);
   let child, stdout = '', stderr = '', stopped;
+  const cleanups = new Set();
   const clean = text => String(text).replaceAll(runtime, '<fixture>').replaceAll(cwd, '<repository>');
+  const addCleanup = cleanup => {
+    if (stopped || handlingSignal) throw new Error('Cannot register resources after preview cleanup started');
+    if (typeof cleanup !== 'function') throw new Error('Preview cleanup must be a function');
+    cleanups.add(cleanup);
+  };
+  const launchBrowser = (engine, options = {}) => {
+    // Register before launch begins so a signal during startup still waits for
+    // the browser to resolve and close. Playwright must not exit the harness
+    // from its own signal handler before the owned server has been stopped.
+    if (stopped || handlingSignal) throw new Error('Cannot launch a browser after preview cleanup started');
+    const pending = Promise.resolve().then(() => engine.launch({...options, handleSIGINT: false, handleSIGTERM: false}));
+    addCleanup(async () => {
+      const browser = await pending.catch(() => null);
+      await browser?.close();
+    });
+    return pending;
+  };
   const stop = () => stopped ??= (async () => {
     try {
-      await stopOwnedProcess(child);
+      // Always attempt every cleanup, even when browser close or server teardown
+      // rejects. Waiting concurrently also lets the server stop if close stalls.
+      const results = await Promise.allSettled([
+        ...[...cleanups].map(cleanup => Promise.resolve().then(cleanup)),
+        Promise.resolve().then(() => stopOwnedProcess(child)),
+      ]);
+      const failures = results.filter(result => result.status === 'rejected');
+      if (failures.length === 1) throw failures[0].reason;
+      if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'Owned preview cleanup could not be verified; temporary runtime retained.');
       rmSync(runtime, {recursive: true, force: true, maxRetries: 3, retryDelay: 100});
     } finally { unregisterOwnedServer(stop); }
   })();
@@ -102,7 +129,7 @@ export async function startOwnedServer({name, command = process.execPath, args,
       const timer = setTimeout(() => finish(new Error('Test server readiness timed out: ' + stderr)), timeoutMs);
       child.on('message', message); child.once('error', failed); child.once('exit', exited);
     });
-    return {child, port, origin: `http://127.0.0.1:${port}`, output, stop,
+    return {child, port, origin: `http://127.0.0.1:${port}`, output, stop, addCleanup, launchBrowser,
       diagnostics: () => ({stdout, stderr, exitCode: child.exitCode, signal: child.signalCode})};
   } catch (error) {
     await stop();
