@@ -101,14 +101,24 @@ test('gate CLI fails nonzero and persists only safe failure evidence', () => {
   } finally { rmSync(cwd, {recursive: true, force: true}); }
 });
 
-const workflow = readFileSync(new URL('../.github/workflows/ci-release.yml', import.meta.url), 'utf8');
-function job(name) {
-  const start = workflow.indexOf(`\n  ${name}:\n`);
+const normalizeWorkflow = source => source.replace(/\r\n/g, '\n');
+const workflow = normalizeWorkflow(readFileSync(new URL('../.github/workflows/ci-release.yml', import.meta.url), 'utf8'));
+function job(name, source = workflow) {
+  const text = normalizeWorkflow(source);
+  const start = text.indexOf(`\n  ${name}:\n`);
   assert.notEqual(start, -1, `Missing ${name} job`);
-  const content = workflow.slice(start + 1);
+  const content = text.slice(start + 1);
   const end = content.slice(1).search(/\n  [a-z][a-z-]*:\n/);
   return end < 0 ? content : content.slice(0, end + 1);
 }
+
+test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {
+  const crlf = workflow.replaceAll('\n', '\r\n');
+  assert.ok(crlf.includes('\r\n  source-audit:\r\n'));
+  for (const name of ['source-audit', 'check', 'browser-checks', 'required-checks', 'package', 'publish'])
+    assert.equal(job(name, crlf), job(name, workflow), `${name} must retain the same job boundaries with CRLF`);
+  assert.equal(normalizeWorkflow(crlf), workflow);
+});
 
 test('workflow separates source audit and integration checkout and always runs stable gate', () => {
   assert.match(job('source-audit'), /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
