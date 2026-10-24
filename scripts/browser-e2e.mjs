@@ -1,7 +1,7 @@
 
-import assert from 'node:assert/strict';import {spawn,execFileSync} from 'node:child_process';import {mkdirSync} from 'node:fs';import {chromium,firefox} from 'playwright';
+import assert from 'node:assert/strict';import {startPreview} from './e2e-preview.mjs';import {chromium,firefox} from 'playwright';
 // Exercise the actual built Windows distribution, not the dev dependency optimizer.
-const port=4321,server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
+const preview=await startPreview('browser');
 let browser;
 const region={left:.1,top:.6,width:.8,height:.25},settings={beyond_region:{left:.10,top:.70,width:.80,height:.28},nte_region:{left:.10,top:.70,width:.80,height:.28},nte_picture_area:'window',nte_player_voice:'unconfigured',honkai3_picture_area:'window',honkai3_region:{left:.04,top:.72,width:.96,height:.24},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
@@ -25,7 +25,6 @@ const honkaiLine={...cyberpunkLine,id:5,game:'honkai3',english:'Honkai dialogue 
 const hitoHistory={...line,id:30,game:'hito',session_id:'archived',english:'Archived Hito history fixture',text_id:'archived-history'};
 const hitoFavorite={...hitoHistory,id:31,english:'Archived Hito favorite fixture',text_id:'archived-favorite',favorite:true};
 const mapStatus={ready:true,state:'ready',message:'fixture',entry_count:1};
-mkdirSync('output/playwright',{recursive:true});
 const account={languages:['zh'],native_lang:'en',global:{translationLanguage:'en',interfaceLanguage:null,disableWordPopups:false,wordPopupOpenMode:'click',useCustomProficiencyColors:false,customProficiencyColors:{known:'green'}},languageSettings:{zh:{readingAid:'pinyin',script:'simplified',fontSize:'md',wordPopup:{tabs:['context','translation','definition','components','examples','similar','words','notes','grammar'].map(id=>({id,enabled:['context','translation','definition'].includes(id)})),openOn:'first'}},nl:{fontSize:'md'}}};
 const token={start:0,end:2,word:'你好',pinyin:'nǐ hǎo',zhuyin:'ㄋㄧˇ ㄏㄠˇ',tones:[3,3],proficiency:0,meaning:'hello',entryId:1};
 account.languages.push('ja');account.languageSettings.ja={fontSize:'md',effectiveTranslationLanguage:'zh-hans'};
@@ -67,7 +66,6 @@ function response(path,query,method,body){
  return {};
 }
 try{
- await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Toolkit preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes('localhost:'+port)||String(b).includes('127.0.0.1:'+port)){clearTimeout(timer);resolve();}});server.stderr.on('data',b=>process.stderr.write(b));server.once('error',reject);});
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){browser=await engine.launch({headless:true});
  const sizes=process.argv.includes('--reading-settings')?[[1920,1080,1],[390,844,1],[320,568,1],[768,1024,1.25]]:process.argv.includes('--game-support')?[[320,568,1],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]:[[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]];
  for(const[pw,ph,zoom]of sizes){
@@ -86,7 +84,7 @@ try{
  if(req.method()==='PATCH'&&url.pathname==='/api/lexirise/settings')writes.push(body);
  if(req.method()!=='GET'&&req.method()!=='OPTIONS')localWrites.push({path:url.pathname,body});
  await route.fulfill({status:body.question==='Simulate busy AI'?503:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,X-Proxy-Transcript','Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS'},body:JSON.stringify(response(url.pathname,url.searchParams,req.method(),body))});});
- await page.goto('http://localhost:'+port);await page.locator('.reading-hanzi').first().click();await page.locator('.word-sheet').waitFor();
+ await page.goto(preview.origin);await page.locator('.reading-hanzi').first().click();await page.locator('.word-sheet').waitFor();
  await page.getByRole('tab',{name:'Context',exact:true}).waitFor();
  assert.deepEqual(await page.locator('.word-tabs').getByRole('tab').allTextContents(),['Context','Translation','Definition'],'Toolkit reads the account popup order and enable flags');
  assert.equal(await page.locator('.word-tabs').getByRole('tab',{selected:true}).textContent(),'Context','Toolkit opens the first account tab');
@@ -102,7 +100,7 @@ try{
  await page.getByRole('alert').filter({hasText:'Lexirise returned no answer. Please ask again.'}).waitFor({state:'hidden'});
  await page.getByRole('tab',{name:'Translation',exact:true}).click();assert.match(await page.locator('.word-sheet-body').textContent(),/Hello/);
  await page.getByRole('tab',{name:'Definition',exact:true}).click();
- if(name==='chromium'&&zoom===1&&[1920,390].includes(pw))await page.locator('.word-sheet').screenshot({path:`output/playwright/account-popup-${pw}.png`});
+ if(name==='chromium'&&zoom===1&&[1920,390].includes(pw))await page.locator('.word-sheet').screenshot({path:`${preview.output}/account-popup-${pw}.png`});
  await page.locator('.word-sheet').evaluate(n=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  let b=await page.locator('.word-sheet').boundingBox();assert(b&&b.x>=-1&&b.y>=-1&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit lookup fits '+JSON.stringify(b));
  const expectedWidth=Math.min(width<=560?340:400,width-32),heightCap=width<=560?Math.min(360,height*.6):320;
@@ -117,7 +115,7 @@ try{
  assert.equal(await page.getByLabel('Tone 1 color',{exact:true}).inputValue(),'#123456');
  await page.getByRole('button',{name:'Reset colors',exact:true}).click();assert.equal(await page.getByLabel('Tone 1 color',{exact:true}).inputValue(),'#ff526b');
  assert.equal(writes.length,0,'Reading edits never write account settings');
- if(name==='chromium'&&width===1920&&zoom===1)await dialog.screenshot({path:'output/playwright/shared-reading-options.png'});
+ if(name==='chromium'&&width===1920&&zoom===1)await dialog.screenshot({path:`${preview.output}/shared-reading-options.png`});
  b=await dialog.boundingBox();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit settings fits '+JSON.stringify(b));
  await page.keyboard.press('Escape');await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
  await page.getByLabel('Edit account language').selectOption('ja');assert.equal(await page.locator('.reading-text').first().getAttribute('lang'),'zh','Editing Japanese account settings never reinterprets Chinese transcript');
@@ -147,7 +145,7 @@ try{
  assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'fr','Cyberpunk uses its selected French study language');
  assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Cyberpunk uses original audio');
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Cyberpunk tabs fit the viewport');
- if(pw===3840)await page.screenshot({path:`output/playwright/${name}-cyberpunk-4k-${zoom}.png`});
+ if(pw===3840)await page.screenshot({path:`${preview.output}/${name}-cyberpunk-4k-${zoom}.png`});
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
  assert.equal(await capture.getByRole('button',{name:'Top-right tips',exact:true}).count(),0,'Cyberpunk keeps tips separate from NPC chatter');
  await capture.getByRole('button',{name:'NPC chatter',exact:true}).click();
@@ -187,7 +185,7 @@ try{
    assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Previously captured original Japanese audio remains playable');
   }
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' tabs fit');
-  if(pw===3840)await page.screenshot({path:`output/playwright/${name}-${game}-4k-${zoom}.png`});
+  if(pw===3840)await page.screenshot({path:`${preview.output}/${name}-${game}-4k-${zoom}.png`});
   await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
   await capture.getByRole('button',{name:game==='wuwa'?'Top-right tips':'NPC chatter',exact:true}).click();
   assert.equal(await capture.locator('input[type=range]').first().inputValue(),game==='wuwa'?'58':'8');
@@ -234,7 +232,7 @@ try{
   assert.equal(savedGame.nte_player_voice,'female','Explicit Zero voice survives other game calibration');
   assert.equal(savedGame[`${game}_region`].left,.11,'New crop persists');assert.deepEqual(savedGame.region,region,'ZZZ crop stays independent');
   assert.equal(writes.length,0,'New games cause no account writes');
-  if(name==='chromium'&&pw===320)await page.screenshot({path:`output/playwright/${game}-mobile.png`});
+  if(name==='chromium'&&pw===320)await page.screenshot({path:`${preview.output}/${game}-mobile.png`});
  }
  await games.getByRole('button',{name:'PRAGMATA',exact:true}).click();await page.locator('.current-line.game-pragmata').waitFor();
  assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'fr','PRAGMATA retains the selected French study language');
@@ -290,4 +288,6 @@ try{
  assert.equal(writes.length,0,'ZZZ study and Proxy choices do not change account settings');
  console.log(name+': toolkit '+width+'x'+height+' zoom/DPR '+zoom+' and text-only comic passed');await context.close();
  }await browser.close();browser=null;}
-}finally{await browser?.close();if(process.platform==='win32'){try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}}else server.kill();}
+}finally{
+ try{await browser?.close();}finally{await preview.stop();}
+}

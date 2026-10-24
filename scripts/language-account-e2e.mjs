@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict';
-import {spawn,execFileSync} from 'node:child_process';
-import {mkdirSync} from 'node:fs';
+import {startPreview} from './e2e-preview.mjs';
+
 import {chromium,firefox} from 'playwright';
 
-const port=4323;
-const server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
+const preview=await startPreview('language-account');
 let browser;
-mkdirSync('output/playwright',{recursive:true});
 try{
- await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Account preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes(':'+port)){clearTimeout(timer);resolve();}});server.once('error',reject);});
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]].filter(([name])=>!process.env.ACCOUNT_TEST_BROWSERS||process.env.ACCOUNT_TEST_BROWSERS.split(',').includes(name))){
   browser=await engine.launch({headless:true});
   for(const[width,height]of [[1280,900],[390,844]]){
@@ -46,7 +43,9 @@ try{
     if(path==='/api/lexirise/accounts')return respond({active,profiles:[{id:'first',name:'First account'},{id:'second',name:'Second account'}]});
     if(path==='/api/lexirise/accounts/select'){active=body.id;generation++;return respond({active});}
     if(path==='/api/lexirise/settings'){
-     if(request.method()==='GET'&&holdLanguageRead){holdLanguageRead=false;const result=preferences();releaseLanguageRead=()=>respond(result);return;}
+     // ReadingText also loads unscoped preferences during startup. Hold only
+     // the game picker's account-scoped read, regardless of request ordering.
+     if(request.method()==='GET'&&request.headers()['x-proxy-transcript-account']===active&&holdLanguageRead){holdLanguageRead=false;const result=preferences();releaseLanguageRead=()=>respond(result);return;}
      if(request.method()==='PATCH'&&body.languages){
       if(failLanguageWrite)return respond({detail:'Synthetic language save failed'},502);
       accountLanguages[active]=body.languages;
@@ -78,10 +77,11 @@ try{
     }
     unexpected.push(request.method()+' '+path);return respond({detail:'Unexpected fixture route'},500);
    });
-   await page.goto('http://localhost:'+port);
+   await page.goto(preview.origin);
    await page.waitForFunction(()=>document.querySelector('select[aria-label="Target language"]')?.disabled);
    for(let i=0;i<100&&!releaseLanguageRead;i++)await page.waitForTimeout(20);
    assert(releaseLanguageRead,'Initial account-language read is held after the capture snapshot');
+   assert.equal(await page.getByLabel('Target language',{exact:true}).isDisabled(),true,'The target selector remains disabled while its account-language read is held');
    await releaseLanguageRead();
    await page.getByRole('navigation',{name:'Game transcript'}).getByRole('button',{name:'Genshin Impact',exact:true,pressed:true}).waitFor();
    captureGame='zzz';
@@ -183,7 +183,7 @@ try{
    assert(!writes.some(w=>w.path==='/api/lexirise/settings'),'Read/switch/setup does not write reading preferences');
    assert.equal(writes.filter(w=>w.path==='/api/lexirise/decks').length,2,'Only explicit destination buttons write decks');
    assert(await setup.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Language setup fits viewport');
-   await setup.screenshot({path:`output/playwright/languages-${name}-${width}.png`});
+   await setup.screenshot({path:`${preview.output}/languages-${name}-${width}.png`});
    await setup.getByRole('button',{name:'General & Updates',exact:true}).click();
    const writesBefore=writes.length;
    for(const [locale,label] of [['nl','Instellingen'],['zh-Hans','设置'],['zh-Hant','設定']]){await page.getByRole('dialog').locator('select').selectOption(locale);await page.getByRole('dialog',{name:label,exact:true}).waitFor();assert.equal(await page.locator('html').getAttribute('lang'),locale);}
@@ -198,7 +198,7 @@ try{
    await target.selectOption('en');
    const cards=page.getByRole('navigation',{name:'Game transcript'});
    assert.equal(await cards.getByRole('button').count(),11,'English shows all eleven voiced games');
-   await picker.screenshot({path:`output/playwright/game-picker-all-${name}-${width}.png`});
+   await picker.screenshot({path:`${preview.output}/game-picker-all-${name}-${width}.png`});
    await picker.getByRole('searchbox',{name:'Search games'}).fill('witcher');
    assert.equal(await cards.getByRole('button').count(),1);
    await cards.getByRole('button').click();
@@ -226,7 +226,7 @@ try{
    assert.equal(await cards.getByRole('button').count(),2,'Dutch only offers the two games with Dutch voice');
    assert.equal(await picker.getByRole('button',{name:'Add language to Lexirise',exact:true}).count(),0);
    assert.equal(writes.filter(w=>w.path==='/api/lexirise/settings').length,settingsWrites,'Browsing independent mode never writes account preferences');
-   await picker.screenshot({path:`output/playwright/game-picker-${name}-${width}.png`});
+   await picker.screenshot({path:`${preview.output}/game-picker-${name}-${width}.png`});
    await page.evaluate(()=>{document.documentElement.style.zoom='1.5';});
    assert(await picker.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Picker fits at 150% zoom');
    await page.evaluate(()=>{document.documentElement.style.zoom='';});
@@ -265,7 +265,5 @@ try{
   await browser.close();browser=null;
  }
 }finally{
- if(browser)await browser.close();
- if(process.platform==='win32')try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}
- else server.kill('SIGTERM');
+ try{await browser?.close();}finally{await preview.stop();}
 }
