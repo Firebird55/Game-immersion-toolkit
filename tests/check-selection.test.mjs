@@ -101,3 +101,25 @@ test('native update scenarios are recorded unavailable off Windows and never sil
 test('library exporter and worker changes execute one-file browser import scenarios',()=>{
  for(const file of ['backend/mobile_bundle.py','backend/mobile_library.py','public/mobile-capture/library.mjs','public/mobile-capture/library-worker.mjs'])assert.ok(scenarioPlan([file]).browser.includes('mobile-library-e2e'),file);
 });
+
+test('check execution infrastructure requires the actual full gate', () => {
+ for (const file of ['scripts/check-changed.mjs','scripts/check-evidence.mjs','scripts/check-browser-suite.mjs','scripts/python-runtime.mjs','scripts/e2e-preview.mjs','scripts/build-identity.mjs','scripts/check-ci-gate.mjs']) {
+  const checks = selectChecks([file]), calls = [];
+  assert.deepEqual(checks, ['full'], file);
+  executeChecks(checks, {runCommand:(command,args) => calls.push([command,args]),platform:'win32',splitBrowsers:true});
+  assert.ok(calls.some(([command,args]) => command === 'npm' && args.join(' ') === 'run check'), file);
+ }
+});
+
+test('doctor and infrastructure tests keep a small Node smoke gate', () => {
+ for (const file of ['scripts/dev-doctor.mjs','tests/check-selection.test.mjs','tests/check-evidence.test.mjs','tests/dev-doctor.test.mjs','tests/python-runtime.test.mjs','tests/e2e-preview.test.mjs','tests/build-identity.test.mjs','tests/ci-gate.test.mjs']) assert.deepEqual(selectChecks([file]), ['selector'], file);
+});
+
+test('mobile reader and update harness changes execute the mobile update scenario', () => {
+ for (const file of ['mobile/companion.jsx','scripts/mobile-update-e2e.mjs']) {
+  const calls = [], checks = selectChecks([file]);
+  assert.deepEqual(checks, ['mobile']);
+  executeChecks(checks, {scenarios:scenarioPlan([file],checks),runCommand:(_command,args) => calls.push(args),platform:'darwin',splitBrowsers:false});
+  assert.ok(calls.some(args => args.includes('scripts/mobile-update-e2e.mjs')), file);
+ }
+});

@@ -10,26 +10,63 @@ permissions:
 concurrency:
   group: checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+env:
+  CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  CI_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
 jobs:
-  check:
-    runs-on: windows-latest
-    outputs:
-      full: ${{ steps.scope.outputs.full }}
+  source-audit:
+    # Public metadata checks inspect submitted identities. Application checks
+    # separately verify GitHub's synthetic merge commit and both event parents.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Audit the submitted commit, not GitHub's temporary merge identity.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Select affected checks
-        id: scope
-        env:
-          CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: node scripts/check-changed.mjs --plan ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify the source identity for publication audit
+        run: node scripts/check-ci-gate.mjs checkout source-audit
+      - run: npm run audit:public
+      - name: Upload safe audit identity
+        if: ${{ always() && hashFiles('output/checks/ci/source-audit.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-source-audit
+          path: output/checks/ci/source-audit.json
+          retention-days: 7
+  check:
+    runs-on: windows-latest
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+      scope_valid: ${{ steps.scope.outputs.scope_valid }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Application checks use this exact event merge SHA for PRs.
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
+      - name: Verify the integration commit and PR merge parents
+        run: node scripts/check-ci-gate.mjs checkout integration
+      - name: Select affected checks
+        id: plan
+        env:
+          CHECK_BASE: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'workflow_dispatch' && (github.event.pull_request.base.sha || github.event.before) || '' }}
+        run: node scripts/check-changed.mjs --plan ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
+      - name: Validate scope before conditional checks
+        id: scope
+        env:
+          CI_SCOPE_CHECKS: ${{ steps.plan.outputs.checks }}
+          CI_SCOPE_FULL: ${{ steps.plan.outputs.full }}
+          CI_SCOPE_DEPENDENCIES: ${{ steps.plan.outputs.dependencies }}
+          CI_SCOPE_PYTHON: ${{ steps.plan.outputs.python }}
+          CI_SCOPE_BROWSERS: ${{ steps.plan.outputs.browsers }}
+        run: node scripts/check-ci-gate.mjs scope
       - uses: actions/setup-python@v5
         if: steps.scope.outputs.python == 'true'
         with:
@@ -56,8 +93,10 @@ jobs:
         if: steps.scope.outputs.browsers == 'true' && steps.scope.outputs.full != 'true'
       - name: Run selected checks
         env:
-          CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CHECK_BASE: ${{ !startsWith(github.ref, 'refs/tags/') && github.event_name != 'workflow_dispatch' && (github.event.pull_request.base.sha || github.event.before) || '' }}
           CHECK_SPLIT_BROWSER_TESTS: ${{ steps.scope.outputs.full == 'true' }}
+          # The separate source-audit job checks PR author/history metadata.
+          CHECK_SKIP_PUBLIC_AUDIT: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
         run: node scripts/check-changed.mjs ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
       - uses: actions/upload-artifact@v4
         if: steps.scope.outputs.full == 'true'
@@ -66,10 +105,20 @@ jobs:
           path: dist/
           include-hidden-files: true
           retention-days: 7
+      - name: Upload safe integration evidence
+        if: ${{ always() && hashFiles('output/checks/ci/integration.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-integration
+          path: |
+            output/checks/ci/integration.json
+            output/checks/runs/*.json
+            output/checks/latest.json
+          retention-days: 7
   browser-checks:
     # Comprehensive PR gates need the same isolated runners as release gates.
     # A long sequence on one Windows runner can exhaust socket buffers.
-    if: needs.check.outputs.full == 'true'
+    if: needs.check.outputs.scope_valid == 'true' && needs.check.outputs.full == 'true'
     needs: check
     runs-on: windows-latest
     timeout-minutes: 15
@@ -80,11 +129,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
+      - name: Verify the browser integration commit
+        run: node scripts/check-ci-gate.mjs checkout browser
       - uses: actions/setup-python@v5
         if: matrix.suite == 'setup'
         with:
@@ -103,18 +155,63 @@ jobs:
           path: dist/
       - run: node scripts/prepare-mobile-assets.mjs
       - name: Check ${{ matrix.suite }} browsers
-        run: node scripts/check-browser-suite.mjs ${{ matrix.suite }}
+        run: node scripts/check-evidence.mjs --browser-suite ${{ matrix.suite }}
+      - name: Upload safe browser evidence
+        if: ${{ always() && hashFiles('output/checks/ci/browser.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-browser-${{ matrix.suite }}
+          path: |
+            output/checks/ci/browser.json
+            output/checks/runs/*.json
+            output/checks/latest.json
+          retention-days: 7
+  required-checks:
+    # Keep this context stable for repository rules. Event parent verification
+    # does not enforce branch freshness; strict up-to-date rules do that.
+    if: ${{ always() }}
+    needs: [source-audit, check, browser-checks]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify the gate integration commit
+        run: node scripts/check-ci-gate.mjs checkout required-checks
+      - name: Require all selected checks to succeed
+        env:
+          CI_SCOPE_VALID: ${{ needs.check.outputs.scope_valid }}
+          CI_SCOPE_FULL: ${{ needs.check.outputs.full }}
+          CI_AUDIT_RESULT: ${{ needs.source-audit.result }}
+          CI_CHECK_RESULT: ${{ needs.check.result }}
+          CI_BROWSER_RESULT: ${{ needs.browser-checks.result }}
+        run: node scripts/check-ci-gate.mjs required
+      - name: Upload safe gate evidence
+        if: ${{ always() && hashFiles('output/checks/ci/required-checks.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-required-checks
+          path: output/checks/ci/required-checks.json
+          retention-days: 7
   package:
     # Manual candidate validation produces artifacts without invoking publish.
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    needs: [check, browser-checks]
+    needs: [source-audit, check, browser-checks, required-checks]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
+      - name: Verify the package source commit
+        run: node scripts/check-ci-gate.mjs checkout package
       - run: npm ci --ignore-scripts
       - uses: actions/download-artifact@v4
         with:
@@ -126,10 +223,18 @@ jobs:
         run: node scripts/package-release.mjs
       - run: node scripts/validate-artifacts.mjs
       - run: npx playwright install chromium firefox webkit
-        if: github.event_name == 'workflow_dispatch'
       - name: Independently check the extracted candidate
-        if: github.event_name == 'workflow_dispatch'
-        run: node scripts/validate-candidate.mjs
+        run: node scripts/check-evidence.mjs --candidate
+      - name: Upload safe package evidence
+        if: ${{ always() && hashFiles('output/checks/ci/package.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-package
+          path: |
+            output/checks/ci/package.json
+            output/checks/runs/*.json
+            output/checks/latest.json
+          retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
           name: tested-release-assets
@@ -143,7 +248,7 @@ jobs:
             release/LICENSE
             release/SHA256SUMS
   publish:
-    if: github.repository == 'Firebird55/Game-immersion-toolkit' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && github.repository == 'Firebird55/Game-immersion-toolkit' && startsWith(github.ref, 'refs/tags/v')
     needs: package
     runs-on: ubuntu-latest
     permissions:
