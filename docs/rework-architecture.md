@@ -1,287 +1,290 @@
-# Architectuuronderzoek voor de rework
+# Rework architecture study
 
-Status: **ontwerpvoorstel, geen applicatie-implementatie**. Onderzocht op
-2026-10-24 tegen upstream `387631f76fe2687d036bef6e8617cb4962e7c4a2`
-(0.19.2 plus PR #35); de onderzoeksbranch bevat daarnaast alleen documentatie.
-Drie parallelle analyses behandelden de huidige architectuur, doelgrenzen en
-migratie/platformkeuze. De conclusies zijn tegen broncode en bestaande tests
-getoetst. Een broncode-observatie is geen nieuwe praktijkmeting.
+Status: **design proposal, not application implementation**. The original study
+examined upstream `387631f76fe2687d036bef6e8617cb4962e7c4a2` on 2026-10-24
+(0.19.2 plus PR #35). This revision incorporates the owner's review: English-only
+engineering documentation, equal consideration of supported games, screenshot
+regressions, sampled language combinations, mobile-package testing and a smaller,
+necessary test suite. No new runtime, device or real-package verification is claimed.
 
-Dit document onderbouwt de [roadmap](rework-roadmap.md). De concrete opdrachten
-staan daar; dit document beschrijft waarom die grenzen en volgorde nodig zijn.
-De [runtimecontracten](runtime-context.md), [taal-/accountregels](languages-and-accounts.md)
-en [AI-werkwijze](ai-development-workflow.md) blijven van toepassing.
+The [roadmap](rework-roadmap.md) assigns the work. The
+[screenshot regression plan](screenshot-regression-plan.md) defines fixture,
+package, hosted-execution and privacy requirements. Existing
+[runtime contracts](runtime-context.md), [language/account rules](languages-and-accounts.md)
+and the [AI workflow](ai-development-workflow.md) remain applicable.
 
-## Conclusie
+## Recommendation
 
-Behoud de Pythonbackend, lokale browser en zelfstandige mobiele browserapp.
-Verfijn de bestaande modules tot een modulaire monoliet met expliciete eigenaren:
-transport, runtimecompositie, game-/taalactivatie, herkenningsbeleid, publicatie
-en opslag. Mobiel blijft een eigen runtime met dezelfde waarneembare semantiek;
-een gedeelde engine of nieuwe programmeertaal is geen voorwaarde.
+Retain the Python backend, ordinary desktop browser and independent mobile
+browser app. Clarify ownership of transport, runtime composition, game/locale
+activation, recognition policy, publication and storage. A common engine or new
+programming language is not a prerequisite for matching observable behavior.
 
-De hoogste opbrengst verwachten we van drie concrete veranderingen:
+The useful changes are an explicit active game/locale binding, one mobile
+production controller usable by both UI and screenshot tests, and separate
+observation/policy/publication responsibilities in desktop capture. Protect
+those boundaries with relevant characterization before extraction. File size
+alone is not a reason to rewrite a module. Performance improvements remain
+unmeasured until the relevant baseline and comparison exist.
 
-1. Eén expliciete actieve game-/taalbinding, zodat de API geen capture-private
-   velden hoeft te veranderen om catalogus en voices te wisselen.
-2. Een mobiele productiecontroller die zonder DOM kan draaien, waardoor replay
-   werkelijk dezelfde beslislogica test als de applicatie.
-3. Afzonderlijke observatie-, gamebeleid- en publicatiegrenzen in desktopcapture,
-   beschermd met sequentietests voordat gedrag of locatie van code verandert.
-
-Dit zijn ontwerpkeuzes op basis van coupling en ontbrekend testbewijs. Winst in
-snelheid, geheugen of herkenningspercentage is nog niet gemeten. Grote bestanden
-alleen zijn geen reden voor een herschrijving.
-
-## Huidige architectuur en aangetoonde knelpunten
+## Current boundaries and evidence
 
 ```mermaid
 flowchart LR
-  D[Desktop React companion] --> A[FastAPI routes en Runtime]
+  D[Desktop companion] --> A[FastAPI and Runtime]
   A --> C[CaptureService]
-  A --> L[Taalvoorbereiding en gameactivatie]
+  A --> L[Language preparation and activation]
   A --> I[InstallationService]
-  C --> O[Windows capture en native OCR]
-  C --> G[Game- en locale-indexes]
-  C --> T[Transcript en voice-publicatie]
-  M[Mobiele React companion en DOM-shell] --> U[mobile-ui controller]
+  C --> O[Windows capture and native OCR]
+  C --> G[Game and locale indexes]
+  C --> T[Transcript and voice publication]
+  M[Mobile companion and DOM shell] --> U[Mobile controller]
   U --> F[Frame source]
-  U --> B[Browser OCR en libraryworker]
-  U --> H[Lokale browserhistorie]
+  U --> B[Browser OCR and library worker]
+  U --> H[Browser history]
 ```
 
-De kaart toont de hoofdverantwoordelijkheden; zij is geen volledige netwerkkaart.
-PC-pairing, VDO-transport en de Lexirise-gateway hebben afzonderlijke grenzen.
+This is a responsibility map, not a complete network diagram. PC pairing, VDO
+transport and the Lexirise gateway have separate boundaries.
 
-| Observatie op de onderzoekscommit | Bron en betekenis | Benodigde verbetering |
+| Observation at the study commit | Source and consequence | Needed change |
 | --- | --- | --- |
-| API bevat compositie én mutabel runtimebeleid | [Runtime](../backend/api.py), `__init__`, `build_language`, `activate_language`; activatie schrijft ook `capture.textmaps`, voicevelden en `_scan_epoch` | Maak activatie een expliciete operatie met één eigenaar en een coherente binding; alleen routebestanden opsplitsen is onvoldoende |
-| Capture mengt waarneming, gamebeleid, opslag en callbacks | [CaptureService](../backend/capture.py), `_scan_once`, game-scans, `_schedule_line_audio` | Splits één route tegelijk langs observatie → beslissing → publicatie, met bestaande foutpaden intact |
-| Matching verschilt per route | [Legacy fragmentmatching](../backend/textmaps.py), [meertalige matching](../backend/multilingual_index.py), [mobiele matching](../public/mobile-capture/library.mjs) | Leg gewenste semantiek vast met dezelfde fixtures; bepaal welke platformverschillen terecht zijn |
-| Geometrie en presentatie kunnen verhaalvolgorde suggereren | `capture._spatial_text_groups` sorteert links/boven; [bestaande test](../backend/tests/test_capture.py) verwacht dit; [mobiel](../public/mobile-capture/mobile-ui.mjs) schrijft een batch met `observedAt + order++` | Onderscheid observatie, occurrence, publicatievolgorde en bewezen verhaalvolgorde; onbekend blijft onbekend |
-| Mobiele controller is direct aan DOM en moduleglobals gebonden | [mobile-ui.mjs](../public/mobile-capture/mobile-ui.mjs) maakt worker/state en bindt listeners bij import; scan leest controls rechtstreeks | Maak één controller met injecteerbare I/O en een dunne DOM-shell; behoud lifecycle en release van frames |
-| Replay dekt productiebeleid niet volledig | [Mobiele replay](../scripts/replay-mobile-ocr.mjs) heeft eigen stable/set-loop; [desktopreplay](../scripts/replay-video-ocr.py) injecteert via `game_indexes`, terwijl ZZZ een speciaal pad heeft | Karakteriseer eerst de huidige productiecontrollers; gebruik daarna dezelfde controllers voor replay |
-| Setup-status combineert fysieke packs en indexinformatie | [InstallationService](../backend/installation.py), `_voice_state`/`status`; [paden](../backend/game_paths.py) en runtime gebruiken meerdere opslaglocaties | Eén lokale service, met aparte kandidaat-, aanwezigheid-, reader- en indexstatus; expliciete storage-layout voor source en bundle |
-| Native OCR-timeout bewijst geen beëindiging | [Capture worker](../backend/capture.py), `stop` en `_run`, roteert een executor bij timeout | Meet/fault-injecteer eerst; een beheerd workerproces is een mogelijke gerichte proef, geen bewezen vereiste voor de installer |
+| API combines composition and mutable runtime policy | [Runtime](../backend/api.py): activation writes capture indexes, voice fields and `_scan_epoch` | One explicit activation owner and coherent binding; splitting routers alone is insufficient |
+| Capture combines observation, game policy, persistence and callbacks | [CaptureService](../backend/capture.py): scans and audio scheduling | Extract one route at a time with existing errors and publication rules preserved |
+| Matching varies across routes | [Legacy](../backend/textmaps.py), [multilingual](../backend/multilingual_index.py), [mobile](../public/mobile-capture/library.mjs) | Shared behavioral examples; distinguish legitimate engine differences from semantic defects |
+| Geometry can imply an unsupported story order | Desktop spatial grouping and mobile batch timestamps | Distinguish observation, content identity, occurrence, display order and proven story order |
+| Mobile controller reads DOM and owns module-global state | [mobile-ui.mjs](../public/mobile-capture/mobile-ui.mjs) | One controller with injectable I/O and a thin DOM shell, preserving resource release |
+| Existing replay does not cover all production policy | [Mobile replay](../scripts/replay-mobile-ocr.mjs) has its own stable/set loop; [desktop replay](../scripts/replay-video-ocr.py) can miss specialized routes | Characterize production first; use the same controllers for screenshot replay and assert route choice |
+| Setup combines physical packs and prepared-index information | [InstallationService](../backend/installation.py), [paths](../backend/game_paths.py) | Separate candidate, physical presence, reader support and index readiness |
+| A native OCR timeout does not establish termination | Capture rotates an executor on timeout | Measure and fault-inject before proposing a managed worker process |
 
-## Wat upstream al oplost
+These are code observations, not new native reproductions. Special-case code in
+one game does not establish complete coverage for that game or justify prioritizing
+it over others. Inventory actual presentations in every active adapter.
 
-PR #34 bevat meerdere onafhankelijke mobiele ZZZ-comicmatches, bevestiging per
-bubble, zwarte én lichte bubbleverwerking en herstel van stemmen binnen de
-originele locales. Zie [confirmation](../public/mobile-capture/caption-confirmation.mjs),
-[OCR-pipeline](../public/mobile-capture/ocr-pipeline.mjs) en de huidige mobiele
-scan. R10 begint dus met behoud en toetsing van deze implementatie; resterend
-werk betreft onder meer temporele identiteit, scrollfragmenten en echte replay.
+## Preserve existing solutions
 
-PR #35 bevat een [zoekbare gamepicker](../app/game-picker.tsx), accountbewuste
-taalkeuze, requestownership en behoud van lokale vertaaldoelen bij activatie en
-historie. Een refactor moet deze werking behouden en mag de oudere onderzoeks-
-baseline uit 0.19.1 niet opnieuw als actuele productstaat presenteren.
+PR #34 already added independent mobile ZZZ comic matches, per-bubble confirmation,
+dark/light bubble handling and voice recovery within original locales. Preserve
+[confirmation](../public/mobile-capture/caption-confirmation.mjs), the
+[OCR pipeline](../public/mobile-capture/ocr-pipeline.mjs) and current scan behavior;
+R10 investigates remaining evidence gaps instead of rebuilding these features.
 
-Andere bestaande grenzen zijn juist waardevol:
+PR #35 added the [searchable game picker](../app/game-picker.tsx), account-aware
+language selection, request ownership and persistent local translation targets.
+The older 0.19.1 findings must not be presented as current behavior.
 
-- [StateVersion](../backend/state_version.py) en [state-sync](../app/state-sync.ts)
-  regelen runtime-ID, revisie, accountgeneratie, requestownership en reconciliatie.
-  Introduceer hiervoor geen tweede generieke eventbus of concurrerende teller.
-- [LanguagePreparation](../backend/language_preparation.py) en de
-  [Windows preparationprocessen](../backend/windows_preparation_process.py)
-  bezitten hun jobs; cancellation, lockvolgorde en atomische indexpublicatie
-  blijven behouden. Een mislukte cleanup is geen succesvolle quiesce.
-- [Receiver source](../public/mobile-capture/receiver-source.mjs) heeft al een
-  broncontract, session/revisionchecks en frame-release. Hergebruik dit contract.
-- [Gamereaders](../backend/game_assets.py), SQLite-transcriptopslag en beschermde
-  accountstores bestaan al. Een dynamisch pluginsysteem of databasevervanging
-  heeft in dit onderzoek geen aangetoonde noodzaak.
-- [Runtime handoff](../backend/runtime_handoff.py), de
-  [updater](../scripts/update-companion.ps1) en
-  [launcher](../scripts/companion-runtime.ps1) regelen standby, gereedheid,
-  quiesce, overname en herstel. Nieuwe state moet dit bestaande contract volgen.
+Also retain:
 
-## Doelarchitectuur en beslissingen
+- [StateVersion](../backend/state_version.py) and [state reconciliation](../app/state-sync.ts):
+  runtime IDs, revisions, account generations and request ownership. No second event bus.
+- [Language preparation](../backend/language_preparation.py) and
+  [Windows process management](../backend/windows_preparation_process.py): job
+  ownership, cancellation, lock order and atomic index publication. Incomplete
+  cleanup is not successful quiescence.
+- [Receiver source](../public/mobile-capture/receiver-source.mjs): session/revision
+  validation and frame release. Screenshot injection should use this boundary.
+- Existing game readers, transcript stores and protected account storage. Neither
+  a dynamic plugin framework nor database replacement has a demonstrated need.
+- [Runtime handoff](../backend/runtime_handoff.py), the
+  [updater](../scripts/update-companion.ps1) and
+  [launcher](../scripts/companion-runtime.ps1): standby, readiness, quiescence,
+  takeover and recovery. New state needs an explicit handoff policy.
+
+## Target responsibilities
 
 ```mermaid
 flowchart LR
-  UI[UI en transportadapters] --> UC[Use-cases en readmodels]
-  UC --> CT[Actieve context en gamebinding]
-  FS[Platform framebron] --> OB[OCR-observaties]
-  CT --> GP[Gamebeleid en catalogusmatching]
+  UI[UI and transport adapters] --> UC[Use cases and read models]
+  UC --> CT[Active context and game binding]
+  FS[Live frames or test screenshots] --> OB[OCR observations]
+  CT --> GP[Game policy and catalog matching]
   OB --> GP
-  GP --> PB[Transcript-publicatie met contextcontrole]
-  PB --> ST[Opslagadapter]
+  GP --> PB[Publication with context validation]
+  PB --> ST[Storage adapter]
   PB --> UI
-  INS[Installer en WebUI] --> SET[Lokale setupservice]
-  SET --> RES[Discovery, packs en runtimehost]
+  INS[Installer and WebUI] --> SET[Local setup service]
+  SET --> RES[Discovery, packs and runtime host]
 ```
 
-Dit is een verantwoordelijkheidsmodel. Python en browser-JavaScript implementeren
-hun eigen platformdelen; de pijlen betekenen geen nieuwe netwerkservices.
-Bestaande adapters blijven in gebruik tijdens de migratie.
+Python and browser JavaScript retain their platform implementations. These arrows
+do not introduce network services. Existing adapters remain during migration.
 
-### D1 — Een compositieroot en expliciete use-cases
+### D1 — Composition and explicit use cases
 
-De runtime bouwt services en beheert hun lifecycle. HTTP/WebSocket-routes valideren
-input en roepen use-cases aan; routecode bepaalt geen game-/voicebinding via
-private attribuutmutaties. Begin met activatie en het lifecycledeel dat packaging
-raakt. Haal geen compleet framework of dependency-injectioncontainer binnen.
+Runtime constructs services and owns lifecycle. Routes validate input and call
+use cases; they do not select game/voice bindings by mutating private capture
+fields. Start with activation and the lifecycle boundary needed by packaging.
+Do not introduce a general dependency-injection framework. Moving route files
+without changing ownership would leave the underlying coupling intact.
 
-Alternatief: alleen `api.py` in routers knippen. Dat maakt navigatie eenvoudiger,
-maar laat gedeelde mutable state en eigenaarschap ongemoeid. Daarom eerst de
-verantwoordelijkheid expliciet maken en vervolgens alleen de benodigde code verplaatsen.
+### D2 — Context and transcript identity
 
-### D2 — Context en transcriptidentiteit expliciet maken
+An active binding coherently identifies the game, source locale, catalog version,
+voice binding and relevant context/generation. Capture context before asynchronous
+work and validate it at publication. Account A → B → A, language/source switches
+and runtime takeover must not revalidate old work.
 
-Een toekomstige binding beschrijft game, source locale, catalogusversie,
-voicebinding en de geldende context/generatie. Een scan gebruikt een coherente
-binding en controleert bij publicatie dat deze nog geldig is. Account A → B → A,
-taalwissels, bronwissels en runtimeovername mogen oud werk niet opnieuw geldig maken.
-
-Het contract onderscheidt ten minste:
-
-| Begrip | Betekenis en regel |
+| Concept | Contract |
 | --- | --- |
-| Context | Bestaande runtime/account/source-/taalgeneraties blijven eigenaar van hun domein; verschillende runtimes vergelijken geen revisies |
-| Observatie | Bron-/frame-identiteit, sample-/observatietijd, kanaal/crop en OCR-tekst; bronklok en verwerkingsklok expliciet relateren |
-| Dialoogidentiteit | Game, locale en officiële catalogus-/voice-identiteit; een OCR-fragment is geen nieuwe catalogusregel |
-| Occurrence | Eén verschijnen/uitspreken; verplaatsen houdt identiteit, een echte latere herhaling kan nieuw zijn |
-| Volgorde | Authored volgorde alleen indien gevalideerd; anders betrouwbare observatievolgorde of expliciet onbekend |
-| Publicatie | Huidige eigenaar beslist over opslag/event; completiontijd of arraypositie is geen bewijs van verhaalvolgorde |
+| Context | Existing runtime/account/source/language generations own their domains; revisions from different runtimes are not comparable |
+| Observation | Source/frame identity, observation time, crop/channel and OCR text; relate source and processing clocks explicitly |
+| Content identity | Verified game, locale and catalog/voice identity; an OCR fragment is not a new catalog line |
+| Occurrence | One appearance/utterance; movement retains identity while a genuine later repetition may be new |
+| Order | Validated authored order, otherwise reliable observation order, otherwise explicitly unknown |
+| Publication | One current owner decides persistence/output; completion time and array position are not story-order evidence |
 
-Dit zijn semantische eisen, geen voorgeschreven veldnamen of nieuw universeel
-schema. Versioneer alleen grenzen die consumers/persistente data werkelijk delen.
-Houd bestaande mobile-protocolvalidatie en adapters voor veldnamen intact. Nieuwe
-occurrence-state krijgt expliciet handoffbeleid: behouden, compatibel afleiden
-of veilig resetten met bewezen effect op duplicaten. Geen stil verlies bij updates.
+These are semantic requirements, not prescribed new field names. Version only
+interfaces shared with consumers or persistent data. Preserve existing wire
+adapters. New occurrence state needs a preserve/derive/reset policy across
+handoff, with its effect on duplicate suppression verified.
 
-### D3 — Gamebeleid delen als gedrag, niet als één engine
+### D3 — Game-specific behavior without a universal engine
 
-Behoud native desktop-OCR en browser-OCR. Laat capture-/matchingbeleid per game crops,
-kanalen, fragment-/ambiguïteitsbeleid en catalogusmatching bepalen, apart van de
-bestaande asset-extractieadapters. Gemeenschappelijke
-fixtures beschrijven identieke waarneembare garanties. Engines mogen verschillende
-ruwe OCR-uitvoer hebben; fixtures moeten I/O en domeinbeslissing apart toetsen.
+Retain native desktop and browser OCR. Keep crop/channel selection, fragment and
+ambiguity rules, catalog matching and voice eligibility explicit per game, apart
+from asset extraction. Common fixtures express observable guarantees; raw OCR
+text may differ between engines. Do not erase context-dependent dialogue, player
+variants or explicitly supported unvoiced lines with a generic heuristic.
 
-Alternatieven zoals één Pythonbackend voor alle mobiele OCR of een Rust/WASM-kern
-veranderen offlinegedrag, distributie en testlast. De huidige verschillen geven
-nog geen bewijs dat zo'n platformmigratie nodig is. Een generieke heuristiek mag
-ZZZ, Heavy Rain/Beyond, player voices of expliciete audioloze gevallen niet wegdrukken.
+Use a presentation inventory to discover holes beyond comics: overhead chatter,
+centered cards, wrapped captions, light/legacy panels, page fragments, choices
+and HUD false positives. The [screenshot plan](screenshot-regression-plan.md)
+lists concrete starting points and requires an entry for every active game.
+Reported defects and distinct uncovered behavior determine work order, not game
+name or the amount of existing special handling.
 
-### D4 — Eén mobiele productiecontroller voor UI en replay
+### D4 — One mobile controller for UI and regression execution
 
-Een factory krijgt bron, klok, OCR, library/matcher, opslag en eventoutput als
-smalle afhankelijkheden. De controller bezit scanintent, epochs, bevestiging,
-pending werk en stop/close. De DOM-shell vertaalt controls naar opdrachten en
-state naar weergave; zij voert geen tweede herkenningsbeslissing uit.
+A controller factory receives source, clock, OCR, package/library matching,
+storage and event output as narrow dependencies. It owns scan intent, epochs,
+confirmation, pending work and stop/close. The DOM shell translates controls and
+renders state without a second recognition decision loop. Keep existing worker
+and receiver boundaries rather than introducing a general frontend state library.
 
-Zet dit niet om in een nieuwe algemene frontendstate-library. Behoud de bestaande
-receiver- en libraryworkergrenzen. Een UI-readmodel mag status tonen zonder
-stilstaand beeld tot bewezen netwerkuitval of geselecteerde game tot draaiend
-proces te reduceren. Desktop gebruikt zijn bestaande StatePoll/StateEvents.
+The primary regression input is a fixed screenshot and an actual-format mobile
+package. Use real OCR in selected image tests, and controlled observations in
+cheap temporal tests. Load the package through the production importer, then
+exercise actual matching, transcript, translation and voice binding. Build and
+test the packaged mobile artifact, not just loose source modules. Injected OCR
+or synthetic tones must be identified as such in results.
 
-### D5 — Eén setupservice en expliciete runtimehost-/storagegrenzen
+A single screenshot proves visible content, not chronology. Ordered screenshot
+sequences with independent annotations cover scroll, repetition, duplicates,
+late completion and source changes. No live YouTube playback dependency is
+needed. Existing video tools may remain for an independently justified measurement;
+they are not the required corpus acquisition or PR execution path.
 
-Installer en WebUI gebruiken dezelfde validatie en voorbereiding. Scheid
-immutable programma/resources, blijvende data, caches, hostinstellingen en
-beschermde credentials. Source en bundle krijgen adapters voor resourcepaden en
-starten/readiness/stop; de toepassingslogica kent geen installerwizard of Wrangler.
+### D5 — Shared setup service and explicit host/storage boundaries
 
-Bouw door op InstallationService en het huidige updaterprotocol. Status lezen
-mag geen voorbereiding of accountwrite veroorzaken. Houd programmamigratie en
-gebruikersdatamigratie afzonderlijk herstelbaar. Een static frontend blijft een
-proef: origin, API/WebSocket, asset-/OCR-workerpaden en serviceworkerupdates horen
-bij het compatibiliteitscontract. localStorage/IndexedDB verhuizen niet vanzelf
-mee met een gekopieerde datafolder. De gewone-browserroute blijft nodig voor
-Browser Extension.
+Installer and WebUI use the same validation and preparation. Separate immutable
+resources, persistent data, caches, host settings and protected credentials.
+Source and bundle adapters own resource paths and start/readiness/stop. Status
+reads must not prepare files or write to accounts.
 
-### D6 — Native isolatie alleen na bewijs
+Retain InstallationService and updater contracts. Program and user-data migrations
+must be independently recoverable. A static frontend remains an experiment:
+origin, API/WebSocket routes, assets, OCR workers and service-worker updates are
+compatibility requirements. Copying files does not move localStorage/IndexedDB
+to another origin. Preserve the ordinary browser for Browser Extension mode.
 
-Een Pythonfuture annuleren beëindigt geen al lopende native call. Dat volgt uit
-[Python futures](https://docs.python.org/3.12/library/concurrent.futures.html);
-het bewijst niet dat de toolkit in deze sessie een native hang heeft gehad.
-Onderzoek R23 daarom alleen met een concrete herstel-/prestatiehypothese.
+### D6 — Native isolation only for a measured problem
 
-Vergelijk eerst de huidige route met een beheerd Pythonworkerproces achter
-hetzelfde contract. Windows spawn en termination vereisen expliciet beheer van
-IPC en resources ([multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)).
-Een worker schrijft geen transcript; de backend blijft publicatie-eigenaar.
-Faultcases: hang/crash, late respons, startupfailure, bronwissel en update tijdens
-werk. Stop/cleanup moet werkelijk begrensd zijn; vervang onbetrouwbare IPC na een
-geforceerde stop. Bestaand [Job Object-beheer](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
-voor voorbereiding mag niet door een tweede concurrerende manager worden vervangen.
+Cancelling a running future does not terminate a native call; that alone does not
+prove a toolkit hang. R23 requires a specific recovery/performance hypothesis.
+First compare the current path with a managed Python worker behind the same
+contract. Test hang/crash, late response, failed startup, source changes and
+updates during work. Backend remains the publication owner. Termination must
+bound cleanup and replace damaged IPC without competing with existing Windows
+Job Object management.
 
-Rust of C# komt pas in de vergelijking bij een eigenschap die hiermee onvoldoende
-wordt opgelost. Geen volledige herschrijving, Tauri-shell of taalwissel als
-voorwaarde voor R19. Een [PyInstaller-directorybundel](https://pyinstaller.org/en/stable/operating-mode.html)
-is een te toetsen distributieoptie, geen bewijs dat alle tools/resources al werken.
+Consider Rust/C# only for a property the simpler approach cannot satisfy. No
+language rewrite, Tauri shell or native worker is a prerequisite for bundling.
+A PyInstaller directory bundle is an option to validate, not evidence that all
+resources and game tools already work. The
+[roadmap](rework-roadmap.md#decisions-requiring-evidence) records these decisions.
 
-## Migratievolgorde zonder algemene blokkade
+### D7 — Bounded screenshot and language coverage
 
-De roadmap splitst R07 in karakterisatie en productie-replay, en concretiseert
-R12/R13 per eigenaar. De volgorde is bewust per onderdeel:
+Use one versioned manifest/runner contract across games. Record image and package
+digests, game/patch, presentation, independent language fields, expected/forbidden
+catalog identities, route and evidence classification. Start with three to five
+supported language combinations across the selected corpus, with fixed bug
+regressions and a small rotating supplemental sample. Avoid an exhaustive matrix.
 
-1. **W1:** status-/readmodelafspraak voor R03 (R12a); alleen de nodige
-   subscriptions/state uit presentatie halen (R13d). Labels en banner kunnen
-   op de huidige interfaces worden verbeterd.
-2. **W2:** R01-verwachtingen → R07a-karakterisatie via de bestaande productiecode.
-   Mobiel daarna R13c-controllerextractie → R07b-replay via die controller.
-   Desktop R07b mag onafhankelijk doorgaan zodra zijn echte route testbaar is.
-3. **W2:** R12b-context-/bindingcontract → R13b-expliciete activatie met bestaande
-   lock/generationregels. R08 verbetert matchgedrag apart; R09/R10 volgen met
-   temporele veranderingen en regressiebewijs per platform. R13e splitst
-   observatie/beleid/publicatie waar de betreffende route het nodig heeft.
-4. **W3:** R12c is de kleine contractoplevering binnen R14/R18; discovery en
-   runtime-inventaris lopen door. R13a maakt alleen benodigde composition-/host-
-   grenzen expliciet. R19 kan de bestaande runtime bundelen. R20/R21/R22 bewijzen
-   installatie, migratie en kandidaatartifact.
+The owner's ZZZ package is a candidate pilot input whose access, content and
+locales still need inspection. The harness must accept other games through the
+same contract. A public synthetic package proves package mechanics; only a
+corresponding real-package run establishes that package's bindings.
 
-R13b/R13e zijn geen extra toegangspoort voor iedere OCR-reparatie: voer ze uit
-waar de wijziging die grens raakt. Oude entrypoints blijven via adapters werken
-tot hun consumers zijn omgezet. Eén eigenaar integreert gedeelde bestanden.
-Een extractie en een functionele reparatie krijgen afzonderlijke commits en
-bewijs. Een rollback van pure extractie vereist geen herschrijving van data.
+Public GitHub checks use authored screenshots/packages. Real screenshots and
+extracted libraries remain private under repository rules. Local execution is
+the default for them; optional real-input hosted processing must meet all trust,
+input-access and output restrictions in the screenshot plan. Do not promise the
+supplied Drive package is already available or suitable for public CI.
 
-### De replay-afhankelijkheid expliciet doorbreken
+### D8 — Necessary tests on supported targets
 
-R07a voert scenario's via de bestaande productieroute uit, eventueel in de echte
-browserpagina. Alleen frame/OCR/klok/catalogus-I/O worden beheersbaar gemaakt;
-scan, bevestiging, geschiedenis en publicatie blijven productiecode. De huidige
-browser-libraryscenario's zijn een vertrekpunt, geen volledige temporele suite.
-Een benodigde injectiegrens is een kleine afzonderlijke voorbereidende wijziging.
+Windows is the supported desktop target. Relevant macOS/WebKit jobs provide
+mobile-browser evidence, not macOS desktop support. Do not add or retain Linux
+product/browser verification as a rework requirement. A Linux runner used solely
+to publish static assets is infrastructure, not a Linux support test; keep that
+distinction explicit when changing workflows.
 
-Na R13c moet R07b dezelfde observaties en outputs via de uitgehaalde controller
-kunnen reproduceren. R13c wacht dus niet op voltooid R07b. Bestaande bekende fouten
-worden in de karakterisatie benoemd; correcte onafhankelijke verwachtingen blijven
-apart zichtbaar en worden niet veranderd om behoud van een fout als verbetering
-te presenteren. Hold-outscènes blijven buiten tuning.
+R25 reviews the existing thousand-plus Python tests and related browser jobs by
+unique failure protected, supported behavior, runtime cost and duplication.
+Consolidate or remove redundant, obsolete and implementation-mirroring tests with
+a documented replacement or retirement rationale. Preserve meaningful regression,
+data/account isolation, publication, migration and lifecycle coverage. A large
+count alone is neither a reason to retain tests nor a deletion target.
 
-## Bewijs, grenzen en open punten
+New tests require the same justification. Prefer the cheapest layer that detects
+the failure, a few real OCR/package integration cases and selected browser checks.
+Measure elapsed time, build/load fixtures once, avoid duplicate suites for a
+commit, and expand only when new evidence warrants it. Documentation changes do
+not require OCR, full Python or browser runs.
 
-Bestaande testbronnen voor implementatie (hier niet integraal uitgevoerd):
+## Migration without circular dependencies
 
-| Grens | Relevante bestaande checks/fixtures | Aanvullend bewijs |
-| --- | --- | --- |
-| Snapshot/account/UI | `tests/state-sync.test.mjs`, `scripts/ui-state-e2e.mjs`, `scripts/ui-state-react-e2e.mjs`, language/accountscenario's | Nieuwe contextvelden ook bij A → B → A, reconnect en late resultaten |
-| Mobiele controller | `scripts/mobile-library-e2e.mjs`, `tests/caption-confirmation.test.mjs`, `tests/mobile-transcript.test.mjs` | Echte-controller replay, tijd/occurrence, meerdere bubbles, scroll, stop/close |
-| Capture/matching | `backend/tests/test_capture.py`, bestaande replay en matcherfixtures | Legacy/meertalig/mobile semantiek; expliciete speciale ZZZ-route |
-| Lifecycle | `backend/tests/test_runtime_handoff.py`, preparation cancellation/lock-order/process-tree/drain-tests | Nieuwe state over handoff; native workerfaults alleen indien aangepakt |
-| Setup/distributie | `backend/tests/test_installation.py`, `test_game_paths.py`, Windows update-/procesidentiteitschecks | Uitgepakte én geïnstalleerde runtime zonder ontwikkelcheckout/PATH-fallback |
+1. W1 defines the relevant status/read-model contract (R12a) and extracts only
+   needed subscriptions (R13d). Labels and update UI can proceed independently.
+2. W2 inventories presentation gaps and annotates screenshots (R01), then
+   characterizes the current production page (R07a). Mobile extraction (R13c)
+   precedes controller-driven screenshot replay (R07b), not the other way around.
+3. W2 defines context/identity (R12b), makes activation explicit where needed
+   (R13b), and fixes matching/temporal defects separately in R08–R10. Extract
+   observation/policy/publication (R13e) only where the affected route needs it.
+4. W3 delivers the small shared storage/host contract (R12c within R14/R18),
+   relevant setup extraction (R13a), then bundle/installer/migration evidence.
+   R19 can bundle the existing runtime without waiting for OCR or a language trial.
+5. R25 improves the relevant test areas incrementally; it is not a new global
+   approval phase before every independent task.
 
-De kandidaatcheck [setup-build-e2e](../scripts/setup-build-e2e.mjs) start nu
-Wrangler uit de checkout, mockt de backend en blokkeert serviceworkers. Dit is
-nuttig bewijs voor gebouwde frontendassets; het is geen zelfvoorzienende installer-,
-native OCR- of origin-migratieproef. R22 moet die aanvullende kandidaatproef
-expliciet toevoegen. Een exit 0 van een Windowscheck die op macOS overslaat is
-geen Windowsbewijs.
+R07a can control frame/OCR/clock/catalog I/O while retaining production scan,
+confirmation, history and publication. Known failures stay separate from desired
+expectations. R13c proves equivalent outputs before/after extraction plus correct
+cleanup. R07b later replaces duplicate replay decisions with that same controller.
+Pure extraction and behavior fixes have separate commits and rollback paths.
 
-**Uitgevoerd in deze onderzoekssessie:**
+## Evidence limits
+
+Existing state-sync, account/UI, caption-confirmation, mobile-library, capture,
+runtime-handoff, preparation and installation checks are starting evidence to
+reuse, not a mandate to rerun all suites for every change. R25 reviews them before
+adding overlapping tests. Keep source/built-frontend/installed-artifact evidence
+distinct: [setup-build-e2e](../scripts/setup-build-e2e.mjs) uses checkout Wrangler,
+a mocked backend and blocked service workers. It does not prove a self-contained
+installer or browser-origin migration.
+
+Historical research probe: on Node 22.22.2/macOS,
 `node --test tests/caption-confirmation.test.mjs tests/mobile-transcript.test.mjs tests/state-sync.test.mjs`
-op Node 22.22.2/macOS. De twee caption-confirmationtests en elf state-synctests
-slaagden. Het gecombineerde command faalde: mobile-transcript kon niet laden
-omdat het gegenereerde `pairing/fflate.mjs` ontbrak. Dat is een ontbrekende
-assetvoorbereiding, geen gereproduceerde transcriptproductfout. De standaard
-`npm test` bereidt assets voor; die volledige suite is hier niet gedraaid.
-Dit resultaat bewijst geen volledige comic- of apparaatcorrectheid.
+passed thirteen tests but the combined command failed because generated
+`pairing/fflate.mjs` was missing. This is incomplete asset preparation, not a
+passed transcript suite or a reproduced product defect. `npm test` normally
+prepares those assets. That historical probe is not a current validation run.
 
-Open blijven: performancebaselines, exacte matchpariteit per taal/presentatie,
-fysieke iOS-duurproeven, Windows native OCR en nieuwe bundel-/installerproeven.
-De documentatiechecks op deze wijziging worden afzonderlijk bij de commit/PR
-vermeld. Ze veranderen de status van geen implementatiepakket in `verified`.
+Open evidence includes native Windows OCR/capture, physical iOS behavior,
+performance baselines, sampled real-package bindings and the new installed
+candidate. A skipped Windows test on another host is not a pass. Documentation
+checks for this revision are recorded separately and complete no implementation
+task or product milestone.

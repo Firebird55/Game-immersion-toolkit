@@ -1,301 +1,237 @@
-# AI-development voor de rework
+# AI development workflow for the rework
 
-Deze werkwijze hoort bij de [rework-roadmap](rework-roadmap.md). Status op
-2026-10-24: uitvoeringsvoorstel; geen applicatie-implementatie gestart.
-[AGENTS.md](../AGENTS.md) en [RELEASE.md](../RELEASE.md) blijven de repositoryregels.
-Het lezen van deze documenten start geen werk en autoriseert geen publicatie.
+This is the execution proposal for the [rework roadmap](rework-roadmap.md).
+[AGENTS.md](../AGENTS.md) and [RELEASE.md](../RELEASE.md) remain authoritative.
+Reading these documents does not start implementation or authorize a release.
 
-## Wat verandert door AI-development?
+**Write in English**, even when the assignment or review is in Dutch or another
+language. Use English for engineering documentation, task/PR descriptions,
+comments and reports. Preserve intended multilingual product text and test input;
+do not introduce mixed-language explanatory prose.
 
-Plan op afgebakende resultaten en bewijs, niet op hoeveel code agents kunnen
-genereren. AI kan onderzoek, implementatie, fixtures en reviews parallel versnellen.
-Integratie, betrouwbare verwachtingen, Windows-/apparaattoegang en releasebewijs
-blijven de beperkende factoren. Gebruik geen vaste AI-snelheidsfactor of
-ongefundeerde kalenderbelofte.
+Treat supported games equally. Do not prioritize ZZZ because it has existing
+special handling or an available package. Select work by demonstrated defects,
+missing presentation coverage, user impact and useful evidence. A ZZZ pilot is
+one input to reusable infrastructure, not the definition of game support.
 
-| Gewone roadmapformulering | Uitvoerbaar AI-werkpakket |
+## Bounded work and ownership
+
+Plan around observable outcomes and evidence, not lines of generated code or
+agent count. AI can help with investigation, implementation, annotations and
+review; integration, reliable expected results and device access remain real
+constraints. Do not promise a fixed AI speed multiplier.
+
+| Role | Responsibility |
 | --- | --- |
-| Verbeter verbindingen | Behoud bronstatus tot de badge en bewijs de juiste uitleg bij stilstaande frames, pauze en reconnect |
-| Refactor OCR | Laat dezelfde onafhankelijke sequentiefixtures eerst legacy/meertalige verschillen tonen; verander daarna één verantwoordelijkheid |
-| Maak een installer | Lever een geïnstalleerd artifact dat op schone Windows de afgesproken functionele probes doorloopt |
-| Onderzoek Rust | Vergelijk één workergrens met vaste input, meetplan, correctheidscriteria en expliciete behoud/migratiebeslissing |
+| Workstream owner | Own W1 UX, W2 recognition or W3 installation, including necessary tests and delivery |
+| Integrator | Coordinate interfaces, overlapping changes, migrations, R25 test reduction and combined acceptance |
+| Implementer | Deliver one assigned bounded task with relevant checks and a reviewable commit |
+| Reviewer | Examine criteria, actual code/diff and check output independently of the implementation summary |
+| Device tester/maintainer | Provide physical verification and decisions requiring actual hardware or owner judgment |
 
-Een pakket is klein genoeg als een reviewer het gedrag kan beoordelen en de
-wijziging afzonderlijk kan worden teruggedraaid. Aantallen regels, bestanden of
-agents zijn geen kwaliteitsmaat. Splits een roadmap-ID zo nodig in bijvoorbeeld
-R15a/R15b; leg hun interfaces en integratievolgorde vast en behoud het hoofdcriterium.
+One workstream owner can also integrate. There is no need for a fourth full-time
+role or a global discovery phase. Start with one concrete task per assigned
+workstream. Parallel implementation is useful only when explicitly assigned,
+interfaces are clear and review capacity exists. Reading a roadmap about parallel
+work does not itself authorize spawning agents or messaging other tasks.
 
-## Werkstroomeigenaren en uitvoerende rollen
+Avoid simultaneous writers to the same shared file or contract. Use suitable
+isolated worktrees when needed, preserving host workspace-location instructions
+and unrelated local work. Worktrees do not resolve semantic conflicts; one owner
+integrates and checks the result. See the
+[ownership table](rework-roadmap.md#ownership-and-milestones).
 
-- **Werkstroomeigenaar:** een persoon of team verantwoordelijk voor W1 (UX),
-  W2 (OCR) of W3 (installatie/gamebeheer), inclusief tests en oplevering. Verdeelt
-  subtaken en kan daarvoor AI-agents inzetten.
-- **Integrator:** bewaakt scope, afhankelijkheden, contracten, migraties en het
-  gezamenlijke eindresultaat. Houdt pakketstatus en ontbrekend bewijs bij.
-- **Implementerende agent:** onderzoekt en realiseert één begrensd pakket,
-  voert relevante checks uit en levert een exacte diff/commit met bewijs.
-- **Reviewer:** onderzoekt criteria, broncode, diff en checkuitvoer onafhankelijk
-  van de implementatiesamenvatting. Zoekt naar concrete fouten en ontbrekende gevallen.
-- **Apparaattester/maintainer:** levert fysieke verificatie en productbesluiten
-  waarvoor echte hardware of menselijke beoordeling nodig is.
+Architecture tasks have concrete owners in R12/R13. Do not start a generic layer,
+event-bus, language or storage rewrite. Extract only the boundary needed by the
+assigned change. Tests remain part of that change, not an additional broad lane.
 
-Begin met één eigenaar per werkstroom; één van hen kan ook integrator zijn.
-Een vierde persoon is niet vereist. Iedere eigenaar pakt een concrete eerste
-subtaak op, met de startcontrole binnen die taak. Er is geen globale F0/R00-fase
-waarin iedereen eerst op nieuw onderzoek wacht. Gebruik de bestaande analyse.
+## Task contract
 
-Begin met hoogstens drie onafhankelijke implementatiebanen. Extra agents zijn
-nuttig bij gescheiden scope en beschikbare reviewcapaciteit. Een agent die fixtures
-of review doet hoeft geen parallelle schrijver te zijn. Testwerk blijft onderdeel
-van de opgeleverde subtaak; architectuurwerk R12/R13 krijgt een concrete eigenaar
-binnen de betrokken werkstroom en wordt geen vierde brede refactorbaan.
-De [architectuurkeuzes](rework-architecture.md) en concrete R12a–c/R13a–e-taken
-zijn het vertrekpunt. Lees de huidige code en de bestaande behoudscontracten;
-start geen generieke lagen-, eventbus- of taalherschrijving uit eigen beweging.
-
-| Gebied | Parallel mogelijk | Integratie-eigenaar vereist voor |
-| --- | --- | --- |
-| UX | Copy/hulpontwerp, onafhankelijke browserchecks | `mobile/companion.jsx`, `app/companion.tsx`, gedeelde statuscontracten |
-| OCR | Corpusannotatie, replayvalidatie, afzonderlijke gamefixtures | `backend/capture.py`, matchercontracten, `public/mobile-capture/mobile-ui.mjs` |
-| Installatie | Launcheradapters, per-game packprobes, runtime-inventaris | `backend/game_paths.py`, `backend/installation.py`, `app/toolkit-setup.tsx`, storage-layout |
-| Runtime/packaging binnen W3 | Packagingproef, testontwerp voor upgrade/rollback | `backend/api.py`, launcher/updater, releaseworkflow |
-| Shared reader | Onderzoek/tests in consumers | Source in Lexirise-shared-components; versie en beide consumerupdates |
-
-Twee agents schrijven niet tegelijk aan hetzelfde gedeelde bestand of contract.
-De [eigenaarschapstabel](rework-roadmap.md#eigenaarschap-bij-gedeelde-bestanden)
-wijst aan wie bijdragen uit andere werkstromen integreert. Zelfstandig starten
-betekent niet dat iedere werkstroom gedeelde interfaces eenzijdig kan veranderen.
-Leg eerst de grens vast, integreer de kleine voorbereidende wijziging en laat
-afhankelijke taken daarna daarop starten. Gebruik geïsoleerde branches/worktrees
-waar schrijvers anders dezelfde checkout zouden wijzigen; inspecteer bestaande
-worktrees en hergebruik geschikte exemplaren. Een worktree lost semantische
-conflicten niet op. Eén eigenaar integreert en controleert het gezamenlijke resultaat.
-
-## Taakcontract
-
-Bewaar dit contract en de voortgang in de taak-/PR-beschrijving of een beknopt
-uitvoeringsdocument gekoppeld aan het roadmap-ID. Maak geen taakdatabase of
-verzameling lege statusbestanden. Neem alleen gesaniteerde conclusies in Git op.
+Keep a concise contract in the task/PR or a linked execution note. Do not create
+a task database or collection of empty status files. Store only sanitized evidence.
 
 ```text
-Pakket: Rxx — concreet resultaat
-Werkstroom/eigenaar: W1, W2 of W3; optioneel experiment alleen indien toegewezen
-Mijlpaal: zelfstandig resultaat (M1 per werkstroom), integratiebijdrage M2 of M3
+Task: Rxx — concrete outcome
+Workstream/owner: W1, W2, W3 or assigned R25 area
 Status: planned | ready | active | implemented | verified | blocked
-Baseline: branch + commit; relevante veranderingen sinds het onderzoek
-PR-doel en checkbasis: doelrepository + doelbranch, bijbehorende remote/ref + opgehaalde basiscommit
-Doel: zichtbaar gedrag of meetbaar onderhoudsresultaat
-Afhankelijkheden: specifieke pakket/contract-ID's; wat moet wachten en wat kan door
-Context: AGENTS.md, RELEASE.md, werkstroomcriteria, relevante bronnen/tests
-Scope/eigenaar: toegestane modules; integratie-eigenaar bij overlap
-Buiten scope: expliciete aangrenzende wijzigingen die een aparte taak zijn
-Invarianten: relevante data-, taal-, account-, capture- en compatibiliteitsregels
-Acceptatie: afrondingsbewijs uit de roadmap; concrete succes- en foutgevallen met verwachte uitkomst
-Bewijsgrens: wat deze taak bewijst; welk integratiebewijs bij welke vervolgtaak hoort
-Verificatie: gerichte commands, runtime/hardware, fixture- of corpusversie
-Ontbrekende middelen: wat lokaal ontbreekt en welke claim daardoor open blijft
-Rollback: hoe deze wijziging veilig kan worden teruggenomen
-Oplevering: commit, checkresultaten, review, resterend apparaatbewijs
-Volgende stap: exact vervolg binnen scope of concreet besluitpunt
+Baseline: branch/commit and relevant changes since the research
+PR target/check base: repository, branch, fetched remote/ref and base SHA
+Goal: observable behavior or measurable maintenance improvement
+Scope: modules, integration owner and explicit adjacent exclusions
+Dependencies: exact contracts/tasks; work that can proceed independently
+Invariants: applicable data/account/language/capture/storage rules
+Acceptance: independent success/failure examples and expected outputs
+Evidence boundary: what this task proves; remaining consumer/device evidence
+Inputs: fixture/package/model versions, presentation and sampled language pairs
+Checks: exact commands, supported host, reason for each added/retained test
+Cost: measured timing or planned budget for expensive checks
+Unavailable resources: missing inputs/hardware and affected claims
+Rollback: safe reversal and data-preservation strategy
+Delivery: commit, results, review and remaining work
+Next step: specific continuation within scope or concrete decision
 ```
 
-`ready` betekent dat de benodigde contracts en toetsbare criteria duidelijk zijn:
-het taakcontract noemt de scenario's, verwachte resultaten, scope, beschikbare
-dependencies en concrete checkcommands uit de actuele repository. Algemene termen
-zoals 'werkt goed' of 'relevante tests' zijn onvoldoende als uitvoeropdracht;
-het is geen nieuwe toestemming. `implemented` betekent dat code klaarstaat maar
-verplicht bewijs nog kan ontbreken. `verified` vereist alle relevante criteria,
-review en apparaatchecks. `blocked` noemt een specifieke ontbrekende voorwaarde
-en welk onafhankelijk werk nog door kan. M1 wordt per werkstroom afzonderlijk
-beoordeeld; M2 toetst het gecombineerde gedrag en M3 de releasekandidaat. De
-betreffende verplichte criteria en gates moeten zijn bewezen. Een geslaagde
-docs-check voltooit geen implementatietaak of productmijlpaal.
+`ready` requires known scope, interfaces and testable criteria, not another
+permission round. `implemented` means code exists but required evidence may still
+be missing. `verified` requires the task's actual acceptance evidence, including
+applicable consumer/device checks. `blocked` names a specific missing prerequisite
+and independent work that can continue. A documentation pass does not complete
+a product task. M1 is per workstream; M2 checks integration; M3 checks the candidate.
 
-## Uitvoeringslus
+## Execution loop
 
-1. **Lees en begrens.** Controleer instructies, Git-status, baseline en actuele
-   broncode. Behoud andermans werk. Begin een `codex/`-taakbranch. Leg scope en
-   afhankelijkheden vast; maak geen brede opruiming onderdeel van een reparatie.
-   Controleer uitsluitend het betrokken pad; start geen algemene inventarisatie.
-   R02a/R02b/R02c-metingen horen alleen bij hun betreffende vergelijking.
-2. **Leg de verwachting vast.** Bij een bug: een reproducerend geval met correcte
-   verwachting. Bij risicovolle refactoring: relevante behoudsinvarianten. Nieuwe
-   tests zijn niet verplicht voor eenvoudige copy-/stijlwijzigingen.
-3. **Implementeer de kleinste samenhangende stap.** Gebruik bestaande contracts.
-   Nieuwe gameheuristiek, storage-migratie of runtimekeuze krijgt eigen bewijs.
-4. **Verifieer.** Draai de geselecteerde checks en alleen noodzakelijke aanvullende
-   scenario's. Onderzoek fouten; verander geen verwachting of drempel om uitsluitend
-   een groen resultaat te krijgen.
-5. **Laat gericht reviewen.** Voor capture, accounts, migratie en lifecycle leest
-   een onafhankelijke reviewer (persoon of agent) de actuele diff en relevante
-   code, naast de criteria. Voor eenvoudige documentatie/copy volstaat review
-   passend bij het risico.
-6. **Integreer en lever op.** Verifieer bevindingen, herstel geldige fouten, voer
-   geraakte checks opnieuw uit en commit de logische wijziging met GitHub-noreply
-   author/committer. Controleer na integratie het gezamenlijke resultaat.
+1. Read instructions, inspect Git status and the relevant current code, and use
+   a `codex/` task branch. Preserve unrelated work. Reuse the study rather than
+   restarting a repository-wide investigation.
+2. Establish independent expected behavior. Reproduce a defect; characterize
+   relevant invariants before risky extraction. Do not add tests for simple copy
+   or styling merely to increase coverage counts.
+3. Implement the smallest coherent change using existing contracts. New game
+   heuristics, storage migrations and runtime decisions need their own evidence.
+4. Run selected checks and justified additional cases. Investigate failures;
+   do not weaken assertions or delete regressions to obtain a green result.
+5. Review proportionately. Capture, accounts, migration and lifecycle need an
+   independent reviewer of the actual diff and outputs. Documentation needs a
+   focused consistency review, not the full product test matrix.
+6. Fix valid findings, check affected behavior and commit the logical change
+   using GitHub noreply author/committer identity. Check the integrated result.
 
-Agents kunnen binnen een toegewezen en geautoriseerd pakket zelfstandig
-onderzoeken, implementeren, verifiëren en een reviewbaar resultaat voorbereiden.
-Vraag niet opnieuw toestemming voor iedere routinehandeling. Bij een echte
-scopewijziging of ontbrekende externe voorwaarde: lever eerst het onafhankelijke
-werk op en leg een concrete keuze met gevolgen voor. Publicatie, releases en
-echte accountwrites krijgen geen impliciete toestemming uit deze roadmap.
+Routine authorized work does not require repeated permission. Deliver independent
+work before presenting a genuine scope decision or missing external prerequisite.
+The roadmap grants no implicit permission to release or write to real accounts.
 
-## Overdracht en integratie tussen werkstromen
+## Screenshot and package assignments
 
-De producer en consumer leggen de benodigde velden, betekenis, foutgevallen,
-compatibiliteit en tests van een gedeelde interface samen vast. De integrator
-wijst één eigenaar aan voor de voorbereidende wijziging. De consumer hoeft niet
-op de hele werkstroom te wachten, wel op het specifieke contract dat hij gebruikt.
+Follow the [screenshot regression plan](screenshot-regression-plan.md). Keep
+presentation coverage separate from sampled language coverage:
 
-Voorbeeld: R17 gebruikt de leesmodusafspraak uit R04 en de opslagafspraak uit
-R14/R18. Discovery en bundeling kunnen ondertussen verder; een onvoltooide
-statusbadge R03 blokkeert die niet. R09 en R10 kunnen na het gedeelde
-identiteits-/volgordecontract ieder hun eigen platform uitvoeren.
+- Inventory every active game's known and uninspected presentations. Gather
+  screenshots for reported holes and nearby negative cases. Cover non-comic
+  layouts such as overhead speech, cards, wrapped captions and legacy panels.
+- Select a few supported language combinations, initially three to five across
+  the chosen corpus. Record why each adds distinct evidence. Keep bug regressions
+  pinned; rotate only supplemental samples, with exact versions and selection.
+- Independently annotate required/forbidden catalog identities, language/voice
+  bindings and order or unknown order. The implementation cannot generate its
+  own expected truth. A reviewer repeating an unchecked assumption is not an
+  independent oracle.
+- Test the normal mobile ZIP importer and production image/OCR/matching/controller
+  path in the built artifact. Distinguish real OCR from injected observations,
+  synthetic packages from real packages, and binding checks from real audio decoding.
+- Single images do not prove chronology or phone stability. Use small ordered
+  screenshot sequences and controlled clocks for movement, repetition and stale
+  results. Resampled duplicates are not new observations; distinct observations
+  can have identical pixels.
+- Prove the harness catches a representative wrong identity, omission, duplicate,
+  stale result and wrong locale. Do not create an unrestricted mutation campaign.
+- Keep held-out scenes independent of tuning. When one becomes a bug regression,
+  version the corpus and replace that independent evaluation case.
+- Do not fetch live YouTube playback in CI. The review's real ZZZ package remains
+  an unverified pilot candidate until inspected; do not report it as tested or
+  publish its link/data in fixtures or logs. Use the same contract for other games.
 
-Voor comicweergave legt R08 met W1 vast hoe onbekende volgorde, groepen en echte
-herhalingen worden weergegeven en bewaard, inclusief de betekenis van favorieten.
-W2 levert eventsemantiek en onafhankelijke scenario's; W1 integreert de geraakte
-companionconsumers. R09 bewijst desktop, historie na herladen en paired-PC inclusief
-reconnect; R10 bewijst de lokale mobiele OCR-route en historie na herladen.
-Controleer zowel zichtbare uitleg als opgeslagen/doorgegeven identiteit: sorteren
-of samenvoegen in de UI mag onbekende volgorde niet tot spreekvolgorde maken en
-echte herhalingen niet verliezen. R08 levert de afspraak; de echte consumerproeven
-horen bij R09/R10 en blokkeren R03–R06 niet.
+R07a characterizes the current production page. R13c then extracts its controller,
+proving the existing shell and direct harness. R07b reuses that factory for
+screenshot execution. Never require finished R07b before R13c or build a second
+test-only recognition loop. Preserve known defects as explicit baseline findings,
+separate from desired acceptance; extraction and behavior changes have separate commits.
 
-R17 bewijst de herbruikbare onboardingflow eerst in de WebUI/testhost; R20
-bewijst dezelfde flow in de werkelijk geïnstalleerde kandidaat. R19 bewijst de
-uitgepakte runtimebundel; het installerbewijs hoort bij R20/R22. Zo hoeft een
-voorbereidende taak niet te wachten op haar eigen consumer. Stubs bewijzen alleen
-het afgesproken contract, nooit een geslaagde integratie met echte dependencies.
+## Necessary tests and supported platforms
 
-W3 legt bij wijziging van frontendhosting ook origin, API-/assetpaden en
-cachegedrag vast. W1 toetst het gevolg voor offline updates; R21 bewijst behoud
-van origin-gebonden browseropslag. R05 hoeft daarvoor niet vooraf op de nieuwe
-bundel te wachten: de huidige host blijft zijn expliciete verificatiebaseline.
+Each new test names the failure it prevents and why existing cheaper coverage is
+insufficient. R25 reviews the existing thousand-plus Python tests and overlapping
+browser jobs with the same standard. Consolidate redundant cases and remove
+obsolete/unsupported behavior checks with a documented rationale or replacement.
+Preserve distinct regression and safety guarantees. Test count is not a target;
+failing product regressions are not candidates for deletion to conceal the failure.
 
-Na integratie worden de geraakte checks op de gezamenlijke commit uitgevoerd.
-Gebruik M2 voor de volledige gebruikersflow en M3 voor artifact-/apparaatbewijs.
-Een onafhankelijke, afgeronde verbetering hoeft niet op andere werkstromen te
-wachten om via het bestaande releaseproces te worden geleverd. Een releaseopdracht
-blijft afzonderlijk nodig; het taakcontract autoriseert die niet.
+Prefer a cheap unit/contract test for logic plus a few actual OCR/package/browser
+checks for integration. Reuse builds and fixture/model initialization, select only
+affected cases and record timings in ignored `output/checks/`. Measure before
+setting or expanding an expensive job's budget. Repeat a passing broad suite only
+after relevant changes, failures or unresolved concerns.
 
-Bij controllerextractie is de volgorde R07a (huidige productie karakteriseren),
-R13c (mobiele controller losmaken) en R07b (productie-replay). R13c bewijst de
-bestaande shell plus een directe controllerharness; een toekomstige replay of
-installer hoeft niet al af te zijn. Karakterisatie benoemt bestaande fouten en
-is geen vervanging voor onafhankelijke gewenste acceptatie. Extractie en gedrag-
-reparatie blijven afzonderlijk reviewbare wijzigingen.
+Windows is the supported desktop platform. Use macOS/WebKit when needed for mobile
+browser coverage; it does not prove physical iOS or macOS desktop support. Do not
+add Linux product/browser checks. Plan removal or relocation of existing Linux
+test jobs in R25 without losing needed supported-target coverage. A Linux static
+publication job is infrastructure, not a product compatibility test.
 
-## Een betrouwbare testverwachting
+## Handoff and integration
 
-De implementatie mag niet zijn eigen bewijs produceren. Voor ZZZ mogen verwachte
-regels/volgorde niet worden afgeleid van de huidige sorteermethode. Laat het
-fixtureontwerp steunen op handmatig bepaalde sequenties, geldige authored metadata
-of onafhankelijke annotaties. Een AI-reviewer met dezelfde ongecontroleerde
-aanname is geen onafhankelijke waarheid.
+Producer and consumer owners agree field meaning, errors, compatibility and the
+necessary tests. One owner integrates a small preparatory contract change before
+dependent work uses it. Consumers need the contract, not a finished workstream.
 
-- Bewijs dat tests de bedoelde fout detecteren: bijvoorbeeld omgekeerde events,
-  een dubbele publicatie of een verouderde bronrespons invoeren en de assertion
-  zien falen. Geen algemene mutation-testcampagne voor eenvoudige wijzigingen.
-- Meet recall naast precisie; alles weigeren mag geen groene OCR-score geven.
-  Houd onbekende volgorde apart van correct bewezen volgorde.
-- Voer replay door de echte productiecontroller uit. Test ook de routekeuze voor
-  ZZZ en onderscheid legacy/meertalig/mobile. Reproduceer timing met bron- en
-  sample-identiteit; door resampling gekopieerde frames zijn geen extra bewijs.
-  Twee werkelijk nieuwe observaties met identieke pixels mogen wel bevestigen.
-  Meet publicatielatentie vanaf het geannoteerde bronmoment met voldoende bewijs,
-  met expliciete klokcorrelatie; meten vanaf OCR-completion verbergt vertraging.
-- Houd ongebruikte hold-outscènes apart. Als een hold-out een nieuwe regressiecase
-  wordt, voeg ook nieuwe onafhankelijke evaluatiescènes toe en versioneer de set.
-- Leg noodzakelijke wijzigingen van criteria expliciet vast met reden en nieuw
-  bewijs. Een agent mag geen test schrappen, skip toevoegen of threshold verlagen
-  als vervanging voor het oplossen van de gemelde fout.
+For example, R17 needs R04 reading preferences and the R14/R18 storage agreement,
+but discovery/bundling can progress meanwhile. R08 defines occurrence/group/order
+semantics with W1; R09 proves desktop, restored history and paired-PC reconnect;
+R10 proves the local mobile path and restored history. Favorite semantics must
+not collapse genuine later occurrences. Include visible UI and persistence evidence.
 
-## Verificatie en bewijs
+Changes to an agreed interface identify affected consumers and carry the required
+adapter/migration. Development with stubs is useful but does not prove integration.
+Do not silently hand off a breaking contract or assume the other stream will fix it.
 
-Gebruik het bestaande selectiesysteem; zie [development checks](development-checks.md).
+## Verification and evidence
 
-| Moment | Controle |
+Use the existing selector; see [development checks](development-checks.md).
+
+| Situation | Verification |
 | --- | --- |
-| Tijdens een wijziging | `npm run check:changed` |
-| Volledige taakbranch | `npm run check:changed -- --base <doelref>`; vervang `<doelref>` door de hieronder gecontroleerde PR-doelref |
-| Criteria niet gedekt door selector | Benoemde aanvullende scenario's; noteer waarom |
-| Kandidaat/release | Bestaande volledige browser-/packaginggates in GitHub-hosted CI volgens RELEASE.md |
-| Claim over native Windows of iPhone/iPad | Relevante fysieke proef op het daadwerkelijke kandidaatartifact |
+| Working changes | `npm run check:changed` |
+| Task branch | `npm run check:changed -- --base <target-ref>` after fetching/validating the actual PR target |
+| Criterion not covered by selector | Named additional scenario with a reason |
+| Candidate/release | Existing comprehensive supported-target browser/packaging gates in GitHub-hosted CI |
+| Native Windows or physical iPhone/iPad claim | Relevant device protocol on the actual candidate |
 
-Controleer de doelrepository en doelbranch in de PR en koppel die aan de juiste
-Git-remote; de remote waarnaar je pusht is niet noodzakelijk de checkbasis.
-Haal de bedoelde doelbranch op en noteer remote/ref plus de met `git rev-parse`
-vastgestelde basiscommit in het taakcontract en checkbewijs. Voor deze fork-PR
-naar `Firebird55/Game-immersion-toolkit:main` is het concrete command
-`npm run check:changed -- --base upstream/main`; haal die branch vooraf op met
-`git fetch upstream main`. `origin/main` is alleen juist wanneer `origin`
-daadwerkelijk de doelrepository is. Zonder PR leg je de beoogde doelrepository
-en doelbranch vast. Een ontbrekende of verouderde ref is geen bewijs van een
-geslaagde branchcontrole; kies niet stilzwijgend een andere basis.
+Check the target repository/branch in the PR and map it to a Git remote. Fetch
+that target and record `git rev-parse <target-ref>` with the checked commit.
+For a fork whose `upstream` points to `Firebird55/Game-immersion-toolkit`, use
+`git fetch upstream main` and `npm run check:changed -- --base upstream/main`.
+If `origin` points to that target repository, use `origin/main` instead. The push
+remote is not automatically the check base. A missing/stale base is not success;
+do not select an older base to omit checks.
 
-De huidige selector vergelijkt de basiscommit rechtstreeks met `HEAD` en neemt
-ook lokale wijzigingen mee. Is de doelbranch verdergegaan, beoordeel dan die
-verschillen en de integratie met de actuele basis; kies geen oudere ref om checks
-weg te laten. Noteer afzonderlijk welke commit is getest en welk integratiebewijs
-nog openstaat.
+The selector at the research baseline compares the base directly with HEAD and
+includes local changes. If the target advances, assess the difference and record
+remaining integration evidence. Stage new docs before link checks because the
+checker uses `git ls-files`. Keep raw timing output ignored.
 
-Stage nieuwe documentatie vóór de docs-check zodat de huidige linkchecker,
-die `git ls-files` gebruikt, die bestanden meeneemt. Timingrapporten blijven in
-genegeerde `output/checks`. Herhaal geslaagde brede suites alleen na relevante
-wijzigingen, fouten of onopgeloste risico's.
+Report each check as **pass**, **fail**, **not run** or **unavailable**, with commit,
+command, fixture/package/model versions, environment and reason. Missing assets
+or host dependencies are different from reproduced product defects. A skipped
+Windows test on another host is not a pass. Real-input hosted execution is
+conditional on the screenshot plan's access and privacy rules; a local real-input
+run must not be labelled a GitHub result.
 
-Iedere overdracht vermeldt per controle **pass**, **fail**, **not run** of
-**unavailable**, met commit, command, omgeving en reden. Een unavailable
-Windowscheck op macOS is geen pass. Leg een dependency-/hostprobleem apart vast
-van een productfout; omzeil het niet door tests te verwijderen.
+The minimal sanitized handoff contains the task ID, commit, criterion outcomes,
+check results, review findings, rollback and exact remaining work. Private media,
+accounts, download URLs, paths and raw logs stay out of Git and public artifacts.
+After context loss, read that handoff and current state instead of restarting
+completed work or declaring missing evidence successful.
 
-De minimale gesaniteerde bewijskaart bevat pakket-ID, commit, resultaat van elk
-acceptatiecriterium, gebruikte fixtureversie, commands/uitkomsten, reviewbevindingen,
-rollback en exact resterend werk. Private media, accounts, paden en ruwe logs
-blijven buiten Git. Na contextverlies leest een volgende agent deze kaart en de
-actuele repository; die begint niet automatisch opnieuw of verklaart ontbrekend
-bewijs alsnog geslaagd.
+## Device evidence and scope limits
 
-### Wat AI niet met synthetische checks kan bewijzen
+Mock OCR does not prove native OCR installation. Desktop WebKit does not prove
+iOS background capture, physical file-provider access or session endurance.
+A source build does not prove a clean Windows installation. Synthetic DOM fixtures
+do not establish compatibility with a real browser extension.
 
-Een test met mocked OCR bewijst geen werkende native OCR-installatie. Desktop
-WebKit bewijst geen iOS-achtergrondgedrag. Een source-build bewijst geen werkende
-installer op schone Windows. Een gewijzigde DOM-fixture bewijst geen werkelijke
-Migaku/Yomitan-compatibiliteit.
+Prepare an installable candidate, concrete steps, expected results and a sanitized
+report format before asking a tester to act. Use the existing
+[mobile acceptance protocol](mobile-capture-verification.md). Results apply only
+to the named hardware, OS, browser, game and artifact versions. Continue independent
+work while device evidence is unavailable.
 
-Lever voor fysieke verificatie eerst een installeerbare kandidaat, concrete stappen,
-verwacht resultaat en een gesaniteerd registratieformat. Gebruik het bestaande
-[mobiele verificatieprotocol](mobile-capture-verification.md). Het resultaat
-geldt alleen voor de genoemde hardware/OS/browser/gameversies. Vraag de tester
-pas om actie wanneer die kandidaat klaarstaat; bereid intussen onafhankelijk werk voor.
+## Example assignment
 
-## Praktische uitvoeropdracht
+Use this only after a task has actually been assigned:
 
-Gebruik dit pas wanneer een werkpakket daadwerkelijk is toegewezen:
-
-Vul eerst het taakcontract in vanuit de tabelkolom **Afrondingsbewijs**. Bij R04
-betekent dit bijvoorbeeld: bestaande `migaku`-voorkeur laden, beide modi wisselen,
-herladen zonder voorkeursverlies en beide mobiele leesoptie-ingangen controleren.
-Leg de betrokken UI-bestanden en afspraak met de W3-eigenaar van setup vast.
-De nieuwe installerbrug uit R17 valt buiten deze taak. Noteer de concrete
-geselecteerde checks en eventuele extra scenario's; die keuze volgt uit de
-actuele code, niet uit een veronderstelde testsuite.
-
-> Voer pakket Rxx uit de rework-roadmap uit. Lees AGENTS.md, RELEASE.md en het
-> relevante taakcontract. Controleer baseline en Git-status, behoud de genoemde
-> invarianten en blijf binnen de afgesproken modules. Gebruik onafhankelijke
-> verwachtingen en voer de relevante checks uit. Laat risicovol gedrag gericht
-> reviewen en lever een gecontroleerde commit met bewijs en rollback. Rapporteer
-> ontbrekende platformchecks eerlijk en werk zelfstandig door aan niet-geblokkeerde
-> onderdelen. Vergroot de scope niet stilzwijgend; deze opdracht omvat geen release.
-
-## Onderbouwing
-
-De algemene opzet met doel, context, grenzen, verificatie en review sluit aan op
-de officiële [Codex best practices](https://learn.chatgpt.com/docs/learn/best-practices)
-en [outcome-/bewijsgerichte taken](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex).
-De pakketindeling, integratieregels en gates hierboven zijn een voorstel voor
-deze repository, geen algemene garantie over AI-prestaties. Er is geen specifiek
-model, nieuw abonnement of automatische doorlopende taak vereist.
+> Execute task Rxx from the rework roadmap. Read AGENTS.md, RELEASE.md and the task
+> contract. Verify the baseline and Git status; preserve the stated invariants and
+> stay within the assigned modules. Write all engineering prose in English. Use
+> independent expectations, justify any new tests and run relevant checks on
+> supported targets. Review risky behavior and deliver a checked commit with
+> evidence and rollback. Report missing input/device evidence accurately, continue
+> independent work and do not expand scope silently. This assignment includes no release.
