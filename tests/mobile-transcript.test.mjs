@@ -37,3 +37,13 @@ test('paired channels exchange bounded pages and chunked original audio; stop re
  await sender.update([{...row,id:2}]);await new Promise(r=>setTimeout(r,5));assert.equal(seen.at(-1).id,2);
  sender.close();receiver.close();await assert.rejects(receiver.page(null));assert.equal(a.readyState,'closed');
 });
+
+test('slow comic scans confirm every visible bubble once and tolerate one missing frame',async()=>{
+ const {confirmComicCaptions}=await import('../public/mobile-capture/caption-confirmation.mjs');
+ let state=new Map();const scan=ids=>{const result=confirmComicCaptions(state,ids);state=result.state;return [...result.ready];};
+ assert.deepEqual(scan(['first']),[]);assert.deepEqual(scan(['first','second']),['first']);
+ assert.deepEqual(scan(['first','second']),['second']);
+ for(let i=0;i<20;i++)assert.deepEqual(scan(['first','second']),[]);
+ scan([]);assert.deepEqual(scan(['first','second']),[]);
+ scan([]);scan([]);assert.deepEqual(scan(['first']),[]);assert.deepEqual(scan(['first']),['first']);
+});

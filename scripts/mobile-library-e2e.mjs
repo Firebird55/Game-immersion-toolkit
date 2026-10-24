@@ -114,12 +114,15 @@ try{
   await page.setInputFiles('#library-files',input('broken.zip',Buffer.from('broken')));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('incomplete'));
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'A bad replacement preserves working voices');
+  await page.evaluate(async()=>{const storage=await import('./storage.mjs'),history=await storage.get('history');await storage.put('history',history.map(row=>({...row,audio:'f'.repeat(64)})));});
   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Reopen library for voices'));
   await page.getByRole('button',{name:'Reopen voice library',exact:true}).waitFor();
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isDisabled());
   await page.locator('.current-card').getByRole('button',{name:'★ Favorited',exact:true}).waitFor();
-  await page.setInputFiles('#library-files',input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));
+  const reopen=page.waitForEvent('filechooser');await page.locator('.current-card').getByRole('button',{name:'Open voice library',exact:true}).click();await(await reopen).setFiles(input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+  await page.waitForFunction(()=>!document.querySelector('.current-card .line-actions button').disabled);
+  assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'Reopening repairs an old saved audio hash');
   // Older catalog + voice files remain usable, including voice-only reselection with a remembered catalog.
   await page.setInputFiles('#library-files',[input('catalog.zip',catalog),input('voices.zip',voices)]);
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {zipSync,strToU8} from 'fflate';
-import {openZip,openLibraryFiles,readCatalog,readVoice,validateVoices,validateRow,sha256,FORMAT,DialogueMatcher,ratio,subtitleRows,searchCatalog} from '../public/mobile-capture/library.mjs';
-import {regions,candidates,cleanOcrBlocks} from '../public/mobile-capture/ocr-pipeline.mjs';
+import {openZip,openLibraryFiles,readCatalog,readVoice,validateVoices,validateRow,sha256,FORMAT,refreshHistoryVoices,DialogueMatcher,ratio,subtitleRows,searchCatalog} from '../public/mobile-capture/library.mjs';
+import {regions,candidates,cleanOcrBlocks,spatialTextGroups} from '../public/mobile-capture/ocr-pipeline.mjs';
 import {cacheBudget} from '../public/mobile-capture/storage.mjs';
 const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
 const row={id:hex,textId:'dialogue-one',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:hex,audio:voiceHash,channels:['dialogue','cinematic','gameplay']};
@@ -203,4 +203,41 @@ test('ZZZ Proxy variants retain authored identity and old aliases are not captio
  assert.equal(matcher.match(female.sourceText,'dialogue','male').row.id,male.id);
  assert.throws(()=>validateRow({...female,memberTextIds:['Unrelated_identity']}),/context members/);
  assert.equal(new DialogueMatcher([clean],'cyberpunk').match(female.sourceText).state,'unmatched');
+});
+
+test('comic bubbles use geometry and left-to-right order with independent exact matches',()=>{
+ const line=(text,x0,y0,x1,y1)=>({text,confidence:95,bbox:{x0,y0,x1,y1}});
+ const blocks=[{paragraphs:[{lines:[line('Another bubble appears',500,70,800,90),line('Keep the gate closed',50,200,350,220),line('above the first.',500,95,730,115),line('until tomorrow.',50,225,260,245)]}]}];
+ assert.deepEqual(spatialTextGroups(blocks).map(g=>g.text),['Keep the gate closed until tomorrow.','Another bubble appears above the first.']);
+ const parsed=candidates({text:'interleaved OCR text',blocks},{channel:'cinematic',fragment:true},1000,600,'zzz');
+ const first={...row,english:'Keep the gate closed until tomorrow.'},second={...row,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),english:'Another bubble appears above the first.'};
+ const hits=new DialogueMatcher([first,second],'zzz').comicMatches(parsed.values);
+ assert.deepEqual(hits.map(hit=>hit.row.id),[first.id,second.id]);
+ assert(!parsed.values.some(v=>v.includes('closed Another')));
+ const collision={...first,id:'c'.repeat(64),sourceVoice:'c'.repeat(64)};
+ assert.deepEqual(new DialogueMatcher([first,second,collision],'zzz').comicMatches(parsed.values).map(hit=>hit.row.id),[second.id]);
+});
+
+test('reopening a revised library refreshes saved voice hashes without losing favorites or crossing locales',()=>{
+ const saved={...row,game:'zzz',createdAt:123,favorite:true,audio:'b'.repeat(64)};
+ const catalog={manifest:{game:'zzz'},rows:[row]};
+ assert.deepEqual(refreshHistoryVoices([saved],catalog)[0],{...saved,audio:row.audio});
+ const revised={...row,id:'c'.repeat(64),sourceVoice:'c'.repeat(64)};
+ const refreshed=refreshHistoryVoices([saved],{...catalog,rows:[revised]})[0];assert.equal(refreshed.audio,row.audio);assert.equal(refreshed.favorite,true);
+ for(const different of [{...row,sourceLocale:'ja'},{...row,playerVoice:'male'}])assert.equal(refreshHistoryVoices([saved],{...catalog,rows:[{...different,id:'d'.repeat(64)}]})[0].audio,saved.audio);
+ // Export IDs historically omit locale fields, so an ID match alone cannot
+ // authorize changing a saved learning/audio performance.
+ for(const different of [{...row,sourceLocale:'ja',audioLocale:'ja'},{...row,audioLocale:'en'},{...row,sourceText:'A different source sentence.'}]){
+  assert.equal(refreshHistoryVoices([saved],{...catalog,rows:[different]})[0].audio,saved.audio);
+ }
+});
+
+test('authored ZZZ comics recover OCR errors using desktop threshold and reject close competing lines',()=>{
+ const comic={...row,textId:'Comic_synthetic',english:'The lantern is bright. We can continue walking tomorrow.'};
+ const value='The lantern is brlght. We can continue walking tomorrow.';
+ const matcher=new DialogueMatcher([comic],'zzz');assert.equal(matcher.comicMatches([value])[0].row.id,comic.id);
+ assert.equal(new DialogueMatcher([{...comic,textId:'HUD_synthetic'}],'zzz').comicMatches([value]).length,0);
+ const other={...comic,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),english:'The lantern is bright. We can continue walking tomorrow!'};
+ assert.equal(new DialogueMatcher([comic,other],'zzz').comicMatches([value]).length,0);
+ assert.equal(matcher.comicMatches(['lantern brlght']).length,0);
 });

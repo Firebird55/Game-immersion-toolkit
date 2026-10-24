@@ -57,14 +57,40 @@ function comicBubbles(canvas){
  }
  return found.sort((a,b)=>b.area-a.area).slice(0,4);
 }
+// Match the desktop bubble grouping: aligned/centered rows, then columns
+// left to right. Sparse OCR reading order alone interleaves separate bubbles.
+export function spatialTextGroups(blocks){
+ const lines=cleanOcrBlocks(blocks).flatMap(b=>b.paragraphs).flatMap(p=>p.lines).filter(l=>l.bbox&&normalize(l.text).length>=2&&(l.confidence??100)>=40).sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0),groups=[];
+ for(const line of lines){
+  const b=line.bbox,h=b.y1-b.y0;if(h<=0||b.x1<=b.x0)continue;let best=null,distance=Infinity;
+  for(const g of groups){const gap=b.y0-g.y1,overlap=Math.min(b.x1,g.x1)-Math.max(b.x0,g.x0),narrow=Math.min(b.x1-b.x0,g.x1-g.x0),tolerance=Math.max(12,g.lineHeight*1.25);
+   if(gap < -Math.max(h,g.lineHeight)||gap>Math.max(48,g.lineHeight*2.4))continue;
+   if(Math.abs(b.x0-g.x0)>tolerance&&!(Math.abs((b.x0+b.x1-g.x0-g.x1)/2)<=tolerance&&overlap>=narrow*.8))continue;
+   const d=Math.abs(gap)+Math.abs(b.x0-g.lastLeft)*.15;if(d<distance){best=g;distance=d;}
+  }
+  if(!best){groups.push({...b,lines:[line],lastLeft:b.x0,lineHeight:h});continue;}
+  best.lines.push(line);best.x0=Math.min(best.x0,b.x0);best.x1=Math.max(best.x1,b.x1);best.y1=Math.max(best.y1,b.y1);best.lastLeft=b.x0;best.lineHeight=(best.lineHeight+h)/2;
+ }
+ return groups.sort((a,b)=>a.x0-b.x0||a.y0-b.y0).map(g=>({...g,text:g.lines.map(l=>l.text).join(' ')}));
+}
 export async function recognizeRegion(worker,canvas,region,language,isCurrent=()=>true){
  if(!isCurrent())return null;
- let original=null;if(region.channel==='gameplay'||region.channel==='dialogue'){original=document.createElement('canvas');original.width=canvas.width;original.height=canvas.height;original.getContext('2d').drawImage(canvas,0,0);}
- if(!prepareImage(canvas,region,language))return null;
+ let original=null;if(region.fragment||region.channel==='gameplay'||region.channel==='dialogue'){original=document.createElement('canvas');original.width=canvas.width;original.height=canvas.height;original.getContext('2d').drawImage(canvas,0,0);}
+ if(!prepareImage(canvas,region.fragment&&!region.raw?{...region,ink:'white'}:region,language))return null;
  await worker.setParameters({tessedit_pageseg_mode:region.fragment?'11':region.line?'7':'6'});
  if(!isCurrent())return null;
  const result=await worker.recognize(canvas,{}, {text:true,blocks:true});if(!isCurrent())return result.data;
- if(region.fragment){const refined=[];for(const b of comicBubbles(canvas)){if(!isCurrent())break;const scale=Math.min(1.5,1280/b.w,512/b.h),image=document.createElement('canvas');image.width=Math.round(b.w*scale);image.height=Math.round(b.h*scale);image.getContext('2d').drawImage(canvas,b.x,b.y,Math.min(b.w,canvas.width-b.x),Math.min(b.h,canvas.height-b.y),0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});if(!isCurrent())return null;const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}return {...result.data,refinedTexts:refined};}
+ if(region.fragment){
+  const groups=spatialTextGroups(result.data.blocks),refined=[];
+  // Text bounds also find white lettering on black bubbles. White connected
+  // components only cover the opposite style and miss these game panels.
+  const bounds=groups.map(g=>({x:Math.max(0,g.x0-6),y:Math.max(0,g.y0-6),w:g.x1-g.x0+12,h:g.y1-g.y0+12}));
+  const pale=comicBubbles(original);
+  for(const b of bounds.slice(0,12)){if(!isCurrent())return null;const w=Math.min(b.w,canvas.width-b.x),h=Math.min(b.h,canvas.height-b.y),scale=Math.min(2,1600/w,768/h),image=document.createElement('canvas');image.width=Math.round(w*scale);image.height=Math.round(h*scale);image.getContext('2d').drawImage(canvas,b.x,b.y,w,h,0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});if(!isCurrent())return null;const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}
+  // Preserve black lettering on pale bubbles as well as white-on-black panels.
+  for(const b of pale){if(!isCurrent())return null;const image=document.createElement('canvas');image.width=Math.min(b.w,original.width-b.x);image.height=Math.min(b.h,original.height-b.y);image.getContext('2d').drawImage(original,b.x,b.y,image.width,image.height,0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}
+  return {...result.data,comicTexts:groups.map(g=>g.text),refinedTexts:refined};
+ }
  if(!original)return result.data;
  const words=(result.data.blocks??[]).flatMap(b=>b.paragraphs??[]).flatMap(p=>p.lines??[]).filter(l=>(l.confidence??0)>=45&&l.bbox?.x1-l.bbox?.x0>canvas.width*.25&&l.bbox?.y1-l.bbox?.y0<canvas.height*.25).flatMap(l=>l.words??[]).filter(w=>w.bbox&&w.confidence<85&&normalize(w.text).length>=4).sort((a,b)=>a.confidence-b.confidence).slice(0,3);
  for(const word of words){
@@ -95,6 +121,12 @@ export function cleanOcrBlocks(blocks){
  return (blocks??[]).map(block=>({...block,paragraphs:(block.paragraphs??[]).map(paragraph=>({...paragraph,lines:(paragraph.lines??[]).map(cleanLine)}))}));
 }
 export function candidates(data,region,width,height,game){
+ if(region.fragment){
+  const texts=data.comicTexts??spatialTextGroups(data.blocks).map(g=>g.text),values=[];
+  const refined=data.refinedTexts??[],ordered=texts.flatMap((text,i)=>[text,refined[i]??'']);ordered.push(...refined.slice(texts.length));
+  for(const text of ordered)values.push(...candidates({text,blocks:[]},{...region,fragment:false},width,height,game).values);
+  if(values.length)return {values:[...new Set(values)],menu:false};
+ }
  const blocks=cleanOcrBlocks(data.blocks);
  let lines=data.text.split('\n').map(s=>s.trim()).filter(Boolean),menu=false;
  if(region.channel!=='dialogue'&&blocks.length)lines=blocks.flatMap(b=>b.paragraphs).flatMap(p=>p.lines).filter(l=>(l.confidence??100)>=45&&normalize(l.text).length>=6).map(l=>l.text);

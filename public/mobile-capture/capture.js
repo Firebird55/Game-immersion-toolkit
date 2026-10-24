@@ -18,8 +18,10 @@ function update(){
  }
 }
 export async function connectVdo(){
- const url=$('vdo-url').value.trim();parseVdoViewerUrl(url);
- await receiverSource.connect('vdo',{url});$('vdo-url').value='';
+ const viewer=parseVdoViewerUrl($('vdo-url').value.trim());
+ // The code is delivered only in memory; the vault owns any encrypted binding.
+ window.dispatchEvent(new CustomEvent('mobile-viewer-code',{detail:{code:viewer.streamId}}));
+ await receiverSource.connect('vdo',{url:viewer.url});$('vdo-url').value='';
  if(document.hidden)receiverSource.pause();
  if(receiverSource.getState().status==='error')throw Error(receiverSource.getState().message);
 }

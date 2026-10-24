@@ -1,4 +1,4 @@
-import {openLibraryFiles,readCatalog,validateVoices,readVoice,DialogueMatcher,searchCatalog} from './library.mjs';
+import {openLibraryFiles,readCatalog,validateVoices,readVoice,refreshHistoryVoices,DialogueMatcher,searchCatalog} from './library.mjs';
 import {get,put} from './storage.mjs';
 let catalog=null, matcher=null, voices=new Map(), epoch=0;
 const summary=()=>catalog?{manifest:catalog.manifest,rowCount:catalog.rows.length}:null;
@@ -22,6 +22,7 @@ self.onmessage=async({data})=>{
    const lookup=new DialogueMatcher(candidate.rows,candidate.manifest.game);
    catalog=candidate;matcher=lookup;voices=incoming;
    result={catalog:summary(),available:[...voices.keys()],selectedBytes:[...new Set(voices.values())].reduce((n,z)=>n+z.file.size,0),selectedPacks:new Set(voices.values()).size};
+  }else if(action==='refresh-history'){result=catalog?refreshHistoryVoices(data.history,catalog):data.history;
   }else if(action==='restore'){
    const token=++epoch;
    const saved=data.catalog??await get('catalog');
@@ -33,6 +34,7 @@ self.onmessage=async({data})=>{
   else if(action==='match-candidates')result=matcher?matcher.matchCandidates(data.values,data.channel,data.player,data.fragment):{state:'no_library'};
   else if(action==='context-fragments')result=matcher?matcher.contextFragments(data.values):[];
   else if(action==='scene-matches')result=matcher?matcher.sceneMatches(data.values,data.groups):{matches:[],groups:[]};
+  else if(action==='comic-matches')result=matcher?matcher.comicMatches(data.values,data.player):[];
   else if(action==='simultaneous-matches')result=matcher?matcher.simultaneousMatches(data.values,data.player,data.primary):[];
   else if(action==='match-context')result=matcher?matcher.matchContext(data.previous,data.values,data.channel,data.player):{state:'no_library'};
   else if(action==='voice'){const zip=voices.get(data.sha);if(!zip)throw new Error('Reopen your mobile library from Files to play voices. Keep a USB drive connected if used.');result=await readVoice(zip,data.sha);}
