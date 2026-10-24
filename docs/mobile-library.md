@@ -48,7 +48,7 @@ Neither the work directory nor its decoded audio is a transfer item.
 2. On **Play**, tap **Open library** and select the single Mobile Library ZIP.
    Check the game title and **Voices ready** status.
 3. On the gaming iPhone/iPad, start the native VDO.Ninja **SCREEN** broadcast.
-   Paste its complete private viewer link on the receiving phone.
+   Enter its stream code or complete private viewer link on the receiving phone.
 4. Tap **Start playing**. It connects the screen and starts subtitle recognition.
    Keep this receiving page visible. Tap **Play voice** on matched dialogue.
 
@@ -68,6 +68,17 @@ After reloading or rebooting, tap **Reopen voice library** and select the same
 file. History, favorites, calibration and the catalog may remain remembered;
 voice file permissions last only for the current page session. Audio is never
 copied into IndexedDB. Keep the ZIP in Files as the recovery source.
+
+A disabled **Play voice** now explains whether the line has no exported audio or
+this session needs the original file. Tap **Open voice library** beside the line
+to reselect it directly. Reopening refreshes saved voice references against the
+current catalog while preserving favorites. If Safari requests another gesture,
+tap play on the visible audio control.
+
+ZZZ comic recognition groups text by bubble and handles multiple visible bubbles
+independently. It accepts the same 88% OCR similarity threshold as desktop for
+authored comic lines, rejects ambiguous matches and confirms each bubble in two
+frames. A bubble is added once while it remains visible, including slow scans.
 
 Download cloud-provider files locally before playing, or keep a selected USB
 drive connected. Safari/Files may stage the file temporarily. Browser quota is

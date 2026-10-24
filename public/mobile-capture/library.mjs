@@ -231,6 +231,30 @@ export class DialogueMatcher{
   }
   return [...selected.values()];
  }
+ comicMatches(values,player='unconfigured'){
+  const results=values.slice(0,128).map(value=>({...this.matchComic(value,player),key:normalize(value)})),hits=results.filter(hit=>hit.state==='matched'),selected=new Map();
+  for(const hit of hits){
+   if(results.some(other=>other.state==='ambiguous'&&other.key.includes(hit.key)))continue;
+   if(hits.some(other=>other.row.id!==hit.row.id&&other.key.length>hit.key.length&&other.key.includes(hit.key)))continue;
+   selected.set(hit.row.id,hit);
+  }
+  return [...selected.values()];
+ }
+ matchComic(value,player){
+  const exact=this.match(value,'cinematic',player,true,true),key=normalize(value);
+  if(exact.state!=='unmatched'||key.length<(/\p{Script=Han}/u.test(key)?12:24))return exact;
+  // Desktop cinematic matching accepts OCR mistakes at 88%. Limit this
+  // recovery to authored ZZZ comics, with a unique winner and two-frame
+  // confirmation; arbitrary HUD text and other games retain exact matching.
+  if(this.game!=='zzz')return exact;
+  if(!this.comicGrams){this.comicGrams=new Map();for(const [text,rows]of this.exact)if(rows.some(row=>/^Comic_/i.test(row.textId)&&row.channels.includes('cinematic')))for(const gram of grams(text)){const list=this.comicGrams.get(gram)??[];list.push(text);this.comicGrams.set(gram,list);}}
+  const counts=new Map();for(const gram of grams(key))for(const text of this.comicGrams.get(gram)??[])if(Math.abs(text.length-key.length)<=Math.max(6,key.length*.3))counts.set(text,(counts.get(text)??0)+1);
+  const ranked=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,128).map(([text])=>({text,score:ratio(key,text)})).filter(hit=>hit.score>=88).sort((a,b)=>b.score-a.score);
+  if(!ranked.length)return exact;
+  if(ranked[1]?.score>=ranked[0].score-2)return {state:'ambiguous'};
+  const hit=this.match(ranked[0].text,'cinematic',player,false,true);
+  return hit.state==='matched'?{...hit,score:ranked[0].score}:hit;
+ }
  match(text,channel='dialogue',player='unconfigured',fragment=false,exactOnly=false){const cacheKey=JSON.stringify([normalize(text),channel,player,fragment,exactOnly]);if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const result=this.lookup(text,channel,player,fragment,exactOnly);if(this.cache.size>=512)this.cache.clear();this.cache.set(cacheKey,result);return result;}
  matchCandidates(values,channel='dialogue',player='unconfigured',fragment=false){
   for(const exactOnly of [true,false]){
@@ -260,6 +284,22 @@ export class DialogueMatcher{
   if(new Set(chosen.map(r=>r.row.sourceVoice??r.row.id)).size!==1)return {state:'ambiguous'};
   return {state:'matched',...chosen[0]};
  }
+}
+
+// History survives export updates, but encoded clip hashes can change. Rebind
+// only the same authored line, locale and player performance in the open catalog.
+export function refreshHistoryVoices(history,catalog){
+ const relevant=history.filter(row=>row.game===catalog.manifest.game);if(!relevant.length)return history;
+ const wantedIds=new Set(relevant.map(row=>row.id)),ids=new Map(),identities=new Map();
+ const identity=row=>JSON.stringify([row.textId,row.sourceLocale??'zh-Hans',row.audioLocale??row.sourceLocale??'zh-Hans',row.playerVoice??null]);
+ const wanted=new Set(relevant.map(identity));
+ for(const row of catalog.rows){if(wantedIds.has(row.id))ids.set(row.id,row);const key=identity(row);if(!wanted.has(key))continue;const found=identities.get(key)??[];found.push(row);identities.set(key,found);}
+ return history.map(old=>{
+  if(old.game!==catalog.manifest.game)return old;
+  const exact=ids.get(old.id),possible=exact?[exact]:(identities.get(identity(old))??[]).filter(row=>(row.sourceText??row.chinese)===(old.sourceText??old.chinese));
+  if(!possible.length||new Set(possible.map(row=>row.sourceVoice??null)).size!==1)return old;
+  return {...old,audio:possible[0].audio,sourceVoice:possible[0].sourceVoice};
+ });
 }
 
 export function searchCatalog(rows,text,limit=20){

@@ -33,5 +33,19 @@ try{browser=await chromium.launch({headless:true});const page=await browser.newP
   },{scene,resolution});
   if(result.channel!==(scene.negative?null:scene.channel))console.log(result.trace);assert.equal(result.channel,scene.negative?null:scene.channel,`${scene.game}/${scene.kind} at ${resolution.join('x')}`);count++;
  }
+ for(const resolution of [[1280,720],[1920,1080]]){
+  const result=await page.evaluate(async([width,height])=>{
+   const source=document.createElement('canvas');source.width=width;source.height=height;const c=source.getContext('2d'),scale=width/1280;
+   c.scale(scale,scale);c.fillStyle='#243849';c.fillRect(0,0,1280,720);
+   c.fillStyle='black';c.fillRect(760,130,370,140);c.fillRect(160,370,390,120);c.fillStyle='white';c.font='bold 26px Arial';
+   c.fillText('The lantern is bright.',780,170);c.fillText('We can continue',780,205);c.fillText('walking tomorrow.',780,240);
+   c.fillText('Keep the gate closed',180,410);c.fillText('until we return.',180,445);
+   const region=pipeline.regions('zzz').find(r=>r.fragment),canvas=document.createElement('canvas');pipeline.cropFrame(source,canvas,region.crop);
+   const recognized=await pipeline.recognizeRegion(ocr,canvas,region,'eng'),parsed=pipeline.candidates(recognized,region,canvas.width,canvas.height,'zzz');
+   const first={id:'a'.repeat(64),textId:'comic-synthetic',english:'Keep the gate closed until we return.',chinese:'合成句一',sourceVoice:'a'.repeat(64),channels:['cinematic']},second={...first,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),english:'The lantern is bright. We can continue walking tomorrow.'};
+   return {hits:new lib.DialogueMatcher([first,second],'zzz').comicMatches(parsed.values).map(hit=>hit.row.id),texts:recognized.comicTexts};
+  },resolution);
+  assert.deepEqual(result.hits,['a'.repeat(64),'b'.repeat(64)],JSON.stringify(result));count++;
+ }
  await page.evaluate(()=>ocr.terminate());console.log(`chromium: ${count} owned game-layout, special-panel, negative menu/HUD and multi-resolution OCR cases passed`);
 }finally{await browser?.close();await new Promise(r=>server.close(r));}

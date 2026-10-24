@@ -26,7 +26,7 @@ const persistPC=()=>{const copy=structuredClone(pcHistory);saveQueue=saveQueue.c
 function mergePC(rows){const map=new Map(pcHistory.map(r=>[keyOf(r),r]));for(const row of rows){const old=map.get(keyOf(row));map.set(keyOf(row),{...row,favorite:old?.favorite??false});}const all=[...map.values()].sort((a,b)=>a.createdAt-b.createdAt);pcHistory=[...all.filter(r=>r.favorite).slice(-5000),...all.filter(r=>!r.favorite).slice(-500)];}
 
 // Keep row and shared-reader component identities stable across App updates.
-function Line({row,current=false,Reader,readerContext,mode,unlocked,chinese,english,options,working,connected,voiceReady,onPlay,onFavorite,onSave}){
+function Line({row,current=false,Reader,readerContext,mode,unlocked,chinese,english,options,working,connected,voiceReady,voiceStatus,onPlay,onFavorite,onSave}){
  const uiText=useInterfaceTranslation();const [summary,setSummary]=useState(null);
  const onSummary=useCallback(value=>setSummary({...value,readerContext}),[readerContext]);
  const unknownWords=summary?.readerContext===readerContext&&summary?.id===(Number(row.id)||row.createdAt)&&summary?.text===(row.sourceText??row.chinese)?summary.unknownWords:null;
@@ -34,6 +34,7 @@ function Line({row,current=false,Reader,readerContext,mode,unlocked,chinese,engl
   <div className="line-meta"><strong>{[row.speakerChinese,row.speakerEnglish].filter(Boolean).join(' · ')||'Dialogue'}</strong><span>{new Date(row.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></div>
   {chinese&&(mode==='lexirise'&&unlocked&&Reader?<Reader key={readerContext} id={Number(row.id)||row.createdAt} text={row.sourceText??row.chinese} sourceLanguage={row.sourceLanguage??'zh'} sentenceTranslation={row.translationText??row.english} options={options} current={current} onSummary={onSummary}/>:<p className="current-chinese migaku-sentence" data-migaku-line-id={keyOf(row)} lang={row.sourceLocale??'zh-Hans'}>{row.sourceText??row.chinese}</p>)}
   {english&&!shouldHideTranslation(options.hideEnglishAt,unknownWords)&&<p className="translation" lang={row.translationLocale??'en'}>{row.translationText??row.english}</p>}
+  {voiceStatus&&<p className="hint voice-status">{uiText(voiceStatus)}{row.audio&&<button onClick={()=>$('library-files').click()}>{uiText("Open voice library")}</button>}</p>}
   <div className="line-actions"><button onClick={()=>onPlay(row)} disabled={working||!row.audio||!voiceReady}>{uiText("▶ Play voice")}</button><button aria-pressed={Boolean(row.favorite)} onClick={()=>onFavorite(row)}>{row.favorite?uiText("★ Favorited"):uiText("☆ Favorite")}</button>{mode==='lexirise'&&<button disabled={!unlocked||working} onClick={()=>onSave(row)}>{uiText("Save sentence")}</button>}</div>
  </article>;}
 
@@ -109,11 +110,11 @@ function App(){
   // needs the passphrase; reader sessions still wait for resolved settings.
   setHasVault(true);setVaultAction('');
   if(action!=='change')try{await openSession();}catch(error){vault.current.lock();throw error;}
-  if(viewerCode.current)await vault.current.linkViewer(viewerCode.current);
+  if(action!=='change'&&viewerCode.current)await vault.current.linkViewer(viewerCode.current);
   setNotice('Lexirise unlocked for this session.');
  });}
  async function blobFor(row){return row.source==='mobile-ocr'?library.libraryLifecycle.voice(row):capture.captureLifecycle.audio(row);}
- async function play(row){await run(async()=>{const token=mediaRevision.current,blob=await blobFor(row);if(token!==mediaRevision.current)return;if(audioUrl.current)URL.revokeObjectURL(audioUrl.current);audioUrl.current=URL.createObjectURL(blob);$('voice-player').src=audioUrl.current;await $('voice-player').play();});}
+ async function play(row){await run(async()=>{const token=mediaRevision.current,blob=await blobFor(row);if(token!==mediaRevision.current)return;if(audioUrl.current)URL.revokeObjectURL(audioUrl.current);audioUrl.current=URL.createObjectURL(blob);$('voice-player').src=audioUrl.current;try{await $('voice-player').play();}catch(error){if(error.name!=='NotAllowedError')throw error;setNotice('Voice ready. Tap play on the audio control below.');}});}
  async function favorite(row){await run(async()=>{if(row.source==='mobile-ocr')await library.libraryLifecycle.favorite(row.id,row.game,!row.favorite);else{pcHistory=pcHistory.map(r=>keyOf(r)===keyOf(row)?{...r,favorite:!r.favorite}:r);await persistPC();refresh();}});}
  async function loadDecks({client,isCurrent}){
   const account=(await client.requestAccount('GET','/v1/me')).user?.id;if(!isCurrent())return;if(account==null)throw Error('Could not verify deck ownership.');const found=[];
@@ -131,7 +132,7 @@ function App(){
  const matches=selected.filter(r=>(filter!=='favorites'||r.favorite)&&(!search||[r.sourceText??r.chinese,r.translationText??r.english,r.speakerChinese,r.speakerEnglish].some(t=>t?.toLowerCase().includes(search.toLowerCase()))));
  const current=source==='pc'&&pcSource?selected.find(r=>r.source===pcSource):selected[0];
  useEffect(()=>{activeReaderGeneration.current++;retireReaderAction();const pair=unlocked?sessionFor(current):null;session.current=pair?.session??null;reader.current=pair?.reader??null;setDecks([]);setDeck('');},[unlocked,current?.game,current?.sourceLocale,current?.sourceLanguage,revision]);
- const lineProps=row=>({Reader:unlocked?sessionFor(row)?.reader.ReadingText:null,readerContext:JSON.stringify([revision,mode,sessionFor(row)?.key]),mode,unlocked,chinese,english,options,working,connected,voiceReady:row.source==='mobile-ocr'?library.libraryLifecycle.canPlay(row):connected,onPlay:play,onFavorite:favorite,onSave:saveSentence});
+ const lineProps=row=>({Reader:unlocked?sessionFor(row)?.reader.ReadingText:null,readerContext:JSON.stringify([revision,mode,sessionFor(row)?.key]),mode,unlocked,chinese,english,options,working,connected,voiceReady:row.source==='mobile-ocr'?library.libraryLifecycle.canPlay(row):connected,voiceStatus:row.source==='mobile-ocr'?library.libraryLifecycle.voiceStatus(row):'',onPlay:play,onFavorite:favorite,onSave:saveSentence});
  const go=next=>{setView(['library','connection'].includes(next)?'settings':next);setError('');};
  const applyUpdate=()=>run(async()=>{if($('role').disabled||capture.captureLifecycle.active||library.libraryLifecycle.busy)throw Error('Stop sharing and finish library operations before updating.');vault.current.lock();const registration=update??await navigator.serviceWorker?.getRegistration();await registration?.update().catch(()=>{});const installing=registration?.installing;if(installing)await new Promise((resolve,reject)=>{const timer=setTimeout(()=>finish(Error('The update is still downloading. Try again shortly.')),15000);const check=()=>{if(['installed','redundant'].includes(installing.state))finish();};function finish(error){clearTimeout(timer);installing.removeEventListener('statechange',check);error?reject(error):resolve();}installing.addEventListener('statechange',check);check();});if(capture.captureLifecycle.active||library.libraryLifecycle.busy)throw Error('Finish sharing and library operations before applying the update.');if(registration?.waiting){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});registration.waiting.postMessage('activate-update');}else {const url=new URL(location.href);url.searchParams.set('v',String(Date.now()));location.replace(url);}});
  $('reload-build').onclick=applyUpdate;
