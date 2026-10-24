@@ -133,3 +133,22 @@ Home Screen shortcut cannot add an absent capture API.
 - Older PTQR1 messages remain readable. Unusually large messages use balanced
   frames with explicit missing-frame hints; malformed metadata, checksums and
   oversized expanded payloads are rejected. Both devices need Reload latest.
+
+
+## Single-file update (2026-10-23)
+
+The v1 bundle wraps existing STORE catalog/voice ZIPs and supports ZIP64 outer
+directories, including Python writers that emit ZIP64 records before 4 GiB.
+Synthetic tests cover unsafe offsets, mismatched manifests, bounded reads,
+cancellation, legacy compatibility and Python-exporter/browser-reader round trips.
+
+An owner-local 3,797,058,275-byte ZZZ bundle was opened with the production reader:
+222,479 catalog rows and 51,814 unique clips validated. A clip from the final
+inner pack passed CRC/SHA checks. Opening and that read used 105,088,719 bytes in
+97 file reads; the largest read was 4,194,296 bytes. The Node filesystem check
+took about 2.4 seconds on this PC. This is not an iPhone performance result.
+No game text, audio or personal source paths are included in this report.
+
+The UI keeps a separate selected-file/result display, automatically includes the
+catalog, and explicitly identifies legacy voice-only selections. Physical iPhone
+provider, low-storage and reboot acceptance remain required.

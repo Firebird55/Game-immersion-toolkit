@@ -56,7 +56,7 @@ try{
      value={started:true};
     }
     else if(path==='/api/setup/mobile-export/browse/cancel'){setup.mobile_export.browseActive=false;setup.mobile_export.browsePhase=null;setup.mobile_export.browseMessage='Folder browser closed. You can paste a destination or try Browse again.';value={cancelled:true};}
-    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
+    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bundle:'F:/Exports/synthetic/Synthetic Game - Mandarin - Mobile Library.zip',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
     else if(path==='/api/setup/mobile-export/cancel'){setup.mobile_export={...setup.mobile_export,state:'cancelled',message:'Synthetic export cancelled'};value={cancelled:true};}
     else if(path==='/api/setup/native/checks'){setup.capture_check=true;value={started:true};}
     else if(path.startsWith('/api/setup/native/'))value={started:true};
@@ -105,8 +105,8 @@ try{
    assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true,destination_folder:'E:/Mobile libraries'});
    await dialog.getByRole('button',{name:'Cancel export',exact:true}).click();await dialog.getByText('Synthetic export cancelled',{exact:true}).waitFor();
    await dialog.getByLabel('Original game voices',{exact:false}).uncheck();await dialog.getByRole('button',{name:'Resume export',exact:true}).click();await dialog.getByText('Ready to transfer',{exact:true}).waitFor();
-   await dialog.getByText('Copy only this folder to USB or your phone',{exact:false}).waitFor();
-   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries'});await dialog.getByText('F:/Exports/synthetic',{exact:true}).waitFor();
+   await dialog.getByText('Copy this library file to your phone',{exact:false}).waitFor();
+   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries'});await dialog.getByText('F:/Exports/synthetic/Synthetic Game - Mandarin - Mobile Library.zip',{exact:true}).waitFor();
    if(width===1280){
     const exportsBefore=writes.filter(w=>w.path.endsWith('/mobile-export')).length;
     await dialog.getByLabel('Save libraries to',{exact:true}).fill('F:/Unsaved old-language choice');

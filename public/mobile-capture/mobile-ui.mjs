@@ -1,7 +1,7 @@
 import {manifest as ocrManifest,loadModel,modelStatus,removeModel} from './ocr-packs.mjs';
 import {translate,languageName,formatBytes,bindStaticTranslation} from './interface-language.mjs';
 import {confirmCaptions} from './caption-confirmation.mjs';
-import {receiverSource} from './capture.js';
+import {receiverSource,connectVdo} from './capture.js';
 import {get,put,remove,storageStatus,cacheBudget} from './storage.mjs';
 import Tesseract from './ocr/tesseract.esm.min.js';
 const {createWorker}=Tesseract;
@@ -11,7 +11,7 @@ const $=id=>document.getElementById(id), text=(id,message)=>$(id).textContent=tr
 const reader=new Worker(new URL('./library-worker.mjs',import.meta.url),{type:'module'}), pending=new Map();
 let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, sourceState=null, stable=null, emitted=new Map(), samples=[];
 let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,activeJob=null;
-let scanCompletion=Promise.resolve(),voiceBusy=false;
+let scanCompletion=Promise.resolve(),voiceBusy=false,startIntent=0;
 let captionContext={epoch:-1,entries:[],candidate:null,count:0};
 let parallelContext={epoch:-1,groups:new Map(),counts:new Map(),stable:new Map()};
 reader.onmessage=({data})=>{const request=pending.get(data.id);if(!request)return;if(data.progress!=null||data.stage){if(request.selection===selection)text('library-status',data.stage??`Reading ${data.progress.toLocaleString()} verified dialogue rows…`);return;}pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
@@ -19,39 +19,43 @@ reader.onerror=()=>{for(const request of pending.values())request.reject(new Err
 function request(action,body={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject,selection});reader.postMessage({id,action,...body});});}
 function currentGame(){return $('game').value;}
 function invalidate(){epoch++;stable=null;activeJob?.abort();$('crop-preview').hidden=true;return epoch;}
-function updatePreview(){document.body.classList.toggle('ocr-running',scanning&&$('role').value==='receiver'&&receiverSource.active&&!['ended','error','paused'].includes(sourceState?.status)&&!document.hidden);}
+function updatePreview(){$('ocr-start').hidden=scanning&&!document.body.classList.contains('developer-mode');$('ocr-pause').hidden=!scanning;$('show-setup').hidden=!scanning;document.body.classList.toggle('ocr-running',scanning&&$('role').value==='receiver'&&receiverSource.active&&!['ended','error','paused'].includes(sourceState?.status)&&!document.hidden);}
 const optionIds=['ocr-language','player-voice','show-english','extra-regions','cinematic-regions','ocr-contrast'];
 function setupCrop(){const game=currentGame(),saved=preferences[game]??{},selected=$('calibrate-region').value,keys=['dialogue',...Object.keys(extraCrops[game]??{})];$('calibrate-region').replaceChildren(...keys.map(key=>{const option=document.createElement('option');option.value=key;option.textContent={dialogue:'Dialogue',overhead:'Overhead captions',card:'Centered story card',comic:'Comic panels',panel:'Legacy dialogue panel',compact:'Compact subtitle strip'}[key];return option;}));$('calibrate-region').value=keys.includes(selected)?selected:'dialogue';const key=$('calibrate-region').value,crop=key==='dialogue'?saved.crop??crops[game]:saved.regions?.[key]??extraCrops[game][key];['left','top','width','height'].forEach((field,i)=>$('crop-'+field).value=String(crop[i]*100));$('picture-area').value=saved.picture??'window';for(const id of optionIds)if(saved[id]!=null){if($(id).type==='checkbox')$(id).checked=saved[id];else $(id).value=saved[id];}}
 function cropValue(){const values=['left','top','width','height'].map(key=>Number($('crop-'+key).value)/100);if(values.some(v=>!Number.isFinite(v)||v<0||v>1)||values[2]<=0||values[3]<=0||values[0]+values[2]>1.00001||values[1]+values[3]>1.00001)throw new Error('Keep the crop inside the video.');return values;}
 async function savePreferences(){invalidate();const saved=preferences[currentGame()]??{},key=$('calibrate-region').value,value=cropValue();preferences[currentGame()]={...saved,...key==='dialogue'?{crop:value}:{regions:{...saved.regions,[key]:value}},picture:$('picture-area').value,...Object.fromEntries(optionIds.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]))};await put('preferences',preferences).catch(()=>text('storage-status','Calibration is temporary; browser storage is unavailable.'));}
 async function reportStorage(requestPersistence=false){const state=await storageStatus(requestPersistence);text('storage-status',`${state.persistent?'Persistent browser storage granted':'Browser cache is best effort; retain your Files copies'}${state.usage!=null?` · ${(state.usage/1024**2).toFixed(1)} MiB cached`:''}${state.quota!=null?` · ${(Math.max(0,state.quota-(state.usage??0))/1024**3).toFixed(2)} GiB browser quota remaining (not device free space)`:''}. Audio packs stay in Files and must be reselected after reopening.`);return state;}
 function libraryStatus(){
- if(!library){declaredAudio.clear();text('pack-status','');text('coverage-status','');text('library-status','Open your exported catalog ZIP and optional voice ZIPs from On My iPhone.');return;}
+ if(!library){declaredAudio.clear();text('pack-status','');text('coverage-status','');text('library-status','No library open.');$('open-library').textContent=translate('Open library');$('selected-library').textContent='';document.body.dataset.libraryReady='false';return;}
  const coverage=library.manifest.coverage;
  declaredAudio=new Set(library.manifest.packs.flatMap(p=>p.clips));
- text('library-status',`${library.manifest.title} · ${library.rowCount.toLocaleString()} bilingual rows · ${available.size.toLocaleString()} unique voice clips accessible this session${coverage.partial?' · Partial catalog: newer/unmapped scenes remain unsupported':''}. ${available.size?'Audio packs are open.':'Reselect voice ZIPs for playback.'}`);
+ text('library-status',`${library.manifest.title} · ${library.rowCount.toLocaleString()} lines · ${available.size?'Voices ready':declaredAudio.size?'Reopen library for voices':'Text-only library'}`);
+ $('open-library').textContent=translate(available.size?'Change library':'Reopen voice library');
+ document.body.dataset.libraryReady='true';
  text('pack-status',`${selectedPacks} voice packs selected · ${(selectedBytes/1024**3).toFixed(2)} GiB selected. Audio is read per clip, without importing whole packs.`);
  const coverageNotes={heavyrain:'Original-voice bindings use installed game assets. Gameplay OCR verification is in progress; untested chapters and branches remain outside verified coverage.',beyond:'Opening narration, police and laboratory overlap segments pass desktop OCR. Later chapters, branches and mobile gameplay footage remain unverified.',zzz:'Comic crops pass synthetic layout checks; real mobile comic footage verification remains pending.',wuwa:'Sampled dialogue and centered cards pass; some resized movie/story captions still miss.',pragmata:'Mobile layout checks use synthetic scenes; real browser footage verification remains pending.',cyberpunk:'Small overhead captions still miss in recorded footage. Verify your subtitle size and crop.',witcher3:'Sampled cutscene captions pass; top-edge NPC captions still miss in recorded footage.',nte:'Sampled movie radio/intro cards pass; wrapped subtitles and some movie variants still miss.',honkai3:'Sampled modern, legacy and multi-page panels pass both tested resolutions. Newer chapters remain outside the verified catalog.',hito:'Fixed catalog rows are text-only. Mobile does not run the desktop grammar generator.'};
  text('coverage-status','Browser OCR coverage: '+coverageNotes[library.manifest.game]);
 }
+$('open-library').onclick=()=>$('library-files').click();
+$('show-setup').onclick=()=>{document.body.classList.toggle('show-play-setup');};
 $('library-files').onchange=async event=>{
- const token=++selection;invalidate();
  const files=[...event.target.files];if(!files.length)return;
- const start=performance.now();$('library-files').disabled=true;$('cancel-library').hidden=false;text('library-status','Opening selected ZIPs. Keep a USB drive connected and unlocked…');
+ const token=++selection;invalidate();
+ const start=performance.now();$('library-files').disabled=true;$('open-library').disabled=true;$('cancel-library').hidden=false;text('library-status','Opening your library…');
  try{
   const result=await request('open',{files,expectedGame:$('game').disabled?currentGame():null});if(token!==selection)return;
   if($('game').disabled&&result.catalog.manifest.game!==currentGame())throw new Error('Stop this capture session before opening a different game.');
   library=result.catalog;available=new Set(result.available);selectedBytes=result.selectedBytes;selectedPacks=result.selectedPacks;openMs=performance.now()-start;
   if(!$('game').disabled){$('game').value=library.manifest.game;$('game').dispatchEvent(new Event('change'));}
-  libraryStatus();render();$('search-results').replaceChildren();$('cancel-library').hidden=true;
-  const state=await reportStorage(),budget=cacheBudget(library.manifest,state);
-  if(budget.sufficient===false)text('cache-status',`Not enough browser quota for the estimated ${(budget.needed/1024**2).toFixed(0)} MiB catalog cache. This library works this session; reselect the catalog after reopening. Voices remain in Files.`);
-  else try{await request('cache');text('cache-status',`Catalog remembered for reopening · estimated cache budget ${(budget.needed/1024**2).toFixed(0)} MiB. Voice ZIPs are not cached.`);}catch{ text('cache-status','Catalog could not be cached, possibly because device storage is low. This session still works. Check iPhone Storage in Settings and reopen the catalog next time.');}
+  libraryStatus();$('selected-library').textContent=files.map(file=>file.name).join(' · ');render();$('search-results').replaceChildren();$('cancel-library').hidden=true;
+  $('cache-status').hidden=true;const state=await reportStorage(),budget=cacheBudget(library.manifest,state);
+  if(budget.sufficient===false){$('cache-status').hidden=false;text('cache-status',`Not enough browser quota for the estimated ${(budget.needed/1024**2).toFixed(0)} MiB catalog cache. This library works this session; reselect the catalog after reopening. Voices remain in Files.`);}
+  else try{await request('cache');text('cache-status',`Catalog remembered for reopening · estimated cache budget ${(budget.needed/1024**2).toFixed(0)} MiB. Voice ZIPs are not cached.`);}catch{$('cache-status').hidden=false;text('cache-status','Catalog could not be cached, possibly because device storage is low. This session still works. Check iPhone Storage in Settings and reopen the catalog next time.');}
   void reportStorage(true);
 
- }catch(error){if(token===selection)text('library-status',error.message);}finally{if(token===selection){$('library-files').disabled=false;$('cancel-library').hidden=true;}event.target.value='';}
+ }catch(error){if(token===selection){text('library-status',error.message);$('selected-library').textContent=files.map(file=>file.name).join(' · ');}}finally{if(token===selection){$('library-files').disabled=false;$('open-library').disabled=false;$('cancel-library').hidden=true;}event.target.value='';}
 };
-$('cancel-library').onclick=()=>{selection++;void request('cancel-open');$('library-files').disabled=false;$('library-files').value='';$('cancel-library').hidden=true;text('library-status','File opening cancelled. Your previous library remains available. Select ZIPs again to retry.');};
+$('cancel-library').onclick=()=>{selection++;void request('cancel-open');$('library-files').disabled=false;$('open-library').disabled=false;$('library-files').value='';$('cancel-library').hidden=true;text('library-status','File opening cancelled. Your previous library remains available. Select ZIPs again to retry.');};
 $('forget-library').onclick=async()=>{selection++;invalidate();scanning=false;updatePreview();stable=null;await request('forget');library=null;available.clear();selectedBytes=selectedPacks=0;await remove('catalog').catch(()=>{});libraryStatus();render();};
 function saveHistory(){const favorites=history.filter(r=>r.favorite).slice(-5000),rest=history.filter(r=>!r.favorite).slice(-500);history=[...favorites,...rest].sort((a,b)=>a.createdAt-b.createdAt);return put('history',history).catch(()=>text('storage-status','Transcript history is temporary; storage could not be saved.'));}
 function render(){
@@ -90,7 +94,7 @@ for(const key of ['left','top','width','height'])$('crop-'+key).onchange=()=>voi
 $('picture-area').onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
 $('calibrate-region').onchange=setupCrop;
 $('reset-crop').onclick=()=>{const game=currentGame(),key=$('calibrate-region').value,saved=preferences[game]??{};preferences[game]={...saved,...key==='dialogue'?{crop:crops[game]}:{regions:{...saved.regions,[key]:extraCrops[game][key]}}};setupCrop();void savePreferences();};
-$('game').addEventListener('change',()=>{invalidate();scanning=false;updatePreview();setupCrop();render();});
+$('game').addEventListener('change',()=>{startIntent++;invalidate();scanning=false;updatePreview();setupCrop();render();});
 const canvas=document.createElement('canvas');
 function cropFrame(frame,region,target=canvas){return drawCrop(frame,target,region,$('picture-area').value);}
 $('preview-crop').onclick=async()=>{
@@ -114,9 +118,23 @@ void ocrManifest().then(data=>{const present=new Set([...$('ocr-language').optio
 $('ocr-pack-download').onclick=async()=>{const codes=$('ocr-language').value.split('+');$('ocr-pack-download').disabled=true;$('ocr-pack-progress').hidden=false;try{for(const code of codes)await loadModel(code,{download:true,onProgress:value=>$('ocr-pack-progress').value=value});}catch(e){text('ocr-pack-status',e.message);return;}finally{$('ocr-pack-download').disabled=false;$('ocr-pack-progress').hidden=true;}await refreshPackStatus();};
 $('ocr-pack-remove').onclick=async()=>{scanning=false;invalidate();updatePreview();await resetting;await scanCompletion;if(loading)await loading.catch(()=>{});if(engine){await engine.terminate();engine=null;engineLanguage=null;}try{for(const code of $('ocr-language').value.split('+'))if(!(await modelStatus(code)).builtin)await removeModel(code);await refreshPackStatus();}catch(e){text('ocr-pack-status',e.message);}};
 window.addEventListener('toolkit-interface-language',()=>void refreshPackStatus());
-$('ocr-language').onchange=()=>{void refreshPackStatus();invalidate();scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
-$('ocr-start').onclick=async()=>{const token=invalidate();try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;updatePreview();text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){if(token===epoch)text('match-status',e.message);}};
-function pauseOcr(){scanning=false;updatePreview();invalidate();text('match-status','OCR paused.');}
+$('ocr-language').onchange=()=>{startIntent++;void refreshPackStatus();invalidate();scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
+$('ocr-start').onclick=async()=>{
+ const intent=++startIntent;invalidate();$('ocr-start').disabled=true;
+ try{
+  if(!library)throw new Error('Open your Mobile Library ZIP first.');
+  if(library.manifest.game!==currentGame())throw new Error('Open a library for the selected game.');
+  if(!receiverSource.active){text('match-status','Connecting your game screen…');await connectVdo();}
+  if(intent!==startIntent)return;
+  // Connecting creates a new frame session and invalidates old OCR epochs.
+  // Own the new session only after that transition; one tap still starts OCR.
+  const token=invalidate();text('match-status','Preparing subtitle recognition…');await initEngine();
+  if(intent!==startIntent||token!==epoch)return;
+  scanning=true;updatePreview();document.body.classList.remove('show-play-setup');text('match-status','Following subtitles. Keep this page visible.');
+ }catch(e){if(intent===startIntent)text('match-status',e.message);}
+ finally{$('ocr-start').disabled=false;}
+};
+function pauseOcr(){startIntent++;scanning=false;updatePreview();invalidate();text('match-status','OCR paused.');}
 $('ocr-pause').onclick=pauseOcr;
 // An explicit receiver Stop also cancels the user's OCR intent (including a
 // pending Start). Automatic source reconnect/pause events retain that intent.
@@ -125,7 +143,7 @@ $('vdo-stop').addEventListener('click',pauseOcr);
 // scan no new pixels can be observed, so a same-session stall is not evidence
 // that its captured frame is invalid. Session changes and terminal states are.
 receiverSource.subscribe(value=>{if(!sourceState||sourceState.revision!==value.revision||sourceState.sessionId!==value.sessionId||sourceState.status!==value.status&&['ended','error','paused'].includes(value.status))invalidate();sourceState=value;updatePreview();});
-window.addEventListener('mobile-source-changed',()=>{scanning=false;invalidate();updatePreview();text('match-status','Screen source changed. Connect it, then start OCR.');});
+window.addEventListener('mobile-source-changed',()=>{startIntent++;scanning=false;invalidate();updatePreview();text('match-status','Screen source changed. Connect it, then start OCR.');});
 document.addEventListener('visibilitychange',()=>{invalidate();updatePreview();if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
 for(const kind of ['freeze','pagehide'])window.addEventListener(kind,()=>{invalidate();updatePreview();});
 function regions(){return captureRegions(currentGame(),preferences[currentGame()]?.crop??crops[currentGame()],$('extra-regions').checked,$('cinematic-regions').checked,preferences[currentGame()]?.regions).map(region=>$('ocr-contrast').value==='raw'?{...region,raw:true}:region);}
@@ -212,9 +230,10 @@ export const libraryLifecycle={
  get history(){return history.map(r=>({...r,source:'mobile-ocr'}));},
  get busy(){return $('library-files').disabled||voiceBusy;},
  get ready(){return Boolean(library);},
- stop(){scanning=false;invalidate();updatePreview();$('voice-player').pause();resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const previous=engine;engine=null;engineLanguage=null;await previous?.terminate();});},
+ canPlay:row=>available.has(row.audio),
+ stop(){startIntent++;scanning=false;invalidate();updatePreview();$('voice-player').pause();resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const previous=engine;engine=null;engineLanguage=null;await previous?.terminate();});},
  async favorite(id,game,value){for(const row of history)if(row.id===id&&row.game===game)row.favorite=value;await saveHistory();render();},
- async voice(row){if(!available.has(row.audio))throw Error('Reselect the original voice ZIP in Library.');return request('voice',{sha:row.audio});},
+ async voice(row){if(!available.has(row.audio))throw Error('Reopen your mobile library from Files to play voices.');return request('voice',{sha:row.audio});},
  search:text=>request('search',{text}),
  choose:addSearchLine
 };

@@ -91,7 +91,7 @@ try{
   await page.goto(base+'/');
   await page.getByRole('button',{name:'Settings',exact:true}).waitFor({timeout:10000}).catch(async error=>{throw Error('Built desktop failed to mount: '+JSON.stringify({errors,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await page.goto(base+'/mobile-capture/index.html');
-  await page.getByRole('heading',{name:'Your next line belongs here.'}).waitFor();
+  await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();
   // Fetch from the browser origin to prove the deployed worker serves all OCR,
   // pairing, reader JS and CSS assets. There is no test-server fallback.
   for(const file of required){

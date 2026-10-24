@@ -4,7 +4,7 @@ Status: implementation and local automated checks complete; physical two-device 
 
 ## Decision and boundaries
 
-Device 1 runs the native VDO.Ninja app's SCREEN broadcast; device 2 runs the static toolkit receiver, local OCR, catalog and reader. No desktop service is required for this receiving route. Existing browser pairing, QR, paired-PC transport, Chinese transcripts, independent Migaku mode, calibration and voice ZIPs remain supported.
+Device 1 runs the native VDO.Ninja app's SCREEN broadcast; device 2 runs the static toolkit receiver, local OCR, catalog and reader. No desktop service is required for this receiving route. Browser screen pairing has since been removed. QR and paired-PC transcript transport remain in Settings; Chinese transcripts, independent Migaku mode, calibration and legacy voice ZIP imports remain supported.
 
 Use a bounded iframe frame bridge initially: the official viewer handles its native transport and the adapter requests programmable frames through `getVideoFrame` with `cib` correlation. Inspect the currently served implementation before fixing the response schema and supported URL forms. A visible iframe alone is not success. Cross-origin DOM reads are forbidden. Keep the complete accepted viewer URL, including password and supported server/route parameters; reject unsupported URLs explicitly rather than stripping routing information. Accept only reviewed official HTTPS viewer/service routes, never arbitrary external endpoints. No capture/camera/microphone permission is granted to the viewer.
 

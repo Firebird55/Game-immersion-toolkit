@@ -14,7 +14,7 @@ def test_clean_transfer_names_keep_work_private_and_preserve_unvoiced_text(tmp_p
     folder, catalog = latest_export(tmp_path, 'zzz')
     assert folder == Path(result['folder'])
     assert folder.name.startswith('Zenless Zone Zero - Mobile Library - ')
-    assert catalog.name == 'Zenless Zone Zero - Catalog.zip'
+    assert catalog.name == 'Zenless Zone Zero - Text Only - Mobile Library.zip'
     assert (work_folder(tmp_path) / 'cache/resume-marker').read_text() == 'keep'
     assert set(p.name for p in folder.iterdir()) == {catalog.name, 'READ ME.txt'}
     assert result['coverage']['dialogue'] == 1 and result['coverage']['mappedVoices'] == 0
@@ -51,7 +51,7 @@ def test_copying_entire_selected_folder_excludes_cache_and_keeps_resume(tmp_path
     assert workspace.anchor == output.anchor
     assert len(list((workspace / 'cache').glob('*.mp3'))) == 1
     assert not list(selected.rglob('*.mp3'))
-    assert len(list(selected.rglob('*.zip'))) == 2
+    assert len(list(selected.rglob('*.zip'))) == 1
     instructions = (output / 'START HERE.txt').read_text(encoding='utf8')
     assert Path(first['folder']).name in instructions and '.pending' not in instructions
     assert export_library('zzz', [record], output, voice=decode)['folder'] == first['folder']

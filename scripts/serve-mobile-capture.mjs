@@ -27,7 +27,7 @@ const routes = new Map([
   ['/core.mjs', ['core.mjs', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
 ]);
-for(const name of ['interface-copy.mjs','interface-language.mjs','ocr-models.json','ocr-packs.mjs','caption-confirmation.mjs','companion.js','companion.css','transcript-channel.mjs','pc-provider.mjs','vault.mjs','recovery-config.json','relay.mjs','qr-render.mjs','qr-pairing.mjs','qr-ui.mjs','library.mjs','library-worker.mjs','ocr-pipeline.mjs','frame-source.mjs','vdo-source.mjs','receiver-source.mjs','mobile-ui.mjs','storage.mjs','manifest.webmanifest','icon.svg','icon.png'])routes.set('/'+name,[name,mime(name)]);
+for(const name of ['interface-copy.mjs','interface-language.mjs','ocr-models.json','ocr-packs.mjs','caption-confirmation.mjs','companion.js','companion.css','transcript-channel.mjs','pc-provider.mjs','pc-connection.mjs','vault.mjs','recovery-config.json','relay.mjs','qr-render.mjs','qr-pairing.mjs','qr-ui.mjs','library.mjs','library-worker.mjs','ocr-pipeline.mjs','frame-source.mjs','vdo-source.mjs','receiver-source.mjs','mobile-ui.mjs','storage.mjs','manifest.webmanifest','icon.svg','icon.png'])routes.set('/'+name,[name,mime(name)]);
 const handleRequest = (request, response) => {
   const pathname=new URL(request.url,'https://localhost').pathname;
   const external=ocr.get(pathname.slice(1));

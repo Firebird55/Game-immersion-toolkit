@@ -28,6 +28,18 @@ try{
   // A cancelled transport may settle later (including intercepted WebKit
   // requests). Exercise that boundary explicitly instead of relying on abort.
   await context.addInitScript(()=>{
+   // Deliver a real IndexedDB read after a live PC event. The page must queue
+   // that event until history restoration finishes rather than overwrite it.
+   const nativeGet=IDBObjectStore.prototype.get;
+   IDBObjectStore.prototype.get=function(key){
+    const request=nativeGet.call(this,key);
+    if(key!=='pc-history'||window.historyRestoreHeld||location.search.includes('shadow-reader'))return request;
+    window.historyRestoreHeld=true;
+    return new Proxy(request,{
+     get(target,key){const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;},
+     set(target,key,value){if(key==='onsuccess'){target.onsuccess=event=>{window.releaseHistoryRestore=()=>value.call(target,event);};return true;}return Reflect.set(target,key,value,target);}
+    });
+   };
    const nativeFetch=window.fetch.bind(window);
    window.fetch=(input,options)=>{
     if(window.ignoreNextDeckAbort&&typeof options?.body==='string'&&JSON.parse(options.body).path?.startsWith('/v1/decks?')){
@@ -36,7 +48,8 @@ try{
     return nativeFetch(input,options);
    };
   });
-  const page=await context.newPage(),errors=[],requests=[];
+  const page=await context.newPage(),errors=[],requests=[],failedRequests=[];
+  page.on('requestfailed',request=>failedRequests.push(new URL(request.url()).pathname+': '+request.failure()?.errorText));
   let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks,failInitialSettings=true,heldAction=null,releaseAction;
   page.on('pageerror',e=>{
    // WebKit can defer one observer delivery while the anchored library mounts
@@ -67,9 +80,11 @@ try{
    return route.fulfill({json:data,headers});
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
-  await page.getByRole('heading',{name:'Your next line belongs here.'}).waitFor();
-  await page.selectOption('#source','pc');
+  await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor().catch(async error=>{throw Error('Reader failed to mount: '+JSON.stringify({errors,requests:failedRequests,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
+  await page.getByRole('button',{name:'Settings',exact:true}).click();await page.selectOption('#source','pc');
+  await page.waitForFunction(()=>typeof window.releaseHistoryRestore==='function');
   await page.evaluate(rows=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows}})),rows);
+  await page.evaluate(()=>window.releaseHistoryRestore());
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('input[name=key]').fill('mock-layout-key');
   await page.locator('input[name=pass]').fill('safe layout fixture passphrase');
@@ -95,7 +110,7 @@ try{
   assert.equal(requests.filter(r=>r.path==='/v1/settings').length-settingsBefore,1,'Parent updates keep settings adapter identity');
   await accountDialog.getByRole('button',{name:'Close Lexirise settings'}).click();
   await page.getByLabel('Reader mode').selectOption('lexirise');
-  await page.getByRole('button',{name:'Reader',exact:true}).click();
+  await page.getByRole('button',{name:'Play',exact:true}).click();
   await page.locator('.current-card .reading-hanzi').first().waitFor();
   await page.getByRole('button',{name:'Dismiss',exact:true}).click();
 
@@ -151,7 +166,7 @@ try{
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.getByLabel('Reader mode').selectOption('migaku');
   assert.equal(await page.locator('.reading-hanzi').count(),0,'Mode switch removes Lexirise reader UI');
-  await page.getByRole('button',{name:'Reader',exact:true}).click();
+  await page.getByRole('button',{name:'Play',exact:true}).click();
   await page.locator('.current-card .migaku-sentence').evaluate(el=>{el.innerHTML='<span data-migaku-fixture="1">'+el.textContent+'</span>';window.migakuFixture=el.firstChild;});
   const beforeMigaku=requests.length;
   await page.evaluate(()=>document.querySelector('#status').textContent='Independent Migaku status');
@@ -160,7 +175,7 @@ try{
   assert.equal(requests.length,beforeMigaku,'Migaku mode is independent of account analysis');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.getByLabel('Reader mode').selectOption('lexirise');
-  await page.getByRole('button',{name:'Reader',exact:true}).click();
+  await page.getByRole('button',{name:'Play',exact:true}).click();
   await page.locator('.current-card .reading-hanzi').first().waitFor();
   assert(await page.evaluate(()=>!window.readerFixture.word.isConnected),'Mode change invalidates the previous reader context');
   await page.locator('.current-card .reading-hanzi').first().click();await page.locator('.word-sheet').waitFor();
@@ -265,13 +280,13 @@ try{
   await page.locator('input[name=confirm]').fill('second layout fixture passphrase');
   await page.getByRole('button',{name:'Connect Lexirise',exact:true}).click();
   await page.getByRole('button',{name:'Lock',exact:true}).waitFor();
-  await page.getByRole('button',{name:'Reader',exact:true}).click();
+  await page.getByRole('button',{name:'Play',exact:true}).click();
   await page.locator('.current-card .reading-hanzi').first().waitFor();await releaseLookup();
   assert.equal(await page.getByText('FIRST ACCOUNT PENDING',{exact:true}).count(),0,'Old account response cannot populate replacement readers');
   assert(analysisAccounts.slice(beforeReplacement).includes('second'),'Replacement account performs its own analysis');
   await page.evaluate(()=>window.languageReaderFixture=document.querySelector('.current-card .reading-hanzi'));
   for(const game of ['beyond','heavyrain']){
-  await page.selectOption('#game',game);
+  await page.getByRole('button',{name:'Settings',exact:true}).click();await page.selectOption('#game',game);await page.getByRole('button',{name:'Play',exact:true}).click();
   await page.evaluate(game=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game,id:7,createdAt:1700000010000,chinese:'合成测试句子。',english:'',speakerChinese:'',speakerEnglish:'',audio:false,sourceLanguage:'nl',sourceLocale:'nl',sourceText:'Een volledige testzin.',translationLocale:'zh-Hans',translationText:'合成测试句子。',audioLocale:'nl'}]}})),game);
   await page.locator('.current-card .reading-text[lang="nl"]').waitFor();
   assert(await page.evaluate(()=>!window.languageReaderFixture.isConnected),'Language context invalidates the previous reader');
@@ -300,7 +315,7 @@ try{
   await page.getByRole('button',{name:'Load my decks',exact:true}).click();
   for(let attempt=0;!releaseDecks&&attempt<100;attempt++)await page.waitForTimeout(20);
   assert(releaseDecks,'A previous source deck read is pending');
-  await page.getByRole('button',{name:'Reader',exact:true}).click();
+  await page.getByRole('button',{name:'Play',exact:true}).click();
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows:[{source:'pc-layout-fixture',game:'heavyrain',id:8,createdAt:1700000011000,chinese:'测试',english:'',audio:false,sourceLanguage:'de',sourceLocale:'de',sourceText:'Een',translationLocale:'nl',translationText:'Een fixture'}]}})));
   await page.locator('.current-card .reading-text[lang="de"]').waitFor();
   await page.locator('.current-card .reading-hanzi').first().click();
@@ -340,12 +355,12 @@ try{
   await finishRetiredAction('Vault lock and unlock',releaseLockedAction);
   assert(await page.getByRole('button',{name:'Load my decks',exact:true}).isDisabled(),'Finishing old account work cannot release the current action gate');
   await releaseAction();await page.getByRole('alert').filter({hasText:'Lexirise returned HTTP 503'}).waitFor();await page.getByRole('alert').getByRole('button',{name:'Dismiss',exact:true}).click();
-  holdAction('/v1/vocabulary','POST');await page.getByRole('button',{name:'Reader',exact:true}).click();await page.locator('.current-card').getByRole('button',{name:'Save sentence',exact:true}).click();await waitForAction();
+  holdAction('/v1/vocabulary','POST');await page.getByRole('button',{name:'Play',exact:true}).click();await page.locator('.current-card').getByRole('button',{name:'Save sentence',exact:true}).click();await waitForAction();
   await changeActionSource('de');await finishRetiredAction('Source change during sentence saving');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await changeActionSource('nl');await page.getByRole('button',{name:'Load my decks',exact:true}).click();await page.getByLabel('Save destination').selectOption('42');
   const deckWritesBefore=requests.filter(r=>/^\/v1\/decks\/\d+\/items$/.test(r.path)).length;
-  holdAction('/v1/vocabulary','POST',{status:200,json:{item:{id:77}}});await page.getByRole('button',{name:'Reader',exact:true}).click();await page.locator('.current-card').getByRole('button',{name:'Save sentence',exact:true}).click();await waitForAction();
+  holdAction('/v1/vocabulary','POST',{status:200,json:{item:{id:77}}});await page.getByRole('button',{name:'Play',exact:true}).click();await page.locator('.current-card').getByRole('button',{name:'Save sentence',exact:true}).click();await waitForAction();
   await changeActionSource('de');await finishRetiredAction('Retired sentence success');
   assert.equal(requests.filter(r=>/^\/v1\/decks\/\d+\/items$/.test(r.path)).length,deckWritesBefore,'Retired sentence save cannot issue a later deck mutation');
   assert.equal(await page.getByRole('status').filter({hasText:'Sentence saved to Lexirise'}).count(),0,'Retired sentence success cannot update current reader status');
@@ -355,12 +370,14 @@ try{
   await page.getByRole('alert').getByRole('button',{name:'Dismiss',exact:true}).click();
   // Mount the same shipped application with its reader portal in a Shadow
   // root from the start, so React registers native events at the proper root.
-  const shadowPage=await context.newPage();shadowPage.on('pageerror',e=>errors.push(e.message));
+  const shadowPage=await context.newPage(),shadowErrors=[],shadowFailures=[];
+  shadowPage.on('pageerror',e=>{errors.push(e.message);shadowErrors.push(e.message);});
+  shadowPage.on('requestfailed',request=>shadowFailures.push(new URL(request.url()).pathname+': '+request.failure()?.errorText));
   await shadowPage.goto('http://127.0.0.1:'+server.address().port+'/?shadow-reader=1');
-  await shadowPage.getByRole('button',{name:'Settings',exact:true}).click();
+  await shadowPage.getByRole('button',{name:'Settings',exact:true}).click().catch(async error=>{throw Error('Shadow reader failed to mount: '+JSON.stringify({errors:shadowErrors,requests:shadowFailures,body:(await shadowPage.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await shadowPage.locator('input[name=pass]').fill('second layout fixture passphrase');
   await shadowPage.getByRole('button',{name:'Unlock',exact:true}).click();await shadowPage.getByRole('button',{name:'Lock',exact:true}).waitFor();
-  await shadowPage.selectOption('#source','pc');await shadowPage.getByRole('button',{name:'Reader',exact:true}).click();
+  await shadowPage.getByRole('button',{name:'Settings',exact:true}).click();await shadowPage.selectOption('#source','pc');await shadowPage.getByRole('button',{name:'Play',exact:true}).click();
   const shadowWord=shadowPage.locator('.current-card .reading-hanzi').first();await shadowWord.waitFor();
   await shadowWord.focus();await shadowPage.keyboard.press('Enter');await shadowPage.locator('.word-sheet').waitFor();
   await shadowPage.evaluate(()=>{window.shadowSheet=document.querySelector('.word-sheet');document.querySelector('#status').textContent='Shadow reader status';});

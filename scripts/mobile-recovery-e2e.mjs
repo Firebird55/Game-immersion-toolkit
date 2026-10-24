@@ -36,62 +36,38 @@ try{
    window.captureRequests=0;
    if(navigator.mediaDevices)navigator.mediaDevices.getDisplayMedia=async()=>{window.captureRequests++;if(window.denyCapture)throw Error('Synthetic permission denial');const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;let i=0;const ctx=canvas.getContext('2d');setInterval(()=>{ctx.fillStyle=`rgb(${i++%255},100,180)`;ctx.fillRect(0,0,640,360);},100);window.capturedStream=canvas.captureStream(10);return window.capturedStream;};
   });
-  const sender=await context.newPage(),receiver=await context.newPage();await sender.goto(origin+'?developer=1');await receiver.goto(origin+'?developer=1');await receiver.selectOption('#role','receiver');
+  await context.route('http://127.0.0.1:8766/api/lines?**',route=>route.fulfill({json:[]}));
+  const sender=await context.newPage(),receiver=await context.newPage();await sender.goto(origin+'?pc=1');await receiver.goto(origin);await receiver.getByRole('button',{name:'Settings',exact:true}).click();await receiver.selectOption('#source','pc');
   await sender.waitForFunction(()=>document.querySelector('#auto-recovery').checked&&!document.querySelector('#auto-recovery').disabled);
   await sender.click('#start');await sender.waitForFunction(()=>document.querySelector('#outgoing').value.includes('"relay"'));
   const offer=JSON.parse(await sender.inputValue('#outgoing'));assert.equal(await sender.locator('#pairing-qr').getAttribute('data-total'),'1','Service-assisted offer fits one static QR');
   await receiver.fill('#incoming',JSON.stringify(offer));await receiver.click('#apply');
   // The sender is never given a manual answer. One offer transfer is enough.
-  await receiver.waitForFunction(()=>document.querySelector('#metrics').textContent.includes('Receiving frames'),null,{timeout:30000});
-  assert.equal(await sender.evaluate(()=>window.testPeer.connectionState),'connected');
-  await receiver.click('#begin-test');
-  await sender.evaluate(()=>{window.firstTrack=window.capturedStream.getVideoTracks()[0];window.firstPeer=window.testPeer;});
+  await receiver.waitForFunction(()=>window.testPeer?.connectionState==='connected',null,{timeout:30000});
+  await sender.waitForFunction(()=>window.testPeer.connectionState==='connected');
   const recover=async()=>{
    const previous=await sender.evaluate(()=>window.testPeers.length);
    for(const p of [sender,receiver])await p.evaluate(()=>{window.testPeer.close();window.testPeer.dispatchEvent(new Event('connectionstatechange'));});
    await sender.waitForFunction(n=>window.testPeers.length>n,previous,{timeout:30000});
-   await receiver.waitForFunction(()=>window.testPeer.connectionState==='connected'&&document.querySelector('#metrics').textContent.includes('Receiving frames'),null,{timeout:30000});
+   await receiver.waitForFunction(()=>window.testPeer.connectionState==='connected'&&window.testPeer?.connectionState==='connected',null,{timeout:30000});
   };
   await recover();
-  assert(await sender.evaluate(()=>window.firstTrack===window.capturedStream.getVideoTracks()[0]&&window.firstTrack.readyState==='live'),'Failed transport retains the original screen capture');
-  assert.equal(await sender.evaluate(()=>window.captureRequests),1);
+  assert.equal(await sender.evaluate(()=>window.captureRequests),0);
   assert.equal(JSON.parse(await sender.inputValue('#outgoing')).sessionId,offer.sessionId);
-  await receiver.evaluate(()=>{document.querySelector('#preview').pause();window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));});
-  await receiver.waitForFunction(()=>!document.querySelector('#preview').paused&&document.querySelector('#metrics').textContent.includes('Receiving frames'));
-  // Let the asynchronous play result (or advancing media-time evidence) settle
-  // before immediately replacing its connection in the next failure scenario.
-  await receiver.waitForTimeout(500);
   // A browser suspended by switching apps must recover on visibility/resume.
   await sender.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
   const before=await sender.evaluate(()=>window.testPeers.length);
   for(const p of [sender,receiver])await p.evaluate(()=>{window.testPeer.close();window.testPeer.dispatchEvent(new Event('connectionstatechange'));});
   await sender.waitForTimeout(1000);assert.equal(await sender.evaluate(()=>window.testPeers.length),before);
   await sender.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));document.dispatchEvent(new Event('resume'));});
-  await receiver.waitForFunction(()=>window.testPeer.connectionState==='connected'&&document.querySelector('#metrics').textContent.includes('Receiving frames'),null,{timeout:30000});
-  // An ended capture requires one permission gesture and retains pairing.
-  await sender.evaluate(()=>{const t=window.capturedStream.getVideoTracks()[0];t.stop();t.dispatchEvent(new Event('ended'));});
-  await sender.waitForFunction(()=>!document.querySelector('#resume-share').hidden);
-  await sender.evaluate(()=>window.denyCapture=true);await sender.click('#resume-share');
-  await sender.waitForFunction(()=>document.querySelector('#status').textContent.includes('could not resume'));
-  assert.equal(await sender.locator('#resume-share').isEnabled(),true);
-  await sender.evaluate(()=>window.denyCapture=false);await sender.click('#resume-share');
-  await sender.waitForFunction(()=>document.querySelector('#outgoing').value.includes('"offer"'));
-  const resumedAttempt=JSON.parse(await sender.inputValue('#outgoing')).attempt;
-  await receiver.waitForFunction(attempt=>{try{return JSON.parse(document.querySelector('#outgoing').value).attempt===attempt;}catch{return false;}},resumedAttempt);
-  await receiver.waitForFunction(()=>window.testPeer.connectionState==='connected'&&document.querySelector('#metrics').textContent.includes('Receiving frames'),null,{timeout:30000});
-  assert.equal(JSON.parse(await sender.inputValue('#outgoing')).sessionId,offer.sessionId);
+  await receiver.waitForFunction(()=>window.testPeer.connectionState==='connected'&&window.testPeer?.connectionState==='connected',null,{timeout:30000});
   const authResult=await receiver.evaluate(async({endpoint,room})=>new Promise((resolve,reject)=>{const ws=new WebSocket(endpoint.replace('http:','ws:')+'/v1/rooms/'+room);const timer=setTimeout(()=>{ws.close();reject(Error('Authentication timeout'));},5000);ws.onopen=()=>ws.send(JSON.stringify({kind:'auth',role:'sender',proof:'A'.repeat(43)}));ws.onclose=e=>{clearTimeout(timer);resolve(e.code);};}),{endpoint,room:offer.relay.room});
   assert.equal(authResult,4003,'An incorrect proof cannot replace a paired sender');
   assert.equal(await receiver.evaluate(()=>window.testPeer.connectionState),'connected');
-  const download=receiver.waitForEvent('download');await receiver.click('#report');const report=JSON.parse(readFileSync(await(await download).path(),'utf8'));
-  assert.equal(report.observation.endedAt,null);assert(report.diagnostics.recoveryAttempts>=3);
-  if(!report.events.some(e=>e.kind==='preview_resumed'))console.error(name,'safe recovery diagnostics',{kinds:report.events.map(e=>e.kind),video:await receiver.evaluate(()=>({paused:document.querySelector('#preview').paused,time:document.querySelector('#preview').currentTime,ready:document.querySelector('#preview').readyState}))});
-  assert(report.events.some(e=>e.kind==='preview_resumed'));
-  for(const secret of [offer.relay.secret,offer.relay.room,offer.sessionId,offer.sdp])assert(!JSON.stringify(report).includes(secret),'Reports omit relay keys and connection details');
   await sender.click('#stop');await receiver.click('#stop');
   const peers=await sender.evaluate(()=>window.testPeers.length);await sender.waitForTimeout(5500);assert.equal(await sender.evaluate(()=>window.testPeers.length),peers,'Stop cancels automatic recovery');
   assert.deepEqual(errors,[]);await context.close();await browser.close();browser=null;
-  console.log(name+': local Cloudflare runtime, one-way QR pairing, failed-link/foreground/recapture recovery, observation retention, authentication and Stop passed');
+  console.log(name+': local Cloudflare runtime, one-way QR pairing, transcript failed-link/foreground recovery, no screen capture, authentication and Stop passed');
  }
  // WebKit validates real encrypted signaling and reconnecting sockets. Its
  // automated runtime does not establish physical iPhone capture reliability.

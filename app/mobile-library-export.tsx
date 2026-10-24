@@ -6,7 +6,7 @@ import { Check, Download, FolderOpen, Smartphone, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Estimate = { estimatedBytes: number; estimateLowBytes: number; estimateHighBytes: number; workingBytes: number; freeBytes: number; rows: number; basis: string };
-export type MobileExportStatus = { state: string; game?: string; selectedGame?: string; scope?: string; sourceLocale?: string; progress: number; message: string; folder?: string; bytes?: number;
+export type MobileExportStatus = { state: string; game?: string; selectedGame?: string; scope?: string; sourceLocale?: string; progress: number; message: string; folder?: string; bundle?: string; bytes?: number;
   destinationFolder?: string; outputFolder?: string; browseActive?: boolean; browsePhase?: string | null; browseMessage?: string; estimatedCatalogBytes?: number; estimatedAudioBytes?: number; audioBytes?: number;
   done?: number; total?: number; estimate?: Estimate; coverage?: { dialogue: number; exportedVoices: number } };
 const activeStates = ['preparing', 'exporting', 'cancelling'];
@@ -86,11 +86,11 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
       <progress aria-label={uiText("Mobile export progress")} max={100} value={status.state === 'preparing' ? undefined : status.progress} />
       {status.total != null && <p className="toolkit-setup-note">{(status.done ?? 0).toLocaleString()} / {status.total.toLocaleString()} {uiText("dialogue entries")}{status.audioBytes != null ? ` · ${gb(status.audioBytes)} audio converted` : ''}</p>}
       {completed && <><p>{status.coverage?.dialogue.toLocaleString()} {uiText("bilingual lines ·")}{status.coverage?.exportedVoices.toLocaleString()} {uiText("voice-backed lines")}</p>
-        <label>{uiText("Copy only this folder to USB or your phone")}<code className="toolkit-export-path">{status.folder}</code></label>
-        <p className="toolkit-setup-note">{status.bytes != null ? `${gb(status.bytes)} to transfer. ` : ''}{uiText("Keep ZIPs zipped. Copying an older export's parent folder also copies its PC cache and can take much longer.")}</p></>}
+        <label>{uiText("Copy this library file to your phone")}<code className="toolkit-export-path">{status.bundle ?? status.folder}</code></label>
+        <p className="toolkit-setup-note">{status.bytes != null ? `${gb(status.bytes)} to transfer. ` : ''}{uiText("One ZIP includes the catalog and voices. Keep it zipped.")}</p></>}
       {status.state === 'cancelled' && <p className="toolkit-setup-note">{uiText("Completed clips are kept. Resume with the same save folder to reuse them.")}</p>}
       {status.state === 'error' && <p className="toolkit-setup-error">{status.message}</p>}
     </div>}
-    <details className="toolkit-export-help"><summary>{uiText("How to use the ZIPs on your phone")}</summary><ol><li>{uiText("Copy the completed catalog ZIP and every voice ZIP to Files → On My iPhone. Keep them zipped. Voice ZIPs are split into packs of at most 512 MiB.")}</li><li>{uiText("Open the mobile page, choose Open game library, and select those ZIPs.")}</li><li>{uiText("The PC can be off during play. Reselect voice ZIPs after reopening the website.")}</li></ol></details>
+    <details className="toolkit-export-help"><summary>{uiText("Play on your phone")}</summary><ol><li>{uiText("Copy the single Mobile Library ZIP to Files on your phone. Keep it zipped.")}</li><li>{uiText("Open the mobile page, open your library, paste the VDO.Ninja viewer link and tap Start playing.")}</li><li>{uiText("The PC can be off during play. Reopen the same library file after reloading the website.")}</li></ol></details>
   </section>;
 }

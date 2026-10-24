@@ -85,3 +85,5 @@ for(const event of ['pagehide','freeze'])window.addEventListener(event,stopCamer
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});
 
 export const pairingLifecycle={stop:stopCamera};
+
+$('stop').addEventListener('click',stopCamera);

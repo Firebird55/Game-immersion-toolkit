@@ -13,6 +13,8 @@ concurrency:
 jobs:
   check:
     runs-on: windows-latest
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,26 +48,28 @@ jobs:
         if: steps.scope.outputs.full == 'true'
         run: dotnet build scripts/game-readers/NteReader.csproj -c Release -o data/ci-reader -p:BaseIntermediateOutputPath="${{ github.workspace }}/data/ci-reader-obj/" --nologo
       - uses: actions/cache@v4
-        if: steps.scope.outputs.browsers == 'true' && !startsWith(github.ref, 'refs/tags/') && github.event_name != 'workflow_dispatch'
+        if: steps.scope.outputs.browsers == 'true' && steps.scope.outputs.full != 'true'
         with:
           path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
       - run: npx playwright install chromium firefox webkit
-        if: steps.scope.outputs.browsers == 'true' && !startsWith(github.ref, 'refs/tags/') && github.event_name != 'workflow_dispatch'
+        if: steps.scope.outputs.browsers == 'true' && steps.scope.outputs.full != 'true'
       - name: Run selected checks
         env:
           CHECK_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
-          CHECK_SPLIT_BROWSER_TESTS: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' }}
+          CHECK_SPLIT_BROWSER_TESTS: ${{ steps.scope.outputs.full == 'true' }}
         run: node scripts/check-changed.mjs ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
       - uses: actions/upload-artifact@v4
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        if: steps.scope.outputs.full == 'true'
         with:
           name: checked-frontend
           path: dist/
           include-hidden-files: true
           retention-days: 7
   browser-checks:
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    # Comprehensive PR gates need the same isolated runners as release gates.
+    # A long sequence on one Windows runner can exhaust socket buffers.
+    if: needs.check.outputs.full == 'true'
     needs: check
     runs-on: windows-latest
     timeout-minutes: 15
@@ -75,6 +79,8 @@ jobs:
         suite: [desktop, setup, capture, offline, ocr]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

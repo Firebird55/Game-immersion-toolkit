@@ -6,7 +6,6 @@ import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {zipSync,strToU8} from 'fflate';
 import {ocrAssets,mime} from './mobile-assets.mjs';
-import {VIDEO,WEBM_VIDEO} from '../tests/mobile-media-fixtures.mjs';
 const engines=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href:'playwright');
 const root=process.env.MOBILE_PREVIEW_DIR?pathToFileURL(resolve(process.env.MOBILE_PREVIEW_DIR)+sep):new URL('../public/mobile-capture/',import.meta.url),ocr=ocrAssets();
 const files=new Map(readdirSync(root,{recursive:true}).filter(n=>statSync(new URL(n.replaceAll('\\','/'),root)).isFile()).map(n=>['/'+n.replaceAll('\\','/'),n.replaceAll('\\','/')]));files.set('/','index.html');
@@ -47,28 +46,9 @@ async function diagnoseFailure(page,name,error){
  await page.screenshot({path:`output/playwright/mobile-source-${name}-failure.png`,fullPage:true}).catch(()=>{});
 }
 async function waitText(page,text){await page.waitForFunction(text=>document.querySelector('#transcript').textContent.includes(text),text,{timeout:45000});}
-async function connect(page){await page.fill('#vdo-url','https://vdo.ninja/?view=owned_fixture&password=owned_fixture_secret');await page.click('#vdo-connect');await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'),null,{timeout:15000});}
+async function connect(page){await page.locator('details').filter({has:page.locator('#vdo-connect')}).evaluate(element=>element.open=true);await page.fill('#vdo-url','https://vdo.ninja/?view=owned_fixture&password=owned_fixture_secret');await page.click('#vdo-connect');await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'),null,{timeout:15000});}
 async function hide(page,hidden){await page.evaluate(hidden=>{Object.defineProperty(document,'hidden',{configurable:true,value:hidden});document.dispatchEvent(new Event('visibilitychange'));},hidden);}
 async function release(page){await page.evaluate(()=>{window.testGate=null;for(const deliver of window.testHeld.splice(0))deliver();});}
-async function probeFixtureVideo(page){
- // Probe a separate native media element: an application/adapter failure must
- // never be mistaken for a missing runner codec. No playback properties mocked.
- return page.evaluate(async sources=>{
-  const video=document.createElement('video');video.muted=true;video.playsInline=true;
-  const failures=[];
-  for(let index=0;index<sources.length;index++){
-   const [base64,type]=sources[index],url=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type}));let timer;
-   video.src=url;
-   try{
-    await Promise.race([video.play(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new DOMException('Fixture playback timed out','TimeoutError')),8000);})]);
-    if(!video.videoWidth||!video.videoHeight)throw new Error('Fixture has no decoded dimensions');
-    return {index,failures};
-   }catch(error){failures.push({type,error:error.name,mediaCode:video.error?.code??null});}
-   finally{clearTimeout(timer);video.pause();video.removeAttribute('src');video.load();URL.revokeObjectURL(url);}
-  }
-  return {index:null,failures};
- },[[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
-}
 try{
  for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
   browser=await engines[name].launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[];
@@ -86,17 +66,16 @@ try{
     set onmessage(handler){super.onmessage=event=>{const data=event.data,recognition=data.action==='recognize'&&['resolve','reject'].includes(data.status),match=this.matches.delete(data.id);if(recognition){window.testJobs--;window.testOcrResults.push({status:data.status,text:data.data?.text?.slice(0,160),confidence:data.data?.confidence});window.testOcrResults=window.testOcrResults.slice(-6);}if(match){window.testMatchResults.push({state:data.result?.state,score:data.result?.score});window.testMatchResults=window.testMatchResults.slice(-6);}if((window.testGate==='ocr'&&recognition||window.testGate==='match'&&match)&&!window.testHeld.length){window.testHeld.push(()=>handler(event));return;}handler(event);};}
    };
   });
-  await page.goto(base+'?developer=1');await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();await page.waitForFunction(()=>document.body.dataset.role==='sender');await page.selectOption('#role','receiver');await page.waitForFunction(()=>document.body.dataset.role==='receiver');
-  await page.setInputFiles('#library-files',{name:'owned-catalog.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('2 bilingual rows'));
-  await page.selectOption('#frame-source','vdo');await connect(page);
+  await page.goto(base+'?developer=1');await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();  await page.setInputFiles('#library-files',{name:'owned-catalog.zip',mimeType:'application/zip',buffer:catalog});await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('2 lines'));
+  await page.fill('#vdo-url','https://vdo.ninja/?view=owned_fixture&password=owned_fixture_secret');await page.click('#ocr-start');await waitText(page,row.chinese);await page.click('#ocr-pause');
   assert.equal(await page.inputValue('#vdo-url'),'','private link clears after connection');
   assert.equal(await page.locator('#vdo-viewer iframe').count(),1);
   const firstFrame=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
   assert((await firstFrame.evaluate(()=>fixture.requests))>=2,'status probes run before OCR starts');
-  await page.locator('details').filter({has:page.locator('#preview-crop')}).locator('summary').click();
+  await page.getByRole('button',{name:'Settings',exact:true}).click();await page.locator('details').filter({has:page.locator('#preview-crop')}).locator('summary').click();
   await page.click('#preview-crop');await page.waitForFunction(()=>!document.querySelector('#crop-preview').hidden);
   assert(await page.locator('#crop-preview').evaluate(canvas=>canvas.width>0&&canvas.height>0));
-  await page.click('#ocr-start');await waitText(page,row.chinese);
+  await page.getByRole('button',{name:'Play',exact:true}).click();await page.click('#ocr-start');await waitText(page,row.chinese);
   assert((await page.locator('#source-status').textContent()).includes('1280 × 720'),'compact viewer retains source pixel dimensions');
   console.log(`${name}: native frames reached real OCR and catalog.`);
   await page.locator('.companion-nav button').first().click();
@@ -177,20 +156,7 @@ try{
   }
   await page.evaluate(()=>document.documentElement.style.zoom='1');await page.setViewportSize({width:390,height:844});
   for(let cycle=0;cycle<3;cycle++){await hide(page,true);assert.equal(await page.locator('#vdo-viewer iframe').count(),0);await hide(page,false);await page.waitForFunction(()=>document.querySelector('#source-status').textContent.includes('Visible screen changes'));await page.click('#vdo-stop');await connect(page);}
-  // Existing video adapter remains interchangeable without a second connection.
-  stage='existing browser video adapter';
-  await page.selectOption('#frame-source','browser');
-  const capability=await probeFixtureVideo(page);
-  if(capability.index===null){
-   assert(name==='webkit'&&process.platform==='win32'&&capability.failures.length===2&&capability.failures.every(f=>f.error==='NotSupportedError'||f.mediaCode===4),`Unexpected fixture video failure: ${JSON.stringify(capability)}`);
-   console.log(`webkit Windows: native media probe cannot decode MP4/WebM ${JSON.stringify(capability.failures)}. Browser-video adapter is UNVERIFIED here; native PNG/OCR/recovery tests continue. Media coverage runs on macOS and Linux.`);
-  }else{
-   await page.evaluate(async([base64,type])=>{const video=document.querySelector('#preview');video.loop=true;window.fixtureVideoUrl=URL.createObjectURL(new Blob([Uint8Array.from(atob(base64),c=>c.charCodeAt(0))],{type}));video.src=window.fixtureVideoUrl;await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:200,role:'receiver',state:'connected',live:true,game:'zzz'}}));},[[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']][capability.index]);
-   await page.click('#clear-history');await page.click('#ocr-start');await waitText(page,row.chinese);await page.click('#ocr-pause');
-   await page.evaluate(()=>{const video=document.querySelector('#preview');video.pause();video.removeAttribute('src');video.load();URL.revokeObjectURL(window.fixtureVideoUrl);delete window.fixtureVideoUrl;});
-   console.log(`${name}: decoded browser-video adapter reached real OCR and catalog.`);
-  }
-  await page.selectOption('#frame-source','vdo');await connect(page);
+  await page.click('#vdo-stop');await connect(page);
   stage='native Chinese PNG and real OCR';
   const frame=page.frames().find(frame=>frame.url().startsWith('https://vdo.ninja/'));
   const imageSize=await frame.evaluate(async png=>{const image=new Image();image.src='data:image/png;base64,'+png;await image.decode();fixture.image=image;return{width:image.naturalWidth,height:image.naturalHeight};},chinesePng);
