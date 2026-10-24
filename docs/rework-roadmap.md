@@ -146,6 +146,8 @@ met Rust wacht op een gemeten probleem en vooraf gekozen vergelijkingscriteria.
 **Eigenaar:** UX. Levert elke afgeronde verbetering afzonderlijk op. R03–R05
 hoeven niet op elkaar te wachten; één schrijver tegelijk aan de companionbestanden.
 R06 kan hulpontwerp voorbereiden en integreert per afgerond control.
+W1 integreert ook de comicweergave voor R09/R10 op basis van de R08-afspraak
+met W2. Dat consumerbewijs hoort bij R09/R10; R03–R06 kunnen zelfstandig afronden.
 
 | ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
 | --- | --- | --- | --- |
@@ -193,9 +195,9 @@ het is geen opdracht om die functionaliteit opnieuw vanaf nul te bouwen.
 | R02a | Baseline en grenzen voor recall/precisie, duplicaten, inversies, trackfragmentatie, capture/OCR/matching/UI-tijd, p50/p95 en mobiele sessieduur | Meetplan direct; R01 en R07b van de betrokken route voor betrouwbare productiemetingen vóór tuning | Versieerbaar rapport met reproduceerbare meting en vooraf vastgelegde kwaliteit-/latentiegrenzen per gekozen matrix; ontbrekende resultaten expliciet open. |
 | R07a | Huidige productiecontrollers karakteriseren met gecontroleerde I/O; echte mobiele pagina als vertrekpunt | R01; zo nodig eerst een minimale I/O-injectiegrens | Echte scan/confirmation/history/publicatie en ZZZ-route uitgevoerd; stop/bronwissel/stale-output vastgelegd; bekende fouten apart van gewenste verwachtingen. Geen nagebouwde testcontroller. |
 | R07b | Replay via dezelfde productiecontrollers, met bron-/klokinjectie en temporele assertions | R07a; mobiel na R13c, desktop kan onafhankelijk starten | Dezelfde karakterisatie vóór/na extractie; identiteit/volgorde/duplicatie/tijd gemeten via productiecode; zelfstandige stable/set-loop uit replay vervalt. |
-| R08 | Gedeeld fragment-/eventcontract (identiteit, occurrence en onzekere volgorde); gerichte reparatie van legacy/meertalige fragmentverschillen met behoud van ambiguïteitscontrole | R07b van de betrokken route; R12b-semantiek; R02a-kwaliteitsgrenzen vóór matchingtuning | Contract specificeert identiteit, occurrence, unknown order en stale events; bekende fragment-/ambiguïteitsgevallen slagen op legacy/meertalig. Mobiele pariteit wordt definitief getoetst in R10/R11. |
-| R09 | Desktop-bubble-identiteit en volgorde over frames, inclusief onbekende volgorde binnen een eerste batch | R08 voor desktop; R12b; R13b waar activatie/binding wijzigt | Desktopsequenties halen de kritieke nul-foutcriteria én vereiste regels; verplaatsing, echte herhaling en onbekende eerste batch onderscheiden. |
-| R10 | Bestaande mobiele multi-bubbleverwerking behouden en temporele identiteit bij scroll/verplaatsing aanvullen waar bewijs ontbreekt | R13c, mobiele R07b/R08 en R12b; afstemming met R03 bij statuswijzigingen | Dezelfde kritieke gevallen slagen via mobiele productiecontroller, inclusief zwarte bubbles, meer dan acht regels en meerdere gelijktijdige bubbles; bestaande bronstatus blijft werken. |
+| R08 | Gedeeld fragment-/eventcontract (identiteit, occurrence en onzekere volgorde); gerichte reparatie van legacy/meertalige fragmentverschillen met behoud van ambiguïteitscontrole | R07b van de betrokken route; R12b-semantiek; R02a-kwaliteitsgrenzen vóór matchingtuning | Contract specificeert identiteit, occurrence, unknown order en stale events; W1/W2 leggen weergave, historie en favorietidentiteit vast. Bekende fragment-/ambiguïteitsgevallen slagen op legacy/meertalig. Consumerbewijs volgt in R09/R10; mobiele pariteit in R10/R11. |
+| R09 | Desktop-bubble-identiteit en volgorde over frames, inclusief onbekende volgorde binnen een eerste batch | R08 voor desktop; R12b; R13b waar activatie/binding wijzigt | Desktopsequenties halen de kritieke nul-foutcriteria én vereiste regels; verplaatsing, echte herhaling en onbekende eerste batch onderscheiden. Met W1: desktopweergave, historie na herladen en paired-PC behouden die betekenis volgens de consumercriteria hieronder. |
+| R10 | Bestaande mobiele multi-bubbleverwerking behouden en temporele identiteit bij scroll/verplaatsing aanvullen waar bewijs ontbreekt | R13c, mobiele R07b/R08 en R12b; afstemming met R03 bij statuswijzigingen | Dezelfde kritieke gevallen slagen via mobiele productiecontroller, inclusief zwarte bubbles, meer dan acht regels en meerdere gelijktijdige bubbles; bestaande bronstatus blijft werken. Met W1: mobiele weergave en historie na herladen voldoen aan dezelfde consumercriteria. |
 | R11 | ZZZ-videocorpus en hold-outscènes evalueren, plus regressiematrix voor overige actieve adapters | R07b per route; eindbeoordeling na R08–R10 en R02a | Vaste video-/hold-outmatrix haalt R02a-grenzen op de geclaimde routes; andere actieve adapters behouden gedrag; corpus, clocks en modelversies bij resultaten vermeld. |
 
 **Acceptatie**
@@ -230,6 +232,20 @@ het is geen opdracht om die functionaliteit opnieuw vanaf nul te bouwen.
   Zonder beide blijft onderlinge volgorde onbekend; coördinaten, dictionaryvolgorde
   en taalmodellen vullen die niet in. Geen verzonnen audio of automatische
   playbackvolgorde voor een onzekere batch.
+- [ ] Consumercriteria voor R09/R10: een eerste batch met gelijktijdig zichtbare
+  bubbles zonder bewezen volgorde blijft herkenbaar als groep met onbekende
+  volgorde in de transcriptweergave en historie. Een vaste plaatsingsvolgorde mag
+  de UI stabiel houden, maar suggereert geen spreekvolgorde of laatst uitgesproken
+  regel. De UI maakt geen kunstmatige tijdverschillen om die volgorde te creëren.
+- [ ] Verplaatsen/scrollen behoudt dezelfde occurrence; een geannoteerde latere
+  echte herhaling blijft een afzonderlijke occurrence, ook bij dezelfde tekst-ID.
+  Opslaan/herladen en paired-PC-overdracht met reconnect behouden groepsverband,
+  onbekende volgorde en occurrence-aantallen; opnieuw ontvangen is geen nieuwe
+  occurrence. R09 bewijst desktop en paired-PC, R10 de lokale mobiele OCR-route.
+- [ ] W1/W2 leggen in R08 vast of favorieten aan dialooginhoud of aan een
+  occurrence hangen, met behoud van bestaande favorieten. R09/R10 toetsen de
+  gekozen betekenis na herladen; favorietlogica voegt geen echte herhalingen
+  samen in de transcriptgeschiedenis.
 - [ ] Kritieke synthetische sequenties hebben nul verkeerde identiteiten,
   onbedoelde duplicaten, verouderde publicaties en volgorde-inversies, én alle
   vereiste regels. Negatieve fixtures publiceren geen onterechte regels/voices.
@@ -441,6 +457,10 @@ uit bij een releasekandidaat volgens RELEASE.md.
   gedrag en relevante foutpaden. Nieuwe tests zijn niet verplicht voor elke copy-edit.
 - [ ] Gerichte checks slagen. Niet beschikbare platformchecks zijn expliciet
   open; die tellen niet als geslaagd en blokkeren de bijbehorende releaseclaim.
+  Branchchecks gebruiken de actuele doelbranch van de PR; doelrepository,
+  remote/ref en gecontroleerde basiscommit staan bij het bewijs. Voor een fork
+  richting Boaz' `main` is dat hier `upstream/main`, niet automatisch `origin/main`;
+  volg de [basiskeuze in de AI-werkwijze](ai-development-workflow.md#verificatie-en-bewijs).
 - [ ] Voor OCR, accounts, migratie en lifecycle is een onafhankelijke review
   uitgevoerd tegen criteria, diff en echte testuitvoer. Bevindingen zijn opgelost
   of aantoonbaar weerlegd. Een reviewsamenvatting vervangt geen testbewijs.
@@ -479,6 +499,7 @@ uitsluitend aan de hand van zijn eigen implementatiesamenvatting.
 | Leesmodus/voorkeuren | R04: labels, interne waarde en leesgedrag; R14/R18: opslag en precedentie | R17-integratie met W1 | Discovery en bundeling; R03/R05 |
 | Installatieopslag | R14/R18: schema, schrijver, locatie en migratie-eigenaarschap | Opslaggebruik in R17/R19/R21 | R15/R16 op afgesproken kandidaat-/packcontract |
 | OCR-events en status | R12b/R08: identiteit/volgorde; R12a/R03: bronstatusvelden, samen met OCR-eigenaar | R09/R10 wachten op eventcontract; alleen geraakte statusconsumers wachten ook op R03-afspraak | Fixtures, replay en onafhankelijke UI-controls |
+| Comicweergave en historie | R08: W2 levert occurrence-/groeps-/volgordesemantiek; W1 legt presentatie en favorietgedrag mee vast | W1 integreert de geraakte consumers voor het afrondingsbewijs van R09/R10; R08 zelf vereist nog geen afgeronde consumers | R03–R06, controllerwerk en fixtures op de afgesproken grens |
 | Frontendhost en offline updates | W3/R19: origin, API-routes, assetpaden en cacheversie; W1/R05 toetst behoud van updategedrag | Alleen host-/cachewijzigingen en hun consumerintegratie | R05 kan op de huidige host worden afgerond; runtime/toolbundeling kan door |
 | Runtime in installer | R17-onboarding en R19-bundel | R20; integraal bewijs R21/R22 | Migratiegevallen en CI-ontwerp voorbereiden |
 
@@ -497,7 +518,7 @@ checks. Binnen één checkout schrijft steeds maar één taak aan hetzelfde best
 
 | Gebied | Integratie-eigenaar | Concrete grens |
 | --- | --- | --- |
-| `mobile/companion.jsx`, `app/companion.tsx` | W1 | W1 beheert presentatie en bestaande leesvoorkeuren; W3 levert alleen de R17-import/precedentiebrug, W2 eventuele transcriptvelden |
+| `mobile/companion.jsx`, `app/companion.tsx` | W1 | W1 beheert presentatie, leesvoorkeuren en R09/R10-consumerbewijs voor comicweergave/historie; W2 levert de R08-semantiek en fixtures, W3 de R17-import/precedentiebrug |
 | `public/mobile-capture/capture.js`, `mobile-ui.mjs`, bron-/OCR-events | W2 | W1 levert R03-statusdoorvoer gericht aan; bestaande events blijven ondersteund tot beide consumers zijn aangepast |
 | `app/toolkit-setup.tsx`, setup-API, installatieopslag | W3 | R04-leesmodusafspraak gaat vóór R17; R06-hulp wordt afzonderlijk ingepland en blokkeert de onboardingimplementatie niet |
 | Backend capture/matching versus runtime/launcher | W2 voor algoritme; W3 voor bundeling/lifecycle | W3 verandert geen OCR-beleid als packagingfix; worker-/API-grens gezamenlijk afspreken |

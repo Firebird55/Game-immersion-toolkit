@@ -83,6 +83,7 @@ Werkstroom/eigenaar: W1, W2 of W3; optioneel experiment alleen indien toegewezen
 Mijlpaal: zelfstandig resultaat (M1 per werkstroom), integratiebijdrage M2 of M3
 Status: planned | ready | active | implemented | verified | blocked
 Baseline: branch + commit; relevante veranderingen sinds het onderzoek
+PR-doel en checkbasis: doelrepository + doelbranch, bijbehorende remote/ref + opgehaalde basiscommit
 Doel: zichtbaar gedrag of meetbaar onderhoudsresultaat
 Afhankelijkheden: specifieke pakket/contract-ID's; wat moet wachten en wat kan door
 Context: AGENTS.md, RELEASE.md, werkstroomcriteria, relevante bronnen/tests
@@ -152,6 +153,16 @@ R14/R18. Discovery en bundeling kunnen ondertussen verder; een onvoltooide
 statusbadge R03 blokkeert die niet. R09 en R10 kunnen na het gedeelde
 identiteits-/volgordecontract ieder hun eigen platform uitvoeren.
 
+Voor comicweergave legt R08 met W1 vast hoe onbekende volgorde, groepen en echte
+herhalingen worden weergegeven en bewaard, inclusief de betekenis van favorieten.
+W2 levert eventsemantiek en onafhankelijke scenario's; W1 integreert de geraakte
+companionconsumers. R09 bewijst desktop, historie na herladen en paired-PC inclusief
+reconnect; R10 bewijst de lokale mobiele OCR-route en historie na herladen.
+Controleer zowel zichtbare uitleg als opgeslagen/doorgegeven identiteit: sorteren
+of samenvoegen in de UI mag onbekende volgorde niet tot spreekvolgorde maken en
+echte herhalingen niet verliezen. R08 levert de afspraak; de echte consumerproeven
+horen bij R09/R10 en blokkeren R03–R06 niet.
+
 R17 bewijst de herbruikbare onboardingflow eerst in de WebUI/testhost; R20
 bewijst dezelfde flow in de werkelijk geïnstalleerde kandidaat. R19 bewijst de
 uitgepakte runtimebundel; het installerbewijs hoort bij R20/R22. Zo hoeft een
@@ -208,10 +219,27 @@ Gebruik het bestaande selectiesysteem; zie [development checks](development-chec
 | Moment | Controle |
 | --- | --- |
 | Tijdens een wijziging | `npm run check:changed` |
-| Volledige taakbranch | `npm run check:changed -- --base origin/main` |
+| Volledige taakbranch | `npm run check:changed -- --base <doelref>`; vervang `<doelref>` door de hieronder gecontroleerde PR-doelref |
 | Criteria niet gedekt door selector | Benoemde aanvullende scenario's; noteer waarom |
 | Kandidaat/release | Bestaande volledige browser-/packaginggates in GitHub-hosted CI volgens RELEASE.md |
 | Claim over native Windows of iPhone/iPad | Relevante fysieke proef op het daadwerkelijke kandidaatartifact |
+
+Controleer de doelrepository en doelbranch in de PR en koppel die aan de juiste
+Git-remote; de remote waarnaar je pusht is niet noodzakelijk de checkbasis.
+Haal de bedoelde doelbranch op en noteer remote/ref plus de met `git rev-parse`
+vastgestelde basiscommit in het taakcontract en checkbewijs. Voor deze fork-PR
+naar `Firebird55/Game-immersion-toolkit:main` is het concrete command
+`npm run check:changed -- --base upstream/main`; haal die branch vooraf op met
+`git fetch upstream main`. `origin/main` is alleen juist wanneer `origin`
+daadwerkelijk de doelrepository is. Zonder PR leg je de beoogde doelrepository
+en doelbranch vast. Een ontbrekende of verouderde ref is geen bewijs van een
+geslaagde branchcontrole; kies niet stilzwijgend een andere basis.
+
+De huidige selector vergelijkt de basiscommit rechtstreeks met `HEAD` en neemt
+ook lokale wijzigingen mee. Is de doelbranch verdergegaan, beoordeel dan die
+verschillen en de integratie met de actuele basis; kies geen oudere ref om checks
+weg te laten. Noteer afzonderlijk welke commit is getest en welk integratiebewijs
+nog openstaat.
 
 Stage nieuwe documentatie vóór de docs-check zodat de huidige linkchecker,
 die `git ls-files` gebruikt, die bestanden meeneemt. Timingrapporten blijven in
