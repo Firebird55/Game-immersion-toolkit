@@ -98,7 +98,7 @@ jobs:
         run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
       - name: Retain owned native WebKit fixture diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-webkit-diagnostics
           path: |
@@ -155,7 +155,7 @@ jobs:
         run: node scripts/ocr-packs-e2e.mjs
       - name: Retain owned browser-fixture diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mobile-test-diagnostics
           path: |
@@ -168,7 +168,7 @@ jobs:
             output/playwright/mobile-source-*-failure.json
           retention-days: 3
       - name: Retain reviewed static build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: companion-${{ github.sha }}
           path: ${{ steps.package.outputs.directory }}
