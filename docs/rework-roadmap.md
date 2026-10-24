@@ -53,6 +53,16 @@ De AI-werkwijze beschrijft taakgrenzen, review, bewijs en overdracht.
 Deze bevindingen beschrijven de genoemde baseline, geen nieuwe live verificatie.
 Controleer de relevante code opnieuw wanneer een werkpakket begint.
 
+Voor de documentatie-PR is de branch bijgewerkt naar upstream `387631f`.
+Sinds de onderzoeksbaseline zijn onder meer mobiele comic-/voicewijzigingen
+([PR #34](https://github.com/Firebird55/Game-immersion-toolkit/pull/34)) en
+account-/taal-/gamekeuzewijzigingen
+([PR #35](https://github.com/Firebird55/Game-immersion-toolkit/pull/35)) geïntegreerd.
+Onderstaande bevindingen blijven historische onderzoeksgegevens. Hergebruik
+bestaande oplossingen en tests; bepaal bij de taakstart welk acceptatiebewijs
+al bestaat en welk werk nog nodig is. Deze documentatie valideert die nieuwe
+implementaties niet opnieuw.
+
 | Bevinding | Bewijs in de baseline | Gevolg voor de roadmap |
 | --- | --- | --- |
 | Desktop-ZZZ sorteert comicgroepen op `(left, top)` | `_spatial_text_groups` in [capture.py](../backend/capture.py) en [capturetests](../backend/tests/test_capture.py) | Tijd/context moet volgorde bepalen; een bestaande test kan de verkeerde aanname vastleggen |
