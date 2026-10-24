@@ -28,6 +28,18 @@ try{
   // A cancelled transport may settle later (including intercepted WebKit
   // requests). Exercise that boundary explicitly instead of relying on abort.
   await context.addInitScript(()=>{
+   // Deliver a real IndexedDB read after a live PC event. The page must queue
+   // that event until history restoration finishes rather than overwrite it.
+   const nativeGet=IDBObjectStore.prototype.get;
+   IDBObjectStore.prototype.get=function(key){
+    const request=nativeGet.call(this,key);
+    if(key!=='pc-history'||window.historyRestoreHeld||location.search.includes('shadow-reader'))return request;
+    window.historyRestoreHeld=true;
+    return new Proxy(request,{
+     get(target,key){const value=Reflect.get(target,key,target);return typeof value==='function'?value.bind(target):value;},
+     set(target,key,value){if(key==='onsuccess'){target.onsuccess=event=>{window.releaseHistoryRestore=()=>value.call(target,event);};return true;}return Reflect.set(target,key,value,target);}
+    });
+   };
    const nativeFetch=window.fetch.bind(window);
    window.fetch=(input,options)=>{
     if(window.ignoreNextDeckAbort&&typeof options?.body==='string'&&JSON.parse(options.body).path?.startsWith('/v1/decks?')){
@@ -70,7 +82,9 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor().catch(async error=>{throw Error('Reader failed to mount: '+JSON.stringify({errors,requests:failedRequests,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await page.getByRole('button',{name:'Settings',exact:true}).click();await page.selectOption('#source','pc');
+  await page.waitForFunction(()=>typeof window.releaseHistoryRestore==='function');
   await page.evaluate(rows=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows}})),rows);
+  await page.evaluate(()=>window.releaseHistoryRestore());
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('input[name=key]').fill('mock-layout-key');
   await page.locator('input[name=pass]').fill('safe layout fixture passphrase');
