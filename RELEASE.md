@@ -31,4 +31,8 @@ It does not silently update code or account settings. Follow AGENTS.md, update t
 ## Rollback
 Download and install a prior release using the same steps. Keep user data, local preferences and keys. Do not rewrite tags. For dependency rollback, import the prior shared release using shared:update, then publish new consumer versions.
 
-Routine development: use `npm run check:changed` for uncommitted changes or `npm run check:changed -- --base origin/main` for a branch. The selector runs relevant checks; full browser and packaging validation belongs to release CI. Record timings in ignored output/checks.
+Routine development: follow [development checks](docs/development-checks.md). Fetch the actual PR target and use `npm run check:changed -- --base <target-remote>/<target-branch>`, or omit the base for uncommitted changes. Review the per-run evidence and native limitations.
+
+The `required-checks` job aggregates submitted-head publication audit, tests on the verified event merge commit, and all selected browser jobs. Maintainers must configure this exact context as required and enable an up-to-date branch rule (or an independently validated merge queue); workflow code alone cannot enforce either repository setting. A manual workflow run is additional evidence, not a substitute for the PR's required context. Event-parent verification proves the base/head snapshot, not that the target stayed current afterward.
+
+Both release tags and manual candidates now validate the extracted ZIP after packaging. This checks the packaged frontend with synthetic services; it does not prove installation, native OCR, Windows capture/DPI, or physical iOS behavior. Preserve the corresponding native acceptance checks. Publication remains limited to an upstream version-tag push.

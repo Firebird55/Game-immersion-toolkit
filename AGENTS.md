@@ -14,4 +14,4 @@ Test desktop/mobile, Shadow DOM, Firefox/Chromium, zoom and Windows DPI/capture 
 
 Only allowlisted static mobile-preview assets may be published on Pages. Desktop services and local data stay on the PC. Follow host-specific workspace location instructions without copying personal paths into the public repository.
 
-Routine development: use `npm run check:changed` for uncommitted changes or `npm run check:changed -- --base origin/main` for a branch. The selector runs relevant checks; full browser and packaging validation belongs to release CI. Record timings in ignored output/checks.
+Routine development: read docs/development-checks.md. Use `npm run dev:doctor` before installing or preparing dependencies, and `npm run check:changed` for uncommitted changes. For branch checks, fetch the actual PR target and pass its remote ref with `-- --base <target-remote>/<target-branch>`; do not assume origin is the target. Check evidence lives in ignored output/checks. Incomplete, delegated, unavailable or source-invalid evidence is not a full pass. Full browser and packaging validation belongs to hosted CI.
