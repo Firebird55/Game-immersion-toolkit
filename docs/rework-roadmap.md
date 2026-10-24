@@ -88,7 +88,7 @@ backlog; houd voortgang en bewijs per pakket bij volgens de AI-werkwijze.
 | --- | --- | --- | --- |
 | F0 | P0 | Vertrouwde baseline, testverwachtingen en meetplan | Geen |
 | F1 | P1; statuscorrectheid P0 | Begrijpelijke, compacte companions | R00; relevante checks per pakket |
-| F2 | P0 | Betrouwbare temporele ZZZ-OCR en replay | R00–R01; R02 voor performancecriteria; R07 vóór parserwijzigingen |
+| F2 | P0 | Betrouwbare temporele ZZZ-OCR en replay | R00–R01; R02 voor kwaliteits- en performancecriteria; R07 vóór parserwijzigingen |
 | F3 | P1 | Expliciete contracts en kleinere verantwoordelijkheden | R00; gedragsbewijs van het te verplaatsen onderdeel |
 | F4 | P1 | Gedeelde discovery, voicepackinventaris en onboarding | R00; lokaal installatie-/voorkeurencontract vastleggen in R14 |
 | F5 | P1 | Zelfstandige Windows-installer en herstelbare migratie | R02, R18; R14–R17 voor integratie; geen afhankelijkheid van F6 |
@@ -147,14 +147,17 @@ apparaat blokkeert uitsluitend de pakketten of claims die dat bewijs nodig hebbe
   verbinden, eerste frame, stilstaand beeld, onderbreking, pauze, ontbrekende
   bibliotheek, geen match en accountvergrendeling. Geen privé-link in diagnostiek.
 - [ ] Oude `migaku`-voorkeuren blijven werken. Browser Extension biedt
-  selecteerbare tekst zonder Lexirise-account; extensies zijn voorbeelden met
-  platformbeperkingen, geen ongeverifieerde compatibiliteitsgarantie.
+  selecteerbare tekst zonder Lexirise-account. De uitleg noemt Migaku, Yomitan,
+  de Lexirise-extensie en andere extensies naar keuze als voorbeelden, met
+  platformbeperkingen en zonder ongeverifieerde compatibiliteitsgarantie.
 - [ ] Beide mobiele ingangen naar Reading options zijn verborgen buiten
   Lexirise API. Algemene tekstgrootte/vertalingsweergave blijven beschikbaar.
 - [ ] Geen updatebanner of automatische reload tijdens spelen. Een wachtende
   update kan bij een veilige volgende start of expliciete Settings-actie
   activeren; offline heropenen behoudt historie, favorieten en kalibratie.
-- [ ] Hulp werkt via toetsenbord en touch, is sluitbaar en houdt focus logisch.
+- [ ] Desktop en mobiel tonen compacte hoofdflows; aanvullende uitleg staat
+  achter herkenbare, toegankelijk gelabelde vraagtekenknoppen, bereikbaar via
+  hover, toetsenbord en tap. Hulp is sluitbaar en houdt focus logisch.
   Blokkerende fouten en noodzakelijke gebruikerskeuzes blijven zichtbaar.
 - [ ] Relevante Chromium/Firefox/WebKit-, smalle scherm-, zoom- en
   Shadow DOM-scenario's slagen. Fysieke iOS-conclusies vereisen apparaatbewijs.
@@ -378,7 +381,7 @@ overdraagbaar zonder deze hele onderzoeksdiscussie te hoeven reconstrueren.
 | Games autodetecteren en handmatig kiezen in installer/WebUI | R14–R15, R17, R20 |
 | Geïnstalleerde voicepacks tonen | R16–R17 |
 | Browser Extension/Lexirise API kiezen tijdens installatie en later | R04, R14, R17, R20 |
-| Minder tekst; bereikbare hulp | R06 |
+| Minder tekst op desktop/mobiel; bereikbare vraagtekenhulp | R06 |
 | Game-specifieke OCR beschermen, ZZZ-comics en YouTube-replay | R01, R07–R11 |
 | Verbindingsmelding uitleggen en herstel bieden | R03 |
 | Leesopties alleen voor Lexirise API | R04 |
