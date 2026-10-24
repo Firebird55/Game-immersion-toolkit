@@ -4,11 +4,12 @@ import {once} from 'node:events';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
 import {chromium,firefox} from 'playwright';
+import {resolvePython} from './python-runtime.mjs';
 
 // Real FastAPI serialization/WS + the exact state owner used by both React views.
 // Existing language-account-e2e additionally exercises the built React bindings.
 const source=ts.transpileModule(readFileSync('app/state-sync.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
-const python=spawn(process.env.PYTHON||'python',['scripts/ui-state-browser-server.py'],{stdio:['ignore','pipe','pipe']});
+const python=spawn(resolvePython().command,['scripts/ui-state-browser-server.py'],{stdio:['ignore','pipe','pipe']});
 let errors='',browser;python.stderr.on('data',b=>errors+=b);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 try{

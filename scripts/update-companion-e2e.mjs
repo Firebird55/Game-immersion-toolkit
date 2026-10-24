@@ -4,11 +4,11 @@ import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync,exi
 import {tmpdir} from 'node:os';
 import {join,sep} from 'node:path';
 import net from 'node:net';
+import {resolvePython} from './python-runtime.mjs';
 
 if(process.platform!=='win32'){console.log('Prepared companion updates require Windows.');process.exit(0);}
 const repository=process.cwd(),temporary=realpathSync.native(mkdtempSync(join(tmpdir(),'companion-update-')));
-const pythonLocal=join(process.env.LOCALAPPDATA??'','Programs/Proxy Transcript/venv/Scripts/python.exe');
-const python=existsSync(pythonLocal)?pythonLocal:execFileSync('python',['-c','import sys; print(sys.executable)'],{encoding:'utf8'}).trim();
+const python=execFileSync(resolvePython({root:repository}).command,['-B','-c','import sys; print(sys.executable)'],{encoding:'utf8'}).trim();
 const children=[],fixture=join(repository,'scripts/fixtures/companion-update');
 const port=()=>new Promise(resolve=>{const server=net.createServer();server.listen(0,'127.0.0.1',()=>{const value=server.address().port;server.close(()=>resolve(value));});});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
