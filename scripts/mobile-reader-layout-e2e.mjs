@@ -85,6 +85,49 @@ try{
   await page.waitForFunction(()=>typeof window.releaseHistoryRestore==='function');
   await page.evaluate(rows=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows}})),rows);
   await page.evaluate(()=>window.releaseHistoryRestore());
+  await page.getByRole('button',{name:'Play',exact:true}).click();
+  // Live sessions collapse setup; leaving Reader makes configuration accessible.
+  const stream=detail=>page.evaluate(detail=>window.dispatchEvent(new CustomEvent('mobile-stream',{detail})),detail);
+  await stream({state:'connected',live:false});
+  await page.waitForFunction(()=>document.body.classList.contains('reader-active'));
+  assert.equal(await page.locator('.device-bar').isVisible(),false);
+  assert.equal(await page.locator('.public-guide').isVisible(),false);
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  assert(await page.locator('.device-bar').isVisible(),'Settings restores setup while playing');
+  await page.selectOption('#source','mobile');
+  await page.getByRole('button',{name:'Play',exact:true}).click();
+  await stream({state:'connected',live:true});
+  assert(await page.getByRole('heading',{name:'1. Open your library'}).isVisible(),'Mobile setup remains until OCR starts');
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('mobile-ocr-state',{detail:{scanning:true}})));
+  await page.waitForFunction(()=>document.body.classList.contains('reader-active'));
+  assert.equal(await page.locator('.device-bar').isVisible(),false);
+  assert.equal(await page.getByRole('heading',{name:'1. Open your library'}).isVisible(),false,'Library setup hides during play');
+  assert.equal(await page.getByRole('heading',{name:'2. Connect your game'}).isVisible(),false,'Screen setup hides during play');
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('mobile-ocr-state',{detail:{scanning:false}})));
+  await page.waitForFunction(()=>!document.body.classList.contains('reader-active'));
+  assert(await page.getByRole('heading',{name:'1. Open your library'}).isVisible(),'Pausing restores setup');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.selectOption('#source','pc');
+  await stream({state:'disconnected',live:false});
+  // Separate source and translation sizes persist and affect plain transcripts.
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByLabel('Source language font size',{exact:false}).fill('36');
+  await page.getByLabel('Target language font size',{exact:false}).fill('19');
+  await page.waitForFunction(async()=>{const saved=await(await import('./storage.mjs')).get('browser-reading');return saved?.options.fontSize===36&&saved?.translationFontSize===19;});
+  await page.reload();
+  await page.waitForFunction(()=>typeof window.releaseHistoryRestore==='function');
+  await page.evaluate(()=>window.releaseHistoryRestore());
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  assert.equal(await page.getByLabel('Source language font size',{exact:false}).inputValue(),'36');
+  assert.equal(await page.getByLabel('Target language font size',{exact:false}).inputValue(),'19');
+  await page.selectOption('#source','pc');
+  await page.getByRole('button',{name:'Play',exact:true}).click();
+  await page.locator('.current-card .migaku-sentence').waitFor();
+  assert.equal(await page.locator('.current-card .translation').evaluate(el=>getComputedStyle(el).fontSize),'19px');
+  assert(Math.abs(await page.locator('.current-card .migaku-sentence').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))-39.6)<.1,'Source size changes plain game text');
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByLabel('Source language font size',{exact:false}).fill('27');
+  await page.getByLabel('Target language font size',{exact:false}).fill('14');
   await page.getByRole('button',{name:'Settings',exact:true}).click();
   await page.locator('input[name=key]').fill('mock-layout-key');
   await page.locator('input[name=pass]').fill('safe layout fixture passphrase');
@@ -185,7 +228,7 @@ try{
   await page.locator('.current-card .reading-hanzi').first().waitFor();
 
   // Small phone, ordinary phones, landscape, and a reduced CSS viewport that
-  // represents enlarged display scaling. Touch targets remain at least 44px.
+  // represents enlarged display scaling. Transcript controls stay compact.
   for(const viewport of [{width:320,height:568},{width:375,height:667},{width:390,height:844},{width:430,height:932},{width:844,height:390},{width:260,height:568}]){
    await page.setViewportSize(viewport);
    await page.locator('.current-card').scrollIntoViewIfNeeded();
@@ -194,6 +237,7 @@ try{
     innerPadding:getComputedStyle(document.querySelector('.current-dialogue')).padding,
     card:document.querySelector('.history-list .dialogue').getBoundingClientRect().height,
     actions:[...document.querySelectorAll('.current-dialogue .line-actions button')].map(b=>({top:b.getBoundingClientRect().top,height:b.getBoundingClientRect().height})),
+    toolbar:[...document.querySelectorAll('.history-toolbar button,.history-toolbar input')].map(el=>({top:el.getBoundingClientRect().top,height:el.getBoundingClientRect().height})),
    }));
    if(layout.overflow){
     console.error('Overflow geometry',name,viewport,await page.evaluate(()=>[...document.querySelectorAll('main,main *')].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName,id:el.id,classes:el.className,left:r.left,right:r.right,width:r.width};}).filter(r=>r.width>0&&(r.left<0||r.right>innerWidth+1)).slice(0,15)));
@@ -201,8 +245,9 @@ try{
    }
    assert.equal(layout.overflow,false,`${name} page overflow at ${viewport.width}`);
    assert.equal(layout.innerPadding,'0px');
-   assert(layout.actions.every(b=>b.height>=44));
+   assert(layout.actions.every(b=>b.height>=32&&b.height<=40),'Sentence actions are compact: '+JSON.stringify({viewport,actions:layout.actions}));
    assert(layout.actions.every(b=>Math.abs(b.top-layout.actions[0].top)<1),'Actions use one row');
+   assert(layout.toolbar.every(b=>b.height<=34&&Math.abs(b.top-layout.toolbar[0].top)<1),'History, favorites and search share one compact row');
    if(viewport.width===390){assert(layout.card<310,'Short annotated history should fit in a compact card');await page.screenshot({path:`output/playwright/mobile-reader-${name}-390.png`,fullPage:true});await page.locator('.history-list .dialogue').first().screenshot({path:`output/playwright/mobile-history-${name}-390.png`});}
 
    await page.locator('.current-card .reading-hanzi').first().click();
@@ -214,8 +259,10 @@ try{
    assert(sheet.x>=7&&sheet.x+sheet.width<=viewport.width-7,`${name}: sheet within viewport`);
    assert(sheet.width>=viewport.width-18,'Lookup uses phone width');
    assert(sheet.y>=0&&sheet.y+sheet.height<=viewport.height,'Lookup within visible height');
-   if(viewport.height>600)assert(sheet.height>viewport.height*.65,'Lookup is no longer capped at 360px');
-   const controls=await page.locator('.word-sheet-close').boundingBox();assert(controls.width>=44&&controls.height>=44);
+   assert(sheet.height<=viewport.height*.5,'Lookup occupies at most half the screen');
+   const currentCard=await page.locator('.current-card').boundingBox();
+   assert(currentCard.y>=0&&currentCard.y+currentCard.height<=sheet.y,'Current line remains visible above lookup');
+   const controls=await page.locator('.word-sheet-close').boundingBox();assert(controls.width>=32&&controls.height>=32);
    if(viewport.width===390)await page.screenshot({path:`output/playwright/mobile-lookup-${name}-390.png`});
    await page.locator('.word-sheet-body').evaluate(el=>el.scrollTop=el.scrollHeight);
    assert(await page.locator('.word-sheet-body').evaluate(el=>el.scrollTop>0),'Long definitions scroll');
@@ -230,6 +277,22 @@ try{
    await page.keyboard.press('Escape');
    await page.locator('.word-sheet').waitFor({state:'detached'});
   }
+  // Long current lines get their own upper scroll area rather than being
+  // obscured by dictionary details, even when looking up a history word.
+  await page.setViewportSize({width:390,height:844});
+  const longRow={...rows[0],id:4,createdAt:1700000004000,chinese:chinese.repeat(12)};
+  await page.evaluate(row=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'line'},rows:[row]}})),longRow);
+  await page.waitForFunction(()=>document.querySelector('.current-card .reading-text')?.textContent.length>200);
+  await page.locator('.history-list .dialogue').last().locator('.reading-hanzi').first().click();
+  await page.locator('.word-dictionary').waitFor();
+  const longCard=await page.locator('.current-card').boundingBox(),longSheet=await page.locator('.word-sheet').boundingBox();
+  assert(longCard.y>=0&&longCard.y+longCard.height<=longSheet.y,'Long current line stays above a history lookup');
+  await page.locator('.current-card').evaluate(el=>el.scrollTop=el.scrollHeight);
+  assert(await page.locator('.current-card').evaluate(el=>el.scrollTop>0),'Long current line scrolls independently');
+  await page.screenshot({path:`output/playwright/mobile-long-lookup-${name}-390.png`});
+  await page.getByRole('button',{name:'Close word lookup'}).click();
+  await page.evaluate(row=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'line'},rows:[row]}})),{...longRow,chinese});
+  await page.waitForFunction(()=>document.querySelector('.current-card .reading-text')?.textContent.length<200);
   await page.setViewportSize({width:1280,height:900});
   await page.locator('.current-card .reading-hanzi').first().click();
   await page.locator('.word-dictionary').waitFor();
@@ -251,6 +314,7 @@ try{
   await page.getByLabel('Text size',{exact:true}).fill('48');
   await page.getByRole('button',{name:'Close Lexirise settings'}).click();
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Largest reading text remains within the phone');
+  assert(Math.abs(await page.locator('.current-card .reading-text').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))-52.8)<.1,'Annotated source text respects the largest size');
   await page.locator('.current-card .reading-hanzi').first().click();
   await page.locator('.word-dictionary').waitFor();
   assert.equal(await page.locator('.word-sheet').evaluate(el=>getComputedStyle(el).fontSize),'14px','Lookup size is independent of transcript size');
