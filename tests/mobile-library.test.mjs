@@ -225,6 +225,11 @@ test('reopening a revised library refreshes saved voice hashes without losing fa
  const revised={...row,id:'c'.repeat(64),sourceVoice:'c'.repeat(64)};
  const refreshed=refreshHistoryVoices([saved],{...catalog,rows:[revised]})[0];assert.equal(refreshed.audio,row.audio);assert.equal(refreshed.favorite,true);
  for(const different of [{...row,sourceLocale:'ja'},{...row,playerVoice:'male'}])assert.equal(refreshHistoryVoices([saved],{...catalog,rows:[{...different,id:'d'.repeat(64)}]})[0].audio,saved.audio);
+ // Export IDs historically omit locale fields, so an ID match alone cannot
+ // authorize changing a saved learning/audio performance.
+ for(const different of [{...row,sourceLocale:'ja',audioLocale:'ja'},{...row,audioLocale:'en'},{...row,sourceText:'A different source sentence.'}]){
+  assert.equal(refreshHistoryVoices([saved],{...catalog,rows:[different]})[0].audio,saved.audio);
+ }
 });
 
 test('authored ZZZ comics recover OCR errors using desktop threshold and reject close competing lines',()=>{

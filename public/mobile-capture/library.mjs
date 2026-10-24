@@ -296,7 +296,8 @@ export function refreshHistoryVoices(history,catalog){
  for(const row of catalog.rows){if(wantedIds.has(row.id))ids.set(row.id,row);const key=identity(row);if(!wanted.has(key))continue;const found=identities.get(key)??[];found.push(row);identities.set(key,found);}
  return history.map(old=>{
   if(old.game!==catalog.manifest.game)return old;
-  const exact=ids.get(old.id),possible=exact?[exact]:(identities.get(identity(old))??[]).filter(row=>(row.sourceText??row.chinese)===(old.sourceText??old.chinese));
+  const exact=ids.get(old.id),samePerformance=row=>identity(row)===identity(old)&&(row.sourceText??row.chinese)===(old.sourceText??old.chinese);
+  const possible=exact&&samePerformance(exact)?[exact]:(identities.get(identity(old))??[]).filter(samePerformance);
   if(!possible.length||new Set(possible.map(row=>row.sourceVoice??null)).size!==1)return old;
   return {...old,audio:possible[0].audio,sourceVoice:possible[0].sourceVoice};
  });
