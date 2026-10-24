@@ -145,7 +145,7 @@ def test_corrupt_completed_pack_is_repaired_from_verified_cache(tmp_path):
     with zipfile.ZipFile(next(Path(second["catalog"]).parent.glob("*Voices*.zip"))) as archive:
         assert archive.testzip() is None
     assert len(calls) == 1
-    assert list(work_folder(output).glob("*.invalid-*"))
+    assert not list(work_folder(output).glob("*.invalid-*"))  # Completed bundle was still intact.
 
 
 def parallel_fixture(tmp_path, count=12):
@@ -337,3 +337,62 @@ def test_cancel_during_single_file_packaging_keeps_previous_pointer(tmp_path):
     assert (output / 'latest.json').read_bytes() == before
     with zipfile.ZipFile(good['bundle']) as archive:
         assert archive.testzip() is None
+
+
+def test_unchanged_exports_reuse_the_completed_bundle_without_backups(tmp_path):
+    import os
+    output, calls = tmp_path / 'out', []
+    first = export_library('zzz', rows(), output, voice=voice(tmp_path, calls))
+    bundle = Path(first['bundle'])
+    original = bundle.read_bytes()
+    os.utime(bundle, (1000000000, 1000000000))
+    stamp = bundle.stat().st_mtime_ns
+    for _ in range(3):
+        result = export_library('zzz', rows(), output, voice=voice(tmp_path, calls))
+        assert Path(result['bundle']) == bundle
+        assert bundle.stat().st_mtime_ns == stamp
+        assert bundle.read_bytes() == original
+    assert len(calls) == 1
+    assert not list(work_folder(output).glob('*.invalid-*'))
+    assert not list(work_folder(output).glob('*.transfer.pending'))
+    assert len(list(output.glob('* - Mobile Library - *'))) == 1
+
+
+@pytest.mark.parametrize('corruption', ['broken', 'member'])
+def test_corrupt_bundle_is_repaired_once_then_reused(tmp_path, corruption):
+    output, calls = tmp_path / 'out', []
+    first = export_library('zzz', rows(), output, voice=voice(tmp_path, calls))
+    bundle = Path(first['bundle'])
+    original = bundle.read_bytes()
+    if corruption == 'broken':
+        bundle.write_bytes(b'broken bundle')
+    else:
+        with zipfile.ZipFile(bundle) as archive:
+            entries = [(entry, archive.read(entry)) for entry in archive.infolist()]
+        with zipfile.ZipFile(bundle, 'w') as archive:
+            for entry, data in entries:
+                # Keep the outer archive CRC-valid but change a nested member.
+                if entry.filename.startswith('library/voices/'):
+                    data = data[:-1] + bytes([data[-1] ^ 1])
+                archive.writestr(entry, data)
+    damaged = bundle.read_bytes()
+    for _ in range(3):
+        export_library('zzz', rows(), output, voice=voice(tmp_path, calls))
+        assert bundle.read_bytes() == original
+    assert len(calls) == 1
+    backups = list(work_folder(output).glob('*.invalid-*'))
+    assert len(backups) == 1
+    assert (backups[0] / bundle.name).read_bytes() == damaged
+
+
+def test_cancellation_during_bundle_reuse_preserves_completed_file(tmp_path):
+    from backend.mobile_bundle import write_bundle
+    first = export_library('zzz', rows(), tmp_path / 'out', voice=voice(tmp_path, []))
+    bundle = Path(first['bundle'])
+    original = bundle.read_bytes()
+    def cancelled():
+        raise ExportCancelled()
+    with pytest.raises(ExportCancelled):
+        write_bundle(first['catalog'], tmp_path / 'new', reuse_from=bundle.parent, guard=cancelled)
+    assert bundle.read_bytes() == original
+    assert not (tmp_path / 'new').exists()

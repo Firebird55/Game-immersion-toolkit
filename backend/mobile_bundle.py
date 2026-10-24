@@ -19,7 +19,36 @@ def bundle_name(game, locales):
     return f'{file_title(game)} - {label} - Mobile Library.zip'
 
 
-def write_bundle(catalog, destination, *, guard=lambda: None, progress=lambda value: None):
+def matches_bundle(path, metadata, parts, guard):
+    """Reuse only an intact container whose members match freshly verified parts."""
+    if path.is_symlink() or not path.is_file():
+        return False
+    try:
+        with zipfile.ZipFile(path) as bundle:
+            entries = bundle.infolist()
+            expected = ['manifest.json', *(name for name, _ in parts)]
+            if (len(entries) != len(expected) or {entry.filename for entry in entries} != set(expected)
+                    or any(entry.compress_type != zipfile.ZIP_STORED or entry.flag_bits & ~0x800 for entry in entries)
+                    or bundle.getinfo('manifest.json').file_size > 1024 * 1024
+                    or json.loads(bundle.read('manifest.json')) != metadata):
+                return False
+            for name, source_path in parts:
+                if bundle.getinfo(name).file_size != source_path.stat().st_size:
+                    return False
+                with bundle.open(name) as previous, source_path.open('rb') as source:
+                    while data := source.read(1024 * 1024):
+                        guard()
+                        if previous.read(len(data)) != data:
+                            return False
+                    if previous.read(1):
+                        return False
+        guard()
+        return True
+    except (OSError, KeyError, EOFError, UnicodeDecodeError, json.JSONDecodeError, zipfile.BadZipFile):
+        return False
+
+
+def write_bundle(catalog, destination, *, guard=lambda: None, progress=lambda value: None, reuse_from=None):
     """Repackage completed exports without decoding or buffering their audio."""
     catalog, destination = Path(catalog), Path(destination)
     with zipfile.ZipFile(catalog) as archive:
@@ -39,7 +68,12 @@ def write_bundle(catalog, destination, *, guard=lambda: None, progress=lambda va
     metadata = {'format': BUNDLE_FORMAT, 'kind': 'bundle', 'game': manifest['game'],
                 'revision': manifest['revision'], 'audioLocales': sorted(locales),
                 'catalog': parts[0][0], 'voices': [name for name, _ in parts[1:]]}
-    target = destination / bundle_name(manifest['game'], locales)
+    name = bundle_name(manifest['game'], locales)
+    if reuse_from is not None:
+        existing = Path(reuse_from) / name
+        if matches_bundle(existing, metadata, parts, guard):
+            return existing
+    target = destination / name
     destination.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix('.zip.pending')
     total, copied, reported = sum(path.stat().st_size for _, path in parts), 0, 0

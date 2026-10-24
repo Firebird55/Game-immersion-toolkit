@@ -271,15 +271,19 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         path.replace(parts / path.name)
     staging.rmdir()
     transfer = work / (revision + ".transfer.pending")
-    bundle = write_bundle(parts / name, transfer, guard=guard, progress=progress)
-    write_instructions(output, transfer, transfer_folder=destination, library=bundle.name)
+    if destination.exists() and (destination.resolve().parent != output.resolve()
+                                 or destination.is_symlink() or not destination.is_dir()):
+        raise ValueError("Unsafe export destination")
+    bundle = write_bundle(parts / name, transfer, guard=guard, progress=progress, reuse_from=destination)
+    reused = bundle.parent == destination
+    write_instructions(output, destination if reused else transfer,
+                       transfer_folder=destination, library=bundle.name)
     guard()
     getattr(check, "force", check)()
-    if destination.exists():
-        if destination.resolve().parent != output.resolve() or destination.is_symlink():
-            raise ValueError("Unsafe export destination")
-        destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
-    transfer.replace(destination)
+    if not reused:
+        if destination.exists():
+            destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
+        transfer.replace(destination)
     bundle = destination / bundle.name
     pointer = output / "latest.pending"
     pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": bundle.name, "bundle": bundle.name, "coverage": coverage}))
