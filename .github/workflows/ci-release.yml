@@ -47,7 +47,7 @@ jobs:
       - name: Compile owned NTE reader without game assets
         if: steps.scope.outputs.full == 'true'
         run: dotnet build scripts/game-readers/NteReader.csproj -c Release -o data/ci-reader -p:BaseIntermediateOutputPath="${{ github.workspace }}/data/ci-reader-obj/" --nologo
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         if: steps.scope.outputs.browsers == 'true' && steps.scope.outputs.full != 'true'
         with:
           path: ~/AppData/Local/ms-playwright
@@ -92,7 +92,7 @@ jobs:
       - run: python -m pip install -r requirements.lock.txt
         if: matrix.suite == 'setup'
       - run: npm ci --ignore-scripts
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
