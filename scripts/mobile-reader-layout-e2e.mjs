@@ -36,7 +36,8 @@ try{
     return nativeFetch(input,options);
    };
   });
-  const page=await context.newPage(),errors=[],requests=[];
+  const page=await context.newPage(),errors=[],requests=[],failedRequests=[];
+  page.on('requestfailed',request=>failedRequests.push(new URL(request.url()).pathname+': '+request.failure()?.errorText));
   let deferredResizes=0,holdLookup=false,releaseLookup; const analysisAccounts=[];let dutchTarget='zh-hans',holdDecks=false,releaseDecks,failInitialSettings=true,heldAction=null,releaseAction;
   page.on('pageerror',e=>{
    // WebKit can defer one observer delivery while the anchored library mounts
@@ -67,7 +68,7 @@ try{
    return route.fulfill({json:data,headers});
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
-  await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor().catch(async error=>{throw Error('Reader failed to mount: '+JSON.stringify({errors,requests:failedRequests,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await page.getByRole('button',{name:'Settings',exact:true}).click();await page.selectOption('#source','pc');
   await page.evaluate(rows=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows}})),rows);
   await page.getByRole('button',{name:'Settings',exact:true}).click();
@@ -355,9 +356,11 @@ try{
   await page.getByRole('alert').getByRole('button',{name:'Dismiss',exact:true}).click();
   // Mount the same shipped application with its reader portal in a Shadow
   // root from the start, so React registers native events at the proper root.
-  const shadowPage=await context.newPage();shadowPage.on('pageerror',e=>errors.push(e.message));
+  const shadowPage=await context.newPage(),shadowErrors=[],shadowFailures=[];
+  shadowPage.on('pageerror',e=>{errors.push(e.message);shadowErrors.push(e.message);});
+  shadowPage.on('requestfailed',request=>shadowFailures.push(new URL(request.url()).pathname+': '+request.failure()?.errorText));
   await shadowPage.goto('http://127.0.0.1:'+server.address().port+'/?shadow-reader=1');
-  await shadowPage.getByRole('button',{name:'Settings',exact:true}).click();
+  await shadowPage.getByRole('button',{name:'Settings',exact:true}).click().catch(async error=>{throw Error('Shadow reader failed to mount: '+JSON.stringify({errors:shadowErrors,requests:shadowFailures,body:(await shadowPage.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await shadowPage.locator('input[name=pass]').fill('second layout fixture passphrase');
   await shadowPage.getByRole('button',{name:'Unlock',exact:true}).click();await shadowPage.getByRole('button',{name:'Lock',exact:true}).waitFor();
   await shadowPage.getByRole('button',{name:'Settings',exact:true}).click();await shadowPage.selectOption('#source','pc');await shadowPage.getByRole('button',{name:'Play',exact:true}).click();
