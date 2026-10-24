@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
-import {mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, renameSync} from 'node:fs';
+import childProcess, {execFileSync} from 'node:child_process';
+import {existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, renameSync, symlinkSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import fs from 'node:fs';
 import {syncBuiltinESMExports} from 'node:module';
 import {join} from 'node:path';
-import {captureSourceSnapshot, commandIds, readCurrentEvidence, runFixedCheckWithEvidence, startCheckRun} from '../scripts/check-evidence.mjs';
+import {pathToFileURL} from 'node:url';
+import {captureSourceSnapshot, hasGitSourceTransformAttributes, commandIds, readCurrentEvidence, runFixedCheckWithEvidence, startCheckRun} from '../scripts/check-evidence.mjs';
 import {changedFiles, commandPlan, runChangedChecks, selectChecks} from '../scripts/check-changed.mjs';
 
 function fixture(t) {
@@ -285,4 +286,187 @@ test('a stale latest read cannot let older completion replace a newer failed run
   assert.deepEqual(JSON.parse(expectedPointer), {schemaVersion: 1, id: second.record.id});
   assert.equal(latest(cwd).status, 'failed');
   assert.equal(readCurrentEvidence({cwd, base}), null);
+});
+
+
+function cleanFilterFixture(t, driver = 'trim-fixture') {
+  const result = fixture(t), {cwd, git, write} = result;
+  mkdirSync(join(cwd, 'lib'));
+  write('lib/value.mjs', 'export default `ready\n`;\n');
+  git('add', '.'); git('commit', '-m', 'Synthetic runtime source');
+  const marker = join(cwd, '.git/filter-invoked');
+  const filter = join(cwd, '.git/clean-fixture.cjs');
+  writeFileSync(filter, `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(marker)}, 'called'); process.stdout.write(fs.readFileSync(0, 'utf8').replace(/ +$/gm, ''));`);
+  const enable = () => {
+    // Git uses a shell for the driver, including on Windows; quote synthetic paths.
+    const quote = value => '"' + value.replaceAll('\\', '/').replaceAll('"', '\\"') + '"';
+    git('config', `filter.${driver}.clean`, `${quote(process.execPath)} ${quote(filter)}`);
+    write('.git/info/attributes', `lib/value.mjs filter=${driver}\n`);
+  };
+  return {...result, marker, enable};
+}
+
+for (const driver of ['trim-fixture', 'unset', 'unspecified']) {
+  test(`effective clean filter ${driver} blocks masked source without executing filters or checks`, t => {
+    silentErrors(t);
+    const {cwd, base, git, write, marker, enable} = cleanFilterFixture(t, driver);
+    enable();
+    write('lib/value.mjs', 'export default `ready  \n`;\n');
+    // Reproduce the actual concealment and runtime difference, then remove only
+    // our marker before testing that the source guard never invokes the filter.
+    assert.equal(git('diff', '--name-only', 'HEAD', '--'), '');
+    assert.ok(existsSync(marker)); rmSync(marker);
+    const moduleUrl = pathToFileURL(join(cwd, 'lib/value.mjs'));
+    const runtimeValue = execFileSync(process.execPath, ['--input-type=module', '-e', `import value from ${JSON.stringify(moduleUrl.href)}; process.stdout.write(JSON.stringify(value));`], {encoding: 'utf8'});
+    assert.equal(JSON.parse(runtimeValue), 'ready  \n');
+    const config = readFileSync(join(cwd, '.git/config'));
+    const attributes = readFileSync(join(cwd, '.git/info/attributes'));
+    const index = readFileSync(join(cwd, '.git/index'));
+    assert.equal(hasGitSourceTransformAttributes(cwd), true);
+    assert.deepEqual(changedFiles(base, {cwd}), ['__git_source_transforms__']);
+    assert.deepEqual(selectChecks(changedFiles(base, {cwd})), ['full']);
+    let executions = 0;
+    const result = runChangedChecks({cwd, base, environment: {}, runCommand: () => executions++});
+    assert.equal(executions, 0); assert.equal(existsSync(marker), false);
+    assert.equal(result.exitCode, 2); assert.equal(result.record.status, 'invalid');
+    assert.equal(result.record.sourceBefore.sourceIssue, 'git-source-transforms');
+    assert.ok(result.record.issues.includes('git-source-transforms'));
+    assert.ok(result.record.commands.every(command => command.status === 'not-run'));
+    assert.equal(readCurrentEvidence({cwd, base}), null);
+    assert.deepEqual(readFileSync(join(cwd, '.git/config')), config);
+    assert.deepEqual(readFileSync(join(cwd, '.git/info/attributes')), attributes);
+    assert.deepEqual(readFileSync(join(cwd, '.git/index')), index);
+    for (const privateValue of [cwd, 'lib/value.mjs', 'ready', driver]) assert.ok(!JSON.stringify(result.record).includes(privateValue));
+  });
+}
+
+test('a clean filter enabled during checks invalidates evidence without invoking that filter', t => {
+  const {cwd, base, write, marker, enable} = cleanFilterFixture(t);
+  const result = runFixedCheckWithEvidence('candidate', undefined, {cwd, base, environment: {}, runCommand: () => {
+    enable(); write('lib/value.mjs', 'export default `ready  \n`;\n');
+  }});
+  assert.equal(result.record.sourceBefore.sourceStatus, 'available');
+  assert.equal(result.record.sourceAfter.sourceIssue, 'git-source-transforms');
+  assert.equal(result.exitCode, 2); assert.equal(result.record.status, 'invalid');
+  assert.equal(result.record.commands[0].status, 'passed');
+  assert.equal(existsSync(marker), false);
+  assert.equal(readCurrentEvidence({cwd, base}), null);
+});
+
+test('effective filter attributes honor worktree and local/global overrides without blocking unused drivers', t => {
+  const {cwd, git, write} = fixture(t);
+  git('config', 'filter.unused.clean', 'never-execute-this-unused-driver');
+  assert.equal(hasGitSourceTransformAttributes(cwd), false);
+  write('.gitattributes', 'README.md filter=fixture\n');
+  assert.equal(hasGitSourceTransformAttributes(cwd), true);
+  write('.git/info/attributes', 'README.md !filter\n');
+  assert.equal(hasGitSourceTransformAttributes(cwd), false);
+  write('.git/info/attributes', 'README.md -filter\n');
+  assert.equal(hasGitSourceTransformAttributes(cwd), true);
+  rmSync(join(cwd, '.gitattributes')); rmSync(join(cwd, '.git/info/attributes'));
+  write('.git/global-attributes', 'README.md filter=fixture\n');
+  git('config', 'core.attributesFile', join(cwd, '.git/global-attributes'));
+  assert.equal(hasGitSourceTransformAttributes(cwd), true);
+});
+
+test('ordinary CRLF checkouts stay available while normalized raw changes invalidate evidence', t => {
+  const {cwd, base, git, write} = fixture(t);
+  git('config', 'core.autocrlf', 'true');
+  write('README.md', 'Initial source\r\n');
+  assert.equal(git('diff', '--name-only', 'HEAD', '--'), '');
+  const before = captureSourceSnapshot({cwd, base});
+  assert.equal(before.sourceStatus, 'available');
+  const passed = runChangedChecks({cwd, base, environment: {}, runCommand: noOp});
+  assert.equal(passed.record.status, 'passed');
+  assert.equal(readCurrentEvidence({cwd, base}).id, passed.record.id);
+  const result = runChangedChecks({cwd, base, environment: {}, runCommand: () => write('README.md', 'Initial source\n')});
+  assert.equal(git('diff', '--name-only', 'HEAD', '--'), '');
+  assert.equal(result.record.sourceAfter.sourceStatus, 'available');
+  assert.notEqual(result.record.sourceAfter.sourceHash, before.sourceHash);
+  assert.equal(result.exitCode, 2); assert.deepEqual(result.record.issues, ['source-changed']);
+  assert.equal(readCurrentEvidence({cwd, base}), null);
+});
+
+test('raw tracked deletions remain representable source identities', t => {
+  const {cwd, base} = fixture(t);
+  const before = captureSourceSnapshot({cwd, base});
+  rmSync(join(cwd, 'README.md'));
+  const after = captureSourceSnapshot({cwd, base});
+  assert.equal(after.sourceStatus, 'available');
+  assert.notEqual(after.sourceHash, before.sourceHash);
+});
+
+test('raw tracked symlink targets are hashed without following dangling links', {skip: process.platform === 'win32'}, t => {
+  const {cwd, base, git} = fixture(t);
+  symlinkSync('missing-first-fixture', join(cwd, 'fixture-link'));
+  git('add', 'fixture-link'); git('commit', '-m', 'Synthetic symlink');
+  const before = captureSourceSnapshot({cwd, base});
+  rmSync(join(cwd, 'fixture-link')); symlinkSync('missing-second-fixture', join(cwd, 'fixture-link'));
+  const after = captureSourceSnapshot({cwd, base});
+  assert.equal(before.sourceStatus, 'available'); assert.equal(after.sourceStatus, 'available');
+  assert.notEqual(after.sourceHash, before.sourceHash);
+});
+
+
+test('incomplete attribute metadata fails closed before any check command', t => {
+  silentErrors(t);
+  const {cwd, base} = fixture(t);
+  const originalExec = childProcess.execFileSync;
+  let result, files, executions = 0;
+  try {
+    childProcess.execFileSync = (command, args, options) => command === 'git' && args[0] === 'check-attr' ? '' : originalExec(command, args, options);
+    syncBuiltinESMExports();
+    assert.throws(() => hasGitSourceTransformAttributes(cwd), /Incomplete Git attribute metadata/);
+    files = changedFiles(base, {cwd});
+    result = runChangedChecks({cwd, base, environment: {}, runCommand: () => executions++});
+  } finally {
+    childProcess.execFileSync = originalExec;
+    syncBuiltinESMExports();
+  }
+  assert.deepEqual(files, ['__unknown_source_attributes__']);
+  assert.deepEqual(selectChecks(files), ['full']);
+  assert.equal(executions, 0);
+  assert.equal(result.exitCode, 2); assert.equal(result.record.status, 'invalid');
+  assert.equal(result.record.sourceBefore.sourceStatus, 'unavailable');
+  assert.ok(result.record.commands.every(command => command.status === 'not-run'));
+});
+
+
+test('builtin ident normalization cannot conceal runtime source from a new check plan', t => {
+  silentErrors(t);
+  const {cwd, base, git, write} = fixture(t);
+  mkdirSync(join(cwd, 'lib'));
+  write('lib/value.mjs', "export default '$Id$';\n");
+  git('add', '.'); git('commit', '-m', 'Synthetic ident source');
+  write('.git/info/attributes', 'lib/value.mjs ident\n');
+  write('lib/value.mjs', "export default '$Id: runtime changed $';\n");
+  assert.equal(git('diff', '--name-only', 'HEAD', '--'), '');
+  const runtimeValue = execFileSync(process.execPath, ['--input-type=module', '-e', `import value from ${JSON.stringify(pathToFileURL(join(cwd, 'lib/value.mjs')).href)}; process.stdout.write(value);`], {encoding: 'utf8'});
+  assert.equal(runtimeValue, '$Id: runtime changed $');
+  const attributes = readFileSync(join(cwd, '.git/info/attributes'));
+  const index = readFileSync(join(cwd, '.git/index'));
+  assert.equal(hasGitSourceTransformAttributes(cwd), true);
+  assert.deepEqual(changedFiles(base, {cwd}), ['__git_source_transforms__']);
+  let executions = 0;
+  const result = runChangedChecks({cwd, base, environment: {}, runCommand: () => executions++});
+  assert.equal(executions, 0); assert.equal(result.exitCode, 2);
+  assert.equal(result.record.status, 'invalid');
+  assert.equal(result.record.sourceBefore.sourceIssue, 'git-source-transforms');
+  assert.ok(result.record.commands.every(command => command.status === 'not-run'));
+  assert.deepEqual(readFileSync(join(cwd, '.git/info/attributes')), attributes);
+  assert.deepEqual(readFileSync(join(cwd, '.git/index')), index);
+  assert.equal(readCurrentEvidence({cwd, base}), null);
+});
+
+test('working-tree-encoding is an explicitly unsupported source transform', t => {
+  silentErrors(t);
+  const {cwd, base, write} = fixture(t);
+  write('.git/info/attributes', 'README.md working-tree-encoding=UTF-16\n');
+  assert.equal(hasGitSourceTransformAttributes(cwd), true);
+  assert.deepEqual(changedFiles(base, {cwd}), ['__git_source_transforms__']);
+  let executions = 0;
+  const result = runChangedChecks({cwd, base, environment: {}, runCommand: () => executions++});
+  assert.equal(executions, 0); assert.equal(result.exitCode, 2);
+  assert.equal(result.record.sourceBefore.sourceIssue, 'git-source-transforms');
+  assert.equal(result.record.status, 'invalid');
 });

@@ -83,6 +83,7 @@ export async function runDoctor({root = process.cwd(), env = process.env, platfo
   const add = (id, status, required, message, remediation, details) => items.push({id, status, required, message, ...(remediation ? {remediation} : {}), ...(details ? {details} : {})});
   if (files.includes('__unknown_base__')) add('git-base', 'fail', true, 'The requested Git base is unavailable; the selected scope cannot be verified.', 'Fetch or choose an existing base commit, then rerun the doctor with --base.');
   if (files.some(file => ['__hidden_index_entries__', '__unknown_index__'].includes(file))) add('git-source', 'fail', true, 'Git source visibility could not be verified; tracked changes may be hidden by index flags.', 'Inspect the Git index for assume-unchanged or skip-worktree flags and resolve source visibility before checking.');
+  else if (files.some(file => ['__git_source_transforms__', '__unknown_source_attributes__'].includes(file))) add('git-source', 'fail', true, 'Git source transformation attributes prevent verified source selection, or their inspection failed.', 'Inspect effective filter, ident and working-tree-encoding attributes and use a checkout whose source bytes can be verified. The doctor does not execute or change source transformations.');
   let manifest, lock;
   try { manifest = json(read, join(root, 'package.json')); lock = json(read, join(root, 'package-lock.json')); }
   catch { add('npm-lock', 'fail', true, 'Project package metadata is missing or unreadable.', 'Restore package.json and package-lock.json from the checkout.'); }

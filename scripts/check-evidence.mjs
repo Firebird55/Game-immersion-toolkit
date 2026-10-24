@@ -9,12 +9,40 @@ const suiteNames = ['desktop','setup','capture','offline','ocr','all'];
 export const commandIds = new Set(['npm:check','npm:test','npm:test:python','npm:typecheck','npm:build','npm:mobile:build','docs:check','audit:public','release:candidate', ...browserNames.map(name => `browser:${name}`), ...['companion-process-identity-e2e','setup-e2e','update-companion-e2e'].map(name => `windows:${name}`), ...suiteNames.map(name => `suite:${name}`)]);
 const checkNames = new Set(['full','python','desktop','mobile','windows','selector','docs']);
 const sha = value => typeof value === 'string' && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value) && !/^0+$/.test(value) ? value : null;
-const git = (cwd, args, encoding = 'utf8') => execFileSync('git', args, {cwd, encoding, maxBuffer: 64 * 1024 * 1024, stdio: ['ignore','pipe','pipe']});
+const git = (cwd, args, encoding = 'utf8', input) => execFileSync('git', args, {cwd, encoding, input, maxBuffer: 64 * 1024 * 1024, stdio: [input === undefined ? 'ignore' : 'pipe','pipe','pipe']});
 
 // Git diff may hide changed bytes behind either index flag. Do not clear the
 // user's flags or publish paths; these checkouts cannot supply source proof.
 export function hasHiddenIndexEntries(cwd = process.cwd()) {
   return git(cwd, ['ls-files','-v','-z']).split('\0').some(entry => /^[a-zS] /.test(entry));
+}
+
+// Inspect effective attributes (including local/global overrides) without
+// invoking filters. These transforms can hide runtime-significant source edits.
+export function hasGitSourceTransformAttributes(cwd = process.cwd()) {
+  const input = git(cwd, ['ls-files','--cached','-z'], null);
+  if (!input.length) return false;
+  const paths = input.toString('utf8').split('\0');
+  if (paths.pop() !== '') throw new Error('Incomplete Git path metadata');
+  const attributes = ['filter','ident','working-tree-encoding'];
+  const values = git(cwd, ['check-attr','-z','--stdin',...attributes], 'utf8', input).split('\0');
+  if (values.pop() !== '' || values.length !== paths.length * attributes.length * 3) throw new Error('Incomplete Git attribute metadata');
+  for (let index = 0; index < paths.length * attributes.length; index++) {
+    if (values[index * 3] !== paths[Math.floor(index / attributes.length)] || values[index * 3 + 1] !== attributes[index % attributes.length]) throw new Error('Unexpected Git attribute metadata');
+    if (values[index * 3 + 2] !== 'unspecified') return true;
+  }
+  // A driver can literally be named "unspecified". --all distinguishes that
+  // explicit value from an absent attribute; even -filter is conservatively
+  // rejected above because "unset" can also be a literal driver name.
+  const all = git(cwd, ['check-attr','-z','--stdin','--all'], 'utf8', input).split('\0');
+  if (all.pop() !== '' || all.length % 3) throw new Error('Incomplete Git attribute metadata');
+  const knownPaths = new Set(paths);
+  let hasTransform = false;
+  for (let index = 0; index < all.length; index += 3) {
+    if (!knownPaths.has(all[index]) || !all[index + 1]) throw new Error('Unexpected Git attribute metadata');
+    if (attributes.includes(all[index + 1])) hasTransform = true;
+  }
+  return hasTransform;
 }
 
 // Hash source identities and bytes, never persist file names, diffs, or contents.
@@ -34,17 +62,40 @@ export function captureSourceSnapshot({cwd = process.cwd(), base} = {}) {
       snapshot.sourceIssue = 'hidden-index-entries';
       return snapshot;
     }
+    if (hasGitSourceTransformAttributes(cwd)) {
+      snapshot.sourceIssue = 'git-source-transforms';
+      return snapshot;
+    }
     const hash = createHash('sha256');
     const add = bytes => { hash.update(String(bytes.length)); hash.update(':'); hash.update(bytes); };
     add(git(cwd, ['ls-files','--stage','-z'], null));
-    add(git(cwd, ['diff','--no-ext-diff','--no-textconv','--binary','HEAD','--'], null));
-    const untracked = git(cwd, ['ls-files','--others','--exclude-standard','-z']).split('\0').filter(Boolean).sort();
-    for (const file of untracked) {
+    const tracked = git(cwd, ['ls-files','--cached','-z']).split('\0').filter(Boolean);
+    const untracked = git(cwd, ['ls-files','--others','--exclude-standard','-z']).split('\0').filter(Boolean);
+    const directories = new Set();
+    // Git can normalize source bytes. Hash actual entries alongside the index;
+    // missing entries and symlink targets are data, never followed links.
+    for (const file of [...new Set([...tracked, ...untracked])].sort()) {
       add(Buffer.from(file));
-      const path = join(cwd, file), stat = lstatSync(path);
+      const path = join(cwd, file);
+      let stat;
+      try {
+        const parts = file.split('/');
+        let parent = cwd;
+        for (const part of parts.slice(0, -1)) {
+          parent = join(parent, part);
+          if (!directories.has(parent)) {
+            if (!lstatSync(parent).isDirectory()) throw new Error('Unsupported source ancestor');
+            directories.add(parent);
+          }
+        }
+        stat = lstatSync(path);
+      } catch (error) {
+        if (['ENOENT','ENOTDIR'].includes(error.code)) { add(Buffer.from('missing')); continue; }
+        throw error;
+      }
       add(Buffer.from(String(stat.mode)));
-      if (stat.isSymbolicLink()) add(Buffer.from(readlinkSync(path)));
-      else if (stat.isFile()) add(readFileSync(path));
+      if (stat.isSymbolicLink()) { add(Buffer.from('symlink')); add(Buffer.from(readlinkSync(path))); }
+      else if (stat.isFile()) { add(Buffer.from('file')); add(readFileSync(path)); }
       else throw new Error('Unsupported source entry');
     }
     snapshot.sourceHash = hash.digest('hex');
@@ -133,7 +184,8 @@ export function startCheckRun({cwd = process.cwd(), base, environment = process.
     },
     finish({failed = false} = {}) {
       record.sourceAfter = captureSourceSnapshot({cwd, base});
-      if ([record.sourceBefore, record.sourceAfter].some(source => source.sourceIssue === 'hidden-index-entries')) record.issues.push('hidden-index-entries');
+      for (const issue of ['hidden-index-entries','git-source-transforms'])
+        if ([record.sourceBefore, record.sourceAfter].some(source => source.sourceIssue === issue)) record.issues.push(issue);
       if (record.sourceBefore.base.status === 'unavailable' || record.sourceAfter.base.status === 'unavailable') record.issues.push('base-unavailable');
       if (record.sourceBefore.sourceStatus !== 'available' || record.sourceAfter.sourceStatus !== 'available') record.issues.push('source-unavailable');
       if (!record.issues.length && !sourceMatches(record.sourceBefore, record.sourceAfter)) record.issues.push('source-changed');

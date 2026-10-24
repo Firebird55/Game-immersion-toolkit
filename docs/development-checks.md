@@ -45,14 +45,22 @@ Each executed check creates `output/checks/runs/<id>.json` before starting and
 sets `output/checks/latest.json` to a pointer to that run. Progress and final
 results update only the run file atomically, so an older run finishing cannot
 overwrite the newer pointer. Records contain source HEAD,
-resolved base, a hash of tracked changes and nonignored untracked content, command
-statuses and elapsed times. Source changes during execution invalidate the run.
+resolved base, a hash of index metadata, raw tracked entries and nonignored
+untracked content, command statuses and elapsed times. Source changes during
+execution invalidate the run.
 An interrupted run left `running` is unfinished, not a pass. A failed aggregate
 `npm run check` does not claim its inner scripts passed.
 Git `assume-unchanged` or `skip-worktree` flags can hide modified source files.
 Such a checkout cannot produce valid evidence: checks stop without clearing
 those flags. Inspect the flagged files or use a complete clean checkout before
-retrying. The doctor reports the same source limitation.
+retrying. Applied Git source transforms (`filter`, `ident` or
+`working-tree-encoding`) also make source evidence unavailable:
+checks stop without executing filters or changing attributes/configuration.
+This conservatively includes explicitly disabled transform attributes, because
+Git reports them like a literal `unset` value (which can name a filter driver). Inspect the effective attributes, including
+local overrides, or use a checkout without source transform attributes. Ordinary
+CRLF checkouts remain supported; changes to raw bytes during a run invalidate its
+evidence. The doctor reports the same source limitations.
 
 Commands are recorded as passed, failed, not-run, delegated or unavailable.
 Split browser jobs and the source-audit job supply separate evidence; delegation

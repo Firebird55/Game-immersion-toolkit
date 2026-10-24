@@ -206,3 +206,21 @@ test('hidden or uninspectable Git index entries cannot report ready prerequisite
     assert.equal(item(report, 'git-source').required, true);
   }
 });
+
+
+test('Git source transformations or unavailable attribute inspection cannot report ready prerequisites', async t => {
+  const {root} = fixture(t);
+  for (const sentinel of ['__git_source_transforms__', '__unknown_source_attributes__']) {
+    const before = snapshot(root);
+    const report = await runDoctor({...options, root, files: [sentinel], checks: ['full']});
+    assert.equal(report.status, 'fail');
+    const source = item(report, 'git-source');
+    assert.equal(source.status, 'fail');
+    assert.equal(source.required, true);
+    assert.match(source.remediation, /filter, ident and working-tree-encoding/);
+    assert.match(source.remediation, /does not execute or change source transformations/);
+    assert.ok(report.items.filter(value => value.id !== 'git-source').every(value => value.status === 'pass'));
+    assert.deepEqual(snapshot(root), before);
+    assert.ok(!JSON.stringify(report).includes(root));
+  }
+});
