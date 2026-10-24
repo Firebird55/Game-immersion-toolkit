@@ -25,8 +25,11 @@ wijziging afzonderlijk kan worden teruggedraaid. Aantallen regels, bestanden of
 agents zijn geen kwaliteitsmaat. Splits een roadmap-ID zo nodig in bijvoorbeeld
 R15a/R15b; leg hun interfaces en integratievolgorde vast en behoud het hoofdcriterium.
 
-## Rollen en parallelle banen
+## Werkstroomeigenaren en uitvoerende rollen
 
+- **Werkstroomeigenaar:** een persoon of team verantwoordelijk voor W1 (UX),
+  W2 (OCR) of W3 (installatie/gamebeheer), inclusief tests en oplevering. Verdeelt
+  subtaken en kan daarvoor AI-agents inzetten.
 - **Integrator:** bewaakt scope, afhankelijkheden, contracten, migraties en het
   gezamenlijke eindresultaat. Houdt pakketstatus en ontbrekend bewijs bij.
 - **Implementerende agent:** onderzoekt en realiseert één begrensd pakket,
@@ -36,17 +39,23 @@ R15a/R15b; leg hun interfaces en integratievolgorde vast en behoud het hoofdcrit
 - **Apparaattester/maintainer:** levert fysieke verificatie en productbesluiten
   waarvoor echte hardware of menselijke beoordeling nodig is.
 
-Begin met hoogstens drie onafhankelijke implementatiebanen: UX, OCR en
-installatie/discovery. Meer agents toevoegen is alleen nuttig bij gescheiden
-scope en beschikbare reviewcapaciteit. Een agent die fixtures of review doet
-hoeft geen parallelle schrijver te zijn.
+Begin met één eigenaar per werkstroom; één van hen kan ook integrator zijn.
+Een vierde persoon is niet vereist. Iedere eigenaar pakt een concrete eerste
+subtaak op, met de startcontrole binnen die taak. Er is geen globale F0/R00-fase
+waarin iedereen eerst op nieuw onderzoek wacht. Gebruik de bestaande analyse.
+
+Begin met hoogstens drie onafhankelijke implementatiebanen. Extra agents zijn
+nuttig bij gescheiden scope en beschikbare reviewcapaciteit. Een agent die fixtures
+of review doet hoeft geen parallelle schrijver te zijn. Testwerk blijft onderdeel
+van de opgeleverde subtaak; architectuurwerk R12/R13 krijgt een concrete eigenaar
+binnen de betrokken werkstroom en wordt geen vierde brede refactorbaan.
 
 | Gebied | Parallel mogelijk | Integratie-eigenaar vereist voor |
 | --- | --- | --- |
 | UX | Copy/hulpontwerp, onafhankelijke browserchecks | `mobile/companion.jsx`, `app/companion.tsx`, gedeelde statuscontracten |
 | OCR | Corpusannotatie, replayvalidatie, afzonderlijke gamefixtures | `backend/capture.py`, matchercontracten, `public/mobile-capture/mobile-ui.mjs` |
 | Installatie | Launcheradapters, per-game packprobes, runtime-inventaris | `backend/game_paths.py`, `backend/installation.py`, `app/toolkit-setup.tsx`, storage-layout |
-| Platform | Packagingproef, testontwerp voor upgrade/rollback | `backend/api.py`, launcher/updater, releaseworkflow |
+| Runtime/packaging binnen W3 | Packagingproef, testontwerp voor upgrade/rollback | `backend/api.py`, launcher/updater, releaseworkflow |
 | Shared reader | Onderzoek/tests in consumers | Source in Lexirise-shared-components; versie en beide consumerupdates |
 
 Twee agents schrijven niet tegelijk aan hetzelfde gedeelde bestand of contract.
@@ -64,11 +73,13 @@ verzameling lege statusbestanden. Neem alleen gesaniteerde conclusies in Git op.
 
 ```text
 Pakket: Rxx — concreet resultaat
+Werkstroom/eigenaar: W1, W2 of W3; optioneel experiment alleen indien toegewezen
+Mijlpaal: zelfstandig resultaat (M1 per werkstroom), integratiebijdrage M2 of M3
 Status: planned | ready | active | implemented | verified | blocked
 Baseline: branch + commit; relevante veranderingen sinds het onderzoek
 Doel: zichtbaar gedrag of meetbaar onderhoudsresultaat
-Afhankelijkheden: pakket/contract-ID's en beschikbaar bewijs
-Context: AGENTS.md, RELEASE.md, roadmapfase, relevante bronnen/tests
+Afhankelijkheden: specifieke pakket/contract-ID's; wat moet wachten en wat kan door
+Context: AGENTS.md, RELEASE.md, werkstroomcriteria, relevante bronnen/tests
 Scope/eigenaar: toegestane modules; integratie-eigenaar bij overlap
 Buiten scope: expliciete aangrenzende wijzigingen die een aparte taak zijn
 Invarianten: relevante data-, taal-, account-, capture- en compatibiliteitsregels
@@ -84,15 +95,18 @@ Volgende stap: exact vervolg binnen scope of concreet besluitpunt
 het is geen nieuwe toestemming. `implemented` betekent dat code klaarstaat maar
 verplicht bewijs nog kan ontbreken. `verified` vereist alle relevante criteria,
 review en apparaatchecks. `blocked` noemt een specifieke ontbrekende voorwaarde
-en welk onafhankelijk werk nog door kan. Een fase is pas voltooid wanneer alle
-verplichte pakketten en gates zijn bewezen; een geslaagde docs-check voltooit geen
-implementatiefase.
+en welk onafhankelijk werk nog door kan. M1 wordt per werkstroom afzonderlijk
+beoordeeld; M2 toetst het gecombineerde gedrag en M3 de releasekandidaat. De
+betreffende verplichte criteria en gates moeten zijn bewezen. Een geslaagde
+docs-check voltooit geen implementatietaak of productmijlpaal.
 
 ## Uitvoeringslus
 
 1. **Lees en begrens.** Controleer instructies, Git-status, baseline en actuele
    broncode. Behoud andermans werk. Begin een `codex/`-taakbranch. Leg scope en
    afhankelijkheden vast; maak geen brede opruiming onderdeel van een reparatie.
+   Controleer uitsluitend het betrokken pad; start geen algemene inventarisatie.
+   R02a/R02b/R02c-metingen horen alleen bij hun betreffende vergelijking.
 2. **Leg de verwachting vast.** Bij een bug: een reproducerend geval met correcte
    verwachting. Bij risicovolle refactoring: relevante behoudsinvarianten. Nieuwe
    tests zijn niet verplicht voor eenvoudige copy-/stijlwijzigingen.
@@ -102,8 +116,9 @@ implementatiefase.
    scenario's. Onderzoek fouten; verander geen verwachting of drempel om uitsluitend
    een groen resultaat te krijgen.
 5. **Laat gericht reviewen.** Voor capture, accounts, migratie en lifecycle leest
-   een tweede agent de actuele diff en relevante code, naast de criteria. Voor
-   eenvoudige documentatie/copy volstaat review passend bij het risico.
+   een onafhankelijke reviewer (persoon of agent) de actuele diff en relevante
+   code, naast de criteria. Voor eenvoudige documentatie/copy volstaat review
+   passend bij het risico.
 6. **Integreer en lever op.** Verifieer bevindingen, herstel geldige fouten, voer
    geraakte checks opnieuw uit en commit de logische wijziging met GitHub-noreply
    author/committer. Controleer na integratie het gezamenlijke resultaat.
@@ -114,6 +129,24 @@ Vraag niet opnieuw toestemming voor iedere routinehandeling. Bij een echte
 scopewijziging of ontbrekende externe voorwaarde: lever eerst het onafhankelijke
 werk op en leg een concrete keuze met gevolgen voor. Publicatie, releases en
 echte accountwrites krijgen geen impliciete toestemming uit deze roadmap.
+
+## Overdracht en integratie tussen werkstromen
+
+De producer en consumer leggen de benodigde velden, betekenis, foutgevallen,
+compatibiliteit en tests van een gedeelde interface samen vast. De integrator
+wijst één eigenaar aan voor de voorbereidende wijziging. De consumer hoeft niet
+op de hele werkstroom te wachten, wel op het specifieke contract dat hij gebruikt.
+
+Voorbeeld: R17 gebruikt de leesmodusafspraak uit R04 en de opslagafspraak uit
+R14/R18. Discovery en bundeling kunnen ondertussen verder; een onvoltooide
+statusbadge R03 blokkeert die niet. R09 en R10 kunnen na het gedeelde
+identiteits-/volgordecontract ieder hun eigen platform uitvoeren.
+
+Na integratie worden de geraakte checks op de gezamenlijke commit uitgevoerd.
+Gebruik M2 voor de volledige gebruikersflow en M3 voor artifact-/apparaatbewijs.
+Een onafhankelijke, afgeronde verbetering hoeft niet op andere werkstromen te
+wachten om via het bestaande releaseproces te worden geleverd. Een releaseopdracht
+blijft afzonderlijk nodig; het taakcontract autoriseert die niet.
 
 ## Een betrouwbare testverwachting
 

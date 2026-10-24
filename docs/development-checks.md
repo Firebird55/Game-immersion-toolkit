@@ -1,7 +1,7 @@
 # Faster development checks
 
-The [rework roadmap](rework-roadmap.md) defines priorities, dependencies and
-acceptance criteria for the proposed rework. Its [AI development workflow](ai-development-workflow.md)
+The [rework roadmap](rework-roadmap.md) defines three parallel workstreams, task dependencies,
+acceptance criteria and shared milestones for the proposed rework. Its [AI development workflow](ai-development-workflow.md)
 describes bounded tasks, independent review and evidence handoff; implementation
 has not started merely because these planning documents exist.
 
