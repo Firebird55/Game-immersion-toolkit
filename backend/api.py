@@ -323,9 +323,12 @@ class Runtime:
             if not index.ready or index.source_locale != locale or voices is None:
                 return False
             try:
-                index.target_locale = translation_language(self.account_preferences(), study_language(locale))
+                settings = self.account_preferences()
+                source = study_language(locale)
+                index.target_locale = (translation_language(settings, source) if source in settings['languages']
+                                       else self.languages.selected_target(game, locale, account))
             except LexiriseError:
-                index.target_locale = self.languages.prepared(game, locale)['targets'][0]
+                index.target_locale = self.languages.selected_target(game, locale, account)
             if game == 'zzz':
                 self.textmaps = self.capture.textmaps = index
                 self.voice_assets = self.capture.voice_assets = voices
@@ -404,7 +407,9 @@ class Runtime:
 
     def present_line(self, line: TranscriptLine) -> TranscriptLine:
         try:
-            target = translation_language(self.account_preferences(), line.source_language)
+            settings = self.account_preferences()
+            target = (translation_language(settings, line.source_language) if line.source_language in settings['languages']
+                      else line.translation_locale)
         except LexiriseError:
             if not self.lexirise.status()['configured']:
                 return line
@@ -892,7 +897,7 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
             return {'removed': True}
         source = study_language(payload.locale)
         if payload.action == 'select':
-            runtime.languages.select(game, payload.locale, account)
+            runtime.languages.select(game, payload.locale, account, target=payload.target)
             return {'selected': payload.locale}
         settings = runtime.account_preferences() if runtime.lexirise.status()['configured'] else None
         # Account membership controls the picker and account features, not local play.

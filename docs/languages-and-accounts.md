@@ -13,6 +13,10 @@ These differences do not block local play or preparation. Browsing does not
 change capture or prepare files: Settings → Games & Languages suggests the
 target as the source, and lets you explicitly prepare another supported source.
 Languages without matching game voices show an empty game list.
+For a source outside the account, the explicitly prepared translation target
+is remembered per local account and source locale, including after a restart.
+Activation and history retain that target instead of using the account's global
+translation preference.
 
 Open **Account settings → Lexirise accounts on this PC** to choose a saved
 account. **Add account securely** opens a local hidden-input prompt. The key is

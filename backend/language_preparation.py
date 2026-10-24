@@ -61,6 +61,12 @@ class LanguagePreparation:
         with self.lock:
             return self.data['selected'].get(account, {}).get(game)
 
+    def selected_target(self, game: str, locale: str, account: str = 'legacy') -> str:
+        with self.lock:
+            targets = (self.prepared(game, locale) or {}).get('targets', [])
+            target = self.data.get('local_targets', {}).get(account, {}).get(game, {}).get(locale)
+            return target if target in targets else next(iter(targets), '')
+
     def selection_generation(self, game: str, account: str = 'legacy') -> int:
         with self.lock:
             return self.data.get('selection_generations', {}).get(account, {}).get(game, 0)
@@ -106,13 +112,13 @@ class LanguagePreparation:
             old = self.prepared(game, locale)
             targets = tuple(dict.fromkeys([*(old or {}).get('targets', []), target]))
             self.jobs[key] = {'state': 'preparing', 'progress': 0, 'message': 'Preparing selected language'}
-            worker = threading.Thread(target=self._run, args=(PreparationJob(self, self.stop_event), game, locale, targets, account, refresh, rebuild), daemon=True,
+            worker = threading.Thread(target=self._run, args=(PreparationJob(self, self.stop_event), game, locale, targets, account, refresh, rebuild, target), daemon=True,
                                       name=f'prepare-{game}-{locale}')
             self._workers.add(worker)
             worker.start()
             return True
 
-    def _run(self, job, game, locale, targets, account, refresh, rebuild=False):
+    def _run(self, job, game, locale, targets, account, refresh, rebuild=False, target=None):
         key = (game, locale)
         try:
             job.checkpoint()
@@ -129,6 +135,7 @@ class LanguagePreparation:
                         'mapped_lines': state.get('audio_count', 0)}
                     if not refresh:
                         self._select(game, locale, account)
+                        self.data.setdefault('local_targets', {}).setdefault(account, {}).setdefault(game, {})[locale] = target or targets[0]
                     self._save()
                     self.jobs[key] = {'state': 'ready', 'progress': 100, 'message': state.get('message', 'Language prepared')}
                 job.checkpoint()
@@ -148,10 +155,15 @@ class LanguagePreparation:
             with self.lock:
                 self._workers.discard(threading.current_thread())
 
-    def select(self, game: str, locale: str, account: str = 'legacy') -> None:
+    def select(self, game: str, locale: str, account: str = 'legacy', *, target: str | None = None) -> None:
         with self.lock:
-            if not self.prepared(game, locale):
+            prepared = self.prepared(game, locale)
+            if not prepared:
                 raise ValueError('Prepare this language first.')
+            if target is not None:
+                if target not in prepared['targets']:
+                    raise ValueError('Prepare this translation language first.')
+                self.data.setdefault('local_targets', {}).setdefault(account, {}).setdefault(game, {})[locale] = target
             self._select(game, locale, account)
             self._save()
         self.activate(game, locale, account)
@@ -161,6 +173,8 @@ class LanguagePreparation:
             if self.jobs.get((game, locale), {}).get('state') == 'preparing':
                 raise ValueError('Wait for language preparation before removing its table.')
             self.data['prepared'].get(game, {}).pop(locale, None)
+            for games in self.data.get('local_targets', {}).values():
+                games.get(game, {}).pop(locale, None)
             for account, values in self.data['selected'].items():
                 if values.get(game) == locale:
                     self._select(game, None, account)
