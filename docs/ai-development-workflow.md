@@ -49,6 +49,9 @@ nuttig bij gescheiden scope en beschikbare reviewcapaciteit. Een agent die fixtu
 of review doet hoeft geen parallelle schrijver te zijn. Testwerk blijft onderdeel
 van de opgeleverde subtaak; architectuurwerk R12/R13 krijgt een concrete eigenaar
 binnen de betrokken werkstroom en wordt geen vierde brede refactorbaan.
+De [architectuurkeuzes](rework-architecture.md) en concrete R12a–c/R13a–e-taken
+zijn het vertrekpunt. Lees de huidige code en de bestaande behoudscontracten;
+start geen generieke lagen-, eventbus- of taalherschrijving uit eigen beweging.
 
 | Gebied | Parallel mogelijk | Integratie-eigenaar vereist voor |
 | --- | --- | --- |
@@ -165,6 +168,13 @@ Gebruik M2 voor de volledige gebruikersflow en M3 voor artifact-/apparaatbewijs.
 Een onafhankelijke, afgeronde verbetering hoeft niet op andere werkstromen te
 wachten om via het bestaande releaseproces te worden geleverd. Een releaseopdracht
 blijft afzonderlijk nodig; het taakcontract autoriseert die niet.
+
+Bij controllerextractie is de volgorde R07a (huidige productie karakteriseren),
+R13c (mobiele controller losmaken) en R07b (productie-replay). R13c bewijst de
+bestaande shell plus een directe controllerharness; een toekomstige replay of
+installer hoeft niet al af te zijn. Karakterisatie benoemt bestaande fouten en
+is geen vervanging voor onafhankelijke gewenste acceptatie. Extractie en gedrag-
+reparatie blijven afzonderlijk reviewbare wijzigingen.
 
 ## Een betrouwbare testverwachting
 

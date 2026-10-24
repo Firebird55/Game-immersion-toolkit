@@ -4,6 +4,8 @@ The [rework roadmap](rework-roadmap.md) defines three parallel workstreams, task
 acceptance criteria and shared milestones for the proposed rework. Its [AI development workflow](ai-development-workflow.md)
 describes bounded tasks, independent review and evidence handoff; implementation
 has not started merely because these planning documents exist.
+The [architecture research](rework-architecture.md) documents current boundaries,
+proposed migrations and the limits of existing runtime and artifact evidence.
 
 Use `npm run check:changed` for working changes, or add `-- --base origin/main`
 for a branch. Documentation changes check generated guides, links and publication

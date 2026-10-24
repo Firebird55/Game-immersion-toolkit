@@ -22,6 +22,9 @@ voorwaarde voor deze rework.
 Lees bij uitvoering eerst [AGENTS.md](../AGENTS.md), [RELEASE.md](../RELEASE.md),
 [runtimecontracten](runtime-context.md) en [gerichte checks](development-checks.md).
 De AI-werkwijze beschrijft taakgrenzen, review, bewijs en overdracht.
+Het [architectuuronderzoek](rework-architecture.md) toetst de actuele code op
+upstream `387631f`, beschrijft huidige en gewenste grenzen en onderbouwt de
+concrete R12/R13-migratietaken hieronder. Het vervangt geen apparaatvalidatie.
 
 ### Invarianten
 
@@ -108,7 +111,10 @@ benodigde middelen bekend zijn; er wordt geen vaste AI-snelheidsfactor aangenome
 Alle uitvoeringspakketten staan op **planned**. De R-ID's blijven herkenbaar uit
 de eerdere indeling. R00 wordt een startcontrole binnen elke taak; R02 wordt
 opgesplitst in R02a (OCR), R02b (Windows-bundel) en R02c (optioneel experiment).
-R12/R13 worden alleen als benodigde subtaken binnen een werkstroom ingepland.
+R12/R13 zijn nu groepen met concrete architectuursubtaken per werkstroom;
+alleen de geraakte grenzen blokkeren een wijziging. R07 is opgesplitst in R07a
+(karakterisatie) en R07b (productie-replay) om de controllerextractie testbaar te
+maken zonder een cirkelafhankelijkheid.
 Voortgang staat bij het taakcontract, niet in een extra verzameling statusbestanden.
 De tabelkolom **Afrondingsbewijs** bepaalt het resultaat per subtaak. De checklists
 onder elke werkstroom beschrijven het gezamenlijke eindresultaat. Neem bij de
@@ -143,7 +149,7 @@ R06 kan hulpontwerp voorbereiden en integreert per afgerond control.
 
 | ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
 | --- | --- | --- | --- |
-| R03 | Bronstatus behouden tot in de header; aanklikbare diagnose per subsystem | Startcontrole van het betrokken pad | Statusmatrix met eerste frame, stilstaand beeld, pauze, reconnect, ontbrekende bibliotheek en accountslot geeft telkens de juiste uitleg; bestaande OCR-events blijven bruikbaar. |
+| R03 | Bronstatus behouden tot in de header; aanklikbare diagnose per subsystem | Startcontrole; R12a bij gewijzigde statusvelden, beperkte R13d-extractie waar nodig | Statusmatrix met eerste frame, stilstaand beeld, pauze, reconnect, ontbrekende bibliotheek en accountslot geeft telkens de juiste uitleg; bestaande OCR-events blijven bruikbaar. |
 | R04 | Labels Browser Extension/Lexirise API; leesopties alleen bij Lexirise API | Startcontrole van het betrokken pad | Beide modi en beide mobiele leesoptie-ingangen gecontroleerd; oude voorkeuren werken na herladen; bestaande interne waarden en opslagkeys vastgelegd voor R17. |
 | R05 | Updatebanner verwijderen, offline cache en veilige activatie behouden | Bestaande updatechecks en lokale reproductie | Banner weg; actieve sessie herlaadt niet; veilige activatie en offline heropening behouden data op de huidige frontendhost. |
 | R06 | Permanente uitleg beperken; hulp via focus/hover/tap en herstelacties | R03–R04 voor de betreffende controls | Benoemde controls op desktop/mobiel hebben bereikbare, sluitbare vraagtekenhulp; keyboard/touch/focus gecontroleerd; noodzakelijke fouten blijven zichtbaar. |
@@ -177,17 +183,20 @@ R06 kan hulpontwerp voorbereiden en integreert per afgerond control.
 
 **Eigenaar:** OCR. Fixtures en replay zijn de eerste subtaken van deze werkstroom.
 De native en mobiele uitvoering delen gedragsafspraken; een volledig afgeronde
-desktopimplementatie is geen voorwaarde voor mobiele ontwikkeling.
+desktopimplementatie is geen voorwaarde voor mobiele ontwikkeling. PR #34 heeft
+al multi-bubbleherkenning en bevestiging toegevoegd. R10 toetst en behoudt dit;
+het is geen opdracht om die functionaliteit opnieuw vanaf nul te bouwen.
 
 | ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
 | --- | --- | --- | --- |
 | R01 | Eigen synthetische temporele comicfixtures, onafhankelijke verwachte events en lokaal videomanifest | Startcontrole OCR; geen afhankelijkheid van W1/W3 | Geannoteerde sequenties en manifest dekken de genoemde comicgevallen; omgekeerde/dubbele/stale testevents worden afgekeurd. Productieherkenning hoeft hier nog niet te slagen. |
-| R02a | Baseline en grenzen voor recall/precisie, duplicaten, inversies, trackfragmentatie, capture/OCR/matching/UI-tijd, p50/p95 en mobiele sessieduur | Meetplan direct; R01 en R07 voor betrouwbare productiemetingen vóór tuning | Versieerbaar rapport met reproduceerbare meting en vooraf vastgelegde kwaliteit-/latentiegrenzen per gekozen matrix; ontbrekende resultaten expliciet open. |
-| R07 | Replay door de echte controllers, injecteerbare klok/bron; bewijs dat ZZZ het speciale pad gebruikt; volgorde/duplicatie/tijd als assertions | R01 | Zelfde sequentie reproduceert dezelfde events/tijden door echte controllers; speciale ZZZ-route aangetoond; foutdetectie van de harness bewezen, bestaande productfouten apart geregistreerd. |
-| R08 | Gedeeld fragment-/eventcontract (identiteit, occurrence en onzekere volgorde); gerichte reparatie van legacy/meertalige fragmentverschillen met behoud van ambiguïteitscontrole | R07; R02a-kwaliteitsgrenzen vóór matchingtuning | Contract specificeert identiteit, occurrence, unknown order en stale events; bekende fragment-/ambiguïteitsgevallen slagen op legacy/meertalig. Mobiele pariteit wordt definitief getoetst in R10/R11. |
-| R09 | Desktop-bubble-identiteit en volgorde over frames, inclusief onbekende volgorde binnen een eerste batch | R08; event-/volgordecontract voor desktop en mobiel vastgelegd | Desktopsequenties halen de kritieke nul-foutcriteria én vereiste regels; verplaatsing, echte herhaling en onbekende eerste batch onderscheiden. |
-| R10 | Mobiele verwerking van meerdere ZZZ-bubbles en behoud van identiteit bij scroll/verplaatsing | R07/R08 en gedeeld event-/volgordecontract; afstemming met R03 bij statuswijzigingen | Dezelfde kritieke gevallen slagen via mobiele productiecontroller, inclusief zwarte bubbles, meer dan acht regels en meerdere gelijktijdige bubbles; bestaande bronstatus blijft werken. |
-| R11 | ZZZ-videocorpus en hold-outscènes evalueren, plus regressiematrix voor overige actieve adapters | R07; eindbeoordeling na R08–R10 en R02a | Vaste video-/hold-outmatrix haalt R02a-grenzen op de geclaimde routes; andere actieve adapters behouden gedrag; corpus, clocks en modelversies bij resultaten vermeld. |
+| R02a | Baseline en grenzen voor recall/precisie, duplicaten, inversies, trackfragmentatie, capture/OCR/matching/UI-tijd, p50/p95 en mobiele sessieduur | Meetplan direct; R01 en R07b van de betrokken route voor betrouwbare productiemetingen vóór tuning | Versieerbaar rapport met reproduceerbare meting en vooraf vastgelegde kwaliteit-/latentiegrenzen per gekozen matrix; ontbrekende resultaten expliciet open. |
+| R07a | Huidige productiecontrollers karakteriseren met gecontroleerde I/O; echte mobiele pagina als vertrekpunt | R01; zo nodig eerst een minimale I/O-injectiegrens | Echte scan/confirmation/history/publicatie en ZZZ-route uitgevoerd; stop/bronwissel/stale-output vastgelegd; bekende fouten apart van gewenste verwachtingen. Geen nagebouwde testcontroller. |
+| R07b | Replay via dezelfde productiecontrollers, met bron-/klokinjectie en temporele assertions | R07a; mobiel na R13c, desktop kan onafhankelijk starten | Dezelfde karakterisatie vóór/na extractie; identiteit/volgorde/duplicatie/tijd gemeten via productiecode; zelfstandige stable/set-loop uit replay vervalt. |
+| R08 | Gedeeld fragment-/eventcontract (identiteit, occurrence en onzekere volgorde); gerichte reparatie van legacy/meertalige fragmentverschillen met behoud van ambiguïteitscontrole | R07b van de betrokken route; R12b-semantiek; R02a-kwaliteitsgrenzen vóór matchingtuning | Contract specificeert identiteit, occurrence, unknown order en stale events; bekende fragment-/ambiguïteitsgevallen slagen op legacy/meertalig. Mobiele pariteit wordt definitief getoetst in R10/R11. |
+| R09 | Desktop-bubble-identiteit en volgorde over frames, inclusief onbekende volgorde binnen een eerste batch | R08 voor desktop; R12b; R13b waar activatie/binding wijzigt | Desktopsequenties halen de kritieke nul-foutcriteria én vereiste regels; verplaatsing, echte herhaling en onbekende eerste batch onderscheiden. |
+| R10 | Bestaande mobiele multi-bubbleverwerking behouden en temporele identiteit bij scroll/verplaatsing aanvullen waar bewijs ontbreekt | R13c, mobiele R07b/R08 en R12b; afstemming met R03 bij statuswijzigingen | Dezelfde kritieke gevallen slagen via mobiele productiecontroller, inclusief zwarte bubbles, meer dan acht regels en meerdere gelijktijdige bubbles; bestaande bronstatus blijft werken. |
+| R11 | ZZZ-videocorpus en hold-outscènes evalueren, plus regressiematrix voor overige actieve adapters | R07b per route; eindbeoordeling na R08–R10 en R02a | Vaste video-/hold-outmatrix haalt R02a-grenzen op de geclaimde routes; andere actieve adapters behouden gedrag; corpus, clocks en modelversies bij resultaten vermeld. |
 
 **Acceptatie**
 
@@ -241,7 +250,7 @@ Native Windows-OCR en de [fysieke mobiele proef](mobile-capture-verification.md)
 blijven afzonderlijke gates. Nul fouten op een begrensd corpus is geen garantie
 voor iedere toekomstige gamescène.
 
-R07 kan als testinfrastructuur worden opgeleverd met vastgelegde bestaande
+R07a/R07b kunnen als testinfrastructuur worden opgeleverd met vastgelegde bestaande
 productfouten; dat verklaart R08–R11 niet geslaagd. De harness wordt apart
 gevalideerd op routekeuze en foutdetectie. Gemelde productfouten blijven zichtbaar
 met een eigenaar; de uiteindelijke gedragscriteria worden niet verlaagd.
@@ -344,31 +353,58 @@ OCR-componenten uit Snipping Tool zijn geen vrij herdistribueerbare aanname.
 
 ## Architectuurwerk binnen de werkstromen
 
-Geen aparte algemene refactorbaan. Plan R12/R13 per concrete behoefte, bijvoorbeeld
-R12-status bij R03 of R12-events bij R08. De betrokken werkstroomeigenaar voert
-de wijziging uit; de integrator bewaakt afspraken met consumers. Een vierde
-medewerker kan een afgebakende subtaak of review oppakken, zonder brede herschrijving.
+Het [architectuuronderzoek](rework-architecture.md) legt zes ontwerpbeslissingen
+vast. Doel is minder impliciet eigenaarschap, betere productie-replay en veilige
+bundeling. Geen algemene architectuurfase of vierde brede refactorbaan.
+De onderstaande taken vervangen de eerdere globale R12/R13-opdrachten.
 
-| ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
+| ID / prioriteit | Eigenaar en concrete scope | Voorwaarde | Acceptatie en rollback |
 | --- | --- | --- | --- |
-| R12 | Versieerbare transcript-, bron-, status- en gamecontracts; TS-types afleiden en inputgrenzen valideren waar nuttig | Concrete consumerbehoefte; gedragstests van het betrokken pad | Voor het benoemde contract slagen producer-/consumergevallen, inclusief ontbrekende versie/capability en oude clients; geen ongevraagde globale schemawijziging. |
-| R13 | Per use-case orchestration uit grote modules halen; gamebeleid in expliciete adapters houden | Betrokken R12-contract; relevante W2-fixtures vóór OCR-verplaatsing | Voor/na-diff behoudt het benoemde gedrag en foutpaden; eigen rollback en aantoonbare verantwoordelijkheidsgrens, zonder functionele reparatie te verstoppen. |
+| R12a / P1 | W1: status-/UI-readmodel en gewijzigde HTTP/WS-grenzen; hergebruik StateVersion, StatePoll en pairingvalidatie | Startcontrole relevante R03-route; geen W2-afronding | Bestaande runtime-/accountgeneraties, late snapshots, onafhankelijke eventdomeinen en frame-/OCR-/library-status hebben eenduidige betekenis; oude consumers blijven via adapter werken. Rollback zonder opslagmigratie. |
+| R12b / P0 | W2: RecognitionContext, actieve GameBinding en semantiek van observatie/content/occurrence/volgorde | R01 en relevante R07a-karakterisatie; bestaande runtime-/taalcontracten | Legacy/meertalig/mobiel hebben toetsbare voorbeelden; catalogus/locale/voice zijn coherent, onbekende volgorde expliciet. Handoff van nieuwe occurrence-state heeft behoud/reset-/versiebeleid. Geen universele vervanging van alle generationtellers. |
+| R12c / P0 | W3: resource-/data-/cache-/credentiallayout, runtimehost en frontendorigincontract; concrete contractoplevering binnen R14/R18 | Huidige runtime plus vroege R18-inventaris; geen volledige R14/R18-afronding | Schrijver en migratie per gegeven vastgelegd; source/bundle-resourcepaden, origin/API/assets/serviceworker, readiness/quiesce/rollback benoemd. Behoud-/migratiebeleid voor browseropslag vastgelegd; werkelijk behoud volgt in R21. Huidige runtime blijft geldige adapter. |
+| R13a / P1 | W3 met integrator: benodigde setup-use-case en composition-/hostadapter uit API halen, één grens per wijziging | Gedragstests van betrokken endpoints/lifecycle; R12c voor host-/padwijzigingen | Zelfde endpoints, statuscodes, LocalAccessMiddleware, accountpinning, standby/close en lockvolgorde; resource heeft één eigenaar. Source gebruikt de geëxtraheerde use-case; bundleadaptergrens contractueel getest, echte bundleconsumer volgt in R19. Pure extractie terugdraaibaar zonder datawijziging. |
+| R13b / P0 | W2: publieke game-/taalactivatiegrens met coherente binding; vervang externe mutatie van capture-private state | R12b; R07a van betrokken desktoproutes | Geen externe `_scan_epoch`-mutatie; game/locale/index/voice wisselen via één eigenaar, stale werk publiceert niet, laatste complete index blijft; legacy en voorbereide taalroute blijven expliciet. Bestaande references eerst via facade, zonder matchingwijziging. |
+| R13c / P0 | W2: mobiele controllerfactory losmaken van DOM met injecteerbare source/clock/OCR/library/store/eventoutput | Mobiele R07a; bestaande receiver-/libraryworkergrenzen | Zelfde productiescenario's vóór/na extractie, single-flight, stop/close/pagehide/bron-/taalwissel weren late success en errors; frames/workers/subscriptions vrijgegeven. Bestaande DOM-shell en directe controllerharness gebruiken dezelfde factory; volledige replayconsumer volgt in R07b. Extractiecommit terugdraaibaar, geen tweede beslisloop. |
+| R13d / P1 | W1: subscriptions/transport/readmodel uit de geraakte companionpresentatie halen | R12a en huidige UI-karakterisatie; R13c alleen als nieuwe mobiele controllerinterface wordt gebruikt | Geen UI-beslislogica afleiden uit muterende DOM-tekst; reader/account/taalownership, onafhankelijk extensiongebruik en mount/unmount behouden. UI-local state blijft lokaal; adapter op huidige controller laat R03 doorgaan. |
+| R13e / P1 | W2: observatie, gamebeleid en transcript-/audiopublicatie in desktopcapture scheiden, één gamepad per wijziging | R07b van die route; R12b, R13b indien binding wordt geraakt | Pure observatie schrijft geen transcript; één publicatie-eigenaar valideert context. Bestaande matching/toelating, audioloze comics, kanaal-/voicebeleid en foutpaden blijven gelijk. Functionele R08/R09-reparaties in aparte changes; rollback per gamepad. |
 
-**Acceptatie**
+R12a/R13d worden binnen R03 gebruikt waar nodig; R04/R05 hoeven hier niet op te
+wachten. R12c is de gedeelde afspraak die R14/R18 toch nodig hebben, geen extra
+projectbrede goedkeuringsronde. Een R13a/R13e-extractie wordt alleen ingepland
+als een concrete wijziging die grens nodig heeft. Alle daadwerkelijk toegewezen
+architectuurtaken blijven onderdeel van het afrondingsbewijs van hun werkstroom.
 
-- [ ] Eén betekenis per gedeeld veld; ontbrekende/onbekende versie of capability
-  wordt afgehandeld. UI-local state hoeft niet in een universeel schema.
-- [ ] Bron/session/account/language-generations blijven oude resultaten weren.
-  Afgebroken voorbereiding publiceert geen halve index; oud gedrag blijft getest.
-- [ ] Elke extractie behoudt extern gedrag en heeft een afzonderlijke rollback.
-  Een functionele reparatie en brede bestandsverplaatsing komen in aparte changes.
-- [ ] Game-specifieke verschillen blijven expliciet. Geen universele heuristiek
-  die bestaande uitzonderingen stilzwijgend verwijdert.
-- [ ] De gerefactorde module heeft een concrete verantwoordelijkheid en minder
-  impliciete afhankelijkheden. Regelcount is geen acceptatiecriterium.
+**Behoud bij elke architectuurwijziging**
 
-Plan alleen aantoonbaar benodigde R12/R13-subtaken. Het geheel afronden is geen
-voorwaarde voor W1, W2 of W3; toegewezen wijzigingen voldoen wel aan deze criteria.
+- [ ] Context wordt vóór payloadwerk vastgelegd; bron-/runtime-/account-/taalwissel
+  weert late resultaten. Oude revisies krijgen geen nieuwe contextstempel.
+- [ ] Bestaande cancellation, Windows Job Objects, lockvolgorde en atomische
+  indexpublicatie blijven getest; onvolledige cleanup is geen succesvolle overname.
+- [ ] Contract-/veldnaamadapters behouden bestaand wire-/storagegedrag. Wijziging
+  van een grens noemt de geraakte producers/consumers en compatibiliteitsbewijs.
+- [ ] Geen universeel gamebeleid, nieuwe eventbus, volledige databasevervanging
+  of gedeelde Rust/WASM-engine zonder afzonderlijk onderbouwde noodzaak.
+- [ ] Regelcount is geen doel. De wijziging maakt één concrete verantwoordelijkheid
+  en eigenaar duidelijk; tests bewaken gedrag, niet alleen de nieuwe mapstructuur.
+
+### Concrete volgorde en testgrenzen
+
+R01 → R07a karakteriseert de bestaande productiecontroller. Mobiel volgt
+R13c → R07b; desktopreplay kan op zijn eigen route door. Daarna volgen R02a-
+metingen en R08/R09/R10-gedragswijzigingen per betrokken route. R13c wacht nooit
+op afgerond R07b. Een benodigde injectiegrens in R07a blijft een kleine change.
+
+Karakterisatie en gewenste acceptatie zijn afzonderlijk: bekende fouten mogen
+in de baseline staan, maar worden geen gewenste invariant en verdwijnen niet
+achter skips. R13b/R13e behouden eerst gedrag; functionele reparaties krijgen
+aparte commits. Nieuwe occurrence-state moet ook over runtimehandoff zijn getest.
+
+R19 bundelt de bestaande runtime zonder afhankelijkheid van R13b/R13c/R13e of
+R23. De huidige uitgepakte-frontendcheck mockt de backend en gebruikt Wrangler
+uit de checkout; R20/R22 voegen expliciet bewijs toe van de echte geïnstalleerde
+runtime zonder ontwikkelcheckout/PATH-fallback. Native OCR, DPI en fysieke iOS
+blijven apparaatbewijzen en worden niet door deze architectuurstudie afgevinkt.
 
 ## Optioneel — Native experiment bij een bewezen probleem
 
@@ -427,7 +463,7 @@ uit bij een releasekandidaat volgens RELEASE.md.
 | Eigenaar | Direct oppakken | Daarna binnen de eigen werkstroom | Overdracht aan anderen |
 | --- | --- | --- | --- |
 | UX | R03 of R04; R05 is ook zelfstandig uitvoerbaar | R06 per control; resterende R03–R05 | R04-leesmodus/voorkeuren aan installatie; R03-statusafspraak aan OCR |
-| OCR | R01 en plan R02a | R07 → baseline R02a → R08; daarna R09/R10; R11-evaluatie | Event-/statusgedrag aan UX; gevalideerde runtime en tests aan installatie |
+| OCR | R01 en plan R02a | R07a → mobiel R13c → R07b per route → R02a/R08; daarna R09/R10; R11-evaluatie | Event-/statusgedrag aan UX; gevalideerde runtime en tests aan installatie |
 | Installatie | R14 en R18; plan R02b | R15/R16 en R19; R17 → R20; R21/R22 | Kandidaten/packstatus en voorkeurenoverdracht aan UX; geïnstalleerde runtime voor gezamenlijke proef |
 
 Eén van deze eigenaren vervult ook de integratorrol; een vierde persoon is niet
@@ -442,7 +478,7 @@ uitsluitend aan de hand van zijn eigen implementatiesamenvatting.
 | --- | --- | --- | --- |
 | Leesmodus/voorkeuren | R04: labels, interne waarde en leesgedrag; R14/R18: opslag en precedentie | R17-integratie met W1 | Discovery en bundeling; R03/R05 |
 | Installatieopslag | R14/R18: schema, schrijver, locatie en migratie-eigenaarschap | Opslaggebruik in R17/R19/R21 | R15/R16 op afgesproken kandidaat-/packcontract |
-| OCR-events en status | R08: identiteit/volgorde; R03: bronstatusvelden, samen met OCR-eigenaar | R09/R10 wachten op eventcontract; alleen geraakte statusconsumers wachten ook op R03-afspraak | Fixtures, replay en onafhankelijke UI-controls |
+| OCR-events en status | R12b/R08: identiteit/volgorde; R12a/R03: bronstatusvelden, samen met OCR-eigenaar | R09/R10 wachten op eventcontract; alleen geraakte statusconsumers wachten ook op R03-afspraak | Fixtures, replay en onafhankelijke UI-controls |
 | Frontendhost en offline updates | W3/R19: origin, API-routes, assetpaden en cacheversie; W1/R05 toetst behoud van updategedrag | Alleen host-/cachewijzigingen en hun consumerintegratie | R05 kan op de huidige host worden afgerond; runtime/toolbundeling kan door |
 | Runtime in installer | R17-onboarding en R19-bundel | R20; integraal bewijs R21/R22 | Migratiegevallen en CI-ontwerp voorbereiden |
 
@@ -479,7 +515,7 @@ via het gewone releaseproces; W1 hoeft niet op een volledige installer te wachte
 
 | Mijlpaal | Inhoud en acceptatie | Verantwoordelijke |
 | --- | --- | --- |
-| M1 — Zelfstandig resultaat | W1: R03–R06 en UX-criteria bewezen. W2: R01/R02a/R07–R11 en OCR-criteria bewezen. W3: R02b/R14–R22 en installatiecriteria bewezen. Per werkstroom afzonderlijk afvinken; benodigde R12/R13-subtaken horen bij hun eigenaar. | Werkstroomeigenaar met reviewer |
+| M1 — Zelfstandig resultaat | W1: R03–R06 en UX-criteria bewezen. W2: R01/R02a/R07a/R07b/R08–R11 en OCR-criteria bewezen. W3: R02b/R14–R22 en installatiecriteria bewezen. Per werkstroom afzonderlijk afvinken; benodigde R12a–c/R13a–e-subtaken horen bij hun eigenaar. | Werkstroomeigenaar met reviewer |
 | M2 — Geïntegreerde rework | Op dezelfde kandidaatcommit: game detecteren of handmatig kiezen → packs controleren → leesmodus kiezen → companion starten → bronstatus/OCR/transcript gebruiken. Herstart bewaart voorkeuren; game-/taalwissel weert oude resultaten. Beide modi en de geclaimde desktop-/mobiele routes zijn gecontroleerd. | Integrator met de drie eigenaren |
 | M3 — Releasegereed | M1 voor alle onderdelen van de geplande reworkrelease, M2 en gate G bewezen; werkelijk installerartifact op schone Windows en relevante apparaten getest; migratie/rollback, checksums en resterende beperkingen vastgelegd. Publicatie volgt pas het geautoriseerde releaseproces. | Integrator/maintainer |
 
@@ -506,12 +542,16 @@ keer uit te voeren; vervolgtaken volgen de genoemde afhankelijkheden.
 | Geïnstalleerde voicepacks tonen | R16–R17 |
 | Browser Extension/Lexirise API kiezen tijdens installatie en later | R04, R14, R17, R20 |
 | Minder tekst op desktop/mobiel; bereikbare vraagtekenhulp | R06 |
-| Game-specifieke OCR beschermen, ZZZ-comics en YouTube-replay | R01, R07–R11 |
+| Game-specifieke OCR beschermen, ZZZ-comics en YouTube-replay | R01, R07a/R07b, R08–R11, R12b, R13b/R13c/R13e |
 | Verbindingsmelding uitleggen en herstel bieden | R03 |
 | Leesopties alleen voor Lexirise API | R04 |
 | Updatebanner verwijderen | R05 |
 | Python/Rust/alternatieven onderbouwd kiezen | R02a–R02c, R18–R19, R23–R24 |
-| AI kan veilig parallel werken en bewijs overdragen | Startcriteria per taak, R12–R13, gate G, AI-werkwijze |
+| AI kan veilig parallel werken en bewijs overdragen | Startcriteria per taak, R12a–c/R13a–e, gate G, AI-werkwijze |
+
+De concrete architectuurverbeteringen zijn onderbouwd in
+[rework-architecture.md](rework-architecture.md); het ontwerp is geen claim dat
+alle benodigde implementaties of metingen al bestaan.
 
 ## Besluiten die bewijs vereisen
 
@@ -520,7 +560,7 @@ keer uit te voeren; vervolgtaken volgen de genoemde afhankelijkheden.
 | Kernruntime | Python behouden; Rust/C# alleen gericht | R24, geen blokkade voor installer |
 | Desktopfrontend | Onderzoeken of statische build Node/Wrangler op gebruikers-pc kan vervangen | R19 |
 | Installer | Per-user Inno Setup met runtimebundel | R18–R20, schone-Windows-proef |
-| OCR-volgorde | Authored metadata indien geverifieerd, anders tijd; onzeker blijft onzeker | R01/R07–R09 |
+| OCR-volgorde | Authored metadata indien geverifieerd, anders tijd; onzeker blijft onzeker | R01/R07a/R07b/R12b/R08–R09 |
 | Performancegrenzen | Nog geen onderbouwde absolute doelen | R02a/R02b/R02c vóór de betreffende optimalisatie/eindbeoordeling |
 | Distributieondertekening | Afzonderlijk van bestaande checksums/provenance | R22, inclusief beschermde sleutelvoorziening |
 
