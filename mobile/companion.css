@@ -20,7 +20,7 @@ body.developer-mode #transcript,body.developer-mode .actions[hidden]{display:blo
   .current-card { padding:12px; margin:12px 0; }
   .current-card > .eyebrow { margin-bottom:8px; }
   .current-card .current-dialogue { padding:0; }
-  .history-toolbar { margin:20px 0 10px; gap:8px; }
+  .history-toolbar { margin:8px 0; gap:6px; }
   .history-list { gap:8px; }
   .history-list .dialogue { padding:12px; }
   .line-meta { align-items:baseline; gap:8px; line-height:1.35; }
@@ -28,11 +28,12 @@ body.developer-mode #transcript,body.developer-mode .actions[hidden]{display:blo
   .line-meta span { flex:none; white-space:nowrap; font-size:11px; }
   .dialogue .current-chinese,.dialogue .reading-text { margin:10px 0 6px; line-height:1.7; letter-spacing:0; }
   .dialogue .reading-text { overflow-wrap:break-word; line-break:strict; }
-  .history-list .current-chinese,.history-list .reading-text { font-size:min(var(--lexirise-font-size,27px),22px); }
+  .current-dialogue .current-chinese { font-size:calc(var(--lexirise-font-size,27px) * 1.1); }
+  .history-list .current-chinese,.history-list .reading-text { font-size:calc(var(--lexirise-font-size,27px) * .82); }
   .dialogue .reading-token { margin:0 1px 4px; }
-  .translation { margin:6px 0 10px; font-size:14px; line-height:1.5; }
+  .translation { margin:6px 0 8px; font-size:var(--translation-font-size,14px); line-height:1.5; }
   .line-actions { display:grid; grid-template-columns:1.15fr 1fr 1.1fr; gap:5px; }
-  .line-actions button { min-width:0; min-height:44px; padding:6px 4px; font-size:11px; line-height:1.25; }
+  .line-actions button { min-width:0; min-height:32px; padding:4px; font-size:11px; line-height:1.25; }
   .message { padding:10px 12px; gap:8px; font-size:14px; }
   .message button { flex:none; max-width:120px; padding:8px 10px; font-size:12px; }
 
@@ -44,9 +45,10 @@ body.developer-mode #transcript,body.developer-mode .actions[hidden]{display:blo
     transform:none !important;
     width:auto !important;
   }
+  .word-sheet-positioner[data-anchor-hidden] { visibility:visible; }
   .word-sheet {
     width:100%; max-width:none; overflow:hidden;
-    max-height:calc(100dvh - 80px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height:calc(50dvh - 8px - env(safe-area-inset-bottom));
     border-radius:14px; font-size:14px;
   }
   .word-sheet-top { padding:12px 56px 8px 12px; gap:8px; }
@@ -58,6 +60,33 @@ body.developer-mode #transcript,body.developer-mode .actions[hidden]{display:blo
   .word-tabs { margin:0 12px; }
   .word-sheet .word-tabs button { min-height:44px; padding:8px; font-size:13px; }
   .word-sheet-body { padding:10px 12px 14px; font-size:14px; }
+  .reader-pane.lookup-open .current-card {
+    position:sticky; top:8px; z-index:35;
+    max-height:calc(50dvh - 16px); overflow:auto; overscroll-behavior:contain;
+    scroll-margin-top:8px;
+  }
+}
+
+/* Transcript controls share a single compact row even on narrow phones. */
+.history-toolbar { flex-direction:row; align-items:center; gap:6px; margin:8px 0; }
+.history-toolbar .tabs { flex:none; gap:4px; }
+.history-toolbar .tabs button { min-height:32px; padding:4px 7px; font-size:12px; }
+.history-toolbar .search-label { min-width:0; max-width:none; flex:1; }
+.history-toolbar input { min-width:0; height:32px; padding:3px 7px; font-size:16px; }
+.line-actions button { min-height:32px; padding:4px 8px; }
+.reader-pane .translation { font-size:var(--translation-font-size,14px); }
+.font-size-controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:0 20px; }
+.font-size-controls input { padding:0; accent-color:#7edfc4; }
+.font-size-controls span { font-size:12px; color:#a4b4c0; }
+body.reader-active[data-view=reader] :is(.public-guide,.companion-header,.device-bar) { display:none; }
+body.reader-active[data-view=reader] .companion-nav { padding:0 0 6px; }
+
+@media (max-height:500px) and (pointer:coarse) {
+  .word-sheet-top { padding:6px 44px 4px 8px; }
+  .word-sheet-title { font-size:24px; }
+  .word-sheet :is(.word-speak,.word-sheet-close) { width:32px; height:32px; min-height:32px; }
+  .word-sheet .word-levels button { min-height:32px; }
+  .word-sheet .word-tabs button { min-height:32px; padding:4px 6px; }
 }
 
 .public-guide { margin:0 0 16px; font-size:14px; }

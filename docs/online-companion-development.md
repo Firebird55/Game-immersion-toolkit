@@ -21,12 +21,22 @@ forms, raw counters and report downloads. The explicit `?developer=1` URL opens
 the expanded module-verification workspace used by the older capture/OCR tests.
 Normal UI tests use the default URL and assert that these controls are hidden.
 
-The phone reader uses a nearly full-width nonmodal lookup sheet, with a dynamic
-viewport height limit and safe-area margins. Its header and tabs stay visible
-while definitions scroll. Desktop keeps the shared anchored lookup. These are
-host presentation rules in `mobile/companion.css`; the shared source and vendor
+The phone reader uses a nearly full-width nonmodal lookup sheet, capped at half
+the dynamic viewport height with safe-area margins. Opening a lookup brings the
+current line into the upper half; long lines scroll independently there. The
+lookup header and tabs stay visible while definitions scroll. Desktop keeps the
+shared anchored lookup. These are host presentation rules in
+`mobile/companion.css`; the shared source and vendor
 pin are unchanged. Phone current-line and history cards use one layer of padding,
-compact annotated text and a single row of 44px action targets.
+compact annotated text and a single row of 32px sentence actions. History,
+Favorites and search share another compact row. Settings offers separate local
+source/game-text (18–48px) and target/translation (10–32px) font controls, retained
+across reloads in both reader modes. Source size also follows Reading options.
+
+During a live paired-PC session or connected mobile OCR, Reader hides the guide,
+header and device setup. Navigation remains available; Connection and Settings
+restore setup access, and stopping or disconnecting restores the idle layout.
+Starting OCR switches back to Reader.
 
 Run `node scripts/mobile-reader-layout-e2e.mjs` after bundling to verify populated
 cards and mocked lookups in Chromium, Firefox and WebKit, including 320–430px
