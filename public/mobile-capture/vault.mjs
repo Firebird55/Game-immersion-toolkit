@@ -7,7 +7,7 @@ async function derive(passphrase, salt, usage) {
   return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',iterations:600000,salt}, material, {name:'AES-GCM',length:256}, false, [usage]);
 }
 export async function encryptKey(key, passphrase, confirmation) {
-  if (typeof passphrase !== 'string' || [...passphrase].length < 12 || passphrase !== confirmation) throw Error('Confirm a passphrase of at least 12 characters.');
+  if (typeof passphrase !== 'string' || [...passphrase].length < 4 || passphrase !== confirmation) throw Error('Confirm a passphrase of at least 4 characters.');
   if (typeof key !== 'string' || !key.trim() || key.length > 4096 || /[\r\n]/.test(key)) throw Error('Enter a valid API key.');
   const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
   const derived = await derive(passphrase, salt, 'encrypt');
@@ -30,6 +30,19 @@ export function createVault(storage, {onLock=()=>{},now=Date.now}={}) {
     exists:async()=>Boolean(await storage.get('lexirise-vault')),
     async connect(value,passphrase,confirmation){lock();const token=revision;const record=await encryptKey(value,passphrase,confirmation);if(token!==revision)throw Error('Connection cancelled.');await storage.put('lexirise-vault',record);if(token!==revision)throw Error('Connection cancelled. The stored key remains locked.');key=value.trim();},
     async unlock(passphrase){lock();const token=revision;const value=await decryptKey(await storage.get('lexirise-vault'),passphrase);if(token!==revision)throw Error('Unlock cancelled.');key=value;},
+    async linkViewer(code){
+      if(typeof code!=='string'||!/^[a-zA-Z0-9_-]{4,128}$/.test(code))return;
+      const value=this.credential(),token=revision,record=await storage.get('lexirise-vault');
+      const viewer=await encryptKey(value,code,code);
+      if(token!==revision)throw Error('Vault locked. Unlock and reconnect to link this code.');
+      await storage.put('lexirise-vault',{...record,viewer});
+    },
+    async unlockViewer(code){
+      lock();const token=revision,record=await storage.get('lexirise-vault');let value;
+      try{value=await decryptKey(record?.viewer??record,code);}
+      catch{if(!record?.viewer)throw Error('Unlock Lexirise once in Settings to link this stream code.');value=await decryptKey(record,code);}
+      if(token!==revision)throw Error('Unlock cancelled.');key=value;
+    },
     async changePassphrase(passphrase,confirmation){const value=this.credential(),token=revision;const record=await encryptKey(value,passphrase,confirmation);if(token!==revision)throw Error('Vault locked. Unlock and retry.');await storage.put('lexirise-vault',record);},
     async forget(){lock();await storage.remove('lexirise-vault');}, lock,
     visibility(hidden){clearTimeout(timer);if(hidden){hiddenAt??=now();timer=setTimeout(lock,Math.max(0,BACKGROUND_LOCK_MS-(now()-hiddenAt)));}else{if(hiddenAt!==null&&now()-hiddenAt>=BACKGROUND_LOCK_MS)lock();hiddenAt=null;}}

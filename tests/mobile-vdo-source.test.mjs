@@ -30,6 +30,8 @@ function fixture(options = {}) {
 test('viewer URL allowlist preserves password, room, server and route values', () => {
  const original = 'https://vdo.ninja/?view=synthetic&password=synthetic%2Btest&room=test&wss=wss.vdo.ninja%3A443&codec=h264&buffer=500';
  assert.equal(parseVdoViewerUrl(original).url, original);
+ assert.equal(parseVdoViewerUrl(' testCode42 ').url, 'https://vdo.ninja/?view=testCode42');
+ assert.equal(parseVdoViewerUrl('testCode42').streamId, 'testCode42');
  assert.equal(parseVdoViewerUrl('https://vdo.ninja/?pull=synthetic&p=0').streamId, 'synthetic');
  const whep = 'https://vdo.ninja/?whepplay=https%3A%2F%2Fde1.meshcast.io%2Fwhep%2Fsynthetic&whepplaytoken=synthetic';
  assert.equal(parseVdoViewerUrl(whep).url, whep); assert.equal(parseVdoViewerUrl(whep).route, 'whep');

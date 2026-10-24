@@ -11,7 +11,8 @@ function unsupported(message) { return new Error(message); }
 export function parseVdoViewerUrl(value) {
  if (typeof value !== 'string' || value.length > 4096 || /[\u0000-\u001f\u007f]/.test(value)) throw unsupported('Paste the complete official VDO.Ninja viewer link.');
  let url;
- try { url = new URL(value.trim()); } catch { throw unsupported('Paste a complete HTTPS viewer link.'); }
+ const input=value.trim();
+ try { url = new URL(/^[a-zA-Z0-9_-]{1,128}$/.test(input)?`https://vdo.ninja/?view=${input}`:input); } catch { throw unsupported('Enter a VDO.Ninja stream code or a complete HTTPS viewer link.'); }
  if (url.hostname === 'meshcast.io') {
   // meshcast.io/view.js?v=20 uses ADDRESS + '/' + id + '/whep'.
   // Do not infer routes for other Meshcast pages or silently discard options.

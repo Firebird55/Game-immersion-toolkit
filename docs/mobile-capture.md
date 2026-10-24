@@ -51,3 +51,14 @@ playback. Text, history, favorites and calibration may remain remembered. Paste
 the viewer link again. Disconnect before applying a website update.
 [Library setup and recovery](mobile-library.md) explains older multi-ZIP imports,
 quota errors, supported languages and private export handling.
+
+## VDO.Ninja codes and saved keys
+
+The receiver accepts a stream code or a complete VDO.Ninja viewer link. Keep
+using the full link for streams with passwords or additional viewer options.
+A saved Lexirise key can use a passphrase of four or more characters. Entering
+a stream code also attempts to unlock that key. If the code differs from the
+existing passphrase, unlock once in Settings and connect the screen; subsequent
+connections with that code unlock the key automatically. Only an encrypted
+copy of the key is saved for this purpose. The code stays in session memory.
+Changing the passphrase or replacing/forgetting the key removes the linked code.
