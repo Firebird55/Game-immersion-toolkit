@@ -1,5 +1,10 @@
 # Faster development checks
 
+The [rework roadmap](rework-roadmap.md) defines priorities, dependencies and
+acceptance criteria for the proposed rework. Its [AI development workflow](ai-development-workflow.md)
+describes bounded tasks, independent review and evidence handoff; implementation
+has not started merely because these planning documents exist.
+
 Use `npm run check:changed` for working changes, or add `-- --base origin/main`
 for a branch. Documentation changes check generated guides, links and publication
 safety. Python, desktop and mobile changes select their relevant tests. Unknown
