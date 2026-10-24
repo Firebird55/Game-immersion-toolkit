@@ -33,14 +33,16 @@ export function changedFiles(base, {cwd = process.cwd()} = {}) {
   const readGit = (...args) => execFileSync('git', args, {cwd, encoding: 'utf8', stdio: ['ignore','pipe','pipe']});
   try { if (hasHiddenIndexEntries(cwd)) files.add('__hidden_index_entries__'); }
   catch { files.add('__unknown_index__'); }
+  // Treat renames as deletion + addition so both source and destination gates
+  // survive moves across categories or special scenario dependency paths.
   if (base !== undefined) {
     try {
       if (typeof base !== 'string' || !base) throw new Error('Missing base');
       const resolved = readGit('rev-parse','--verify','--end-of-options',`${base}^{commit}`).trim();
-      for (const file of readGit('diff','--name-only','-z',resolved,'HEAD','--').split('\0')) if (file) files.add(file);
+      for (const file of readGit('diff','--no-renames','--name-only','-z',resolved,'HEAD','--').split('\0')) if (file) files.add(file);
     } catch { files.add('__unknown_base__'); }
   }
-  for (const args of [['diff','--name-only','-z','HEAD','--'],['ls-files','--others','--exclude-standard','-z']])
+  for (const args of [['diff','--no-renames','--name-only','-z','HEAD','--'],['ls-files','--others','--exclude-standard','-z']])
     for (const file of readGit(...args).split('\0')) if (file) files.add(file);
   return [...files];
 }

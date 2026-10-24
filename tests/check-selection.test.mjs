@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {selectChecks,scenarioPlan,executeChecks} from '../scripts/check-changed.mjs';
+import {execFileSync} from 'node:child_process';
+import {mkdtempSync,mkdirSync,writeFileSync,renameSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {dirname,join} from 'node:path';
+import {changedFiles,selectChecks,scenarioPlan,executeChecks} from '../scripts/check-changed.mjs';
 import {browserSuites,runBrowserSuite} from '../scripts/check-browser-suite.mjs';
 test('documentation avoids application builds',()=>assert.deepEqual(selectChecks(['README.md','docs/beyond-support.md','tests/fixtures/mobile-native-chinese.md']),['docs']));
 test('backend and frontend changes combine their gates',()=>assert.deepEqual(selectChecks(['backend/capture.py','app/companion.tsx']),['desktop','python']));
@@ -123,3 +127,52 @@ test('mobile reader and update harness changes execute the mobile update scenari
   assert.ok(calls.some(args => args.includes('scripts/mobile-update-e2e.mjs')), file);
  }
 });
+
+
+function selectionFixture(t, source) {
+ const cwd=mkdtempSync(join(tmpdir(),'check-selection-'));
+ t.after(()=>rmSync(cwd,{recursive:true,force:true}));
+ const git=(...args)=>execFileSync('git',args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ git('init','-q','-b','main');
+ git('config','user.name','Synthetic Selector Fixture');
+ git('config','user.email','synthetic-selector@users.noreply.github.com');
+ git('config','commit.gpgsign','false');
+ mkdirSync(dirname(join(cwd,source)),{recursive:true});
+ writeFileSync(join(cwd,source),'Synthetic source unchanged by rename\n');
+ git('add','.');git('commit','-qm','Synthetic baseline');
+ return {cwd,git,base:git('rev-parse','HEAD')};
+}
+
+for(const phase of ['unstaged','staged','committed']) {
+ test(`${phase} renames retain both source and destination check dependencies`,t=>{
+  for(const [source,destination,expected] of [
+   ['backend/api.py','docs/api.md',['desktop','docs','python']],
+   ['mobile/companion.jsx','mobile/reader.jsx',['mobile']],
+   ['scripts/check-changed.mjs','docs/previous-checker.md',['full']],
+  ]) {
+   const {cwd,git,base}=selectionFixture(t,source);
+   mkdirSync(dirname(join(cwd,destination)),{recursive:true});
+   renameSync(join(cwd,source),join(cwd,destination));
+   if(phase!=='unstaged')git('add','-A');
+   if(phase==='committed')git('commit','-qm','Synthetic rename');
+   const files=changedFiles(phase==='committed'?base:undefined,{cwd}),checks=selectChecks(files),scenarios=scenarioPlan(files,checks);
+   assert.deepEqual(files.sort(),[source,destination].sort(),`${phase}: ${source}`);
+   assert.deepEqual(checks,expected);
+   if(source==='backend/api.py'){
+    for(const name of ['ui-state-e2e','ui-state-react-e2e','local-access-e2e'])assert.ok(scenarios.browser.includes(name));
+    assert.ok(scenarios.windows.includes('update-companion-e2e'));
+   }
+   if(source==='mobile/companion.jsx')assert.ok(scenarios.browser.includes('mobile-update-e2e'));
+  }
+ });
+ test(`${phase} deletion keeps the removed API source in the check plan`,t=>{
+  const {cwd,git,base}=selectionFixture(t,'backend/api.py');
+  rmSync(join(cwd,'backend/api.py'));
+  if(phase!=='unstaged')git('add','-A');
+  if(phase==='committed')git('commit','-qm','Synthetic deletion');
+  const files=changedFiles(phase==='committed'?base:undefined,{cwd});
+  assert.deepEqual(files,['backend/api.py']);
+  assert.deepEqual(selectChecks(files),['desktop','python']);
+  assert.ok(scenarioPlan(files).browser.includes('local-access-e2e'));
+ });
+}
