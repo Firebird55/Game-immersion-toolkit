@@ -79,6 +79,10 @@ De grote onderdelen zijn werkstromen met eigen subtaken, geen opeenvolgende
 projectfasen. Eén persoon of team is eigenaar van elke werkstroom en kan daar
 AI-agents inzetten. Iedere subtaak omvat onderzoek, implementatie, tests en
 oplevering van haar eigen resultaat. Er is geen algemene voorbereidingsfase F0.
+De werkstromen kunnen zelfstandig starten en begrensde resultaten opleveren;
+ze zijn niet volledig losgekoppeld. Alleen de benoemde interfacewijzigingen en
+gezamenlijke eindproeven vereisen overdracht. Een hele werkstroom afronden is
+geen algemene voorwaarde om een andere te starten.
 
 **P0:** correctheid of bewijs vóór de betreffende wijziging/release.
 **P1:** directe productverbetering. **P2:** voorwaardelijk experiment.
@@ -96,6 +100,12 @@ de eerdere indeling. R00 wordt een startcontrole binnen elke taak; R02 wordt
 opgesplitst in R02a (OCR), R02b (Windows-bundel) en R02c (optioneel experiment).
 R12/R13 worden alleen als benodigde subtaken binnen een werkstroom ingepland.
 Voortgang staat bij het taakcontract, niet in een extra verzameling statusbestanden.
+De tabelkolom **Afrondingsbewijs** bepaalt het resultaat per subtaak. De checklists
+onder elke werkstroom beschrijven het gezamenlijke eindresultaat. Neem bij de
+start de relevante criteria, concrete scenario's en commands over in het taakcontract.
+Een voorbereidende taak vereist geen bewijs van een latere installer of consumer;
+dat ontbrekende integratiebewijs blijft toegewezen aan de genoemde vervolgtaak.
+Behoudsinvarianten en toepasselijke regressiechecks gelden bij iedere wijziging.
 
 ### Startcriteria per subtaak — voorheen R00
 
@@ -121,12 +131,12 @@ met Rust wacht op een gemeten probleem en vooraf gekozen vergelijkingscriteria.
 hoeven niet op elkaar te wachten; één schrijver tegelijk aan de companionbestanden.
 R06 kan hulpontwerp voorbereiden en integreert per afgerond control.
 
-| ID | Afgebakende oplevering | Voorwaarde |
-| --- | --- | --- |
-| R03 | Bronstatus behouden tot in de header; aanklikbare diagnose per subsystem | Startcontrole van het betrokken pad |
-| R04 | Labels Browser Extension/Lexirise API; leesopties alleen bij Lexirise API | Startcontrole van het betrokken pad |
-| R05 | Updatebanner verwijderen, offline cache en veilige activatie behouden | Bestaande updatechecks en lokale reproductie |
-| R06 | Permanente uitleg beperken; hulp via focus/hover/tap en herstelacties | R03–R04 voor de betreffende controls |
+| ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
+| --- | --- | --- | --- |
+| R03 | Bronstatus behouden tot in de header; aanklikbare diagnose per subsystem | Startcontrole van het betrokken pad | Statusmatrix met eerste frame, stilstaand beeld, pauze, reconnect, ontbrekende bibliotheek en accountslot geeft telkens de juiste uitleg; bestaande OCR-events blijven bruikbaar. |
+| R04 | Labels Browser Extension/Lexirise API; leesopties alleen bij Lexirise API | Startcontrole van het betrokken pad | Beide modi en beide mobiele leesoptie-ingangen gecontroleerd; oude voorkeuren werken na herladen; bestaande interne waarden en opslagkeys vastgelegd voor R17. |
+| R05 | Updatebanner verwijderen, offline cache en veilige activatie behouden | Bestaande updatechecks en lokale reproductie | Banner weg; actieve sessie herlaadt niet; veilige activatie en offline heropening behouden data op de huidige frontendhost. |
+| R06 | Permanente uitleg beperken; hulp via focus/hover/tap en herstelacties | R03–R04 voor de betreffende controls | Benoemde controls op desktop/mobiel hebben bereikbare, sluitbare vraagtekenhulp; keyboard/touch/focus gecontroleerd; noodzakelijke fouten blijven zichtbaar. |
 
 **Acceptatie**
 
@@ -159,15 +169,15 @@ R06 kan hulpontwerp voorbereiden en integreert per afgerond control.
 De native en mobiele uitvoering delen gedragsafspraken; een volledig afgeronde
 desktopimplementatie is geen voorwaarde voor mobiele ontwikkeling.
 
-| ID | Afgebakende oplevering | Voorwaarde |
-| --- | --- | --- |
-| R01 | Eigen synthetische temporele comicfixtures, onafhankelijke verwachte events en lokaal videomanifest | Startcontrole OCR; geen afhankelijkheid van W1/W3 |
-| R02a | Baseline en grenzen voor recall/precisie, duplicaten, inversies, trackfragmentatie, capture/OCR/matching/UI-tijd, p50/p95 en mobiele sessieduur | Meetplan direct; R01 en R07 voor betrouwbare productiemetingen vóór tuning |
-| R07 | Replay door de echte controllers, injecteerbare klok/bron; bewijs dat ZZZ het speciale pad gebruikt; volgorde/duplicatie/tijd als assertions | R01 |
-| R08 | Gedeeld fragment-/eventcontract (identiteit, occurrence en onzekere volgorde); gerichte reparatie van legacy/meertalige fragmentverschillen met behoud van ambiguïteitscontrole | R07; R02a-kwaliteitsgrenzen vóór matchingtuning |
-| R09 | Desktop-bubble-identiteit en volgorde over frames, inclusief onbekende volgorde binnen een eerste batch | R08; event-/volgordecontract voor desktop en mobiel vastgelegd |
-| R10 | Mobiele verwerking van meerdere ZZZ-bubbles en behoud van identiteit bij scroll/verplaatsing | R07/R08 en gedeeld event-/volgordecontract; afstemming met R03 bij statuswijzigingen |
-| R11 | ZZZ-videocorpus en hold-outscènes evalueren, plus regressiematrix voor overige actieve adapters | R07; eindbeoordeling na R08–R10 en R02a |
+| ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
+| --- | --- | --- | --- |
+| R01 | Eigen synthetische temporele comicfixtures, onafhankelijke verwachte events en lokaal videomanifest | Startcontrole OCR; geen afhankelijkheid van W1/W3 | Geannoteerde sequenties en manifest dekken de genoemde comicgevallen; omgekeerde/dubbele/stale testevents worden afgekeurd. Productieherkenning hoeft hier nog niet te slagen. |
+| R02a | Baseline en grenzen voor recall/precisie, duplicaten, inversies, trackfragmentatie, capture/OCR/matching/UI-tijd, p50/p95 en mobiele sessieduur | Meetplan direct; R01 en R07 voor betrouwbare productiemetingen vóór tuning | Versieerbaar rapport met reproduceerbare meting en vooraf vastgelegde kwaliteit-/latentiegrenzen per gekozen matrix; ontbrekende resultaten expliciet open. |
+| R07 | Replay door de echte controllers, injecteerbare klok/bron; bewijs dat ZZZ het speciale pad gebruikt; volgorde/duplicatie/tijd als assertions | R01 | Zelfde sequentie reproduceert dezelfde events/tijden door echte controllers; speciale ZZZ-route aangetoond; foutdetectie van de harness bewezen, bestaande productfouten apart geregistreerd. |
+| R08 | Gedeeld fragment-/eventcontract (identiteit, occurrence en onzekere volgorde); gerichte reparatie van legacy/meertalige fragmentverschillen met behoud van ambiguïteitscontrole | R07; R02a-kwaliteitsgrenzen vóór matchingtuning | Contract specificeert identiteit, occurrence, unknown order en stale events; bekende fragment-/ambiguïteitsgevallen slagen op legacy/meertalig. Mobiele pariteit wordt definitief getoetst in R10/R11. |
+| R09 | Desktop-bubble-identiteit en volgorde over frames, inclusief onbekende volgorde binnen een eerste batch | R08; event-/volgordecontract voor desktop en mobiel vastgelegd | Desktopsequenties halen de kritieke nul-foutcriteria én vereiste regels; verplaatsing, echte herhaling en onbekende eerste batch onderscheiden. |
+| R10 | Mobiele verwerking van meerdere ZZZ-bubbles en behoud van identiteit bij scroll/verplaatsing | R07/R08 en gedeeld event-/volgordecontract; afstemming met R03 bij statuswijzigingen | Dezelfde kritieke gevallen slagen via mobiele productiecontroller, inclusief zwarte bubbles, meer dan acht regels en meerdere gelijktijdige bubbles; bestaande bronstatus blijft werken. |
+| R11 | ZZZ-videocorpus en hold-outscènes evalueren, plus regressiematrix voor overige actieve adapters | R07; eindbeoordeling na R08–R10 en R02a | Vaste video-/hold-outmatrix haalt R02a-grenzen op de geclaimde routes; andere actieve adapters behouden gedrag; corpus, clocks en modelversies bij resultaten vermeld. |
 
 **Acceptatie**
 
@@ -236,15 +246,17 @@ blijven vereist voor de uiteindelijk gekozen release-inhoud.
 
 ### Gamebeheer en onboarding
 
-| ID | Afgebakende oplevering | Voorwaarde |
-| --- | --- | --- |
-| R14 | Installatiekandidaat-, packstatus- en voorkeurencontract; één service voor beide UI's | Startcontrole installatie; kandidaatcontract kan direct, opslagafspraak samen met R18 |
-| R15 | Steam-appmanifests, Epic/GOG-adapters, HoYoPlay na formaatvalidatie, begrensde fallback en handmatige paden | R14; adapters afzonderlijk testbaar |
-| R16 | Per-game/per-taal fysieke voicepackprobes, los van voorbereide index | R14; probes per game parallel mogelijk |
-| R17 | Games → talen/packs → Browser Extension/Lexirise API → gereed; opnieuw openen in WebUI | Leesmodusafspraak uit R04; R15–R16; afgestemde R14/R18-opslaggrens |
+| ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
+| --- | --- | --- | --- |
+| R14 | Installatiekandidaat-, packstatus- en voorkeurencontract; één service voor beide UI's | Startcontrole installatie met huidige runtime-eisen; geen volledige R18-oplevering nodig | Kandidaat-/pack-/voorkeurenschema en foutgevallen vastgelegd met gedeelde servicegrens; consumercontracttests slagen. Nieuwe launcherprobes volgen in R15/R16. |
+| R15 | Steam-appmanifests, Epic/GOG-adapters, HoYoPlay na formaatvalidatie, begrensde fallback en handmatige paden | R14; adapters afzonderlijk testbaar | Manifest- en mapfixtures dekken afwijkende drives, corrupt/stale/ontbrekend en cancel; geldige handmatige keuze blijft intact na ongeldige invoer. |
+| R16 | Per-game/per-taal fysieke voicepackprobes, los van voorbereide index | R14; probes per game parallel mogelijk | Elke geclaimde game/locale onderscheidt aanwezig, onvolledig, ontbrekend en onbekend, apart van reader/index; geen verkeerde-taal-fallback. |
+| R17 | Games → talen/packs → Browser Extension/Lexirise API → gereed; opnieuw openen in WebUI | Leesmodusafspraak uit R04; R15–R16; afgestemde R14/R18-opslaggrens | Herbruikbare onboardingflow werkt in WebUI/testhost met echte R15/R16-service; overslaan/hervatten en leesvoorkeurprecedentie bewezen. Installerhost wordt bewezen in R20. |
 
-R14 en R18 leggen samen vast wie voorkeuren schrijft, waar ze worden opgeslagen
-en welke migratie-/precedentieregels gelden vóór R17/R19/R21 die grens gebruiken.
+De W3-eigenaar levert de gedeelde opslagafspraak als eerste begrensde wijziging
+binnen R14, op basis van de huidige runtime en vroeg beschikbare R18-bevindingen: schrijver, locatie, schema,
+migratie en precedentie. R14 en R18 wachten dus niet op elkaars volledige oplevering.
+R17/R19/R21 gebruiken deze geïntegreerde afspraak.
 R15-launcherdetectie kan ondertussen op het R14-kandidaatcontract doorgaan.
 R17 kan op vastgelegde interfaces worden voorbereid; volledige acceptatie volgt
 pas met echte discovery/packprobes en de voorkeurenoverdracht naar W1.
@@ -272,14 +284,14 @@ pas met echte discovery/packprobes en de voorkeurenoverdracht naar W1.
 
 ### Windows-bundel, installer en migratie
 
-| ID | Afgebakende oplevering | Voorwaarde |
-| --- | --- | --- |
-| R02b | Baseline en criteria voor cold/warm start, CPU/RSS, workerherstel en bundelgedrag op Windows | Meetplan direct; huidige runtime en test-Windows nodig voor metingen vóór optimalisatie |
-| R18 | Runtime-/tool-/redistributie-inventaris, Windows-versies/architecturen en systeemvoorwaarden; app/data/cache/credentials-layout en prototypebesluit | Startcontrole runtime; opslaggrens samen met R14 |
-| R19 | Windows-runtimebundel met functionele probes; statisch serveren van frontend onderzoeken | R18; R02b voor prestatievergelijking; afgestemde R14/R18-opslaggrens |
-| R20 | Per-user installer met geïntegreerde onboarding, repair en uninstall | R17, R19 |
-| R21 | ZIP→installer-migratie, upgrade, annulering en rollback met synthetische gebruikersdata | Afgestemde R14/R18-opslaggrens; integraal bewijs met R20 |
-| R22 | Kandidaatbuild/artifactvalidatie in bestaande CI integreren; downloads verifiëren en ondertekeningbesluit vastleggen | R20–R21; daarna G uitvoeren voor afronding vóór publicatie |
+| ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
+| --- | --- | --- | --- |
+| R02b | Baseline en criteria voor cold/warm start, CPU/RSS, workerherstel en bundelgedrag op Windows | Meetplan direct; huidige runtime en test-Windows nodig voor metingen vóór optimalisatie | Windowsrapport met commit, machine, meetmethode en vooraf vastgelegde grenzen voor start, CPU/RSS en herstel; niet uitgevoerde meting blijft open. |
+| R18 | Runtime-/tool-/redistributie-inventaris, Windows-versies/architecturen en systeemvoorwaarden; app/data/cache/credentials-layout en prototypebesluit | Runtime-inventaris kan direct; neemt de geïntegreerde R14-opslagafspraak over | Runtime/tool/licentie- en Windowsmatrix plus app/data/opslaglayout vastgelegd; voor elke verplichte component is bundeling of expliciete systeemvoorwaarde bepaald. |
+| R19 | Windows-runtimebundel met functionele probes; statisch serveren van frontend onderzoeken | R18; R02b voor prestatievergelijking; afgestemde R14/R18-opslaggrens | Uitgepakte runtimebundel start zonder ontwikkelomgeving en doorloopt relevante game/OCR-probes; frontend/API/cachecontract en R02b-vergelijking bewezen. Installatiepad volgt in R20. |
+| R20 | Per-user installer met geïntegreerde onboarding, repair en uninstall | R17, R19 | Werkelijk geïnstalleerde kandidaat doorloopt dezelfde probes en R17-flow als standaardgebruiker; repair/uninstall/cancel/no-space/locked-file-cases slagen. |
+| R21 | ZIP→installer-migratie, upgrade, annulering en rollback met synthetische gebruikersdata | Afgestemde R14/R18-opslaggrens; integraal bewijs met R20 | ZIP-upgrade en falende migratie/update herstellen data en maximaal één capture-eigenaar; browseropslag, beschermde testcredentials en uninstall-behoud op de kandidaat gecontroleerd. |
+| R22 | Kandidaatbuild/artifactvalidatie in bestaande CI integreren; downloads verifiëren en ondertekeningbesluit vastleggen | R20–R21; toepasselijk W3-bewijs uit G; volledige reworkintegratie bij M2/M3 | Hosted CI valideert kandidaatartifact; gedownloade checksums/commitkoppeling gecontroleerd; signingbesluit en native matrixbewijs vastgelegd voor W3, zonder te wachten op alle W2-verbeteringen. |
 
 Voorkeur voor het eerste prototype: Inno Setup plus gebundelde bestaande runtime,
 met een PyInstaller-directorybundel als te toetsen optie. MSI/MSIX/Tauri zijn
@@ -307,6 +319,9 @@ OCR-componenten uit Snipping Tool zijn geen vrij herdistribueerbare aanname.
   ZIP-migratie behoudt synthetische historie, favorieten, kalibratie, paden,
   voorkeuren en beschermde testcredentials. Geen blind kopiëren van DPAPI tussen
   Windowsgebruikers. Een mislukte migratie/update houdt herstel mogelijk.
+  Browserdata (localStorage/IndexedDB) is aan de origin gekoppeld: host/poort/protocol
+  blijven compatibel, of R19/R21 bewijzen een expliciete overdracht met behoud van
+  voorkeuren, historie en kalibratie. Alleen bestandskopieën bewijzen dit niet.
 - [ ] Update laat maximaal één capture-eigenaar actief; voorbereidingsfout houdt
   de vorige runtime bruikbaar. Uninstall behoudt gebruikersdata standaard.
 - [ ] GitHub-hosted CI controleert het echte installerartifact; een schone gewone
@@ -324,10 +339,10 @@ R12-status bij R03 of R12-events bij R08. De betrokken werkstroomeigenaar voert
 de wijziging uit; de integrator bewaakt afspraken met consumers. Een vierde
 medewerker kan een afgebakende subtaak of review oppakken, zonder brede herschrijving.
 
-| ID | Afgebakende oplevering | Voorwaarde |
-| --- | --- | --- |
-| R12 | Versieerbare transcript-, bron-, status- en gamecontracts; TS-types afleiden en inputgrenzen valideren waar nuttig | Concrete consumerbehoefte; gedragstests van het betrokken pad |
-| R13 | Per use-case orchestration uit grote modules halen; gamebeleid in expliciete adapters houden | Betrokken R12-contract; relevante W2-fixtures vóór OCR-verplaatsing |
+| ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
+| --- | --- | --- | --- |
+| R12 | Versieerbare transcript-, bron-, status- en gamecontracts; TS-types afleiden en inputgrenzen valideren waar nuttig | Concrete consumerbehoefte; gedragstests van het betrokken pad | Voor het benoemde contract slagen producer-/consumergevallen, inclusief ontbrekende versie/capability en oude clients; geen ongevraagde globale schemawijziging. |
+| R13 | Per use-case orchestration uit grote modules halen; gamebeleid in expliciete adapters houden | Betrokken R12-contract; relevante W2-fixtures vóór OCR-verplaatsing | Voor/na-diff behoudt het benoemde gedrag en foutpaden; eigen rollback en aantoonbare verantwoordelijkheidsgrens, zonder functionele reparatie te verstoppen. |
 
 **Acceptatie**
 
@@ -350,11 +365,11 @@ voorwaarde voor W1, W2 of W3; toegewezen wijzigingen voldoen wel aan deze criter
 **Prioriteit P2.** Eigenaar wordt pas bij een concrete onderzoeksvraag aangewezen.
 Dit onderzoek is geen voorwaarde voor de drie werkstromen of hun mijlpalen.
 
-| ID | Afgebakende oplevering | Voorwaarde |
-| --- | --- | --- |
-| R02c | Baseline, hypothese en succesgrens voor één native probleem | Hergebruik relevante R02a/R02b-metingen; vul alleen ontbrekend bewijs aan |
-| R23 | Eén probleem vergelijken met Python-workerproces, Rust of C# achter dezelfde grens | R02c; contracten en regressies van het gekozen onderdeel; R19 indien bundeling onderdeel van de proef is |
-| R24 | Beslisdocument met metingen, onderhoudskosten, compatibiliteit en behoud/migratiekeuze | R23 |
+| ID | Afgebakende oplevering | Voorwaarde | Afrondingsbewijs voor deze subtaak |
+| --- | --- | --- | --- |
+| R02c | Baseline, hypothese en succesgrens voor één native probleem | Hergebruik relevante R02a/R02b-metingen; vul alleen ontbrekend bewijs aan | Eén meetbaar probleem, identieke vergelijkingsinput en succesgrens door eigenaar/reviewer vastgelegd vóór het experiment. |
+| R23 | Eén probleem vergelijken met Python-workerproces, Rust of C# achter dezelfde grens | R02c; contracten en regressies van het gekozen onderdeel; R19 indien bundeling onderdeel van de proef is | Vergelijking op dezelfde omgeving heeft meetresultaten én correctheids-/herstelbewijs; geen winstclaim op basis van alleen hosttaal of build. |
+| R24 | Beslisdocument met metingen, onderhoudskosten, compatibiliteit en behoud/migratiekeuze | R23 | Besluit noemt gemeten winst of behoud van Python, onderhoud, compatibiliteit en rollback; een migratie volgt niet automatisch uit het experiment. |
 
 **Acceptatie**
 
@@ -418,6 +433,7 @@ uitsluitend aan de hand van zijn eigen implementatiesamenvatting.
 | Leesmodus/voorkeuren | R04: labels, interne waarde en leesgedrag; R14/R18: opslag en precedentie | R17-integratie met W1 | Discovery en bundeling; R03/R05 |
 | Installatieopslag | R14/R18: schema, schrijver, locatie en migratie-eigenaarschap | Opslaggebruik in R17/R19/R21 | R15/R16 op afgesproken kandidaat-/packcontract |
 | OCR-events en status | R08: identiteit/volgorde; R03: bronstatusvelden, samen met OCR-eigenaar | R09/R10 wachten op eventcontract; alleen geraakte statusconsumers wachten ook op R03-afspraak | Fixtures, replay en onafhankelijke UI-controls |
+| Frontendhost en offline updates | W3/R19: origin, API-routes, assetpaden en cacheversie; W1/R05 toetst behoud van updategedrag | Alleen host-/cachewijzigingen en hun consumerintegratie | R05 kan op de huidige host worden afgerond; runtime/toolbundeling kan door |
 | Runtime in installer | R17-onboarding en R19-bundel | R20; integraal bewijs R21/R22 | Migratiegevallen en CI-ontwerp voorbereiden |
 
 Leg een gedeelde afspraak klein vast en integreer die voordat consumers ervan
@@ -426,6 +442,24 @@ in `mobile/companion.jsx`, `public/mobile-capture/capture.js` of backend-API's
 stemmen de betreffende eigenaren scope en volgorde af. Worktrees voorkomen geen
 inhoudelijke conflicten. Een blokkerende afhankelijkheid krijgt een naam en
 vervolgstap; onafhankelijke subtaken blijven uitvoerbaar.
+
+### Eigenaarschap bij gedeelde bestanden
+
+Dit zijn integratie-eigenaren, geen verbod op bijdragen van anderen. Een andere
+werkstroom levert een gerichte wijziging aan; de eigenaar plant integratie en
+checks. Binnen één checkout schrijft steeds maar één taak aan hetzelfde bestand.
+
+| Gebied | Integratie-eigenaar | Concrete grens |
+| --- | --- | --- |
+| `mobile/companion.jsx`, `app/companion.tsx` | W1 | W1 beheert presentatie en bestaande leesvoorkeuren; W3 levert alleen de R17-import/precedentiebrug, W2 eventuele transcriptvelden |
+| `public/mobile-capture/capture.js`, `mobile-ui.mjs`, bron-/OCR-events | W2 | W1 levert R03-statusdoorvoer gericht aan; bestaande events blijven ondersteund tot beide consumers zijn aangepast |
+| `app/toolkit-setup.tsx`, setup-API, installatieopslag | W3 | R04-leesmodusafspraak gaat vóór R17; R06-hulp wordt afzonderlijk ingepland en blokkeert de onboardingimplementatie niet |
+| Backend capture/matching versus runtime/launcher | W2 voor algoritme; W3 voor bundeling/lifecycle | W3 verandert geen OCR-beleid als packagingfix; worker-/API-grens gezamenlijk afspreken |
+| `backend/api.py`, gedeelde schemas en releaseconfiguratie | Integrator | Per wijziging één schrijver aanwijzen; benoem welke producers/consumers of artifacts opnieuw getest worden |
+
+Wijzigt een afspraak na overdracht, dan noemt de producer de geraakte consumers
+en draagt hij adapter/migratie en regressiebewijs mee. Ontwikkeling met een stub
+op een afgesproken interface kan doorgaan, maar bewijst de echte integratie niet.
 
 ### Gezamenlijke oplevermomenten
 

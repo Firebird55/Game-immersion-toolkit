@@ -59,6 +59,9 @@ binnen de betrokken werkstroom en wordt geen vierde brede refactorbaan.
 | Shared reader | Onderzoek/tests in consumers | Source in Lexirise-shared-components; versie en beide consumerupdates |
 
 Twee agents schrijven niet tegelijk aan hetzelfde gedeelde bestand of contract.
+De [eigenaarschapstabel](rework-roadmap.md#eigenaarschap-bij-gedeelde-bestanden)
+wijst aan wie bijdragen uit andere werkstromen integreert. Zelfstandig starten
+betekent niet dat iedere werkstroom gedeelde interfaces eenzijdig kan veranderen.
 Leg eerst de grens vast, integreer de kleine voorbereidende wijziging en laat
 afhankelijke taken daarna daarop starten. Gebruik geïsoleerde branches/worktrees
 waar schrijvers anders dezelfde checkout zouden wijzigen; inspecteer bestaande
@@ -83,7 +86,8 @@ Context: AGENTS.md, RELEASE.md, werkstroomcriteria, relevante bronnen/tests
 Scope/eigenaar: toegestane modules; integratie-eigenaar bij overlap
 Buiten scope: expliciete aangrenzende wijzigingen die een aparte taak zijn
 Invarianten: relevante data-, taal-, account-, capture- en compatibiliteitsregels
-Acceptatie: observeerbare succes- én foutgevallen; bron van de verwachting
+Acceptatie: afrondingsbewijs uit de roadmap; concrete succes- en foutgevallen met verwachte uitkomst
+Bewijsgrens: wat deze taak bewijst; welk integratiebewijs bij welke vervolgtaak hoort
 Verificatie: gerichte commands, runtime/hardware, fixture- of corpusversie
 Ontbrekende middelen: wat lokaal ontbreekt en welke claim daardoor open blijft
 Rollback: hoe deze wijziging veilig kan worden teruggenomen
@@ -91,7 +95,10 @@ Oplevering: commit, checkresultaten, review, resterend apparaatbewijs
 Volgende stap: exact vervolg binnen scope of concreet besluitpunt
 ```
 
-`ready` betekent dat de benodigde contracts en toetsbare criteria duidelijk zijn;
+`ready` betekent dat de benodigde contracts en toetsbare criteria duidelijk zijn:
+het taakcontract noemt de scenario's, verwachte resultaten, scope, beschikbare
+dependencies en concrete checkcommands uit de actuele repository. Algemene termen
+zoals 'werkt goed' of 'relevante tests' zijn onvoldoende als uitvoeropdracht;
 het is geen nieuwe toestemming. `implemented` betekent dat code klaarstaat maar
 verplicht bewijs nog kan ontbreken. `verified` vereist alle relevante criteria,
 review en apparaatchecks. `blocked` noemt een specifieke ontbrekende voorwaarde
@@ -141,6 +148,17 @@ Voorbeeld: R17 gebruikt de leesmodusafspraak uit R04 en de opslagafspraak uit
 R14/R18. Discovery en bundeling kunnen ondertussen verder; een onvoltooide
 statusbadge R03 blokkeert die niet. R09 en R10 kunnen na het gedeelde
 identiteits-/volgordecontract ieder hun eigen platform uitvoeren.
+
+R17 bewijst de herbruikbare onboardingflow eerst in de WebUI/testhost; R20
+bewijst dezelfde flow in de werkelijk geïnstalleerde kandidaat. R19 bewijst de
+uitgepakte runtimebundel; het installerbewijs hoort bij R20/R22. Zo hoeft een
+voorbereidende taak niet te wachten op haar eigen consumer. Stubs bewijzen alleen
+het afgesproken contract, nooit een geslaagde integratie met echte dependencies.
+
+W3 legt bij wijziging van frontendhosting ook origin, API-/assetpaden en
+cachegedrag vast. W1 toetst het gevolg voor offline updates; R21 bewijst behoud
+van origin-gebonden browseropslag. R05 hoeft daarvoor niet vooraf op de nieuwe
+bundel te wachten: de huidige host blijft zijn expliciete verificatiebaseline.
 
 Na integratie worden de geraakte checks op de gezamenlijke commit uitgevoerd.
 Gebruik M2 voor de volledige gebruikersflow en M3 voor artifact-/apparaatbewijs.
@@ -218,6 +236,14 @@ pas om actie wanneer die kandidaat klaarstaat; bereid intussen onafhankelijk wer
 ## Praktische uitvoeropdracht
 
 Gebruik dit pas wanneer een werkpakket daadwerkelijk is toegewezen:
+
+Vul eerst het taakcontract in vanuit de tabelkolom **Afrondingsbewijs**. Bij R04
+betekent dit bijvoorbeeld: bestaande `migaku`-voorkeur laden, beide modi wisselen,
+herladen zonder voorkeursverlies en beide mobiele leesoptie-ingangen controleren.
+Leg de betrokken UI-bestanden en afspraak met de W3-eigenaar van setup vast.
+De nieuwe installerbrug uit R17 valt buiten deze taak. Noteer de concrete
+geselecteerde checks en eventuele extra scenario's; die keuze volgt uit de
+actuele code, niet uit een veronderstelde testsuite.
 
 > Voer pakket Rxx uit de rework-roadmap uit. Lees AGENTS.md, RELEASE.md en het
 > relevante taakcontract. Controleer baseline en Git-status, behoud de genoemde
