@@ -7,6 +7,7 @@ import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
+import {GamePicker, useTargetLanguage} from './game-picker';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -427,6 +428,7 @@ function CompanionClient() {
   // A generation distinguishes A → B → A from an outstanding request for A.
   const accountScope = useRef({ account: 'legacy', generation: 0, ready: false });
   const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
+  const gamePicker = useTargetLanguage(readingMode, lexirise.account, lexirise.configured);
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
@@ -658,14 +660,22 @@ function CompanionClient() {
     return () => window.clearInterval(timer);
   }, [settingsOpen]);
 
+  const activeGameAvailable = gamePicker.games.some(game => game.id === status?.capture.active_game);
   useEffect(() => {
     const active = status?.capture.active_game;
-    if (active && active !== lastActiveGame.current) {
+    if (active && activeGameAvailable && active !== lastActiveGame.current) {
       lastActiveGame.current = active;
       setSelectedGame(active);
       setHistoryPage(0);
     }
-  }, [changeTranscriptTab, status?.capture.active_game, transcriptTab]);
+  }, [activeGameAvailable, status?.capture.active_game]);
+
+  useEffect(() => {
+    if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
+      setSelectedGame((activeGameAvailable ? status!.capture.active_game : gamePicker.games[0].id) as GameId);
+      setHistoryPage(0);
+    }
+  }, [gamePicker.target, selectedGame, activeGameAvailable, status?.capture.active_game]);
 
   const recentLines = useMemo(
     () => lines.filter((line) => line.game === selectedGame).slice(0, HISTORY_LIMIT),
@@ -874,16 +884,11 @@ function CompanionClient() {
         </div>
       </header>
 
-      <nav className="game-tabs" aria-label={uiText("Game transcript")}>
-        <span><Gamepad2 size={15} /> {uiText("Game")}</span>
-        {(Object.keys(GAME_NAMES).filter(game => game !== 'hito') as GameId[]).map(game => <button key={game} type="button"
-          className={selectedGame === game ? "is-active" : ''} aria-pressed={selectedGame === game}
-          onClick={() => { setSelectedGame(game); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue'); }}>
-          {GAME_NAMES[game]}
-        </button>)}
+      <div className="game-tabs">
+        <span><Gamepad2 size={15} /> {uiText("Games & Languages")}</span>
         {status?.capture.active_game && <small>{uiText("Capturing")}{GAME_NAMES[status.capture.active_game]}</small>}
         <div className="reading-controls" aria-label={uiText("Chinese reading options")}>
-        <label>{uiText("Reading")}<select value={readingMode} onChange={event => {
+        <label>{uiText("Reading")}<select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
           setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
         }}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise" disabled={!lexirise.configured}>{uiText("Lexirise")}</option></select></label>
@@ -891,7 +896,10 @@ function CompanionClient() {
           aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> {uiText("Reading options")}</button>}
         <button type="button" className="reader-options-button" onClick={() => {setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>{uiText("Account settings")}</button>
         </div>
-      </nav>
+      </div>
+      <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
+        sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
+        onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
 
       <section className="status-strip" aria-label={uiText("Companion status")}>
         <div>
@@ -1075,7 +1083,7 @@ function CompanionClient() {
           </Button>
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
-          <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode}
+          <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
             onReading={() => setReaderSettingsOpen(true)} onAccount={language => {setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />

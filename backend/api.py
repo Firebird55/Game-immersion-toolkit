@@ -323,9 +323,12 @@ class Runtime:
             if not index.ready or index.source_locale != locale or voices is None:
                 return False
             try:
-                index.target_locale = translation_language(self.account_preferences(), study_language(locale))
+                settings = self.account_preferences()
+                source = study_language(locale)
+                index.target_locale = (translation_language(settings, source) if source in settings['languages']
+                                       else self.languages.selected_target(game, locale, account))
             except LexiriseError:
-                index.target_locale = self.languages.prepared(game, locale)['targets'][0]
+                index.target_locale = self.languages.selected_target(game, locale, account)
             if game == 'zzz':
                 self.textmaps = self.capture.textmaps = index
                 self.voice_assets = self.capture.voice_assets = voices
@@ -404,7 +407,9 @@ class Runtime:
 
     def present_line(self, line: TranscriptLine) -> TranscriptLine:
         try:
-            target = translation_language(self.account_preferences(), line.source_language)
+            settings = self.account_preferences()
+            target = (translation_language(settings, line.source_language) if line.source_language in settings['languages']
+                      else line.translation_locale)
         except LexiriseError:
             if not self.lexirise.status()['configured']:
                 return line
@@ -891,13 +896,12 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
             runtime.languages.remove(game, payload.locale)
             return {'removed': True}
         source = study_language(payload.locale)
-        settings = runtime.account_preferences() if runtime.lexirise.status()['configured'] else None
-        if settings and source not in settings['languages']:
-            raise ValueError('Enable this learning language in Lexirise before selecting it.')
         if payload.action == 'select':
-            runtime.languages.select(game, payload.locale, account)
+            runtime.languages.select(game, payload.locale, account, target=payload.target)
             return {'selected': payload.locale}
-        target = translation_language(settings, source) if settings else payload.target
+        settings = runtime.account_preferences() if runtime.lexirise.status()['configured'] else None
+        # Account membership controls the picker and account features, not local play.
+        target = translation_language(settings, source) if settings and source in settings['languages'] else payload.target
         if not target:
             raise ValueError('Choose a translation language or reload Lexirise settings.')
         return {'started': runtime.languages.request(game, payload.locale, target, account,

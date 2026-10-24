@@ -6,11 +6,139 @@ import pytest
 from backend.language_preparation import LanguagePreparation
 
 
+@pytest.mark.parametrize('action', ['prepare', 'rebuild', 'select'])
+def test_account_membership_does_not_block_local_source_language(monkeypatch, action):
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from backend import api
+
+    calls = []
+    preferences = {'languages': ['zh'], 'global': {'effectiveTranslationLanguage': 'de'}, 'languageSettings': {}}
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(
+        accounts=SimpleNamespace(status=lambda: {'active': 'synthetic'}),
+        lexirise=SimpleNamespace(status=lambda: {'configured': True}),
+        account_preferences=lambda: preferences,
+        languages=SimpleNamespace(select=lambda *args, **kwargs: calls.append(('select', args, kwargs)),
+            request=lambda *args, **kwargs: calls.append(('prepare', args, kwargs)) or True)), raising=False)
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/setup/games/beyond/languages',
+                       'headers': [(b'host', b'127.0.0.1:8766')], 'server': ('127.0.0.1', 8766), 'scheme': 'http'})
+    api.prepare_game_language('beyond', api.LanguageAction(locale='nl', action=action, target='en'), request, 'setup')
+    if action == 'select':
+        assert calls == [('select', ('beyond', 'nl', 'synthetic'), {'target': 'en'})]
+    else:
+        assert calls == [('prepare', ('beyond', 'nl', 'en', 'synthetic'), {'rebuild': action == 'rebuild'})]
+    assert preferences['languages'] == ['zh'], 'Local language preparation must not change the account'
+
+
+def test_enabled_source_keeps_its_account_translation_target(monkeypatch):
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from backend import api
+
+    calls = []
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(
+        accounts=SimpleNamespace(status=lambda: {'active': 'synthetic'}),
+        lexirise=SimpleNamespace(status=lambda: {'configured': True}),
+        account_preferences=lambda: {'languages': ['nl'], 'global': {'effectiveTranslationLanguage': 'en'},
+            'languageSettings': {'nl': {'effectiveTranslationLanguage': 'fr'}}},
+        languages=SimpleNamespace(request=lambda *args, **kwargs: calls.append(args) or True)), raising=False)
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/setup/games/beyond/languages',
+                       'headers': [(b'host', b'127.0.0.1:8766')], 'server': ('127.0.0.1', 8766), 'scheme': 'http'})
+    api.prepare_game_language('beyond', api.LanguageAction(locale='nl', target='en'), request, 'setup')
+    assert calls == [('beyond', 'nl', 'fr', 'synthetic')]
+
+
+def test_independent_preparation_without_account(monkeypatch):
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from backend import api
+
+    calls = []
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(
+        accounts=SimpleNamespace(status=lambda: {'active': 'synthetic'}),
+        lexirise=SimpleNamespace(status=lambda: {'configured': False}),
+        account_preferences=lambda: pytest.fail('No account request in Migaku mode'),
+        languages=SimpleNamespace(request=lambda *args, **kwargs: calls.append(args) or True)), raising=False)
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/setup/games/beyond/languages',
+                       'headers': [(b'host', b'127.0.0.1:8766')], 'server': ('127.0.0.1', 8766), 'scheme': 'http'})
+    api.prepare_game_language('beyond', api.LanguageAction(locale='nl', target='en'), request, 'setup')
+    assert calls == [('beyond', 'nl', 'en', 'synthetic')]
+
+
 def finish(manager):
     deadline = time.monotonic() + 3
     while manager._workers and time.monotonic() < deadline:
         time.sleep(.005)
     assert not manager._workers
+
+
+def test_local_targets_survive_activation_history_account_switch_and_refresh(tmp_path, monkeypatch):
+    import json
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    from backend import api
+    from backend.models import TranscriptLine
+
+    monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
+    active = ['first']
+    settings = {'languages': ['zh'], 'global': {'effectiveTranslationLanguage': 'de'}, 'languageSettings': {}}
+    runtime = api.Runtime.__new__(api.Runtime)
+    runtime.accounts = SimpleNamespace(status=lambda: {'active': active[0]})
+    runtime.account_preferences = lambda: settings
+    runtime.lexirise = SimpleNamespace(status=lambda: {'configured': True})
+    runtime.capture = SimpleNamespace(_scan_epoch=0)
+    runtime._locale_indexes, runtime._active_locales = {}, {}
+    runtime.game_indexes, runtime.game_voice_assets = {}, {}
+    runtime.language_voice_assets = lambda *_: object()
+    source = 'Blijf hier. Ik kom zo terug.'
+
+    def build(game, locale, targets):
+        directory = tmp_path / 'languages' / game / locale
+        directory.mkdir(parents=True, exist_ok=True)
+        texts = {'nl': source, **{target: {'en': 'Stay here. I will be right back.', 'fr': 'Reste ici. Je reviens.'}[target] for target in targets}}
+        row = {'text_id': 'beyond:fixture', 'source_locale': locale, 'source_text': source,
+               'audio_locale': locale, 'texts': texts, 'audio': {'voice': 1}}
+        (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': game,
+            'source_locale': locale, 'records': [row]}), encoding='utf-8')
+
+    manager = runtime.languages = LanguagePreparation(build, runtime.activate_language,
+        lambda *_: {'ready': True}, path=tmp_path / 'languages.json', supported=lambda _: ('nl',))
+    def displayed():
+        index = runtime.game_indexes['beyond']
+        match = index.match_lines([source])
+        line = TranscriptLine(id=1, created_at=datetime.now(timezone.utc), session_id='synthetic',
+                              match_kind=match.kind, **match.model_dump())
+        return index, runtime.present_line(line)
+
+    manager.request('beyond', 'nl', 'en', 'first')
+    finish(manager)
+    index, old_line = displayed()
+    assert index.target_locale == old_line.translation_locale == 'en'
+    assert old_line.translation_text == 'Stay here. I will be right back.'
+    manager.request('beyond', 'nl', 'fr', 'first')
+    finish(manager)
+    assert displayed()[0].target_locale == displayed()[1].translation_locale == 'fr'
+    assert runtime.present_line(old_line).translation_text == old_line.translation_text
+
+    active[0] = 'second'
+    manager.select('beyond', 'nl', 'second', target='en')
+    assert displayed()[1].translation_locale == 'en'
+    active[0] = 'first'
+    manager.select('beyond', 'nl', 'first')
+    manager.refresh_prepared()
+    finish(manager)
+    assert displayed()[1].translation_locale == 'fr'
+    reloaded = LanguagePreparation(None, None, None, path=manager.path)
+    assert reloaded.selected_target('beyond', 'nl', 'first') == 'fr'
+    assert reloaded.selected_target('beyond', 'nl', 'second') == 'en'
+    with pytest.raises(ValueError, match='Prepare this translation'):
+        manager.select('beyond', 'nl', 'first', target='de')
+    settings['languages'].append('nl')
+    settings['languageSettings']['nl'] = {'effectiveTranslationLanguage': 'en'}
+    manager.select('beyond', 'nl', 'first')
+    assert displayed()[0].target_locale == displayed()[1].translation_locale == 'en'
+    manager.remove('beyond', 'nl')
+    assert manager.selected_target('beyond', 'nl', 'first') == ''
 
 
 def test_nothing_is_built_until_explicit_selection_and_only_prepared_languages_refresh(tmp_path):
