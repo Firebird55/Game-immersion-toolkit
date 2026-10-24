@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.scope.outputs.python == 'true'
         with:
           python-version: '3.12'
@@ -85,7 +85,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: matrix.suite == 'setup'
         with:
           python-version: '3.12'
