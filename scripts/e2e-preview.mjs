@@ -32,7 +32,7 @@ const unverifiedWindowsCleanup = () => new Error('Windows owned-process cleanup 
 
 // Each POSIX child leads its own process group. Never discover or kill a
 // process by port: another checkout or the user's companion may own it.
-export async function stopOwnedProcess(child, {graceMs = 1500, platform = process.platform, spawnProcess = spawn} = {}) {
+export async function stopOwnedProcess(child, {graceMs = 1500, platform = process.platform, spawnProcess = spawn, killProcess = process.kill} = {}) {
   if (!child?.pid) return;
   if (platform === 'win32') {
     // Without a live parent, taskkill cannot prove ownership of any orphaned
@@ -46,11 +46,18 @@ export async function stopOwnedProcess(child, {graceMs = 1500, platform = proces
     return;
   }
   const alive = () => {
-    try { process.kill(-child.pid, 0); return true; }
-    catch (error) { if (error.code === 'ESRCH') return false; throw error; }
+    try { killProcess(-child.pid, 0); return true; }
+    catch (error) {
+      if (error.code === 'ESRCH') return false;
+      // Darwin can report EPERM for a group containing only an unreaped zombie.
+      // This is unknown liveness, never proof of cleanup: keep bounded polling
+      // until ESRCH, and retain the runtime if the group cannot be verified gone.
+      if (error.code === 'EPERM') return true;
+      throw error;
+    }
   };
   for (const signal of ['SIGTERM', 'SIGKILL']) {
-    try { process.kill(-child.pid, signal); }
+    try { killProcess(-child.pid, signal); }
     catch (error) { if (error.code === 'ESRCH') return; throw error; }
     const deadline = Date.now() + graceMs;
     while (alive() && Date.now() < deadline) await delay(25);

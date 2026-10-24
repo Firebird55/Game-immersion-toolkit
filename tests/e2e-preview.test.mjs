@@ -189,3 +189,62 @@ test('SIGINT and SIGTERM stop owned preview descendants and retain default signa
     rmSync(cwd,{recursive:true,force:true});
   }
 });
+
+
+test('transient EPERM liveness probes wait for verified disappearance', async () => {
+  const signals=[];let probes=0;
+  await stopOwnedProcess({pid:12345}, {platform:'darwin', graceMs:100, killProcess:(pid,signal)=>{
+    assert.equal(pid,-12345);
+    if(signal!==0){signals.push(signal);return;}
+    probes++;
+    throw Object.assign(Error('Synthetic liveness probe'), {code:probes===1?'EPERM':'ESRCH'});
+  }});
+  assert.deepEqual(signals,['SIGTERM']);
+  assert(probes>=2,'An EPERM probe alone must not certify cleanup');
+});
+
+test('persistent EPERM probes remain a failed cleanup after the bounded deadlines', async () => {
+  const signals=[];
+  await assert.rejects(stopOwnedProcess({pid:12345}, {platform:'darwin', graceMs:1, killProcess:(_pid,signal)=>{
+    if(signal!==0){signals.push(signal);return;}
+    throw Object.assign(Error('Synthetic denied probe'), {code:'EPERM'});
+  }}), /Owned test process group did not stop/);
+  assert.deepEqual(signals,['SIGTERM','SIGKILL']);
+});
+
+test('EPERM from sending TERM or KILL still fails immediately', async () => {
+  for(const denied of ['SIGTERM','SIGKILL']) {
+    const signals=[];
+    await assert.rejects(stopOwnedProcess({pid:12345}, {platform:'darwin', graceMs:1, killProcess:(_pid,signal)=>{
+      if(signal===0)return;
+      signals.push(signal);
+      if(signal===denied)throw Object.assign(Error('Synthetic denied signal'), {code:'EPERM'});
+    }}), error=>error.code==='EPERM');
+    assert.deepEqual(signals,denied==='SIGTERM'?['SIGTERM']:['SIGTERM','SIGKILL']);
+  }
+});
+
+test('quick process exit is reaped before group cleanup is certified', {skip:process.platform==='win32'}, async () => {
+  const child=spawn(process.execPath,['-e',"process.send('ready');setInterval(()=>{},1000)"],{detached:true,stdio:['ignore','ignore','ignore','ipc']});
+  try {
+    await once(child,'message');
+    const exited=once(child,'exit');
+    await stopOwnedProcess(child,{killProcess:(pid,signal)=>{
+      const result=process.kill(pid,signal);
+      if(signal==='SIGTERM') {
+        // Keep the event loop from reaping for a moment so Darwin's zombie-only
+        // group can exercise its transient EPERM response on a real process.
+        const deadline=Date.now()+50;
+        while(Date.now()<deadline)try{process.kill(pid,0);}catch(error){
+          if(['EPERM','ESRCH'].includes(error.code))break;
+          throw error;
+        }
+      }
+      return result;
+    }});
+    await exited;
+    assert.throws(()=>process.kill(-child.pid,0),error=>error.code==='ESRCH');
+  } finally {
+    if(child.exitCode===null&&child.signalCode===null)await stopOwnedProcess(child);
+  }
+});
