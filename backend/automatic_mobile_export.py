@@ -109,7 +109,7 @@ class AutomaticMobileExports:
         self.picker = MobileExportManager(root, scope=('automatic-destination', 'local'))
         try:
             self.data = json.loads(self.path.read_text(encoding='utf-8'))
-            if self.data.get('version') != 1 or not isinstance(self.data.get('rules'), dict):
+            if not isinstance(self.data, dict) or self.data.get('version') != 1 or not isinstance(self.data.get('rules'), dict):
                 raise ValueError('Invalid automatic export settings; restore rules.json from backup.')
         except (ValueError, TypeError):
             self.configuration_error = 'Automatic export settings could not be read. Restore the local rules.json file; existing exports are safe.'
@@ -184,12 +184,12 @@ class AutomaticMobileExports:
                 raise ValueError('Save automatic export settings first.')
             if action in ('pause', 'resume'):
                 rule['paused'] = action == 'pause'
-            elif action in ('update', 'retry'):
+            elif action == 'retry':
                 for job in rule['jobs'].values():
                     job.pop('fingerprint', None)
                     job.pop('storageFailures', None)
                     job['state'] = 'queued'
-            else:
+            elif action != 'update':
                 raise ValueError('Unknown automatic export action.')
             atomic_json(self.path, candidate)
             self.data = candidate

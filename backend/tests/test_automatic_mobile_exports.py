@@ -51,6 +51,8 @@ def test_initial_noop_update_add_remove_and_restart(tmp_path, monkeypatch):
     run();assert state['calls'] == 1
     published = next(destination.rglob('*.zip'));original = published.stat().st_mtime_ns
     run();assert state['calls'] == 1 and published.stat().st_mtime_ns == original
+    manager.action('zzz', 'update');run()
+    assert state['calls'] == 1 and published.stat().st_mtime_ns == original
     state['stamp'] = 'v2';run();assert state['calls'] == 2
     assert published.read_bytes() == b'completed-v2'
     assert next((manager.home/'recovery').rglob('*.zip')).read_bytes() == b'completed-v1'
@@ -201,3 +203,11 @@ def test_repeated_unexplained_storage_failure_requires_retry(tmp_path, monkeypat
     assert manager.status('zzz')['jobs']['ja']['state'] == 'error'
     manager.action('zzz', 'retry'); state['fail'] = False; run()
     assert state['calls'] == 3 and manager.status('zzz')['jobs']['ja']['state'] == 'complete'
+
+
+def test_non_object_settings_report_recovery_without_overwriting(tmp_path):
+    home = tmp_path / 'local';home.mkdir()
+    (home / 'rules.json').write_text('[]', encoding='utf-8')
+    manager = auto.AutomaticMobileExports(tmp_path, home=home)
+    assert manager.configuration_error
+    assert (home / 'rules.json').read_text(encoding='utf-8') == '[]'
