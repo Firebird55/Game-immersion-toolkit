@@ -65,7 +65,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
@@ -123,7 +123,7 @@ jobs:
       - run: npm run audit:public
       - name: Check capture and library logic
         run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs tests/mobile-frame-source.test.mjs tests/mobile-vdo-source.test.mjs tests/mobile-receiver-source.test.mjs
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('node_modules/playwright/package.json') }}
