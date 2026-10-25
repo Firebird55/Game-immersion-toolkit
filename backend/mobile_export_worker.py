@@ -68,6 +68,9 @@ def main():
         export_library(args.game, records, args.output, voice=voice, check=check,
                        include_audio=not args.catalog_only, progress=progress, workers=export_workers())
         return 0
+    except OSError:
+        progress({'state': 'waiting', 'message': 'Storage or a required local file is unavailable. Reconnect the drive, finish game downloads or free space; verified work is retained.'})
+        return 3
     except Exception:
         progress({'state': 'error', 'message': 'Export failed. Check game data, voice tools and available disk space, then resume.'})
         return 1

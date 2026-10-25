@@ -34,7 +34,7 @@ def fixture(tmp_path, monkeypatch):
             candidate = output / 'candidate.zip'
             candidate.write_bytes(('completed-'+state['stamp']).encode())
             stdout.write(json.dumps({'state': 'complete', 'bundle': str(candidate)})+'\n');stdout.flush()
-            self.returncode = 1 if state['fail'] else 0
+            self.returncode = state.get('exit', 1) if state['fail'] else 0
             if state['change']:
                 state['stamp'] += '-changed'
         def poll(self): return self.returncode
@@ -147,3 +147,57 @@ def test_handoff_refuses_unconfirmed_process_cleanup(tmp_path):
     manager.process=SimpleNamespace(poll=lambda:None)
     with pytest.raises(RuntimeError,match='handoff cancelled'):
         manager.close()
+
+
+def test_storage_failure_waits_and_low_space_does_not_repeat_conversion(tmp_path, monkeypatch):
+    manager,state,destination,run=fixture(tmp_path,monkeypatch)
+    state.update(fail=True,exit=3)
+    run();assert state['calls']==1
+    assert manager.status('zzz')['jobs']['ja']['state']=='waiting'
+    usage=auto.shutil.disk_usage
+    monkeypatch.setattr(auto.shutil,'disk_usage',lambda path: SimpleNamespace(free=0) if Path(path)==destination else usage(path))
+    run();assert state['calls']==1
+    monkeypatch.setattr(auto.shutil,'disk_usage',usage)
+    state['fail']=False;run();assert state['calls']==2
+    assert manager.status('zzz')['jobs']['ja']['state']=='complete'
+
+
+def test_only_owned_old_completed_packages_are_pruned(tmp_path):
+    import zipfile
+    from backend.mobile_export_layout import work_folder, export_folder_name, catalog_name
+    home=tmp_path/'local';output=home/'work'/'job'/'exports';output.mkdir(parents=True)
+    current,previous='a'*64,'b'*64
+    (output/'latest.json').write_text(json.dumps({'revision':current}))
+    work=work_folder(output)
+    old=[]
+    for parent,name in [(output,export_folder_name('zzz',previous)),(work/'libraries',previous),(work/'previous-libraries',export_folder_name('zzz',previous))]:
+        folder=parent/name;folder.mkdir(parents=True)
+        with zipfile.ZipFile(folder/catalog_name('zzz'),'w') as archive:archive.writestr('manifest.json',json.dumps({'game':'zzz','revision':previous}))
+        old.append(folder)
+    retained=work/'libraries'/current;retained.mkdir()
+    with zipfile.ZipFile(retained/catalog_name('zzz'),'w') as archive:archive.writestr('manifest.json',json.dumps({'game':'zzz','revision':current}))
+    unrelated=output/'notes';unrelated.mkdir();(unrelated/'keep.txt').write_text('keep')
+    auto.prune_completed_work(output,'zzz',home)
+    assert all(not folder.exists() for folder in old)
+    assert retained.exists() and (unrelated/'keep.txt').read_text()=='keep'
+
+
+def test_failed_settings_save_cannot_activate_or_pause_a_rule(tmp_path, monkeypatch):
+    manager, _, destination, _ = fixture(tmp_path, monkeypatch)
+    before = copy.deepcopy(manager.data)
+    stored = manager.path.read_bytes()
+    def failed(*_): raise OSError('disk full')
+    monkeypatch.setattr(auto, 'atomic_json', failed)
+    with pytest.raises(OSError): manager.configure('zzz', False, str(destination), {'ja': 'en'})
+    with pytest.raises(OSError): manager.action('zzz', 'pause')
+    assert manager.data == before and manager.path.read_bytes() == stored
+
+
+def test_repeated_unexplained_storage_failure_requires_retry(tmp_path, monkeypatch):
+    manager, state, _, run = fixture(tmp_path, monkeypatch)
+    state.update(fail=True, exit=3)
+    run(); run(); run()
+    assert state['calls'] == 2
+    assert manager.status('zzz')['jobs']['ja']['state'] == 'error'
+    manager.action('zzz', 'retry'); state['fail'] = False; run()
+    assert state['calls'] == 3 and manager.status('zzz')['jobs']['ja']['state'] == 'complete'

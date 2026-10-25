@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import time
+import zipfile
 
 from .export_lock import ExportLock
 from .game_paths import settings_path, discover_install
@@ -16,7 +17,7 @@ from .game_assets import asset_adapter
 from .languages import GAME_LOCALES, LOCALE_NAMES
 from .mobile_export_controls import MobileExportManager, stop_export_process
 from .mobile_library import digest, file_digest
-from .mobile_export_layout import file_title
+from .mobile_export_layout import file_title, work_folder, catalog_name, export_folder_name
 from .voice_pack_probe import probe, LABELS
 
 
@@ -58,6 +59,38 @@ def publish(candidate, destination, recovery, guard=lambda: None):
         os.replace(pending, destination)
     finally:
         pending.unlink(missing_ok=True)
+
+
+def prune_completed_work(output, game, home):
+    """Keep current packs/cache and the separate previous publication, not every ZIP revision."""
+    output, home = Path(output), Path(home).resolve()
+    pointer = json.loads((output / 'latest.json').read_text(encoding='utf-8'))
+    current = pointer['revision']
+    work = work_folder(output)
+    for parent in (output, work / 'previous-libraries', work / 'libraries'):
+        if not parent.is_dir():
+            continue
+        for folder in parent.iterdir():
+            if not folder.is_dir() or folder.is_symlink() or folder.is_junction():
+                continue
+            catalog = folder / catalog_name(game)
+            archives = [catalog] if catalog.is_file() else list(folder.glob('* - Mobile Library.zip'))
+            if len(archives) != 1:
+                continue
+            with zipfile.ZipFile(archives[0]) as archive:
+                if archive.getinfo('manifest.json').file_size > 8 * 1024**2:
+                    continue
+                manifest = json.loads(archive.read('manifest.json'))
+            revision = manifest.get('revision')
+            if manifest.get('game') != game or revision == current or folder.name not in (revision, export_folder_name(game, revision)):
+                continue
+            # Resolve and check every directory before recursive removal on Windows.
+            resolved = folder.resolve()
+            if not resolved.is_relative_to(home) or resolved == home or any(
+                    (Path(root) / name).is_symlink() or (Path(root) / name).is_junction()
+                    for root, directories, files in os.walk(folder) for name in directories + files):
+                continue
+            shutil.rmtree(resolved)
 
 
 class AutomaticMobileExports:
@@ -134,16 +167,19 @@ class AutomaticMobileExports:
                 raise ValueError('Choose an export folder outside local recovery storage.')
         with self.lock:
             old = self.data['rules'].get(game, {})
-            self.data['rules'][game] = {**old, 'enabled': enabled, 'paused': old.get('paused', False),
+            candidate = copy.deepcopy(self.data)
+            candidate['rules'][game] = {**old, 'enabled': enabled, 'paused': old.get('paused', False),
                 'destination': destination, 'languages': languages, 'jobs': {locale: job for locale, job in old.get('jobs', {}).items()
                     if locale in languages and old.get('languages', {}).get(locale) == languages[locale]}}
-            atomic_json(self.path, self.data)
+            atomic_json(self.path, candidate)
+            self.data = candidate
         self.wake.set()
         return self.status(game)
 
     def action(self, game, action):
         with self.lock:
-            rule = self.data['rules'].get(game)
+            candidate = copy.deepcopy(self.data)
+            rule = candidate['rules'].get(game)
             if not rule:
                 raise ValueError('Save automatic export settings first.')
             if action in ('pause', 'resume'):
@@ -151,10 +187,12 @@ class AutomaticMobileExports:
             elif action in ('update', 'retry'):
                 for job in rule['jobs'].values():
                     job.pop('fingerprint', None)
+                    job.pop('storageFailures', None)
                     job['state'] = 'queued'
             else:
                 raise ValueError('Unknown automatic export action.')
-            atomic_json(self.path, self.data)
+            atomic_json(self.path, candidate)
+            self.data = candidate
         self.wake.set()
         return self.status(game)
 
@@ -251,8 +289,11 @@ class AutomaticMobileExports:
         if not ffmpeg_executable() or game not in ('beyond', 'heavyrain') and not (self.root / 'data/voice-assets/vgmstream/vgmstream-cli.exe').is_file():
             self._set(game, locale, state='waiting', message='Prepare game voice tools in Setup. Tools will be checked again automatically.')
             return
-        if shutil.disk_usage(self.home).free < 512 * 1024**2:
-            self._set(game, locale, state='waiting', message='Waiting for at least 512 MiB of local working space.')
+        if shutil.disk_usage(self.home).free < max(512 * 1024**2, job.get('estimatedBytes', 0) * 2):
+            self._set(game, locale, state='waiting', message='Waiting for enough local working space (at least 512 MiB; more for the estimated library).')
+            return
+        if shutil.disk_usage(rule['destination']).free < (job.get('bytes') or job.get('estimatedBytes', 0)) + 16 * 1024**2:
+            self._set(game, locale, state='waiting', message='Waiting for enough free space in the export folder.')
             return
         key = digest([game, locale, translation])[:24]
         output = self.home / 'work' / key / 'exports'
@@ -286,11 +327,19 @@ class AutomaticMobileExports:
                             except ValueError:
                                 break
                             if value.get('state') != 'complete':
-                                self._set(game, locale, **{key: value[key] for key in ('state', 'message', 'progress') if key in value},
-                                          estimatedBytes=value.get('estimatedAudioBytes', 0) + value.get('estimatedCatalogBytes', 0))
+                                update = {key: value[key] for key in ('state', 'message', 'progress') if key in value}
+                                if 'estimatedAudioBytes' in value or 'estimatedCatalogBytes' in value:
+                                    update['estimatedBytes'] = value.get('estimatedAudioBytes', 0) + value.get('estimatedCatalogBytes', 0)
+                                self._set(game, locale, **update)
                             offset += len(line)
                     self.stop.wait(.5)
                 if self.process.returncode:
+                    if self.process.returncode == 3:
+                        failures = job.get('storageFailures', 0) + 1 if job.get('attempt') == identity else 1
+                        self._set(game, locale, storageFailures=failures, state='error' if failures >= 2 else 'waiting',
+                                  message='A required file is still unavailable despite passing storage checks. Finish downloads or check the drive, then Retry.' if failures >= 2 else
+                                  'Storage or a required local file is unavailable. Reconnect the drive, finish downloads or free space; prerequisites will be checked again.')
+                        return
                     if adapter.fingerprint(install) != stamp:
                         self.observed.pop((game, locale), None)
                         self._set(game, locale, state='waiting', message='Game changed during export; waiting for the newest files.')
@@ -320,7 +369,11 @@ class AutomaticMobileExports:
             temporary = instructions.with_suffix('.txt.pending')
             temporary.write_text('Open the ZIP in the mobile companion and leave Keep on this device enabled. Libraries reopen automatically. On iPhone, select each updated ZIP once from Files. Cloud synchronization is managed by your cloud application. Do not share game libraries publicly. No credentials are included.\n', encoding='utf-8')
             os.replace(temporary, instructions)
-            self._set(game, locale, state='complete', fingerprint=identity, message='Updated in export folder', updatedAt=time.time())
+            self._set(game, locale, state='complete', fingerprint=identity, storageFailures=0, message='Updated in export folder', updatedAt=time.time())
+            try:
+                prune_completed_work(output, game, self.home)
+            except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+                pass  # Optional tidying cannot invalidate a completed publication.
         except InterruptedError:
             self._set(game, locale, state='waiting', message='Export interrupted; verified work is retained for resuming.')
         finally:
