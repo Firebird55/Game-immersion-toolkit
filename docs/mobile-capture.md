@@ -46,9 +46,11 @@ have been removed. VDO.Ninja is the only screen source.
 
 ## Reopen and update
 
-After reloading, select **Reopen voice library** and choose the same ZIP for
-playback. Text, history, favorites and calibration may remain remembered. Paste
-the viewer link again. Disconnect before applying a website update.
+Libraries imported with **Keep on this device** reopen automatically, including
+voices. If retention failed or you chose session-only use, select the ZIP again.
+Remembered viewer links restore the connection controls; **Start playing** connects.
+On iPhone, select each newly updated cloud ZIP once. Disconnect before applying
+a website update.
 [Library setup and recovery](mobile-library.md) explains older multi-ZIP imports,
 quota errors, supported languages and private export handling.
 
@@ -62,3 +64,19 @@ existing passphrase, unlock once in Settings and connect the screen; subsequent
 connections with that code unlock the key automatically. Only an encrypted
 copy of the key is saved for this purpose. The code stays in session memory.
 Changing the passphrase or replacing/forgetting the key removes the linked code.
+
+## Remember this device
+
+Lexirise and VDO.Ninja have separate **Remember on this device** controls, both
+off initially. The Lexirise option saves the API key in browser storage without
+an application passphrase. This site can access it on this device; enable it only
+on a trusted device. An existing encrypted vault must be unlocked successfully
+once before enabling remembering. It is never silently migrated. Turning off
+remembering removes the automatic copy and preserves any existing encrypted vault.
+**Forget key** removes saved credentials and clears the active account session.
+
+VDO.Ninja remembering saves the complete validated viewer URL, including passwords
+and options. It restores the input but never connects automatically. Unchecking
+removes the saved copy; **Forget link** removes it and stops the active connection.
+Credentials and viewer links are excluded from libraries, diagnostics and static
+service-worker caches. Encrypted passphrase mode remains available.

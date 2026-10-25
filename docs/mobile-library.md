@@ -7,13 +7,37 @@ or toolkit releases.
 
 ## Export on Windows
 
-1. In **Setup → Games**, prepare the chosen game, learning language and original
-   voices. Refresh game data after a launcher update.
-2. Choose a private save folder and **Export mobile library**. Leave original
-   voices enabled for audio. Setup estimates both transfer and working space.
-3. Transfer the single **Game - Audio Language - Mobile Library.zip** from the
-   completed folder to your phone. For example,
-   **Zenless Zone Zero - Mandarin - Mobile Library.zip**. Keep it zipped.
+1. In **Setup → Games & Languages**, choose **Keep mobile library updated**.
+   The same controls are available in the first-run wizard.
+2. Choose an existing private export folder, preferably one synchronized with a
+   cloud-storage service available on your phone. Select voice languages and one
+   translation for each, then **Save settings**. Chinese text scripts share
+   Mandarin audio. Each selected script remains a distinct library.
+3. The companion waits for stable game files and creates one ZIP per selection:
+   **Zenless Zone Zero/Zenless Zone Zero - Japanese - English translation - Mobile Library.zip**.
+   Cloud synchronization is performed by your cloud application. **Updated in
+   export folder** does not mean the phone has downloaded it.
+
+Automatic rules are per-PC settings, independent of Lexirise credentials and
+active reading selections. The companion must be running to detect updates.
+It checks at startup and periodically, catches up after downtime, and preserves
+**Pause** across restart. **Resume**, **Update now**, and **Retry** are available.
+Adding a language queues a package; removing it stops updates without deleting
+existing ZIPs. Manual account-scoped exports remain under **Export mobile library**.
+
+Voice status is separate from table preparation: **Installed**, **Not detected —
+install this voice language in the game/launcher**, **Incomplete**, or **Unable to
+verify**. Checks are bounded; shared or encrypted archives may require successful
+language preparation to establish their locale. An unprepared table does not
+mean that the voice pack is absent. Missing selections stay configured and wait;
+no other language's audio is substituted.
+
+Working files and verified converted clips stay in host-local managed storage,
+outside the synchronized destination. Publication copies and verifies a temporary
+ZIP before replacing the final filename. Copy, disk-space, locked-file and source
+change failures preserve the old ZIP. One previous completed ZIP is kept in local
+recovery storage. Interrupted work resumes; unknown repeated preparation failures
+require **Retry**. Unrelated destination files are never removed.
 
 Conversion still uses up to eight parallel workers and compatible batches.
 Verified clips and bounded inner packs remain in a separate private workspace
@@ -64,10 +88,26 @@ VDO.Ninja is the only screen source. See [connection setup](mobile-capture.md).
 
 ## Reopening, storage and recovery
 
-After reloading or rebooting, tap **Reopen voice library** and select the same
-file. History, favorites, calibration and the catalog may remain remembered;
-voice file permissions last only for the current page session. Audio is never
-copied into IndexedDB. Keep the ZIP in Files as the recovery source.
+Leave **Keep on this device** checked when importing. A dedicated worker copies
+bounded chunks into browser-owned private file storage; the library selector
+shows each retained game's languages and size. Several games and language
+variants can coexist. The last retained selection reopens automatically, including
+voices. **Update from file** replaces the matching variant only after a successful
+copy and validation. Interrupted copies are cleaned up without deleting the last
+working copy. **Remove downloaded copy** preserves history, favorites, calibration
+and credentials.
+
+The app requests persistent storage, but browser/OS eviction, private browsing,
+user clearing and device storage pressure can still remove it. Missing files keep
+their library metadata and show restoration instructions. Keep your ZIP in Files
+or cloud storage as the recovery source. Quota or unavailable file-system support
+produces an explicit session-only warning. Uncheck **Keep on this device** for
+session-only use; selecting the original file is then required after reopening.
+
+On iPhone, Safari cannot silently reopen a previous Files-provider selection to
+read its replacement. After the desktop updates a cloud ZIP, select the new ZIP
+once. The retained copy then reopens automatically. No cloud API or hosted account
+service is used. Safari and Home Screen storage must be tested separately.
 
 A disabled **Play voice** now explains whether the line has no exported audio or
 this session needs the original file. Tap **Open voice library** beside the line
@@ -83,7 +123,7 @@ frames. A bubble is added once while it remains visible, including slow scans.
 Download cloud-provider files locally before playing, or keep a selected USB
 drive connected. Safari/Files may stage the file temporarily. Browser quota is
 not actual device free space; use iPhone Storage settings to check that.
-If catalog caching fails, this session can still work; reopen the file next time.
+If retaining the package fails, this session can still work; reopen the file next time.
 
 Older exports remain supported: select their **Catalog ZIP plus matching Voices
 ZIPs together**. Seven voice ZIPs alone cannot supply subtitle matching unless
@@ -99,15 +139,15 @@ paths, compression, overlapping entries and unsafe offsets are rejected.
 
 ## Capture and updates
 
-VDO.Ninja uses its hosted viewer and may use relay services. The private link
-stays in memory; OCR runs locally with one bounded, self-hosted worker. Hidden
+VDO.Ninja uses its hosted viewer and may use relay services. The private link stays in memory unless **Remember on this device** is enabled; OCR runs locally with one bounded, self-hosted worker. Hidden
 pages suspend reading; resuming requires fresh frames. Automatic same-link
 recovery retains OCR intent. **Disconnect screen** cancels that intent, while
 **Pause** pauses recognition without stopping the gaming device's broadcast.
 
-After a game update, refresh and export a new library on the PC. Software updates
-wait for an idle session and preserve browser data. Disconnect before applying
-**Reload latest**, then reopen the library and paste the viewer link again.
+Automatic rules prepare new libraries after game updates while the companion runs.
+Software updates replace only static assets and preserve libraries and settings.
+Disconnect before applying **Reload latest**, then tap **Start playing** to connect.
+Remembered links restore the controls without starting a connection.
 
 Catalog coverage and recognition vary by game, scene, font and subtitle layout.
 See [Games & Languages](https://firebird55.github.io/Game-immersion-toolkit/games.html).

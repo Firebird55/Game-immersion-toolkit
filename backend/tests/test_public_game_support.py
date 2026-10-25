@@ -16,7 +16,7 @@ def test_public_game_support_matches_readers():
     readers.update(starrail=starrail_assets, genshin=genshin_assets, endfield=endfield_assets)
     assert {game['id'] for game in data['games']} == set(GAME_LOCALES)
     for game in data['games']:
-        assert set(game['targets']) <= set(game['officialText']) | ({'en'} if game['id'] == 'hito' else set())
+        assert set(game['targets']) <= set(game['officialText']) | set(game.get('readerOnlyText', [])) | ({'en'} if game['id'] == 'hito' else set())
         assert set(game['unverified']) == set(game['officialText']) - set(game['targets'])
         assert not set(game['unverified']) & set(game['targets'])
         assert game['coverage'] and game['source'].startswith('https://store.')

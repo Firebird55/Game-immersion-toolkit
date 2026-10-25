@@ -11,7 +11,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Zenless Zone Zero
 
-[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · [Dekkingsnotities](../zzz-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [Dekkingsnotities](../zzz-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
 <details>
 <summary>Taaldetails</summary>
@@ -38,7 +40,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Wuthering Waves
 
-[Officiële taallijst](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · [Dekkingsnotities](../wuthering-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [Dekkingsnotities](../wuthering-languages.md)
+
+Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
 
 <details>
 <summary>Taaldetails</summary>
@@ -62,7 +66,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Neverness to Everness
 
-[Officiële taallijst](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · [Dekkingsnotities](../nte-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-10-25 · [Dekkingsnotities](../nte-languages.md)
+
+Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.
 
 <details>
 <summary>Taaldetails</summary>
@@ -85,7 +91,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## PRAGMATA
 
-[Officiële taallijst](https://store.steampowered.com/app/3357650/PRAGMATA/) · [Dekkingsnotities](../pragmata-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/3357650/PRAGMATA/) · 2026-10-25 · [Dekkingsnotities](../pragmata-languages.md)
+
+Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.
 
 <details>
 <summary>Taaldetails</summary>
@@ -113,7 +121,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Cyberpunk 2077
 
-[Officiële taallijst](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · [Dekkingsnotities](../cyberpunk-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · 2026-10-25 · [Dekkingsnotities](../cyberpunk-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.
 
 <details>
 <summary>Taaldetails</summary>
@@ -146,7 +156,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## The Witcher 3: Wild Hunt
 
-[Officiële taallijst](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · [Dekkingsnotities](../witcher-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · 2026-10-25 · [Dekkingsnotities](../witcher-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.
 
 <details>
 <summary>Taaldetails</summary>
@@ -178,7 +190,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## BEYOND: Two Souls
 
-[Officiële taallijst](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · [Dekkingsnotities](../beyond-support.md)
+[Officiële taallijst](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · 2026-10-25 · [Dekkingsnotities](../beyond-support.md)
+
+Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.
 
 <details>
 <summary>Taaldetails</summary>
@@ -215,7 +229,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## HEAVY RAIN
 
-[Officiële taallijst](https://store.steampowered.com/app/960910/Heavy_Rain/) · [Dekkingsnotities](../heavy-rain-support.md)
+[Officiële taallijst](https://store.steampowered.com/app/960910/Heavy_Rain/) · 2026-10-25 · [Dekkingsnotities](../heavy-rain-support.md)
+
+Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.
 
 <details>
 <summary>Taaldetails</summary>
@@ -246,7 +262,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Honkai: Star Rail
 
-[Officiële taallijst](https://store.epicgames.com/p/honkai-star-rail) · [Dekkingsnotities](../starrail-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [Dekkingsnotities](../starrail-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
 <details>
 <summary>Taaldetails</summary>
@@ -273,7 +291,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Genshin Impact
 
-[Officiële taallijst](https://store.epicgames.com/p/genshin-impact) · [Dekkingsnotities](../genshin-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [Dekkingsnotities](../genshin-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
 <details>
 <summary>Taaldetails</summary>
@@ -292,9 +312,10 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 | Russisch | — | — | ✓ | Reader geïmplementeerd |
 | Thai | — | — | ✓ | Reader geïmplementeerd |
 | Vietnamees | — | — | ✓ | Reader geïmplementeerd |
-| Indonesisch | — | — | ✓ | Reader geïmplementeerd |
 | Italiaans | — | — | ✓ | Reader geïmplementeerd |
 | Turks | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | — | — | — | Niet beschikbaar |
+| Indonesisch | — | — | ✓ | Reader geïmplementeerd |
 
 </details>
 
@@ -302,7 +323,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Arknights: Endfield
 
-[Officiële taallijst](https://store.epicgames.com/p/arknightsendfield-f0f167) · [Dekkingsnotities](../endfield-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/arknightsendfield-f0f167) · 2026-10-25 · [Dekkingsnotities](../endfield-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
 <details>
 <summary>Taaldetails</summary>
