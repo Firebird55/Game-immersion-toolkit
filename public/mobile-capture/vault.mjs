@@ -40,7 +40,7 @@ export function createVault(storage, {onLock=()=>{},now=Date.now}={}) {
       const value=this.credential(),token=revision,record=await storage.get('lexirise-vault');
       const viewer=await encryptKey(value,code,code);
       if(token!==revision)throw Error('Vault locked. Unlock and reconnect to link this code.');
-      await storage.put('lexirise-vault',{...record,viewer});
+      await write(async()=>{if(token!==revision)throw Error('Vault locked. Unlock and reconnect to link this code.');await storage.put('lexirise-vault',{...record,viewer});});
     },
     async unlockViewer(code){
       lock();const token=revision,record=await storage.get('lexirise-vault');let value;
