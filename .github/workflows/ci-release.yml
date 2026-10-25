@@ -31,7 +31,7 @@ jobs:
       - run: npm run audit:public
       - name: Upload safe audit identity
         if: ${{ always() && hashFiles('output/checks/ci/source-audit.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-source-audit
           path: output/checks/ci/source-audit.json
@@ -98,7 +98,7 @@ jobs:
           # The separate source-audit job checks PR author/history metadata.
           CHECK_SKIP_PUBLIC_AUDIT: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
         run: node scripts/check-changed.mjs ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.scope.outputs.full == 'true'
         with:
           name: checked-frontend
@@ -107,7 +107,7 @@ jobs:
           retention-days: 7
       - name: Upload safe integration evidence
         if: ${{ always() && hashFiles('output/checks/ci/integration.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-integration
           path: |
@@ -158,7 +158,7 @@ jobs:
         run: node scripts/check-evidence.mjs --browser-suite ${{ matrix.suite }}
       - name: Upload safe browser evidence
         if: ${{ always() && hashFiles('output/checks/ci/browser.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-browser-${{ matrix.suite }}
           path: |
@@ -192,7 +192,7 @@ jobs:
         run: node scripts/check-ci-gate.mjs required
       - name: Upload safe gate evidence
         if: ${{ always() && hashFiles('output/checks/ci/required-checks.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-required-checks
           path: output/checks/ci/required-checks.json
@@ -227,7 +227,7 @@ jobs:
         run: node scripts/check-evidence.mjs --candidate
       - name: Upload safe package evidence
         if: ${{ always() && hashFiles('output/checks/ci/package.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-package
           path: |
@@ -235,7 +235,7 @@ jobs:
             output/checks/runs/*.json
             output/checks/latest.json
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tested-release-assets
           path: |
