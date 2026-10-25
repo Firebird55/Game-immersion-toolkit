@@ -21,6 +21,7 @@ const input=(name,buffer)=>({name,mimeType:'application/zip',buffer});
 mkdirSync('output/playwright',{recursive:true});
 const pipelinePath=[...files.keys()].find(p=>/\/ocr-pipeline(?:\.[a-f0-9]+)?\.mjs$/.test(p));
 const libraryWorkerPath=[...files.keys()].find(p=>/\/library-worker(?:\.[a-f0-9]+)?\.mjs$/.test(p));
+const storagePath=[...files.keys()].find(p=>/\/storage(?:\.[a-f0-9]+)?\.mjs$/.test(p));
 async function verifyZzzProxy(page){
  const female={...row,id:'7'.repeat(64),textId:'GalGame_fixture:F',sourceVoice:'7'.repeat(64),playerVoice:'female',sourceLanguage:'ja',sourceLocale:'ja',audioLocale:'ja',sourceText:'私の言葉です。',translationLocale:'zh-Hans',translationText:'这句话的字幕相同。',memberTextIds:['GalGame_fixture']},
  male={...female,id:'6'.repeat(64),textId:'GalGame_fixture:M',sourceVoice:'6'.repeat(64),playerVoice:'male',sourceText:'僕の言葉です。',memberTextIds:['GalGame_fixture']};
@@ -130,7 +131,7 @@ try{
   await page.setInputFiles('#library-files',input('broken.zip',Buffer.from('broken')));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('incomplete'));
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'A bad replacement preserves working voices');
-  await page.evaluate(async()=>{const storage=await import('./storage.mjs'),history=await storage.get('history');await storage.put('history',history.map(row=>({...row,audio:'f'.repeat(64)})));});
+  await page.evaluate(async path=>{const storage=await import(path),history=await storage.get('history');await storage.put('history',history.map(row=>({...row,audio:'f'.repeat(64)})));},storagePath);
   await page.reload();await page.locator('#keep-library').uncheck();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Reopen library for voices'));
   await page.getByRole('button',{name:'Reopen voice library',exact:true}).waitFor();
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isDisabled());

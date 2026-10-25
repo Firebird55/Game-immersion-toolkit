@@ -27,8 +27,9 @@ function update(){
 }
 export async function connectVdo(){
  const viewer=parseVdoViewerUrl($('vdo-url').value.trim());
- lastViewer=viewer.url;viewerRevision++;
+ lastViewer=viewer.url;const token=++viewerRevision;
  if($('vdo-remember').checked)await saveViewer(()=>put('vdo-remembered',{version:1,url:viewer.url}));
+ if(token!==viewerRevision)throw Error('Connection cancelled.');
  // The code is delivered only in memory; the vault owns any encrypted binding.
  window.dispatchEvent(new CustomEvent('mobile-viewer-code',{detail:{code:viewer.streamId}}));
  await receiverSource.connect('vdo',{url:viewer.url});if(!$('vdo-remember').checked)$('vdo-url').value='';

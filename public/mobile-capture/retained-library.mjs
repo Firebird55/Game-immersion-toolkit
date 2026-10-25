@@ -3,7 +3,8 @@ import {get,put} from './storage.mjs';
 const KEY='retained-libraries-v1',ROOT='retained-libraries-v1',CHUNK=4*1024*1024;
 const safe=name=>/^[a-f0-9-]{36}$/.test(name);
 const empty=()=>({version:1,last:null,items:[]});
-export function createLibraryStore({storage={get,put},directory=()=>navigator.storage.getDirectory(),exclusive=fn=>navigator.locks.request(ROOT,fn)}={}){
+export function createLibraryStore({storage={get,put},directory=()=>navigator.storage.getDirectory(),exclusive=fn=>navigator.locks.request(ROOT,fn),readTimeoutMs=20000}={}){
+ async function readChunk(file,start,end,guard){let timer,poll;try{const bytes=await Promise.race([file.slice(start,end).arrayBuffer(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('File read timed out. Download the ZIP fully or reconnect its drive, then retry.')),readTimeoutMs);poll=setInterval(()=>{try{guard();}catch(error){reject(error);}},100);})]);if(bytes.byteLength!==end-start)throw Error('The selected file became incomplete. Select the complete ZIP again.');return new Uint8Array(bytes);}finally{clearTimeout(timer);clearInterval(poll);}}
  const registry=async()=>{const saved=await storage.get(KEY);return saved?.version===1&&Array.isArray(saved.items)?saved:empty();};
  const root=async()=> (await directory()).getDirectoryHandle(ROOT,{create:true});
  const removeFolder=async(folder)=>{if(safe(folder))await (await root()).removeEntry(folder,{recursive:true}).catch(()=>{});};
@@ -15,11 +16,12 @@ export function createLibraryStore({storage={get,put},directory=()=>navigator.st
    try{const folder=await(await root()).getDirectoryHandle(item.folder);const files=[];for(let i=0;i<item.files.length;i++){const file=await(await folder.getFileHandle(String(i))).getFile();if(file.size!==item.files[i].size)throw Error();files.push(new File([file],item.files[i].name));}return {item,files};}
    catch{throw Error('The saved library is no longer on this device. Use Update from file to restore it. Your history and library selection are preserved.');}
   },
-  async save(files,metadata,guard=()=>{},progress=()=>{}){return exclusive(async()=>{
+  async save(files,metadata,guard=()=>{},progress=()=>{},validate=async()=>{}){return exclusive(async()=>{
    guard();const saved=await registry(),folderName=crypto.randomUUID(),folder=await(await root()).getDirectoryHandle(folderName,{create:true});let committed=false;
    try{let copied=0;const total=files.reduce((n,f)=>n+f.size,0);
-    for(let i=0;i<files.length;i++){const handle=await(await folder.getFileHandle(String(i),{create:true})).createSyncAccessHandle();try{for(let offset=0;offset<files[i].size;offset+=CHUNK){guard();const bytes=new Uint8Array(await files[i].slice(offset,offset+CHUNK).arrayBuffer());guard();let written=0;while(written<bytes.length){const n=handle.write(bytes.subarray(written),{at:offset+written});if(!n)throw Error('Retained library write failed.');written+=n;}copied+=bytes.length;progress(`Keeping library on this device: ${Math.round(100*copied/total)}%`);}handle.flush();}finally{handle.close();}}
-    guard();const item={...metadata,folder:folderName,files:files.map(f=>({name:f.name,size:f.size})),bytes:total,lastSelected:Date.now()};
+    for(let i=0;i<files.length;i++){const handle=await(await folder.getFileHandle(String(i),{create:true})).createSyncAccessHandle();try{for(let offset=0;offset<files[i].size;offset+=CHUNK){guard();const bytes=await readChunk(files[i],offset,Math.min(files[i].size,offset+CHUNK),guard);guard();let written=0;while(written<bytes.length){const n=handle.write(bytes.subarray(written),{at:offset+written});if(!n)throw Error('Retained library write failed.');written+=n;}copied+=bytes.length;progress(`Keeping library on this device: ${Math.round(100*copied/total)}%`);}handle.flush();}finally{handle.close();}}
+    guard();const copies=[];for(let i=0;i<files.length;i++)copies.push(new File([await(await folder.getFileHandle(String(i))).getFile()],files[i].name));await validate(copies);guard();
+    const item={...metadata,folder:folderName,files:files.map(f=>({name:f.name,size:f.size})),bytes:total,lastSelected:Date.now()};
     await storage.put(KEY,{version:1,last:item.id,items:[...saved.items.filter(i=>i.id!==item.id),item]});
     try{guard();}catch(error){await storage.put(KEY,saved);throw error;}
     committed=true;
