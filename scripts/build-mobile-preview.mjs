@@ -3,12 +3,13 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import {ocrAssets} from './mobile-assets.mjs';
+import {sourceCommit} from './build-identity.mjs';
 
 import {buildBrowserReader} from './build-browser-reader.mjs';
 await buildBrowserReader();
 const root = new URL('../', import.meta.url);
 const git = (...args) => execFileSync('git', args, { cwd: fileURLToPath(root), encoding: 'utf8' }).trim();
-const commit = process.env.GITHUB_SHA || git('rev-parse', 'HEAD');
+const commit = sourceCommit(fileURLToPath(root));
 const branch = process.env.GITHUB_REF_NAME || git('branch', '--show-current');
 if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('Preview requires a full Git commit SHA.');
 const builtAt = new Date().toISOString();

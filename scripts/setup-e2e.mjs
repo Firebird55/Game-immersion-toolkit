@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict';
-import {spawn,execFileSync} from 'node:child_process';
-import {mkdirSync,readFileSync} from 'node:fs';
+import {startPreview} from './e2e-preview.mjs';
+import {readFileSync} from 'node:fs';
 import {chromium,firefox} from 'playwright';
-const port=4322,server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
+const preview=await startPreview('setup');
 let browser;
-mkdirSync('output/playwright',{recursive:true});
 try{
- await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Setup preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes('localhost:'+port)||String(b).includes('127.0.0.1:'+port)){clearTimeout(timer);resolve();}});server.stderr.on('data',b=>process.stderr.write(b));server.once('error',reject);});
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){
-  browser=await engine.launch({headless:true});
+  browser=await preview.launchBrowser(engine,{headless:true});
   for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[640,480,2],[640,360,2],[568,320,1],[768,1024,1.25]]){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[],unexpected=[];
    let pickerAttempts=0,setupOffline=false,exportRevision=0,exportLocale='ja';
@@ -66,7 +64,7 @@ try{
     else {unexpected.push(method+' '+path);status=500;value={detail:'Unexpected setup fixture route'};}
     await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(value)});
    });
-   await page.goto('http://localhost:'+port);
+   await page.goto(preview.origin);
    const dialog=page.getByRole('dialog',{name:'Settings'});
    await dialog.waitFor();
    await dialog.locator('.language-table').waitFor();
@@ -135,7 +133,7 @@ try{
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
    assert(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Setup has horizontal overflow');
-   if(name==='chromium'&&(width===1280||width===390))await dialog.screenshot({path:`output/playwright/toolkit-setup-${width===1280?'desktop':'mobile'}.png`});
+   if(name==='chromium'&&(width===1280||width===390))await dialog.screenshot({path:`${preview.output}/toolkit-setup-${width===1280?'desktop':'mobile'}.png`});
    await dialog.getByRole('button',{name:'Next',exact:true}).click();
    await dialog.getByRole('button',{name:'Run OCR and display test',exact:true}).click();
    await dialog.getByText('OCR and display test passed.',{exact:true}).waitFor();
@@ -160,4 +158,6 @@ try{
   }
   await browser.close();browser=null;
  }
-}finally{await browser?.close();if(process.platform==='win32'){try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}}else server.kill();}
+}finally{
+ await preview.stop();
+}
