@@ -50,13 +50,15 @@
   <section class="play-setup setup-detail" aria-label="Your game library" data-panel="reader" data-source="mobile" hidden>
     <h2>1. Open your library</h2>
 <p>Choose the Mobile Library ZIP from Files. Keep it zipped.</p>
+    <label><input id="keep-library" type="checkbox" checked>Keep on this device</label><p class="hint">Retains a copy for automatic reopening, using space on this device.</p>
+    <label>Saved libraries <select id="saved-libraries"><option value="">Choose a saved library</option></select></label><button id="update-library">Update from file</button><button id="remove-retained-library">Remove downloaded copy</button>
     <button id="open-library">Open library</button><input id="library-files" type="file" multiple accept=".zip,application/zip,application/octet-stream" hidden aria-label="Mobile library file"><p id="selected-library" class="hint"></p>
     <button id="cancel-library" hidden>Cancel file opening</button>
     <p id="library-status" role="status">Choose one library file to get text and voices.</p>
     <p id="pack-status" class="hint developer-only"></p><p id="storage-status" class="hint developer-only"></p>
     <p id="coverage-status" class="hint developer-only"></p>
     <p id="cache-status" class="hint" hidden></p>
-<p class="hint">Keep USB storage connected. Reopen this file after reloading the website.</p>
+<p class="hint">Retained libraries reopen automatically. On iPhone, select each updated cloud ZIP once using Update from file. Keep USB storage connected for session-only libraries.</p>
 
 
   </section>
@@ -64,7 +66,8 @@
     <h2>2. Connect your game</h2>
     <div id="native-setup">
       <label>VDO.Ninja code or viewer link <input id="vdo-url" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Stream code or full viewer link"></label>
-      <details><summary>How to share the game screen</summary><ol><li>On the gaming iPhone or iPad, open the native VDO.Ninja app and choose SCREEN.</li><li>Select VDO.Ninja Screen Recorder and start the broadcast, then open your game.</li><li>Enter the stream code, or paste the complete viewer link when it includes a password or other options.</li></ol><p>The code also unlocks Lexirise when it matches your passphrase or a previously linked code. To link a different code, unlock Lexirise once and connect the screen. Keep this receiving page visible. Your viewer link stays in memory for this session.</p></details>
+      <label><input id="vdo-remember" type="checkbox">Remember on this device</label><button id="vdo-forget" type="button">Forget saved connection</button><p class="hint">Save the private viewer link on this device without a passphrase. Only enable on a device you trust.</p>
+      <details><summary>How to share the game screen</summary><ol><li>On the gaming iPhone or iPad, open the native VDO.Ninja app and choose SCREEN.</li><li>Select VDO.Ninja Screen Recorder and start the broadcast, then open your game.</li><li>Enter the stream code, or paste the complete viewer link when it includes a password or other options.</li></ol><p>The code also unlocks Lexirise when it matches your passphrase or a previously linked code. To link a different code, unlock Lexirise once and connect the screen. Keep this receiving page visible. Your viewer link stays in memory unless you choose Remember on this device.</p></details>
       <details><summary>Connection options</summary><button id="vdo-connect">Connect screen</button></details><button id="vdo-stop" hidden disabled>Disconnect screen</button>
       <p id="source-status" role="status" aria-live="polite">Paste a viewer link, then tap Start playing.</p>
     </div>
