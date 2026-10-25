@@ -172,6 +172,8 @@ class AutomaticMobileExports:
             self.thread.join(timeout=30)
             if self.thread.is_alive():
                 raise RuntimeError('Automatic export has not stopped; runtime handoff cancelled.')
+        if self.process and self.process.poll() is None:
+            raise RuntimeError('Automatic export process cleanup is incomplete; runtime handoff cancelled.')
         self.picker.close_picker()
 
     def _loop(self):
@@ -322,7 +324,10 @@ class AutomaticMobileExports:
         except InterruptedError:
             self._set(game, locale, state='waiting', message='Export interrupted; verified work is retained for resuming.')
         finally:
-            if self.process and self.process.poll() is None:
-                stop_export_process(self.process)
-            self.process = None
-            INDEX_BUILD_LOCK.release()
+            try:
+                if self.process and self.process.poll() is None:
+                    stop_export_process(self.process)
+            finally:
+                if self.process is None or self.process.poll() is not None:
+                    self.process = None
+                INDEX_BUILD_LOCK.release()

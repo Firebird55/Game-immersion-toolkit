@@ -140,3 +140,10 @@ def test_interrupted_destination_copy_leaves_no_partial_publication(tmp_path):
     with pytest.raises(InterruptedError):auto.publish(candidate,dest,tmp_path/'previous.zip',interrupt)
     assert dest.read_bytes()==b'previous'
     assert not dest.with_suffix('.zip.pending').exists()
+
+
+def test_handoff_refuses_unconfirmed_process_cleanup(tmp_path):
+    manager=auto.AutomaticMobileExports(tmp_path,home=tmp_path/'local')
+    manager.process=SimpleNamespace(poll=lambda:None)
+    with pytest.raises(RuntimeError,match='handoff cancelled'):
+        manager.close()

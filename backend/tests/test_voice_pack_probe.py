@@ -1,6 +1,5 @@
 from backend.voice_pack_probe import _probe
 from backend.tests.test_heavy_rain_assets import installation
-from backend.tests.test_quantic_assets import write_archive
 
 
 def test_pack_state_does_not_require_a_prepared_index(tmp_path):

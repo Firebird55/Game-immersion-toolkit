@@ -19,9 +19,13 @@ export function createLibraryStore({storage={get,put},directory=()=>navigator.st
    guard();const saved=await registry(),folderName=crypto.randomUUID(),folder=await(await root()).getDirectoryHandle(folderName,{create:true});let committed=false;
    try{let copied=0;const total=files.reduce((n,f)=>n+f.size,0);
     for(let i=0;i<files.length;i++){const handle=await(await folder.getFileHandle(String(i),{create:true})).createSyncAccessHandle();try{for(let offset=0;offset<files[i].size;offset+=CHUNK){guard();const bytes=new Uint8Array(await files[i].slice(offset,offset+CHUNK).arrayBuffer());guard();let written=0;while(written<bytes.length){const n=handle.write(bytes.subarray(written),{at:offset+written});if(!n)throw Error('Retained library write failed.');written+=n;}copied+=bytes.length;progress(`Keeping library on this device: ${Math.round(100*copied/total)}%`);}handle.flush();}finally{handle.close();}}
-    guard();const previous=saved.items.find(i=>i.id===metadata.id);const item={...metadata,folder:folderName,files:files.map(f=>({name:f.name,size:f.size})),bytes:total,lastSelected:Date.now()};
-    await storage.put(KEY,{version:1,last:item.id,items:[...saved.items.filter(i=>i.id!==item.id),item]});committed=true;
-    if(previous)await removeFolder(previous.folder);return item;
+    guard();const item={...metadata,folder:folderName,files:files.map(f=>({name:f.name,size:f.size})),bytes:total,lastSelected:Date.now()};
+    await storage.put(KEY,{version:1,last:item.id,items:[...saved.items.filter(i=>i.id!==item.id),item]});
+    try{guard();}catch(error){await storage.put(KEY,saved);throw error;}
+    committed=true;
+    // Keep the previous open file usable until this worker has handed off the
+    // replacement. The next startup removes unreferenced, completed copies too.
+    return item;
    }finally{if(!committed)await removeFolder(folderName);}
   });},
   async select(id){return exclusive(async()=>{const saved=await registry();if(saved.items.some(i=>i.id===id))await storage.put(KEY,{...saved,last:id});});},

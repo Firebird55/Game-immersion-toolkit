@@ -18,7 +18,15 @@ test('quota and cancellation cannot replace a working copy; orphan cleanup prese
  const {store,folders,setFail}=fixture();await store.save([new File(['good'],'first.zip')],metadata('one'));
  setFail(true);await assert.rejects(store.save([new File(['bad'],'update.zip')],metadata('one')),/quota/);setFail(false);
  let guards=0;await assert.rejects(store.save([new File(['bad'],'update.zip')],metadata('one'),()=>{if(++guards===3)throw Error('cancelled');}),/cancelled/);
+ guards=0;await assert.rejects(store.save([new File(['late'],'update.zip')],metadata('one'),()=>{if(++guards===5)throw Error('cancelled after commit');}),/cancelled/);
  assert.equal(await(await store.files()).files[0].text(),'good');assert.equal(folders.size,1);
  folders.set(crypto.randomUUID(),new Map());folders.set('unrelated',new Map());await store.cleanup();assert.equal(folders.size,2);
  const saved=await store.list();folders.delete(saved.items[0].folder);await assert.rejects(store.files(),/Update from file/);assert.deepEqual(await store.list(),saved);
+});
+
+test('replacement keeps the old open file until startup cleanup',async()=>{
+ const {store,folders}=fixture();await store.save([new File(['old'],'library.zip')],metadata('one'));
+ const previous=await store.files();await store.save([new File(['new'],'library.zip')],{...metadata('one'),revision:'r2'});
+ assert.equal(await previous.files[0].text(),'old');assert.equal(await(await store.files()).files[0].text(),'new');assert.equal(folders.size,2);
+ await store.cleanup();assert.equal(folders.size,1);
 });
