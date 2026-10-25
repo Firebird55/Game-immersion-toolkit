@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import {readFileSync,readdirSync,statSync,mkdtempSync} from 'node:fs';
+import {readFileSync,readdirSync,statSync,mkdtempSync,rmSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
@@ -22,6 +22,7 @@ const id='a'.repeat(64),row={id,textId:'update-check',english:'The lantern is br
 const manifest={format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title:'Synthetic update verification',revision:id,coverage:{dialogue:1},catalog:[{name:'catalog/00000.ndjson',size:segment.length,sha256:sha}],packs:[]};
 const catalog=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify(manifest)),'catalog/00000.ndjson':segment},{level:0}));
 let browser,stage='starting';
+const profiles=new Set();
 const mark=value=>{stage=value;console.log(`${process.env.MOBILE_TEST_BROWSERS}: offline check — ${stage}`);};
 // Print the current operation before the parent deadline, even if browser cleanup
 // stalls. Ordinary failures are also printed before entering that cleanup.
@@ -34,6 +35,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  // ephemeral test context can lose its controller and cache mid-session on
  // Windows; the restart below also verifies the actual offline-use contract.
  const profile=name!=='webkit'?mkdtempSync(resolve('output/offline-firefox-')):null;
+ if(profile)profiles.add(profile);
  // This fixture's text assertions require English on every host, including restart.
  let context;
  if(profile){context=await engines[name].launchPersistentContext(profile,{headless:true,locale:'en-US'});browser=context.browser();}
@@ -101,4 +103,10 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  }
  console.log(`${name}: offline application cache, waiting update, retained catalog/favorite/calibration and allowlist passed${profile?' including a browser restart':''}`);
 }}catch(error){console.error(`Offline check failed during: ${stage}`,error);throw error;}
-finally{await browser?.close();server.closeAllConnections();await new Promise(r=>server.close(r));clearTimeout(watchdog);}
+finally{
+ let browserClosed=false;
+ try{await browser?.close();browserClosed=true;}finally{
+  server.closeAllConnections();await new Promise(r=>server.close(r));clearTimeout(watchdog);
+  if(browserClosed)for(const profile of profiles)rmSync(profile,{recursive:true,force:true,maxRetries:3,retryDelay:100});
+ }
+}
