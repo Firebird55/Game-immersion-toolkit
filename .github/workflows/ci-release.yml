@@ -67,7 +67,7 @@ jobs:
           CI_SCOPE_PYTHON: ${{ steps.plan.outputs.python }}
           CI_SCOPE_BROWSERS: ${{ steps.plan.outputs.browsers }}
         run: node scripts/check-ci-gate.mjs scope
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.scope.outputs.python == 'true'
         with:
           python-version: '3.12'
@@ -137,7 +137,7 @@ jobs:
           cache: npm
       - name: Verify the browser integration commit
         run: node scripts/check-ci-gate.mjs checkout browser
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: matrix.suite == 'setup'
         with:
           python-version: '3.12'
