@@ -149,7 +149,7 @@ jobs:
           path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
       - run: npx playwright install chromium firefox webkit
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checked-frontend
           path: dist/
@@ -213,7 +213,7 @@ jobs:
       - name: Verify the package source commit
         run: node scripts/check-ci-gate.mjs checkout package
       - run: npm ci --ignore-scripts
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checked-frontend
           path: dist/
@@ -254,7 +254,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: tested-release-assets
           path: release
