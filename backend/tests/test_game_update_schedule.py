@@ -35,3 +35,15 @@ def test_startup_only_starts_the_prepared_language_monitor():
     runtime.start_updates()
     runtime.start_updates()
     assert calls == ['prepared', 'repair']
+
+
+def test_startup_starts_account_independent_mobile_rules_once():
+    runtime = Runtime.__new__(Runtime)
+    calls = []
+    runtime._updates_started = False
+    runtime.languages = SimpleNamespace(start=lambda: calls.append('languages'))
+    runtime.automatic_exports = SimpleNamespace(start=lambda: calls.append('exports'))
+    runtime.start_audio_repair = lambda: calls.append('repair')
+    runtime.start_updates()
+    runtime.start_updates()
+    assert calls == ['languages', 'exports', 'repair']

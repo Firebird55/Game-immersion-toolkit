@@ -14,6 +14,7 @@ try{
   for(const[width,height]of [[1280,900],[390,844]]){
    const context=await browser.newContext({locale:'en-US',viewport:{width,height}}),page=await context.newPage();
    let generation=0;const stateContext=()=>({runtime_id:'account-fixture',state_version:generation,account_generation:generation});
+   let automatic={enabled:false,paused:false,destination:'',languages:{},jobs:{},locales:[{locale:'ja',name:'Japanese',voice_label:'Not detected — install this voice language in the game/launcher'},{locale:'en',name:'English',voice_label:'Installed'}],translations:['en','fr'],browseActive:false,browsedDestination:'',browseMessage:''};
    let active='first',prepared=false,releaseOld,releaseExport,exportMode='success',configured=true,deckMode='normal',releaseDeck;
    const sent={first:{},second:{},legacy:{}}; const unexpected=[];
    const writes=[],requests=[];
@@ -42,6 +43,7 @@ try{
     if(path==='/api/lines')return respond(url.searchParams.get('game')==='zzz'?[line()]:[]);
     if(path==='/api/favorites')return respond([]);
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[game],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,mobile_export:{state:'idle'},free_gb:10});
+    if(path==='/api/setup/games/zzz/automatic-mobile-export'){if(request.method()==='POST'){if(body.action==='save')automatic={...automatic,enabled:body.enabled,destination:body.destination,languages:body.languages};if(body.action==='pause'||body.action==='resume')automatic.paused=body.action==='pause';}return respond(automatic);}
     if(path==='/api/lexirise')return respond({configured,account:active,sent:sent[active],decks:{}});
     if(path==='/api/lexirise/accounts')return respond({active,profiles:[{id:'first',name:'First account'},{id:'second',name:'Second account'}]});
     if(path==='/api/lexirise/accounts/select'){active=body.id;generation++;return respond({active});}
@@ -176,6 +178,19 @@ try{
    await setup.getByRole('button',{name:'Prepare language',exact:true}).click();
    await setup.getByRole('button',{name:'Use this language',exact:true}).waitFor();
    assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')),[{path:'/api/setup/games/zzz/languages',body:{locale:'zh-Hans',action:'prepare',target:'en'}}]);
+   await setup.locator('summary').filter({hasText:'Keep mobile library updated'}).click();
+   const automaticPanel=setup.getByRole('region',{name:'Automatic mobile exports'});
+   await automaticPanel.getByLabel('Keep mobile library updated',{exact:true}).check();
+   await automaticPanel.getByLabel('Export folder',{exact:true}).fill('F:/Private cloud/Mobile Libraries');
+   await automaticPanel.getByLabel('Japanese',{exact:true}).check();
+   await automaticPanel.getByLabel('Japanese translation',{exact:true}).selectOption('fr');
+   await automaticPanel.getByRole('button',{name:'Save settings',exact:true}).click();
+   await automaticPanel.getByRole('button',{name:'Pause',exact:true}).waitFor();
+   assert.deepEqual(automatic.languages,{ja:'fr'});assert.equal(automatic.enabled,true);
+   await automaticPanel.getByRole('button',{name:'Pause',exact:true}).click();await automaticPanel.getByRole('button',{name:'Resume',exact:true}).waitFor();
+   assert(await automaticPanel.getByText('Not detected — install this voice language in the game/launcher',{exact:true}).isVisible());
+   assert.equal(writes.filter(w=>w.path.includes('automatic-mobile-export')&&w.body.action==='save').length,1);
+   assert(await automaticPanel.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Automatic export controls fit the viewport');
    await setup.getByText('Advanced',{exact:true}).click();
    const rebuilt=page.waitForResponse(r=>r.url().endsWith('/languages')&&r.request().method()==='POST');
    await setup.getByRole('button',{name:'Rebuild table',exact:true}).click();await rebuilt;
