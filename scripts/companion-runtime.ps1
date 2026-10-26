@@ -232,9 +232,12 @@ function Start-CompanionProcess([string]$Executable, [string[]]$Arguments, [stri
     return $process
 }
 
-function Invoke-CompanionBuild([string]$Executable, [string[]]$Arguments, [string]$Directory, [string]$Log) {
+function Invoke-CompanionBuild([string]$Executable, [string[]]$Arguments, [string]$Directory, [string]$Log, [int]$TimeoutSeconds=1800) {
     $process = Start-CompanionProcess $Executable $Arguments $Directory $Log -LowPriority
-    $process.WaitForExit()
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        Stop-CompanionProcessHandle $process
+        throw 'Update preparation exceeded its time limit. The current runtime is unchanged; check the private dependency logs and retry.'
+    }
     if ($process.ExitCode -ne 0) { throw 'Update preparation failed. The running companion was kept active; see the private update logs.' }
 }
 

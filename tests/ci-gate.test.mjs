@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {releaseMetadata} from '../scripts/prepare-release-version.mjs';
 import assert from 'node:assert/strict';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
@@ -74,7 +75,7 @@ test('PR application checks require exact workflow SHA and ordered event parents
 test('public source audit uses submitted HEAD while other events use workflow SHA', () => {
   assert.equal(verifyCheckout({...identity, kind: 'source-audit', commit: headSha}).source, 'submitted-head');
   assert.throws(() => verifyCheckout({...identity, kind: 'source-audit'}), /submitted PR HEAD/);
-  for (const event of ['push', 'workflow_dispatch']) for (const kind of ['source-audit', 'integration', 'browser', 'package']) {
+  for (const event of ['push', 'workflow_dispatch', 'release']) for (const kind of ['source-audit', 'integration', 'browser', 'package']) {
     assert.equal(verifyCheckout({...identity, event, kind}).source, 'workflow-commit');
     assert.throws(() => verifyCheckout({...identity, event, kind, commit: headSha}), /workflow SHA/);
   }
@@ -147,7 +148,11 @@ test('tag and manual packages validate the extracted artifact before publishing 
   assert.match(validation, /run: npx playwright install chromium firefox webkit/);
   assert.match(validation, /run: node scripts\/check-evidence\.mjs --candidate/);
   assert.doesNotMatch(validation, /if: github\.event_name == 'workflow_dispatch'/);
-  assert.match(published, /github\.event_name == 'push' && github\.repository == 'Firebird55\/Game-immersion-toolkit' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(published, /github\.event_name == 'release'/);
+  assert.match(published, /github\.event_name == 'workflow_dispatch' && inputs\.publish/);
+  assert.match(published, /github\.repository == 'Firebird55\/Game-immersion-toolkit' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
+  assert.match(workflow, /release:\n    types: \[published\]/);
+  assert.match(published, /gh release upload .*--clobber/);
   assert.match(published, /needs: package/);
   assert.match(published, /name: tested-release-assets/);
   assert.doesNotMatch(published, /package-release|validate-candidate/);
@@ -215,4 +220,18 @@ test('gate CLI preserves verified merge identity and cannot reuse stale checkout
     assert.equal(read().status,'failure');assert.equal(read().identityStatus,'unavailable');
     assert.equal(read().testedSha,undefined);
   } finally {rmSync(cwd,{recursive:true,force:true});}
+});
+
+
+test('a manually created tag supplies matching distribution metadata without changing dependencies', () => {
+  const pkg = {name:'game-immersion-toolkit',version:'0.19.2',dependencies:{example:'1.0.0'}};
+  const lock = {version:pkg.version,packages:{'':pkg,'node_modules/example':{version:'1.0.0'}}};
+  const prepared = releaseMetadata('v0.19.3',pkg,lock);
+  assert.equal(prepared.pkg.version,'0.19.3');
+  assert.equal(prepared.lock.version,'0.19.3');
+  assert.equal(prepared.lock.packages[''].version,'0.19.3');
+  assert.deepEqual(prepared.pkg.dependencies,pkg.dependencies);
+  assert.deepEqual(prepared.lock.packages['node_modules/example'],lock.packages['node_modules/example']);
+  assert.equal(pkg.version,'0.19.2');
+  assert.throws(() => releaseMetadata('main',pkg,lock));
 });

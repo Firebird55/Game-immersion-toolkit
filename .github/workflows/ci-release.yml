@@ -4,7 +4,14 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Upload verified assets to the selected version tag (leave off for a candidate build)'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -26,6 +33,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - run: node scripts/prepare-release-version.mjs
       - name: Verify the source identity for publication audit
         run: node scripts/check-ci-gate.mjs checkout source-audit
       - run: npm run audit:public
@@ -51,6 +59,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - run: node scripts/prepare-release-version.mjs
       - name: Verify the integration commit and PR merge parents
         run: node scripts/check-ci-gate.mjs checkout integration
       - name: Select affected checks
@@ -135,6 +144,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - run: node scripts/prepare-release-version.mjs
       - name: Verify the browser integration commit
         run: node scripts/check-ci-gate.mjs checkout browser
       - uses: actions/setup-python@v5
@@ -210,6 +220,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - run: node scripts/prepare-release-version.mjs
       - name: Verify the package source commit
         run: node scripts/check-ci-gate.mjs checkout package
       - run: npm ci --ignore-scripts
@@ -248,7 +259,7 @@ jobs:
             release/LICENSE
             release/SHA256SUMS
   publish:
-    if: github.event_name == 'push' && github.repository == 'Firebird55/Game-immersion-toolkit' && startsWith(github.ref, 'refs/tags/v')
+    if: (github.event_name == 'push' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)) && github.repository == 'Firebird55/Game-immersion-toolkit' && startsWith(github.ref, 'refs/tags/v')
     needs: package
     runs-on: ubuntu-latest
     permissions:
@@ -262,4 +273,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "${{ github.ref_name }}" release/* --verify-tag --title "${{ github.ref_name }}" --generate-notes
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release/* --clobber
+          else
+            gh release create "$RELEASE_TAG" release/* --verify-tag --title "$RELEASE_TAG" --notes-file release/RELEASE_NOTES.md
+          fi
