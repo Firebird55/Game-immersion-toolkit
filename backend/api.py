@@ -45,6 +45,7 @@ from .language_inventory import LanguageInventory
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 from .installation import InstallationService
 from .scoped_mobile_exports import ScopedMobileExports
+from .automatic_mobile_export import AutomaticMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
 
@@ -214,6 +215,7 @@ class Runtime:
             account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
         self.index_task: asyncio.Task[None] | None = None
         self.mobile_exports = ScopedMobileExports(PROJECT_ROOT, self.accounts, self.languages)
+        self.automatic_exports = AutomaticMobileExports(PROJECT_ROOT, install_lookup=self.setup_install)
         self.language_inventory = LanguageInventory(DATA_DIR, PROJECT_ROOT / 'public/mobile-capture/games-data.json', self.setup_install)
 
     def account_preferences(self):
@@ -271,6 +273,8 @@ class Runtime:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
                     with job.publication() if job else nullcontext():
                         output.replace(path)
+                if hasattr(self, 'automatic_exports'):
+                    self.automatic_exports.wake.set()
                 return
         if job:
             raise ValueError('This reader cannot prepare a cancellable language snapshot; previous table retained.')
@@ -499,6 +503,8 @@ class Runtime:
             return
         self._updates_started = True
         self.languages.start()
+        if hasattr(self, 'automatic_exports'):
+            self.automatic_exports.start()
         self.start_audio_repair()
 
     def start_audio_repair(self) -> None:
@@ -520,6 +526,8 @@ class Runtime:
 
     async def stop_updates(self) -> None:
         self._updates_started = False
+        if hasattr(self, 'automatic_exports'):
+            await asyncio.to_thread(self.automatic_exports.close)
         await asyncio.to_thread(self.languages.close)
         if self.repair_task:
             self.repair_task.cancel()
@@ -908,6 +916,43 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
                                                     rebuild=payload.action == 'rebuild')}
     except (ValueError, LexiriseError) as error:
         raise HTTPException(400, str(error)) from None
+
+
+class AutomaticExportOptions(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    action: Literal['save', 'update', 'pause', 'resume', 'retry', 'browse', 'close-picker'] = 'save'
+    enabled: bool = False
+    destination: str = Field(default='', max_length=2000)
+    languages: dict[str, str] = Field(default_factory=dict, max_length=20)
+
+
+@app.get('/api/setup/games/{game}/automatic-mobile-export')
+def automatic_export_status(game: str, request: Request) -> dict:
+    setup_access(request)
+    if game not in GAME_LOCALES:
+        raise HTTPException(404, 'Unsupported game')
+    return runtime.automatic_exports.status(game)
+
+
+@app.post('/api/setup/games/{game}/automatic-mobile-export')
+def automatic_export_action(game: str, payload: AutomaticExportOptions, request: Request,
+                            x_proxy_transcript: str = Header(default='')) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in GAME_LOCALES:
+        raise HTTPException(404, 'Unsupported game')
+    manager = runtime.automatic_exports
+    try:
+        if payload.action == 'save':
+            return manager.configure(game, payload.enabled, payload.destination, payload.languages)
+        if payload.action == 'browse':
+            manager.picker.browse(payload.destination or None)
+            return manager.status(game)
+        if payload.action == 'close-picker':
+            manager.picker.close_picker()
+            return manager.status(game)
+        return manager.action(game, payload.action)
+    except (ValueError, OSError):
+        raise HTTPException(400, 'Check the export folder and select supported voice and translation languages.') from None
 
 
 class MobileExportOptions(BaseModel):

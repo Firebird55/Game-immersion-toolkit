@@ -67,6 +67,7 @@ def write_bundle(catalog, destination, *, guard=lambda: None, progress=lambda va
         parts.append((f"library/voices/{pack['id']}.zip", path))
     metadata = {'format': BUNDLE_FORMAT, 'kind': 'bundle', 'game': manifest['game'],
                 'revision': manifest['revision'], 'audioLocales': sorted(locales),
+                **{key: manifest[key] for key in ('sourceLocale', 'audioLocale', 'translationLocale') if key in manifest},
                 'catalog': parts[0][0], 'voices': [name for name, _ in parts[1:]]}
     name = bundle_name(manifest['game'], locales)
     if reuse_from is not None:

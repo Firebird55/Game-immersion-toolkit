@@ -33,7 +33,7 @@ transport, not native VDO delivery.
 | 30–35 min | On sender, switch game → native app → game. Rotate landscape/portrait and back where the game permits; change resolution if the app exposes it. Recheck crop. | Correct source returns; normalized crop stays in bounds and follows new dimensions. Recalibration is explicit if the game itself moves subtitles. No old scene appears as a new line after the switch. |
 | 35–40 min | Background receiver for 30 seconds; reopen. Lock receiver for 30 seconds; unlock. Then lock sender briefly and unlock. | Receiver hidden state stops OCR; return waits for a new frame. Record whether sender lock terminates broadcast. If ended, restart SCREEN manually using the same link. The still-open toolkit receiver and OCR must resume automatically from fresh frames; iOS broadcast restart itself remains manual. |
 | 40–45 min | Turn sender Wi-Fi off for 30 seconds and back on; repeat on receiver. Use a controlled network and note if cellular fallback occurs. | Observe stall/unconfirmed status, recovery time and any required manual reconnect. A static scene is not automatically a network fault. No stale OCR is published during recovery. |
-| 45–50 min | Reload the toolkit receiver. Paste current link again and reconnect; reopen the library and tap Start playing. Then tap **Disconnect screen** during dialogue and reconnect. | Link is not restored from storage. Catalog/history/calibration remain; voices require reselection. Stop removes iframe and pending output. New session uses fresh frames. |
+| 45–50 min | Reload the toolkit receiver. Enable both remember options and Keep on this device before reload; tap Start playing after reopening. Repeat with remembering disabled. Then tap **Disconnect screen** during dialogue and reconnect. | Opted-in link and retained library/voices restore without selection; connection starts only after Start playing. Session-only imports require selection. History and calibration remain. Stop removes iframe and pending output. New session uses fresh frames. |
 | 50–55 min | Stop the actual iOS broadcast on sender. Confirm toolkit detects lack of progress. Restart **SCREEN → broadcast picker → VDO.Ninja Screen Recorder → Start Broadcast** with the same link, leaving toolkit and OCR running. | No false ongoing-live claim from an unchanged frame. Receiver and OCR recover automatically without Start playing, with two fresh confirmed sightings. If the native app changes the link, record that separately and reconnect explicitly. After **Disconnect screen**, wait and verify no automatic restart. |
 | 55–60 min | Resume demanding gameplay and Chinese dialogue; compare ten new known lines and original voice. Save the private notes. | Record total usable minutes, interruptions/restarts, correct/missing/incorrect matches and the outcome for this exact configuration. |
 
@@ -65,3 +65,13 @@ Automated fixtures cover source validation, frame bounds, stale OCR invalidation
 ZIP64 range reads, one-file import, original voice playback, reloads, zoom,
 retained PC transport and encrypted relay recovery. Physical Files access and
 native ReplayKit endurance are still unverified until this protocol is performed.
+
+## Retention acceptance on physical devices
+
+Test Safari and Home Screen independently: import two games/language variants,
+restart the browser and device, switch libraries, and play a retained voice.
+Update one ZIP through each supported Files provider and select it once; verify
+new voices and preserved favorites. Interrupt copying, deny storage, remove the
+retained file, and test recovery without clearing unrelated data. Test Lexirise
+remember/opt-out/Forget with mock credentials and VDO.Ninja remember/Forget.
+These physical-device results have not yet been recorded for this change.

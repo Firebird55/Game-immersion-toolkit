@@ -11,7 +11,9 @@
 
 ## Zenless Zone Zero
 
-[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · [覆盖范围说明](../zzz-languages.md)
+[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [覆盖范围说明](../zzz-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
 <details>
 <summary>语言详情</summary>
@@ -38,7 +40,9 @@
 
 ## Wuthering Waves
 
-[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · [覆盖范围说明](../wuthering-languages.md)
+[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [覆盖范围说明](../wuthering-languages.md)
+
+Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
 
 <details>
 <summary>语言详情</summary>
@@ -62,7 +66,9 @@
 
 ## Neverness to Everness
 
-[官方语言列表](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · [覆盖范围说明](../nte-languages.md)
+[官方语言列表](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-10-25 · [覆盖范围说明](../nte-languages.md)
+
+Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.
 
 <details>
 <summary>语言详情</summary>
@@ -85,7 +91,9 @@
 
 ## PRAGMATA
 
-[官方语言列表](https://store.steampowered.com/app/3357650/PRAGMATA/) · [覆盖范围说明](../pragmata-languages.md)
+[官方语言列表](https://store.steampowered.com/app/3357650/PRAGMATA/) · 2026-10-25 · [覆盖范围说明](../pragmata-languages.md)
+
+Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.
 
 <details>
 <summary>语言详情</summary>
@@ -113,7 +121,9 @@
 
 ## Cyberpunk 2077
 
-[官方语言列表](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · [覆盖范围说明](../cyberpunk-languages.md)
+[官方语言列表](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · 2026-10-25 · [覆盖范围说明](../cyberpunk-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.
 
 <details>
 <summary>语言详情</summary>
@@ -146,7 +156,9 @@
 
 ## The Witcher 3: Wild Hunt
 
-[官方语言列表](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · [覆盖范围说明](../witcher-languages.md)
+[官方语言列表](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · 2026-10-25 · [覆盖范围说明](../witcher-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.
 
 <details>
 <summary>语言详情</summary>
@@ -178,7 +190,9 @@
 
 ## BEYOND: Two Souls
 
-[官方语言列表](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · [覆盖范围说明](../beyond-support.md)
+[官方语言列表](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · 2026-10-25 · [覆盖范围说明](../beyond-support.md)
+
+Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.
 
 <details>
 <summary>语言详情</summary>
@@ -215,7 +229,9 @@
 
 ## HEAVY RAIN
 
-[官方语言列表](https://store.steampowered.com/app/960910/Heavy_Rain/) · [覆盖范围说明](../heavy-rain-support.md)
+[官方语言列表](https://store.steampowered.com/app/960910/Heavy_Rain/) · 2026-10-25 · [覆盖范围说明](../heavy-rain-support.md)
+
+Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.
 
 <details>
 <summary>语言详情</summary>
@@ -246,7 +262,9 @@
 
 ## Honkai: Star Rail
 
-[官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · [覆盖范围说明](../starrail-languages.md)
+[官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [覆盖范围说明](../starrail-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
 <details>
 <summary>语言详情</summary>
@@ -273,7 +291,9 @@
 
 ## Genshin Impact
 
-[官方语言列表](https://store.epicgames.com/p/genshin-impact) · [覆盖范围说明](../genshin-languages.md)
+[官方语言列表](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [覆盖范围说明](../genshin-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
 <details>
 <summary>语言详情</summary>
@@ -292,9 +312,10 @@
 | 俄语 | — | — | ✓ | 已实现读取器 |
 | 泰语 | — | — | ✓ | 已实现读取器 |
 | 越南语 | — | — | ✓ | 已实现读取器 |
-| 印度尼西亚语 | — | — | ✓ | 已实现读取器 |
 | 意大利语 | — | — | ✓ | 已实现读取器 |
 | 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | — | 不可用 |
+| 印度尼西亚语 | — | — | ✓ | 已实现读取器 |
 
 </details>
 
@@ -302,7 +323,9 @@
 
 ## Arknights: Endfield
 
-[官方语言列表](https://store.epicgames.com/p/arknightsendfield-f0f167) · [覆盖范围说明](../endfield-languages.md)
+[官方语言列表](https://store.epicgames.com/p/arknightsendfield-f0f167) · 2026-10-25 · [覆盖范围说明](../endfield-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
 <details>
 <summary>语言详情</summary>

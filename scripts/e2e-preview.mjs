@@ -1,5 +1,6 @@
 import {spawn} from 'node:child_process';
-import {mkdirSync, mkdtempSync, rmSync} from 'node:fs';
+import {mkdirSync, mkdtempSync} from 'node:fs';
+import {rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -105,7 +106,9 @@ export async function startOwnedServer({name, command = process.execPath, args,
       const failures = results.filter(result => result.status === 'rejected');
       if (failures.length === 1) throw failures[0].reason;
       if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'Owned preview cleanup could not be verified; temporary runtime retained.');
-      rmSync(runtime, {recursive: true, force: true, maxRetries: 3, retryDelay: 100});
+      // Windows can retain file handles briefly after taskkill succeeds. Leave
+      // the event loop available while retrying; persistent locks still fail.
+      await rm(runtime, {recursive: true, force: true, maxRetries: 10, retryDelay: 200});
     } finally { unregisterOwnedServer(stop); }
   })();
   registerOwnedServer(stop);

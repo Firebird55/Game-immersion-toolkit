@@ -256,7 +256,8 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     coverage = {"dialogue": len(rows), "mappedVoices": sum(bool(r.get("sourceVoice")) for r in rows),
                 "exportedVoices": sum(bool(r["audio"]) for r in rows), "partial": True}
     manifest = {"format": FORMAT, "kind": "catalog", "game": game, "title": GAME_NAMES[game],
-                "revision": revision, "languages": sorted({locale for row in rows for locale in (row.get("sourceLocale", "zh-Hans"), row.get("translationLocale", "en"))}), "coverage": coverage,
+                "revision": revision, "sourceLocale": rows[0].get("sourceLocale", "zh-Hans"),
+                "audioLocale": rows[0].get("audioLocale", "zh-Hans"), "translationLocale": rows[0].get("translationLocale", "en"), "languages": sorted({locale for row in rows for locale in (row.get("sourceLocale", "zh-Hans"), row.get("translationLocale", "en"))}), "coverage": coverage,
                 "catalog": catalog, "packs": packs}
     name = catalog_name(game)
     write_pack(staging / name, manifest, [(item["name"], value) for item, value in zip(catalog, segments)])
@@ -304,7 +305,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     return result
 
 
-def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None):
+def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None, source_path=None, translation_locale=None):
     """Adapt owned indexes and decoders without touching the user's transcript/audio history."""
     root, decode_dir = Path(root), Path(decode_dir)
     data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
@@ -318,7 +319,7 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         account_check = lambda: account_signature(scoped_accounts) == expected_account_signature
         if not account_check():
             raise ValueError('Account changed before export preparation.')
-    if game == "zzz" and not (data / 'languages/zzz').is_dir():
+    if source_path is None and game == "zzz" and not (data / 'languages/zzz').is_dir():
         if expected_source_locale not in (None, 'zh-Hans'):
             raise ValueError('The selected language table is unavailable; prepare it before exporting.')
         from .voice_assets import VoiceAssetService
@@ -367,7 +368,7 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         source_check = lambda: package_inventory() == inventory
     else:
         from .language_preparation import selected_snapshot
-        source, accounts, account = selected_snapshot(root, game)
+        source, accounts, account = (Path(source_path), None, None) if source_path else selected_snapshot(root, game)
         directory = source.parent
         payload = json.loads(source.read_text(encoding="utf-8"))
         inputs = [source]
@@ -380,12 +381,19 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
             from .lexirise import LexiriseService
             from .lexirise_settings import account_settings
             from .languages import study_language, translation_language, resolve_locale
-            client = LexiriseService(data / 'lexirise', accounts=accounts).pin(study_language(payload['source_locale']))
-            target = translation_language(account_settings(client), study_language(payload['source_locale']))
+            if source_path:
+                if not translation_locale:
+                    raise ValueError('Automatic exports require an explicit translation locale.')
+                target = translation_locale
+            else:
+                client = LexiriseService(data / 'lexirise', accounts=accounts).pin(study_language(payload['source_locale']))
+                target = translation_language(account_settings(client), study_language(payload['source_locale']))
             if target.casefold() not in {value.casefold() for value in payload.get('targets_requested', [])}:
                 raise ValueError('Prepare the account translation table in Languages before exporting.')
             prior_check = account_check
-            if hasattr(accounts, 'path'):
+            if source_path:
+                pass
+            elif hasattr(accounts, 'path'):
                 from .scoped_mobile_exports import account_signature
                 from .language_preparation import LanguagePreparation
                 signature = account_signature(accounts)
@@ -408,15 +416,15 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         elif game == "pragmata":
             from .pragmata_audio import PragmataVoiceAssetService
             from scripts.index_pragmata_assets import fingerprint
-            service = (PragmataVoiceAssetService(directory, decoder, decode_dir, tools_dir=data / game / 'tools')
+            service = (PragmataVoiceAssetService(directory, decoder, decode_dir, tools_dir=directory / 'tools' if source_path else data / game / 'tools')
                        if payload.get('format') == 2 else PragmataVoiceAssetService(directory, decoder, decode_dir))
             source_check = lambda: fingerprint(Path(payload["install"])) == payload["fingerprint"]
         else:
             from .local_voice import LocalVoiceAssetService
             if game == 'nte':
                 from .nte_assets import ensure_extractor
-                ensure_extractor(data / game / 'tools')
-            service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=data / game / "tools")
+                ensure_extractor(directory / 'tools' if source_path else data / game / 'tools')
+            service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=directory / 'tools' if source_path else data / game / 'tools')
             source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
         records = []
         for item in payload["records"]:

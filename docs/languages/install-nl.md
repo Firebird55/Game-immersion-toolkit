@@ -21,6 +21,8 @@
 
 De taalmanager toont echte tabelgroottes. Gedeelde audio en hulpmiddelen worden eenmaal geteld. Gamearchieven en externe exports staan apart; onbekende groottes zijn geen nul. Een tabel verwijderen wist lokale taalkeuzes, maar bewaart geschiedenis, favorieten, gamebestanden en sleutels. Bereid de tabel opnieuw voor om stemmen terug te vinden.
 
+In Games en talen (ook bij de eerste installatie) houdt Keep mobile library updated één ZIP per gekozen stemtaal en vertaling bij zolang de companion draait. Kies een bestaande lokale map, bij voorkeur gesynchroniseerd met je mobiele cloudopslag. Keep on this device bewaart bibliotheken en stemmen voor opnieuw openen. Selecteer op iPhone elke bijgewerkte cloud-ZIP eenmaal. Afzonderlijke Remember on this device-opties bewaren de API-sleutel en volledige VDO.Ninja-link zonder appwachtwoord; gebruik dit alleen op vertrouwde apparaten. De browser of het besturingssysteem kan opslag nog steeds wissen.
+
 ## Problemen oplossen
 
 - Stempakket ontbreekt: installeer de juiste gesproken taal via de gamelauncher en bereid deze opnieuw voor.

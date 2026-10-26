@@ -6,6 +6,7 @@ import threading
 import time
 
 from .languages import GAME_LOCALES
+from .voice_pack_probe import probe
 
 
 def directory_bytes(root):
@@ -81,14 +82,14 @@ class LanguageInventory:
                 size = path.stat().st_size if path.is_file() else 0
                 locales[row['locale']] = {
                     'table_bytes': size, 'reclaimable_bytes': size,
-                    'voice_state': 'not_checked' if not install else 'check_during_preparation',
+                    'voice_state': probe(game, install, row['locale']),
                     'support': 'expected' if row['reader_available'] else 'unsupported',
                 }
                 # A prepared table proves bindings, not continued pack installation.
                 if size and install:
                     try:
                         payload = json.loads(path.read_text(encoding='utf-8'))
-                        if fingerprint and payload.get('fingerprint') == fingerprint:
+                        if fingerprint and payload.get('fingerprint') == fingerprint and any(record.get('audio') for record in payload.get('records', [])):
                             locales[row['locale']]['voice_state'] = 'present'
                             locales[row['locale']]['support'] = 'prepared'
                     except (OSError, ValueError, KeyError):

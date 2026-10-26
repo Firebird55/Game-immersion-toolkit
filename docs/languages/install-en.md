@@ -21,11 +21,13 @@
 
 The language manager shows actual table sizes. Shared audio/tools are counted once. Game archives and external exports are reported separately; unknown sizes are not shown as zero. Removing a table clears local language selections, but keeps history, favorites, game files and credentials. Prepare the table again to restore original-voice lookup.
 
+In Games & Languages (also in first-run setup), Keep mobile library updated maintains one ZIP per chosen voice language and translation while the companion runs. Choose an existing local folder, preferably synchronized with your mobile cloud-storage app. Keep on this device retains mobile libraries and voices for reopening. On iPhone, select each newly updated cloud ZIP once. Separate Remember on this device options save the API key and complete VDO.Ninja link without an application passphrase; use only on trusted devices. Browser/OS deletion is still possible.
+
 ## Troubleshooting
 
 - Missing voice pack: install the matching spoken language through the game launcher, then prepare again.
 - Skipped captions: check the subtitle crop, resolution and on-screen subtitle language. BEYOND tolerates one brief OCR dropout while still requiring confirmation.
-- Mobile offline: download the chosen OCR pack first. Keep your Mobile Library ZIP available; browser storage can be cleared by the operating system.
+- Mobile offline: download the chosen OCR pack first. Keep on this device reopens libraries automatically; retain your ZIP as a recovery copy because the operating system can remove browser storage.
 - Account settings: reload to read existing preferences. Only explicit save controls change your account.
 
 Lexirise is optional. Migaku remains an independent mode where the browser extension is supported. Existing Chinese transcripts keep their original language.

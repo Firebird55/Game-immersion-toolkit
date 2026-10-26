@@ -1,8 +1,16 @@
 import {createReceiverSource} from './receiver-source.mjs';
 import {createVdoFrameSource,parseVdoViewerUrl} from './vdo-source.mjs';
+import {get,put,remove} from './storage.mjs';
 const $=id=>document.getElementById(id);
 export const receiverSource=createReceiverSource({vdo:()=>createVdoFrameSource({container:$('vdo-viewer')})});
 let pc=null,pcLoading=null,pairing=null;
+let viewerRevision=0,viewerWrites=Promise.resolve(),lastViewer='';
+const saveViewer=fn=>{const pending=viewerWrites.catch(()=>{}).then(fn);viewerWrites=pending;return pending;};
+const viewerError=()=>{$('source-status').textContent='Could not save the connection on this device.';};
+$('vdo-url').addEventListener('input',()=>{viewerRevision++;});
+$('vdo-remember').onchange=()=>{viewerRevision++;const enabled=$('vdo-remember').checked;void saveViewer(async()=>{if(!enabled)return remove('vdo-remembered');const input=$('vdo-url').value.trim()||lastViewer;if(input)await put('vdo-remembered',{version:1,url:parseVdoViewerUrl(input).url});}).catch(viewerError);};
+$('vdo-forget').onclick=()=>{viewerRevision++;lastViewer='';$('vdo-url').value='';$('vdo-remember').checked=false;stop();void saveViewer(()=>remove('vdo-remembered')).catch(viewerError);};
+void (async()=>{const token=viewerRevision;try{const saved=await get('vdo-remembered');if(token!==viewerRevision||!saved)return;lastViewer=parseVdoViewerUrl(saved.url).url;$('vdo-url').value=lastViewer;$('vdo-remember').checked=true;}catch{viewerError();}})();
 export function ensurePC(){
  return pcLoading??=Promise.all([import('./pc-connection.mjs'),import('./qr-ui.mjs')]).then(([module,qr])=>{pairing=qr.pairingLifecycle;return pc=module.pcConnection;});
 }
@@ -19,9 +27,12 @@ function update(){
 }
 export async function connectVdo(){
  const viewer=parseVdoViewerUrl($('vdo-url').value.trim());
+ lastViewer=viewer.url;const token=++viewerRevision;
+ if($('vdo-remember').checked)await saveViewer(()=>put('vdo-remembered',{version:1,url:viewer.url}));
+ if(token!==viewerRevision)throw Error('Connection cancelled.');
  // The code is delivered only in memory; the vault owns any encrypted binding.
  window.dispatchEvent(new CustomEvent('mobile-viewer-code',{detail:{code:viewer.streamId}}));
- await receiverSource.connect('vdo',{url:viewer.url});$('vdo-url').value='';
+ await receiverSource.connect('vdo',{url:viewer.url});if(!$('vdo-remember').checked)$('vdo-url').value='';
  if(document.hidden)receiverSource.pause();
  if(receiverSource.getState().status==='error')throw Error(receiverSource.getState().message);
 }
