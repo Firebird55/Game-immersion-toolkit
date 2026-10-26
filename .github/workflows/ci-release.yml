@@ -86,7 +86,7 @@ jobs:
         if: steps.scope.outputs.python == 'true'
       - run: npm ci
         if: steps.scope.outputs.dependencies == 'true'
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         if: steps.scope.outputs.full == 'true'
         with:
           dotnet-version: '10.0.x'
