@@ -28,7 +28,7 @@ pillow==13.0.0
 pluggy==1.7.0
 protobuf==7.36.2
 PyAudioWPatch==0.2.12.9
-pycryptodome==3.24.0
+pycryptodome==4.1.0
 pydantic==2.14.1
 pydantic_core==2.50.1
 Pygments==2.21.0
