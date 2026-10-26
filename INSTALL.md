@@ -40,9 +40,12 @@ The toolkit rebuilds subtitle and original-voice indexes; it does not patch the 
 
 ## Capture and optional reading accounts
 
-For mobile use, **Setup → Games → Export mobile library** creates one private Mobile Library ZIP
-containing the catalog and original voices. Transfer that file to **On My iPhone**
-and open it in the [public mobile companion](https://firebird55.github.io/Game-immersion-toolkit/).
+For mobile use, **Setup → Games & Languages → Keep mobile library updated**
+maintains one private ZIP per selected voice language and translation while the
+companion runs. Choose an existing local folder, preferably synchronized with
+your phone through a cloud-storage application. The first-run wizard uses the
+same controls. Manual exports remain available. Open the ZIP with **Keep on this
+device** enabled in the [public mobile companion](https://firebird55.github.io/Game-immersion-toolkit/).
 See [mobile library setup, recovery and physical device checks](docs/mobile-library.md).
 The PC can be off during play; the game device must supply a working screen stream.
 

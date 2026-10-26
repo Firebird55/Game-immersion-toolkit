@@ -11,7 +11,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Zenless Zone Zero
 
-[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · [Coverage notes](../zzz-languages.md)
+[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [Coverage notes](../zzz-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
 <details>
 <summary>Language details</summary>
@@ -38,7 +40,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Wuthering Waves
 
-[Official language listing](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · [Coverage notes](../wuthering-languages.md)
+[Official language listing](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [Coverage notes](../wuthering-languages.md)
+
+Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
 
 <details>
 <summary>Language details</summary>
@@ -62,7 +66,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Neverness to Everness
 
-[Official language listing](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · [Coverage notes](../nte-languages.md)
+[Official language listing](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-10-25 · [Coverage notes](../nte-languages.md)
+
+Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.
 
 <details>
 <summary>Language details</summary>
@@ -85,7 +91,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## PRAGMATA
 
-[Official language listing](https://store.steampowered.com/app/3357650/PRAGMATA/) · [Coverage notes](../pragmata-languages.md)
+[Official language listing](https://store.steampowered.com/app/3357650/PRAGMATA/) · 2026-10-25 · [Coverage notes](../pragmata-languages.md)
+
+Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.
 
 <details>
 <summary>Language details</summary>
@@ -113,7 +121,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Cyberpunk 2077
 
-[Official language listing](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · [Coverage notes](../cyberpunk-languages.md)
+[Official language listing](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · 2026-10-25 · [Coverage notes](../cyberpunk-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.
 
 <details>
 <summary>Language details</summary>
@@ -146,7 +156,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## The Witcher 3: Wild Hunt
 
-[Official language listing](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · [Coverage notes](../witcher-languages.md)
+[Official language listing](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · 2026-10-25 · [Coverage notes](../witcher-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.
 
 <details>
 <summary>Language details</summary>
@@ -178,7 +190,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## BEYOND: Two Souls
 
-[Official language listing](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · [Coverage notes](../beyond-support.md)
+[Official language listing](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · 2026-10-25 · [Coverage notes](../beyond-support.md)
+
+Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.
 
 <details>
 <summary>Language details</summary>
@@ -215,7 +229,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## HEAVY RAIN
 
-[Official language listing](https://store.steampowered.com/app/960910/Heavy_Rain/) · [Coverage notes](../heavy-rain-support.md)
+[Official language listing](https://store.steampowered.com/app/960910/Heavy_Rain/) · 2026-10-25 · [Coverage notes](../heavy-rain-support.md)
+
+Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.
 
 <details>
 <summary>Language details</summary>
@@ -246,7 +262,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Honkai: Star Rail
 
-[Official language listing](https://store.epicgames.com/p/honkai-star-rail) · [Coverage notes](../starrail-languages.md)
+[Official language listing](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [Coverage notes](../starrail-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
 <details>
 <summary>Language details</summary>
@@ -273,7 +291,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Genshin Impact
 
-[Official language listing](https://store.epicgames.com/p/genshin-impact) · [Coverage notes](../genshin-languages.md)
+[Official language listing](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [Coverage notes](../genshin-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
 <details>
 <summary>Language details</summary>
@@ -292,9 +312,10 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Russian | — | — | ✓ | Reader implemented |
 | Thai | — | — | ✓ | Reader implemented |
 | Vietnamese | — | — | ✓ | Reader implemented |
-| Indonesian | — | — | ✓ | Reader implemented |
 | Italian | — | — | ✓ | Reader implemented |
 | Turkish | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | — | Unavailable |
+| Indonesian | — | — | ✓ | Reader implemented |
 
 </details>
 
@@ -302,7 +323,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Arknights: Endfield
 
-[Official language listing](https://store.epicgames.com/p/arknightsendfield-f0f167) · [Coverage notes](../endfield-languages.md)
+[Official language listing](https://store.epicgames.com/p/arknightsendfield-f0f167) · 2026-10-25 · [Coverage notes](../endfield-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
 <details>
 <summary>Language details</summary>

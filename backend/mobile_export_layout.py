@@ -129,7 +129,9 @@ def write_instructions(output, folder, *, transfer_folder=None, library=None):
         f'{files}\n'
         'On Play, open the library, paste the VDO.Ninja viewer link and tap Start playing.\n'
         'Keep this page visible. Tap Play voice to hear matched dialogue.\n'
-        'After reopening the website, reopen the same library file for voices.\n'
+        'Leave Keep on this device enabled to reopen this library and voices automatically.\n'
+        'If storage fails or you choose session-only use, select the file after reopening.\n'
+        'On iPhone, select each newly updated cloud ZIP once. Keep a recovery copy.\n'
         'Files may stay in On My iPhone or on a connected USB drive. Keep ZIPs zipped.\n', encoding='utf8')
 
 

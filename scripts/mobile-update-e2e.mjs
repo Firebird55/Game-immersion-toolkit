@@ -34,7 +34,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  // Exercise Firefox's durable site storage in a fresh owned profile. Its
  // ephemeral test context can lose its controller and cache mid-session on
  // Windows; the restart below also verifies the actual offline-use contract.
- const profile=name==='firefox'?mkdtempSync(resolve('output/offline-firefox-')):null;
+ const profile=name!=='webkit'?mkdtempSync(resolve('output/offline-firefox-')):null;
  if(profile)profiles.add(profile);
  // This fixture's text assertions require English on every host, including restart.
  let context;
@@ -63,6 +63,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  await page.getByRole('button',{name:'Settings',exact:true}).click();await page.fill('#find-text',row.english);await page.click('#find-line');await page.getByRole('button',{name:'Favorite',exact:true}).click();
  await page.locator('summary').filter({hasText:'Capture regions and calibration'}).click();await page.fill('#crop-left','9');await page.locator('#crop-left').dispatchEvent('change');
  await page.waitForFunction(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('proxy-mobile-library');q.onsuccess=()=>r(q.result);q.onerror=j;});const value=await new Promise(r=>{const q=db.transaction('state').objectStore('state').get('preferences');q.onsuccess=()=>r(q.result);});db.close();return value?.zzz?.crop[0]===.09;});
+ const retainedCount=await page.locator('#saved-libraries option').count();if(name!=='webkit')assert.equal(retainedCount,2);
  const oldBuild=await page.getAttribute('html','data-build-commit');
  const loaderCached=await page.evaluate(async base=>!!await caches.match(base+'/ocr/tesseract.esm.min.js'),base);
  if(!loaderCached){const diagnostics=await page.evaluate(async()=>({controller:navigator.serviceWorker.controller?.scriptURL,caches:await Promise.all((await caches.keys()).map(async name=>({name,requests:await Promise.all((await(await caches.open(name)).keys()).map(async request=>({url:request.url,headers:[...(await(await caches.open(name)).match(request)).headers]})))})))}));console.error('Offline cache diagnostics',name,await browser.version(),JSON.stringify(diagnostics,null,2));}
@@ -81,6 +82,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  mark('activate requested update');
  await page.evaluate(()=>{document.querySelector('#role').disabled=false;document.querySelector('#reload-build').disabled=false;});await page.click('#reload-build');await page.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40));
  await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1);await page.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);assert.equal(await page.inputValue('#crop-left'),'9');
+ assert.equal(await page.locator('#saved-libraries option').count(),retainedCount,'Application update preserves retained library registry');
  mark('reload updated application offline');
  offline=true;await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40)).catch(async error=>{console.error('Offline update diagnostics',await page.evaluate(async()=>({build:document.documentElement.dataset.buildCommit,cache:await Promise.all((await caches.keys()).map(async name=>({name,build:(await(await(await caches.open(name)).match(new URL('./index.html',location.href)))?.text())?.match(/data-build-commit="([^"]+)/)?.[1]})))})));throw error;});await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1);
  assert.equal(await page.evaluate(async name=>(await fetch('./'+name)).status,ui),200,'Previously cached allowlisted modules remain readable for older open tabs');await context.setOffline(false);offline=false;
@@ -95,7 +97,7 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
   await context.setOffline(true);const reopened=await context.newPage(),restartErrors=[];reopened.on('pageerror',error=>restartErrors.push(error.message));
   await reopened.goto(base+'?developer=1');
   await reopened.waitForFunction(()=>document.documentElement.dataset.buildCommit==='b'.repeat(40)&&document.querySelectorAll('.transcript-line').length===1);
-  await reopened.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await reopened.inputValue('#crop-left'),'9');
+  await reopened.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await reopened.inputValue('#crop-left'),'9');assert.equal(await reopened.locator('#saved-libraries option').count(),retainedCount,'Retained library survives a real browser restart');
   assert(await reopened.evaluate(()=>caches.match(new URL('./ocr/tesseract.esm.min.js',location.href)).then(Boolean)),'OCR loader survives a real browser restart');
   assert.deepEqual(restartErrors,[]);await context.close();await browser.close();browser=null;
  }

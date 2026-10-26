@@ -148,8 +148,9 @@ export async function readCatalog(zip, progress=()=>{}){
  for(const pack of m.packs){if(!hex(pack.id)||packIds.has(pack.id)||!Array.isArray(pack.clips)||pack.clips.length>65530||pack.clips.some(sha=>!hex(sha)||!audio.has(sha)||packedAudio.has(sha)||(packedAudio.add(sha),false)))fail('Invalid or duplicate voice pack reference.');packIds.add(pack.id);}
  if(audio.size!==new Set(m.packs.flatMap(p=>p.clips)).size)fail('Missing voice pack references.');
  if(m.languages!=null&&(!Array.isArray(m.languages)||!m.languages.length||m.languages.length>40||!m.languages.every(locale)))fail('Unsupported catalog languages.');
+ const identity={};for(const [key,fallback]of [['sourceLocale','zh-Hans'],['audioLocale','zh-Hans'],['translationLocale','en']])if(m[key]!=null){if(!locale(m[key])||rows.some(row=>(row[key]??fallback)!==m[key]))fail('Catalog language identity disagrees with its dialogue.');identity[key]=m[key];}
  // Do not retain arbitrary, deeply nested metadata from a selected file.
- const manifest={format:m.format,kind:m.kind,game:m.game,title:m.title,revision:m.revision,languages:m.languages??['zh-Hans','en'],coverage:{dialogue:rows.length,mappedVoices:rows.filter(r=>r.sourceVoice).length,exportedVoices:rows.filter(r=>r.audio).length,partial:m.coverage.partial===true},catalog:m.catalog.map(p=>({name:p.name,size:p.size,sha256:p.sha256})),packs:m.packs.map(p=>({id:p.id,clips:p.clips}))};
+ const manifest={...identity,format:m.format,kind:m.kind,game:m.game,title:m.title,revision:m.revision,languages:m.languages??['zh-Hans','en'],coverage:{dialogue:rows.length,mappedVoices:rows.filter(r=>r.sourceVoice).length,exportedVoices:rows.filter(r=>r.audio).length,partial:m.coverage.partial===true},catalog:m.catalog.map(p=>({name:p.name,size:p.size,sha256:p.sha256})),packs:m.packs.map(p=>({id:p.id,clips:p.clips}))};
  return {manifest,rows};
 }
 export function validateVoices(zip,catalog){

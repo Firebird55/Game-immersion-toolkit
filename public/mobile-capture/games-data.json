@@ -1,7 +1,7 @@
 {
   "format": 1,
   "readerRelease": "0.17.0",
-  "checkedAt": "2026-10-23",
+  "checkedAt": "2026-10-25",
   "languages": {
     "en": "English",
     "zh-Hans": "Simplified Chinese",
@@ -86,7 +86,8 @@
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
       "coverage": "English, Mandarin and Japanese asset samples cover dialogue, comics, gameplay, tips and cutscenes. Korean native playback is untested. All five study locales have synthetic OCR checks; complete gameplay chapter and branch coverage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "wuwa",
@@ -134,7 +135,8 @@
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.",
       "coverage": "English and Mandarin original voice samples were decoded. Japanese and Korean native playback is untested. Synthetic OCR covers all five study locales. Mobile footage is sampled; some resized movie/story captions still miss. Full chapter and branch coverage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "nte",
@@ -186,7 +188,8 @@
         "de",
         "es-ES",
         "ru"
-      ]
+      ],
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "pragmata",
@@ -255,7 +258,8 @@
       "unverified": {},
       "notes": "Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.",
       "coverage": "Dialogue and cutscene asset samples decode in all eleven dubs. Synthetic OCR covers all study locales. Real mobile gameplay footage and complete chapter coverage remain unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "cyberpunk",
@@ -334,7 +338,8 @@
       "unverified": {},
       "notes": "Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.",
       "coverage": "Official study text was extracted in all eleven locales. English and Mandarin native voice samples pass; other dubs use binding fixtures. Phantom Liberty native playback is untested. Small overhead captions still miss in sampled mobile footage. Full gameplay coverage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "witcher3",
@@ -407,7 +412,8 @@
       "unverified": {},
       "notes": "Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.",
       "coverage": "Official study text was extracted in all nine locales. English and Mandarin native voice samples pass; other dubs use binding fixtures. Expansion native playback is untested. Top-edge NPC captions still miss in sampled mobile footage. Full gameplay coverage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "beyond",
@@ -496,7 +502,8 @@
       "unverified": {},
       "notes": "Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.",
       "coverage": "All mapped Dutch and English original performances decode. English PC footage from 00:00–08:00 covers opening narration, police, laboratory overlap and the start of the card experiment. Later chapters, alternate branches and other-language footage remain untested. Dutch/Chinese capture has separate synthetic OCR evidence; mobile gameplay footage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "heavyrain",
@@ -569,7 +576,8 @@
       "unverified": {},
       "notes": "Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.",
       "coverage": "All mapped Dutch original performances decode; each other dub has a decoded asset sample. English PC footage from 00:00–04:00 and 15:00–17:00 covers thoughts, letters, family overlap, QTE speech and brief replies. Other chapters, epilogues, branches and other-language footage remain untested. Mobile gameplay footage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language."
+      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "reviewedAt": "2026-10-25"
     },
     {
       "id": "starrail",
@@ -602,8 +610,7 @@
         "pt-BR",
         "ru",
         "th",
-        "vi",
-        "id"
+        "vi"
       ],
       "targets": [
         "en",
@@ -621,9 +628,13 @@
         "id"
       ],
       "unverified": {},
-      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.",
       "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
-      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
+      "reviewedAt": "2026-10-25",
+      "readerOnlyText": [
+        "id"
+      ]
     },
     {
       "id": "genshin",
@@ -657,9 +668,9 @@
         "ru",
         "th",
         "vi",
-        "id",
         "it",
-        "tr"
+        "tr",
+        "es-419"
       ],
       "targets": [
         "en",
@@ -678,10 +689,16 @@
         "it",
         "tr"
       ],
-      "unverified": {},
-      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
+      "unverified": {
+        "es-419": "Epic lists Latin American Spanish as well as Spain Spanish; no distinct reader locale mapping is established."
+      },
+      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.",
       "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
-      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
+      "reviewedAt": "2026-10-25",
+      "readerOnlyText": [
+        "id"
+      ]
     },
     {
       "id": "endfield",
@@ -737,7 +754,8 @@
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
       "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
-      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages."
+      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
+      "reviewedAt": "2026-10-25"
     }
   ]
 }

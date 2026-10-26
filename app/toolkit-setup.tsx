@@ -4,6 +4,7 @@ import {useInterfaceTranslation} from '../lib/interface-language';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Download, FolderOpen, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AutomaticMobileLibrary } from './automatic-mobile-library';
 import { MobileLibraryExport, type MobileExportStatus } from './mobile-library-export';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -180,7 +181,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               </details>
             </section>
             {game !== 'hito' && <LanguageSetup game={game} targetLanguage={targetLanguage} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
-            <details className="toolkit-mobile-export"><summary>{uiText("Export mobile library")}</summary><MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} /></details>
+            <AutomaticMobileLibrary key={game} game={game} /><details className="toolkit-mobile-export"><summary>{uiText("Export mobile library")}</summary><MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} /></details>
           </div>}
         </section>}
         {data && step === 1 && <section className="toolkit-setup-section" aria-label={uiText("Capture checks")}>

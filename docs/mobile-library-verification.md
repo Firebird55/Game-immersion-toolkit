@@ -152,3 +152,27 @@ No game text, audio or personal source paths are included in this report.
 The UI keeps a separate selected-file/result display, automatically includes the
 catalog, and explicitly identifies legacy voice-only selections. Physical iPhone
 provider, low-storage and reboot acceptance remain required.
+
+
+## Remembered setup and maintained exports — 2026-10-25
+
+Chromium and Firefox checks cover OPFS retention, reload, malformed replacement,
+multiple-library storage operations, interrupted copies, quota failure, missing
+files, removal, and preserving library metadata through a static application
+update and a real browser restart. Credential checks cover encrypted-vault unlock,
+explicit trusted-device conversion, reload, opt-out, Forget, and stale requests.
+The complete synthetic VDO.Ninja link restores without connecting.
+
+Windows WebKit reports an OPFS operation failure on this host. Its session-only
+fallback, credential controls and application update checks pass; OPFS reopening
+on this runtime is unverified. Its native cross-page WebRTC data channel also
+remains unavailable. Neither result establishes physical iPhone reliability.
+
+Synthetic backend checks cover initial automatic publication, unchanged-input
+no-op, source updates, language addition/removal, pause and interrupted-job
+restart, unavailable folders/packs, insufficient space, interrupted copies,
+checksum failures, locked replacement and source changes before publication.
+Account-independent preparation is checked with account access made fatal.
+Actual installations, cloud-client propagation, iPhone Files providers and Safari
+Home Screen endurance still require the physical-device acceptance procedure in
+[mobile capture verification](mobile-capture-verification.md).

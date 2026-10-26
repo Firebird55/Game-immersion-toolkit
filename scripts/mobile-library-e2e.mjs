@@ -21,6 +21,7 @@ const input=(name,buffer)=>({name,mimeType:'application/zip',buffer});
 mkdirSync('output/playwright',{recursive:true});
 const pipelinePath=[...files.keys()].find(p=>/\/ocr-pipeline(?:\.[a-f0-9]+)?\.mjs$/.test(p));
 const libraryWorkerPath=[...files.keys()].find(p=>/\/library-worker(?:\.[a-f0-9]+)?\.mjs$/.test(p));
+const storagePath=[...files.keys()].find(p=>/\/storage(?:\.[a-f0-9]+)?\.mjs$/.test(p));
 async function verifyZzzProxy(page){
  const female={...row,id:'7'.repeat(64),textId:'GalGame_fixture:F',sourceVoice:'7'.repeat(64),playerVoice:'female',sourceLanguage:'ja',sourceLocale:'ja',audioLocale:'ja',sourceText:'私の言葉です。',translationLocale:'zh-Hans',translationText:'这句话的字幕相同。',memberTextIds:['GalGame_fixture']},
  male={...female,id:'6'.repeat(64),textId:'GalGame_fixture:M',sourceVoice:'6'.repeat(64),playerVoice:'male',sourceText:'僕の言葉です。',memberTextIds:['GalGame_fixture']};
@@ -91,6 +92,22 @@ try{
   browser=await engines[name].launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true}),page=await context.newPage(),errors=[],external=[];
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith(base)&&!r.url().startsWith('blob:')&&!r.url().startsWith('data:'))external.push(r.url());});
   await page.goto(base+'?developer=1');await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();
+  await page.setInputFiles('#library-files',input('retained-test.zip',bundle));
+  await page.waitForFunction(()=>!document.querySelector('#library-files').disabled&&document.querySelector('#cache-status').textContent.includes('on this device'));
+  const retention=await page.locator('#cache-status').textContent();
+  if(name==='webkit'&&process.platform==='win32'&&retention.includes('could not be kept')){
+   assert.match(retention,/works this session/);
+   console.log('Windows WebKit OPFS unavailable: session-only fallback verified; retained reopening UNVERIFIED on this runtime.');
+  }else{
+   assert.match(retention,/^Library kept on this device/);
+   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+   assert.equal(await page.locator('#saved-libraries option').count(),2);
+   await page.setInputFiles('#library-files',input('bad-update.zip',Buffer.from('broken')));
+   await page.waitForFunction(()=>!document.querySelector('#library-files').disabled);
+   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+   await page.click('#remove-retained-library');await page.waitForFunction(()=>document.querySelector('#saved-libraries').options.length===1);
+  }
+  await page.click('#forget-library');await page.locator('#keep-library').uncheck();
   await verifyZzzProxy(page);await verifyBeyondContext(page);await verifyHeavyRainPages(page);
   assert.equal(await page.locator('.companion-nav button').count(),2);
   await page.setInputFiles('#library-files',input('old-voices.zip',voices));
@@ -114,8 +131,8 @@ try{
   await page.setInputFiles('#library-files',input('broken.zip',Buffer.from('broken')));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('incomplete'));
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'A bad replacement preserves working voices');
-  await page.evaluate(async()=>{const storage=await import('./storage.mjs'),history=await storage.get('history');await storage.put('history',history.map(row=>({...row,audio:'f'.repeat(64)})));});
-  await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Reopen library for voices'));
+  await page.evaluate(async path=>{const storage=await import(path),history=await storage.get('history');await storage.put('history',history.map(row=>({...row,audio:'f'.repeat(64)})));},storagePath);
+  await page.reload();await page.locator('#keep-library').uncheck();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Reopen library for voices'));
   await page.getByRole('button',{name:'Reopen voice library',exact:true}).waitFor();
   assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isDisabled());
   await page.locator('.current-card').getByRole('button',{name:'★ Favorited',exact:true}).waitFor();

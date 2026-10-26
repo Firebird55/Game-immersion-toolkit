@@ -35,6 +35,7 @@ try{
     if(path==='/api/snapshot')value={context:fixtureContext,status:{capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}},lines:[],lexirise:{configured:false,sent:{}}};
     else if(path==='/api/status')value={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}};
     else if(path==='/api/setup'){if(setupOffline){await route.abort();return;}const selected=url.searchParams.get('game')??'zzz';value={...setup,mobile_export:{...setup.mobile_export,scope:exportScope(selected),sourceLocale:exportLocale,selectedGame:selected}};}
+    else if(/^\/api\/setup\/games\/[^/]+\/automatic-mobile-export$/.test(path)&&method==='GET')value={enabled:false,paused:false,destination:'',languages:{},jobs:{},locales:[{locale:'ja',name:'Japanese',voice_label:'Not detected — install this voice language in the game/launcher'}],translations:['en'],browseActive:false,browsedDestination:'',browseMessage:''};
     else if(/^\/api\/setup\/games\/[^/]+\/languages$/.test(path)&&method==='GET'){
      const selected=path.split('/')[4];assert(games.some(game=>game.id===selected&&game.id!=='hito'),'Unexpected language fixture game: '+selected);
      value={context:fixtureContext,selected:null,enabled_languages:null,targets:{},translation_locales:['en','zh-Hans'],locales:[
@@ -79,7 +80,11 @@ try{
    await dialog.getByRole('button',{name:'Install game tools',exact:true}).click();
    await dialog.getByRole('button',{name:'Refresh game data',exact:true}).click();
    await dialog.getByText('3 pairs',{exact:true}).waitFor();
-   await dialog.locator('.toolkit-mobile-export > summary').click();
+   await dialog.locator('summary').filter({hasText:'Keep mobile library updated'}).click();
+   assert(await dialog.getByRole('checkbox',{name:'Keep mobile library updated',exact:true}).isVisible(),'First-run wizard uses the automatic export component');
+   await dialog.getByText('Not detected — install this voice language in the game/launcher',{exact:true}).waitFor();
+   await dialog.locator('summary').filter({hasText:'Keep mobile library updated'}).click();
+   await dialog.locator('summary').filter({hasText:'Export mobile library'}).click();
    await dialog.getByText('≈ 5.00 GB',{exact:true}).waitFor();
    await dialog.getByRole('button',{name:'Browse',exact:true}).click();
    await dialog.getByText('Starting the folder browser. You can close it here if no window appears.',{exact:true}).waitFor();

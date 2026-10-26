@@ -241,3 +241,10 @@ test('authored ZZZ comics recover OCR errors using desktop threshold and reject 
  assert.equal(new DialogueMatcher([comic,other],'zzz').comicMatches([value]).length,0);
  assert.equal(matcher.comicMatches(['lantern brlght']).length,0);
 });
+
+test('optional library identity is preserved and cannot mislabel replacement languages',async()=>{
+ const tagged={...manifest,sourceLocale:'zh-Hans',audioLocale:'zh-Hans',translationLocale:'en'};
+ const catalog=await readCatalog(await openZip(make({'manifest.json':tagged,'catalog/00000.ndjson':bytes})));
+ assert.equal(catalog.manifest.sourceLocale,'zh-Hans');assert.equal(catalog.manifest.translationLocale,'en');
+ await assert.rejects(readCatalog(await openZip(make({'manifest.json':{...tagged,sourceLocale:'ja'},'catalog/00000.ndjson':bytes}))),/language identity/);
+});

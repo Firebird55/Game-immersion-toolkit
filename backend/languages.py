@@ -17,7 +17,9 @@ GAME_LOCALES = {
 LOCALE_NAMES = {'en': 'English', 'zh-Hans': 'Simplified Chinese', 'zh-Hant': 'Traditional Chinese',
     'ja': 'Japanese', 'ko': 'Korean', 'fr': 'French', 'it': 'Italian', 'de': 'German',
     'es-ES': 'Spanish — Spain', 'es-419': 'Spanish — Latin America', 'pt-BR': 'Portuguese — Brazil',
-    'pt-PT': 'Portuguese — Portugal', 'ru': 'Russian', 'pl': 'Polish', 'nl': 'Dutch'}
+    'pt-PT': 'Portuguese — Portugal', 'ru': 'Russian', 'pl': 'Polish', 'nl': 'Dutch',
+    'ar': 'Arabic', 'cs': 'Czech', 'hu': 'Hungarian', 'th': 'Thai', 'tr': 'Turkish', 'uk': 'Ukrainian',
+    'da': 'Danish', 'fi': 'Finnish', 'el': 'Greek', 'no': 'Norwegian', 'sv': 'Swedish', 'id': 'Indonesian', 'vi': 'Vietnamese'}
 
 
 def study_language(locale: str) -> str:
