@@ -42,5 +42,13 @@ updates:
         versions: ['>=1.25']
       - dependency-name: sherpa-onnx
         versions: ['>=1.14']
+      - dependency-name: sherpa-onnx-core
+        versions: ['>=1.14']
+      # OpenCV 4.12+ requires NumPy 2 on supported Python versions.
+      - dependency-name: opencv-python
+        versions: ['>=4.12']
+      # Take the 3.24.1 security patch; review 4.x breaking changes separately.
+      - dependency-name: pycryptodome
+        versions: ['>=4']
       - dependency-name: mpmath
         versions: ['>=1.4']
