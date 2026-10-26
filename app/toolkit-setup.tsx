@@ -1,4 +1,5 @@
 'use client';
+import {ToolkitUpdates} from './toolkit-updates';
 import {useInterfaceTranslation} from '../lib/interface-language';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -131,7 +132,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
           <DialogDescription>{t('Prepare only your chosen languages. Your game files stay on this PC.')}</DialogDescription>
         </DialogHeader>
         <nav className="toolkit-setup-tabs" aria-label={uiText("Setup sections")}>
-          {['Games & Languages', 'Capture', 'Reading', 'Accounts', 'Storage', 'General & Updates'].map((name, index) => <button key={name} type="button" aria-pressed={step === index}
+          {['Games & Languages', 'Capture', 'Reading', 'Accounts', 'Storage', 'General & Updates'].map((name, index) => (index !== 3 || readingMode === 'lexirise') && <button key={name} type="button" aria-pressed={step === index}
             onClick={() => setStep(index)}>{t(name)}</button>)}
         </nav>
         {!data && <p role="status">{uiText("Loading local setup…")}</p>}
@@ -180,7 +181,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
                 <p><a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">{uiText("vgmstream")}</a>{' · '}<a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">{uiText("ZZZ reader")}</a>{' · '}<a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">{uiText("REE unpacker")}</a>{' · '}<a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">{uiText("WolvenKit")}</a>{' · '}<a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">{uiText("FModelCLI")}</a></p>
               </details>
             </section>
-            {game !== 'hito' && <LanguageSetup game={game} targetLanguage={targetLanguage} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
+            {game !== 'hito' && <LanguageSetup game={game} showAccount={readingMode === 'lexirise'} targetLanguage={targetLanguage} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
             <AutomaticMobileLibrary key={game} game={game} /><details className="toolkit-mobile-export"><summary>{uiText("Export mobile library")}</summary><MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} /></details>
           </div>}
         </section>}
@@ -206,14 +207,14 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
             <Button variant="outline" onClick={() => leaveFor(onReading)}>{uiText("Configure reading options")}</Button>
           </>}
         </section>}
-        {data && step === 3 && <section className="toolkit-setup-section">            <h3>{uiText("Optional Lexirise account")}</h3><p>{data.lexirise_configured ? uiText("An API key is configured on this PC.") : uiText("Add your own Lexirise API key to use lookups and explicit sentence exports.")}</p>
+        {data && step === 3 && readingMode === 'lexirise' && <section className="toolkit-setup-section">            <h3>{uiText("Optional Lexirise account")}</h3><p>{data.lexirise_configured ? uiText("An API key is configured on this PC.") : uiText("Add your own Lexirise API key to use lookups and explicit sentence exports.")}</p>
             <Button variant="outline" disabled={busy || nativeBusy} onClick={() => void action('/api/setup/native/lexirise', {}, 'A hidden-input prompt opened on this PC. Enter your key there; it is stored encrypted for this Windows user.')}>{data.lexirise_configured ? uiText("Replace local API key") : uiText("Set up local API key")}</Button>
             <Button variant="outline" disabled={!data.lexirise_configured} onClick={() => leaveFor(onAccount)}>{uiText("Account and game deck")}</Button>
             <p className="toolkit-setup-note">{uiText("Choose a destination for each game before exporting. Account writes and sentence uploads require your explicit action.")}</p>
         </section>}
         {data && step === 4 && <section className="toolkit-setup-section">{game !== 'hito' ? <LanguageSetup game={game} storageOnly onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/> : <p>{uiText("Hito uses its existing text catalog.")}</p>}</section>}
         {data && step === 5 && <section className="toolkit-setup-section"><InterfaceLanguage/>
-          <h3>{uiText("Toolkit updates and support")}</h3><p><a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest" target="_blank" rel="noreferrer">{uiText("Get the latest toolkit release")}</a> {uiText("· Installed version")} {data.version}</p>
+          <ToolkitUpdates/><h3>{uiText("Toolkit updates and support")}</h3><p><a href="https://github.com/Firebird55/Game-immersion-toolkit/releases/latest" target="_blank" rel="noreferrer">{uiText("Get the latest toolkit release")}</a> {uiText("· Installed version")} {data.version}</p>
           <Button variant="outline" onClick={() => void report()}>{uiText("Download setup report")}</Button>
           <p className="toolkit-setup-note">{uiText("The report includes versions and readiness flags. It excludes folder paths, credentials, account details and transcript contents.")}</p>
         </section>}

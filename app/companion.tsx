@@ -145,7 +145,11 @@ function isReadableLine(line: TranscriptLine) {
 type UpdateStatus = {
   state: string;
   message: string;
-  progress: number;
+  progress: number | null;
+  elapsed_seconds?: number;
+  stage_seconds?: number;
+  queued?: number;
+  items?: {game: string; locale: string; state: string; message: string; retry_after?: string}[];
   automatic: boolean;
   last_checked: string | null;
   last_error: string | null;
@@ -433,6 +437,7 @@ function CompanionClient() {
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const [accountSection, setAccountSection] = useState<'connection'|'preferences'>('connection');
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
   const sendingStudy = useRef(false);
@@ -894,7 +899,7 @@ function CompanionClient() {
         }}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise" disabled={!lexirise.configured}>{uiText("Lexirise")}</option></select></label>
         {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setReaderSettingsOpen(true)}
           aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> {uiText("Reading options")}</button>}
-        <button type="button" className="reader-options-button" onClick={() => {setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>{uiText("Account settings")}</button>
+        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>{uiText("Account settings")}</button>}
         </div>
       </div>
       <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
@@ -922,12 +927,16 @@ function CompanionClient() {
       {!archivedHistory && updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
         <div className="update-progress-copy">
           <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
-          <strong>{uiText("Automatic updates")}</strong>
+          <strong>{uiText("Game language updates")}</strong>
           <StableInline text={updateStatus.message} />
         </div>
-        <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />
-        <span className="update-progress-value">{updateStatus.progress}%</span>
+        {updateStatus.progress != null && <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />}
+        <span className="update-progress-value">{updateStatus.elapsed_seconds != null && updateStatus.state === 'updating' ? `${Math.floor(updateStatus.elapsed_seconds / 60)}m ${updateStatus.elapsed_seconds % 60}s` : updateStatus.state === 'ready' ? 'Ready' : ''}</span>
+        {!!updateStatus.queued && <span>{updateStatus.queued} queued</span>}
+        {!!updateStatus.items?.length && <details><summary>Details for all games</summary>{updateStatus.items.map(item => <p key={item.game + item.locale}>{GAME_NAMES[item.game as GameId] ?? item.game} · {item.locale}: {item.message} {item.retry_after}</p>)}</details>}
       </section>}
+
+      {capture?.phase === 'needs_language_setup' && <p role="status" className="toolkit-setup-note">{capture.message}</p>}
 
       {!archivedHistory && <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
@@ -1086,12 +1095,18 @@ function CompanionClient() {
           <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
-            onReading={() => setReaderSettingsOpen(true)} onAccount={language => {setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
+            onReading={() => setReaderSettingsOpen(true)} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
         </div>
       </footer>
 
       {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:"zh"} />}
-      {accountSettingsOpen && <SettingsPanel title={uiText("Lexirise account settings")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<><AccountSwitcher onChanged={() => void loadSnapshot()}/>{selectedGame !== 'hito' && <GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} />}</>} />}
+      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-setup-dialog" showCloseButton={false}><button type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Manage the account on this PC and the destination for saved sentences.</DialogDescription></DialogHeader>
+        <AccountSwitcher onChanged={() => void loadSnapshot()}/>
+        {selectedGame !== 'hito' && <details open><summary>Sentence destination · {GAME_NAMES[selectedGame]}</summary><GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} /></details>}
+        <Button onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
+        <p>Only Save to Lexirise changes remote preferences. Reading appearance is available from Reading options.</p>
+      </DialogContent></Dialog>}
+      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">

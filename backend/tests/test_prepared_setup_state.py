@@ -73,3 +73,33 @@ def test_a_snapshot_from_another_locale_is_not_ready_for_the_selected_language(t
     directory = tmp_path / 'languages/beyond/nl'; directory.mkdir(parents=True)
     (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'ja', 'records': []}))
     assert not value.language_state('beyond', 'nl')['ready']
+
+
+@pytest.mark.parametrize('game', ['beyond', 'cyberpunk'])
+def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, game):
+    from backend import game_assets
+    from backend.languages import audio_locale
+    value = runtime(tmp_path, locale='nl')
+    monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
+    install = tmp_path / 'game'; install.mkdir()
+    directory = tmp_path / 'languages' / game / 'nl'; directory.mkdir(parents=True)
+    payload = {'format': 2, 'game': game, 'install': str(install), 'source_locale': 'nl',
+               'fingerprint': 'unchanged', 'targets_requested': ['en'], 'reader_revision': 1,
+               'records': []}
+    (directory / 'textmap.json').write_text(json.dumps(payload))
+    monkeypatch.setattr(game_assets, 'asset_adapter', lambda _: (SimpleNamespace(
+        index_language=True, fingerprint=lambda _: 'unchanged', LANGUAGE_INDEX_VERSION=1), None))
+    value.setup_install = lambda _: install
+    extracted = []
+    def run(command, **options):
+        extracted.append(command)
+        payload['records'] = [{'text_id': 'fixture', 'source_locale': 'nl', 'source_text': 'Blijf hier.',
+            'audio_locale': audio_locale('nl'), 'texts': {'nl': 'Blijf hier.', 'en': 'Stay here.'}, 'audio': {'voice': 1}}]
+        from pathlib import Path
+        Path(command[command.index('--output') + 1]).write_text(json.dumps(payload))
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(api.subprocess, 'run', run)
+    value.build_language(game, 'nl', ('en',))
+    assert len(extracted) == 1, 'Invalid unchanged snapshots must be repaired without Rebuild'
+    value.build_language(game, 'nl', ('en',))
+    assert len(extracted) == 1, 'A valid unchanged table must not be extracted again'

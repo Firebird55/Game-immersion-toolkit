@@ -204,3 +204,27 @@ def test_explicit_rebuild_uses_forced_builder_but_automatic_refresh_does_not(tmp
     finish(manager)
     assert [mode for mode, _ in builds] == ['cached', 'forced', 'cached']
     assert all(args == ('nte', 'en', ('zh-Hans',)) for _, args in builds)
+
+
+def test_background_status_reports_real_jobs_and_repairs_saved_selections(tmp_path):
+    entered, release = threading.Event(), threading.Event()
+    built = []
+    def build(game, locale, targets):
+        built.append((game, locale, targets)); entered.set(); release.wait(3)
+    manager = LanguagePreparation(build, lambda *args: None, lambda *args: {'ready': True},
+        path=tmp_path/'languages.json', supported=lambda _: ('nl',))
+    manager.data['selected'] = {'owner': {'beyond': 'nl'}}
+    manager.data['local_targets'] = {'owner': {'beyond': {'nl': 'en'}}}
+    manager.start()
+    try:
+        assert entered.wait(2)
+        status = manager.update_status()
+        assert status['state'] == 'updating' and status['progress'] is None
+        assert status['game'] == 'beyond' and 'Dutch' in status['message']
+        assert status['elapsed_seconds'] >= 0
+        release.set(); finish(manager)
+        assert manager.prepared('beyond', 'nl')['targets'] == ['en']
+        assert manager.selected('beyond', 'owner') == 'nl'
+        assert manager.update_status()['state'] == 'ready'
+    finally:
+        release.set(); manager.close()
