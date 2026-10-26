@@ -39,7 +39,7 @@ jobs:
       - run: npm run audit:public
       - name: Upload safe audit identity
         if: ${{ always() && hashFiles('output/checks/ci/source-audit.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-source-audit
           path: output/checks/ci/source-audit.json
@@ -76,7 +76,7 @@ jobs:
           CI_SCOPE_PYTHON: ${{ steps.plan.outputs.python }}
           CI_SCOPE_BROWSERS: ${{ steps.plan.outputs.browsers }}
         run: node scripts/check-ci-gate.mjs scope
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.scope.outputs.python == 'true'
         with:
           python-version: '3.12'
@@ -93,7 +93,7 @@ jobs:
       - name: Compile owned NTE reader without game assets
         if: steps.scope.outputs.full == 'true'
         run: dotnet build scripts/game-readers/NteReader.csproj -c Release -o data/ci-reader -p:BaseIntermediateOutputPath="${{ github.workspace }}/data/ci-reader-obj/" --nologo
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         if: steps.scope.outputs.browsers == 'true' && steps.scope.outputs.full != 'true'
         with:
           path: ~/AppData/Local/ms-playwright
@@ -107,7 +107,7 @@ jobs:
           # The separate source-audit job checks PR author/history metadata.
           CHECK_SKIP_PUBLIC_AUDIT: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
         run: node scripts/check-changed.mjs ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.scope.outputs.full == 'true'
         with:
           name: checked-frontend
@@ -116,7 +116,7 @@ jobs:
           retention-days: 7
       - name: Upload safe integration evidence
         if: ${{ always() && hashFiles('output/checks/ci/integration.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-integration
           path: |
@@ -147,19 +147,19 @@ jobs:
       - run: node scripts/prepare-release-version.mjs
       - name: Verify the browser integration commit
         run: node scripts/check-ci-gate.mjs checkout browser
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: matrix.suite == 'setup'
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.lock.txt
         if: matrix.suite == 'setup'
       - run: npm ci --ignore-scripts
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
       - run: npx playwright install chromium firefox webkit
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checked-frontend
           path: dist/
@@ -168,7 +168,7 @@ jobs:
         run: node scripts/check-evidence.mjs --browser-suite ${{ matrix.suite }}
       - name: Upload safe browser evidence
         if: ${{ always() && hashFiles('output/checks/ci/browser.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-browser-${{ matrix.suite }}
           path: |
@@ -202,7 +202,7 @@ jobs:
         run: node scripts/check-ci-gate.mjs required
       - name: Upload safe gate evidence
         if: ${{ always() && hashFiles('output/checks/ci/required-checks.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-required-checks
           path: output/checks/ci/required-checks.json
@@ -224,7 +224,7 @@ jobs:
       - name: Verify the package source commit
         run: node scripts/check-ci-gate.mjs checkout package
       - run: npm ci --ignore-scripts
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: checked-frontend
           path: dist/
@@ -238,7 +238,7 @@ jobs:
         run: node scripts/check-evidence.mjs --candidate
       - name: Upload safe package evidence
         if: ${{ always() && hashFiles('output/checks/ci/package.json', 'output/checks/runs/*.json', 'output/checks/latest.json') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-package
           path: |
@@ -246,7 +246,7 @@ jobs:
             output/checks/runs/*.json
             output/checks/latest.json
           retention-days: 7
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: tested-release-assets
           path: |
@@ -265,7 +265,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: tested-release-assets
           path: release

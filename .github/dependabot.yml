@@ -9,6 +9,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # CI's supported runtime is Node 24; do not advertise Node 26-only APIs.
+      - dependency-name: '@types/node'
+        versions: ['>=25']
+      # TypeScript 7 removed the compiler API used by the state/OCR harnesses.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     groups:
@@ -25,3 +32,15 @@ updates:
         update-types: [minor, patch]
     schedule:
       interval: weekly
+    ignore:
+      # Keep the native OCR/ASR stack coordinated; scipy 1.18 requires NumPy 2.
+      - dependency-name: numpy
+        update-types: [version-update:semver-major]
+      - dependency-name: scipy
+        versions: ['>=1.15']
+      - dependency-name: onnxruntime
+        versions: ['>=1.25']
+      - dependency-name: sherpa-onnx
+        versions: ['>=1.14']
+      - dependency-name: mpmath
+        versions: ['>=1.4']
