@@ -202,6 +202,8 @@ class ToolkitUpdater:
         pending = home / 'preferences.pending'
         pending.write_text(json.dumps({'enabled': enabled}), encoding='utf-8')
         pending.replace(home / 'preferences.json')
+        if enabled:
+            self.request()
 
     def request(self):
         with self.lock:
@@ -223,6 +225,9 @@ class ToolkitUpdater:
             return
         self.stop.clear()
         def monitor():
+            # The launcher publishes its owned-process record after health is ready.
+            if self.stop.wait(10):
+                return
             while not self.stop.is_set():
                 if self.status()['enabled']:
                     self.request()

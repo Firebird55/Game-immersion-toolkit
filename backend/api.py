@@ -260,8 +260,15 @@ class Runtime:
                         and old.get('install') == str(install)):
                     # Matching metadata alone does not prove the table is usable.
                     # A truncated/invalid snapshot used to be skipped forever.
-                    cached = MultilingualTextIndex(game, directory)
-                    if cached.ready and cached.source_locale == locale and cached.entry_count:
+                    indexes = self.__dict__.setdefault('_locale_indexes', {})
+                    key = (game, locale)
+                    cached = indexes.get(key)
+                    if cached is None:
+                        cached = indexes[key] = MultilingualTextIndex(game, directory)
+                    # load() cheaply reuses an unchanged validated file. Its
+                    # return value is essential: a failed reload can retain an
+                    # older usable in-memory index while disk still needs repair.
+                    if cached.load() and cached.ready and cached.source_locale == locale and cached.entry_count:
                         return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
                 if job:
