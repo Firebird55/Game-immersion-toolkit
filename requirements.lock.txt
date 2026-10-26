@@ -2,10 +2,10 @@
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
-certifi==2026.10.19
+certifi==2026.10.23
 click==8.5.0
 colorama==0.4.6
-fastapi==0.157.0
+fastapi==0.161.1
 flatbuffers==25.12.19
 h11==0.16.0
 httpcore==1.0.9
@@ -39,7 +39,7 @@ PyYAML==6.0.3
 RapidFuzz==3.14.6
 scipy==1.14.1
 sherpa-onnx-core==1.13.7
-sherpa_onnx==1.13.7
+sherpa_onnx==1.13.8
 starlette==1.9.0
 sympy==1.14.0
 typing-inspection==0.4.4
