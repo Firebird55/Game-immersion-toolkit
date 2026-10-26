@@ -28,7 +28,7 @@ export function validateScope(scope) {
 
 export function verifyCheckout({kind, event, expectedSha, headSha, baseSha, commit, parents}) {
   assert.ok(['source-audit', 'integration', 'browser', 'package', 'required-checks'].includes(kind), 'Unknown checkout purpose');
-  assert.ok(['push', 'pull_request', 'workflow_dispatch'].includes(event), 'Unsupported CI event');
+  assert.ok(['push', 'pull_request', 'workflow_dispatch', 'release'].includes(event), 'Unsupported CI event');
   assert.ok(sha(expectedSha) && sha(commit), 'Missing or invalid workflow/checkout SHA');
   assert.ok(Array.isArray(parents) && parents.every(sha), 'Invalid checkout parent SHAs');
   if (event === 'pull_request') {

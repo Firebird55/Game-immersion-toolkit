@@ -133,7 +133,7 @@ class InstallationService:
         return {"completed": self.completed, "games": games, "requirements": requirements, "jobs": jobs,
                 "native": native, "free_gb": free_gb, "lexirise_configured": self.account_configured(),
                 "auto_start": self.settings.get().auto_start if self.completed else False,
-                "version": json.loads((self.root / "package.json").read_text(encoding="utf-8"))["version"],
+                "version": json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text(encoding="utf-8"))["version"],
                 "capture_check": capture_check}
 
     def complete(self, auto_start: bool) -> None:

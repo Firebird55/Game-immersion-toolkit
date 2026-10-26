@@ -20,10 +20,18 @@ class PreparationCleanupError(RuntimeError):
 
 
 class PreparationJob:
-    def __init__(self, owner, cancelled):
+    def __init__(self, owner, cancelled, key=None):
         self.owner = owner
+        self.key = key
         # Never clear this event: a restarted monitor owns a different one.
         self.cancelled = cancelled
+
+    def report(self, stage, message):
+        self.checkpoint()
+        if self.key is not None:
+            with self.owner.lock:
+                if self.current():
+                    self.owner.jobs[self.key].update(stage=stage, message=message, stage_started=time.monotonic())
 
     def current(self):
         return self.owner.stop_event is self.cancelled and not self.cancelled.is_set()

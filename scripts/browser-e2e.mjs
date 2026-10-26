@@ -117,11 +117,11 @@ try{
  assert.equal(writes.length,0,'Reading edits never write account settings');
  if(name==='chromium'&&width===1920&&zoom===1)await dialog.screenshot({path:`${preview.output}/shared-reading-options.png`});
  b=await dialog.boundingBox();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit settings fits '+JSON.stringify(b));
- await page.keyboard.press('Escape');await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByRole('button',{name:'Study languages, dictionaries and account preferences',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
  await page.getByLabel('Edit account language').selectOption('ja');assert.equal(await page.locator('.reading-text').first().getAttribute('lang'),'zh','Editing Japanese account settings never reinterprets Chinese transcript');
  assert.equal(writes.length,0);await page.keyboard.press('Escape');
  if(pw===1920&&zoom===1){
-  await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
+  await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByRole('button',{name:'Study languages, dictionaries and account preferences',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
   await page.getByLabel('Edit account language').selectOption('zh');
   const presets=page.getByLabel('toneColorPreset',{exact:true});
   const options=await presets.locator('option').evaluateAll(nodes=>nodes.map(node=>node.value));

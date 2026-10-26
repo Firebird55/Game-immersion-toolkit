@@ -33,6 +33,7 @@ from .local_game_updates import LocalGameUpdateManager
 from .game_assets import LOCAL_GAMES
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
+from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
@@ -129,6 +130,7 @@ class Runtime:
     def __init__(self) -> None:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
         self._updates_started = False
+        self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
         self.repair_task = None
         self.state_version = StateVersion()
@@ -209,6 +211,7 @@ class Runtime:
         self._locale_voice_lock = threading.RLock()
         self.capture.recorded_voice_assets = self.recorded_voice_assets
         self.capture.language_setup = self.capture_language_ready
+        self.capture.language_problem = self.capture_language_problem
         self.capture.context_scope = lambda: self.accounts.generation
         self.installation = InstallationService(PROJECT_ROOT, settings=self.settings,
             game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
@@ -253,10 +256,26 @@ class Runtime:
                     old = {}
                 if (not force and old.get('format') == 2 and old.get('game') == game and old.get('source_locale') == locale
                         and old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
-                        and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION):
-                    return
+                        and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION
+                        and old.get('install') == str(install)):
+                    # Matching metadata alone does not prove the table is usable.
+                    # A truncated/invalid snapshot used to be skipped forever.
+                    indexes = self.__dict__.setdefault('_locale_indexes', {})
+                    key = (game, locale)
+                    cached = indexes.get(key)
+                    if cached is None:
+                        cached = indexes[key] = MultilingualTextIndex(game, directory)
+                    # load() cheaply reuses an unchanged validated file. Its
+                    # return value is essential: a failed reload can retain an
+                    # older usable in-memory index while disk still needs repair.
+                    if cached.load() and cached.ready and cached.source_locale == locale and cached.entry_count:
+                        return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
+                if job:
+                    job.report('queued', 'Waiting for another game to finish preparing; capture stays available')
                 with (job.acquire(INDEX_BUILD_LOCK) if job else INDEX_BUILD_LOCK), tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
+                    if job:
+                        job.report('extracting', 'Reading official subtitles and original voice mappings; large games can take several minutes (30-minute limit)')
                     output = Path(temporary) / 'textmap.json'
                     command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
@@ -268,6 +287,8 @@ class Runtime:
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
                         raise ValueError('Language extraction failed. Check installed text/voice packs and game tools; previous table retained.')
+                    if job:
+                        job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))
                     if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
@@ -389,6 +410,19 @@ class Runtime:
             return scoped
         return self.capture._assets_for(line.game)
 
+    def capture_language_problem(self, game):
+        account = self.accounts.status()['active']
+        locale = self.languages.selected(game, account)
+        if not locale:
+            return 'No learning language selected for this game and account. Choose one in Setup → Languages.'
+        with self.languages.lock:
+            job = dict(self.languages.jobs.get((game, locale), {}))
+        if job.get('state') == 'preparing':
+            return f"{locale}: {job['message']}. This runs automatically for all configured games."
+        if job.get('state') == 'error':
+            return f"{locale}: {job['message']}. Automatic retry in 2 minutes; check Setup → Languages."
+        return f'{locale}: the prepared table is missing or cannot be activated. Automatic repair checks run every 2 minutes; see Setup → Languages.'
+
     def capture_language_ready(self, game):
         if game == 'hito':
             return True
@@ -503,6 +537,8 @@ class Runtime:
             return
         self._updates_started = True
         self.languages.start()
+        if hasattr(self, 'toolkit_updater'):
+            self.toolkit_updater.start()
         if hasattr(self, 'automatic_exports'):
             self.automatic_exports.start()
         self.start_audio_repair()
@@ -526,6 +562,8 @@ class Runtime:
 
     async def stop_updates(self) -> None:
         self._updates_started = False
+        if hasattr(self, 'toolkit_updater'):
+            self.toolkit_updater.close()
         if hasattr(self, 'automatic_exports'):
             await asyncio.to_thread(self.automatic_exports.close)
         await asyncio.to_thread(self.languages.close)
@@ -578,31 +616,7 @@ class Runtime:
         await self.hub.broadcast({"type": "capture_status", "capture": status.model_dump(mode="json")})
 
     def update_status(self) -> dict[str, object]:
-        update = self.update_manager.status()
-        if update["state"] in {"checking", "updating"}:
-            return update
-        pragmata_update = self.pragmata_updater.status()
-        if pragmata_update.get("state") in {"checking", "updating"}:
-            return pragmata_update
-        retry = next(
-            (
-                item for item in (pragmata_update,)
-                if item.get("state") == "retrying"
-            ),
-            None,
-        )
-        if retry:
-            return {
-                **update,
-                "state": "retrying",
-                "message": retry.get("message", "An audio index will retry automatically"),
-                "progress": 100,
-            }
-        for updater in self.game_updaters.values():
-            current = updater.status()
-            if current["state"] in {"updating", "retrying"}:
-                return current
-        return update
+        return self.languages.update_status()
 
     def context(self):
         return self.state_version.snapshot(self.accounts.generation)
@@ -1592,3 +1606,29 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         await runtime.hub.disconnect(websocket)
     except Exception:
         await runtime.hub.disconnect(websocket)
+
+
+class ToolkitUpdatePreferences(BaseModel):
+    enabled: bool = Field(strict=True)
+
+
+@app.get('/api/toolkit-update')
+def toolkit_update_status():
+    return runtime.toolkit_updater.status()
+
+
+@app.post('/api/toolkit-update/check')
+def toolkit_update_check(x_proxy_transcript: str = Header(default='')):
+    if x_proxy_transcript != 'setup':
+        raise HTTPException(403, 'Use Setup on this PC to update the toolkit.')
+    if runtime.standby:
+        raise HTTPException(409, 'The replacement is still preparing.')
+    return {'started': runtime.toolkit_updater.request()}
+
+
+@app.post('/api/toolkit-update/preferences')
+def toolkit_update_preferences(payload: ToolkitUpdatePreferences, x_proxy_transcript: str = Header(default='')):
+    if x_proxy_transcript != 'setup':
+        raise HTTPException(403, 'Use Setup on this PC to change toolkit updates.')
+    runtime.toolkit_updater.configure(payload.enabled)
+    return runtime.toolkit_updater.status()

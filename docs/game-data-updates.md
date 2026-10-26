@@ -1,5 +1,9 @@
 # Updating after a game patch
 
+Prepared game languages are checked automatically at startup and every two minutes,
+even before those games launch. Game-language refresh and toolkit software upgrades
+have separate status displays. See [update reliability](update-reliability.md).
+
 Finish the patch and Mandarin voice downloads in the game's official launcher.
 Open **Setup → Games → Refresh game data**. Users can do this on their own PC;
 compatible content changes do not require a new toolkit release or a change to

@@ -41,6 +41,7 @@ try{
      value={context:fixtureContext,selected:null,enabled_languages:null,targets:{},translation_locales:['en','zh-Hans'],locales:[
       {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:null,table_bytes:0,reclaimable_bytes:0,voice_state:'not_checked'}]};
     }
+    else if(path==='/api/toolkit-update'&&method==='GET')value={installed_version:'fixture',enabled:true,state:'current',message:'Toolkit is up to date'};
     else if(path==='/api/setup/report')value={version:'fixture',platform:'Windows',requirements:{ocr:true},games:[{id:'zzz',folder_state:'configured'}]};
     else if(path==='/api/setup/games/zzz'){
      if(body.path==='F:/wrong'){status=400;value={detail:'Required game files were not found. Previous folder kept.'};}
@@ -149,6 +150,7 @@ try{
    await dialog.getByRole('button',{name:'Set up local API key',exact:true}).click();
    assert.equal(await dialog.locator('input[type=password]').count(),0);
    await dialog.getByRole('button',{name:'General & Updates',exact:true}).click();
+   await dialog.getByRole('region',{name:'Toolkit software updates'}).getByText('Toolkit is up to date',{exact:true}).waitFor();
    const downloaded=page.waitForEvent('download');await dialog.getByRole('button',{name:'Download setup report',exact:true}).click();
    const report=JSON.parse(readFileSync(await (await downloaded).path(),'utf8'));assert(!JSON.stringify(report).includes('F:/Games'));assert.equal(report.version,'fixture');
    await dialog.getByRole('button',{name:'Finish setup',exact:true}).click();await dialog.waitFor({state:'hidden'});

@@ -84,8 +84,40 @@ class LanguagePreparation:
 
     def entries(self):
         with self.lock:
-            return [(game, locale, tuple(value['targets'])) for game, sources in self.data['prepared'].items()
-                    if game in GAME_LOCALES for locale, value in sources.items()]
+            entries = {(game, locale): tuple(value['targets']) for game, sources in self.data['prepared'].items()
+                       if game in GAME_LOCALES for locale, value in sources.items()}
+            # Recover interrupted registration only from an explicit saved choice.
+            # Never guess a language or borrow another account's preferences.
+            for account, games in self.data['selected'].items():
+                for game, locale in games.items():
+                    target = self.data.get('local_targets', {}).get(account, {}).get(game, {}).get(locale)
+                    if game in GAME_LOCALES and locale in GAME_LOCALES[game] and target:
+                        entries.setdefault((game, locale), (target,))
+            return [(game, locale, targets) for (game, locale), targets in entries.items()]
+
+    def update_status(self):
+        with self.lock:
+            now = time.monotonic()
+            items = [{**value, 'game': game, 'locale': locale,
+                      'elapsed_seconds': int(now - value.get('started', now)),
+                      'stage_seconds': int(now - value.get('stage_started', now))}
+                     for (game, locale), value in self.jobs.items()]
+            active = [item for item in items if item['state'] == 'preparing']
+            errors = [item for item in items if item['state'] == 'error']
+            current = next((item for item in active if item.get('stage') != 'queued'), next(iter(active), None))
+            if current:
+                message = f"{current['game']} · {LOCALE_NAMES[current['locale']]}: {current['message']}"
+                return {**current, 'state': 'updating', 'progress': None, 'automatic': True,
+                        'message': message, 'queued': sum(item.get('stage') == 'queued' for item in active), 'items': items}
+            if errors:
+                current = errors[0]
+                return {**current, 'state': 'retrying', 'progress': None, 'automatic': True,
+                        'message': f"{current['game']} · {LOCALE_NAMES[current['locale']]}: {current['message']}",
+                        'last_error': current['message'], 'items': items}
+            return {'state': 'ready' if items else 'waiting', 'progress': 100 if items else None,
+                    'automatic': True, 'items': items, 'message': 'Prepared game languages are current' if items
+                    else 'Choose a language once in Setup. All configured games are then checked automatically.'}
+
 
     def status(self, game: str, account: str = 'legacy') -> dict:
         if game not in GAME_LOCALES:
@@ -111,8 +143,8 @@ class LanguagePreparation:
                 return False
             old = self.prepared(game, locale)
             targets = tuple(dict.fromkeys([*(old or {}).get('targets', []), target]))
-            self.jobs[key] = {'state': 'preparing', 'progress': 0, 'message': 'Preparing selected language'}
-            worker = threading.Thread(target=self._run, args=(PreparationJob(self, self.stop_event), game, locale, targets, account, refresh, rebuild, target), daemon=True,
+            self.jobs[key] = {'state': 'preparing', 'progress': 0, 'stage': 'queued', 'started': time.monotonic(), 'stage_started': time.monotonic(), 'message': 'Queued for language check'}
+            worker = threading.Thread(target=self._run, args=(PreparationJob(self, self.stop_event, key=key), game, locale, targets, account, refresh, rebuild, target), daemon=True,
                                       name=f'prepare-{game}-{locale}')
             self._workers.add(worker)
             worker.start()
@@ -121,6 +153,7 @@ class LanguagePreparation:
     def _run(self, job, game, locale, targets, account, refresh, rebuild=False, target=None):
         key = (game, locale)
         try:
+            job.report('checking', 'Checking installed files and the prepared table')
             job.checkpoint()
             builder = self.rebuild if rebuild else self.build
             builder(game, locale, targets, **({'job': job} if self.cancellable else {}))
@@ -146,11 +179,11 @@ class LanguagePreparation:
             with self.lock:
                 self._cleanup_failures.append(error)
                 if job.current():
-                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error)}
+                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error), 'retry_after': 'Automatic retry in 2 minutes; use Setup to check game folders and installed language packs.'}
         except Exception as error:
             with self.lock:
                 if job.current():
-                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error)}
+                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error), 'retry_after': 'Automatic retry in 2 minutes; use Setup to check game folders and installed language packs.'}
         finally:
             with self.lock:
                 self._workers.discard(threading.current_thread())

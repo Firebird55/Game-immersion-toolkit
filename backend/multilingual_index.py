@@ -53,6 +53,8 @@ class MultilingualTextIndex:
             payload = json.loads(self.path.read_text(encoding='utf-8'))
             if payload.get('format') != 2 or payload.get('game') != self.game:
                 raise ValueError('Unsupported game language snapshot')
+            if not payload.get('records'):
+                raise ValueError('Prepared language table is empty; rebuilding is required')
             locale = payload['source_locale']
             study_language(locale)
             lookup, context_pairs, capture_channels = {}, {}, {}
