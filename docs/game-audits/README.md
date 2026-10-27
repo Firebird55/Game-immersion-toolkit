@@ -7,7 +7,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 
 | Game | Implemented improvements | Evidence and limits |
 | --- | --- | --- |
-| Zenless Zone Zero | Unity-wrapped catalogs; typed story, bubble and cinematic objects; explicit silent story records | [ZZZ](zzz.md) |
+| Zenless Zone Zero | Unity-wrapped catalogs; typed stories, bubbles, cinematics, messages and gameplay tips | [ZZZ](zzz.md) |
 | Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions | [Wuthering](wuwa.md) |
 | Neverness to Everness | Typed subtitles; mail, summaries and messages; original voice provenance | [NTE](nte.md) |
 | PRAGMATA | Bounded selective extraction; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md) |
@@ -16,7 +16,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 | Honkai: Star Rail | Messages, choices, narrated story and combat metadata; explicit voice states | [Star Rail](starrail.md) |
 | Genshin Impact | Dialogue fallback, reminders, card dialogue and book paragraphs; version checks | [Genshin](genshin.md) |
 | Arknights: Endfield | Conversations, choices, panels, messages, readables and operator archives | [Endfield](endfield.md) |
-| BEYOND: Two Souls | Installed localization, scene and voice relationship review | [BEYOND](beyond.md) |
+| BEYOND: Two Souls | Explicit chapter choices; missing-performance inventory; faster repeated-performance validation | [BEYOND](beyond.md) |
 | HEAVY RAIN | Explicit silent prompts; thought categorization; retained missing-voice records | [HEAVY RAIN](heavyrain.md) |
 
 ## Capture unvoiced dialogue
