@@ -47,6 +47,7 @@ class MultilingualTextIndex:
         self.voice_counts = {status: 0 for status in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
         self.dialogue_coverage = {}
         self._signature = None
+        self.snapshot_metadata = {}
         self.load()
 
     def load(self):
@@ -113,6 +114,8 @@ class MultilingualTextIndex:
                 self.ready = True
                 self.state = 'ready' if self.audio_count else 'missing_voice'
                 self.message = payload.get('message', f'{self.entry_count:,} official lines; {self.audio_count:,} original voices')
+                self.snapshot_metadata = {key: payload.get(key) for key in
+                    ('format', 'game', 'source_locale', 'install', 'fingerprint', 'reader_revision', 'targets_requested')}
                 self._signature = signature
             return True
         except (OSError, ValueError, KeyError, TypeError) as error:

@@ -250,25 +250,33 @@ class Runtime:
                 directory.mkdir(parents=True, exist_ok=True)
                 path = directory / 'textmap.json'
                 stamp = adapter.fingerprint(install)
-                try:
-                    old = json.loads(path.read_text(encoding='utf-8'))
-                except (OSError, ValueError):
-                    old = {}
+                indexes = self.__dict__.setdefault('_locale_indexes', {})
+                key = (game, locale)
+                cached = indexes.get(key)
+                if cached is None:
+                    cached = indexes[key] = MultilingualTextIndex(game, directory)
+                    current_table = cached.ready
+                else:
+                    current_table = cached.load()
+                # The validated generation already owns the large text table.
+                # Periodic checks need its tiny metadata, not another full JSON
+                # allocation while capture is matching the same records.
+                old = cached.snapshot_metadata
+                if not current_table:
+                    try:
+                        old = json.loads(path.read_text(encoding='utf-8'))
+                    except (OSError, ValueError):
+                        old = {}
                 if (not force and old.get('format') == 2 and old.get('game') == game and old.get('source_locale') == locale
                         and old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
                         and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION
                         and old.get('install') == str(install)):
                     # Matching metadata alone does not prove the table is usable.
                     # A truncated/invalid snapshot used to be skipped forever.
-                    indexes = self.__dict__.setdefault('_locale_indexes', {})
-                    key = (game, locale)
-                    cached = indexes.get(key)
-                    if cached is None:
-                        cached = indexes[key] = MultilingualTextIndex(game, directory)
                     # load() cheaply reuses an unchanged validated file. Its
                     # return value is essential: a failed reload can retain an
                     # older usable in-memory index while disk still needs repair.
-                    if cached.load() and cached.ready and cached.source_locale == locale and cached.entry_count:
+                    if current_table and cached.ready and cached.source_locale == locale and cached.entry_count:
                         return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
                 if job:

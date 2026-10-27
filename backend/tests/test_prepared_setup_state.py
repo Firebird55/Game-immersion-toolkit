@@ -103,6 +103,8 @@ def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, gam
     assert len(extracted) == 1, 'Invalid unchanged snapshots must be repaired without Rebuild'
     value.build_language(game, 'nl', ('en',))
     assert len(extracted) == 1, 'A valid unchanged table must not be extracted again'
+    monkeypatch.setattr(api.json, 'loads', lambda *_: pytest.fail('Unchanged validated data should not be parsed again'))
+    value.build_language(game, 'nl', ('en',))
 
 
 def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):
