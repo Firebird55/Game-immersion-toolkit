@@ -18,6 +18,7 @@ try{
    const writes=[],requests=[];
    const accountLanguages={first:['en','zh'],second:['en','zh'],legacy:['en','zh']};
    let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead,captureGame='genshin',unvoiced=false;
+   let languageReadStatus=200,failPreparation=false;
    let initialLanguageGate=true;const initialLanguageReads=[];
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
     languageSettings:{en:{effectiveTranslationLanguage:active==='first'?'zh-hans':'nl',inlineGlossMode:'always',wordPopup:{tabs:[{id:'definition',enabled:true}],openOn:'first'}},zh:{effectiveTranslationLanguage:'en',inlineGlossMode:'off'}}});
@@ -28,7 +29,7 @@ try{
    const languages=()=>({context:stateContext(),selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
     {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:prepared?{targets:['en'],mapped_lines:1}:null,coverage_warnings:prepared?['Synthetic coverage warning: an updated cinematic format is not mapped.']:[]},
     {locale:'ko',language:'ko',name:'Korean',reader_available:false,prepared:null}]});
-   const game={id:'zzz',title:'Zenless Zone Zero',detected_path:'F:/Games/ZZZ',configured_path:null,folder_state:'detected',folder_hint:'Choose game folder',voice_state:'present',tools_missing:[],index_ready:true,indexed_lines:1,audio_ready:true,update_state:'idle',update_message:'Ready',progress:100};
+   const game={id:'zzz',title:'Zenless Zone Zero',detected_path:'F:/Games/ZZZ',configured_path:null,folder_state:'detected',folder_hint:'Choose game folder',voice_state:'needs_language_setup',voice_hint:'Install the selected voice pack.',tools_missing:[],index_ready:true,indexed_lines:1,audio_ready:true,update_state:'idle',update_message:'Ready',progress:100};
    await page.addInitScript(()=>localStorage.setItem('proxy-transcript-reading-mode','lexirise'));
    await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
    await page.route('http://127.0.0.1:8766/**',async route=>{
@@ -77,6 +78,9 @@ try{
      return complete();
     }
     if(path==='/api/setup/games/zzz/languages'){
+     if(request.method()==='GET'&&languageReadStatus==='network')return route.abort('failed');
+     if(request.method()==='GET'&&languageReadStatus!==200)return respond({detail:'Private diagnostic must not be echoed'},languageReadStatus);
+     if(request.method()==='POST'&&failPreparation)return respond({detail:'Synthetic preparation failed.'},400);
      if(request.method()==='POST')prepared=true;
      return respond(languages());
     }
@@ -107,6 +111,8 @@ try{
 
    const updatePanel=page.getByRole('region',{name:'Automatic data update status'});
    await updatePanel.locator('summary').click();
+   assert(await updatePanel.getByText(/BEYOND: Two Souls.*Ready/).isVisible(),'Successful games are labelled ready even while another game has failed');
+   assert(await updatePanel.getByText(/Zenless Zone Zero.*Preparation failed/).isVisible(),'A failed preparation is distinguished from a successful catalog with coverage notes');
    const details=await updatePanel.locator('details').evaluate(el=>({width:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,fits:el.scrollWidth<=el.clientWidth+1}));
    assert(details.fits&&details.width>details.parent*.8,'Expanded update details use the full row, not a narrow right column');
    await updatePanel.screenshot({path:`${preview.output}/update-details-${name}-${width}.png`});
@@ -207,6 +213,24 @@ try{
    const setup=page.getByRole('dialog',{name:'Settings'});
    await setup.locator('.language-table button').first().waitFor();
    assert.equal(writes.filter(w=>w.path.endsWith('/languages')).length,0,'Opening setup never prepares languages');
+   await setup.getByRole('region',{name:'Installed game readiness'}).getByText('Choose game language',{exact:true}).waitFor();
+   assert.equal(await setup.getByText('Install the selected voice pack.',{exact:false}).count(),0,'No selected language must not be described as a missing voice pack');
+   for(const failure of [503,'network']){
+    languageReadStatus=failure;
+    const warning=setup.getByText(failure===503?'Could not refresh language status (HTTP 503). Retrying automatically.':'Cannot reach the toolkit to refresh language status. Retrying automatically.',{exact:true});
+    await warning.waitFor({timeout:15000});
+    assert(await setup.locator('.language-table').isVisible(),'A failed read retains the last known language inventory');
+    assert.equal(await setup.getByText('Language setup unavailable.',{exact:true}).count(),0);
+    assert.equal(await setup.getByText('Private diagnostic must not be echoed',{exact:true}).count(),0);
+    languageReadStatus=200;await setup.getByRole('button',{name:'Retry status',exact:true}).click();
+    await warning.waitFor({state:'hidden'});
+   }
+   failPreparation=true;
+   await setup.getByRole('button',{name:'Prepare language',exact:true}).click();
+   await setup.getByRole('alert').filter({hasText:'Synthetic preparation failed.'}).waitFor();
+   await page.waitForResponse(r=>r.url().endsWith('/api/setup/games/zzz/languages')&&r.request().method()==='GET'&&r.status()===200);
+   assert(await setup.getByRole('alert').filter({hasText:'Synthetic preparation failed.'}).isVisible(),'A successful status read cannot erase an action failure');
+   failPreparation=false;
    await setup.getByRole('button',{name:'Prepare language',exact:true}).click();
    await setup.getByRole('button',{name:'Use this language',exact:true}).waitFor();
    const coverageNote=setup.getByText('Synthetic coverage warning: an updated cinematic format is not mapped.',{exact:true});
@@ -214,7 +238,7 @@ try{
    await setup.locator('summary').filter({hasText:'Coverage notes'}).click();
    assert(await coverageNote.isVisible(),'Unresolved presentation details remain available');
    await setup.locator('summary').filter({hasText:'Coverage notes'}).click();
-   assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')),[{path:'/api/setup/games/zzz/languages',body:{locale:'zh-Hans',action:'prepare',target:'en'}}]);
+   assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')),Array.from({length:2},()=>({path:'/api/setup/games/zzz/languages',body:{locale:'zh-Hans',action:'prepare',target:'en'}})));
    await setup.locator('summary').filter({hasText:'Keep mobile library updated'}).click();
    const automaticPanel=setup.getByRole('region',{name:'Automatic mobile exports'});
    await automaticPanel.getByLabel('Keep mobile library updated',{exact:true}).check();

@@ -14,9 +14,9 @@ export class StatePoll<T extends {context:StateContext}> {
   private queued = false;
   private load:(signal:AbortSignal)=>Promise<T>;
   private commit:(value:T)=>void;
-  private failed:()=>void;
+  private failed:(error:unknown)=>void;
   private reconcile?: (value:T)=>T;
-  constructor(load:(signal:AbortSignal)=>Promise<T>, commit:(value:T)=>void, failed:()=>void = ()=>{}, reconcile?: (value:T)=>T) {
+  constructor(load:(signal:AbortSignal)=>Promise<T>, commit:(value:T)=>void, failed:(error:unknown)=>void = ()=>{}, reconcile?: (value:T)=>T) {
     this.load = load; this.commit = commit; this.failed = failed; this.reconcile = reconcile;
   }
 
@@ -54,9 +54,9 @@ export class StatePoll<T extends {context:StateContext}> {
     flight.promise = Promise.resolve().then(()=>this.load(controller.signal)).then(value=>{
       if (this.owns(scope) && !controller.signal.aborted && this.accept(value.context, !!this.reconcile))
         this.commit(this.reconcile ? this.reconcile(value) : value);
-    }).catch(()=>{
+    }).catch(error=>{
       // A newer accepted event also invalidates a late HTTP failure indicator.
-      if (this.owns(scope) && !controller.signal.aborted && this.current === observedContext) this.failed();
+      if (this.owns(scope) && !controller.signal.aborted && this.current === observedContext) this.failed(error);
     }).finally(()=>{
       if (this.flight !== flight) return;
       this.flight = null;

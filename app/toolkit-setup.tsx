@@ -32,7 +32,8 @@ type Setup = {
 };
 const VOICE_LABELS: Record<string, string> = { present: 'Original voice files found', missing: 'Selected voice pack needed',
   not_checked: 'Choose a game folder first', verify_during_indexing: 'Voice pack checked during indexing', not_required: 'Voice pack not required',
-  needs_language_setup: 'Choose a learning language' };
+  needs_language_setup: 'Prepare a game language to enable capture. Installed voice packs are listed in the language table above' };
+const VOICE_STATUS: Record<string,string> = {present:'Installed',missing:'Pack not detected',not_checked:'Not checked',verify_during_indexing:'Check during preparation',not_required:'Text only',needs_language_setup:'Choose game language'};
 
 export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged, targetLanguage, allowedGames }: {
   online: boolean; game: GameId; onGameChange: (game: GameId) => void;
@@ -147,7 +148,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>{uiText("Game files")}</h3><p>{uiText("Your installed files supply the subtitles and voices.")}</p></div></div>
               <div className="toolkit-readiness-grid">
                 <div><span>{uiText("Installation")}</span><strong className={current.detected_path ? "is-ready" : "needs-setup"}>{current.detected_path ? uiText("Found") : uiText("Choose folder")}</strong></div>
-                <div><span>{uiText("Original voices")}</span><strong className={current.voice_state === 'present' || game === 'hito' ? "is-ready" : "needs-setup"}>{game === 'hito' ? uiText("Text only") : current.voice_state === 'present' ? uiText("Installed") : uiText("Needs setup")}</strong></div>
+                <div><span>{uiText("Original voices")}</span><strong className={current.voice_state === 'present' || game === 'hito' ? "is-ready" : "needs-setup"}>{uiText(game === 'hito' ? 'Text only' : VOICE_STATUS[current.voice_state] ?? 'Not checked')}</strong></div>
                 <div><span>{uiText("Bilingual catalog")}</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : uiText("Not indexed")}</strong></div>
               </div>
               {current.detected_path && <code className="toolkit-installed-path">{current.detected_path}</code>}
@@ -162,7 +163,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
                   <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action(`/api/setup/games/${game}`, { use_automatic: true }, 'Automatic detection enabled.'); }}>{uiText("Auto-detect")}</Button>
                 </div>
               </details>
-              {current.voice_state !== 'present' && game !== 'hito' && <p className="toolkit-setup-warning">{VOICE_LABELS[current.voice_state] ?? current.voice_state}. {current.voice_hint}</p>}
+              {current.voice_state !== 'present' && game !== 'hito' && <p className="toolkit-setup-warning">{uiText(VOICE_LABELS[current.voice_state] ?? 'Check the language table above for voice availability')}.{current.voice_state !== 'needs_language_setup' && <> {current.voice_hint}</>}</p>}
               {current.expansion_message && <p role="status" className="toolkit-setup-note">{current.expansion_message}</p>}
               <div className="toolkit-setup-actions">
                 {current.tools_missing.length > 0 && game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools.')}><Download /> {uiText("Install game tools")}</Button>}
