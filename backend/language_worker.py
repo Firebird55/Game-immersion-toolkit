@@ -2,11 +2,35 @@
 import argparse
 import json
 import inspect
+import time
 import traceback
 from pathlib import Path
 
 from .game_assets import asset_adapter
 from .local_game import LocalDialogue
+
+
+def progress_reporter(output):
+    """Best-effort telemetry must never interrupt the actual language build."""
+    path = output.with_name('progress.json')
+    pending = path.with_suffix('.pending')
+    last_attempt = float('-inf')
+
+    def report(message):
+        nonlocal last_attempt
+        now = time.monotonic()
+        if now - last_attempt < 1:
+            return
+        last_attempt = now
+        try:
+            pending.write_text(json.dumps({'message': str(message)[:500]}), encoding='utf-8')
+            pending.replace(path)
+        except OSError:
+            # Windows readers, virus scanners and sync clients can temporarily
+            # hold either file. Keep the last readable status and try next time.
+            # Snapshot writes and extraction errors still propagate normally.
+            pass
+    return report
 
 
 def build(game, install, directory, locale, targets, output, progress=None):
@@ -38,11 +62,7 @@ if __name__ == '__main__':
     parser.add_argument('--targets', required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    def report(message):
-        path = args.output.with_name('progress.json')
-        pending = path.with_suffix('.pending')
-        pending.write_text(json.dumps({'message': str(message)[:500]}), encoding='utf-8')
-        pending.replace(path)
+    report = progress_reporter(args.output)
     try:
         build(args.game, args.install, args.directory, args.locale, json.loads(args.targets), args.output, report)
     except Exception as error:

@@ -34,8 +34,11 @@ def directory_bytes(root):
 
 
 class LanguageInventory:
-    def __init__(self, data, catalog, install_lookup):
-        self.data, self.catalog, self.install_lookup = Path(data), Path(catalog), install_lookup
+    def __init__(self, data, install_lookup, *, catalog=None):
+        # Updates preserve the user's original source/data directory. Static
+        # capabilities must come from the active code bundle, not that old tree.
+        self.catalog = Path(catalog) if catalog is not None else Path(__file__).resolve().parents[1] / 'public/mobile-capture/games-data.json'
+        self.data, self.install_lookup = Path(data), install_lookup
         self._cache = {}
         self._table_cache = {}
         self._lock = threading.RLock()

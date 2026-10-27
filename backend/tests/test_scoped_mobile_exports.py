@@ -47,10 +47,12 @@ def test_destinations_status_and_transfer_folders_are_separate_per_account_and_l
     old_preferences = first.preferences_path.parent.parent / 'mobile-library.json'
     old_preferences.parent.mkdir(parents=True, exist_ok=True); old_preferences.write_text('legacy preferences retained')
     chosen = tmp_path / 'transfer'
-    first._worker_args = lambda *_: [sys.executable, '-c', 'print(\'{"state":"complete","progress":100}\')']
+    first._worker_args = lambda *_: [sys.executable, '-c',
+        'import os,json; print(json.dumps({"state":"complete","progress":100,"message":os.getcwd()}))']
     assert exports.start('zzz', False, str(chosen))
     first._thread.join(timeout=5)
     assert exports.status('zzz')['state'] == 'complete'
+    assert exports.status('zzz')['message'] == str(Path(mobile_export_controls.__file__).resolve().parents[1])
     first_folder = first.output_folder(chosen, 'zzz'); assert first_folder.is_dir()
     languages.select('zzz', 'ko', 'one')
     second, _, _ = exports._manager('zzz')
@@ -91,6 +93,7 @@ def test_worker_is_pinned_and_stale_export_requests_are_rejected_before_actions(
     manager, _, _ = exports._manager('zzz')
     args = manager._worker_args('zzz', False, Path('private-output'))
     assert args[args.index('--source-locale') + 1] == 'ja'
+    assert args[args.index('--root') + 1] == str(manager.root)
     assert '--account-signature' in args and '--catalog-only' in args
     monkeypatch.setattr(api, 'runtime', SimpleNamespace(mobile_exports=exports, accounts=accounts), raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8766')

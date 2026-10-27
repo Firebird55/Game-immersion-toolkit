@@ -190,18 +190,19 @@ class InstallationService:
             if any(process.poll() is None for process in self._native.values()):
                 return False
             before = load_paths()
+            source = Path(__file__).resolve().parents[1]
             if kind == "folders":
                 args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                        str(self.root / "scripts/select-game-folders.ps1")]
+                        str(source / "scripts/select-game-folders.ps1")]
                 flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             elif kind == "lexirise":
                 # The hidden-input prompt owns its console. No key is sent to the browser or command line.
                 args = [sys.executable, "-m", "scripts.set_lexirise_key", "--account"]
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
             else:
-                args = [sys.executable, str(self.root / "scripts/check-capture-readiness.py"), "--pause"]
+                args = [sys.executable, str(source / "scripts/check-capture-readiness.py"), "--pause"]
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-            process = subprocess.Popen(args, cwd=self.root, creationflags=flags)
+            process = subprocess.Popen(args, cwd=source, creationflags=flags)
             self._native[kind] = process
             threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True).start()
             return True
