@@ -30,9 +30,11 @@ class DialogueCatalog:
             self.api = api
             metadata = json.loads(download(api + '/branches/' + branch))
             self.revision = metadata['commit']['id']
+            self.revision_title = metadata['commit'].get('title') or metadata['commit'].get('message', '').split('\n', 1)[0]
         else:
             metadata = json.loads(download(f'https://api.github.com/repos/{self.repository}/commits/{branch}'))
             self.revision = metadata['sha']
+            self.revision_title = metadata.get('commit', {}).get('message', '').split('\n', 1)[0]
         if not re.fullmatch('[a-f0-9]{40}', self.revision):
             raise ValueError('Official dialogue catalog revision is unavailable.')
         self.root = self.directory / self.revision

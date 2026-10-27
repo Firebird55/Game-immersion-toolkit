@@ -89,6 +89,36 @@ def test_structured_format_error_survives_job_status_and_malformed_retry_is_igno
     assert status['state'] == 'retrying' and 'reader' in status['message']
 
 
+def test_metadata_rate_limit_has_a_network_message_and_background_cooldown(tmp_path, monkeypatch):
+    from urllib.error import HTTPError
+    import backend.language_preparation as module
+    from backend.preparation_errors import public_failure
+    failure = HTTPError('https://example.invalid/private', 429, 'Rate limited', {'Retry-After': '900'}, None)
+    public = public_failure(failure)
+    assert public['code'] == 'metadata_rate_limited' and public['retry_seconds'] == 900
+    assert 'download service' in public['message'] and 'example.invalid' not in public['message']
+    calls = []
+    now = [1000.]
+    monkeypatch.setattr(module.time, 'monotonic', lambda: now[0])
+    def build(*_):
+        calls.append(True)
+        raise failure
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {}, path=tmp_path / 'languages.json')
+    manager.request('zzz', 'zh-Hans', 'en')
+    # Join directly: the synthetic monotonic clock intentionally does not tick.
+    for worker in list(manager._workers):
+        worker.join(2)
+    assert not manager._workers and len(calls) == 1
+    manager.refresh_prepared()
+    assert len(calls) == 1
+    assert manager.update_status()['code'] == 'metadata_rate_limited'
+    now[0] += 901
+    manager.refresh_prepared()
+    for worker in list(manager._workers):
+        worker.join(2)
+    assert not manager._workers and len(calls) == 2
+
+
 def test_local_targets_survive_activation_history_account_switch_and_refresh(tmp_path, monkeypatch):
     import json
     from datetime import datetime, timezone

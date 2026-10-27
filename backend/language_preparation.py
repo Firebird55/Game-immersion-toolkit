@@ -224,7 +224,9 @@ class LanguagePreparation:
             failure = public_failure(error) if isinstance(error, (PreparationFailure, subprocess.TimeoutExpired, OSError, MemoryError)) else {'code': 'preparation_failed', 'message': str(error)}
             with self.lock:
                 if job.current():
-                    self.jobs[key] = {'state': 'error', 'progress': None, **failure, 'retry_after': 'Your choice is saved. Automatic retry in 2 minutes, or retry now in Games & Languages.'}
+                    delay = failure.get('retry_seconds', 120)
+                    self.jobs[key] = {'state': 'error', 'progress': None, **failure, 'next_retry_at': time.monotonic() + delay,
+                        'retry_after': f'Your choice is saved. Automatic retry after {max(1, (delay + 59) // 60)} minutes, or retry now in Games & Languages.'}
         finally:
             with self.lock:
                 self._workers.discard(threading.current_thread())
@@ -266,6 +268,9 @@ class LanguagePreparation:
         for game, locale, targets in self.entries():
             if self.stop_event.is_set():
                 break
+            with self.lock:
+                if self.jobs.get((game, locale), {}).get('next_retry_at', 0) > time.monotonic():
+                    continue
             if targets:
                 self.request(game, locale, targets[0], refresh=True)
 

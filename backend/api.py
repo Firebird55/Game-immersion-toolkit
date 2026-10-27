@@ -309,7 +309,8 @@ class Runtime:
                         if old:
                             message += ' The previous table was kept; changed voice files may remain unavailable until repair succeeds.'
                         raise PreparationFailure(failure.get('code', 'reader_failed'), message,
-                            game_files_changed=changed, previous_snapshot_retained=bool(old))
+                            game_files_changed=changed, previous_snapshot_retained=bool(old),
+                            retry_seconds=failure.get('retry_seconds', 120))
                     if job:
                         job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))
@@ -448,7 +449,7 @@ class Runtime:
         if job.get('state') == 'preparing':
             return f"{locale}: {job['message']}. This runs automatically for all configured games."
         if job.get('state') == 'error':
-            return f"{locale}: {job['message']}. Automatic retry in 2 minutes; check Setup → Languages."
+            return f"{locale}: {job['message']} {job.get('retry_after', 'Check Games & Languages to retry.')}"
         return f'{locale}: the prepared table is missing or cannot be activated. Automatic repair checks run every 2 minutes; see Setup → Languages.'
 
     def capture_language_ready(self, game):
