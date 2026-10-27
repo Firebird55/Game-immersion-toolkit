@@ -689,7 +689,8 @@ class CaptureService:
         match_lines = getattr(index, 'match_unvoiced_lines', None)
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
-                 getattr(index, 'source_locale', None), getattr(index, '_signature', None))
+                 getattr(index, 'source_locale', None), getattr(index, '_signature', None),
+                 getattr(self, 'context_scope', lambda: None)())
         enabled = (settings.capture_unvoiced and match_lines and index.ready
                    and index.status().get('unvoiced_count', 0) and epoch == self._scan_epoch)
         if not enabled or scope != self._unvoiced_scope:

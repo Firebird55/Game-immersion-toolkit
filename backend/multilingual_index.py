@@ -167,10 +167,15 @@ class MultilingualTextIndex:
                     # observed caption leaves more than one variant possible.
                     if self.game != 'zzz' or len(rows) > 1:
                         rows = [r for r in rows if not r.get('player_voice') or r['player_voice'] == self.player_voice]
-                    identities = {(json.dumps(r.get('audio'), sort_keys=True), r['source_text']) for r in rows}
+                    # Silent prompts can repeat in different scenes with different
+                    # official translations. Audio=None is not one shared identity.
+                    def identity(row):
+                        return (json.dumps(row.get('audio'), sort_keys=True), row['source_text'],
+                                json.dumps(row['texts'], sort_keys=True) if row['voice_status'] == 'unvoiced' else '')
+                    identities = {identity(r) for r in rows}
                     if self.game == 'heavyrain' and len(identities) > 1 and score == 100 and context_groups:
                         rows = [row for row in rows if self.authored_scene(row['text_id']) in context_groups]
-                        identities = {(json.dumps(row.get('audio'), sort_keys=True), row['source_text']) for row in rows}
+                        identities = {identity(row) for row in rows}
                     if len(identities) != 1:
                         if len(identities) > 1:
                             ambiguous.append(source)

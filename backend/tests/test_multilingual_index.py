@@ -93,6 +93,17 @@ def test_full_screen_silent_match_is_opt_in_exact_and_excludes_voiced_collisions
     assert value.match_unvoiced_lines([shared]) == []
 
 
+def test_repeated_silent_prompts_cannot_choose_an_unrelated_scene_translation(tmp_path):
+    row = {'text_id': 'first', 'english': 'Tell me more.', 'chinese': '', 'source_locale': 'en',
+           'source_text': 'Tell me more.', 'texts': {'en': 'Tell me more.', 'fr': 'Première traduction.'},
+           'audio_locale': 'en', 'audio': None, 'voice_status': 'unvoiced'}
+    second = {**row, 'text_id': 'second', 'texts': {'en': 'Tell me more.', 'fr': 'Autre traduction.'}}
+    value = index(tmp_path, 'en', [row, second])
+    value.capture_unvoiced = True
+    assert value.match_lines(['Tell me more.']) is None
+    assert value.match_unvoiced_lines(['Tell me more.']) == []
+
+
 def test_unvoiced_toggle_requires_explicit_evidence_and_exact_text(tmp_path):
     rows = []
     for status, text in [('voiced', 'Follow the guide into the station.'),
