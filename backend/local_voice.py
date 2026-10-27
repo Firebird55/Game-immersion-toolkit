@@ -15,6 +15,12 @@ from .media_tools import ffmpeg_executable
 from .game_assets import asset_adapter
 
 
+def _source_suffix(data: bytes) -> str:
+    # vgmstream uses both container magic and suffix when selecting its reader.
+    # Derive the suffix from extracted bytes, never an arbitrary snapshot path.
+    return '.fsb' if data[:4] in {b'FSB4', b'FSB5'} else '.wem'
+
+
 class LocalVoiceAssetService:
     def __init__(self, game: str, data_dir: Path, decoder: Path, output_dir: Path, *, tools_dir: Path | None = None):
         self._adapter, self._extractor = asset_adapter(game)
@@ -74,7 +80,7 @@ class LocalVoiceAssetService:
         with tempfile.TemporaryDirectory(prefix=f"{self.game}-voice-", dir=self.output_dir) as scratch_value:
             scratch = Path(scratch_value)
             data = extract_voice(install, audio, self.tools_dir / self._extractor, scratch)
-            wem, wav, mp3 = scratch / "voice.wem", scratch / "voice.wav", scratch / "voice.mp3"
+            wem, wav, mp3 = scratch / ('voice' + _source_suffix(data)), scratch / "voice.wav", scratch / "voice.mp3"
             wem.write_bytes(data)
             options = {"check": True, "capture_output": True, "timeout": 90,
                        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
@@ -151,7 +157,7 @@ class LocalVoiceAssetService:
                 raise ValueError('Original voice extraction returned incomplete bindings')
             inputs = []
             for index, data in enumerate(payloads):
-                wem = scratch / f'{index}.wem'; wem.write_bytes(data); inputs.append(wem)
+                wem = scratch / f'{index}{_source_suffix(data)}'; wem.write_bytes(data); inputs.append(wem)
             del payloads
             options = {'check': True, 'capture_output': True, 'timeout': 90 * len(requests),
                        'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0)}

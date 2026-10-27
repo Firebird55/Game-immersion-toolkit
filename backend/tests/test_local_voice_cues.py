@@ -3,10 +3,47 @@ import json
 import io
 from types import SimpleNamespace
 import wave
+from pathlib import Path
 
 import pytest
 
 import backend.local_voice as module
+
+
+def test_original_fmod_and_wwise_containers_keep_decoder_suffix_for_single_and_batch(tmp_path, monkeypatch):
+    data = tmp_path / 'cache'; data.mkdir()
+    decoder = tmp_path / 'decoder'; decoder.touch()
+    rows = [{'text_id': magic, 'audio': {'container': magic}} for magic in ('FSB4', 'FSB5', 'RIFF')]
+    (data / 'textmap.json').write_text(json.dumps({'install': str(tmp_path), 'fingerprint': 'verified', 'records': rows}), encoding='utf-8')
+    adapter = SimpleNamespace(fingerprint=lambda _: 'verified', extract_voice=lambda _root, audio, *_: audio['container'].encode() + bytes(100))
+    monkeypatch.setattr(module, 'asset_adapter', lambda _: (adapter, ''))
+    monkeypatch.setattr(module, 'ffmpeg_executable', lambda: 'encoder')
+    seen = []
+    def run(args, **_):
+        if str(args[0]) == str(decoder):
+            inputs = [Path(args[-1])] if '-o' in args else [Path(path) for path in args[2:]]
+            for source in inputs:
+                magic = source.read_bytes()[:4]
+                assert source.suffix == ('.fsb' if magic in {b'FSB4', b'FSB5'} else '.wem')
+                seen.append(magic)
+                destination = args[args.index('-o') + 1] if '-o' in args else str(source) + '.wav'
+                with wave.open(destination, 'wb') as stream:
+                    stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(8000)
+                    stream.writeframes(bytes(16000))
+        else:
+            for value in args:
+                if str(value).endswith('.mp3'):
+                    Path(value).write_bytes(bytes(200))
+    monkeypatch.setattr(module.subprocess, 'run', run)
+    service = module.LocalVoiceAssetService('riseofthetombraider', data, decoder, tmp_path / 'clips')
+    try:
+        for number, row in enumerate(rows):
+            assert (service.output_dir / service.extract(row['text_id'], number)).is_file()
+        names = service.extract_batch([(row['text_id'], number + 10, '') for number, row in enumerate(rows)])
+        assert all((service.output_dir / name).is_file() for name in names)
+        assert seen == [b'FSB4', b'FSB5', b'RIFF'] * 2
+    finally:
+        service.close()
 
 
 @pytest.mark.parametrize('change', [{}, {'end_ms':3000}, {'start_ms':-1}, {'start_ms':'500'},
