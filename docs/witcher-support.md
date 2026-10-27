@@ -6,11 +6,12 @@ original Mandarin voice from the installed `cnpc.w3speech` container. DX11 and
 DX12 use the same game profile. Choose the installation root in **Choose Game
 Folders.cmd**, or use automatic Steam-library discovery.
 
-The official Chinese voice pack must be installed through Steam. On this PC,
-the completed installation provides 96,904 English/Chinese pairs and 64,720
-original Mandarin voice mappings. It includes no installed playable expansion
-directory; language files under `dlc` are indexed when present. The toolkit does
-not acquire DLC or voice assets from elsewhere.
+The official study-language voice pack must be installed through the launcher.
+Newer installations merge expansion assets into the main content bundles;
+older installations keep separate `dlc` folders. Both layouts are inspected.
+The toolkit does not acquire DLC or voice assets from elsewhere. See the
+[current narrative audit](game-audits/witcher3.md) for measured language coverage,
+expansion evidence, unvoiced text and remaining cinematic limits.
 
 The linked [Dual Subtitles mod](https://www.nexusmods.com/witcher3/mods/8282)
 combines two texts with ` ~ ` or `<br>~ ` according to the length of the primary
@@ -30,7 +31,10 @@ version-162/163 UTF-16 localization, including a measured UTF-8 buffer in an
 older-version mod container. Original audio joins the same localization ID in
 the CPSW speech table. Audio offsets preserve all 64 bits; playback reads only
 the mapped RIFF payload and uses the existing vgmstream/FFmpeg decoder.
-Unvoiced UI strings and repeated text with different performances are excluded.
+The optional **Include unvoiced dialogue** setting admits exact matches to
+authored silent lines, choice labels, journal bodies and verified readable-item
+text. Unclassified UI and missing/ambiguous voices remain excluded. Readable
+line breaks are separated correctly when normalizing text.
 Malformed or interrupted updates preserve the previous usable snapshot.
 
 Format behavior was reviewed against the primary implementations in
@@ -54,7 +58,7 @@ verifies normal subtitles and NPC chatter; see
 [game-specific OCR presentations](game-ocr-presentations.md). The installed
 mod's appearance still requires live or mod-specific footage validation.
 
-The complete check passes 275 Python tests, 11 JavaScript tests, type checking,
+The earlier capture baseline passed 275 Python tests, 11 JavaScript tests, type checking,
 and the production build. Chromium and Firefox passed 24 desktop/mobile/zoom
 contexts, followed by eight checks of the final game status UI at 320 pixels
 and 4K with 100%, 150%, and 200% scaling. Native Windows OCR and display capture
