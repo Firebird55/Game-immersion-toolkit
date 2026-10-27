@@ -59,6 +59,25 @@ def test_language_inventory_separates_silence_from_missing_voices(tmp_path):
     assert value['coverage_warnings'] == ['Some cinematic timing references are unresolved.']
 
 
+def test_status_refresh_reuses_summary_but_observes_replaced_table(tmp_path, monkeypatch):
+    inventory, manager, path = fixture(tmp_path)
+    read_text = Path.read_text
+    reads = []
+    def read(value, *args, **kwargs):
+        if value == path:
+            reads.append(value)
+        return read_text(value, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', read)
+    inventory.status('beyond', manager.status('beyond'))
+    inventory.invalidate()
+    inventory.status('beyond', manager.status('beyond'))
+    assert len(reads) == 1, 'Status changes do not repeatedly decode an unchanged catalog'
+    path.write_text(json.dumps({'records': [{'audio': None, 'voice_status': 'unvoiced'}]}))
+    inventory.invalidate()
+    value = inventory.status('beyond', manager.status('beyond'))['locales']['nl']
+    assert len(reads) == 2 and value['dialogue_inventory']['voice_counts']['unvoiced'] == 1
+
+
 def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from backend import language_worker

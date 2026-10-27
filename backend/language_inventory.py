@@ -37,11 +37,36 @@ class LanguageInventory:
     def __init__(self, data, catalog, install_lookup):
         self.data, self.catalog, self.install_lookup = Path(data), Path(catalog), install_lookup
         self._cache = {}
+        self._table_cache = {}
         self._lock = threading.RLock()
 
     def invalidate(self):
         with self._lock:
             self._cache.clear()
+
+    def _table_summary(self, path):
+        # Large prepared catalogs must not be decoded again on each status
+        # refresh. Keep only their small summaries, never a second record set.
+        stat = path.stat()
+        signature = (stat.st_size, stat.st_mtime_ns, stat.st_ino)
+        previous = self._table_cache.get(path)
+        if previous and previous[0] == signature:
+            return previous[1]
+        payload = json.loads(path.read_text(encoding='utf-8'))
+        from .local_game import dialogue_voice_status
+        counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
+        categories = {}
+        for record in payload.get('records', []):
+            status = dialogue_voice_status(record.get('audio'), record.get('voice_status'))
+            counts[status] += 1
+            category = record.get('dialogue_kind') or 'uncategorized'
+            categories.setdefault(category, dict.fromkeys(counts, 0))[status] += 1
+        summary = {'fingerprint': payload.get('fingerprint'),
+                   'dialogue_inventory': {'voice_counts': counts, 'categories': categories},
+                   'coverage_warnings': [value for value in payload.get('coverage_warnings', [])
+                       if isinstance(value, str) and len(value) <= 1000]}
+        self._table_cache[path] = (signature, summary)
+        return summary
 
     def table(self, game, locale):
         if game not in GAME_LOCALES or locale not in GAME_LOCALES[game]:
@@ -88,19 +113,10 @@ class LanguageInventory:
                 # A prepared table proves bindings, not continued pack installation.
                 if size:
                     try:
-                        payload = json.loads(path.read_text(encoding='utf-8'))
-                        from .local_game import dialogue_voice_status
-                        counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
-                        categories = {}
-                        for record in payload.get('records', []):
-                            status = dialogue_voice_status(record.get('audio'), record.get('voice_status'))
-                            counts[status] += 1
-                            category = record.get('dialogue_kind') or 'uncategorized'
-                            categories.setdefault(category, dict.fromkeys(counts, 0))[status] += 1
-                        locales[row['locale']]['dialogue_inventory'] = {'voice_counts': counts, 'categories': categories}
-                        locales[row['locale']]['coverage_warnings'] = [value for value in payload.get('coverage_warnings', [])
-                            if isinstance(value, str) and len(value) <= 1000]
-                        if fingerprint and payload.get('fingerprint') == fingerprint and counts['voiced']:
+                        summary = self._table_summary(path)
+                        locales[row['locale']]['dialogue_inventory'] = summary['dialogue_inventory']
+                        locales[row['locale']]['coverage_warnings'] = summary['coverage_warnings']
+                        if fingerprint and summary['fingerprint'] == fingerprint and summary['dialogue_inventory']['voice_counts']['voiced']:
                             locales[row['locale']]['voice_state'] = 'present'
                             locales[row['locale']]['support'] = 'prepared'
                     except (OSError, ValueError, KeyError, TypeError):
