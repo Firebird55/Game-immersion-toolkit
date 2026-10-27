@@ -86,14 +86,21 @@ try {
     $candidate=Start-CompanionSlot $Root $stage $python -Standby
     $newApi='http://127.0.0.1:'+$candidate.apiPort
     $game=''
+    $warmingRunning=$false
     try {
         $current=Invoke-RestMethod ($oldApi+'/api/status') -TimeoutSec 3
-        $game=[string]$current.capture.active_game
-        if(-not $game -and $current.settings.preferred_game -and $current.settings.preferred_game -ne 'auto'){$game=[string]$current.settings.preferred_game}
-        if(-not $game){
-            $recent=@(Invoke-RestMethod ($oldApi+'/api/lines?limit=1') -TimeoutSec 3)
-            if($recent.Count -and $recent[0].game){$game=[string]$recent[0].game}
-            elseif($current.textmaps.ready){$game='zzz'}
+        $warmingRunning=[bool]$current.capture.running
+        # Paused capture has no active dialogue to preserve. Historical lines
+        # can belong to another account with no selected language here. Warm
+        # the service/OCR and let normal background repair start after handoff.
+        if($warmingRunning){
+            $game=[string]$current.capture.active_game
+            if(-not $game -and $current.settings.preferred_game -and $current.settings.preferred_game -ne 'auto'){$game=[string]$current.settings.preferred_game}
+            if(-not $game){
+                $recent=@(Invoke-RestMethod ($oldApi+'/api/lines?limit=1') -TimeoutSec 3)
+                if($recent.Count -and $recent[0].game){$game=[string]$recent[0].game}
+                elseif($current.textmaps.ready){$game='zzz'}
+            }
         }
     } catch { }
     $query=if($game){'?game='+[uri]::EscapeDataString($game)}else{''}
@@ -114,6 +121,9 @@ try {
     $current=$null
     try {$current=Invoke-RestMethod ($oldApi+'/api/status') -TimeoutSec 3} catch { }
     if($current) {
+        if($current.capture.running -and -not $warmingRunning){
+            throw 'Capture started while the update was preparing. The current companion remains active; retry the update to warm its game.'
+        }
         $handoff=@{running=[bool]$current.capture.running;session_id=$current.session.id}
         $quiesced=$true
         try { $handoff=Invoke-RestMethod -Method Post ($oldApi+'/api/runtime/quiesce') -Headers $headers -TimeoutSec 30 }
@@ -126,6 +136,12 @@ try {
             throw 'The current backend did not provide capture state. Restart the companion before updating; the replacement remains in standby.'
         }
         $handoff=Get-CompanionStartupHandoff $newApi
+    }
+    # Quiesce is the authoritative capture snapshot. Capture may have started
+    # after the final status request; restore the old runtime in the catch path
+    # instead of activating a game that this paused preparation did not warm.
+    if($current -and $handoff.running -and -not $warmingRunning){
+        throw 'Capture started while the update was preparing. The current companion will be restored; retry the update to warm its game.'
     }
     Set-CompanionNormalPriority $candidate.processRecords.backend $Root
     $null=Invoke-RestMethod -Method Post ($newApi+'/api/runtime/activate') -Headers $headers -ContentType 'application/json' -Body ($handoff|ConvertTo-Json -Depth 12) -TimeoutSec 15

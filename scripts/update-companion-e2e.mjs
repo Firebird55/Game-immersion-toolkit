@@ -26,8 +26,9 @@ function stopRecorded(root,exceptRouter=false){
 function terminate(child){if(child.exitCode===null&&!child.killed)child.kill();}
 
 try{
- for(const fail of [false,true]){
-  const root=join(temporary,fail?'failed update':'successful update'),source=join(root,'new source');
+ for(const mode of ['running','paused','resumed','resumed-at-quiesce','failed']){
+  const fail=mode==='failed',resumed=mode.startsWith('resumed'),paused=mode==='paused'||resumed,expectedFailure=fail||resumed;
+  const root=join(temporary,mode+' update'),source=join(root,'new source');
   for(const name of ['data','new source/backend','new source/scripts','new source/.openai'])mkdirSync(join(root,name),{recursive:true});
   for(const name of ['companion-runtime.ps1','retire-companion.ps1','companion-router.mjs'])copyFileSync(join(repository,'scripts',name),join(source,'scripts',name));
   copyFileSync(join(repository,'backend/check_environment.py'),join(source,'backend/check_environment.py'));
@@ -39,7 +40,7 @@ try{
   json(join(source,'package.json'),packageValue);json(join(source,'package-lock.json'),{name:packageValue.name,version:packageValue.version,lockfileVersion:3,requires:true,packages:{'':packageValue}});
   if(fail)writeFileSync(join(source,'backend/fail.flag'),'candidate must not activate');
   const oldPort=await port(),api=await port(),front=await port();
-  const old=child(process.execPath,[join(fixture,'old-server.mjs'),String(oldPort),join(root,'data/events.log')]);
+  const old=child(process.execPath,[join(fixture,'old-server.mjs'),String(oldPort),join(root,'data/events.log'),mode]);
   await ready('http://127.0.0.1:'+oldPort+'/api/health');
   const state=join(root,'data/companion-runtime.json');json(state,{version:1,active:{apiPort:oldPort,frontendPort:oldPort,python,source}});
   const router=child(process.execPath,[join(repository,'scripts/companion-router.mjs'),'--state',state,'--assets',join(root,'data/runtime-assets'),'--api-port',String(api),'--frontend-port',String(front)]);
@@ -52,16 +53,27 @@ try{
    const response=await fetch('http://127.0.0.1:'+api+'/api/status');assert(response.ok,'The existing API went offline while preparing an update');samples.push(await response.json());await wait(60);
   }
   const code=await completion;
-  if(code!==(fail?1:0)){
+  if(code!==(expectedFailure?1:0)){
    const logs=join(root,'data/runtime-logs');
    if(existsSync(logs))for(const file of readdirSync(logs))if(file.endsWith('.log'))output+='\n'+file+': '+readFileSync(join(logs,file),'utf8').slice(-4000);
   }
-  assert.equal(code,fail?1:0,output);
-  assert(samples.some(sample=>sample.worker==='old'&&sample.capture.running),'No working old capture survived preparation');
+  assert.equal(code,expectedFailure?1:0,output);
+  assert(samples.some(sample=>sample.worker==='old'&&sample.capture.running===!paused),'The old capture state was not preserved during preparation');
   const current=await(await fetch('http://127.0.0.1:'+api+'/api/status')).json();
-  if(fail){assert.equal(current.worker,'old');assert(current.capture.running);}
+  if(expectedFailure){
+   assert.equal(current.worker,'old');assert(current.capture.running);
+   if(resumed){
+    assert.match(output,/Capture started while the update was preparing/);
+    const events=readFileSync(join(root,'data/events.log'),'utf8').trim().split(/\r?\n/).map(line=>JSON.parse(line));
+    if(mode==='resumed-at-quiesce'){
+     const quiesced=events.findIndex(event=>event.name==='quiesced');
+     assert(quiesced>=0&&events.findIndex(event=>event.name==='restored')>quiesced,'Quiesced capture was not restored');
+     assert(!events.some(event=>event.name==='activated'),'An unprepared replacement started capture');
+    }else assert(!events.some(event=>event.name==='quiesced'),'Resumed capture was stopped without warming its game');
+   }
+  }
   else{
-   assert.equal(current.worker,'new');assert(current.capture.running);assert.equal(current.session.id,'continuous-session');
+   assert.equal(current.worker,'new');assert.equal(current.capture.running,!paused);assert.equal(current.session.id,'continuous-session');
    const events=readFileSync(join(root,'data/events.log'),'utf8').trim().split(/\r?\n/).map(line=>JSON.parse(line));
    assert(events.findIndex(event=>event.name==='ready')<events.findIndex(event=>event.name==='quiesced'),'Old capture paused before the replacement was ready');
    const records=JSON.parse(readFileSync(join(root,'data/processes.json'),'utf8'));
@@ -69,11 +81,11 @@ try{
    stopRecorded(root,true);
   }
   terminate(router);terminate(old);
-  console.log(fail?'Failed candidate leaves live translations available.':'Prepared replacement preserves availability, capture state and session.');
+  console.log(expectedFailure?resumed?'Capture resumed during preparation stays on its current runtime.':'Failed candidate leaves live translations available.':paused?'Paused update ignores unrelated history and remains paused.':'Prepared replacement preserves availability, capture state and session.');
  }
 }finally{
  for(const process of children)terminate(process);
- for(const name of ['successful update','failed update']){
+ for(const name of ['running update','paused update','resumed update','resumed-at-quiesce update','failed update']){
   stopRecorded(join(temporary,name));
  }
  const checked=realpathSync.native(temporary),prefix=realpathSync.native(tmpdir())+sep+'companion-update-';
