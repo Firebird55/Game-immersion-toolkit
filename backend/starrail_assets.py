@@ -1,6 +1,7 @@
 """Star Rail authored dialogue, messages and exact locale PCK bindings."""
 from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
+from .preparation_errors import PreparationFailure
 
 LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
@@ -24,7 +25,7 @@ def _table(catalog, name, fields):
     rows = catalog.file('ExcelOutput/' + name + '.json')
     if (not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows)
             or rows and not any(all(field in row for field in fields) for row in rows)):
-        raise ValueError('Unsupported Star Rail ' + name + ' schema; previous table retained.')
+        raise PreparationFailure('unsupported_game_format', 'Unsupported Star Rail ' + name + ' schema. Update the toolkit after this game update; the previous table is retained.')
     return rows
 
 
@@ -145,7 +146,11 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     links = authored_links(catalog, source_locale)
     entries = common.inventory(install, 'starrail', source_locale)
     rows = common.records('starrail', links, tables, source_locale, entries)
-    return common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
+    result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
+    result['coverage_warnings'] = [
+        'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
+        'Movie captions, image-only messages and presentation-specific event formats are not comprehensively mapped. Missing voice metadata is not proof of silence.']
+    return result
 
 
 def index_install(install, data_dir, progress=lambda _message: None):

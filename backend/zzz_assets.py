@@ -255,6 +255,10 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     missing = [target for target, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'zzz', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'metadata_revision': revision, 'records': rows, 'missing_translation_locales': missing,
+        'coverage_warnings': [
+            *([f'{unresolved:,} referenced scenes are absent from the installed catalog.'] if unresolved else []),
+            *([f'{unsupported:,} dialogue objects use an unsupported format; update the toolkit for this game version.'] if unsupported else []),
+            'Knock Knock messages, clue recordings and additional event/tip tables are not comprehensively imported. Unknown or missing voices are not treated as silent dialogue.'],
         'coverage': {'scene_catalogs': scene_diagnostics, 'verified_unvoiced': silent,
                      'unknown_voice_status': sum(row['voice_status'] == 'unknown' for row in rows)},
         'message': f'{len(rows):,} official {source_locale} entries; {mapped:,} original voices; {silent:,} authored unvoiced entries' +

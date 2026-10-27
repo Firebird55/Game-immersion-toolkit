@@ -111,6 +111,9 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     missing = [target for target, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'pragmata', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
+        'coverage_warnings': [
+            'Reading pages without established voice status remain unknown and are not enabled by the unvoiced toggle.',
+            'Cinematic or dialogue references without the selected original bank remain unavailable; another performance is never substituted.'],
         'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
         (f'; {len(rows) - mapped:,} entries without a verified voice binding' if mapped < len(rows) else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +

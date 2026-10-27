@@ -25,7 +25,7 @@ try{
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
    const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:'en',source_locale:'en',source_text:'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:!unvoiced,has_audio:!unvoiced,voice_status:unvoiced?'unvoiced':'voiced',favorite:false});
    const languages=()=>({context:stateContext(),selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
-    {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:prepared?{targets:['en'],mapped_lines:1}:null},
+    {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:prepared?{targets:['en'],mapped_lines:1}:null,coverage_warnings:prepared?['Synthetic coverage warning: an updated cinematic format is not mapped.']:[]},
     {locale:'ko',language:'ko',name:'Korean',reader_available:false,prepared:null}]});
    const game={id:'zzz',title:'Zenless Zone Zero',detected_path:'F:/Games/ZZZ',configured_path:null,folder_state:'detected',folder_hint:'Choose game folder',voice_state:'present',tools_missing:[],index_ready:true,indexed_lines:1,audio_ready:true,update_state:'idle',update_message:'Ready',progress:100};
    await page.addInitScript(()=>localStorage.setItem('proxy-transcript-reading-mode','lexirise'));
@@ -207,6 +207,11 @@ try{
    assert.equal(writes.filter(w=>w.path.endsWith('/languages')).length,0,'Opening setup never prepares languages');
    await setup.getByRole('button',{name:'Prepare language',exact:true}).click();
    await setup.getByRole('button',{name:'Use this language',exact:true}).waitFor();
+   const coverageNote=setup.getByText('Synthetic coverage warning: an updated cinematic format is not mapped.',{exact:true});
+   assert.equal(await coverageNote.isVisible(),false,'Coverage notes do not overwhelm the preparation controls');
+   await setup.locator('summary').filter({hasText:'Coverage notes'}).click();
+   assert(await coverageNote.isVisible(),'Unresolved presentation details remain available');
+   await setup.locator('summary').filter({hasText:'Coverage notes'}).click();
    assert.deepEqual(writes.filter(w=>w.path.endsWith('/languages')),[{path:'/api/setup/games/zzz/languages',body:{locale:'zh-Hans',action:'prepare',target:'en'}}]);
    await setup.locator('summary').filter({hasText:'Keep mobile library updated'}).click();
    const automaticPanel=setup.getByRole('region',{name:'Automatic mobile exports'});
