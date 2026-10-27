@@ -131,6 +131,8 @@ class CaptureService:
         self._caption_context_scope = None
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
+        self._unvoiced_scope = None
+        self._unvoiced_trackers = {}
 
     def snapshot(self) -> CaptureSnapshot:
         with self._snapshot_lock:
@@ -139,6 +141,8 @@ class CaptureService:
     def _update_snapshot(self, **changes: object) -> CaptureSnapshot:
         if changes.get("phase") in {"stopped", "starting", "error", "waiting_for_game", "excluded_screen", "needs_language_setup"}:
             self._visible_text_by_channel.clear()
+            if changes.get("phase") != "excluded_screen":
+                self._unvoiced_scope = None
             for key in self._local_chatter_trackers:
                 self._visible_match_started.pop(key, None)
             self._local_chatter_trackers.clear()
@@ -359,10 +363,12 @@ class CaptureService:
             index = self.game_indexes[profile.id]
             index.capture_unvoiced = settings.capture_unvoiced
             index.player_voice = getattr(settings, f"{profile.id}_player_voice", "unconfigured") if profile.id in {"starrail", "genshin", "endfield"} else settings.cyberpunk_v_voice if profile.id == "cyberpunk" else settings.nte_player_voice if profile.id == 'nte' else getattr(settings, f"{profile.id}_rover_voice", "unconfigured")
-            return self._scan_pragmata(window, region, engine, epoch, now, game=profile.id)
+            result = self._scan_pragmata(window, region, engine, epoch, now, game=profile.id)
+            return self._with_unvoiced(result, index, window, engine, epoch, now, profile.id)
         if profile.id == "pragmata":
             self.pragmata.capture_unvoiced = settings.capture_unvoiced
-            return self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
+            result = self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
+            return self._with_unvoiced(result, self.pragmata, window, engine, epoch, now, profile.id)
         if profile.id == "hito":
             return self._scan_hito(window, engine, epoch, now)
 
@@ -670,7 +676,63 @@ class CaptureService:
             last_error=None,
             visible_text_ids=self._visible_text_ids(monotonic_now),
         )
-        return _ScanOutcome(emitted_lines=emitted_lines)
+        return self._with_unvoiced(_ScanOutcome(emitted_lines=emitted_lines), self.textmaps,
+                                   window, engine, epoch, now, 'zzz')
+
+    def _with_unvoiced(self, outcome, index, window, engine, epoch, now, game):
+        """Read opt-in messages, choices and pages without widening voice OCR.
+
+        These presentations can be above or beside the subtitle lane. A separate
+        exact-only pass uses the same captured game frame, and never requests audio.
+        """
+        settings = self.settings.get()
+        match_lines = getattr(index, 'match_unvoiced_lines', None)
+        prefix = 'unvoiced\0'
+        scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
+                 getattr(index, 'source_locale', None), getattr(index, '_signature', None))
+        enabled = (settings.capture_unvoiced and match_lines and index.ready
+                   and index.status().get('unvoiced_count', 0) and epoch == self._scan_epoch)
+        if not enabled or scope != self._unvoiced_scope:
+            for key in list(self._unvoiced_trackers):
+                if key.startswith(prefix):
+                    del self._unvoiced_trackers[key]
+                    self._visible_match_started.pop(key, None)
+            self._visible_text_by_channel.pop('unvoiced', None)
+            self._unvoiced_scope = scope if enabled else None
+        if not enabled:
+            return outcome
+        image = self._ocr_image(self._capture(window.bounds), window)
+        response = engine.recognize_pil(image)
+        if epoch != self._scan_epoch or not self.settings.get().capture_unvoiced:
+            return outcome
+        matches = {}
+        for group in self._spatial_text_groups(response):
+            for hit in match_lines([group]):
+                if hit.voice_status == 'unvoiced' and hit.kind == 'exact':
+                    matches[hit.text_id] = hit
+        seen_at = time.monotonic()
+        self._observe_visible_matches('unvoiced', list(matches), seen_at)
+        active_keys = set()
+        for hit in matches.values():
+            key = f'{prefix}{game}\0{hit.text_id}'
+            active_keys.add(key)
+            previous = self._unvoiced_trackers.get(key)
+            tracker = previous[0] if previous and seen_at - previous[1] <= 3 else StableMatchTracker()
+            tracker.configure(settings.stable_frames)
+            if self._is_fresh_match(key, key, seen_at) and tracker.observe(key) and self._can_emit(key, seen_at):
+                line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=now, channel='dialogue')
+                if line is not None:
+                    outcome.emitted_lines = [*(outcome.emitted_lines or []), line]
+                    self._schedule_line_audio(line, seen_at, observed_at=self._visible_match_started[key][1])
+            self._unvoiced_trackers[key] = (tracker, seen_at)
+        for key in list(self._unvoiced_trackers):
+            if key.startswith(prefix) and key not in active_keys:
+                del self._unvoiced_trackers[key]
+                self._visible_match_started.pop(key, None)
+        if matches:
+            self._update_snapshot(phase='matched', message=f'{GAME_PROFILES[game].name} unvoiced dialogue matched',
+                                  visible_text_ids=self._visible_text_ids(seen_at))
+        return outcome
 
     def _scan_pragmata(
         self,

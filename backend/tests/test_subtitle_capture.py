@@ -155,6 +155,51 @@ def test_certified_unvoiced_dialogue_is_opt_in_durable_and_never_schedules_audio
         service._executor.shutdown()
 
 
+def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_toggle(tmp_path):
+    import json
+    from backend.capture import _ScanOutcome
+    from backend.multilingual_index import MultilingualTextIndex
+    text = 'The sealed letter is waiting in your room.'
+    directory = tmp_path / 'language'
+    directory.mkdir()
+    (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'cyberpunk',
+        'source_locale': 'en', 'records': [{'text_id': 'letter', 'english': text, 'chinese': '',
+            'source_locale': 'en', 'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en',
+            'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'readable', 'channels': ['dialogue']}]}), encoding='utf-8')
+    index = MultilingualTextIndex('cyberpunk', directory)
+    service, _, scheduled, published = fixture_service(tmp_path, game='cyberpunk')
+    window = SimpleNamespace(bounds=(-1920, 0, 1920, 1080), title='Game')
+    scans = []
+    # A right-side page is deliberately excluded by the normal spoken-subtitle
+    # lane; the silent pass reads it without borrowing a voiced match.
+    response = {'lines': [{'text': text, 'bounding_rect':
+        {'x1': 1400, 'y1': 120, 'x2': 1800, 'y2': 120, 'x3': 1800, 'y3': 150, 'x4': 1400, 'y4': 150}}]}
+    engine = SimpleNamespace(recognize_pil=lambda image: scans.append(image.size) or response)
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        def scan():
+            index.capture_unvoiced = service.settings.get().capture_unvoiced
+            return service._with_unvoiced(_ScanOutcome([]), index, window, engine, 0,
+                                         datetime.now(timezone.utc), 'cyberpunk')
+        scan()
+        assert scans == []
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
+        assert not scan().emitted_lines
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        scan()
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
+        assert not scan().emitted_lines, 'A toggle resets partial frame confirmation'
+        assert len(scan().emitted_lines) == 1
+        await asyncio.sleep(.02)
+        assert len(published) == 1 and not scheduled
+        assert published[0].dialogue_kind == 'readable' and published[0].voice_status == 'unvoiced'
+        assert not scan().emitted_lines
+    try:
+        asyncio.run(run())
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize("game", ["zzz", "pragmata"])
 def test_failed_original_extraction_keeps_subtitle_and_can_retry(tmp_path, game):
     service, match, scheduled, published = fixture_service(tmp_path, game=game)

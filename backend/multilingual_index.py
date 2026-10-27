@@ -161,7 +161,7 @@ class MultilingualTextIndex:
                             rows, score = lookup[matches[0][0]], matches[0][1]
                         elif matches:
                             ambiguous.append(source)
-                    rows = [r for r in rows if channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
+                    rows = [r for r in rows if channel is None or channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
                     # ZZZ's authored M/F subtitles can themselves identify a
                     # performance. Use the configured Proxy only when the
                     # observed caption leaves more than one variant possible.
@@ -218,6 +218,17 @@ class MultilingualTextIndex:
         if len({hit.text_id for hit in peers}) != 1:
             return None
         return best
+
+    def match_unvoiced_lines(self, lines):
+        """Match text-only presentations outside the normal subtitle lanes.
+
+        The ordinary matcher still resolves collisions with voiced records;
+        this must not turn a voiced choice or a partial page into silent text.
+        """
+        if not self.capture_unvoiced:
+            return []
+        return [hit for hit in self.match_lines(lines, exact_only=True, channel=None, multiple=True)
+                if hit.voice_status == 'unvoiced' and hit.kind == 'exact']
 
     def context_fragments(self, lines):
         """Recognize an observed first cue without choosing its performance."""

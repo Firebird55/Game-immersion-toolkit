@@ -74,6 +74,25 @@ def test_bad_refresh_preserves_previous_language_snapshot(tmp_path):
     assert value.match_lines(['Stay close. I will protect you.'])
 
 
+def test_full_screen_silent_match_is_opt_in_exact_and_excludes_voiced_collisions(tmp_path):
+    def row(identity, text, status, channel='cinematic'):
+        return {'text_id': identity, 'english': text, 'chinese': '', 'source_locale': 'en',
+                'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en',
+                'audio': {'voice': identity} if status == 'voiced' else None,
+                'voice_status': status, 'channels': [channel]}
+    text = 'The sealed letter is waiting in your room.'
+    shared = 'This identical text also has an original voice.'
+    value = index(tmp_path, 'en', [row('letter', text, 'unvoiced'),
+        row('missing', 'This line has a missing voice package.', 'unavailable'),
+        row('silent-choice', shared, 'unvoiced'), row('voiced-choice', shared, 'voiced')])
+    assert value.match_unvoiced_lines([text]) == []
+    value.capture_unvoiced = True
+    assert [hit.text_id for hit in value.match_unvoiced_lines([text])] == ['letter']
+    assert value.match_unvoiced_lines(['The sealed leter is waiting in your room.']) == []
+    assert value.match_unvoiced_lines(['This line has a missing voice package.']) == []
+    assert value.match_unvoiced_lines([shared]) == []
+
+
 def test_unvoiced_toggle_requires_explicit_evidence_and_exact_text(tmp_path):
     rows = []
     for status, text in [('voiced', 'Follow the guide into the station.'),
