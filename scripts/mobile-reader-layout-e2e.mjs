@@ -80,7 +80,7 @@ try{
    return route.fulfill({json:data,headers});
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
-  await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor().catch(async error=>{throw Error('Reader failed to mount: '+JSON.stringify({errors,requests:failedRequests,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
+  await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor().catch(async error=>{throw Error('Reader failed to mount: '+JSON.stringify({errors,requests:failedRequests,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await page.getByRole('button',{name:'Settings',exact:true}).click();await page.selectOption('#source','pc');
   await page.waitForFunction(()=>typeof window.releaseHistoryRestore==='function');
   await page.evaluate(rows=>window.dispatchEvent(new CustomEvent('pc-transcript',{detail:{message:{type:'page'},rows}})),rows);

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import struct
 import subprocess
 from pathlib import Path
 
@@ -10,8 +11,9 @@ from . import quantic_assets as q
 from .quantic_audio import decode_blocks, mp3_format, mp3_samples
 from .languages import GAME_LOCALES, normalize_text, resolve_locale
 from .media_tools import ffmpeg_executable
+from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = GAME_LOCALES['beyond']
 TEXT_LOCALES = dict(zip(('fr','en','de','it','es-ES','nl','pt-PT','sv','da','no','fi','ru','pl','ja','ko','zh-Hant','el','cs','hu','hr','es-419','pt-BR','tr','zh-Hans'),
                        ('FRE','ENG','GER','ITA','SPA','DUT','POR','SWE','DAN','NOR','FIN','RUS','POL','JAP','KOR','CHI','GRE','CZE','HUN','CRO','MEX','BRA','TUR','CHS')))
@@ -45,6 +47,50 @@ def cues(text):
     return result
 
 
+def standalone_localization(data):
+    """Standalone resources retain section lengths stripped in DATA_CONT."""
+    position, flattened = 0, bytearray()
+    for tag, expected in ((b'COM_CONT', 4), (b'LOADCONT', 2), (b'LOCALIZ_', 5)):
+        if len(data) > q.METADATA_LIMIT or position + 16 > len(data) or data[position:position+8] != tag:
+            raise ValueError('Unsupported standalone BEYOND localization sections')
+        version, size = struct.unpack_from('<II', data, position + 8)
+        end = position + 16 + size
+        if version != expected or end > len(data) or (tag == b'LOADCONT' and size):
+            raise ValueError('Unsupported standalone BEYOND localization bounds')
+        flattened.extend(data[position:position+12])
+        flattened.extend(data[position+16:end])
+        position = end
+    if position != len(data):
+        raise ValueError('Trailing standalone BEYOND localization data')
+    return q.localization(bytes(flattened))
+
+
+def unbound_status(key, paragraph, source):
+    """Only authored chapter text labels are silent, never missing speech.
+
+    Type 2 is the observed localized text-only field; type 1 carries FlowDialog
+    aliases and type 4 texture aliases. Global UI and shared controller prompts
+    deliberately remain outside the narrative catalog.
+    """
+    flag = source.get('text_flags', {}).get(key)
+    pointer = source.get('binding_states', {}).get(key, 'absent')
+    if flag == 4:
+        return 'unknown', 'localized_texture'
+    scene_label = re.fullmatch(r'IW_(?:0[1-9]|[1-3]\d|40)\d{2}_[A-Z0-9_]+_K\d+', key)
+    if flag == 2 and pointer in {'absent', 'none'} and scene_label and not re.search(r'\{(?:S|\*)', paragraph):
+        return 'unvoiced', 'choice'
+    if flag == 1 or pointer in {'unresolved', 'internal', 'resolved'}:
+        return 'unavailable', 'subtitle'
+    return 'unknown', 'unclassified_text'
+
+
+def unbound_paragraph(text):
+    # Unresolved speech cannot use its cue labels as validated audio anchors.
+    # Some unused shipped paragraphs repeat cue numbers; retain their complete
+    # text for inventory without relaxing the bound-performance cue parser.
+    return re.sub(r'\s+', ' ', re.sub(r'\{[^}]*\}', '', text)).strip()
+
+
 def group_short_cues(records):
     """Collect ambiguous fragments with a following, uniquely authored cue.
 
@@ -67,7 +113,7 @@ def group_short_cues(records):
             global_choices.setdefault(key[1], set()).add(identity)
         audio = row['audio']
         paragraph = re.fullmatch(r'beyond:([A-Za-z0-9_]+):(?:\d+|TC:\d+\|\d+)', row['text_id'])
-        if paragraph and type(audio.get('start_ms')) is int and type(audio.get('end_ms')) is int:
+        if audio and paragraph and type(audio.get('start_ms')) is int and type(audio.get('end_ms')) is int:
             performance = {key: value for key, value in audio.items() if key not in {'start_ms', 'end_ms'}}
             key = (paragraph[1], json.dumps(performance, sort_keys=True), row.get('player_voice'))
             paragraphs.setdefault(key, []).append(row)
@@ -118,6 +164,17 @@ def group_short_cues(records):
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _: None):
+    try:
+        return _index_language(install, data_dir, source_locale, target_locales, progress)
+    except PreparationFailure:
+        raise
+    except (ValueError, struct.error, UnicodeError) as error:
+        raise PreparationFailure('unsupported_game_format',
+            'BEYOND game archives or dialogue metadata no longer match this reader. '
+            'Finish any game update, verify its files and update the toolkit before retrying.') from error
+
+
+def _index_language(install, data_dir, source_locale, target_locales, progress):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported BEYOND study/audio language')
     stamp = fingerprint(install)
@@ -126,6 +183,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     targets = {target: resolve_locale(target, available) for target in target_locales}
     selected = {source_locale, *(value for value in targets.values() if value)}
     voices, containers, authored, offset_owners = {}, [], set(), {}
+    standalone = []
     for path in sorted(install.glob('BigFile_PC*.idx')):
         entries = q.read_index(path)
         # English is in the base archives; other packs contain only FlowDialog.
@@ -145,9 +203,17 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                         offset_owners.setdefault(identity, entry)
                 if any(kind == 1016 for kind, _, _ in refs):
                     containers.append(entry)
-    if not voices:
-        raise ValueError(f'Install the official {source_locale} voice pack through Steam before preparing BEYOND.')
+            elif entry.kind == 1016:
+                standalone.append(entry)
     records, diagnostics, seen = [], {}, {}
+    performance_cache = {}
+    # These resources include console/system messages and localized textures.
+    # Count and validate them, without treating an image alias as readable text.
+    for entry in standalone:
+        if entry.size > q.METADATA_LIMIT:
+            raise ValueError('Standalone BEYOND localization exceeds the metadata limit')
+        table = standalone_localization(q.metadata(entry)).get(code, {})
+        diagnostics['standalone_localized_entries'] = diagnostics.get('standalone_localized_entries', 0) + len(table.get('texts', {}))
     for number, entry in enumerate(containers):
         progress(f'Reading BEYOND {source_locale} dialogue container {number+1}/{len(containers)}')
         parts = q.components(q.metadata(entry))
@@ -158,26 +224,50 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             tables = q.localization(body)
             source = tables.get(code, {})
             for key, paragraph in source.get('texts', {}).items():
+                if source.get('text_flags', {}).get(key) == 2 and key.startswith(('IW_5000_', 'IW_6000_', 'IW_6001_')):
+                    diagnostics['excluded_system_or_shared_prompts'] = diagnostics.get('excluded_system_or_shared_prompts', 0) + 1
+                    continue
                 reference = source['bindings'].get(key)
-                if not reference or reference[0] != 4091 or reference[1] not in authored:
-                    diagnostics['unbound_paragraphs'] = diagnostics.get('unbound_paragraphs', 0) + 1
-                    continue
-                voice = voices.get(reference[1])
+                voice = voices.get(reference[1]) if reference and reference[0] == 4091 and reference[1] in authored else None
                 if voice is None:
-                    diagnostics['missing_performances'] = diagnostics.get('missing_performances', 0) + 1
+                    diagnostics['unbound_paragraphs'] = diagnostics.get('unbound_paragraphs', 0) + 1
+                    status, kind = unbound_status(key, paragraph, source)
+                    if reference and reference[0] == 4091:
+                        status, kind = 'unavailable', 'subtitle'
+                    cue = 'complete' if status == 'unvoiced' else 'unresolved'
+                    source_text = unbound_paragraph(paragraph)
+                    source_cues = {cue: source_text} if source_text else {}
+                    translated = {locale: {cue: text} for locale in selected
+                        if (text := unbound_paragraph(tables.get(TEXT_LOCALES[locale], {}).get('texts', {}).get(key, '')))}
+                    for cue, text in source_cues.items():
+                        texts = {locale: values[cue] for locale, values in translated.items() if cue in values}
+                        row = {'text_id': f'beyond:{key}:{cue}', 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
+                               'source_locale': source_locale, 'source_text': text, 'texts': texts, 'audio_locale': source_locale,
+                               'audio': None, 'voice_status': status, 'dialogue_kind': kind}
+                        if row['text_id'] in seen and seen[row['text_id']] != row:
+                            raise ValueError('Conflicting unbound narrative identities')
+                        if row['text_id'] not in seen:
+                            records.append(row); seen[row['text_id']] = row
                     continue
-                raw = voice.read()
-                offset_id, times, _ = q.partition(raw)
-                offset_table = offsets.get(offset_id)
-                if offset_table is None and offset_id in offset_owners:
-                    owner_parts = q.components(q.metadata(offset_owners[offset_id]))
-                    offset_table = next((body for kind, identity, lang, body in owner_parts if kind == 4092 and identity == offset_id and lang == language_id), None)
-                if offset_table is None:
-                    raise ValueError('Authored original dialogue chunk reference is unavailable')
-                try:
-                    blocks = q.partition_blocks(raw, offset_table)
-                except ValueError as error:
-                    raise ValueError(f'Original dialogue {voice.identity}: {error}') from error
+                performance = performance_cache.get(voice.identity)
+                if performance is None:
+                    raw = voice.read()
+                    offset_id, times, _ = q.partition(raw)
+                    offset_table = offsets.get(offset_id)
+                    if offset_table is None and offset_id in offset_owners:
+                        owner_parts = q.components(q.metadata(offset_owners[offset_id]))
+                        offset_table = next((body for kind, identity, lang, body in owner_parts if kind == 4092 and identity == offset_id and lang == language_id), None)
+                    if offset_table is None:
+                        raise ValueError('Authored original dialogue chunk reference is unavailable')
+                    try:
+                        blocks = q.partition_blocks(raw, offset_table)
+                    except ValueError as error:
+                        raise ValueError(f'Original dialogue {voice.identity}: {error}') from error
+                    performance = (offset_id, times, offset_table, len(blocks))
+                    performance_cache[voice.identity] = performance
+                offset_id, times, offset_table, block_count = performance
+                if offset_id in offsets and offsets[offset_id] != offset_table:
+                    raise ValueError('Conflicting original dialogue chunk tables')
                 translated = {locale: cues(tables.get(TEXT_LOCALES[locale], {}).get('texts', {}).get(key, '')) for locale in selected}
                 source_cues = cues(paragraph)
                 numbered = [int(cue) for cue in source_cues if cue.isdigit()]
@@ -190,7 +280,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                     text_id = f'beyond:{key}:complete'
                     row = {'text_id': text_id, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
                            'source_locale': source_locale, 'source_text': ' '.join(source_cues.values()), 'texts': texts,
-                           'audio_locale': source_locale, 'ocr_texts': {locale: list(values.values()) for locale, values in translated.items()},
+                           'audio_locale': source_locale, 'voice_status': 'voiced', 'dialogue_kind': 'subtitle',
+                           'ocr_texts': {locale: list(values.values()) for locale, values in translated.items()},
                            'audio': {'index': voice.index.name, 'identity': voice.identity, 'locale': source_locale,
                                      'offsets': offset_table.hex()}}
                     if text_id in seen and seen[text_id] != row:
@@ -205,7 +296,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                         start, end = (round(value * 1000) for value in times[int(cue)-1])
                     else:
                         raise ValueError(f'Official subtitle cue {cue} has no authored audio timing: {voice.identity}, {len(times)} times')
-                    if not 0 <= start < end <= len(blocks) * 1000:
+                    if not 0 <= start < end <= block_count * 1000:
                         raise ValueError('Official subtitle timing exceeds its original performance')
                     texts = {locale: values[cue] for locale, values in translated.items() if cue in values}
                     text_id = f'beyond:{key}:{cue}'
@@ -213,19 +304,32 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                              'offsets': offset_table.hex(), 'start_ms': start, 'end_ms': end}
                     row = {'text_id': text_id, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
                            'source_locale': source_locale, 'source_text': text, 'texts': texts,
-                           'audio_locale': source_locale, 'audio': audio}
+                           'audio_locale': source_locale, 'audio': audio, 'voice_status': 'voiced', 'dialogue_kind': 'subtitle'}
                     if text_id in seen and seen[text_id] != row:
                         raise ValueError('Conflicting official subtitle or performance identities')
                     if text_id not in seen:
                         records.append(row); seen[text_id] = row
-    if not records or fingerprint(install) != stamp:
-        raise ValueError('BEYOND game files changed or dialogue was incomplete; previous table retained.')
-    records = group_short_cues(records)
+    if fingerprint(install) != stamp:
+        raise PreparationFailure('game_files_changed', 'BEYOND game files changed during preparation. Finish the game update and retry; the previous table was kept.', game_files_changed=True)
+    if not records:
+        raise ValueError('BEYOND dialogue metadata is empty')
+    # Preserve existing authored voice/context identities when a text-only
+    # choice happens to have the same short wording as a spoken cue.
+    records = group_short_cues([row for row in records if row['audio']]) + [row for row in records if not row['audio']]
+    diagnostics['validated_performances'] = len(performance_cache)
     diagnostics['context_groups'] = sum(bool(row.get('member_text_ids')) for row in records)
+    counts = {state: sum(row['voice_status'] == state for row in records) for state in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
+    warnings = [f"{counts['unavailable']:,} subtitle records lack a verified installed original performance; these are not unvoiced dialogue.",
+                'Chapter-scoped text-only choices are inventoried separately. Repeated short choices can remain ambiguous during OCR.',
+                'Localized textures, writing rendered only in scene images, system prompts and bonus videos do not have per-line text/audio coverage.']
+    if counts['unknown']:
+        warnings.append(f"{counts['unknown']:,} localized records have an unclassified text/audio format and remain excluded from capture.")
+    if not voices:
+        warnings.insert(0, f'Install the official {source_locale} voice pack through Steam for spoken dialogue. Text-only choices remain available with the unvoiced toggle.')
     return {'format': 2, 'game': 'beyond', 'source_locale': source_locale, 'install': str(install),
-            'fingerprint': stamp, 'records': records, 'diagnostics': diagnostics,
+            'fingerprint': stamp, 'reader_revision': LANGUAGE_INDEX_VERSION, 'records': records, 'diagnostics': diagnostics, 'coverage_warnings': warnings,
             'missing_translation_locales': [target for target, locale in targets.items() if locale is None],
-            'message': f'{len(records):,} official {source_locale} subtitles with original audio; {len(containers):,} authored containers'}
+            'message': f"{counts['voiced']:,} official {source_locale} subtitles with original audio; {counts['unvoiced']:,} text-only choices; {counts['unavailable']:,} unresolved voices"}
 
 
 def extract_voice(install, audio, _executable, destination):

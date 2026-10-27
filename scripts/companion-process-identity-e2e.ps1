@@ -191,7 +191,11 @@ function Start-CompanionProcess([string]$Executable,[string[]]$Arguments,[string
         }
     }
     $process = & $script:FixtureNativeStart $Executable $Arguments $Directory $Log -LowPriority:$LowPriority
-    Save-CompanionJson (Join-Path $Directory ('data\fixture-owned-'+$process.Id+'.json')) (New-CompanionProcessRecord $process $Directory)
+    $identity = New-CompanionProcessRecord $process $Directory
+    # A PID can be reused later in this fixture. Bind its role to this exact
+    # start-time/executable identity rather than to a historical event by PID.
+    $identity.fixtureRole = $role
+    Save-CompanionJson (Join-Path $Directory ('data\fixture-owned-'+$process.Id+'.json')) $identity
     return $process
 }
 '@
@@ -331,15 +335,19 @@ function Start-CompanionProcess([string]$Executable,[string[]]$Arguments,[string
         Complete-RecoveryLauncher $first
         Complete-RecoveryLauncher $second
         Assert-RecoveryStable $before @('backend','router')
+        # Reproduce a stale event after synthetic PID reuse without asking
+        # Windows to recycle an actual PID. The healthy backend must not be
+        # counted as a frontend merely because an old event has the same PID.
+        $eventFile = Join-Path $recoveryData 'recovery-events.jsonl'
+        Add-Content $eventFile (@{name='started';role='frontend';pid=$before.backend.id}|ConvertTo-Json -Compress)
         $liveFrontends = @(Get-ChildItem $recoveryData -Filter 'fixture-owned-*.json' | ForEach-Object {
             $identity = Get-Content $_.FullName -Raw | ConvertFrom-Json
-            if (Test-CompanionProcess $identity $recoveryRoot) {
-                $events = Get-Content (Join-Path $recoveryData 'recovery-events.jsonl') | ForEach-Object { $_ | ConvertFrom-Json }
-                if ($events | Where-Object { $_.pid -eq $identity.id -and $_.role -eq 'frontend' -and $_.name -eq 'started' }) { $identity }
-            }
+            if ($identity.fixtureRole -eq 'frontend' -and (Test-CompanionProcess $identity $recoveryRoot)) { $identity }
         })
-        if ($liveFrontends.Count -ne 1) { throw 'Concurrent starts created duplicate frontend processes.' }
-        Write-Host 'Concurrent launchers: a single frontend replacement; existing backend/capture preserved.'
+        if ($liveFrontends.Count -ne 1) { throw ('Expected one verified frontend after concurrent starts; found '+$liveFrontends.Count+'.') }
+        $after = Read-RecoveryRecords
+        if ($liveFrontends[0].id -ne $after.frontend.id -or $liveFrontends[0].started -ne $after.frontend.started) { throw 'The surviving frontend does not match the published process identity.' }
+        Write-Host 'Concurrent launchers: a single frontend replacement; existing backend/capture preserved; synthetic stale frontend PID event ignored.'
 
         foreach ($policy in @(@{completed=$true;auto_start=$false},@{completed=$false;auto_start=$true})) {
             $before = Read-RecoveryRecords

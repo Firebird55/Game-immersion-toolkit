@@ -22,7 +22,7 @@ class CaptureRegion(BaseModel):
         return self
 
 
-GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "honkai3", "starrail", "genshin", "endfield"]
+GameId = Literal["zzz", "pragmata", "hito", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "honkai3", "starrail", "genshin", "endfield", "riseofthetombraider", "shadowofthetombraider"]
 
 
 def is_comic_text_id(text_id: str) -> bool:
@@ -31,7 +31,7 @@ def is_comic_text_id(text_id: str) -> bool:
 
 class AppSettings(BaseModel):
     zzz_proxy_voice: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
-    preferred_game: Literal["auto", "zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield"] = "auto"
+    preferred_game: Literal["auto", "zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield", "riseofthetombraider", "shadowofthetombraider"] = "auto"
 
     @field_validator("preferred_game", mode="before")
     @classmethod
@@ -70,6 +70,8 @@ class AppSettings(BaseModel):
     witcher3_capture_chatter: bool = True
     beyond_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.05, top=.70, width=.90, height=.28))
     heavyrain_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.05, top=.70, width=.90, height=.28))
+    riseofthetombraider_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=.65, width=.84, height=.33))
+    shadowofthetombraider_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.08, top=.65, width=.84, height=.33))
     starrail_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
     starrail_player_voice: Literal["unconfigured", "female", "male"] = "unconfigured"
     genshin_region: CaptureRegion = Field(default_factory=lambda: CaptureRegion(left=.10, top=.70, width=.80, height=.28))
@@ -88,6 +90,7 @@ class AppSettings(BaseModel):
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)
     auto_start: bool = True
     save_unmatched: bool = False
+    capture_unvoiced: bool = False
 
     @field_validator("process_names", "window_title_contains")
     @classmethod
@@ -103,6 +106,8 @@ class LanguageContext(BaseModel):
     translation_text: str | None = None
     audio_locale: str = 'zh-Hans'
     texts: dict[str, str] = Field(default_factory=dict)
+    voice_status: Literal['voiced', 'unvoiced', 'unavailable', 'unknown'] = 'unknown'
+    dialogue_kind: str | None = None
 
     @model_validator(mode='after')
     def legacy_language_defaults(self):

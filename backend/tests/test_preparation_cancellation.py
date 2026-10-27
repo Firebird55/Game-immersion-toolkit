@@ -92,15 +92,24 @@ def test_close_kills_and_joins_owned_extraction_without_replacing_complete_index
     assert not manager.path.exists() and not builder.activations
     assert not list(builder.path.parent.glob('language-*'))
     assert not manager.request('beyond', 'en', 'nl')
+    requests = manager.path.with_suffix('.requests.json')
+    assert json.loads(requests.read_text(encoding='utf-8')) == {
+        'first': {'beyond': {'locale': 'en', 'target': 'nl'}}}
 
     synthetic_extraction(monkeypatch, tmp_path)
-    manager.start()
-    assert manager.stop_event is not old_token and old_token.is_set()
-    assert manager.request('beyond', 'en', 'nl', 'second')
-    wait_for(lambda: not manager._workers)
-    assert json.loads(builder.path.read_text())['records'][0]['source_text'] == 'Synthetic line'
-    assert manager.selected('beyond', 'second') == 'en'
-    assert builder.activations == [('beyond', 'en', 'second')]
+    restarted = LanguagePreparation(manager.build, manager.activate, manager.state,
+        path=manager.path, supported=manager.supported, cancellable=True)
+    builder.runtime.languages = restarted
+    try:
+        restarted.start()
+        assert restarted.stop_event is not old_token and old_token.is_set()
+        wait_for(lambda: restarted.selected('beyond', 'first') == 'en' and not restarted._workers)
+        assert json.loads(builder.path.read_text())['records'][0]['source_text'] == 'Synthetic line'
+        assert restarted.selected_target('beyond', 'en', 'first') == 'nl'
+        assert builder.activations == [('beyond', 'en', 'first')]
+        assert not requests.exists()
+    finally:
+        restarted.close()
 
 
 def test_waiting_for_index_build_lock_is_cancellable_without_launching_process(builder, monkeypatch):
@@ -111,11 +120,16 @@ def test_waiting_for_index_build_lock_is_cancellable_without_launching_process(b
     assert not builder.manager._workers
     assert builder.path.read_bytes() == builder.original
     assert not builder.manager.path.exists()
+    assert builder.manager.entries() == [('beyond', 'en', ('nl',))]
+    builder.manager.remove('beyond', 'en')
+    assert not builder.manager.entries()
+    assert not builder.manager.path.with_suffix('.requests.json').exists()
 
 
 def test_failed_quiesce_then_restart_cannot_publish_retired_candidate(builder, monkeypatch, tmp_path):
     synthetic_extraction(monkeypatch, tmp_path)
     entered, release = threading.Event(), threading.Event()
+    fresh_entered, fresh_release = threading.Event(), threading.Event()
     publication = PreparationJob.publication
     old_token = builder.manager.stop_event
     @contextmanager
@@ -128,9 +142,17 @@ def test_failed_quiesce_then_restart_cannot_publish_retired_candidate(builder, m
             yield
     monkeypatch.setattr(PreparationJob, 'publication', before_replace)
     manager = builder.manager
+    build = manager.build
+    def held_build(*args, job):
+        if job.cancelled is not old_token:
+            fresh_entered.set()
+            assert fresh_release.wait(5)
+        build(*args, job=job)
+    manager.build = held_build
     try:
-        assert manager.request('beyond', 'en', 'nl', 'retired')
+        assert manager.request('beyond', 'en', 'nl', 'first')
         assert entered.wait(3)
+        old_worker = next(iter(manager._workers))
         begin = time.monotonic()
         with pytest.raises(TimeoutError, match='quiesce deadline'):
             manager.close(timeout=.05)
@@ -139,15 +161,24 @@ def test_failed_quiesce_then_restart_cannot_publish_retired_candidate(builder, m
         assert not manager.path.exists() and not builder.activations
         manager.start()
         assert manager.stop_event is not old_token and old_token.is_set()
-        assert manager.request('beyond', 'en', 'nl', 'current')
+        assert fresh_entered.wait(3)
+        assert not manager.request('beyond', 'en', 'nl', 'second'), 'Coalesce onto the resumed build'
         release.set()
+        old_worker.join(timeout=3)
+        assert not old_worker.is_alive()
+        assert builder.path.read_bytes() == builder.original
+        assert not manager.path.exists() and not builder.activations
+        assert manager.selected('beyond', 'first') is None
+        assert manager.selected('beyond', 'second') is None
+        fresh_release.set()
         wait_for(lambda: not manager._workers)
-        assert manager.selected('beyond', 'retired') is None
-        assert manager.selected('beyond', 'current') == 'en'
-        assert builder.activations == [('beyond', 'en', 'current')]
+        assert manager.selected('beyond', 'first') == 'en'
+        assert manager.selected('beyond', 'second') == 'en'
+        assert builder.activations == [('beyond', 'en', 'first'), ('beyond', 'en', 'second')]
         assert manager.jobs[('beyond', 'en')]['state'] == 'ready'
     finally:
         release.set()
+        fresh_release.set()
 
 
 def test_cancel_during_state_read_prevents_metadata_and_activation(tmp_path):
@@ -322,6 +353,7 @@ def test_first_monitor_start_preserves_foreground_preparation_in_standby(tmp_pat
 def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_capture(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     entered, release = threading.Event(), threading.Event()
+    resumed, resume_release = threading.Event(), threading.Event()
     audio_restarts, activated = [], []
     runtime = api.Runtime.__new__(api.Runtime)
     runtime.standby = False
@@ -337,6 +369,9 @@ def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_cap
         if job.cancelled is old_token:
             entered.set()
             assert release.wait(3)
+        else:
+            resumed.set()
+            assert resume_release.wait(3)
         job.checkpoint()
     manager = runtime.languages = LanguagePreparation(build, lambda *args: activated.append(args),
         lambda *_: {'ready': True}, path=tmp_path / 'languages.json', cancellable=True)
@@ -348,7 +383,7 @@ def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_cap
     client = TestClient(api.app, base_url='http://127.0.0.1:8767', raise_server_exceptions=False)
     headers = {'X-Proxy-Transcript': 'update'}
     try:
-        assert manager.request('cyberpunk', 'zh-Hans', 'en', 'retired')
+        assert manager.request('cyberpunk', 'zh-Hans', 'en', 'first')
         assert entered.wait(1)
         assert client.post('/api/runtime/quiesce', headers=headers).status_code == 500
         assert old_token.is_set() and not runtime._updates_started
@@ -360,14 +395,19 @@ def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_cap
         assert audio_restarts == [True]
         monitor = manager.monitor
         assert monitor.is_alive()
-        assert manager.request('cyberpunk', 'zh-Hans', 'en', 'current')
-        wait_for(lambda: manager.selected('cyberpunk', 'current') == 'zh-Hans')
+        assert resumed.wait(1)
+        assert not manager.request('cyberpunk', 'zh-Hans', 'en', 'second')
         release.set()
+        wait_for(lambda: len(manager._workers) == 1)
+        assert not activated and manager.selected('cyberpunk', 'first') is None
+        resume_release.set()
         wait_for(lambda: not manager._workers)
-        assert manager.selected('cyberpunk', 'retired') is None
-        assert activated == [('cyberpunk', 'zh-Hans', 'current')]
+        assert manager.selected('cyberpunk', 'first') == 'zh-Hans'
+        assert manager.selected('cyberpunk', 'second') == 'zh-Hans'
+        assert activated == [('cyberpunk', 'zh-Hans', 'first'), ('cyberpunk', 'zh-Hans', 'second')]
         assert client.post('/api/runtime/activate', headers=headers, json=payload).status_code == 200
         assert manager.monitor is monitor and audio_restarts == [True]
     finally:
         release.set()
+        resume_release.set()
         close(timeout=2)

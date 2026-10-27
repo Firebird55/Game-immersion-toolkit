@@ -24,6 +24,14 @@ manual; automatic updates revisit only previously prepared languages. The
 WolvenKit version and checksum remain pinned in the reader. Extracted text,
 archives and decoded clips stay on the user's computer.
 
+Reader revision 3 additionally indexes authored phone messages/replies, email
+bodies and readable journal bodies through their exact onscreen localization
+keys. These verified text-only entries use opt-in exact capture. Scene-embedded
+conversation response labels and standalone cinematic audio remain unsupported;
+preparation exposes these gaps in its coverage warnings. The
+[current installed-data audit](game-audits/cyberpunk.md) records native base-game
+and Phantom Liberty evidence, counts and remaining limits.
+
 ## Validation evidence
 
 All eleven voice locales have mocked archive-selection and original-voice binding
@@ -33,8 +41,9 @@ installation maps 85,448 English dialogue variants with 75,374 voice references,
 and 86,612 Mandarin text variants with 75,215 voice references. English and
 Mandarin female/male performance samples decode to non-silent audio. The other
 nine voice packs are absent on this PC, so native playback for those dubs remains
-untested. Phantom Liberty is not installed locally; DLC identity isolation has
-fixtures, while native DLC playback remains untested.
+untested. At that earlier validation, Phantom Liberty was absent; the current
+linked audit supersedes that installation inventory and verifies native expansion
+extraction. Native DLC playback remains untested.
 The other dubs' OCR fixtures use official installed text with explicitly mocked
 audio bindings. Synthetic checks cover source, translation, inline and wrapped
 layouts at 720p, 1080p and 4K; they do not establish native gameplay, chapter or

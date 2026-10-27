@@ -44,3 +44,55 @@ def test_inventory_reports_actual_bytes_and_unknown_external_sizes(tmp_path):
     assert result['storage']['installed_game_bytes'] is None
     assert result['storage']['tables_bytes'] == 2
     assert directory_bytes(tmp_path / 'languages') == 2
+
+
+def test_language_inventory_separates_silence_from_missing_voices(tmp_path):
+    inventory, manager, path = fixture(tmp_path)
+    path.write_text(json.dumps({'records': [
+        {'audio': {'source': 'synthetic'}, 'dialogue_kind': 'conversation'},
+        {'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'message'},
+        {'audio': None, 'voice_status': 'unavailable', 'dialogue_kind': 'cutscene'},
+        {'audio': None}], 'coverage_warnings': ['Some cinematic timing references are unresolved.']}))
+    value = inventory.status('beyond', manager.status('beyond'))['locales']['nl']
+    assert value['dialogue_inventory']['voice_counts'] == dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 1)
+    assert value['dialogue_inventory']['categories']['message']['unvoiced'] == 1
+    assert value['coverage_warnings'] == ['Some cinematic timing references are unresolved.']
+
+
+def test_status_refresh_reuses_summary_but_observes_replaced_table(tmp_path, monkeypatch):
+    inventory, manager, path = fixture(tmp_path)
+    read_text = Path.read_text
+    reads = []
+    def read(value, *args, **kwargs):
+        if value == path:
+            reads.append(value)
+        return read_text(value, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_text', read)
+    inventory.status('beyond', manager.status('beyond'))
+    inventory.invalidate()
+    inventory.status('beyond', manager.status('beyond'))
+    assert len(reads) == 1, 'Status changes do not repeatedly decode an unchanged catalog'
+    path.write_text(json.dumps({'records': [{'audio': None, 'voice_status': 'unvoiced'}]}))
+    inventory.invalidate()
+    value = inventory.status('beyond', manager.status('beyond'))['locales']['nl']
+    assert len(reads) == 2 and value['dialogue_inventory']['voice_counts']['unvoiced'] == 1
+
+
+def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend import language_worker
+    payload = {'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': [
+        {'text_id': 'beyond:fixture', 'english': 'Synthetic test line', 'chinese': '',
+         'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'conversation'}]}
+    adapter = SimpleNamespace(LANGUAGE_INDEX_VERSION=3, index_language=lambda *_: payload)
+    monkeypatch.setattr(language_worker, 'asset_adapter', lambda _: (adapter, None))
+    output = tmp_path / 'snapshot.json'
+    language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
+    value = json.loads(output.read_text(encoding='utf-8'))
+    assert value['reader_revision'] == 3 and value['targets_requested'] == ['en']
+    assert value['dialogue_inventory']['categories']['conversation']['unvoiced'] == 1
+    payload['records'][0]['audio'] = {'source': 'contradictory voice'}
+    before = output.read_bytes()
+    with pytest.raises(ValueError, match='voice status'):
+        language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
+    assert output.read_bytes() == before

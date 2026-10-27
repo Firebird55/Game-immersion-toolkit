@@ -10,7 +10,7 @@ from scripts import index_pragmata_assets as reader
 from .pragmata_audio import build_sound_id_audio_map, cutscene_audio_for_bank, read_tmlfsm_dialogue_segments
 from .languages import resolve_locale
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 4
 SUPPORTED_LOCALES = ('en', 'fr', 'it', 'de', 'es-ES', 'es-419', 'pt-BR', 'ru', 'zh-Hans', 'ja', 'ko')
 VOICE_LOCALES = dict(zip(SUPPORTED_LOCALES, ('en', 'fr', 'it', 'de', 'es', 'es419', 'ptbr', 'ru', 'zhcn', 'ja', 'ko')))
 # via.Language identifiers are stable format constants, not inferred positions.
@@ -28,47 +28,49 @@ def build_records(extracted, source_locale, selected, graph):
         parsed.append((path.relative_to(root).as_posix().casefold(), entries))
         for entry in entries:
             for locale, text in entry['texts'].items():
-                if text and not reader.REF_RE.search(text):
+                if text:
                     references.setdefault(locale, {}).setdefault(entry['name'], set()).add(text)
-    def clean(text, locale):
-        def replace(match):
-            candidates = references.get(locale, {}).get(match[1], set())
-            return next(iter(candidates)) if len(candidates) == 1 else match[0]
-        text = reader.REF_RE.sub(replace, text)
-        # An unresolved or conflicting reference cannot become a partial official
-        # sentence by silently dropping the missing fragment.
-        if reader.REF_RE.search(text):
-            return ''
-        return reader.TAG_RE.sub('', text).replace('\r\n', '\n').strip()
     code = VOICE_LOCALES[source_locale]
     bank_root = extracted / 'natives/stm/sound/wwise'
     direct = build_sound_id_audio_map(graph, bank_root, code)
-    timeline = {}
+    # MSG SoundIDs also occur on UI strings. An ID alone is not evidence of
+    # speech: require an authored trigger in the voice graph or a subtitle
+    # GUID in a cinematic timeline with a known dialogue bank.
+    voice_triggers = {int(trigger) for events in graph.get('bank_events', {}).values()
+                      for event in events.values() for trigger in event.get('trigger_ids', [])}
+    timeline, voice_guids = {}, set()
     for path in sorted(extracted.rglob('*.tmlfsm2.*')):
         match = re.search(r'/(cs\d+)/flow/', path.as_posix(), re.I)
         if not match:
             continue
-        base = cutscene_audio_for_bank(graph, match[1].lower() + '_dialogue', bank_root, code)
-        if not base:
-            continue
+        bank = match[1].lower() + '_dialogue'
+        base = cutscene_audio_for_bank(graph, bank, bank_root, code)
         try:
             segments = read_tmlfsm_dialogue_segments(path)
         except (ValueError, OSError, struct.error):
             continue
         for segment in segments:
             guid = str(segment['guid']).lower()
+            if bank in graph.get('banks', {}) or base:
+                voice_guids.add(guid)
+            if not base:
+                continue
             audio = {**base, 'start_seconds': segment['start_seconds'], 'end_seconds': segment['end_seconds']}
             timeline[guid] = audio if guid not in timeline or timeline[guid] == audio else None
     rows = {}
     for relative, entries in parsed:
-        if not relative.startswith(('mes_main/conv/', 'mes_main/event/cutscene/')):
-            continue
         for entry in entries:
             name = entry['name']
-            texts = {locale: value for locale, text in entry['texts'].items() if (value := clean(text, locale))}
+            kind = reader.dialogue_kind(relative, name)
+            if not kind:
+                continue
+            texts = {locale: value for locale, text in entry['texts'].items()
+                     if (value := reader.clean_text(text, references, locale))}
             text = texts.get(source_locale, '')
+            english_caption = entry.get('english') or texts.get('en', '')
             if (not text or name.startswith('OP_StaffList_') or name.casefold().startswith('soundsupport_')
-                    or '#rejected#' in text.casefold() or re.fullmatch(r'\[[^\]]+\]', text)):
+                    or '#rejected#' in text.casefold() or re.fullmatch(r'\[[^\]]+\]', text)
+                    or re.fullmatch(r'\[[^\]]+\]', english_caption)):
                 continue
             audio = direct.get(int(entry.get('sound_id') or 0)) or timeline.get(str(entry['guid']).lower())
             # The selected localized bank must exist in the extracted install.
@@ -80,9 +82,13 @@ def build_records(extracted, source_locale, selected, graph):
                     raise ValueError('PRAGMATA voice package disagrees with its selected locale')
                 audio = {**audio, 'locale': source_locale}
             identity = 'pragmata:' + relative + ':' + name
+            voice_status = ('voiced' if audio else 'unavailable'
+                if int(entry.get('sound_id') or 0) in voice_triggers
+                or str(entry['guid']).lower() in voice_guids else 'unknown')
             rows[identity] = {'text_id': identity, 'source_locale': source_locale, 'source_text': text,
                 'texts': texts, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
-                'audio_locale': source_locale, 'audio': audio}
+                'audio_locale': source_locale, 'audio': audio,
+                'voice_status': voice_status, 'dialogue_kind': kind}
     return list(rows.values())
 
 
@@ -105,6 +111,9 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     missing = [target for target, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'pragmata', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
+        'coverage_warnings': [
+            'Reading pages without established voice status remain unknown and are not enabled by the unvoiced toggle.',
+            'Cinematic or dialogue references without the selected original bank remain unavailable; another performance is never substituted.'],
         'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
         (f'; {len(rows) - mapped:,} entries without a verified voice binding' if mapped < len(rows) else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +

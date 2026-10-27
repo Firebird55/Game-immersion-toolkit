@@ -15,6 +15,8 @@ from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
 
 FOLDER_HINTS = {
+    "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
+    "shadowofthetombraider": "Choose the Shadow of the Tomb Raider folder containing SOTTR.exe and bigfile.000.tiger.",
     "starrail": "Choose Star Rail Games containing StarRail.exe and StarRail_Data; the launcher folder is also accepted.",
     "genshin": "Choose Genshin Impact game containing GenshinImpact.exe and GenshinImpact_Data; YuanShen clients are accepted too.",
     "endfield": "Choose the Endfield folder containing Endfield.exe and Endfield_Data/StreamingAssets/VFS.",
@@ -29,6 +31,8 @@ FOLDER_HINTS = {
     "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
 }
 VOICE_HINTS = {
+    "riseofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Regional and DLC pack availability is shown separately.",
+    "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
     "starrail": "Install your chosen original voice in the game, then prepare its learning language and translation in Languages.",
     "genshin": "Install your chosen voice pack through the game's language settings, then prepare it in Languages.",
     "endfield": "Install the matching voice pack and Microsoft .NET 10 SDK, then prepare tools and the selected language.",

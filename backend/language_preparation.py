@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import threading
 import time
+import subprocess
 from datetime import datetime, timezone
 
 from .languages import GAME_LOCALES, LOCALE_NAMES, study_language
@@ -50,12 +51,34 @@ class LanguagePreparation:
                 raise ValueError()
         except (OSError, ValueError, TypeError):
             self.data = {'prepared': {}, 'selected': {}}
+        try:
+            requested = json.loads(self.path.with_suffix('.requests.json').read_text(encoding='utf-8'))
+            if isinstance(requested, dict):
+                self.data['requested'] = {account: {game: choice for game, choice in games.items()
+                    if game in GAME_LOCALES and isinstance(choice, dict)
+                    and choice.get('locale') in GAME_LOCALES[game] and isinstance(choice.get('target'), str)
+                    and choice['target'].strip()}
+                    for account, games in requested.items() if isinstance(games, dict)}
+        except (OSError, ValueError, TypeError):
+            pass
+
+    def _save_requested(self):
+        path = self.path.with_suffix('.requests.json')
+        requested = {account: games for account, games in self.data.get('requested', {}).items() if games}
+        if not requested:
+            path.unlink(missing_ok=True)
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        pending = path.with_suffix('.pending')
+        pending.write_text(json.dumps(requested, ensure_ascii=False), encoding='utf-8')
+        pending.replace(path)
 
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         pending = self.path.with_suffix('.pending')
-        pending.write_text(json.dumps(self.data, ensure_ascii=False), encoding='utf-8')
+        pending.write_text(json.dumps({key: value for key, value in self.data.items() if key != 'requested'}, ensure_ascii=False), encoding='utf-8')
         pending.replace(self.path)
+        self._save_requested()
 
     def selected(self, game: str, account: str = 'legacy') -> str | None:
         with self.lock:
@@ -93,6 +116,11 @@ class LanguagePreparation:
                     target = self.data.get('local_targets', {}).get(account, {}).get(game, {}).get(locale)
                     if game in GAME_LOCALES and locale in GAME_LOCALES[game] and target:
                         entries.setdefault((game, locale), (target,))
+            for games in self.data.get('requested', {}).values():
+                for game, choice in games.items():
+                    locale, target = choice['locale'], choice['target']
+                    if game in GAME_LOCALES and locale in GAME_LOCALES[game]:
+                        entries[(game, locale)] = tuple(dict.fromkeys([*entries.get((game, locale), ()), target]))
             return [(game, locale, targets) for (game, locale), targets in entries.items()]
 
     def update_status(self):
@@ -139,10 +167,15 @@ class LanguagePreparation:
             if self.stop_event.is_set() or self._cleanup_failures:
                 return False
             key = (game, locale)
+            if not refresh:
+                self.data.setdefault('requested', {}).setdefault(account, {})[game] = {'locale': locale, 'target': target}
+                self._save_requested()
             if self.jobs.get(key, {}).get('state') == 'preparing':
                 return False
             old = self.prepared(game, locale)
-            targets = tuple(dict.fromkeys([*(old or {}).get('targets', []), target]))
+            requested = [choice['target'] for games in self.data.get('requested', {}).values()
+                         if (choice := games.get(game)) and choice['locale'] == locale]
+            targets = tuple(dict.fromkeys([*(old or {}).get('targets', []), target, *requested]))
             self.jobs[key] = {'state': 'preparing', 'progress': 0, 'stage': 'queued', 'started': time.monotonic(), 'stage_started': time.monotonic(), 'message': 'Queued for language check'}
             worker = threading.Thread(target=self._run, args=(PreparationJob(self, self.stop_event, key=key), game, locale, targets, account, refresh, rebuild, target), daemon=True,
                                       name=f'prepare-{game}-{locale}')
@@ -166,24 +199,34 @@ class LanguagePreparation:
                     self.data['prepared'].setdefault(game, {})[locale] = {
                         'targets': list(targets), 'prepared_at': datetime.now(timezone.utc).isoformat(),
                         'mapped_lines': state.get('audio_count', 0)}
-                    if not refresh:
-                        self._select(game, locale, account)
-                        self.data.setdefault('local_targets', {}).setdefault(account, {}).setdefault(game, {})[locale] = target or targets[0]
+                    activated = []
+                    for owner, games in self.data.get('requested', {}).items():
+                        choice = games.get(game)
+                        if choice and choice['locale'] == locale and choice['target'] in targets:
+                            self._select(game, locale, owner)
+                            self.data.setdefault('local_targets', {}).setdefault(owner, {}).setdefault(game, {})[locale] = choice['target']
+                            del games[game]
+                            activated.append(owner)
                     self._save()
                     self.jobs[key] = {'state': 'ready', 'progress': 100, 'message': state.get('message', 'Language prepared')}
                 job.checkpoint()
-                self.activate(game, locale, account)
+                for owner in activated or [account]:
+                    self.activate(game, locale, owner)
         except PreparationCancelled:
             pass
         except PreparationCleanupError as error:
             with self.lock:
                 self._cleanup_failures.append(error)
                 if job.current():
-                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error), 'retry_after': 'Automatic retry in 2 minutes; use Setup to check game folders and installed language packs.'}
+                    self.jobs[key] = {'state': 'error', 'progress': None, 'message': str(error), 'retry_after': 'Restart the toolkit to safely resume preparation.'}
         except Exception as error:
+            from .preparation_errors import PreparationFailure, public_failure
+            failure = public_failure(error) if isinstance(error, (PreparationFailure, subprocess.TimeoutExpired, OSError, MemoryError)) else {'code': 'preparation_failed', 'message': str(error)}
             with self.lock:
                 if job.current():
-                    self.jobs[key] = {'state': 'error', 'progress': 100, 'message': str(error), 'retry_after': 'Automatic retry in 2 minutes; use Setup to check game folders and installed language packs.'}
+                    delay = failure.get('retry_seconds', 120)
+                    self.jobs[key] = {'state': 'error', 'progress': None, **failure, 'next_retry_at': time.monotonic() + delay,
+                        'retry_after': f'Your choice is saved. Automatic retry after {max(1, (delay + 59) // 60)} minutes, or retry now in Games & Languages.'}
         finally:
             with self.lock:
                 self._workers.discard(threading.current_thread())
@@ -198,6 +241,7 @@ class LanguagePreparation:
                     raise ValueError('Prepare this translation language first.')
                 self.data.setdefault('local_targets', {}).setdefault(account, {}).setdefault(game, {})[locale] = target
             self._select(game, locale, account)
+            self.data.get('requested', {}).get(account, {}).pop(game, None)
             self._save()
         self.activate(game, locale, account)
 
@@ -206,6 +250,9 @@ class LanguagePreparation:
             if self.jobs.get((game, locale), {}).get('state') == 'preparing':
                 raise ValueError('Wait for language preparation before removing its table.')
             self.data['prepared'].get(game, {}).pop(locale, None)
+            for games in self.data.get('requested', {}).values():
+                if games.get(game, {}).get('locale') == locale:
+                    del games[game]
             for games in self.data.get('local_targets', {}).values():
                 games.get(game, {}).pop(locale, None)
             for account, values in self.data['selected'].items():
@@ -221,6 +268,9 @@ class LanguagePreparation:
         for game, locale, targets in self.entries():
             if self.stop_event.is_set():
                 break
+            with self.lock:
+                if self.jobs.get((game, locale), {}).get('next_retry_at', 0) > time.monotonic():
+                    continue
             if targets:
                 self.request(game, locale, targets[0], refresh=True)
 
@@ -265,6 +315,9 @@ class LanguagePreparation:
                 raise TimeoutError(message)
             try:
                 workers = [*self._workers, *self._monitors]
+                # Stop this generation's work, not the user's durable choice.
+                # Startup resumes pending requests; explicit remove/select or
+                # successful preparation clears them through the normal paths.
                 for key, job in self.jobs.items():
                     if job.get('state') == 'preparing':
                         self.jobs[key] = {'state': 'cancelled', 'progress': 0, 'message': 'Preparation stopped'}

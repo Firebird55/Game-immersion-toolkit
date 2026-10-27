@@ -272,5 +272,7 @@ def test_selected_locale_uses_authored_voice_and_official_translation_only(tmp_p
     assert row['audio']['identity'] == 42 and row['audio']['start_ms'] == 100
     assert 'ar' in result['missing_translation_locales'] and 'ar' not in row['texts']
     (tmp_path/f'BigFile_PC_{code}.idx').unlink()
-    with pytest.raises(ValueError, match='voice pack'):
-        beyond.index_language(tmp_path, tmp_path/'cache', locale, ['zh-hans'])
+    missing = beyond.index_language(tmp_path, tmp_path/'cache', locale, ['zh-hans'])
+    assert missing['records'][0]['voice_status'] == 'unavailable'
+    assert missing['records'][0]['audio'] is None
+    assert any('voice pack' in warning for warning in missing['coverage_warnings'])

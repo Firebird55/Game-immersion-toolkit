@@ -250,25 +250,33 @@ class Runtime:
                 directory.mkdir(parents=True, exist_ok=True)
                 path = directory / 'textmap.json'
                 stamp = adapter.fingerprint(install)
-                try:
-                    old = json.loads(path.read_text(encoding='utf-8'))
-                except (OSError, ValueError):
-                    old = {}
+                indexes = self.__dict__.setdefault('_locale_indexes', {})
+                key = (game, locale)
+                cached = indexes.get(key)
+                if cached is None:
+                    cached = indexes[key] = MultilingualTextIndex(game, directory)
+                    current_table = cached.ready
+                else:
+                    current_table = cached.load()
+                # The validated generation already owns the large text table.
+                # Periodic checks need its tiny metadata, not another full JSON
+                # allocation while capture is matching the same records.
+                old = cached.snapshot_metadata
+                if not current_table:
+                    try:
+                        old = json.loads(path.read_text(encoding='utf-8'))
+                    except (OSError, ValueError):
+                        old = {}
                 if (not force and old.get('format') == 2 and old.get('game') == game and old.get('source_locale') == locale
                         and old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
                         and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION
                         and old.get('install') == str(install)):
                     # Matching metadata alone does not prove the table is usable.
                     # A truncated/invalid snapshot used to be skipped forever.
-                    indexes = self.__dict__.setdefault('_locale_indexes', {})
-                    key = (game, locale)
-                    cached = indexes.get(key)
-                    if cached is None:
-                        cached = indexes[key] = MultilingualTextIndex(game, directory)
                     # load() cheaply reuses an unchanged validated file. Its
                     # return value is essential: a failed reload can retain an
                     # older usable in-memory index while disk still needs repair.
-                    if cached.load() and cached.ready and cached.source_locale == locale and cached.entry_count:
+                    if current_table and cached.ready and cached.source_locale == locale and cached.entry_count:
                         return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
                 if job:
@@ -281,12 +289,28 @@ class Runtime:
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
                         '--targets', json.dumps(targets), '--output', str(output)]
                     if job:
-                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800, **subprocess_options())
+                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800,
+                                             progress_path=output.with_name('progress.json'), **subprocess_options())
                     else:
                         returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
-                        raise ValueError('Language extraction failed. Check installed text/voice packs and game tools; previous table retained.')
+                        from .preparation_errors import PreparationFailure, public_failure
+                        failure = public_failure(RuntimeError())
+                        try:
+                            failure = json.loads(output.with_name('failure.json').read_text(encoding='utf-8'))
+                            output.with_name('failure.log').replace(directory / 'last-preparation-error.log')
+                        except (OSError, ValueError):
+                            pass
+                        changed = bool(old.get('fingerprint') and old['fingerprint'] != stamp)
+                        message = failure['message']
+                        if changed:
+                            message = 'Installed game files changed since the last preparation. ' + message
+                        if old:
+                            message += ' The previous table was kept; changed voice files may remain unavailable until repair succeeds.'
+                        raise PreparationFailure(failure.get('code', 'reader_failed'), message,
+                            game_files_changed=changed, previous_snapshot_retained=bool(old),
+                            retry_seconds=failure.get('retry_seconds', 120))
                     if job:
                         job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))
@@ -414,13 +438,18 @@ class Runtime:
         account = self.accounts.status()['active']
         locale = self.languages.selected(game, account)
         if not locale:
-            return 'No learning language selected for this game and account. Choose one in Setup → Languages.'
+            with self.languages.lock:
+                choice = self.languages.data.get('requested', {}).get(account, {}).get(game)
+                pending = dict(self.languages.jobs.get((game, choice['locale']), {})) if choice else {}
+            if choice:
+                return f"{choice['locale']}: {pending.get('message', 'Your requested language is queued for preparation.')}"
+            return 'Choose a game language and press Prepare language below. The toolkit will keep it ready automatically.'
         with self.languages.lock:
             job = dict(self.languages.jobs.get((game, locale), {}))
         if job.get('state') == 'preparing':
             return f"{locale}: {job['message']}. This runs automatically for all configured games."
         if job.get('state') == 'error':
-            return f"{locale}: {job['message']}. Automatic retry in 2 minutes; check Setup → Languages."
+            return f"{locale}: {job['message']} {job.get('retry_after', 'Check Games & Languages to retry.')}"
         return f'{locale}: the prepared table is missing or cannot be activated. Automatic repair checks run every 2 minutes; see Setup → Languages.'
 
     def capture_language_ready(self, game):
@@ -1146,12 +1175,12 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider)$"),
 ) -> list[TranscriptLine]:
     return [
         presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
         for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
-        if line.game == "hito" or ((line.voiced or line.is_comic) and (
+        if line.game == "hito" or ((line.voiced or line.is_comic or line.voice_status == 'unvoiced') and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
             else runtime.game_indexes[line.game].is_capture_text(line.text_id, line.english, line.channel)
@@ -1163,7 +1192,7 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider)$"),
 ) -> list[TranscriptLine]:
     return [runtime.speakers.enrich(line) if line.game == "zzz" else line
             for line in runtime.transcript.list_favorites(game=game)]
@@ -1479,8 +1508,8 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
     line = runtime.transcript.get(line_id)
     if line is None:
         raise HTTPException(404, "This line is no longer in local history.")
-    if not line.voiced:
-        raise HTTPException(409, "Wait until this line is confirmed voiced.")
+    if not line.voiced and line.voice_status != 'unvoiced':
+        raise HTTPException(409, "This line needs a verified original voice or confirmed unvoiced dialogue before export.")
     if line.game == "zzz":
         line = runtime.speakers.enrich(line)
     root = (DATA_DIR / "audio").resolve()
@@ -1489,9 +1518,10 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         raise HTTPException(404, "Voice file unavailable.")
     try:
         line = presented(line)
-        return runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
+        result = runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
             english=line.translation_text, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
-            audio=path, audio_source=line.audio_source)
+            audio=None if line.voice_status == 'unvoiced' else path, audio_source=line.audio_source)
+        return {**result, 'audio_included': line.voice_status != 'unvoiced'}
     except LexiriseError as error:
         raise HTTPException(409, str(error)) from None
     except OSError:

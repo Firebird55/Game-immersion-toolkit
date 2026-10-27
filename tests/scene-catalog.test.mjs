@@ -1,7 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {gzipSync} from 'node:zlib';
-import { sceneAssetPaths, sceneBundleRangesFromCatalog } from '../scripts/scene-catalog.mjs';
+import { sceneAssetPaths, sceneBundleRangesFromCatalog, unityResourceCatalog, resourceCatalogBytes } from '../scripts/scene-catalog.mjs';
+
+function unityCatalog() {
+  // A catalog root in block 100 depends on a voice dictionary in block 200.
+  const raw=Buffer.alloc(8+4+12+4+88+4+18+4+4+4);
+  raw.writeUInt32LE(3,0);raw.write('Res',4);raw.writeUInt32LE(1,8);raw.writeBigUInt64LE(42n,16);
+  raw.writeUInt32LE(2,24);
+  raw.writeUInt32LE(500,48);raw.writeUInt32LE(1,56);raw.writeUInt32LE(50,68);
+  raw.writeUInt32LE(1,72);raw.writeUInt32LE(700,92);raw.writeUInt32LE(1,96);raw.writeUInt32LE(1,100);raw.writeUInt32LE(60,112);
+  raw.writeUInt32LE(2,116);raw.writeUInt32LE(100,120);raw.writeUInt32LE(200,129);
+  raw.writeUInt32LE(1,138);raw.writeUInt32LE(1,142);
+  const cab=Buffer.alloc(128+raw.length);
+  cab.writeUInt32BE(100,0);cab.writeUInt32BE(cab.length,4);cab.writeUInt32BE(21,8);cab.writeUInt32BE(128,12);
+  cab.write('2019.4.40f1',20);let p=32;cab.writeUInt32LE(19,p);p+=5;
+  cab.writeUInt32LE(1,p);p+=4;cab.writeInt32LE(6776977,p);p+=7+16;
+  cab.writeUInt32LE(1,p);p+=4;p=(p+3)&~3;
+  cab.writeBigInt64LE(1n,p);cab.writeUInt32LE(raw.length,p+12);raw.copy(cab,128);
+  return cab;
+}
+
+test('Unity-wrapped resource catalogs preserve exact scene ranges and dependencies',()=>{
+  const cab=unityCatalog(),decoded=unityResourceCatalog(cab);
+  const expected={matchedHashes:[42n],ranges:[{block:'Blocks/100.blk',offset:500,size:50},{block:'Blocks/200.blk',offset:700,size:60}]};
+  assert.deepEqual(sceneBundleRangesFromCatalog(decoded,new Set([42n]),true),expected);
+  const bundle=Buffer.from('mhy1synthetic');
+  assert.deepEqual(resourceCatalogBytes(bundle,()=>({end:bundle.length,files:[cab]})),decoded);
+  assert.throws(()=>resourceCatalogBytes(bundle,()=>({end:1,files:[cab]})),/bundle sequence/);
+  assert.throws(()=>resourceCatalogBytes(bundle,()=>({end:bundle.length,files:[cab,cab]})),/Ambiguous/);
+  const bad=Buffer.from(cab);bad.writeUInt32LE(99999,128+56);
+  assert.throws(()=>unityResourceCatalog(bad),/dependency slice/);
+  const outside=Buffer.from(cab);outside.writeUInt32LE(999999,68+12);
+  assert.throws(()=>unityResourceCatalog(outside),/object bounds/);
+});
 
 test('comic and dialogue references use their authored namespaces across table field changes', () => {
   const table = { changingKey: [{ otherKey: 'Data/ScriptConfig/Comic/Test_Comic.asset' },

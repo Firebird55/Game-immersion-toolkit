@@ -72,6 +72,53 @@ def finish(manager):
     assert not manager._workers
 
 
+def test_structured_format_error_survives_job_status_and_malformed_retry_is_ignored(tmp_path):
+    import json
+    from backend.preparation_errors import PreparationFailure
+    path = tmp_path / 'languages.json'
+    path.with_suffix('.requests.json').write_text(json.dumps({'bad': [], 'owner': {
+        'zzz': {'locale': 'not-a-language'}, 'cyberpunk': None, 'beyond': {'locale': 'nl', 'target': 'en'}}}))
+    def build(*_):
+        raise PreparationFailure('unsupported_game_format', 'Update the toolkit reader.', game_files_changed=True)
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {}, path=path, supported=lambda _: ('nl',))
+    assert manager.entries() == [('beyond', 'nl', ('en',))]
+    manager.refresh_prepared()
+    finish(manager)
+    status = manager.update_status()
+    assert status['code'] == 'unsupported_game_format' and status['game_files_changed']
+    assert status['state'] == 'retrying' and 'reader' in status['message']
+
+
+def test_metadata_rate_limit_has_a_network_message_and_background_cooldown(tmp_path, monkeypatch):
+    from urllib.error import HTTPError
+    import backend.language_preparation as module
+    from backend.preparation_errors import public_failure
+    failure = HTTPError('https://example.invalid/private', 429, 'Rate limited', {'Retry-After': '900'}, None)
+    public = public_failure(failure)
+    assert public['code'] == 'metadata_rate_limited' and public['retry_seconds'] == 900
+    assert 'download service' in public['message'] and 'example.invalid' not in public['message']
+    calls = []
+    now = [1000.]
+    monkeypatch.setattr(module.time, 'monotonic', lambda: now[0])
+    def build(*_):
+        calls.append(True)
+        raise failure
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {}, path=tmp_path / 'languages.json')
+    manager.request('zzz', 'zh-Hans', 'en')
+    # Join directly: the synthetic monotonic clock intentionally does not tick.
+    for worker in list(manager._workers):
+        worker.join(2)
+    assert not manager._workers and len(calls) == 1
+    manager.refresh_prepared()
+    assert len(calls) == 1
+    assert manager.update_status()['code'] == 'metadata_rate_limited'
+    now[0] += 901
+    manager.refresh_prepared()
+    for worker in list(manager._workers):
+        worker.join(2)
+    assert not manager._workers and len(calls) == 2
+
+
 def test_local_targets_survive_activation_history_account_switch_and_refresh(tmp_path, monkeypatch):
     import json
     from datetime import datetime, timezone
@@ -171,14 +218,44 @@ def test_failed_translation_build_keeps_previous_complete_preparation(tmp_path):
     manager = LanguagePreparation(build, lambda *_: None, lambda *_: {'ready': True}, path=tmp_path / 'languages.json')
     manager.request('cyberpunk', 'zh-Hans', 'en', 'first')
     finish(manager)
-    original = manager.path.read_bytes()
+    original = manager.prepared('cyberpunk', 'zh-Hans')
     fails.append(True)
     manager.request('cyberpunk', 'zh-Hans', 'nl', 'second')
     finish(manager)
-    assert manager.path.read_bytes() == original
+    assert manager.prepared('cyberpunk', 'zh-Hans') == original
     assert manager.prepared('cyberpunk', 'zh-Hans')['targets'] == ['en']
     assert manager.selected('cyberpunk', 'second') is None
     assert next(item for item in manager.status('cyberpunk')['locales'] if item['locale']=='zh-Hans')['job']['state'] == 'error'
+    # The failed account's explicit request survives restart without replacing
+    # anyone's working selection. Background retry completes that request only.
+    fails.clear()
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {'ready': True}, path=manager.path)
+    manager.refresh_prepared()
+    finish(manager)
+    assert manager.selected('cyberpunk', 'first') == 'zh-Hans'
+    assert manager.selected_target('cyberpunk', 'zh-Hans', 'first') == 'en'
+    assert manager.selected_target('cyberpunk', 'zh-Hans', 'second') == 'nl'
+    assert manager.selected('cyberpunk', 'unrelated') is None
+
+
+def test_new_request_supersedes_an_inflight_choice_without_cross_account_selection(tmp_path):
+    entered, release = threading.Event(), threading.Event()
+    def build(game, locale, targets):
+        if locale == 'en':
+            entered.set()
+            assert release.wait(3)
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {'ready': True},
+        path=tmp_path / 'languages.json', supported=lambda _: ('en', 'ko'))
+    manager.request('zzz', 'en', 'nl', 'first')
+    assert entered.wait(3)
+    manager.request('zzz', 'ko', 'en', 'first')
+    manager.request('zzz', 'en', 'nl', 'second')
+    release.set()
+    finish(manager)
+    assert manager.selected('zzz', 'first') == 'ko'
+    assert manager.selected('zzz', 'second') == 'en'
+    manager.remove('zzz', 'en')
+    assert not any(game=='zzz' and locale=='en' for game, locale, _ in manager.entries())
 
 
 def test_unprepared_selection_and_unknown_locales_are_rejected(tmp_path):

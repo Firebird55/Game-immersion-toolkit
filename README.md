@@ -32,6 +32,8 @@ Follow official game dialogue, replay original voices, and learn with reading to
 | [Honkai: Star Rail](docs/languages/en.md#starrail) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 13 |
 | [Genshin Impact](docs/languages/en.md#genshin) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 15 |
 | [Arknights: Endfield](docs/languages/en.md#endfield) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 14 |
+| [Rise of the Tomb Raider](docs/languages/en.md#riseofthetombraider) | English · French · German · Italian · Latin American Spanish · European Spanish · Japanese · Brazilian Portuguese · Polish · Russian · Korean · Traditional Chinese · Simplified Chinese · Arabic | 15 |
+| [Shadow of the Tomb Raider](docs/languages/en.md#shadowofthetombraider) | English · French · German · Italian · Latin American Spanish · European Spanish · Japanese · Brazilian Portuguese · Polish · Russian · Traditional Chinese · Simplified Chinese · Arabic | 14 |
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

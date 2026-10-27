@@ -323,7 +323,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[Official language listing](https://store.epicgames.com/p/arknightsendfield-f0f167) · 2026-10-25 · [Coverage notes](../endfield-languages.md)
+[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [Coverage notes](../endfield-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
@@ -332,11 +332,11 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 | Language | Original voice | Learning | Translation | Evidence |
 | :--- | :---: | :---: | :---: | :--- |
-| English | ✓ | ✓ | ✓ | Reader implemented |
-| Simplified Chinese | ✓ | ✓ | ✓ | Reader implemented |
-| Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Reader implemented |
-| Japanese | ✓ | ✓ | ✓ | Reader implemented |
-| Korean | ✓ | ✓ | ✓ | Reader implemented |
+| English | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
 | French | — | — | ✓ | Reader implemented |
 | German | — | — | ✓ | Reader implemented |
 | Italian | — | — | ✓ | Reader implemented |
@@ -346,5 +346,66 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 | Thai | — | — | ✓ | Reader implemented |
 | Vietnamese | — | — | ✓ | Reader implemented |
 | Indonesian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="riseofthetombraider"></a>
+
+## Rise of the Tomb Raider
+
+[Official language listing](https://store.steampowered.com/app/391220/?l=english) · 2026-10-27 · [Coverage notes](../rise-tomb-raider-languages.md)
+
+All twelve Steam full-audio languages plus evidenced Latin American Spanish and Arabic DLC formats. Dutch is text-only. Arabic base-game voice coverage is not claimed; regional/DLC packs may be partial. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language. Local non-English playback evidence comes from installed DLC; base-language packs other than English were absent.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Latin American Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Polish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Russian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| Korean | ✓ | ✓ | ✓ | Audio decoded locally |
+| Traditional Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Arabic | ✓ | ✓ | ✓ | Audio decoded locally |
+
+</details>
+
+<a id="shadowofthetombraider"></a>
+
+## Shadow of the Tomb Raider
+
+[Official language listing](https://store.steampowered.com/app/750920/?l=english) · 2026-10-27 · [Coverage notes](../shadow-tomb-raider-languages.md)
+
+All eleven global Steam full-audio languages plus Japanese and Latin American Spanish evidenced by official regional manifests. Korean is text-only. Some packs require the corresponding regional edition. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Italian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Latin American Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Polish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Traditional Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Arabic | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
 
 </details>

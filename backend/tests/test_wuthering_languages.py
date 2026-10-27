@@ -68,6 +68,11 @@ def test_empty_official_translation_table_is_reported_unavailable(tmp_path, monk
         db.execute('CREATE TABLE plotaudio (Id TEXT, BinData BLOB)')
         db.execute('INSERT INTO plotaudio VALUES (?,?)', ('spoken', plot_blob('spoken', 'vo_spoken')))
     (cache / 'complete.json').write_text(json.dumps([assets.EXTERNAL_ROOT + 'en_vo_spoken.wem']))
+    for filename, table, key in [('db_flowState.db', 'flowstate', 'StateKey'),
+                                  ('db_cgVedio.db', 'videocaption', 'Id'),
+                                  ('db_infodisplay.db', 'infodisplay', 'Id')]:
+        with sqlite3.connect(root / filename) as db:
+            db.execute(f'CREATE TABLE {table} ({key} TEXT, BinData BLOB)')
     monkeypatch.setattr(assets, 'fingerprint', lambda _: 'fixture')
     monkeypatch.setattr(assets, 'ensure_extractor', lambda *_: Path('mock'))
     monkeypatch.setattr(assets, 'run_extractor', lambda *_: pytest.fail('Existing tables must not be re-extracted'))

@@ -91,7 +91,7 @@ try{
  for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
   browser=await engines[name].launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true}),page=await context.newPage(),errors=[],external=[];
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith(base)&&!r.url().startsWith('blob:')&&!r.url().startsWith('data:'))external.push(r.url());});
-  await page.goto(base+'?developer=1');await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();
+  await page.goto(base+'?developer=1');await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();
   await page.setInputFiles('#library-files',input('retained-test.zip',bundle));
   await page.waitForFunction(()=>!document.querySelector('#library-files').disabled&&document.querySelector('#cache-status').textContent.includes('on this device'));
   const retention=await page.locator('#cache-status').textContent();

@@ -51,10 +51,9 @@ internal static class NteReader
                     foreach (var pair in files)
                     {
                         var name = (string)pair.GetType().GetProperty("Key")!.GetValue(pair)!;
-                        if (name.EndsWith("/game.locres", StringComparison.OrdinalIgnoreCase) ||
-                            name.StartsWith("HT/Content/WwiseAudio/Media/", StringComparison.Ordinal)) names.Add(name);
+                        names.Add(name);
                     }
-                    File.WriteAllText(Path.Combine(destination, "inventory.json"), JsonSerializer.Serialize(names));
+                    File.WriteAllText(Path.Combine(destination, "inventory.json"), JsonSerializer.Serialize(names.Distinct().Order()));
                 }
                 else if (args[0] is "voice" or "voices")
                 {
@@ -85,6 +84,7 @@ internal static class NteReader
                     var resource = cue.GetType("CUE4Parse.UE4.Localization.FTextLocalizationResource", true)!;
                     var versions = provider.GetType().GetProperty("Versions")!.GetValue(provider)!;
                     var all = new Dictionary<string, List<LocalizedRow>>();
+                    var localizationVersions = new Dictionary<string, int>();
                     var languages = request.RootElement.TryGetProperty("locales", out var requestedLocales)
                         ? requestedLocales.EnumerateArray().Select(x => x.GetString()!).Distinct().ToArray() : new[] { "en", "zh-CN" };
                     if (languages.Length is < 1 or > 40 || languages.Any(l => l.Length > 16 || !l.All(c => char.IsAsciiLetterOrDigit(c) || c == '-'))) throw new ArgumentException();
@@ -93,6 +93,17 @@ internal static class NteReader
                         var path = names.SingleOrDefault(n => n.EndsWith("/" + language + "/game.locres", StringComparison.OrdinalIgnoreCase));
                         if (path == null) continue;
                         var data = (byte[])save.Invoke(provider, [path])!;
+                        // NTE's installed resources use the standard locres header
+                        // with a game-specific encrypted string table. Fail with a
+                        // stable code before a newer version becomes a partial index.
+                        if (data.Length >= 17 && BitConverter.ToUInt32(data, 0) == 0x7574140E &&
+                            BitConverter.ToUInt32(data, 4) == 0xFC034A67 &&
+                            BitConverter.ToUInt32(data, 8) == 0x9D90154A &&
+                            BitConverter.ToUInt32(data, 12) == 0x1B7F37C3)
+                        {
+                            localizationVersions[language] = data[16];
+                            if (data[16] > 3) throw new UnsupportedGameFormatException();
+                        }
                         var ar = Activator.CreateInstance(archive, path, data, versions)!;
                         var parsed = Activator.CreateInstance(resource, ar)!;
                         var rows = new List<LocalizedRow>();
@@ -111,6 +122,7 @@ internal static class NteReader
                         if (rows.Count > 0) all[language] = rows;
                     }
                     File.WriteAllText(Path.Combine(destination, "localization.json"), JsonSerializer.Serialize(all));
+                    File.WriteAllText(Path.Combine(destination, "reader-format.json"), JsonSerializer.Serialize(new { localizationVersions }));
                     var keys = all.Values.SelectMany(rows => rows).Select(row => "Play_Vo_" + row.key).ToHashSet(StringComparer.OrdinalIgnoreCase);
                     if (request.RootElement.TryGetProperty("cinema_events", out var cinemaEvents))
                     {
@@ -123,6 +135,13 @@ internal static class NteReader
                         }
                     }
                     var banks = Path.Combine(destination, "banks"); Directory.CreateDirectory(banks);
+                    // An authored event can exist even when its requested dub's
+                    // bank/media is absent. Never classify that absence as silence.
+                    var declaredEvents = names.Where(n =>
+                        (n.StartsWith("HT/Content/WwiseAudio/Events/", StringComparison.Ordinal) && n.EndsWith(".uasset")) ||
+                        (n.StartsWith("HT/Content/WwiseAudio/Event/", StringComparison.Ordinal) && n.EndsWith(".bnk")))
+                        .Select(Path.GetFileNameWithoutExtension).Where(n => keys.Contains(n!)).Distinct().Order().ToArray();
+                    File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(declaredEvents));
                     foreach (var name in names.Where(n => n.StartsWith("HT/Content/WwiseAudio/Event/" + voiceLanguage + "/", StringComparison.Ordinal) &&
                         n.EndsWith(".bnk") && keys.Contains(Path.GetFileNameWithoutExtension(n))))
                         File.WriteAllBytes(Path.Combine(banks, Path.GetFileName(name)), (byte[])save.Invoke(provider, [name])!);
@@ -141,9 +160,11 @@ internal static class NteReader
             finally { (reader as IDisposable)?.Dispose(); }
             Console.SetOut(output); Console.WriteLine("Game reader completed"); return 0;
         }
+        catch (UnsupportedGameFormatException) { Console.SetOut(output); Console.WriteLine("Unsupported NTE localization format; update the toolkit reader"); return 3; }
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
     }
     static object Property(object value, string name) => value.GetType().GetProperty(name)!.GetValue(value)!;
     static string TextKey(object value) => (string)value.GetType().GetField("Str")!.GetValue(value)!;
     sealed record LocalizedRow(string ns, string key, string value);
+    sealed class UnsupportedGameFormatException : Exception { }
 }

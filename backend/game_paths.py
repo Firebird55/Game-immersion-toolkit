@@ -6,10 +6,11 @@ import os
 import threading
 from pathlib import Path
 
-GAMES = ("zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield")
+GAMES = ("zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield", "riseofthetombraider", "shadowofthetombraider")
 GAME_NAMES = {"starrail": "Honkai: Star Rail", "genshin": "Genshin Impact", "endfield": "Arknights: Endfield", "zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
               "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
               "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
+GAME_NAMES.update(riseofthetombraider="Rise of the Tomb Raider", shadowofthetombraider="Shadow of the Tomb Raider")
 _path_lock = threading.RLock()
 
 
@@ -47,6 +48,8 @@ def validate_install(game: str, path: Path) -> Path:
                 root = parent
                 break
     valid = {
+        "riseofthetombraider": lambda: (root / "ROTTR.exe").is_file() and (root / "bigfile.000.tiger").is_file(),
+        "shadowofthetombraider": lambda: (root / "SOTTR.exe").is_file() and (root / "bigfile.000.tiger").is_file(),
         "starrail": lambda: (root / 'StarRail.exe').is_file() and (root / 'StarRail_Data/StreamingAssets').is_dir(),
         "genshin": lambda: any((root / exe).is_file() and (root / data / 'StreamingAssets').is_dir()
             for exe, data in [('GenshinImpact.exe', 'GenshinImpact_Data'), ('YuanShen.exe', 'YuanShen_Data')]),

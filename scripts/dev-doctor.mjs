@@ -56,11 +56,12 @@ export function probeBrowsers({root = process.cwd(), engines, exists = existsSyn
     const playwright = load('playwright');
     let headlessExecutable;
     if (engines.includes('chromium')) {
-      // Pinned Playwright 1.64.0 launches chromium-headless-shell by default;
+      // Reviewed Playwright 1.64.0/1.64.1 launch chromium-headless-shell by default;
       // chromium.executablePath() instead identifies headed Chromium. Its
       // exported registry supplies the exact platform/revision-specific path.
       // Recheck this internal metadata contract when upgrading Playwright.
-      if (load('playwright/package.json').version === '1.64.0' && load('playwright-core/package.json').version === '1.64.0') {
+      const version = load('playwright/package.json').version;
+      if (['1.64.0', '1.64.1'].includes(version) && load('playwright-core/package.json').version === version) {
         const registry = load('playwright-core/lib/coreBundle')?.registry?.registry;
         headlessExecutable = registry?.findExecutable?.('chromium-headless-shell')?.executablePath?.();
       }

@@ -323,7 +323,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[官方語言清單](https://store.epicgames.com/p/arknightsendfield-f0f167) · 2026-10-25 · [涵蓋範圍說明](../endfield-languages.md)
+[官方語言清單](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [涵蓋範圍說明](../endfield-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
@@ -332,11 +332,11 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 | 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
 | :--- | :---: | :---: | :---: | :--- |
-| 英文 | ✓ | ✓ | ✓ | 已實作讀取器 |
-| 簡體中文 | ✓ | ✓ | ✓ | 已實作讀取器 |
-| 繁體中文 | 共用華語配音 | ✓ | ✓ | 已實作讀取器 |
-| 日文 | ✓ | ✓ | ✓ | 已實作讀取器 |
-| 韓文 | ✓ | ✓ | ✓ | 已實作讀取器 |
+| 英文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 簡體中文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 繁體中文 | 共用華語配音 | ✓ | ✓ | 已在本機解碼原始配音 |
+| 日文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 韓文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
 | 法文 | — | — | ✓ | 已實作讀取器 |
 | 德文 | — | — | ✓ | 已實作讀取器 |
 | 義大利文 | — | — | ✓ | 已實作讀取器 |
@@ -346,5 +346,66 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 | 泰文 | — | — | ✓ | 已實作讀取器 |
 | 越南文 | — | — | ✓ | 已實作讀取器 |
 | 印尼文 | — | — | ✓ | 已實作讀取器 |
+
+</details>
+
+<a id="riseofthetombraider"></a>
+
+## Rise of the Tomb Raider
+
+[官方語言清單](https://store.steampowered.com/app/391220/?l=english) · 2026-10-27 · [涵蓋範圍說明](../rise-tomb-raider-languages.md)
+
+All twelve Steam full-audio languages plus evidenced Latin American Spanish and Arabic DLC formats. Dutch is text-only. Arabic base-game voice coverage is not claimed; regional/DLC packs may be partial. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language. Local non-English playback evidence comes from installed DLC; base-language packs other than English were absent.
+
+<details>
+<summary>語言詳細資訊</summary>
+
+| 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 法文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 德文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 義大利文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 西班牙文（拉丁美洲） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 西班牙文（西班牙） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 日文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 葡萄牙文（巴西） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 波蘭文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 俄文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 荷蘭文 | — | — | ✓ | 已實作讀取器 |
+| 韓文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 繁體中文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 簡體中文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 阿拉伯文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+
+</details>
+
+<a id="shadowofthetombraider"></a>
+
+## Shadow of the Tomb Raider
+
+[官方語言清單](https://store.steampowered.com/app/750920/?l=english) · 2026-10-27 · [涵蓋範圍說明](../shadow-tomb-raider-languages.md)
+
+All eleven global Steam full-audio languages plus Japanese and Latin American Spanish evidenced by official regional manifests. Korean is text-only. Some packs require the corresponding regional edition. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language.
+
+<details>
+<summary>語言詳細資訊</summary>
+
+| 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 法文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 德文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 義大利文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 西班牙文（拉丁美洲） | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 西班牙文（西班牙） | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 日文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 葡萄牙文（巴西） | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 波蘭文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 俄文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 韓文 | — | — | ✓ | 已實作讀取器 |
+| 繁體中文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 簡體中文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 阿拉伯文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
 
 </details>

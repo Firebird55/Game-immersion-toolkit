@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src https://vdo.ninja; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://game-immersion-pairing.boazbrak.workers.dev wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev http://127.0.0.1:8766 ws://127.0.0.1:8766; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Proxy Transcript — Mobile game companion</title>
+  <title>Game immersion toolkit — Mobile companion</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icon.png">
   <link rel="stylesheet" href="./style.css">
@@ -18,7 +18,7 @@
   <div class="device-bar" data-panel="settings" hidden>
     <label hidden>Use this device as <select id="role"><option value="receiver" selected>Receiver — read transcript</option><option value="sender">Sender — share PC transcript</option></select></label>
     <label id="source-control">Transcript source <select id="source"><option value="mobile">Mobile OCR</option><option value="pc">Paired PC</option></select></label>
-    <label>Game <select id="game"><option value="zzz">Zenless Zone Zero</option><option value="wuwa">Wuthering Waves</option><option value="pragmata">PRAGMATA</option><option value="cyberpunk">Cyberpunk 2077</option><option value="witcher3">The Witcher III</option><option value="beyond">BEYOND: Two Souls</option><option value="heavyrain">HEAVY RAIN</option><option value="nte">Neverness to Everness</option><option value="starrail">Honkai: Star Rail</option><option value="genshin">Genshin Impact</option><option value="endfield">Arknights: Endfield</option></select></label>
+    <label>Game <select id="game"><option value="zzz">Zenless Zone Zero</option><option value="wuwa">Wuthering Waves</option><option value="pragmata">PRAGMATA</option><option value="cyberpunk">Cyberpunk 2077</option><option value="witcher3">The Witcher III</option><option value="beyond">BEYOND: Two Souls</option><option value="heavyrain">HEAVY RAIN</option><option value="nte">Neverness to Everness</option><option value="starrail">Honkai: Star Rail</option><option value="genshin">Genshin Impact</option><option value="endfield">Arknights: Endfield</option><option value="riseofthetombraider">Rise of the Tomb Raider</option><option value="shadowofthetombraider">Shadow of the Tomb Raider</option></select></label>
   </div>
   <div id="settings-root"></div>
   <section class="build-panel" data-panel="settings" hidden aria-label="App version"><p id="build-info">Local development source</p><button id="reload-build">Reload latest</button><p class="hint">Disconnect before updating. Reopen your library after reloading.</p></section>

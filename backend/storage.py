@@ -148,7 +148,8 @@ class TranscriptStore:
                     match.speaker_chinese,
                     0,
                     json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
-                        'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts')}, ensure_ascii=False),
+                        'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
+                        'voice_status', 'dialogue_kind')}, ensure_ascii=False),
                 ),
             )
             row = connection.execute(
@@ -319,7 +320,8 @@ class TranscriptStore:
                             match.speaker_english,
                             match.speaker_chinese,
                             json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
-                                'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts')}, ensure_ascii=False),
+                                'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
+                                'voice_status', 'dialogue_kind')}, ensure_ascii=False),
                             previous["id"],
                         ),
                     )
@@ -411,7 +413,7 @@ class TranscriptStore:
         ]
 
     def purge_unvoiced(self) -> list[tuple[int, str | None]]:
-        """Keep favorites, confirmed voices and official text-only comics."""
+        """Keep favorites, confirmed voices and certified unvoiced dialogue."""
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -419,7 +421,8 @@ class TranscriptStore:
                 WHERE game <> 'hito' AND voiced = 0 AND favorite = 0
                 """
             ).fetchall()
-            rows = [row for row in rows if not self._row_to_line(row).is_comic]
+            rows = [row for row in rows if not (self._row_to_line(row).is_comic
+                                               or self._row_to_line(row).voice_status == 'unvoiced')]
             if rows:
                 connection.executemany(
                     "DELETE FROM transcript_lines WHERE id = ?",

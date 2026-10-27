@@ -53,3 +53,13 @@ test('authored protagonist variants survive dictionary extraction without choosi
   assert.deepEqual(comicVoicePairs(dictionary([[guid,variants+'unrelated']])),[]);
   assert.deepEqual(comicVoicePairs(dictionary([[guid,'{M#'+source+'}{M#'+source+'}']])),[]);
 });
+
+test('only empty entries inside a proven voice dictionary establish silent comic text', () => {
+  const silent = {text_id: 'Comic_' + 'b'.repeat(32), source: '', dialogue_kind: 'comic', voice_status: 'unvoiced'};
+  assert.deepEqual(comicVoicePairs(dictionary([[guid, '']])), []);
+  assert.deepEqual(comicVoicePairs(dictionary([[guid, 'unrelated'], ['b'.repeat(32), '']])), []);
+  const pairs = comicVoicePairs(dictionary([[guid, source], ['b'.repeat(32), '']]));
+  assert.deepEqual(pairs, [{text_id: `Comic_${guid}`, source}, silent]);
+  assert.equal(uniqueComicLinks([...pairs, {...silent, text_id: 'Comic_' + 'c'.repeat(32)}]).length, 3);
+  assert.deepEqual(uniqueComicLinks([silent, {...silent, source}]), []);
+});

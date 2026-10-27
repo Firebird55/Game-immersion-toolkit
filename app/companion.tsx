@@ -7,6 +7,7 @@ import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
+import {LanguageSetup} from './language-setup';
 import {GamePicker, useTargetLanguage} from './game-picker';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -48,7 +49,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
 type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
+  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | 'riseofthetombraider' | 'shadowofthetombraider';
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -70,6 +71,8 @@ type Settings = {
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   beyond_region: CaptureRegion;
   heavyrain_region: CaptureRegion;
+  riseofthetombraider_region: CaptureRegion;
+  shadowofthetombraider_region: CaptureRegion;
   starrail_region: CaptureRegion;
   starrail_player_voice: 'unconfigured' | 'female' | 'male';
   genshin_region: CaptureRegion;
@@ -89,13 +92,14 @@ type Settings = {
   fuzzy_threshold: number;
   auto_start: boolean;
   save_unmatched: boolean;
+  capture_unvoiced: boolean;
 };
 type CaptureStatus = {
   visible_text_ids: string[];
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | 'riseofthetombraider' | 'shadowofthetombraider' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -118,7 +122,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
+  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | 'riseofthetombraider' | 'shadowofthetombraider';
   source_ocr: string;
   source_language?:string; source_locale?:string; source_text?:string; translation_text?:string; translation_locale?:string; audio_locale?:string;
   english: string;
@@ -129,6 +133,8 @@ type TranscriptLine = {
   ambiguous: boolean;
   channel: 'dialogue' | 'gameplay' | 'tip' | 'cinematic';
   voiced: boolean;
+  voice_status?: 'voiced' | 'unvoiced' | 'unavailable' | 'unknown';
+  dialogue_kind?: string | null;
   has_audio: boolean;
   audio_pending?: boolean;
   audio_source?: 'original' | 'recording';
@@ -140,7 +146,7 @@ function isComicLine(line: TranscriptLine) {
   return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}(?::[MF])?$/i.test(line.text_id);
 }
 function isReadableLine(line: TranscriptLine) {
-  return line.voiced || line.game === 'hito' || isComicLine(line);
+  return line.voiced || line.voice_status === 'unvoiced' || line.game === 'hito' || isComicLine(line);
 }
 type UpdateStatus = {
   state: string;
@@ -166,7 +172,7 @@ type StatusPayload = {
 };
 type CompanionSnapshot = {context:StateContext; status:StatusPayload; lines:TranscriptLine[]; lexirise:LexiriseStatus};
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
+type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | 'riseofthetombraider' | 'shadowofthetombraider';
 const GAME_NAMES: Record<GameId, string> = {
   zzz: 'Zenless Zone Zero',
   pragmata: 'PRAGMATA',
@@ -179,6 +185,8 @@ const GAME_NAMES: Record<GameId, string> = {
   starrail: 'Honkai: Star Rail',
   genshin: 'Genshin Impact',
   endfield: 'Arknights: Endfield',
+  riseofthetombraider: 'Rise of the Tomb Raider',
+  shadowofthetombraider: 'Shadow of the Tomb Raider',
   hito: "Hito's World",
 };
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
@@ -191,7 +199,7 @@ const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game
 }) {
   const uiText=useInterfaceTranslation();
   if (game === 'hito') return null;
-  const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${GAME_NAMES[game]}`;
+  const title = sent ? 'Already sent to Lexirise' : `Save sentence to Lexirise · ${GAME_NAMES[game]}`;
   return <button type="button" className={`lexirise-send ${sent ? 'is-sent' : ''}`} translate="no"
     disabled={disabled || busy || sent} onClick={onClick} title={title} aria-label={title} aria-busy={busy}>
     {busy ? <Loader2 size={16} className="animate-spin" /> : sent ? <Check size={16} /> : <Send size={16} />}
@@ -387,7 +395,7 @@ const TranscriptRow = memo(function TranscriptRow({
         <LexiriseButton
           sent={sentToLexirise}
           busy={sendingRef === ref}
-          disabled={!canUseLexirise || !line.has_audio || (sendingRef !== null && sendingRef !== ref)}
+          disabled={!canUseLexirise || !(line.has_audio || line.voice_status === 'unvoiced') || (sendingRef !== null && sendingRef !== ref)}
           game={line.game}
           onClick={() => onSendToLexirise('line', line.id)}
           compact
@@ -738,7 +746,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'starrail' ? 'starrail_region' : selectedGame === 'genshin' ? 'genshin_region' : selectedGame === 'endfield' ? 'endfield_region' : selectedGame === 'heavyrain' ? 'heavyrain_region' : selectedGame === 'beyond' ? 'beyond_region' : selectedGame === 'nte' ? 'nte_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
+      const regionKey = selectedGame === 'riseofthetombraider' ? 'riseofthetombraider_region' : selectedGame === 'shadowofthetombraider' ? 'shadowofthetombraider_region' : selectedGame === 'starrail' ? 'starrail_region' : selectedGame === 'genshin' ? 'genshin_region' : selectedGame === 'endfield' ? 'endfield_region' : selectedGame === 'heavyrain' ? 'heavyrain_region' : selectedGame === 'beyond' ? 'beyond_region' : selectedGame === 'nte' ? 'nte_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
         ? 'tip_region'
         : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
       const value = percent / 100;
@@ -773,7 +781,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield', 'riseofthetombraider', 'shadowofthetombraider'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -808,17 +816,17 @@ function CompanionClient() {
     sendingStudy.current = true;
     const ref = `${kind}:${id}`;
     setSendingRef(ref);
-    setStudyMessage('Sending sentence and voice to Lexirise…');
+    setStudyMessage('Saving sentence to Lexirise…');
     try {
       const response = await fetch(`${API_URL}/api/lines/${id}/lexirise`, {
         method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':scope.account },
       });
-      const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
+      const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean; audio_included?: boolean };
       if (!isCurrent()) return;
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
       pollOwner.current?.reset(); // A previously read ledger cannot erase this completed export.
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
-      setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
+      setStudyMessage(`${result.already_sent ? 'Already saved' : result.audio_included === false ? 'Sentence saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
     } catch (error) {
       if (isCurrent()) setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
     } finally {
@@ -827,10 +835,10 @@ function CompanionClient() {
     }
   }, []);
 
-  function studyButton(kind: 'line', id: number | string, game: GameId, hasAudio: boolean, compact = false) {
+  function studyButton(kind: 'line', id: number | string, game: GameId, canExport: boolean, compact = false) {
     const ref = `${kind}:${id}`;
     return <LexiriseButton sent={!!lexirise.sent[ref]} busy={sendingRef === ref}
-      disabled={!online || !lexirise.configured || !hasAudio || (sendingRef !== null && sendingRef !== ref)}
+      disabled={!online || !lexirise.configured || !canExport || (sendingRef !== null && sendingRef !== ref)}
       game={game} onClick={() => void sendToLexirise(kind, id, game)} compact={compact} />;
   }
 
@@ -845,7 +853,7 @@ function CompanionClient() {
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
   const manualRegion = draftSettings
-    ? (selectedGame === 'starrail' ? draftSettings.starrail_region : selectedGame === 'genshin' ? draftSettings.genshin_region : selectedGame === 'endfield' ? draftSettings.endfield_region : selectedGame === 'heavyrain' ? draftSettings.heavyrain_region : selectedGame === 'beyond' ? draftSettings.beyond_region : selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
+    ? (selectedGame === 'riseofthetombraider' ? draftSettings.riseofthetombraider_region : selectedGame === 'shadowofthetombraider' ? draftSettings.shadowofthetombraider_region : selectedGame === 'starrail' ? draftSettings.starrail_region : selectedGame === 'genshin' ? draftSettings.genshin_region : selectedGame === 'endfield' ? draftSettings.endfield_region : selectedGame === 'heavyrain' ? draftSettings.heavyrain_region : selectedGame === 'beyond' ? draftSettings.beyond_region : selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
         ? draftSettings.tip_region
         : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
     : null;
@@ -880,7 +888,7 @@ function CompanionClient() {
       <header className="topbar">
         <div>
           <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
-          <h1>{uiText("Proxy Transcript")}</h1>
+          <h1>Game immersion toolkit</h1>
           {!archivedHistory && <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>}
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
@@ -891,7 +899,7 @@ function CompanionClient() {
 
       <div className="game-tabs">
         <span><Gamepad2 size={15} /> {uiText("Games & Languages")}</span>
-        {status?.capture.active_game && <small>{uiText("Capturing")}{GAME_NAMES[status.capture.active_game]}</small>}
+        {status?.capture.active_game && <small>{uiText("Capturing")} {GAME_NAMES[status.capture.active_game]}</small>}
         <div className="reading-controls" aria-label={uiText("Chinese reading options")}>
         <label>{uiText("Reading")}<select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
@@ -905,6 +913,11 @@ function CompanionClient() {
       <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
+
+      {!archivedHistory && online && !status?.selected_languages?.[selectedGame]?.source_locale && (capture?.phase === 'needs_language_setup' || !mapStatus?.ready) && <div className="game-start-card">
+        <div><h2>Prepare {GAME_NAMES[selectedGame]} for play</h2><p>Choose the subtitles and original voice you use in the game, then prepare them here. Preparation continues in the background.</p></div>
+        <LanguageSetup game={selectedGame} compact targetLanguage={gamePicker.target} showAccount={false} onConfigure={() => {}} onChanged={() => void loadSnapshot()}/>
+      </div>}
 
       <section className="status-strip" aria-label={uiText("Companion status")}>
         <div>
@@ -924,7 +937,7 @@ function CompanionClient() {
         </div>
       </section>
 
-      {!archivedHistory && updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
+      {!archivedHistory && updateStatus && ['checking','updating','retrying','error'].includes(updateStatus.state) && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
         <div className="update-progress-copy">
           <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
           <strong>{uiText("Game language updates")}</strong>
@@ -944,7 +957,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -957,21 +970,21 @@ function CompanionClient() {
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
             {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} />}
             <div className="current-actions">
-              <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
+              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
-              </button>
+              </button>}
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
               </button>
-              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio)}
+              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio || latestLine.voice_status === 'unvoiced')}
             </div>
           </div>
         ) : (
           <div className="current-empty">
             <ScanLine size={28} />
             <div>
-              <strong>{selectedGame === 'zzz' ? 'No confirmed subtitle on screen' : 'No confirmed voiced subtitle on screen'}</strong>
-              <p>{selectedGame === 'zzz' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
+              <strong>{uiText('Waiting for dialogue')}</strong>
+              <p>{uiText('Matched game dialogue appears here. Previous lines stay in History.')}</p>
             </div>
           </div>
         )}
@@ -1100,11 +1113,10 @@ function CompanionClient() {
       </footer>
 
       {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:"zh"} />}
-      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-setup-dialog" showCloseButton={false}><button type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Manage the account on this PC and the destination for saved sentences.</DialogDescription></DialogHeader>
+      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Choose your account and where sentences are saved.</DialogDescription></DialogHeader>
         <AccountSwitcher onChanged={() => void loadSnapshot()}/>
         {selectedGame !== 'hito' && <details open><summary>Sentence destination · {GAME_NAMES[selectedGame]}</summary><GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} /></details>}
-        <Button onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
-        <p>Only Save to Lexirise changes remote preferences. Reading appearance is available from Reading options.</p>
+        <Button className="account-preferences" variant="outline" onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
       </DialogContent></Dialog>}
       {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
 
@@ -1118,6 +1130,10 @@ function CompanionClient() {
           </DialogHeader>
 
           <p>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
+          {draftSettings && <label className="toolkit-setup-checkbox"><input type="checkbox" checked={draftSettings.capture_unvoiced ?? false}
+            onChange={event => setDraftSettings(current => current ? {...current, capture_unvoiced: event.target.checked} : current)} /> {uiText('Include unvoiced dialogue')}
+          </label>}
+          <p className="toolkit-setup-note">{uiText('Applies to all games. Includes text the game identifies as unvoiced; missing voice files are reported separately. Saved history is kept when this is off.')}</p>
           {selectedGame === 'zzz' && draftSettings && <label>{uiText("Proxy voice")}<select aria-label={uiText("Proxy voice")} value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, zzz_proxy_voice: event.target.value as Settings['zzz_proxy_voice'] } : current)}>
               <option value="unconfigured">{uiText("Choose the Proxy for variant lines")}</option>

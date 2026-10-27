@@ -86,7 +86,8 @@ def test_endfield_radio_and_narration_use_their_explicit_text_and_voice_referenc
     rows = endfield.authored_dialogues(Catalog())
     assert set(rows) == {'dlg_one', 'radio_one', 'black_one'}
     assert rows['radio_one']['dialogText'] == {'id': -2}
-    assert rows['black_one'] == {'dialogText': {'id': 3}, 'audioOverride': 'au_black_one'}
+    assert rows['black_one'] == {'dialogText': {'id': 3}, 'audioOverride': 'au_black_one',
+                                 'dialogue_kind': 'narration', 'channels': ['cinematic', 'dialogue']}
 
 
 def test_starrail_player_branches_remain_distinct_and_movies_are_not_whole_track_substitutes():
@@ -95,9 +96,12 @@ def test_starrail_player_branches_remain_distinct_and_movies_are_not_whole_track
     voices = [{'VoiceID': 7, 'VoicePath': 'scene', 'IsPlayerInvolved': True},
               {'VoiceID': 8, 'VoicePath': 'movie', 'VoiceType': 'Cutscene'}]
     links = starrail.sentence_links(sentences, voices, 'en')
-    assert {row['player_voice'] for row in links} == {'male', 'female'}
-    assert {row['source'] for row in links} == {'English/voice/scene_m.wem', 'English/voice/scene_f.wem'}
-    assert {row['id'] for row in links} == {'1_m', '1_f'}
+    voiced = [row for row in links if row['source']]
+    assert {row['player_voice'] for row in voiced} == {'male', 'female'}
+    assert {row['source'] for row in voiced} == {'English/voice/scene_m.wem', 'English/voice/scene_f.wem'}
+    assert {row['id'] for row in voiced} == {'1_m', '1_f'}
+    movie, = [row for row in links if row['id'] == '2']
+    assert movie['source'] is None and movie['voice_status'] == 'unavailable'
 
 
 @pytest.mark.parametrize('reader', [genshin, starrail, endfield])
@@ -138,8 +142,9 @@ def test_endfield_exact_authored_source_path_binds_only_the_selected_language(tm
     assert calls[0][-1]['language'] == endfield.VOICE_LOCALES[locale]
     with pytest.raises(ValueError, match='locale'):
         endfield.extract_voice(tmp_path, {**row['audio'], 'locale': 'ja' if locale != 'ja' else 'en'}, Path('reader.dll'), tmp_path)
-    assert not endfield.dialogue_records({'dlg_test': {'audioOverride': 'not_authored', 'dialogText': {'id': -123}}},
+    unresolved, = endfield.dialogue_records({'dlg_test': {'audioOverride': 'not_authored', 'dialogText': {'id': -123}}},
         paths, {locale: {'-123': 'Synthetic study text.'}}, locale, {identity: entry})
+    assert unresolved['audio'] is None and unresolved['voice_status'] == 'unavailable'
 
 
 def test_endfield_ambiguous_and_placeholder_source_paths_cannot_bind():

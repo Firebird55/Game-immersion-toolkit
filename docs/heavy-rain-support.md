@@ -1,5 +1,8 @@
 # HEAVY RAIN
 
+The [2026-10-27 narrative audit](game-audits/heavyrain.md) documents the current
+reader's voiced/unvoiced inventory, update safeguards and remaining format gaps.
+
 Select the installed PC game in Setup, choose a learning language under
 **Languages**, and explicitly prepare its lookup table. The reader supports
 English, French, Italian, German, Spanish (Spain), Dutch, Japanese, Polish,
@@ -25,7 +28,10 @@ confirmed caption from the same authored localization group. This context
 expires after twelve seconds and clears across account, language, index,
 window, calibration, menu and capture-state changes. Ambiguity within that
 group remains unresolved. Overlapping speakers confirm and store their own
-performances independently. Document text above the subtitle lane is excluded.
+performances independently. Document text above the subtitle lane is excluded
+from voiced matching. The separate **Include unvoiced dialogue** option captures
+only exact verified text-only entries, including authored choice/thought labels;
+it does not turn missing voices or image-only props into unvoiced dialogue.
 
 The tested installation contains 3,556 mapped Dutch performances, with 3,555
 aligned Simplified Chinese paragraphs. All 3,556 Dutch originals pass actual

@@ -32,6 +32,8 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [Honkai: Star Rail](docs/languages/nl.md#starrail) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 13 |
 | [Genshin Impact](docs/languages/nl.md#genshin) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 15 |
 | [Arknights: Endfield](docs/languages/nl.md#endfield) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 14 |
+| [Rise of the Tomb Raider](docs/languages/nl.md#riseofthetombraider) | Engels · Frans · Duits · Italiaans · Spaans (Latijns-Amerika) · Spaans (Spanje) · Japans · Portugees (Brazilië) · Pools · Russisch · Koreaans · Chinees (traditioneel) · Chinees (vereenvoudigd) · Arabisch | 15 |
+| [Shadow of the Tomb Raider](docs/languages/nl.md#shadowofthetombraider) | Engels · Frans · Duits · Italiaans · Spaans (Latijns-Amerika) · Spaans (Spanje) · Japans · Portugees (Brazilië) · Pools · Russisch · Chinees (traditioneel) · Chinees (vereenvoudigd) · Arabisch | 14 |
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

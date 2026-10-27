@@ -27,6 +27,8 @@ class PragmataRecord:
     source: str
     speaker_code: str | None = None
     audio: dict[str, object] | None = None
+    voice_status: str = 'unknown'
+    dialogue_kind: str | None = None
 
 
 class PragmataTextIndex:

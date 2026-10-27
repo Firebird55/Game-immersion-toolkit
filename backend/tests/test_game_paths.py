@@ -41,6 +41,9 @@ def make_game(tmp_path, game):
         (root / "Resources/GameData").mkdir(parents=True)
         (root / "Resources/BigFile_WIN.idx").touch()
         (root / "Resources/GameData/GameData_WIN.idx").touch()
+    elif game in {"riseofthetombraider", "shadowofthetombraider"}:
+        (root / ("ROTTR.exe" if game == "riseofthetombraider" else "SOTTR.exe")).touch()
+        (root / "bigfile.000.tiger").touch()
     elif game == "honkai3":
         (root / "BH3.exe").touch()
         (root / "BH3_Data/StreamingAssets").mkdir(parents=True)
@@ -50,7 +53,7 @@ def make_game(tmp_path, game):
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "heavyrain"])
+@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "heavyrain", "riseofthetombraider", "shadowofthetombraider"])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()

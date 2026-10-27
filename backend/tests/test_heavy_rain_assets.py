@@ -18,13 +18,13 @@ def string(value):
     return ints(len(data)) + data
 
 
-def compact_localization(*, declared=True, pointer=0, source='HOL'):
+def compact_localization(*, declared=True, pointer=0, source='HOL', source_voice=42, flags=1):
     deps = ints(4091, 42) + b'\1' + bytes(8) if declared else b''
     body = b'COM_CONT' + ints(3, int(declared)) + deps
     body += b'LOADCONT' + ints(2) + b'LOCALIZ_' + ints(5) + b'\1' + ints(2)
-    for code, text, voice in [(source, 'Een synthetische zin.', 42), ('SCH', '合成测试句子。', 0)]:
+    for code, text, voice in [(source, 'Een synthetische zin.', source_voice), ('SCH', '合成测试句子。', 0)]:
         encoded = text.encode('utf-16-be')
-        rows = ints(101, 0, len(encoded) // 2, 1, pointer, 4091 if voice else 0, voice)
+        rows = ints(101, 0, len(encoded) // 2, flags, pointer, 4091 if voice else 0, voice)
         body += b'\2' + string(code) + ints(1) + rows + ints(len(encoded)) + encoded
     return body
 
@@ -156,8 +156,9 @@ def test_each_selected_voice_language_keeps_official_source_and_target_distinct(
 
 def test_original_voice_language_and_conflicting_banks_are_not_guessed(tmp_path):
     installation(tmp_path, language=0)
-    with pytest.raises(ValueError, match='original nl'):
-        assets.index_language(tmp_path, tmp_path / 'cache', 'nl', ['zh-hans'])
+    missing = assets.index_language(tmp_path, tmp_path / 'cache', 'nl', ['zh-hans'])
+    assert missing['records'][0]['voice_status'] == 'unavailable'
+    assert missing['records'][0]['audio'] is None
     raw = installation(tmp_path)
     write_archive(tmp_path / assets.VOICE_INDEXES[1], [(4091, 42, raw[:-1])])
     with pytest.raises(ValueError, match='Conflicting'):
