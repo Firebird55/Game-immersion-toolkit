@@ -85,16 +85,34 @@ matching filenames. The binary token definitions are documented by the
 
 Installed blocks are opened read-only and only selected bundle ranges are read.
 Preparation remains outside capture. Cache signatures include the installed
-fingerprint, metadata and reader code; index reader revision 4 forces older
+fingerprint, metadata and reader code; index reader revision 5 forces older
 language snapshots to refresh. A malformed recognized Odin stream fails the
 preparation instead of publishing its partial records. Every ongoing row is
 checked against a supported schema, rather than trusting only the first row.
 Known extraction failures retain the prior prepared index and return the
 actionable ZZZ format/update error provided by the preparation layer.
 
-Missing scene paths are reported in preparation coverage and its user-facing
-message. They may represent optional resources, stale metadata or a version
-mismatch; the audit did not prove which explanation applies to each missing path.
+Missing scene paths are reported as coverage notes, separately from preparation
+failures. A follow-up compared all 31,072 authored dialogue paths with both
+installed resource asset tables: the hotfix catalog has 570,614 asset identities
+and the base catalog 565,107. None of the 333 hotfix-unmatched paths occurs in the
+base table either. They cover 144 Bubble, 21 BubbleStory, 142 Chat, three ChatPlus
+and 23 GalGame paths, referenced by 313 metadata rows. Case/prefix/extension
+variants tested during diagnosis supplied no additional exact matches. No
+filename similarity was promoted into a subtitle or voice binding. The reason
+for each missing reference remains unestablished; it is not evidence that the
+whole index failed or that the user's voice pack is absent.
+
+That comparison exposed a separate catalog compatibility defect. Unity aligns
+arrays after the packed nine-byte block records. The installed base catalog's
+10,470 blocks require two padding bytes before its dependency array; the hotfix
+catalog's 10,532 blocks happen to need none. The reader now validates and consumes
+zero alignment padding before each array. Both complete native catalogs parse,
+including all 778,848 base and 784,390 hotfix bundle dependency/reference slices
+and their exact object boundaries. Existing synthetic catalog coverage now
+exercises all four alignment cases and rejects corrupt padding. This fixes
+catalog-format handling without inventing any of the 333 absent path mappings.
+
 Unknown objects containing dialogue fields are counted and produce an explicit
 format-update warning. No such unsupported node remained in this extraction.
 Optional cutscene resources remain a limitation.
