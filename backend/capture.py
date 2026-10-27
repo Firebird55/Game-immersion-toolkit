@@ -357,14 +357,17 @@ class CaptureService:
                 window = self._picture_window(window, getattr(settings, f"{profile.id}_picture_area"))
             region = getattr(settings, f"{profile.id}_region")
             index = self.game_indexes[profile.id]
+            index.capture_unvoiced = settings.capture_unvoiced
             index.player_voice = getattr(settings, f"{profile.id}_player_voice", "unconfigured") if profile.id in {"starrail", "genshin", "endfield"} else settings.cyberpunk_v_voice if profile.id == "cyberpunk" else settings.nte_player_voice if profile.id == 'nte' else getattr(settings, f"{profile.id}_rover_voice", "unconfigured")
             return self._scan_pragmata(window, region, engine, epoch, now, game=profile.id)
         if profile.id == "pragmata":
+            self.pragmata.capture_unvoiced = settings.capture_unvoiced
             return self._scan_pragmata(window, profile.subtitle_region, engine, epoch, now)
         if profile.id == "hito":
             return self._scan_hito(window, engine, epoch, now)
 
         self.textmaps.player_voice = settings.zzz_proxy_voice
+        self.textmaps.capture_unvoiced = settings.capture_unvoiced
 
         crop_bounds = self._region_bounds(window, settings.region)
         # Normal 3D interactions and voiced visual-novel scenes use nearly the
@@ -448,11 +451,9 @@ class CaptureService:
                 threshold=max(settings.fuzzy_threshold, 88),
                 channel="cinematic",
             )
-            # Timeline comics can have official bilingual text without an
-            # authored voice link. Keep those bubbles independently of audio.
             cinematic_matches = [
                 item for item in cinematic_matches
-                if self._mapped_voice(item) or (item.game == "zzz" and is_comic_text_id(item.text_id))
+                if self._capturable_match(item)
             ]
 
         dialogue_match = (
@@ -478,9 +479,9 @@ class CaptureService:
         # comic and top-right channels remain independently eligible.
         unvoiced_gameplay_dialogue = bool(
             dialogue_match and dialogue_box_layout and not self._visual_novel_layout
-            and not self._mapped_voice(dialogue_match)
+            and not self._capturable_match(dialogue_match)
         )
-        match = None if unvoiced_gameplay_dialogue or not self._mapped_voice(raw_match) else raw_match
+        match = None if unvoiced_gameplay_dialogue or not self._capturable_match(raw_match) else raw_match
         if self._is_cinematic_fragment(match, cinematic_matches):
             match = None
         blocked_unvoiced_ids = (
@@ -518,7 +519,7 @@ class CaptureService:
                     )
             phase = "matched"
             message = (
-                "Voiced gameplay subtitle matched"
+                "Official gameplay subtitle matched"
                 if match_channel == "gameplay"
                 else "Official bilingual line matched"
             )
@@ -544,7 +545,7 @@ class CaptureService:
             tip_match = None if excluded_screen else self.textmaps.match_lines(
                 tip_lines, threshold=settings.fuzzy_threshold, channel="tip"
             )
-            if not self._mapped_voice(tip_match) or self._is_cinematic_fragment(tip_match, cinematic_matches):
+            if not self._capturable_match(tip_match) or self._is_cinematic_fragment(tip_match, cinematic_matches):
                 tip_match = None
             tip_key = (
                 f"tip\0{tip_match.text_id}\0{tip_match.english}"
@@ -704,7 +705,11 @@ class CaptureService:
         raw_text = " ".join(lines)
         confidence = self._confidence(response)
         index = self.pragmata if game == "pragmata" else self.game_indexes.get(game)
-        if index is None or not index.ready or (game != "pragmata" and index.audio_count == 0):
+        settings = self.settings.get()
+        if index is not None:
+            index.capture_unvoiced = settings.capture_unvoiced
+        if index is None or not index.ready or (game != "pragmata" and index.audio_count == 0
+                and not (settings.capture_unvoiced and index.status().get('unvoiced_count', 0))):
             self._tracker.observe(None)
             status = index.status() if index else {"message": "PRAGMATA index unavailable"}
             self._update_snapshot(
@@ -725,7 +730,6 @@ class CaptureService:
             )
             return _ScanOutcome([])
 
-        settings = self.settings.get()
         simultaneous = getattr(index, 'match_simultaneous_lines', None) if game == 'beyond' else None
         parallel = simultaneous(lines, max(84.0, settings.fuzzy_threshold)) if simultaneous else None
         match = (max(parallel, key=lambda hit: (hit.score, len(hit.source_ocr)), default=None) if parallel is not None else
@@ -751,12 +755,12 @@ class CaptureService:
                  getattr(index, '_signature', None), getattr(self, 'context_scope', lambda: None)()),
                 settings.stable_frames, bool(main_response.get('dialogue_menu')), primary=contextual or match,
                 threshold=max(84.0, settings.fuzzy_threshold), matches=parallel)
-            missing_voice = bool(quantic_matches) and not any(self._mapped_voice(hit) for hit in quantic_matches)
-            quantic_matches = [hit for hit in quantic_matches if self._mapped_voice(hit)]
+            missing_voice = bool(quantic_matches) and not any(self._capturable_match(hit) for hit in quantic_matches)
+            quantic_matches = [hit for hit in quantic_matches if self._capturable_match(hit)]
             match = max(quantic_matches, key=lambda hit: hit.score, default=None)
         if epoch != self._scan_epoch:
             return _ScanOutcome([])
-        if not self._mapped_voice(match):
+        if not self._capturable_match(match):
             match = None
         self._observe_visible_matches(game, [hit.text_id for hit in quantic_matches] if game in {'beyond', 'heavyrain'} else [match.text_id] if match else [], monotonic_now)
         emitted: list[TranscriptLine] = []
@@ -770,7 +774,7 @@ class CaptureService:
         elif game in {'beyond', 'heavyrain'}:
             emitted = self._emit_quantic_matches(quantic_matches, monotonic_now, now)
             phase = 'matched'
-            message = f'{GAME_PROFILES[game].name} subtitles matched to original game voices'
+            message = f'{GAME_PROFILES[game].name} official subtitles matched'
             self._update_snapshot(match_reason='captured' if emitted else 'confirming_or_already_captured')
         else:
             key = f"{game}\0{match.text_id}\0{match.english}"
@@ -789,7 +793,7 @@ class CaptureService:
                     observed_at = self._visible_match_started[game][1]
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
-            message = f"{GAME_PROFILES[game].name} subtitle matched to original game voice"
+            message = f"{GAME_PROFILES[game].name} {'unvoiced dialogue' if match.voice_status == 'unvoiced' else 'subtitle with original voice'} matched"
 
         self._tip_tracker.observe(None)
         if game in {'beyond', 'heavyrain'} and match is None:
@@ -995,7 +999,7 @@ class CaptureService:
                 if len(normalize_subtitle(group)) < minimum:
                     continue
                 match = self.game_indexes[game].match_lines([group], threshold=100, exact_only=True)
-                if match and match.kind == "exact" and self._mapped_voice(match):
+                if match and match.kind == "exact" and self._capturable_match(match):
                     matches[match.text_id] = match
         self._observe_visible_matches(channel, list(matches), monotonic_now)
         emitted = []
@@ -1024,7 +1028,7 @@ class CaptureService:
                                   f"last_{snapshot_prefix}_match_score": max((m.score for m in matches.values()), default=None)},
                               visible_text_ids=self._visible_text_ids(monotonic_now))
         if matches:
-            self._update_snapshot(phase="matched", message=f"{GAME_PROFILES[game].name} {'story card' if cinematic else 'extra subtitle'} matched to original game voice")
+            self._update_snapshot(phase="matched", message=f"{GAME_PROFILES[game].name} official {'story card' if cinematic else 'extra subtitle'} matched")
         return emitted
 
     def _scan_hito(
@@ -1209,10 +1213,17 @@ class CaptureService:
         return self.game_voice_assets.get(game)
 
     def _mapped_voice(self, match: TextMatch | None) -> bool:
-        if match is None:
+        if match is None or match.voice_status == 'unvoiced':
             return False
         assets = self._assets_for(match.game)
         return bool(assets and getattr(assets, 'locale', match.source_locale) == match.source_locale and assets.has_variant(match.text_id, match.english))
+
+    def _capturable_match(self, match: TextMatch | None) -> bool:
+        if match is None:
+            return False
+        if match.voice_status == 'unvoiced':
+            return self.settings.get().capture_unvoiced and match.kind == 'exact'
+        return self._mapped_voice(match)
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
         self._visible_text_by_channel[channel] = (now, text_ids)
@@ -1322,11 +1333,13 @@ class CaptureService:
         ))
 
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
-        assets = self._assets_for(line.game)
-        if not assets or getattr(assets, 'locale', line.source_locale) != line.source_locale or not assets.has_variant(line.text_id, line.english):
-            if line.is_comic and self._event_loop is not None:
+        if line.voice_status == 'unvoiced':
+            if self._event_loop is not None:
                 asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
                 self._prune_history()
+            return
+        assets = self._assets_for(line.game)
+        if not assets or getattr(assets, 'locale', line.source_locale) != line.source_locale or not assets.has_variant(line.text_id, line.english):
             return
         # Publish the official bilingual subtitle immediately, independently of
         # output devices, game volume, or the time needed to decode the WEM.

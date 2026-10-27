@@ -72,3 +72,43 @@ def test_bad_refresh_preserves_previous_language_snapshot(tmp_path):
     (tmp_path / 'textmap.json').write_text('{bad', encoding='utf-8')
     assert not value.load() and value.ready
     assert value.match_lines(['Stay close. I will protect you.'])
+
+
+def test_unvoiced_toggle_requires_explicit_evidence_and_exact_text(tmp_path):
+    rows = []
+    for status, text in [('voiced', 'Follow the guide into the station.'),
+                         ('unvoiced', 'The guide left a message for you.'),
+                         ('unavailable', 'The guide is waiting by the station.'),
+                         ('unknown', 'A note about the station.')]:
+        rows.append({'text_id': 'cyberpunk:' + status, 'english': text, 'chinese': '',
+            'source_locale': 'en', 'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en',
+            'audio': {'file': 'station.wem'} if status == 'voiced' else None,
+            'voice_status': status, 'dialogue_kind': 'conversation', 'channels': ['dialogue']})
+    value = index(tmp_path, 'en', rows)
+    assert value.match_text(rows[0]['source_text']).voice_status == 'voiced'
+    assert value.match_text(rows[1]['source_text']) is None
+    value.capture_unvoiced = True
+    silent = value.match_text(rows[1]['source_text'])
+    assert silent.voice_status == 'unvoiced' and silent.dialogue_kind == 'conversation'
+    assert value.match_text('The guide left a mesage for you.') is None
+    assert value.match_text(rows[1]['source_text'], channel='tip') is None
+    assert all(value.match_text(row['source_text']) is None for row in rows[2:])
+    assert value.status()['voice_counts'] == dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 1)
+    assert value.status()['dialogue_coverage']['conversation']['unvoiced'] == 1
+    value.capture_unvoiced = False
+    assert value.match_text(rows[1]['source_text']) is None
+    # A malformed replacement must never downgrade an audio binding to silence.
+    rows[0]['voice_status'] = 'unvoiced'
+    value.path.write_text(json.dumps({'format': 2, 'game': 'cyberpunk', 'source_locale': 'en', 'records': rows}))
+    assert not value.load() and value.match_text(rows[0]['source_text']).voice_status == 'voiced'
+
+
+def test_unvoiced_text_cannot_disambiguate_a_simultaneous_voice(tmp_path):
+    text = 'You should come over here immediately.'
+    common = dict(english=text, chinese='', source_locale='en', source_text=text,
+                  texts={'en': text}, audio_locale='en')
+    value = index(tmp_path, 'en', [dict(common, text_id='cyberpunk:spoken', audio={'file': 'one.wem'}),
+                                  dict(common, text_id='cyberpunk:silent', audio=None, voice_status='unvoiced')])
+    assert value.match_text(text).text_id == 'cyberpunk:spoken'
+    value.capture_unvoiced = True
+    assert value.match_text(text) is None

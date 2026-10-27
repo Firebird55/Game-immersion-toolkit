@@ -88,6 +88,7 @@ class AppSettings(BaseModel):
     fuzzy_threshold: float = Field(default=82.0, ge=50, le=100)
     auto_start: bool = True
     save_unmatched: bool = False
+    capture_unvoiced: bool = False
 
     @field_validator("process_names", "window_title_contains")
     @classmethod
@@ -103,6 +104,8 @@ class LanguageContext(BaseModel):
     translation_text: str | None = None
     audio_locale: str = 'zh-Hans'
     texts: dict[str, str] = Field(default_factory=dict)
+    voice_status: Literal['voiced', 'unvoiced', 'unavailable', 'unknown'] = 'unknown'
+    dialogue_kind: str | None = None
 
     @model_validator(mode='after')
     def legacy_language_defaults(self):

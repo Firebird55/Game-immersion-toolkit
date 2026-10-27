@@ -1164,7 +1164,7 @@ def get_lines(
     return [
         presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
         for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
-        if line.game == "hito" or ((line.voiced or line.is_comic) and (
+        if line.game == "hito" or ((line.voiced or line.is_comic or line.voice_status == 'unvoiced') and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
             else runtime.game_indexes[line.game].is_capture_text(line.text_id, line.english, line.channel)

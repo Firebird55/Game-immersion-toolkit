@@ -87,11 +87,14 @@ def records(game, links, tables, locale, entries):
         texts = {code: value for code, value in texts.items() if value}
         if not texts.get(locale):
             continue
-        audio = audio_binding(link['source'], entries, locale)
+        audio = audio_binding(link['source'], entries, locale) if link.get('source') else None
+        voice_status = ('voiced' if audio else 'unavailable' if link.get('source')
+                        else link.get('voice_status', 'unknown'))
         result.append({'text_id': game + ':' + str(link['id']), 'source_locale': locale,
             'source_text': texts[locale], 'texts': texts, 'english': texts.get('en', ''),
             'chinese': texts.get('zh-Hans', ''), 'audio_locale': audio_locale(locale), 'audio': audio,
-            'player_voice': link.get('player_voice'), 'channels': link.get('channels', ['dialogue'])})
+            'player_voice': link.get('player_voice'), 'channels': link.get('channels', ['dialogue']),
+            'voice_status': voice_status, 'dialogue_kind': link.get('dialogue_kind')})
     return result
 
 
