@@ -10,7 +10,7 @@ from scripts import index_pragmata_assets as reader
 from .pragmata_audio import build_sound_id_audio_map, cutscene_audio_for_bank, read_tmlfsm_dialogue_segments
 from .languages import resolve_locale
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = ('en', 'fr', 'it', 'de', 'es-ES', 'es-419', 'pt-BR', 'ru', 'zh-Hans', 'ja', 'ko')
 VOICE_LOCALES = dict(zip(SUPPORTED_LOCALES, ('en', 'fr', 'it', 'de', 'es', 'es419', 'ptbr', 'ru', 'zhcn', 'ja', 'ko')))
 # via.Language identifiers are stable format constants, not inferred positions.

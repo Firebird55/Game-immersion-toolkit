@@ -15,8 +15,9 @@ from .models import is_comic_text_id
 from .textmaps import display_text
 from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_hash
 from .zzz_cinematics import resolve_cinematic_links
+from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -186,13 +187,14 @@ def _links(root, directory, revision, progress):
             result = subprocess.run(['node', str(code / 'scripts/extract_voice_links.mjs'), str(root), str(tools), category, name],
                 cwd=code, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             if result.returncode:
-                raise ValueError('ZZZ authored scene extraction failed; check installed game files and tools.')
+                raise PreparationFailure('zzz_scene_catalog', 'ZZZ subtitle/voice links could not be read from the installed resource catalog. Update the toolkit and verify game files in the launcher, then retry preparation.')
             links.extend({**link, 'channels': ['cinematic'] if category == 'comic' else ['dialogue', 'cinematic']}
                          for link in json.loads((tools / name).read_text(encoding='utf-8')))
+        progress('Reading installed ZZZ cinematic timelines and their original voice events')
         result = subprocess.run(['node', str(code / 'scripts/extract_cinematic_links.mjs'), str(root), str(tools)],
             cwd=code, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if result.returncode:
-            raise ValueError('ZZZ cinematic extraction failed; previous complete language table retained.')
+            raise PreparationFailure('zzz_cinematic_catalog', 'ZZZ cinematic voice links could not be read from the installed resource catalog. Update the toolkit and verify game files in the launcher, then retry preparation.')
         old = {'signature': signature, 'links': links,
                'cinematic': json.loads((tools / 'scene-links-cinematic.json').read_text(encoding='utf-8'))}
         cache.parent.mkdir(parents=True, exist_ok=True)

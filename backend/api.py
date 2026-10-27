@@ -281,12 +281,20 @@ class Runtime:
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
                         '--targets', json.dumps(targets), '--output', str(output)]
                     if job:
-                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800, **subprocess_options())
+                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800,
+                                             progress_path=output.with_name('progress.json'), **subprocess_options())
                     else:
                         returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
-                        raise ValueError('Language extraction failed. Check installed text/voice packs and game tools; previous table retained.')
+                        from .preparation_errors import public_failure
+                        failure = public_failure(RuntimeError())
+                        try:
+                            failure = json.loads(output.with_name('failure.json').read_text(encoding='utf-8'))
+                            output.with_name('failure.log').replace(directory / 'last-preparation-error.log')
+                        except (OSError, ValueError):
+                            pass
+                        raise ValueError(failure['message'])
                     if job:
                         job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))
@@ -414,7 +422,12 @@ class Runtime:
         account = self.accounts.status()['active']
         locale = self.languages.selected(game, account)
         if not locale:
-            return 'No learning language selected for this game and account. Choose one in Setup → Languages.'
+            with self.languages.lock:
+                choice = self.languages.data.get('requested', {}).get(account, {}).get(game)
+                pending = dict(self.languages.jobs.get((game, choice['locale']), {})) if choice else {}
+            if choice:
+                return f"{choice['locale']}: {pending.get('message', 'Your requested language is queued for preparation.')}"
+            return 'Choose a game language and press Prepare language below. The toolkit will keep it ready automatically.'
         with self.languages.lock:
             job = dict(self.languages.jobs.get((game, locale), {}))
         if job.get('state') == 'preparing':

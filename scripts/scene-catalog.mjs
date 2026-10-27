@@ -1,7 +1,97 @@
 import {gunzipSync} from 'node:zlib';
 
-export function sceneCatalog(bytes) {
-  const data=gunzipSync(bytes,{maxOutputLength:128*1024*1024});
+// Recent ZZZ builds store the resource catalog as a Unity serialized object
+// inside the untagged mhy1 bundle. Older installations use a standalone gzip.
+// Read only the known metadata layout, never infer a catalog from text matches.
+export function unityResourceCatalog(cab) {
+  const data=Buffer.from(cab);
+  if(data.length<40||data.length>128*1024*1024||data.readUInt32BE(8)!==21||data[16]!==0)return null;
+  const dataStart=data.readUInt32BE(12),fileSize=data.readUInt32BE(4);
+  if(fileSize!==data.length||dataStart<20||dataStart>data.length)throw Error('Invalid Unity catalog bounds');
+  let p=data.indexOf(0,20)+1;
+  if(p<=20||p>100)throw Error('Invalid Unity version');
+  const need=n=>{if(p+n>dataStart)throw Error('Truncated Unity catalog metadata');};
+  need(9);p+=4;const typeTree=data[p++];
+  if(typeTree!==0)throw Error('Unsupported Unity catalog type tree');
+  const count=data.readUInt32LE(p);p+=4;
+  if(count>4096)throw Error('Invalid Unity type count');
+  const types=[];
+  for(let i=0;i<count;i++){
+    need(7);const type=data.readInt32LE(p);p+=7;types.push(type);
+    if(type===114){need(16);p+=16;}
+    need(16);p+=16;
+  }
+  need(4);const objects=data.readUInt32LE(p);p+=4;
+  if(objects>100000)throw Error('Invalid Unity object count');
+  let result=null;
+  for(let i=0;i<objects;i++){
+    p=(p+3)&~3;need(20);
+    const start=dataStart+data.readUInt32LE(p+8),size=data.readUInt32LE(p+12),type=data.readUInt32LE(p+16);p+=20;
+    if(type>=types.length||start+size>data.length)throw Error('Invalid Unity object bounds');
+    if(types[type]===6776977){
+      if(result)throw Error('Ambiguous Unity resource catalog');
+      result=serializedResourceCatalog(data.subarray(start,start+size));
+    }
+  }
+  return result;
+}
+
+export function serializedResourceCatalog(data) {
+  if(data.length<12||data.readUInt32LE(0)!==3||data.toString('ascii',4,7)!=='Res')throw Error('Unsupported resource catalog object');
+  let p=8;
+  const array=stride=>{
+    if(p+4>data.length)throw Error('Truncated resource catalog array');
+    const count=data.readUInt32LE(p);p+=4;
+    if(count>5_000_000||p+count*stride>data.length)throw Error('Invalid resource catalog array');
+    const start=p;p+=count*stride;return{count,start};
+  };
+  const assets=array(12),bundles=array(44),blocks=array(9),dependencies=array(4);
+  // Secondary references are part of the serialized layout, not voice links.
+  const references=array(4);
+  if(p!==data.length)throw Error('Unsupported resource catalog tail');
+  const blocksStart=52+assets.count*12,bundlesStart=blocksStart+blocks.count*9,end=bundlesStart+bundles.count*28;
+  let dependencyBytes=0;
+  for(let i=0;i<bundles.count;i++){
+    const offset=bundles.start+i*44,begin=data.readUInt32LE(offset+24),finish=data.readUInt32LE(offset+28);
+    const refBegin=data.readUInt32LE(offset+32),refEnd=data.readUInt32LE(offset+36);
+    if(begin>finish||finish>dependencies.count||refBegin>refEnd||refEnd>references.count)throw Error('Invalid catalog dependency slice');
+    dependencyBytes+=4+(finish-begin)*4;
+    if(end+dependencyBytes>128*1024*1024)throw Error('Resource catalog exceeds limit');
+  }
+  const bytes=Buffer.alloc(end+dependencyBytes);
+  bytes.writeUInt32LE(assets.count,8);bytes.writeUInt32LE(blocks.count,12);bytes.writeUInt32LE(bundles.count,16);
+  bytes.writeUInt32LE(52,20);bytes.writeBigUInt64LE(BigInt(blocksStart),28);bytes.writeBigUInt64LE(BigInt(bundlesStart),36);bytes.writeBigUInt64LE(BigInt(end),44);
+  data.copy(bytes,52,assets.start,assets.start+assets.count*12);
+  for(let i=0;i<blocks.count;i++){
+    const offset=blocks.start+i*9;
+    if(data.readUInt32LE(offset+4)!==0)throw Error('Unsupported resource block ID');
+    bytes[blocksStart+i*9]=data[offset+8];data.copy(bytes,blocksStart+i*9+1,offset,offset+8);
+  }
+  let next=end;
+  for(let i=0;i<bundles.count;i++){
+    const offset=bundles.start+i*44,target=bundlesStart+i*28;
+    if(data.readUInt32LE(offset)>=blocks.count)throw Error('Invalid catalog block index');
+    data.copy(bytes,target,offset,offset+24);bytes.writeUInt32LE(data.readUInt32LE(offset+40),target+24);
+    const begin=data.readUInt32LE(offset+24),finish=data.readUInt32LE(offset+28);
+    bytes.writeUInt32LE(finish-begin,next);next+=4;
+    data.copy(bytes,next,dependencies.start+begin*4,dependencies.start+finish*4);next+=(finish-begin)*4;
+  }
+  return bytes;
+}
+
+export function resourceCatalogBytes(bytes, unpackMhyFile) {
+  if(bytes[0]===31&&bytes[1]===139)return gunzipSync(bytes,{maxOutputLength:128*1024*1024});
+  if(bytes.toString('ascii',0,4)!=='mhy1')return null;
+  if(bytes.length>128*1024*1024)throw Error('Resource catalog bundle exceeds limit');
+  const unpacked=unpackMhyFile(bytes,0);
+  if(unpacked.end!==bytes.length)throw Error('Unsupported resource catalog bundle sequence');
+  const catalogs=unpacked.files.map(unityResourceCatalog).filter(Boolean);
+  if(catalogs.length>1)throw Error('Ambiguous resource catalog bundle');
+  return catalogs[0]??null;
+}
+
+export function sceneCatalog(bytes, raw=false) {
+  const data=raw?bytes:gunzipSync(bytes,{maxOutputLength:128*1024*1024});
   if(data.length<52)throw Error('Truncated scene catalog');
   const assets=data.readUInt32LE(8),blocks=data.readUInt32LE(12),bundles=data.readUInt32LE(16);
   const blocksStart=Number(data.readBigUInt64LE(28)),bundlesStart=Number(data.readBigUInt64LE(36)),end=Number(data.readBigUInt64LE(44));
@@ -45,8 +135,8 @@ export function sceneAssetPaths(value, category) {
 // A scene's root bundle references separately packed voice dictionaries. Read
 // the catalog's authored dependency graph and exact mhy1 byte ranges rather
 // than assuming all dependencies share the root's block.
-export function sceneBundleRangesFromCatalog(compressed, wantedHashes) {
-  const bytes = gunzipSync(compressed, {maxOutputLength: 128 * 1024 * 1024});
+export function sceneBundleRangesFromCatalog(compressed, wantedHashes, raw=false) {
+  const bytes = raw?compressed:gunzipSync(compressed, {maxOutputLength: 128 * 1024 * 1024});
   if (bytes.length < 52) throw Error('Truncated scene catalog');
   const assets = bytes.readUInt32LE(8), blocks = bytes.readUInt32LE(12), bundles = bytes.readUInt32LE(16);
   const assetsStart = bytes.readUInt32LE(20), blocksStart = Number(bytes.readBigUInt64LE(28));

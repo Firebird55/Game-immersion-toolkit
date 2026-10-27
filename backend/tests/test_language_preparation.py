@@ -171,14 +171,44 @@ def test_failed_translation_build_keeps_previous_complete_preparation(tmp_path):
     manager = LanguagePreparation(build, lambda *_: None, lambda *_: {'ready': True}, path=tmp_path / 'languages.json')
     manager.request('cyberpunk', 'zh-Hans', 'en', 'first')
     finish(manager)
-    original = manager.path.read_bytes()
+    original = manager.prepared('cyberpunk', 'zh-Hans')
     fails.append(True)
     manager.request('cyberpunk', 'zh-Hans', 'nl', 'second')
     finish(manager)
-    assert manager.path.read_bytes() == original
+    assert manager.prepared('cyberpunk', 'zh-Hans') == original
     assert manager.prepared('cyberpunk', 'zh-Hans')['targets'] == ['en']
     assert manager.selected('cyberpunk', 'second') is None
     assert next(item for item in manager.status('cyberpunk')['locales'] if item['locale']=='zh-Hans')['job']['state'] == 'error'
+    # The failed account's explicit request survives restart without replacing
+    # anyone's working selection. Background retry completes that request only.
+    fails.clear()
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {'ready': True}, path=manager.path)
+    manager.refresh_prepared()
+    finish(manager)
+    assert manager.selected('cyberpunk', 'first') == 'zh-Hans'
+    assert manager.selected_target('cyberpunk', 'zh-Hans', 'first') == 'en'
+    assert manager.selected_target('cyberpunk', 'zh-Hans', 'second') == 'nl'
+    assert manager.selected('cyberpunk', 'unrelated') is None
+
+
+def test_new_request_supersedes_an_inflight_choice_without_cross_account_selection(tmp_path):
+    entered, release = threading.Event(), threading.Event()
+    def build(game, locale, targets):
+        if locale == 'en':
+            entered.set()
+            assert release.wait(3)
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {'ready': True},
+        path=tmp_path / 'languages.json', supported=lambda _: ('en', 'ko'))
+    manager.request('zzz', 'en', 'nl', 'first')
+    assert entered.wait(3)
+    manager.request('zzz', 'ko', 'en', 'first')
+    manager.request('zzz', 'en', 'nl', 'second')
+    release.set()
+    finish(manager)
+    assert manager.selected('zzz', 'first') == 'ko'
+    assert manager.selected('zzz', 'second') == 'en'
+    manager.remove('zzz', 'en')
+    assert not any(game=='zzz' and locale=='en' for game, locale, _ in manager.entries())
 
 
 def test_unprepared_selection_and_unknown_locales_are_rejected(tmp_path):

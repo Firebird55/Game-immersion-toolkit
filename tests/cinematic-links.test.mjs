@@ -8,12 +8,12 @@ const pointer=id=>{const b=Buffer.alloc(12);b.writeBigInt64LE(BigInt(id),4);retu
 const string=s=>{const b=Buffer.from(s),padding=Buffer.alloc((4-b.length%4)%4);return Buffer.concat([u32(b.length),b,padding]);};
 const script=(name,namespace)=>Buffer.concat([string(name),Buffer.alloc(20),string(name),string(namespace),string('Synthetic.dll')]);
 const behaviour=(id,name,body)=>Buffer.concat([Buffer.alloc(16),pointer(id),string(name),body]);
-function fixture({language='CH',text='CS_Synthetic_01',original=text,clipIn=0,speed=1,wrongParent=false}={}){
+function fixture({language='CH',text='CS_Synthetic_01',original=text,clipIn=0,speed=1,wrongParent=false,auxiliary=null}={}){
  const records=[
   [1,115,script('WwiseAudioClip','MoleMole.Timeline')],
   [2,115,script('WwiseAudioTrack','MoleMole.Timeline')],
   [3,115,script('GroupTrack','UnityEngine.Timeline')],
-  [10,114,behaviour(1,'WwiseAudioClip',Buffer.concat([string('Play_vo_Synthetic_01'),string(text),string(original)]))],
+  [10,114,behaviour(1,'WwiseAudioClip',Buffer.concat([string('Play_vo_Synthetic_01'),...(auxiliary===null?[]:[string(auxiliary)]),string(text),string(original)]))],
   [20,114,behaviour(2,'vo',Buffer.concat([u32(3),Buffer.alloc(36),pointer(wrongParent?99:30),u32(0),string('a'.repeat(32)),u32(1),
    u32(1),double(1),double(clipIn),pointer(10),double(2),double(speed),pointer(20)]))],
   [30,114,behaviour(3,language,Buffer.concat([u32(3),Buffer.alloc(36),pointer(0),u32(1),pointer(20)]))],
@@ -29,9 +29,10 @@ function fixture({language='CH',text='CS_Synthetic_01',original=text,clipIn=0,sp
 }
 test('cinematic subtitles bind to typed Mandarin audio clips through their owning track',()=>{
  assert.deepEqual(cinematicVoicePairs(fixture()),[{text_id:'CS_Synthetic_01',event:'Play_vo_Synthetic_01'}]);
+ assert.deepEqual(cinematicVoicePairs(fixture({auxiliary:''})),[{text_id:'CS_Synthetic_01',event:'Play_vo_Synthetic_01'}]);
 });
 test('other languages, mismatched IDs and edited or unowned clips supply no original mapping',()=>{
- for(const options of [{language:'EN'},{language:'JP'},{original:'CS_Other'},{wrongParent:true},{clipIn:3},{speed:2}])assert.deepEqual(cinematicVoicePairs(fixture(options)),[]);
+ for(const options of [{language:'EN'},{language:'JP'},{original:'CS_Other'},{wrongParent:true},{clipIn:3},{speed:2},{auxiliary:'Unknown'},{auxiliary:'',original:'CS_Other'}])assert.deepEqual(cinematicVoicePairs(fixture(options)),[]);
  assert.throws(()=>cinematicVoicePairs(fixture().subarray(0,-1)),/Unsupported Unity file/);
  assert.throws(()=>cinematicVoicePairs(Buffer.from('Play_vo_Synthetic_01 CS_Synthetic_01')),/Unsupported Unity file/);
 });

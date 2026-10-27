@@ -197,27 +197,14 @@ def archive_order(path: Path) -> tuple[int, str]:
 
 
 def extract_assets(install: Path, destination: Path, tools: Path, locale_code=None) -> None:
-    unpacker = tools / "REE.Unpacker.exe"
-    if not unpacker.is_file():
-        raise FileNotFoundError(
-            "PRAGMATA extractor is missing. Re-run the Proxy Transcript installer/update."
-        )
+    from backend.ree_extractor import extract_project
     if locale_code is None:
         update_asset_list(tools)
     else:
         update_asset_list(tools, locale_code)
     destination.mkdir(parents=True, exist_ok=True)
     for archive in sorted(install.glob("re_chunk_*.pak*"), key=archive_order):
-        result = subprocess.run(
-            [str(unpacker), "P_PRAGMATA_INDEX", str(archive), str(destination)],
-            cwd=tools,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        if result.returncode:
-            raise RuntimeError(result.stderr.strip() or result.stdout[-1000:])
+        extract_project(tools, 'P_PRAGMATA_INDEX', archive, destination)
 
 
 def clean_text(value: str, references: dict[str, tuple[str, str]], language: int) -> str:
