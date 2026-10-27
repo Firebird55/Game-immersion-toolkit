@@ -152,12 +152,16 @@ def _large_mul():
 
 
 def test_large_mul_interleaves_every_original_channel_without_padding(tmp_path, monkeypatch):
+    # Make the shared budget independent of the runner clock's float rounding.
+    clock = [0.0]
+    monkeypatch.setattr(assets.time, 'monotonic', lambda: clock[0])
     data = _large_mul()
     stream = assets.read_mul(data)
     audio = {'decoder_format': 'mul', 'channel_mix': stream['channel_mix']}
     calls = []
     def decode(command, **options):
         calls.append(options['timeout'])
+        clock[0] += 1
         index = int(Path(command[-1]).stem.rsplit('-', 1)[1])
         with wave.open(command[3], 'wb') as handle:
             handle.setparams((1, 2, 44100, 4, 'NONE', 'not compressed'))
@@ -168,7 +172,7 @@ def test_large_mul_interleaves_every_original_channel_without_padding(tmp_path, 
         assert handle.getnchannels() == 9
         assert handle.getnframes() == 4
         assert struct.unpack('<36h', handle.readframes(4)) == tuple(range(1, 10)) * 4
-    assert len(calls) == 9 and all(0 < timeout <= 90 for timeout in calls)
+    assert calls == list(range(90, 81, -1))
 
 
 def test_large_mul_rejects_decoder_duration_disagreement(tmp_path, monkeypatch):
