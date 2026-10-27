@@ -43,6 +43,30 @@ TAG_RE = re.compile(r"<[^>]+>")
 SPEAKER_CODE_RE = re.compile(r"_(Ch\d{5})$", re.IGNORECASE)
 
 
+def dialogue_kind(relative: str, name: str) -> str | None:
+    """Select authored dialogue and narrative bodies, never generic UI labels."""
+    relative, name = relative.casefold(), name.casefold()
+    if relative.startswith('mes_main/event/cutscene/'):
+        return 'cutscene'
+    if relative.startswith('mes_main/conv/'):
+        if '/conv_battle' in relative:
+            return 'combat'
+        if relative.endswith(('conv_gimmick.msg.23', 'conv_stagechat.msg.23')):
+            return 'ambient'
+        if relative.endswith('conv_stagetips.msg.23'):
+            return 'guidance'
+        return 'conversation'
+    if not relative.startswith('mes_main/archive/'):
+        return None
+    filename = relative.rsplit('/', 1)[-1]
+    if filename in ('archive_figure.msg.23', 'archive_hologram.msg.23', 'archive_talk.msg.23'):
+        return 'readable' if re.search(r'_desc(?:_\d+)?$', name) else None
+    if (filename in ('archive_shop.msg.23', 'archive_wall.msg.23')
+            or re.fullmatch(r'archive_stage\d+\.msg\.23', filename)):
+        return 'readable' if name.startswith('file_') and not name.endswith('_head') else None
+    return None
+
+
 def align(stream, boundary: int = 8) -> None:
     remainder = stream.tell() % boundary
     if remainder:
@@ -180,7 +204,9 @@ def update_asset_list(tools: Path, locale_code='zhcn') -> None:
         if line.casefold().startswith("natives/stm/message/")
         or (
             line.casefold().startswith("natives/stm/sound/wwise/")
-            and line.casefold().endswith(f'dialogue.sbnk.1.x64.{locale_code}')
+            # Several authored voice banks (earth, chp7/chp8, cmn) do not use
+            # the "dialogue" suffix. Select localized headers, not voice media.
+            and line.casefold().endswith(f'.sbnk.1.x64.{locale_code}')
         )
         or (
             line.casefold().startswith("natives/stm/event/cs/")
@@ -207,12 +233,20 @@ def extract_assets(install: Path, destination: Path, tools: Path, locale_code=No
         extract_project(tools, 'P_PRAGMATA_INDEX', archive, destination)
 
 
-def clean_text(value: str, references: dict[str, tuple[str, str]], language: int) -> str:
-    def replace(match: re.Match[str]) -> str:
-        pair = references.get(match.group(1))
-        return pair[language] if pair else ""
+def clean_text(value: str, references: dict, language: str) -> str:
+    def resolve(text, visiting=frozenset()):
+        def replace(match):
+            name = match[1]
+            candidates = references.get(language, {}).get(name, set())
+            if name in visiting or len(candidates) != 1:
+                return match[0]
+            return resolve(next(iter(candidates)), visiting | {name})
+        return REF_RE.sub(replace, text)
 
-    value = REF_RE.sub(replace, value)
+    value = resolve(value)
+    # A missing, conflicting or cyclic alias invalidates the whole text.
+    if REF_RE.search(value):
+        return ''
     value = TAG_RE.sub("", value)
     value = value.replace("\r\n", "\n").replace("\r", "\n")
     return "\n".join(" ".join(line.split()) for line in value.splitlines()).strip()
@@ -243,33 +277,42 @@ def build_index(
     sound_graph: dict[str, object] | None = None,
 ) -> dict[str, object]:
     parsed: list[tuple[Path, list[dict[str, object]]]] = []
-    references: dict[str, tuple[str, str]] = {}
+    references: dict[str, dict[str, set[str]]] = {}
     for path in sorted(message_root.rglob("*.msg.*")):
         entries = read_msg(path)
         parsed.append((path, entries))
         for entry in entries:
-            english, chinese = str(entry["english"]), str(entry["chinese"])
-            if english and chinese and not REF_RE.search(english + chinese):
-                references[str(entry["name"])] = (english, chinese)
+            for locale, field in [('en', 'english'), ('zh-Hans', 'chinese')]:
+                text = str(entry[field])
+                if text:
+                    references.setdefault(locale, {}).setdefault(str(entry['name']), set()).add(text)
 
     bank_root = message_root.parent / "sound" / "wwise"
     sound_audio = build_sound_id_audio_map(sound_graph, bank_root) if sound_graph else {}
-    timeline_audio: dict[str, dict[str, object]] = {}
+    timeline_audio: dict[str, dict[str, object] | None] = {}
+    voice_triggers = {int(trigger) for events in (sound_graph or {}).get('bank_events', {}).values()
+                      for event in events.values() for trigger in event.get('trigger_ids', [])}
+    voice_guids = set()
     if timeline_root is not None and sound_graph:
         for path in sorted(timeline_root.rglob("*.tmlfsm2.*")):
             bank_match = re.search(r"/(cs\d+)/flow/", path.as_posix(), re.IGNORECASE)
             if not bank_match:
                 continue
-            base_audio = cutscene_audio_for_bank(sound_graph, f"{bank_match.group(1).lower()}_dialogue", bank_root)
-            if base_audio is None:
-                continue
+            bank = f"{bank_match.group(1).lower()}_dialogue"
+            base_audio = cutscene_audio_for_bank(sound_graph, bank, bank_root)
             try:
                 for segment in read_tmlfsm_dialogue_segments(path):
-                    timeline_audio[str(segment["guid"]).lower()] = {
+                    guid = str(segment['guid']).lower()
+                    if bank in sound_graph.get('banks', {}) or base_audio:
+                        voice_guids.add(guid)
+                    if base_audio is None:
+                        continue
+                    audio = {
                         **base_audio,
                         "start_seconds": segment["start_seconds"],
                         "end_seconds": segment["end_seconds"],
                     }
+                    timeline_audio[guid] = audio if guid not in timeline_audio or timeline_audio[guid] == audio else None
             except (OSError, ValueError, struct.error):
                 continue
 
@@ -279,16 +322,14 @@ def build_index(
     unresolved_reasons: dict[str, str] = {}
     for path, entries in parsed:
         relative = path.relative_to(message_root).as_posix().casefold()
-        is_spoken_family = relative.startswith("mes_main/conv/") or relative.startswith(
-            "mes_main/event/cutscene/"
-        )
         for entry in entries:
             name = str(entry["name"])
-            english = clean_text(str(entry["english"]), references, 0)
-            chinese = clean_text(str(entry["chinese"]), references, 1)
+            english = clean_text(str(entry["english"]), references, 'en')
+            chinese = clean_text(str(entry["chinese"]), references, 'zh-Hans')
             if relative.endswith("ingame/speakername.msg.23") and english and chinese:
                 speakers[english] = [english, chinese]
-            if not is_spoken_family or not english or not chinese:
+            kind = dialogue_kind(relative, name)
+            if not kind or not english or not chinese:
                 continue
             reason = (
                 "credits" if name.startswith("OP_StaffList_") else
@@ -306,10 +347,16 @@ def build_index(
                 "chinese": chinese,
                 "source": relative,
                 "speaker_code": code.group(1) if code else None,
+                "dialogue_kind": kind,
             }
             audio = sound_audio.get(int(entry.get("sound_id") or 0))
             if audio is None:
                 audio = timeline_audio.get(str(entry.get("guid") or "").lower())
+            if audio and not (bank_root / (str(audio.get('bank', '')) + '.sbnk.1.x64.zhcn')).is_file():
+                audio = None
+            record['voice_status'] = ('voiced' if audio else 'unavailable'
+                if int(entry.get('sound_id') or 0) in voice_triggers
+                or str(entry.get('guid') or '').lower() in voice_guids else 'unknown')
             if audio is not None:
                 record["audio"] = audio
             else:
@@ -325,19 +372,8 @@ def build_index(
     # Preserve distinct IDs for repeated lines, while eliminating accidental
     # duplicate records from overlaying base and patch archives.
     unique = {record["text_id"]: record for record in records}
-    # Reused subtitle IDs sometimes have several event aliases. An identical
-    # bilingual line by the same speaker can reuse a verified official take;
-    # record its provenance rather than claiming the ambiguous event was solved.
-    aliases = {}
-    for record in unique.values():
-        if record.get("audio") and record.get("speaker_code"):
-            key = (record["english"], record["chinese"], record["speaker_code"])
-            aliases.setdefault(key, record)
-    for record in unique.values():
-        key = (record["english"], record["chinese"], record["speaker_code"])
-        if not record.get("audio") and key in aliases:
-            alias = aliases[key]
-            record["audio"] = {**alias["audio"], "mapping": "bilingual_alias", "alias_text_id": alias["text_id"]}
+    # Equal text and speaker do not prove the same recorded performance.
+    # Only the entry's authored SoundID or timeline GUID may attach a voice.
     return {
         "format": INDEX_FORMAT,
         "game": "pragmata",

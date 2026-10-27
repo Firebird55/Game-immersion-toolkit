@@ -18,7 +18,7 @@ from .media_tools import ffmpeg_executable
 
 
 ZERO_GUID = "00000000-0000-0000-0000-000000000000"
-INDEX_FORMAT = 4
+INDEX_FORMAT = 5
 SCENE_CLIP_RE = re.compile(r"^cs\d+_s(\d+)$", re.IGNORECASE)
 
 
@@ -529,6 +529,10 @@ class PragmataVoiceAssetService:
             for record in payload.get("records", []):
                 audio = record.get("audio")
                 if not isinstance(audio, dict):
+                    continue
+                # Older indexes borrowed performances by equal bilingual text.
+                # Do not expose those voices while a format-5 refresh runs.
+                if audio.get('mapping') == 'bilingual_alias':
                     continue
                 if payload.get('format') == 2:
                     from .pragmata_assets import VOICE_LOCALES
