@@ -7,6 +7,7 @@ No external filename list, game text or third-party voice mapping is bundled.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from itertools import islice
 from pathlib import Path
 import re
 import struct
@@ -42,6 +43,78 @@ def _format(message='Unsupported Shadow dialogue format.'):
 def discover_install():
     from .game_paths import discover_install as discover
     return discover(GAME)
+
+
+def probe_voice_pack(install: Path, locale: str) -> str:
+    """Check official pack headers/parts cheaply, without indexing WEM files.
+
+Present means a recognized pack with its declared parts exists. Full integrity,
+subtitle binding and playback are established separately during preparation.
+"""
+    if locale not in SUPPORTED_LOCALES:
+        return 'unknown'
+    try:
+        root = Path(install).resolve()
+        paths = list(islice(root.iterdir(), 1025))
+        if len(paths) > 1024:
+            return 'unknown'
+        paths = {path.name.casefold(): path for path in paths}
+
+        def header(name, voice=False):
+            path = paths.get(name)
+            if path is None:
+                return 'incomplete'
+            if not path.resolve().is_relative_to(root) or not path.is_file():
+                return 'unknown'
+            with path.open('rb') as stream:
+                data = stream.read(88 if voice else 56)
+            if len(data) < 56:
+                return 'incomplete'
+            magic, version, parts, count, identity, sub = struct.unpack_from('<4s5I', data)
+            if magic != b'TAFS' or version != 5 or data[24:56].split(b'\0')[0] != b'pcx64-w':
+                return 'unknown'
+            if not 1 <= parts <= 256 or count > 2_000_000 or 56 + 32 * count > path.stat().st_size:
+                return 'incomplete'
+            if voice:
+                if not count or len(data) < 88:
+                    return 'incomplete'
+                _hash, mask, size, _compressed, part, owner, owner_sub, offset = struct.unpack_from('<QQIIhBBI', data, 56)
+                if mask != VOICE_MASKS[locale]:
+                    return 'unknown'
+                if not size or part < 0:
+                    return 'incomplete'
+                # Only validate this physical span when it belongs to this
+                # header; cross-package references need full preparation.
+                if (owner, owner_sub) == (identity, sub):
+                    target = paths.get(name[:-9] + f'{part:03d}.tiger')
+                    if part >= parts or target is None or offset + 4 > target.stat().st_size:
+                        return 'incomplete'
+            for part in range(parts):
+                target = paths.get(name[:-9] + f'{part:03d}.tiger')
+                if target is None or not target.is_file() or not target.stat().st_size:
+                    return 'incomplete'
+                if not target.resolve().is_relative_to(root):
+                    return 'unknown'
+            return 'present'
+
+        if 'bigfile.000.tiger' not in paths:
+            return 'unknown'
+        base = header('bigfile.000.tiger')
+        if base != 'present':
+            return base
+        token = re.escape(TEXT_LOCALES[locale])
+        pattern = re.compile(r'bigfile(?:\.update\d+\.\d+)?_alltxt_' + token + r'_allplt\.(\d{3})\.tiger')
+        if any('_alltxt_' + TEXT_LOCALES[locale] + '_' in name and name.endswith('.tiger')
+               and not pattern.fullmatch(name) for name in paths):
+            return 'unknown'
+        selected = [name for name in paths if pattern.fullmatch(name)]
+        name = 'bigfile_alltxt_' + TEXT_LOCALES[locale] + '_allplt.000.tiger'
+        if name not in selected:
+            return 'incomplete' if selected else 'missing'
+        statuses = [header(path, voice=True) for path in selected if path.endswith('.000.tiger')]
+        return 'incomplete' if 'incomplete' in statuses else 'unknown' if 'unknown' in statuses else 'present'
+    except (OSError, ValueError, struct.error):
+        return 'unknown'
 
 
 def read_locals(data: bytes, locale: str) -> dict[str, str]:

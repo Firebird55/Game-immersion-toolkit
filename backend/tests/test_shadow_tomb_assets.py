@@ -61,6 +61,7 @@ def fixture_game(root, locale='en', values=None, voices=None, targets=()):
 @pytest.mark.parametrize('locale', assets.SUPPORTED_LOCALES)
 def test_every_official_voice_locale_uses_its_exact_pack(tmp_path, locale):
     fixture_game(tmp_path, locale)
+    assert assets.probe_voice_pack(tmp_path, locale) == 'present'
     result = assets.index_language(tmp_path, tmp_path / 'cache', locale, [])
     row, = result['records']
     assert row['audio_locale'] == locale and row['audio']['locale'] == locale
@@ -74,6 +75,8 @@ def test_translation_and_missing_pack_do_not_substitute_english_or_chinese(tmp_p
     fixture_game(tmp_path, 'zh-Hant', voices=False, targets=['zh-Hans', 'en'])
     tiger(tmp_path, 'bigfile_alltxt_simplechinese_allplt.000.tiger', 1, 50,
           [(100, assets.VOICE_MASKS['zh-Hans'], wem())])
+    assert assets.probe_voice_pack(tmp_path, 'zh-Hant') == 'missing'
+    assert assets.probe_voice_pack(tmp_path, 'zh-Hans') == 'present'
     result = assets.index_language(tmp_path, tmp_path / 'cache', 'zh-Hant', ['en', 'de'])
     row, = result['records']
     assert row['source_locale'] == row['audio_locale'] == 'zh-Hant'
@@ -90,6 +93,41 @@ def test_missing_regional_text_and_text_only_source_are_actionable(tmp_path):
     assert error.value.code == 'shadow_text_pack_missing'
     with pytest.raises(ValueError, match='text only'):
         assets.index_language(tmp_path, tmp_path, 'ko', [])
+
+
+def test_voice_pack_probe_is_bounded_and_does_not_index_assets(tmp_path, monkeypatch):
+    fixture_game(tmp_path)
+    monkeypatch.setattr(assets, 'TigerSet', lambda *_args, **_kwargs: pytest.fail('A cheap pack probe must not index archives'))
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'present'
+    assert assets.probe_voice_pack(tmp_path, 'ja') == 'missing'
+    assert assets.probe_voice_pack(tmp_path, 'ko') == 'unknown'
+    path = tmp_path / 'bigfile_alltxt_english_allplt.000.tiger'
+    valid = path.read_bytes()
+    incomplete = bytearray(valid)
+    struct.pack_into('<I', incomplete, 8, 2)  # Declared second part absent.
+    path.write_bytes(incomplete)
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'incomplete'
+    path.write_bytes(valid[:20])
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'incomplete'
+    unsupported = bytearray(valid)
+    struct.pack_into('<I', unsupported, 4, 99)
+    path.write_bytes(unsupported)
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'unknown'
+    wrong_locale = bytearray(valid)
+    struct.pack_into('<Q', wrong_locale, 64, assets.VOICE_MASKS['fr'])
+    path.write_bytes(wrong_locale)
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'unknown'
+    path.rename(tmp_path / 'bigfile_alltxt_english_allplt.001.tiger')
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'incomplete'
+
+
+def test_unknown_install_layout_is_never_reported_as_missing_voice(tmp_path):
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'unknown'
+    fixture_game(tmp_path, voices=False)
+    (tmp_path / 'bigfile_alltxt_english_newplatform.000.tiger').write_bytes(bytes(100))
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'unknown'
+    (tmp_path / 'bigfile.000.tiger').write_bytes(b'other-layout'.ljust(56, b'\0'))
+    assert assets.probe_voice_pack(tmp_path, 'en') == 'unknown'
 
 
 def test_cinematic_uses_paired_authored_samples_and_rejects_incomplete_pairs():

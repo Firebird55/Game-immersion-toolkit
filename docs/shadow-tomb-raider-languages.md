@@ -36,6 +36,12 @@ needs no external archive extractor. Original Wwise audio uses the toolkit's
 existing pinned vgmstream decoder. Linux/macOS and other archive versions are
 not covered by this Windows reader.
 
+Before preparation, the lightweight pack probe checks official archive names,
+Windows version-5 headers, the selected voice locale mask and declared parts.
+It distinguishes present, missing, incomplete and unknown layouts without
+indexing audio. A present result establishes structural pack availability;
+preparation and playback still perform the full identity/integrity checks.
+
 Each source uses its exact text and voice locale masks. Traditional and
 Simplified Chinese have separate official archive identities; the reader does
 not substitute one for the other or claim their recordings are identical.

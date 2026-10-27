@@ -84,8 +84,16 @@ within the decoded duration and produced a nonempty MP3 with the existing
 FFmpeg trim path. These are format/decode checks, not listening or complete
 gameplay verification.
 
-Twenty-five dedicated synthetic tests passed in 1.09 seconds. Private evidence
+The toolkit's `LocalVoiceAssetService` also loaded the native snapshot with
+27,064 bindings and completed a single dialogue extraction plus a two-item
+cinematic/collectible batch, producing three nonempty MP3s through the normal
+service path. All thirteen lightweight voice-pack probes completed in 0.062
+seconds: English present, the other twelve missing. The probe inspected bounded
+headers and declared parts, without rebuilding the dialogue index.
+
+Twenty-seven dedicated synthetic tests passed in 0.96 seconds. Private evidence
 is in ignored `output/checks/shadow-native/native-evidence.json` and its adjacent
-index/audio files. No physical game capture, live OCR calibration, alternate
+index/audio files, with the service/probe results in `integration-evidence.json`.
+No physical game capture, live OCR calibration, alternate
 installed dubs, immersion-mode playback, every quest branch, or per-line
 translation completeness has been established by these probes.
