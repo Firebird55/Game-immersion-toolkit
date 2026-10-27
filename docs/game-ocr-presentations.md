@@ -1,5 +1,10 @@
 # Game-specific subtitle presentations
 
+For the October 2026 installed-file inventory, unvoiced capture and update
+resilience work, see the [per-game dialogue audits](game-audits/README.md).
+The footage replay results below cover the specific older samples described;
+they are not a full acceptance run for every newly indexed presentation.
+
 The lower subtitle lane is sufficient for ordinary cutscenes, radio and most
 walk-and-talk dialogue in the reviewed footage. It is insufficient for these
 separate presentations:
