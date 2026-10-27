@@ -77,11 +77,12 @@ try{
   page.on('console',message=>{if(message.type()==='error'&&!message.text().includes('net::ERR'))errors.push(message.text());});
   await context.route('http://127.0.0.1:8766/**',route=>{
    const path=new URL(route.request().url()).pathname;
-   if(route.request().method()!=='GET'||!['/api/snapshot','/api/status','/api/lexirise','/api/lines','/api/favorites','/api/setup'].includes(path)){
+   if(route.request().method()!=='GET'||!['/api/snapshot','/api/status','/api/lexirise','/api/lines','/api/favorites','/api/setup','/api/setup/games/zzz/languages'].includes(path)){
     unexpected.push(route.request().method()+' '+path);
     return route.fulfill({status:500,json:{detail:'Unexpected packaged browser API request'}});
    }
    if(path==='/api/setup')return route.fulfill({json:{completed:true,version:'fixture',games:[],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:false,mobile_export:{state:'idle'},free_gb:10}});
+   if(path==='/api/setup/games/zzz/languages')return route.fulfill({json:{context:{runtime_id:'build-fixture',state_version:0,account_generation:0},selected:null,locales:[{locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:null}],enabled_languages:null,targets:{},translation_locales:['en']}});
    const region={left:.1,top:.6,width:.8,height:.25};
    const status={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Fixture'},audio:{ready:false},settings:{auto_start:false,preferred_game:'auto',region,tip_region:region,cinematic_region:region},session:{id:'fixture',line_count:0,total_line_count:0}};
    const value=path==='/api/snapshot'?{context:{runtime_id:'build-fixture',state_version:0,account_generation:0},status,lines:[],lexirise:{configured:false,sent:{}}}:path==='/api/status'?status:path==='/api/lexirise'?{configured:false,sent:{}}:[];
@@ -90,6 +91,7 @@ try{
   await context.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
   await page.goto(base+'/');
   await page.getByRole('button',{name:'Settings',exact:true}).waitFor({timeout:10000}).catch(async error=>{throw Error('Built desktop failed to mount: '+JSON.stringify({errors,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
+  await page.getByRole('button',{name:'Prepare language',exact:true}).waitFor();
   await page.goto(base+'/mobile-capture/index.html');
   await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();
   // Fetch from the browser origin to prove the deployed worker serves all OCR,
