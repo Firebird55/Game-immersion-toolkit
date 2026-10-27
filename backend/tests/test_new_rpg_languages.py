@@ -95,9 +95,12 @@ def test_starrail_player_branches_remain_distinct_and_movies_are_not_whole_track
     voices = [{'VoiceID': 7, 'VoicePath': 'scene', 'IsPlayerInvolved': True},
               {'VoiceID': 8, 'VoicePath': 'movie', 'VoiceType': 'Cutscene'}]
     links = starrail.sentence_links(sentences, voices, 'en')
-    assert {row['player_voice'] for row in links} == {'male', 'female'}
-    assert {row['source'] for row in links} == {'English/voice/scene_m.wem', 'English/voice/scene_f.wem'}
-    assert {row['id'] for row in links} == {'1_m', '1_f'}
+    voiced = [row for row in links if row['source']]
+    assert {row['player_voice'] for row in voiced} == {'male', 'female'}
+    assert {row['source'] for row in voiced} == {'English/voice/scene_m.wem', 'English/voice/scene_f.wem'}
+    assert {row['id'] for row in voiced} == {'1_m', '1_f'}
+    movie, = [row for row in links if row['id'] == '2']
+    assert movie['source'] is None and movie['voice_status'] == 'unavailable'
 
 
 @pytest.mark.parametrize('reader', [genshin, starrail, endfield])
