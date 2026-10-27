@@ -155,8 +155,9 @@ def test_certified_unvoiced_dialogue_is_opt_in_durable_and_never_schedules_audio
         service._executor.shutdown()
 
 
-def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_toggle(tmp_path):
+def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_toggle(tmp_path, monkeypatch):
     import json
+    from backend import api
     from backend.capture import _ScanOutcome
     from backend.multilingual_index import MultilingualTextIndex
     text = 'The sealed letter is waiting in your room.'
@@ -165,7 +166,7 @@ def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_to
     (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'cyberpunk',
         'source_locale': 'en', 'records': [{'text_id': 'letter', 'english': text, 'chinese': '',
             'source_locale': 'en', 'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en',
-            'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'readable', 'channels': ['dialogue']}]}), encoding='utf-8')
+            'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'readable', 'channels': ['tip']}]}), encoding='utf-8')
     index = MultilingualTextIndex('cyberpunk', directory)
     service, _, scheduled, published = fixture_service(tmp_path, game='cyberpunk')
     window = SimpleNamespace(bounds=(-1920, 0, 1920, 1080), title='Game')
@@ -196,7 +197,15 @@ def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_to
         await asyncio.sleep(.02)
         assert len(published) == 1 and not scheduled
         assert published[0].dialogue_kind == 'readable' and published[0].voice_status == 'unvoiced'
+        assert published[0].channel == 'tip'
         assert not scan().emitted_lines
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        reopened = TranscriptStore(service.transcript.path)
+        monkeypatch.setattr(api, 'runtime', SimpleNamespace(transcript=reopened,
+            game_indexes={'cyberpunk': MultilingualTextIndex('cyberpunk', directory)}), raising=False)
+        history = api.get_lines(limit=250, before_id=None, game='cyberpunk')
+        assert [line.id for line in history] == [published[0].id]
+        assert history[0].channel == 'tip'
     try:
         asyncio.run(run())
     finally:

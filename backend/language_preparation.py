@@ -315,12 +315,9 @@ class LanguagePreparation:
                 raise TimeoutError(message)
             try:
                 workers = [*self._workers, *self._monitors]
-                cancelled_keys = {key for key, job in self.jobs.items() if job.get('state') == 'preparing'}
-                for games in self.data.get('requested', {}).values():
-                    for game, choice in list(games.items()):
-                        if (game, choice['locale']) in cancelled_keys:
-                            del games[game]
-                self._save_requested()
+                # Stop this generation's work, not the user's durable choice.
+                # Startup resumes pending requests; explicit remove/select or
+                # successful preparation clears them through the normal paths.
                 for key, job in self.jobs.items():
                     if job.get('state') == 'preparing':
                         self.jobs[key] = {'state': 'cancelled', 'progress': 0, 'message': 'Preparation stopped'}

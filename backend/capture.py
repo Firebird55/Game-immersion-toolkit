@@ -715,13 +715,20 @@ class CaptureService:
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
         active_keys = set()
         for hit in matches.values():
+            # Full-frame silent matching can find pages outside the dialogue
+            # lane. Preserve an authored channel so saved history still passes
+            # the same index eligibility check after a reload.
+            channel = next((candidate for candidate in ('dialogue', 'tip', 'cinematic', 'gameplay')
+                            if index.is_capture_text(hit.text_id, hit.english, candidate)), None)
+            if channel is None:
+                continue
             key = f'{prefix}{game}\0{hit.text_id}'
             active_keys.add(key)
             previous = self._unvoiced_trackers.get(key)
             tracker = previous[0] if previous and seen_at - previous[1] <= 3 else StableMatchTracker()
             tracker.configure(settings.stable_frames)
             if self._is_fresh_match(key, key, seen_at) and tracker.observe(key) and self._can_emit(key, seen_at):
-                line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=now, channel='dialogue')
+                line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=now, channel=channel)
                 if line is not None:
                     outcome.emitted_lines = [*(outcome.emitted_lines or []), line]
                     self._schedule_line_audio(line, seen_at, observed_at=self._visible_match_started[key][1])
