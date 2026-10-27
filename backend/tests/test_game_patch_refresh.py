@@ -34,6 +34,7 @@ def mock_cyberpunk_reader(monkeypatch):
             return
         archive, destination = args[0], args[2]
         data = json.loads(archive.read_bytes())
+        data['$type'] = 'locVoiceoverMap' if 'voice' in archive.name else 'localizationPersistenceSubtitleEntries'
         name = "voiceovermap.json.json" if "voice" in archive.name else "subtitles.json.json"
         target = destination / "nested/resources" / name
         target.parent.mkdir(parents=True, exist_ok=True)
