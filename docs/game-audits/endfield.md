@@ -1,14 +1,14 @@
 # Arknights: Endfield presentation audit
 
-Audited 2026-10-27. Coverage is **partial**, with explicit per-record voice status
-and aggregate preparation warnings. This is a local asset/schema audit and
-synthetic regression result, not a completed native OCR acceptance run.
+Audited and rechecked 2026-10-27. Coverage is **partial**, with explicit per-record
+voice status and aggregate preparation warnings. The Chinese pack and production
+clip decoding are now verified; native gameplay/OCR acceptance is still incomplete.
 
 ## Evidence and provenance
 
 The installed VFS was inspected read-only through the existing pinned
 [EndfieldStudio reader](https://github.com/EIHRTeam/EndfieldStudio). The audit
-enumerated 361,098 entries across base and persistent indexes, including 770
+initially enumerated 361,098 entries across base and persistent indexes, including 770
 installed table assets and 687 video assets. Selected SparkBuffer tables and UI
 Lua were decoded into ignored local evidence. Duplicate base/hotfix references
 are included in the inventory count; this is not a count of unique stories.
@@ -19,7 +19,7 @@ The runtime metadata source is the **third-party**
 describes manual updates and Endfield 1.6 support. It is not a publisher API.
 The installed DialogTextTable, RadioTable, DialogOptionTable, Dialog2DTextTable,
 RichContentTable and CharacterTable match that snapshot exactly. AudioDialog
-has 13 differing metadata rows, but all 33,273 resolved source paths match.
+has 18 differing metadata rows after the voice-pack recheck, but all 33,273 resolved source paths match.
 One SNS group, 11 TextTable rows and parts of the English localization differ;
 the runtime therefore warns that the mirror can lag the installed game.
 
@@ -61,7 +61,7 @@ claim is made.
 | Narrative documents, clues and terminal readings | 783 RichContentTable entries / 4,397 paragraphs; installed RichContent, ReadingCtrl and ReadingPopUp controllers separate text, artwork and radio | 4,166 readable paragraphs; 140 image-marked paragraphs excluded. Popup/PRTS references are checked, with 9 unresolved bodies reported. |
 | Narrative terminology notes | 38 NarrativeNoteEntryTable rows | 38 text-only note descriptions. |
 | Operator archive and voice viewer | CharacterTable has 35 operators, 2,698 profileVoice rows and 198 profileRecord rows; installed CharInfoProfileCtrl separately renders recordDesc and plays voId with voiceDesc | 2,698 authored voice descriptions and 198 text-only records. Every profile voId resolves to an AudioDialog path in this snapshot. |
-| Combat barks | 1,250 AIBarkText rows plus AIBark trigger rules | 1,250 gameplay text records, voice status unknown. No guessed trigger/voice join. |
+| Combat barks | 1,250 AIBarkText keys are exact AudioDialog voice IDs; installed AIBarkCtrl uses that ID for subtitle lookup and playback stop | 1,250 gameplay records, all bound to installed Chinese recordings. No guessed trigger/voice join. |
 | Pre-rendered cinematics, movies, media cards | Local Video/IV groups, CinematicCtrl FMV handling and SNSContentVideo | Inventoried, but no verified per-line timing/audio join. Whole movies are never substituted for a line. |
 | Comics, storyboards and illustrated documents | Local two-dimensional narrative UI plus RichContent image rendering; publisher comic pages separately | Authored text fields covered as above; embedded artwork text, video captions and image-only bubbles remain gaps. |
 
@@ -81,17 +81,24 @@ locales. The audit-stream prefix could not be parsed by this bounded probe; no
 claim is made about its full contents. The adapter continues to use the existing
 selected-language/initial/hotfix inventory rather than treating SFX as voices.
 
-English preparation against that captured local inventory produces **49,794
-records**: 16,959 verified text-only, 31,400 unavailable authored voices and
-1,435 with unknown voice status. There are zero verified playable original
-voices in this installation. Preparation tells the user to install the chosen
-voice package in the game, then refresh; it does not change game/account settings.
+That original no-pack result is historical. The newly installed Chinese package
+and the current mapping results are described below. No game/account settings
+were changed by the audit.
 
 Using independently decoded installed localization tables validates the same
 typed joins for all study languages: English 49,794; Simplified Chinese 51,049;
 Traditional Chinese 49,773; Japanese 49,794; Korean 49,773. These counts prove
 text joins, not playback. Locale routing and exact authored voice bindings are
 also covered with synthetic entries for every supported study locale.
+
+The current [publisher Steam language table](https://store.steampowered.com/app/4732690/Arknights_Endfield/)
+and [Gryphline's voice-language announcement](https://endfield.gryphline.com/en-us/news/0767)
+identify four voiced languages: Mandarin Chinese, English, Japanese and Korean.
+All four are implemented and exposed; Traditional Chinese text shares Mandarin
+audio. English/Japanese/Korean compatibility uses the common installed schema,
+explicit reader locale branches and synthetic hash/extraction/preparation tests.
+Their absent packs were not natively decoded. The full capability-versus-proof
+matrix is in [Endfield language preparation](../endfield-languages.md#voice-language-support-and-verification).
 
 ## Later installed voice-pack verification
 
@@ -101,18 +108,47 @@ fingerprint and a newly reachable Chinese audio group. The current reader found
 English, Japanese and Korean groups remained absent. These are inventory entries,
 which can include repeated base/hotfix references, not unique dialogue totals.
 
-Joining the new inventory to the same explicitly recorded metadata revision
-resolved **21,389 Simplified Chinese original-voice records**, with 17,196
-confirmed text-only records, 11,029 unavailable and 1,435 unknown. A conversation
-was extracted through the production voice service and decoded to a non-silent
-three-second clip. The result verifies Chinese pack access and one original
-performance; it does not establish that all missing mappings or gameplay layouts
-are resolved. Aggregate evidence is under ignored
-`output/checks/endfield-live-recheck/`.
+The initial recheck resolved 21,389 Chinese voice records and decoded a
+conversation through the production service. The subsequent mapping audit
+independently decoded the installed AudioDialog and AIBarkText tables. All 1,250
+bark text keys are exact audio-table keys; AIBarkCtrl resolves `barkTextId` and
+uses the corresponding `voId` for playback-stop handling. Every one of those
+1,250 selected-locale source hashes exists in the downloaded Chinese package.
+The adapter now uses this primary-key join, separately from filename stems.
+
+Current Simplified Chinese preparation contains **51,049 records**:
+
+| Voice classification | Records | Evidence |
+| --- | ---: | --- |
+| Bound original voices | 22,639 | Exact authored source hashes in installed Chinese audio, including all 1,250 combat barks |
+| Verified text-only | 17,196 | Separate authored text-only presentations |
+| Missing source metadata | 11,025 | 9,637 conversations, 1,146 radio lines, 240 narration references and two SNS audio events have no usable AudioDialog source |
+| Missing locale recording | 4 | Known AudioDialog paths absent from Chinese inventory; each has zero Chinese duration and a nonzero duration in another locale |
+| Unknown | 185 | 158 blank conversation overrides and 27 blank narration voice references |
+
+The four missing Chinese recordings remain unavailable; other locales are never
+substituted. The 11,025 unresolved metadata references have no case-only filename
+alias, and the installed VoiceIdConflictTable is empty. There is no proven
+additional mapping for them. Neither group is relabeled silent. Diagnostics now
+distinguish these cases, so missing metadata does not tell users to reinstall
+voice packs. Absence of a full selected-language package still has its own warning.
+
+Three newly mapped barks, covering male Endministrator, female Endministrator
+and another operator, were extracted through `LocalVoiceAssetService`, decoded
+and encoded through the production pipeline, then independently decoded back to
+PCM. All were non-silent: 1.331–1.721 seconds, 14,084–24,380 MP3 bytes, and PCM
+peaks 13,147–14,797. This verifies exact clip access and decoding, not physical
+gameplay/crop behavior. The index join took 3.699 seconds using the captured live
+inventory; the three production playback probes took 18.062 seconds.
+
+Current private evidence is under `output/checks/endfield-voice-resolve/`, with
+the earlier pack/ordinary-conversation proof in
+`output/checks/endfield-live-recheck/`. Raw tables, subtitle text and clips stay
+ignored and are not published.
 
 ## Update resilience and validation
 
-Language index version is 2. Additive metadata fields are tolerated. Changed
+Language index version is 3. Additive metadata fields are tolerated. Changed
 required table shapes, missing core conversation data, malformed inventory
 structures and changed localization structures return `unsupported_game_format`
 with an actionable toolkit-update message. Missing optional categories produce
@@ -122,8 +158,8 @@ fails preparation while leaving the previous snapshot untouched.
 
 The adapter never infers silence from a missing recording or an empty override.
 Only verified text-only modalities receive `unvoiced`; generic events and
-authored but missing recordings receive `unavailable`; uncertain barks and
-default/blank voice references receive `unknown`. Ambiguous, placeholder and
+authored but missing recordings receive `unavailable`; default/blank voice
+references receive `unknown`. Ambiguous filename stems, placeholder and
 unsafe source paths cannot bind recordings. Capture of text-only records remains
 subject to the user's opt-in and exact-match safeguards.
 
@@ -133,17 +169,22 @@ Focused regression command:
 .venv/Scripts/python.exe -m pytest backend/tests/test_endfield_audit.py backend/tests/test_new_rpg_languages.py -k "endfield or declared_translation" -q
 ```
 
-Result: **35 passed, 17 deselected in 0.73 seconds**. The dedicated cases cover
-voice-state evidence, operator bindings, media exclusion, missing reading links,
-schema drift, optional-category warnings, missing packs and snapshot retention.
+Result: **48 passed, 17 deselected in 0.68 seconds** for the completed mapping
+and language-capability changes.
+
+The focused regression cases cover voice-state evidence, exact bark IDs across
+all five study locales, ambiguous filename rejection, missing-metadata versus
+missing-locale diagnostics, operator bindings, media exclusion, missing reading
+links, schema drift, optional-category warnings, absent-pack preparation for all
+four official voice languages/both Chinese scripts, and snapshot retention.
 
 The audit evidence and timings are retained privately under
 `output/checks/endfield-audit/`, including inventory, decoded schema evidence,
 bounded audio-header inventories, adapter/locale summaries and JUnit results.
 No full suite or publication audit was run by this game-specific audit.
 
-Native acceptance still requires actual game playback with a downloaded voice
-pack, independently verified clip extraction, screenshots across each narrative
-layout, desktop/mobile crop behavior, windowed/fullscreen capture, zoom and
-Windows DPI bounds. Current file evidence does not establish that every
-presentation appears inside the default dialogue crop.
+Native acceptance still requires physical gameplay observation, screenshots
+across each narrative layout, desktop/mobile crop behavior, windowed/fullscreen
+capture, zoom and Windows DPI bounds. Chinese package presence and production
+clip extraction/decoding are verified as described above. File and playback
+evidence does not establish that every presentation appears inside a capture crop.

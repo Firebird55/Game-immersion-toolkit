@@ -10,18 +10,20 @@ import tempfile
 
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .game_tools import download, _atomic_file
-from .hoyo_dialogue import SUPPORTED_LOCALES
 from .languages import audio_locale, resolve_locale
 from .nte_assets import dotnet_sdk
 from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
 VOICE_LOCALES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
+# Capability is independent of which optional voice packs happen to be installed.
+# Traditional Chinese is a subtitle script paired with the same Mandarin audio.
+SUPPORTED_LOCALES = tuple(VOICE_LOCALES)
 
 
 def streaming_assets(install, layer='StreamingAssets'):
@@ -105,21 +107,25 @@ def reader(install, executable, action, request):
     return result.stdout
 
 
+def _audio_source(value):
+    _mapping(value)
+    if 'path' not in value or not isinstance(value['path'], str):
+        _unsupported()
+    path = value['path'].replace('\\', '/')
+    if not path or value.get('isPlaceholder'):
+        return None
+    if path.startswith('/') or ':' in path or any(part in {'', '.', '..'} for part in path.split('/')):
+        return None
+    return path
+
+
 def audio_paths(audio_dialog):
     # audioOverride is the authored source filename. AudioDialog supplies its
     # complete directory, without guessing ordinal IDs or reusing bank order.
     values, ambiguous = {}, set()
     for value in _mapping(audio_dialog).values():
-        _mapping(value)
-        if 'path' not in value:
-            _unsupported()
-        path = value.get('path', '')
-        if not isinstance(path, str):
-            _unsupported()
-        path = path.replace('\\', '/')
-        if not path or value.get('isPlaceholder'):
-            continue
-        if path.startswith('/') or ':' in path or any(part in {'', '.', '..'} for part in path.split('/')):
+        path = _audio_source(value)
+        if not path:
             continue
         name = Path(path).stem
         if name in values and values[name] != path:
@@ -128,13 +134,20 @@ def audio_paths(audio_dialog):
     return {name: path for name, path in values.items() if name not in ambiguous}
 
 
-def dialogue_records(dialogs, paths, tables, locale, entries):
+def audio_id_paths(audio_dialog):
+    # AIBarkText and AudioDialog use the same authored voice-ID key. Keep this
+    # namespace separate from filename stems, which can be ambiguous.
+    return {identity: path for identity, row in _mapping(audio_dialog).items() if (path := _audio_source(row))}
+
+
+def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None):
     result = []
     for identity, row in dialogs.items():
         if row.get('dialogue_kind') == 'readable' and any('<image' in table.get(str(row['dialogText']['id']), '').lower()
                                                        for table in tables.values()):
             continue
-        source = paths.get(row.get('audioOverride', ''))
+        source = ((audio_ids or {}).get(row['audio_id']) if 'audio_id' in row
+                  else paths.get(row.get('audioOverride', '')))
         source = ('voice/' + VOICE_LOCALES[locale] + '/' + source.replace('\\', '/').lower()) if source else None
         texts = {code: display_text(table.get(str(row.get('dialogText', {}).get('id')), ''))
                  for code, table in tables.items()}
@@ -142,8 +155,11 @@ def dialogue_records(dialogs, paths, tables, locale, entries):
         if not texts.get(locale):
             continue
         audio = entries.get(f'{voice_hash(source):016x}') if source else None
-        voice_status = ('voiced' if audio else 'unavailable' if row.get('audioOverride') or row.get('audioEvent')
+        voice_status = ('voiced' if audio else 'unavailable' if row.get('audioOverride') or row.get('audioEvent') or 'audio_id' in row
                         else row.get('voice_status', 'unknown'))
+        if coverage is not None:
+            reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
+            coverage[reason] = coverage.get(reason, 0) + 1
         result.append({'text_id': 'endfield:' + identity, 'source_locale': locale, 'source_text': texts[locale],
             'texts': texts, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
             'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
@@ -242,10 +258,16 @@ def narrative_dialogues(catalog, warnings):
         ('SNSDialogOptionTable', 'optionDesc', 'message_choice', 'dialogue', 'unvoiced'),
         ('SNSDialogTopicTable', 'topicStartOptionDesc', 'message_choice', 'dialogue', 'unvoiced'),
         ('NarrativeNoteEntryTable', 'entryDesc', 'narrative_note', 'tip', 'unvoiced'),
-        ('AIBarkText', 'barkText', 'combat_bark', 'gameplay', 'unknown'),
     ):
         for identity, row in _table(catalog, name, warnings).items():
             add(f'{name}:{identity}', _mapping(row).get(field), kind, channel, status)
+
+    for identity, row in _table(catalog, 'AIBarkText', warnings).items():
+        key = f'AIBarkText:{identity}'
+        add(key, _mapping(row).get('barkText'), 'combat_bark', 'gameplay', 'unavailable')
+        # Installed AIBarkCtrl uses barkTextId for the text lookup and the
+        # corresponding voId to stop playback. No text/fuzzy/ordinal join.
+        dialogs[key]['audio_id'] = identity
 
     unsupported_messages = 0
     for identity, group in _table(catalog, 'SNSDialogTable', warnings).items():
@@ -330,6 +352,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     if not audio_dialog:
         _unsupported()
     paths = audio_paths(audio_dialog)
+    audio_ids = audio_id_paths(audio_dialog)
     progress('Reading installed Endfield original voice packages')
     inventory = []
     for layer in ('StreamingAssets', 'Persistent'):
@@ -361,7 +384,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     warnings = []
     dialogs = authored_dialogues(catalog)
     dialogs.update(narrative_dialogues(catalog, warnings))
-    rows = dialogue_records(dialogs, paths, tables, source_locale, entries)
+    coverage = {name: 0 for name in ('voiced', 'unvoiced', 'unknown', 'missing_source_metadata', 'missing_locale_recording')}
+    rows = dialogue_records(dialogs, paths, tables, source_locale, entries, audio_ids=audio_ids, coverage=coverage)
     if fingerprint(install) != stamp:
         raise PreparationFailure('game_files_changed',
             'Endfield files changed during preparation. Wait for the game update to finish, then retry; '
@@ -369,15 +393,19 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     if not rows:
         _unsupported()
     count = sum(bool(row['audio']) for row in rows)
-    unavailable = sum(row['voice_status'] == 'unavailable' for row in rows)
     unknown = sum(row['voice_status'] == 'unknown' for row in rows)
     selected_block = {'chinese': 101, 'english': 102, 'japanese': 103, 'korean': 104}[VOICE_LOCALES[source_locale]]
     if not any(row['block'] == selected_block for row in inventory):
         warnings.append('The selected Endfield voice package was not found in the installed audio inventory. '
                         'Install it through the game language settings and refresh game data.')
-    if unavailable:
-        warnings.append(f'{unavailable:,} Endfield lines declare voice audio that could not be bound to installed files; '
-                        'they remain unavailable, including unresolved audio events.')
+    if coverage['missing_source_metadata']:
+        warnings.append(f'{coverage["missing_source_metadata"]:,} Endfield voice references have no usable source in the '
+                        'current AudioDialog metadata, including unresolved audio events. They remain unavailable; '
+                        'installing a voice package cannot repair missing metadata. Refresh toolkit/game metadata when available.')
+    if coverage['missing_locale_recording']:
+        warnings.append(f'{coverage["missing_locale_recording"]:,} known Endfield voice paths have no recording in the '
+                        f'installed {source_locale} audio. Some recordings exist only in particular locales; '
+                        'these lines remain unavailable and another language is never substituted.')
     if unknown:
         warnings.append(f'{unknown:,} Endfield narrative lines have unverified voice status and are excluded from silent capture.')
     warnings.append('Endfield coverage is partial: cinematic/video soundtracks and image-only comics or storyboard panels '
@@ -386,7 +414,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     available = {code for row in rows for code in row['texts']}
     return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
-        'records': rows, 'coverage_warnings': warnings,
+        'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage,
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
         'message': f'{len(rows):,} authored {source_locale} lines; {count:,} original voices; partial presentation coverage'}
 

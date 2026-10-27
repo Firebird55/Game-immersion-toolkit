@@ -83,11 +83,55 @@ def test_narrative_tables_keep_text_media_and_voice_messages_distinct():
     assert {row['dialogue_kind'] for row in rows} == {
         'choice', 'story_panel', 'message_choice', 'narrative_note', 'combat_bark', 'message', 'message_voice', 'readable'}
     assert next(row for row in rows if row['dialogue_kind'] == 'message_voice')['voice_status'] == 'unavailable'
-    assert next(row for row in rows if row['dialogue_kind'] == 'combat_bark')['voice_status'] == 'unknown'
+    assert next(row for row in rows if row['dialogue_kind'] == 'combat_bark')['voice_status'] == 'unavailable'
     assert next(row for row in rows if row['dialogue_kind'] == 'story_panel')['channels'] == ['cinematic']
     assert next(row for row in rows if row['dialogue_kind'] == 'readable')['channels'] == ['tip']
     assert all(row['audio'] is None for row in rows)
     assert any('2 Endfield SNS' in warning for warning in warnings)
+
+
+@pytest.mark.parametrize('locale', endfield.SUPPORTED_LOCALES)
+def test_bark_uses_exact_authored_voice_id_not_basename_or_localization_id(locale):
+    catalog = Catalog({'AIBarkText': {'-17': {'barkText': ref(321)}}})
+    dialogs = endfield.narrative_dialogues(catalog, [])
+    audio_table = {'-17': {'path': 'actor_a/repeated.wem'}, '91': {'path': 'actor_b/repeated.wem'}}
+    paths = endfield.audio_paths(audio_table)
+    assert paths == {}  # Basename alone cannot choose either performance.
+    audio_ids = endfield.audio_id_paths(audio_table)
+    correct = f'voice/{endfield.VOICE_LOCALES[locale]}/actor_a/repeated.wem'
+    incorrect = f'voice/{endfield.VOICE_LOCALES[locale]}/actor_b/repeated.wem'
+    entries = {f'{voice_hash(source):016x}': {'file_id': f'{voice_hash(source):016x}'} for source in (correct, incorrect)}
+    row, = endfield.dialogue_records(dialogs, paths, {locale: {'321': 'Synthetic authored combat bark.'}}, locale,
+                                    entries, audio_ids=audio_ids)
+    assert row['voice_status'] == 'voiced'
+    assert row['audio']['source'] == correct
+    assert row['channels'] == ['gameplay']
+    missing, = endfield.dialogue_records(dialogs, {'-17': 'actor_b/repeated.wem'},
+        {locale: {'321': 'Synthetic authored combat bark.'}}, locale, entries, audio_ids={'321': 'actor_b/repeated.wem'})
+    assert missing['voice_status'] == 'unavailable' and missing['audio'] is None
+
+
+def test_bark_id_path_obeys_placeholder_and_source_path_guards():
+    assert endfield.audio_id_paths({'-1': {'path': 'actor/one.wem', 'isPlaceholder': True},
+                                   '-2': {'path': '../untrusted.wem'}}) == {}
+
+
+def test_voice_coverage_separates_missing_metadata_from_selected_locale_recordings():
+    dialogs = {
+        'metadata': {'dialogText': ref(1), 'audioOverride': 'missing_source'},
+        'recording': {'dialogText': ref(2), 'audioOverride': 'known_source'},
+        'unknown': {'dialogText': ref(3), 'voice_status': 'unknown'},
+        'silent': {'dialogText': ref(4), 'voice_status': 'unvoiced'},
+        'other_locale': {'dialogText': ref(5), 'audio_id': '-17'},
+    }
+    wrong_locale = 'voice/japanese/actor/one.wem'
+    coverage = {}
+    rows = endfield.dialogue_records(dialogs, {'known_source': 'actor/one.wem'},
+        {'zh-Hans': {str(i): f'Synthetic coverage sentence {i}.' for i in range(1, 6)}}, 'zh-Hans',
+        {f'{voice_hash(wrong_locale):016x}': {'file_id': f'{voice_hash(wrong_locale):016x}'}},
+        audio_ids={'-17': 'actor/one.wem'}, coverage=coverage)
+    assert coverage == {'missing_source_metadata': 1, 'missing_locale_recording': 2, 'unknown': 1, 'unvoiced': 1}
+    assert all(row['audio'] is None for row in rows)
 
 
 def test_image_resource_is_not_a_readable_in_any_selected_translation():
@@ -187,6 +231,41 @@ def test_missing_pack_has_actionable_warning_and_never_becomes_silent(tmp_path, 
     assert result['metadata_revision_title'] == Catalog.revision_title
     assert any('Install it through the game language settings' in warning for warning in result['coverage_warnings'])
     assert any('third-party' in warning for warning in result['coverage_warnings'])
+
+
+def test_present_pack_diagnostics_do_not_blame_metadata_gaps_on_installation(tmp_path, monkeypatch):
+    patch_index(monkeypatch, tmp_path, Catalog({
+        'DialogTextTable': {'missing_metadata': {'dialogText': ref(1), 'audioOverride': 'missing'},
+                            'missing_recording': {'dialogText': ref(2), 'audioOverride': 'voice_one'}},
+        'I18nTextTable_EN': {'1': 'Synthetic metadata gap.', '2': 'Synthetic locale recording gap.'},
+    }))
+    inventory = [{'block': 102, 'chunk': 'A' * 32 + '.chk', 'file_hash': '1', 'file_id': '0' * 16, 'size': 24}]
+    monkeypatch.setattr(endfield, 'reader', lambda *_args: json.dumps(inventory).encode())
+    result = endfield.index_language(tmp_path, tmp_path, 'en', ())
+    assert result['voice_coverage'] == {'voiced': 0, 'unvoiced': 0, 'unknown': 0,
+                                        'missing_source_metadata': 1, 'missing_locale_recording': 1}
+    assert any('installing a voice package cannot repair missing metadata' in warning for warning in result['coverage_warnings'])
+    assert any('known Endfield voice paths have no recording' in warning for warning in result['coverage_warnings'])
+    assert not any('Install it through the game language settings' in warning for warning in result['coverage_warnings'])
+
+
+@pytest.mark.parametrize('locale,namespace', [
+    ('en', 'english'), ('zh-Hans', 'chinese'), ('zh-Hant', 'chinese'), ('ja', 'japanese'), ('ko', 'korean'),
+])
+def test_every_official_voice_language_remains_preparable_without_its_pack(tmp_path, monkeypatch, locale, namespace):
+    from backend.languages import GAME_LOCALES, audio_locale
+
+    catalog = Catalog({'I18nTextTable_' + endfield.TEXT_LOCALES[locale]: {'1': 'Synthetic prepared subtitle.'}})
+    patch_index(monkeypatch, tmp_path, catalog)
+    requests = []
+    monkeypatch.setattr(endfield, 'reader', lambda _install, _tool, _action, request: requests.append(request) or b'[]')
+    result = endfield.index_language(tmp_path, tmp_path, locale, ())
+    row, = result['records']
+    assert locale in endfield.SUPPORTED_LOCALES and locale in GAME_LOCALES['endfield']
+    assert requests and all(request['language'] == namespace for request in requests)
+    assert result['source_locale'] == locale and row['audio_locale'] == audio_locale(locale)
+    assert row['voice_status'] == 'unavailable' and row['audio'] is None
+    assert any('Install it through the game language settings' in warning for warning in result['coverage_warnings'])
 
 
 def test_schema_failure_and_game_update_leave_existing_snapshot_untouched(tmp_path, monkeypatch):
