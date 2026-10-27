@@ -46,6 +46,10 @@ def _probe(game, install, locale):
     install = Path(install)
     try:
         adapter, _ = asset_adapter(game)
+        game_probe = getattr(adapter, 'probe_voice_pack', None)
+        if game_probe:
+            result = game_probe(install, locale)
+            return result if isinstance(result, str) and result in LABELS else 'unknown'
         if game == 'zzz':
             root = adapter.game_data(install)
             paths = (p for layer in ('StreamingAssets', 'Persistent') for p in

@@ -82,4 +82,14 @@ Honkai: Star Rail, Genshin Impact and Arknights: Endfield support English, both
 Chinese scripts, Japanese and Korean as study languages, paired with every
 listed official translation. See [Star Rail](docs/starrail-languages.md),
 [Genshin](docs/genshin-languages.md) and [Endfield](docs/endfield-languages.md).
+
+For Rise of the Tomb Raider, choose the folder containing ROTTR.exe and bigfile.000.tiger.
+For Shadow of the Tomb Raider, choose the folder containing SOTTR.exe and bigfile.000.tiger.
+Use Steam Properties to install the spoken language, wait for downloads to finish,
+then prepare it in Settings → Games & Languages. All official voice formats are
+supported even when a pack is absent locally; missing packs remain unavailable
+until installed. Regional and DLC availability differs, and the two Chinese
+packs keep separate identities. See the [Rise language matrix](docs/rise-tomb-raider-languages.md)
+and [Shadow language matrix](docs/shadow-tomb-raider-languages.md).
+
 Hito’s World is [disabled](docs/archived-hito.md); existing records and calibration are retained.

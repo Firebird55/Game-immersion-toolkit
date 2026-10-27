@@ -5,6 +5,23 @@ import pytest
 from backend.multilingual_index import MultilingualTextIndex
 
 
+def test_chinese_voice_pack_identity_is_game_specific(tmp_path):
+    # Tomb Raider ships separate packs. Endfield explicitly shares Mandarin.
+    for game, voice in [('shadowofthetombraider', 'zh-Hant'), ('riseofthetombraider', 'zh-Hant'), ('endfield', 'zh-Hans')]:
+        folder = tmp_path / game; folder.mkdir()
+        row = {'text_id': game + ':synthetic', 'english': 'A separate original performance.',
+               'chinese': '', 'source_locale': 'zh-Hant', 'source_text': '不同的原始配音',
+               'texts': {'zh-Hant': '不同的原始配音'}, 'audio_locale': voice, 'audio': {'locale': voice, 'voice': 1}}
+        payload = {'format': 2, 'game': game, 'source_locale': 'zh-Hant', 'records': [row]}
+        path = folder / 'textmap.json'
+        path.write_text(json.dumps(payload), encoding='utf-8')
+        assert MultilingualTextIndex(game, folder).ready
+        row['audio_locale'] = 'zh-Hans' if voice == 'zh-Hant' else 'zh-Hant'
+        path.write_text(json.dumps(payload), encoding='utf-8')
+        rejected = MultilingualTextIndex(game, folder)
+        assert not rejected.ready and 'voice locale' in rejected.message
+
+
 def test_wrapped_full_caption_outweighs_an_exact_unrelated_phrase(tmp_path):
     def row(identity, text, voice):
         return {'text_id': identity, 'english': text, 'chinese': '', 'source_locale': 'en',

@@ -1,4 +1,4 @@
-export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield'];
+export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield', 'riseofthetombraider', 'shadowofthetombraider'];
 const PAIRING_FIELDS = ['sessionId', 'pairingId', 'attempt'];
 const PAIRING_ID = /^[A-Za-z0-9_-]{16,64}$/;
 export function parseRelay(value) {

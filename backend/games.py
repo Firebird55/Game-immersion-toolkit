@@ -15,6 +15,12 @@ class GameProfile:
 
 
 GAME_PROFILES = {
+    "riseofthetombraider": GameProfile(id="riseofthetombraider", name="Rise of the Tomb Raider", process_names=("ROTTR.exe",),
+        title_needles=("Rise of the Tomb Raider",),
+        subtitle_region=CaptureRegion(left=.08, top=.65, width=.84, height=.33)),
+    "shadowofthetombraider": GameProfile(id="shadowofthetombraider", name="Shadow of the Tomb Raider", process_names=("SOTTR.exe",),
+        title_needles=("Shadow of the Tomb Raider",),
+        subtitle_region=CaptureRegion(left=.08, top=.65, width=.84, height=.33)),
     "starrail": GameProfile(id="starrail", name="Honkai: Star Rail", process_names=("StarRail.exe",),
         title_needles=("Honkai: Star Rail", "崩坏：星穹铁道", "崩壞：星穹鐵道"),
         subtitle_region=CaptureRegion(left=.10, top=.70, width=.80, height=.28)),

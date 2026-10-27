@@ -18,6 +18,7 @@ GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where
                   "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
                   "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
 GAME_TITLES.update(starrail="Honkai: Star Rail", genshin="Genshin Impact", endfield="Arknights: Endfield")
+GAME_TITLES.update(riseofthetombraider="Rise of the Tomb Raider", shadowofthetombraider="Shadow of the Tomb Raider")
 API_BASE = "https://api.lexirise.app"
 REQUEST_KEY = ContextVar('lexirise_request_key', default=None)
 

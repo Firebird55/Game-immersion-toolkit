@@ -6,6 +6,7 @@ import zipfile
 from pathlib import Path
 
 from .mobile_export_layout import file_title
+from .languages import audio_locale
 
 BUNDLE_FORMAT = 'proxy-mobile-bundle-v1'
 
@@ -14,6 +15,8 @@ def bundle_name(game, locales):
     names = {'zh-Hans': 'Mandarin', 'zh-Hant': 'Mandarin', 'zh': 'Mandarin',
              'en': 'English', 'ja': 'Japanese', 'ko': 'Korean', 'nl': 'Dutch',
              'fr': 'French', 'de': 'German', 'es': 'Spanish', 'ru': 'Russian'}
+    if audio_locale('zh-Hant', game) == 'zh-Hant':
+        names.update({'zh-Hans': 'Chinese (Simplified pack)', 'zh-Hant': 'Chinese (Traditional pack)'})
     label = ' + '.join(dict.fromkeys(names.get(code, code) for code in sorted(locales))) or 'Text Only'
     label = re.sub(r'[^\w +()-]', '-', label)
     return f'{file_title(game)} - {label} - Mobile Library.zip'

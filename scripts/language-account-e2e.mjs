@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {startPreview} from './e2e-preview.mjs';
 
 import {chromium,firefox} from 'playwright';
+import gameCatalog from '../public/mobile-capture/games-data.json' with {type:'json'};
 
 const preview=await startPreview('language-account');
 let browser;
@@ -79,6 +80,7 @@ try{
      if(request.method()==='POST')prepared=true;
      return respond(languages());
     }
+    if(request.method()==='GET'&&/^\/api\/setup\/games\/(riseofthetombraider|shadowofthetombraider)\/languages$/.test(path))return respond(languages());
     if(path==='/api/lines/1/reading')return respond({text:'Hello',tokens:[{start:0,end:5,word:'Hello',entryId:1,proficiency:0,pinyin:'',tones:[],meaning:active==='first'?'你好':'Hallo'}],grammar:[]});
     if(path.endsWith('/lookup')){
      const result={translations:[{meaning:active==='first'?'FIRST ACCOUNT ONLY':'SECOND ACCOUNT ONLY',partOfSpeech:[],examples:[]}],examples:[],dictionaries:[],components:[],alternateReadings:[]};
@@ -248,7 +250,12 @@ try{
    await target.selectOption('en');
    await picker.locator('.game-library > summary').click();
    const cards=page.getByRole('navigation',{name:'Game transcript'});
-   assert.equal(await cards.getByRole('button').count(),11,'English shows all eleven voiced games');
+   assert.equal(await cards.getByRole('button').count(),gameCatalog.games.filter(game=>game.study.includes('en')).length,'English shows every supported voiced game');
+   for(const game of ['riseofthetombraider','shadowofthetombraider']){
+    await picker.getByLabel('Game',{exact:true}).selectOption(game);
+    assert.equal(await picker.getByLabel('Game',{exact:true}).inputValue(),game);
+    assert(await picker.evaluate(element=>element.scrollWidth<=element.clientWidth+2),'Long game names remain inside the picker at this viewport');
+   }
    await picker.screenshot({path:`${preview.output}/game-picker-all-${name}-${width}.png`});
    await picker.getByRole('searchbox',{name:'Search games'}).fill('witcher');
    assert.equal(await cards.getByRole('button').count(),1);
@@ -272,7 +279,7 @@ try{
    assert.deepEqual(writes.filter(w=>w.path==='/api/lexirise/settings').at(-1).body,{languages:['en','zh','ja']},'Only languages are written');
    const settingsWrites=writes.filter(w=>w.path==='/api/lexirise/settings').length;
    await page.getByLabel('Reading',{exact:true}).selectOption('migaku');
-   assert.deepEqual(await targets(),['de','en','es','fr','it','ja','ko','nl','pl','pt','ru','zh'],'Independent mode shows every voiced language once');
+   assert.deepEqual(await targets(),['ar','de','en','es','fr','it','ja','ko','nl','pl','pt','ru','zh'],'Independent mode shows every voiced language once');
    await target.selectOption('nl');
    assert.equal(await cards.getByRole('button').count(),2,'Dutch only offers the two games with Dutch voice');
    assert.equal(await picker.getByRole('button',{name:'Add language to Lexirise',exact:true}).count(),0);

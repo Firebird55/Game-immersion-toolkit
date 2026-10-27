@@ -323,7 +323,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[Officiële taallijst](https://store.epicgames.com/p/arknightsendfield-f0f167) · 2026-10-25 · [Dekkingsnotities](../endfield-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [Dekkingsnotities](../endfield-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
@@ -332,11 +332,11 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 | Taal | Originele stem | Leren | Vertaling | Onderbouwing |
 | :--- | :---: | :---: | :---: | :--- |
-| Engels | ✓ | ✓ | ✓ | Reader geïmplementeerd |
-| Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Reader geïmplementeerd |
-| Chinees (traditioneel) | Gedeelde Mandarijnse stem | ✓ | ✓ | Reader geïmplementeerd |
-| Japans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
-| Koreaans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
+| Engels | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Chinees (traditioneel) | Gedeelde Mandarijnse stem | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Japans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Koreaans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
 | Frans | — | — | ✓ | Reader geïmplementeerd |
 | Duits | — | — | ✓ | Reader geïmplementeerd |
 | Italiaans | — | — | ✓ | Reader geïmplementeerd |
@@ -346,5 +346,66 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 | Thai | — | — | ✓ | Reader geïmplementeerd |
 | Vietnamees | — | — | ✓ | Reader geïmplementeerd |
 | Indonesisch | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="riseofthetombraider"></a>
+
+## Rise of the Tomb Raider
+
+[Officiële taallijst](https://store.steampowered.com/app/391220/?l=english) · 2026-10-27 · [Dekkingsnotities](../rise-tomb-raider-languages.md)
+
+All twelve Steam full-audio languages plus evidenced Latin American Spanish and Arabic DLC formats. Dutch is text-only. Arabic base-game voice coverage is not claimed; regional/DLC packs may be partial. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language. Local non-English playback evidence comes from installed DLC; base-language packs other than English were absent.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Duits | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Italiaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Latijns-Amerika) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Portugees (Brazilië) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Pools | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Russisch | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Nederlands | — | — | ✓ | Reader geïmplementeerd |
+| Koreaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Chinees (traditioneel) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Arabisch | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+
+</details>
+
+<a id="shadowofthetombraider"></a>
+
+## Shadow of the Tomb Raider
+
+[Officiële taallijst](https://store.steampowered.com/app/750920/?l=english) · 2026-10-27 · [Dekkingsnotities](../shadow-tomb-raider-languages.md)
+
+All eleven global Steam full-audio languages plus Japanese and Latin American Spanish evidenced by official regional manifests. Korean is text-only. Some packs require the corresponding regional edition. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Duits | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Italiaans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Spaans (Latijns-Amerika) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Japans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Portugees (Brazilië) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Pools | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Russisch | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Arabisch | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
 
 </details>

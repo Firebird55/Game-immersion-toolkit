@@ -13,6 +13,8 @@ GAME_LOCALES = {
     'witcher3': ('en', 'fr', 'de', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans'),
     'beyond': ('en', 'fr', 'it', 'de', 'es-ES', 'nl', 'ja', 'pl', 'pt-PT', 'pt-BR', 'ru', 'es-419'),
     'heavyrain': ('en', 'fr', 'it', 'de', 'es-ES', 'nl', 'ja', 'pl', 'pt-PT', 'ru'),
+    'riseofthetombraider': ('en', 'fr', 'de', 'it', 'es-419', 'es-ES', 'ja', 'pt-BR', 'pl', 'ru', 'ko', 'zh-Hant', 'zh-Hans', 'ar'),
+    'shadowofthetombraider': ('en', 'fr', 'de', 'it', 'es-419', 'es-ES', 'ja', 'pt-BR', 'pl', 'ru', 'zh-Hant', 'zh-Hans', 'ar'),
 }
 LOCALE_NAMES = {'en': 'English', 'zh-Hans': 'Simplified Chinese', 'zh-Hant': 'Traditional Chinese',
     'ja': 'Japanese', 'ko': 'Korean', 'fr': 'French', 'it': 'Italian', 'de': 'German',
@@ -29,7 +31,11 @@ def study_language(locale: str) -> str:
     return code
 
 
-def audio_locale(locale: str) -> str:
+def audio_locale(locale: str, game: str | None = None) -> str:
+    # Distinct official voice packs must retain their selected identity even
+    # when both use Mandarin. Other readers explicitly share one Chinese pack.
+    if game in {'riseofthetombraider', 'shadowofthetombraider'}:
+        return locale
     return 'zh-Hans' if locale == 'zh-Hant' else locale
 
 

@@ -16,6 +16,8 @@ Counts refer to the audited installation and locale, not every game chapter.
 | Honkai: Star Rail | Messages, choices, narrated story and combat metadata; explicit voice states | [Star Rail](starrail.md) |
 | Genshin Impact | Dialogue fallback, reminders, card dialogue and book paragraphs; version checks | [Genshin](genshin.md) |
 | Arknights: Endfield | Conversations, choices, panels, messages, readables and operator archives | [Endfield](endfield.md) |
+| Rise of the Tomb Raider | TIGER archives; authored subtitle and FMOD voice bindings; regional and DLC languages | [Rise](rise-tomb-raider.md) |
+| Shadow of the Tomb Raider | TIGER archives; Wwise subtitle labels, cinematic timing and collectible narration | [Shadow](shadow-tomb-raider.md) |
 | BEYOND: Two Souls | Explicit chapter choices; missing-performance inventory; faster repeated-performance validation | [BEYOND](beyond.md) |
 | HEAVY RAIN | Explicit silent prompts; thought categorization; retained missing-voice records | [HEAVY RAIN](heavyrain.md) |
 

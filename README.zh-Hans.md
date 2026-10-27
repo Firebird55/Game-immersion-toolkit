@@ -32,6 +32,8 @@
 | [Honkai: Star Rail](docs/languages/zh-Hans.md#starrail) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 13 |
 | [Genshin Impact](docs/languages/zh-Hans.md#genshin) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 15 |
 | [Arknights: Endfield](docs/languages/zh-Hans.md#endfield) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 14 |
+| [Rise of the Tomb Raider](docs/languages/zh-Hans.md#riseofthetombraider) | 英语 · 法语 · 德语 · 意大利语 · 拉丁美洲西班牙语 · 欧洲西班牙语 · 日语 · 巴西葡萄牙语 · 波兰语 · 俄语 · 韩语 · 繁体中文 · 简体中文 · 阿拉伯语 | 15 |
+| [Shadow of the Tomb Raider](docs/languages/zh-Hans.md#shadowofthetombraider) | 英语 · 法语 · 德语 · 意大利语 · 拉丁美洲西班牙语 · 欧洲西班牙语 · 日语 · 巴西葡萄牙语 · 波兰语 · 俄语 · 繁体中文 · 简体中文 · 阿拉伯语 | 14 |
 
 [语言详情](docs/languages/zh-Hans.md) · [打开在线伴侣](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

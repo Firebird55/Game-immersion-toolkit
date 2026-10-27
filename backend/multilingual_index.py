@@ -71,7 +71,7 @@ class MultilingualTextIndex:
                     raise ValueError('Incomplete game study text')
                 if not isinstance(row.get('texts'), dict) or row['texts'].get(locale) != row['source_text']:
                     raise ValueError('Official text locales do not agree')
-                if row.get('audio_locale') != audio_locale(locale):
+                if row.get('audio_locale') != audio_locale(locale, self.game):
                     raise ValueError('Original voice locale does not match study text')
                 row['voice_status'] = dialogue_voice_status(row.get('audio'), row.get('voice_status'))
                 voice_counts[row['voice_status']] += 1
