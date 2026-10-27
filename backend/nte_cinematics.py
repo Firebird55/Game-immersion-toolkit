@@ -71,7 +71,9 @@ def movie_bindings(rows: list[dict]) -> list[dict]:
 def subtitle_cues(text: str) -> list[dict]:
     result = []
     text = text.lstrip('\ufeff').replace('\r\n', '\n')
-    timestamp = r'(\d{2}):(\d{2}):(\d{2})[,.](\d{3})'
+    # Installed FFMpeg SRT cues can omit leading zeroes in milliseconds.
+    # FFmpeg's srtdec reads this as an integer: ,50 means 50 ms, not 500.
+    timestamp = r'(\d{2}):(\d{2}):(\d{2})[,.](\d{1,3})'
     for block in re.split(r'\n\s*\n', text.strip()):
         rows = block.strip().splitlines()
         if len(rows) != 3 or not rows[0].isdigit() or not re.fullmatch(r'[A-Za-z0-9_]+', rows[2].strip()):
