@@ -73,7 +73,7 @@ generic UI strings and friend chat are outside narrative capture.
 
 ## Installed audio and language result
 
-The audited install has no selected-language audio VFS groups. Both base and
+At the initial audit, the install had no selected-language audio VFS groups. Both base and
 persistent initial-audio inventories expose the same 56 entries. An additional
 bounded header inspection of four main stream packages found 59,932 SFX entries,
 all 32-bit IDs, and **zero** authored voice-hash matches across all five study
@@ -92,6 +92,23 @@ typed joins for all study languages: English 49,794; Simplified Chinese 51,049;
 Traditional Chinese 49,773; Japanese 49,794; Korean 49,773. These counts prove
 text joins, not playback. Locale routing and exact authored voice bindings are
 also covered with synthetic entries for every supported study locale.
+
+## Later installed voice-pack verification
+
+A second read-only check on October 27 observed a changed installation
+fingerprint and a newly reachable Chinese audio group. The current reader found
+35,067 entries in the selected Chinese group, alongside initial/hotfix entries.
+English, Japanese and Korean groups remained absent. These are inventory entries,
+which can include repeated base/hotfix references, not unique dialogue totals.
+
+Joining the new inventory to the same explicitly recorded metadata revision
+resolved **21,389 Simplified Chinese original-voice records**, with 17,196
+confirmed text-only records, 11,029 unavailable and 1,435 unknown. A conversation
+was extracted through the production voice service and decoded to a non-silent
+three-second clip. The result verifies Chinese pack access and one original
+performance; it does not establish that all missing mappings or gameplay layouts
+are resolved. Aggregate evidence is under ignored
+`output/checks/endfield-live-recheck/`.
 
 ## Update resilience and validation
 
