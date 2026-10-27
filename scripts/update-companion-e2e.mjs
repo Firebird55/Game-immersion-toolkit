@@ -26,8 +26,8 @@ function stopRecorded(root,exceptRouter=false){
 function terminate(child){if(child.exitCode===null&&!child.killed)child.kill();}
 
 try{
- for(const mode of ['running','paused','resumed','failed']){
-  const fail=mode==='failed',resumed=mode==='resumed',paused=['paused','resumed'].includes(mode),expectedFailure=fail||resumed;
+ for(const mode of ['running','paused','resumed','resumed-at-quiesce','failed']){
+  const fail=mode==='failed',resumed=mode.startsWith('resumed'),paused=mode==='paused'||resumed,expectedFailure=fail||resumed;
   const root=join(temporary,mode+' update'),source=join(root,'new source');
   for(const name of ['data','new source/backend','new source/scripts','new source/.openai'])mkdirSync(join(root,name),{recursive:true});
   for(const name of ['companion-runtime.ps1','retire-companion.ps1','companion-router.mjs'])copyFileSync(join(repository,'scripts',name),join(source,'scripts',name));
@@ -64,7 +64,12 @@ try{
    assert.equal(current.worker,'old');assert(current.capture.running);
    if(resumed){
     assert.match(output,/Capture started while the update was preparing/);
-    assert(!readFileSync(join(root,'data/events.log'),'utf8').includes('quiesced'),'Resumed capture was stopped without warming its game');
+    const events=readFileSync(join(root,'data/events.log'),'utf8').trim().split(/\r?\n/).map(line=>JSON.parse(line));
+    if(mode==='resumed-at-quiesce'){
+     const quiesced=events.findIndex(event=>event.name==='quiesced');
+     assert(quiesced>=0&&events.findIndex(event=>event.name==='restored')>quiesced,'Quiesced capture was not restored');
+     assert(!events.some(event=>event.name==='activated'),'An unprepared replacement started capture');
+    }else assert(!events.some(event=>event.name==='quiesced'),'Resumed capture was stopped without warming its game');
    }
   }
   else{
@@ -80,7 +85,7 @@ try{
  }
 }finally{
  for(const process of children)terminate(process);
- for(const name of ['running update','paused update','resumed update','failed update']){
+ for(const name of ['running update','paused update','resumed update','resumed-at-quiesce update','failed update']){
   stopRecorded(join(temporary,name));
  }
  const checked=realpathSync.native(temporary),prefix=realpathSync.native(tmpdir())+sep+'companion-update-';

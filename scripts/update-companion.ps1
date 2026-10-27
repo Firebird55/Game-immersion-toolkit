@@ -137,6 +137,12 @@ try {
         }
         $handoff=Get-CompanionStartupHandoff $newApi
     }
+    # Quiesce is the authoritative capture snapshot. Capture may have started
+    # after the final status request; restore the old runtime in the catch path
+    # instead of activating a game that this paused preparation did not warm.
+    if($current -and $handoff.running -and -not $warmingRunning){
+        throw 'Capture started while the update was preparing. The current companion will be restored; retry the update to warm its game.'
+    }
     Set-CompanionNormalPriority $candidate.processRecords.backend $Root
     $null=Invoke-RestMethod -Method Post ($newApi+'/api/runtime/activate') -Headers $headers -ContentType 'application/json' -Body ($handoff|ConvertTo-Json -Depth 12) -TimeoutSec 15
     Save-CompanionJson $statePath @{version=1;active=$candidate}
