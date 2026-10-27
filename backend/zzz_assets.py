@@ -17,7 +17,7 @@ from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -40,15 +40,21 @@ def ongoing_links(config):
     text_field, male_field, female_field = schema
     links = []
     for item in rows:
+        if not isinstance(item, dict) or not all(field in item for field in schema):
+            raise ValueError('Unsupported ZZZ ongoing dialogue schema; previous complete table retained.')
         identity = str(item.get(text_field) or '')
         if not identity:
             continue
         male, female = str(item.get(male_field) or ''), str(item.get(female_field) or '')
+        channel = 'gameplay' if 'ongoinglevel' in identity.casefold() else 'tip'
+        if not male and not female:
+            links.append({'text_id': identity, 'source': '', 'gender': None,
+                'channels': [channel], 'dialogue_kind': 'ambient', 'voice_status': 'unvoiced'})
         for gender, source in (('M', male), ('F', female)):
             if source:
                 links.append({'text_id': identity, 'source': source,
                     'gender': gender if male and female and male != female else None,
-                    'channels': ['gameplay'] if 'ongoinglevel' in identity.casefold() else ['tip']})
+                    'channels': [channel], 'dialogue_kind': 'ambient', 'voice_status': 'unavailable'})
     return links
 
 
@@ -107,17 +113,25 @@ def _text(text, gender):
 
 
 def build_records(tables, source_locale, selected, links, prefixes, entries, cinematic, namespace):
-    expanded, channels = [], {}
+    expanded, channels, evidence, kinds = [], {}, {}, {}
     for link in links:
         identity = link['text_id']
         channels.setdefault(identity, set()).update(link.get('channels', ['dialogue', 'cinematic']))
+        kinds.setdefault(identity, set()).add(link.get('dialogue_kind') or
+            ('comic' if is_comic_text_id(identity) else 'cutscene' if identity.startswith('CS_') else 'conversation'))
+        status = link.get('voice_status') or ('unavailable' if link.get('source') else 'unknown')
         sources = _variants(link['source'])
         if sources:
             expanded.extend({'text_id': identity + ':' + gender, 'source': source} for gender, source in sources.items() if source)
+            for gender, source in sources.items():
+                evidence.setdefault(identity + ':' + gender, set()).add(status if source else 'unknown')
         elif link.get('gender'):
             expanded.append({'text_id': identity + ':' + link['gender'], 'source': link['source']})
+            evidence.setdefault(identity + ':' + link['gender'], set()).add(status)
         else:
-            expanded.append({'text_id': identity, 'source': link['source']})
+            if link['source']:
+                expanded.append({'text_id': identity, 'source': link['source']})
+            evidence.setdefault(identity, set()).add(status)
     bindings = resolve_links(expanded, prefixes, entries, namespace=namespace) if namespace else {}
     bindings.update(cinematic)
     identities = set(channels) | set(cinematic) | {key for key in tables[source_locale] if is_comic_text_id(key)}
@@ -137,11 +151,16 @@ def build_records(tables, source_locale, selected, links, prefixes, entries, cin
                 audio = {**binding, 'locale': audio_locale(source_locale), 'namespace': namespace,
                          'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
             row_id = identity + ':' + gender if gender else identity
+            states = evidence.get(row_id, evidence.get(identity, {'unknown'}))
+            voice_status = 'voiced' if audio else 'unavailable' if 'unavailable' in states else 'unvoiced' if states == {'unvoiced'} else 'unknown'
+            kind = next((kind for kind in ('comic', 'cutscene', 'conversation', 'choice', 'narration', 'ambient') if kind in kinds.get(identity, set())),
+                'comic' if is_comic_text_id(identity) else 'cutscene' if identity.startswith('CS_') else 'conversation')
             rows.append({'text_id': row_id, 'source_locale': source_locale, 'source_text': text,
                 'texts': texts, 'english': _text(values.get('en', ''), gender), 'chinese': texts.get('zh-Hans', ''),
                 'audio_locale': audio_locale(source_locale), 'audio': audio,
                 'player_voice': {'M': 'male', 'F': 'female'}.get(gender),
                 'member_text_ids': [identity] if gender else None,
+                'voice_status': voice_status, 'dialogue_kind': kind,
                 'channels': sorted(channels.get(identity, {'cinematic'}))})
     return rows
 
@@ -172,7 +191,7 @@ def _links(root, directory, revision, progress):
     code = Path(__file__).resolve().parents[1]
     signature = hashlib.sha256(b''.join([fingerprint(root).encode(), reader.read_bytes(),
         *((code / 'scripts' / name).read_bytes() for name in ('extract_voice_links.mjs', 'extract_cinematic_links.mjs',
-            'scene-catalog.mjs', 'cinematic-links.mjs', 'comic-links.mjs')),
+            'scene-catalog.mjs', 'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs')),
         *( (tools / name).read_bytes() for name in game_tools.METADATA_FILES)])).hexdigest()
     cache = directory / 'scene-links.json'
     try:
@@ -181,25 +200,27 @@ def _links(root, directory, revision, progress):
         old = {}
     if old.get('signature') != signature:
         links = []
-        for category in ('galgame', 'comic'):
+        diagnostics = []
+        for category in ('dialogue', 'comic'):
             progress('Reading installed ZZZ ' + category + ' subtitle/voice bindings')
             name = 'language-links-' + category + '.json'
             result = subprocess.run(['node', str(code / 'scripts/extract_voice_links.mjs'), str(root), str(tools), category, name],
                 cwd=code, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             if result.returncode:
                 raise PreparationFailure('zzz_scene_catalog', 'ZZZ subtitle/voice links could not be read from the installed resource catalog. Update the toolkit and verify game files in the launcher, then retry preparation.')
-            links.extend({**link, 'channels': ['cinematic'] if category == 'comic' else ['dialogue', 'cinematic']}
+            links.extend({**link, 'channels': ['cinematic'] if category == 'comic' else link.get('channels', ['dialogue', 'cinematic'])}
                          for link in json.loads((tools / name).read_text(encoding='utf-8')))
+            diagnostics.append(json.loads((tools / (name + '.diagnostics.json')).read_text(encoding='utf-8')))
         progress('Reading installed ZZZ cinematic timelines and their original voice events')
         result = subprocess.run(['node', str(code / 'scripts/extract_cinematic_links.mjs'), str(root), str(tools)],
             cwd=code, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if result.returncode:
             raise PreparationFailure('zzz_cinematic_catalog', 'ZZZ cinematic voice links could not be read from the installed resource catalog. Update the toolkit and verify game files in the launcher, then retry preparation.')
-        old = {'signature': signature, 'links': links,
+        old = {'signature': signature, 'links': links, 'diagnostics': diagnostics,
                'cinematic': json.loads((tools / 'scene-links-cinematic.json').read_text(encoding='utf-8'))}
         cache.parent.mkdir(parents=True, exist_ok=True)
         pending = cache.with_suffix('.pending'); pending.write_text(json.dumps(old), encoding='utf-8'); pending.replace(cache)
-    return old['links'], old['cinematic'], tools
+    return old['links'], old['cinematic'], tools, old['diagnostics']
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
@@ -212,25 +233,33 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     if not re.fullmatch('[a-f0-9]{40}', revision):
         raise ValueError('ZZZ official text revision is unavailable.')
     tables = _tables(data_dir, revision, selected)
-    links, cinematic_links, tools = _links(root, data_dir, revision, progress)
+    links, cinematic_links, tools, scene_diagnostics = _links(root, data_dir, revision, progress)
     ongoing = json.loads((tools / 'OngoingTipsConfigTemplateTb.json').read_text(encoding='utf-8'))
     links.extend(ongoing_links(ongoing))
     namespace, inventory = localized_inventory(root, source_locale)
     cinematic = resolve_cinematic_links(cinematic_links, root,
         json.loads((tools / 'AudioResourceData.json').read_text(encoding='utf-8')),
         folder=VOICE_FOLDERS[source_locale], namespace=namespace) if namespace else {}
-    links.extend({'text_id': link['text_id'], 'source': '', 'channels': ['cinematic']}
+    links.extend({'text_id': link['text_id'], 'source': '', 'channels': ['cinematic'],
+                  'dialogue_kind': 'cutscene', 'voice_status': 'unavailable' if link.get('event') else 'unknown'}
                  for link in cinematic_links if re.fullmatch(r'CS_[A-Za-z0-9_]+', link.get('text_id', '')))
     prefixes = json.loads((tools / 'VoiceData.json').read_text(encoding='utf-8'))['allPrefixes']
     rows = build_records(tables, source_locale, selected, links, prefixes, inventory, cinematic, namespace)
     if not rows or fingerprint(install) != stamp:
         raise ValueError('ZZZ files changed or selected text is incomplete; previous table retained.')
     mapped = sum(bool(row['audio']) for row in rows)
+    silent = sum(row['voice_status'] == 'unvoiced' for row in rows)
+    unresolved = sum(item['unresolved_scenes'] for item in scene_diagnostics)
+    unsupported = sum(sum(item.get('unsupported_dialogue_nodes', {}).values()) for item in scene_diagnostics)
     available = {locale for row in rows for locale in row['texts']}
     missing = [target for target, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'zzz', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'metadata_revision': revision, 'records': rows, 'missing_translation_locales': missing,
-        'message': f'{len(rows):,} official {source_locale} entries; {mapped:,} original voices' +
+        'coverage': {'scene_catalogs': scene_diagnostics, 'verified_unvoiced': silent,
+                     'unknown_voice_status': sum(row['voice_status'] == 'unknown' for row in rows)},
+        'message': f'{len(rows):,} official {source_locale} entries; {mapped:,} original voices; {silent:,} authored unvoiced entries' +
+        (f'; {unresolved:,} metadata scenes are not in the installed catalog' if unresolved else '') +
+        (f'; {unsupported:,} dialogue objects use a new format: update the toolkit for full coverage' if unsupported else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
         ('; selected voice pack is missing or incomplete' if not mapped and namespace is None else
          '; no verified original bindings; check the installed game version and scene metadata' if not mapped else '')}

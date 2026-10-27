@@ -45,6 +45,8 @@ export function comicVoicePairs(bytes) {
         if (count === 0n || count > 50000n || count * 20n > BigInt(bytes.length - cursor)) continue;
         let offset = cursor + 9;
         const dictionary = [];
+        const silent = [];
+        let otherValues = false;
         try {
           for (let index = 0; index < Number(count); index++) {
             if (bytes[offset] !== 0x04 || bytes[offset + 1] !== 0x2e) throw new Error('Expected dictionary entry node');
@@ -53,10 +55,16 @@ export function comicVoicePairs(bytes) {
             if (bytes[value.end] !== 0x05) throw new Error('Unclosed dictionary entry');
             if (!/^[a-f0-9]{32}$/i.test(key.value)) throw new Error('Invalid comic GUID');
             if (voiceSource(value.value)) dictionary.push({ text_id: `Comic_${key.value}`, source: value.value });
+            else if (value.value === '') silent.push({text_id: `Comic_${key.value}`, source: '',
+              dialogue_kind: 'comic', voice_status: 'unvoiced'});
+            else otherValues = true;
             offset = value.end + 1;
           }
           if (bytes[offset] !== 0x07 || bytes[offset + 1] !== 0x05) throw new Error('Unclosed dictionary array');
           pairs.push(...dictionary);
+          // Empty values only prove silence in an otherwise verified voice
+          // dictionary; all-empty or mixed generic GUID dictionaries do not.
+          if (dictionary.length && !otherValues) pairs.push(...silent);
           start = offset + 1;
           break;
         } catch { /* incompatible or incomplete array: never use partial pairs */ }
@@ -80,6 +88,7 @@ export function uniqueComicLinks(pairs) {
   }
   return [...byText].filter(([, sources]) => sources.size === 1).flatMap(([text_id, sources]) => {
     const [key, source] = [...sources][0];
+    if (!source) return [{text_id, source, dialogue_kind: 'comic', voice_status: 'unvoiced'}];
     return bySource.get(key).size === 1 ? [{ text_id, source }] : [];
   });
 }

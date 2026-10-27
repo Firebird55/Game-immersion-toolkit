@@ -101,6 +101,34 @@ def test_unknown_ongoing_schema_cannot_silently_publish_an_incomplete_index():
         assets.ongoing_links({'rows': [{'unknown': 'Main_OngoingLevel_Test'}]})
 
 
+@pytest.mark.parametrize('schema', assets.ONGOING_SCHEMAS)
+def test_authored_silent_ongoing_rows_survive_and_later_schema_drift_fails(schema):
+    text, male, female = schema
+    rows = [{text: 'Tips_Synthetic', male: '', female: ''}]
+    link, = assets.ongoing_links({'rows': rows})
+    assert link['source'] == '' and link['voice_status'] == 'unvoiced'
+    assert link['dialogue_kind'] == 'ambient'
+    with pytest.raises(ValueError, match='Unsupported ZZZ ongoing'):
+        assets.ongoing_links({'rows': rows + [{text: 'Tips_NewSchema'}]})
+
+
+def test_typed_silent_choices_missing_voices_and_unknown_comics_are_distinct():
+    comic = 'Comic_' + 'f' * 32
+    texts = {identity: 'Synthetic dialogue ' + str(i) for i, identity in enumerate(['Silent', 'Choice', 'Missing', 'Conflict', comic])}
+    links = [
+        {'text_id': 'Silent', 'source': '', 'voice_status': 'unvoiced', 'dialogue_kind': 'conversation'},
+        {'text_id': 'Choice', 'source': '', 'voice_status': 'unknown', 'dialogue_kind': 'choice'},
+        {'text_id': 'Missing', 'source': 'GalGame_Synthetic'},
+        {'text_id': 'Conflict', 'source': '', 'voice_status': 'unvoiced'},
+        {'text_id': 'Conflict', 'source': '', 'voice_status': 'unknown'},
+    ]
+    rows = {row['text_id']: row for row in assets.build_records({'en': texts}, 'en', {'en'}, links, [], {}, {}, None)}
+    assert {key: row['voice_status'] for key, row in rows.items()} == {
+        'Silent': 'unvoiced', 'Choice': 'unknown', 'Missing': 'unavailable', 'Conflict': 'unknown', comic: 'unknown'}
+    assert rows['Choice']['dialogue_kind'] == 'choice' and rows[comic]['dialogue_kind'] == 'comic'
+    assert all(row['audio'] is None for row in rows.values())
+
+
 def test_unrequested_english_variants_do_not_change_a_neutral_selected_language(tmp_path):
     package = tmp_path / 'voice.pck'; package.write_bytes(bytes(128))
     source = 'VO_Galgame/VO_Test/Line'
