@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from backend.lexirise import LexiriseError, LexiriseService
+from backend.lexirise import GAME_TITLES, LexiriseError, LexiriseService
 
 
 def test_explicit_deck_creation_is_repeatable_and_account_scoped(tmp_path):
@@ -25,7 +25,9 @@ def test_explicit_deck_creation_is_repeatable_and_account_scoped(tmp_path):
     assert "wwm" not in service.status()["decks"]
     first = service.ensure_game_decks()
     assert first == service.ensure_game_decks()
-    assert len(creates) == 12
+    assert len(creates) == len(GAME_TITLES)
+    assert {deck["title"] for deck in creates} == set(GAME_TITLES.values())
+    assert set(first) == set(GAME_TITLES)
     assert service.status()["decks"]["cyberpunk"]["id"] == 2103
     assert service.status()["decks"]["wuwa"]["id"] == 2104
     assert service.status()["decks"]["witcher3"]["id"] == 2105
