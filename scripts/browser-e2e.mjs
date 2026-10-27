@@ -136,6 +136,7 @@ try{
  if(process.argv.includes('--reading-settings')){console.log(name+': reading settings '+width+'x'+height+' passed');await context.close();continue;}
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();const capture=page.getByRole('dialog',{name:'Capture setup'});await capture.waitFor();b=await capture.boundingBox();assert(b&&b.x>=0&&b.x+b.width<=width+1,'Capture setup fits');
  await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
+ await page.locator('.game-library > summary').click();
  const games=page.getByRole('navigation',{name:'Game transcript'});
  await page.getByLabel('Target language',{exact:true}).selectOption('ja');
  assert.equal(await games.getByRole('button',{name:'Where Winds Meet',exact:true}).count(),0,'Unverified WWM integration stays excluded');

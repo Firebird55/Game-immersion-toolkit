@@ -7,6 +7,7 @@ import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
+import {LanguageSetup} from './language-setup';
 import {GamePicker, useTargetLanguage} from './game-picker';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -89,6 +90,7 @@ type Settings = {
   fuzzy_threshold: number;
   auto_start: boolean;
   save_unmatched: boolean;
+  capture_unvoiced: boolean;
 };
 type CaptureStatus = {
   visible_text_ids: string[];
@@ -129,6 +131,8 @@ type TranscriptLine = {
   ambiguous: boolean;
   channel: 'dialogue' | 'gameplay' | 'tip' | 'cinematic';
   voiced: boolean;
+  voice_status?: 'voiced' | 'unvoiced' | 'unavailable' | 'unknown';
+  dialogue_kind?: string | null;
   has_audio: boolean;
   audio_pending?: boolean;
   audio_source?: 'original' | 'recording';
@@ -140,7 +144,7 @@ function isComicLine(line: TranscriptLine) {
   return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}(?::[MF])?$/i.test(line.text_id);
 }
 function isReadableLine(line: TranscriptLine) {
-  return line.voiced || line.game === 'hito' || isComicLine(line);
+  return line.voiced || line.voice_status === 'unvoiced' || line.game === 'hito' || isComicLine(line);
 }
 type UpdateStatus = {
   state: string;
@@ -880,7 +884,7 @@ function CompanionClient() {
       <header className="topbar">
         <div>
           <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
-          <h1>{uiText("Proxy Transcript")}</h1>
+          <h1>Game immersion toolkit</h1>
           {!archivedHistory && <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>}
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
@@ -891,7 +895,7 @@ function CompanionClient() {
 
       <div className="game-tabs">
         <span><Gamepad2 size={15} /> {uiText("Games & Languages")}</span>
-        {status?.capture.active_game && <small>{uiText("Capturing")}{GAME_NAMES[status.capture.active_game]}</small>}
+        {status?.capture.active_game && <small>{uiText("Capturing")} {GAME_NAMES[status.capture.active_game]}</small>}
         <div className="reading-controls" aria-label={uiText("Chinese reading options")}>
         <label>{uiText("Reading")}<select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
@@ -905,6 +909,11 @@ function CompanionClient() {
       <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
+
+      {!archivedHistory && online && !status?.selected_languages?.[selectedGame]?.source_locale && (capture?.phase === 'needs_language_setup' || !mapStatus?.ready) && <div className="game-start-card">
+        <div><h2>Prepare {GAME_NAMES[selectedGame]} for play</h2><p>Choose the subtitles and original voice you use in the game, then prepare them here. Preparation continues in the background.</p></div>
+        <LanguageSetup game={selectedGame} compact targetLanguage={gamePicker.target} showAccount={false} onConfigure={() => {}} onChanged={() => void loadSnapshot()}/>
+      </div>}
 
       <section className="status-strip" aria-label={uiText("Companion status")}>
         <div>
@@ -924,7 +933,7 @@ function CompanionClient() {
         </div>
       </section>
 
-      {!archivedHistory && updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
+      {!archivedHistory && updateStatus && ['checking','updating','retrying','error'].includes(updateStatus.state) && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
         <div className="update-progress-copy">
           <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
           <strong>{uiText("Game language updates")}</strong>
@@ -944,7 +953,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -957,9 +966,9 @@ function CompanionClient() {
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
             {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} />}
             <div className="current-actions">
-              <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
+              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
-              </button>
+              </button>}
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
               </button>
@@ -970,8 +979,8 @@ function CompanionClient() {
           <div className="current-empty">
             <ScanLine size={28} />
             <div>
-              <strong>{selectedGame === 'zzz' ? 'No confirmed subtitle on screen' : 'No confirmed voiced subtitle on screen'}</strong>
-              <p>{selectedGame === 'zzz' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
+              <strong>{uiText('Waiting for dialogue')}</strong>
+              <p>{uiText('Matched game dialogue appears here. Previous lines stay in History.')}</p>
             </div>
           </div>
         )}
@@ -1100,11 +1109,10 @@ function CompanionClient() {
       </footer>
 
       {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:"zh"} />}
-      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-setup-dialog" showCloseButton={false}><button type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Manage the account on this PC and the destination for saved sentences.</DialogDescription></DialogHeader>
+      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Choose your account and where sentences are saved.</DialogDescription></DialogHeader>
         <AccountSwitcher onChanged={() => void loadSnapshot()}/>
         {selectedGame !== 'hito' && <details open><summary>Sentence destination · {GAME_NAMES[selectedGame]}</summary><GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} /></details>}
-        <Button onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
-        <p>Only Save to Lexirise changes remote preferences. Reading appearance is available from Reading options.</p>
+        <Button className="account-preferences" variant="outline" onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
       </DialogContent></Dialog>}
       {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
 
@@ -1118,6 +1126,10 @@ function CompanionClient() {
           </DialogHeader>
 
           <p>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
+          {draftSettings && <label className="toolkit-setup-checkbox"><input type="checkbox" checked={draftSettings.capture_unvoiced ?? false}
+            onChange={event => setDraftSettings(current => current ? {...current, capture_unvoiced: event.target.checked} : current)} /> {uiText('Include unvoiced dialogue')}
+          </label>}
+          <p className="toolkit-setup-note">{uiText('Applies to all games. Includes text the game identifies as unvoiced; missing voice files are reported separately. Saved history is kept when this is off.')}</p>
           {selectedGame === 'zzz' && draftSettings && <label>{uiText("Proxy voice")}<select aria-label={uiText("Proxy voice")} value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, zzz_proxy_voice: event.target.value as Settings['zzz_proxy_voice'] } : current)}>
               <option value="unconfigured">{uiText("Choose the Proxy for variant lines")}</option>

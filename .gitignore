@@ -69,6 +69,7 @@ next-env.d.ts
 /.wrangler/
 **/.wrangler/
 /services/pairing/output/
+/.playwright-cli/
 /outputs/
 /output/
 /work/

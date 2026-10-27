@@ -30,7 +30,7 @@ mkdirSync('output/playwright', { recursive: true });
 const libraryId='a'.repeat(64),libraryRow={id:libraryId,textId:'reconnect-check',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:libraryId,audio:null,channels:['dialogue']},libraryRows=strToU8(JSON.stringify(libraryRow)+'\n');
 const reconnectLibrary=Buffer.from(zipSync({'manifest.json':strToU8(JSON.stringify({format:'proxy-mobile-library-v1',kind:'catalog',game:'zzz',title:'Synthetic reconnect verification',revision:libraryId,coverage:{dialogue:1},catalog:[{name:'catalog/00000.ndjson',size:libraryRows.length,sha256:createHash('sha256').update(libraryRows).digest('hex')}],packs:[]})),'catalog/00000.ndjson':libraryRows},{level:0}));
 async function verifyQrRendering(page){
-  await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();
   const text=pairingMessage({type:'offer',sdp:'v=0\r\n'+Array.from({length:90},(_,i)=>`a=fixture:${i}:${Math.sin(i)}`).join('\r\n')},'zzz',{sessionId:'qr-render-session-fixture',pairingId:'qr-render-pairing-fixture',attempt:1});
   await page.evaluate(message=>window.dispatchEvent(new CustomEvent('mobile-pairing-message',{detail:{message}})),text);
   await page.waitForFunction(()=>!document.querySelector('#qr-panel').hidden);
@@ -116,7 +116,7 @@ try{
  for(const [name,engine] of [['chromium',chromium],['firefox',firefox],['webkit',webkit]]){
   browser=await engine.launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],requests=[];
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
-  await page.goto(url);await page.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();
+  await page.goto(url);await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();
   assert.equal(await page.locator('.companion-nav button').allTextContents().then(v=>v.join(',')),'Play,Settings');
   assert.equal(await page.locator('#frame-source,#preview,#resume-share').count(),0,'Browser screen pairing UI is removed');
   assert(!requests.some(v=>/pc-connection|qr-ui/.test(v)),'PC pairing is not loaded on Play');
@@ -142,7 +142,7 @@ try{
   else assert.match(await page.locator('#status').textContent(),/unavailable/);
   await verifyQrRendering(page);
   if(name!=='webkit'){
-   const other=await context.newPage();await other.goto(url);await other.getByRole('heading',{name:'Proxy Transcript',exact:true}).waitFor();await other.getByRole('button',{name:'Settings',exact:true}).click();await other.selectOption('#source','pc');await other.waitForFunction(()=>typeof document.querySelector('#scan-pairing').onclick==='function');
+   const other=await context.newPage();await other.goto(url);await other.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();await other.getByRole('button',{name:'Settings',exact:true}).click();await other.selectOption('#source','pc');await other.waitForFunction(()=>typeof document.querySelector('#scan-pairing').onclick==='function');
    await verifyPartialScan(page,other);await other.close();
   }
   assert.deepEqual(errors,[]);await context.close();await browser.close();browser=null;

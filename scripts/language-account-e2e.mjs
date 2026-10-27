@@ -20,6 +20,7 @@ try{
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
     languageSettings:{en:{effectiveTranslationLanguage:active==='first'?'zh-hans':'nl',inlineGlossMode:'always',wordPopup:{tabs:[{id:'definition',enabled:true}],openOn:'first'}},zh:{effectiveTranslationLanguage:'en',inlineGlossMode:'off'}}});
    const region={left:.1,top:.6,width:.8,height:.25};
+   const updates={state:'retrying',progress:null,automatic:true,message:'Installed game files changed. The reader could not prepare the selected language; the previous table was kept.',items:[{game:'zzz',locale:'zh-Hans',state:'error',message:'The new archive format needs a reader update. Original voices remain unavailable until preparation succeeds.'},{game:'beyond',locale:'nl',state:'ready',message:'Prepared Dutch subtitles and original audio are current.'}]};
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
    const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:'en',source_locale:'en',source_text:'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:true,has_audio:true,favorite:false});
    const languages=()=>({context:stateContext(),selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
@@ -34,10 +35,11 @@ try{
     if(!['GET','OPTIONS'].includes(request.method()))writes.push({path,body});
     const respond=(value,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'},body:JSON.stringify(value)});
     if(request.method()==='OPTIONS')return respond({});
+    if(path==='/api/settings'){if(request.method()==='PATCH')Object.assign(settings,body);return respond(settings);}
     if(path==='/api/toolkit-update')return respond({installed_version:'fixture',enabled:true,state:'current',message:'Toolkit is up to date'});
     if((/^\/api\/lines\/\d+\/(reading|lexirise)/.test(path)||path==='/api/lexirise/decks'||path==='/api/lexirise/settings'&&request.headers()['x-proxy-transcript-account']!==undefined)&&request.headers()['x-proxy-transcript-account']!==active)return respond({detail:'Account changed. Retry with the selected account.'},409);
-    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
-    if(path==='/api/status')return respond({capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}});
+    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
+    if(path==='/api/status')return respond({capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}});
     if(path==='/api/lines')return respond(url.searchParams.get('game')==='zzz'?[line()]:[]);
     if(path==='/api/favorites')return respond([]);
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[game],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,mobile_export:{state:'idle'},free_gb:10});
@@ -86,7 +88,7 @@ try{
    assert(releaseLanguageRead,'Initial account-language read is held after the capture snapshot');
    assert.equal(await page.getByLabel('Target language',{exact:true}).isDisabled(),true,'The target selector remains disabled while its account-language read is held');
    await releaseLanguageRead();
-   await page.getByRole('navigation',{name:'Game transcript'}).getByRole('button',{name:'Genshin Impact',exact:true,pressed:true}).waitFor();
+   await page.waitForFunction(()=>document.querySelector('select[aria-label="Game"]')?.value==='genshin');
    captureGame='zzz';
    await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
    const send=page.locator('.current-line .lexirise-send');
@@ -96,11 +98,33 @@ try{
    assert.equal(requests.filter(r=>r.path==='/api/lines/1/lexirise').at(-1).account,'first','Initial missing account resolves to current account before export');
    await page.getByText('Sentence and voice saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor({timeout:5000});
 
+   const updatePanel=page.getByRole('region',{name:'Automatic data update status'});
+   await updatePanel.locator('summary').click();
+   const details=await updatePanel.locator('details').evaluate(el=>({width:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,fits:el.scrollWidth<=el.clientWidth+1}));
+   assert(details.fits&&details.width>details.parent*.8,'Expanded update details use the full row, not a narrow right column');
+   await updatePanel.screenshot({path:`${preview.output}/update-details-${name}-${width}.png`});
+   await updatePanel.locator('summary').click();
+   await page.screenshot({path:`${preview.output}/main-${name}-${width}.png`});
+   await page.getByRole('button',{name:'Capture setup',exact:true}).click();
+   const captureSettings=page.getByRole('dialog',{name:'Capture setup',exact:true});
+   await captureSettings.getByLabel('Include unvoiced dialogue',{exact:true}).check();
+   await captureSettings.getByRole('button',{name:'Save capture settings',exact:true}).click();
+   await captureSettings.waitFor({state:'hidden'});
+   assert.equal(settings.capture_unvoiced,true,'Capture toggle is saved through local settings');
    await page.locator('.current-line .reading-hanzi').click();
    await page.waitForTimeout(100);
    assert(releaseOld,'Old-account lookup is pending');
    await page.getByRole('button',{name:'Account settings',exact:true}).click();
    const panel=page.getByRole('dialog',{name:'Lexirise account settings'});
+   const accountGeometry=await panel.evaluate(el=>{
+    const account=el.querySelector('fieldset'),heading=el.querySelector('[data-slot="dialog-header"]');
+    const bounds=el.getBoundingClientRect();
+    return {fits:el.scrollWidth<=el.clientWidth+1,width:bounds.width,
+     gap:account.getBoundingClientRect().top-heading.getBoundingClientRect().bottom};
+   });
+   assert(accountGeometry.fits&&accountGeometry.width<=Math.min(width,700),'Account controls remain compact and fit the viewport');
+   assert(accountGeometry.gap>=0&&accountGeometry.gap<90,'Account fields follow the heading without an empty wizard row');
+   await panel.screenshot({path:`${preview.output}/account-${name}-${width}.png`});
    await panel.getByLabel('Active Lexirise account').selectOption('second');
    await panel.getByText('Selected account loaded.',{exact:true}).waitFor();
    await panel.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
@@ -212,6 +236,7 @@ try{
    const targets=()=>target.locator('option').evaluateAll(options=>options.map(option=>option.value).sort());
    assert.deepEqual(await targets(),['en','zh'],'Lexirise target picker only offers account languages');
    await target.selectOption('en');
+   await picker.locator('.game-library > summary').click();
    const cards=page.getByRole('navigation',{name:'Game transcript'});
    assert.equal(await cards.getByRole('button').count(),11,'English shows all eleven voiced games');
    await picker.screenshot({path:`${preview.output}/game-picker-all-${name}-${width}.png`});
