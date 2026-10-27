@@ -8,6 +8,24 @@ import pytest
 from backend import game_tools as tools
 
 
+def test_node_reader_dependencies_belong_to_active_code_not_preserved_data(tmp_path, monkeypatch):
+    source, root = tmp_path / 'active-code', tmp_path / 'preserved-install'
+    monkeypatch.setattr(tools, 'CODE_ROOT', source)
+    paths = [root / 'data/voice-assets/vgmstream/vgmstream-cli.exe',
+             root / 'work/voice-assets/galgame-perform.ts',
+             *(root / 'work/voice-assets' / name for name in tools.METADATA_FILES),
+             *(source / 'node_modules' / name / 'package.json' for name in ('ooz-wasm', 'xxhash-wasm'))]
+    for path in paths:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('fixture', encoding='utf-8')
+    assert tools.missing_tools(root, 'zzz') == []
+    stale = root / 'node_modules/ooz-wasm/package.json'
+    stale.parent.mkdir(parents=True)
+    stale.write_text('old version', encoding='utf-8')
+    (source / 'node_modules/ooz-wasm/package.json').unlink()
+    assert tools.missing_tools(root, 'zzz') == ['ooz-wasm']
+
+
 def bundle(files):
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w") as archive:

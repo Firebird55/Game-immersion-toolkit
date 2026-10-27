@@ -10,6 +10,7 @@ import tempfile
 import urllib.request
 import zipfile
 
+CODE_ROOT = Path(__file__).resolve().parents[1]
 VGM_URL = "https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-win64.zip"
 VGM_SHA = "6c4a8a3813864fefed081bbd337dbc0ad93bf88e0b92f5db98d7ab258b22dc6c"
 REE_URL = "https://github.com/Ekey/REE.PAK.Tool/releases/download/Latest/REE.Unpacker-x86.zip"
@@ -121,7 +122,7 @@ def missing_tools(root: Path, game: str) -> list[str]:
     if game == "zzz":
         required += [("ZZZ scene reader", root / "work/voice-assets/galgame-perform.ts")]
         required += [(name, root / "work/voice-assets" / name) for name in METADATA_FILES]
-        required += [(name, root / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
+        required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "pragmata":
         required += [("PRAGMATA extractor", root / "data/pragmata/tools/REE.Unpacker.exe")]
     if game == "cyberpunk":

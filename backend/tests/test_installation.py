@@ -132,6 +132,13 @@ def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, 
     assert launched[0][0][-3:] == ["-m", "scripts.set_lexirise_key", "--account"]
     assert "stdin" not in launched[0][1]
     assert "env" not in launched[0][1]
+    source = Path(__file__).resolve().parents[2]
+    assert launched[0][1]['cwd'] == source != service.root
+    for kind, script in [('folders', 'select-game-folders.ps1'), ('checks', 'check-capture-readiness.py')]:
+        assert service.launch_native(kind)
+        args, options = launched[-1]
+        assert str(source / 'scripts' / script) in args
+        assert options['cwd'] == source
 
 
 def test_manual_refresh_dispatches_only_the_selected_game(setup, tmp_path, monkeypatch):

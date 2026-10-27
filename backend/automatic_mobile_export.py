@@ -314,7 +314,7 @@ class AutomaticMobileExports:
         log = output.parent / 'progress.jsonl'
         try:
             with log.open('w', encoding='utf-8') as stream:
-                self.process = subprocess.Popen(command, cwd=self.root, stdout=stream, stderr=subprocess.DEVNULL,
+                self.process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[1], stdout=stream, stderr=subprocess.DEVNULL,
                     **subprocess_options(), start_new_session=os.name != 'nt')
                 offset = 0
                 while self.process.poll() is None:

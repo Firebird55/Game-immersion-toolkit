@@ -28,6 +28,8 @@ def fixture(tmp_path, monkeypatch):
     class Process:
         def __init__(self, command, *, stdout, **kwargs):
             state['calls'] += 1
+            assert kwargs['cwd'] == Path(auto.__file__).resolve().parents[1] != manager.root
+            assert command[command.index('--root') + 1] == str(manager.root)
             assert '--account-signature' not in command
             assert command[command.index('--source-locale')+1] in ('ja', 'en')
             output = Path(command[command.index('--output')+1]);output.mkdir(parents=True, exist_ok=True)
