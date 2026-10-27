@@ -139,3 +139,85 @@ def test_unrequested_english_variants_do_not_change_a_neutral_selected_language(
     row, = rows
     assert row['text_id'] == 'GalGame_Test' and row['player_voice'] is None
     assert row['texts'] == {'ja': '同じ字幕です。'}
+
+
+def message_row(identity='Message_Synthetic', **values):
+    return {**dict.fromkeys(assets.MESSAGE_FIELDS, ''), 'LDHNMACDKLH': identity, **values}
+
+
+def tip_row(identity='Tips_Synthetic', **values):
+    return {**dict.fromkeys(assets.TIP_FIELDS, ''), 'BHLFCEAPFIG': identity, 'FFNNCACHDLN': [], **values}
+
+
+def test_messages_join_exact_ids_without_lending_audio_to_reply_choices(tmp_path):
+    source = 'VO_Message/Synthetic/Message_Synthetic_01'
+    links, diagnostics = assets.message_links({'rows': [
+        message_row(BKAEOOPMGNC=source, GJNMPOBFICI=source, FNOKFPDDECI='Option01_Synthetic',
+                    GGHOAADLHCF='UI/Sprite/emoji.png'),
+        message_row('Message_Silent'), message_row('Literal content'),
+    ]}, {'Message_Synthetic': 'Message', 'Option01_Synthetic': 'Choice', 'Message_Silent': 'Silent',
+         'Literal content': 'Not an identity', 'UI/Sprite/emoji.png': 'Not dialogue'})
+    assert [(link['text_id'], link['source'], link['voice_status']) for link in links] == [
+        ('Message_Synthetic', source, 'unavailable'), ('Option01_Synthetic', '', 'unknown'), ('Message_Silent', '', 'unvoiced')]
+    assert diagnostics == {'rows': 3, 'text_references': 3, 'unresolved_voice_variants': 0}
+    package = tmp_path / 'voice.pck'; package.write_bytes(bytes(128))
+    hashed = voice_hash('japanese(jp)/ex/' + source + '.wem')
+    tables = {'ja': {'Message_Synthetic': '原文のメッセージ。', 'Option01_Synthetic': '返事。', 'Message_Silent': '無音の文。'},
+              'en': {'Message_Synthetic': 'Official message.'}}
+    rows = {row['text_id']: row for row in assets.build_records(tables, 'ja', {'ja'}, links, [],
+        {hashed: VoiceEntry(package, 64, 12, hashed)}, {}, 'japanese(jp)')}
+    assert rows['Message_Synthetic']['voice_status'] == 'voiced'
+    assert rows['Message_Synthetic']['dialogue_kind'] == 'message'
+    assert rows['Message_Synthetic']['texts'] == {'ja': '原文のメッセージ。'}
+    assert rows['Option01_Synthetic']['audio'] is None
+    assert rows['Option01_Synthetic']['dialogue_kind'] == 'choice'
+    assert rows['Message_Silent']['voice_status'] == 'unvoiced'
+
+
+def test_message_alternates_and_unsupported_sources_never_choose_an_installed_variant():
+    links, diagnostics = assets.message_links({'rows': [message_row(
+        BKAEOOPMGNC='VO_Message/First/Message_First_01', GJNMPOBFICI='VO_Message/Other/Message_Other_01'),
+        message_row('Message_Future', BKAEOOPMGNC='FutureUnknownSource')]},
+        {'Message_Synthetic': 'Message', 'Message_Future': 'Future'})
+    assert all(link['source'] == '' and link['voice_status'] == 'unavailable' for link in links)
+    assert diagnostics['unresolved_voice_variants'] == 2
+
+
+def test_gameplay_tips_distinguish_original_sentences_reactions_and_silence():
+    configs = [
+        tip_row(NMMACKNBLKO='VO_Tips/VO_Synthetic/Tips_Synthetic_01', FNHBBPCONOL='Smile_01,Smile_02'),
+        tip_row('Tips_Silent'),
+        tip_row('Tips_Reaction', FNHBBPCONOL='Smile_01'),
+        tip_row('Tips_Alternate', NMMACKNBLKO='Level_First_01', NPDBBLABDAK='Level_Other_01'),
+        tip_row('Tips_Event', FFNNCACHDLN=['Play_unknown_event']),
+        tip_row('Tips_Future', KDPLFOOHOAA='new_configuration'),
+        tip_row('UI/Sprite/icon.png'),
+    ]
+    links, diagnostics = assets.tip_links({'rows': configs}, {row['BHLFCEAPFIG']: 'Text' for row in configs})
+    assert [(link['text_id'], link['source'], link['voice_status']) for link in links] == [
+        ('Tips_Synthetic', 'VO_Tips/VO_Synthetic/Tips_Synthetic_01', 'unavailable'),
+        ('Tips_Silent', '', 'unvoiced'), ('Tips_Reaction', '', 'unknown'),
+        ('Tips_Alternate', '', 'unavailable'), ('Tips_Event', '', 'unknown'), ('Tips_Future', '', 'unknown')]
+    assert diagnostics['unresolved_voice_variants'] == 1
+    assert all(link['dialogue_kind'] == 'gameplay_tip' and link['channels'] == ['tip', 'gameplay'] for link in links)
+
+
+@pytest.mark.parametrize('reader, row', [(assets.message_links, message_row()), (assets.tip_links, tip_row())])
+def test_supplemental_schema_drift_fails_before_certifying_silent_text(reader, row):
+    identity = row.get('LDHNMACDKLH') or row.get('BHLFCEAPFIG')
+    for changed in ({**row, 'newVoiceField': ''}, {key: value for key, value in row.items() if key != next(iter(row))}):
+        with pytest.raises(assets.PreparationFailure, match='unsupported table format'):
+            reader({'rows': [row, changed]}, {identity: 'Text'})
+    with pytest.raises(assets.PreparationFailure, match='unsupported table format'):
+        reader({'rows': []}, {})
+
+
+def test_supplemental_downloads_are_pinned_and_do_not_depend_on_the_scene_cache(monkeypatch):
+    revision = 'a' * 40; urls = []
+    def download(url):
+        urls.append(url)
+        return json.dumps({'rows': [message_row()] if '/MessageConfig' in url else [tip_row()]}).encode()
+    monkeypatch.setattr(assets.game_tools, 'download', download)
+    links, diagnostics = assets.supplemental_links(revision, {'Message_Synthetic': 'Message', 'Tips_Synthetic': 'Tip'})
+    assert len(links) == 2 and len(diagnostics) == 2
+    assert all('/raw/commit/' + revision + '/FileCfg/' in url for url in urls)

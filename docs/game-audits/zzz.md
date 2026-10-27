@@ -38,6 +38,13 @@ All 69,861 previously verified voiced rows remained present with the same file
 identity and package binding; 1,767 additional original voices were resolved.
 The worker validated every prepared row against the shared dialogue contract.
 
+A subsequent bounded message/tip pass used the same current metadata revision
+and the existing scene cache. Its complete preparation produced 265,241 records,
+77,148 original voices and 135,479 certified unvoiced records. It added 28,145
+entries, 5,520 verified voices and 17,292 silent records while retaining every
+previous voice binding and silent classification unchanged. No cinematic rescan
+was needed. The nine `VO_Message` entries all matched the installed Chinese pack.
+
 ## Inventory and implemented coverage
 
 | Dialogue presentation | Authored evidence | Coverage and limits |
@@ -53,9 +60,9 @@ The worker validated every prepared row against the shared dialogue contract.
 | Cinematic timelines and cutscenes | Typed `WwiseAudioClip`, owning track and authored `CS_` subtitle/event relationship | Supported for the known clip layout, including the auxiliary empty string variant. Existing locale/event resolution remains required. Cinematic text with unresolved authored audio is `unavailable`, not silent. |
 | Gameplay and ongoing tips | `OngoingTipsConfigTemplateTb` text IDs and explicit male/female source fields | Preserves existing original voices and now retains records with both authored voice fields empty. The current metadata contained 1,466 such rows before TextMap filtering. Other tips tables are not implied by this support. |
 | NPC greetings and ambient combat reactions | Some are present in supported ongoing/bubble records; other source-only tables exist | Only authored text/source relationships are eligible. Audio-only barks cannot be reconstructed as official dialogue from filenames. |
-| Knock Knock messages and reply choices | Separate `MessageConfigTemplateTb`; text, options, emoji and occasional `VO_Message` sources | Inventoried; dedicated adapter and capture layout are still missing. Do not label all messages silent. |
+| Knock Knock messages and reply choices | Separate `MessageConfigTemplateTb`; text, options, emoji and occasional `VO_Message` sources | Current schema imported through exact TextMap joins. Empty authored message source columns establish silence. A message recording never becomes its reply-choice audio; reply-only evidence remains unknown. Image paths and literal content are excluded. |
 | Clue recordings with timed subtitles | `SubtitleConfigTemplateTb`, `Clue_` IDs, locale, source and start/end timestamps | Inventoried; dedicated segmented-audio adapter is missing. Mapping every subtitle to the entire recording would be incorrect. |
-| Other tips, TV/Hollow and event interfaces | `TipsConfigTemplateTb`, `HollowBottomMessageTemplateTb`, event-specific tables | Partial overlap may already be matched, but these independent tables are not comprehensively imported. |
+| Other tips, TV/Hollow and event interfaces | `TipsConfigTemplateTb`, `HollowBottomMessageTemplateTb`, event-specific tables | Current `TipsConfigTemplateTb` is imported as `gameplay_tip`, including authored spoken guidance and silent instructions. Reaction pools never substitute for the main recording. Independent Hollow/event tables remain incomplete. |
 | Journey UI, reading screens, messages, mail, summaries and tutorials | Separate UI/configuration references; `ChatJourney` sample invokes journey UI rather than containing dialogue text | No blanket TextMap import. UI labels, item descriptions and notification text must not become dialogue merely because OCR sees them. |
 | Pre-rendered movies, baked text, songs and subtitles without a verified timeline event | Not established by the supported dictionary/timeline relationships | No completeness claim. Require a format-specific subtitle binding and timing/locale validation. |
 
@@ -78,7 +85,7 @@ matching filenames. The binary token definitions are documented by the
 
 Installed blocks are opened read-only and only selected bundle ranges are read.
 Preparation remains outside capture. Cache signatures include the installed
-fingerprint, metadata and reader code; index reader revision 3 forces older
+fingerprint, metadata and reader code; index reader revision 4 forces older
 language snapshots to refresh. A malformed recognized Odin stream fails the
 preparation instead of publishing its partial records. Every ongoing row is
 checked against a supported schema, rather than trusting only the first row.
@@ -98,27 +105,46 @@ the expensive cinematic scan. Split decoding into a dedicated module before
 narrowing that cache dependency; do not replace it with an unchecked version
 number or fragile source slicing.
 
+## Supplemental message and tip tables
+
+The follow-up fetched the current tables at the same pinned revision as the
+TextMaps. Their obfuscated field names differ from the older discovery snapshot.
+The adapter checks the complete observed field set and the used value types for
+every row; drift raises an actionable format-update error before replacing the
+previous index. Supplemental downloads do not invalidate the scene cache.
+
+- `MessageConfigTemplateTb`: 12,205 rows and 14,305 selected-Chinese text
+  references, before deduplication and gender expansion. `LDHNMACDKLH` is the
+  message identity; `BKAEOOPMGNC`/`GJNMPOBFICI` are the source columns. All nine
+  observed nonempty pairs agree. Differing future pairs remain unresolved rather
+  than guessing a gender or selecting whichever recording is installed.
+  `FNOKFPDDECI`, `NAPGHEGEOOC`, `GGHOAADLHCF` and `EEJNOOGPFND` contain reply
+  references; only exact textual IDs present in the selected TextMap are used.
+- `TipsConfigTemplateTb`: 17,661 rows and 16,677 selected-Chinese references.
+  `BHLFCEAPFIG` is the text identity, `NMMACKNBLKO` the main authored source,
+  `FNHBBPCONOL` a separate reaction source/pool, `NPDBBLABDAK` an alternate
+  source and `FFNNCACHDLN` additional sound events. Only the main supported
+  sentence source is resolved. Silence requires empty main, alternate, reaction
+  and event fields. Eighteen unequal alternate pairs and seven additional source
+  names remain unresolved by this supplemental adapter; missing audio never
+  changes those records to silent. The resulting new `gameplay_tip` records
+  include 5,511 verified voices and 7,914 certified silent instructions.
+
+The shared full-window exact-match capture can consume certified message/tip
+records. These table checks did not constitute native UI or OCR-layout testing.
+
 ## Remaining table work
 
 These field names are evidence from the separate cached 3.2 snapshot, not a
 future-proof schema contract:
 
-- `MessageConfigTemplateTb`: 12,002 rows; `MDIMNDOCDHN` contains 9,134 `Message_`
-  IDs plus unrelated/test values. `KJJMCKOOACL` and `FPFJLBKFBBI` each contain nine
-  `VO_Message/` source entries. Reply fields `NFDAGDKODCN`, `ELOLMBKIMFB`,
-  `HKKCPHMJCFP` and `NNKCNCMMCAH` mix option IDs and image paths. Resolve exact
-  TextMap IDs, retain message/choice types, validate voice variants and add a
-  dedicated message capture layout before enabling capture.
 - `SubtitleConfigTemplateTb`: 992 rows, comprising 248 `Clue_` subtitles in each
   of four audio languages. `PMIKEPAJFKN` is the voice source, `APDFDBPICNM` the
   audio locale, `AFDMDFIHPMH` the text identity and `INPHPLFPOKF`/`GMHGKDKPKJB`
   the start/end timestamps. Add timestamp validation and segment extraction;
   preserve the per-language timings.
-- `TipsConfigTemplateTb`: 17,334 rows, separate from ongoing tips.
-  `KIFPIHAAPOK` holds text IDs; `BNJPOOIINPC` has 9,078 nonempty source-like
-  values, with further variants in `AHJNODOLGNK` and `FNJFEHALLGF`. Validate
-  those semantics and distinguish spoken guidance, reactions and UI instructions.
-  `HollowBottomMessageTemplateTb` contains nine related text references.
+- `HollowBottomMessageTemplateTb` contains nine related text references. These
+  may overlap imported tips, but no comprehensive independent adapter is claimed.
 - `MainCityStoreVoiceConfigTemplateTb`: 262 source-only entries were observed.
   A text binding still needs to be established; the source name is not a subtitle.
 
@@ -128,6 +154,8 @@ Focused regression checks cover typed silent objects, choices, ChatPlus,
 cross-object voice isolation, reaction pools, malformed/truncated streams, both
 Odin string encodings, path safety, comic ambiguity, supported ongoing schemas,
 locale isolation and unknown/unavailable distinctions. The audit ran 17 JavaScript
-tests and 25 Python tests successfully. Native Windows capture bounds, DPI,
+tests and 25 Python tests successfully. The supplemental pass subsequently ran
+31 Python tests successfully, including pinned downloads, schema drift, exact
+message/choice separation, reactions and missing/ambiguous voices. Native Windows capture bounds, DPI,
 desktop/mobile layout, Firefox/Chromium and all four installed audio languages
 were not exercised by these parser checks; they remain separate acceptance work.

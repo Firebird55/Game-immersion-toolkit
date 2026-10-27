@@ -17,7 +17,7 @@ from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 3
+LANGUAGE_INDEX_VERSION = 4
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -30,6 +30,20 @@ ONGOING_SCHEMAS = (
     ('PMNJCMFLJIL', 'EODLJIEIIGJ', 'DGFCDOGFFGP'),
     ('FGAHJLHNEDB', 'CIBKAFBOGCI', 'PFOBGIIIICG'),
 )
+# Observed together in the pinned 3.3 configuration revision. These schemas are
+# explicit: renamed/new fields must be reviewed before certifying silence.
+MESSAGE_FIELDS = frozenset(('EGBBBFIINLO', 'PFOAJKNPCHL', 'NMIFFJEFBJI', 'BKAEOOPMGNC',
+    'HPKJODNLJOA', 'GJNMPOBFICI', 'LDHNMACDKLH', 'MFHGKPHENGE', 'HBPLELJNAEA', 'FMOFACKFIMM',
+    'ONEHPCHLKMM', 'FNOKFPDDECI', 'NAPGHEGEOOC', 'HFEPEHJGIAN', 'GGHOAADLHCF', 'EEJNOOGPFND',
+    'BKABBJFGMNK', 'LDOINOBMLGN', 'EEDAJDFAKEN', 'JAEBGEAAPNB'))
+TIP_FIELDS = frozenset(('KEGKBLHLMBF', 'BHLFCEAPFIG', 'NCDPMAKENFG', 'EFDGGDAACEO', 'KDPLFOOHOAA',
+    'MCILFMGEHFE', 'NACIONHDABL', 'ICMKKEADFDE', 'FDCIOBOBHIE', 'NMMACKNBLKO', 'MILOEOOHMLN',
+    'GCHFKNAENPG', 'FNHBBPCONOL', 'FFNNCACHDLN', 'NPDBBLABDAK', 'IOBBCFLDLOE'))
+MESSAGE_CHOICES = ('FNOKFPDDECI', 'NAPGHEGEOOC', 'GGHOAADLHCF', 'EEJNOOGPFND')
+TEXT_ID = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_-]*')
+MESSAGE_SOURCE = re.compile(r'VO_Message/[A-Za-z0-9_-]+/Message_[A-Za-z0-9_-]+', re.I)
+TIP_SOURCE = re.compile(r'(?:VO_(?:Tips|Chessboard|Level|Monthlycard)/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+|'
+                        r'(?:Accompany|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)', re.I)
 
 
 def ongoing_links(config):
@@ -56,6 +70,67 @@ def ongoing_links(config):
                     'gender': gender if male and female and male != female else None,
                     'channels': [channel], 'dialogue_kind': 'ambient', 'voice_status': 'unavailable'})
     return links
+
+
+def _config_rows(config, fields, strings, name):
+    lists = [value for value in config.values() if isinstance(value, list)] if isinstance(config, dict) else []
+    if len(lists) != 1 or not lists[0] or any(not isinstance(row, dict) or set(row) != fields or
+            any(not isinstance(row[key], str) for key in strings) for row in lists[0]):
+        raise PreparationFailure('zzz_dialogue_schema',
+            f'ZZZ {name} uses an unsupported table format. Update the toolkit for this game version and retry preparation; the previous index is retained.')
+    return lists[0]
+
+
+def message_links(config, textmap):
+    rows = _config_rows(config, MESSAGE_FIELDS, ('LDHNMACDKLH', 'BKAEOOPMGNC', 'GJNMPOBFICI', *MESSAGE_CHOICES), 'message dialogue')
+    links, unresolved = [], 0
+    for row in rows:
+        identity = row['LDHNMACDKLH']
+        if TEXT_ID.fullmatch(identity) and identity in textmap:
+            sources = {row[key] for key in ('BKAEOOPMGNC', 'GJNMPOBFICI') if row[key]}
+            # The observed source columns agree. Do not guess gender or choose
+            # whichever asset happens to be installed when future variants differ.
+            source = next(iter(sources)) if len(sources) == 1 else ''
+            source = source if MESSAGE_SOURCE.fullmatch(source) else ''
+            unresolved += bool(sources and not source)
+            links.append({'text_id': identity, 'source': source, 'dialogue_kind': 'message',
+                          'voice_status': 'unavailable' if sources else 'unvoiced',
+                          'channels': ['dialogue', 'cinematic']})
+        for key in MESSAGE_CHOICES:
+            if TEXT_ID.fullmatch(row[key]) and row[key] in textmap:
+                # The message's own recording is not the selectable response.
+                links.append({'text_id': row[key], 'source': '', 'dialogue_kind': 'choice',
+                              'voice_status': 'unknown', 'channels': ['dialogue', 'cinematic']})
+    return links, {'rows': len(rows), 'text_references': len(links), 'unresolved_voice_variants': unresolved}
+
+
+def tip_links(config, textmap):
+    rows = _config_rows(config, TIP_FIELDS, ('BHLFCEAPFIG', 'NMMACKNBLKO', 'FNHBBPCONOL',
+        'NPDBBLABDAK', 'KDPLFOOHOAA', 'GCHFKNAENPG'), 'gameplay tips')
+    links, unresolved = [], 0
+    for row in rows:
+        if not isinstance(row['FFNNCACHDLN'], list) or not all(isinstance(event, str) for event in row['FFNNCACHDLN']):
+            raise PreparationFailure('zzz_dialogue_schema', 'ZZZ gameplay tip audio events use an unsupported format. Update the toolkit and retry; the previous index is retained.')
+        identity = row['BHLFCEAPFIG']
+        if not TEXT_ID.fullmatch(identity) or identity not in textmap:
+            continue
+        primary, alternate, reaction = (row[key] for key in ('NMMACKNBLKO', 'NPDBBLABDAK', 'FNHBBPCONOL'))
+        source = primary if (not alternate or alternate == primary) and TIP_SOURCE.fullmatch(primary) else ''
+        unresolved += bool((primary or alternate) and not source)
+        # A reaction pool or a sound event never substitutes for sentence audio.
+        status = 'unavailable' if primary or alternate else 'unknown' if reaction or row['FFNNCACHDLN'] or row['KDPLFOOHOAA'] else 'unvoiced'
+        links.append({'text_id': identity, 'source': source, 'dialogue_kind': 'gameplay_tip',
+                      'voice_status': status, 'channels': ['tip', 'gameplay']})
+    return links, {'rows': len(rows), 'text_references': len(links), 'unresolved_voice_variants': unresolved}
+
+
+def supplemental_links(revision, textmap):
+    links, diagnostics = [], {}
+    for name, reader in (('MessageConfigTemplateTb', message_links), ('TipsConfigTemplateTb', tip_links)):
+        data = json.loads(game_tools.download(f'https://git.mero.moe/dimbreath/ZenlessData/raw/commit/{revision}/FileCfg/{name}.json'))
+        current, diagnostics[name] = reader(data, textmap)
+        links.extend(current)
+    return links, diagnostics
 
 
 def game_data(install):
@@ -153,7 +228,7 @@ def build_records(tables, source_locale, selected, links, prefixes, entries, cin
             row_id = identity + ':' + gender if gender else identity
             states = evidence.get(row_id, evidence.get(identity, {'unknown'}))
             voice_status = 'voiced' if audio else 'unavailable' if 'unavailable' in states else 'unvoiced' if states == {'unvoiced'} else 'unknown'
-            kind = next((kind for kind in ('comic', 'cutscene', 'conversation', 'choice', 'narration', 'ambient') if kind in kinds.get(identity, set())),
+            kind = next((kind for kind in ('comic', 'cutscene', 'conversation', 'message', 'choice', 'narration', 'ambient', 'gameplay_tip') if kind in kinds.get(identity, set())),
                 'comic' if is_comic_text_id(identity) else 'cutscene' if identity.startswith('CS_') else 'conversation')
             rows.append({'text_id': row_id, 'source_locale': source_locale, 'source_text': text,
                 'texts': texts, 'english': _text(values.get('en', ''), gender), 'chinese': texts.get('zh-Hans', ''),
@@ -236,6 +311,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     links, cinematic_links, tools, scene_diagnostics = _links(root, data_dir, revision, progress)
     ongoing = json.loads((tools / 'OngoingTipsConfigTemplateTb.json').read_text(encoding='utf-8'))
     links.extend(ongoing_links(ongoing))
+    progress('Reading official ZZZ messages, reply choices and gameplay tip bindings')
+    supplemental, table_diagnostics = supplemental_links(revision, tables[source_locale])
+    links.extend(supplemental)
     namespace, inventory = localized_inventory(root, source_locale)
     cinematic = resolve_cinematic_links(cinematic_links, root,
         json.loads((tools / 'AudioResourceData.json').read_text(encoding='utf-8')),
@@ -258,8 +336,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         'coverage_warnings': [
             *([f'{unresolved:,} referenced scenes are absent from the installed catalog.'] if unresolved else []),
             *([f'{unsupported:,} dialogue objects use an unsupported format; update the toolkit for this game version.'] if unsupported else []),
-            'Knock Knock messages, clue recordings and additional event/tip tables are not comprehensively imported. Unknown or missing voices are not treated as silent dialogue.'],
-        'coverage': {'scene_catalogs': scene_diagnostics, 'verified_unvoiced': silent,
+            'Message reply choices without explicit silence and ambiguous tip voice variants remain unresolved. Clue recordings and additional event-specific tables are not comprehensively imported. Unknown or missing voices are not treated as silent dialogue.'],
+        'coverage': {'scene_catalogs': scene_diagnostics, 'dialogue_tables': table_diagnostics, 'verified_unvoiced': silent,
                      'unknown_voice_status': sum(row['voice_status'] == 'unknown' for row in rows)},
         'message': f'{len(rows):,} official {source_locale} entries; {mapped:,} original voices; {silent:,} authored unvoiced entries' +
         (f'; {unresolved:,} metadata scenes are not in the installed catalog' if unresolved else '') +
