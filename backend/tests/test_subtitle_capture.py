@@ -179,6 +179,9 @@ def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_to
         service._event_loop = asyncio.get_running_loop()
         def scan():
             index.capture_unvoiced = service.settings.get().capture_unvoiced
+            # A phone/page screen is deliberately excluded from voiced OCR on
+            # every frame; it must not reset the separate silent confirmation.
+            service._update_snapshot(phase='excluded_screen')
             return service._with_unvoiced(_ScanOutcome([]), index, window, engine, 0,
                                          datetime.now(timezone.utc), 'cyberpunk')
         scan()
