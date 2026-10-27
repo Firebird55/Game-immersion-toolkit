@@ -86,13 +86,24 @@ class LanguageInventory:
                     'support': 'expected' if row['reader_available'] else 'unsupported',
                 }
                 # A prepared table proves bindings, not continued pack installation.
-                if size and install:
+                if size:
                     try:
                         payload = json.loads(path.read_text(encoding='utf-8'))
-                        if fingerprint and payload.get('fingerprint') == fingerprint and any(record.get('audio') for record in payload.get('records', [])):
+                        from .local_game import dialogue_voice_status
+                        counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
+                        categories = {}
+                        for record in payload.get('records', []):
+                            status = dialogue_voice_status(record.get('audio'), record.get('voice_status'))
+                            counts[status] += 1
+                            category = record.get('dialogue_kind') or 'uncategorized'
+                            categories.setdefault(category, dict.fromkeys(counts, 0))[status] += 1
+                        locales[row['locale']]['dialogue_inventory'] = {'voice_counts': counts, 'categories': categories}
+                        locales[row['locale']]['coverage_warnings'] = [value for value in payload.get('coverage_warnings', [])
+                            if isinstance(value, str) and len(value) <= 1000]
+                        if fingerprint and payload.get('fingerprint') == fingerprint and counts['voiced']:
                             locales[row['locale']]['voice_state'] = 'present'
                             locales[row['locale']]['support'] = 'prepared'
-                    except (OSError, ValueError, KeyError):
+                    except (OSError, ValueError, KeyError, TypeError):
                         pass
             value = {'locales': locales, 'translation_locales': entry['targets'],
                      'expected_targets': entry.get('expectedTargets', []),

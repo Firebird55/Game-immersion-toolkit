@@ -103,3 +103,34 @@ def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, gam
     assert len(extracted) == 1, 'Invalid unchanged snapshots must be repaired without Rebuild'
     value.build_language(game, 'nl', ('en',))
     assert len(extracted) == 1, 'A valid unchanged table must not be extracted again'
+
+
+def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):
+    from pathlib import Path
+    from backend import game_assets
+    from backend.preparation_errors import PreparationFailure, public_failure
+    value = runtime(tmp_path)
+    monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
+    install = tmp_path / 'game'; install.mkdir()
+    directory = tmp_path / 'languages/beyond/nl'; directory.mkdir(parents=True)
+    original = json.dumps({'fingerprint': 'previous-game-version', 'records': [{'synthetic': True}]})
+    (directory / 'textmap.json').write_text(original)
+    monkeypatch.setattr(game_assets, 'asset_adapter', lambda _: (SimpleNamespace(
+        index_language=True, fingerprint=lambda _: 'new-game-version', LANGUAGE_INDEX_VERSION=1), None))
+    value.setup_install = lambda _: install
+    def run(command, **options):
+        output = Path(command[command.index('--output') + 1])
+        output.with_name('failure.json').write_text(json.dumps({'code': 'unsupported_game_format',
+            'message': 'This archive format needs a newer reader. Update the toolkit and retry.'}))
+        output.with_name('failure.log').write_text('Synthetic private diagnostic.')
+        return SimpleNamespace(returncode=1)
+    monkeypatch.setattr(api.subprocess, 'run', run)
+    with pytest.raises(PreparationFailure) as caught:
+        value.build_language('beyond', 'nl', ('en',))
+    failure = public_failure(caught.value)
+    assert failure['code'] == 'unsupported_game_format' and failure['game_files_changed']
+    assert failure['previous_snapshot_retained']
+    assert 'Installed game files changed' in failure['message'] and 'newer reader' in failure['message']
+    assert str(tmp_path) not in failure['message']
+    assert (directory / 'textmap.json').read_text() == original
+    assert (directory / 'last-preparation-error.log').is_file()

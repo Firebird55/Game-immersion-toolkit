@@ -15,8 +15,15 @@ def build(game, install, directory, locale, targets, output, progress=None):
     payload = adapter.index_language(install, directory, locale, targets, **options)
     if payload.get('format') != 2 or payload.get('game') != game or payload.get('source_locale') != locale or not payload.get('records'):
         raise ValueError('Incomplete official language snapshot')
+    counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
+    categories = {}
     for record in payload['records']:
-        LocalDialogue(**record)
+        validated = LocalDialogue(**record)
+        record['voice_status'] = validated.voice_status
+        counts[validated.voice_status] += 1
+        category = categories.setdefault(validated.dialogue_kind or 'uncategorized', dict.fromkeys(counts, 0))
+        category[validated.voice_status] += 1
+    payload['dialogue_inventory'] = {'voice_counts': counts, 'categories': categories}
     payload['reader_revision'] = adapter.LANGUAGE_INDEX_VERSION
     payload['targets_requested'] = sorted(targets)
     output.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')

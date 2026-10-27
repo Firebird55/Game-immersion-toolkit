@@ -54,7 +54,11 @@ class LanguagePreparation:
         try:
             requested = json.loads(self.path.with_suffix('.requests.json').read_text(encoding='utf-8'))
             if isinstance(requested, dict):
-                self.data['requested'] = requested
+                self.data['requested'] = {account: {game: choice for game, choice in games.items()
+                    if game in GAME_LOCALES and isinstance(choice, dict)
+                    and choice.get('locale') in GAME_LOCALES[game] and isinstance(choice.get('target'), str)
+                    and choice['target'].strip()}
+                    for account, games in requested.items() if isinstance(games, dict)}
         except (OSError, ValueError, TypeError):
             pass
 
@@ -216,11 +220,11 @@ class LanguagePreparation:
                 if job.current():
                     self.jobs[key] = {'state': 'error', 'progress': None, 'message': str(error), 'retry_after': 'Restart the toolkit to safely resume preparation.'}
         except Exception as error:
-            from .preparation_errors import public_failure
-            message = public_failure(error)['message'] if isinstance(error, subprocess.TimeoutExpired) else str(error)
+            from .preparation_errors import PreparationFailure, public_failure
+            failure = public_failure(error) if isinstance(error, (PreparationFailure, subprocess.TimeoutExpired, OSError, MemoryError)) else {'code': 'preparation_failed', 'message': str(error)}
             with self.lock:
                 if job.current():
-                    self.jobs[key] = {'state': 'error', 'progress': None, 'message': message, 'retry_after': 'Your choice is saved. Automatic retry in 2 minutes, or retry now in Games & Languages.'}
+                    self.jobs[key] = {'state': 'error', 'progress': None, **failure, 'retry_after': 'Your choice is saved. Automatic retry in 2 minutes, or retry now in Games & Languages.'}
         finally:
             with self.lock:
                 self._workers.discard(threading.current_thread())

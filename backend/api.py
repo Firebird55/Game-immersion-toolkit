@@ -287,14 +287,21 @@ class Runtime:
                         returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
-                        from .preparation_errors import public_failure
+                        from .preparation_errors import PreparationFailure, public_failure
                         failure = public_failure(RuntimeError())
                         try:
                             failure = json.loads(output.with_name('failure.json').read_text(encoding='utf-8'))
                             output.with_name('failure.log').replace(directory / 'last-preparation-error.log')
                         except (OSError, ValueError):
                             pass
-                        raise ValueError(failure['message'])
+                        changed = bool(old.get('fingerprint') and old['fingerprint'] != stamp)
+                        message = failure['message']
+                        if changed:
+                            message = 'Installed game files changed since the last preparation. ' + message
+                        if old:
+                            message += ' The previous table was kept; changed voice files may remain unavailable until repair succeeds.'
+                        raise PreparationFailure(failure.get('code', 'reader_failed'), message,
+                            game_files_changed=changed, previous_snapshot_retained=bool(old))
                     if job:
                         job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))

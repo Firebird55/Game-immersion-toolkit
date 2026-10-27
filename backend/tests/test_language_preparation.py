@@ -72,6 +72,23 @@ def finish(manager):
     assert not manager._workers
 
 
+def test_structured_format_error_survives_job_status_and_malformed_retry_is_ignored(tmp_path):
+    import json
+    from backend.preparation_errors import PreparationFailure
+    path = tmp_path / 'languages.json'
+    path.with_suffix('.requests.json').write_text(json.dumps({'bad': [], 'owner': {
+        'zzz': {'locale': 'not-a-language'}, 'cyberpunk': None, 'beyond': {'locale': 'nl', 'target': 'en'}}}))
+    def build(*_):
+        raise PreparationFailure('unsupported_game_format', 'Update the toolkit reader.', game_files_changed=True)
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {}, path=path, supported=lambda _: ('nl',))
+    assert manager.entries() == [('beyond', 'nl', ('en',))]
+    manager.refresh_prepared()
+    finish(manager)
+    status = manager.update_status()
+    assert status['code'] == 'unsupported_game_format' and status['game_files_changed']
+    assert status['state'] == 'retrying' and 'reader' in status['message']
+
+
 def test_local_targets_survive_activation_history_account_switch_and_refresh(tmp_path, monkeypatch):
     import json
     from datetime import datetime, timezone

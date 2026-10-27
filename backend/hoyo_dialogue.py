@@ -42,9 +42,22 @@ def archive_sources(install, game):
 def fingerprint(install, game):
     root = game_data(install, game)
     files = archive_sources(install, game)
-    files += [p for p in (root / 'StreamingAssets/BinaryVersion.bytes', install / 'config.ini') if p.is_file()]
+    # Text-only hotfixes can leave every voice package unchanged. Include the
+    # authored data and patch manifests, but never logs, accounts or telemetry.
+    metadata = ('BinaryVersion.bytes', 'ClientConfig.bytes', 'InstallVersion.bin',
+                'data_versions', 'data_versions_streaming', 'res_versions', 'res_versions_streaming',
+                'silence_versions', 'silence_versions_streaming', 'ctable.dat', 'ctable_streaming.dat',
+                'svc_catalog')
+    for layer in ('StreamingAssets', 'Persistent', 'StreamingAssets/Persistent'):
+        directory = root / layer
+        files += [directory / name for name in metadata if (directory / name).is_file()]
+        design = directory / 'DesignData'
+        if design.is_dir():
+            files += [p for p in design.rglob('*') if p.is_file()]
+    if (install / 'config.ini').is_file():
+        files.append(install / 'config.ini')
     return hashlib.sha256('\n'.join(f'{p.relative_to(install)}:{p.stat().st_size}:{p.stat().st_mtime_ns}'
-        for p in sorted(files)).encode()).hexdigest()
+        for p in sorted(set(files))).encode()).hexdigest()
 
 
 def inventory(install, game, locale):
