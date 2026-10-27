@@ -16,13 +16,14 @@ try{
    const sent={first:{},second:{},legacy:{}}; const unexpected=[];
    const writes=[],requests=[];
    const accountLanguages={first:['en','zh'],second:['en','zh'],legacy:['en','zh']};
-   let failLanguageWrite=false,holdLanguageRead=true,releaseLanguageRead,captureGame='genshin';
+   let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead,captureGame='genshin',unvoiced=false;
+   let initialLanguageGate=true;const initialLanguageReads=[];
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
     languageSettings:{en:{effectiveTranslationLanguage:active==='first'?'zh-hans':'nl',inlineGlossMode:'always',wordPopup:{tabs:[{id:'definition',enabled:true}],openOn:'first'}},zh:{effectiveTranslationLanguage:'en',inlineGlossMode:'off'}}});
    const region={left:.1,top:.6,width:.8,height:.25};
    const updates={state:'retrying',progress:null,automatic:true,message:'Installed game files changed. The reader could not prepare the selected language; the previous table was kept.',items:[{game:'zzz',locale:'zh-Hans',state:'error',message:'The new archive format needs a reader update. Original voices remain unavailable until preparation succeeds.'},{game:'beyond',locale:'nl',state:'ready',message:'Prepared Dutch subtitles and original audio are current.'}]};
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
-   const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:'en',source_locale:'en',source_text:'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:true,has_audio:true,favorite:false});
+   const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:'en',source_locale:'en',source_text:'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:!unvoiced,has_audio:!unvoiced,voice_status:unvoiced?'unvoiced':'voiced',favorite:false});
    const languages=()=>({context:stateContext(),selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
     {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:prepared?{targets:['en'],mapped_lines:1}:null},
     {locale:'ko',language:'ko',name:'Korean',reader_available:false,prepared:null}]});
@@ -50,6 +51,10 @@ try{
     if(path==='/api/lexirise/settings'){
      // ReadingText also loads unscoped preferences during startup. Hold only
      // the game picker's account-scoped read, regardless of request ordering.
+     if(request.method()==='GET'&&request.headers()['x-proxy-transcript-account']===active&&initialLanguageGate){
+      const result=preferences();initialLanguageReads.push(()=>respond(result));
+      releaseLanguageRead=async()=>{initialLanguageGate=false;await Promise.all(initialLanguageReads.splice(0).map(release=>release()));};return;
+     }
      if(request.method()==='GET'&&request.headers()['x-proxy-transcript-account']===active&&holdLanguageRead){holdLanguageRead=false;const result=preferences();releaseLanguageRead=()=>respond(result);return;}
      if(request.method()==='PATCH'&&body.languages){
       if(failLanguageWrite)return respond({detail:'Synthetic language save failed'},502);
@@ -64,7 +69,7 @@ try{
     }
     if(path==='/api/lines/1/lexirise'&&request.method()==='POST'){
      const account=active;
-     const complete=()=>{sent[account]['line:1']=account==='first'?11:account==='second'?22:33;return respond({deck_id:sent[account]['line:1']});};
+     const complete=()=>{sent[account]['line:1']=account==='first'?11:account==='second'?22:33;return respond({deck_id:sent[account]['line:1'],audio_included:!unvoiced});};
      if(exportMode==='hold'){releaseExport=complete;return;}
      if(exportMode==='conflict')return respond({detail:'Synthetic account conflict'},409);
      if(exportMode==='network')return route.abort('failed');
@@ -299,6 +304,15 @@ try{
    await target.locator('option[value="la"]').waitFor({state:'attached'});
    await releaseLanguageRead();
    assert.equal(writes.filter(w=>w.path==='/api/lexirise/settings').length,beforeStaleAdd,'Switching accounts cancels a pending add before its write');
+   // Certified silent dialogue remains readable and exportable without a fake
+   // missing-voice error or promising an audio upload.
+   unvoiced=true;captureGame='zzz';active='first';generation++;delete sent.first['line:1'];
+   await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
+   await page.getByLabel('Game',{exact:true}).selectOption('zzz');
+   await page.locator('.current-line').getByText('Unvoiced dialogue',{exact:true}).waitFor();
+   assert.equal(await page.locator('.current-line').getByRole('button',{name:'Original voice unavailable',exact:true}).count(),0);
+   await send.click();
+   await page.getByText('Sentence saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor();
    assert.deepEqual(unexpected,[],'No unexpected API routes during the full scenario');
    console.log(`${name}: isolated account responses and manual per-language setup ${width} passed`);
    await context.close();

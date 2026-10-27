@@ -195,7 +195,7 @@ const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game
 }) {
   const uiText=useInterfaceTranslation();
   if (game === 'hito') return null;
-  const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${GAME_NAMES[game]}`;
+  const title = sent ? 'Already sent to Lexirise' : `Save sentence to Lexirise · ${GAME_NAMES[game]}`;
   return <button type="button" className={`lexirise-send ${sent ? 'is-sent' : ''}`} translate="no"
     disabled={disabled || busy || sent} onClick={onClick} title={title} aria-label={title} aria-busy={busy}>
     {busy ? <Loader2 size={16} className="animate-spin" /> : sent ? <Check size={16} /> : <Send size={16} />}
@@ -391,7 +391,7 @@ const TranscriptRow = memo(function TranscriptRow({
         <LexiriseButton
           sent={sentToLexirise}
           busy={sendingRef === ref}
-          disabled={!canUseLexirise || !line.has_audio || (sendingRef !== null && sendingRef !== ref)}
+          disabled={!canUseLexirise || !(line.has_audio || line.voice_status === 'unvoiced') || (sendingRef !== null && sendingRef !== ref)}
           game={line.game}
           onClick={() => onSendToLexirise('line', line.id)}
           compact
@@ -812,17 +812,17 @@ function CompanionClient() {
     sendingStudy.current = true;
     const ref = `${kind}:${id}`;
     setSendingRef(ref);
-    setStudyMessage('Sending sentence and voice to Lexirise…');
+    setStudyMessage('Saving sentence to Lexirise…');
     try {
       const response = await fetch(`${API_URL}/api/lines/${id}/lexirise`, {
         method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':scope.account },
       });
-      const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
+      const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean; audio_included?: boolean };
       if (!isCurrent()) return;
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
       pollOwner.current?.reset(); // A previously read ledger cannot erase this completed export.
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
-      setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
+      setStudyMessage(`${result.already_sent ? 'Already saved' : result.audio_included === false ? 'Sentence saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
     } catch (error) {
       if (isCurrent()) setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
     } finally {
@@ -831,10 +831,10 @@ function CompanionClient() {
     }
   }, []);
 
-  function studyButton(kind: 'line', id: number | string, game: GameId, hasAudio: boolean, compact = false) {
+  function studyButton(kind: 'line', id: number | string, game: GameId, canExport: boolean, compact = false) {
     const ref = `${kind}:${id}`;
     return <LexiriseButton sent={!!lexirise.sent[ref]} busy={sendingRef === ref}
-      disabled={!online || !lexirise.configured || !hasAudio || (sendingRef !== null && sendingRef !== ref)}
+      disabled={!online || !lexirise.configured || !canExport || (sendingRef !== null && sendingRef !== ref)}
       game={game} onClick={() => void sendToLexirise(kind, id, game)} compact={compact} />;
   }
 
@@ -972,7 +972,7 @@ function CompanionClient() {
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
               </button>
-              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio)}
+              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio || latestLine.voice_status === 'unvoiced')}
             </div>
           </div>
         ) : (

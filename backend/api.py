@@ -1508,8 +1508,8 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
     line = runtime.transcript.get(line_id)
     if line is None:
         raise HTTPException(404, "This line is no longer in local history.")
-    if not line.voiced:
-        raise HTTPException(409, "Wait until this line is confirmed voiced.")
+    if not line.voiced and line.voice_status != 'unvoiced':
+        raise HTTPException(409, "This line needs a verified original voice or confirmed unvoiced dialogue before export.")
     if line.game == "zzz":
         line = runtime.speakers.enrich(line)
     root = (DATA_DIR / "audio").resolve()
@@ -1518,9 +1518,10 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         raise HTTPException(404, "Voice file unavailable.")
     try:
         line = presented(line)
-        return runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
+        result = runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
             english=line.translation_text, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
-            audio=path, audio_source=line.audio_source)
+            audio=None if line.voice_status == 'unvoiced' else path, audio_source=line.audio_source)
+        return {**result, 'audio_included': line.voice_status != 'unvoiced'}
     except LexiriseError as error:
         raise HTTPException(409, str(error)) from None
     except OSError:
