@@ -4,14 +4,16 @@ from __future__ import annotations
 import hashlib
 import re
 import subprocess
+import struct
 from pathlib import Path
 
 from . import quantic_assets as q, quantic_legacy as legacy
 from .languages import GAME_LOCALES, resolve_locale
 from .media_tools import ffmpeg_executable
 from .quantic_audio import decode_blocks
+from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = GAME_LOCALES['heavyrain']
 TEXT_LOCALES = dict(zip(('fr', 'en', 'de', 'it', 'es-ES', 'nl', 'pt-PT', 'sv', 'da', 'no', 'fi', 'ru', 'pl', 'ja', 'ko', 'zh-Hant', 'zh-Hans'),
                        ('FRA', 'ENG', 'GER', 'ITA', 'SPA', 'HOL', 'POR', 'SWE', 'DAN', 'NOR', 'FIN', 'RUS', 'POL', 'JAP', 'KOR', 'CHI', 'SCH')))
@@ -22,8 +24,10 @@ VOICE_INDEXES = ('Resources/LanguageData/O-LanguageData_WIN.idx', 'Resources/Lan
 
 def archive_sources(install):
     indexes = sorted((install / 'Resources').rglob('*.idx'))
-    return sorted({path for index in indexes for path in index.parent.glob(index.stem + '.*')
-                   if path.is_file() and re.fullmatch(r'\.(?:idx|dat|d\d\d)', path.suffix, re.I)})
+    sources = {path for index in indexes for path in index.parent.glob(index.stem + '.*')
+               if path.is_file() and re.fullmatch(r'\.(?:idx|dat|d\d\d)', path.suffix, re.I)}
+    sources.update(path for name in SCENE_INDEXES if (path := (install / name).with_suffix('.pdbg')).is_file())
+    return sorted(sources)
 
 
 def fingerprint(install):
@@ -49,7 +53,52 @@ def _voice_bytes(entries):
     return data
 
 
+def localization_names(install):
+    """Read optional authored names for presentation labels, never audio joins."""
+    result = {}
+    for relative in SCENE_INDEXES:
+        path = (install / relative).with_suffix('.pdbg')
+        if not path.is_file():
+            continue
+        if path.stat().st_size > 128 * 1024 * 1024:
+            raise ValueError('HEAVY RAIN presentation-name table exceeds the bounded reader limit')
+        with path.open('rb') as stream:
+            def read(size):
+                value = stream.read(size)
+                if len(value) != size:
+                    raise ValueError('Incomplete HEAVY RAIN presentation-name table')
+                return value
+            if read(20) != b'QUANTICDREAMTABINDEX' or struct.unpack('>I', read(4))[0] != 13:
+                raise ValueError('Unsupported HEAVY RAIN presentation-name table')
+            count = struct.unpack('>I', read(4))[0]
+            if count > 1000000:
+                raise ValueError('Invalid HEAVY RAIN presentation-name count')
+            for _ in range(count):
+                kind, version, identity, length = struct.unpack('>4I', read(16))
+                if version != 1 or length > 1024:
+                    raise ValueError('Unsupported HEAVY RAIN presentation-name entry')
+                name = read(length).decode('ascii').rstrip('\0')
+                read(24)
+                if kind == 1016:
+                    if identity in result and result[identity] != name:
+                        raise ValueError('Conflicting HEAVY RAIN localization names')
+                    result[identity] = name
+            if stream.read(1):
+                raise ValueError('Unsupported trailing HEAVY RAIN presentation names')
+    return result
+
+
 def index_language(install, _data_dir, source_locale, target_locales, progress=lambda _: None):
+    try:
+        return _index_language(install, source_locale, target_locales, progress)
+    except PreparationFailure:
+        raise
+    except ValueError as error:
+        raise PreparationFailure('unsupported_game_format',
+            f'HEAVY RAIN game data could not be read: {error}. Update the toolkit and verify game files, then retry.') from error
+
+
+def _index_language(install, source_locale, target_locales, progress):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported HEAVY RAIN study/audio language')
     stamp = fingerprint(install)
@@ -65,8 +114,12 @@ def index_language(install, _data_dir, source_locale, target_locales, progress=l
             for entry in q.read_index(install / name):
                 if entry.kind == 4091:
                     voices.setdefault(entry.identity, []).append(entry)
-    if not voices:
-        raise ValueError('Install the official HEAVY RAIN voice data before preparing a language')
+    names_unreadable = False
+    try:
+        names = localization_names(install)
+    except (OSError, ValueError):
+        # Optional labels must not disable otherwise verified text/audio.
+        names, names_unreadable = {}, True
     # The story archive extends the startup archive. Reused localization and
     # timing identities must still agree, and duplicate voice banks are checked.
     for name in SCENE_INDEXES:
@@ -94,7 +147,21 @@ def index_language(install, _data_dir, source_locale, target_locales, progress=l
         for key, text in source.get('texts', {}).items():
             source_pages = pages(text)
             reference = source.get('bindings', {}).get(key)
-            if not source_pages or not reference or reference[0] != 4091:
+            if not source_pages:
+                continue
+            anchors = {locale: values for locale in selected
+                       if (values := pages(tables.get(TEXT_LOCALES[locale], {}).get('texts', {}).get(key, '')))}
+            texts = {locale: ' '.join(values) for locale, values in anchors.items()}
+            silent = (source.get('text_flags', {}).get(key) == 2
+                      and source.get('binding_states', {}).get(key) == 'none')
+            row = {'text_id': f'heavyrain:{localization_id}:{key:08x}',
+                'source_locale': source_locale, 'source_text': ' '.join(source_pages),
+                'audio_locale': source_locale, 'texts': texts, 'ocr_texts': anchors,
+                'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''), 'audio': None,
+                'dialogue_kind': 'choice' if silent else 'thought' if '_THOUGHTS_' in names.get(localization_id, '') else 'conversation',
+                'voice_status': 'unvoiced' if silent else 'unavailable' if reference or source.get('binding_states', {}).get(key) == 'unresolved' else 'unknown'}
+            records.append(row)
+            if not reference or reference[0] != 4091:
                 continue
             identity = reference[1]
             if identity not in authored or identity not in voices:
@@ -112,26 +179,31 @@ def index_language(install, _data_dir, source_locale, target_locales, progress=l
                     raise ValueError('HEAVY RAIN authored subtitle timing exceeds its performance')
                 parsed[identity] = (offset_id, offset_table, start, end)
             offset_id, offset_table, start, end = parsed[identity]
-            anchors = {locale: values for locale in selected
-                       if (values := pages(tables.get(TEXT_LOCALES[locale], {}).get('texts', {}).get(key, '')))}
-            texts = {locale: ' '.join(values) for locale, values in anchors.items()}
             voice = voices[identity][-1]
-            records.append({'text_id': f'heavyrain:{localization_id}:{key:08x}',
-                'source_locale': source_locale, 'source_text': ' '.join(source_pages),
-                'audio_locale': source_locale, 'texts': texts, 'ocr_texts': anchors,
-                'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
-                'audio': {'index': voice.index.relative_to(install).as_posix(), 'identity': identity,
+            row.update(voice_status='voiced', audio={'index': voice.index.relative_to(install).as_posix(), 'identity': identity,
                           'locale': source_locale, 'language_id': language_id, 'offset_id': offset_id,
-                          'offsets': offset_table.hex(), 'start_ms': start, 'end_ms': end}})
+                          'offsets': offset_table.hex(), 'start_ms': start, 'end_ms': end})
     if not records:
-        raise ValueError(f'No verified original {source_locale} HEAVY RAIN dialogue is installed')
+        raise ValueError(f'No official {source_locale} HEAVY RAIN dialogue is installed')
     if fingerprint(install) != stamp:
-        raise ValueError('HEAVY RAIN files changed during preparation; previous complete table retained')
+        raise PreparationFailure('game_files_changed', 'HEAVY RAIN files changed during preparation; wait for the game update to finish, then retry.', game_files_changed=True)
+    voiced = sum(row['voice_status'] == 'voiced' for row in records)
+    unvoiced = sum(row['voice_status'] == 'unvoiced' for row in records)
+    warnings = ['Choices and thought prompts are text-only labels; their spoken responses are separate original performances.',
+                'Books, newspapers and other image-only props have no verified independent text/voice schema. Global menus and chapter labels are excluded.',
+                'Standalone Bink movies have not been joined to locale-specific subtitle cues; in-engine authored dialogue is indexed.']
+    missing = sum(row['voice_status'] == 'unavailable' for row in records)
+    if missing:
+        warnings.append(f'{missing:,} authored {source_locale} voices are unavailable in the installed data; they are not treated as silent dialogue.')
+    if names_unreadable:
+        warnings.append('The optional presentation-name table has an unsupported format; thought labels are unavailable. Update the toolkit; verified subtitle and voice bindings remain usable.')
+    elif not names:
+        warnings.append('Optional presentation names are absent; thoughts and conversations cannot be inventoried separately.')
     return {'format': 2, 'game': 'heavyrain', 'source_locale': source_locale,
             'reader_revision': LANGUAGE_INDEX_VERSION, 'install': str(install), 'fingerprint': stamp,
-            'records': records, 'diagnostics': diagnostics,
+            'records': records, 'diagnostics': diagnostics, 'coverage_warnings': warnings,
             'missing_translation_locales': [target for target, locale in targets.items() if locale is None],
-            'message': f'{len(records):,} official {source_locale} subtitles with original audio'}
+            'message': f'{len(records):,} official {source_locale} entries; {voiced:,} original voices; {unvoiced:,} unvoiced prompts'}
 
 
 def extract_voice(install, audio, _executable, destination):
