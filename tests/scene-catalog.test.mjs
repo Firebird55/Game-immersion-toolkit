@@ -3,15 +3,16 @@ import test from 'node:test';
 import {gzipSync} from 'node:zlib';
 import { sceneAssetPaths, sceneBundleRangesFromCatalog, unityResourceCatalog, resourceCatalogBytes } from '../scripts/scene-catalog.mjs';
 
-function unityCatalog() {
+function unityCatalog(blockCount=2) {
   // A catalog root in block 100 depends on a voice dictionary in block 200.
-  const raw=Buffer.alloc(8+4+12+4+88+4+18+4+4+4);
+  const blockBytes=blockCount*9,padding=(4-blockBytes%4)%4,dependencies=120+blockBytes+padding;
+  const raw=Buffer.alloc(dependencies+4+4+4);
   raw.writeUInt32LE(3,0);raw.write('Res',4);raw.writeUInt32LE(1,8);raw.writeBigUInt64LE(42n,16);
   raw.writeUInt32LE(2,24);
   raw.writeUInt32LE(500,48);raw.writeUInt32LE(1,56);raw.writeUInt32LE(50,68);
   raw.writeUInt32LE(1,72);raw.writeUInt32LE(700,92);raw.writeUInt32LE(1,96);raw.writeUInt32LE(1,100);raw.writeUInt32LE(60,112);
-  raw.writeUInt32LE(2,116);raw.writeUInt32LE(100,120);raw.writeUInt32LE(200,129);
-  raw.writeUInt32LE(1,138);raw.writeUInt32LE(1,142);
+  raw.writeUInt32LE(blockCount,116);raw.writeUInt32LE(100,120);raw.writeUInt32LE(200,129);
+  raw.writeUInt32LE(1,dependencies);raw.writeUInt32LE(1,dependencies+4);
   const cab=Buffer.alloc(128+raw.length);
   cab.writeUInt32BE(100,0);cab.writeUInt32BE(cab.length,4);cab.writeUInt32BE(21,8);cab.writeUInt32BE(128,12);
   cab.write('2019.4.40f1',20);let p=32;cab.writeUInt32LE(19,p);p+=5;
@@ -25,6 +26,8 @@ test('Unity-wrapped resource catalogs preserve exact scene ranges and dependenci
   const cab=unityCatalog(),decoded=unityResourceCatalog(cab);
   const expected={matchedHashes:[42n],ranges:[{block:'Blocks/100.blk',offset:500,size:50},{block:'Blocks/200.blk',offset:700,size:60}]};
   assert.deepEqual(sceneBundleRangesFromCatalog(decoded,new Set([42n]),true),expected);
+  // Exercise all four packed-block alignment cases without changing authored ranges.
+  for(const blocks of [3,4,5])assert.deepEqual(sceneBundleRangesFromCatalog(unityResourceCatalog(unityCatalog(blocks)),new Set([42n]),true),expected);
   const bundle=Buffer.from('mhy1synthetic');
   assert.deepEqual(resourceCatalogBytes(bundle,()=>({end:bundle.length,files:[cab]})),decoded);
   assert.throws(()=>resourceCatalogBytes(bundle,()=>({end:1,files:[cab]})),/bundle sequence/);
@@ -33,6 +36,8 @@ test('Unity-wrapped resource catalogs preserve exact scene ranges and dependenci
   assert.throws(()=>unityResourceCatalog(bad),/dependency slice/);
   const outside=Buffer.from(cab);outside.writeUInt32LE(999999,68+12);
   assert.throws(()=>unityResourceCatalog(outside),/object bounds/);
+  const padding=Buffer.from(cab);padding[128+138]=1;
+  assert.throws(()=>unityResourceCatalog(padding),/alignment padding/);
 });
 
 test('comic and dialogue references use their authored namespaces across table field changes', () => {

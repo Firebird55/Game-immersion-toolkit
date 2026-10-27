@@ -946,7 +946,7 @@ function CompanionClient() {
         {updateStatus.progress != null && <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />}
         <span className="update-progress-value">{updateStatus.elapsed_seconds != null && updateStatus.state === 'updating' ? `${Math.floor(updateStatus.elapsed_seconds / 60)}m ${updateStatus.elapsed_seconds % 60}s` : updateStatus.state === 'ready' ? 'Ready' : ''}</span>
         {!!updateStatus.queued && <span>{updateStatus.queued} queued</span>}
-        {!!updateStatus.items?.length && <details><summary>Details for all games</summary>{updateStatus.items.map(item => <p key={item.game + item.locale}>{GAME_NAMES[item.game as GameId] ?? item.game} · {item.locale}: {item.message} {item.retry_after}</p>)}</details>}
+        {!!updateStatus.items?.length && <details><summary>Details for all games</summary>{updateStatus.items.map(item => <p key={item.game + item.locale}><strong>{GAME_NAMES[item.game as GameId] ?? item.game} · {item.locale} — {uiText(item.state === 'ready' ? 'Ready' : item.state === 'error' ? 'Preparation failed' : item.state === 'preparing' ? 'Preparing' : item.state)}</strong><br/>{item.message} {item.retry_after}</p>)}</details>}
       </section>}
 
       {capture?.phase === 'needs_language_setup' && <p role="status" className="toolkit-setup-note">{capture.message}</p>}

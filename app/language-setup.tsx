@@ -1,33 +1,34 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {StatePoll, type StateContext} from './state-sync';
+import {StatePoll, validContext, type StateContext} from './state-sync';
 import {Button} from '@/components/ui/button';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {formatBytes,languageName} from '../public/mobile-capture/interface-language.mjs';
 const API='http://127.0.0.1:8766';
+class LanguageStatusError extends Error {}
 type VoiceCounts=Record<'voiced'|'unvoiced'|'unavailable'|'unknown',number>;
 type Locale={dialogue_inventory?:{voice_counts:VoiceCounts;categories:Record<string,VoiceCounts>};coverage_warnings?:string[];locale:string;language:string;name:string;reader_available:boolean;table_bytes?:number;reclaimable_bytes?:number;voice_state?:string;support?:string;prepared:null|{targets:string[];mapped_lines:number};job?:{state?:string;message?:string;progress?:number|null}};
 type Languages={context:StateContext;selected:string|null;locales:Locale[];enabled_languages:string[]|null;targets:Record<string,string>;translation_locales?:string[];expected_targets?:string[];storage?:{tables_bytes:number;audio_cache_bytes:number|null;shared_tools_bytes:number|null;installed_game_bytes:number|null;exports_bytes:number|null}};
 export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false,targetLanguage,showAccount=true,compact=false}:{game:string;onConfigure:(language:string)=>void;onChanged:()=>void;storageOnly?:boolean;targetLanguage?:string;showAccount?:boolean;compact?:boolean}){
  const {t,locale:uiLocale}=useInterfaceLanguage();
- const [data,setData]=useState<Languages|null>(null),[locale,setLocale]=useState(''),[target,setTarget]=useState('en'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[search,setSearch]=useState(''),[confirm,setConfirm]=useState(false);
+ const [data,setData]=useState<Languages|null>(null),[locale,setLocale]=useState(''),[target,setTarget]=useState('en'),[busy,setBusy]=useState(false),[error,setError]=useState(''),[readError,setReadError]=useState(''),[search,setSearch]=useState(''),[confirm,setConfirm]=useState(false);
  const pollOwner=useRef<StatePoll<Languages>|null>(null);
  const actionAbort=useRef<AbortController|null>(null);
  useEffect(()=>{
   const owner=new StatePoll<Languages>(async signal=>{
    const response=await fetch(API+'/api/setup/games/'+game+'/languages',{cache:'no-store',signal});
-   if(!response.ok)throw Error('Language setup unavailable.');
-   const value=await response.json() as Languages;
-   if(!Array.isArray(value.locales))throw Error('Language setup unavailable.');
+   if(!response.ok)throw new LanguageStatusError(response.status===409?'The account or runtime changed. Retrying language status.':`Could not refresh language status (HTTP ${response.status}). Retrying automatically.`);
+   const value=await response.json().catch(()=>null) as Languages|null;
+   if(!value||!Array.isArray(value.locales)||!validContext(value.context))throw new LanguageStatusError('The toolkit returned an incomplete language status. Retrying automatically.');
    return value;
   },value=>{
-   setData(value);setError('');
+   setData(value);setReadError('');
    setLocale(previous=>value.locales.some(l=>l.locale===previous)?previous:value.locales.find(l=>l.language===targetLanguage)?.locale??value.selected??value.locales.find(l=>value.enabled_languages?.includes(l.language))?.locale??value.locales[0]?.locale??'');
-  },()=>setError('Language setup unavailable.'));
+  },failure=>setReadError(failure instanceof LanguageStatusError?failure.message:'Cannot reach the toolkit to refresh language status. Retrying automatically.'));
   pollOwner.current=owner;
   const reset=(event?:Event)=>{
    owner.reset(event?.type==='companion-runtime-reset');actionAbort.current?.abort();
-   setData(null);setLocale('');setConfirm(false);setError('');setBusy(false);
+   setData(null);setLocale('');setConfirm(false);setError('');setReadError('');setBusy(false);
    void owner.request();
   };
   reset();const timer=setInterval(()=>void owner.request(),5000);
@@ -48,7 +49,7 @@ export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false,targ
    // Invalidate the older poll before refreshing the result of this action.
    owner.reset();await owner.request();
    if(controller.signal.aborted||pollOwner.current!==owner)return;
-   setConfirm(false);onChanged();
+   setConfirm(false);setError('');onChanged();
   }catch(e){if(owner.owns(scope)&&!controller.signal.aborted)setError(e instanceof Error?e.message:'Language action failed.');}
   finally{if(actionAbort.current===controller){actionAbort.current=null;if(!controller.signal.aborted)setBusy(false);}}
  }
@@ -60,7 +61,8 @@ export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false,targ
  const rows=data?.locales.filter(row=>`${row.name} ${languageName(row.locale,uiLocale)} ${row.locale}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()))??[];
  return <section className={'toolkit-setup-card language-manager'+(compact?' language-manager-compact':'')}><h3>{t(storageOnly?'Storage':'Subtitles and original voice')}</h3>
  {!compact&&<p>{t('Prepare the game languages you use. Original voices and unvoiced dialogue are inventoried separately.')}</p>}
- {!data&&!error&&<p role="status">…</p>}
+ {!data&&!readError&&<p role="status">{t('Loading language status…')}</p>}
+ {readError&&<div role="status" className="toolkit-setup-note"><p>{t(readError)}</p><p>{t(data?'Showing the last known status. This connection warning does not mean preparation failed.':'Preparation runs on this PC independently of this status view.')}</p><Button variant="outline" onClick={()=>void pollOwner.current?.request()}>{t('Retry status')}</Button></div>}
  {data&&<><label>{t('Game language')}<select aria-label={t('Game language')} value={locale} onChange={e=>{setLocale(e.target.value);setConfirm(false);}}>{data.locales.filter(row=>row.reader_available).map(row=><option key={row.locale} value={row.locale}>{languageName(row.locale,uiLocale)}</option>)}</select></label>
  {!compact&&<><label>{t('Search languages')}<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder={t('Search languages')}/></label>
  <div className="language-table-scroll"><table className="language-table"><thead><tr><th>{t('Language')}</th><th>{t('Availability')}</th><th>{t('Original voice')}</th><th>{t('Prepared table')}</th></tr></thead><tbody>

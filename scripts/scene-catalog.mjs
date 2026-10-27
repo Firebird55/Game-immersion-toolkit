@@ -40,6 +40,11 @@ export function serializedResourceCatalog(data) {
   if(data.length<12||data.readUInt32LE(0)!==3||data.toString('ascii',4,7)!=='Res')throw Error('Unsupported resource catalog object');
   let p=8;
   const array=stride=>{
+    // Unity aligns the next array after packed block records (nine bytes each).
+    // A block count divisible by four can hide this boundary in hotfix catalogs.
+    const aligned=(p+3)&~3;
+    if(aligned>data.length||data.subarray(p,aligned).some(byte=>byte!==0))throw Error('Invalid resource catalog alignment padding');
+    p=aligned;
     if(p+4>data.length)throw Error('Truncated resource catalog array');
     const count=data.readUInt32LE(p);p+=4;
     if(count>5_000_000||p+count*stride>data.length)throw Error('Invalid resource catalog array');

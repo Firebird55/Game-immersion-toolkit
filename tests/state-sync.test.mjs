@@ -5,7 +5,7 @@ const context=(version=0,account=0,runtime='first-runtime')=>({runtime_id:runtim
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture(){
  const pending=[],commits=[],errors=[];
- const owner=new StatePoll(signal=>new Promise((resolve,reject)=>pending.push({signal,resolve,reject})),value=>commits.push(value),()=>errors.push('failed'));
+ const owner=new StatePoll(signal=>new Promise((resolve,reject)=>pending.push({signal,resolve,reject})),value=>commits.push(value),error=>errors.push(error));
  return {owner,pending,commits,errors};
 }
 test('late HTTP cannot overwrite a newer WebSocket event or its same-ID line',async()=>{
@@ -50,7 +50,7 @@ test('missing revisions and lower account generations are never state',()=>{
 test('a late failed HTTP poll cannot mark a newer WebSocket state offline',async()=>{
  const {owner,pending,errors}=fixture();const old=owner.request();await tick();
  owner.accept(context(2));pending[0].reject(Error('old disconnected request'));await old;assert.deepEqual(errors,[]);
- const current=owner.request();await tick();pending[1].reject(Error('current failure'));await current;assert.deepEqual(errors,['failed']);owner.close();
+ const current=owner.request();await tick();const failure=Error('current failure');pending[1].reject(failure);await current;assert.deepEqual(errors,[failure]);owner.close();
 });
 
 test('reconciled snapshots keep independent newer events without a read retry',async()=>{

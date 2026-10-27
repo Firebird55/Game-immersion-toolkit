@@ -33,6 +33,8 @@ def public_failure(error):
         return {'code': 'reader_timeout', 'message': 'The game reader exceeded its time limit. Close any game update or file verification, then retry preparation.'}
     if isinstance(error, (MemoryError,)):
         return {'code': 'reader_memory', 'message': 'The game reader ran out of memory. Close memory-heavy applications, then retry preparation.'}
+    if isinstance(error, PermissionError):
+        return {'code': 'file_access_denied', 'message': 'Access to a local file was denied. A game or toolkit file may be locked or its folder may not be writable. Close programs using those files, then retry. The local preparation log identifies the affected file.'}
     if isinstance(error, OSError):
-        return {'code': 'files_unavailable', 'message': 'A required game file or reader could not be accessed. Check the game folder and tools in Settings, then retry preparation.'}
+        return {'code': 'files_unavailable', 'message': 'A required local file could not be read or written. Check the game folder, toolkit storage and reader tools, then retry. The local preparation log identifies the affected file.'}
     return {'code': 'reader_failed', 'message': 'The installed game data could not be prepared by this reader. Update the toolkit and verify game files, then retry. Details are saved in the local preparation log.'}

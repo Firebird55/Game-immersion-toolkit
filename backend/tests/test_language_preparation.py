@@ -119,6 +119,20 @@ def test_metadata_rate_limit_has_a_network_message_and_background_cooldown(tmp_p
     assert not manager._workers and len(calls) == 2
 
 
+def test_local_file_write_permission_failure_is_not_reported_as_missing_game_data(tmp_path):
+    private_path = tmp_path / 'toolkit-storage' / 'snapshot.pending'
+    def build(*_):
+        raise PermissionError(13, 'Synthetic access denied', str(private_path))
+    manager = LanguagePreparation(build, lambda *_: None, lambda *_: {}, path=tmp_path / 'languages.json')
+    manager.request('zzz', 'zh-Hans', 'en')
+    finish(manager)
+    status = manager.update_status()
+    assert status['state'] == 'retrying' and status['code'] == 'file_access_denied'
+    assert 'toolkit file' in status['message'] and 'local preparation log' in status['message']
+    assert str(private_path) not in status['message']
+    assert 'game files changed' not in status['message'].lower()
+
+
 def test_local_targets_survive_activation_history_account_switch_and_refresh(tmp_path, monkeypatch):
     import json
     from datetime import datetime, timezone

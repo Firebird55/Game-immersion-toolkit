@@ -17,7 +17,7 @@ from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 4
+LANGUAGE_INDEX_VERSION = 5
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -334,13 +334,14 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     return {'format': 2, 'game': 'zzz', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'metadata_revision': revision, 'records': rows, 'missing_translation_locales': missing,
         'coverage_warnings': [
-            *([f'{unresolved:,} referenced scenes are absent from the installed catalog.'] if unresolved else []),
+            *([f'{unresolved:,} metadata scene references were not matched in the installed resource catalogs. '
+               'Those references were not imported; this coverage warning does not stop preparation or establish that a voice pack is missing.'] if unresolved else []),
             *([f'{unsupported:,} dialogue objects use an unsupported format; update the toolkit for this game version.'] if unsupported else []),
             'Message reply choices without explicit silence and ambiguous tip voice variants remain unresolved. Clue recordings and additional event-specific tables are not comprehensively imported. Unknown or missing voices are not treated as silent dialogue.'],
         'coverage': {'scene_catalogs': scene_diagnostics, 'dialogue_tables': table_diagnostics, 'verified_unvoiced': silent,
                      'unknown_voice_status': sum(row['voice_status'] == 'unknown' for row in rows)},
         'message': f'{len(rows):,} official {source_locale} entries; {mapped:,} original voices; {silent:,} authored unvoiced entries' +
-        (f'; {unresolved:,} metadata scenes are not in the installed catalog' if unresolved else '') +
+        (f'; coverage note: {unresolved:,} unmatched metadata scene references' if unresolved else '') +
         (f'; {unsupported:,} dialogue objects use a new format: update the toolkit for full coverage' if unsupported else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
         ('; selected voice pack is missing or incomplete' if not mapped and namespace is None else

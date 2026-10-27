@@ -221,3 +221,27 @@ def test_supplemental_downloads_are_pinned_and_do_not_depend_on_the_scene_cache(
     links, diagnostics = assets.supplemental_links(revision, {'Message_Synthetic': 'Message', 'Tips_Synthetic': 'Tip'})
     assert len(links) == 2 and len(diagnostics) == 2
     assert all('/raw/commit/' + revision + '/FileCfg/' in url for url in urls)
+
+
+def test_unmatched_scene_references_are_coverage_notes_without_discarding_verified_audio(tmp_path, monkeypatch):
+    (tmp_path / 'ZenlessZoneZero_Data').mkdir()
+    package = tmp_path / 'voice.pck'; package.write_bytes(bytes(128))
+    source = 'VO_Galgame/VO_Test/Line'
+    identity = voice_hash('english(en)/ex/' + source + '.wem')
+    tools = tmp_path / 'tools'; tools.mkdir()
+    text, male, female = assets.ONGOING_SCHEMAS[0]
+    for name, value in {'OngoingTipsConfigTemplateTb.json': {'rows': [{text: '', male: '', female: ''}]},
+                        'VoiceData.json': {'allPrefixes': []}, 'AudioResourceData.json': {}}.items():
+        (tools / name).write_text(json.dumps(value), encoding='utf-8')
+    monkeypatch.setattr(assets.game_tools, 'download', lambda _: json.dumps({'commit': {'id': 'a' * 40}}).encode())
+    monkeypatch.setattr(assets, '_tables', lambda *_: {'en': {'GalGame_Test': 'Official synthetic dialogue.'}})
+    monkeypatch.setattr(assets, '_links', lambda *_: ([{'text_id': 'GalGame_Test', 'source': source}], [], tools,
+        [{'unresolved_scenes': 3, 'unsupported_dialogue_nodes': {}}]))
+    monkeypatch.setattr(assets, 'supplemental_links', lambda *_: ([], {}))
+    monkeypatch.setattr(assets, 'localized_inventory', lambda *_: ('english(en)', {identity: VoiceEntry(package, 64, 12, identity)}))
+    result = assets.index_language(tmp_path, tmp_path, 'en', [])
+    assert result['records'][0]['voice_status'] == 'voiced'
+    assert result['records'][0]['audio']['file_id'] == f'{identity:016x}'
+    assert 'coverage note: 3 unmatched metadata scene references' in result['message']
+    assert 'does not stop preparation' in result['coverage_warnings'][0]
+    assert result['coverage']['scene_catalogs'][0]['unresolved_scenes'] == 3
