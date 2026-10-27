@@ -188,10 +188,11 @@ test('Chromium prerequisites follow the pinned headless launch executable withou
   const shellOnly = probeBrowsers({engines, loadModule: browserModules(), exists: path => path.endsWith('headless-shell')});
   assert.deepEqual(shellOnly, {chromium: true, firefox: false, webkit: false});
   assert.deepEqual(probeBrowsers({engines: ['chromium'], loadModule: browserModules(), exists: () => false}), {chromium: false});
+  assert.deepEqual(probeBrowsers({engines: ['chromium'], loadModule: browserModules({version:'1.64.1',coreVersion:'1.64.1'}), exists: () => true}), {chromium: true});
 });
 
 test('Chromium metadata fails closed for an unreviewed version or missing registry export', () => {
-  for (const options of [{version: '1.65.0'}, {coreVersion: '1.65.0'}, {registry: false}]) {
+  for (const options of [{version: '1.65.0'}, {coreVersion: '1.65.0'}, {version:'1.64.1'}, {registry: false}]) {
     assert.deepEqual(probeBrowsers({engines: ['chromium'], loadModule: browserModules(options), exists: () => true}), {chromium: false});
   }
   assert.deepEqual(probeBrowsers({engines: ['chromium'], loadModule: () => {throw Error('Unavailable metadata');}, exists: () => true}), {chromium: false});
