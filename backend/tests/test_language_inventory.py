@@ -7,7 +7,7 @@ from backend.language_preparation import LanguagePreparation
 
 def fixture(tmp_path):
     catalog = Path(__file__).parents[2] / 'public/mobile-capture/games-data.json'
-    inventory = LanguageInventory(tmp_path, catalog, lambda _: None)
+    inventory = LanguageInventory(tmp_path, lambda _: None, catalog=catalog)
     manager = LanguagePreparation(None, None, None, path=tmp_path / 'state.json')
     path = inventory.table('beyond', 'nl')
     path.parent.mkdir(parents=True)
@@ -44,6 +44,20 @@ def test_inventory_reports_actual_bytes_and_unknown_external_sizes(tmp_path):
     assert result['storage']['installed_game_bytes'] is None
     assert result['storage']['tables_bytes'] == 2
     assert directory_bytes(tmp_path / 'languages') == 2
+
+    # A preserved installation can carry an older catalog without newer games.
+    # Every shipped game's language screen must use the active runtime bundle.
+    from backend.languages import GAME_LOCALES
+    old_catalog = tmp_path / 'public/mobile-capture/games-data.json'
+    old_catalog.parent.mkdir(parents=True)
+    old_catalog.write_text('{"games": []}', encoding='utf-8')
+    installed = LanguageInventory(tmp_path / 'data', lambda _: None)
+    for game, locales in GAME_LOCALES.items():
+        prepared = manager.status(game)
+        actual = installed.status(game, prepared)
+        assert set(actual['locales']) == set(locales)
+        assert actual['official_text_locales']
+    assert old_catalog.read_text(encoding='utf-8') == '{"games": []}'
 
 
 def test_language_inventory_separates_silence_from_missing_voices(tmp_path):
@@ -96,3 +110,49 @@ def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path
     with pytest.raises(ValueError, match='voice status'):
         language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
     assert output.read_bytes() == before
+
+
+def test_progress_lock_failures_do_not_abort_build_and_later_status_recovers(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend import language_worker
+    output = tmp_path / 'snapshot.json'
+    progress = output.with_name('progress.json')
+    progress.write_text('{"message":"Previous status"}', encoding='utf-8')
+    clock = [0.0]
+    monkeypatch.setattr(language_worker.time, 'monotonic', lambda: clock[0])
+    write_text, replace = Path.write_text, Path.replace
+    attempts = []
+    def locked_write(path, *args, **kwargs):
+        if path == progress.with_suffix('.pending'):
+            attempts.append(clock[0])
+            if clock[0] == 0:
+                raise PermissionError('Synthetic sharing violation on progress write')
+        return write_text(path, *args, **kwargs)
+    def locked_replace(path, target):
+        if Path(target) == progress and clock[0] == 1:
+            raise PermissionError('Synthetic sharing violation on progress replace')
+        return replace(path, target)
+    monkeypatch.setattr(Path, 'write_text', locked_write)
+    monkeypatch.setattr(Path, 'replace', locked_replace)
+    def extract(*_, progress):
+        for stamp in (0, .2, .9, 1):
+            clock[0] = stamp
+            progress('Reading game files')
+        return {'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': [
+            {'text_id': 'fixture', 'english': 'Synthetic line', 'chinese': '', 'audio': None}]}
+    monkeypatch.setattr(language_worker, 'asset_adapter', lambda _: (
+        SimpleNamespace(LANGUAGE_INDEX_VERSION=1, index_language=extract), None))
+    report = language_worker.progress_reporter(output)
+    language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output, report)
+    assert output.is_file() and attempts == [0, 1]
+    assert json.loads(progress.read_text(encoding='utf-8'))['message'] == 'Previous status'
+    clock[0] = 2
+    report('Validating language table')
+    assert json.loads(progress.read_text(encoding='utf-8'))['message'] == 'Validating language table'
+    def denied_snapshot(path, *args, **kwargs):
+        if path == output:
+            raise PermissionError('Synthetic snapshot failure')
+        return write_text(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'write_text', denied_snapshot)
+    with pytest.raises(PermissionError, match='snapshot failure'):
+        language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output, report)

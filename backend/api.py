@@ -219,7 +219,7 @@ class Runtime:
         self.index_task: asyncio.Task[None] | None = None
         self.mobile_exports = ScopedMobileExports(PROJECT_ROOT, self.accounts, self.languages)
         self.automatic_exports = AutomaticMobileExports(PROJECT_ROOT, install_lookup=self.setup_install)
-        self.language_inventory = LanguageInventory(DATA_DIR, PROJECT_ROOT / 'public/mobile-capture/games-data.json', self.setup_install)
+        self.language_inventory = LanguageInventory(DATA_DIR, self.setup_install)
 
     def account_preferences(self):
         session = self.lexirise.pin()
