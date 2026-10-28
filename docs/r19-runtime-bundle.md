@@ -183,6 +183,34 @@ executable/provenance hashes are job observations, not independently downloaded
 binary verification. The old Python supplier, exact-output redistribution, full
 game toolchains and Windows 11 acceptance remain unapproved; `r19_complete` is false.
 
+### Continued integrated source candidate
+
+[Full hosted run 40765392618](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40765392618)
+at `8c8a4e90a1337ff82b8150c80487b7ac7042c730` passed source audit, the complete
+source check (**1736 Python tests passed, one skipped**), all five browser groups
+(desktop/setup/capture/offline/OCR), `required-checks`, packaging and extracted
+source-ZIP validation. Publish was skipped. This is the existing source-style
+candidate, not an accepted full frozen runtime or installer.
+
+Downloaded source artifact `12851521128` matched ZIP SHA-256
+`27db246196994a088509dd62fcc5ae1c74836522710b3fee0bf24e8193796c2b`.
+Every `SHA256SUMS` entry matched downloaded bytes; `PROVENANCE.json` identified
+the exact `8c8a4e9` source and shared **1.0.12** revision
+`2e84f74cf77ea4773463331c7ecde0b05faf31f8`. Downloaded gate artifact `12851955008`
+matched `dd2f7564f0f20240661a36902f35b7f23f84894bc12321f73098ee8814291f51`
+and reported success, verified identity, full/valid scope, equal tested/workflow
+commits and no errors. Its event was manual dispatch; PR base freshness is not
+applicable, so this fork evidence does not replace the upstream PR required context.
+
+Subsequent commits change only managed build/probe/workflow isolation and its
+documentation, with actual helper validation at `d297b42` recorded in the
+[helper experiment](r19-compiler-free-helpers.md). Production UI/API code is unchanged
+from the fully checked source candidate. Freshly fetched `upstream/main` and PR #59's
+head remained `ba0b7c3` and `8369c953` respectively. Full R19 rights, native Windows
+11, serviced Python supplier and supervised-update gates remain explicit and open.
+The frontend/stdlib/protected-TEST workflow also passed again at `d297b42` in
+[run 40768109482](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40768109482).
+
 The quarantined Windows diagnostic workflow builds from an observed official
 3.12.10 installer and exact recorded packaging wheels. That old installer is
 deliberately **not** an accepted maintained-runtime supplier. It validates its

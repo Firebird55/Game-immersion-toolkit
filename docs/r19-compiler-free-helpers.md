@@ -10,10 +10,10 @@ part of this work. Build tools below run on a build host, not on the user's PC.
 
 | Helper | Implemented direction | Remaining gate |
 | --- | --- | --- |
-| Authored .NET probe | Fixed JSON stdin/stdout operation, self-contained `win-x64` directory, app-local runtime/resource identity and hash-bound inventory | Actual hosted execution and exact-output/runtime/native review; this probe authorizes no game |
+| Authored .NET probe | Fixed JSON stdin/stdout operation, self-contained `win-x64` directory, app-local runtime/resource identity and hash-bound inventory; hosted Server probe passed | Exact-output/runtime/native Windows 11 review; this probe authorizes no game |
 | Owned NTE bridge | Self-contained publishing of the existing reflection bridge, with no trimming or single-file extraction; frozen source identity comes from verified resources | UEExtractor dynamic assembly/native dependency closure, Oodle rights and functional installed-game evidence; bridge publishing cannot authorize execution |
 | Endfield | Frozen preparation refuses SDK/download/restore before reaching the source adapter | Selected upstream `Keys.cs` contains unreviewed game-derived constants; no Endfield artifact is collected |
-| Authored Node probe | Exact app-local Node, module worker and authored WASM; absolute immutable entry/resource paths and private work | Hosted Windows execution and exact runtime/native/notices review; no real ZZZ extraction claim |
+| Authored Node probe | Exact app-local Node, module worker and authored WASM; absolute immutable entry/resource paths and private work; hosted Server probe passed | Exact runtime/native/notices and Windows 11 review; no real ZZZ extraction claim |
 | ZZZ production reader | Separate build-only quarantine preparation with pinned source/module inputs; frozen production dispatch remains blocked | GPL/corresponding-source obligations, upstream custom terms, game-derived metadata and actual reader/codec probes |
 | PRAGMATA selective REE | Existing frozen refusal retained | Modified x86 helper redistribution rights, prebuilt artifact and WOW64/native evidence |
 
@@ -126,3 +126,27 @@ Compilation intermediates and regular build output are redirected to private
 evidence storage, and shared compiler-server reuse is disabled. Actual probe
 execution is a separate step before the optional owned bridge build; a passing
 metadata file can describe only that independently completed scope.
+
+The final [helper run 40768109512](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40768109512)
+passed both jobs at exact clean commit
+`d297b4224002e85e20aa7db0e3469ab9c109135a`. The actual managed probe ran with
+developer PATH removed, absent system `DOTNET_ROOT`, stripped loader hooks,
+read-only application files, app-local CoreLib/runtime **10.0.14**, rejected malformed
+input/missing resource, no observed application writes and confirmed cleanup.
+The separate NTE bridge then published successfully from a fresh exact SDK
+expansion. It was not executed on a game and contains no UEExtractor/Oodle chain.
+The Node job independently passed its actual worker/WASM/Chinese JSON protocol with
+app-local **24.22.1**, no inherited loader flags and confirmed cleanup.
+
+Downloaded metadata artifacts were checked against GitHub's ZIP digests and then
+for exact clean source identity, success, cleanup and incomplete game/full-runtime
+scope:
+
+| Artifact | ZIP SHA-256 |
+| --- | --- |
+| Managed `12852275531` | `244793f304476dffc7558e2c52588a966cc4e796d067b04dde3dc30b7c76da87` |
+| Node `12850219886` | `cde8c34953c2afc81b9a74d930b6b0dcd6351d522d0f7cc3fba5a0ed9ac90658` |
+
+Only metadata was downloaded/uploaded. This proves the stated authored helper and
+owned bridge build scopes on Server 2025, not independently downloaded binaries,
+game extraction, closed redistribution obligations or native Windows 11 acceptance.
