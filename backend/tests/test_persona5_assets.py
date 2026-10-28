@@ -9,6 +9,7 @@ import pytest
 from backend import persona5_assets as assets
 from backend.persona_cri import Cpk, Entry, awb_entries, crilayla, read_acb, utf
 from backend.persona_message import package_members, read_messages, tokens
+from backend.persona_flow import constant_message_banks
 from backend.preparation_errors import PreparationFailure
 
 
@@ -64,6 +65,44 @@ def message(pages, choice=False, endian='>'):
     data.extend(row)
     struct.pack_into(endian + 'I', data, 4, len(data))
     return bytes(data)
+
+
+def flow(instructions, labels=(), payload=b'', endian='>'):
+    code = b''.join(struct.pack(endian + 'HH', op, arg) for op, arg in instructions)
+    pointers = b''.join(bytes(40) + struct.pack(endian + 'II', index, 0) for index in labels)
+    data = bytearray(80)
+    data[8:12] = b'FLW0' if endian == '>' else b'0WLF'
+    struct.pack_into(endian + 'I', data, 16, 3)
+    struct.pack_into(endian + '4I', data, 32, 1, 48, len(labels), 80)
+    struct.pack_into(endian + '4I', data, 48, 2, 4, len(instructions), 80 + len(pointers))
+    struct.pack_into(endian + '4I', data, 64, 3, 1, len(payload), 80 + len(pointers) + len(code))
+    data.extend(pointers + code + payload)
+    struct.pack_into(endian + 'I', data, 4, len(data))
+    return bytes(data)
+
+
+def test_constant_flow_bindings_require_one_unambiguous_basic_block():
+    setup = [(29, 7), (29, 401), (8, 0x180), (8, 0x181), (8, 0x22)]
+    show = [(29, 0), (29, 3), (8, 5)]
+    for endian in ('<', '>'):
+        assert constant_message_banks(flow(setup + show, endian=endian)) == {3: 'sound/event/e401_007.acb'}
+    # Another entry/branch target after setup, an unknown native call, or an
+    # external procedure call cannot inherit the earlier bank.
+    assert constant_message_banks(flow(setup + show, labels=(len(setup),))) == {}
+    for barrier in ((8, 0x999), (11, 1), (13, 0), (28, 0)):
+        assert constant_message_banks(flow(setup + [barrier] + show)) == {}
+    # One unresolved use of the same message vetoes the otherwise valid use.
+    assert constant_message_banks(flow(setup + show + [(11, 1)] + show)) == {}
+    # A runtime-selected message ID could alias any message in the script.
+    assert constant_message_banks(flow(setup + show + [(30, 0), (8, 5)])) == {}
+    with pytest.raises(PreparationFailure):
+        constant_message_banks(flow(setup + show, labels=(100,)))
+    with pytest.raises(PreparationFailure):
+        constant_message_banks(flow([(0, 0)]))
+    # A wide PUSHI payload is data, not a COMM or label destination.
+    assert constant_message_banks(flow([(0, 0), (8, 0x180)])) == {}
+    with pytest.raises(PreparationFailure):
+        constant_message_banks(flow([(0, 0), (8, 0x180)], labels=(1,)))
 
 
 def adx(silent=False):
@@ -201,6 +240,14 @@ def test_index_separates_silent_missing_unknown_and_original_voice(tmp_path, mon
     assert [r['voice_status'] for r in result['records']] == ['voiced', 'unavailable', 'unknown', 'unvoiced']
     audio = result['records'][0]['audio']
     assert assets.extract_voice(tmp_path, audio, Path(), Path()) == adx()
+    files['camp/chat/example.bf'] = flow(
+        [(29, 2), (29, 1), (8, 0x180), (8, 0x181), (29, 0), (29, 0), (8, 5)],
+        payload=message([voice_command(4) + b'Authored phone comment.']))
+    expanded = assets.index_language(tmp_path, tmp_path, 'en', [])
+    assert expanded['records'][-1]['voice_status'] == 'voiced'
+    assert expanded['records'][-1]['dialogue_kind'] == 'phone_message'
+    assert expanded['records'][-1]['audio'] == audio
+    del files['camp/chat/example.bf']
     with pytest.raises(PreparationFailure):
         assets.extract_voice(tmp_path, {**audio, 'cue': 99}, Path(), Path())
     with pytest.raises(PreparationFailure):

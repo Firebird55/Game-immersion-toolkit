@@ -59,6 +59,17 @@ wave/synth references are also supported. The AFS2 table supplies the exact AWB
 ID and bounded ADX extent. It never substitutes the nearest cue, waveform index,
 file order, a different event or the other language's recording.
 
+Index version 2 also reads constant `SND_VOICE_DLYEVT_SETUP` (`0x180`) and
+`SND_VOICE_DNGEVT_SETUP` (`0x140`) calls in FLW0 scripts. A later message call
+within the same straight-line block may bind selector `(1|6|8,0,0)` to that
+explicit event bank. Procedure calls, branch boundaries, label entry points,
+unknown native calls, conflicting uses of a message and runtime-selected message
+IDs invalidate the binding. The reader does not execute scripts or infer a bank
+from a nearby setup call in another procedure. The
+[P5R native function schema](https://github.com/tge-was-taken/Atlus-Script-Tools/blob/05483fe12f9c482ee17f38ded2e115f4c55015b3/Source/AtlusScriptLibrary/Libraries/Persona5Royal/Modules/Common/Functions.json)
+documents these setup and message calls. Installed scripts establish the
+constant major/minor event IDs and exact cue IDs.
+
 The message format and voice instruction are documented by
 [Atlus Script Tools](https://github.com/tge-was-taken/Atlus-Script-Tools/tree/05483fe12f9c482ee17f38ded2e115f4c55015b3/Source/AtlusScriptLibrary/MessageScriptLanguage)
 and its
@@ -88,10 +99,10 @@ decoding are not proof of silence.
 | Story, social/confidant scenes, in-engine cutscenes | Event messages, speaker names, exact event cues, authored pages and verified silent cues | Some event bank contexts remain unresolved; no chronological reconstruction or confidence about resource reachability |
 | Battle event conversations | Exact event-bank cue IDs and original ADX | Combat/navigator barks and negotiation messages can use runtime-selected or shared banks; many are unavailable or unknown |
 | Response options and thought/selection UI | Selection format establishes text-only options; shared capture toggle applies | Short choices may match later voiced dialogue, so they must veto voiced matching even with text-only capture disabled |
-| Phone conversations | Text and selection pages indexed | The same scripts also contain spoken companion comments; ordinary phone pages without explicit silence evidence remain unknown, and shared reaction voices remain unresolved |
+| Phone conversations | Text and selection pages indexed; 92 spoken companion-comment pages have explicit flow setup/cue bindings | Ordinary phone pages without explicit silence evidence remain unknown; shared reactions and setup across procedures/branches remain unresolved |
 | NPC/ambient speech, greetings, field conversations | Authored message pages and speakers indexed | Shared selector families, field bank setup and runtime-dependent scripts are not yet bound; non-subtitled barks cannot be matched from OCR |
 | Books, descriptions, tutorials, minigames, Thieves Den | BMD/BF messages, including nested packages | 26 FTD/TBL/binary sources and 12 nonbinary tutorial source files remain unparsed; ordinary nonvoiced-looking text is kept unknown |
-| Animated movies | 103 USM members inventoried in the movie CPK, plus one in the installed text CPK | USM audio/subtitle timelines are not implemented; no movie dialogue recording or timing is claimed |
+| Animated movies | 103 USM members inventoried in the movie CPK, plus one in the installed text CPK; stream directories and subtitle placeholders inspected | No exact localized movie-caption/audio binding is established; no movie dialogue recording or timing is claimed |
 
 [Message-window documentation](https://docs.shrinefox.com/flowscript/library-functions/persona-5)
 distinguishes regular speech, thought windows, system messages, choices and phone
@@ -99,6 +110,29 @@ windows. This corroborates the distinct presentation families found in the
 installed scripts. Some voice calls play a short reaction alongside a longer
 text page; unresolved shared reaction calls are not presented as full spoken
 performances of that text.
+
+The follow-up movie inventory found 43 resources with two audio streams, 26 with
+one audio stream, 30 with no audio stream, and five with one audio stream plus a
+subtitle stream. Every one of those five subtitle streams contains a single
+`Dummy` placeholder, not dialogue. Representative regular movies use VP9 video
+and encrypted six-channel HCA audio. Their stream directories identify channel
+numbers without language tags; even both audio filenames can carry a Japanese
+build-directory label. Channel order therefore does not establish voice locale.
+One legacy movie directory contains non-UTF-8 filename metadata. No complete
+localized movie subtitle/timing table was identified in the locale archive or
+the inspected executable data. Full-track playback support cannot fill in a
+missing caption identity or choose a language without that evidence.
+
+The executable additionally contains 33 embedded MSG1 resources of 1,281 battle
+navigator messages each. They use selector `(8,1,65535)` and character families
+3, 8 and 9. Their locale/character dispatch and original bank association remain
+unverified, so they are not added as guessed voices or folded into the archive
+page counts below. Resolving them requires the executable's resource-selection
+tables and voice-bank dispatch, not choosing a table by its apparent language.
+Shared selector families such as `(8,2,1)` also remain unresolved: the large
+singleword bank contains short reactions, and a cue-number match alone does not
+prove that it performs the displayed paragraph. More complete field coverage
+requires branch/call-aware bank state and cross-script resource references.
 
 Ordinary portrait balloons occupy the lower part of the image with variable
 width and angle. Thought bubbles and choices can be central; phone conversations
@@ -113,23 +147,27 @@ outstanding. Calibrate independent regions for unusual layouts.
 
 ## Native evidence
 
-The final installed English index completed in approximately 71 seconds. It read
-7,382 message sources, 1,132 localized banks and 498 shared silence banks.
+The version 2 installed English index completed in approximately 79 seconds. It
+read 7,382 message sources, 1,187 localized banks and 498 shared silence banks.
+Of 191 field/chat scripts containing explicit event-bank setup calls, 57 yielded
+59 unambiguous constant message bindings under the conservative rules. These
+resolved 94 additional voiced pages. Four further pages require runtime text
+substitution and remain unknown; two authored cues are absent from their bank.
 
 | Category | Voiced | Confirmed unvoiced | Unavailable | Unknown |
 | --- | ---: | ---: | ---: | ---: |
 | Story/social event | 28,352 | 32,182 | 32,576 | 7,717 |
 | Battle dialogue | 1,930 | 0 | 683 | 9,795 |
 | Choice | 0 | 25,160 | 0 | 5 |
-| Phone message | 0 | 0 | 2,846 | 21,227 |
-| Field dialogue | 0 | 0 | 42,325 | 36,447 |
+| Phone message | 92 | 0 | 2,754 | 21,227 |
+| Field dialogue | 2 | 0 | 42,323 | 36,447 |
 | Ambient/NPC | 0 | 0 | 26,008 | 4,633 |
 | Readable/system text | 0 | 0 | 296 | 9,968 |
 | Other message | 0 | 0 | 740 | 2,136 |
-| **Total** | **30,282** | **57,342** | **105,474** | **91,928** |
+| **Total** | **30,376** | **57,342** | **105,380** | **91,928** |
 
-Unavailable pages break down as 88,093 unresolved bank selectors, 14,904 absent
-context banks, 2,381 missing authored cue IDs, 93 multi-voice pages, and 3
+Unavailable pages break down as 87,997 unresolved bank selectors, 14,904 absent
+context banks, 2,383 missing authored cue IDs, 93 multi-voice pages, and 3
 non-silent/unverified zero cues. No installed voice pack was missing in this
 audit. Another 4,771 pages require runtime substitutions and are kept unknown.
 Five unsupported ACB cues were inventoried; none was guessed into a binding.
@@ -141,8 +179,16 @@ All were mono and matched their ACB waveform dimensions. These are original
 recordings extracted from the installed voice packs. This proves extraction and
 decoding of these samples, not complete-game playback or Japanese-text indexing.
 
+Newly resolved phone/social bank `e487_003`, cue 1, decoded to 33,335 frames in
+English and 52,809 frames in Japanese, both mono at 24 kHz. The ACB dimensions
+matched the decoded WAVs. All 94 new bindings were checked against the installed
+wavebank and native byte extents; the original event/battle samples were not
+retested during this follow-up.
+
 Raw indexes, sample audio and detailed probes stay under ignored
-`output/checks/persona5-native/`. No game dialogue, audio, archive, account data
+`output/checks/persona5-native/`; subsequent movie/flow probes, updated aggregate
+counts and phone-audio samples are in the private follow-up artifact directory
+on the designated generated-artifacts drive. No game dialogue, audio, archive, account data
 or machine-specific installation path belongs in the repository.
 
 ## Tools, metadata and regression checks
@@ -166,5 +212,9 @@ Failure to acquire that metadata produces a specific retry message.
 bounds, both MSG1 byte orders, distinct pages/choices, CRILAYLA, both package
 layouts, cue graphs, AFS2 limits, missing locale packs, offline metadata failure,
 explicit silence versus missing speech, unsafe paths and decoded dimensions.
+Additional generated FLW0 fixtures check both byte orders, constant setup,
+branch/call barriers, conflicting and dynamic message uses, wide constants and
+invalid label targets. A synthetic phone-message index exercises the complete
+setup-to-original-audio path. Eight focused tests passed after this expansion.
 These tests do not need a game, network access or the decoder. Broader regression
 coverage and capture/export integration belong to the shared change and hosted CI.

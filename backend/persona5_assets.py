@@ -15,11 +15,12 @@ import wave
 
 from .persona_cri import Cpk, awb_entries, invalid, read_acb, safe_name
 from .persona_message import package_members, read_messages
+from .persona_flow import constant_message_banks
 from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 
 GAME = 'persona5royal'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'ja')
 TEXT_LOCALES = {'en': 'EN', 'fr': 'FR', 'it': 'IT', 'de': 'DE', 'es-ES': 'ES',
                 'ja': 'JP', 'ko': 'KR', 'zh-Hans': 'SC', 'zh-Hant': 'TC'}
@@ -122,10 +123,12 @@ def _category(path, choice):
     return 'other_message'
 
 
-def _bank_path(path, command):
+def _bank_path(path, command, flow_bank=None):
     """Context-bound event selector; never search unrelated banks by cue number."""
     if len(command) != 6 or command[0] not in (1, 6, 8) or command[1] != 0:
         return None
+    if flow_bank and command[2] == 0:
+        return flow_bank
     stem = PurePosixPath(path.split('!')[-1]).stem
     if path.startswith('event_data/') and re.fullmatch(r'e\d{3}_\d{3}', stem) and command[2] == 0:
         return f'sound/event/{stem}.acb'
@@ -180,7 +183,11 @@ def _script_tables(archive, charset, inventory, progress):
             else:
                 inventory['nonbinary_message_sources'] += 1
                 return
+            bindings = constant_message_banks(data)
+            inventory['constant_flow_message_bindings'] += len(bindings)
             for row in read_messages(data, charset):
+                if row['ordinal'] in bindings:
+                    row['flow_bank'] = bindings[row['ordinal']]
                 result[path, row['ordinal']] = row
             inventory['message_sources'] += 1
         elif path.endswith(('.pak', '.pac', '.bin')):
@@ -261,7 +268,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                     value = translated['pages'][page_index]
                     # Locale page boundaries are accepted only when the authored
                     # voice call agrees. Never align translations by row order alone.
-                    if value['voices'] == page['voices']:
+                    if value['voices'] == page['voices'] and translated.get('flow_bank') == row.get('flow_bank'):
                         texts[locale] = display_text(value['text'].replace('\n', ' '))
                         speakers[locale] = translated['speaker']
             texts[source_locale] = text
@@ -271,7 +278,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 state = 'unvoiced'
             elif len(commands) == 1:
                 command = commands[0]
-                name = _bank_path(path, command)
+                name = _bank_path(path, command, row.get('flow_bank'))
                 selected_bank = bank(name) if name else None
                 ref = selected_bank['bindings'].get(command[3]) if selected_bank else None
                 state = 'unavailable'
@@ -296,6 +303,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 audio, state, reason = None, 'unknown', None
             if reason:
                 inventory['unavailable_' + reason] += 1
+            if state == 'voiced' and row.get('flow_bank') == audio['bank']:
+                inventory['voiced_constant_flow_pages'] += 1
             identity = hashlib.sha256(f'{path}\0{ordinal}\0{row["id"]}\0{page_index}'.encode()).hexdigest()[:32]
             records.append({'text_id': f'{GAME}:page:{identity}', 'english': texts.get('en', ''),
                 'chinese': texts.get('zh-Hans', texts.get('zh-Hant', '')), 'source_locale': source_locale,
@@ -309,7 +318,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     inventory['voice_banks_installed'] = sum(name.endswith('.acb') for name in voices.entries) if voices else 0
     counts = Counter(row['voice_status'] for row in records)
     warnings = [
-        'Exact event cue bindings cover story/social event pages and battle event pages. Shared reaction voices, ambient bank selectors, runtime-dependent flow-script bindings and non-subtitled battle barks remain unavailable or unknown.',
+        'Exact event cue bindings cover story/social and battle event pages, plus constant bank-setup/message calls within one flow-script block. Shared reactions, other ambient selectors, runtime-dependent flow bindings and non-subtitled battle barks remain unavailable or unknown.',
         'Choices without a voice command and verified zero-residual cue-zero silence are confirmed unvoiced. Missing cues, missing packs and an absent voice command in ordinary dialogue are never classified as silence.',
         'Animated USM movies, some FTD/TBL/binary text tables, and runtime name/variable substitutions are not yet resolved. Moving dialogue, phone messages, thought bubbles and choices require full-frame capture or independent calibrated regions.',
         'Each authored message page uses its complete original cue. Scene timeline times are not inferred as audio cut points.',
