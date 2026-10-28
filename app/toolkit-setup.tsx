@@ -35,11 +35,11 @@ const VOICE_LABELS: Record<string, string> = { unvoiced_only: 'Spoken dialogue c
   needs_language_setup: 'Prepare a game language to enable capture. Installed voice packs are listed in the language table above' };
 const VOICE_STATUS: Record<string,string> = {unvoiced_only:'Text messages only',present:'Installed',missing:'Pack not detected',not_checked:'Not checked',verify_during_indexing:'Check during preparation',not_required:'Text only',needs_language_setup:'Choose game language'};
 
-export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged, targetLanguage, allowedGames }: {
+export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged, targetLanguage, allowedGames, readingSupported = true }: {
   online: boolean; game: GameId; onGameChange: (game: GameId) => void;
   readingMode: 'migaku' | 'lexirise'; onReadingMode: (mode: 'migaku' | 'lexirise') => void;
   onCapture: () => void; onReading: () => void; onAccount: (language?:string) => void; onChanged: () => void;
-  targetLanguage?: string; allowedGames?: string[];
+  targetLanguage?: string; allowedGames?: string[]; readingSupported?: boolean;
 }) {
  const uiText=useInterfaceTranslation();
   const {t}=useInterfaceLanguage();
@@ -205,7 +205,8 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
           <label>{uiText("Reading mode")}<select aria-label={uiText("Reading mode")} value={readingMode} onChange={event => onReadingMode(event.target.value as 'migaku' | 'lexirise')}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise">{uiText("Lexirise")}</option></select></label>
           <p>{uiText("Chinese game transcripts keep their original language. Reading preferences are stored locally.")}</p>
           {readingMode === 'migaku' ? <p>{uiText("Use your installed Migaku browser extension with the selectable transcript text. You can switch reading modes at any time.")}</p> : <>
-            <Button variant="outline" onClick={() => leaveFor(onReading)}>{uiText("Configure reading options")}</Button>
+            <Button variant="outline" disabled={!readingSupported} onClick={() => leaveFor(onReading)}>{uiText("Configure reading options")}</Button>
+            {!readingSupported && <p>{uiText('Lexirise reading tools are unavailable for this language.')}</p>}
           </>}
         </section>}
         {data && step === 3 && readingMode === 'lexirise' && <section className="toolkit-setup-section">            <h3>{uiText("Optional Lexirise account")}</h3><p>{data.lexirise_configured ? uiText("An API key is configured on this PC.") : uiText("Add your own Lexirise API key to use lookups and explicit sentence exports.")}</p>

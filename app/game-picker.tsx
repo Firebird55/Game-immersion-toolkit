@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect, useRef, useState} from 'react';
+import {isStudyLanguage} from '@firebird55/lexirise-components';
 import catalog from '../public/mobile-capture/games-data.json';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {languageName} from '../public/mobile-capture/interface-language.mjs';
@@ -8,6 +9,7 @@ import {languageName} from '../public/mobile-capture/interface-language.mjs';
 const API = 'http://127.0.0.1:8766';
 const baseLanguage = (code: string) => code.toLowerCase().split('-')[0];
 export const voicedLanguages = [...new Set(catalog.games.flatMap(game => game.audio.map(baseLanguage)))];
+const accountLanguages = voicedLanguages.filter(isStudyLanguage);
 export const gamesForLanguage = (language: string) => catalog.games.filter(game => game.audio.some(code => baseLanguage(code) === language));
 
 type Preferences = {languages: string[]};
@@ -65,7 +67,7 @@ export function useTargetLanguage(mode: 'lexirise' | 'migaku', account?: string,
 
   async function addLanguage(code: string) {
     const controller = owner.current;
-    if (!lexirise || !account || !configured || !controller || controller.signal.aborted || addingRequest.current === controller || !voicedLanguages.includes(code)) return;
+    if (!lexirise || !account || !configured || !controller || controller.signal.aborted || addingRequest.current === controller || !accountLanguages.some(language => language === code)) return;
     addingRequest.current = controller;
     setBusy(true); setError('');
     try {
@@ -94,7 +96,7 @@ export function GamePicker({picker, mode, selectedGame, onGameChange, sourceLoca
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [addition, setAddition] = useState('');
-  const available = voicedLanguages.filter(code => !picker.languages.includes(code));
+  const available: string[] = accountLanguages.filter(code => !picker.languages.includes(code));
   const sorted = (codes: string[]) => [...codes].sort((a, b) => languageName(a, locale).localeCompare(languageName(b, locale), locale));
   const games = picker.games.filter(game => game.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const selected = picker.games.find(game => game.id === selectedGame);
