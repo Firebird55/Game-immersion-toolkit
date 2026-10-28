@@ -5,6 +5,21 @@ resilience work, see the [per-game dialogue audits](game-audits/README.md).
 The footage replay results below cover the specific older samples described;
 they are not a full acceptance run for every newly indexed presentation.
 
+The Steam expansion gives each game its own saved caption crop, initially
+`(.04, .60, .92, .38)`. This broad lower lane retains left-aligned Source captions
+and text beside character portraits; it does not apply the older centered-HUD
+filter. These are adjustable starting bounds, not measurements certified for
+every subtitle-size setting, scene or Windows DPI. Confirm the preview while
+playing and adjust **Capture setup** if a presentation falls outside it.
+Confirmed text-only choices and readables use the separate full-window exact
+pass when **Include unvoiced dialogue** is enabled. Catalog eligibility, stable
+observations and original-audio identity checks still apply.
+
+The **Current line** keeps the last confirmed subtitle after it disappears from
+the game. A new subtitle replaces it. The retained line stays scoped to the
+selected game and current capture session. History column headings follow the
+stored source/translation locales; mixed-language rows use generic headings.
+
 The lower subtitle lane is sufficient for ordinary cutscenes, radio and most
 walk-and-talk dialogue in the reviewed footage. It is insufficient for these
 separate presentations:

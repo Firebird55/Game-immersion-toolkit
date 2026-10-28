@@ -25,6 +25,32 @@ def test_response_choices_are_removed_and_block_extra_voice_region(game):
     assert result["dialogue_menu"]
 
 
+@pytest.mark.parametrize('game,left', [('portal', .02), ('persona5royal', .68)])
+def test_new_game_calibration_keeps_off_center_authored_captions(tmp_path, game, left):
+    import asyncio
+    service, match, scheduled, published = fixture_service(tmp_path, game=game)
+    service.game_indexes = {game: service.textmaps}
+    service.game_voice_assets = {game: service.voice_assets}
+    service.textmaps.audio_count = 1
+    service.textmaps.match_lines = lambda lines, **_: match if match.english in lines else None
+    service._engine = SimpleNamespace(recognize_pil=lambda _: {'lines': [
+        row(match.english, left, .20, size=(800, 200))]})
+
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        window = SimpleNamespace(bounds=(0, 0, 1920, 1080), title=game)
+        for _ in range(2):
+            service._scan_pragmata(window, getattr(service.settings.get(), game + '_region'),
+                service._engine, 0, datetime.now(timezone.utc), game=game)
+        await asyncio.sleep(.02)
+    try:
+        asyncio.run(run())
+        assert len(scheduled) == len(published) == 1
+        assert published[0].game == game and published[0].audio_source == 'original'
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize("game", ["cyberpunk", "wuwa", "witcher3"])
 @pytest.mark.parametrize("blocked", ["main", "menu", "unmapped", "fuzzy", "disabled", "short", "unpositioned", "none"])
 def test_auxiliary_capture_requires_position_exact_voice_and_consecutive_frames(tmp_path, game, blocked):

@@ -987,6 +987,15 @@ class CaptureService:
         Coordinates refer to the OCR image, which may have been rescaled. Keep
         the user's crop independent of screen resolution and Windows DPI.
         """
+        from .steam_games import STEAM_GAMES
+        if game in STEAM_GAMES:
+            # These readers use their independent, user-calibrated caption crop.
+            # Source captions can be left aligned and Persona's text is beside a
+            # portrait: older centered-caption/HUD rules would silently erase it.
+            # Matching still requires the authored catalog and an eligible voice
+            # or explicitly enabled text-only record. Off-lane silent content is
+            # handled by the separate stable, exact full-frame pass.
+            return response
         rows = []
         dialogue_menu = False
         for row in response.get("lines", []):
