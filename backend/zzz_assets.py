@@ -258,10 +258,10 @@ def _tables(directory, revision, locales):
 
 
 def _links(root, directory, revision, progress):
-    from .bundle_tools import require_source_toolchain
+    from .prebuilt_node_reader import require_zzz_reader
     from .runtime_bundle import discover_layout
     from .runtime_paths import voice_work_root
-    require_source_toolchain('ZZZ Node/WASM helper')
+    require_zzz_reader()
     # The standalone source reader still accepts a legacy project/data/zzz
     # directory. Frozen execution cannot reach this compatibility bridge.
     project = (discover_layout().legacy_project_root if os.environ.get('PROXY_TRANSCRIPT_PROJECT_ROOT')

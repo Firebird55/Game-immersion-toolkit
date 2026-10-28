@@ -168,6 +168,15 @@ The audio-503 probe preserves confirmed text but observes the source adapter's
 existing unhandled native play rejection; it does not claim an audio-error UI fix.
 This precommit source observation does not replace exact-commit hosted acceptance.
 
+The same comparison and actual relocated frozen frontend subsequently passed on
+hosted Windows Server 2025 at commit `96ed0df` in
+[run 40762619844](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40762619844).
+Both browser engines again reported zero pixel difference, real built worker/WASM
+OCR and storage/restart continuity. The fixed frontend executable ran with developer
+PATH removed; served hashes, MIME, Host/Origin isolation and owned cleanup passed.
+The [candidate record](r19-runtime-bundle.md#frontend-phase-continued-on-2026-10-28)
+contains the downloaded metadata ZIP digest and explicit acceptance limits.
+
 ## Executed evidence and limits
 
 On macOS, Python 3.12.13 in the task-local environment and Node 22.22.2 (the

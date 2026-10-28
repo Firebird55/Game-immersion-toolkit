@@ -73,6 +73,10 @@ PowerShell updater is never run under a lifetime guard or given a bypass flag.
 
 ## Remaining acceptance gates
 
+The continued [compiler-free helper experiment](r19-compiler-free-helpers.md)
+separates authored packaging probes, the owned NTE bridge and blocked game chains.
+It does not convert unresolved helper rights or native evidence into approval.
+
 All [R18 component gates](r18-runtime-components.md) remain binding for the
 actual shipped bytes. Exact maintained CPython supplier, Windows wheels and
 native closure, models/fonts/WASM, FFmpeg configuration/source obligations,
@@ -160,6 +164,24 @@ or frozen-host validation because Windows Git converted the pinned OFL notice to
 CRLF. Explicit `-text` attributes now retain the exact upstream notice bytes in
 both source locations; their original license hash is unchanged. This failed run
 does not establish frontend acceptance. The affected Windows job must be repeated.
+
+That repeat, [hosted run 40762619844](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40762619844)
+at exact commit `96ed0df69533a72257869a10b4d3b0ecd2183ca6`, passed all three jobs.
+The frontend observation contains Chromium 156.0.8078.4 and Firefox 157.0 with
+zero pixel differences, actual worker/WASM OCR, persistent synthetic browser state
+and confirmed cleanup. The relocated frozen frontend served manifest-exact bytes
+without developer PATH and observed no application/data writes. Its frontend build
+identity was `22d0f0cf26d8216cd1573adbef9b273ef1267ecc4d61d10aac85f71489c24435`;
+the executable SHA-256 recorded by the job was
+`caeaf47095f9c30dd1141ea79815c6a9590c26f243978915f8e6487b6d8b418c`.
+
+Downloaded metadata artifact `12848857172` was verified against GitHub's ZIP digest
+`efb08a55548f2028641fafc3b6fe3081cb21493bbd05f5768b670016ae9d7192`,
+then checked for exact source/build identity, passing owned cleanup and incomplete
+rights/native scope. The binary is deliberately not uploaded, so its recorded
+executable/provenance hashes are job observations, not independently downloaded
+binary verification. The old Python supplier, exact-output redistribution, full
+game toolchains and Windows 11 acceptance remain unapproved; `r19_complete` is false.
 
 The quarantined Windows diagnostic workflow builds from an observed official
 3.12.10 installer and exact recorded packaging wheels. That old installer is

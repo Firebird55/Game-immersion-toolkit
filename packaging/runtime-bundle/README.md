@@ -117,6 +117,11 @@ extracted artifact; source unit tests cannot establish frozen behavior.
 
 ## Helpers and remaining closure
 
+See the [compiler-free helper experiment](../../docs/r19-compiler-free-helpers.md)
+for exact managed/Node build inputs, fixed resource resolvers, quarantine scope and
+the separate authored Windows probes. Full game-chain acceptance remains blocked
+where rights, corresponding source, external DLLs or functional evidence are absent.
+
 An independent `frontend-experiment` profile now includes only
 `backend.desktop_frontend` and the closed static desktop tree. Build the frontend
 with `npm run desktop:build`, then add `--frontend-root output/desktop-frontend` to

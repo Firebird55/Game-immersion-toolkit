@@ -57,8 +57,8 @@ def dotnet_sdk() -> Path | None:
 
 
 def ensure_extractor(directory: Path) -> Path:
-    from .bundle_tools import require_source_toolchain
-    require_source_toolchain('NTE prebuilt reader')
+    from .prebuilt_readers import require_game_reader
+    require_game_reader('nte')
     sdk = dotnet_sdk()
     if sdk is None:
         raise ValueError("NTE needs the .NET 10 SDK. Install it from https://dotnet.microsoft.com/download/dotnet/10.0, then prepare tools again.")
@@ -121,8 +121,14 @@ def fingerprint(install: Path) -> str:
     values = [f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}" for p in sources]
     from .nte_cinematics import CATALOG_REVISION
     reader = Path(__file__).resolve().parents[1] / 'scripts/game-readers'
-    revision = hashlib.sha256(b''.join((reader / name).read_bytes() for name in
-                                      ('NteReader.cs', 'NteReader.csproj'))).hexdigest()
+    from .runtime_bundle import discover_layout
+    layout = discover_layout()
+    if layout.mode == 'bundle':
+        from .prebuilt_readers import reader_source_identity
+        revision = reader_source_identity('nte', layout=layout)
+    else:
+        revision = hashlib.sha256(b''.join((reader / name).read_bytes() for name in
+                                          ('NteReader.cs', 'NteReader.csproj'))).hexdigest()
     return hashlib.sha256((f'reader5|{LANGUAGE_INDEX_VERSION}|{READER_SHA}|{revision}|' +
                           CATALOG_REVISION + '|' + '|'.join(values)).encode()).hexdigest()
 
@@ -151,8 +157,8 @@ def _archive_metadata(install: Path, stamp: str) -> str:
 
 
 def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None) -> None:
-    from .bundle_tools import require_source_toolchain
-    require_source_toolchain('NTE prebuilt reader')
+    from .prebuilt_readers import require_game_reader
+    require_game_reader('nte')
     install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the game installation")

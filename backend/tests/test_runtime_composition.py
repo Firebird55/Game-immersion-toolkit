@@ -67,8 +67,9 @@ def test_source_rejects_new_root_overrides_before_splitting_export_state(tmp_pat
 
 @pytest.mark.parametrize('component', ['nte-prepare', 'nte-run', 'endfield-prepare', 'endfield-run', 'ree'])
 def test_frozen_reader_refuses_before_download_sdk_or_compiler(tmp_path, monkeypatch, component):
-    from backend import bundle_tools, nte_assets, endfield_assets, ree_extractor, game_tools
+    from backend import bundle_tools, prebuilt_readers, nte_assets, endfield_assets, ree_extractor, game_tools
     monkeypatch.setattr(bundle_tools, 'discover_layout', lambda: SimpleNamespace(mode='bundle'))
+    monkeypatch.setattr(prebuilt_readers, 'discover_layout', lambda: SimpleNamespace(mode='bundle'))
     def forbidden(*_args, **_kwargs):
         pytest.fail('A diagnostic bundle attempted a developer tool or download')
     monkeypatch.setattr(nte_assets, 'dotnet_sdk', forbidden)
