@@ -154,6 +154,13 @@ with available source/base evidence: typecheck and 266 Node tests passed (one sk
 then Python collection stopped because macOS lacks `pyaudiowpatch`. Remaining
 aggregate commands were not run. Full browser/package validation remains hosted.
 
+The first continued hosted run `40761371026` at `50ca8a0` passed the stdlib
+diagnostic and protected TEST state jobs. Its frontend build failed before browser
+or frozen-host validation because Windows Git converted the pinned OFL notice to
+CRLF. Explicit `-text` attributes now retain the exact upstream notice bytes in
+both source locations; their original license hash is unchanged. This failed run
+does not establish frontend acceptance. The affected Windows job must be repeated.
+
 The quarantined Windows diagnostic workflow builds from an observed official
 3.12.10 installer and exact recorded packaging wheels. That old installer is
 deliberately **not** an accepted maintained-runtime supplier. It validates its
