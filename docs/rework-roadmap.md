@@ -2,9 +2,10 @@
 
 Status: **R18 research and storage/host design completed; implementation tasks
 remain planned**. The [R18 inventory](r18-runtime-inventory.md), reviewed on
-2026-10-28 against upstream `4a4abfc` (0.21.3), defines component acquisition,
+2026-10-28 against upstream `ba0b7c3` (0.22.0), defines component acquisition,
 Windows targets and the R19 prototype/acceptance decision. It builds no bundle
-or installer and establishes no native Windows validation. The original research on
+or installer and establishes no native Windows validation. Its initial 0.21.3
+review was refreshed for all 25 active games before the PR. The original research on
 2026-10-24 used version **0.19.1**, commit
 `16d17f782e3e1d2fbfbd45c624cfe9613e78363a`. The subsequent
 [architecture study](rework-architecture.md) examined upstream `387631f`, including
@@ -236,7 +237,7 @@ waiting for an OCR rewrite or optional language experiment.
 | R16 | Physical voice-pack probes separate from reader/index readiness | R14; game probes can progress independently | Claimed game/locales distinguish present, incomplete, missing and unknown; no wrong-language fallback |
 | R17 | Reusable games → languages/packs → reading mode → ready onboarding | R04 preference contract; R15/R16; R14/R18 storage boundary | WebUI/test host uses real discovery/probes; skip/resume and preference precedence work; installer host evidence follows in R20 |
 | R02b | Windows cold/warm start, CPU/RSS, recovery and bundle baseline | Plan first; current runtime and Windows for measurements | Commit, environment, method and preselected criteria recorded before optimization; missing measurements remain open |
-| R18 — completed research | [Runtime/tool/redistribution and Windows inventory; storage/host contract](r18-runtime-inventory.md) | Reviewed at upstream `4a4abfc`; supplies R12c design for R14 adoption | Per-component bundle/download/prerequisite decisions, ownership, limits and R19 acceptance plan recorded; native/artifact evidence remains open |
+| R18 — completed research | [Runtime/tool/redistribution and Windows inventory; storage/host contract](r18-runtime-inventory.md) | Refreshed at upstream `ba0b7c3` (0.22.0, 25 active games); supplies R12c design for R14 adoption | Per-component bundle/download/prerequisite decisions, ownership, limits and R19 acceptance plan recorded; native/artifact evidence remains open |
 | R19 | Windows runtime bundle and functional probes; investigate static frontend | R18; R02b for comparison; R12c/R14 storage boundary | Extracted bundle starts without a development environment; relevant game/OCR probes and origin/API/cache behavior verified |
 | R20 | Per-user installer, integrated onboarding, repair and uninstall | R17 and R19 | Actual installed candidate passes functional probes, ordinary-user setup, cancellation, no-space and locked-file cases |
 | R21 | ZIP migration, upgrade, interruption and rollback | Shared storage contract; integrated evidence with R20 | Synthetic data/preferences survive; failed update preserves recovery and at most one capture owner; origin storage and protected test credentials checked |
@@ -260,6 +261,10 @@ pointer/shortcut and existing browser-profile continuity, owner-aware updates
 under continuous legacy exclusion, preservation of export-volume work/previous
 libraries, and explicit unreadable-account-store recovery. These remain design
 and candidate/installed acceptance work, not implemented guarantees.
+The 0.22.0 refresh additionally inventories the twelve Steam readers, Decima's
+game-owned native DLL, Persona's separately downloaded GPL character tables and
+incorporated reader notices. These acquisition/format/capability probes join
+R19; a package-manager graph with no new packages does not prove resource closure.
 
 Installation acceptance:
 

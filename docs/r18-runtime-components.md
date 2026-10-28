@@ -1,8 +1,11 @@
 # R18 runtime, tools and redistribution inventory
 
 Status: **research and R19 input, not a bundle or installer**. Inspected on
-2026-10-28 at upstream `4a4abfcee8d4fa87a8bfacdae12b6cef5284cad9`
-(toolkit 0.21.3). The source baseline was freshly fetched before this study.
+2026-10-28 at upstream `ba0b7c34c358f1664220674e5ff8bb7f30502e5f`
+(toolkit **0.22.0**, including the twelve Steam readers added by PR #58). The
+source baseline was freshly fetched before this update. The earlier 0.21.3
+review used `4a4abfcee8d4fa87a8bfacdae12b6cef5284cad9`; it is historical
+evidence, not the current active-game or packaging baseline.
 No dependencies, game tools or models were installed, no accounts or game files
 were accessed, and no Windows executable was run for this inventory. Upstream
 documentation and license files establish requirements and review gates; they do
@@ -90,6 +93,14 @@ terms and incorporated third-party files. `pytest` and its dependencies currentl
 alongside application libraries. No Python package is made project-owned by
 freezing it.
 
+The 0.22.0 reader expansion changes neither Python manifest. Its new parsers use
+the standard library, including `zlib`, `lzma`, `ctypes`, `wave` and subprocesses;
+there is no added `lz4`, CityHash, CRI, Unreal, Fox or Decima pip package. The
+owned Plague Tale parser implements its bounded raw-LZ4 decoding locally. That
+does not eliminate native closure: Source scenes need the interpreter's LZMA
+extension, and Decima explicitly loads a game-owned Oodle DLL, as classified
+below.
+
 | Component/version at baseline | Current use and proposed disposition | License/native evidence and R19 gate |
 | --- | --- | --- |
 | CPython 3.12 (patch unpinned) and standard library | **Bundle** a Windows x64 interpreter/stdlib with the existing backend. Build host alone needs Python/pip/venv. | [PSF license and incorporated software notices](https://docs.python.org/3.12/license.html). Preserve the selected distribution's full notices and inventory `python312.dll`, `.pyd` modules and bundled OpenSSL, SQLite, expat, zlib, bzip2, lzma/libffi as actually present. Some libraries are compiled into extensions. Close the maintained binary supplier decision above and P1 below. |
@@ -125,6 +136,10 @@ than interpreting missing metadata as permission. Compare PyInstaller's collecte
 files against this manifest and reject unlisted binaries. `pip freeze` and
 successful imports alone are insufficient. This artifact-level closure remains
 **open** because this study did not acquire Windows wheels or produce a bundle.
+Include dynamically registered Steam adapters and their shared parser modules in
+the freeze/import proof; static analysis of only the original thirteen adapters
+is incomplete. Prove `zlib`/`lzma` resource loading and the explicit Decima DLL
+boundary without collecting a DLL from the tester's game installation.
 
 **VC runtime decision:** **System prerequisite**, with an explicit compatible
 Microsoft x64 redistributable and x86 redistributable where an x86 tool requires
@@ -143,6 +158,9 @@ Node 24; R19 uses the latter build baseline and must pin a patch. Wrangler is a
 `devDependency` yet an active installed-runtime dependency. Likewise TypeScript
 is a `devDependency` but the ZZZ scene extractor imports it at runtime. npm's
 development flag is not a safe end-user exclusion rule.
+The 0.22.0 package/lock changes only the root toolkit version; the graph remains
+**462 entries, 283 without a lockfile license field**. None of the twelve new
+Steam adapters introduces another npm runtime or extractor dependency.
 
 | Component(s), exact direct versions | Proposed disposition and purpose |
 | --- | --- |
@@ -203,6 +221,7 @@ post-install output. [Geist font notices](../styles/GEIST-OFL.txt),
 | Genshin/Star Rail/Endfield dialogue catalogs | **Separate user download**, private runtime data. [DialogueCatalog](../backend/dialogue_catalog.py) resolves commits from GitLab `Dimbreath/animegamedata2`, `Dimbreath/turnbasedgamedata`, and GitHub `rmxlinux/EndfieldData`, then records content hashes. These are third-party game-derived catalogs, not publisher redistribution grants. Preserve availability/unsupported-format errors and last complete indexes. |
 | NTE movie metadata | **Separate user download**, private runtime data. [Catalog source](../backend/game_catalogs.py) is `Waifus-Grace/NTE_Assets`, seed `cef09a29d4d92c7b1e0b950d89ba8c75b1c529e7`, subsequently refreshed by commit. No content redistribution is approved here. |
 | PRAGMATA asset list/sound graph | **Separate user download**, private runtime data. [Indexer](../scripts/index_pragmata_assets.py) fetches Ekey's moving `P_STM_Release.list` and REasy's moving `resources/data/sound/pragmata.json.gz`, with cached fallback. They are not the pinned REE executable/source archive. R19 must record snapshot origin/hash and keep this game-derived material out of the installer. |
+| Persona 5 Royal character maps | **Separate user download**, not bundled seed data. [load_charset](../backend/persona5_assets.py) pins Atlus Script Tools revision `05483fe12f9c482ee17f38ded2e115f4c55015b3`, the selected TSV's SHA-256 and `LICENSE.txt` SHA-256 `c53a65c2fd561c87eaabf1072ef5dcab8653042bc15308465f52413585eb6271`. It chooses one of `P5R_EFIGS`, `P5R_Japanese`, `P5R_CHS`, `P5R_CHT` or `P5_Korean` per requested text locale; it does not download all five unconditionally. The [pinned upstream license](https://github.com/tge-was-taken/Atlus-Script-Tools/blob/05483fe12f9c482ee17f38ded2e115f4c55015b3/LICENSE.txt) is GPLv3. Current preparation downloads the license and selected table, validates both hashes, writes a source NOTICE and reuses a verified local cache under `data/persona5royal/persona5-charsets`; first preparation needs network. No upstream program is executed. G1 must still determine obligations for this concrete data/reader integration and any game-derived mapping content; a data-only download is not an automatic copyleft or publisher-rights exemption. |
 | Wuthering/NTE archive metadata | **Separate user download**, only during needed preparation. [Wuthering](../backend/wuthering_assets.py) reads public version metadata from `yarik0chka.github.io/wuwa-keys/keys.json`; [NTE](../backend/nte_assets.py) reads a public SCSKiller issue and may protect a local cache with DPAPI. No metadata values belong in the SBOM, logs or published provenance. A public endpoint does not grant rights to the game. Record source identity without copying sensitive values. |
 | Game installations, optional voice packs, extracted text/audio/images, recordings, exported libraries and indexes | **System prerequisite/user-local content, never redistributed by the toolkit**. Read only the user's installed files; install language/voice packs through the publisher's launcher. Native validation of an absent pack remains unavailable. A game-derived cache, even with hashes or a third-party repository license, must not enter a public bundle/Pages artifact. |
 
@@ -211,14 +230,26 @@ manifest with source/version/SHA-256/license per shipped model, dictionary, font
 WASM module and worker. Verify offline loading from the candidate, not a warm
 developer cache or remote CDN. Preserve the mobile static publishing allowlist;
 its assets do not authorize publishing desktop services or game data.
+Keep the Persona pinned-table cache separate from shipped models: test blocked
+first download, tampered license/table, selection of each of the five tables and
+verified offline reuse. Cache provenance identifies upstream files, not a grant
+to ship game-derived content.
 
 ## Game tools and redistribution decisions
 
-The active list is [game_paths.GAMES](../backend/game_paths.py): **13 games**.
+The active list is [game_paths.GAMES](../backend/game_paths.py): **25 games**,
+the original thirteen plus twelve entries from [STEAM_GAMES](../backend/steam_games.py).
 [missing_tools/prepare_tools](../backend/game_tools.py) is the current acquisition
-entry point. It downloads vgmstream for all active games except BEYOND/HEAVY RAIN,
-then game-specific tools. Several important dependencies are detected only later
+entry point. It downloads vgmstream for all active games except BEYOND/HEAVY RAIN
+and the unvoiced-only Half-Life reader, then game-specific tools. The eleven new
+voiced Steam games therefore still have a vgmstream preparation/readiness
+requirement, including the Source paths whose custom decoder does not invoke it.
+No new Steam adapter requests a third-party extractor executable or .NET SDK.
+Several important dependencies are detected only later
 when indexing or playback begins; a file-existence check is not functional proof.
+In particular, this tool check does not preflight Persona character maps or the
+game-owned Decima DLL. R19 must expose those failures at the relevant readiness
+stage rather than treating a completed vgmstream download as full readiness.
 
 | Tool/version and source pin | Current behavior | R19 disposition and closure |
 | --- | --- | --- |
@@ -231,6 +262,11 @@ when indexing or playback begins; a file-existence check is not functional proof
 | Shared Unreal decompression files | Both Wuthering and NTE call [ensure_unreal_decompression](../backend/wuthering_assets.py): `oodle-data-shared.dll` from WorkingRobot/OodleUE `2026-01-25-1223/clang-cl-x64-release.zip`, file SHA-256 `8f6c0d487573b5a7ea8548407cbf96f5cd833fe7138769914961b6697d74b3b3`; `zlib-ng2.dll.gz` from NotOfficer/Zlib-ng.NET 1.0.0, decompressed file SHA-256 `454be2f3d10f804ace577198401431db5e95d0286b59589bc28a40085388e7c2`. | **Separate user download**, subject to explicit rights review. [OodleUE](https://github.com/WorkingRobot/OodleUE#eula-notice) states Epic/RAD ownership and Unreal EULA applicability; no general toolkit redistribution grant was established. The [Zlib-ng.NET wrapper](https://github.com/NotOfficer/Zlib-ng.NET) says MIT, but the downloaded native library also needs its own [zlib-ng license](https://github.com/zlib-ng/zlib-ng/blob/develop/LICENSE.md), build provenance and imports. Unknown rights block bundling; a checksum is identity evidence only. |
 | NTE owned bridge + UEExtractor v1.0.8.7 | [NTE preparation](../backend/nte_assets.py) checks for **.NET 10 SDK** before building and again before running the cached DLL. UEExtractor ZIP SHA-256 `e89ffece53cc11970d08f6d0a683b67ca58882e8c51fb99de07923175eb96660`; upstream license revision `1dff3554320d530efff26a827819f0e011f1b892`. [Bridge project](../scripts/game-readers/NteReader.csproj) is net10.0; bridge calls `Assembly.LoadFrom` on a physical `UEExtractor.dll`. | **Bundle** the owned bridge as a `win-x64` self-contained directory publication; **separate user download** of UEExtractor and decompression tools initially. [UEExtractor license](https://github.com/SolicenTEAM/UEExtractor/blob/1dff3554320d530efff26a827819f0e011f1b892/LICENSE) is MIT. [Its project](https://github.com/SolicenTEAM/UEExtractor/blob/1dff3554320d530efff26a827819f0e011f1b892/UEExtractor/UEExtractor.csproj) also uses CUE4Parse, Newtonsoft.Json 13.0.4 and Costura/PortableCostura build tooling. Review its pinned CUE4Parse submodule `6409f38e09e2a21aa839cd77b4515bca6c66f280` and actual archive/deps/native files before any binary inclusion. R19 must remove the runtime SDK check through a source/bundle adapter and prove dynamic loading. A cached DLL alone still requires an SDK under today's code. |
 | Endfield owned bridge + selected EndfieldStudio source | [Source manifest](../scripts/endfield-reader-sources.json) pins **14 source files**, individual hashes and revision `48c40a5e6a931b08223384077b74b41b484a540f`. [Builder](../backend/endfield_assets.py) fetches sources/license, uses .NET 10 SDK and restores System.IO.Hashing 9.0.0 from NuGet; [project](../scripts/game-readers/EndfieldReader.csproj) targets net10.0. Runtime checks the SDK before executing. | **Bundle** a prebuilt self-contained `win-x64` reader after closure, with the selected source's [MIT notice](https://github.com/EIHRTeam/EndfieldStudio/blob/48c40a5e6a931b08223384077b74b41b484a540f/LICENSE). Close NuGet/runtime/native notices and provenance for the **selected subset**; do not import the entire EndfieldStudio GUI/FBX/Oodle pipeline. The manifest includes `Keys.cs`: classify game-derived constants/archive metadata separately before binary inclusion; implementation MIT terms alone do not establish publisher rights to embedded data. Never print values in public provenance. The upstream project also records ports from other projects; retain file-level notices and verify provenance. R19 must remove end-user compilation/SDK checks and prove VFS/text/audio/USM paths. No NuGet lock or exact SDK patch is currently tracked. |
+| Owned Python Steam container, message and scene readers | [Registration](../backend/game_assets.py) imports the twelve [Steam adapters](../backend/steam_games.py); their extractor argument is empty. Shared parsers cover Unreal PAK/locres, Fox, Decima, Quantic v18, Asobo, Source/GoldSrc, CRI and DXHR containers. These are source readers, not downloaded FModel, GzsTool, Atlus Script Tools, Valve SDK or Gibbed executable installations. | **Bundle** the owned modules and retained file-level/third-party notices, subject to P1 and G1 provenance closure. Do not add an SDK/tool dependency merely because its format research is cited. Nor does an independent reader imply permission to distribute the parsed game data. The per-game rows below define the actual codec/helper probes. |
+| Fox/CityHash format and algorithm notices | [fox_dialogue](../backend/fox_dialogue.py) retains complete Atvaark, Google and kapuragu MIT notices; [Ground Zeroes archive reader](../backend/mgsv_gz_archive.py) uses the shared Fox primitives. Primary references include [GzsTool MIT](https://github.com/Atvaark/GzsTool/blob/384cb81155ada82716c21b95035b5306b1c0d9cf/LICENSE), [FoxEngine.TranslationTool MIT](https://github.com/Atvaark/FoxEngine.TranslationTool/blob/7ba31f92c9d3f7d309c9caaa01d2ed6da386a57b/LICENSE), [CityHash MIT](https://github.com/Atvaark/CityHash/blob/master/LICENSE) and [StpTool MIT](https://github.com/kapuragu/StpTool/blob/f7438b5d1153c1ae71f4a7a584b12d33f8aa2778/LICENSE). | **Bundle** the implemented Python readers with these notices. No upstream .NET Fox tool or CityHash native DLL is required by the current chain. Preserve provenance for adapted arithmetic/schema code and distinguish it from original game archives. Spyro and both MGSV readers use Python/stdlib compression/schema paths; none loads an Oodle DLL. |
+| Decima original-game `oo2core_7_win64.dll` | [Decima archive reader](../backend/decima_archive.py) explicitly loads this file from the selected game installation with `ctypes.WinDLL` and calls `OodleLZ_Decompress` in process. It validates the contained install path. This is a different acquisition path from Wuthering/NTE's downloaded `oodle-data-shared.dll`. | **System prerequisite/user-owned game component; never bundle or copy from a tester's installation.** [RAD's Oodle information](https://www.radgametools.com/oodle.htm) describes licensed proprietary technology, not a toolkit DLL redistribution grant. R19 must probe the exact local game's DLL presence/readability, PE architecture, dependencies, load/export/ABI and bounded decode, with actionable game-file verification guidance. No Windows ARM64/emulation or clean-host success is established. Record private test provenance without publishing the DLL or game-derived inputs. |
+| Decima and DXHR format-reference notices | [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) retains [Decima-Explorer MIT](https://github.com/Jayveer/Decima-Explorer/blob/f22ef4cc0696872c412a10ee7c6e36fba5ad1bdc/LICENSE.md) and [Gibbed.CrystalDynamics zlib](https://github.com/gibbed/Gibbed.CrystalDynamics/blob/master/LICENSE.txt) notices. Decima also cites [decima-workshop revision](https://github.com/ShadelessFox/decima-workshop/tree/59c6ea825021d0d150fe6ddd8f3181ddb8097c92), whose inspected complete tree supplied no LICENSE/COPYING/NOTICE grant. | **Bundle** the owned readers and existing notices; do not bundle the referenced upstream tools. G1 must verify the adapted/reference boundary before collecting additional code; an unlicensed reference tree gives no permission to import its implementation. Decima-Explorer's top-level MIT file also does not authorize collecting its separate `ooz` tree or game-owned Oodle. DXHR's Python BIGFILE/CDRM/DRM implementation has no Gibbed/.NET executable prerequisite. |
+| Source/GoldSrc and Bink format references | [Source formats](../backend/source_formats.py), [scene reader](../backend/source_scene.py), [GoldSrc formats](../backend/goldsrc_formats.py) and [Portal 2](../backend/portal2_assets.py) parse local game data. Valve's [Source 1 SDK license](https://github.com/ValveSoftware/source-sdk-2013/blob/master/LICENSE) is a specific SDK license, not MIT; [caption format](https://github.com/ValveSoftware/source-sdk-2013/blob/master/src/public/captioncompiler.h) and [Half-Life sound source](https://github.com/ValveSoftware/halflife/blob/master/dlls/sound.cpp) are format evidence. [FFmpeg's Bink implementation](https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/bink.c) is the codec reference. | **Bundle** the owned readers after provenance review; **separate user download** of the selected FFmpeg distribution under F1. No Valve SDK, Bink SDK or upstream game assets are included or required as a development install on the user's PC. Source data references do not extend the SDK's rights to the toolkit or supply missing game transcripts. |
 
 **V1 — vgmstream closure.** The r2117 source tree contains an x64 library set:
 `avcodec-vgmstream-59.dll`, `avformat-vgmstream-59.dll`,
@@ -245,6 +281,11 @@ file list, versions, license/source obligations and PE closure; resolve G.719 an
 any binary without adequate notices. Current separate-download preparation must
 retain the whole archive's notices and verified receipt. Native decode probes
 must demonstrate needed game codecs, not merely `vgmstream-cli --help`.
+The expanded coverage includes Wwise Vorbis/RIFF WEM, CRI ADX and FSB4 paths.
+The custom DXHR decoder still invokes vgmstream after container demultiplexing;
+it does not remove V1. Conversely Source's custom PCM/MP3 performance decoder
+uses direct WAV bytes or FFmpeg, while current setup still requires vgmstream.
+Keep acquisition/readiness behavior distinct from the decoder actually executed.
 
 **F1 — FFmpeg distribution gate.** Record the selected executable's file hash,
 origin, FFmpeg version, `-buildconf`, `-L`, enabled encoders/decoders and every
@@ -256,10 +297,17 @@ three closures independently. R19 must use a deterministic app/tool path and
 probe the needed codecs/output formats; current PATH-first behavior is a
 documented compatibility input, not permission to copy whatever the build host
 finds.
+Include `libmp3lame` output, Source WAV/MP3 `adelay`/`amix` performance assembly,
+Portal 2 Bink input/multiple authored audio tracks and clipping/mixing behavior,
+and Quantic MP3 block conversion in this functional feature manifest. FFmpeg's
+support for a Bink file does not authorize redistribution of the file or a
+proprietary SDK. Different paths have different normalization/timing rules;
+one successful MP3 export is not proof of all these uses.
 
 **G1 — copyleft and unknown-rights gate.** Establish the exact license and source
 closure for distributed GPL components, including ooz WASM, FModelCLI and
-WolvenKit. Record the helper/process interfaces and which code is combined,
+WolvenKit, plus Persona's separately downloaded GPLv3 character tables. Record
+the helper/process/data interfaces and which code is combined,
 linked, modified or merely aggregated; determine the applicable obligations for
 that concrete arrangement with the project's custom attribution license. Include
 corresponding source, build scripts, modifications and notices as required. Do
@@ -268,14 +316,23 @@ user-downloaded code makes a distributed integration compliant. For REE/Oodle or
 any file without an established grant, keep redistribution blocked until the
 rightsholder terms/permission cover the intended artifact. This report does not
 give legal approval for those unresolved cases.
+Retain the Fox/CityHash MIT and Decima/Gibbed notices in both source and any
+collected/frozen distribution as applicable. Verify the owned readers' reference
+and adapted-code provenance, particularly where a format reference has no
+established license; do not import that implementation on the strength of a
+public URL. Upstream tools not used by the runtime stay outside the artifact.
 
 ## All active games and distinct functional probes
 
 Every game below also depends on core capture/OCR, the browser/UI and local
 storage. Original audio export commonly uses FFmpeg; vgmstream is not needed for
-Quantic MP3 block decoding. Rows identify additional toolchains, not a complete
+BEYOND/HEAVY RAIN's Quantic MP3 block decoding. Detroit's Wwise path is distinct.
+Rows identify additional toolchains, not a complete
 claim about supported scenes, languages or installed packs. The
 [game audit index](game-audits/README.md) owns those coverage limitations.
+All owned reader modules below have the **bundle** disposition from the tool
+table; shared vgmstream/FFmpeg and game assets retain their separate dispositions.
+Each row is a separate required R19 probe, even when several share a decoder.
 
 | Active game | Reader/tool path and minimum R19 functional probe |
 | --- | --- |
@@ -292,15 +349,38 @@ claim about supported scenes, languages or installed packs. The
 | Arknights: Endfield (`endfield`) | [Owned net10 reader](../scripts/game-readers/EndfieldReader.cs), selected EndfieldStudio sources/System.IO.Hashing, separate catalog, vgmstream/FFmpeg. Probe StreamingAssets/Persistent VFS precedence, missing layer, AKPK/audio, text and selected USM/cinematic path without SDK/NuGet on the user's PC. |
 | Rise of the Tomb Raider (`riseofthetombraider`) | [Python TIGER reader](../backend/rise_tomb_assets.py), [shared archive parser](../backend/tiger_archive.py), vgmstream/FFmpeg for MUL/movie audio. Probe compressed/uncompressed archive entries, actual selected locale, authored stream/cue boundaries and movie path; regional/DLC packs remain explicit. |
 | Shadow of the Tomb Raider (`shadowofthetombraider`) | [Python TIGER/locale/Wwise reader](../backend/shadow_tomb_assets.py), vgmstream/FFmpeg. Probe its localization/WEM bindings and archive segments; Rise's MUL success does not prove Shadow's audio format. |
+| Spyro Reignited Trilogy (`spyro`) | [Adapter](../backend/spyro_assets.py), [owned Unreal reader](../backend/spyro_unreal.py), Python PAK v4/zlib, locres v1/FText and tagged DataTables, Wwise bank/media, vgmstream/FFmpeg. No FModelCLI, .NET SDK or Oodle is used. Probe the three games' tables, localization identity/source-hash matching, resident/streamed WEM and authored full-track voice/page alternatives. Do not infer timed utterance cuts from text-page boundaries. |
+| METAL GEAR SOLID V: THE PHANTOM PAIN (`mgsvtpp`) | [Adapter](../backend/mgsv_tpp_assets.py), [Fox reader](../backend/fox_dialogue.py), SQAR v1/FPK, SUBP/LANG and SBP/BNK/STP bindings, vgmstream/FFmpeg; no native Fox tool or Oodle. Probe bounded archive extraction, subtitle/label bindings, radio, cassette and cinematic/full-track paths separately, including missing locale resources. GZ's different archive success is insufficient. |
+| METAL GEAR SOLID V: GROUND ZEROES (`mgsvgz`) | [Adapter](../backend/mgsv_gz_assets.py), [GZS reader](../backend/mgsv_gz_archive.py), `.g0s`/FPK, legacy SUBP/LANG v2 plus Fox audio, vgmstream/FFmpeg. Probe the distinct XOR/archive layout, STE/Win audio variants, cassette/demo/SANI/FSM bindings and authored full tracks. Do not substitute TPP's SQAR schema or present excluded ASF movie audio as supported. No Oodle or external .NET tool is required. |
+| DEATH STRANDING, original PC edition (`deathstranding`) | [Adapter](../backend/death_stranding_assets.py), [Decima reader](../backend/decima_archive.py), category/language BIN archives, prefetch/sentence/localized-sound bindings, original installed `oo2core_7_win64.dll`, WEM/vgmstream/FFmpeg. **Director's Cut is outside this reader's declared edition.** Probe install-local DLL loading/ABI, bounded archive decompression, exact selected-language bits, cinematic graph/full-track binding and text-only mail/interviews. A working downloaded Unreal Oodle DLL is not a substitute. |
+| A Plague Tale: Innocence (`plaguetaleinnocence`) | [Adapter](../backend/plague_tale_assets.py), [Asobo reader](../backend/plague_tale_formats.py), TSC/TRTEXT and bounded raw-LZ4 PSC parsing, Wwise 132 sound banks/PCK, vgmstream/FFmpeg. Probe each package's locale IDs and `LoadFilePackage` precedence, including VO_D1 media overrides, event-to-original-audio resolution and readables. Script data is parsed, not executed; do not infer a new pip LZ4 package or narrative Bink route from logo movies. |
+| Detroit: Become Human (`detroit`) | [Adapter](../backend/detroit_assets.py), [Detroit format reader](../backend/detroit_format.py) and Quantic archive primitives, BigFile v18/ZEP, localization v5/v6/FlowDialog-to-CSNDDATA Wwise RIFF, vgmstream/FFmpeg. Probe localization and authored timing/voice binding with actual Wwise decode. The BEYOND/HEAVY RAIN MP3 decoder bypass does **not** apply to Detroit. |
+| Portal (`portal`) | [Adapter](../backend/portal_assets.py), [Source archive/caption parser](../backend/source_formats.py), [scene parser](../backend/source_scene.py), VPK/loose data, compiled VCCD and VSIF v2/binary VCD v4/LZMA, [performance decoder](../backend/source_dialogue.py). Probe mount precedence, ordered WAV/MP3 events, authored offsets, direct PCM and FFmpeg composite output, commentary and distinct readables. Current setup/readiness still requires vgmstream even though this custom decoder bypasses it. |
+| Portal 2 (`portal2`) | [Adapter](../backend/portal2_assets.py), Source parser/performance decoder with VSIF v3 and last-speech timing, VPK/DLC mount precedence, FFmpeg Bink/multi-track movie extraction plus WAV/MP3 clips. Probe base/official DLC precedence, multi-viewport presentation, authored movie timing and all original tracks in the normalized mix; credits song playback is a full track rather than invented sung-line cuts. Current vgmstream setup/readiness requirement remains. |
+| Half-Life (`halflife`) | [Adapter](../backend/halflife_assets.py), [GoldSrc PAK/BSP/titles/sentences reader](../backend/goldsrc_formats.py). **Unvoiced-only capture**: probe authored HUD/readable text, pack/locale handling and capability reporting. Sentence/audio filenames supply no ordinary spoken transcript, so native WAV presence must not become a voiced-capture claim. This reader invokes no Valve SDK, vgmstream or FFmpeg decoder, and game-tool preparation skips vgmstream. Current shared setup still installs the Python lock and checks its global OCR/audio prerequisites, including FFmpeg availability; the text-only route is not evidence that those setup conditions have already been removed. |
+| Half-Life 2 (`halflife2`) | [Adapter](../backend/halflife2_assets.py), Source VPK/loose caption/VSIF v2/VCD parser and WAV/MP3 performance decoder. Probe base/Episode campaign namespaces separately, caption-to-ordered-event timing, direct PCM/FFmpeg assembly, commentary and HUD/BSP readables. Current vgmstream setup/readiness requirement remains despite the custom decoder bypass. Do not borrow another campaign's line binding or native proof. |
+| Persona 5 Royal (`persona5royal`) | [Adapter](../backend/persona5_assets.py), [CRI containers](../backend/persona_cri.py), [messages](../backend/persona_message.py)/[constant flow context](../backend/persona_flow.py), CPK/UTF/CRILAYLA, MSG1/FLW0/PAK/PAC, context-bound ACB cues/AWB/ADX, vgmstream/FFmpeg; separately downloaded pinned GPLv3 charset tables. Probe first download, all five table selections/offline reuse, message pages/choices, event-bank context and selected English/Japanese original ADX decode/sample count. Distinguish verified authored silent cues, absent recordings and unresolved bindings; do not execute game scripts or an upstream Atlus tool. |
+| Deus Ex: Human Revolution — Director's Cut (`deusexhrdc`) | [Adapter](../backend/deusex_hr_assets.py), [BIGFILE/CDRM/DRM reader](../backend/deusex_hr_formats.py), [cinematic demultiplexer](../backend/deusex_hr_cinematics.py), original MUL FSB4 and CRI USM/ADX, custom decoder then vgmstream/FFmpeg. Probe single/stereo MUL demultiplex/decode with original-channel interleave, USM audio, text/choices/email/logs and authored cuts/full tracks. The custom route bypasses generic container assumptions, **not vgmstream**; no Gibbed executable or .NET SDK is required. |
 
 The distinct required toolchain classes are: Python-only readers; Quantic MP3
 decoding; vgmstream codecs; FFmpeg output; ZZZ Node/WASM helper; selective x86
 REE; WolvenKit/.NET 10; FModelCLI/self-contained .NET 8 plus decompression;
-NTE/.NET 10 dynamic loader; Endfield/.NET 10 selected-source reader. Use one
-small functional fixture per distinct class in candidate CI, then native checks
+NTE/.NET 10 dynamic loader; Endfield/.NET 10 selected-source reader; install-local
+Decima/Oodle; Fox TPP/GZ schemas; Asobo raw-LZ4/Wwise; Detroit Wwise; CRI/Persona
+data and ADX; Source LZMA/timed WAV/MP3 assembly and Portal 2 Bink; GoldSrc's
+unvoiced-only route; DXHR MUL/USM demultiplexing. Use small functional fixtures
+per distinct class in candidate CI, then native checks
 with the actual installed games/packs available to the tester. Report missing
 games/packs as **unavailable**, not synthetic/native passes. A game may share an
 extractor yet need its own format probe, as the table specifies.
+The 0.22.0 game audits contain their own source/format/native evidence and
+presentation limits. R18 did not repeat installed-file or playback checks. R19
+must preserve declared official language/absent-pack choices and distinguish
+voiced, confirmed unvoiced, missing and unknown bindings. Probe full-frame or
+independently calibrated subtitle, floating-dialogue, readable/choice and
+split-screen regions where declared; a bottom-only subtitle rectangle does not
+prove all presentations. Those capture checks do not add desktop runtime
+support to the separate mobile-preview allowlist.
 
 **Archived support:** `hito` and `honkai3` are absent from the active `GAMES`
 tuple; [path persistence](../backend/game_paths.py) deliberately preserves their
@@ -372,6 +452,10 @@ Before calling an R19 candidate complete:
    resource loading, helper isolation and one exact original-voice output per
    distinct codec path. Hosted synthetic format tests and absent-pack schema
    tests remain separate from native playback.
+   Include all 25 registered adapters, the dynamically imported parser closure,
+   Decima's game-install DLL/ABI and loaded-module origins, Persona's pinned
+   cache/license acquisition and Source/GoldSrc/DXHR bypass distinctions. Half-Life
+   has an unvoiced-capability probe, not an invented voice-output requirement.
 4. Verify static frontend equivalence separately: ordinary-browser/extension
    behavior, current origin/storage, routes/API/WebSockets, OCR workers/WASM,
    service-worker/cache updates and lifecycle must match the host contract.
@@ -385,6 +469,10 @@ The largest open issues are the maintained CPython 3.12 Windows binary supplier,
 exact Windows wheel/native license closure, Snipping Tool prerequisite coverage,
 GPL helper integration/source obligations, REE modified-binary rights, Oodle
 redistribution terms, distribution-specific FFmpeg obligations and removing
-NTE/Endfield/PRAGMATA user compilation. Native Windows validation, tool archives,
+NTE/Endfield/PRAGMATA user compilation. The expanded baseline additionally needs
+Decima install-local DLL closure, Persona table/data integration obligations,
+retained Fox/Decima/Gibbed provenance/notices and the twelve new readers' distinct
+format/codec/presentation probes. These are concrete R19 acceptance gates, not
+unlisted active dependencies. Native Windows validation, tool archives,
 real voice packs and a completed static-host spike remain **unavailable in this
 study**. None is converted into a pass by documentation review.

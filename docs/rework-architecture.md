@@ -179,7 +179,8 @@ they are not the required corpus acquisition or PR execution path.
 
 The [R18 inventory and prototype decision](r18-runtime-inventory.md) now supplies
 the [R12c storage/host design contract](r18-storage-host-contract.md), reviewed
-against upstream `4a4abfc` on 2026-10-28. R14 adoption, source/frozen adapters and
+against upstream `ba0b7c3` (0.22.0, 25 active games) on 2026-10-28, following the
+initial 0.21.3 review. R14 adoption, source/frozen adapters and
 R19 artifact/native validation remain separate implementation work.
 
 Installer and WebUI use the same validation and preparation. Separate immutable

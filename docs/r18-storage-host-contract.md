@@ -1,8 +1,13 @@
 # R18 storage and runtime host contract
 
 Status: **research and proposed R12c contract; no runtime implementation**.
-Reviewed on 2026-10-28 against freshly fetched `upstream/main`
-`4a4abfcee8d4fa87a8bfacdae12b6cef5284cad9` (toolkit 0.21.3).
+Originally reviewed on 2026-10-28 against `upstream/main`
+`4a4abfcee8d4fa87a8bfacdae12b6cef5284cad9` (toolkit 0.21.3). Refreshed on
+2026-10-28 after rebasing onto freshly fetched `upstream/main`
+`ba0b7c34c358f1664220674e5ff8bb7f30502e5f` (0.22.0, PR #58): the active
+registry now contains 25 games, including twelve additional readers. This
+refresh inventories support already implemented upstream; it adds no game.
+Code links and current-behavior statements below refer to that refreshed baseline.
 This document inventories actual source and defines the small boundary R14, R19
 and R21 can adopt. R14's candidate/physical-pack/preference contracts are still
 planned. Defining this boundary does not complete R14, R19, an installer or a
@@ -55,6 +60,7 @@ after an update. Tokens below are logical paths, never a published host profile.
 | `data/lexirise/reading-cache-v2.db` | Account/language/settings-scoped reading results **and persistent local `grammar_choices` overrides** | Mixed durable/derived sensitive state despite its filename. Preserve the whole database; any later cache eviction must delete only recreatable cache rows and retain grammar choices, exports and keys. |
 | `data/lexirise/key.dpapi` | Fallback legacy encrypted API key | Persistent protected credential. Preserve even if a newer local key takes precedence. |
 | `data/languages/<game>/<locale>`, legacy `data/textmaps`, `data/<game>` | Prepared text/voice bindings, metadata, installation fingerprints, tools, legacy indexes | Mixed derived and durable selection/readiness state. Preserve exact locale/catalog bindings and last complete snapshots. A folder or old index alone is not physical pack presence. |
+| `data/persona5royal/persona5-charsets` | Pinned Persona character-mapping TSVs, upstream license and generated attribution notice, shared across requested locales | Private derived metadata with GPL review obligations; preserve verified bytes for offline preparation and never move it into shipped resources without separate closure. Not account preferences or credentials. |
 | `data/agent-voices` (optional existing tooling) | Agent library, `entries.db`, observed names, fingerprints/PCM/audio and optional `model/**/model.int8.onnx` plus adjacent `tokens.txt` | Mixed local user/recognition state and derived indexes; preserve existing contents. Model absence is explicitly unavailable; do not seed from a developer installation. |
 | `data/audio`, `data/voice-assets` | Original decoded audio, recordings, voice manifests and learned mappings; decoder executable | Mixed user media, derived audio and tool cache. Never delete `audio` or learned manifests as a blanket cache clean. Referenced recordings may be irreplaceable. |
 | `legacyRoot/work/voice-assets` | Separately acquired ZZZ reader/license, public metadata, generated JavaScript/scene links/diagnostics, optional old `ZenlessData` checkout and duplicated decoder | Private mutable tool/work directory outside `data`; inventory it explicitly. Preserve source in place; migrate only reviewed tool/metadata/work groups, not unrelated `work` footage or private backups. |
@@ -73,7 +79,7 @@ after an update. Tokens below are logical paths, never a published host profile.
 | `%LOCALAPPDATA%/Programs/Proxy Transcript/venv` | Existing setup's Python environment | Existing adapter prerequisite, not user data. New bundle must not depend on it; do not delete it while old ZIP rollback uses it. |
 | `assets/fireredvad` and optional `%LOCALAPPDATA%/Programs/gamesentenceminer/resources/GameSentenceMiner/assets/fireredvad` fallback | FireRedVAD ONNX/CMVN; current source prefers app assets, otherwise uses a legacy third-party installation | Bundled adapter must require verified shipped resource hashes and actionable missing-resource errors. A third-party installation must not mask incomplete candidate collection. Preserve unrelated fallback files; never copy them blindly. |
 | `%USERPROFILE%/.config/oneocr/{oneocr.dll,oneocr.onemodel,onnxruntime.dll}` | Current oneocr package's expected native OCR files, copied by local setup from Snipping Tool | Host-owned native prerequisite. No redistribution permission is inferred; preserve this location until a proved adapter/license permits another. |
-| User-installed game directories | Publisher-owned game archives, language packs and manifests | Read-only inputs. Outside app/data/cache migration; toolkit never installs or edits game packs. |
+| User-installed game directories, including Death Stranding's `oo2core_7_win64.dll` | Publisher-owned game archives, language packs, manifests and game-owned native decompressor | Read-only inputs. Outside app/data/cache migration; toolkit never installs or edits game packs. |
 | Browser profile at each origin | localStorage, IndexedDB, Origin Private File System (OPFS) library bytes, Cache Storage, service-worker registrations, file permissions/handles | Browser-owned, separate migration domain. Copying `data` cannot preserve or transfer it. |
 
 Evidence: [Runtime composition](../backend/api.py#L54),
@@ -84,6 +90,8 @@ Evidence: [Runtime composition](../backend/api.py#L54),
 [scoped export destinations](../backend/mobile_export_controls.py#L51),
 [automatic export state](../backend/automatic_mobile_export.py#L96),
 [language/request state](../backend/language_preparation.py#L30),
+[Persona metadata acquisition](../backend/persona5_assets.py#L70),
+[game-owned native loader](../backend/decima_archive.py#L205),
 [protected NTE metadata](../backend/nte_assets.py#L128),
 [FireRed resource fallback](../backend/firered_vad.py#L44),
 [export work layout](../backend/mobile_export_layout.py#L24),
@@ -93,6 +101,139 @@ Evidence: [Runtime composition](../backend/api.py#L54),
 [updater staging](../scripts/update-companion.ps1#L19) and
 [OCR setup](../scripts/setup.ps1#L59). These links describe the reviewed baseline;
 future code changes must update the adapters and regression evidence.
+
+### Additional 0.22.0 reader effects
+
+The refreshed [active registry](../backend/game_paths.py#L10) extends the original
+thirteen games with the twelve titles in [STEAM_GAMES](../backend/steam_games.py).
+The readers use the existing `data/<game>` preparation workspace,
+`data/languages/<game>/<locale>/textmap.json` publication and
+`data/audio/official-<game>-...mp3` output. The shared source/bundle adapters must
+include their dynamically selected modules and format helpers; copying Python
+source alone does not prove PyInstaller collects modules selected through
+`import_module`. Source entrypoints still use the existing language/index/export
+worker kinds, rather than twelve new desktop services. See
+[adapter registry](../backend/game_assets.py),
+[language-worker inputs](../backend/api.py#L284) and
+[worker validation/publication metadata](../backend/language_worker.py#L40).
+
+| Additional game(s) | Source/runtime and storage requirement |
+| --- | --- |
+| Spyro Reignited Trilogy | [Unreal reader](../backend/spyro_assets.py) and [PAK/localization helpers](../backend/spyro_unreal.py); inspect installed text/voice packs and preserve their exact bindings. This adapter does not call FModelCLI or dynamically load a game DLL. It still uses the existing vgmstream/FFmpeg voice route. |
+| Detroit: Become Human | [BigFile reader](../backend/detroit_assets.py) and [format helper](../backend/detroit_format.py); keep archive extents, dependencies, locale aliases and timed original performances in the selected snapshot. It uses the existing decoder/audio outputs, without a new SDK/extractor process. |
+| Persona 5 Royal | [CPK/message/flow reader](../backend/persona5_assets.py), [CRI](../backend/persona_cri.py), [message](../backend/persona_message.py) and [flow](../backend/persona_flow.py) helpers; additional private character metadata is acquired during preparation as described below. Original ADX decoding uses the shared decoder, with no upstream Atlus executable launched. |
+| MGSV: The Phantom Pain and MGSV: Ground Zeroes | [TPP reader](../backend/mgsv_tpp_assets.py), [GZ reader](../backend/mgsv_gz_assets.py), [Fox helper](../backend/fox_dialogue.py) and [GZS archive helper](../backend/mgsv_gz_archive.py); retain each edition's installed original-voice/text binding and namespace. The inspected paths use Python archive/decompression code and existing audio tools, not a new game-DLL loader. |
+| Death Stranding (original PC release) | [Decima reader](../backend/death_stranding_assets.py), [archive](../backend/decima_archive.py), [dialogue](../backend/decima_dialogue.py) and [cinematic](../backend/decima_cinematics.py) helpers; the sole new game-owned dynamic DLL path is described below. The Director's Cut is not implied by this reader. |
+| Portal, Portal 2 and Half-Life 2 | [Portal](../backend/portal_assets.py), [Portal 2](../backend/portal2_assets.py) and [HL2](../backend/halflife2_assets.py) readers with shared [Source files](../backend/source_formats.py), [dialogue](../backend/source_dialogue.py) and [scene](../backend/source_scene.py) helpers; preserve game/campaign/DLC namespaces, mount precedence and completed Steam language evidence. Do not infer a pack from `UserConfig` alone or persist unrelated appmanifest/account fields. |
+| Half-Life | [GoldSrc reader](../backend/halflife_assets.py) and [format helper](../backend/goldsrc_formats.py); current capability is authored unvoiced messages, with spoken capture explicitly unsupported. Do not acquire a decoder or fail host readiness merely because this text-only route has no voiced records. |
+| A Plague Tale: Innocence | [Asobo reader](../backend/plague_tale_assets.py) and [format helper](../backend/plague_tale_formats.py); preserve text/structure/media package precedence and recording overrides. It uses Python parsing and existing audio tools rather than a new SDK or game-DLL path. |
+| Deus Ex: Human Revolution - Director's Cut | [BIGFILE reader](../backend/deusex_hr_assets.py), [formats](../backend/deusex_hr_formats.py) and [cinematic](../backend/deusex_hr_cinematics.py) helpers; keep selected locale, recording/stream metadata and decode bounds. Existing decoder subprocesses write only the declared audio/scratch roots. |
+
+This is a host/dependency inventory, not a new claim of every game's or locale's
+native playback. The [component inventory](r18-runtime-components.md) owns
+codec/artifact decisions and the [per-game reports](game-audits/README.md) own
+presentation, official language, installed-file evidence and unresolved bindings.
+Existing upstream native statements are not fresh native validation by this R18
+refresh. Do not turn an absent pack, unresolved format or unknown voice into
+confirmed silence or remove its implemented language choice.
+
+**Persona metadata and preference ownership.**
+`Runtime.build_language` passes `--directory = DATA_DIR/persona5royal` to the
+existing language worker; only `--output` is in temporary locale staging.
+`load_charset` therefore keeps mapping TSVs and `AtlusScriptTools-LICENSE.txt`
+under `data/persona5royal/persona5-charsets`, and writes `NOTICE.txt` there.
+The source pins Atlus Script Tools commit
+`05483fe12f9c482ee17f38ded2e115f4c55015b3` and hashes each table/license; cached
+bytes are checked before reuse, downloads are bounded and temporary files replace
+only verified content. An absent/corrupt cache can require network preparation;
+missing network/metadata is an actionable failure while a prior complete
+snapshot stays available. R19 must test both cached and empty/corrupt paths;
+packaging must not silently seed a private developer cache. The source's
+[acquisition and GPL notice](../backend/persona5_assets.py#L70) and
+[third-party notices](../THIRD_PARTY_NOTICES.md) identify GPLv3 metadata; the
+[license at the pinned upstream revision](https://github.com/tge-was-taken/Atlus-Script-Tools/blob/05483fe12f9c482ee17f38ded2e115f4c55015b3/LICENSE.txt)
+was checked through the connected GitHub source on 2026-10-28. Treat it as a
+separate license/source-closure gate; a user download or data-only label
+alone does not settle a shipped integration's obligations or publisher rights.
+No mapping values or extracted game tables belong in public diagnostics or
+provenance. No new upstream executable or account service is required for these
+mapping tables.
+
+Mappings are not the selected study/translation target. Preserve the existing
+per-account selection, explicit request and local-target fields in
+`languages.json` / `languages.requests.json`, plus the snapshot's
+`targets_requested`, `source_locale`, `audio_locale`, reader revision and game
+fingerprint. Persona's English/Japanese original voice choices and additional
+text targets are independent. A missing target translation must remain distinct
+from a missing selected text/voice pack. Account switches and retries must not
+adopt another account's target or start preparing unrequested translations.
+See [Persona selection/build](../backend/persona5_assets.py#L209),
+[language ownership](../backend/language_preparation.py#L83) and
+[worker snapshot validation](../backend/language_worker.py#L40).
+
+**Game-owned native resource.**
+`PackSet` resolves the selected Death Stranding install before loading exactly
+`install/oo2core_7_win64.dll` with `ctypes.WinDLL`; it rejects a missing file,
+a resolved escape from the installation, or absence of the Windows API. It does
+not search PATH or the bundled resource tree for this primary DLL. Both indexing
+and later original-voice extraction can read compressed packs, so prove the
+loader in the frozen language worker **and** the retained audio extraction path,
+including shutdown/update while it is loaded. A successful directory/pack probe
+alone does not initialize the DLL. Treat the DLL and dependent game components
+as user-installed read-only prerequisites: never copy, collect, seed, hash-upload
+or redistribute them through a PyInstaller hook, app/cache/tool root, CI fixture
+or release. Missing/incompatible resources need game-file verification guidance,
+not a toolkit download or another game's decoder DLL.
+
+The absolute primary path does not by itself prove dependency isolation.
+Microsoft documents that dependent DLLs can still be resolved by module name,
+and PyInstaller changes Windows DLL search behavior. R19 must test actual loaded
+module origins/architecture and dependency failure under the frozen environment,
+with spaces/Unicode/unrelated CWD and a read-only game/application tree; keep
+private native-path evidence local. The new code is not evidence that a bundle
+already loads the correct modules safely. See
+[Decima loading](../backend/decima_archive.py#L189),
+[voice-path pack reads](../backend/death_stranding_assets.py#L276),
+[Microsoft DLL search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order)
+and [PyInstaller Windows search-path guidance](https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html#windows)
+(official references reviewed 2026-10-28). This game-owned path is distinct from
+the separately acquired Unreal helper libraries already inventoried for NTE and
+Wuthering Waves; do not generalize it to Spyro or either MGSV reader.
+
+**Readiness and migration semantics.** The existing versioned stores remain in
+use; adding twelve game IDs does not justify merging stores or resetting saved
+calibration, account/locale targets, favorites, archived games or library
+preferences. Preserve all four voice states (`voiced`, `unvoiced`, `unavailable`,
+`unknown`) and per-game/campaign presentation metadata. Half-Life's
+`capture_capabilities` explicitly permits text-only readiness (`unvoiced_only`);
+`capture_unvoiced` stays opt-in and persisted. A host check must distinguish that
+supported route from missing audio in a reader that requires it, and must not
+advertise spoken Half-Life capture. Other confirmed unvoiced pages use the same
+toggle; failed decoding or absent recordings never qualify. Independent mobile
+OCR libraries still have their current voiced-catalog behavior, so desktop
+text-only readiness does not imply mobile catalog parity. This is a reader
+capability distinction; the current `InstallationService` still reports a global
+audio-conversion/FFmpeg prerequisite. A text-only reader pass does not satisfy
+the full candidate's global dependency/readiness gate. See
+[readiness states](../backend/multilingual_index.py#L110),
+[Half-Life capability](../backend/halflife_assets.py#L191),
+[capture toggle policy](../backend/capture.py#L350),
+[global setup requirements](../backend/installation.py#L116) and
+[upstream coverage limits](game-audits/README.md#capture-unvoiced-dialogue).
+
+`LocalVoiceAssetService` now reuses a verified full-performance encoding using
+per-history filenames, preferably hardlinks with a same-directory copy fallback.
+A migration must preserve **every filename/reference** even when source names
+share one file identity; deduplication must not collapse independent history
+entries or make deleting one line delete another line's audio. Budget destination
+space for copies when links cannot be retained; unique-inode byte counts alone
+can understate copy space. Retain `playback_scope`, complete-performance binding,
+locale and authored channel/stream fields rather than inventing cuts from caption
+order. A moved game or incomplete Steam download still requires revalidation of
+the original install/pack binding; copying prepared tables does not prove the new
+physical pack is ready. See [audio reuse](../backend/local_voice.py#L107),
+[inventory byte counting](../backend/language_inventory.py#L12) and
+[completed Steam language evidence](../backend/source_dialogue.py#L20).
 
 ### Credential boundary
 
@@ -284,6 +425,7 @@ be different in onedir output. See [PyInstaller runtime information](https://pyi
 | `WindowsPreparationProcess.command`: current executable image + `__file__` script + job name/child command | Frozen bootstrap dispatch is required **before** child launch, still joins kill-on-close Job Object before extractor spawn. Retain owned handles, verified membership and deadline/descendant waits. Merely freezing a `.py` entry path breaks this contract. |
 | ZZZ `_links` derives project with `directory.parent.parent`, then `work/voice-assets`; helper scripts transpile downloaded `.ts` into writable `.mjs` beside metadata | Replace ancestor-depth inference with declared tool/work roots. Collect/prebuild licensed helpers and keep mutable metadata/generated links outside read-only resources; account for Node, TypeScript, WASM module resolution and `node_modules` assumptions. |
 | Static `package.json`, `public/mobile-capture/games-data.json`, game tool source/JS/WASM and external extractor data | Resolve active version resources explicitly; collect their relative layouts and notices. Missing data must be a named readiness failure, not fallback to the original ZIP/code version. |
+| New 0.22.0 registry-selected adapters/format helpers and Death Stranding game-owned DLL | Enumerate dynamic hidden imports for all 25 active games. Resolve the game DLL only under the validated install; never collect it into resources or use CWD/PATH fallback. Preserve Persona's private shared charset cache and existing worker dispatch. Probe source/frozen indexing and audio paths separately. |
 | External tool launches and native DLL search | Declare each executable path and CWD; preserve tool-relative adjacent files. Frozen Windows DLL search-path changes can affect external tools; isolate/sanitize only where proved necessary and test the exact packaged extractor. |
 
 Evidence: [launcher C# shim](../scripts/companion-runtime.ps1#L8),
@@ -418,7 +560,8 @@ Prototype sequence and acceptance:
    multiple databases (reviewed 2026-10-28). A series of independent online
    backups is not a coherent multi-store cutover without the final writer barrier.
 4. Copy into a new target staging directory; verify digests and database
-   integrity/schema, referenced recordings, locale/voice bindings, favorites,
+   integrity/schema, all per-history audio filenames (including hardlinked full
+   performances), locale/voice bindings, favorites,
    account-language export completion/destinations and settings precedence.
    Preserve pending/cancelled job states honestly; rerunning an export must not
    repeat a completed remote write because its ledger was omitted.
@@ -581,7 +724,11 @@ content-hashed UI modules/styles/icons/manifest/catalog, and pinned QR/OCR
 JavaScript/WASM/model assets. The independent publisher checks exact top-level
 and nested names and bytes; adding a builder asset does not automatically add
 publication permission. Static `games-data.json` is public capability metadata,
-not an extracted game library. See [builder](../scripts/build-mobile-preview.mjs),
+not an extracted game library. The 0.22.0 refresh adds `retained-library.mjs`
+to the independent static allowlist and includes `core.mjs` in preview precaching;
+it does not move retained library bytes or vault/history into the publication.
+IndexedDB/OPFS remain browser-owned. Reuse the same-origin offline/update checks
+for the actual generated asset set. See [builder](../scripts/build-mobile-preview.mjs),
 [publication validator](../scripts/mobile-publication.mjs),
 [negative publication tests](../tests/mobile-publication.test.mjs) and
 [Pages workflow](../.github/workflows/mobile-preview.yml).
@@ -616,6 +763,7 @@ These are inspected existing checks, **not newly executed native proof**:
 
 | Existing source checks | Relevant guarantee and limit |
 | --- | --- |
+| New-reader tests (`test_persona5_assets.py`, `test_death_stranding_assets.py`, `test_halflife_assets.py`, other twelve-reader format suites) and updated `test_language_inventory.py` | Missing Persona metadata/network or selected-pack failures, bounded archive/media parsing, synthetic reader substitutes and locale/voice/capability states in format fixtures. They do not prove real game DLL loading, absent-pack native playback or frozen hidden-import collection. |
 | `backend/tests/test_local_capture_settings.py`, `test_game_paths.py` | Legacy/local calibration precedence, valid manual paths and retired locations. No bundled root migration. |
 | `backend/tests/test_accounts.py`, `test_account_request_pinning.py` | Mocked identity/protection, no credential status leak and pinned operations. Mocks do not prove native DPAPI portability. |
 | `backend/tests/test_runtime_handoff.py`, `test_language_preparation.py`, Windows process fixtures | Standby/readiness, session/dedup drain, selected account locale, cancellation/atomic index ownership. Native job/process assertions require Windows. |

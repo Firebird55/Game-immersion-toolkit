@@ -7,13 +7,21 @@ no native Windows, installed-game, physical-mobile or performance validation.
 
 ## Scope and evidence
 
-The baseline is toolkit **0.21.3**, freshly fetched `upstream/main`, commit
-`4a4abfcee8d4fa87a8bfacdae12b6cef5284cad9`, targeting
+The current baseline is toolkit **0.22.0**, freshly fetched `upstream/main`, commit
+`ba0b7c34c358f1664220674e5ff8bb7f30502e5f`, targeting
 `Firebird55/Game-immersion-toolkit:main`. Work belongs to
 `codex/r18-runtime-inventory`; the original checkout and local application data
 are outside this change. Two GPT-6.1 Sol agents, both using xhigh reasoning,
 research components and storage/hosting respectively, then review each other's
 actual documents. The integrator reviews the combined contract and source.
+
+The original review used 0.21.3 (`4a4abfc`). Before the PR, the branch was rebased
+onto 0.22.0 and the inventory refreshed for all **25 active games**, including
+the twelve Steam readers added in [upstream PR #58](https://github.com/Firebird55/Game-immersion-toolkit/pull/58).
+The Python lock and npm dependency graph are unchanged; only the npm package
+version changed. Native game-library loading, separately acquired Persona
+character tables and incorporated reader notices still need explicit treatment
+even when they add no package-manager dependency.
 
 The deliverables are:
 
@@ -131,7 +139,7 @@ Reuse existing checks below and add only missing bundle-specific behavior tests.
 | Clean host and architecture | Ordinary Windows x64 user starts the extracted candidate without development tools; declared OS/browser/Store/VC runtime conditions are checked and actionable | Missing prerequisite, wrong architecture, restricted Store, offline first start and insufficient space name the failing component; no partial ready state |
 | Resources and child processes | Start from a path with spaces/Unicode and an unrelated working directory; immutable app tree is not written; retained prebuilt wrapper and all API, language, export, update and bootstrap children use the intended frozen entrypoints | No recursive bootloader launch, missing `.py` path, stale project pointer or hidden compiler dependency; inspect native DLL search isolation; later R20/R21 prove the actual installed shortcut transaction |
 | Native OCR and capture | On declared Windows build, initialize the user's Snipping Tool OCR, read an authored Chinese and non-Chinese caption, select a window/monitor and verify crop bounds at relevant 125–200% DPI | Missing/stale OCR assets, unavailable capture surface, multiple monitors, negative display coordinates and capture permissions produce actionable states; confirmed transcript survives audio failure |
-| Distinct game toolchains | Exercise every distinct chain in the component inventory on the extracted artifact, including PRAGMATA x86 helper on x64, Unreal/.NET helpers, Unity readers, CRI/Wwise/FFmpeg/vgmstream paths and pure-Python archive paths | Tool absent/corrupt/wrong architecture, unsupported game format, absent voice pack and interrupted extraction retain the previous complete index; no fallback to the wrong spoken language |
+| Distinct game toolchains | Exercise every distinct chain across the 25-game inventory, including PRAGMATA x86, Unreal/.NET helpers, Unity/CRI/Wwise paths, FFmpeg/vgmstream, Python Fox/Source/GoldSrc/container readers, Decima's installed-game DLL and Persona's pinned character tables | Missing/corrupt/wrong-architecture tools or game DLL, unavailable character metadata, unsupported format, absent voice pack and interrupted extraction retain prior complete indexes; no wrong-voice fallback or silent support expansion |
 | Actual-format integration | Synthetic permitted archives/owned audio exercise real tool subprocesses and output parsing; separately record installed-game/locale probes where private inputs are available | Mocked process success proves orchestration only. Missing real game or voice packs remain unavailable for native playback; no archived game is re-enabled |
 | Host and ordinary browser | Built desktop routes, CSS/fonts, setup, lookup, both reader modes, audio/export, API errors and WebSocket reconnect work in Chromium and Firefox at the retained origin and existing selected profile | Distinguish current Chrome-only auto-open from manual browser use; no fresh-profile data/extension loss, removed endpoint, permissive CORS/Host fallback, public listener or hidden development server; real extension compatibility is separately recorded |
 | Static/mobile assets and caches | Desktop static spike meets route/hydration equivalence; packaged mobile preview retains workers/WASM/model URLs and existing allowlist/offline behavior | Service-worker scope, old/current cache activation, failed asset load and offline reopen retain browser stores; desktop assets are not assumed to share the mobile service worker |
@@ -152,6 +160,9 @@ Existing source checks to reuse include
 [preparation process cleanup](../backend/tests/test_preparation_process_tree.py),
 [Windows drain](../backend/tests/test_windows_preparation_drain.py),
 [toolkit update verification](../backend/tests/test_toolkit_update.py),
+[Decima synthetic format/binding fixtures](../backend/tests/test_death_stranding_assets.py),
+[Persona character/format fixtures](../backend/tests/test_persona5_assets.py),
+[Source archive fixtures](../backend/tests/test_source_formats.py),
 [updater scenario](../scripts/update-companion-e2e.mjs),
 [setup](../scripts/setup-e2e.ps1),
 [browser storage update](../scripts/mobile-update-e2e.mjs) and
@@ -170,6 +181,7 @@ do prevent claiming that a redistributable, standalone R19 candidate already wor
 | Open point | Owner and closure |
 | --- | --- |
 | Exact Python/native/WASM/codec/tool license closure, notably GPL dependencies, external decompression libraries and FFmpeg build configuration | R19 packaging owner: audit exact files and corresponding-source obligations; no unknown binary enters the shipped set |
+| Added reader resources, incorporated notices and capability limits | R19 runtime/packaging owners: keep Decima's proprietary DLL at its installed-game path, review Persona GPL data acquisition/combination obligations, retain Fox/Decima/format-reference notices and probe each distinct new parser/codec route. No missing binding becomes confirmed unvoiced, and text-only capabilities are not upgraded by packaging |
 | Maintained Windows Python 3.12 binary and packaging version pins | R19 build owner: record patch/source/build provenance, incorporated library notices and security-update policy; do not equate an old official installer with a current security build |
 | Compiler-free NTE/Endfield/PRAGMATA and other .NET/external helper paths | R19 packaging owner: publish/build licensed helpers with complete architecture/runtime dependencies, then functional probes without SDK/Build Tools |
 | Static desktop equivalence and replacement of the Node router/host | R19 host owner: prove preserved origins/API/WS/readiness; retain diagnostic source adapter if unsuccessful, explicitly incomplete acceptance |
@@ -195,7 +207,7 @@ incorporated before the final re-review include:
 | Dependency labels obscured compiler, runtime and redistribution differences | Distinguish SDK/runtime/self-contained .NET, x86 PRAGMATA, launcher `Add-Type`, app-local ZZZ Node helper and conditional frontend-host alternative; keep unknown/GPL/native artifact closure open |
 | Inventory count and Windows baseline needed correction | Verify 49 Python lock entries, 462 npm entries and 283 absent npm license fields; select a serviced Windows 11 25H2 x64 acceptance image without claiming it was run |
 
-A further adversarial double-check of commit `cd8b403` on 2026-10-28 found and
+A further adversarial double-check of the initial 0.21.3 draft on 2026-10-28 found and
 corrected additional documentation gaps: the separate Framework-compiled managed
 wrapper; its project pointer/Start menu transition; current Chrome-only opening
 and browser-profile continuity; nested updater acquisition of the proposed
@@ -205,6 +217,15 @@ account store. The component reviewer rechecked all 66 GitHub source links and
 all 49 Python lock names/versions. These corrections specify missing R19–R21
 adapters/probes; they implement none of them and grant no new redistribution
 rights. The corrected diff receives another review and scoped check before commit.
+
+The pre-PR 0.22.0 refresh rechecks the twelve added reader/tool/resource paths
+against current source and per-game audits, with reciprocal review by the same
+two agents. The 49 Python distributions and 462 npm entries (283 without a
+lockfile license field) remain unchanged. Per-game capability and missing-pack/
+unknown-binding limits come from the source; this documentation refresh neither
+adds games nor claims their native playback, complete presentation coverage or
+bundle acceptance. Checks must use the refreshed `upstream/main` SHA above;
+earlier evidence against 0.21.3 is historical, not the PR's final validation.
 
 Local validation is limited to this documentation change on macOS with Node
 22.22.2/npm 10.9.7. The scoped doctor passes the package engine/lock checks and
