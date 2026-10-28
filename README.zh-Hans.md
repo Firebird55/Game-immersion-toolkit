@@ -36,6 +36,8 @@
 | [Shadow of the Tomb Raider](docs/languages/zh-Hans.md#shadowofthetombraider) | 英语 · 法语 · 德语 · 意大利语 · 拉丁美洲西班牙语 · 欧洲西班牙语 · 日语 · 巴西葡萄牙语 · 波兰语 · 俄语 · 繁体中文 · 简体中文 · 阿拉伯语 | 14 |
 | [Spyro Reignited Trilogy](docs/languages/zh-Hans.md#spyro) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 阿拉伯语 · 丹麦语 · 荷兰语 · 芬兰语 · 挪威语 · 波兰语 · 巴西葡萄牙语 · 拉丁美洲西班牙语 · 瑞典语 | 14 |
 | [Detroit: Become Human](docs/languages/zh-Hans.md#detroit) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 阿拉伯语 · 日语 · 波兰语 · 欧洲葡萄牙语 · 巴西葡萄牙语 · 拉丁美洲西班牙语 · 俄语 | 24 |
+| [Persona 5 Royal](docs/languages/zh-Hans.md#persona5royal) | 英语 · 日语 | 9 |
+| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/zh-Hans.md#mgsvtpp) | 英语 · 日语 | 8 |
 
 [语言详情](docs/languages/zh-Hans.md) · [打开在线伴侣](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

@@ -479,3 +479,52 @@ All 12 official voice languages and 24 official text locales use exact authored 
 | Simplified Chinese | — | — | ✓ | Reader implemented |
 
 </details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[Official language listing](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [Coverage notes](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="mgsvtpp"></a>
+
+## METAL GEAR SOLID V: THE PHANTOM PAIN
+
+[Official language listing](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [Coverage notes](../game-audits/mgsvtpp.md)
+
+English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+
+</details>

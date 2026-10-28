@@ -7,6 +7,8 @@ from .lexirise_settings import STUDY_LANGUAGES
 
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
+    'mgsvtpp': ('en', 'ja'),
+    'persona5royal': ('en', 'ja'),
     'spyro': ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'da', 'nl', 'fi', 'no', 'pl', 'pt-BR', 'es-419', 'sv'),
     'detroit': ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'ja', 'pl', 'pt-PT', 'pt-BR', 'es-419', 'ru'),
     'starrail': ASIAN, 'genshin': ASIAN, 'endfield': ASIAN, 'zzz': ASIAN, 'wuwa': ASIAN, 'nte': ASIAN,

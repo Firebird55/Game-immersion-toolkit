@@ -23,6 +23,10 @@ Counts refer to the audited installation and locale, not every game chapter.
 | Spyro Reignited Trilogy | All three games; localized dialogue tables, Wwise events, cinematic pages and explicit text-only dialogue | [Spyro](spyro.md) |
 | Detroit: Become Human | Timed original performances, branching dialogue, choices, observations and magazine/news text | [Detroit](detroit.md) |
 
+| Persona 5 Royal | CRI event voices, authored message pages and choices; explicit silent cue evidence; floating dialogue capture | [Audit](persona5royal.md) |
+
+| METAL GEAR SOLID V: THE PHANTOM PAIN | Fox subtitles, exact original barks/radio, cassette tracks and authored cinematic audio aliases | [Audit](mgsvtpp.md) |
+
 ## Capture unvoiced dialogue
 
 In **Capture setup**, enable **Include unvoiced dialogue**. It is off by default

@@ -36,6 +36,8 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [Shadow of the Tomb Raider](docs/languages/nl.md#shadowofthetombraider) | Engels · Frans · Duits · Italiaans · Spaans (Latijns-Amerika) · Spaans (Spanje) · Japans · Portugees (Brazilië) · Pools · Russisch · Chinees (traditioneel) · Chinees (vereenvoudigd) · Arabisch | 14 |
 | [Spyro Reignited Trilogy](docs/languages/nl.md#spyro) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Arabisch · Deens · Nederlands · Fins · Noors · Pools · Portugees (Brazilië) · Spaans (Latijns-Amerika) · Zweeds | 14 |
 | [Detroit: Become Human](docs/languages/nl.md#detroit) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Arabisch · Japans · Pools · Portugees (Portugal) · Portugees (Brazilië) · Spaans (Latijns-Amerika) · Russisch | 24 |
+| [Persona 5 Royal](docs/languages/nl.md#persona5royal) | Engels · Japans | 9 |
+| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/nl.md#mgsvtpp) | Engels · Japans | 8 |
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

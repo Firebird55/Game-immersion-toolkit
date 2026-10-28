@@ -26,6 +26,10 @@ Windows companion for official multilingual game transcripts, local subtitle OCR
 | Spyro Reignited Trilogy | Contains Spyro.exe and Falcon/Content/Paks | All 14 official voice languages; installed original banks are read directly |
 | Detroit: Become Human | Contains DetroitBecomeHuman.exe and BigFile_PC.idx | All 12 official voice languages and 24 text locales; original voices read directly |
 
+| Persona 5 Royal | Contains P5R.exe and CPK/BASE.CPK | Selected study text CPK and matching English or Japanese original voice pack; verified character metadata is cached on first preparation |
+
+| METAL GEAR SOLID V: THE PHANTOM PAIN | Contains mgsvtpp.exe, master/data1.dat and master/chunk0.dat | Selected English or Japanese original PC voice edition; Metal Gear Online is excluded |
+
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 
 See [NTE support](docs/nte-honkai-support.md) before configuring NTE. Honkai Impact 3rd is archived and unsupported; it is not available in setup or capture. NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).

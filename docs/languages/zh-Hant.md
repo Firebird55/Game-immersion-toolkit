@@ -479,3 +479,52 @@ All 12 official voice languages and 24 official text locales use exact authored 
 | 簡體中文 | — | — | ✓ | 已實作讀取器 |
 
 </details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[官方語言清單](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [涵蓋範圍說明](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>語言詳細資訊</summary>
+
+| 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 法文 | — | — | ✓ | 已實作讀取器 |
+| 義大利文 | — | — | ✓ | 已實作讀取器 |
+| 德文 | — | — | ✓ | 已實作讀取器 |
+| 西班牙文（西班牙） | — | — | ✓ | 已實作讀取器 |
+| 日文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 韓文 | — | — | ✓ | 已實作讀取器 |
+| 簡體中文 | — | — | ✓ | 已實作讀取器 |
+| 繁體中文 | — | — | ✓ | 已實作讀取器 |
+
+</details>
+
+<a id="mgsvtpp"></a>
+
+## METAL GEAR SOLID V: THE PHANTOM PAIN
+
+[官方語言清單](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [涵蓋範圍說明](../game-audits/mgsvtpp.md)
+
+English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
+
+<details>
+<summary>語言詳細資訊</summary>
+
+| 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
+| :--- | :---: | :---: | :---: | :--- |
+| 日文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 法文 | — | — | ✓ | 已實作讀取器 |
+| 義大利文 | — | — | ✓ | 已實作讀取器 |
+| 德文 | — | — | ✓ | 已實作讀取器 |
+| 西班牙文（拉丁美洲） | — | — | ✓ | 已實作讀取器 |
+| 葡萄牙文（巴西） | — | — | ✓ | 已實作讀取器 |
+| 俄文 | — | — | ✓ | 已實作讀取器 |
+
+</details>

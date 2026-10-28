@@ -1212,6 +1212,105 @@
       "notes": "All 12 official voice languages and 24 official text locales use exact authored localization, FlowDialog and sound dependencies. Each installed voice locale has a verified original decode sample.",
       "coverage": "English has 11,001 voiced cues, 5,634 confirmed text-only choices/readables and 1,186 unresolved original performances. Main/branching conversations, cinematics, ambient dialogue, choices, observations, magazines and news use authored identities. Missing timing retains the complete original performance. Texture-only writing, uncaptioned audio and bonus-video soundtracks are not verified per-line coverage; physical gameplay/OCR remains unverified.",
       "supportPolicy": "Implement every official voice locale from the shared authored format. Keep missing or unresolved performances unavailable; the unvoiced toggle accepts confirmed silent narrative fields only."
+    },
+    {
+      "id": "persona5royal",
+      "name": "Persona 5 Royal",
+      "guide": "game-audits/persona5royal.md",
+      "source": "https://store.steampowered.com/app/1687950/Persona_5_Royal/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "ja"
+      ],
+      "audio": [
+        "en",
+        "ja"
+      ],
+      "officialAudio": [
+        "en",
+        "ja"
+      ],
+      "officialText": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES",
+        "ja",
+        "ko",
+        "zh-Hans",
+        "zh-Hant"
+      ],
+      "targets": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES",
+        "ja",
+        "ko",
+        "zh-Hans",
+        "zh-Hant"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en",
+        "ja"
+      ],
+      "formatOnly": [],
+      "notes": "English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.",
+      "coverage": "Partial native coverage: 30,282 voiced pages and 57,342 confirmed silent pages in the inspected English files. Story/social/battle events and explicit choices are implemented. Shared/runtime voice selectors, USM movies and some binary readables remain unavailable or unknown. Separate floating-dialogue matching is exact and stable, excludes short or choice-ambiguous strings, and does not constitute physical gameplay validation.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "mgsvtpp",
+      "name": "METAL GEAR SOLID V: THE PHANTOM PAIN",
+      "guide": "game-audits/mgsvtpp.md",
+      "source": "https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "ja"
+      ],
+      "audio": [
+        "en",
+        "ja"
+      ],
+      "officialAudio": [
+        "en",
+        "ja"
+      ],
+      "officialText": [
+        "ja",
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-419",
+        "pt-BR",
+        "ru"
+      ],
+      "targets": [
+        "ja",
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-419",
+        "pt-BR",
+        "ru"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en"
+      ],
+      "formatOnly": [
+        "ja"
+      ],
+      "notes": "English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.",
+      "coverage": "22,447 verified voice records across radio, barks/orders, mission dialogue, 190 cassette tracks and 133 cinematic streams. Complete source subtitle variants are inventoried. 102 other cinematic streams, conflicting subtitles and unlabeled media remain unresolved. 16,024 unknown localization rows are not claimed silent dialogue; no confirmed unvoiced rows were established. Native physical capture is unverified.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
     }
   ]
 }

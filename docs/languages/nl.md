@@ -479,3 +479,52 @@ All 12 official voice languages and 24 official text locales use exact authored 
 | Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
 
 </details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[Officiële taallijst](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [Dekkingsnotities](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
+| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="mgsvtpp"></a>
+
+## METAL GEAR SOLID V: THE PHANTOM PAIN
+
+[Officiële taallijst](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [Dekkingsnotities](../game-audits/mgsvtpp.md)
+
+English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Japans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
