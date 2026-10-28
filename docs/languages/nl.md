@@ -685,3 +685,46 @@ English and Japanese voice schemas and all eight official text locales are imple
 | Russisch | — | — | ✓ | Reader geïmplementeerd |
 
 </details>
+
+<a id="portal2"></a>
+
+## Portal 2
+
+[Officiële taallijst](https://store.steampowered.com/app/620/Portal_2/) · 2026-10-28 · [Dekkingsnotities](../game-audits/portal2.md)
+
+Five official original voice locales and 27 text locales. English installed dialogue, commentary, movie and song audio decoded. Four absent voice packs remain implemented by isolated native locale schemas, without English fallback.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Duits | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Russisch | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Deens | — | — | ✓ | Reader geïmplementeerd |
+| Nederlands | — | — | ✓ | Reader geïmplementeerd |
+| Fins | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Japans | — | — | ✓ | Reader geïmplementeerd |
+| Noors | — | — | ✓ | Reader geïmplementeerd |
+| Pools | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Portugal) | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Zweeds | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+| Bulgaars | — | — | ✓ | Reader geïmplementeerd |
+| Tsjechisch | — | — | ✓ | Reader geïmplementeerd |
+| Grieks | — | — | ✓ | Reader geïmplementeerd |
+| Hongaars | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Roemeens | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | — | — | ✓ | Reader geïmplementeerd |
+| Thai | — | — | ✓ | Reader geïmplementeerd |
+| Turks | — | — | ✓ | Reader geïmplementeerd |
+| Oekraïens | — | — | ✓ | Reader geïmplementeerd |
+
+</details>

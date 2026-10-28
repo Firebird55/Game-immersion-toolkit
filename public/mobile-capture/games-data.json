@@ -1719,6 +1719,105 @@
       "notes": "English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.",
       "coverage": "31,725 separate voiced captions across radio, barks/orders, mission dialogue, 190 cassette tracks and 133 cinematic streams. Individual pages retain their identities; translations require matching authored intervals. Full original tracks are labelled and reused across captions. 102 other cinematic streams, conflicting subtitles and unlabeled media remain unresolved. 16,024 unknown localization rows are not claimed silent dialogue; no confirmed unvoiced rows were established. Physical capture is unverified.",
       "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "portal2",
+      "name": "Portal 2",
+      "guide": "game-audits/portal2.md",
+      "source": "https://store.steampowered.com/app/620/Portal_2/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "fr",
+        "de",
+        "es-ES",
+        "ru"
+      ],
+      "audio": [
+        "en",
+        "fr",
+        "de",
+        "es-ES",
+        "ru"
+      ],
+      "officialAudio": [
+        "en",
+        "fr",
+        "de",
+        "es-ES",
+        "ru"
+      ],
+      "officialText": [
+        "en",
+        "fr",
+        "de",
+        "ru",
+        "da",
+        "nl",
+        "fi",
+        "it",
+        "ja",
+        "no",
+        "pl",
+        "pt-PT",
+        "zh-Hans",
+        "es-ES",
+        "sv",
+        "zh-Hant",
+        "ko",
+        "bg",
+        "cs",
+        "el",
+        "hu",
+        "pt-BR",
+        "ro",
+        "es-419",
+        "th",
+        "tr",
+        "uk"
+      ],
+      "targets": [
+        "en",
+        "fr",
+        "de",
+        "ru",
+        "da",
+        "nl",
+        "fi",
+        "it",
+        "ja",
+        "no",
+        "pl",
+        "pt-PT",
+        "zh-Hans",
+        "es-ES",
+        "sv",
+        "zh-Hant",
+        "ko",
+        "bg",
+        "cs",
+        "el",
+        "hu",
+        "pt-BR",
+        "ro",
+        "es-419",
+        "th",
+        "tr",
+        "uk"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en"
+      ],
+      "formatOnly": [
+        "fr",
+        "de",
+        "es-ES",
+        "ru"
+      ],
+      "notes": "Five official original voice locales and 27 text locales. English installed dialogue, commentary, movie and song audio decoded. Four absent voice packs remain implemented by isolated native locale schemas, without English fallback.",
+      "coverage": "2,873 voiced captions and 85 confirmed silent titles/readables; 158 unresolved or missing recordings remain unavailable. Supports update/DLC mount priority, VSIF3 scenes, compiled captions, 38 authored movie cues with complete four-track audio mix, and 41 individual lyric groups with full-song playback. Two split movie cues lack matching individual text; arbitrary Workshop assets and physical capture remain unverified.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
     }
   ]
 }

@@ -37,12 +37,13 @@ Follow official game dialogue, replay original voices, and learn with reading to
 | [Spyro Reignited Trilogy](docs/languages/en.md#spyro) | English · French · Italian · German · European Spanish · Arabic · Danish · Dutch · Finnish · Norwegian · Polish · Brazilian Portuguese · Latin American Spanish · Swedish | 14 |
 | [Detroit: Become Human](docs/languages/en.md#detroit) | English · French · Italian · German · European Spanish · Arabic · Japanese · Polish · European Portuguese · Brazilian Portuguese · Latin American Spanish · Russian | 24 |
 | [Persona 5 Royal](docs/languages/en.md#persona5royal) | English · Japanese | 9 |
-| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/en.md#mgsvtpp) | English · Japanese | 8 |
 | [DEATH STRANDING](docs/languages/en.md#deathstranding) | English · French · European Spanish · German · Italian · European Portuguese · Russian · Polish · Japanese · Latin American Spanish · Brazilian Portuguese · Greek | 20 |
 | [Portal](docs/languages/en.md#portal) | English · French · German · Russian · European Spanish · Traditional Chinese | 27 |
 | [Half-Life](docs/languages/en.md#halflife) | **Text only:** English · French · German · Italian · European Spanish · Simplified Chinese · Traditional Chinese · Korean | 8 |
 | [A Plague Tale: Innocence](docs/languages/en.md#plaguetaleinnocence) | English · French · German | 14 |
 | [METAL GEAR SOLID V: GROUND ZEROES](docs/languages/en.md#mgsvgz) | English · Japanese | 8 |
+| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/en.md#mgsvtpp) | English · Japanese | 8 |
+| [Portal 2](docs/languages/en.md#portal2) | English · French · German · European Spanish · Russian | 27 |
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

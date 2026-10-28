@@ -685,3 +685,46 @@ English and Japanese voice schemas and all eight official text locales are imple
 | 俄语 | — | — | ✓ | 已实现读取器 |
 
 </details>
+
+<a id="portal2"></a>
+
+## Portal 2
+
+[官方语言列表](https://store.steampowered.com/app/620/Portal_2/) · 2026-10-28 · [覆盖范围说明](../game-audits/portal2.md)
+
+Five official original voice locales and 27 text locales. English installed dialogue, commentary, movie and song audio decoded. Four absent voice packs remain implemented by isolated native locale schemas, without English fallback.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 俄语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 丹麦语 | — | — | ✓ | 已实现读取器 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 芬兰语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 挪威语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 瑞典语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 保加利亚语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 罗马尼亚语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 泰语 | — | — | ✓ | 已实现读取器 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 乌克兰语 | — | — | ✓ | 已实现读取器 |
+
+</details>

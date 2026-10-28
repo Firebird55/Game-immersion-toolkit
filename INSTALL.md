@@ -32,6 +32,7 @@ Windows companion for official multilingual game transcripts, local subtitle OCR
 | Half-Life | Contains hl.exe and valve/liblist.gam | Original GoldSrc edition; authored text messages only, with Include unvoiced dialogue enabled |
 | A Plague Tale: Innocence | Contains APlagueTaleInnocence_x64.exe, LangDef.tsc, TRTEXT and SOUNDBANKS | Selected English, French or German voice pack and official text files |
 | METAL GEAR SOLID V: GROUND ZEROES | Contains MgsGroundZeroes.exe and data_02.g0s | Selected English or Japanese original Steam voice edition; original Ground Zeroes GZS archives |
+| Portal 2 | Contains portal2.exe and portal2/gameinfo.txt | Selected official Steam voice language; update and DLC resources are mounted in authored priority |
 
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 

@@ -236,7 +236,7 @@ local artifacts.
 
 ## Floating dialogue and separate panels
 
-Persona 5 Royal, Portal, DEATH STRANDING and both Metal Gear Solid V games retain their calibrated lower
+Persona 5 Royal, both Portal games, DEATH STRANDING and both Metal Gear Solid V games retain their calibrated lower
 subtitle lane and additionally
 check spatial text groups across the game window for longer original-voice
 dialogue. This covers the implemented recognition path for upper navigator

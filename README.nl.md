@@ -37,12 +37,13 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [Spyro Reignited Trilogy](docs/languages/nl.md#spyro) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Arabisch · Deens · Nederlands · Fins · Noors · Pools · Portugees (Brazilië) · Spaans (Latijns-Amerika) · Zweeds | 14 |
 | [Detroit: Become Human](docs/languages/nl.md#detroit) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Arabisch · Japans · Pools · Portugees (Portugal) · Portugees (Brazilië) · Spaans (Latijns-Amerika) · Russisch | 24 |
 | [Persona 5 Royal](docs/languages/nl.md#persona5royal) | Engels · Japans | 9 |
-| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/nl.md#mgsvtpp) | Engels · Japans | 8 |
 | [DEATH STRANDING](docs/languages/nl.md#deathstranding) | Engels · Frans · Spaans (Spanje) · Duits · Italiaans · Portugees (Portugal) · Russisch · Pools · Japans · Spaans (Latijns-Amerika) · Portugees (Brazilië) · Grieks | 20 |
 | [Portal](docs/languages/nl.md#portal) | Engels · Frans · Duits · Russisch · Spaans (Spanje) · Chinees (traditioneel) | 27 |
 | [Half-Life](docs/languages/nl.md#halflife) | **Alleen tekst:** Engels · Frans · Duits · Italiaans · Spaans (Spanje) · Chinees (vereenvoudigd) · Chinees (traditioneel) · Koreaans | 8 |
 | [A Plague Tale: Innocence](docs/languages/nl.md#plaguetaleinnocence) | Engels · Frans · Duits | 14 |
 | [METAL GEAR SOLID V: GROUND ZEROES](docs/languages/nl.md#mgsvgz) | Engels · Japans | 8 |
+| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/nl.md#mgsvtpp) | Engels · Japans | 8 |
+| [Portal 2](docs/languages/nl.md#portal2) | Engels · Frans · Duits · Spaans (Spanje) · Russisch | 27 |
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

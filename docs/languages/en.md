@@ -685,3 +685,46 @@ English and Japanese voice schemas and all eight official text locales are imple
 | Russian | — | — | ✓ | Reader implemented |
 
 </details>
+
+<a id="portal2"></a>
+
+## Portal 2
+
+[Official language listing](https://store.steampowered.com/app/620/Portal_2/) · 2026-10-28 · [Coverage notes](../game-audits/portal2.md)
+
+Five official original voice locales and 27 text locales. English installed dialogue, commentary, movie and song audio decoded. Four absent voice packs remain implemented by isolated native locale schemas, without English fallback.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Danish | — | — | ✓ | Reader implemented |
+| Dutch | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| European Portuguese | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Swedish | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Korean | — | — | ✓ | Reader implemented |
+| Bulgarian | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Romanian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Thai | — | — | ✓ | Reader implemented |
+| Turkish | — | — | ✓ | Reader implemented |
+| Ukrainian | — | — | ✓ | Reader implemented |
+
+</details>

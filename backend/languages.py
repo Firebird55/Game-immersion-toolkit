@@ -8,6 +8,7 @@ from .lexirise_settings import STUDY_LANGUAGES
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
     'portal': ('en', 'fr', 'de', 'ru', 'es-ES', 'zh-Hant'),
+    'portal2': ('en', 'fr', 'de', 'es-ES', 'ru'),
     'halflife': ('en', 'fr', 'de', 'it', 'es-ES', 'zh-Hans', 'zh-Hant', 'ko'),
     'plaguetaleinnocence': ('en', 'fr', 'de'),
     'deathstranding': ('en', 'fr', 'es-ES', 'de', 'it', 'pt-PT', 'ru', 'pl', 'ja', 'es-419', 'pt-BR', 'el'),

@@ -37,12 +37,13 @@
 | [Spyro Reignited Trilogy](docs/languages/zh-Hant.md#spyro) | 英文 · 法文 · 義大利文 · 德文 · 西班牙文（西班牙） · 阿拉伯文 · 丹麥文 · 荷蘭文 · 芬蘭文 · 挪威文 · 波蘭文 · 葡萄牙文（巴西） · 西班牙文（拉丁美洲） · 瑞典文 | 14 |
 | [Detroit: Become Human](docs/languages/zh-Hant.md#detroit) | 英文 · 法文 · 義大利文 · 德文 · 西班牙文（西班牙） · 阿拉伯文 · 日文 · 波蘭文 · 葡萄牙文（葡萄牙） · 葡萄牙文（巴西） · 西班牙文（拉丁美洲） · 俄文 | 24 |
 | [Persona 5 Royal](docs/languages/zh-Hant.md#persona5royal) | 英文 · 日文 | 9 |
-| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/zh-Hant.md#mgsvtpp) | 英文 · 日文 | 8 |
 | [DEATH STRANDING](docs/languages/zh-Hant.md#deathstranding) | 英文 · 法文 · 西班牙文（西班牙） · 德文 · 義大利文 · 葡萄牙文（葡萄牙） · 俄文 · 波蘭文 · 日文 · 西班牙文（拉丁美洲） · 葡萄牙文（巴西） · 希臘文 | 20 |
 | [Portal](docs/languages/zh-Hant.md#portal) | 英文 · 法文 · 德文 · 俄文 · 西班牙文（西班牙） · 繁體中文 | 27 |
 | [Half-Life](docs/languages/zh-Hant.md#halflife) | **僅文字:** 英文 · 法文 · 德文 · 義大利文 · 西班牙文（西班牙） · 簡體中文 · 繁體中文 · 韓文 | 8 |
 | [A Plague Tale: Innocence](docs/languages/zh-Hant.md#plaguetaleinnocence) | 英文 · 法文 · 德文 | 14 |
 | [METAL GEAR SOLID V: GROUND ZEROES](docs/languages/zh-Hant.md#mgsvgz) | 英文 · 日文 | 8 |
+| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/zh-Hant.md#mgsvtpp) | 英文 · 日文 | 8 |
+| [Portal 2](docs/languages/zh-Hant.md#portal2) | 英文 · 法文 · 德文 · 西班牙文（西班牙） · 俄文 | 27 |
 
 [語言詳細資訊](docs/languages/zh-Hant.md) · [開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
