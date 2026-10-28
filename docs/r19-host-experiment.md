@@ -146,3 +146,13 @@ same-user Windows protected test credentials, verified global writer shutdown,
 bounded process-tree supervision and guarded source updates. Clean Windows
 artifact, native OCR/capture/DPI, game/toolchain and R02b measurements remain in
 the wider candidate record. A passing synthetic probe does not close those gates.
+
+A separate Windows-only source probe now uses the production DPAPI helper with
+new protected TEST blobs under marked temporary roots. It checks copied legacy
+fallback decryption under the same user, unchanged host-locator bytes, no plaintext
+in the manifest/snapshot and an actually unreadable named-store fixture that
+still requires preserving repair. It accesses no real account, host credential
+locator or network client. The focused hosted job records actual OS/Python/import
+versions and rejects a skipped test. Its server/source result is separate from
+an extracted full candidate, Windows 11 acceptance and live account recovery;
+the migration manifest continues to report incomplete with activation disabled.

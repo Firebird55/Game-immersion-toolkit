@@ -9,6 +9,65 @@ concurrency:
   group: r19-diagnostic-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  protected-test-state:
+    # Source/native contract evidence only; this dependency environment never
+    # enters the stdlib diagnostic bundle or a published runtime artifact.
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before test preparation
+        run: npm run dev:doctor
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12.10'
+      - name: Prepare only locked import dependencies for the protection helper
+        shell: pwsh
+        run: |
+          $names = @('httpx', 'httpcore', 'h11', 'anyio', 'certifi', 'idna', 'typing_extensions')
+          $locked = @(Get-Content requirements.lock.txt | Where-Object { ($_ -split '==')[0] -in $names })
+          if ($locked.Count -ne $names.Count) { throw 'The protection probe dependency subset differs from the application lock.' }
+          $requirements = Join-Path $env:RUNNER_TEMP 'r19-native-probe-requirements.txt'
+          $locked | Set-Content -LiteralPath $requirements -Encoding utf8
+          python -m pip install --no-deps -r $requirements
+          if ($LASTEXITCODE -ne 0) { throw 'Protection probe import dependencies unavailable.' }
+      - name: Verify actual same-user protected TEST bytes with synthetic migration
+        shell: python
+        run: |
+          import json, os, pathlib, platform, sys, unittest
+          from importlib.metadata import version
+          # GitHub executes this Python shell from a temporary script file.
+          sys.path.insert(0, os.environ['GITHUB_WORKSPACE'])
+          if os.name != 'nt':
+              raise SystemExit('Native DPAPI proof requires Windows.')
+          name = 'backend.tests.test_bundle_migration.BundleMigrationTests.test_current_user_dpapi_test_fallback_survives_copy_without_plaintext_or_named_store_repair'
+          result = unittest.TextTestRunner(verbosity=1).run(unittest.defaultTestLoader.loadTestsFromName(name))
+          passed = result.wasSuccessful() and result.testsRun == 1 and not result.skipped
+          report = {'schema': 'proxy-r19-protected-test-state-v1', 'source_commit': os.environ['GITHUB_SHA'],
+                    'python': platform.python_version(), 'environment': 'Windows Server 2025 hosted source probe',
+                    'os_version': platform.version(), 'machine': platform.machine(),
+                    'dependencies': {package: version(package) for package in ('httpx', 'httpcore', 'h11', 'anyio', 'certifi', 'idna', 'typing_extensions')},
+                    'tests_run': result.testsRun, 'skipped': len(result.skipped),
+                    'same_user_test_dpapi_copy': 'passed' if passed else 'failed',
+                    'real_accounts_accessed': False, 'live_migration': False, 'r19_complete': False}
+          output = pathlib.Path('output/checks/r19-protected-test-state.json')
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+          if not passed:
+              raise SystemExit('Protected TEST state probe failed or did not execute.')
+      - name: Upload sanitized protection metadata only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-protected-test-state
+          path: output/checks/r19-protected-test-state.json
+          if-no-files-found: ignore
+          retention-days: 7
   diagnostic:
     # Hosted Server evidence is bootloader/contract evidence only. It cannot
     # replace native Windows 11 25H2 OCR/capture/DPI or clean-user acceptance.

@@ -129,6 +129,61 @@ class BundleMigrationTests(unittest.TestCase):
         self.assertFalse(manifest['browser']['raw_profile_copy'])
         self.assertEqual(manifest['installed_launcher_checkpoint'], 'unchanged-unverified-R20')
 
+    @unittest.skipUnless(os.name == 'nt', 'Windows current-user DPAPI unavailable on this host; native protected-byte proof not run.')
+    def test_current_user_dpapi_test_fallback_survives_copy_without_plaintext_or_named_store_repair(self):
+        # Byte-copy and mocked protection tests cannot prove current-user DPAPI
+        # usability. Only synthetic values and marked temp locators are used;
+        # no AccountStore, host credential locator or network client is opened.
+        from backend.lexirise import LexiriseError, _protect
+
+        marker = b'r19-synthetic-dpapi-test-' + os.urandom(32).hex().encode('ascii')
+        fallback_value, host_value = marker + b'/fallback', marker + b'/host'
+        named_value = json.dumps({'active': 'fixture', 'profiles': {
+            'fixture': {'name': 'Synthetic DPAPI test', 'key': marker.decode('ascii')}}}).encode('utf-8')
+        protected_named = _protect(named_value)
+        self.assertTrue(_protect(protected_named, decrypt=True) == named_value,
+                        'The synthetic named-store DPAPI round trip did not match.')
+        # Preserve an actually unreadable named-store fixture rather than
+        # implying that copying readable fallback bytes repairs other accounts.
+        unreadable_named = protected_named[:len(protected_named) // 2]
+        encrypted = {
+            'data/lexirise/key.dpapi': _protect(fallback_value),
+            'host-credentials/key.dpapi': _protect(host_value),
+            'host-credentials/accounts.dpapi': unreadable_named,
+        }
+        for name, content in encrypted.items():
+            self.assertFalse(marker in content, 'A protected fixture blob contains the synthetic plaintext marker.')
+            put(self.source.path, name, content)
+        with self.assertRaises(LexiriseError):
+            _protect(unreadable_named, decrypt=True)
+
+        before = hashes(self.source.path)
+        plan = self.plan(named_account_store='unreadable')
+        with SyntheticHostCoordinator(self.source, self.target, self.old) as host:
+            manifest = self.copy(host, plan)
+        snapshot = self.target.path / 'staging' / plan.migration_id
+        self.assertEqual(hashes(self.source.path), before)
+        for name, content in encrypted.items():
+            self.assertTrue((self.source.path / name).read_bytes() == content,
+                            'An original protected fixture blob changed.')
+        copied_fallback = (snapshot / 'data/lexirise/key.dpapi').read_bytes()
+        self.assertTrue(copied_fallback == encrypted['data/lexirise/key.dpapi'],
+                        'The copied protected fallback bytes changed.')
+        self.assertTrue(_protect(copied_fallback, decrypt=True) == fallback_value,
+                        'The copied fallback could not reproduce the same-user test value.')
+        self.assertTrue(_protect((self.source.path / 'host-credentials/key.dpapi').read_bytes(), decrypt=True) == host_value,
+                        'The preserved host locator could not reproduce the same-user test value.')
+        self.assertFalse((snapshot / 'host-credentials').exists())
+        self.assertEqual(manifest['credentials']['named_profiles'], 'unreadable-repair-required')
+        self.assertTrue(any('Preserving repair' in requirement for requirement in manifest['open_requirements']))
+        self.assertFalse(manifest['activation_allowed'])
+        self.assertEqual(manifest['migration_acceptance'], 'incomplete')
+        self.assertFalse(marker in json.dumps(manifest).encode('utf-8'),
+                         'The migration manifest contains the synthetic plaintext marker.')
+        for path in snapshot.rglob('*'):
+            if path.is_file():
+                self.assertFalse(marker in path.read_bytes(), 'A snapshot file contains the synthetic plaintext marker.')
+
     def test_interrupted_copy_resumes_only_its_owned_manifest_and_preserves_source(self):
         plan = self.plan()
         before = hashes(self.source.path)
