@@ -329,8 +329,8 @@ function EnglishTranslation({ line, summary, limit, current = false }: {
   if (line.translation_text === '') return <p className="translation-unavailable">{uiText("Official")} {line.translation_locale} {uiText("translation unavailable. Prepare its table in Setup → Languages.")}</p>;
   if (!hidden) return <StableText className={current ? "current-english" : undefined} lang={line.translation_locale ?? 'en'} text={line.translation_text??line.english} />;
   return <button type="button" className={`english-reveal ${current ? 'current-english-reveal' : ''}`}
-    onClick={() => setRevealed(key)} aria-label={uiText("Show English translation")}>
-    <span>{uiText("English hidden · Tap to reveal")}</span>
+    onClick={() => setRevealed(key)} aria-label={uiText("Show translation")}>
+    <span>{uiText("Translation hidden · Tap to reveal")}</span>
     <small>{count} {uiText("unknown")} {count === 1 ? uiText("word") : uiText("words")}</small>
   </button>;
 }
@@ -885,7 +885,7 @@ function CompanionClient() {
       <div className="game-tabs">
         <span><Gamepad2 size={15} /> {uiText("Games & Languages")}</span>
         {status?.capture.active_game && <small>{uiText("Capturing")} {GAME_NAMES[status.capture.active_game]}</small>}
-        <div className="reading-controls" aria-label={uiText("Chinese reading options")}>
+        <div className="reading-controls" aria-label={uiText("Reading options")}>
         <label>{uiText("Reading")}<select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
           setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
