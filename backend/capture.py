@@ -454,6 +454,15 @@ class CaptureService:
                 if self._mapped_voice(item) or (item.game == "zzz" and is_comic_text_id(item.text_id))
             ]
 
+        # During ordinary gameplay this wide region also contains HUD labels.
+        # A short exact word such as INFO is not evidence of cinematic speech.
+        # Filmstrip comics retain short bubbles; the narrow subtitle scan below
+        # can still recognize short spoken lines in its dedicated region.
+        if not self._visual_novel_layout:
+            cinematic_matches = [item for item in cinematic_matches
+                if len(normalize_subtitle(item.source_ocr)) >=
+                (6 if re.search(r"[㐀-鿿]", item.source_ocr) else 12)]
+
         dialogue_match = (
             None
             if excluded_screen
