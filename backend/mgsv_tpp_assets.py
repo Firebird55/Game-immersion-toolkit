@@ -14,7 +14,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 
 GAME = 'mgsvtpp'
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = ('en', 'ja')
 TEXT_LOCALES = ('ja', 'en', 'fr', 'it', 'de', 'es-419', 'pt-BR', 'ru')
 TEXT_NAMES = dict(zip(TEXT_LOCALES, ('Jpn', 'Eng', 'Fre', 'Ita', 'Ger', 'Spa', 'Por', 'Rus')))
@@ -272,7 +272,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                     'source_locale': source_locale, 'source_text': text, 'texts': {source_locale: text},
                     'ocr_texts': {source_locale: pages}, 'ocr_english': pages if source_locale == 'en' else None,
                     'audio_locale': source_locale, 'audio': None, 'voice_status': 'unavailable',
-                    'dialogue_kind': kind, 'channels': categories})
+                    'dialogue_kind': kind})
             continue
         texts = {locale: table[key]['text'] for locale, table in tables.items()
                  if key in table and (locale, key) not in conflicts}
@@ -302,7 +302,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                     'chinese': '', 'source_locale': source_locale, 'source_text': page, 'texts': localized,
                     'ocr_texts': {locale: [text] for locale, text in localized.items()}, 'ocr_english': [localized['en']] if 'en' in localized else None,
                     'audio_locale': source_locale, 'audio': original, 'voice_status': 'voiced' if audio else 'unavailable',
-                    'dialogue_kind': category + '_full_track' if full_track else category, 'channels': categories})
+                    'dialogue_kind': category + '_full_track' if full_track else category})
     for key, text in sorted(localization[source_locale].items()):
         text = display_text(text)
         if text:

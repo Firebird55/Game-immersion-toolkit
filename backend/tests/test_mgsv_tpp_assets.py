@@ -1,6 +1,7 @@
 """Copyright-free Fox binary fixtures exercise the actual archive/media path."""
 from pathlib import Path
 import hashlib
+import json
 import struct
 import zlib
 
@@ -8,6 +9,7 @@ import pytest
 
 from backend import fox_dialogue as fox, mgsv_tpp_assets as assets
 from backend.local_game import LocalDialogue
+from backend.multilingual_index import MultilingualTextIndex, DEFAULT_CAPTURE_CHANNELS
 from backend.preparation_errors import PreparationFailure
 
 
@@ -131,11 +133,27 @@ def test_official_editions_use_the_same_native_archive_contract(tmp_path, locale
     assert all(LocalDialogue(**item).voice_status != 'unvoiced' for item in result['records'])
     assert assets.extract_voice(tmp_path, row['audio'], Path(), tmp_path) == wem()
     assert result['narrative_inventory']['voice_counts'] == {'voiced': 2, 'unavailable': 1}
+    assert_capture_routes(tmp_path, result)
     other = 'ja' if locale == 'en' else 'en'
     assert len({entry['texts'][other] for entry in voiced}) == 2
     for corrupted in ({'locale_name': 'ja' if locale == 'en' else 'en'}, {'subtitle_label': 'wrong'}, {'archive': '../escape.dat'}):
         with pytest.raises(PreparationFailure):
             assets.extract_voice(tmp_path, {**row['audio'], **corrupted}, Path(), tmp_path)
+
+
+def assert_capture_routes(directory, payload):
+    (directory / 'textmap.json').write_text(json.dumps(payload), encoding='utf-8')
+    index = MultilingualTextIndex('mgsvtpp', directory)
+    assert index.ready, index.message
+    for row in payload['records']:
+        if not row['audio']:
+            continue
+        observed = [row['source_text']]
+        hit = index.match_lines(observed, exact_only=True)
+        assert hit and hit.text_id == row['text_id'], row['dialogue_kind']
+        assert any(hit.text_id == row['text_id'] for hit in index.match_full_frame_voice_lines(observed))
+        assert all(index.is_capture_text(row['text_id'], row['english'], channel)
+                   for channel in DEFAULT_CAPTURE_CHANNELS)
 
 
 def test_japanese_text_does_not_masquerade_as_japanese_audio(tmp_path):
@@ -315,6 +333,7 @@ def test_cassette_and_cinematic_performances_require_shared_exact_ids(tmp_path):
     files[fox.path_hash('/Assets/tpp/sound/external/tape/tp_c_00000_01.wem')] = wem('unrelated_tape_label')
     qar(tmp_path, files)
     result = assets.index_language(tmp_path, tmp_path, 'en', [])
+    assert_capture_routes(tmp_path, result)
     for kind, label in [('cinematic', 'unrelated_mix_label'), ('cassette_tape', 'unrelated_tape_label')]:
         row = next(x for x in result['records'] if x['audio'] and x['dialogue_kind'] == kind + '_full_track')
         assert assets.extract_voice(tmp_path, row['audio'], Path(), tmp_path) == wem(label)

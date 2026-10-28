@@ -29,6 +29,18 @@ def dialogue_voice_status(audio, status=None):
     return status
 
 
+DEFAULT_CAPTURE_CHANNELS = frozenset(('dialogue', 'tip', 'cinematic', 'gameplay'))
+
+
+def dialogue_capture_channels(channels=None):
+    if channels is None:
+        return DEFAULT_CAPTURE_CHANNELS
+    if (not isinstance(channels, list)
+            or any(not isinstance(channel, str) or channel not in DEFAULT_CAPTURE_CHANNELS for channel in channels)):
+        raise ValueError('Invalid dialogue capture channels')
+    return frozenset(channels)
+
+
 @dataclass(frozen=True)
 class LocalDialogue:
     text_id: str
@@ -57,6 +69,7 @@ class LocalDialogue:
 
     def __post_init__(self):
         status = dialogue_voice_status(self.audio, self.voice_status)
+        dialogue_capture_channels(self.channels)
         if self.dialogue_kind is not None and (not isinstance(self.dialogue_kind, str) or not self.dialogue_kind.strip()):
             raise ValueError('Invalid dialogue category')
         object.__setattr__(self, 'voice_status', status)

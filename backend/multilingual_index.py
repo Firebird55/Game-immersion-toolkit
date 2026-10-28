@@ -10,11 +10,8 @@ from rapidfuzz import fuzz, process
 
 from .languages import audio_locale, normalize_text, resolve_locale, study_language
 from .models import TextMatch
-from .local_game import dialogue_voice_status
+from .local_game import dialogue_voice_status, dialogue_capture_channels, DEFAULT_CAPTURE_CHANNELS
 from .textmaps import display_text
-
-
-DEFAULT_CAPTURE_CHANNELS = frozenset(('dialogue', 'tip', 'cinematic', 'gameplay'))
 
 
 def candidates(lines):
@@ -83,7 +80,8 @@ class MultilingualTextIndex:
                 counts[row['voice_status']] += 1
                 # Historical membership includes every official record, even
                 # rows excluded from OCR matching because they have no audio.
-                channels = frozenset(row.get('channels', DEFAULT_CAPTURE_CHANNELS))
+                channels = dialogue_capture_channels(row.get('channels'))
+                row['channels'] = sorted(channels)
                 for identity in [row['text_id'], *(row.get('member_text_ids') or [])]:
                     previous = capture_channels.get(identity)
                     capture_channels[identity] = channels if previous is None else previous | channels

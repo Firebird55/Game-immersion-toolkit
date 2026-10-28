@@ -97,6 +97,7 @@ def test_status_refresh_reuses_summary_but_observes_replaced_table(tmp_path, mon
 def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from backend import language_worker
+    from backend.multilingual_index import MultilingualTextIndex
     payload = {'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': [
         {'text_id': 'beyond:fixture', 'english': 'Synthetic test line', 'chinese': '',
          'source_locale': 'nl', 'source_text': 'Synthetic test line', 'texts': {'nl': 'Synthetic test line'}, 'audio_locale': 'nl',
@@ -121,6 +122,17 @@ def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path
         with pytest.raises(ValueError, match='game study text'):
             language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
         assert output.read_bytes() == before
+        payload['records'][0] = original
+
+    for channels in (['radio'], ['dialogue', 'cassette_tape'], 'dialogue', [1], {'dialogue': True}):
+        original = payload['records'][0]
+        payload['records'][0] = {**original, 'channels': channels}
+        with pytest.raises(ValueError, match='capture channels'):
+            language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
+        assert output.read_bytes() == before, 'Invalid routing must not replace a prepared table'
+        (tmp_path / 'textmap.json').write_text(json.dumps(payload), encoding='utf-8')
+        rejected = MultilingualTextIndex('beyond', tmp_path)
+        assert not rejected.ready and 'capture channels' in rejected.message
         payload['records'][0] = original
 
 
