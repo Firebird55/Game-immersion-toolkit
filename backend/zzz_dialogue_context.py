@@ -97,6 +97,18 @@ class ZzzDialogueContext:
         pairs = caption_pairs(lines)
         matches = {}
         with index.lock:
+            if default is not None and default.kind == 'fuzzy':
+                # A nameplate must not become spoken text: "Belle / So what
+                # do we do now?" is not Wise saying "Belle... what do we do
+                # now?". Noise in the body must not enable that fallback.
+                labels = {normalize_text(name) for name, _ in pairs}
+                labels &= {'wise', 'belle', '哲', '铃', '鈴'}
+                if labels:
+                    authored = next((row for locale, text in default.texts.items()
+                        for row in index._lookup.get(locale, {}).get(normalize_text(text, locale), ())
+                        if row['text_id'] == default.text_id), None)
+                    if authored is not None and not labels.intersection(speaker_names(authored)):
+                        default = None
             for speaker, caption in pairs:
                 speaker_key = normalize_text(speaker)
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', caption) else 12

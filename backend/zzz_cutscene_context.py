@@ -87,12 +87,13 @@ class ZzzCutsceneContext:
 
     def match(self, index, groups, defaults, *, now, stable_frames, configured):
         if getattr(index, 'game', None) != 'zzz' or not hasattr(index, '_lookup'):
-            return defaults
+            return [hit for hit in defaults if cutscene_scene(hit.text_id)]
         if self.scene and now - self.seen_at > 30:
             self.clear_scene()
         proxy = configured if configured in {'male', 'female'} else self.proxy
         observations = []
         anchors = []
+        eligible_default_ids = set()
         normal_ids = {hit.text_id for hit in defaults if hit.kind == 'exact'}
         with index.lock:
             for caption in groups:
@@ -111,6 +112,7 @@ class ZzzCutsceneContext:
                     selected = [row for row in rows.values() if not protagonist(row)
                                 or protagonist(row) == (configured if configured in {'male', 'female'}
                                                         else independent_player or proxy)]
+                    eligible_default_ids.update(row['text_id'] for row in selected)
                     minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', caption) else 12
                     unique = len({performance(row) for row in selected}) == 1
                     veto = key in getattr(index, '_full_frame_veto', {}).get(locale, set())
@@ -160,4 +162,4 @@ class ZzzCutsceneContext:
                 return [hit]
         # Preserve existing long, globally unambiguous movie matches while the
         # first scene anchor stabilizes. Gameplay length filtering still applies.
-        return [hit for hit in defaults if cutscene_scene(hit.text_id) and not self.scene]
+        return [hit for hit in defaults if hit.text_id in eligible_default_ids and not self.scene]
