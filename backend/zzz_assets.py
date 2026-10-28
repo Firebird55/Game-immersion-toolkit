@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -257,8 +258,15 @@ def _tables(directory, revision, locales):
 
 
 def _links(root, directory, revision, progress):
-    project = directory.parent.parent
-    tools = project / 'work/voice-assets'
+    from .bundle_tools import require_source_toolchain
+    from .runtime_bundle import discover_layout
+    from .runtime_paths import voice_work_root
+    require_source_toolchain('ZZZ Node/WASM helper')
+    # The standalone source reader still accepts a legacy project/data/zzz
+    # directory. Frozen execution cannot reach this compatibility bridge.
+    project = (discover_layout().legacy_project_root if os.environ.get('PROXY_TRANSCRIPT_PROJECT_ROOT')
+               else directory.parent.parent)
+    tools = voice_work_root(project)
     reader = tools / 'galgame-perform.ts'
     if not reader.is_file() or not shutil.which('node'):
         raise ValueError('Install the ZZZ scene tools in Setup before preparing a language.')

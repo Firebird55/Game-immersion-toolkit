@@ -8,6 +8,10 @@ import shutil
 
 @lru_cache(maxsize=1)
 def ffmpeg_executable() -> str | None:
+    from .runtime_bundle import discover_layout
+    if discover_layout().mode == 'bundle':
+        # No PATH/developer-wheel binary can mask the unresolved F1 gate.
+        return None
     system = shutil.which("ffmpeg")
     if system:
         return system

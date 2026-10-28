@@ -57,6 +57,8 @@ def dotnet_sdk() -> Path | None:
 
 
 def ensure_extractor(directory: Path) -> Path:
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain('NTE prebuilt reader')
     sdk = dotnet_sdk()
     if sdk is None:
         raise ValueError("NTE needs the .NET 10 SDK. Install it from https://dotnet.microsoft.com/download/dotnet/10.0, then prepare tools again.")
@@ -149,6 +151,8 @@ def _archive_metadata(install: Path, stamp: str) -> str:
 
 
 def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None) -> None:
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain('NTE prebuilt reader')
     install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the game installation")

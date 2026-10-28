@@ -1,0 +1,144 @@
+# R19 — Windows runtime-bundle prototype
+
+Status: **active implementation; full R19 acceptance incomplete**. This task
+starts from R18 commit `8369c9534762cd2232fb44424772bd6b5a72b6d2` on
+`codex/r19-runtime-bundle`. The dependency remains [PR #59](https://github.com/Firebird55/Game-immersion-toolkit/pull/59).
+It is not changed or merged by this work. The actual target is
+`Firebird55/Game-immersion-toolkit:main`; freshly fetched `upstream/main` was
+`ba0b7c34c358f1664220674e5ff8bb7f30502e5f` on 2026-10-28.
+
+This implements only the source/frozen host boundary needed for the
+[R18 acceptance plan](r18-runtime-inventory.md#r19-acceptance-plan). It retains
+the Python runtime, normal browser, existing public origins and all 25 active
+game/language choices. R14 onboarding, an OCR rewrite, R20 installation and live
+data migration are outside this task. No release, tag or Pages publication is
+authorized. Engineering evidence below distinguishes source contracts,
+synthetic probes, a diagnostic executable and the accepted product candidate.
+
+## R02b method fixed before optimization
+
+No optimization or speed/size claim is proposed. Native measurements require
+Windows 11 25H2 x64 and the same machine, power mode, selected browser/profile,
+Snipping Tool build, selected game/locale, model and tool bytes for both source
+and candidate. Record OS edition/build, architecture, CPU/GPU/RAM, storage,
+display/DPI, runtime/CRT versions and a random private installation identity.
+Do not publish usernames, absolute paths, account or game-derived contents.
+
+Freeze source commit, requirements/npm locks, packaging-input receipt, candidate
+SHA-256, tool/model/fixture digests and selected cases before recording timings.
+Use authored Chinese/non-Chinese captions, synthetic catalogs/owned audio and
+protected **TEST** credentials. Installed-game probes are separately private;
+their absence cannot be replaced by a synthetic pass.
+
+Measure one cold start after reboot and five warm starts for each adapter.
+Start the clock immediately before process creation; stop only when both the
+frontend and `/api/runtime/ready` (including OCR and the preselected prepared
+language) succeed, followed by a usable browser page. Record each sample,
+median/range, time to first usable caption, process-tree peak private bytes/RSS,
+CPU time and 60-second idle CPU. Record extracted/compressed size and peak disk
+usage during preparation and failed update. Account login/network time is a
+separate observation; never silently omit a timeout or failure.
+
+Preselected correctness criteria: exact retained origins and local-access
+policy, unchanged synthetic transcript/favorite/locale/export identities, zero
+competing capture owners, no app-tree writes and no user development-tool
+dependency. Preselected recovery budget: a 30-second bounded quiesce attempt
+must either confirm all owned processes stopped or refuse takeover and retain
+recoverable state. A timeout is a failed recovery probe. There is no performance
+pass threshold until these initial source measurements exist; report numerical
+comparisons without retrospectively selecting favorable samples. Retain all
+failed starts in the denominator.
+
+The current development host is macOS arm64 with Node 22.22.2 (package-engine
+supported; CI recommends 24). It cannot establish the Windows baseline, native
+OCR/capture/DPI, DPAPI or installed-game playback. Those measurements remain
+**unavailable**, not zero and not a pass.
+
+## Ownership and evidence boundary
+
+Exactly two GPT-6.1 Sol agents with xhigh reasoning implement nonoverlapping
+runtime/packaging and host/frontend/recovery lanes. The integrator owns shared
+composition, consumer adapters, Git and combined checks. Each agent reviews the
+other's actual changes before integration is committed. No nested agents are
+used. The [host experiment](r19-host-experiment.md) records static-host and
+synthetic recovery results. This task keeps the source Vinext host until an
+equivalent replacement is proved.
+
+The copy prototype accepts explicitly marked synthetic fixtures only. It must
+retain originals, audio aliases, reading grammar choices, export ledgers,
+previous libraries and encrypted fallback bytes; named-store repair, same-user
+DPAPI, browser IndexedDB/OPFS and actual launch-pointer recovery remain distinct
+gates. Preparation/readiness is not a global writer barrier. The current nested
+PowerShell updater is never run under a lifetime guard or given a bypass flag.
+
+## Remaining acceptance gates
+
+All [R18 component gates](r18-runtime-components.md) remain binding for the
+actual shipped bytes. Exact maintained CPython supplier, Windows wheels and
+native closure, models/fonts/WASM, FFmpeg configuration/source obligations,
+vgmstream codec closure, GPL integrations, PRAGMATA REE rights, Oodle and
+game-derived constants require evidence before inclusion. Snipping Tool's OCR
+DLL/model files and Death Stranding's install-local DLL are never collected.
+Persona's pinned character metadata remains separately acquired private state.
+
+A diagnostic subset or core startup does not pass the all-toolchains gate.
+Every active game retains its R18 per-game row, including Half-Life's current
+unvoiced-only capture boundary and the separate global setup/audio conditions.
+Unprobed installed packs, codecs, helpers and unknown bindings remain explicit.
+
+## Integration checks and review
+
+The two implementers reviewed each other's actual files and check outputs. Fixed
+findings included a disabled-profile bootstrap bypass, raw symlink/reparse roots,
+settings overlapping disposable storage, build-doctor CWD dependence, expired
+copy barriers resuming writers, incomplete quiesce not persisting recovery,
+linked checkpoints and unexpected resumed snapshot files. Source-only legacy
+root arguments remain authoritative: the source adapter rejects new nondefault
+frozen-root environment overrides rather than splitting export/index state.
+The standalone ZZZ source reader retains its legacy-directory bridge; frozen
+execution is gated before reaching it. Optional ASR keeps a separate process.
+
+On macOS with task-local Python 3.12.13, pinned pytest 9.1.1 and the applicable
+platform-independent lock packages:
+
+| Command / scope | Outcome and evidence limit |
+| --- | --- |
+| `npm run dev:doctor -- --base upstream/main` | **Unavailable (2)**: Node/npm metadata, Python 3.12, generated assets and installed browser binaries observed; full product Python distribution metadata and Windows host unavailable. Node 22 differs from recommended CI 24. |
+| Focused runtime/composition/host/migration tests | **57 passed**, independently repeated after review; about 0.61 seconds. Synthetic/source contracts only. |
+| Integrated affected Python selection (25 test modules) | Final run: **243 passed, one Windows-only skip**, about 2.94 seconds. An initial failure exposed a Windows-only constant used by a mocked agent worker; `getattr(..., 0)` preserves Windows flags and allows the synthetic test. Its eight-test module and the integrated selection were rechecked. Native startup flags remain unavailable. |
+| `npm run typecheck`; `npm test` | Typecheck passed; Node tests: 260 passed, one skipped, zero failed, about 14.85 seconds. This does not establish the full aggregate or browser scenarios. |
+| `npm run build` | Existing Vinext build passed. The static experiment rejects client-only desktop hosting; it does not prove static hydration or storage equivalence. |
+| Existing router HTTP/WS tests | Two passed with synthetic loopback services. Initial sandbox listener denial was resolved by running the same owned-listener probe with the required host permission. |
+| `npm run docs:check`; `npm run audit:public`; `git diff --check` | Passed. New docs were staged before the final link check. Public scan covered the sanitized history and working source. |
+| `npm run check:changed -- --base upstream/main` | **Failed/incomplete**, not a full pass. Evidence `a446cfba-de08-4526-a734-b9016b8621f3`: resolved base `ba0b7c3`, available unchanged source snapshot, failed `npm:check` because `pyaudiowpatch` is unavailable during Python collection. Browser/Windows/docs/audit commands later in that aggregate are **not run**; separate successful checks above do not rewrite its status. |
+
+The standard aggregate record and additional private probe reports live under
+ignored `output/checks/`. The record identifies the precommit source snapshot;
+the final Windows-constant correction is separately rechecked. Full product
+browser/package checks belong to hosted CI, while native Windows 11 25H2,
+protected TEST credentials and real game/playback evidence remain independent.
+
+The quarantined Windows diagnostic workflow builds from an observed official
+3.12.10 installer and exact recorded packaging wheels. That old installer is
+deliberately **not** an accepted maintained-runtime supplier. It validates its
+publisher signature, relocates the onedir executable to a Unicode/spaces path,
+removes developer PATH entries, observes candidate/data writes and uploads only
+sanitized metadata. It does not upload binaries, private receipts or caches.
+Windows Server bootloader evidence cannot replace Windows 11 acceptance.
+
+## Continuation and rollback
+
+Run the new diagnostic workflow on this branch, inspect actual job and metadata
+results, then keep the full runtime profile disabled until the required
+helper/host artifacts and exact-output rights/native evidence exist. A static
+prerender/export implementation or an explicitly reviewed app-local server
+runtime is required to remove end-user frontend tooling. Prebuild NTE/Endfield
+helpers only with complete runtime/NuGet/source evidence; keep PRAGMATA/Oodle/GPL
+and metadata rights gates explicit. Execute every toolchain's R18 functional
+protocol against the same accepted extracted artifact, then the native and R02b
+measurements above. Implement and prove the supervising global writer barrier,
+continuous legacy exclusion, owner-aware updates and launch-pointer recovery
+before any live migration activation.
+
+The branch is reversible independently of R18. No live user data, credentials,
+source installation, R18 branch or dependency PR is changed by these probes.

@@ -20,6 +20,7 @@ from .agent_fingerprint import HOP, RATE, landmarks, mono_audio, waveform_score
 from .agent_store import AgentVoiceStore
 from .voice_assets import VoiceEntry
 from .agent_library import atomic_json
+from .runtime_bundle import discover_layout
 
 
 # Some playable variants do not expose a character voice-bank name in the
@@ -269,8 +270,12 @@ class AgentRecognizer:
         # sherpa and FireRedVAD ship incompatible ONNX Runtime DLL versions on
         # Windows. Never import sherpa into the capture process: its native
         # failure cannot be caught by Python and would stop all story capture.
-        model = next((self.folder / 'model').rglob('model.int8.onnx'))
-        with tempfile.TemporaryDirectory(prefix='zzz-transcribe-') as scratch:
+        model = next((self.folder / 'model').rglob('model.int8.onnx'), None)
+        layout = discover_layout()
+        if model is None or (layout.mode == 'bundle' and not (model.parent / 'tokens.txt').is_file()):
+            raise RuntimeError('Optional local ASR model or tokens are missing; prepare the separately licensed agent model.')
+        command = layout.child_command('asr', [str(model.resolve())])
+        with tempfile.TemporaryDirectory(prefix='zzz-transcribe-', dir=self.folder) as scratch:
             source = Path(scratch) / 'voice.wav'
             with wave.open(str(source), 'wb') as output:
                 output.setnchannels(1)
@@ -278,9 +283,9 @@ class AgentRecognizer:
                 output.setframerate(rate)
                 output.writeframes((np.clip(reference,-1,1)*32767).astype('<i2').tobytes())
             result = subprocess.run(
-                [sys.executable, '-m', 'backend.agent_transcribe', str(model), str(source)],
-                cwd=Path(__file__).resolve().parents[1], capture_output=True,
-                text=True, encoding='utf-8', timeout=60, creationflags=subprocess.CREATE_NO_WINDOW)
+                [*command, str(source.resolve())],
+                cwd=layout.application_root, env=layout.child_environment('asr'), capture_output=True,
+                text=True, encoding='utf-8', timeout=60, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             if result.returncode:
                 raise RuntimeError(f'Local transcription failed ({result.returncode}); capture is still running')
             return json.loads(result.stdout)['text']

@@ -1,6 +1,8 @@
 """First-run setup and local maintenance. No credentials or game assets leave the PC."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
+from .runtime_bundle import child_command, discover_layout, resource_path
 import json
 import os
 from pathlib import Path
@@ -88,7 +90,9 @@ class InstallationService:
         self.root, self.settings = root, settings
         self.game_state, self.refresh_game = game_state, refresh
         self.account_configured, self.install_lookup = account_configured, install_lookup
-        self.path = Path(os.environ.get("LOCALAPPDATA", root / "data")) / "Proxy Transcript/setup.json"
+        layout = discover_layout()
+        self.path = (layout.settings_root / 'setup.json' if layout.mode == 'bundle' else
+                     Path(os.environ.get("LOCALAPPDATA", runtime_data_root(root))) / "Proxy Transcript/setup.json")
         self._lock = threading.RLock()
         self._jobs: dict[str, dict] = {}
         self._tool_thread: threading.Thread | None = None
@@ -147,7 +151,7 @@ class InstallationService:
         return {"completed": self.completed, "games": games, "requirements": requirements, "jobs": jobs,
                 "native": native, "free_gb": free_gb, "lexirise_configured": self.account_configured(),
                 "auto_start": self.settings.get().auto_start if self.completed else False,
-                "version": json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text(encoding="utf-8"))["version"],
+                "version": json.loads(resource_path('package.json').read_text(encoding="utf-8"))["version"],
                 "capture_check": capture_check}
 
     def complete(self, auto_start: bool) -> None:
@@ -200,19 +204,21 @@ class InstallationService:
             if any(process.poll() is None for process in self._native.values()):
                 return False
             before = load_paths()
-            source = Path(__file__).resolve().parents[1]
+            layout = discover_layout()
+            source = layout.resource_root
             if kind == "folders":
                 args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                        str(source / "scripts/select-game-folders.ps1")]
+                        str(resource_path('scripts/select-game-folders.ps1'))]
                 flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             elif kind == "lexirise":
                 # The hidden-input prompt owns its console. No key is sent to the browser or command line.
-                args = [sys.executable, "-m", "scripts.set_lexirise_key", "--account"]
+                args = child_command('account-key', ['--account'])
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
             else:
-                args = [sys.executable, str(source / "scripts/check-capture-readiness.py"), "--pause"]
+                args = child_command('capture-readiness', ['--pause'])
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-            process = subprocess.Popen(args, cwd=source, creationflags=flags)
+            environment = {'env': layout.child_environment()} if layout.mode == 'bundle' else {}
+            process = subprocess.Popen(args, cwd=source, creationflags=flags, **environment)
             self._native[kind] = process
             threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True).start()
             return True
