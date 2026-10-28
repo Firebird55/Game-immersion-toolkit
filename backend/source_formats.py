@@ -156,7 +156,7 @@ def keyvalues(data, *, maximum=32 * 1024 * 1024):
                 raise invalid('Valve KeyValues key has no value.')
             enabled = True
             if cursor < len(tokens) and not tokens[cursor][1] and tokens[cursor][0].startswith('['):
-                condition = re.fullmatch(r'\[(!)?\$(WIN32|WINDOWS|PC|X360|PS3|LINUX|OSX|POSIX)\]', tokens[cursor][0], re.I)
+                condition = re.fullmatch(r'\[(!)?\$(WIN32|WINDOWS|PC|X360|PS3|GAMECONSOLE|LINUX|OSX|POSIX)\]', tokens[cursor][0], re.I)
                 if not condition:
                     raise invalid('Unsupported Valve platform condition.')
                 enabled = condition[2].upper() in {'WIN32', 'WINDOWS', 'PC'}

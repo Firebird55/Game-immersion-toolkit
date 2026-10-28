@@ -54,12 +54,13 @@ def test_keyvalues_retains_authored_variants_and_windows_conditions():
     data = '''// synthetic sound event
     "Dialogue.Line" { "rndwave" { "wave" "voice/a.wav" "wave" "voice/b.wav" }
         "caption" "a \\"quote\\" and {brace}" "platform" "windows" [$WIN32]
-        "platform" "console" [$X360] }
+        "platform" "console" [$X360] "manifest" "desktop" [!$GAMECONSOLE]
+        "manifest" "console" [$GAMECONSOLE] }
     '''.encode()
     rows = keyvalues(data)
     assert rows[0][1][0] == ('rndwave', [('wave', 'voice/a.wav'), ('wave', 'voice/b.wav')])
     assert rows[0][1][1] == ('caption', 'a "quote" and {brace}')
-    assert rows[0][1][2:] == [('platform', 'windows')]
+    assert rows[0][1][2:] == [('platform', 'windows'), ('manifest', 'desktop')]
     assert keyvalues('"tokens" { "test" "字幕" }'.encode('utf-16')) == [('tokens', [('test', '字幕')])]
     for invalid in (b'"a" {', b'"a" }', b'"a" "b" [$NEWPLATFORM]', b'"unterminated'):
         with pytest.raises(PreparationFailure):
