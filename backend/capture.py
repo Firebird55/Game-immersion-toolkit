@@ -543,11 +543,11 @@ class CaptureService:
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
-            fresh_match = self._is_fresh_match(match_channel, key, monotonic_now)
+            self._observe_match_start(match_channel, key, monotonic_now)
             redundant_visible_match = self._is_redundant_visible_match(
                 match_channel, match.english, raw_text
             )
-            if fresh_match and (
+            if (
                 self._tracker.observe(key)
                 and not redundant_visible_match
                 and self._can_emit(f"{match_channel}\0{key}", monotonic_now)
@@ -597,15 +597,13 @@ class CaptureService:
                 else ""
             )
             self._observe_visible_matches("tip", [tip_match.text_id] if tip_match else [], monotonic_now)
-            fresh_tip = bool(tip_key) and self._is_fresh_match(
-                "tip", tip_key, monotonic_now
-            )
+            if tip_key:
+                self._observe_match_start("tip", tip_key, monotonic_now)
             if tip_match is None:
                 self._tip_tracker.observe(None if not tip_raw_text else f"unmatched:{tip_raw_text.casefold()}")
             else:
                 if (
-                    fresh_tip
-                    and self._tip_tracker.observe(tip_key)
+                    self._tip_tracker.observe(tip_key)
                     and self._can_emit(tip_key, monotonic_now)
                 ):
                     line, _ = self.transcript.add_or_upgrade_recent(
@@ -819,11 +817,10 @@ class CaptureService:
             self._update_snapshot(match_reason='captured' if emitted else 'confirming_or_already_captured')
         else:
             key = f"{game}\0{match.text_id}\0{match.english}"
-            fresh = self._is_fresh_match(game, key, monotonic_now)
+            self._observe_match_start(game, key, monotonic_now)
             # Two equal scans avoid committing typewriter/transition fragments.
             if (
-                fresh
-                and self._tracker.observe(key)
+                self._tracker.observe(key)
                 and self._can_emit(key, monotonic_now)
             ):
                 line, _ = self.transcript.add_or_upgrade_recent(
@@ -923,8 +920,8 @@ class CaptureService:
             tracker = self._quantic_trackers.setdefault(hit.text_id, StableMatchTracker())
             tracker.configure(self.settings.get().stable_frames)
             channel, key = game + ':' + hit.text_id, f'{game}\0{hit.text_id}\0{hit.english}'
-            fresh = self._is_fresh_match(channel, key, now)
-            if fresh and tracker.observe(key) and self._can_emit(key, now):
+            self._observe_match_start(channel, key, now)
+            if tracker.observe(key) and self._can_emit(key, now):
                 line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=captured_at, channel='dialogue')
                 if line is not None:
                     emitted.append(line)
@@ -1049,10 +1046,13 @@ class CaptureService:
             key = f"{channel}\0{match.text_id}\0{match.english}"
             active_keys.add(key)
             previous = self._local_chatter_trackers.get(key)
-            tracker = previous[0] if previous and monotonic_now - previous[1] <= 3 else StableMatchTracker()
+            # Missing observations remove this tracker below. Slow consecutive
+            # scans must not discard the first confirmation frame.
+            tracker = previous[0] if previous else StableMatchTracker()
             tracker.configure(settings.stable_frames)
             self._local_chatter_trackers[key] = (tracker, monotonic_now)
-            if self._is_fresh_match(key, key, monotonic_now) and tracker.observe(key) and self._can_emit(key, monotonic_now):
+            self._observe_match_start(key, key, monotonic_now)
+            if tracker.observe(key) and self._can_emit(key, monotonic_now):
                 line, _ = self.transcript.add_or_upgrade_recent(match, self.session_id, created_at=now,
                                                                channel="cinematic" if cinematic else "tip" if game == "wuwa" else "gameplay")
                 if line is not None:
@@ -1517,14 +1517,15 @@ class CaptureService:
             self._last_visible_match_by_channel[channel] = matched
         return redundant
 
-    def _is_fresh_match(
-        self, channel: str, key: str, now: float, max_age: float = 3.0
-    ) -> bool:
+    def _observe_match_start(self, channel: str, key: str, now: float) -> None:
+        # First visibility is audio timing metadata, not a deadline for OCR
+        # confirmation. Every matching scan must reach the stability tracker,
+        # even after a slow scan or an initially unstable typewriter caption.
+        # Tracker emission state, cross-region cooldowns and the transcript
+        # store remain responsible for suppressing duplicates.
         previous = self._visible_match_started.get(channel)
         if previous is None or previous[0] != key:
             self._visible_match_started[channel] = (key, now)
-            return True
-        return now - previous[1] <= max_age
 
     @staticmethod
     def _same_cinematic_panel(previous: str, current: str) -> bool:
