@@ -156,6 +156,7 @@ def test_unvoiced_text_cannot_disambiguate_a_simultaneous_voice(tmp_path):
                   texts={'en': text}, audio_locale='en')
     value = index(tmp_path, 'en', [dict(common, text_id='cyberpunk:spoken', audio={'file': 'one.wem'}),
                                   dict(common, text_id='cyberpunk:silent', audio=None, voice_status='unvoiced')])
-    assert value.match_text(text).text_id == 'cyberpunk:spoken'
+    # The toggle controls eligibility, not evidence that a choice was spoken.
+    assert value.match_text(text) is None
     value.capture_unvoiced = True
     assert value.match_text(text) is None
