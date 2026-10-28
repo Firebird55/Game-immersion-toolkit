@@ -111,6 +111,63 @@ Native crash/power-loss durability remains unverified. Launcher/shortcut status
 stays `unchanged-unverified-R20`; these checkpoints do not implement R20 install
 or installed Start-entry rollback. No production activation consumes them.
 
+## Explicit static desktop adapter
+
+The earlier `dist/client` copy failure remains valid: those bytes have no desktop
+entry document and require the source SSR server. A new opt-in adapter instead
+builds `desktop/index.html` and `desktop/main.tsx` with Vite, reusing `app/page.tsx`,
+the product components and shared styles. Both source and static adapters use the
+same locally pinned Geist fonts, with original OFL bytes and source/blob/SHA-256
+provenance under `desktop/fonts`. No Next font fetch is required at runtime.
+
+`npm run desktop:build` emits only reviewed static assets to ignored
+`output/desktop-frontend`. Its closed manifest binds exact files, MIME types,
+hashes, sizes, version, source/lock fingerprints, emitted dependency versions and
+notices. Before copying the source client's `_next/static` compatibility files,
+the builder verifies a canonical source build against unchanged inputs and actual
+cached output hashes. It never copies the SSR/server tree, maps or developer paths.
+
+The stdlib `backend.desktop_frontend` host accepts that manifest and serves only
+its public files on loopback. Use `python -B -m backend.desktop_frontend --root
+<absolute-built-tree> --port 3000` for a source experiment. The public origin stays
+`http://127.0.0.1:3000`; API/WS remain directly on `127.0.0.1:8766`. The host reuses
+the exact raw Host/Origin policy, verifies bytes before serving them, applies CSP
+and MIME/nosniff headers, rejects unknown/API/private routes, and exposes the
+existing `/mobile-capture/` entry. Old hashed chunks can be retained by an explicit
+source experiment; mutable old mobile URLs cannot override the current build.
+Frozen retained-build selection remains disabled pending update supervision.
+
+This is not a default-host switch or a supervised production host. It does not
+open a new browser profile, move browser data, proxy the API or activate migration.
+The comparison harness uses an authored temporary persistent profile, swaps source
+and static hosts at the same origin in the same open browser, restarts the browser
+and checks localStorage, IndexedDB and OPFS. All API/account writes are mocked. It
+also checks both reading modes, lookup portal, settings/setup, WebSocket reconnect,
+failure preservation, local fonts, retained chunks, and actual built worker/WASM
+OCR assets. Chromium/Firefox, 1280px/100% and 800px/125% cases use independent layout
+bounds and fixed pixel limits (channel delta >16: at most 1.8% changed pixels;
+mean channel delta at most 1.5). A source footer overflow found at 125% was corrected
+by wrapping its controls; the comparison limits were not relaxed.
+
+The Windows `frontend-experiment` profile collects only that frontend child and
+the manifest-bound tree. Its hosted probe removes developer PATH, relocates the
+executable, checks actual served hashes/MIME and confirms no application/data writes.
+It retains observed, unaccepted Python supplier and exact-output rights gates.
+No API/capture/update child, installer, release or Pages artifact is enabled.
+
+The actual macOS comparison passed with Chromium **156.0.8078.4** and Firefox
+**157.0**, Node **22.22.2**, Playwright **1.64.1**, build
+`3332793ef3e6f75b0ff0039d4d9df8c3082f9a4cd086d2cc10d861ed259ad551`.
+Both viewport/zoom screenshots and lookup comparisons had **zero changed pixels**
+and zero mean channel difference. The same-context host swap, browser restart,
+actual localStorage/IndexedDB/OPFS bytes, mobile production link, module worker,
+English OCR using the shipped worker/model/WASM, nine old source chunks and a
+separate authored retained chunk passed. Owned cleanup passed. Ignored metadata:
+`output/checks/r19-frontend-equivalence.json`; authored screenshots stay private.
+The audio-503 probe preserves confirmed text but observes the source adapter's
+existing unhandled native play rejection; it does not claim an audio-error UI fix.
+This precommit source observation does not replace exact-commit hosted acceptance.
+
 ## Executed evidence and limits
 
 On macOS, Python 3.12.13 in the task-local environment and Node 22.22.2 (the
@@ -140,8 +197,8 @@ snapshot files, persistent quiesce-failure blocking and raw fixture-parent links
 The reciprocal runtime review also found and corrected settings inside a
 disposable root and a build-doctor dependency on the caller's working directory.
 
-Still unavailable: static desktop Chromium/Firefox equivalence, an ordinary
-selected-profile reopen, real extension behavior, actual IndexedDB/OPFS continuity,
+Still unavailable after the new synthetic-browser comparison: an ordinary
+real-user selected-profile reopen, real extension behavior,
 same-user Windows protected test credentials, verified global writer shutdown,
 bounded process-tree supervision and guarded source updates. Clean Windows
 artifact, native OCR/capture/DPI, game/toolchain and R02b measurements remain in

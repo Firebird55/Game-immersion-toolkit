@@ -117,6 +117,23 @@ extracted artifact; source unit tests cannot establish frozen behavior.
 
 ## Helpers and remaining closure
 
+An independent `frontend-experiment` profile now includes only
+`backend.desktop_frontend` and the closed static desktop tree. Build the frontend
+with `npm run desktop:build`, then add `--frontend-root output/desktop-frontend` to
+the recorder and use `-FrontendExperiment` instead of `-DiagnosticOnly`. The recorder
+copies the verified tree into a fresh private evidence directory and requires its
+source commit to match. Source paths beneath ignored output are never trusted as
+ordinary runtime resources. The nested and outer manifests bind the same complete
+frontend inventory; no mutable root is prepared at startup.
+
+Run `ProxyTranscriptRuntime.exe --runtime-child frontend -- --port 3000` with the
+explicit synthetic roots above. No Node/npm/Wrangler service is required by that
+child. All application children remain unavailable in this profile. The hosted
+workflow compares both source/static browser adapters, then probes the relocated
+frozen host with developer PATH removed. These probes do not approve the old Python
+supplier, exact collected-file redistribution, Windows 11 native behavior, update
+supervision or the full runtime. Source Vinext remains the default route.
+
 | Helper | Required treatment |
 | --- | --- |
 | Managed `ProxyTranscriptLauncher.exe` | Build/adapt on Windows; retain actual Framework/PowerShell requirements and source-pointer recovery. The prototype does not silently ship the old source launcher. |

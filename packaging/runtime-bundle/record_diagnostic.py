@@ -33,7 +33,7 @@ def wheel_metadata(package):
     return BytesParser().parsebytes(package.read(info[0]))
 
 
-def record(evidence, python_artifact, python_source, build_id, source):
+def record(evidence, python_artifact, python_source, build_id, source, frontend_root=None):
     if sys.platform != 'win32' or platform.architecture()[0] != '64bit':
         raise ClosureError('Observe diagnostic inputs on the Windows x64 build host.')
     archive = evidence / python_artifact
@@ -88,9 +88,24 @@ def record(evidence, python_artifact, python_source, build_id, source):
             'artifact': {'path': wheel.relative_to(evidence).as_posix(), 'sha256': digest(wheel)},
             'licenses': licenses, 'installed_files': files})
     commit = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
-    return {'schema': 'proxy-runtime-build-inputs-v1', 'profile': 'diagnostic', 'source_commit': commit,
+    resources = []
+    if frontend_root is not None:
+        from backend.desktop_frontend import FrontendBuild, MANIFEST
+        frontend = FrontendBuild(frontend_root)
+        if (frontend.value['source_commit'] != commit
+                or frontend.value['version'] != json.loads((source / 'package.json').read_text(encoding='utf-8'))['version']
+                or frontend.value['lock_sha256'] != digest(source / 'package-lock.json')):
+            raise ClosureError('Frontend bytes must come from this exact source commit, package version and lock.')
+        target = evidence / 'desktop'
+        shutil.copytree(frontend.root, target)  # Existing evidence is never replaced.
+        for name in (*frontend.files, MANIFEST):
+            path = target / name
+            resources.append({'path': 'desktop/' + name, 'sha256': digest(path),
+                'version': frontend.build_id, 'source': 'https://github.com/Firebird55/Game-immersion-toolkit/tree/' + commit,
+                'license_expression': 'Observed application/font/dependency notices; exact-output redistribution review pending'})
+    return {'schema': 'proxy-runtime-build-inputs-v1', 'profile': 'frontend-experiment' if frontend_root else 'diagnostic', 'source_commit': commit,
         'build_id': build_id, 'python_executable_sha256': digest(sys.executable), 'components': components,
-        'resources': [], 'gates': {}, 'supplier_acceptance': 'unverified',
+        'resources': resources, 'gates': {}, 'supplier_acceptance': 'unverified',
         'status': 'observed diagnostic input only; full R19 closure and Windows 11 25H2 acceptance incomplete'}
 
 
@@ -102,9 +117,10 @@ def main():
     parser.add_argument('--build-id', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--source', type=Path, default=ROOT)
+    parser.add_argument('--frontend-root', type=Path)
     args = parser.parse_args()
     try:
-        value = record(args.evidence.resolve(), args.python_artifact, args.python_source, args.build_id, args.source.resolve())
+        value = record(args.evidence.resolve(), args.python_artifact, args.python_source, args.build_id, args.source.resolve(), args.frontend_root)
         args.output.write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
     except (ClosureError, OSError, ValueError, metadata.PackageNotFoundError) as error:
         print('Diagnostic input observation blocked: ' + str(error), file=sys.stderr)

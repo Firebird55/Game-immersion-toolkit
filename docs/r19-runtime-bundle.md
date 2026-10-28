@@ -7,7 +7,7 @@ It is not changed or merged by this work. The actual target is
 `Firebird55/Game-immersion-toolkit:main`; freshly fetched `upstream/main` was
 `ba0b7c34c358f1664220674e5ff8bb7f30502e5f` on 2026-10-28.
 
-This implements only the source/frozen host boundary needed for the
+This implements the source/frozen host boundary and an opt-in static frontend experiment needed for the
 [R18 acceptance plan](r18-runtime-inventory.md#r19-acceptance-plan). It retains
 the Python runtime, normal browser, existing public origins and all 25 active
 game/language choices. R14 onboarding, an OCR rewrite, R20 installation and live
@@ -117,6 +117,42 @@ ignored `output/checks/`. The record identifies the precommit source snapshot;
 the final Windows-constant correction is separately rechecked. Full product
 browser/package checks belong to hosted CI, while native Windows 11 25H2,
 protected TEST credentials and real game/playback evidence remain independent.
+
+### Frontend phase continued on 2026-10-28
+
+The [static adapter and comparison contract](r19-host-experiment.md#explicit-static-desktop-adapter)
+now have an actual client-rendered build, pinned local fonts, a stdlib-only Python
+loopback host and a restricted frozen `frontend-experiment` profile. Source Vinext
+remains available and default. The new profile permits only the frontend child;
+the stdlib diagnostic still permits none, and the full runtime remains disabled.
+No installer is built. PR #59 and its dependency branch are unchanged.
+
+Focused host/runtime/local-access checks: **227 passed** on task-local Python
+3.12.13, including real owned loopback listeners, startup and per-request file
+verification, malformed Host/Origin, route isolation, retained immutable chunks,
+empty/private tree rejection, MIME and profile dispatch. Six build/comparison
+unit tests and typecheck passed. These are separate source/contract checks; the
+browser report and hosted frontend executable evidence must be assessed on their
+actual source/build identities before claiming those gates passed.
+
+The actual local Chromium/Firefox comparison subsequently passed for build
+`3332793ef3e6f75b0ff0039d4d9df8c3082f9a4cd086d2cc10d861ed259ad551`,
+including same-origin host swap and browser restart with authored persistent
+localStorage/IndexedDB/OPFS, actual worker/WASM English OCR and old chunks.
+Both viewport/zoom and lookup pixel comparisons were exactly equal. This is a
+temporary synthetic profile observation, not a real-user extension/profile or
+Windows 11 pass. Detailed versions and limitations are in the host experiment.
+
+The continued Node run passed **266 tests with one skip** after granting the
+owned process/loopback probe its required host permission. The preceding
+`check:changed -- --base upstream/main` record
+`1b509abb-f236-4478-a0e4-1adcec1112b7` remains **invalid/incomplete**: its aggregate
+failed in the sandboxed Node run and source changed during execution. Later
+commands were not run by that aggregate; separate successful checks do not amend it.
+The stable-source repeat `29b5ec73-d344-48de-93d1-9948e3e6da6f` is **failed**,
+with available source/base evidence: typecheck and 266 Node tests passed (one skip),
+then Python collection stopped because macOS lacks `pyaudiowpatch`. Remaining
+aggregate commands were not run. Full browser/package validation remains hosted.
 
 The quarantined Windows diagnostic workflow builds from an observed official
 3.12.10 installer and exact recorded packaging wheels. That old installer is

@@ -198,6 +198,27 @@ def test_diagnostic_dispatch_refuses_bootstrap_and_api_before_any_worker(tmp_pat
     assert str(tmp_path) not in json.dumps(diagnostic)
 
 
+def test_frontend_experiment_discovery_and_dispatch_cannot_enable_application_children(tmp_path, monkeypatch):
+    layout = frozen_layout(tmp_path, children=('frontend',), profile='frontend-experiment')
+    monkeypatch.setattr(sys, 'frozen', True, raising=False)
+    monkeypatch.setattr(sys, '_MEIPASS', str(layout.resource_root), raising=False)
+    monkeypatch.setattr(sys, 'executable', str(layout.executable))
+    manifest = {'schema': bundle.MANIFEST_SCHEMA, 'profile': 'frontend-experiment', 'version': '0.22.0',
+        'source_commit': 'a' * 40, 'build_id': 'synthetic', 'children': ['frontend'], 'resources': {}}
+    path = layout.resource_root / 'runtime-manifest.json'
+    path.write_text(json.dumps(manifest))
+    assert bundle.discover_layout(layout.child_environment(environ={})).children == ('frontend',)
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(bundle_entry.runpy, 'run_module', lambda *_a, **_k: pytest.fail('No disabled application child may start'))
+    for kind in ('api', 'toolkit-update', 'windows-bootstrap', 'asr'):
+        with pytest.raises(bundle.RuntimeBundleError, match='does not include'):
+            bundle_entry.main(['--runtime-child', kind, '--'])
+    manifest['children'].append('api')
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(bundle.RuntimeBundleError, match='child inventory'):
+        bundle.discover_layout(layout.child_environment(environ={}))
+
+
 def test_bootstrap_joins_job_before_spawn_and_failed_join_never_spawns(monkeypatch):
     import backend.windows_preparation_process as preparation
     from types import SimpleNamespace

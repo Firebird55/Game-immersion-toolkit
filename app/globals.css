@@ -589,13 +589,14 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
 
 .capture-footer {
   flex: 0 0 auto;
+  flex-wrap: wrap;
   padding: 13px 16px;
   border: 1px solid var(--border);
   background: rgb(10 12 15 / 92%);
   backdrop-filter: blur(14px);
 }
 
-.footer-actions { display: flex; align-items: center; gap: 8px; }
+.footer-actions { display: flex; flex-wrap: wrap; min-width: 0; max-width: 100%; align-items: center; gap: 8px; }
 .playback-speed {
   height: 38px;
   display: inline-flex;

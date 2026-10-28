@@ -1,0 +1,2 @@
+# Keep the pinned upstream font notice byte-exact, including its original spaces.
+desktop/fonts/LICENSE.txt whitespace=-blank-at-eol

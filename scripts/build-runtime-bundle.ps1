@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory = $true)][string]$EvidenceRoot,
     [Parameter(Mandatory = $true)][string]$Python,
     [string]$OutputRoot,
-    [switch]$DiagnosticOnly
+    [switch]$DiagnosticOnly,
+    [switch]$FrontendExperiment
 )
 $ErrorActionPreference = 'Stop'
 $SourceRoot = Split-Path -Parent $PSScriptRoot
@@ -22,16 +23,20 @@ if (Test-Path -LiteralPath $OutputRoot) { throw 'Choose a new empty output path;
 $DoctorExit = $LASTEXITCODE
 $Inputs = Get-Content -LiteralPath $InputManifest -Raw | ConvertFrom-Json
 if ($DiagnosticOnly -and $Inputs.profile -ne 'diagnostic') { throw '-DiagnosticOnly requires the diagnostic profile.' }
-if ($DoctorExit -ne 0 -and -not ($DiagnosticOnly -and $DoctorExit -eq 2)) {
+if ($FrontendExperiment -and $Inputs.profile -ne 'frontend-experiment') { throw '-FrontendExperiment requires the frontend-experiment profile.' }
+if ($DiagnosticOnly -and $FrontendExperiment) { throw 'Choose one quarantined experimental profile.' }
+if ($DoctorExit -ne 0 -and -not (($DiagnosticOnly -or $FrontendExperiment) -and $DoctorExit -eq 2)) {
     throw 'Development prerequisites are unavailable; no build was started.'
 }
-if ($DoctorExit -ne 0) { Write-Host 'Application doctor unavailable. Only the separately validated stdlib diagnostic build may proceed.' }
+if ($DoctorExit -ne 0) { Write-Host 'Application doctor unavailable. Only the separately validated diagnostic/frontend subset may proceed.' }
 $Policy = Join-Path $SourceRoot 'packaging/runtime-bundle/closure.py'
 & $Python -B $Policy preflight --inputs $InputManifest --evidence $EvidenceRoot --source $SourceRoot
 if ($LASTEXITCODE -ne 0) { throw 'Exact input/source/hash/license/native evidence is incomplete.' }
 $PreviousInputs = $env:PROXY_RUNTIME_BUILD_INPUTS
+$PreviousEvidence = $env:PROXY_RUNTIME_EVIDENCE_ROOT
 try {
     $env:PROXY_RUNTIME_BUILD_INPUTS = $InputManifest
+    $env:PROXY_RUNTIME_EVIDENCE_ROOT = $EvidenceRoot
     & $Python -B -m PyInstaller --noconfirm --clean --distpath (Join-Path $OutputRoot 'quarantine') --workpath (Join-Path $OutputRoot 'build') (Join-Path $SourceRoot 'packaging/runtime-bundle/runtime.spec')
     if ($LASTEXITCODE -ne 0) { throw 'PyInstaller failed; retain quarantined output for inspection.' }
     & $Python -B $Policy finalize --inputs $InputManifest --evidence $EvidenceRoot --source $SourceRoot --output (Join-Path $OutputRoot 'quarantine')
@@ -41,4 +46,5 @@ try {
     Write-Host 'Quarantined candidate built. Exact output redistribution review and Windows 11 25H2 acceptance remain incomplete. No release asset was created.'
 } finally {
     $env:PROXY_RUNTIME_BUILD_INPUTS = $PreviousInputs
+    $env:PROXY_RUNTIME_EVIDENCE_ROOT = $PreviousEvidence
 }

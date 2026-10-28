@@ -54,7 +54,7 @@ def normalized(name):
 
 
 def validate_inputs(value, source, evidence, *, check_host=True):
-    if value.get('schema') != 'proxy-runtime-build-inputs-v1' or value.get('profile') not in {'diagnostic', 'runtime'}:
+    if value.get('schema') != 'proxy-runtime-build-inputs-v1' or value.get('profile') not in {'diagnostic', 'frontend-experiment', 'runtime'}:
         raise ClosureError('Unsupported build-input schema or profile.')
     if not re.fullmatch(r'[a-f0-9]{40}', str(value.get('source_commit', ''))):
         raise ClosureError('An exact source commit is required.')
@@ -69,7 +69,7 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         if not name or name in names or not re.fullmatch(r'\d+\.\d+(?:\.\d+)*(?:[a-zA-Z0-9.+-]*)', str(component.get('version', ''))):
             raise ClosureError('Component identities must have unique names and exact versions.')
         names.add(name)
-        diagnostic_observation = (value['profile'] == 'diagnostic'
+        diagnostic_observation = (value['profile'] in {'diagnostic', 'frontend-experiment'}
             and component.get('review_status') == 'observed-diagnostic'
             and component.get('native_closure') == 'unverified')
         if ((component.get('review_status') != 'approved' and not diagnostic_observation)
@@ -131,9 +131,20 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         name = relative_resource(resource.get('path', ''))
         if Path(name).name.lower() in FORBIDDEN_NAMES or any(part.lower() in PRIVATE_PARTS for part in Path(name).parts):
             raise ClosureError('Private or proprietary resources must never be collected.')
-        checked_file(source, resource)
+        checked_file(evidence if value['profile'] == 'frontend-experiment' else source, resource)
         if not resource.get('license_expression') or not resource.get('source') or not resource.get('version'):
             raise ClosureError('Resource source/version/license evidence is incomplete: ' + name)
+    if value['profile'] == 'frontend-experiment':
+        from backend.desktop_frontend import FrontendBuild, MANIFEST
+        frontend = FrontendBuild(evidence / 'desktop')
+        expected = {'desktop/' + name: digest(evidence / 'desktop' / name) for name in (*frontend.files, MANIFEST)}
+        package = json.loads((source / 'package.json').read_text(encoding='utf-8'))
+        if (frontend.value['source_commit'] != value['source_commit']
+                or frontend.value['version'] != package['version']
+                or frontend.value['lock_sha256'] != digest(source / 'package-lock.json')
+                or {item['path']: item['sha256'] for item in resources} != expected
+                or len(resources) != len(expected)):
+            raise ClosureError('Frontend candidate must collect exactly the verified public desktop tree, version and lock from this commit.')
     if value['profile'] == 'runtime':
         required_resources = {'package.json', 'public/mobile-capture/games-data.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
             'assets/fireredvad/fireredvad_vad.onnx', 'assets/fireredvad/cmvn.ark',
@@ -172,7 +183,7 @@ def write_candidate(value, source, evidence, output):
     runtime = value['profile'] == 'runtime'
     manifest = {'schema': MANIFEST_SCHEMA, 'profile': value['profile'], 'version': package['version'],
         'source_commit': value['source_commit'], 'build_id': value['build_id'], 'resources': resources,
-        'children': list(CHILD_TARGETS) if runtime else [], 'r19_complete': False}
+        'children': list(CHILD_TARGETS) if runtime else ['frontend'] if value['profile'] == 'frontend-experiment' else [], 'r19_complete': False}
     internal = output / 'ProxyTranscriptRuntime' / '_internal'
     internal.mkdir(parents=True, exist_ok=True)
     (internal / 'runtime-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

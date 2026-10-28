@@ -13,8 +13,9 @@ inputs = json.loads(Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']).read_text(enc
 runtime = inputs['profile'] == 'runtime'
 if runtime:
     raise SystemExit('Full runtime profile is disabled until helper/host artifacts and exact collected-file closure are implemented and reviewed.')
-data = [(str(root / item['path']), str(Path(item['path']).parent)) for item in inputs['resources']]
-hidden = []
+resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT']) if inputs['profile'] == 'frontend-experiment' else root
+data = [(str(resource_root / item['path']), str(Path(item['path']).parent)) for item in inputs['resources']]
+hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experiment' else []
 binaries = []
 if runtime:
     # Registry-selected imports cannot be discovered from import_module alone.

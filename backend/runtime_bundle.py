@@ -20,6 +20,7 @@ from typing import Mapping, Sequence
 SCHEMA = 'proxy-runtime-host-v1'
 MANIFEST_SCHEMA = 'proxy-runtime-bundle-v1'
 CHILD_TARGETS = {
+    'frontend': ('module', 'backend.desktop_frontend'),
     'api': ('module', 'backend.main'),
     'language': ('module', 'backend.language_worker'),
     'game-index': ('module', 'backend.game_index_worker'),
@@ -214,7 +215,7 @@ def discover_layout(environ: Mapping[str, str] | None = None) -> RuntimeLayout:
             raise RuntimeBundleError('Frozen runtime manifest is missing or invalid; re-extract a verified candidate.') from error
         if manifest.get('schema') != MANIFEST_SCHEMA:
             raise RuntimeBundleError('Unsupported frozen runtime manifest.')
-        if (manifest.get('profile') not in {'diagnostic', 'runtime'}
+        if (manifest.get('profile') not in {'diagnostic', 'frontend-experiment', 'runtime'}
                 or not re.fullmatch(r'\d+\.\d+\.\d+', str(manifest.get('version', '')))
                 or not re.fullmatch(r'[a-f0-9]{40}', str(manifest.get('source_commit', '')))
                 or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,79}', str(manifest.get('build_id', '')))):
@@ -229,7 +230,8 @@ def discover_layout(environ: Mapping[str, str] | None = None) -> RuntimeLayout:
         children = manifest.get('children', [])
         if (not isinstance(children, list) or any(not isinstance(kind, str) or kind not in CHILD_TARGETS for kind in children)
                 or len(set(children)) != len(children)
-                or (manifest['profile'] == 'diagnostic' and children)):
+                or (manifest['profile'] == 'diagnostic' and children)
+                or (manifest['profile'] == 'frontend-experiment' and children != ['frontend'])):
             raise RuntimeBundleError('Frozen child inventory is invalid.')
         missing = [name for name in _ROOT_FIELDS if not env.get('PROXY_TRANSCRIPT_' + name.upper())]
         if missing:
