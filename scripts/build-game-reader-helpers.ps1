@@ -113,7 +113,11 @@ try {
     [IO.File]::WriteAllText($config, '<configuration><packageSources><clear/><add key="pinned-local" value="'+$escaped+'"/></packageSources></configuration>', [Text.UTF8Encoding]::new($false))
     $obj=Join-Path $intermediate 'obj'
     $lock=Join-Path $intermediate 'packages.lock.json'
-    $properties=@('-p:RuntimeFrameworkVersion=10.0.14','-p:TargetLatestRuntimePatch=false','-p:SelfContained=true','-p:UseAppHost=true','-p:NuGetAudit=false',('-p:BaseIntermediateOutputPath='+$obj+'/'),('-p:NuGetLockFilePath='+$lock),'-p:RestorePackagesWithLockFile=true')
+    # These owned console projects reference only Microsoft.NETCore.App. The
+    # SDK otherwise prefetches optional desktop/web packs for possible transitive
+    # references; keep the offline feed closed to the two reviewed packages.
+    # https://learn.microsoft.com/dotnet/core/project-sdk/msbuild-props#disabletransitiveframeworkreferencedownloads
+    $properties=@('-p:RuntimeFrameworkVersion=10.0.14','-p:TargetLatestRuntimePatch=false','-p:SelfContained=true','-p:UseAppHost=true','-p:DisableTransitiveFrameworkReferenceDownloads=true','-p:NuGetAudit=false',('-p:BaseIntermediateOutputPath='+$obj+'/'),('-p:NuGetLockFilePath='+$lock),'-p:RestorePackagesWithLockFile=true')
     Push-Location -LiteralPath $PolicyRoot
     try {
         & $Dotnet restore $project --runtime win-x64 --configfile $config @properties --nologo

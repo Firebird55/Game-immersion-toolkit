@@ -100,3 +100,20 @@ source/base evidence. Typecheck and 271 Node tests passed (one skipped); Python
 collection then failed because macOS lacks `pyaudiowpatch`. Later aggregate commands
 were not run. Native managed compilation and PowerShell execution are unavailable
 on this development host and must be established by the hosted helper jobs.
+
+The first [Windows helper run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40765389636)
+at `8c8a4e9` passed the actual app-local Node probe on Server 2025 build 26100.
+It recorded clean source, Node 24.22.1, worker/WASM/Chinese JSON, no application
+writes and confirmed cleanup. Downloaded metadata artifact `12850650842` matched
+GitHub's ZIP SHA-256
+`b642cf95b3a72e05fa3549ecedc5e6e242f2ac53431eaf87bba432bee058bbfb`.
+Its source identity, clean flag and authored-only/incomplete acceptance scope were
+checked after download. No runtime binary was uploaded.
+
+The managed job in that run failed safely during offline restore: SDK transitive
+framework discovery requested unused Windows Desktop and ASP.NET runtime packs
+absent from the deliberately restricted local feed. The build now disables those
+transitive framework-reference downloads for the two console helpers, retaining
+their actual Microsoft.NETCore.App reference and the same two pinned package
+inputs. It does not enable a remote/default feed or add unreviewed frameworks.
+The failed run supplies no managed execution pass; the affected job must be repeated.
