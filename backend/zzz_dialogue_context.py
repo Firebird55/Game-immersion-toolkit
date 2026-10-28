@@ -33,20 +33,32 @@ def speaker_names(row):
 
 
 def caption_pairs(lines):
-    """Speaker must lead the entire caption, on its own row or inline."""
+    """A verified speaker must lead the entire remaining caption.
+
+    Clothing and scenery can produce unrelated OCR rows above the nameplate.
+    Those rows are not part of the caption; text after the speaker is never
+    truncated or searched for a shorter dialogue fragment.
+    """
     cleaned = [display_text(line).strip() for line in lines if display_text(line).strip()]
     if not cleaned:
         return []
     pairs = []
-    if len(cleaned) > 1:
-        pairs.append((cleaned[0].rstrip(':：'), ' '.join(cleaned[1:])))
-    first, rest = cleaned[0], cleaned[1:]
-    explicit = re.match(r'^([^:：]{1,48})[:：]\s*(.+)$', first)
-    if explicit:
-        pairs.append((explicit[1], ' '.join([explicit[2], *rest])))
-    words = first.split()
-    for count in range(1, min(4, len(words) - 1) + 1):
-        pairs.append((' '.join(words[:count]).rstrip(':：'), ' '.join([*words[count:], *rest])))
+    for position, first in enumerate(cleaned):
+        rest = cleaned[position + 1:]
+        if rest:
+            pairs.append((first.rstrip(':：'), ' '.join(rest)))
+        explicit = re.match(r'^([^:：]{1,48})[:：]\s*(.+)$', first)
+        if explicit:
+            pairs.append((explicit[1], ' '.join([explicit[2], *rest])))
+        words = first.split()
+        # OCR may join a decorative glyph left of a centered nameplate to the
+        # speaker row. Only its short trailing name is eligible, and the whole
+        # following caption must still agree with that authored speaker.
+        if rest and len(words) <= 6:
+            for start in range(max(1, len(words) - 4), len(words)):
+                pairs.append((' '.join(words[start:]).rstrip(':：'), ' '.join(rest)))
+        for count in range(1, min(4, len(words) - 1) + 1):
+            pairs.append((' '.join(words[:count]).rstrip(':：'), ' '.join([*words[count:], *rest])))
     return list(dict.fromkeys(pairs))
 
 
