@@ -4,8 +4,9 @@ This directory defines a Windows x64 PyInstaller **onedir** build of the existin
 Python runtime. It does not release, tag, install, alter Pages, acquire games or
 write accounts. R19 remains incomplete: no clean Windows 11 25H2 acceptance,
 maintained Python binary supplier decision, complete collected-file license/native
-closure, compiler-free game-helper inventory, static frontend equivalence or
-supervised frozen update has been established. Source adapters remain available.
+closure, complete compiler-free game toolchains or supervised frozen update has
+been established. Static frontend and authored helper experiments have separately
+scoped evidence; they do not approve the full runtime. Source adapters remain available.
 
 `runtime.spec` contains an explicit backend/dynamic-reader closure and separate
 ASR executable/native tree. Every one of the 25 active games remains mapped in

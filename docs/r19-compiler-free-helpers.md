@@ -117,3 +117,12 @@ transitive framework-reference downloads for the two console helpers, retaining
 their actual Microsoft.NETCore.App reference and the same two pinned package
 inputs. It does not enable a remote/default feed or add unreviewed frameworks.
 The failed run supplies no managed execution pass; the affected job must be repeated.
+
+The next run at `74c5a2c` successfully restored, replayed the lock and published
+the actual self-contained authored probe. Its second bridge build then rejected
+SDK state added by the first build. Each helper now starts from a fresh expansion
+of the same verified SDK archive; no exception weakens the supplier-tree check.
+Compilation intermediates and regular build output are redirected to private
+evidence storage, and shared compiler-server reuse is disabled. Actual probe
+execution is a separate step before the optional owned bridge build; a passing
+metadata file can describe only that independently completed scope.

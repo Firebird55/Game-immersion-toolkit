@@ -42,7 +42,7 @@ jobs:
           Expand-Archive -LiteralPath $archive -DestinationPath $sdk
           "R19_MANAGED_EVIDENCE=$evidence" >> $env:GITHUB_ENV
           "R19_DOTNET=$(Join-Path $sdk 'dotnet.exe')" >> $env:GITHUB_ENV
-      - name: Publish fixed self-contained authored probe and owned NTE bridge
+      - name: Publish fixed self-contained authored probe
         shell: pwsh
         run: |
           $env:DOTNET_ROOT = Split-Path $env:R19_DOTNET
@@ -50,18 +50,28 @@ jobs:
           $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
           $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
           ./scripts/build-game-reader-helpers.ps1 -Kind probe -OutputRoot output/helper-probes -EvidenceRoot $env:R19_MANAGED_EVIDENCE -Dotnet $env:R19_DOTNET -ExpectedSdkVersion 10.0.403
-          ./scripts/build-game-reader-helpers.ps1 -Kind nte -OutputRoot output/owned-nte-bridge -EvidenceRoot $env:R19_MANAGED_EVIDENCE -Dotnet $env:R19_DOTNET -ExpectedSdkVersion 10.0.403
-          # The owned reflection bridge contains no upstream DLL, codec, game
-          # constants or game data. It is quarantined, never executed on a game
-          # or uploaded. Full NTE dynamic-loading/rights gates remain open.
       - name: Exercise the actual helper without SDK/compiler discovery
         shell: pwsh
         run: ./scripts/probe-game-reader-helper.ps1 -HelperRoot output/helper-probes/probe
+      - name: Publish owned NTE bridge from a fresh verified SDK expansion
+        shell: pwsh
+        run: |
+          # dotnet may add build-host state to its SDK tree. A second build
+          # starts from the same exact archive, never an expanded-tree exception.
+          $sdk = Join-Path $env:RUNNER_TEMP 'r19-managed-nte-sdk'
+          Expand-Archive -LiteralPath (Join-Path $env:R19_MANAGED_EVIDENCE 'dotnet-sdk-10.0.403-win-x64.zip') -DestinationPath $sdk
+          $env:DOTNET_ROOT = $sdk
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -OutputRoot output/owned-nte-bridge -EvidenceRoot $env:R19_MANAGED_EVIDENCE -Dotnet (Join-Path $sdk 'dotnet.exe') -ExpectedSdkVersion 10.0.403
+          # The owned reflection bridge contains no upstream DLL, codec, game
+          # constants or game data. It is quarantined, never executed on a game
+          # or uploaded. Full NTE dynamic-loading/rights gates remain open.
       - name: Upload sanitized observation only
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: r19-managed-helper-metadata
           path: output/checks/r19-managed-helper.json
+          if-no-files-found: ignore
           retention-days: 7
   node-probe:
     runs-on: windows-2025

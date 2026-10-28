@@ -1,5 +1,7 @@
 param([Parameter(Mandatory = $true)][string]$HelperRoot)
 $ErrorActionPreference = 'Stop'
+$output = Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-managed-helper.json'
+if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output }
 # Authored helper only: no installed game, account, recording or user profile.
 $originalPath = $env:PATH
 $originalDotnetRoot = $env:DOTNET_ROOT
@@ -97,7 +99,6 @@ try {
   Get-ChildItem -LiteralPath $temporary -File -Recurse | ForEach-Object { $_.IsReadOnly = $false }
   Remove-Item -LiteralPath $temporary -Recurse -Force
 }
-$output = Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-managed-helper.json'
 New-Item -ItemType Directory -Path (Split-Path $output) -Force | Out-Null
 $receipt.owned_cleanup = 'passed'
 $receipt | ConvertTo-Json | Set-Content -LiteralPath $output -Encoding utf8

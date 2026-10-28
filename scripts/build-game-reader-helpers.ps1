@@ -43,6 +43,9 @@ function Assert-PortableLock($Value) {
     } elseif($null -ne $Value -and $Value -isnot [ValueType]) { throw 'The restore lock contains an unsupported value.' }
 }
 $sdkRoot=Split-Path -Parent $Dotnet
+# Each helper kind requires a fresh expansion of the same verified archive.
+# The build-host CLI can mutate its SDK tree; a previous invocation's extra
+# state must never be accepted as part of the supplier input inventory.
 $sdkFiles=[ordered]@{}
 $sdkDirectories=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 $sdkArchive=[IO.Compression.ZipFile]::OpenRead($archive)
@@ -112,12 +115,15 @@ try {
     $escaped=[Security.SecurityElement]::Escape($feed)
     [IO.File]::WriteAllText($config, '<configuration><packageSources><clear/><add key="pinned-local" value="'+$escaped+'"/></packageSources></configuration>', [Text.UTF8Encoding]::new($false))
     $obj=Join-Path $intermediate 'obj'
+    $bin=Join-Path $intermediate 'bin'
     $lock=Join-Path $intermediate 'packages.lock.json'
     # These owned console projects reference only Microsoft.NETCore.App. The
     # SDK otherwise prefetches optional desktop/web packs for possible transitive
     # references; keep the offline feed closed to the two reviewed packages.
     # https://learn.microsoft.com/dotnet/core/project-sdk/msbuild-props#disabletransitiveframeworkreferencedownloads
-    $properties=@('-p:RuntimeFrameworkVersion=10.0.14','-p:TargetLatestRuntimePatch=false','-p:SelfContained=true','-p:UseAppHost=true','-p:DisableTransitiveFrameworkReferenceDownloads=true','-p:NuGetAudit=false',('-p:BaseIntermediateOutputPath='+$obj+'/'),('-p:NuGetLockFilePath='+$lock),'-p:RestorePackagesWithLockFile=true')
+    # Keep ordinary compile output out of the checkout and avoid a shared
+    # VBCSCompiler process surviving this owned build-host invocation.
+    $properties=@('-p:RuntimeFrameworkVersion=10.0.14','-p:TargetLatestRuntimePatch=false','-p:SelfContained=true','-p:UseAppHost=true','-p:DisableTransitiveFrameworkReferenceDownloads=true','-p:UseSharedCompilation=false','-p:NuGetAudit=false',('-p:BaseIntermediateOutputPath='+$obj+'/'),('-p:BaseOutputPath='+$bin+'/'),('-p:NuGetLockFilePath='+$lock),'-p:RestorePackagesWithLockFile=true')
     Push-Location -LiteralPath $PolicyRoot
     try {
         & $Dotnet restore $project --runtime win-x64 --configfile $config @properties --nologo
