@@ -1,6 +1,11 @@
 # Rework roadmap
 
-Status: **proposal; implementation has not started**. The original research on
+Status: **R18 research and storage/host design completed; implementation tasks
+remain planned**. The [R18 inventory](r18-runtime-inventory.md), reviewed on
+2026-10-28 against upstream `ba0b7c3` (0.22.0), defines component acquisition,
+Windows targets and the R19 prototype/acceptance decision. It builds no bundle
+or installer and establishes no native Windows validation. Its initial 0.21.3
+review was refreshed for all 25 active games before the PR. The original research on
 2026-10-24 used version **0.19.1**, commit
 `16d17f782e3e1d2fbfbd45c624cfe9613e78363a`. The subsequent
 [architecture study](rework-architecture.md) examined upstream `387631f`, including
@@ -94,7 +99,9 @@ project-wide R00/F0 phase. Only concrete interface dependencies block work.
 | W2 — Recognition and transcripts | OCR owner | Correct identities and supported presentations, with screenshot/package regressions | R01; prepare the R02a measurement plan only where needed |
 | W3 — Installation and game management | Installation owner | Discovery, onboarding and self-contained Windows installation | R14 and R18; prepare R02b |
 
-All implementation tasks below remain **planned**. R02a/b/c are separate
+All implementation tasks below remain **planned**; R18 is a completed research
+deliverable, including the R12c storage/host design, rather than a running bundle.
+R02a/b/c are separate
 measurements. R07a characterizes production before R13c extraction; R07b then
 uses the extracted controller. R12/R13 identify concrete boundaries, not a fourth
 refactoring workstream. R25 is incremental test reduction owned by the integrator
@@ -230,11 +237,34 @@ waiting for an OCR rewrite or optional language experiment.
 | R16 | Physical voice-pack probes separate from reader/index readiness | R14; game probes can progress independently | Claimed game/locales distinguish present, incomplete, missing and unknown; no wrong-language fallback |
 | R17 | Reusable games → languages/packs → reading mode → ready onboarding | R04 preference contract; R15/R16; R14/R18 storage boundary | WebUI/test host uses real discovery/probes; skip/resume and preference precedence work; installer host evidence follows in R20 |
 | R02b | Windows cold/warm start, CPU/RSS, recovery and bundle baseline | Plan first; current runtime and Windows for measurements | Commit, environment, method and preselected criteria recorded before optimization; missing measurements remain open |
-| R18 | Runtime/tool/redistribution and Windows requirements inventory; storage/host layout | Can begin directly; adopts R14/R12c contract | Each required component has a bundling or explicit prerequisite decision; app/data/cache/credential ownership recorded |
+| R18 — completed research | [Runtime/tool/redistribution and Windows inventory; storage/host contract](r18-runtime-inventory.md) | Refreshed at upstream `ba0b7c3` (0.22.0, 25 active games); supplies R12c design for R14 adoption | Per-component bundle/download/prerequisite decisions, ownership, limits and R19 acceptance plan recorded; native/artifact evidence remains open |
 | R19 | Windows runtime bundle and functional probes; investigate static frontend | R18; R02b for comparison; R12c/R14 storage boundary | Extracted bundle starts without a development environment; relevant game/OCR probes and origin/API/cache behavior verified |
 | R20 | Per-user installer, integrated onboarding, repair and uninstall | R17 and R19 | Actual installed candidate passes functional probes, ordinary-user setup, cancellation, no-space and locked-file cases |
 | R21 | ZIP migration, upgrade, interruption and rollback | Shared storage contract; integrated evidence with R20 | Synthetic data/preferences survive; failed update preserves recovery and at most one capture owner; origin storage and protected test credentials checked |
 | R22 | Candidate artifact verification in hosted CI; checksums and signing decision | R20/R21 and applicable gate G | Actual candidate validated; downloaded checksums/commit verified; native evidence and signature/attestation status explicit |
+
+R18 selects a Windows x64 PyInstaller one-directory prototype of the existing
+Python runtime, plus a bounded local static-frontend equivalence experiment.
+Retain the ordinary browser and current desktop origin/API addresses; source
+hosting remains the diagnostic fallback until equivalent behavior is proved.
+R19 acceptance still requires an extracted candidate without preinstalled
+Python/Node/npm or SDK/compiler toolchains. The
+[component inventory](r18-runtime-components.md) tracks unresolved redistribution
+closure (including GPL/WASM, FFmpeg and decompression binaries), .NET/native helper
+dependencies and Windows/OCR constraints. The
+[host contract](r18-storage-host-contract.md) defines opt-in ZIP copy migration,
+protected credentials and recovery; R14 consumer adoption, static-host behavior,
+native measurements and actual migration/rollback remain unverified. A fallback
+that still requires development tools does not pass R19. R20–R22 remain planned.
+The follow-up R18 review also requires a prebuilt/adapted managed launcher,
+pointer/shortcut and existing browser-profile continuity, owner-aware updates
+under continuous legacy exclusion, preservation of export-volume work/previous
+libraries, and explicit unreadable-account-store recovery. These remain design
+and candidate/installed acceptance work, not implemented guarantees.
+The 0.22.0 refresh additionally inventories the twelve Steam readers, Decima's
+game-owned native DLL, Persona's separately downloaded GPL character tables and
+incorporated reader notices. These acquisition/format/capability probes join
+R19; a package-manager graph with no new packages does not prove resource closure.
 
 Installation acceptance:
 
@@ -273,7 +303,7 @@ only the extractions needed by a concrete change; no general refactoring phase.
 | --- | --- | --- | --- |
 | R12a / P1 | W1: status/UI read model and changed HTTP/WS fields | Relevant R03 path | Reuse StateVersion/StatePoll and pairing validation; preserve generations, late snapshots and independent event domains; adapter rollback without storage migration |
 | R12b / P0 | W2: context, active game binding and observation/content/occurrence/order semantics | R01 and relevant R07a | Coherent catalog/locale/voice and explicit unknown order; handoff preserve/reset/version policy; no universal replacement generation counter |
-| R12c / P0 | W3: resource/data/cache/credential layout and runtime/frontend host contract | Current runtime, early R18; delivered within R14/R18 | Owners, schema, migrations, source/bundle paths, origin/API/assets/cache and readiness/quiesce/rollback recorded; existing runtime remains a valid adapter |
+| R12c / P0 — design delivered | W3: [resource/data/cache/credential layout and runtime/frontend host contract](r18-storage-host-contract.md) | R18 design completed; R14 adoption and R13a adapters remain planned | Owners, schema, migrations, source/bundle paths, origin/API/assets/cache and readiness/quiesce/rollback recorded; adapter implementation and bundle validation follow |
 | R13a / P1 | W3/integrator: extract necessary setup use case and host/composition boundary | Relevant endpoint/lifecycle behavior; R12c for host changes | Preserve endpoints/status codes, LocalAccessMiddleware, account pinning, standby/close and lock order; source uses the boundary; actual bundle follows R19; reversible without data changes |
 | R13b / P0 | W2: public game/locale activation with coherent binding | R12b and affected desktop R07a | Replace external `_scan_epoch` mutation with one owner; stale work cannot publish; retain last complete index and explicit legacy/prepared paths; facade first, no matching change |
 | R13c / P0 | W2: mobile controller factory with source/clock/OCR/library/store/output injection | Mobile R07a; existing receiver/worker contracts | Same production scenarios before/after extraction; single-flight, stop/close/pagehide/source/locale switches reject late successes/errors; resources released; shell and direct harness use one factory; replay follows R07b |
@@ -403,8 +433,9 @@ alone does not start parallel implementation.
 | Decision | Current direction | Evidence point |
 | --- | --- | --- |
 | Core runtime | Retain Python; targeted alternatives only | R24; no installer dependency |
-| Frontend host | Investigate static hosting without end-user Node/Wrangler | R19, with origin/storage compatibility |
-| Installer | Per-user Inno Setup with existing runtime bundle | R18–R20 and clean Windows |
+| Runtime bundle | R18 selects Windows x64 PyInstaller one-directory prototype; exact pins/collection and native dependencies still need proof | R19 and R02b; [acceptance plan](r18-runtime-inventory.md#r19-acceptance-plan) |
+| Frontend host | R18 selects local static equivalence experiment; retain current origin and diagnostic source-host fallback until proved | R19, with origin/storage/API/cache compatibility; a development-tool fallback does not pass standalone acceptance |
+| Installer | Per-user Inno Setup after an acceptable R19 runtime; no installer built in R18 | R20 and clean Windows |
 | Recognition order | Verified authored order, then observation, otherwise unknown | R01/R07/R08/R12b |
 | Corpus/pairs and runtime budget | Small reproducible sample selected for distinct risks | R01/R02a/R11/R25 |
 | Real input on hosted runners | Conditional on permitted access, trusted code and private-output restrictions | Screenshot plan; otherwise local validation |
