@@ -656,7 +656,8 @@ runtime: Runtime
 async def lifespan(_app: FastAPI):
     global runtime
     runtime = Runtime()
-    if runtime.capture_language_ready('zzz') and runtime.textmaps.file_path("zh_base").is_file():
+    if (runtime.capture_language_ready('zzz') and runtime.textmaps is runtime._legacy_zzz_index
+            and runtime._legacy_zzz_index.file_path("zh_base").is_file()):
         runtime.start_map_prepare()
     if runtime.standby:
         runtime.warm_task = asyncio.create_task(runtime.capture.warmup(), name='prepare-replacement-ocr')
