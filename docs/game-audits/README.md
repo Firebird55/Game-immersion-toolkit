@@ -20,6 +20,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 | Shadow of the Tomb Raider | TIGER archives; Wwise subtitle labels, cinematic timing and collectible narration | [Shadow](shadow-tomb-raider.md) |
 | BEYOND: Two Souls | Explicit chapter choices; missing-performance inventory; faster repeated-performance validation | [BEYOND](beyond.md) |
 | HEAVY RAIN | Explicit silent prompts; thought categorization; retained missing-voice records | [HEAVY RAIN](heavyrain.md) |
+| Spyro Reignited Trilogy | All three games; localized dialogue tables, Wwise events, cinematic pages and explicit text-only dialogue | [Spyro](spyro.md) |
 
 ## Capture unvoiced dialogue
 

@@ -409,3 +409,33 @@ All eleven global Steam full-audio languages plus Japanese and Latin American Sp
 | Arabisch | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
 
 </details>
+
+<a id="spyro"></a>
+
+## Spyro Reignited Trilogy
+
+[Officiële taallijst](https://store.steampowered.com/app/996580/Spyro_Reignited_Trilogy/) · 2026-10-28 · [Dekkingsnotities](../game-audits/spyro.md)
+
+All 14 official PC languages use authored localized text and Wwise voice events. Norwegian uses native nb text and no audio identifiers. One Arabic voice event is unavailable in the inspected installation.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Italiaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Duits | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Arabisch | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Deens | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Nederlands | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Fins | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Noors | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Pools | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Portugees (Brazilië) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Latijns-Amerika) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Zweeds | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+
+</details>

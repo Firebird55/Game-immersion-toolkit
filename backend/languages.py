@@ -7,6 +7,8 @@ from .lexirise_settings import STUDY_LANGUAGES
 
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
+    'spyro': ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'da', 'nl', 'fi', 'no', 'pl', 'pt-BR', 'es-419', 'sv'),
+    'detroit': ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'ja', 'pl', 'pt-PT', 'pt-BR', 'es-419', 'ru'),
     'starrail': ASIAN, 'genshin': ASIAN, 'endfield': ASIAN, 'zzz': ASIAN, 'wuwa': ASIAN, 'nte': ASIAN,
     'pragmata': ('en', 'fr', 'it', 'de', 'es-ES', 'es-419', 'pt-BR', 'ru', 'zh-Hans', 'ja', 'ko'),
     'cyberpunk': ('en', 'fr', 'it', 'de', 'es-ES', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans'),
@@ -34,7 +36,8 @@ def study_language(locale: str) -> str:
 def audio_locale(locale: str, game: str | None = None) -> str:
     # Distinct official voice packs must retain their selected identity even
     # when both use Mandarin. Other readers explicitly share one Chinese pack.
-    if game in {'riseofthetombraider', 'shadowofthetombraider'}:
+    from .steam_games import STEAM_GAMES
+    if game in {'riseofthetombraider', 'shadowofthetombraider'} or game in STEAM_GAMES:
         return locale
     return 'zh-Hans' if locale == 'zh-Hant' else locale
 

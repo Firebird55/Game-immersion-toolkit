@@ -409,3 +409,33 @@ All eleven global Steam full-audio languages plus Japanese and Latin American Sp
 | 阿拉伯文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
 
 </details>
+
+<a id="spyro"></a>
+
+## Spyro Reignited Trilogy
+
+[官方語言清單](https://store.steampowered.com/app/996580/Spyro_Reignited_Trilogy/) · 2026-10-28 · [涵蓋範圍說明](../game-audits/spyro.md)
+
+All 14 official PC languages use authored localized text and Wwise voice events. Norwegian uses native nb text and no audio identifiers. One Arabic voice event is unavailable in the inspected installation.
+
+<details>
+<summary>語言詳細資訊</summary>
+
+| 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 法文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 義大利文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 德文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 西班牙文（西班牙） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 阿拉伯文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 丹麥文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 荷蘭文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 芬蘭文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 挪威文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 波蘭文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 葡萄牙文（巴西） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 西班牙文（拉丁美洲） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 瑞典文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+
+</details>

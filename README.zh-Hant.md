@@ -34,6 +34,7 @@
 | [Arknights: Endfield](docs/languages/zh-Hant.md#endfield) | 英文 · 簡體中文 · 繁體中文 · 日文 · 韓文 | 14 |
 | [Rise of the Tomb Raider](docs/languages/zh-Hant.md#riseofthetombraider) | 英文 · 法文 · 德文 · 義大利文 · 西班牙文（拉丁美洲） · 西班牙文（西班牙） · 日文 · 葡萄牙文（巴西） · 波蘭文 · 俄文 · 韓文 · 繁體中文 · 簡體中文 · 阿拉伯文 | 15 |
 | [Shadow of the Tomb Raider](docs/languages/zh-Hant.md#shadowofthetombraider) | 英文 · 法文 · 德文 · 義大利文 · 西班牙文（拉丁美洲） · 西班牙文（西班牙） · 日文 · 葡萄牙文（巴西） · 波蘭文 · 俄文 · 繁體中文 · 簡體中文 · 阿拉伯文 | 14 |
+| [Spyro Reignited Trilogy](docs/languages/zh-Hant.md#spyro) | 英文 · 法文 · 義大利文 · 德文 · 西班牙文（西班牙） · 阿拉伯文 · 丹麥文 · 荷蘭文 · 芬蘭文 · 挪威文 · 波蘭文 · 葡萄牙文（巴西） · 西班牙文（拉丁美洲） · 瑞典文 | 14 |
 
 [語言詳細資訊](docs/languages/zh-Hant.md) · [開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
