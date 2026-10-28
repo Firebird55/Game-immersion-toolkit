@@ -480,31 +480,6 @@ All 12 official voice languages and 24 official text locales use exact authored 
 
 </details>
 
-<a id="persona5royal"></a>
-
-## Persona 5 Royal
-
-[Official language listing](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [Coverage notes](../game-audits/persona5royal.md)
-
-English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
-
-<details>
-<summary>Language details</summary>
-
-| Language | Original voice | Learning | Translation | Evidence |
-| :--- | :---: | :---: | :---: | :--- |
-| English | ✓ | ✓ | ✓ | Audio decoded locally |
-| French | — | — | ✓ | Reader implemented |
-| Italian | — | — | ✓ | Reader implemented |
-| German | — | — | ✓ | Reader implemented |
-| European Spanish | — | — | ✓ | Reader implemented |
-| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
-| Korean | — | — | ✓ | Reader implemented |
-| Simplified Chinese | — | — | ✓ | Reader implemented |
-| Traditional Chinese | — | — | ✓ | Reader implemented |
-
-</details>
-
 <a id="deathstranding"></a>
 
 ## DEATH STRANDING
@@ -769,5 +744,51 @@ Half-Life 2 and its bundled Episode One and Episode Two use separate campaign na
 | Latin American Spanish | — | — | ✓ | Reader implemented |
 | Turkish | — | — | ✓ | Reader implemented |
 | Ukrainian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[Official language listing](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [Coverage notes](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="deusexhrdc"></a>
+
+## Deus Ex: Human Revolution - Director's Cut
+
+[Official language listing](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/) · 2026-10-28 · [Coverage notes](../game-audits/deusexhrdc.md)
+
+All five official original voice and text locales. Native BIGFILE, CDRM, DRM and FMOD/CRI schemas retain exact language identities. Original dialogue and cinematic samples were decoded in each installed language.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
 
 </details>

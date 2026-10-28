@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "readerRelease": "0.21.0",
+  "readerRelease": "0.22.0",
   "checkedAt": "2026-10-28",
   "languages": {
     "en": "English",
@@ -1216,56 +1216,6 @@
       "supportPolicy": "Implement every official voice locale from the shared authored format. Keep missing or unresolved performances unavailable; the unvoiced toggle accepts confirmed silent narrative fields only."
     },
     {
-      "id": "persona5royal",
-      "name": "Persona 5 Royal",
-      "guide": "game-audits/persona5royal.md",
-      "source": "https://store.steampowered.com/app/1687950/Persona_5_Royal/",
-      "reviewedAt": "2026-10-28",
-      "study": [
-        "en",
-        "ja"
-      ],
-      "audio": [
-        "en",
-        "ja"
-      ],
-      "officialAudio": [
-        "en",
-        "ja"
-      ],
-      "officialText": [
-        "en",
-        "fr",
-        "it",
-        "de",
-        "es-ES",
-        "ja",
-        "ko",
-        "zh-Hans",
-        "zh-Hant"
-      ],
-      "targets": [
-        "en",
-        "fr",
-        "it",
-        "de",
-        "es-ES",
-        "ja",
-        "ko",
-        "zh-Hans",
-        "zh-Hant"
-      ],
-      "unverified": {},
-      "playbackVerified": [
-        "en",
-        "ja"
-      ],
-      "formatOnly": [],
-      "notes": "English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.",
-      "coverage": "Partial native coverage: 30,282 voiced pages and 57,342 confirmed silent pages in the inspected English files. Story/social/battle events and explicit choices are implemented. Shared/runtime voice selectors, USM movies and some binary readables remain unavailable or unknown. Separate floating-dialogue matching is exact and stable, excludes short or choice-ambiguous strings, and does not constitute physical gameplay validation.",
-      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
-    },
-    {
       "id": "deathstranding",
       "name": "DEATH STRANDING",
       "guide": "game-audits/deathstranding.md",
@@ -1936,6 +1886,110 @@
       ],
       "notes": "Half-Life 2 and its bundled Episode One and Episode Two use separate campaign namespaces. Base game: seven original voice locales; Episode One additionally supports official regional Simplified Chinese, Traditional Chinese and Thai; Episode Two has five originals. Regional languages are not represented as base-game dubs. All 27 text locale schemas are implemented.",
       "coverage": "6,035 voiced records and 52 confirmed silent messages across the three campaigns; 3,079 unavailable entries remain separate. Ordinary, ambient, cinematic, commentary and authored HUD text use compiled captions, original scenes and exact media. English originals decoded in all three campaigns. Half-Life: Source, Lost Coast, multiplayer/mod content and physical gameplay/OCR are outside this audit.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "persona5royal",
+      "name": "Persona 5 Royal",
+      "guide": "game-audits/persona5royal.md",
+      "source": "https://store.steampowered.com/app/1687950/Persona_5_Royal/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "ja"
+      ],
+      "audio": [
+        "en",
+        "ja"
+      ],
+      "officialAudio": [
+        "en",
+        "ja"
+      ],
+      "officialText": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES",
+        "ja",
+        "ko",
+        "zh-Hans",
+        "zh-Hant"
+      ],
+      "targets": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES",
+        "ja",
+        "ko",
+        "zh-Hans",
+        "zh-Hant"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en",
+        "ja"
+      ],
+      "formatOnly": [],
+      "notes": "English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.",
+      "coverage": "Partial native coverage: 30,376 voiced pages and 57,342 confirmed silent pages in the inspected English files. Story/social/battle events, 94 exact phone/field pages and explicit choices are implemented. Shared/runtime voice selectors, USM movies and some binary readables remain unavailable or unknown. Separate floating-dialogue matching is exact and stable, excludes short or choice-ambiguous strings, and does not constitute physical gameplay validation.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "deusexhrdc",
+      "name": "Deus Ex: Human Revolution - Director's Cut",
+      "guide": "game-audits/deusexhrdc.md",
+      "source": "https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES"
+      ],
+      "audio": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES"
+      ],
+      "officialAudio": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES"
+      ],
+      "officialText": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES"
+      ],
+      "targets": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-ES"
+      ],
+      "formatOnly": [],
+      "notes": "All five official original voice and text locales. Native BIGFILE, CDRM, DRM and FMOD/CRI schemas retain exact language identities. Original dialogue and cinematic samples were decoded in each installed language.",
+      "coverage": "12,240 voiced captions and 4,074 confirmed silent entries, including 907 conversation-choice labels/previews. Separate cinematic pages use authored timings; two fallback pages explicitly replay complete tracks. Email, e-book, mission text and making-of captions retain their authored categories. Twelve missing recordings and 8,413 unknown rows remain separate. Physical gameplay and screen-layout capture remain unverified.",
       "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
     }
   ]

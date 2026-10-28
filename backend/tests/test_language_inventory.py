@@ -57,6 +57,8 @@ def test_inventory_reports_actual_bytes_and_unknown_external_sizes(tmp_path):
         actual = installed.status(game, prepared)
         assert set(actual['locales']) == set(locales)
         assert actual['official_text_locales']
+        if game == 'halflife':
+            assert all(row['capture_capabilities']['voiced'] is False for row in actual['locales'].values())
     assert old_catalog.read_text(encoding='utf-8') == '{"games": []}'
 
 

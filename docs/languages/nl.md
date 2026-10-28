@@ -480,31 +480,6 @@ All 12 official voice languages and 24 official text locales use exact authored 
 
 </details>
 
-<a id="persona5royal"></a>
-
-## Persona 5 Royal
-
-[Officiële taallijst](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [Dekkingsnotities](../game-audits/persona5royal.md)
-
-English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
-
-<details>
-<summary>Taaldetails</summary>
-
-| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
-| :--- | :---: | :---: | :---: | :--- |
-| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
-| Frans | — | — | ✓ | Reader geïmplementeerd |
-| Italiaans | — | — | ✓ | Reader geïmplementeerd |
-| Duits | — | — | ✓ | Reader geïmplementeerd |
-| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
-| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
-| Koreaans | — | — | ✓ | Reader geïmplementeerd |
-| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
-| Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
-
-</details>
-
 <a id="deathstranding"></a>
 
 ## DEATH STRANDING
@@ -769,5 +744,51 @@ Half-Life 2 and its bundled Episode One and Episode Two use separate campaign na
 | Spaans (Latijns-Amerika) | — | — | ✓ | Reader geïmplementeerd |
 | Turks | — | — | ✓ | Reader geïmplementeerd |
 | Oekraïens | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[Officiële taallijst](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [Dekkingsnotities](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
+| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="deusexhrdc"></a>
+
+## Deus Ex: Human Revolution - Director's Cut
+
+[Officiële taallijst](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/) · 2026-10-28 · [Dekkingsnotities](../game-audits/deusexhrdc.md)
+
+All five official original voice and text locales. Native BIGFILE, CDRM, DRM and FMOD/CRI schemas retain exact language identities. Original dialogue and cinematic samples were decoded in each installed language.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Italiaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Duits | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 
 </details>

@@ -480,31 +480,6 @@ All 12 official voice languages and 24 official text locales use exact authored 
 
 </details>
 
-<a id="persona5royal"></a>
-
-## Persona 5 Royal
-
-[官方语言列表](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [覆盖范围说明](../game-audits/persona5royal.md)
-
-English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
-
-<details>
-<summary>语言详情</summary>
-
-| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
-| :--- | :---: | :---: | :---: | :--- |
-| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
-| 法语 | — | — | ✓ | 已实现读取器 |
-| 意大利语 | — | — | ✓ | 已实现读取器 |
-| 德语 | — | — | ✓ | 已实现读取器 |
-| 欧洲西班牙语 | — | — | ✓ | 已实现读取器 |
-| 日语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
-| 韩语 | — | — | ✓ | 已实现读取器 |
-| 简体中文 | — | — | ✓ | 已实现读取器 |
-| 繁体中文 | — | — | ✓ | 已实现读取器 |
-
-</details>
-
 <a id="deathstranding"></a>
 
 ## DEATH STRANDING
@@ -769,5 +744,51 @@ Half-Life 2 and its bundled Episode One and Episode Two use separate campaign na
 | 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
 | 土耳其语 | — | — | ✓ | 已实现读取器 |
 | 乌克兰语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[官方语言列表](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [覆盖范围说明](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 德语 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 日语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="deusexhrdc"></a>
+
+## Deus Ex: Human Revolution - Director's Cut
+
+[官方语言列表](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/) · 2026-10-28 · [覆盖范围说明](../game-audits/deusexhrdc.md)
+
+All five official original voice and text locales. Native BIGFILE, CDRM, DRM and FMOD/CRI schemas retain exact language identities. Original dialogue and cinematic samples were decoded in each installed language.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
 
 </details>

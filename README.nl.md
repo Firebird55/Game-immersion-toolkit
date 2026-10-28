@@ -36,7 +36,6 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [Shadow of the Tomb Raider](docs/languages/nl.md#shadowofthetombraider) | Engels · Frans · Duits · Italiaans · Spaans (Latijns-Amerika) · Spaans (Spanje) · Japans · Portugees (Brazilië) · Pools · Russisch · Chinees (traditioneel) · Chinees (vereenvoudigd) · Arabisch | 14 |
 | [Spyro Reignited Trilogy](docs/languages/nl.md#spyro) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Arabisch · Deens · Nederlands · Fins · Noors · Pools · Portugees (Brazilië) · Spaans (Latijns-Amerika) · Zweeds | 14 |
 | [Detroit: Become Human](docs/languages/nl.md#detroit) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Arabisch · Japans · Pools · Portugees (Portugal) · Portugees (Brazilië) · Spaans (Latijns-Amerika) · Russisch | 24 |
-| [Persona 5 Royal](docs/languages/nl.md#persona5royal) | Engels · Japans | 9 |
 | [DEATH STRANDING](docs/languages/nl.md#deathstranding) | Engels · Frans · Spaans (Spanje) · Duits · Italiaans · Portugees (Portugal) · Russisch · Pools · Japans · Spaans (Latijns-Amerika) · Portugees (Brazilië) · Grieks | 20 |
 | [Portal](docs/languages/nl.md#portal) | Engels · Frans · Duits · Russisch · Spaans (Spanje) · Chinees (traditioneel) | 27 |
 | [Half-Life](docs/languages/nl.md#halflife) | **Alleen tekst:** Engels · Frans · Duits · Italiaans · Spaans (Spanje) · Chinees (vereenvoudigd) · Chinees (traditioneel) · Koreaans | 8 |
@@ -45,6 +44,8 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/nl.md#mgsvtpp) | Engels · Japans | 8 |
 | [Portal 2](docs/languages/nl.md#portal2) | Engels · Frans · Duits · Spaans (Spanje) · Russisch | 27 |
 | [Half-Life 2](docs/languages/nl.md#halflife2) | Engels · Frans · Duits · Italiaans · Koreaans · Spaans (Spanje) · Russisch · Chinees (vereenvoudigd) · Chinees (traditioneel) · Thai | 27 |
+| [Persona 5 Royal](docs/languages/nl.md#persona5royal) | Engels · Japans | 9 |
+| [Deus Ex: Human Revolution - Director's Cut](docs/languages/nl.md#deusexhrdc) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) | 5 |
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
