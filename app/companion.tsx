@@ -272,6 +272,7 @@ function phaseLabel(phase: string) {
     matched: 'Matched',
     error: 'Retrying',
     stopped: 'Paused',
+    unvoiced_disabled: 'Enable text-message capture',
   };
   return labels[phase] ?? phase.replaceAll('_', ' ');
 }
@@ -937,7 +938,7 @@ function CompanionClient() {
         {!!updateStatus.items?.length && <details><summary>Details for all games</summary>{updateStatus.items.map(item => <p key={item.game + item.locale}><strong>{GAME_NAMES[item.game as GameId] ?? item.game} · {item.locale} — {uiText(item.state === 'ready' ? 'Ready' : item.state === 'error' ? 'Preparation failed' : item.state === 'preparing' ? 'Preparing' : item.state)}</strong><br/>{item.message} {item.retry_after}</p>)}</details>}
       </section>}
 
-      {capture?.phase === 'needs_language_setup' && <p role="status" className="toolkit-setup-note">{capture.message}</p>}
+      {capture && ['needs_language_setup','unvoiced_disabled'].includes(capture.phase) && <p role="status" className="toolkit-setup-note">{capture.message}</p>}
 
       {!archivedHistory && <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">

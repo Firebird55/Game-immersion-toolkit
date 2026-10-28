@@ -140,7 +140,7 @@ class CaptureService:
             return self._snapshot.model_copy(deep=True)
 
     def _update_snapshot(self, **changes: object) -> CaptureSnapshot:
-        if changes.get("phase") in {"stopped", "starting", "error", "waiting_for_game", "excluded_screen", "needs_language_setup"}:
+        if changes.get("phase") in {"stopped", "starting", "error", "waiting_for_game", "excluded_screen", "needs_language_setup", "unvoiced_disabled"}:
             self._visible_text_by_channel.clear()
             if changes.get("phase") != "excluded_screen":
                 self._unvoiced_scope = None
@@ -349,6 +349,14 @@ class CaptureService:
                 window_title=window.title, window_bounds=window.bounds, last_error=None, visible_text_ids=[])
             return _ScanOutcome([])
         # Activating a selected language invalidates scans already in progress.
+        spec = STEAM_GAMES.get(profile.id)
+        if spec and not spec.voiced_capture and not settings.capture_unvoiced:
+            self._tracker.observe(None)
+            self._update_snapshot(running=True, active_game=profile.id, phase='unvoiced_disabled',
+                message='This game currently supports authored text messages only. Enable Include unvoiced dialogue in Capture setup; spoken dialogue capture is not implemented.',
+                last_scan_at=now, window_title=window.title, window_bounds=window.bounds,
+                last_error=None, visible_text_ids=[])
+            return _ScanOutcome([])
         epoch = self._scan_epoch
         self._prepare_window_capture(window)
 
