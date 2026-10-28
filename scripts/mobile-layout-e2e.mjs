@@ -6,7 +6,7 @@ import http from 'node:http';
 import {readFileSync} from 'node:fs';
 import {chromium} from 'playwright';
 import {ocrAssets,mime} from './mobile-assets.mjs';
-const assets=ocrAssets(),server=http.createServer((req,res)=>{const path=req.url;const bytes=path==='/'?Buffer.from('<html><body>Owned OCR layout fixtures</body></html>'):path==='/library.mjs'||path==='/ocr-pipeline.mjs'?readFileSync('public/mobile-capture'+path):assets.get(path.slice(1));if(!bytes){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',mime(path));res.end(bytes);});
+const assets=ocrAssets(),server=http.createServer((req,res)=>{const path=req.url;const bytes=path==='/'?Buffer.from('<html><body>Owned OCR layout fixtures</body></html>'):['/core.mjs','/library.mjs','/ocr-pipeline.mjs'].includes(path)?readFileSync('public/mobile-capture'+path):assets.get(path.slice(1));if(!bytes){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',mime(path));res.end(bytes);});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
 try{browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
  await page.evaluate(async()=>{const {default:T}=await import('/ocr/tesseract.esm.min.js');window.ocr=await T.createWorker('eng',1,{workerPath:location.origin+'/ocr/worker.min.js',corePath:location.origin+'/ocr/core/',langPath:location.origin+'/ocr/lang/',workerBlobURL:false});window.pipeline=await import('/ocr-pipeline.mjs');window.lib=await import('/library.mjs');});

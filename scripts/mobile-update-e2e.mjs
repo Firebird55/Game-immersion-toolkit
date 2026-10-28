@@ -1,19 +1,21 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {readFileSync,readdirSync,statSync,mkdtempSync,rmSync} from 'node:fs';
-import {resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {resolve,sep} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {zipSync,strToU8} from 'fflate';
 import * as engines from 'playwright';
 import {mime} from './mobile-assets.mjs';
+import {verifyPreviewAssets} from './mobile-publication.mjs';
 // Give each engine a fresh origin and process, with bounded startup and teardown.
 if(!process.env.MOBILE_TEST_BROWSERS){
  for(const engine of ['chromium','firefox','webkit'])execFileSync(process.execPath,[fileURLToPath(import.meta.url)],{stdio:'inherit',timeout:120000,env:{...process.env,MOBILE_TEST_BROWSERS:engine}});
  process.exit(0);
 }
 const built=process.env.MOBILE_PREVIEW_DIR??execFileSync(process.execPath,['scripts/build-mobile-preview.mjs'],{encoding:'utf8'}).match(/Mobile preview: (.+)/)[1].trim();
+verifyPreviewAssets(pathToFileURL(resolve(built)+sep));
 const baseline=new Map(readdirSync(built,{recursive:true}).filter(n=>statSync(resolve(built,n)).isFile()).map(n=>[n.replaceAll('\\','/'),readFileSync(resolve(built,n))]));
 let files=baseline;
 const server=http.createServer((req,res)=>{const name=new URL(req.url,'http://localhost').pathname.slice(1)||'index.html',bytes=files.get(name);if(!bytes){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',mime(name));res.setHeader('Cache-Control','no-store');res.end(bytes);});
@@ -68,6 +70,9 @@ try{for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webki
  const loaderCached=await page.evaluate(async base=>!!await caches.match(base+'/ocr/tesseract.esm.min.js'),base);
  if(!loaderCached){const diagnostics=await page.evaluate(async()=>({controller:navigator.serviceWorker.controller?.scriptURL,caches:await Promise.all((await caches.keys()).map(async name=>({name,requests:await Promise.all((await(await caches.open(name)).keys()).map(async request=>({url:request.url,headers:[...(await(await caches.open(name)).match(request)).headers]})))})))}));console.error('Offline cache diagnostics',name,await browser.version(),JSON.stringify(diagnostics,null,2));}
  assert(loaderCached,'The application OCR loader must be cached before the first offline visit');
+ const core=[...files.keys()].find(n=>/^core\.[a-f0-9]{16}\.mjs$/.test(n));
+ assert(core,'The application includes the shared game registry');
+ assert(await page.evaluate(async url=>!!await caches.match(url),base+'/'+core),'The shared game registry must be cached before the first offline visit');
  mark('first offline reload');
  offline=true;await context.setOffline(true);await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1).catch(async error=>{console.error(name,{stage:'offline restore',errors,failures,library:await page.locator('#library-status').textContent()});throw error;});await page.getByRole('button',{name:'Unfavorite',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Unfavorite',exact:true}).count(),1);await context.setOffline(false);offline=false;
  // Simulate an active capture's disabled role/update controls. Real WebRTC
