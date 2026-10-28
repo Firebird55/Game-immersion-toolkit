@@ -177,6 +177,11 @@ they are not the required corpus acquisition or PR execution path.
 
 ### D5 — Shared setup service and explicit host/storage boundaries
 
+The [R18 inventory and prototype decision](r18-runtime-inventory.md) now supplies
+the [R12c storage/host design contract](r18-storage-host-contract.md), reviewed
+against upstream `4a4abfc` on 2026-10-28. R14 adoption, source/frozen adapters and
+R19 artifact/native validation remain separate implementation work.
+
 Installer and WebUI use the same validation and preparation. Separate immutable
 resources, persistent data, caches, host settings and protected credentials.
 Source and bundle adapters own resource paths and start/readiness/stop. Status
