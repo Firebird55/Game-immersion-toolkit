@@ -18,7 +18,7 @@ try{
    const writes=[],requests=[];
    const accountLanguages={first:['en','zh'],second:['en','zh'],legacy:['en','zh']};
    let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead,captureGame='genshin',unvoiced=false;
-   let languageReadStatus=200,failPreparation=false,greekLine=false;
+   let languageReadStatus=200,failPreparation=false,greekLine=false,selectedReadingLanguage='en';
    let initialLanguageGate=true;const initialLanguageReads=[];
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
     languageSettings:{en:{effectiveTranslationLanguage:active==='first'?'zh-hans':'nl',inlineGlossMode:'always',wordPopup:{tabs:[{id:'definition',enabled:true}],openOn:'first'}},zh:{effectiveTranslationLanguage:'en',inlineGlossMode:'off'}}});
@@ -41,8 +41,8 @@ try{
     if(path==='/api/settings'){if(request.method()==='PATCH')Object.assign(settings,body);return respond(settings);}
     if(path==='/api/toolkit-update')return respond({installed_version:'fixture',enabled:true,state:'current',message:'Toolkit is up to date'});
     if((/^\/api\/lines\/\d+\/(reading|lexirise)/.test(path)||path==='/api/lexirise/decks'||path==='/api/lexirise/settings'&&request.headers()['x-proxy-transcript-account']!==undefined)&&request.headers()['x-proxy-transcript-account']!==active)return respond({detail:'Account changed. Retry with the selected account.'},409);
-    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
-    if(path==='/api/status')return respond({capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:'en',source_locale:'en'}}});
+    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:selectedReadingLanguage,source_locale:selectedReadingLanguage}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
+    if(path==='/api/status')return respond({capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:selectedReadingLanguage,source_locale:selectedReadingLanguage}}});
     if(path==='/api/lines')return respond(url.searchParams.get('game')==='zzz'?[line()]:[]);
     if(path==='/api/favorites')return respond([]);
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[game],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,mobile_export:{state:'idle'},free_gb:10});
@@ -291,7 +291,8 @@ try{
    const addChoice=picker.getByLabel('Language to add',{exact:true});
    assert.equal(await addChoice.locator('option[value="el"]').count(),0,'Game-only Greek is never offered as a Lexirise account language');
    assert.equal(await addChoice.locator('option[value="en"]').count(),0,'Already enabled languages are not offered for addition');
-   assert.equal(await addChoice.locator('option[value="th"]').count(),0,'Subtitle-only languages are not offered for addition');
+   assert.equal(await addChoice.locator('option[value="th"]').count(),1,'Half-Life 2 regional Thai voice support is available to the provider');
+   assert.equal(await addChoice.locator('option[value="bg"]').count(),0,'Subtitle-only Bulgarian is not offered for addition');
    await addChoice.selectOption('ja');failLanguageWrite=true;
    await picker.getByRole('button',{name:'Add to my Lexirise account',exact:true}).evaluate(button=>{button.click();button.click();});
    await picker.getByRole('alert').filter({hasText:'Synthetic language save failed'}).waitFor();
@@ -351,6 +352,15 @@ try{
    assert.equal(await page.locator('.current-line').getByRole('button',{name:'Original voice unavailable',exact:true}).count(),0);
    await send.click();
    await page.getByText('Sentence saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor();
+   selectedReadingLanguage='ja';generation++;
+   await page.reload();
+   await page.locator('.current-line .reading-text[lang="en"]').waitFor();
+   const japaneseOptions=await page.evaluate(()=>localStorage.getItem('proxy-transcript-reading-options:first:ja'));
+   await page.getByRole('button',{name:'Lexirise reading options',exact:true}).click();
+   await page.getByRole('dialog',{name:'Lexirise reading options'}).getByLabel('Inline glosses',{exact:true}).selectOption('off');
+   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('proxy-transcript-reading-options:first:en')).meanings),'off','Retained English line preferences stay in the English scope after preparing Japanese');
+   assert.equal(await page.evaluate(()=>localStorage.getItem('proxy-transcript-reading-options:first:ja')),japaneseOptions);
+   await page.keyboard.press('Escape');
    const readingRequests=requests.filter(request=>request.path==='/api/lines/1/reading').length;
    greekLine=true;generation++;
    await page.reload();

@@ -408,5 +408,6 @@ export default {
  "Find a line in your library":["Zoek een regel in je bibliotheek","在资料库中查找台词","在資料庫中尋找台詞"],
  "Find line":["Regel zoeken","查找台词","尋找台詞"],
  "Clear this game's transcript":["Transcript van deze game wissen","清除此游戏的文本","清除此遊戲的文字"],
- "This game has no official translation in the selected language.":["Deze game heeft geen officiële vertaling in de gekozen taal.","此游戏没有所选语言的官方翻译。","此遊戲沒有所選語言的官方翻譯。"]
+ "This game has no official translation in the selected language.":["Deze game heeft geen officiële vertaling in de gekozen taal.","此游戏没有所选语言的官方翻译。","此遊戲沒有所選語言的官方翻譯。"],
+ "Lexirise reading tools are unavailable for this language.":["Lexirise-leeshulpmiddelen zijn niet beschikbaar voor deze taal.","Lexirise 阅读工具暂不支持此语言。","Lexirise 閱讀工具暫不支援此語言。"]
 };
