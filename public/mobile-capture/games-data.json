@@ -30,7 +30,9 @@
     "no": "Norwegian",
     "sv": "Swedish",
     "id": "Indonesian",
-    "vi": "Vietnamese"
+    "vi": "Vietnamese",
+    "bg": "Bulgarian",
+    "ro": "Romanian"
   },
   "games": [
     {
@@ -1421,7 +1423,301 @@
       ],
       "formatOnly": [],
       "notes": "Original PC edition only; all twelve official voice locales and twenty text locales. Ordinary and cinematic original samples decoded in every installed voice language. The reader uses the game-owned Oodle library and the verified voice decoder.",
-      "coverage": "7,877 individual voice records and 155 complete cinematic tracks bound to 2,916 subtitle sentences; 1,167 confirmed silent mail/interview records. 249 unresolved cinematic sentences and 10,143 unknown UI/null-audio records remain excluded. Blank localization fields are inventoried separately. Cinematic playback retains the complete original scene without guessed cuts. Movies/movies.mpk and physical gameplay/OCR remain unverified; Director’s Cut is a different unsupported format.",
+      "coverage": "7,877 individual voice records and 2,911 separate cinematic captions bound to 155 complete tracks; 1,167 confirmed silent mail/interview records. 249 unresolved cinematic sentences and 10,143 unknown UI/null-audio records remain excluded. Each caption retains its own translations; full-track playback is labelled and shared without repeatedly decoding the scene. Movies/movies.mpk and physical gameplay/OCR remain unverified; Director’s Cut is a different unsupported format.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "portal",
+      "name": "Portal",
+      "guide": "game-audits/portal.md",
+      "source": "https://store.steampowered.com/app/400/Portal/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "fr",
+        "de",
+        "ru",
+        "es-ES",
+        "zh-Hant"
+      ],
+      "audio": [
+        "en",
+        "fr",
+        "de",
+        "ru",
+        "es-ES",
+        "zh-Hant"
+      ],
+      "officialAudio": [
+        "en",
+        "fr",
+        "de",
+        "ru",
+        "es-ES",
+        "zh-Hant"
+      ],
+      "officialText": [
+        "en",
+        "fr",
+        "de",
+        "ru",
+        "da",
+        "nl",
+        "fi",
+        "it",
+        "ja",
+        "no",
+        "pl",
+        "pt-PT",
+        "zh-Hans",
+        "es-ES",
+        "sv",
+        "zh-Hant",
+        "ko",
+        "bg",
+        "cs",
+        "el",
+        "hu",
+        "pt-BR",
+        "ro",
+        "es-419",
+        "th",
+        "tr",
+        "uk"
+      ],
+      "targets": [
+        "en",
+        "fr",
+        "de",
+        "ru",
+        "da",
+        "nl",
+        "fi",
+        "it",
+        "ja",
+        "no",
+        "pl",
+        "pt-PT",
+        "zh-Hans",
+        "es-ES",
+        "sv",
+        "zh-Hant",
+        "ko",
+        "bg",
+        "cs",
+        "el",
+        "hu",
+        "pt-BR",
+        "ro",
+        "es-419",
+        "th",
+        "tr",
+        "uk"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en"
+      ],
+      "formatOnly": [
+        "fr",
+        "de",
+        "ru",
+        "es-ES",
+        "zh-Hant"
+      ],
+      "notes": "Six official voice locales and 27 text locales. English originals decoded locally; the other voice packs use format-tested locale mounts and never borrow English recordings.",
+      "coverage": "Story, ambient captions, developer commentary, individual credit lyrics and ten confirmed silent terminal headings. Randomized turret captions and missing bonus recordings remain unavailable. Credit lyrics retain separate authored IDs and replay the complete original song. Texture-only writing and unsubtitled speech are not caption capture. Physical gameplay capture remains unverified.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "halflife",
+      "name": "Half-Life",
+      "guide": "game-audits/halflife.md",
+      "source": "https://store.steampowered.com/app/70/HalfLife/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "zh-Hans",
+        "zh-Hant",
+        "ko"
+      ],
+      "audio": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "zh-Hans",
+        "zh-Hant",
+        "ko"
+      ],
+      "officialAudio": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "zh-Hans",
+        "zh-Hant",
+        "ko"
+      ],
+      "officialText": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "zh-Hans",
+        "zh-Hant",
+        "ko"
+      ],
+      "targets": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "zh-Hans",
+        "zh-Hant",
+        "ko"
+      ],
+      "unverified": {},
+      "playbackVerified": [],
+      "formatOnly": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "zh-Hans",
+        "zh-Hant",
+        "ko"
+      ],
+      "notes": "Limited support: authored text messages only. Original Half-Life has no official spoken subtitle track. Eight official language mount schemas are inventoried; spoken dialogue capture is not implemented.",
+      "coverage": "97 confirmed unvoiced screen messages from installed GoldSrc maps and titles, plus 58 unknown entries. Speech files and sentence events are inventoried separately; filenames are never promoted to dialogue. Enable Include unvoiced dialogue for verified text messages. Missing language files remain actionable. This is not full spoken-dialogue support or Half-Life: Source support.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle.",
+      "captureCapabilities": {
+        "voiced": false,
+        "unvoiced": true,
+        "reason": "Original Half-Life has no official spoken subtitle track. Verified speech bindings and audio-based capture are not implemented."
+      },
+      "textOnly": true
+    },
+    {
+      "id": "plaguetaleinnocence",
+      "name": "A Plague Tale: Innocence",
+      "guide": "game-audits/plaguetaleinnocence.md",
+      "source": "https://store.steampowered.com/app/752590/A_Plague_Tale_Innocence/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "fr",
+        "de"
+      ],
+      "audio": [
+        "en",
+        "fr",
+        "de"
+      ],
+      "officialAudio": [
+        "en",
+        "fr",
+        "de"
+      ],
+      "officialText": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "es-419",
+        "pl",
+        "cs",
+        "pt-BR",
+        "ru",
+        "zh-Hant",
+        "zh-Hans",
+        "ja",
+        "ko"
+      ],
+      "targets": [
+        "en",
+        "fr",
+        "de",
+        "it",
+        "es-ES",
+        "es-419",
+        "pl",
+        "cs",
+        "pt-BR",
+        "ru",
+        "zh-Hant",
+        "zh-Hans",
+        "ja",
+        "ko"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en",
+        "fr",
+        "de"
+      ],
+      "formatOnly": [],
+      "notes": "All three official originals and fourteen text locales. English, French and German installed cinematic and ambient recordings decoded with the verified voice decoder.",
+      "coverage": "8,403 voiced records per original language, including 779 cinematic, 6,742 ambient and 882 other dialogue entries; 179 confirmed silent narrative readables. Authored D1 package order selects revised performances. 1,166 events without usable subtitle prose are excluded; unresolved UI stays unknown. Physical gameplay/OCR/DPI remains unverified.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "mgsvgz",
+      "name": "METAL GEAR SOLID V: GROUND ZEROES",
+      "guide": "game-audits/mgsvgz.md",
+      "source": "https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "ja"
+      ],
+      "audio": [
+        "en",
+        "ja"
+      ],
+      "officialAudio": [
+        "en",
+        "ja"
+      ],
+      "officialText": [
+        "ja",
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-419",
+        "pt-BR",
+        "ru"
+      ],
+      "targets": [
+        "ja",
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-419",
+        "pt-BR",
+        "ru"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en"
+      ],
+      "formatOnly": [
+        "ja"
+      ],
+      "notes": "English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.",
+      "coverage": "3,784 voiced records, including 266 individual cinematic captions over 40 original streams; 111 confirmed silent entries include backstory prose and quiz answers. 200 unavailable and 4,633 unknown entries are retained separately. Interrogation voice selection needs runtime actor/switch state; 13 cinematic streams and an ASF movie remain unresolved. Full-track playback is explicit. Physical gameplay capture remains unverified.",
       "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
     }
   ]

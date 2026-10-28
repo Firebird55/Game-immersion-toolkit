@@ -118,10 +118,12 @@ class MultilingualTextIndex:
                 self.entry_count = len(payload['records'])
                 self.audio_count = sum(bool(r.get('audio')) for r in self._records)
                 self.ready = True
-                self.state = 'ready' if self.audio_count else 'missing_voice'
+                capabilities = payload.get('capture_capabilities') or {}
+                text_only = capabilities.get('voiced') is False and capabilities.get('unvoiced') is True
+                self.state = 'ready' if self.audio_count else 'unvoiced_only' if text_only else 'missing_voice'
                 self.message = payload.get('message', f'{self.entry_count:,} official lines; {self.audio_count:,} original voices')
                 self.snapshot_metadata = {key: payload.get(key) for key in
-                    ('format', 'game', 'source_locale', 'install', 'fingerprint', 'reader_revision', 'targets_requested')}
+                    ('format', 'game', 'source_locale', 'install', 'fingerprint', 'reader_revision', 'targets_requested', 'capture_capabilities')}
                 self._signature = signature
             return True
         except (OSError, ValueError, KeyError, TypeError) as error:
@@ -132,7 +134,8 @@ class MultilingualTextIndex:
         return {'ready': self.ready, 'state': self.state, 'message': self.message,
                 'entry_count': self.entry_count, 'audio_count': self.audio_count, 'source_locale': self.source_locale,
                 'unvoiced_count': self.voice_counts['unvoiced'], 'voice_counts': dict(self.voice_counts),
-                'dialogue_coverage': self.dialogue_coverage}
+                'dialogue_coverage': self.dialogue_coverage,
+                'capture_capabilities': self.snapshot_metadata.get('capture_capabilities')}
 
     @staticmethod
     def authored_scene(text_id):

@@ -564,3 +564,124 @@ Original PC edition only; all twelve official voice locales and twenty text loca
 | Hongaars | — | — | ✓ | Reader geïmplementeerd |
 
 </details>
+
+<a id="portal"></a>
+
+## Portal
+
+[Officiële taallijst](https://store.steampowered.com/app/400/Portal/) · 2026-10-28 · [Dekkingsnotities](../game-audits/portal.md)
+
+Six official voice locales and 27 text locales. English originals decoded locally; the other voice packs use format-tested locale mounts and never borrow English recordings.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Duits | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Russisch | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Deens | — | — | ✓ | Reader geïmplementeerd |
+| Nederlands | — | — | ✓ | Reader geïmplementeerd |
+| Fins | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Japans | — | — | ✓ | Reader geïmplementeerd |
+| Noors | — | — | ✓ | Reader geïmplementeerd |
+| Pools | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Portugal) | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Zweeds | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+| Bulgaars | — | — | ✓ | Reader geïmplementeerd |
+| Tsjechisch | — | — | ✓ | Reader geïmplementeerd |
+| Grieks | — | — | ✓ | Reader geïmplementeerd |
+| Hongaars | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Roemeens | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | — | — | ✓ | Reader geïmplementeerd |
+| Thai | — | — | ✓ | Reader geïmplementeerd |
+| Turks | — | — | ✓ | Reader geïmplementeerd |
+| Oekraïens | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="halflife"></a>
+
+## Half-Life
+
+[Officiële taallijst](https://store.steampowered.com/app/70/HalfLife/) · 2026-10-28 · [Dekkingsnotities](../game-audits/halflife.md)
+
+Limited support: authored text messages only. Original Half-Life has no official spoken subtitle track. Eight official language mount schemas are inventoried; spoken dialogue capture is not implemented.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Frans | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Duits | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Italiaans | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Spaans (Spanje) | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Chinees (vereenvoudigd) | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Chinees (traditioneel) | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Koreaans | — | Alleen tekst | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+
+</details>
+
+<a id="plaguetaleinnocence"></a>
+
+## A Plague Tale: Innocence
+
+[Officiële taallijst](https://store.steampowered.com/app/752590/A_Plague_Tale_Innocence/) · 2026-10-28 · [Dekkingsnotities](../game-audits/plaguetaleinnocence.md)
+
+All three official originals and fourteen text locales. English, French and German installed cinematic and ambient recordings decoded with the verified voice decoder.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Duits | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | — | — | ✓ | Reader geïmplementeerd |
+| Pools | — | — | ✓ | Reader geïmplementeerd |
+| Tsjechisch | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
+| Japans | — | — | ✓ | Reader geïmplementeerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+
+</details>
+
+<a id="mgsvgz"></a>
+
+## METAL GEAR SOLID V: GROUND ZEROES
+
+[Officiële taallijst](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [Dekkingsnotities](../game-audits/mgsvgz.md)
+
+English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Japans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | — | — | ✓ | Reader geïmplementeerd |
+| Italiaans | — | — | ✓ | Reader geïmplementeerd |
+| Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | — | — | ✓ | Reader geïmplementeerd |
+
+</details>

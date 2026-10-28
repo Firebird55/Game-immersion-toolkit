@@ -25,12 +25,13 @@ Windows companion for official multilingual game transcripts, local subtitle OCR
 | Arknights: Endfield | Contains Endfield.exe and Endfield_Data/StreamingAssets/VFS | Selected voice pack and .NET 10 SDK |
 | Spyro Reignited Trilogy | Contains Spyro.exe and Falcon/Content/Paks | All 14 official voice languages; installed original banks are read directly |
 | Detroit: Become Human | Contains DetroitBecomeHuman.exe and BigFile_PC.idx | All 12 official voice languages and 24 text locales; original voices read directly |
-
 | Persona 5 Royal | Contains P5R.exe and CPK/BASE.CPK | Selected study text CPK and matching English or Japanese original voice pack; verified character metadata is cached on first preparation |
-
 | METAL GEAR SOLID V: THE PHANTOM PAIN | Contains mgsvtpp.exe, master/data1.dat and master/chunk0.dat | Selected English or Japanese original PC voice edition; Metal Gear Online is excluded |
-
 | DEATH STRANDING | Contains ds.exe and data | Original PC edition with the selected voice pack and its owned oo2core_7_win64.dll; Director’s Cut requires a separate reader |
+| Portal | Contains hl2.exe and portal/gameinfo.txt | Selected official Steam language; shared English voices require its completed Steam language manifest |
+| Half-Life | Contains hl.exe and valve/liblist.gam | Original GoldSrc edition; authored text messages only, with Include unvoiced dialogue enabled |
+| A Plague Tale: Innocence | Contains APlagueTaleInnocence_x64.exe, LangDef.tsc, TRTEXT and SOUNDBANKS | Selected English, French or German voice pack and official text files |
+| METAL GEAR SOLID V: GROUND ZEROES | Contains MgsGroundZeroes.exe and data_02.g0s | Selected English or Japanese original Steam voice edition; original Ground Zeroes GZS archives |
 
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 

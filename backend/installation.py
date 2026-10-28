@@ -61,6 +61,8 @@ def _voice_state(game: str, install: Path | None, state: dict) -> str:
         return "not_required"
     if not install:
         return "not_checked"
+    if (spec := STEAM_GAMES.get(game)) and not spec.voiced_capture:
+        return 'unvoiced_only'
     if state.get('index_state') == 'needs_language_setup':
         return 'needs_language_setup'
     if state.get("audio_ready"):

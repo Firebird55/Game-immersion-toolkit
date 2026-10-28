@@ -112,6 +112,7 @@ class LanguageInventory:
                     'table_bytes': size, 'reclaimable_bytes': size,
                     'voice_state': probe(game, install, row['locale']),
                     'support': 'expected' if row['reader_available'] else 'unsupported',
+                    'capture_capabilities': entry.get('captureCapabilities'),
                 }
                 # A prepared table proves bindings, not continued pack installation.
                 if size:

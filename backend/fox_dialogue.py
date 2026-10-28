@@ -486,7 +486,7 @@ def read_lang(data):
     return result
 
 
-def demo_bindings(view):
+def demo_bindings(view, *, include_subtitles=False):
     """Read authored DemoData movie/audio relations from binary FOX2 entities.
 
     Only typed scalar fields in the same entity establish a relation. The local
@@ -500,6 +500,8 @@ def demo_bindings(view):
         raise invalid('Unsupported Fox scene entity table.')
     fields = {strcode48(name): (name, kind) for name, kind in
               (('demoId', 11), ('demoStreamPath', 12), ('audioPath', 12))}
+    if include_subtitles:
+        fields[strcode48('subtitleBinaryFile')] = ('subtitleBinaryFile', 20)
     demo_class = strcode48('DemoData')
     entities = []
     for index in range(count):
@@ -562,7 +564,9 @@ def demo_bindings(view):
         audio_match = re.fullmatch(r'/Assets/tpp/sound/external/demo/([a-z0-9_]+)\.mas', audio)
         result.append({'entity': entity['entity'], 'movie': movie,
                        'audio_name': audio_match[1] if audio_match else '',
-                       'demo_name': demo if re.fullmatch(r'[a-z0-9_]+', demo) else ''})
+                       'demo_name': demo if re.fullmatch(r'[a-z0-9_]+', demo) else '',
+                       **({'subtitle': strings.get(entity.get('subtitleBinaryFile'), '')}
+                          if include_subtitles else {})})
     return result
 
 

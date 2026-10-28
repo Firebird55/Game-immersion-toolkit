@@ -7,8 +7,12 @@ from .lexirise_settings import STUDY_LANGUAGES
 
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
+    'portal': ('en', 'fr', 'de', 'ru', 'es-ES', 'zh-Hant'),
+    'halflife': ('en', 'fr', 'de', 'it', 'es-ES', 'zh-Hans', 'zh-Hant', 'ko'),
+    'plaguetaleinnocence': ('en', 'fr', 'de'),
     'deathstranding': ('en', 'fr', 'es-ES', 'de', 'it', 'pt-PT', 'ru', 'pl', 'ja', 'es-419', 'pt-BR', 'el'),
     'mgsvtpp': ('en', 'ja'),
+    'mgsvgz': ('en', 'ja'),
     'persona5royal': ('en', 'ja'),
     'spyro': ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'da', 'nl', 'fi', 'no', 'pl', 'pt-BR', 'es-419', 'sv'),
     'detroit': ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'ja', 'pl', 'pt-PT', 'pt-BR', 'es-419', 'ru'),
@@ -26,7 +30,8 @@ LOCALE_NAMES = {'en': 'English', 'zh-Hans': 'Simplified Chinese', 'zh-Hant': 'Tr
     'es-ES': 'Spanish — Spain', 'es-419': 'Spanish — Latin America', 'pt-BR': 'Portuguese — Brazil',
     'pt-PT': 'Portuguese — Portugal', 'ru': 'Russian', 'pl': 'Polish', 'nl': 'Dutch',
     'ar': 'Arabic', 'cs': 'Czech', 'hu': 'Hungarian', 'th': 'Thai', 'tr': 'Turkish', 'uk': 'Ukrainian',
-    'da': 'Danish', 'fi': 'Finnish', 'el': 'Greek', 'no': 'Norwegian', 'sv': 'Swedish', 'id': 'Indonesian', 'vi': 'Vietnamese'}
+    'da': 'Danish', 'fi': 'Finnish', 'el': 'Greek', 'no': 'Norwegian', 'sv': 'Swedish', 'id': 'Indonesian', 'vi': 'Vietnamese',
+    'bg': 'Bulgarian', 'ro': 'Romanian'}
 
 
 def study_language(locale: str) -> str:

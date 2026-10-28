@@ -564,3 +564,124 @@ Original PC edition only; all twelve official voice locales and twenty text loca
 | 匈牙利语 | — | — | ✓ | 已实现读取器 |
 
 </details>
+
+<a id="portal"></a>
+
+## Portal
+
+[官方语言列表](https://store.steampowered.com/app/400/Portal/) · 2026-10-28 · [覆盖范围说明](../game-audits/portal.md)
+
+Six official voice locales and 27 text locales. English originals decoded locally; the other voice packs use format-tested locale mounts and never borrow English recordings.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 俄语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 丹麦语 | — | — | ✓ | 已实现读取器 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 芬兰语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 挪威语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 瑞典语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 保加利亚语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 罗马尼亚语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 泰语 | — | — | ✓ | 已实现读取器 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 乌克兰语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="halflife"></a>
+
+## Half-Life
+
+[官方语言列表](https://store.steampowered.com/app/70/HalfLife/) · 2026-10-28 · [覆盖范围说明](../game-audits/halflife.md)
+
+Limited support: authored text messages only. Original Half-Life has no official spoken subtitle track. Eight official language mount schemas are inventoried; spoken dialogue capture is not implemented.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 法语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 意大利语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 欧洲西班牙语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 简体中文 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 繁体中文 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+
+</details>
+
+<a id="plaguetaleinnocence"></a>
+
+## A Plague Tale: Innocence
+
+[官方语言列表](https://store.steampowered.com/app/752590/A_Plague_Tale_Innocence/) · 2026-10-28 · [覆盖范围说明](../game-audits/plaguetaleinnocence.md)
+
+All three official originals and fourteen text locales. English, French and German installed cinematic and ambient recordings decoded with the verified voice decoder.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="mgsvgz"></a>
+
+## METAL GEAR SOLID V: GROUND ZEROES
+
+[官方语言列表](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvgz.md)
+
+English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 日语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 德语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | — | — | ✓ | 已实现读取器 |
+
+</details>

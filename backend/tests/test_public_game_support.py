@@ -25,6 +25,10 @@ def test_public_game_support_matches_readers():
             assert game['textOnly'] and game['study'] == ['zh-Hans'] and game['targets'] == ['en']
             continue
         reader, _ = asset_adapter(game['id'])
+        if hasattr(reader, 'CAPTURE_CAPABILITIES'):
+            from backend.steam_games import STEAM_GAMES
+            assert game['captureCapabilities'] == reader.CAPTURE_CAPABILITIES
+            assert game['captureCapabilities']['voiced'] == STEAM_GAMES[game['id']].voiced_capture
         assert set(game['study']) == set(reader.SUPPORTED_LOCALES) == set(GAME_LOCALES[game['id']])
         assert set(game['audio']) == {audio_locale(code, game['id']) for code in game['study']}
         if {'zh-Hans', 'zh-Hant'} <= set(game['audio']):

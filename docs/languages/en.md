@@ -564,3 +564,124 @@ Original PC edition only; all twelve official voice locales and twenty text loca
 | Hungarian | — | — | ✓ | Reader implemented |
 
 </details>
+
+<a id="portal"></a>
+
+## Portal
+
+[Official language listing](https://store.steampowered.com/app/400/Portal/) · 2026-10-28 · [Coverage notes](../game-audits/portal.md)
+
+Six official voice locales and 27 text locales. English originals decoded locally; the other voice packs use format-tested locale mounts and never borrow English recordings.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Danish | — | — | ✓ | Reader implemented |
+| Dutch | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| European Portuguese | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Swedish | — | — | ✓ | Reader implemented |
+| Traditional Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Bulgarian | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Romanian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Thai | — | — | ✓ | Reader implemented |
+| Turkish | — | — | ✓ | Reader implemented |
+| Ukrainian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="halflife"></a>
+
+## Half-Life
+
+[Official language listing](https://store.steampowered.com/app/70/HalfLife/) · 2026-10-28 · [Coverage notes](../game-audits/halflife.md)
+
+Limited support: authored text messages only. Original Half-Life has no official spoken subtitle track. Eight official language mount schemas are inventoried; spoken dialogue capture is not implemented.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| French | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| German | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Italian | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| European Spanish | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Traditional Chinese | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Korean | — | Text only | ✓ | Format tested; voice pack not verified locally |
+
+</details>
+
+<a id="plaguetaleinnocence"></a>
+
+## A Plague Tale: Innocence
+
+[Official language listing](https://store.steampowered.com/app/752590/A_Plague_Tale_Innocence/) · 2026-10-28 · [Coverage notes](../game-audits/plaguetaleinnocence.md)
+
+All three official originals and fourteen text locales. English, French and German installed cinematic and ambient recordings decoded with the verified voice decoder.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Korean | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="mgsvgz"></a>
+
+## METAL GEAR SOLID V: GROUND ZEROES
+
+[Official language listing](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [Coverage notes](../game-audits/mgsvgz.md)
+
+English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+
+</details>

@@ -17,6 +17,7 @@ class SteamGame:
     adapter: str
     window_executable: str | None = None
     floating_dialogue: bool = False
+    voiced_capture: bool = True
 
 
 STEAM_GAMES = {
@@ -26,16 +27,16 @@ STEAM_GAMES = {
     'mgsvtpp': SteamGame('METAL GEAR SOLID V: THE PHANTOM PAIN', 287700, 'MGS_TPP',
         'mgsvtpp.exe', ('master/data1.dat', 'master/chunk0.dat'), 'mgsv_tpp_assets', floating_dialogue=True),
     'mgsvgz': SteamGame('METAL GEAR SOLID V: GROUND ZEROES', 311340, 'Metal Gear Solid Ground Zeroes',
-        'MgsGroundZeroes.exe', ('data_00.g0s',), 'mgsv_gz_assets', floating_dialogue=True),
+        'MgsGroundZeroes.exe', ('data_02.g0s',), 'mgsv_gz_assets', floating_dialogue=True),
     'deathstranding': SteamGame('DEATH STRANDING', 1190460, 'Death Stranding',
-        'ds.exe', ('data',), 'death_stranding_assets'),
+        'ds.exe', ('data',), 'death_stranding_assets', floating_dialogue=True),
     'plaguetaleinnocence': SteamGame('A Plague Tale: Innocence', 752590, 'A Plague Tale Innocence',
         'APlagueTaleInnocence_x64.exe', ('LangDef.tsc', 'TRTEXT', 'SOUNDBANKS'), 'plague_tale_assets'),
     'detroit': SteamGame('Detroit: Become Human', 1222140, 'Detroit Become Human',
         'DetroitBecomeHuman.exe', ('BigFile_PC.idx',), 'detroit_assets'),
-    'portal': SteamGame('Portal', 400, 'Portal', 'hl2.exe', ('portal/gameinfo.txt',), 'portal_assets'),
+    'portal': SteamGame('Portal', 400, 'Portal', 'hl2.exe', ('portal/gameinfo.txt',), 'portal_assets', floating_dialogue=True),
     'portal2': SteamGame('Portal 2', 620, 'Portal 2', 'portal2.exe', ('portal2/gameinfo.txt',), 'portal2_assets'),
-    'halflife': SteamGame('Half-Life', 70, 'Half-Life', 'hl.exe', ('valve/liblist.gam',), 'halflife_assets'),
+    'halflife': SteamGame('Half-Life', 70, 'Half-Life', 'hl.exe', ('valve/liblist.gam',), 'halflife_assets', voiced_capture=False),
     'halflife2': SteamGame('Half-Life 2', 220, 'Half-Life 2', 'hl2.exe', ('hl2/gameinfo.txt',), 'halflife2_assets'),
     'persona5royal': SteamGame('Persona 5 Royal', 1687950, 'P5R', 'P5R.exe', ('CPK/BASE.CPK',), 'persona5_assets', floating_dialogue=True),
     'deusexhrdc': SteamGame("Deus Ex: Human Revolution - Director's Cut", 238010,
