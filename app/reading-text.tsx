@@ -1,5 +1,5 @@
 'use client';
-import {createReader, validateAccount, isStudyLanguage, type AccountSettings, type ReadingOptions} from '@firebird55/lexirise-components';
+import {createReader, validateAccount, isStudyLanguage, type AccountSettings, type ReadingOptions, type StudyLanguage} from '@firebird55/lexirise-components';
 import type {ComponentProps} from 'react';
 import {useEffect,useMemo,useState} from 'react';
 export {DEFAULT_READING_OPTIONS,MIGAKU_TONE_PALETTE,restoreReadingOptions} from '@firebird55/lexirise-components';
@@ -24,6 +24,10 @@ export function accountReadingOptions(local:ReadingOptions,account:AccountSettin
 }
 type ReaderProps=ComponentProps<ReturnType<typeof createReader>['ReadingText']>;
 export function ReadingText({sourceLanguage='zh',...props}:ReaderProps&{sourceLanguage?:string}){
+ if(!isStudyLanguage(sourceLanguage))return <p lang={sourceLanguage} className={props.current?'current-chinese':undefined}>{props.text}</p>;
+ return <SupportedReadingText {...props} sourceLanguage={sourceLanguage}/>;
+}
+function SupportedReadingText({sourceLanguage:source,...props}:ReaderProps&{sourceLanguage:StudyLanguage}){
  const [loaded,setLoaded]=useState<Context|null>(null),[version,setVersion]=useState(revision);
  useEffect(()=>{
   let active=true,generation=0;
@@ -32,7 +36,6 @@ export function ReadingText({sourceLanguage='zh',...props}:ReaderProps&{sourceLa
   load();for(const name of ['lexirise-account-settings','lexirise-credentials-changed'])window.addEventListener(name,load);
   return()=>{active=false;window.removeEventListener('lexirise-local-reading-options',local);for(const name of ['lexirise-account-settings','lexirise-credentials-changed'])window.removeEventListener(name,load);};
  },[]);
- const source=isStudyLanguage(sourceLanguage)?sourceLanguage:'zh';
  const profile=loaded?.settings.languageSettings[source];
  const target=String(profile?.effectiveTranslationLanguage??loaded?.settings.global.effectiveTranslationLanguage??loaded?.settings.global.translationLanguage??'en');
  const accountGeneration=revision;

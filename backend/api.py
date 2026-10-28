@@ -38,7 +38,7 @@ from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
 from .state_version import StateVersion
-from .lexirise_settings import account_settings
+from .lexirise_settings import account_settings, STUDY_LANGUAGES
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
 from .language_preparation import LanguagePreparation
@@ -1179,7 +1179,7 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider|spyro|mgsvtpp|mgsvgz|deathstranding|plaguetaleinnocence|detroit|portal|portal2|halflife|halflife2|persona5royal|deusexhrdc)$"),
 ) -> list[TranscriptLine]:
     return [
         presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
@@ -1196,7 +1196,7 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider|spyro|mgsvtpp|mgsvgz|deathstranding|plaguetaleinnocence|detroit|portal|portal2|halflife|halflife2|persona5royal|deusexhrdc)$"),
 ) -> list[TranscriptLine]:
     return [runtime.speakers.enrich(line) if line.game == "zzz" else line
             for line in runtime.transcript.list_favorites(game=game)]
@@ -1249,7 +1249,7 @@ def integration_status(language: str = 'zh', *, refresh_settings=True) -> dict:
         account = runtime.accounts.status()['active']
         sources.update(study_language(locale) for game in GAME_LOCALES
                        if (locale := runtime.languages.selected(game, account)))
-    by_language = {source: runtime.lexirise.pin(source).status() for source in sources}
+    by_language = {source: runtime.lexirise.pin(source).status() for source in sources if source in STUDY_LANGUAGES}
     status['sent'] = {ref: deck for value in by_language.values() for ref, deck in value['sent'].items()}
     status['by_language'] = by_language
     status['account'] = account

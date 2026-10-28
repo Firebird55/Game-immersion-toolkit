@@ -53,7 +53,7 @@ export default {
  "Dismiss":["Sluiten","关闭","關閉"],
  "Enable developer mode":["Ontwikkelaarsmodus inschakelen","启用开发者模式","啟用開發者模式"],
  "English":["Engels","英语","英語"],
- "English hidden · Tap to reveal":["Vertaling verborgen · Tik om te tonen","翻译已隐藏 · 点击显示","翻譯已隱藏 · 點擊顯示"],
+ "Translation hidden · Tap to reveal":["Vertaling verborgen · Tik om te tonen","翻译已隐藏 · 点击显示","翻譯已隱藏 · 點擊顯示"],
  "Existing local credential":["Bestaande lokale sleutel","现有本地凭据","現有本機憑證"],
  "Female":["Vrouw","女性","女性"],
  "Find or create game deck":["Gamedeck zoeken of maken","查找或创建游戏词卡集","尋找或建立遊戲字卡集"],
@@ -124,7 +124,7 @@ export default {
  "Sentence saving and decks":["Zinnen opslaan en decks","句子保存与词卡集","句子儲存與字卡集"],
  "Setup sections":["Instellingsonderdelen","设置分类","設定分類"],
  "Share transcript to another device":["Transcript delen met een ander apparaat","将文本共享到另一设备","將文字分享至另一裝置"],
- "Show English translation":["Vertaling tonen","显示翻译","顯示翻譯"],
+ "Show translation":["Vertaling tonen","显示翻译","顯示翻譯"],
  "Show more history":["Meer geschiedenis tonen","显示更多历史记录","顯示更多歷史紀錄"],
  "Speed":["Snelheid","速度","速度"],
  "Start capture automatically when I open the toolkit":["Opname automatisch starten bij openen","打开工具时自动开始捕获","開啟工具時自動開始擷取"],
@@ -408,5 +408,6 @@ export default {
  "Find a line in your library":["Zoek een regel in je bibliotheek","在资料库中查找台词","在資料庫中尋找台詞"],
  "Find line":["Regel zoeken","查找台词","尋找台詞"],
  "Clear this game's transcript":["Transcript van deze game wissen","清除此游戏的文本","清除此遊戲的文字"],
- "This game has no official translation in the selected language.":["Deze game heeft geen officiële vertaling in de gekozen taal.","此游戏没有所选语言的官方翻译。","此遊戲沒有所選語言的官方翻譯。"]
+ "This game has no official translation in the selected language.":["Deze game heeft geen officiële vertaling in de gekozen taal.","此游戏没有所选语言的官方翻译。","此遊戲沒有所選語言的官方翻譯。"],
+ "Lexirise reading tools are unavailable for this language.":["Lexirise-leeshulpmiddelen zijn niet beschikbaar voor deze taal.","Lexirise 阅读工具暂不支持此语言。","Lexirise 閱讀工具暫不支援此語言。"]
 };

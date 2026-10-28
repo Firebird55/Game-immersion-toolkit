@@ -25,6 +25,110 @@ def test_response_choices_are_removed_and_block_extra_voice_region(game):
     assert result["dialogue_menu"]
 
 
+@pytest.mark.parametrize('game,left', [('portal', .02), ('persona5royal', .68)])
+def test_new_game_calibration_keeps_off_center_authored_captions(tmp_path, game, left):
+    import asyncio
+    service, match, scheduled, published = fixture_service(tmp_path, game=game)
+    service.game_indexes = {game: service.textmaps}
+    service.game_voice_assets = {game: service.voice_assets}
+    service.textmaps.audio_count = 1
+    service.textmaps.match_lines = lambda lines, **_: match if match.english in lines else None
+    service._engine = SimpleNamespace(recognize_pil=lambda _: {'lines': [
+        row(match.english, left, .20, size=(800, 200))]})
+
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        window = SimpleNamespace(bounds=(0, 0, 1920, 1080), title=game)
+        for _ in range(2):
+            service._scan_pragmata(window, getattr(service.settings.get(), game + '_region'),
+                service._engine, 0, datetime.now(timezone.utc), game=game)
+        await asyncio.sleep(.02)
+    try:
+        asyncio.run(run())
+        assert len(scheduled) == len(published) == 1
+        assert published[0].game == game and published[0].audio_source == 'original'
+    finally:
+        service._executor.shutdown()
+
+
+def test_persona_floating_voices_are_exact_stable_and_never_borrow_choice_audio(tmp_path):
+    import asyncio
+    import json
+    from backend.capture import _ScanOutcome
+    from backend.multilingual_index import MultilingualTextIndex
+
+    texts = {'first': 'An enemy is approaching from the western corridor.',
+             'second': 'We should meet near the station after school.',
+             'choice_voice': 'I will help you after the battle.', 'short': 'Hello!',
+             'ui_voice': 'Open the equipment selection menu.'}
+    records = [{'text_id': key, 'english': text, 'source_locale': 'en', 'source_text': text,
+                'texts': {'en': text}, 'audio_locale': 'en', 'audio': {'name': key},
+                'voice_status': 'voiced', 'channels': ['dialogue']} for key, text in texts.items()]
+    records.append({**records[2], 'text_id': 'choice_silent', 'audio': None,
+                    'voice_status': 'unvoiced', 'dialogue_kind': 'choice'})
+    records.append({**records[4], 'text_id': 'ui_unknown', 'audio': None,
+                    'voice_status': 'unknown', 'channels': []})
+    unknown_page = texts['first'] + ' Open the quest log.'
+    records.append({**records[0], 'text_id': 'unknown_page', 'source_text': unknown_page,
+                    'texts': {'en': unknown_page}, 'audio': None, 'voice_status': 'unknown', 'channels': []})
+    directory = tmp_path / 'language'
+    directory.mkdir()
+    (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'persona5royal',
+        'source_locale': 'en', 'records': records}), encoding='utf-8')
+    index = MultilingualTextIndex('persona5royal', directory)
+    assert index.ready
+    service, _, scheduled, published = fixture_service(tmp_path, game='persona5royal')
+    service.game_indexes = {'persona5royal': index}
+    service.game_voice_assets = {'persona5royal': service.voice_assets}
+    window = SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title='Persona')
+    response = {'lines': [row(texts['first'], .60, .10), row(texts['second'], .05, .40),
+                          row(texts['choice_voice'], .35, .60), row(texts['short'], .10, .80),
+                          row(texts['ui_voice'], .4, .9)]}
+    engine = SimpleNamespace(recognize_pil=lambda _: response)
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        # Choices and unknown UI can also occupy the user's subtitle crop.
+        # Neither exact nor fuzzy matching may borrow their voiced duplicate,
+        # including when silent capture is disabled or the choice uses another
+        # authored channel.
+        original_rows = response['lines']
+        for enabled in (False, True):
+            service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': enabled}))
+            for text in (texts['choice_voice'], texts['ui_voice'],
+                         texts['choice_voice'].replace('battle', 'batt1e'), unknown_page):
+                response['lines'] = [row(text, .35, .85)]
+                for _ in range(2):
+                    outcome = service._scan_pragmata(window, service.settings.get().persona5royal_region,
+                        engine, 0, datetime.now(timezone.utc), game='persona5royal')
+                    assert not service._with_unvoiced(outcome, index, window, engine, 0,
+                        datetime.now(timezone.utc), 'persona5royal').emitted_lines
+        await asyncio.sleep(.02)
+        assert not scheduled and not published and service.transcript.count() == 0
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        index.capture_unvoiced = False
+        response['lines'] = original_rows
+        def scan():
+            return service._with_unvoiced(_ScanOutcome([]), index, window, engine, 0,
+                                          datetime.now(timezone.utc), 'persona5royal')
+        # Full-frame voice support works independently of the silent toggle.
+        assert not service.settings.get().capture_unvoiced
+        assert scan().emitted_lines == []
+        assert {line.text_id for line in scan().emitted_lines} == {'first', 'second'}
+        assert scan().emitted_lines == []
+        await asyncio.sleep(.02)
+        assert len(scheduled) == len(published) == 2
+        response['lines'] = [row(texts['first'].replace('western', 'westernmost'), .6, .1)]
+        assert not scan().emitted_lines and not scan().emitted_lines
+        index.capture_unvoiced = True
+        assert not index.match_full_frame_voice_lines([texts['choice_voice']])
+        assert not index.match_full_frame_voice_lines([texts['short']])
+        assert not index.match_full_frame_voice_lines([texts['ui_voice']])
+    try:
+        asyncio.run(run())
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize("game", ["cyberpunk", "wuwa", "witcher3"])
 @pytest.mark.parametrize("blocked", ["main", "menu", "unmapped", "fuzzy", "disabled", "short", "unpositioned", "none"])
 def test_auxiliary_capture_requires_position_exact_voice_and_consecutive_frames(tmp_path, game, blocked):

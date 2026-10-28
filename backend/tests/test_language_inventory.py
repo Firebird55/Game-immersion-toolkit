@@ -57,6 +57,8 @@ def test_inventory_reports_actual_bytes_and_unknown_external_sizes(tmp_path):
         actual = installed.status(game, prepared)
         assert set(actual['locales']) == set(locales)
         assert actual['official_text_locales']
+        if game == 'halflife':
+            assert all(row['capture_capabilities']['voiced'] is False for row in actual['locales'].values())
     assert old_catalog.read_text(encoding='utf-8') == '{"games": []}'
 
 
@@ -95,8 +97,10 @@ def test_status_refresh_reuses_summary_but_observes_replaced_table(tmp_path, mon
 def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path, monkeypatch):
     from types import SimpleNamespace
     from backend import language_worker
+    from backend.multilingual_index import MultilingualTextIndex
     payload = {'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': [
         {'text_id': 'beyond:fixture', 'english': 'Synthetic test line', 'chinese': '',
+         'source_locale': 'nl', 'source_text': 'Synthetic test line', 'texts': {'nl': 'Synthetic test line'}, 'audio_locale': 'nl',
          'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'conversation'}]}
     adapter = SimpleNamespace(LANGUAGE_INDEX_VERSION=3, index_language=lambda *_: payload)
     monkeypatch.setattr(language_worker, 'asset_adapter', lambda _: (adapter, None))
@@ -110,6 +114,26 @@ def test_worker_validates_and_records_voice_inventory_before_publishing(tmp_path
     with pytest.raises(ValueError, match='voice status'):
         language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
     assert output.read_bytes() == before
+    payload['records'][0]['audio'] = None
+    for invalid in ({'source_text': ''}, {'source_text': '  '}, {'source_locale': 'fr'},
+                    {'texts': {'nl': 'Different text'}}, {'audio_locale': 'en'}):
+        original = payload['records'][0]
+        payload['records'][0] = {**original, **invalid}
+        with pytest.raises(ValueError, match='game study text'):
+            language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
+        assert output.read_bytes() == before
+        payload['records'][0] = original
+
+    for channels in (['radio'], ['dialogue', 'cassette_tape'], 'dialogue', [1], {'dialogue': True}):
+        original = payload['records'][0]
+        payload['records'][0] = {**original, 'channels': channels}
+        with pytest.raises(ValueError, match='capture channels'):
+            language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output)
+        assert output.read_bytes() == before, 'Invalid routing must not replace a prepared table'
+        (tmp_path / 'textmap.json').write_text(json.dumps(payload), encoding='utf-8')
+        rejected = MultilingualTextIndex('beyond', tmp_path)
+        assert not rejected.ready and 'capture channels' in rejected.message
+        payload['records'][0] = original
 
 
 def test_progress_lock_failures_do_not_abort_build_and_later_status_recovers(tmp_path, monkeypatch):
@@ -139,7 +163,8 @@ def test_progress_lock_failures_do_not_abort_build_and_later_status_recovers(tmp
             clock[0] = stamp
             progress('Reading game files')
         return {'format': 2, 'game': 'beyond', 'source_locale': 'nl', 'records': [
-            {'text_id': 'fixture', 'english': 'Synthetic line', 'chinese': '', 'audio': None}]}
+            {'text_id': 'fixture', 'english': 'Synthetic line', 'chinese': '', 'audio': None,
+             'source_locale': 'nl', 'source_text': 'Synthetic line', 'texts': {'nl': 'Synthetic line'}, 'audio_locale': 'nl'}]}
     monkeypatch.setattr(language_worker, 'asset_adapter', lambda _: (
         SimpleNamespace(LANGUAGE_INDEX_VERSION=1, index_language=extract), None))
     report = language_worker.progress_reporter(output)

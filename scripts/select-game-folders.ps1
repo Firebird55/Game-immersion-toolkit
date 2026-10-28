@@ -29,9 +29,10 @@ $oldLocation = Get-Location
 try {
     Set-Location -LiteralPath $projectRoot
     $existing = (& $python -m scripts.configure_game_paths --list | ConvertFrom-Json)
-    $games = @(@('starrail', 'Honkai: Star Rail'), @('genshin', 'Genshin Impact'), @('endfield', 'Arknights: Endfield'), @('zzz', 'Zenless Zone Zero'), @('pragmata', 'PRAGMATA'), @('cyberpunk', 'Cyberpunk 2077'), @('wuwa', 'Wuthering Waves'), @('witcher3', 'The Witcher 3'), @('nte', 'Neverness to Everness'), @('beyond', 'BEYOND: Two Souls'), @('heavyrain', 'HEAVY RAIN'), @('riseofthetombraider', 'Rise of the Tomb Raider'), @('shadowofthetombraider', 'Shadow of the Tomb Raider'))
+    $games = @(& $python -m scripts.configure_game_paths --catalog | ConvertFrom-Json)
+    if ($LASTEXITCODE -ne 0) { throw 'Could not read the supported game catalog.' }
     for ($index = 0; $index -lt $games.Count; $index++) {
-        $game = $games[$index][0]; $name = $games[$index][1]; $row = $index + 1
+        $game = $games[$index].id; $name = $games[$index].name; $row = $index + 1
         $table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute', 55))) | Out-Null
         $label = New-Object System.Windows.Forms.Label; $label.Text = $name; $label.AutoSize = $true; $label.Anchor = 'Left'
         $input = New-Object System.Windows.Forms.TextBox; $input.Dock = 'Fill'; $input.Anchor = 'Left,Right'; $input.Text = [string]$existing.$game

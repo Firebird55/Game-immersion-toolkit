@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 
-from backend.game_paths import GAMES, load_paths, save_install, validate_install
+from backend.game_paths import GAMES, GAME_NAMES, load_paths, save_install, validate_install
 
 
 def main() -> None:
@@ -11,7 +11,12 @@ def main() -> None:
     parser.add_argument("--path", type=Path)
     parser.add_argument("--check", action="store_true", help="Validate without changing preferences")
     parser.add_argument("--list", action="store_true")
+    parser.add_argument("--catalog", action="store_true", help="List supported game identifiers and names")
     args = parser.parse_args()
+    if args.catalog:
+        import json
+        print(json.dumps([{'id': game, 'name': GAME_NAMES[game]} for game in GAMES]))
+        return
     if args.list:
         import json
         print(json.dumps(load_paths()))

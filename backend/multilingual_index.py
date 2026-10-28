@@ -10,11 +10,8 @@ from rapidfuzz import fuzz, process
 
 from .languages import audio_locale, normalize_text, resolve_locale, study_language
 from .models import TextMatch
-from .local_game import dialogue_voice_status
+from .local_game import dialogue_voice_status, dialogue_capture_channels, DEFAULT_CAPTURE_CHANNELS
 from .textmaps import display_text
-
-
-DEFAULT_CAPTURE_CHANNELS = frozenset(('dialogue', 'tip', 'cinematic', 'gameplay'))
 
 
 def candidates(lines):
@@ -44,6 +41,7 @@ class MultilingualTextIndex:
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._capture_channels = {}
         self._unvoiced_lookup = {}
+        self._full_frame_veto = {}
         self.voice_counts = {status: 0 for status in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
         self.dialogue_coverage = {}
         self._signature = None
@@ -63,7 +61,7 @@ class MultilingualTextIndex:
                 raise ValueError('Prepared language table is empty; rebuilding is required')
             locale = payload['source_locale']
             study_language(locale)
-            lookup, unvoiced_lookup, context_pairs, capture_channels = {}, {}, {}, {}
+            lookup, unvoiced_lookup, context_pairs, capture_channels, full_frame_veto = {}, {}, {}, {}, {}
             voice_counts = dict.fromkeys(self.voice_counts, 0)
             coverage = {}
             for row in payload['records']:
@@ -82,10 +80,15 @@ class MultilingualTextIndex:
                 counts[row['voice_status']] += 1
                 # Historical membership includes every official record, even
                 # rows excluded from OCR matching because they have no audio.
-                channels = frozenset(row.get('channels', DEFAULT_CAPTURE_CHANNELS))
+                channels = dialogue_capture_channels(row.get('channels'))
+                row['channels'] = sorted(channels)
                 for identity in [row['text_id'], *(row.get('member_text_ids') or [])]:
                     previous = capture_channels.get(identity)
                     capture_channels[identity] = channels if previous is None else previous | channels
+                if row['voice_status'] != 'voiced':
+                    for language, text in row['texts'].items():
+                        for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
+                            full_frame_veto.setdefault(language, set()).add(normalize_text(display_text(value), language))
                 if row['voice_status'] not in {'voiced', 'unvoiced'}:
                     continue
                 destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
@@ -104,6 +107,7 @@ class MultilingualTextIndex:
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
                 self._capture_channels = capture_channels
                 self._unvoiced_lookup = unvoiced_lookup
+                self._full_frame_veto = full_frame_veto
                 self.voice_counts, self.dialogue_coverage = voice_counts, coverage
                 self._context_pairs = context_pairs
                 self._context_firsts = {}
@@ -112,10 +116,12 @@ class MultilingualTextIndex:
                 self.entry_count = len(payload['records'])
                 self.audio_count = sum(bool(r.get('audio')) for r in self._records)
                 self.ready = True
-                self.state = 'ready' if self.audio_count else 'missing_voice'
+                capabilities = payload.get('capture_capabilities') or {}
+                text_only = capabilities.get('voiced') is False and capabilities.get('unvoiced') is True
+                self.state = 'ready' if self.audio_count else 'unvoiced_only' if text_only else 'missing_voice'
                 self.message = payload.get('message', f'{self.entry_count:,} official lines; {self.audio_count:,} original voices')
                 self.snapshot_metadata = {key: payload.get(key) for key in
-                    ('format', 'game', 'source_locale', 'install', 'fingerprint', 'reader_revision', 'targets_requested')}
+                    ('format', 'game', 'source_locale', 'install', 'fingerprint', 'reader_revision', 'targets_requested', 'capture_capabilities')}
                 self._signature = signature
             return True
         except (OSError, ValueError, KeyError, TypeError) as error:
@@ -126,7 +132,8 @@ class MultilingualTextIndex:
         return {'ready': self.ready, 'state': self.state, 'message': self.message,
                 'entry_count': self.entry_count, 'audio_count': self.audio_count, 'source_locale': self.source_locale,
                 'unvoiced_count': self.voice_counts['unvoiced'], 'voice_counts': dict(self.voice_counts),
-                'dialogue_coverage': self.dialogue_coverage}
+                'dialogue_coverage': self.dialogue_coverage,
+                'capture_capabilities': self.snapshot_metadata.get('capture_capabilities')}
 
     @staticmethod
     def authored_scene(text_id):
@@ -135,7 +142,14 @@ class MultilingualTextIndex:
     def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False):
         hits, ambiguous = [], []
         with self.lock:
-            for source in candidates(lines):
+            sources = candidates(lines)
+            # A known silent/unknown page may contain a shorter spoken sentence.
+            # Preserve the complete observation before candidate splitting so a
+            # crop or a fuzzy match cannot turn its fragment into that voice.
+            nonvoiced_observations = [(locale, normalize_text(source, locale))
+                for source in sources for locale, keys in self._full_frame_veto.items()
+                if normalize_text(source, locale) in keys]
+            for source in sources:
                 lookups = [(locale, values, False) for locale, values in self._lookup.items()]
                 if self.capture_unvoiced:
                     lookups += [(locale, values, True) for locale, values in self._unvoiced_lookup.items()]
@@ -148,19 +162,31 @@ class MultilingualTextIndex:
                         minimum = 5 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 12
                         if len(key) < minimum:
                             continue
-                    rows = lookup.get(key, [])
+                    rows, matched_keys = lookup.get(key, []), {key}
                     # HEAVY RAIN paginates some authored paragraphs at runtime.
                     # A sufficiently long, exact contiguous page can identify
                     # the whole bound performance; never infer page audio cuts.
                     minimum = 12 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 24
                     if not silent and self.game == 'heavyrain' and channel == 'dialogue' and len(key) >= minimum:
                         rows = [row for text, matches in lookup.items() if key in text for row in matches]
+                        matched_keys = {text for text in lookup if key in text}
                     if not silent and not rows and not exact_only and len(key) >= 8:
                         matches = process.extract(key, lookup.keys(), scorer=fuzz.ratio, score_cutoff=max(88, threshold), limit=2)
                         if matches and (len(matches) == 1 or matches[1][1] < matches[0][1] - 2):
                             rows, score = lookup[matches[0][0]], matches[0][1]
+                            matched_keys = {matches[0][0]}
                         elif matches:
                             ambiguous.append(source)
+                    if not silent and rows and (
+                            matched_keys & self._full_frame_veto.get(locale, set())
+                            or any(normalize_text(source, observed_locale) in observed
+                                   for observed_locale, observed in nonvoiced_observations)):
+                        # This text cannot identify spoken versus silent/UI
+                        # presentation, even with silent capture switched off.
+                        # Keep it ambiguous rather than selecting the silent
+                        # duplicate after suppressing its voice candidate.
+                        ambiguous.append(source)
+                        continue
                     rows = [r for r in rows if channel is None or channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
                     # ZZZ's authored M/F subtitles can themselves identify a
                     # performance. Use the configured Proxy only when the
@@ -234,6 +260,29 @@ class MultilingualTextIndex:
             return []
         return [hit for hit in self.match_lines(lines, exact_only=True, channel=None, multiple=True)
                 if hit.voice_status == 'unvoiced' and hit.kind == 'exact']
+
+    def match_full_frame_voice_lines(self, lines):
+        """Floating dialogue must not match short labels, choices or unknown UI.
+
+        A choice can repeat a later voiced response. Its text remains a veto
+        even when unvoiced capture is disabled; text alone cannot identify
+        which presentation is visible. The ordinary crop shares that veto.
+        """
+        from .steam_games import STEAM_GAMES
+        spec = STEAM_GAMES.get(self.game)
+        if not spec or not spec.floating_dialogue:
+            return []
+        with self.lock:
+            hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
+            result = []
+            for hit in hits:
+                text = hit.source_ocr
+                minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
+                if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum
+                        and not any(normalize_text(text, locale) in lookup
+                                    for locale, lookup in self._full_frame_veto.items())):
+                    result.append(hit)
+            return result
 
     def context_fragments(self, lines):
         """Recognize an observed first cue without choosing its performance."""

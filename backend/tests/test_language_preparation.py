@@ -6,8 +6,9 @@ import pytest
 from backend.language_preparation import LanguagePreparation
 
 
-@pytest.mark.parametrize('action', ['prepare', 'rebuild', 'select'])
-def test_account_membership_does_not_block_local_source_language(monkeypatch, action):
+@pytest.mark.parametrize('action,game,locale', [('prepare', 'beyond', 'nl'),
+    ('rebuild', 'deathstranding', 'el'), ('select', 'deathstranding', 'el')])
+def test_account_membership_does_not_block_local_source_language(monkeypatch, action, game, locale):
     from types import SimpleNamespace
     from starlette.requests import Request
     from backend import api
@@ -22,12 +23,31 @@ def test_account_membership_does_not_block_local_source_language(monkeypatch, ac
             request=lambda *args, **kwargs: calls.append(('prepare', args, kwargs)) or True)), raising=False)
     request = Request({'type': 'http', 'method': 'POST', 'path': '/api/setup/games/beyond/languages',
                        'headers': [(b'host', b'127.0.0.1:8766')], 'server': ('127.0.0.1', 8766), 'scheme': 'http'})
-    api.prepare_game_language('beyond', api.LanguageAction(locale='nl', action=action, target='en'), request, 'setup')
+    api.prepare_game_language(game, api.LanguageAction(locale=locale, action=action, target='en'), request, 'setup')
     if action == 'select':
-        assert calls == [('select', ('beyond', 'nl', 'synthetic'), {'target': 'en'})]
+        assert calls == [('select', (game, locale, 'synthetic'), {'target': 'en'})]
     else:
-        assert calls == [('prepare', ('beyond', 'nl', 'en', 'synthetic'), {'rebuild': action == 'rebuild'})]
+        assert calls == [('prepare', (game, locale, 'en', 'synthetic'), {'rebuild': action == 'rebuild'})]
     assert preferences['languages'] == ['zh'], 'Local language preparation must not change the account'
+
+
+def test_optional_account_status_does_not_reject_a_greek_game_language(monkeypatch):
+    from types import SimpleNamespace
+    from backend import api
+    from backend.lexirise_settings import STUDY_LANGUAGES
+
+    pinned = []
+    def pin(language):
+        assert language in STUDY_LANGUAGES, 'Local Greek capture must not request unsupported account features'
+        pinned.append(language)
+        return SimpleNamespace(_settings_scope='fixture', status=lambda:
+            {'configured': True, 'sent': {}, 'decks': {}})
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(
+        accounts=SimpleNamespace(status=lambda: {'active': 'synthetic'}),
+        lexirise=SimpleNamespace(pin=pin), languages=SimpleNamespace(
+            selected=lambda game, _: 'el' if game == 'deathstranding' else None)), raising=False)
+    result = api.integration_status('en')
+    assert result['configured'] and 'el' not in result['by_language'] and 'el' not in pinned
 
 
 def test_enabled_source_keeps_its_account_translation_target(monkeypatch):

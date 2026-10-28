@@ -7,7 +7,7 @@ import {formatBytes,languageName} from '../public/mobile-capture/interface-langu
 const API='http://127.0.0.1:8766';
 class LanguageStatusError extends Error {}
 type VoiceCounts=Record<'voiced'|'unvoiced'|'unavailable'|'unknown',number>;
-type Locale={dialogue_inventory?:{voice_counts:VoiceCounts;categories:Record<string,VoiceCounts>};coverage_warnings?:string[];locale:string;language:string;name:string;reader_available:boolean;table_bytes?:number;reclaimable_bytes?:number;voice_state?:string;support?:string;prepared:null|{targets:string[];mapped_lines:number};job?:{state?:string;message?:string;progress?:number|null}};
+type Locale={capture_capabilities?:{voiced:boolean;unvoiced:boolean;reason?:string};dialogue_inventory?:{voice_counts:VoiceCounts;categories:Record<string,VoiceCounts>};coverage_warnings?:string[];locale:string;language:string;name:string;reader_available:boolean;table_bytes?:number;reclaimable_bytes?:number;voice_state?:string;support?:string;prepared:null|{targets:string[];mapped_lines:number};job?:{state?:string;message?:string;progress?:number|null}};
 type Languages={context:StateContext;selected:string|null;locales:Locale[];enabled_languages:string[]|null;targets:Record<string,string>;translation_locales?:string[];expected_targets?:string[];storage?:{tables_bytes:number;audio_cache_bytes:number|null;shared_tools_bytes:number|null;installed_game_bytes:number|null;exports_bytes:number|null}};
 export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false,targetLanguage,showAccount=true,compact=false}:{game:string;onConfigure:(language:string)=>void;onChanged:()=>void;storageOnly?:boolean;targetLanguage?:string;showAccount?:boolean;compact?:boolean}){
  const {t,locale:uiLocale}=useInterfaceLanguage();
@@ -70,6 +70,7 @@ export function LanguageSetup({game,onConfigure,onChanged,storageOnly=false,targ
  </tbody></table></div>{!rows.length&&<p>{t('No languages match your search.')}</p>}
  <p className="toolkit-setup-note">{t('Expected support uses the same reader format; it does not require an export of every language.')}</p></>}
  {selected&&<div className="language-detail"><h4>{languageName(locale,uiLocale)}</h4>
+ {selected.capture_capabilities?.voiced===false&&<p role="status" className="toolkit-setup-note">{t(selected.capture_capabilities.reason??'Spoken dialogue capture is unavailable.')}{' '}{t('Enable Include unvoiced dialogue in Capture setup to capture confirmed text-only lines.')}</p>}
  {!storageOnly&&<><label>{t('Translation language')}<select aria-label={t('Translation language')} disabled={inAccount} value={translation} onChange={e=>setTarget(e.target.value)}>{[...new Set([translation,...choices])].map(code=><option key={code} value={code}>{languageName(code,uiLocale)}{data.expected_targets?.includes(code)?' · '+t('Expected support'):''}</option>)}</select></label>
  {!supportedTarget&&<p role="status">{t('This game has no official translation in the selected language.')}</p>}
  {data.enabled_languages&&!inAccount&&<p>{t('This source language is not in your Lexirise account. You can still prepare and play it.')}</p>}

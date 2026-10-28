@@ -42,6 +42,21 @@ def test_original_fmod_and_wwise_containers_keep_decoder_suffix_for_single_and_b
         names = service.extract_batch([(row['text_id'], number + 10, '') for number, row in enumerate(rows)])
         assert all((service.output_dir / name).is_file() for name in names)
         assert seen == [b'FSB4', b'FSB5', b'RIFF'] * 2
+        # Distinct cinematic captions share one original performance. Preserve
+        # each line's file lifetime without decoding the entire scene repeatedly.
+        for identity in ('caption-a', 'caption-b'):
+            service._entries[identity] = {'container': 'RIFF', 'playback_scope': 'full_track'}
+        first = service.extract('caption-a', 30)
+        second = service.extract('caption-b', 31)
+        assert seen == [b'FSB4', b'FSB5', b'RIFF'] * 2 + [b'RIFF']
+        (service.output_dir / first).unlink()
+        assert (service.output_dir / second).read_bytes() == bytes(200)
+        batch = service.extract_batch([('caption-a', 32, ''), ('caption-b', 33, '')])
+        assert all((service.output_dir / name).is_file() for name in batch)
+        assert len(seen) == 7
+        adapter.fingerprint = lambda _: 'changed'
+        with pytest.raises(ValueError, match='Game files changed'):
+            service.extract('caption-a', 34)
     finally:
         service.close()
 

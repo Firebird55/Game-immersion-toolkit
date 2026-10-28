@@ -20,6 +20,18 @@ Counts refer to the audited installation and locale, not every game chapter.
 | Shadow of the Tomb Raider | TIGER archives; Wwise subtitle labels, cinematic timing and collectible narration | [Shadow](shadow-tomb-raider.md) |
 | BEYOND: Two Souls | Explicit chapter choices; missing-performance inventory; faster repeated-performance validation | [BEYOND](beyond.md) |
 | HEAVY RAIN | Explicit silent prompts; thought categorization; retained missing-voice records | [HEAVY RAIN](heavyrain.md) |
+| Spyro Reignited Trilogy | All three games; localized dialogue tables, Wwise events, cinematic pages and explicit text-only dialogue | [Spyro](spyro.md) |
+| Detroit: Become Human | Timed original performances, branching dialogue, choices, observations and magazine/news text | [Detroit](detroit.md) |
+| Persona 5 Royal | CRI event voices, authored message pages and choices; explicit silent cue evidence; floating dialogue capture | [Audit](persona5royal.md) |
+| METAL GEAR SOLID V: THE PHANTOM PAIN | Fox subtitles, exact original barks/radio, cassette tracks and authored cinematic audio aliases | [Audit](mgsvtpp.md) |
+| DEATH STRANDING | Authored sentences, twelve original voice packs, cinematic sequence graphs and confirmed silent mail/interviews | [Audit](deathstranding.md) |
+| Portal | Valve VPK, compiled captions, timed scene performances, commentary and separate credit lyric/readable entries | [Audit](portal.md) |
+| Half-Life | GoldSrc maps, titles and speech inventory; text messages supported, spoken capture explicitly unavailable | [Audit](halflife.md) |
+| A Plague Tale: Innocence | Asobo localized text, Wwise event bindings, authored recording overrides and silent narrative readables | [Audit](plaguetaleinnocence.md) |
+| METAL GEAR SOLID V: GROUND ZEROES | GZS/Fox subtitles, original field/radio/tape voices, separate cinematic captions and confirmed silent backstory/quiz text | [Audit](mgsvgz.md) |
+| Portal 2 | VSIF3/DLC captions, original dialogue and commentary, four-track Bink movies and separate credit/readable entries | [Audit](portal2.md) |
+| Half-Life 2 | Separate base/episode voice namespaces, native scene performances, commentary and authored HUD messages | [Audit](halflife2.md) |
+| Deus Ex: Human Revolution - Director's Cut | Original dialogue, multilingual CRI cinematics, timed captions, silent conversation choices and narrative readables | [Audit](deusexhrdc.md) |
 
 ## Capture unvoiced dialogue
 

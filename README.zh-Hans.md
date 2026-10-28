@@ -34,6 +34,18 @@
 | [Arknights: Endfield](docs/languages/zh-Hans.md#endfield) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 14 |
 | [Rise of the Tomb Raider](docs/languages/zh-Hans.md#riseofthetombraider) | 英语 · 法语 · 德语 · 意大利语 · 拉丁美洲西班牙语 · 欧洲西班牙语 · 日语 · 巴西葡萄牙语 · 波兰语 · 俄语 · 韩语 · 繁体中文 · 简体中文 · 阿拉伯语 | 15 |
 | [Shadow of the Tomb Raider](docs/languages/zh-Hans.md#shadowofthetombraider) | 英语 · 法语 · 德语 · 意大利语 · 拉丁美洲西班牙语 · 欧洲西班牙语 · 日语 · 巴西葡萄牙语 · 波兰语 · 俄语 · 繁体中文 · 简体中文 · 阿拉伯语 | 14 |
+| [Spyro Reignited Trilogy](docs/languages/zh-Hans.md#spyro) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 阿拉伯语 · 丹麦语 · 荷兰语 · 芬兰语 · 挪威语 · 波兰语 · 巴西葡萄牙语 · 拉丁美洲西班牙语 · 瑞典语 | 14 |
+| [Detroit: Become Human](docs/languages/zh-Hans.md#detroit) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 阿拉伯语 · 日语 · 波兰语 · 欧洲葡萄牙语 · 巴西葡萄牙语 · 拉丁美洲西班牙语 · 俄语 | 24 |
+| [DEATH STRANDING](docs/languages/zh-Hans.md#deathstranding) | 英语 · 法语 · 欧洲西班牙语 · 德语 · 意大利语 · 欧洲葡萄牙语 · 俄语 · 波兰语 · 日语 · 拉丁美洲西班牙语 · 巴西葡萄牙语 · 希腊语 | 20 |
+| [Portal](docs/languages/zh-Hans.md#portal) | 英语 · 法语 · 德语 · 俄语 · 欧洲西班牙语 · 繁体中文 | 27 |
+| [Half-Life](docs/languages/zh-Hans.md#halflife) | **仅文本:** 英语 · 法语 · 德语 · 意大利语 · 欧洲西班牙语 · 简体中文 · 繁体中文 · 韩语 | 8 |
+| [A Plague Tale: Innocence](docs/languages/zh-Hans.md#plaguetaleinnocence) | 英语 · 法语 · 德语 | 14 |
+| [METAL GEAR SOLID V: GROUND ZEROES](docs/languages/zh-Hans.md#mgsvgz) | 英语 · 日语 | 8 |
+| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/zh-Hans.md#mgsvtpp) | 英语 · 日语 | 8 |
+| [Portal 2](docs/languages/zh-Hans.md#portal2) | 英语 · 法语 · 德语 · 欧洲西班牙语 · 俄语 | 27 |
+| [Half-Life 2](docs/languages/zh-Hans.md#halflife2) | 英语 · 法语 · 德语 · 意大利语 · 韩语 · 欧洲西班牙语 · 俄语 · 简体中文 · 繁体中文 · 泰语 | 27 |
+| [Persona 5 Royal](docs/languages/zh-Hans.md#persona5royal) | 英语 · 日语 | 9 |
+| [Deus Ex: Human Revolution - Director's Cut](docs/languages/zh-Hans.md#deusexhrdc) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 | 5 |
 
 [语言详情](docs/languages/zh-Hans.md) · [打开在线伴侣](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

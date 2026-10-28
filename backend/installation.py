@@ -13,6 +13,7 @@ import threading
 from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install, load_paths
 from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
+from .steam_games import STEAM_GAMES
 
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
@@ -48,11 +49,20 @@ VOICE_HINTS = {
 }
 
 
+FOLDER_HINTS.update({game: f"Choose the {spec.title} folder containing {spec.executable}."
+                     for game, spec in STEAM_GAMES.items()})
+VOICE_HINTS.update({game: "Install the selected original voice language through Steam Properties → Language, "
+                          "wait for the download, then prepare its language table here."
+                    for game in STEAM_GAMES})
+
+
 def _voice_state(game: str, install: Path | None, state: dict) -> str:
     if game == "hito":
         return "not_required"
     if not install:
         return "not_checked"
+    if (spec := STEAM_GAMES.get(game)) and not spec.voiced_capture:
+        return 'unvoiced_only'
     if state.get('index_state') == 'needs_language_setup':
         return 'needs_language_setup'
     if state.get("audio_ready"):

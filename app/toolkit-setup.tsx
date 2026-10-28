@@ -13,7 +13,7 @@ import {InterfaceLanguage,useInterfaceLanguage} from '@/lib/interface-language';
 import {LanguageSetup} from './language-setup';
 
 const API = 'http://127.0.0.1:8766';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | 'riseofthetombraider' | 'shadowofthetombraider';
+import type {GameId} from '../lib/games';
 type GameSetup = {
   id: GameId; title: string; configured_path: string | null; detected_path: string | null;
   folder_state: string; folder_hint: string; voice_state: string; voice_hint: string;
@@ -30,16 +30,16 @@ type Setup = {
   jobs: Record<string, { state: string; message: string; progress: number }>;
   native: Record<string, boolean>; capture_check?: boolean | null;
 };
-const VOICE_LABELS: Record<string, string> = { present: 'Original voice files found', missing: 'Selected voice pack needed',
+const VOICE_LABELS: Record<string, string> = { unvoiced_only: 'Spoken dialogue capture is unavailable. Prepare authored text messages and enable Include unvoiced dialogue in Capture setup.', present: 'Original voice files found', missing: 'Selected voice pack needed',
   not_checked: 'Choose a game folder first', verify_during_indexing: 'Voice pack checked during indexing', not_required: 'Voice pack not required',
   needs_language_setup: 'Prepare a game language to enable capture. Installed voice packs are listed in the language table above' };
-const VOICE_STATUS: Record<string,string> = {present:'Installed',missing:'Pack not detected',not_checked:'Not checked',verify_during_indexing:'Check during preparation',not_required:'Text only',needs_language_setup:'Choose game language'};
+const VOICE_STATUS: Record<string,string> = {unvoiced_only:'Text messages only',present:'Installed',missing:'Pack not detected',not_checked:'Not checked',verify_during_indexing:'Check during preparation',not_required:'Text only',needs_language_setup:'Choose game language'};
 
-export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged, targetLanguage, allowedGames }: {
+export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged, targetLanguage, allowedGames, readingSupported = true }: {
   online: boolean; game: GameId; onGameChange: (game: GameId) => void;
   readingMode: 'migaku' | 'lexirise'; onReadingMode: (mode: 'migaku' | 'lexirise') => void;
   onCapture: () => void; onReading: () => void; onAccount: (language?:string) => void; onChanged: () => void;
-  targetLanguage?: string; allowedGames?: string[];
+  targetLanguage?: string; allowedGames?: string[]; readingSupported?: boolean;
 }) {
  const uiText=useInterfaceTranslation();
   const {t}=useInterfaceLanguage();
@@ -163,7 +163,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
                   <Button variant="outline" disabled={busy || nativeBusy} onClick={() => { dirty.current = false; void action(`/api/setup/games/${game}`, { use_automatic: true }, 'Automatic detection enabled.'); }}>{uiText("Auto-detect")}</Button>
                 </div>
               </details>
-              {current.voice_state !== 'present' && game !== 'hito' && <p className="toolkit-setup-warning">{uiText(VOICE_LABELS[current.voice_state] ?? 'Check the language table above for voice availability')}.{current.voice_state !== 'needs_language_setup' && <> {current.voice_hint}</>}</p>}
+              {current.voice_state !== 'present' && game !== 'hito' && <p className="toolkit-setup-warning">{uiText(VOICE_LABELS[current.voice_state] ?? 'Check the language table above for voice availability')}.{!['needs_language_setup','unvoiced_only'].includes(current.voice_state) && <> {current.voice_hint}</>}</p>}
               {current.expansion_message && <p role="status" className="toolkit-setup-note">{current.expansion_message}</p>}
               <div className="toolkit-setup-actions">
                 {current.tools_missing.length > 0 && game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools.')}><Download /> {uiText("Install game tools")}</Button>}
@@ -205,7 +205,8 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
           <label>{uiText("Reading mode")}<select aria-label={uiText("Reading mode")} value={readingMode} onChange={event => onReadingMode(event.target.value as 'migaku' | 'lexirise')}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise">{uiText("Lexirise")}</option></select></label>
           <p>{uiText("Chinese game transcripts keep their original language. Reading preferences are stored locally.")}</p>
           {readingMode === 'migaku' ? <p>{uiText("Use your installed Migaku browser extension with the selectable transcript text. You can switch reading modes at any time.")}</p> : <>
-            <Button variant="outline" onClick={() => leaveFor(onReading)}>{uiText("Configure reading options")}</Button>
+            <Button variant="outline" disabled={!readingSupported} onClick={() => leaveFor(onReading)}>{uiText("Configure reading options")}</Button>
+            {!readingSupported && <p>{uiText('Lexirise reading tools are unavailable for this language.')}</p>}
           </>}
         </section>}
         {data && step === 3 && readingMode === 'lexirise' && <section className="toolkit-setup-section">            <h3>{uiText("Optional Lexirise account")}</h3><p>{data.lexirise_configured ? uiText("An API key is configured on this PC.") : uiText("Add your own Lexirise API key to use lookups and explicit sentence exports.")}</p>

@@ -1,6 +1,7 @@
 from pathlib import Path
 import pytest
 from backend.game_paths import clear_install, configured_install, discover_install, load_paths, save_install, validate_install
+from backend.steam_games import STEAM_GAMES
 
 
 @pytest.fixture(autouse=True)
@@ -11,7 +12,14 @@ def local_storage(tmp_path, monkeypatch):
 def make_game(tmp_path, game):
     root = tmp_path / game
     root.mkdir()
-    if game == "hito":
+    if game in STEAM_GAMES:
+        spec = STEAM_GAMES[game]
+        (root / spec.executable).touch()
+        for name in spec.markers:
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch() if path.suffix else path.mkdir(exist_ok=True)
+    elif game == "hito":
         (root / "resources").mkdir()
         (root / "resources/app.asar").write_bytes(b"local game")
     elif game == "zzz":
@@ -53,7 +61,7 @@ def make_game(tmp_path, game):
     return root
 
 
-@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "heavyrain", "riseofthetombraider", "shadowofthetombraider"])
+@pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "heavyrain", "riseofthetombraider", "shadowofthetombraider", *STEAM_GAMES])
 def test_saved_game_locations_are_validated_and_per_pc(tmp_path, game):
     root = make_game(tmp_path, game)
     assert save_install(game, root) == root.resolve()

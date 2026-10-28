@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .game_assets import asset_adapter
 from .local_game import LocalDialogue
+from .languages import audio_locale
 
 
 def progress_reporter(output):
@@ -42,6 +43,11 @@ def build(game, install, directory, locale, targets, output, progress=None):
     counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
     categories = {}
     for record in payload['records']:
+        source = record.get('source_text')
+        if (record.get('source_locale') != locale or not isinstance(source, str) or not source.strip()
+                or not isinstance(record.get('texts'), dict) or record['texts'].get(locale) != source
+                or record.get('audio_locale') != audio_locale(locale, game)):
+            raise ValueError('Incomplete game study text or mismatched language in prepared snapshot')
         validated = LocalDialogue(**record)
         record['voice_status'] = validated.voice_status
         counts[validated.voice_status] += 1

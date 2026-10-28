@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import math
 import json
+import os
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -109,9 +111,31 @@ class LocalVoiceAssetService:
         if install is None or fingerprint(install) != stamp:
             raise ValueError("Game files changed; refresh the original voice index")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        identity = hashlib.sha256(f"{stamp}\0{self.locale}\0{text_id}".encode()).hexdigest()[:16]
+        full_track = audio.get('playback_scope') == 'full_track'
+        binding = json.dumps(audio, sort_keys=True, separators=(',', ':')) if full_track else text_id
+        identity = hashlib.sha256(f"{stamp}\0{self.locale}\0{binding}".encode()).hexdigest()[:16]
         filename = f"official-{self.game}-{line_id}-{identity}.mp3"
         output = self.output_dir / filename
+        if full_track:
+            # Independent captions can refer to the same complete performance.
+            # Reuse its verified encoding while retaining per-history filenames
+            # so deleting one saved line cannot remove another line's audio.
+            for cached in self.output_dir.glob(f'official-{self.game}-*-{identity}.mp3'):
+                if not cached.is_file() or cached.is_symlink() or cached.stat().st_size < 100:
+                    continue
+                if cached != output:
+                    try:
+                        os.link(cached, output)
+                    except FileExistsError:
+                        pass
+                    except OSError:
+                        with tempfile.TemporaryDirectory(prefix='voice-copy-', dir=self.output_dir) as folder:
+                            copy = Path(folder) / 'voice.mp3'
+                            shutil.copyfile(cached, copy)
+                            copy.replace(output)
+                if fingerprint(install) != stamp:
+                    raise ValueError('Game files changed during original voice extraction')
+                return filename
         with tempfile.TemporaryDirectory(prefix=f"{self.game}-voice-", dir=self.output_dir) as scratch_value:
             scratch = Path(scratch_value)
             data = extract_voice(install, audio, self.tools_dir / self._extractor, scratch)
@@ -158,6 +182,8 @@ class LocalVoiceAssetService:
         with self._lock:
             audios = [dict(self._entries[text_id]) for text_id, number, english in requests]
             install, stamp = self._install, self._fingerprint
+        if any(audio.get('playback_scope') == 'full_track' for audio in audios):
+            return [self.extract(text_id, number, english) for text_id, number, english in requests]
         if install is None or self._adapter.fingerprint(install) != stamp:
             raise ValueError('Game files changed; refresh the original voice index')
         self.output_dir.mkdir(parents=True, exist_ok=True)
