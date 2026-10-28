@@ -3,6 +3,7 @@
 Byte verification cannot establish native DPAPI, browser or installed migration.
 """
 import hashlib
+from contextlib import closing
 from dataclasses import replace
 import json
 import os
@@ -109,12 +110,12 @@ class BundleMigrationTests(unittest.TestCase):
             self.assertEqual((snapshot / 'data/audio' / name).read_bytes(), b'owned synthetic audio bytes')
         (snapshot / 'data/audio/alias-a.mp3').unlink()
         self.assertTrue((snapshot / 'data/audio/alias-b.mp3').exists())
-        with sqlite3.connect(snapshot / 'data/transcript-v2.db') as connection:
+        with closing(sqlite3.connect(snapshot / 'data/transcript-v2.db')) as connection:
             self.assertEqual(connection.execute('SELECT text,favorite,audio FROM lines ORDER BY id').fetchall(),
                              [('保留中文', 1, 'alias-a.mp3'), ('保留中文', 0, 'alias-b.mp3')])
-        with sqlite3.connect(snapshot / 'data/lexirise/reading-cache-v2.db') as connection:
+        with closing(sqlite3.connect(snapshot / 'data/lexirise/reading-cache-v2.db')) as connection:
             self.assertEqual(connection.execute('SELECT choice FROM grammar_choices').fetchone(), ('hide',))
-        with sqlite3.connect(snapshot / 'data/lexirise/exports-v2.db') as connection:
+        with closing(sqlite3.connect(snapshot / 'data/lexirise/exports-v2.db')) as connection:
             self.assertEqual(connection.execute('SELECT account,locale,destination,completed FROM exports').fetchone(),
                              ('mock-account', 'ja', 'mock-deck', 1))
         self.assertEqual((snapshot / 'host-settings/settings.json').read_bytes(), (self.source.path / 'host-settings/settings.json').read_bytes())
@@ -187,16 +188,15 @@ class BundleMigrationTests(unittest.TestCase):
         # Author a coherent fixture file set with committed data still in WAL.
         # No connection owns the migrated copies; this is not a live DB strategy.
         authored = Path(self.temporary.name) / 'authored.db'
-        connection = sqlite3.connect(authored)
-        connection.execute('PRAGMA journal_mode=WAL')
-        connection.execute('PRAGMA wal_autocheckpoint=0')
-        connection.execute('CREATE TABLE fixture(value TEXT)')
-        connection.execute("INSERT INTO fixture VALUES('committed in WAL')")
-        connection.execute('PRAGMA user_version=7')
-        connection.commit()
-        for suffix in ('', '-wal', '-shm'):
-            shutil.copy2(authored.with_name(authored.name + suffix), self.source.path / ('data/wal.db' + suffix))
-        connection.close()
+        with closing(sqlite3.connect(authored)) as connection:
+            connection.execute('PRAGMA journal_mode=WAL')
+            connection.execute('PRAGMA wal_autocheckpoint=0')
+            connection.execute('CREATE TABLE fixture(value TEXT)')
+            connection.execute("INSERT INTO fixture VALUES('committed in WAL')")
+            connection.execute('PRAGMA user_version=7')
+            connection.commit()
+            for suffix in ('', '-wal', '-shm'):
+                shutil.copy2(authored.with_name(authored.name + suffix), self.source.path / ('data/wal.db' + suffix))
         self.versions['data/wal.db'] = 7
         plan = self.plan()
         before = hashes(self.source.path)

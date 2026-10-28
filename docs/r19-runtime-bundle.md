@@ -126,6 +126,41 @@ removes developer PATH entries, observes candidate/data writes and uploads only
 sanitized metadata. It does not upload binaries, private receipts or caches.
 Windows Server bootloader evidence cannot replace Windows 11 acceptance.
 
+### Hosted diagnostic observation
+
+[Diagnostic run 40749551495](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40749551495)
+passed on Windows Server 2025 at `09df6c7c533563af0948f0ac8b52defa651caf01`.
+It built and started the relocated stdlib-only onedir diagnostic, with developer
+PATH removed and no observed application/data writes. The first attempt had
+failed before building because setuptools' nested vendored metadata was counted
+as a second wheel identity. The corrected parser accepts one top-level identity
+and rejects genuinely duplicated top-level records; 34 focused tests and an
+independent review passed.
+
+Downloaded **metadata only** was verified against GitHub's artifact digest:
+`1a46b62c9ee1727316df52c3b85893b6666a870612af3ad45b690f489a8eb24e`.
+Its tested executable SHA-256 is
+`239d070bbfd3d151d809d2db018cfcfc3091e045ffd0a15f9050d9ec2348c1a2`;
+the candidate-provenance file SHA-256 is
+`346a785c7aca179d3b4a8905d63546afa966b94da997a48a91550ed724e8c15a`.
+The metadata binds the exact source and explicitly retains `r19_complete: false`,
+doctor exit 2, pending exact-output redistribution review and unavailable full
+toolchain/native acceptance. No candidate binary or private input receipt was
+published or downloaded, so this is not independent verification of a delivered
+runtime artifact, signing or attestation.
+
+The first separate full source candidate check at `d2ff584` ran 1,682 Python
+tests successfully, skipped one and failed cleanup of one newly added migration
+fixture on Windows. SQLite's transaction context does not close its connection;
+the assertion reads now use explicit `closing`, including failure paths. The
+production verifier already closed connections and was unchanged. Both reviewers
+rechecked the eighteen host/migration cases without skipping or weakening
+cleanup. The latest hosted rerun and the separate upstream PR gate are tracked
+in [draft PR #60](https://github.com/Firebird55/Game-immersion-toolkit/pull/60).
+Upstream fork workflow approval requires a repository admin; the current account
+received HTTP 403. A manual fork candidate run is additional evidence and cannot
+replace that PR's required check context.
+
 ## Continuation and rollback
 
 Run the new diagnostic workflow on this branch, inspect actual job and metadata
