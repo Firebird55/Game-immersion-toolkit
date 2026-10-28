@@ -144,7 +144,14 @@ class MultilingualTextIndex:
     def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False):
         hits, ambiguous = [], []
         with self.lock:
-            for source in candidates(lines):
+            sources = candidates(lines)
+            # A known silent/unknown page may contain a shorter spoken sentence.
+            # Preserve the complete observation before candidate splitting so a
+            # crop or a fuzzy match cannot turn its fragment into that voice.
+            nonvoiced_observations = [(locale, normalize_text(source, locale))
+                for source in sources for locale, keys in self._full_frame_veto.items()
+                if normalize_text(source, locale) in keys]
+            for source in sources:
                 lookups = [(locale, values, False) for locale, values in self._lookup.items()]
                 if self.capture_unvoiced:
                     lookups += [(locale, values, True) for locale, values in self._unvoiced_lookup.items()]
@@ -157,19 +164,31 @@ class MultilingualTextIndex:
                         minimum = 5 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 12
                         if len(key) < minimum:
                             continue
-                    rows = lookup.get(key, [])
+                    rows, matched_keys = lookup.get(key, []), {key}
                     # HEAVY RAIN paginates some authored paragraphs at runtime.
                     # A sufficiently long, exact contiguous page can identify
                     # the whole bound performance; never infer page audio cuts.
                     minimum = 12 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 24
                     if not silent and self.game == 'heavyrain' and channel == 'dialogue' and len(key) >= minimum:
                         rows = [row for text, matches in lookup.items() if key in text for row in matches]
+                        matched_keys = {text for text in lookup if key in text}
                     if not silent and not rows and not exact_only and len(key) >= 8:
                         matches = process.extract(key, lookup.keys(), scorer=fuzz.ratio, score_cutoff=max(88, threshold), limit=2)
                         if matches and (len(matches) == 1 or matches[1][1] < matches[0][1] - 2):
                             rows, score = lookup[matches[0][0]], matches[0][1]
+                            matched_keys = {matches[0][0]}
                         elif matches:
                             ambiguous.append(source)
+                    if not silent and rows and (
+                            matched_keys & self._full_frame_veto.get(locale, set())
+                            or any(normalize_text(source, observed_locale) in observed
+                                   for observed_locale, observed in nonvoiced_observations)):
+                        # This text cannot identify spoken versus silent/UI
+                        # presentation, even with silent capture switched off.
+                        # Keep it ambiguous rather than selecting the silent
+                        # duplicate after suppressing its voice candidate.
+                        ambiguous.append(source)
+                        continue
                     rows = [r for r in rows if channel is None or channel in r.get('channels', ['dialogue', 'tip', 'cinematic', 'gameplay'])]
                     # ZZZ's authored M/F subtitles can themselves identify a
                     # performance. Use the configured Proxy only when the
@@ -249,7 +268,7 @@ class MultilingualTextIndex:
 
         A choice can repeat a later voiced response. Its text remains a veto
         even when unvoiced capture is disabled; text alone cannot identify
-        which presentation is visible. Ordinary cropped dialogue is separate.
+        which presentation is visible. The ordinary crop shares that veto.
         """
         from .steam_games import STEAM_GAMES
         spec = STEAM_GAMES.get(self.game)

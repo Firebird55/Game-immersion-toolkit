@@ -68,6 +68,9 @@ def test_persona_floating_voices_are_exact_stable_and_never_borrow_choice_audio(
                     'voice_status': 'unvoiced', 'dialogue_kind': 'choice'})
     records.append({**records[4], 'text_id': 'ui_unknown', 'audio': None,
                     'voice_status': 'unknown', 'channels': []})
+    unknown_page = texts['first'] + ' Open the quest log.'
+    records.append({**records[0], 'text_id': 'unknown_page', 'source_text': unknown_page,
+                    'texts': {'en': unknown_page}, 'audio': None, 'voice_status': 'unknown', 'channels': []})
     directory = tmp_path / 'language'
     directory.mkdir()
     (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'persona5royal',
@@ -77,13 +80,33 @@ def test_persona_floating_voices_are_exact_stable_and_never_borrow_choice_audio(
     service, _, scheduled, published = fixture_service(tmp_path, game='persona5royal')
     service.game_indexes = {'persona5royal': index}
     service.game_voice_assets = {'persona5royal': service.voice_assets}
-    window = SimpleNamespace(bounds=(0, 0, 1920, 1080), title='Persona')
+    window = SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title='Persona')
     response = {'lines': [row(texts['first'], .60, .10), row(texts['second'], .05, .40),
                           row(texts['choice_voice'], .35, .60), row(texts['short'], .10, .80),
                           row(texts['ui_voice'], .4, .9)]}
     engine = SimpleNamespace(recognize_pil=lambda _: response)
     async def run():
         service._event_loop = asyncio.get_running_loop()
+        # Choices and unknown UI can also occupy the user's subtitle crop.
+        # Neither exact nor fuzzy matching may borrow their voiced duplicate,
+        # including when silent capture is disabled or the choice uses another
+        # authored channel.
+        original_rows = response['lines']
+        for enabled in (False, True):
+            service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': enabled}))
+            for text in (texts['choice_voice'], texts['ui_voice'],
+                         texts['choice_voice'].replace('battle', 'batt1e'), unknown_page):
+                response['lines'] = [row(text, .35, .85)]
+                for _ in range(2):
+                    outcome = service._scan_pragmata(window, service.settings.get().persona5royal_region,
+                        engine, 0, datetime.now(timezone.utc), game='persona5royal')
+                    assert not service._with_unvoiced(outcome, index, window, engine, 0,
+                        datetime.now(timezone.utc), 'persona5royal').emitted_lines
+        await asyncio.sleep(.02)
+        assert not scheduled and not published and service.transcript.count() == 0
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        index.capture_unvoiced = False
+        response['lines'] = original_rows
         def scan():
             return service._with_unvoiced(_ScanOutcome([]), index, window, engine, 0,
                                           datetime.now(timezone.utc), 'persona5royal')
