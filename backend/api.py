@@ -1179,7 +1179,7 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider|spyro|mgsvtpp|mgsvgz|deathstranding|plaguetaleinnocence|detroit|portal|portal2|halflife|halflife2|persona5royal|deusexhrdc)$"),
 ) -> list[TranscriptLine]:
     return [
         presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
@@ -1196,7 +1196,7 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider|spyro|mgsvtpp|mgsvgz|deathstranding|plaguetaleinnocence|detroit|portal|portal2|halflife|halflife2|persona5royal|deusexhrdc)$"),
 ) -> list[TranscriptLine]:
     return [runtime.speakers.enrich(line) if line.game == "zzz" else line
             for line in runtime.transcript.list_favorites(game=game)]

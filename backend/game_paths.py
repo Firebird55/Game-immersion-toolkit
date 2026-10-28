@@ -5,12 +5,15 @@ import json
 import os
 import threading
 from pathlib import Path
+from .steam_games import STEAM_GAMES
 
 GAMES = ("zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield", "riseofthetombraider", "shadowofthetombraider")
+GAMES += tuple(STEAM_GAMES)
 GAME_NAMES = {"starrail": "Honkai: Star Rail", "genshin": "Genshin Impact", "endfield": "Arknights: Endfield", "zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "hito": "Hito's World",
               "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
               "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
 GAME_NAMES.update(riseofthetombraider="Rise of the Tomb Raider", shadowofthetombraider="Shadow of the Tomb Raider")
+GAME_NAMES.update({game: spec.title for game, spec in STEAM_GAMES.items()})
 _path_lock = threading.RLock()
 
 
@@ -24,6 +27,11 @@ def validate_install(game: str, path: Path) -> Path:
     root = path.expanduser().resolve(strict=True)
     if not root.is_dir():
         raise ValueError("Choose the installed game folder, not an archive or executable")
+    if game in STEAM_GAMES:
+        spec = STEAM_GAMES[game]
+        if (root / spec.executable).is_file() and all((root / name).exists() for name in spec.markers):
+            return root
+        raise ValueError(f"Choose the {spec.title} installation folder containing {spec.executable} and its game data.")
     if game in {'starrail', 'genshin', 'endfield'}:
         folders = {'starrail': ('StarRail_Data',), 'genshin': ('GenshinImpact_Data', 'YuanShen_Data'),
                    'endfield': ('Endfield_Data',)}[game]
@@ -137,7 +145,7 @@ def discover_install(game: str) -> Path | None:
     configured = configured_install(game)
     if configured:
         return configured
-    names = [GAME_NAMES[game]]
+    names = [STEAM_GAMES[game].directory] if game in STEAM_GAMES else [GAME_NAMES[game]]
     if game == "starrail":
         names = ["HonkaiStarRail/games/Star Rail Games", "Star Rail Games", "Honkai Star Rail"]
     elif game == "genshin":
@@ -164,6 +172,15 @@ def discover_install(game: str) -> Path | None:
         if config.is_file():
             libraries.extend(Path(value.replace("\\\\", "\\")) for value in
                              re.findall(r'"path"\s+"([^"]+)"', config.read_text(encoding="utf-8")))
+        if game in STEAM_GAMES:
+            for library in libraries:
+                try:
+                    manifest = library / f'steamapps/appmanifest_{STEAM_GAMES[game].app_id}.acf'
+                    match = re.search(r'"installdir"\s+"([^"\\/]+)"', manifest.read_text(encoding='utf-8-sig'))
+                    if match and match[1] not in {'.', '..'} and ':' not in match[1]:
+                        candidates.append(library / 'steamapps/common' / match[1])
+                except OSError:
+                    continue
         candidates.extend(path / "steamapps/common" / name for path in libraries for name in names)
     except (ImportError, OSError):
         pass

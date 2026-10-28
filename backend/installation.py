@@ -13,6 +13,7 @@ import threading
 from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install, load_paths
 from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
+from .steam_games import STEAM_GAMES
 
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
@@ -46,6 +47,13 @@ VOICE_HINTS = {
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
     "nte": "Download the selected study language's original voice pack, then prepare its authored dialogue and cinematic bindings in Languages.",
 }
+
+
+FOLDER_HINTS.update({game: f"Choose the {spec.title} folder containing {spec.executable}."
+                     for game, spec in STEAM_GAMES.items()})
+VOICE_HINTS.update({game: "Install the selected original voice language through Steam Properties → Language, "
+                          "wait for the download, then prepare its language table here."
+                    for game in STEAM_GAMES})
 
 
 def _voice_state(game: str, install: Path | None, state: dict) -> str:

@@ -1,4 +1,5 @@
-export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield', 'riseofthetombraider', 'shadowofthetombraider'];
+export const STEAM_GAMES = ['spyro', 'mgsvtpp', 'mgsvgz', 'deathstranding', 'plaguetaleinnocence', 'detroit', 'portal', 'portal2', 'halflife', 'halflife2', 'persona5royal', 'deusexhrdc'];
+export const SUPPORTED_GAMES = ['zzz', 'wuwa', 'pragmata', 'cyberpunk', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield', 'riseofthetombraider', 'shadowofthetombraider', ...STEAM_GAMES];
 const PAIRING_FIELDS = ['sessionId', 'pairingId', 'attempt'];
 const PAIRING_ID = /^[A-Za-z0-9_-]{16,64}$/;
 export function parseRelay(value) {

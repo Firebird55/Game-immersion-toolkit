@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .models import AppSettings
 from .games import GAME_PROFILES, GameProfile, ordered_profiles
+from .steam_games import STEAM_GAMES
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,22 +103,32 @@ def installed_zzz_game_data_directory(settings: AppSettings) -> Path | None:
 
 def find_active_game_window(settings: AppSettings) -> tuple[GameProfile, WindowInfo] | None:
     candidates = list_visible_windows()
-    by_process = {window.process_name.casefold(): window for window in candidates}
+    by_process = {}
+    for window in candidates:
+        by_process.setdefault(window.process_name.casefold(), []).append(window)
     for profile in ordered_profiles(settings.preferred_game):
         for process_name in profile.process_names:
-            window = by_process.get(process_name.casefold())
-            if window is not None and profile.id == "wuwa":
-                # This generic Unreal executable name is used by other games.
-                # Require the game's own title or a verified installation path.
-                titled = any(name.casefold() in window.title.casefold() for name in profile.title_needles)
-                if not titled:
+            for window in by_process.get(process_name.casefold(), []):
+                if profile.id in STEAM_GAMES and sum(process_name.casefold() in
+                        [name.casefold() for name in other.process_names] for other in GAME_PROFILES.values()) > 1:
+                    # Portal and Half-Life 2 share hl2.exe. Never choose a reader
+                    # from the preferred game or title when the executable is ambiguous.
                     from .game_paths import discover_install
-                    install = discover_install("wuwa")
+                    install = discover_install(profile.id)
                     actual = executable_path_for_window(window)
-                    expected = install / "Client/Binaries/Win64/Client-Win64-Shipping.exe" if install else None
+                    expected = install / STEAM_GAMES[profile.id].executable if install else None
                     if actual is None or expected is None or actual.resolve() != expected.resolve():
                         continue
-            if window is not None:
+                if profile.id == "wuwa":
+                    # This generic Unreal executable name is used by other games.
+                    titled = any(name.casefold() in window.title.casefold() for name in profile.title_needles)
+                    if not titled:
+                        from .game_paths import discover_install
+                        install = discover_install("wuwa")
+                        actual = executable_path_for_window(window)
+                        expected = install / "Client/Binaries/Win64/Client-Win64-Shipping.exe" if install else None
+                        if actual is None or expected is None or actual.resolve() != expected.resolve():
+                            continue
                 return profile, window
     return None
 

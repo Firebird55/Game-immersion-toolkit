@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
+from .steam_games import STEAM_GAMES
 
 
 GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
@@ -19,6 +20,7 @@ GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where
                   "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
 GAME_TITLES.update(starrail="Honkai: Star Rail", genshin="Genshin Impact", endfield="Arknights: Endfield")
 GAME_TITLES.update(riseofthetombraider="Rise of the Tomb Raider", shadowofthetombraider="Shadow of the Tomb Raider")
+GAME_TITLES.update({game: spec.title for game, spec in STEAM_GAMES.items()})
 API_BASE = "https://api.lexirise.app"
 REQUEST_KEY = ContextVar('lexirise_request_key', default=None)
 

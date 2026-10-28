@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 from .models import CaptureRegion
+from .steam_games import STEAM_GAMES
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +68,12 @@ GAME_PROFILES = {
         subtitle_region=CaptureRegion(left=0.19, top=0.76, width=0.62, height=0.22),
     ),
 }
+
+
+GAME_PROFILES.update({game: GameProfile(id=game, name=spec.title,
+    process_names=(PurePosixPath(spec.window_executable or spec.executable).name,), title_needles=(spec.title,),
+    subtitle_region=CaptureRegion(left=.04, top=.60, width=.92, height=.38))
+    for game, spec in STEAM_GAMES.items()})
 
 
 def ordered_profiles(preferred: str = "auto") -> list[GameProfile]:
