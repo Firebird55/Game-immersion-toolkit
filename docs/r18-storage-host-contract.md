@@ -67,7 +67,9 @@ after an update. Tokens below are logical paths, never a published host profile.
 | `%LOCALAPPDATA%/Proxy Transcript/nte-archive/<identity>.dpapi` | Installed-version NTE archive metadata, protected for offline use | Private protected **derived metadata**, separate from account credentials. Preserve same-user bytes/location initially. Missing/corrupt data follows bounded public-metadata retry/unavailable behavior; never publish values or suggest account-key recovery for this cache. |
 | `%LOCALAPPDATA%/Proxy Transcript/mobile-library.json`, `mobile-library/<scope>.json`, `automatic-mobile-libraries/rules.json` | Export destinations, account/locale-scoped preferences, automatic rules/jobs | Durable configuration; preserve selected external destinations. Account and locale scope must remain intact. |
 | Export destination, default `legacyRoot/output/mobile-libraries`; automatic work below `%LOCALAPPDATA%/Proxy Transcript/automatic-mobile-libraries` | Completed private game libraries, `latest.json`, instructions and managed work/history | User output, not release assets. Preserve completed output and pointers; interrupted work is not a completed library. External destinations need their own availability/space checks. |
+| Export-derived `.toolkit-mobile-work/<destination-hash>` and legacy `<output>/.toolkit-work` | Same-volume resumable clips/cache plus `previous-libraries` containing complete previous exports | Mixed work and retained user output, not a disposable cache. Inventory the effective export destination and derived workspace together, including implicit old defaults. Preserve completed previous libraries and resume state; do not redirect this workspace to generic `cache_root`. |
 | `%LOCALAPPDATA%/Programs/Proxy Transcript/accounts.dpapi`, `key.dpapi` | Named account store and legacy host-local key | Persistent protected credentials, separate from program versions and caches. Keep current paths for contract v1. |
+| `%LOCALAPPDATA%/Programs/Proxy Transcript/ProxyTranscriptLauncher.exe`, `project-path.txt`; `%APPDATA%/Microsoft/Windows/Start Menu/Programs/Proxy Transcript.lnk` | Owned managed wrapper, private pointer to the original checkout/ZIP and Start menu entry with source working directory/icon | Launcher/control state, separate from credentials beside it. Preserve the previous working target for recovery; a copied data directory or new app slot does not retarget these entries. Do not manipulate Windows-owned taskbar pin internals. |
 | `%LOCALAPPDATA%/Programs/Proxy Transcript/venv` | Existing setup's Python environment | Existing adapter prerequisite, not user data. New bundle must not depend on it; do not delete it while old ZIP rollback uses it. |
 | `assets/fireredvad` and optional `%LOCALAPPDATA%/Programs/gamesentenceminer/resources/GameSentenceMiner/assets/fireredvad` fallback | FireRedVAD ONNX/CMVN; current source prefers app assets, otherwise uses a legacy third-party installation | Bundled adapter must require verified shipped resource hashes and actionable missing-resource errors. A third-party installation must not mask incomplete candidate collection. Preserve unrelated fallback files; never copy them blindly. |
 | `%USERPROFILE%/.config/oneocr/{oneocr.dll,oneocr.onemodel,onnxruntime.dll}` | Current oneocr package's expected native OCR files, copied by local setup from Snipping Tool | Host-owned native prerequisite. No redistribution permission is inferred; preserve this location until a proved adapter/license permits another. |
@@ -85,6 +87,9 @@ Evidence: [Runtime composition](../backend/api.py#L54),
 [protected NTE metadata](../backend/nte_assets.py#L128),
 [FireRed resource fallback](../backend/firered_vad.py#L44),
 [export work layout](../backend/mobile_export_layout.py#L24),
+[retained previous exports](../backend/mobile_export_layout.py#L138),
+[wrapper/pointer/shortcut creation](../scripts/install-shortcuts.ps1),
+[pointer consumer](../launcher/ProxyTranscriptLauncher.cs#L17),
 [updater staging](../scripts/update-companion.ps1#L19) and
 [OCR setup](../scripts/setup.ps1#L59). These links describe the reviewed baseline;
 future code changes must update the adapters and regression evidence.
@@ -106,7 +111,14 @@ same Windows user/host migration only unless separately proved. Copying a blob
 across Windows users, running setup as a different/elevated account, or syncing it
 to another PC is not credential migration. Never switch to machine-wide DPAPI to
 make it portable. Leave unreadable original blobs intact and offer the existing
-hidden-input reconfiguration flow; verify identity through read-only `/v1/me`.
+hidden-input flow only for a new/readable store. That flow does **not** repair an
+unreadable named-account store: `AccountStore.add()` reads the existing blob
+before writing, so it encounters the same error. R19/R21 need an explicit repair
+design that preserves the original encrypted blob and requires a deliberate
+reconnection before creating replacement state; it is not implemented here.
+Do not automatically rename, delete or replace a failed store. Verify a supplied
+key's identity through read-only `/v1/me` without claiming the old profiles were
+recovered. A migration needing that unreadable store remains incomplete.
 Credentials are persistent state even when their filename is under a program
 parent. They must survive repair/uninstall by default and never enter caches,
 command-line arguments, logs, workflow secrets, diagnostics or browser transfers.
@@ -114,6 +126,8 @@ See [protection implementation](../backend/lexirise.py#L29),
 [hidden-input setup](../scripts/set_lexirise_key.py), and Microsoft's
 [DPAPI contract](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)
 (reviewed 2026-10-28).
+The [named-store read/add behavior](../backend/accounts.py#L29) is the source of
+the recovery limitation above.
 
 Mobile/browser credentials are a separate domain: `vault.mjs` stores an encrypted
 PBKDF2/AES-GCM record in IndexedDB by default; explicit trusted-device mode stores
@@ -141,6 +155,7 @@ logic in the existing services. No general container/framework is required.
 | `settings_root` | Existing per-user `Proxy Transcript` settings directory. Services retain their specific files and precedence. |
 | `cache_root` | Private disposable, versioned derived/scratch storage. Only explicitly registered recreatable content belongs here. Empty is valid. It must not alias a parent of durable data/credentials. |
 | `tool_root`, `work_root` | Verified separately acquired tools with revision/notices, and private mutable extraction/transpile workspace. Source adapter maps current per-game `data/*/tools` and ZZZ `work/voice-assets` explicitly; bundled helpers are read-only resources. Never infer these roots from `data_root.parent` or CWD. |
+| `export_workspace(destination)` | Preserve the existing export-derived same-volume workspace, its destination identity and retained `previous-libraries`. This is a separate owner from disposable extraction/transpile `work_root`; resolve and validate it with the selected output, not a fixed cache-root alias. |
 | `state_root` | Host coordination, route/process state, locks, update journal and private logs. Distinct from immutable application code. Never treat imported process JSON as live ownership. |
 | `credential_locations` | Explicit ordered locator list for named profiles, host legacy key and old data-key fallback; protection mode `dpapi-current-user`. Return paths internally, never key material. v1 retains existing host paths. |
 | `default_export_root`, `legacy_root?` | Private default for new exports; prior ZIP root for read/copy/recovery only. Explicit saved destinations win. No automatic file movement from an external transfer folder. |
@@ -179,7 +194,9 @@ user. No system service/admin account should own ordinary user runtime data.
 %LOCALAPPDATA%/
   Programs/Proxy Transcript/
     app/<version>-<build-id>/       # immutable onedir application/resources
-    launcher/                     # later stable host, separately recoverable
+    launcher/                     # prebuilt stable host/resources, later adapter
+    ProxyTranscriptLauncher.exe   # existing wrapper; explicit compatibility plan
+    project-path.txt              # existing private legacy pointer, not app data
     accounts.dpapi                # existing same-user location, preserved
     key.dpapi                     # existing same-user location, preserved
     venv/                         # old ZIP adapter only, retained for rollback
@@ -195,7 +212,7 @@ user. No system service/admin account should own ordinary user runtime data.
     data-v1/                       # same internal data names as legacy data
     cache-v1/<component>/<format>/  # proven recreatable outputs only
     tools-v1/<component>/<revision>/ # acquired verified tools and notices
-    cache-v1/work/                 # owned extraction/transpile scratch
+    cache-v1/work/                 # disposable scratch only, not export workspace
     host-v1/
       layout.json                  # schema + selected roots + install identity
       runtime/                     # route/process records and lock files
@@ -205,6 +222,15 @@ user. No system service/admin account should own ordinary user runtime data.
       migrations/<migration-id>/   # manifest/checkpoint/recovery instructions
     exports/                       # default for new exports only
 ```
+
+Export work remains a separate derived root on the destination volume.
+`work_folder(output)` chooses the parent of the transfer folder (with a drive-root
+special case) and hashes the normalized absolute output path. It can also move
+legacy `.toolkit-work` into that workspace. Preserve the mapping and recorded
+previous libraries; changing the output path changes its identity. A future
+move needs its own verified copy/reattachment plan and space checks. Do not
+assume a rename is atomic across volumes or evict `previous-libraries` with
+scratch. R20/R21 also own the existing Start menu entry outside LocalAppData.
 
 This is the target layout, not created by R18. v1 intentionally retains existing
 settings and credential locations; path schema versioning does not require moving
@@ -254,12 +280,15 @@ be different in onedir output. See [PyInstaller runtime information](https://pyi
 | `toolkit_update.py`: detached `sys.executable -m backend.toolkit_update` twice, CWD `CODE_ROOT` | Independent bundled updater dispatch must survive retirement of the backend. Do not respawn the main API accidentally or terminate the updater with the old process tree. |
 | `InstallationService.launch_native`: hidden-input account console, folder PowerShell and capture-readiness `.py` | Use fixed bundled actions; retain hidden input, no credential arguments and user-visible recovery. Pure status remains read-only. |
 | Current PowerShell launcher `Add-Type` C# process-image interop | Source launcher compiles an owned P/Invoke shim through OS PowerShell/.NET Framework facilities. Preferred R19 path is a precompiled owned launcher helper; alternatively declare and probe exact OS PowerShell/Framework behavior. The target excludes a separately installed developer compiler, not a claim that unchanged source never compiles C#. This does not excuse end-user game-reader SDK/compiler builds. |
+| `install-shortcuts.ps1` requires Framework `csc.exe`; managed wrapper reads `project-path.txt` and starts the old script/CWD | Prebuild any retained owned wrapper on the Windows build host. Adapt its entrypoint for the bundle; do not ship a wrapper that silently starts old Python/source setup. Publish the stable launch target only with a verified candidate and preserve its prior target for rollback. Probe actual Framework/PowerShell/WinForms requirements, missing/moved pointer targets and shortcut/icon behavior. |
 | `WindowsPreparationProcess.command`: current executable image + `__file__` script + job name/child command | Frozen bootstrap dispatch is required **before** child launch, still joins kill-on-close Job Object before extractor spawn. Retain owned handles, verified membership and deadline/descendant waits. Merely freezing a `.py` entry path breaks this contract. |
 | ZZZ `_links` derives project with `directory.parent.parent`, then `work/voice-assets`; helper scripts transpile downloaded `.ts` into writable `.mjs` beside metadata | Replace ancestor-depth inference with declared tool/work roots. Collect/prebuild licensed helpers and keep mutable metadata/generated links outside read-only resources; account for Node, TypeScript, WASM module resolution and `node_modules` assumptions. |
 | Static `package.json`, `public/mobile-capture/games-data.json`, game tool source/JS/WASM and external extractor data | Resolve active version resources explicitly; collect their relative layouts and notices. Missing data must be a named readiness failure, not fallback to the original ZIP/code version. |
 | External tool launches and native DLL search | Declare each executable path and CWD; preserve tool-relative adjacent files. Frozen Windows DLL search-path changes can affect external tools; isolate/sanitize only where proved necessary and test the exact packaged extractor. |
 
 Evidence: [launcher C# shim](../scripts/companion-runtime.ps1#L8),
+[separate managed-wrapper compilation](../scripts/install-shortcuts.ps1#L17),
+[managed-wrapper dispatch](../launcher/ProxyTranscriptLauncher.cs#L17),
 [launcher roots](../scripts/companion-runtime.ps1#L268),
 [language builder](../backend/api.py#L281),
 [game worker](../backend/local_game_updates.py#L136),
@@ -366,6 +395,16 @@ Prototype sequence and acceptance:
    releasing legacy exclusion. If uninterrupted lifetime exclusion cannot be
    proved without editing the old ZIP, migration activation acceptance is
    **blocked**; R19 may still prove the offline copy and keep the source active.
+   The existing updater cannot simply run inside that guard: it calls
+   `Enter-CompanionOperation` again on the same old root, and the exclusive lock
+   is not reentrant (default wait: 1,200 seconds). R19 needs an owner-aware,
+   serialized update operation through the supervising guard, with verified
+   installation/process ownership, rather than nested lock acquisition.
+   Keep the legacy handle continuously owned across preparation, takeover,
+   failure and rollback; releasing it temporarily to let the updater enter
+   reopens the old-launcher race. A browser-supplied bypass flag or mere lockfile
+   existence is not ownership. Until delegation/continuity is implemented and
+   proved, guarded candidate updates and migration activation remain incomplete.
    Lock acquisition alone does not stop an already-running backend or browser
    mutations. Either stop all source writers
    within a deadline or use a supported consistent SQLite backup per database
@@ -401,6 +440,14 @@ Prototype sequence and acceptance:
    candidate before restoring old app/data pointers. Preserve any writes made
    after activation; rollback needs an explicit reconciliation/recovery choice,
    not silent loss by selecting the old snapshot.
+   Launcher pointers/shortcuts form a separate checkpoint: record their previous
+   values, stage the verified stable target and publish it only with the accepted
+   layout/route selection. Prove startup and rollback through the actual Start
+   entry and any retained wrapper; after a crash, reconcile these checkpoints
+   rather than assume several file replacements are one atomic transaction.
+   Preserve or restore the old target on failure. Do not leave the shortcut
+   dispatching the old ZIP while the new candidate owns capture, or point it at
+   a slot that cleanup can remove. Taskbar pins remain managed by Windows.
 8. Mark committed only after restart and round-trip checks succeed. Retain old
    ZIP/data and recovery information by default. Cleanup/retention must be a
    separate explicit policy after R21 evidence; repair/uninstall preserve data.
@@ -412,6 +459,14 @@ activation, incompatible database versions, legacy direct-port rollback and
 candidate writes before commit. A file hash proves bytes copied, not equivalent
 account/locale/voice behavior.
 
+The lock/update limitation follows from the
+[updater's acquisition](../scripts/update-companion.ps1#L17),
+[exclusive operation lock](../scripts/companion-runtime.ps1#L252) and
+[automatic update entrypoint](../backend/toolkit_update.py#L164).
+R19 must include an update while the migration guard is held, plus interruption
+and rollback, among its host probes; the current source updater alone does not
+establish that future behavior.
+
 ## Browser host, origins, API and static experiment
 
 The ordinary desktop page hard-codes API `http://127.0.0.1:8766` and WebSocket
@@ -422,6 +477,17 @@ access permits browser origins `http://localhost:3000/3001` and
 preflight and WebSocket before dispatch. Missing Origin supports trusted local
 scripts; it is not authentication against hostile programs on the same PC.
 A public HTTPS Pages origin is not allowed to control the desktop API.
+
+The current [browser opener](../scripts/start-companion.ps1#L18) searches only
+Google Chrome's fixed locations, uses a normal window in the existing profile,
+and fails to open a browser when Chrome is absent. The backend/frontend are
+already started at that point; `-NoBrowser` plus manually opening the canonical
+URL is a separate source route. R19 must preserve the user's browser/profile
+selection and extension access. Do not introduce a fresh/private profile or
+`--user-data-dir` as a packaging shortcut: the same origin in another profile
+does not retain the old profile's stores, vault or extensions. Record profile
+continuity in the migration manifest and verify ordinary-browser reopening;
+real extension compatibility remains separate evidence.
 
 The frontend reads/writes localStorage keys including
 `proxy-transcript-reading-mode`, `proxy-transcript-playback-rate`,

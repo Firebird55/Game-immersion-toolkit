@@ -255,6 +255,11 @@ dependencies and Windows/OCR constraints. The
 protected credentials and recovery; R14 consumer adoption, static-host behavior,
 native measurements and actual migration/rollback remain unverified. A fallback
 that still requires development tools does not pass R19. R20–R22 remain planned.
+The follow-up R18 review also requires a prebuilt/adapted managed launcher,
+pointer/shortcut and existing browser-profile continuity, owner-aware updates
+under continuous legacy exclusion, preservation of export-volume work/previous
+libraries, and explicit unreadable-account-store recovery. These remain design
+and candidate/installed acceptance work, not implemented guarantees.
 
 Installation acceptance:
 

@@ -110,6 +110,9 @@ or **system prerequisite** decision. Apply these common rules:
    Windows facilities. Prefer a precompiled owned helper for R19; if that source
    adapter is retained, declare and probe the exact PowerShell/Framework system
    dependency. An unchanged launcher is not evidence of zero runtime compilation.
+   Setup separately compiles `ProxyTranscriptLauncher.exe` with Framework
+   `csc.exe`; prebuild any retained managed wrapper on the Windows build host
+   and adapt its source-path dispatch before including it in R19/R20.
 6. Produce a runtime file manifest and complete notices for shipped artifacts,
    including transitive DLLs, models, fonts, WASM and external executables.
    Existing npm notice generation is a starting point, not a Python/native SBOM.
@@ -126,14 +129,14 @@ Reuse existing checks below and add only missing bundle-specific behavior tests.
 | Probe | Independent success criterion | Failure/recovery evidence |
 | --- | --- | --- |
 | Clean host and architecture | Ordinary Windows x64 user starts the extracted candidate without development tools; declared OS/browser/Store/VC runtime conditions are checked and actionable | Missing prerequisite, wrong architecture, restricted Store, offline first start and insufficient space name the failing component; no partial ready state |
-| Resources and child processes | Start from a path with spaces/Unicode and an unrelated working directory; immutable app tree is not written; all API, language, export, update and bootstrap children use the intended frozen entrypoints | No recursive bootloader launch, missing `.py` path or hidden PATH/compiler dependency; inspect native DLL search isolation when launching external tools |
+| Resources and child processes | Start from a path with spaces/Unicode and an unrelated working directory; immutable app tree is not written; retained prebuilt wrapper and all API, language, export, update and bootstrap children use the intended frozen entrypoints | No recursive bootloader launch, missing `.py` path, stale project pointer or hidden compiler dependency; inspect native DLL search isolation; later R20/R21 prove the actual installed shortcut transaction |
 | Native OCR and capture | On declared Windows build, initialize the user's Snipping Tool OCR, read an authored Chinese and non-Chinese caption, select a window/monitor and verify crop bounds at relevant 125–200% DPI | Missing/stale OCR assets, unavailable capture surface, multiple monitors, negative display coordinates and capture permissions produce actionable states; confirmed transcript survives audio failure |
 | Distinct game toolchains | Exercise every distinct chain in the component inventory on the extracted artifact, including PRAGMATA x86 helper on x64, Unreal/.NET helpers, Unity readers, CRI/Wwise/FFmpeg/vgmstream paths and pure-Python archive paths | Tool absent/corrupt/wrong architecture, unsupported game format, absent voice pack and interrupted extraction retain the previous complete index; no fallback to the wrong spoken language |
 | Actual-format integration | Synthetic permitted archives/owned audio exercise real tool subprocesses and output parsing; separately record installed-game/locale probes where private inputs are available | Mocked process success proves orchestration only. Missing real game or voice packs remain unavailable for native playback; no archived game is re-enabled |
-| Host and ordinary browser | Built desktop routes, CSS/fonts, setup, lookup, both reader modes, audio/export, API errors and WebSocket reconnect work in Chromium and Firefox at the retained origin | No removed endpoint, permissive CORS/Host fallback, public listener or accidental dependency on a development server; real extension compatibility is separately recorded |
+| Host and ordinary browser | Built desktop routes, CSS/fonts, setup, lookup, both reader modes, audio/export, API errors and WebSocket reconnect work in Chromium and Firefox at the retained origin and existing selected profile | Distinguish current Chrome-only auto-open from manual browser use; no fresh-profile data/extension loss, removed endpoint, permissive CORS/Host fallback, public listener or hidden development server; real extension compatibility is separately recorded |
 | Static/mobile assets and caches | Desktop static spike meets route/hydration equivalence; packaged mobile preview retains workers/WASM/model URLs and existing allowlist/offline behavior | Service-worker scope, old/current cache activation, failed asset load and offline reopen retain browser stores; desktop assets are not assumed to share the mobile service worker |
-| Data and origin | Opt-in old-ZIP copy migration uses the host contract and synthetic transcripts/favorites/settings/prepared locales/archived data, export ledgers and persistent grammar choices; same-user protected test credentials, IndexedDB registries and retained OPFS library bytes remain usable | Copy interruption, locked SQLite/WAL files, no space, malformed manifest and unknown schema leave original data usable; a folder copy or IndexedDB registry alone never counts as browser/library migration |
-| Update and rollback | Candidate verification, standby, readiness/warmup, bounded quiesce and takeover retain at most one capture owner; active version is truthful; previous compatible runtime can restart | Inject download/checksum/provenance failure, preparation crash, quiesce timeout, router/candidate failure and power/process interruption at boundaries; no cross-user DPAPI copying or destructive downgrade |
+| Data and origin | Opt-in old-ZIP copy migration preserves synthetic transcripts/favorites/settings/locales/archived data, export ledgers, grammar choices and export-volume work/complete previous libraries; same-user protected test credentials, IndexedDB registries and OPFS bytes remain usable | Copy interruption, locked SQLite/WAL files, no space, malformed manifest and unknown schema preserve originals; unreadable named credentials require an explicit preserving repair design, not the existing add-account prompt; a folder/registry copy alone is not browser/library migration |
+| Update and rollback | Candidate verification, standby, readiness/warmup, bounded quiesce and takeover retain at most one capture owner; owner-aware updates work while the legacy migration guard remains held; previous compatible runtime can restart | Inject nested-lock/update contention, checksum/provenance failure, preparation crash, quiesce timeout, router/candidate failure and interruption at checkpoints; never briefly release exclusion, copy DPAPI across users or silently downgrade data |
 | Baseline and delivery evidence | R02b records cold/warm start, CPU/RSS, sizes, disk peak and recovery for the same artifact and environment; compare to measured current runtime | Unavailable measurements remain open; no speed or size promise invented from PyInstaller choice. Checksums/provenance, signatures and attestations are reported separately |
 
 The probes cover **toolchains**, plus selected language/voice bindings; they do
@@ -170,10 +173,10 @@ do prevent claiming that a redistributable, standalone R19 candidate already wor
 | Maintained Windows Python 3.12 binary and packaging version pins | R19 build owner: record patch/source/build provenance, incorporated library notices and security-update policy; do not equate an old official installer with a current security build |
 | Compiler-free NTE/Endfield/PRAGMATA and other .NET/external helper paths | R19 packaging owner: publish/build licensed helpers with complete architecture/runtime dependencies, then functional probes without SDK/Build Tools |
 | Static desktop equivalence and replacement of the Node router/host | R19 host owner: prove preserved origins/API/WS/readiness; retain diagnostic source adapter if unsuccessful, explicitly incomplete acceptance |
-| Frozen module dispatch, data/resource paths and native loader isolation | R19 runtime owner: implement only required composition adapters and probe each child path |
+| Frozen module dispatch, prebuilt launcher/pointer transition, data/resource paths and native loader isolation | R19 runtime owner: implement only required composition adapters and probe each child path; R20/R21 prove installed launch entries |
 | Native Windows baseline, OCR files/build compatibility, CPU/GPU/DPI and installed-game evidence | R02b/R19 tester: name image, hardware, candidate and selected games/locales; missing inputs stay unavailable |
 | Physical pack/candidate/preference schema and shared setup consumer adoption | R14/R17 owners: adopt this R12c storage/host boundary; this research does not implement their services |
-| Existing ZIP/browser data and schema downgrade recovery | R19 proves bounded opt-in copy; R20/R21 prove installed migration/repair/uninstall and interruption. Keep old runtime/data and same origin until verified |
+| Existing ZIP/browser data, guarded updates and schema downgrade recovery | R19 proves bounded opt-in copy, continuous legacy exclusion with owner-aware update coordination and existing browser/profile continuity; R20/R21 prove installed migration, pointer/shortcut recovery, unreadable named-store repair and retained export-volume work. Keep old runtime/data until verified |
 | Signing, full downloaded candidate verification and installed-product acceptance | R20–R22: existing clean-main release process and GitHub-hosted checks; checksums/JSON provenance alone do not establish Authenticode or attestation |
 
 ## Review and validation record
@@ -191,6 +194,17 @@ incorporated before the final re-review include:
 | Resources outside `data` and old frontend chunks could be lost | Name ZZZ tool/work roots and protected NTE metadata; retain compatibility assets for active/open-reader/rollback use; distinguish source-root legacy mapping from new target roots |
 | Dependency labels obscured compiler, runtime and redistribution differences | Distinguish SDK/runtime/self-contained .NET, x86 PRAGMATA, launcher `Add-Type`, app-local ZZZ Node helper and conditional frontend-host alternative; keep unknown/GPL/native artifact closure open |
 | Inventory count and Windows baseline needed correction | Verify 49 Python lock entries, 462 npm entries and 283 absent npm license fields; select a serviced Windows 11 25H2 x64 acceptance image without claiming it was run |
+
+A further adversarial double-check of commit `cd8b403` on 2026-10-28 found and
+corrected additional documentation gaps: the separate Framework-compiled managed
+wrapper; its project pointer/Start menu transition; current Chrome-only opening
+and browser-profile continuity; nested updater acquisition of the proposed
+lifetime migration lock; export-volume work containing complete previous
+libraries; and the existing prompt's inability to repair an unreadable named
+account store. The component reviewer rechecked all 66 GitHub source links and
+all 49 Python lock names/versions. These corrections specify missing R19–R21
+adapters/probes; they implement none of them and grant no new redistribution
+rights. The corrected diff receives another review and scoped check before commit.
 
 Local validation is limited to this documentation change on macOS with Node
 22.22.2/npm 10.9.7. The scoped doctor passes the package engine/lock checks and
