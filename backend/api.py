@@ -38,7 +38,7 @@ from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
 from .state_version import StateVersion
-from .lexirise_settings import account_settings
+from .lexirise_settings import account_settings, STUDY_LANGUAGES
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
 from .language_preparation import LanguagePreparation
@@ -1249,7 +1249,7 @@ def integration_status(language: str = 'zh', *, refresh_settings=True) -> dict:
         account = runtime.accounts.status()['active']
         sources.update(study_language(locale) for game in GAME_LOCALES
                        if (locale := runtime.languages.selected(game, account)))
-    by_language = {source: runtime.lexirise.pin(source).status() for source in sources}
+    by_language = {source: runtime.lexirise.pin(source).status() for source in sources if source in STUDY_LANGUAGES}
     status['sent'] = {ref: deck for value in by_language.values() for ref, deck in value['sent'].items()}
     status['by_language'] = by_language
     status['account'] = account

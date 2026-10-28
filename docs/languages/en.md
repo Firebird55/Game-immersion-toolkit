@@ -528,3 +528,39 @@ English and Japanese voice schemas and all eight official text locales are imple
 | Russian | — | — | ✓ | Reader implemented |
 
 </details>
+
+<a id="deathstranding"></a>
+
+## DEATH STRANDING
+
+[Official language listing](https://store.steampowered.com/app/1190460/DEATH_STRANDING/) · 2026-10-28 · [Coverage notes](../game-audits/deathstranding.md)
+
+Original PC edition only; all twelve official voice locales and twenty text locales. Ordinary and cinematic original samples decoded in every installed voice language. The reader uses the game-owned Oodle library and the verified voice decoder.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| European Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Korean | — | — | ✓ | Reader implemented |
+| Russian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Polish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Latin American Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Turkish | — | — | ✓ | Reader implemented |
+| Arabic | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| Greek | ✓ | ✓ | ✓ | Audio decoded locally |
+| Czech | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+
+</details>

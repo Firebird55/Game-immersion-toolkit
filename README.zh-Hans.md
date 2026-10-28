@@ -38,6 +38,7 @@
 | [Detroit: Become Human](docs/languages/zh-Hans.md#detroit) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 阿拉伯语 · 日语 · 波兰语 · 欧洲葡萄牙语 · 巴西葡萄牙语 · 拉丁美洲西班牙语 · 俄语 | 24 |
 | [Persona 5 Royal](docs/languages/zh-Hans.md#persona5royal) | 英语 · 日语 | 9 |
 | [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/zh-Hans.md#mgsvtpp) | 英语 · 日语 | 8 |
+| [DEATH STRANDING](docs/languages/zh-Hans.md#deathstranding) | 英语 · 法语 · 欧洲西班牙语 · 德语 · 意大利语 · 欧洲葡萄牙语 · 俄语 · 波兰语 · 日语 · 拉丁美洲西班牙语 · 巴西葡萄牙语 · 希腊语 | 20 |
 
 [语言详情](docs/languages/zh-Hans.md) · [打开在线伴侣](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

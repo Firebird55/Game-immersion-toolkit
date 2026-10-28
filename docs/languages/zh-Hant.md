@@ -528,3 +528,39 @@ English and Japanese voice schemas and all eight official text locales are imple
 | 俄文 | — | — | ✓ | 已實作讀取器 |
 
 </details>
+
+<a id="deathstranding"></a>
+
+## DEATH STRANDING
+
+[官方語言清單](https://store.steampowered.com/app/1190460/DEATH_STRANDING/) · 2026-10-28 · [涵蓋範圍說明](../game-audits/deathstranding.md)
+
+Original PC edition only; all twelve official voice locales and twenty text locales. Ordinary and cinematic original samples decoded in every installed voice language. The reader uses the game-owned Oodle library and the verified voice decoder.
+
+<details>
+<summary>語言詳細資訊</summary>
+
+| 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 法文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 西班牙文（西班牙） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 德文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 義大利文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 荷蘭文 | — | — | ✓ | 已實作讀取器 |
+| 葡萄牙文（葡萄牙） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 繁體中文 | — | — | ✓ | 已實作讀取器 |
+| 韓文 | — | — | ✓ | 已實作讀取器 |
+| 俄文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 波蘭文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 日文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 西班牙文（拉丁美洲） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 葡萄牙文（巴西） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 土耳其文 | — | — | ✓ | 已實作讀取器 |
+| 阿拉伯文 | — | — | ✓ | 已實作讀取器 |
+| 簡體中文 | — | — | ✓ | 已實作讀取器 |
+| 希臘文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 捷克文 | — | — | ✓ | 已實作讀取器 |
+| 匈牙利文 | — | — | ✓ | 已實作讀取器 |
+
+</details>

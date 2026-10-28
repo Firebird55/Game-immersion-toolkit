@@ -38,6 +38,7 @@ Follow official game dialogue, replay original voices, and learn with reading to
 | [Detroit: Become Human](docs/languages/en.md#detroit) | English · French · Italian · German · European Spanish · Arabic · Japanese · Polish · European Portuguese · Brazilian Portuguese · Latin American Spanish · Russian | 24 |
 | [Persona 5 Royal](docs/languages/en.md#persona5royal) | English · Japanese | 9 |
 | [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/en.md#mgsvtpp) | English · Japanese | 8 |
+| [DEATH STRANDING](docs/languages/en.md#deathstranding) | English · French · European Spanish · German · Italian · European Portuguese · Russian · Polish · Japanese · Latin American Spanish · Brazilian Portuguese · Greek | 20 |
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

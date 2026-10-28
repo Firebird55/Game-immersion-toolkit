@@ -528,3 +528,39 @@ English and Japanese voice schemas and all eight official text locales are imple
 | Russisch | — | — | ✓ | Reader geïmplementeerd |
 
 </details>
+
+<a id="deathstranding"></a>
+
+## DEATH STRANDING
+
+[Officiële taallijst](https://store.steampowered.com/app/1190460/DEATH_STRANDING/) · 2026-10-28 · [Dekkingsnotities](../game-audits/deathstranding.md)
+
+Original PC edition only; all twelve official voice locales and twenty text locales. Ordinary and cinematic original samples decoded in every installed voice language. The reader uses the game-owned Oodle library and the verified voice decoder.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Frans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Duits | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Italiaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Nederlands | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Portugal) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Pools | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Latijns-Amerika) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Portugees (Brazilië) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Turks | — | — | ✓ | Reader geïmplementeerd |
+| Arabisch | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
+| Grieks | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Tsjechisch | — | — | ✓ | Reader geïmplementeerd |
+| Hongaars | — | — | ✓ | Reader geïmplementeerd |
+
+</details>

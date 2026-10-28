@@ -38,6 +38,7 @@
 | [Detroit: Become Human](docs/languages/zh-Hant.md#detroit) | 英文 · 法文 · 義大利文 · 德文 · 西班牙文（西班牙） · 阿拉伯文 · 日文 · 波蘭文 · 葡萄牙文（葡萄牙） · 葡萄牙文（巴西） · 西班牙文（拉丁美洲） · 俄文 | 24 |
 | [Persona 5 Royal](docs/languages/zh-Hant.md#persona5royal) | 英文 · 日文 | 9 |
 | [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/zh-Hant.md#mgsvtpp) | 英文 · 日文 | 8 |
+| [DEATH STRANDING](docs/languages/zh-Hant.md#deathstranding) | 英文 · 法文 · 西班牙文（西班牙） · 德文 · 義大利文 · 葡萄牙文（葡萄牙） · 俄文 · 波蘭文 · 日文 · 西班牙文（拉丁美洲） · 葡萄牙文（巴西） · 希臘文 | 20 |
 
 [語言詳細資訊](docs/languages/zh-Hant.md) · [開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

@@ -7,6 +7,7 @@ from .lexirise_settings import STUDY_LANGUAGES
 
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
+    'deathstranding': ('en', 'fr', 'es-ES', 'de', 'it', 'pt-PT', 'ru', 'pl', 'ja', 'es-419', 'pt-BR', 'el'),
     'mgsvtpp': ('en', 'ja'),
     'persona5royal': ('en', 'ja'),
     'spyro': ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'da', 'nl', 'fi', 'no', 'pl', 'pt-BR', 'es-419', 'sv'),
@@ -30,8 +31,11 @@ LOCALE_NAMES = {'en': 'English', 'zh-Hans': 'Simplified Chinese', 'zh-Hant': 'Tr
 
 def study_language(locale: str) -> str:
     code = locale.split('-')[0].lower()
-    if code not in STUDY_LANGUAGES:
-        raise ValueError('Unsupported Lexirise study language')
+    # Original game languages do not depend on an optional account provider's
+    # learning-language list (for example DEATH STRANDING's Greek dub).
+    game_codes = {value.split('-')[0].lower() for locales in GAME_LOCALES.values() for value in locales}
+    if code not in STUDY_LANGUAGES and code not in game_codes:
+        raise ValueError('Unsupported game study language')
     return code
 
 

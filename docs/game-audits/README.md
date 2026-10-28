@@ -27,6 +27,8 @@ Counts refer to the audited installation and locale, not every game chapter.
 
 | METAL GEAR SOLID V: THE PHANTOM PAIN | Fox subtitles, exact original barks/radio, cassette tracks and authored cinematic audio aliases | [Audit](mgsvtpp.md) |
 
+| DEATH STRANDING | Authored sentences, twelve original voice packs, cinematic sequence graphs and confirmed silent mail/interviews | [Audit](deathstranding.md) |
+
 ## Capture unvoiced dialogue
 
 In **Capture setup**, enable **Include unvoiced dialogue**. It is off by default
