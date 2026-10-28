@@ -30,7 +30,7 @@ def candidates(lines):
 
 
 class MultilingualTextIndex:
-    def __init__(self, game: str, directory: Path):
+    def __init__(self, game: str, directory: Path, *, autoload=True):
         self.game, self.path = game, directory / 'textmap.json'
         self.ready = False
         self.player_voice = 'unconfigured'
@@ -39,12 +39,36 @@ class MultilingualTextIndex:
         self.entry_count = self.audio_count = 0
         self.message, self.state = 'Prepare this game language in Setup', 'not_ready'
         self.lock = threading.RLock()
+        self._load_lock = threading.RLock()
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._capture_channels = {}
         self._signature = None
-        self.load()
+        self.snapshot_metadata = {}
+        if autoload:
+            self.load()
+
+    def publish(self, candidate):
+        """Activate the already validated generation without parsing it again."""
+        with self._load_lock, self.lock:
+            candidate.path.replace(self.path)
+            settings = {'game', 'path', 'lock', '_load_lock', 'player_voice',
+                        'target_locale', 'capture_unvoiced'}
+            self.__dict__.update({key: value for key, value in candidate.__dict__.items()
+                                  if key not in settings})
+
+    def voice_snapshot(self, signature):
+        with self.lock:
+            if self.ready and self._signature == signature:
+                return {**self.snapshot_metadata, 'records': self._records}
+        return None
 
     def load(self):
+        # Several status/capture/preparation threads can observe one replacement.
+        # Only one owns JSON decoding and lookup construction for that generation.
+        with self._load_lock:
+            return self._load_snapshot()
+
+    def _load_snapshot(self):
         try:
             info = self.path.stat()
             signature = (info.st_size, info.st_mtime_ns)
@@ -53,6 +77,8 @@ class MultilingualTextIndex:
             payload = json.loads(self.path.read_text(encoding='utf-8'))
             if payload.get('format') != 2 or payload.get('game') != self.game:
                 raise ValueError('Unsupported game language snapshot')
+            if not payload.get('records'):
+                raise ValueError('Prepared language table is empty; rebuilding is required')
             locale = payload['source_locale']
             study_language(locale)
             lookup, context_pairs, capture_channels = {}, {}, {}
@@ -94,6 +120,7 @@ class MultilingualTextIndex:
                 self.ready = True
                 self.state = 'ready' if self.audio_count else 'missing_voice'
                 self.message = payload.get('message', f'{self.entry_count:,} official lines; {self.audio_count:,} original voices')
+                self.snapshot_metadata = {key: value for key, value in payload.items() if key != 'records'}
                 self._signature = signature
             return True
         except (OSError, ValueError, KeyError, TypeError) as error:

@@ -230,6 +230,17 @@ class Runtime:
             return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
         return ('zh-Hans',)
 
+    def locale_index(self, game, locale):
+        from .multilingual_index import MultilingualTextIndex
+        # Publish the empty object before loading so concurrent callers share it.
+        with self._locale_voice_lock:
+            key = (game, locale)
+            index = self._locale_indexes.get(key)
+            if index is None:
+                index = self._locale_indexes[key] = MultilingualTextIndex(
+                    game, DATA_DIR / 'languages' / game / locale, autoload=False)
+        return index
+
     def build_language(self, game, locale, targets, *, force=False, job=None):
         from .game_assets import asset_adapter
         from .multilingual_index import MultilingualTextIndex
@@ -245,13 +256,13 @@ class Runtime:
                 directory.mkdir(parents=True, exist_ok=True)
                 path = directory / 'textmap.json'
                 stamp = adapter.fingerprint(install)
-                try:
-                    old = json.loads(path.read_text(encoding='utf-8'))
-                except (OSError, ValueError):
-                    old = {}
+                cached = self.locale_index(game, locale)
+                current_table = cached.load()
+                old = cached.snapshot_metadata
                 if (not force and old.get('format') == 2 and old.get('game') == game and old.get('source_locale') == locale
                         and old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
-                        and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION):
+                        and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION
+                        and old.get('install') == str(install) and current_table):
                     return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
                 with (job.acquire(INDEX_BUILD_LOCK) if job else INDEX_BUILD_LOCK), tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
@@ -270,7 +281,7 @@ class Runtime:
                     if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
                     with job.publication() if job else nullcontext():
-                        output.replace(path)
+                        cached.publish(candidate)
                 return
         if job:
             raise ValueError('This reader cannot prepare a cancellable language snapshot; previous table retained.')
@@ -288,11 +299,7 @@ class Runtime:
         missing = {'ready': False, 'state': 'not_ready', 'message': 'The selected language table is unavailable; prepare or rebuild it in Languages.',
                    'source_locale': locale, 'entry_count': 0, 'audio_count': 0}
         if (path / 'textmap.json').is_file():
-            from .multilingual_index import MultilingualTextIndex
-            key = (game, locale)
-            index = self._locale_indexes.get(key)
-            if index is None:
-                index = self._locale_indexes[key] = MultilingualTextIndex(game, path)
+            index = self.locale_index(game, locale)
             index.load()
             return index.status() if index.source_locale == locale else missing
         if locale != 'zh-Hans' or path.parent.is_dir():
@@ -313,11 +320,7 @@ class Runtime:
             return False
         directory = DATA_DIR / 'languages' / game / locale
         if (directory / 'textmap.json').is_file():
-            from .multilingual_index import MultilingualTextIndex
-            key = (game, locale)
-            index = self._locale_indexes.get(key)
-            if index is None:
-                index = self._locale_indexes[key] = MultilingualTextIndex(game, directory)
+            index = self.locale_index(game, locale)
             index.load()
             voices = self.language_voice_assets(game, locale)
             if not index.ready or index.source_locale != locale or voices is None:
@@ -365,7 +368,8 @@ class Runtime:
                 decoder = DATA_DIR / 'voice-assets/vgmstream/vgmstream-cli.exe'
                 voices = (PragmataVoiceAssetService(directory, decoder, DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools')
                           if game == 'pragmata' else LocalVoiceAssetService(game, directory, decoder,
-                              DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools'))
+                              DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools',
+                              snapshot_index=self.locale_index(game, locale)))
                 self._locale_voices[key] = voices
             voices.reload()
             return voices if voices.locale == locale else None
@@ -507,7 +511,8 @@ class Runtime:
         loop = asyncio.get_running_loop()
         for line in self.transcript.list(limit=50):
             ready = asyncio.Event()
-            if self.capture.repair_recorded_line(line, completed=lambda: loop.call_soon_threadsafe(ready.set)):
+            if await asyncio.to_thread(self.capture.repair_recorded_line, line,
+                                       completed=lambda: loop.call_soon_threadsafe(ready.set)):
                 try:
                     await asyncio.wait_for(ready.wait(), 45)
                 except asyncio.TimeoutError:

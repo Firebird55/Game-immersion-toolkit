@@ -16,10 +16,12 @@ from .game_assets import asset_adapter
 
 
 class LocalVoiceAssetService:
-    def __init__(self, game: str, data_dir: Path, decoder: Path, output_dir: Path, *, tools_dir: Path | None = None):
+    def __init__(self, game: str, data_dir: Path, decoder: Path, output_dir: Path, *, tools_dir: Path | None = None, snapshot_index=None):
         self._adapter, self._extractor = asset_adapter(game)
         self.game, self.data_dir, self.decoder, self.output_dir = game, data_dir, decoder, output_dir
         self.tools_dir = tools_dir or data_dir / 'tools'
+        self._snapshot_index = snapshot_index
+        self._reload_lock = threading.RLock()
         self.locale = 'zh-Hans'
         self.ready = False
         self.last_error = None
@@ -33,13 +35,20 @@ class LocalVoiceAssetService:
         self.reload()
 
     def reload(self) -> bool:
+        with self._reload_lock:
+            return self._reload_snapshot()
+
+    def _reload_snapshot(self) -> bool:
         try:
             path = self.data_dir / "textmap.json"
             stat = path.stat()
             signature = (stat.st_mtime_ns, stat.st_size, (self.game in {'beyond', 'heavyrain'} or self.decoder.is_file()), bool(ffmpeg_executable()))
             if self._loaded_signature == signature:
                 return self.ready
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload = (self._snapshot_index.voice_snapshot((stat.st_size, stat.st_mtime_ns))
+                       if self._snapshot_index is not None else None)
+            if payload is None:
+                payload = json.loads(path.read_text(encoding="utf-8"))
             locale = payload.get('source_locale', 'zh-Hans')
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
             install = Path(payload["install"])
@@ -61,12 +70,23 @@ class LocalVoiceAssetService:
     def has_variant(self, text_id: str, _english=None) -> bool:
         return self.ready and text_id in self._entries
 
+    def _validate_sources(self, install, stamp, audios):
+        if install is None:
+            raise ValueError('Original voice installation is unavailable')
+        validate = getattr(self._adapter, 'validate_voice_source', None)
+        if validate is not None:
+            # Adapters may prove the referenced packages unchanged independently
+            # of text, unrelated packs, or game version updates.
+            for audio in audios:
+                validate(install, audio)
+        elif self._adapter.fingerprint(install) != stamp:
+            raise ValueError('Game files changed; refresh the original voice index')
+
     def extract(self, text_id: str, line_id: int, _english=None) -> str:
         with self._lock:
             audio, install, stamp = dict(self._entries[text_id]), self._install, self._fingerprint
-        extract_voice, fingerprint = self._adapter.extract_voice, self._adapter.fingerprint
-        if install is None or fingerprint(install) != stamp:
-            raise ValueError("Game files changed; refresh the original voice index")
+        extract_voice = self._adapter.extract_voice
+        self._validate_sources(install, stamp, [audio])
         self.output_dir.mkdir(parents=True, exist_ok=True)
         identity = hashlib.sha256(f"{stamp}\0{self.locale}\0{text_id}".encode()).hexdigest()[:16]
         filename = f"official-{self.game}-{line_id}-{identity}.mp3"
@@ -98,8 +118,7 @@ class LocalVoiceAssetService:
                             "-i", str(wav), *trim, "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
             if mp3.stat().st_size < 100:
                 raise ValueError("Original voice decoded to an empty clip")
-            if fingerprint(install) != stamp:
-                raise ValueError("Game files changed during original voice extraction")
+            self._validate_sources(install, stamp, [audio])
             mp3.replace(output)
         return filename
 
@@ -125,8 +144,7 @@ class LocalVoiceAssetService:
         with self._lock:
             audios = [dict(self._entries[text_id]) for text_id, number, english in requests]
             install, stamp = self._install, self._fingerprint
-        if install is None or self._adapter.fingerprint(install) != stamp:
-            raise ValueError('Game files changed; refresh the original voice index')
+        self._validate_sources(install, stamp, audios)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         filenames = [f"official-{self.game}-{number}-{hashlib.sha256(f'{stamp}\0{self.locale}\0{text_id}'.encode()).hexdigest()[:16]}.mp3"
                      for text_id, number, english in requests]
@@ -183,8 +201,7 @@ class LocalVoiceAssetService:
             subprocess.run(command, **options)
             if any(not p.is_file() or p.stat().st_size < 100 for p in outputs):
                 raise ValueError('Original voice batch decoded to an empty clip')
-            if self._adapter.fingerprint(install) != stamp:
-                raise ValueError('Game files changed during voice extraction')
+            self._validate_sources(install, stamp, audios)
             for mp3, filename in zip(outputs, filenames):
                 mp3.replace(self.output_dir / filename)
         return filenames

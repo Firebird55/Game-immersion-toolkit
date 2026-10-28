@@ -257,6 +257,11 @@ def _validate_audio(install, audio):
     return entry
 
 
+def validate_voice_source(install, audio):
+    """A game update does not invalidate offsets in an unchanged voice package."""
+    return _validate_audio(install, audio)
+
+
 def extract_voice(install, audio, _executable, _destination):
     entry = _validate_audio(install, audio)
     data = entry.read()

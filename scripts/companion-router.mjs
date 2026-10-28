@@ -49,7 +49,14 @@ export async function startRouter({statePath,assetDirectory,apiPort=8766,fronten
      response.writeHead(result.statusCode,{...result.headers,'X-Proxy-Transcript-Router':'1'});
      result.on('error',()=>response.destroy());result.pipe(response);
     });
-   upstream.on('error',()=>{if(!response.headersSent)response.writeHead(503,{'Content-Type':'application/json','Retry-After':'1'});response.end(JSON.stringify({detail:'Companion is starting. Reconnecting automatically.'}));});
+   upstream.on('error',error=>{
+    if(response.destroyed||response.writableEnded)return;
+    if(response.headersSent){response.destroy();return;}
+    response.writeHead(error.code==='ETIMEDOUT'?504:503,{'Content-Type':'application/json','Retry-After':'1'});
+    response.end(JSON.stringify({detail:'Companion is starting or busy. Reconnecting automatically.'}));
+   });
+   upstream.setTimeout(120000,()=>upstream.destroy(Object.assign(new Error('Companion request timed out'),{code:'ETIMEDOUT'})));
+   request.on('error',()=>upstream.destroy());response.on('error',()=>upstream.destroy());
    request.on('aborted',()=>upstream.destroy());response.on('close',()=>upstream.destroy());request.pipe(upstream);
   });
   instance.on('upgrade',(request,client,head)=>{
