@@ -439,3 +439,43 @@ All 14 official PC languages use authored localized text and Wwise voice events.
 | 瑞典文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
 
 </details>
+
+<a id="detroit"></a>
+
+## Detroit: Become Human
+
+[官方語言清單](https://store.steampowered.com/app/1222140/Detroit_Become_Human/) · 2026-10-28 · [涵蓋範圍說明](../game-audits/detroit.md)
+
+All 12 official voice languages and 24 official text locales use exact authored localization, FlowDialog and sound dependencies. Each installed voice locale has a verified original decode sample.
+
+<details>
+<summary>語言詳細資訊</summary>
+
+| 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
+| :--- | :---: | :---: | :---: | :--- |
+| 法文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 德文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 義大利文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 西班牙文（西班牙） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 荷蘭文 | — | — | ✓ | 已實作讀取器 |
+| 葡萄牙文（葡萄牙） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 瑞典文 | — | — | ✓ | 已實作讀取器 |
+| 丹麥文 | — | — | ✓ | 已實作讀取器 |
+| 挪威文 | — | — | ✓ | 已實作讀取器 |
+| 芬蘭文 | — | — | ✓ | 已實作讀取器 |
+| 俄文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 波蘭文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 日文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 韓文 | — | — | ✓ | 已實作讀取器 |
+| 繁體中文 | — | — | ✓ | 已實作讀取器 |
+| 希臘文 | — | — | ✓ | 已實作讀取器 |
+| 捷克文 | — | — | ✓ | 已實作讀取器 |
+| 匈牙利文 | — | — | ✓ | 已實作讀取器 |
+| 西班牙文（拉丁美洲） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 葡萄牙文（巴西） | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 土耳其文 | — | — | ✓ | 已實作讀取器 |
+| 阿拉伯文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 簡體中文 | — | — | ✓ | 已實作讀取器 |
+
+</details>

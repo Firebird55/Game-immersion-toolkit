@@ -35,6 +35,7 @@ Follow official game dialogue, replay original voices, and learn with reading to
 | [Rise of the Tomb Raider](docs/languages/en.md#riseofthetombraider) | English · French · German · Italian · Latin American Spanish · European Spanish · Japanese · Brazilian Portuguese · Polish · Russian · Korean · Traditional Chinese · Simplified Chinese · Arabic | 15 |
 | [Shadow of the Tomb Raider](docs/languages/en.md#shadowofthetombraider) | English · French · German · Italian · Latin American Spanish · European Spanish · Japanese · Brazilian Portuguese · Polish · Russian · Traditional Chinese · Simplified Chinese · Arabic | 14 |
 | [Spyro Reignited Trilogy](docs/languages/en.md#spyro) | English · French · Italian · German · European Spanish · Arabic · Danish · Dutch · Finnish · Norwegian · Polish · Brazilian Portuguese · Latin American Spanish · Swedish | 14 |
+| [Detroit: Become Human](docs/languages/en.md#detroit) | English · French · Italian · German · European Spanish · Arabic · Japanese · Polish · European Portuguese · Brazilian Portuguese · Latin American Spanish · Russian | 24 |
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

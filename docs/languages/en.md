@@ -439,3 +439,43 @@ All 14 official PC languages use authored localized text and Wwise voice events.
 | Swedish | ✓ | ✓ | ✓ | Audio decoded locally |
 
 </details>
+
+<a id="detroit"></a>
+
+## Detroit: Become Human
+
+[Official language listing](https://store.steampowered.com/app/1222140/Detroit_Become_Human/) · 2026-10-28 · [Coverage notes](../game-audits/detroit.md)
+
+All 12 official voice languages and 24 official text locales use exact authored localization, FlowDialog and sound dependencies. Each installed voice locale has a verified original decode sample.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| European Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Swedish | — | — | ✓ | Reader implemented |
+| Danish | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Russian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Polish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Turkish | — | — | ✓ | Reader implemented |
+| Arabic | ✓ | ✓ | ✓ | Audio decoded locally |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+
+</details>

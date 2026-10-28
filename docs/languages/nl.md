@@ -439,3 +439,43 @@ All 14 official PC languages use authored localized text and Wwise voice events.
 | Zweeds | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 
 </details>
+
+<a id="detroit"></a>
+
+## Detroit: Become Human
+
+[Officiële taallijst](https://store.steampowered.com/app/1222140/Detroit_Become_Human/) · 2026-10-28 · [Dekkingsnotities](../game-audits/detroit.md)
+
+All 12 official voice languages and 24 official text locales use exact authored localization, FlowDialog and sound dependencies. Each installed voice locale has a verified original decode sample.
+
+<details>
+<summary>Taaldetails</summary>
+
+| Taal | Originele stem | Leren | Vertaling | Onderbouwing |
+| :--- | :---: | :---: | :---: | :--- |
+| Frans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Duits | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Italiaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Spaans (Spanje) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Nederlands | — | — | ✓ | Reader geïmplementeerd |
+| Portugees (Portugal) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Zweeds | — | — | ✓ | Reader geïmplementeerd |
+| Deens | — | — | ✓ | Reader geïmplementeerd |
+| Noors | — | — | ✓ | Reader geïmplementeerd |
+| Fins | — | — | ✓ | Reader geïmplementeerd |
+| Russisch | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Pools | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Koreaans | — | — | ✓ | Reader geïmplementeerd |
+| Chinees (traditioneel) | — | — | ✓ | Reader geïmplementeerd |
+| Grieks | — | — | ✓ | Reader geïmplementeerd |
+| Tsjechisch | — | — | ✓ | Reader geïmplementeerd |
+| Hongaars | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Latijns-Amerika) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Portugees (Brazilië) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Turks | — | — | ✓ | Reader geïmplementeerd |
+| Arabisch | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Chinees (vereenvoudigd) | — | — | ✓ | Reader geïmplementeerd |
+
+</details>

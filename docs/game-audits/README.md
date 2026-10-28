@@ -21,6 +21,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 | BEYOND: Two Souls | Explicit chapter choices; missing-performance inventory; faster repeated-performance validation | [BEYOND](beyond.md) |
 | HEAVY RAIN | Explicit silent prompts; thought categorization; retained missing-voice records | [HEAVY RAIN](heavyrain.md) |
 | Spyro Reignited Trilogy | All three games; localized dialogue tables, Wwise events, cinematic pages and explicit text-only dialogue | [Spyro](spyro.md) |
+| Detroit: Become Human | Timed original performances, branching dialogue, choices, observations and magazine/news text | [Detroit](detroit.md) |
 
 ## Capture unvoiced dialogue
 
