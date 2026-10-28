@@ -29,6 +29,7 @@ from .windows import WindowInfo, executable_path_for_window, find_active_game_wi
 from .window_capture import BackgroundCapture
 from .runtime_handoff import CaptureHandoff
 from .voice_assets import VoiceAssetService
+from .zzz_dialogue_context import ZzzDialogueContext
 
 
 class StableMatchTracker:
@@ -131,6 +132,7 @@ class CaptureService:
         self._caption_context_scope = None
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
+        self._zzz_dialogue_context = ZzzDialogueContext()
 
     def snapshot(self) -> CaptureSnapshot:
         with self._snapshot_lock:
@@ -145,6 +147,7 @@ class CaptureService:
             self._quantic_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
+            self._zzz_dialogue_context.reset()
             changes["visible_text_ids"] = []
         with self._snapshot_lock:
             self._snapshot = self._snapshot.model_copy(update=changes)
@@ -332,6 +335,7 @@ class CaptureService:
         profile, window = active
         language_setup = getattr(self, 'language_setup', None)
         if profile.id != self.snapshot().active_game:
+            self._zzz_dialogue_context.reset()
             self._quantic_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
@@ -468,6 +472,18 @@ class CaptureService:
             if excluded_screen
             else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
+        # Only the dedicated dialogue panel may use speaker/scene evidence to
+        # resolve a caption that also occurs as a choice elsewhere. Broad HUD,
+        # tip and cinematic scans keep their existing ambiguity guards.
+        dialogue_match = self._zzz_dialogue_context.match(
+            self.textmaps, lines, dialogue_match,
+            enabled=not excluded_screen and (dialogue_box_layout or self._visual_novel_layout),
+            scope=(epoch, window.handle, window.bounds, crop_bounds, self.session_id,
+                   getattr(self.textmaps, '_signature', None),
+                   getattr(self.textmaps, 'source_locale', None),
+                   getattr(self.textmaps, 'target_locale', None),
+                   getattr(self, 'context_scope', lambda: None)()),
+            now=time.monotonic(), stable_frames=settings.stable_frames)
         # Short voiced remarks during free-roam gameplay are rendered as white
         # outlined text directly over the scene. They use OngoingLevel TextMap
         # records rather than the normal GalGame dialogue family. Only consider
