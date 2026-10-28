@@ -96,6 +96,19 @@ class ZzzCutsceneContext:
         eligible_default_ids = set()
         normal_ids = {hit.text_id for hit in defaults if hit.kind == 'exact'}
         with index.lock:
+            # Keep the ordinary matcher's safe OCR-tolerant movie matches, but
+            # only when its complete observation is in the subtitle band and
+            # the recording agrees with the selected/inferred protagonist.
+            for hit in defaults:
+                if not cutscene_scene(hit.text_id):
+                    continue
+                if normalize_text(hit.source_ocr) not in {normalize_text(group) for group in groups}:
+                    continue
+                authored = next((row for locale, text in hit.texts.items()
+                    for row in index._lookup.get(locale, {}).get(normalize_text(text, locale), ())
+                    if row['text_id'] == hit.text_id), None)
+                if authored and (not proxy or not protagonist(authored) or protagonist(authored) == proxy):
+                    eligible_default_ids.add(hit.text_id)
             for caption in groups:
                 for locale, lookup in index._lookup.items():
                     key = normalize_text(display_text(caption), locale)
@@ -162,4 +175,6 @@ class ZzzCutsceneContext:
                 return [hit]
         # Preserve existing long, globally unambiguous movie matches while the
         # first scene anchor stabilizes. Gameplay length filtering still applies.
-        return [hit for hit in defaults if hit.text_id in eligible_default_ids and not self.scene]
+        return [hit for hit in defaults if hit.text_id in eligible_default_ids and (
+            not self.scene or (cutscene_scene(hit.text_id) == self.scene
+                and int(hit.text_id.split(':')[0].rsplit('_', 1)[1]) >= self.position))]
