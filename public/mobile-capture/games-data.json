@@ -1266,55 +1266,6 @@
       "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
     },
     {
-      "id": "mgsvtpp",
-      "name": "METAL GEAR SOLID V: THE PHANTOM PAIN",
-      "guide": "game-audits/mgsvtpp.md",
-      "source": "https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/",
-      "reviewedAt": "2026-10-28",
-      "study": [
-        "en",
-        "ja"
-      ],
-      "audio": [
-        "en",
-        "ja"
-      ],
-      "officialAudio": [
-        "en",
-        "ja"
-      ],
-      "officialText": [
-        "ja",
-        "en",
-        "fr",
-        "it",
-        "de",
-        "es-419",
-        "pt-BR",
-        "ru"
-      ],
-      "targets": [
-        "ja",
-        "en",
-        "fr",
-        "it",
-        "de",
-        "es-419",
-        "pt-BR",
-        "ru"
-      ],
-      "unverified": {},
-      "playbackVerified": [
-        "en"
-      ],
-      "formatOnly": [
-        "ja"
-      ],
-      "notes": "English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.",
-      "coverage": "22,447 verified voice records across radio, barks/orders, mission dialogue, 190 cassette tracks and 133 cinematic streams. Complete source subtitle variants are inventoried. 102 other cinematic streams, conflicting subtitles and unlabeled media remain unresolved. 16,024 unknown localization rows are not claimed silent dialogue; no confirmed unvoiced rows were established. Native physical capture is unverified.",
-      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
-    },
-    {
       "id": "deathstranding",
       "name": "DEATH STRANDING",
       "guide": "game-audits/deathstranding.md",
@@ -1718,6 +1669,55 @@
       ],
       "notes": "English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.",
       "coverage": "3,784 voiced records, including 266 individual cinematic captions over 40 original streams; 111 confirmed silent entries include backstory prose and quiz answers. 200 unavailable and 4,633 unknown entries are retained separately. Interrogation voice selection needs runtime actor/switch state; 13 cinematic streams and an ASF movie remain unresolved. Full-track playback is explicit. Physical gameplay capture remains unverified.",
+      "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
+    },
+    {
+      "id": "mgsvtpp",
+      "name": "METAL GEAR SOLID V: THE PHANTOM PAIN",
+      "guide": "game-audits/mgsvtpp.md",
+      "source": "https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/",
+      "reviewedAt": "2026-10-28",
+      "study": [
+        "en",
+        "ja"
+      ],
+      "audio": [
+        "en",
+        "ja"
+      ],
+      "officialAudio": [
+        "en",
+        "ja"
+      ],
+      "officialText": [
+        "ja",
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-419",
+        "pt-BR",
+        "ru"
+      ],
+      "targets": [
+        "ja",
+        "en",
+        "fr",
+        "it",
+        "de",
+        "es-419",
+        "pt-BR",
+        "ru"
+      ],
+      "unverified": {},
+      "playbackVerified": [
+        "en"
+      ],
+      "formatOnly": [
+        "ja"
+      ],
+      "notes": "English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.",
+      "coverage": "31,725 separate voiced captions across radio, barks/orders, mission dialogue, 190 cassette tracks and 133 cinematic streams. Individual pages retain their identities; translations require matching authored intervals. Full original tracks are labelled and reused across captions. 102 other cinematic streams, conflicting subtitles and unlabeled media remain unresolved. 16,024 unknown localization rows are not claimed silent dialogue; no confirmed unvoiced rows were established. Physical capture is unverified.",
       "supportPolicy": "Implement every official voice locale from evidenced native schemas. Missing or unresolved recordings remain unavailable; only authored silence or confirmed text-only narrative is eligible for the unvoiced toggle."
     }
   ]

@@ -65,9 +65,12 @@ original edition; it does not establish a full dub in those languages.
   when the streamed movie was renamed. These typed fields must belong to the
   same entity and their local strings must reproduce their Fox hashes. The
   relationship is revalidated during extraction and takes precedence over a
-  coincidentally matching movie filename. A scene
-  or tape is one complete performance with every authored OCR page; no timing
-  cuts are inferred from subtitle length or page order.
+  coincidentally matching movie filename. Each authored page keeps a separate
+  caption identity, so Current line never reveals the rest of a scene or tape.
+  Translations join only single-page performances or identical authored subtitle
+  intervals, never page order alone. Playback of multi-page dialogue is labelled
+  as the full original track and its encoding is shared across captions. No audio
+  cuts are inferred from subtitle length, page order or unverified timing units.
 - LANG-only UI/readables/choice labels are `unknown`. Subtitle rows with no
   recording or conflicting identity are `unavailable`. Every distinct conflicting
   source text is retained separately; no ambiguous audio or translation is attached.
@@ -102,14 +105,20 @@ filesystem caches; this is not an installation-time performance guarantee.
 | Prefetch fragments excluded from playback | 69 |
 | Embedded non-RIFF media inventoried separately | 10 |
 | Unique source subtitle IDs | 23,771 |
-| Original voice performance records | 22,447 |
-| Subtitle records with unavailable or conflicting audio | 5,062 |
+| Original voice caption records | 31,725 |
+| Subtitle records with unavailable or conflicting audio | 5,642 |
 | Source IDs with conflicting text, all distinct variants retained | 103 |
 | Localization-only unknown records | 16,024 |
 | Bound cassette tracks | 190 |
 | Authored FOX2 movie/audio relations inspected | 230 |
 | Bound cinematic streams / inventoried FSM streams | 133 / 235 |
 | Renamed cinematic variants bound through authored audio identifiers | 73 |
+
+The final 53,391-record page index passed the complete shared model and production
+matcher. These caption counts replace the earlier performance-group counts;
+they do not mean additional recordings were discovered. Of the voiced English
+captions, 2,379 lack an exact French page interval in the inspected tables and
+retain no guessed French translation.
 
 Radio, mission/base dialogue, enemy conversations, ambient barks, character orders
 and isolated cinematic dialogue all pass through the same complete soundbank
@@ -143,8 +152,8 @@ gameplay/radio/barks, cinematics and cassette/iDroid presentations. Independent
 calibrated regions can reduce noise once each presentation is measured; a
 lower-center crop alone is not complete coverage. Include two-line captions and
 speaker labels, and measure the cassette/iDroid panel separately. UI choice labels and tape titles are
-not assumed to be spoken merely because they appear on screen. A complete
-scene/tape can be matched from any of its authored subtitle pages.
+not assumed to be spoken merely because they appear on screen. Each scene/tape
+subtitle page advances Current line independently.
 
 This audit did not launch the game or validate a physical capture window, Windows
 DPI, ultrawide framing, UI zoom or mobile screenshot geometry. These are

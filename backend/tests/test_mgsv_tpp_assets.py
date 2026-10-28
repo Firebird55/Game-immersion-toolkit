@@ -121,25 +121,38 @@ def test_official_editions_use_the_same_native_archive_contract(tmp_path, locale
     install(tmp_path, locale)
     result = assets.index_language(tmp_path, tmp_path / 'cache', locale, ['ja' if locale == 'en' else 'en'])
     voiced = [row for row in result['records'] if row['audio']]
-    assert len(voiced) == 1
+    assert len(voiced) == 2
     row = voiced[0]
-    assert len(row['ocr_texts'][locale]) == 2
-    assert row['source_text'] == ' '.join(row['ocr_texts'][locale])
+    assert len(row['ocr_texts'][locale]) == 1
+    assert row['source_text'] == row['ocr_texts'][locale][0]
+    assert voiced[1]['source_text'] not in row['source_text']
+    assert row['audio'] == voiced[1]['audio'] and row['audio']['playback_scope'] == 'full_track'
     assert row['audio_locale'] == locale
     assert all(LocalDialogue(**item).voice_status != 'unvoiced' for item in result['records'])
     assert assets.extract_voice(tmp_path, row['audio'], Path(), tmp_path) == wem()
-    assert result['narrative_inventory']['voice_counts'] == {'voiced': 1, 'unavailable': 1}
+    assert result['narrative_inventory']['voice_counts'] == {'voiced': 2, 'unavailable': 1}
+    other = 'ja' if locale == 'en' else 'en'
+    assert len({entry['texts'][other] for entry in voiced}) == 2
     for corrupted in ({'locale_name': 'ja' if locale == 'en' else 'en'}, {'subtitle_label': 'wrong'}, {'archive': '../escape.dat'}):
         with pytest.raises(PreparationFailure):
             assets.extract_voice(tmp_path, {**row['audio'], **corrupted}, Path(), tmp_path)
 
 
 def test_japanese_text_does_not_masquerade_as_japanese_audio(tmp_path):
-    install(tmp_path, 'en')
+    files = install(tmp_path, 'en')
     assert assets.probe_voice_pack(tmp_path, 'en') == 'present'
     assert assets.probe_voice_pack(tmp_path, 'ja') == 'missing'
     with pytest.raises(PreparationFailure, match='Steam Properties'):
         assets.index_language(tmp_path, tmp_path, 'ja', ['en'])
+    path = fox.path_hash(assets._subtitle_path('en', 'ja', 'common'))
+    translated = bytearray(files[path])
+    first_offset = struct.unpack_from('<I', translated, 8)[0]
+    struct.pack_into('<HH', translated, first_offset + 12, 1, 29)
+    files[path] = bytes(translated)
+    qar(tmp_path, files)
+    voiced = [row for row in assets.index_language(tmp_path, tmp_path, 'en', ['ja'])['records'] if row['audio']]
+    assert 'ja' not in voiced[0]['texts'], 'Different authored intervals cannot be aligned by page number'
+    assert 'ja' in voiced[1]['texts']
 
 
 def test_missing_recordings_are_unavailable_never_silent(tmp_path):
@@ -202,7 +215,7 @@ def test_prefetch_and_non_riff_media_never_become_original_audio(tmp_path):
     result = assets.index_language(tmp_path, tmp_path, 'en', [])
     assert result['narrative_inventory']['embedded_prefetch_fragments'] == 1
     assert result['narrative_inventory']['embedded_non_riff_media'] == 1
-    assert result['narrative_inventory']['voice_counts']['voiced'] == 1
+    assert result['narrative_inventory']['voice_counts']['voiced'] == 2
 
 
 def test_malformed_subtitle_offsets_and_archive_sizes_fail_closed(tmp_path):
@@ -260,12 +273,12 @@ def test_authored_scene_alias_binds_and_revalidates_exact_metadata(tmp_path):
         '/Assets/tpp/demo/p51_020000_000_final.sand': b'synthetic scene metadata'})
     qar(tmp_path, files)
     result = assets.index_language(tmp_path, tmp_path, 'en', [])
-    row = next(row for row in result['records'] if row['dialogue_kind'] == 'cinematic')
+    row = next(row for row in result['records'] if row['dialogue_kind'] == 'cinematic_full_track')
     assert row['audio']['performance_name'] == 'p51_020000_000_final'
     assert row['audio']['scene_binding']['subtitle_name'] == name
     assert assets.extract_voice(tmp_path, row['audio'], Path(), tmp_path) == wem('original_scene_mix')
     assert result['narrative_inventory']['bound_authored_scene_relations'] == 1
-    assert sum(row['dialogue_kind'] == 'cinematic' and row['audio'] is not None for row in result['records']) == 1
+    assert sum(row['dialogue_kind'] == 'cinematic_full_track' and row['audio'] is not None for row in result['records']) == 1
     coincidental = next(row for row in result['records'] if row['source_text'].startswith('A different subtitle'))
     assert coincidental['voice_status'] == 'unavailable'
     changed = {**row['audio'], 'scene_binding': {**row['audio']['scene_binding'], 'subtitle_name': 'wrong'}}
@@ -303,7 +316,7 @@ def test_cassette_and_cinematic_performances_require_shared_exact_ids(tmp_path):
     qar(tmp_path, files)
     result = assets.index_language(tmp_path, tmp_path, 'en', [])
     for kind, label in [('cinematic', 'unrelated_mix_label'), ('cassette_tape', 'unrelated_tape_label')]:
-        row = next(x for x in result['records'] if x['audio'] and x['dialogue_kind'] == kind)
+        row = next(x for x in result['records'] if x['audio'] and x['dialogue_kind'] == kind + '_full_track')
         assert assets.extract_voice(tmp_path, row['audio'], Path(), tmp_path) == wem(label)
         with pytest.raises(PreparationFailure):
             assets.extract_voice(tmp_path, {**row['audio'], 'performance_name': 'unrelated_name'}, Path(), tmp_path)

@@ -505,30 +505,6 @@ English and Japanese original voices use exact CRI event cues. Nine official tex
 
 </details>
 
-<a id="mgsvtpp"></a>
-
-## METAL GEAR SOLID V: THE PHANTOM PAIN
-
-[Official language listing](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [Coverage notes](../game-audits/mgsvtpp.md)
-
-English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
-
-<details>
-<summary>Language details</summary>
-
-| Language | Original voice | Learning | Translation | Evidence |
-| :--- | :---: | :---: | :---: | :--- |
-| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
-| English | ✓ | ✓ | ✓ | Audio decoded locally |
-| French | — | — | ✓ | Reader implemented |
-| Italian | — | — | ✓ | Reader implemented |
-| German | — | — | ✓ | Reader implemented |
-| Latin American Spanish | — | — | ✓ | Reader implemented |
-| Brazilian Portuguese | — | — | ✓ | Reader implemented |
-| Russian | — | — | ✓ | Reader implemented |
-
-</details>
-
 <a id="deathstranding"></a>
 
 ## DEATH STRANDING
@@ -669,6 +645,30 @@ All three official originals and fourteen text locales. English, French and Germ
 [Official language listing](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [Coverage notes](../game-audits/mgsvgz.md)
 
 English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="mgsvtpp"></a>
+
+## METAL GEAR SOLID V: THE PHANTOM PAIN
+
+[Official language listing](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [Coverage notes](../game-audits/mgsvtpp.md)
+
+English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
 
 <details>
 <summary>Language details</summary>

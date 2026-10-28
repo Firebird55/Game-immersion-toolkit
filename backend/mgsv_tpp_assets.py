@@ -14,7 +14,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 
 GAME = 'mgsvtpp'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'ja')
 TEXT_LOCALES = ('ja', 'en', 'fr', 'it', 'de', 'es-419', 'pt-BR', 'ru')
 TEXT_NAMES = dict(zip(TEXT_LOCALES, ('Jpn', 'Eng', 'Fre', 'Ita', 'Ger', 'Spa', 'Por', 'Rus')))
@@ -91,7 +91,9 @@ def _tables(archives, source_locale, selected, inventory, progress):
             if not pages:
                 continue
             text = ' '.join(pages)
-            existing = tables[locale].setdefault(key, {'text': text, 'pages': pages, 'variants': {}})
+            existing = tables[locale].setdefault(key, {'text': text, 'pages': pages, 'timings': row['timings'], 'variants': {}})
+            if existing['pages'] != pages or existing['timings'] != row['timings']:
+                existing['timings'] = []  # incompatible page layouts cannot align translations
             existing['variants'][text] = pages
             if len(existing['variants']) > 1:
                 conflicts.add((locale, key))
@@ -277,12 +279,30 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         texts[source_locale] = row['text']
         audios = voices.get(key, [])
         for ordinal, audio in enumerate(audios or [None]):
-            pages = {locale: table[key]['pages'] for locale, table in tables.items() if locale in texts and key in table}
-            rows.append({'text_id': f'{GAME}:sub:{key:08x}:{ordinal}', 'english': texts.get('en', ''),
-                'chinese': '', 'source_locale': source_locale, 'source_text': row['text'], 'texts': texts,
-                'ocr_texts': pages, 'ocr_english': pages.get('en'), 'audio_locale': source_locale,
-                'audio': audio, 'voice_status': 'voiced' if audio else 'unavailable',
-                'dialogue_kind': audio.get('dialogue_kind', kind) if audio else kind, 'channels': categories})
+            full_track = bool(audio and (len(row['pages']) > 1 or audio.get('performance_name')))
+            original = {**audio, 'playback_scope': 'full_track'} if full_track else audio
+            for page_index, page in enumerate(row['pages']):
+                localized = {source_locale: page}
+                timings = row['timings']
+                timing = timings[page_index] if len(timings) == len(row['pages']) else None
+                for locale, table in tables.items():
+                    target = table.get(key)
+                    if locale == source_locale or locale not in texts or not target:
+                        continue
+                    if len(row['pages']) == len(target['pages']) == 1:
+                        localized[locale] = target['pages'][0]
+                    elif timing and timing[0] < timing[1] and len(target['timings']) == len(target['pages']):
+                        # Match the exact authored subtitle interval, never guess
+                        # translations by page number or language word count.
+                        hits = [text for text, interval in zip(target['pages'], target['timings']) if interval == timing]
+                        if len(hits) == 1:
+                            localized[locale] = hits[0]
+                category = audio.get('dialogue_kind', kind) if audio else kind
+                rows.append({'text_id': f'{GAME}:sub:{key:08x}:{ordinal}:page:{page_index}', 'english': localized.get('en', ''),
+                    'chinese': '', 'source_locale': source_locale, 'source_text': page, 'texts': localized,
+                    'ocr_texts': {locale: [text] for locale, text in localized.items()}, 'ocr_english': [localized['en']] if 'en' in localized else None,
+                    'audio_locale': source_locale, 'audio': original, 'voice_status': 'voiced' if audio else 'unavailable',
+                    'dialogue_kind': category + '_full_track' if full_track else category, 'channels': categories})
     for key, text in sorted(localization[source_locale].items()):
         text = display_text(text)
         if text:
@@ -305,7 +325,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         'narrative_inventory': {**inventory, 'voice_counts': dict(counts),
                                 'dialogue_kinds': dict(Counter(row['dialogue_kind'] for row in rows))},
         'coverage_warnings': [
-            'Complete authored subtitle performances are retained with their OCR page anchors; no text-duration audio cuts are guessed.',
+            'Each authored subtitle page keeps its own current-line identity. Translations require matching authored intervals or a single-page performance. Full original performances are labelled; subtitle timing units are not guessed into audio cuts.',
             'Missing recordings, conflicting text IDs and unlabeled audio are not evidence of silence. No subtitle is marked confirmed unvoiced.',
             'Original audio uses authored Wwise labels (including lowercase subtitle-key normalization), exact cassette/cinematic identifiers, or the original audioPath and demoStreamPath in one FOX2 DemoData entity. Cinematics retain the original scene mix, including music and effects.',
             'Unbound scene mixes, recordings without official subtitles and localization-only UI/readables remain unavailable or unknown. Never treat these rows as confirmed silent.',

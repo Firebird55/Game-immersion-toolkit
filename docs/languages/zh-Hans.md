@@ -505,30 +505,6 @@ English and Japanese original voices use exact CRI event cues. Nine official tex
 
 </details>
 
-<a id="mgsvtpp"></a>
-
-## METAL GEAR SOLID V: THE PHANTOM PAIN
-
-[官方语言列表](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvtpp.md)
-
-English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
-
-<details>
-<summary>语言详情</summary>
-
-| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
-| :--- | :---: | :---: | :---: | :--- |
-| 日语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
-| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
-| 法语 | — | — | ✓ | 已实现读取器 |
-| 意大利语 | — | — | ✓ | 已实现读取器 |
-| 德语 | — | — | ✓ | 已实现读取器 |
-| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
-| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
-| 俄语 | — | — | ✓ | 已实现读取器 |
-
-</details>
-
 <a id="deathstranding"></a>
 
 ## DEATH STRANDING
@@ -669,6 +645,30 @@ All three official originals and fourteen text locales. English, French and Germ
 [官方语言列表](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvgz.md)
 
 English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 日语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 德语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="mgsvtpp"></a>
+
+## METAL GEAR SOLID V: THE PHANTOM PAIN
+
+[官方语言列表](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvtpp.md)
+
+English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
 
 <details>
 <summary>语言详情</summary>
