@@ -70,7 +70,7 @@ def test_original_identity_does_not_accept_source_or_other_goldsrc_mod(tmp_path)
     assert hl.discover_install([install(tmp_path)]) == tmp_path
 
 
-def test_soundless_bindings_only_and_no_filenames_as_transcripts(tmp_path):
+def test_soundless_bindings_only_and_no_filenames_as_transcripts(tmp_path, monkeypatch):
     result = hl.index_language(install(tmp_path), tmp_path / 'cache', 'en', [])
     rows = {row['text_id']: LocalDialogue(**row) for row in result['records']}
     assert rows['halflife:title:card'].voice_status == 'unvoiced'
@@ -86,6 +86,10 @@ def test_soundless_bindings_only_and_no_filenames_as_transcripts(tmp_path):
     assert result['narrative_inventory']['assembled_or_parameterized_sentences'] == 1
     assert result['narrative_inventory']['speech_entries_with_verified_authored_text'] == 0
     assert all('scientist/line' not in row.source_text for row in rows.values())
+    from backend import game_tools
+    monkeypatch.setattr(game_tools, 'download', lambda *_args: pytest.fail('Text-only capture needs no decoder download'))
+    assert game_tools.missing_tools(tmp_path / 'fresh-companion', 'halflife') == []
+    game_tools.prepare_tools(tmp_path / 'fresh-companion', 'halflife')
 
 
 def test_unvoiced_toggle_uses_full_message_and_authored_line_anchors(tmp_path):

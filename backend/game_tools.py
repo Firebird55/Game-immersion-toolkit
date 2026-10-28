@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import urllib.request
 import zipfile
+from .steam_games import STEAM_GAMES
 
 CODE_ROOT = Path(__file__).resolve().parents[1]
 VGM_URL = "https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-win64.zip"
@@ -116,7 +117,7 @@ def refresh_zzz_metadata(root: Path, *, revision=None) -> tuple[str, bool]:
 
 
 def missing_tools(root: Path, game: str) -> list[str]:
-    if game in {"hito", "beyond", "heavyrain"}:
+    if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return []
     required = [("Voice decoder", root / "data/voice-assets/vgmstream/vgmstream-cli.exe")]
     if game == "zzz":
@@ -151,7 +152,7 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
     from .game_paths import GAMES
     if game not in GAMES:
         raise ValueError("Unsupported game")
-    if game in {"hito", "beyond", "heavyrain"}:
+    if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return
     decoder = root / "data/voice-assets/vgmstream"
     progress("Preparing the verified original-voice decoder")
