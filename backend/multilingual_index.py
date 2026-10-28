@@ -235,6 +235,27 @@ class MultilingualTextIndex:
         return [hit for hit in self.match_lines(lines, exact_only=True, channel=None, multiple=True)
                 if hit.voice_status == 'unvoiced' and hit.kind == 'exact']
 
+    def match_full_frame_voice_lines(self, lines):
+        """Persona's floating dialogue must not match short labels or choices.
+
+        A choice can repeat a later voiced response. Its text remains a veto
+        even when unvoiced capture is disabled; text alone cannot identify
+        which presentation is visible. Ordinary cropped dialogue is separate.
+        """
+        if self.game != 'persona5royal':
+            return []
+        with self.lock:
+            hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
+            result = []
+            for hit in hits:
+                text = hit.source_ocr
+                minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
+                if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum
+                        and not any(normalize_text(text, locale) in lookup
+                                    for locale, lookup in self._unvoiced_lookup.items())):
+                    result.append(hit)
+            return result
+
     def context_fragments(self, lines):
         """Recognize an observed first cue without choosing its performance."""
         result = set()

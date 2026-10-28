@@ -51,6 +51,56 @@ def test_new_game_calibration_keeps_off_center_authored_captions(tmp_path, game,
         service._executor.shutdown()
 
 
+def test_persona_floating_voices_are_exact_stable_and_never_borrow_choice_audio(tmp_path):
+    import asyncio
+    import json
+    from backend.capture import _ScanOutcome
+    from backend.multilingual_index import MultilingualTextIndex
+
+    texts = {'first': 'An enemy is approaching from the western corridor.',
+             'second': 'We should meet near the station after school.',
+             'choice_voice': 'I will help you after the battle.', 'short': 'Hello!'}
+    records = [{'text_id': key, 'english': text, 'source_locale': 'en', 'source_text': text,
+                'texts': {'en': text}, 'audio_locale': 'en', 'audio': {'name': key},
+                'voice_status': 'voiced', 'channels': ['dialogue']} for key, text in texts.items()]
+    records.append({**records[2], 'text_id': 'choice_silent', 'audio': None,
+                    'voice_status': 'unvoiced', 'dialogue_kind': 'choice'})
+    directory = tmp_path / 'language'
+    directory.mkdir()
+    (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'persona5royal',
+        'source_locale': 'en', 'records': records}), encoding='utf-8')
+    index = MultilingualTextIndex('persona5royal', directory)
+    assert index.ready
+    service, _, scheduled, published = fixture_service(tmp_path, game='persona5royal')
+    service.game_indexes = {'persona5royal': index}
+    service.game_voice_assets = {'persona5royal': service.voice_assets}
+    window = SimpleNamespace(bounds=(0, 0, 1920, 1080), title='Persona')
+    response = {'lines': [row(texts['first'], .60, .10), row(texts['second'], .05, .40),
+                          row(texts['choice_voice'], .35, .60), row(texts['short'], .10, .80)]}
+    engine = SimpleNamespace(recognize_pil=lambda _: response)
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        def scan():
+            return service._with_unvoiced(_ScanOutcome([]), index, window, engine, 0,
+                                          datetime.now(timezone.utc), 'persona5royal')
+        # Full-frame voice support works independently of the silent toggle.
+        assert not service.settings.get().capture_unvoiced
+        assert scan().emitted_lines == []
+        assert {line.text_id for line in scan().emitted_lines} == {'first', 'second'}
+        assert scan().emitted_lines == []
+        await asyncio.sleep(.02)
+        assert len(scheduled) == len(published) == 2
+        response['lines'] = [row(texts['first'].replace('western', 'westernmost'), .6, .1)]
+        assert not scan().emitted_lines and not scan().emitted_lines
+        index.capture_unvoiced = True
+        assert not index.match_full_frame_voice_lines([texts['choice_voice']])
+        assert not index.match_full_frame_voice_lines([texts['short']])
+    try:
+        asyncio.run(run())
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize("game", ["cyberpunk", "wuwa", "witcher3"])
 @pytest.mark.parametrize("blocked", ["main", "menu", "unmapped", "fuzzy", "disabled", "short", "unpositioned", "none"])
 def test_auxiliary_capture_requires_position_exact_voice_and_consecutive_frames(tmp_path, game, blocked):

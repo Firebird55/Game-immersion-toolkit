@@ -680,19 +680,23 @@ class CaptureService:
                                    window, engine, epoch, now, 'zzz')
 
     def _with_unvoiced(self, outcome, index, window, engine, epoch, now, game):
-        """Read opt-in messages, choices and pages without widening voice OCR.
+        """Read opt-in pages and games' explicitly supported floating dialogue.
 
         These presentations can be above or beside the subtitle lane. A separate
-        exact-only pass uses the same captured game frame, and never requests audio.
+        exact-only pass uses the same game window. Persona's floating voiced
+        bubbles additionally reject short or choice-ambiguous strings.
         """
         settings = self.settings.get()
         match_lines = getattr(index, 'match_unvoiced_lines', None)
+        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if game == 'persona5royal' else None
+        voice_enabled = bool(voice_lines and index.ready and index.audio_count)
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
                  getattr(index, 'source_locale', None), getattr(index, '_signature', None),
-                 getattr(self, 'context_scope', lambda: None)())
-        enabled = (settings.capture_unvoiced and match_lines and index.ready
-                   and index.status().get('unvoiced_count', 0) and epoch == self._scan_epoch)
+                 getattr(self, 'context_scope', lambda: None)(), settings.capture_unvoiced, voice_enabled)
+        silent_enabled = bool(settings.capture_unvoiced and match_lines and index.ready
+                              and index.status().get('unvoiced_count', 0))
+        enabled = (silent_enabled or voice_enabled) and epoch == self._scan_epoch
         if not enabled or scope != self._unvoiced_scope:
             for key in list(self._unvoiced_trackers):
                 if key.startswith(prefix):
@@ -704,12 +708,16 @@ class CaptureService:
             return outcome
         image = self._ocr_image(self._capture(window.bounds), window)
         response = engine.recognize_pil(image)
-        if epoch != self._scan_epoch or not self.settings.get().capture_unvoiced:
+        if epoch != self._scan_epoch:
             return outcome
+        silent_enabled = silent_enabled and self.settings.get().capture_unvoiced
         matches = {}
         for group in self._spatial_text_groups(response):
-            for hit in match_lines([group]):
+            for hit in match_lines([group]) if silent_enabled else []:
                 if hit.voice_status == 'unvoiced' and hit.kind == 'exact':
+                    matches[hit.text_id] = hit
+            for hit in voice_lines([group]) if voice_enabled else []:
+                if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
                     matches[hit.text_id] = hit
         seen_at = time.monotonic()
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
@@ -726,7 +734,7 @@ class CaptureService:
             active_keys.add(key)
             previous = self._unvoiced_trackers.get(key)
             tracker = previous[0] if previous and seen_at - previous[1] <= 3 else StableMatchTracker()
-            tracker.configure(settings.stable_frames)
+            tracker.configure(max(2, settings.stable_frames) if hit.voice_status == 'voiced' else settings.stable_frames)
             if self._is_fresh_match(key, key, seen_at) and tracker.observe(key) and self._can_emit(key, seen_at):
                 line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=now, channel=channel)
                 if line is not None:
@@ -738,7 +746,8 @@ class CaptureService:
                 del self._unvoiced_trackers[key]
                 self._visible_match_started.pop(key, None)
         if matches:
-            self._update_snapshot(phase='matched', message=f'{GAME_PROFILES[game].name} unvoiced dialogue matched',
+            description = 'dialogue' if any(hit.voice_status == 'voiced' for hit in matches.values()) else 'unvoiced dialogue'
+            self._update_snapshot(phase='matched', message=f'{GAME_PROFILES[game].name} {description} matched',
                                   visible_text_ids=self._visible_text_ids(seen_at))
         return outcome
 

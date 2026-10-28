@@ -233,3 +233,20 @@ Original playback separately resolves exact installed source hashes. A locally
 installed Star Rail Mandarin source also decoded successfully to original MP3.
 Recordings, extracted frames, catalogs, tools and playback caches remain ignored
 local artifacts.
+
+## Persona floating dialogue
+
+Persona 5 Royal retains its calibrated lower subtitle lane and additionally
+checks spatial text groups across the game window for longer original-voice
+dialogue. This covers the implemented recognition path for upper navigator
+bubbles and NPC balloons outside the lower lane. The extra pass requires an
+exact, unique catalog match and at least two stable observations. It never
+fuzzily searches the whole screen. Short interjections and text shared with a
+confirmed silent choice are excluded, even when silent capture is disabled.
+Independent bubbles retain independent confirmation and original voices.
+
+The existing **Include unvoiced dialogue** control independently enables
+confirmed silent choices, thoughts and messages. Unknown UI and unresolved
+voice selectors remain excluded. Synthetic production-pipeline regressions
+exercise separated bubbles, choice collisions, short labels and OCR errors;
+they do not certify every retail layout, resolution or physical capture setup.
