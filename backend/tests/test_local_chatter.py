@@ -59,12 +59,15 @@ def test_persona_floating_voices_are_exact_stable_and_never_borrow_choice_audio(
 
     texts = {'first': 'An enemy is approaching from the western corridor.',
              'second': 'We should meet near the station after school.',
-             'choice_voice': 'I will help you after the battle.', 'short': 'Hello!'}
+             'choice_voice': 'I will help you after the battle.', 'short': 'Hello!',
+             'ui_voice': 'Open the equipment selection menu.'}
     records = [{'text_id': key, 'english': text, 'source_locale': 'en', 'source_text': text,
                 'texts': {'en': text}, 'audio_locale': 'en', 'audio': {'name': key},
                 'voice_status': 'voiced', 'channels': ['dialogue']} for key, text in texts.items()]
     records.append({**records[2], 'text_id': 'choice_silent', 'audio': None,
                     'voice_status': 'unvoiced', 'dialogue_kind': 'choice'})
+    records.append({**records[4], 'text_id': 'ui_unknown', 'audio': None,
+                    'voice_status': 'unknown', 'channels': []})
     directory = tmp_path / 'language'
     directory.mkdir()
     (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'persona5royal',
@@ -76,7 +79,8 @@ def test_persona_floating_voices_are_exact_stable_and_never_borrow_choice_audio(
     service.game_voice_assets = {'persona5royal': service.voice_assets}
     window = SimpleNamespace(bounds=(0, 0, 1920, 1080), title='Persona')
     response = {'lines': [row(texts['first'], .60, .10), row(texts['second'], .05, .40),
-                          row(texts['choice_voice'], .35, .60), row(texts['short'], .10, .80)]}
+                          row(texts['choice_voice'], .35, .60), row(texts['short'], .10, .80),
+                          row(texts['ui_voice'], .4, .9)]}
     engine = SimpleNamespace(recognize_pil=lambda _: response)
     async def run():
         service._event_loop = asyncio.get_running_loop()
@@ -95,6 +99,7 @@ def test_persona_floating_voices_are_exact_stable_and_never_borrow_choice_audio(
         index.capture_unvoiced = True
         assert not index.match_full_frame_voice_lines([texts['choice_voice']])
         assert not index.match_full_frame_voice_lines([texts['short']])
+        assert not index.match_full_frame_voice_lines([texts['ui_voice']])
     try:
         asyncio.run(run())
     finally:

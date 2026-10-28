@@ -16,6 +16,7 @@ class SteamGame:
     markers: tuple[str, ...]
     adapter: str
     window_executable: str | None = None
+    floating_dialogue: bool = False
 
 
 STEAM_GAMES = {
@@ -23,9 +24,9 @@ STEAM_GAMES = {
         'Spyro.exe', ('Falcon/Content/Paks/pakchunk0-WindowsNoEditor.pak',), 'spyro_assets',
         'Falcon/Binaries/Win64/Spyro-Win64-Shipping.exe'),
     'mgsvtpp': SteamGame('METAL GEAR SOLID V: THE PHANTOM PAIN', 287700, 'MGS_TPP',
-        'mgsvtpp.exe', ('master/data1.dat', 'master/chunk0.dat'), 'mgsv_tpp_assets'),
+        'mgsvtpp.exe', ('master/data1.dat', 'master/chunk0.dat'), 'mgsv_tpp_assets', floating_dialogue=True),
     'mgsvgz': SteamGame('METAL GEAR SOLID V: GROUND ZEROES', 311340, 'Metal Gear Solid Ground Zeroes',
-        'MgsGroundZeroes.exe', ('data_00.g0s',), 'mgsv_gz_assets'),
+        'MgsGroundZeroes.exe', ('data_00.g0s',), 'mgsv_gz_assets', floating_dialogue=True),
     'deathstranding': SteamGame('DEATH STRANDING', 1190460, 'Death Stranding',
         'ds.exe', ('data',), 'death_stranding_assets'),
     'plaguetaleinnocence': SteamGame('A Plague Tale: Innocence', 752590, 'A Plague Tale Innocence',
@@ -36,7 +37,7 @@ STEAM_GAMES = {
     'portal2': SteamGame('Portal 2', 620, 'Portal 2', 'portal2.exe', ('portal2/gameinfo.txt',), 'portal2_assets'),
     'halflife': SteamGame('Half-Life', 70, 'Half-Life', 'hl.exe', ('valve/liblist.gam',), 'halflife_assets'),
     'halflife2': SteamGame('Half-Life 2', 220, 'Half-Life 2', 'hl2.exe', ('hl2/gameinfo.txt',), 'halflife2_assets'),
-    'persona5royal': SteamGame('Persona 5 Royal', 1687950, 'P5R', 'P5R.exe', ('CPK/BASE.CPK',), 'persona5_assets'),
+    'persona5royal': SteamGame('Persona 5 Royal', 1687950, 'P5R', 'P5R.exe', ('CPK/BASE.CPK',), 'persona5_assets', floating_dialogue=True),
     'deusexhrdc': SteamGame("Deus Ex: Human Revolution - Director's Cut", 238010,
         "Deus Ex Human Revolution Director's Cut", 'DXHRDC.exe', ('BIGFILE.000',), 'deusex_hr_assets'),
 }

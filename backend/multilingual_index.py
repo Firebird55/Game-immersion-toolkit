@@ -44,6 +44,7 @@ class MultilingualTextIndex:
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._capture_channels = {}
         self._unvoiced_lookup = {}
+        self._full_frame_veto = {}
         self.voice_counts = {status: 0 for status in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
         self.dialogue_coverage = {}
         self._signature = None
@@ -63,7 +64,7 @@ class MultilingualTextIndex:
                 raise ValueError('Prepared language table is empty; rebuilding is required')
             locale = payload['source_locale']
             study_language(locale)
-            lookup, unvoiced_lookup, context_pairs, capture_channels = {}, {}, {}, {}
+            lookup, unvoiced_lookup, context_pairs, capture_channels, full_frame_veto = {}, {}, {}, {}, {}
             voice_counts = dict.fromkeys(self.voice_counts, 0)
             coverage = {}
             for row in payload['records']:
@@ -86,6 +87,10 @@ class MultilingualTextIndex:
                 for identity in [row['text_id'], *(row.get('member_text_ids') or [])]:
                     previous = capture_channels.get(identity)
                     capture_channels[identity] = channels if previous is None else previous | channels
+                if row['voice_status'] != 'voiced':
+                    for language, text in row['texts'].items():
+                        for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
+                            full_frame_veto.setdefault(language, set()).add(normalize_text(display_text(value), language))
                 if row['voice_status'] not in {'voiced', 'unvoiced'}:
                     continue
                 destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
@@ -104,6 +109,7 @@ class MultilingualTextIndex:
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
                 self._capture_channels = capture_channels
                 self._unvoiced_lookup = unvoiced_lookup
+                self._full_frame_veto = full_frame_veto
                 self.voice_counts, self.dialogue_coverage = voice_counts, coverage
                 self._context_pairs = context_pairs
                 self._context_firsts = {}
@@ -236,13 +242,15 @@ class MultilingualTextIndex:
                 if hit.voice_status == 'unvoiced' and hit.kind == 'exact']
 
     def match_full_frame_voice_lines(self, lines):
-        """Persona's floating dialogue must not match short labels or choices.
+        """Floating dialogue must not match short labels, choices or unknown UI.
 
         A choice can repeat a later voiced response. Its text remains a veto
         even when unvoiced capture is disabled; text alone cannot identify
         which presentation is visible. Ordinary cropped dialogue is separate.
         """
-        if self.game != 'persona5royal':
+        from .steam_games import STEAM_GAMES
+        spec = STEAM_GAMES.get(self.game)
+        if not spec or not spec.floating_dialogue:
             return []
         with self.lock:
             hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
@@ -252,7 +260,7 @@ class MultilingualTextIndex:
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
                 if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum
                         and not any(normalize_text(text, locale) in lookup
-                                    for locale, lookup in self._unvoiced_lookup.items())):
+                                    for locale, lookup in self._full_frame_veto.items())):
                     result.append(hit)
             return result
 

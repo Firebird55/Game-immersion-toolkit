@@ -234,15 +234,16 @@ installed Star Rail Mandarin source also decoded successfully to original MP3.
 Recordings, extracted frames, catalogs, tools and playback caches remain ignored
 local artifacts.
 
-## Persona floating dialogue
+## Floating dialogue and separate panels
 
-Persona 5 Royal retains its calibrated lower subtitle lane and additionally
+Persona 5 Royal and both Metal Gear Solid V games retain their calibrated lower
+subtitle lane and additionally
 checks spatial text groups across the game window for longer original-voice
 dialogue. This covers the implemented recognition path for upper navigator
-bubbles and NPC balloons outside the lower lane. The extra pass requires an
+bubbles, NPC balloons and tape/iDroid panels outside the lower lane. The extra pass requires an
 exact, unique catalog match and at least two stable observations. It never
 fuzzily searches the whole screen. Short interjections and text shared with a
-confirmed silent choice are excluded, even when silent capture is disabled.
+confirmed silent choice or unknown UI are excluded, even when silent capture is disabled.
 Independent bubbles retain independent confirmation and original voices.
 
 The existing **Include unvoiced dialogue** control independently enables

@@ -18,6 +18,7 @@ from PIL import Image
 
 from .config import SettingsStore
 from .games import GAME_PROFILES
+from .steam_games import STEAM_GAMES
 from .models import CaptureRegion, CaptureSnapshot, TextMatch, TranscriptLine, is_comic_text_id
 from .storage import TranscriptStore
 from .textmaps import TextMapIndex
@@ -688,7 +689,8 @@ class CaptureService:
         """
         settings = self.settings.get()
         match_lines = getattr(index, 'match_unvoiced_lines', None)
-        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if game == 'persona5royal' else None
+        spec = STEAM_GAMES.get(game)
+        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if spec and spec.floating_dialogue else None
         voice_enabled = bool(voice_lines and index.ready and index.audio_count)
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
@@ -996,7 +998,6 @@ class CaptureService:
         Coordinates refer to the OCR image, which may have been rescaled. Keep
         the user's crop independent of screen resolution and Windows DPI.
         """
-        from .steam_games import STEAM_GAMES
         if game in STEAM_GAMES:
             # These readers use their independent, user-calibrated caption crop.
             # Source captions can be left aligned and Persona's text is beside a
