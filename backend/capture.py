@@ -30,6 +30,7 @@ from .window_capture import BackgroundCapture
 from .runtime_handoff import CaptureHandoff
 from .voice_assets import VoiceAssetService
 from .zzz_dialogue_context import ZzzDialogueContext
+from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
 
 
 class StableMatchTracker:
@@ -133,6 +134,7 @@ class CaptureService:
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
         self._zzz_dialogue_context = ZzzDialogueContext()
+        self._zzz_cutscene_context = ZzzCutsceneContext()
 
     def snapshot(self) -> CaptureSnapshot:
         with self._snapshot_lock:
@@ -148,6 +150,7 @@ class CaptureService:
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
             self._zzz_dialogue_context.reset()
+            self._zzz_cutscene_context.reset()
             changes["visible_text_ids"] = []
         with self._snapshot_lock:
             self._snapshot = self._snapshot.model_copy(update=changes)
@@ -335,6 +338,7 @@ class CaptureService:
         profile, window = active
         language_setup = getattr(self, 'language_setup', None)
         if profile.id != self.snapshot().active_game:
+            self._zzz_cutscene_context.reset()
             self._zzz_dialogue_context.reset()
             self._quantic_context_scope = None
             self._caption_context.clear()
@@ -426,6 +430,15 @@ class CaptureService:
 
         phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
         excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd"}
+        cutscene_scope = (epoch, window.handle, window.bounds, crop_bounds, self.session_id,
+                          getattr(self.textmaps, '_signature', None),
+                          getattr(self.textmaps, 'source_locale', None), settings.zzz_proxy_voice,
+                          getattr(self, 'context_scope', lambda: None)())
+        if self._zzz_cutscene_context.scope != cutscene_scope:
+            self._zzz_cutscene_context.prepare(self.textmaps, cutscene_scope,
+                self.transcript.list(limit=50), self.session_id)
+        if excluded_screen:
+            self._zzz_cutscene_context.clear_scene()
         cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
         cinematic_raw_text = ""
         cinematic_confidence: float | None = None
@@ -433,7 +446,8 @@ class CaptureService:
         # A comic bubble can be added and voiced between two alternating scans.
         # Once the filmstrip layout is visible, inspect it on every pass; retain
         # the cheaper alternating cadence for ordinary gameplay/cutscenes.
-        scan_cinematic = self._visual_novel_layout or self._scan_index % 2 == 1
+        scan_cinematic = (self._visual_novel_layout or self._zzz_cutscene_context.scene is not None
+                          or self._scan_index % 2 == 1)
         cinematic_matches: list[TextMatch] = []
         # Resolve the broad region before publishing narrower crops: a comic
         # bubble can extend into the dialogue crop and expose only its last word.
@@ -458,14 +472,21 @@ class CaptureService:
                 if self._mapped_voice(item) or (item.game == "zzz" and is_comic_text_id(item.text_id))
             ]
 
-        # During ordinary gameplay this wide region also contains HUD labels.
-        # A short exact word such as INFO is not evidence of cinematic speech.
-        # Filmstrip comics retain short bubbles; the narrow subtitle scan below
-        # can still recognize short spoken lines in its dedicated region.
+            # Movie subtitles have authored CS scene IDs and occupy the lower,
+            # centered subtitle band. Repeated choices elsewhere do not veto
+            # exact captions once that movie and its protagonist are identified.
+            movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size))
+            movie_matches = self._zzz_cutscene_context.match(self.textmaps, movie_groups,
+                cinematic_matches, now=time.monotonic(), stable_frames=settings.stable_frames,
+                configured=settings.zzz_proxy_voice)
+            cinematic_matches = [hit for hit in cinematic_matches if not cutscene_scene(hit.text_id)] + movie_matches
+
+        # The broad gameplay scan still rejects short HUD labels such as INFO.
+        # Confirmed movie captions and filmstrip comics can contain short lines.
         if not self._visual_novel_layout:
             cinematic_matches = [item for item in cinematic_matches
-                if len(normalize_subtitle(item.source_ocr)) >=
-                (6 if re.search(r"[㐀-鿿]", item.source_ocr) else 12)]
+                if self._zzz_cutscene_context.accepts(item) or len(normalize_subtitle(item.source_ocr)) >=
+                (6 if re.search(r"[\u3400-\u9fff]", item.source_ocr) else 12)]
 
         dialogue_match = (
             None
