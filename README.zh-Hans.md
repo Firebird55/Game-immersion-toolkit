@@ -44,6 +44,7 @@
 | [METAL GEAR SOLID V: GROUND ZEROES](docs/languages/zh-Hans.md#mgsvgz) | 英语 · 日语 | 8 |
 | [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/zh-Hans.md#mgsvtpp) | 英语 · 日语 | 8 |
 | [Portal 2](docs/languages/zh-Hans.md#portal2) | 英语 · 法语 · 德语 · 欧洲西班牙语 · 俄语 | 27 |
+| [Half-Life 2](docs/languages/zh-Hans.md#halflife2) | 英语 · 法语 · 德语 · 意大利语 · 韩语 · 欧洲西班牙语 · 俄语 · 简体中文 · 繁体中文 · 泰语 | 27 |
 
 [语言详情](docs/languages/zh-Hans.md) · [打开在线伴侣](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

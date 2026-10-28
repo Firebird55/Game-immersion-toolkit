@@ -30,6 +30,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 | A Plague Tale: Innocence | Asobo localized text, Wwise event bindings, authored recording overrides and silent narrative readables | [Audit](plaguetaleinnocence.md) |
 | METAL GEAR SOLID V: GROUND ZEROES | GZS/Fox subtitles, original field/radio/tape voices, separate cinematic captions and confirmed silent backstory/quiz text | [Audit](mgsvgz.md) |
 | Portal 2 | VSIF3/DLC captions, original dialogue and commentary, four-track Bink movies and separate credit/readable entries | [Audit](portal2.md) |
+| Half-Life 2 | Separate base/episode voice namespaces, native scene performances, commentary and authored HUD messages | [Audit](halflife2.md) |
 
 ## Capture unvoiced dialogue
 

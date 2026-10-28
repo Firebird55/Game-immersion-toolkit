@@ -131,7 +131,7 @@ def binary_scene(data, strings):
     return groups
 
 
-def scene_image(data):
+def scene_image(data, *, string_encoding='utf-8'):
     if not 20 <= len(data) <= 256 * 1024 * 1024:
         raise invalid('Invalid Source scene image size.')
     magic, version, count, string_count, entries = struct.unpack_from('<4s4I', data)
@@ -144,7 +144,7 @@ def scene_image(data):
         if offset < 20 + string_count * 4 or end < 0:
             raise invalid('Source scene string exceeds its pool.')
         try:
-            strings.append(data[offset:end].decode('utf-8'))
+            strings.append(data[offset:end].decode(string_encoding))
         except UnicodeError:
             raise invalid('Unsupported Source choreography string encoding.') from None
     result = {}

@@ -728,3 +728,46 @@ Five official original voice locales and 27 text locales. English installed dial
 | Ukrainian | — | — | ✓ | Reader implemented |
 
 </details>
+
+<a id="halflife2"></a>
+
+## Half-Life 2
+
+[Official language listing](https://store.steampowered.com/app/220/HalfLife_2/) · 2026-10-28 · [Coverage notes](../game-audits/halflife2.md)
+
+Half-Life 2 and its bundled Episode One and Episode Two use separate campaign namespaces. Base game: seven original voice locales; Episode One additionally supports official regional Simplified Chinese, Traditional Chinese and Thai; Episode Two has five originals. Regional languages are not represented as base-game dubs. All 27 text locale schemas are implemented.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Italian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Traditional Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| Danish | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| European Portuguese | — | — | ✓ | Reader implemented |
+| Swedish | — | — | ✓ | Reader implemented |
+| Thai | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Bulgarian | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Romanian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Turkish | — | — | ✓ | Reader implemented |
+| Ukrainian | — | — | ✓ | Reader implemented |
+
+</details>

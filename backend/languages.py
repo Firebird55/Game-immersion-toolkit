@@ -10,6 +10,8 @@ GAME_LOCALES = {
     'portal': ('en', 'fr', 'de', 'ru', 'es-ES', 'zh-Hant'),
     'portal2': ('en', 'fr', 'de', 'es-ES', 'ru'),
     'halflife': ('en', 'fr', 'de', 'it', 'es-ES', 'zh-Hans', 'zh-Hant', 'ko'),
+    'halflife2': ('en', 'fr', 'de', 'it', 'ko', 'es-ES', 'ru', 'zh-Hans', 'zh-Hant', 'th'),
+    'deusexhrdc': ('en', 'fr', 'it', 'de', 'es-ES'),
     'plaguetaleinnocence': ('en', 'fr', 'de'),
     'deathstranding': ('en', 'fr', 'es-ES', 'de', 'it', 'pt-PT', 'ru', 'pl', 'ja', 'es-419', 'pt-BR', 'el'),
     'mgsvtpp': ('en', 'ja'),

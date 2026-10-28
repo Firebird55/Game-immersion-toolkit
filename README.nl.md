@@ -44,6 +44,7 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [METAL GEAR SOLID V: GROUND ZEROES](docs/languages/nl.md#mgsvgz) | Engels · Japans | 8 |
 | [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/nl.md#mgsvtpp) | Engels · Japans | 8 |
 | [Portal 2](docs/languages/nl.md#portal2) | Engels · Frans · Duits · Spaans (Spanje) · Russisch | 27 |
+| [Half-Life 2](docs/languages/nl.md#halflife2) | Engels · Frans · Duits · Italiaans · Koreaans · Spaans (Spanje) · Russisch · Chinees (vereenvoudigd) · Chinees (traditioneel) · Thai | 27 |
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 

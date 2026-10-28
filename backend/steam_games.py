@@ -37,8 +37,8 @@ STEAM_GAMES = {
     'portal': SteamGame('Portal', 400, 'Portal', 'hl2.exe', ('portal/gameinfo.txt',), 'portal_assets', floating_dialogue=True),
     'portal2': SteamGame('Portal 2', 620, 'Portal 2', 'portal2.exe', ('portal2/gameinfo.txt',), 'portal2_assets', floating_dialogue=True),
     'halflife': SteamGame('Half-Life', 70, 'Half-Life', 'hl.exe', ('valve/liblist.gam',), 'halflife_assets', voiced_capture=False),
-    'halflife2': SteamGame('Half-Life 2', 220, 'Half-Life 2', 'hl2.exe', ('hl2/gameinfo.txt',), 'halflife2_assets'),
+    'halflife2': SteamGame('Half-Life 2', 220, 'Half-Life 2', 'hl2.exe', ('hl2/gameinfo.txt',), 'halflife2_assets', floating_dialogue=True),
     'persona5royal': SteamGame('Persona 5 Royal', 1687950, 'P5R', 'P5R.exe', ('CPK/BASE.CPK',), 'persona5_assets', floating_dialogue=True),
     'deusexhrdc': SteamGame("Deus Ex: Human Revolution - Director's Cut", 238010,
-        "Deus Ex Human Revolution Director's Cut", 'DXHRDC.exe', ('BIGFILE.000',), 'deusex_hr_assets'),
+        "Deus Ex Human Revolution Director's Cut", 'DXHRDC.exe', ('BIGFILE.000',), 'deusex_hr_assets', floating_dialogue=True),
 }

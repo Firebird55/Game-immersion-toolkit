@@ -728,3 +728,46 @@ Five official original voice locales and 27 text locales. English installed dial
 | 乌克兰语 | — | — | ✓ | 已实现读取器 |
 
 </details>
+
+<a id="halflife2"></a>
+
+## Half-Life 2
+
+[官方语言列表](https://store.steampowered.com/app/220/HalfLife_2/) · 2026-10-28 · [覆盖范围说明](../game-audits/halflife2.md)
+
+Half-Life 2 and its bundled Episode One and Episode Two use separate campaign namespaces. Base game: seven original voice locales; Episode One additionally supports official regional Simplified Chinese, Traditional Chinese and Thai; Episode Two has five originals. Regional languages are not represented as base-game dubs. All 27 text locale schemas are implemented.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 意大利语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 俄语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 简体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 繁体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 丹麦语 | — | — | ✓ | 已实现读取器 |
+| 芬兰语 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 挪威语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 瑞典语 | — | — | ✓ | 已实现读取器 |
+| 泰语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 保加利亚语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 罗马尼亚语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 乌克兰语 | — | — | ✓ | 已实现读取器 |
+
+</details>
