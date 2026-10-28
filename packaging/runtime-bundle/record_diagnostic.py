@@ -20,6 +20,19 @@ import zipfile
 from closure import ROOT, ClosureError, digest, normalized
 
 
+def wheel_metadata(package):
+    # A wheel can contain vendored distributions with their own nested metadata
+    # (e.g. setuptools). Only the wheel's top-level dist-info identifies it.
+    info = [name for name in package.namelist()
+            if name.count('/') == 1 and '\\' not in name
+            and name.endswith('.dist-info/METADATA') and not name.startswith('.dist-info/')]
+    if len(info) != 1:
+        # Count archive entries, not a set: a duplicate of the same top-level
+        # name is ambiguous too and must not be silently selected by ZipFile.
+        raise ClosureError('A wheel has missing or ambiguous top-level package identity.')
+    return BytesParser().parsebytes(package.read(info[0]))
+
+
 def record(evidence, python_artifact, python_source, build_id, source):
     if sys.platform != 'win32' or platform.architecture()[0] != '64bit':
         raise ClosureError('Observe diagnostic inputs on the Windows x64 build host.')
@@ -48,10 +61,7 @@ def record(evidence, python_artifact, python_source, build_id, source):
             for path in sorted(Path(sys.base_prefix).glob('*')) if path.is_file() and path.suffix.lower() in {'.exe', '.dll'}]})
     for wheel in sorted((evidence / 'wheelhouse').glob('*.whl')):
         with zipfile.ZipFile(wheel) as package:
-            info = [name for name in package.namelist() if name.endswith('.dist-info/METADATA')]
-            if len(info) != 1:
-                raise ClosureError('A wheel has ambiguous package identity.')
-            package_metadata = BytesParser().parsebytes(package.read(info[0]))
+            package_metadata = wheel_metadata(package)
         name, version = package_metadata['Name'], package_metadata['Version']
         installed = metadata.distribution(name)
         if installed.version != version:

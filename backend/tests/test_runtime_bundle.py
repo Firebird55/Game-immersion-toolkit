@@ -10,6 +10,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import zipfile
 
 import pytest
 
@@ -235,6 +236,47 @@ def closure_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def diagnostic_recorder_module(monkeypatch):
+    path = Path(bundle.__file__).resolve().parents[1] / 'packaging/runtime-bundle/record_diagnostic.py'
+    monkeypatch.syspath_prepend(str(path.parent))
+    spec = importlib.util.spec_from_file_location('runtime_diagnostic_recorder_fixture', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_wheel_identity_uses_own_metadata_while_retaining_vendored_metadata(tmp_path, monkeypatch):
+    # Source import tests never inspect wheel archives. setuptools' vendored
+    # dist-info must not turn its one actual wheel identity into an ambiguity.
+    recorder = diagnostic_recorder_module(monkeypatch)
+    wheel = tmp_path / 'owned-1.0-py3-none-any.whl'
+    with zipfile.ZipFile(wheel, 'w') as package:
+        package.writestr('owned-1.0.dist-info/METADATA', 'Name: owned\nVersion: 1.0\n')
+        package.writestr('owned/_vendor/other-9.0.dist-info/METADATA', 'Name: other\nVersion: 9.0\n')
+    with zipfile.ZipFile(wheel) as package:
+        metadata = recorder.wheel_metadata(package)
+    assert (metadata['Name'], metadata['Version']) == ('owned', '1.0')
+
+
+@pytest.mark.parametrize('case', ['nested-only', 'multiple-roots', 'duplicate-root'])
+def test_wheel_identity_rejects_missing_or_duplicate_top_level_metadata(tmp_path, monkeypatch, case):
+    from contextlib import nullcontext
+    recorder = diagnostic_recorder_module(monkeypatch)
+    wheel = tmp_path / 'ambiguous.whl'
+    own = 'owned-1.0.dist-info/METADATA'
+    entries = {
+        'nested-only': ['owned/_vendor/other-9.0.dist-info/METADATA'],
+        'multiple-roots': [own, 'other-9.0.dist-info/METADATA'],
+        'duplicate-root': [own, own],
+    }[case]
+    warning = pytest.warns(UserWarning, match='Duplicate name') if case == 'duplicate-root' else nullcontext()
+    with warning, zipfile.ZipFile(wheel, 'w') as package:
+        for name in entries:
+            package.writestr(name, 'Name: owned\nVersion: 1.0\n')
+    with zipfile.ZipFile(wheel) as package, pytest.raises(recorder.ClosureError, match='top-level package identity'):
+        recorder.wheel_metadata(package)
 
 
 def test_input_gate_blocks_unpinned_and_unreviewed_runtime(tmp_path):
