@@ -187,7 +187,7 @@ class SceneReader:
                     wem = self.get(sound[0], _wem_sound(sound[3]), WEM_LOCALIZED) if sound else None
                     source = _localized(wem[3]).get(language_id) if wem else None
                     if wem:
-                        binding = ({'kind': 'scene', 'core': path, 'sequence': sequence_id,
+                        binding = ({'kind': 'scene', 'playback_scope': 'full_track', 'core': path, 'sequence': sequence_id,
                             'track_event': event_id, 'locale': locale, **source} if source else None)
                         # An absent pack/recording still participates in overlap
                         # analysis; it cannot make a competing track unambiguous.

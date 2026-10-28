@@ -247,11 +247,15 @@ class FakeCinematics(FakePacks):
         sound = 'ds/sounds/wwise_cinematics_sound_resource/synthetic/sound'
         subtitle_path = 'localized/sentences/ds_lines_cutscene/synthetic/sentences'
         subtitle = obj(cine.SUBTITLE, 100, u('iBi', 30, 1, 180) + ref(10, subtitle_path) + u('Bii', 0, 5, 10))
+        self.files[subtitle_path + '.core'] += obj(SENTENCE, 12, sentence_payload(None, 13)) + obj(TEXT, 13,
+            text_payload({number: f'Later distinct caption {locale}' for locale, number in ds.TEXT_LOCALES.items()}))
+        subtitle += obj(cine.SUBTITLE, 102, u('iBi', 200, 1, 380) + ref(12, subtitle_path) + u('Bii', 0, 5, 10))
         event = obj(cine.WEM_EVENT, 101, u('iBi', 0, 1, 600) + ref()
             + u('BBBfBBB', 0, 0, 1, 0, 1, 0, 0) + ref(300, sound))
         ordered = obj(cine.SORTED, 200, u('iB', 0, 1) + ref(100) + identity(100) + u('II', 0, 0))
         ordered += obj(cine.SORTED, 201, u('iB', 0, 1) + ref(101) + identity(101) + u('II', 0, 0))
-        self.files[self.parent + '.core'] = sequence_object(500, [200, 201, *([201] if ambiguous else [])]) + subtitle + event + ordered
+        ordered += obj(cine.SORTED, 202, u('iB', 0, 1) + ref(102) + identity(102) + u('II', 0, 0))
+        self.files[self.parent + '.core'] = sequence_object(500, [200, 201, 202, *([201] if ambiguous else [])]) + subtitle + event + ordered
         sound_obj = obj(cine.WEM_SOUND, 300, string('Synthetic full voice track') + ref() + b'\0' * 137 + ref(400))
         localized = b'\1' + identity(400) + u('IIIHfI', 123, 16, 0, 257, 20, sum(1 << ds.TEXT_LOCALES[l] for l in ds.VOICE_LOCALES))
         for locale, number in sorted(ds.TEXT_LOCALES.items(), key=lambda item: item[1]):
@@ -274,10 +278,15 @@ def test_authored_cinematic_graph_uses_complete_localized_track(monkeypatch, tmp
     monkeypatch.setattr(ds, 'fingerprint', lambda *_args: 'same')
     monkeypatch.setattr(ds, 'probe_voice_pack', lambda *_args: 'present')
     result = ds.index_language(tmp_path, tmp_path, locale, ['en'])
-    scene = next(row for row in result['records'] if row['dialogue_kind'] == 'cinematic')
+    scene = next(row for row in result['records'] if row['dialogue_kind'] == 'cinematic_full_track')
     LocalDialogue(**scene)
     assert scene['voice_status'] == 'voiced'
-    assert scene['member_text_ids'] == ['deathstranding:sentence:' + identity(10).hex()]
+    assert scene['text_id'] == 'deathstranding:sentence:' + identity(10).hex()
+    assert scene['audio']['playback_scope'] == 'full_track'
+    assert 'member_text_ids' not in scene
+    later = next(row for row in result['records'] if row['text_id'] == 'deathstranding:sentence:' + identity(12).hex())
+    assert later['source_text'] not in scene['source_text'], 'Current caption must not reveal future scene dialogue'
+    assert later['audio'] == scene['audio'] and later['text_id'] != scene['text_id']
     assert 'start_seconds' not in scene['audio']  # no fabricated subtitle-time cuts
     assert ds.extract_voice(tmp_path, scene['audio'], None, None) == b'RIFF\x08\0\0\0WAVEsyn!'
     with pytest.raises(ValueError, match='binding changed'):

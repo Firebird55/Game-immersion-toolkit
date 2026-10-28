@@ -16,7 +16,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 
 GAME = 'deathstranding'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 TEXT_LOCALES = {'en': 1, 'fr': 2, 'es-ES': 3, 'de': 4, 'it': 5, 'nl': 6,
     'pt-PT': 7, 'zh-Hant': 8, 'ko': 9, 'ru': 10, 'pl': 11, 'ja': 16,
     'es-419': 17, 'pt-BR': 18, 'tr': 19, 'ar': 20, 'zh-Hans': 21,
@@ -182,25 +182,22 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     groups, cinematic_counts = scene_bindings(packs, links, source_locale, TEXT_LOCALES[source_locale], progress)
     counts.update(cinematic_counts)
     by_id = {row['text_id']: row for row in records if row['dialogue_kind'] == 'cinematic' and not row['audio']}
-    grouped, scenes = set(), []
+    grouped, bound_tracks = set(), 0
     for audio, sentences in groups:
         members = [by_id[f'{GAME}:sentence:{identity}'] for _path, identity in sentences
                    if f'{GAME}:sentence:{identity}' in by_id]
         if not members:
             continue
-        identity = hashlib.sha256((audio['stream'] + audio['uuid']).encode()).hexdigest()[:24]
-        raw = {locale: '\n'.join(member['texts'][locale] for member in members if member['texts'].get(locale))
-               for locale in selected}
-        scene = _record('scene:' + identity, raw, source_locale, 'cinematic', 'voiced', audio)
-        scene['member_text_ids'] = [member['text_id'] for member in members]
-        scene['ocr_texts'] = {locale: list(dict.fromkeys(page for member in members
-            for page in member['ocr_texts'].get(locale, []))) for locale in selected}
-        scene['ocr_english'] = scene['ocr_texts'].get('en')
-        scenes.append(scene)
-        grouped.update(scene['member_text_ids'])
-    records = [row for row in records if row['text_id'] not in grouped] + scenes
+        # Keep each authored sentence and its translations independent. Joining
+        # a whole scene would reveal future dialogue and suppress later captions.
+        for member in members:
+            member['audio'] = {**audio, 'playback_scope': 'full_track'}
+            member['voice_status'] = 'voiced'
+            member['dialogue_kind'] = 'cinematic_full_track'
+            grouped.add(member['text_id'])
+        bound_tracks += 1
     counts['cinematic_sentences_bound_to_complete_tracks'] = len(grouped)
-    counts['cinematic_records_with_complete_tracks'] = len(scenes)
+    counts['cinematic_complete_tracks'] = bound_tracks
     for path, expected, category in [('ds/archives/mail_resource', MAIL, 'mail'),
                                      ('ds/archives/interviews_resource', INTERVIEW, 'interview')]:
         progress(f'Reading Death Stranding {category} resources')

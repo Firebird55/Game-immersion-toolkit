@@ -123,21 +123,22 @@ English inventory:
 | NPC dialogue | 632 | 0 | 0 | 0 |
 | Radio | 2,878 | 0 | 0 | 2 |
 | Terminal / hologram | 3,129 | 0 | 0 | 2 |
-| Cinematic | 155 complete tracks | 0 | 249 sentences | 0 |
+| Cinematic | 2,911 separate captions | 0 | 249 sentences | 0 |
 | Mail fields | 0 | 482 | 0 | 0 |
 | Interview fields | 0 | 685 | 0 | 0 |
 | Other UI localization | 0 | 0 | 0 | 10,139 |
-| **Total** | **8,032** | **1,167** | **249** | **10,143** |
+| **Total** | **10,788** | **1,167** | **249** | **10,143** |
 
-The 155 cinematic records group **2,916 original subtitle sentences** and
-retain their IDs and individual OCR pages. Thus totals count records after
-grouping, not individual subtitle pages. There were 123 installed cinematic
+The 155 cinematic tracks bind **2,911 distinct original subtitle sentences**
+(2,916 references before deduplication). Each caption retains its own ID and
+translations: matching it does not reveal later dialogue. Full-track playback
+is labelled explicitly and its encoding is reused across captions. There were 123 installed cinematic
 graph resources and 31 sentence references with conflicting track sources.
 
 Native sentence preparation and original WEM decoding were checked for every
 official audio locale. Before adding cinematic grouping, each produced 7,877
-voiced and 1,167 confirmed unvoiced entries. The final English grouped index has
-19,591 records, all validated against the shared dialogue model and complete
+voiced and 1,167 confirmed unvoiced entries. The final English sentence index has
+22,347 records, all validated against the shared dialogue model and complete
 production transcript index. Blank or markup-only localization is inventoried
 separately and cannot invalidate an otherwise complete prepared language.
 The preparation worker also rejects malformed locale/text records before
@@ -160,7 +161,7 @@ decoder logs, sample audio and summaries remain only under ignored
 ## Remaining limits
 
 Original cinematic sentence resources have null direct sound references. The
-flattened sequence graph resolves 2,916 English cinematic subtitle sentences
+flattened sequence graph resolves 2,911 distinct English cinematic subtitle sentences
 to 155 complete original voice tracks. **249 English cinematic sentences
 remain without an unambiguous track binding and cannot provide original audio
 or automatic voiced capture.** Subtitle pause frames are not audio-file cut
