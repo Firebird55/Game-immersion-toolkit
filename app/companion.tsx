@@ -1,5 +1,6 @@
 'use client';
-import {useInterfaceTranslation} from '../lib/interface-language';
+import {useInterfaceLanguage, useInterfaceTranslation} from '../lib/interface-language';
+import {languageName} from '../public/mobile-capture/interface-language.mjs';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
@@ -385,7 +386,7 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.source_text??line.chinese} />}
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang={line.source_locale ?? line.source_language ?? 'zh-Hans'} text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>
@@ -406,7 +407,7 @@ const TranscriptRow = memo(function TranscriptRow({
 });
 
 function CompanionClient() {
- const uiText=useInterfaceTranslation();
+ const {t: uiText, locale: interfaceLocale}=useInterfaceLanguage();
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
@@ -703,14 +704,9 @@ function CompanionClient() {
   const latestSessionLine = recentLines.find((line) =>
     line.session_id === status?.session.id && isReadableLine(line)
   ) ?? null;
-  // Free-roam subtitles disappear from the game almost immediately. Keep the
-  // newest one available to read/Migaku until any later voiced line arrives.
-  // Other presentation modes still disappear from Current line with the game.
-  const latestLine = archivedHistory ? null : visibleLine ?? (
-    latestSessionLine && (latestSessionLine.channel === 'gameplay' || latestSessionLine.game !== 'zzz')
-      ? latestSessionLine
-      : null
-  );
+  // Keep confirmed dialogue readable between subtitles, including comics and
+  // unvoiced lines. Session/game filtering prevents carrying it into another game.
+  const latestLine = archivedHistory ? null : visibleLine ?? latestSessionLine;
   const historyLines = useMemo(
     () => recentLines.filter((line) => line.id !== latestLine?.id),
     [recentLines, latestLine?.id],
@@ -727,6 +723,17 @@ function CompanionClient() {
         currentHistoryPage * HISTORY_PAGE_SIZE,
         (currentHistoryPage + 1) * HISTORY_PAGE_SIZE,
       );
+  const columnLanguage = (kind: 'source' | 'translation') => {
+    const locales = new Set(visibleTranscriptLines.map(line => kind === 'source'
+      ? line.source_locale ?? line.source_language ?? 'zh-Hans'
+      : line.translation_locale ?? 'en'));
+    if (locales.size === 1) return languageName([...locales][0], interfaceLocale);
+    if (!locales.size && kind === 'source') {
+      const selected = status?.selected_languages?.[selectedGame];
+      if (selected) return languageName(selected.source_locale, interfaceLocale);
+    }
+    return uiText(kind === 'source' ? 'Game text' : 'Translation');
+  };
   const sessionId = status?.session.id;
   const sessionLines = useMemo(
     () => lines.filter((line) => line.game === selectedGame && (!sessionId || line.session_id === sessionId)),
@@ -1031,7 +1038,7 @@ function CompanionClient() {
         </div>
 
         <div className="column-labels" aria-hidden="true">
-          <span>{uiText("Time / type")}</span><span>{uiText("English")}</span><span>中文</span><span>{uiText("Match")}</span>
+          <span>{uiText("Time / type")}</span><span>{columnLanguage('translation')}</span><span>{columnLanguage('source')}</span><span>{uiText("Match")}</span>
         </div>
         <div className="line-list" ref={historyList}>
           {visibleTranscriptLines.length ? visibleTranscriptLines.map((line) => (
