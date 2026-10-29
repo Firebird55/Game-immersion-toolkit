@@ -138,3 +138,13 @@ def test_actual_utf8_wheel_notice_metadata_can_be_recorded_as_json(tmp_path, mon
     with zipfile.ZipFile(wheel) as package:
         value = module.wheel_metadata(package)
     assert json.loads(json.dumps({'license': value['License']})) == {'license': 'Copyright \u00e9'}
+
+
+def test_collected_tree_rejects_empty_private_directories(tmp_path, monkeypatch):
+    # File-only scans miss empty private roots and cannot detect directory-only
+    # application writes. Empty directory creation is still an application write.
+    module = recorder(monkeypatch)
+    from closure import inventory_output
+    (tmp_path / 'data').mkdir()
+    with pytest.raises(module.ClosureError, match='Private trees'):
+        inventory_output(tmp_path)

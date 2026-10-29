@@ -53,8 +53,10 @@ function Finish-Probe($process, [string]$kind) {
     return $result
 }
 function Inventory([string]$folder) {
-    return @((Get-ChildItem -LiteralPath $folder -File -Recurse | Sort-Object FullName | ForEach-Object {
-        $_.FullName.Substring($folder.Length + 1).Replace('\', '/') + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    return @((Get-ChildItem -LiteralPath $folder -Recurse | Sort-Object FullName | ForEach-Object {
+        $name = $_.FullName.Substring($folder.Length + 1).Replace('\', '/')
+        if ($_.PSIsContainer) { 'directory:' + $name }
+        else { 'file:' + $name + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
     }))
 }
 $native = $null; $asr = $null; $api = $null; $websocket = $null
@@ -63,8 +65,9 @@ New-Item -ItemType Directory -Path (Join-Path $temporary 'empty-host'), $roots.P
 try {
     $proof = Get-Content -LiteralPath $Provenance -Raw | ConvertFrom-Json
     $before = @(Inventory $RuntimeRoot)
-    $expected = @($proof.files | ForEach-Object { $_.path + ':' + $_.sha256 } | Sort-Object)
-    if (@(Compare-Object @($before | Sort-Object) $expected).Count) { throw 'Extracted files differ from the complete candidate inventory.' }
+    $expected = @($proof.files | ForEach-Object { 'file:' + $_.path + ':' + $_.sha256 })
+    $expected += @($proof.directories | ForEach-Object { 'directory:' + $_ })
+    if (@(Compare-Object @($before | Sort-Object) @($expected | Sort-Object) -CaseSensitive).Count) { throw 'Extracted tree differs from the complete candidate inventory.' }
     Get-ChildItem -LiteralPath $RuntimeRoot -File -Recurse | ForEach-Object { $_.IsReadOnly = $true }
     # No SDK, compiler, package manager or external interpreter is inherited.
     $native = Finish-Probe (Start-Owned (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') '--runtime-probe native') 'native'
@@ -111,7 +114,7 @@ try {
         } finally { $message.Dispose() }
     } finally { $cancel.Dispose() }
     $after = @(Inventory $RuntimeRoot)
-    if (@(Compare-Object $before $after).Count) { throw 'Frozen runtime wrote into its application tree.' }
+    if (@(Compare-Object $before $after -CaseSensitive).Count) { throw 'Frozen runtime wrote into its application tree.' }
     $forbidden = @(Get-ChildItem -LiteralPath $temporary -File -Recurse | Where-Object { $_.Extension -eq '.dpapi' })
     if ($forbidden.Count) { throw 'Synthetic probes unexpectedly wrote protected account state.' }
 } finally {

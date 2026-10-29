@@ -177,9 +177,8 @@ def inventory_output(folder):
     for path in sorted(folder.rglob('*')):
         if path.is_symlink() or getattr(path, 'is_junction', lambda: False)():
             raise ClosureError('Bundle links/reparse points are prohibited.')
-        if not path.is_file():
-            continue
         name = path.relative_to(folder).as_posix()
+        relative_resource(name)
         folded = name.casefold()
         if folded in seen:
             raise ClosureError('Case-aliased bundle file names are prohibited.')
@@ -188,6 +187,8 @@ def inventory_output(folder):
             raise ClosureError('Prohibited private/proprietary artifact: ' + name)
         if any(part.lower() in PRIVATE_PARTS for part in Path(name).parts):
             raise ClosureError('Private trees must never be collected: ' + name)
+        if not path.is_file():
+            continue
         result.append({'path': name, 'sha256': digest(path), 'bytes': path.stat().st_size})
     return result
 
@@ -223,10 +224,12 @@ def write_candidate(value, source, evidence, output):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
     files = inventory_output(output / 'ProxyTranscriptRuntime')
+    directories = sorted(path.relative_to(output / 'ProxyTranscriptRuntime').as_posix()
+        for path in (output / 'ProxyTranscriptRuntime').rglob('*') if path.is_dir())
     proof = {'schema': 'proxy-runtime-candidate-v1', 'repository': 'Firebird55/Game-immersion-toolkit',
         'source_commit': value['source_commit'], 'version': package['version'], 'build_id': value['build_id'],
         'profile': value['profile'], 'r19_complete': False, 'redistribution_review': 'pending-exact-output',
-        'native_acceptance': 'unavailable', 'signing': 'not-established', 'files': files,
+        'native_acceptance': 'unavailable', 'signing': 'not-established', 'files': files, 'directories': directories,
         'components': [{key: item[key] for key in ('name', 'version', 'source', 'architecture', 'license_expression')}
                        for item in value['components']]}
     (output / 'CANDIDATE-PROVENANCE.json').write_text(json.dumps(proof, indent=2) + '\n', encoding='utf-8')
@@ -234,7 +237,7 @@ def write_candidate(value, source, evidence, output):
         # Public review metadata has only logical names and digests. Raw
         # receipts, installed host paths and complete license text stay private.
         inventory = {'schema': 'proxy-r19-runtime-inventory-v1', 'source_commit': value['source_commit'],
-            'profile': value['profile'], 'build_id': value['build_id'], 'files': files,
+            'profile': value['profile'], 'build_id': value['build_id'], 'files': files, 'directories': directories,
             'file_count': len(files), 'bytes': sum(item['bytes'] for item in files),
             'components': [{'name': item['name'], 'version': item['version'],
                 'architecture': item['architecture'], 'source': item['source'],
