@@ -28,7 +28,14 @@ function Test-R19RuntimeInventory([string]$TemporaryRoot) {
         $expected = @('directory:hidden-empty', 'directory:hidden-folder', ('file:hidden.txt:' + $hash), ('file:hidden-folder/child.txt:' + $hash))
         $before = @(Get-R19RuntimeInventory $fixture)
         if (@(Compare-Object $expected $before -CaseSensitive).Count) { throw 'Windows inventory omitted a hidden file, directory or descendant.' }
-        [IO.File]::WriteAllText($file, 'changed owned fixture', [Text.UTF8Encoding]::new($false))
+        # Windows refuses CREATE_ALWAYS for an existing Hidden/System file.
+        # Open it in place so the mutation retains the attributes under test.
+        $stream = [IO.File]::Open($file, [IO.FileMode]::Open, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try {
+            $changed = [Text.Encoding]::UTF8.GetBytes('changed owned fixture')
+            $stream.SetLength(0)
+            $stream.Write($changed, 0, $changed.Length)
+        } finally { $stream.Dispose() }
         if (-not @(Compare-Object $before @(Get-R19RuntimeInventory $fixture) -CaseSensitive).Count) { throw 'Windows inventory failed to detect a hidden file content change.' }
     } finally {
         Remove-Item -LiteralPath $fixture -Recurse -Force
