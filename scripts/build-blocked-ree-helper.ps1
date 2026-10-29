@@ -26,10 +26,11 @@ if($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notma
 $commit=(& git -C $SourceRoot rev-parse HEAD).Trim()
 $dirty=-not [string]::IsNullOrWhiteSpace((& git -C $SourceRoot status --porcelain | Out-String))
 New-Item -ItemType Directory -Path $OutputRoot | Out-Null
-foreach($name in @('Zstandard.Net.dll','System.Buffers.dll','libzstd.dll')){
+foreach($name in @('Zstandard.Net.dll','System.Buffers.dll','libzstd.dll','REE.Unpacker.exe.config')){
     $path=Join-Path $PreparedRoot $name
     if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $prepared.source_inputs.('runtime/'+$name)){throw 'A selective-reader reference/native binary differs.'}
-    Copy-Item -LiteralPath $path -Destination $OutputRoot
+    $destination=if($name -eq 'REE.Unpacker.exe.config'){Join-Path $OutputRoot 'Toolkit.REE.Selective.exe.config'}else{Join-Path $OutputRoot $name}
+    Copy-Item -LiteralPath $path -Destination $destination
 }
 $binary=Join-Path $OutputRoot 'Toolkit.REE.Selective.exe'
 $arguments=@('/nologo','/target:exe','/platform:x86','/optimize+','/debug-',('/out:'+$binary),'/reference:System.Numerics.dll',('/reference:'+(Join-Path $OutputRoot 'Zstandard.Net.dll')),('/reference:'+(Join-Path $OutputRoot 'System.Buffers.dll')))+@($sources.FullName)

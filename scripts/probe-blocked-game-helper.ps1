@@ -61,7 +61,14 @@ try{
         if([BitConverter]::ToUInt16($binary,$pe+4) -ne 0x14c -or [BitConverter]::ToUInt16($binary,$pe+24) -ne 0x10b){throw 'Selective reader is not its declared x86 image.'}
         $output=Join-Path $temporary 'selected-output'
         $result=Invoke-Owned @('Owned',(Join-Path $fixture 'owned.pak'),$output)
-        if($result.code -ne 0){throw 'Precompiled selective reader did not extract the authored PAK.'}
+        if($result.code -ne 0){
+            # Exception class/method names are useful without disclosing input,
+            # paths, source excerpts, messages or embedded constants.
+            $types=[regex]::Matches($result.stderr,'\b[A-Za-z][A-Za-z0-9_.]+Exception\b') | ForEach-Object {$_.Value} | Sort-Object -Unique
+            $frames=[regex]::Matches($result.stderr,'\bat ([A-Za-z][A-Za-z0-9_+.`]+)\(') | ForEach-Object {$_.Groups[1].Value} | Select-Object -First 12
+            Write-Host (@{exit_code=$result.code;exception_types=@($types);methods=@($frames)} | ConvertTo-Json -Compress)
+            throw 'Precompiled selective reader did not extract the authored PAK.'
+        }
         $expected=Get-Content -LiteralPath (Join-Path $fixture 'expected.json') -Raw | ConvertFrom-Json
         if((Get-FileHash -LiteralPath (Join-Path $output $expected.selected) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected.selected_sha256 -or (Test-Path -LiteralPath (Join-Path $output $expected.unselected)) -or @(Get-ChildItem -LiteralPath $output -File -Recurse).Count -ne 1){throw 'Precompiled selective reader lost bytes or extracted an unrequested asset.'}
         $result=Invoke-Owned @('Owned',(Join-Path $fixture 'oversized.pak'),(Join-Path $temporary 'oversized-output'))

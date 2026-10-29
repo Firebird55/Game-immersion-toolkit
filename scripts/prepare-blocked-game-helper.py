@@ -107,15 +107,20 @@ def prepare(kind, evidence, *, source=ROOT):
                 if emitted.count(old) != 1:
                     raise ValueError('The private project-list adapter no longer matches.')
                 emitted = emitted.replace(old, 'private static String m_Path = Path.GetFullPath(Environment.GetEnvironmentVariable("PROXY_TRANSCRIPT_REE_PROJECTS") ?? (Utils.iGetApplicationPath() + @"\\Projects\\")).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;')
+            if relative == 'Program.cs':
+                old = 'if (!File.Exists("Zstandard.Net.dll") || !File.Exists("libzstd.dll"))'
+                if emitted.count(old) != 1:
+                    raise ValueError('The app-local dependency adapter no longer matches.')
+                emitted = emitted.replace(old, 'if (!File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Zstandard.Net.dll")) || !File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libzstd.dll")))')
             destination.write_text(emitted, encoding='utf-8')
             count += 1
         if count != pin['source_count'] or not (target / 'upstream-README.md').is_file():
             raise ValueError('Selected selective-reader source/notice closure is incomplete.')
         for name, member, archive in archive_members(runtime):
-            if name in {'Zstandard.Net.dll', 'System.Buffers.dll', 'libzstd.dll'}:
+            if name in {'Zstandard.Net.dll', 'System.Buffers.dll', 'libzstd.dll', 'REE.Unpacker.exe.config'}:
                 data = archive.read(member); (target / name).write_bytes(data)
                 inputs['runtime/' + name] = hashlib.sha256(data).hexdigest()
-        if not all((target / name).is_file() for name in ('Zstandard.Net.dll', 'System.Buffers.dll', 'libzstd.dll')):
+        if not all((target / name).is_file() for name in ('Zstandard.Net.dll', 'System.Buffers.dll', 'libzstd.dll', 'REE.Unpacker.exe.config')):
             raise ValueError('Selective reader native/reference inputs are incomplete.')
         inputs['archives/ree-source.zip'] = digest(sources)
         inputs['archives/ree-runtime.zip'] = digest(runtime)
