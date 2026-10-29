@@ -21,6 +21,8 @@ binaries = []
 def production_module(name):
     if name.startswith(('onnxruntime.quantization', 'onnxruntime.transformers', 'scipy._lib.array_api_compat.torch')):
         return False
+    if name == 'cv2.data':
+        return False  # Unused Haar-cascade models are outside the runtime closure.
     return not any(part.lower() in {'tests', 'test', 'testing', 'selftest', 'conftest', 'pytest'} for part in name.split('.'))
 
 def package_closure(package):
@@ -47,7 +49,11 @@ if runtime:
 main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
     hookspath=[str(root / 'packaging/runtime-bundle/hooks')],
     binaries=binaries, datas=data, hiddenimports=hidden,
-    excludes=['sherpa_onnx', 'sherpa_onnx_core', 'pytest', 'backend.tests', 'pip', 'setuptools', 'imageio_ffmpeg'])
+    excludes=['sherpa_onnx', 'sherpa_onnx_core', 'pytest', 'backend.tests', 'pip', 'setuptools', 'imageio_ffmpeg', 'cv2.data'])
+# OpenCV's generic hook also collects its Haar-cascade examples. Capture uses
+# image conversion/thresholding, never those models; do not relabel them as user
+# data or relax the private-tree gate to accept arbitrary `data/` directories.
+main.datas = [entry for entry in main.datas if not entry[0].replace('\\', '/').startswith('cv2/data/')]
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
     name='ProxyTranscriptRuntime', console=True, contents_directory='_internal')
