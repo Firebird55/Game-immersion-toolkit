@@ -76,6 +76,48 @@ nonzero statuses. It performs no filesystem writes or network/account operations
 
 ## App-local Node inputs
 
+### Private real-reader preparation (2026-10-29)
+
+Endfield's actual selected 14-file source subset can now be prepared and
+self-contained-published on a Windows build host with explicit
+`-Kind endfield -BlockedQuarantine -PreparedRoot <private-source-root>`.
+The build rehashes every selected source before/after compilation, rejects
+unlisted sources, restores from a closed local feed and retains the exact replayed
+lock and complete available notices. System.IO.Hashing **9.0.0** is separately
+pinned to its official NuGet catalog SHA-512. The selected implementation's MIT
+notice does not establish publisher rights to embedded constants or resolve
+file-level port provenance. Its assembly remains private and unapproved.
+
+The actual modified selective REE reader is separately precompiled as x86 using
+the build host's publisher-verified Windows Framework compiler. The exact source
+and native/reference ZIP hashes are retained. An adapter permits private project
+lists outside the immutable helper directory, without changing the source SDK
+adapter. The authored uncompressed PAK fixture contains independently generated
+path hashes, one requested and one unrequested resource, plus an oversized header.
+This exercises real selection and rejection, not a stock all-files unpacker.
+
+Both preparations emit a **different blocked manifest schema**, no runtime
+entrypoints, and `runtime_collection_allowed: false`. Frozen readers and the
+runtime collector cannot accept those artifacts as owned NTE helpers. No binary,
+selected source, embedded constant, archive cache, raw compiler log or game input
+is uploaded. Only sanitized execution metadata may leave the runner. Compiler
+failures disclose diagnostic codes without source excerpts or constant values.
+
+The private Windows job is bounded to 25 minutes per distinct reader, with no
+browser/full-suite expansion. Endfield's probe checks actual app-local CoreLib
+and hashing identities, empty-pack behavior for all four voice choices and
+malformed/missing-voice rejection. It does not prove actual encrypted VFS/audio
+formats. REE's probe checks actual x86 execution with cleared developer environment
+on the authored uncompressed PAK; compression/encryption, WOW64/Framework on clean
+Windows 11 and installed-game playback remain separate gates. Results must be
+recorded after hosted execution. The local source preparation verified all 14
+Endfield files and 17 adapted REE files; 85 affected pure contracts passed.
+
+The selected REE commit has no established license grant in an accessible
+`LICENSE` file; its README documents Framework 4.7.2/build prerequisites but is
+not treated as a redistribution license. Third-party native/source obligations
+remain unapproved. This work does not close that gate or approve shipping it.
+
 The observed Node **24.22.1** Windows x64 archive and executable are pinned to the
 official release and `SHASUMS256.txt`; complete archive LICENSE bytes are retained.
 The build-only helper script uses a supplied matching archive. The fixed authored

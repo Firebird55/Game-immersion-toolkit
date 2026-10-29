@@ -65,7 +65,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Locked frontend preparation failed.' }
           npm run desktop:build
           if ($LASTEXITCODE -ne 0) { throw 'Static frontend build failed.' }
-          & $env:PYTHON -B -m pytest -q backend/tests/test_runtime_bundle.py backend/tests/test_runtime_composition.py backend/tests/test_runtime_experiment.py backend/tests/test_desktop_frontend.py backend/tests/test_prebuilt_readers.py backend/tests/test_prebuilt_node_reader.py
+          & $env:PYTHON -B -m pytest -q backend/tests/test_runtime_bundle.py backend/tests/test_runtime_composition.py backend/tests/test_runtime_experiment.py backend/tests/test_desktop_frontend.py backend/tests/test_prebuilt_readers.py backend/tests/test_prebuilt_node_reader.py backend/tests/test_blocked_game_helpers.py
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
       - name: Prebuild only the owned NTE bridge on the build host
         shell: pwsh
