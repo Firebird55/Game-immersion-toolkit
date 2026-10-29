@@ -105,3 +105,31 @@ def test_diagnostic_readiness_keeps_text_only_game_distinct_from_global_audio(tm
                 assert game_tools.missing_tools(tmp_path, game) == ['R19 decoder/helper closure unavailable']
     finally:
         media_tools.ffmpeg_executable.cache_clear()
+
+
+def test_frozen_setup_reports_pending_runtime_gate_without_recommending_developer_tools(tmp_path, monkeypatch):
+    # Resolver/refusal tests do not exercise the actual setup requirements. A
+    # frozen executable must not send users back to source npm/SDK repair steps.
+    import json
+    from pathlib import Path
+    from backend import installation
+    layout = fixture_layout(tmp_path, monkeypatch)
+    package = tmp_path / 'package.json'; package.write_text(json.dumps({'version': '0.22.0'}))
+    monkeypatch.setattr(installation, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(installation, 'resource_path', lambda _: package)
+    monkeypatch.setattr(installation, 'load_paths', lambda: {})
+    monkeypatch.setattr(installation, 'configured_install', lambda _: None)
+    monkeypatch.setattr(installation, 'missing_tools', lambda *_: ['R19 decoder/helper closure unavailable'])
+    monkeypatch.setattr(installation, 'ffmpeg_executable', lambda: None)
+    monkeypatch.setattr(Path, 'home', lambda: tmp_path / 'empty-host')
+    monkeypatch.setattr(installation.shutil, 'which', lambda *_: pytest.fail('Frozen setup probed a developer PATH tool'))
+    service = installation.InstallationService(layout.application_root, settings=SimpleNamespace(),
+        game_state=lambda _: {}, refresh=lambda _: None, account_configured=lambda: False,
+        install_lookup=lambda _: None)
+    result = service.status()
+    assert 'node' not in {item['id'] for item in result['requirements']}
+    gate = next(item for item in result['requirements'] if item['id'] == 'runtime-acceptance')
+    assert gate['ready'] is False
+    assert all('Install.cmd' not in item['help'] for item in result['requirements'])
+    assert 'SDK' not in next(item for item in result['games'] if item['id'] == 'endfield')['voice_hint']
+    assert not layout.application_root.exists() and not layout.settings_root.exists()

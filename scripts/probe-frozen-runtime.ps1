@@ -88,6 +88,8 @@ try {
     if (-not $ready) { throw 'Integrated frozen service startup deadline expired.' }
     $status = Invoke-RestMethod 'http://127.0.0.1:8766/api/status' -TimeoutSec 10
     if ($status.capture.running -or @($status.game_textmaps.PSObject.Properties).Count -lt 25) { throw 'Synthetic API capture/registry state is unexpected.' }
+    $setup = Invoke-RestMethod 'http://127.0.0.1:8766/api/setup' -TimeoutSec 10
+    if ('node' -in @($setup.requirements.id) -or 'runtime-acceptance' -notin @($setup.requirements.id) -or @($setup.games | Where-Object { $_.id -eq 'endfield' }).voice_hint -match 'SDK') { throw 'Frozen setup still asks for development tools or hides its acceptance gate.' }
     $blocked = Invoke-WebRequest 'http://127.0.0.1:8766/api/health' -Headers @{Origin='https://example.test'} -SkipHttpErrorCheck -TimeoutSec 5
     if ($blocked.StatusCode -ne 403) { throw 'Integrated API accepted a foreign origin.' }
     $websocket = [Net.WebSockets.ClientWebSocket]::new()

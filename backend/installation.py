@@ -106,6 +106,7 @@ class InstallationService:
             pass
 
     def status(self) -> dict:
+        layout = discover_layout()
         saved = load_paths()
         games = []
         for game in GAMES:
@@ -123,10 +124,13 @@ class InstallationService:
                 voice = _voice_state(game, install, state)
             except OSError:
                 voice = "not_checked"
+            voice_hint = VOICE_HINTS[game]
+            if layout.mode == 'bundle' and game == 'endfield':
+                voice_hint = "Install the selected voice pack in the game. This experimental bundle's Endfield reader is awaiting verification; keep using your existing toolkit installation."
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
-                          "voice_hint": VOICE_HINTS[game], "tools_missing": missing_tools(self.root, game), **state})
+                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
         ocr = Path.home() / ".config/oneocr"
         requirements = [
             {"id": "windows", "title": "Windows", "ready": sys.platform == "win32",
@@ -136,9 +140,15 @@ class InstallationService:
              "help": "Install or update Windows Snipping Tool, then re-run Install.cmd to repair OCR."},
             {"id": "audio", "title": "Audio conversion", "ready": bool(ffmpeg_executable()),
              "help": "Re-run Install.cmd to repair the local audio dependencies."},
-            {"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
-             "help": "Install Node.js 24 with npm, then re-run Install.cmd."},
         ]
+        if layout.mode == 'bundle':
+            requirements[1]['help'] = "Install or update Windows Snipping Tool. OCR file preparation and native capture verification remain unavailable in this experimental bundle."
+            requirements[2]['help'] = "Audio conversion is unavailable until this bundle's codec and game-tool verification is complete. Keep using your existing toolkit installation."
+            requirements.append({'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
+                'help': "This experimental runtime is awaiting Windows capture, game-tool and distribution review. Keep using your existing installation."})
+        else:
+            requirements.append({"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
+                "help": "Install Node.js 24 with npm, then re-run Install.cmd."})
         try:
             free_gb = round(shutil.disk_usage(self.root).free / 1024 ** 3, 1)
         except OSError:
@@ -193,7 +203,10 @@ class InstallationService:
                 self.refresh_game(game)
         except Exception:
             with self._lock:
-                self._jobs[game] = {"state": "error", "message": "Preparation failed. Check your connection and retry. Re-run Install.cmd if dependencies are missing.", "progress": 100}
+                message = ("This experimental bundle's game tools are unavailable. Keep using your existing installation until those tools are verified."
+                    if discover_layout().mode == 'bundle' else
+                    "Preparation failed. Check your connection and retry. Re-run Install.cmd if dependencies are missing.")
+                self._jobs[game] = {"state": "error", "message": message, "progress": 100}
 
     def launch_native(self, kind: str) -> bool:
         if kind not in {"folders", "lexirise", "checks"}:
