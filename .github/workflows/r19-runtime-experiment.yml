@@ -67,11 +67,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Static frontend build failed.' }
           & $env:PYTHON -B -m pytest -q backend/tests/test_runtime_bundle.py backend/tests/test_runtime_composition.py backend/tests/test_runtime_experiment.py backend/tests/test_desktop_frontend.py backend/tests/test_prebuilt_readers.py backend/tests/test_prebuilt_node_reader.py
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
+      - name: Prebuild only the owned NTE bridge on the build host
+        shell: pwsh
+        run: |
+          $pin = Get-Content packaging/game-readers/inputs.json -Raw | ConvertFrom-Json
+          $evidence = Join-Path $env:RUNNER_TEMP 'r19-runtime-managed-inputs'
+          New-Item -ItemType Directory -Path $evidence | Out-Null
+          $archive = Join-Path $evidence $pin.sdk.artifact
+          Invoke-WebRequest $pin.sdk.source -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $pin.sdk.sha512) { throw 'NTE build-host SDK archive hash mismatch.' }
+          $sdk = Join-Path $env:RUNNER_TEMP 'r19-runtime-managed-sdk'
+          Expand-Archive -LiteralPath $archive -DestinationPath $sdk
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -OutputRoot output/runtime-nte-helper -EvidenceRoot $evidence -Dotnet (Join-Path $sdk 'dotnet.exe')
       - name: Observe exact inputs and build isolated executable trees
         shell: pwsh
         run: |
           $inputs = Join-Path $env:RUNNER_TEMP 'r19-integrated-inputs.json'
-          & $env:PYTHON -B packaging/runtime-bundle/record_runtime.py --evidence $env:R19_EVIDENCE --frontend-root (Join-Path $env:GITHUB_WORKSPACE 'output/desktop-frontend') --build-id "runtime-experiment-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $inputs
+          & $env:PYTHON -B packaging/runtime-bundle/record_runtime.py --evidence $env:R19_EVIDENCE --frontend-root (Join-Path $env:GITHUB_WORKSPACE 'output/desktop-frontend') --nte-helper-root (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-nte-helper/nte') --build-id "runtime-experiment-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $inputs
           if ($LASTEXITCODE -ne 0) { throw 'Exact source/archive/installed payload observation failed.' }
           ./scripts/build-runtime-bundle.ps1 -InputManifest $inputs -EvidenceRoot $env:R19_EVIDENCE -Python $env:PYTHON -RuntimeExperiment
       - name: Relocate and probe extracted candidate with no developer environment

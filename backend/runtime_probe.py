@@ -38,6 +38,15 @@ def native(layout):
     if segments:
         raise RuntimeBundleError('Real bundled VAD produced speech for authored silence.')
     layout.work_root.mkdir(parents=True, exist_ok=True)
+    from .prebuilt_readers import prebuilt_reader, reader_environment
+    helper = prebuilt_reader('nte', layout=layout)
+    result = subprocess.run(helper.runtime_identity_command(), env=reader_environment(), cwd=layout.work_root,
+        capture_output=True, timeout=20, check=True)
+    identity = json.loads(result.stdout)
+    if (identity.get('schema') != 'proxy-nte-runtime-identity-v1' or identity.get('runtime_origin') != 'app-local'
+            or identity.get('runtime_version') != '10.0.14' or identity.get('game_execution_approved') is not False
+            or identity.get('corelib_sha256') != helper.manifest['files']['System.Private.CoreLib.dll']['sha256']):
+        raise RuntimeBundleError('The collected NTE bridge did not use its own exact runtime.')
     for kind in EXPERIMENT_CHILDREN:
         if kind not in {'frontend', 'windows-bootstrap', 'asr', 'capture-readiness', 'update-voice'}:
             worker(layout, kind, ['--help'])
@@ -65,7 +74,7 @@ def native(layout):
     destination = layout.default_export_root / 'authored-catalog'
     export_library('halflife', [{'textId': 'halflife:owned-runtime-fixture', 'english': 'Authored runtime fixture',
         'chinese': '\u4e2d\u6587\u6d4b\u8bd5', 'channels': ['dialogue']}], destination, include_audio=False)
-    return {'registry_readers_imported': len(GAMES), 'real_vad_silence': 'passed',
+    return {'registry_readers_imported': len(GAMES), 'real_vad_silence': 'passed', 'nte_bridge_runtime': identity,
         'game_index_worker': 'authored-format-passed', 'language_worker': 'authored-format-passed',
         'export': 'authored-catalog-library-only; worker-help-only',
         'worker_entrypoints': [kind for kind in EXPERIMENT_CHILDREN if kind not in

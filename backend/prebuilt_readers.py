@@ -9,7 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
+from pathlib import PureWindowsPath
 import re
 import stat
 import struct
@@ -83,6 +85,23 @@ class PrebuiltReader:
             raise _failure('The authored helper only accepts its fixed probe operation.')
         return [str(self.executable), '--probe']
 
+    def runtime_identity_command(self):
+        if self.kind != 'nte':
+            raise _failure('Runtime identity is a fixed operation of the owned NTE bridge only.')
+        return [str(self.executable), '--runtime-identity']
+
+
+def reader_environment(environ=None):
+    """An owned apphost must not inherit compiler, loader or account state."""
+    env = {key.upper(): value for key, value in (os.environ if environ is None else environ).items()}
+    windows = env.get('WINDIR') or env.get('SYSTEMROOT')
+    if not windows or not PureWindowsPath(windows).is_absolute():
+        raise _failure('The Windows system runtime location is unavailable.')
+    result = {name: env[name] for name in ('SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP') if env.get(name)}
+    result['PATH'] = str(PureWindowsPath(windows) / 'System32') + ';' + windows
+    result['DOTNET_MULTILEVEL_LOOKUP'] = '0'
+    return result
+
 
 def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
     if kind not in ENTRIES:
@@ -115,6 +134,7 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
             names.add(name.casefold())
             if (type(entry['bytes']) is not int or not 0 <= entry['bytes'] <= 128 * 1024 * 1024
                     or not SHA.fullmatch(str(entry['sha256'])) or name.endswith(('.pdb', '.cs', '.dpapi', '.db'))
+                    or Path(name).name.casefold().startswith(('ueextractor', 'cue4parse', 'oo2core', 'oodle'))
                     or any(part.casefold() in {'data', 'upstream', 'node_modules', '.git'} for part in Path(name).parts)):
                 raise ValueError()
         expected = {prefix + name for name in (*files, 'helper-manifest.json')}
@@ -192,6 +212,12 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
         for name in ('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll'):
             if files[name]['sha256'] not in native_hashes:
                 raise ValueError()
+        owned = {ENTRIES[kind], stem + '.dll', stem + '.deps.json', stem + '.runtimeconfig.json',
+                 'build-receipt.json', 'restore-lock.json'}
+        if kind == 'probe':
+            owned.add('probe-resource.txt')
+        if any('/' not in name and name not in owned and item['sha256'] not in native_hashes for name, item in files.items()):
+            raise ValueError()
         source_identity = _identity(sources)
         return PrebuiltReader(kind, path.parent / ENTRIES[kind], source_identity, value)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, RuntimeBundleError) as error:

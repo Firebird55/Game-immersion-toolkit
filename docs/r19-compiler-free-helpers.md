@@ -30,6 +30,30 @@ replacement remain separate host/R20 work. The full runtime profile stays disabl
 
 ## Managed build inputs
 
+### Owned NTE bridge continuation (2026-10-29)
+
+The integrated runtime now requires the owned self-contained NTE bridge as a
+closed `helpers/nte` resource subtree. Its manifest, build receipt, exact current
+source inputs, runtime files and notices are checked before collection. External
+UEExtractor/CUE4Parse/Oodle files are rejected from that owned subtree. A fixed
+read-only `--runtime-identity` operation reports app-local CoreLib identity;
+normal game dispatch stays blocked independently of receipt approval strings.
+
+The new Windows probe compiles two authored reflection stand-ins on the build
+host, then runs the actual owned bridge's inventory, localization, subtitle,
+bank/media, single-voice and batch-voice paths with developer discovery removed.
+It selects all four voice-language identifiers and five authored text locales,
+checks missing dependencies and unsupported localization version rejection, and
+keeps application/tool/install trees unchanged. The stand-ins contain no actual
+UEExtractor, CUE4Parse, Oodle or game data; their JSON payload is not a real locres
+format fixture. This tests reflection/protocol and compiler-free execution only.
+Windows execution and downloaded evidence must be recorded after the jobs run.
+
+NTE outputs must also stay outside the immutable helper/tool trees. The source
+adapter retains its established SDK build path; no live game or user state is
+used by these probes. The integrated frozen probe will execute only the owned
+bridge's runtime identity operation, never an unapproved game chain.
+
 The dated observation in `packaging/game-readers/inputs.json` records exact
 Microsoft release metadata, SDK **10.0.403**, runtime **10.0.14**, Windows x64 SDK
 archive SHA-512 and the two exact runtime/host NuGet package SHA-512 values. The

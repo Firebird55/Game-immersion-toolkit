@@ -65,12 +65,17 @@ jobs:
           # The owned reflection bridge contains no upstream DLL, codec, game
           # constants or game data. It is quarantined, never executed on a game
           # or uploaded. Full NTE dynamic-loading/rights gates remain open.
+      - name: Exercise the real owned bridge with authored reflected dependencies
+        shell: pwsh
+        run: ./scripts/probe-nte-bridge.ps1 -HelperRoot output/owned-nte-bridge/nte -Dotnet (Join-Path $env:RUNNER_TEMP 'r19-managed-nte-sdk/dotnet.exe') -EvidenceRoot $env:R19_MANAGED_EVIDENCE
       - name: Upload sanitized observation only
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: r19-managed-helper-metadata
-          path: output/checks/r19-managed-helper.json
+          path: |
+            output/checks/r19-managed-helper.json
+            output/checks/r19-nte-bridge.json
           if-no-files-found: ignore
           retention-days: 7
   node-probe:

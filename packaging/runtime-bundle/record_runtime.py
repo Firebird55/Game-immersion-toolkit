@@ -24,6 +24,42 @@ RESOURCES = (
 )
 
 
+def verified_nte(evidence, resources, commit, source):
+    """Bind only the owned bridge. An external game chain cannot enter here."""
+    from types import SimpleNamespace
+    from backend.prebuilt_readers import prebuilt_reader
+    entries = {item['path']: item['sha256'] for item in resources}
+    def resource(name):
+        if name not in entries:
+            raise ClosureError('NTE helper is missing from the outer resource inventory.')
+        return checked_file(evidence, {'path': name, 'sha256': entries[name]})
+    helper = prebuilt_reader('nte', layout=SimpleNamespace(mode='bundle', source_commit=commit,
+        resource_root=evidence, resources=entries, resource=resource))
+    if helper.manifest['source_inputs'] != {name: digest(source / name) for name in helper.manifest['source_inputs']}:
+        raise ClosureError('Owned NTE bridge sources differ from the runtime source commit.')
+    return helper
+
+
+def collect_nte(helper_root, evidence, commit, source):
+    import shutil
+    from backend.prebuilt_readers import _no_links
+    helper_root = helper_root.absolute()
+    for path in (helper_root, *helper_root.rglob('*')):
+        _no_links(path)
+        if not (path.is_file() or path.is_dir()):
+            raise ClosureError('Owned helper inputs must be regular files/directories.')
+    target = evidence / 'helpers/nte'
+    target.parent.mkdir(exist_ok=True)
+    shutil.copytree(helper_root, target)
+    resources = [{'path': path.relative_to(evidence).as_posix(), 'sha256': digest(path), 'version': commit,
+        'source': 'https://github.com/Firebird55/Game-immersion-toolkit/tree/' + commit,
+        'license_expression': 'Owned bridge and exact Microsoft runtime notices; exact-output review pending'}
+        for path in sorted(target.rglob('*')) if path.is_file()]
+    helper = verified_nte(evidence, resources, commit, source)
+    return resources, {'nte': {'build_id': helper.manifest['build_id'], 'source_identity': helper.source_identity,
+        'manifest_sha256': digest(target / 'helper-manifest.json'), 'game_execution_approved': False}}
+
+
 def verify_python(archive, prefix, pin):
     if digest(archive) != pin['sha256']:
         raise ClosureError('Python supplier archive differs from the exact observed pin.')
@@ -91,7 +127,7 @@ def verify_wheel(wheel):
                 raise ClosureError('Installed wheel payload differs from archive: ' + info['Name'])
 
 
-def observe(evidence, frontend, build_id, source=ROOT):
+def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root):
     import shutil
     pin = json.loads((source / 'packaging/runtime-bundle/python-supplier.json').read_text())
     installed_python = verify_python(evidence / pin['archive'], Path(sys.base_prefix), pin)
@@ -107,6 +143,8 @@ def observe(evidence, frontend, build_id, source=ROOT):
     python['installed_files'] = installed_python
     value['python_supplier'] = pin
     value['runtime_lock_sha256'] = digest(source / 'requirements.lock.txt')
+    helpers, value['helpers'] = collect_nte(nte_helper_root, evidence, value['source_commit'], source)
+    value['resources'].extend(helpers)
     for name in RESOURCES:
         original = source / name
         destination = evidence / name
@@ -128,8 +166,9 @@ def main():
     parser.add_argument('--frontend-root', type=Path, required=True)
     parser.add_argument('--build-id', required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--nte-helper-root', type=Path, required=True)
     args = parser.parse_args()
-    value = observe(args.evidence.resolve(), args.frontend_root.resolve(), args.build_id)
+    value = observe(args.evidence.resolve(), args.frontend_root.resolve(), args.build_id, nte_helper_root=args.nte_helper_root)
     args.output.write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
 
 

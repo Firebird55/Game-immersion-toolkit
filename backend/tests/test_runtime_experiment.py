@@ -148,3 +148,26 @@ def test_collected_tree_rejects_empty_private_directories(tmp_path, monkeypatch)
     (tmp_path / 'data').mkdir()
     with pytest.raises(module.ClosureError, match='Private trees'):
         inventory_output(tmp_path)
+
+
+def test_runtime_collection_binds_owned_bridge_to_current_sources_not_only_receipt_strings(tmp_path, monkeypatch):
+    # Reader dispatch tests bind nested/outer files, but did not bind the
+    # packaging collector to the actual source files of this runtime commit.
+    from backend.tests.test_prebuilt_readers import helper_fixture, save, digest
+    module = recorder(monkeypatch)
+    layout, home, manifest = helper_fixture(tmp_path, 'nte')
+    source = tmp_path / 'source'
+    for name in manifest['source_inputs']:
+        path = source / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'owned source fixture')
+    manifest['source_inputs'] = {name: digest((source / name).read_bytes()) for name in manifest['source_inputs']}
+    receipt = json.loads((home / 'build-receipt.json').read_bytes())
+    receipt['source_inputs'] = manifest['source_inputs']
+    data = json.dumps(receipt).encode(); (home / 'build-receipt.json').write_bytes(data)
+    manifest['files']['build-receipt.json'] = {'bytes': len(data), 'sha256': digest(data)}
+    layout = save(layout, home, manifest)
+    resources = [{'path': name, 'sha256': value} for name, value in layout.resources.items()]
+    helper = module.verified_nte(layout.resource_root, resources, layout.source_commit, source)
+    assert helper.kind == 'nte'
+    (source / 'scripts/game-readers/NteReader.cs').write_bytes(b'changed current source')
+    with pytest.raises(module.ClosureError, match='sources differ'):
+        module.verified_nte(layout.resource_root, resources, layout.source_commit, source)

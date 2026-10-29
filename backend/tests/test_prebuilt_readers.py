@@ -45,6 +45,8 @@ def helper_fixture(tmp_path, kind='probe'):
         'System.Private.CoreLib.dll': b'authored runtime fixture', 'probe-resource.txt': b'authored probe fixture',
         'notices/PROJECT-LICENSE.txt': b'Authored fixture notice', 'notices/sdk-LICENSE.txt': b'Authored SDK fixture notice',
         'notices/sdk-ThirdPartyNotices.txt': b'Authored complete third-party fixture notice'}
+    if kind != 'probe':
+        del content['probe-resource.txt']
     content['restore-lock.json'] = b'{"version":1,"dependencies":{"net10.0":{}}}'
     for name in readers.PACKAGES:
         content['notices/' + name + '/LICENSE.TXT'] = b'Authored pinned package fixture notice'
@@ -93,6 +95,31 @@ def test_probe_uses_only_outer_verified_app_local_executable_and_fixed_arguments
     for arguments in ([], ['--probe', 'unrequested'], ['-m', 'arbitrary'], '--probe'):
         with pytest.raises(PreparationFailure):
             helper.command(arguments)
+
+
+def test_owned_nte_identity_does_not_authorize_game_commands_or_external_libraries(tmp_path):
+    layout, home, manifest = helper_fixture(tmp_path, 'nte')
+    helper = readers.prebuilt_reader('nte', layout=layout)
+    assert helper.runtime_identity_command() == [str(home / 'NteReader.exe'), '--runtime-identity']
+    with pytest.raises(PreparationFailure):
+        helper.command(['inventory'])
+    # Rehashing a receipt cannot turn a blocked dependency into an owned file.
+    data = b'authored unreviewed dependency fixture'
+    (home / 'UEExtractor.dll').write_bytes(data)
+    manifest['files']['UEExtractor.dll'] = {'bytes': len(data), 'sha256': digest(data)}
+    layout = save(layout, home, manifest)
+    with pytest.raises(PreparationFailure):
+        readers.prebuilt_reader('nte', layout=layout)
+
+
+def test_apphost_environment_omits_sdk_loader_and_account_state():
+    result = readers.reader_environment({'SystemRoot': r'C:\Windows', 'WINDIR': r'C:\Windows',
+        'TEMP': r'C:\Owned temp', 'PATH': r'C:\SDK;C:\Node', 'DOTNET_ROOT': r'C:\Other runtime',
+        'DOTNET_STARTUP_HOOKS': 'untrusted.dll', 'CORECLR_PROFILER': 'untrusted',
+        'NODE_OPTIONS': '--require=untrusted', 'LEXIRISE_API_KEY': 'owned-fake-test-value'})
+    assert set(result) == {'SYSTEMROOT', 'WINDIR', 'TEMP', 'PATH', 'DOTNET_MULTILEVEL_LOOKUP'}
+    assert result['PATH'] == r'C:\Windows\System32;C:\Windows'
+    assert result['DOTNET_MULTILEVEL_LOOKUP'] == '0'
 
 
 @pytest.mark.parametrize('change', ['missing-outer-file', 'changed-file', 'extra-file', 'empty-directory', 'wrong-machine',
