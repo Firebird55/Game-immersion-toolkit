@@ -1,6 +1,7 @@
 param([Parameter(Mandatory = $true)][string]$RuntimeRoot,
       [Parameter(Mandatory = $true)][string]$Provenance)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'r19-runtime-inventory.ps1')
 $RuntimeRoot = (Resolve-Path -LiteralPath $RuntimeRoot).Path
 $manifest = Get-Content -LiteralPath (Join-Path $RuntimeRoot '_internal/runtime-manifest.json') -Raw | ConvertFrom-Json
 if ($manifest.profile -ne 'runtime-experiment' -or $manifest.source_commit -ne $env:GITHUB_SHA) { throw 'Wrong extracted experiment identity.' }
@@ -52,23 +53,17 @@ function Finish-Probe($process, [string]$kind) {
     if ($result.status -ne 'passed' -or $result.kind -ne $kind -or $result.build_id -ne $manifest.build_id -or $result.source_commit -ne $env:GITHUB_SHA -or $result.r19_complete -ne $false) { throw 'Frozen runtime probe identity or scope mismatch.' }
     return $result
 }
-function Inventory([string]$folder) {
-    return @((Get-ChildItem -LiteralPath $folder -Recurse | Sort-Object FullName | ForEach-Object {
-        $name = $_.FullName.Substring($folder.Length + 1).Replace('\', '/')
-        if ($_.PSIsContainer) { 'directory:' + $name }
-        else { 'file:' + $name + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
-    }))
-}
 $native = $null; $asr = $null; $api = $null; $websocket = $null
 New-Item -ItemType Directory -Path (Join-Path $temporary 'empty-host'), $roots.PROXY_TRANSCRIPT_STATE_ROOT -Force | Out-Null
 @{build_id=$manifest.build_id; synthetic=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $roots.PROXY_TRANSCRIPT_STATE_ROOT 'synthetic-probe.json') -Encoding utf8NoBOM
 try {
+    Test-R19RuntimeInventory $temporary
     $proof = Get-Content -LiteralPath $Provenance -Raw | ConvertFrom-Json
-    $before = @(Inventory $RuntimeRoot)
+    $before = @(Get-R19RuntimeInventory $RuntimeRoot)
     $expected = @($proof.files | ForEach-Object { 'file:' + $_.path + ':' + $_.sha256 })
     $expected += @($proof.directories | ForEach-Object { 'directory:' + $_ })
     if (@(Compare-Object @($before | Sort-Object) @($expected | Sort-Object) -CaseSensitive).Count) { throw 'Extracted tree differs from the complete candidate inventory.' }
-    Get-ChildItem -LiteralPath $RuntimeRoot -File -Recurse | ForEach-Object { $_.IsReadOnly = $true }
+    Get-ChildItem -LiteralPath $RuntimeRoot -File -Recurse -Force | ForEach-Object { $_.IsReadOnly = $true }
     # No SDK, compiler, package manager or external interpreter is inherited.
     $native = Finish-Probe (Start-Owned (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') '--runtime-probe native') 'native'
     $asr = Finish-Probe (Start-Owned (Join-Path $RuntimeRoot 'asr/ProxyTranscriptAsr.exe') '--runtime-probe asr') 'asr'
@@ -113,9 +108,9 @@ try {
             if ($event.type -ne 'snapshot' -or $event.snapshot.capture.running -or @($event.snapshot.game_textmaps.PSObject.Properties).Count -lt 25) { throw 'Actual frozen WebSocket snapshot lost capture or registry state.' }
         } finally { $message.Dispose() }
     } finally { $cancel.Dispose() }
-    $after = @(Inventory $RuntimeRoot)
+    $after = @(Get-R19RuntimeInventory $RuntimeRoot)
     if (@(Compare-Object $before $after -CaseSensitive).Count) { throw 'Frozen runtime wrote into its application tree.' }
-    $forbidden = @(Get-ChildItem -LiteralPath $temporary -File -Recurse | Where-Object { $_.Extension -eq '.dpapi' })
+    $forbidden = @(Get-ChildItem -LiteralPath $temporary -File -Recurse -Force | Where-Object { $_.Extension -eq '.dpapi' })
     if ($forbidden.Count) { throw 'Synthetic probes unexpectedly wrote protected account state.' }
 } finally {
     if ($websocket) { $websocket.Abort(); $websocket.Dispose() }
@@ -124,7 +119,7 @@ try {
         if (-not $process.WaitForExit(10000)) { throw 'An owned runtime process did not stop.' }
         $process.Dispose()
     }
-    Get-ChildItem -LiteralPath $RuntimeRoot -File -Recurse | ForEach-Object { $_.IsReadOnly = $false }
+    Get-ChildItem -LiteralPath $RuntimeRoot -File -Recurse -Force | ForEach-Object { $_.IsReadOnly = $false }
     # Keep failure logs private until the runner expires; success removes all
     # owned fixture data before any passing metadata can be written.
     if ($native -and $asr -and $ready -and $after -and -not $forbidden.Count) { Remove-Item -LiteralPath $temporary -Recurse -Force }
@@ -137,6 +132,7 @@ New-Item -ItemType Directory -Path (Split-Path $output) -Force | Out-Null
     inventory_sha256=(Get-FileHash -LiteralPath (Join-Path (Split-Path $Provenance) 'RUNTIME-INVENTORY.json') -Algorithm SHA256).Hash.ToLowerInvariant();
     native=$native; asr=$asr; frontend_api_http_ws='passed'; api_external_side_effects='mocked';
     developer_environment='cleared; only OS essentials and synthetic roots'; application_writes_observed=$false;
+    hidden_system_inventory_fixture='passed';
     owned_cleanup='passed'; r19_complete=$false; rights_review='pending-exact-output'; native_windows_11_acceptance='unavailable';
     native_ocr_capture='not-run'; installed_game_playback='not-run'; installer='not-built'} |
     ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $output -Encoding utf8

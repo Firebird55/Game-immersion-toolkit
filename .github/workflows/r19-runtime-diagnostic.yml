@@ -164,7 +164,9 @@ jobs:
           $env:PATH = "$env:WINDIR/System32;$env:WINDIR"
           Remove-Item Env:PYTHON -ErrorAction SilentlyContinue
           Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
-          $before = @(Get-ChildItem -LiteralPath $relocated -File -Recurse | Sort-Object FullName | ForEach-Object { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }) -join ','
+          . (Join-Path $env:GITHUB_WORKSPACE 'scripts/r19-runtime-inventory.ps1')
+          Test-R19RuntimeInventory $env:RUNNER_TEMP
+          $before = @(Get-R19RuntimeInventory $relocated) -join ','
           Push-Location $env:RUNNER_TEMP
           try {
             $result = & (Join-Path $relocated 'ProxyTranscriptRuntime.exe') --runtime-diagnose | ConvertFrom-Json
@@ -174,11 +176,12 @@ jobs:
               & (Join-Path $env:GITHUB_WORKSPACE 'scripts/probe-frozen-frontend.ps1') -RuntimeRoot $relocated
             }
           } finally { Pop-Location }
-          $after = @(Get-ChildItem -LiteralPath $relocated -File -Recurse | Sort-Object FullName | ForEach-Object { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }) -join ','
+          $after = @(Get-R19RuntimeInventory $relocated) -join ','
           if ($before -ne $after -or (Test-Path -LiteralPath $state)) { throw 'Root resolution wrote to the immutable candidate or synthetic state.' }
           $executableHash = (Get-FileHash -LiteralPath (Join-Path $relocated 'ProxyTranscriptRuntime.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
           $provenanceHash = (Get-FileHash -LiteralPath output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json -Algorithm SHA256).Hash.ToLowerInvariant()
           $report = @{schema='proxy-r19-hosted-diagnostic-v1'; source_commit=$env:GITHUB_SHA; profile='${{ matrix.profile }}'; executable_sha256=$executableHash; candidate_provenance_sha256=$provenanceHash; relocated_start='pass'; developer_path='removed'; application_writes_observed=$false; r19_complete=$false; native_windows_11_acceptance='unavailable'; redistribution_review='pending-exact-output'; full_toolchains='unavailable'; browser_equivalence='separate-report'; installer='not-built'}
+          $report.hidden_system_inventory_fixture = 'passed'
           New-Item -ItemType Directory -Path output/checks -Force | Out-Null
           $report | ConvertTo-Json | Set-Content output/checks/r19-hosted-diagnostic.json -Encoding utf8
       - name: Upload sanitized metadata only

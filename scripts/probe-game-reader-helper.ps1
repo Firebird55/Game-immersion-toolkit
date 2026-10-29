@@ -1,5 +1,6 @@
 param([Parameter(Mandatory = $true)][string]$HelperRoot)
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'r19-runtime-inventory.ps1')
 $output = Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-managed-helper.json'
 if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output }
 # Authored helper only: no installed game, account, recording or user profile.
@@ -11,9 +12,7 @@ New-Item -ItemType Directory -Path $temporary | Out-Null
 $candidate = Join-Path $temporary 'Application space 漢字'
 $process = $null
 function Snapshot([string]$Root) {
-  return @(Get-ChildItem -LiteralPath $Root -Recurse | Sort-Object FullName | ForEach-Object {
-    $_.FullName.Substring($Root.Length) + ':' + $(if ($_.PSIsContainer) { 'directory' } else { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash })
-  }) -join ','
+  return @(Get-R19RuntimeInventory $Root) -join ','
 }
 function Invoke-OwnedProbe([string]$Root, [string]$Request) {
   $info = [Diagnostics.ProcessStartInfo]::new()
@@ -47,6 +46,7 @@ function Invoke-OwnedProbe([string]$Root, [string]$Request) {
   return @{code=$script:process.ExitCode; stdout=$stdout.GetAwaiter().GetResult(); stderr=$stderr.GetAwaiter().GetResult()}
 }
 try {
+  Test-R19RuntimeInventory $temporary
   $HelperRoot = [IO.Path]::GetFullPath($HelperRoot)
   $ancestor = $HelperRoot
   while ($ancestor) {
@@ -60,7 +60,7 @@ try {
   if ($manifest.schema -ne 'proxy-prebuilt-dotnet-reader-v1' -or $manifest.kind -ne 'probe' -or $manifest.entry -ne 'ToolkitReaderProbe.exe' -or $manifest.source_commit -ne $env:GITHUB_SHA -or $manifest.sdk_version -ne '10.0.403' -or $manifest.runtime_version -ne '10.0.14' -or $manifest.platform -ne 'win-x64') { throw 'Only the matching fixed authored helper can enter this probe.' }
   if ($manifest.source_dirty -isnot [bool] -or $manifest.source_dirty) { throw 'Hosted source evidence requires a clean exact-commit helper build.' }
   $listed = @($manifest.files.PSObject.Properties)
-  if ($listed.Count -lt 8 -or @(Get-ChildItem -LiteralPath $candidate -File -Recurse).Count -ne $listed.Count + 1) { throw 'The authored helper inventory is incomplete.' }
+  if ($listed.Count -lt 8 -or @(Get-ChildItem -LiteralPath $candidate -File -Recurse -Force).Count -ne $listed.Count + 1) { throw 'The authored helper inventory is incomplete.' }
   foreach ($item in $listed) {
     $name = $item.Name
     if ($name.StartsWith('/') -or $name.Contains('\') -or $name.Contains(':') -or @($name.Split('/') | Where-Object { -not $_ -or $_ -in @('.','..') }).Count) { throw 'The helper manifest contains an unsafe path.' }
@@ -68,7 +68,7 @@ try {
     if ($file.PSIsContainer -or $file.Length -ne $item.Value.bytes -or (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() -ne $item.Value.sha256) { throw 'The authored helper bytes differ from its manifest.' }
   }
   $before = Snapshot $candidate
-  Get-ChildItem -LiteralPath $candidate -File -Recurse | ForEach-Object { $_.IsReadOnly = $true }
+  Get-ChildItem -LiteralPath $candidate -File -Recurse -Force | ForEach-Object { $_.IsReadOnly = $true }
   $env:PATH = "$env:WINDIR/System32;$env:WINDIR"
   $env:DOTNET_ROOT = Join-Path $temporary 'absent-system-dotnet'
   $env:DOTNET_MULTILEVEL_LOOKUP = '0'
@@ -96,9 +96,10 @@ try {
   $env:PATH = $originalPath
   $env:DOTNET_ROOT = $originalDotnetRoot
   $env:DOTNET_MULTILEVEL_LOOKUP = $originalLookup
-  Get-ChildItem -LiteralPath $temporary -File -Recurse | ForEach-Object { $_.IsReadOnly = $false }
+  Get-ChildItem -LiteralPath $temporary -File -Recurse -Force | ForEach-Object { $_.IsReadOnly = $false }
   Remove-Item -LiteralPath $temporary -Recurse -Force
 }
 New-Item -ItemType Directory -Path (Split-Path $output) -Force | Out-Null
 $receipt.owned_cleanup = 'passed'
+$receipt.hidden_system_inventory_fixture = 'passed'
 $receipt | ConvertTo-Json | Set-Content -LiteralPath $output -Encoding utf8
