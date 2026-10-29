@@ -16,6 +16,7 @@ On a Windows build host, provision the pinned archive and locked wheels, build
 the desktop frontend and publish the owned NTE bridge from the exact pinned SDK
 on that build host. Then run `record_runtime.py --evidence <private-evidence>
 --frontend-root <built-desktop> --nte-helper-root <owned-nte-directory>
+--codec-root <prepared-experimental-codec>
 --build-id <identity> --output <private-inputs>`
 and `scripts/build-runtime-bundle.ps1 -RuntimeExperiment` with its mandatory
 input/evidence/Python arguments. The integrated experiment workflow performs
@@ -37,6 +38,12 @@ The owned NTE bridge adds only a fixed read-only app-local runtime identity
 operation to the frozen probe. Normal game dispatch remains blocked until its
 external assembly/native chain and rights are accepted. Private Endfield/REE
 builds use a distinct blocked manifest and cannot enter this collection.
+The first [codec experiment](../../docs/r19-codec-experiment.md) requires an exact
+prepared FFmpeg/notice subtree. Build-host preparation uses
+scripts/prepare-runtime-codec.py --wheel <exact-wheel> --output <fresh-directory>;
+only the fixed bounded FLAC-to-PCM operation is permitted in this profile.
+Ordinary game FFmpeg remains unavailable and distribution/servicing/native gates
+remain open. No imageio wrapper, package manager or runtime download is enabled.
 
 The integrated workflow and extracted probes must actually pass before claiming
 this scope. Local source tests alone cannot establish a Windows frozen build.

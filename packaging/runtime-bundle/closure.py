@@ -150,8 +150,10 @@ def validate_inputs(value, source, evidence, *, check_host=True):
                 or (value['profile'] == 'frontend-experiment' and len(resources) != len(expected))):
             raise ClosureError('Frontend candidate must collect exactly the verified public desktop tree, version and lock from this commit.')
     if value['profile'] == 'runtime-experiment':
-        from record_runtime import RESOURCES, verified_nte
+        from record_runtime import RESOURCES, verified_nte, verified_codec, codec_identity
         helper = verified_nte(evidence, resources, value['source_commit'], source)
+        codec = verified_codec(evidence, resources, value['source_commit'], source)
+        codec_names = {'codecs/ffmpeg-flac/' + name for name in (*codec.manifest['files'], 'codec-manifest.json')}
         helper_names = {'helpers/nte/' + name for name in (*helper.manifest['files'], 'helper-manifest.json')}
         helper_identity = {'nte': {'build_id': helper.manifest['build_id'], 'source_identity': helper.source_identity,
             'manifest_sha256': digest(evidence / 'helpers/nte/helper-manifest.json'), 'game_execution_approved': False}}
@@ -160,10 +162,11 @@ def validate_inputs(value, source, evidence, *, check_host=True):
                 or python['artifact']['sha256'] != pin['sha256'] or python['source'] != pin['url']
                 or value.get('runtime_lock_sha256') != digest(source / 'requirements.lock.txt')
                 or value.get('helpers') != helper_identity
-                or {item['path'] for item in resources} != set(RESOURCES) | set(expected) | helper_names):
+                or value.get('codecs') != codec_identity(codec)
+                or {item['path'] for item in resources} != set(RESOURCES) | set(expected) | helper_names | codec_names):
             raise ClosureError('Integrated experiment supplier, lock or exact resource closure differs.')
         for resource in resources:
-            if not resource['path'].startswith(('desktop/', 'helpers/')) and digest(source / resource['path']) != resource['sha256']:
+            if not resource['path'].startswith(('desktop/', 'helpers/', 'codecs/')) and digest(source / resource['path']) != resource['sha256']:
                 raise ClosureError('Experimental resource differs from source.')
     if value['profile'] == 'runtime':
         required_resources = {'package.json', 'public/mobile-capture/games-data.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
@@ -250,6 +253,7 @@ def write_candidate(value, source, evidence, output):
                 'notice_sha256': [notice['sha256'] for notice in item['licenses']],
                 'rights_review': 'pending-exact-output'} for item in value['components']],
             'helpers': value.get('helpers', {}),
+            'codecs': value.get('codecs', {}),
             'gates': {name: 'pending' for name in GATES}, 'r19_complete': False,
             'native_windows_11_acceptance': 'unavailable', 'installer': 'not-built'}
         (output / 'RUNTIME-INVENTORY.json').write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8')

@@ -47,6 +47,8 @@ def native(layout):
             or identity.get('runtime_version') != '10.0.14' or identity.get('game_execution_approved') is not False
             or identity.get('corelib_sha256') != helper.manifest['files']['System.Private.CoreLib.dll']['sha256']):
         raise RuntimeBundleError('The collected NTE bridge did not use its own exact runtime.')
+    from .codec_probe import probe as codec_probe
+    codec = codec_probe(layout)
     for kind in EXPERIMENT_CHILDREN:
         if kind not in {'frontend', 'windows-bootstrap', 'asr', 'capture-readiness', 'update-voice'}:
             worker(layout, kind, ['--help'])
@@ -75,6 +77,7 @@ def native(layout):
     export_library('halflife', [{'textId': 'halflife:owned-runtime-fixture', 'english': 'Authored runtime fixture',
         'chinese': '\u4e2d\u6587\u6d4b\u8bd5', 'channels': ['dialogue']}], destination, include_audio=False)
     return {'registry_readers_imported': len(GAMES), 'real_vad_silence': 'passed', 'nte_bridge_runtime': identity,
+        'codec': codec,
         'game_index_worker': 'authored-format-passed', 'language_worker': 'authored-format-passed',
         'export': 'authored-catalog-library-only; worker-help-only',
         'worker_entrypoints': [kind for kind in EXPERIMENT_CHILDREN if kind not in

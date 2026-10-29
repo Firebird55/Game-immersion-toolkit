@@ -63,6 +63,47 @@ def collect_nte(helper_root, evidence, commit, source):
         'manifest_sha256': digest(target / 'helper-manifest.json'), 'game_execution_approved': False}}
 
 
+def verified_codec(evidence, resources, commit, source):
+    from types import SimpleNamespace
+    from backend.prebuilt_codecs import prebuilt_flac_decoder
+    entries = {item['path']: item['sha256'] for item in resources}
+    def resource(name):
+        if name not in entries:
+            raise ClosureError('Codec is missing from the outer resource inventory.')
+        return checked_file(evidence, {'path': name, 'sha256': entries[name]})
+    codec = prebuilt_flac_decoder(layout=SimpleNamespace(mode='bundle', profile='runtime-experiment',
+        source_commit=commit, resource_root=evidence, resources=entries, resource=resource))
+    if codec.manifest['source_inputs'] != {name: digest(source / name) for name in codec.manifest['source_inputs']}:
+        raise ClosureError('Codec preparation sources differ from the runtime source commit.')
+    return codec
+
+
+def codec_identity(codec):
+    return {'ffmpeg-flac': {'build_id': codec.manifest['build_id'],
+        'manifest_sha256': digest(codec.executable.parent / 'codec-manifest.json'),
+        'artifact_sha256': codec.manifest['archive_sha256'], 'production_execution_allowed': False}}
+
+
+def collect_codec(codec_root, evidence, commit, source):
+    import shutil
+    from backend.prebuilt_readers import _no_links
+    codec_root = codec_root.absolute()
+    for path in (codec_root, *codec_root.rglob('*')):
+        _no_links(path)
+        if not (path.is_file() or path.is_dir()):
+            raise ClosureError('Codec inputs must be regular files/directories.')
+    target = evidence / 'codecs/ffmpeg-flac'
+    _no_links(target.absolute())
+    target.parent.mkdir(exist_ok=True)
+    shutil.copytree(codec_root, target)
+    resources = [{'path': path.relative_to(evidence).as_posix(), 'sha256': digest(path), 'version': '7.1',
+        'source': 'https://pypi.org/project/imageio-ffmpeg/0.6.0/',
+        'license_expression': 'Exact upstream notices retained; GPL/source/native review pending'}
+        for path in sorted(target.rglob('*')) if path.is_file()]
+    codec = verified_codec(evidence, resources, commit, source)
+    return resources, codec_identity(codec)
+
+
 def verify_python(archive, prefix, pin):
     if digest(archive) != pin['sha256']:
         raise ClosureError('Python supplier archive differs from the exact observed pin.')
@@ -130,7 +171,7 @@ def verify_wheel(wheel):
                 raise ClosureError('Installed wheel payload differs from archive: ' + info['Name'])
 
 
-def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root):
+def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root, codec_root):
     import shutil
     pin = json.loads((source / 'packaging/runtime-bundle/python-supplier.json').read_text())
     installed_python = verify_python(evidence / pin['archive'], Path(sys.base_prefix), pin)
@@ -148,6 +189,8 @@ def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root):
     value['runtime_lock_sha256'] = digest(source / 'requirements.lock.txt')
     helpers, value['helpers'] = collect_nte(nte_helper_root, evidence, value['source_commit'], source)
     value['resources'].extend(helpers)
+    codecs, value['codecs'] = collect_codec(codec_root, evidence, value['source_commit'], source)
+    value['resources'].extend(codecs)
     for name in RESOURCES:
         original = source / name
         destination = evidence / name
@@ -170,8 +213,10 @@ def main():
     parser.add_argument('--build-id', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--nte-helper-root', type=Path, required=True)
+    parser.add_argument('--codec-root', type=Path, required=True)
     args = parser.parse_args()
-    value = observe(args.evidence.resolve(), args.frontend_root.resolve(), args.build_id, nte_helper_root=args.nte_helper_root)
+    value = observe(args.evidence.resolve(), args.frontend_root.resolve(), args.build_id,
+        nte_helper_root=args.nte_helper_root, codec_root=args.codec_root)
     args.output.write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
 
 

@@ -82,6 +82,9 @@ not change the acceptance contract or approve production activation.
 The continued [compiler-free helper experiment](r19-compiler-free-helpers.md)
 separates authored packaging probes, the owned NTE bridge and blocked game chains.
 It does not convert unresolved helper rights or native evidence into approval.
+The [first codec step](r19-codec-experiment.md) adds one pinned experimental
+FFmpeg artifact, fixed FLAC-to-PCM dispatch and an independently authored decode
+case. General game FFmpeg, redistribution and Windows 11 gates remain open.
 
 All [R18 component gates](r18-runtime-components.md) remain binding for the
 actual shipped bytes. Exact maintained CPython supplier, Windows wheels and

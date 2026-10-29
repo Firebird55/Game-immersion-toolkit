@@ -174,7 +174,8 @@ def test_runtime_collection_binds_owned_bridge_to_current_sources_not_only_recei
 
 
 @pytest.mark.parametrize('linked', ['evidence', 'helpers'])
-def test_nte_collection_rejects_linked_destination_before_copying_outside_evidence(tmp_path, monkeypatch, linked):
+@pytest.mark.parametrize('kind', ['nte', 'codec'])
+def test_collection_rejects_linked_destination_before_copying_outside_evidence(tmp_path, monkeypatch, linked, kind):
     # Input-tree link checks do not protect the copy destination: validation
     # after copytree used to leave helper bytes in an unrelated directory.
     from backend.preparation_errors import PreparationFailure
@@ -187,12 +188,13 @@ def test_nte_collection_rejects_linked_destination_before_copying_outside_eviden
     link = evidence
     if linked == 'helpers':
         evidence.mkdir()
-        link = evidence / 'helpers'
+        link = evidence / ('helpers' if kind == 'nte' else 'codecs')
     try:
         link.symlink_to(outside, target_is_directory=True)
     except OSError:
         pytest.skip('This host cannot create directory symlinks.')
     with pytest.raises(PreparationFailure):
-        module.collect_nte(helper, evidence, 'a' * 40, tmp_path / 'source')
+        collect = module.collect_nte if kind == 'nte' else module.collect_codec
+        collect(helper, evidence, 'a' * 40, tmp_path / 'source')
     assert list(outside.iterdir()) == [preserved]
     assert preserved.read_bytes() == b'preserve unrelated bytes'

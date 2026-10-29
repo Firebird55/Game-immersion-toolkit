@@ -7,6 +7,9 @@ The acceptance contract remains the [R18 plan](r18-runtime-inventory.md#r19-acce
 [storage/host contract](r18-storage-host-contract.md). Current implementation and
 exact test/artifact identities are in the [runtime evidence](r19-runtime-bundle.md)
 and [helper evidence](r19-compiler-free-helpers.md).
+The [first codec slice](r19-codec-experiment.md) now implements experimental fixed
+FFmpeg/FLAC dispatch and its decode/failure probe; broader codecs and rights remain
+open. Its execution evidence is separate from the earlier checkpoint below.
 
 The deliverable is an extracted Windows x64 runtime that an ordinary user can
 operate without separately installed Python/Node/npm, a Wrangler service, an
@@ -300,7 +303,9 @@ game media, raw compiler logs or recordings as failure artifacts.
 
 ## Immediate next implementation slice
 
-Start A1/A3 and B1 with one accepted codec artifact and one independently authored
+Continue A1/A3 and B1 from the first experimental codec slice. Complete that
+artifact's open review before considering it accepted for production. For the
+next codec family use one accepted codec artifact and one independently authored
 real decode, plus missing/corrupt/cancellation cases. Add its exact disposition
 record and closed frozen resolver before the next codec family. Continue that
 pattern for FFmpeg/vgmstream; do not put all codecs and games into the first
