@@ -11,11 +11,11 @@ part of this work. Build tools below run on a build host, not on the user's PC.
 | Helper | Implemented direction | Remaining gate |
 | --- | --- | --- |
 | Authored .NET probe | Fixed JSON stdin/stdout operation, self-contained `win-x64` directory, app-local runtime/resource identity and hash-bound inventory; hosted Server probe passed | Exact-output/runtime/native Windows 11 review; this probe authorizes no game |
-| Owned NTE bridge | Self-contained publishing of the existing reflection bridge, with no trimming or single-file extraction; frozen source identity comes from verified resources | UEExtractor dynamic assembly/native dependency closure, Oodle rights and functional installed-game evidence; bridge publishing cannot authorize execution |
-| Endfield | Frozen preparation refuses SDK/download/restore before reaching the source adapter | Selected upstream `Keys.cs` contains unreviewed game-derived constants; no Endfield artifact is collected |
+| Owned NTE bridge | Collected self-contained bridge with exact source/resource identity; app-local runtime and actual reflection/protocol fixture passed on Server 2025 | Actual UEExtractor/CUE4Parse/native dependency closure, Oodle rights and installed-game evidence; authored stand-ins cannot approve that chain |
+| Endfield | Actual selected reader prebuilt in separate blocked quarantine; app-local runtime/hashing and empty/malformed-input probes passed | Embedded game constants, file-level port provenance, real VFS/audio and Windows 11 acceptance; no Endfield artifact is collected |
 | Authored Node probe | Exact app-local Node, module worker and authored WASM; absolute immutable entry/resource paths and private work; hosted Server probe passed | Exact runtime/native/notices and Windows 11 review; no real ZZZ extraction claim |
 | ZZZ production reader | Separate build-only quarantine preparation with pinned source/module inputs; frozen production dispatch remains blocked | GPL/corresponding-source obligations, upstream custom terms, game-derived metadata and actual reader/codec probes |
-| PRAGMATA selective REE | Existing frozen refusal retained | Modified x86 helper redistribution rights, prebuilt artifact and WOW64/native evidence |
+| PRAGMATA selective REE | Actual modified x86 helper precompiled in blocked quarantine; authored uncompressed PAK selection and oversized-table rejection passed | Modified helper/native redistribution, compressed/encrypted formats, clean Windows 11 WOW64/Framework and installed-game evidence; frozen dispatch stays blocked |
 
 The game resolvers never interpret an `approved` string, an authored probe or a
 successful build as permission to run an incomplete game chain. Missing, changed,
@@ -47,7 +47,7 @@ checks missing dependencies and unsupported localization version rejection, and
 keeps application/tool/install trees unchanged. The stand-ins contain no actual
 UEExtractor, CUE4Parse, Oodle or game data; their JSON payload is not a real locres
 format fixture. This tests reflection/protocol and compiler-free execution only.
-Windows execution and downloaded evidence must be recorded after the jobs run.
+The exact Windows execution and downloaded metadata are recorded below.
 
 NTE outputs must also stay outside the immutable helper/tool trees. The source
 adapter retains its established SDK build path; no live game or user state is
@@ -65,18 +65,17 @@ inventory. Package license labels alone do not establish collected-file approval
 
 Use `scripts/build-game-reader-helpers.ps1 -Kind probe` or `-Kind nte` with a fresh
 ignored output slot, the exact expanded SDK executable and its private evidence
-directory. `endfield` is deliberately unavailable. No upstream game DLL, game
-constant, account blob, recording or proprietary OCR/Decima file enters these
-owned helper outputs. The NTE bridge is quarantined and is not executed on a game.
+directory. `endfield` is unavailable to the runtime; its explicit blocked build
+mode is described below. No upstream game DLL, game constant, account blob,
+recording or proprietary OCR/Decima file enters these owned helper outputs.
+The NTE bridge is quarantined and is not executed on a game.
 
 The probe checks its CoreLib origin under its own application directory and
 reports logical runtime identity rather than a private path. Its authored resource
 has fixed UTF-8 bytes. Malformed input and a missing/changed resource return distinct
 nonzero statuses. It performs no filesystem writes or network/account operations.
 
-## App-local Node inputs
-
-### Private real-reader preparation (2026-10-29)
+## Private real-reader preparation (2026-10-29)
 
 Endfield's actual selected 14-file source subset can now be prepared and
 self-contained-published on a Windows build host with explicit
@@ -91,8 +90,9 @@ file-level port provenance. Its assembly remains private and unapproved.
 The actual modified selective REE reader is separately precompiled as x86 using
 the build host's publisher-verified Windows Framework compiler. The exact source
 and native/reference ZIP hashes are retained. An adapter permits private project
-lists outside the immutable helper directory, without changing the source SDK
-adapter. The authored uncompressed PAK fixture contains independently generated
+lists outside the immutable helper directory; dependency checks use its absolute
+application directory. The original source SDK adapter is unchanged. The authored
+uncompressed PAK fixture contains independently generated
 path hashes, one requested and one unrequested resource, plus an oversized header.
 This exercises real selection and rejection, not a stock all-files unpacker.
 
@@ -109,14 +109,16 @@ and hashing identities, empty-pack behavior for all four voice choices and
 malformed/missing-voice rejection. It does not prove actual encrypted VFS/audio
 formats. REE's probe checks actual x86 execution with cleared developer environment
 on the authored uncompressed PAK; compression/encryption, WOW64/Framework on clean
-Windows 11 and installed-game playback remain separate gates. Results must be
-recorded after hosted execution. The local source preparation verified all 14
-Endfield files and 17 adapted REE files; 85 affected pure contracts passed.
+Windows 11 and installed-game playback remain separate gates. The local source
+preparation verified all 14 Endfield files and 17 adapted REE files; 85 affected
+pure contracts passed.
 
 The selected REE commit has no established license grant in an accessible
 `LICENSE` file; its README documents Framework 4.7.2/build prerequisites but is
 not treated as a redistribution license. Third-party native/source obligations
 remain unapproved. This work does not close that gate or approve shipping it.
+
+## App-local Node inputs
 
 The observed Node **24.22.1** Windows x64 archive and executable are pinned to the
 official release and `SHASUMS256.txt`; complete archive LICENSE bytes are retained.
@@ -143,7 +145,71 @@ Windows Server evidence cannot establish Windows 11 25H2 OCR/capture/DPI, instal
 voice playback, complete loaded-DLL/CRT closure or clean real-user acceptance.
 Native Windows gates remain explicit; `r19_complete` stays false.
 
-## Local checks before hosted execution
+## Continued Windows evidence (2026-10-29)
+
+[Helper run 40882378706](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40882378706)
+passed both jobs at clean `a72c703dbb592b9ba4f6b701d1b1911715f7948c`.
+The actual NTE bridge passed `inventory`, `index`, `voice` and `voices` with
+authored reflected assemblies, all four voice-language identifiers and five
+text locales. Its runtime identity reports app-local **10.0.14** CoreLib.
+Malformed inputs, absent dependencies and unsupported localization version
+were rejected, immutable trees were unchanged and owned cleanup passed.
+This is an actual bridge/protocol execution pass, not a real locres parser,
+UEExtractor/CUE4Parse/Oodle or installed-game pass. The independent managed and
+Node probes also passed within their existing authored scopes.
+
+[Private reader run 40882378766](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40882378766)
+passed both actual precompiled readers at that same clean source. Endfield
+confirmed app-local CoreLib **10.0.14** and the exact System.IO.Hashing DLL,
+empty-pack inventory for all four voice choices and malformed/missing-voice
+rejection. PRAGMATA confirmed x86 execution, exact requested resource bytes,
+skipping the unrequested resource and rejecting an oversized PAK table.
+Both cleared inherited developer/loader/account variables, retained unchanged
+application/input trees and confirmed cleanup. Their receipts retain
+`runtime_collection_allowed: false`, `game_execution_approved: false`,
+`redistribution_review: not-established`, open embedded-constant review and
+unavailable native Windows 11 acceptance. No real game or account was accessed.
+
+Downloaded metadata ZIPs matched GitHub's published SHA-256 digests. Their exact
+clean source identity, scope, successful status/cleanup and incomplete acceptance
+fields were checked independently. The metadata ZIPs contain no private binaries
+or selected upstream source; binary hashes remain runner observations.
+
+| Metadata artifact | ZIP SHA-256 |
+| --- | --- |
+| Managed/NTE `12900463381` | `0b2a1469bf64cab6ac206a7512204a1cc7051e8803a677a5a903b87259455fa9` |
+| Endfield `12901146838` | `f23d344815f38ee9f1435a5541f4cd6d032f1fcf92cc9a096c9b6fc85b5ebd94` |
+| PRAGMATA `12901146607` | `650f0b3a5659c6b00ef004f5bc5739e6f1b957f7e490e14b9beba303286d8996` |
+
+The preceding private-reader run `40877210584` built both helpers and passed
+Endfield, but PRAGMATA failed its first extraction because upstream checked for
+reference DLLs relative to the unrelated working directory. The private adapter
+now resolves those checks from the immutable application directory and retains
+the exact Framework configuration. The corrected actual fixture passed above;
+no selection, rejection or output assertion was relaxed.
+
+The [frontend/stdlib/protected-TEST run 40882378852](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40882378852)
+also passed all three jobs at `a72c703`. An earlier frontend comparison at
+`d6e593a` failed the existing 1.8% pixel criterion in `40877210472`; the failed
+job passed on an unchanged repeat, with no threshold, retry or assertion change.
+That failure remains part of the evidence. Integrated collection and runtime
+identity passed separately at `d6e593a` with **112 affected contracts**; exact
+inventory and receipt evidence are in the
+[runtime observation](r19-runtime-bundle.md#integrated-owned-nte-bridge).
+The subsequent REE-only correction did not change that runtime or NTE builder.
+
+Local affected pure contracts passed **85 tests**. Stable-source aggregate
+`check:changed -- --base upstream/main` record
+`9eeb2302-38b4-4f27-8b3c-dfd895b3fc95` remains **failed/incomplete**: typecheck
+and 271 Node tests passed (one skipped), then collection lacked macOS
+`pyaudiowpatch`; later aggregate commands did not run. Workflow parsing,
+documentation links, public audit and diff checks passed separately. The public
+compatibility watch returned 2 on 2026-10-29 for docs/UI changes with no endpoint
+additions/removals; its baseline remains unchanged pending full lookup/UI review.
+No full source/browser/package pass is claimed for this helper commit; the
+previous full candidate retains its exact source identity in the runtime report.
+
+## Earlier local and hosted checks
 
 The combined affected Python selection passed **202 cases** on task-local Python
 3.12.13. Five Node helper tests, typecheck, workflow YAML parsing, documentation and

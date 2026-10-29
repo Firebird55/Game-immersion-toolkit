@@ -1,7 +1,8 @@
 # R19 quarantined Windows onedir prototype
 
 The `runtime-experiment` profile now assembles the static frontend, backend,
-dynamic game readers and workers, VAD resources and a separate ASR native tree.
+dynamic game readers and workers, VAD resources, the owned self-contained NTE
+bridge and a separate ASR native tree.
 It uses the exact observed CPython 3.12.16 Windows archive in
 `python-supplier.json`. `record_runtime.py` compares installed Python/wheel
 payloads with their actual archives, records notices (explicitly marking
@@ -12,8 +13,10 @@ remains hard-disabled. Neither credential-writing prompts nor the source updater
 are enabled by the experimental child manifest.
 
 On a Windows build host, provision the pinned archive and locked wheels, build
-the desktop frontend, then run `record_runtime.py --evidence <private-evidence>
---frontend-root <built-desktop> --build-id <identity> --output <private-inputs>`
+the desktop frontend and publish the owned NTE bridge from the exact pinned SDK
+on that build host. Then run `record_runtime.py --evidence <private-evidence>
+--frontend-root <built-desktop> --nte-helper-root <owned-nte-directory>
+--build-id <identity> --output <private-inputs>`
 and `scripts/build-runtime-bundle.ps1 -RuntimeExperiment` with its mandatory
 input/evidence/Python arguments. The integrated experiment workflow performs
 this preparation on GitHub-hosted Windows and uploads sanitized metadata only.
@@ -30,16 +33,20 @@ The API probe mocks background updates, game discovery and OCR warmup; it never
 loads real accounts or installed games. Export-worker help is narrower than
 end-to-end game export. ASR model inference and native OCR/capture remain unrun.
 Every passing receipt requires owned process and fixture cleanup.
+The owned NTE bridge adds only a fixed read-only app-local runtime identity
+operation to the frozen probe. Normal game dispatch remains blocked until its
+external assembly/native chain and rights are accepted. Private Endfield/REE
+builds use a distinct blocked manifest and cannot enter this collection.
 
 The integrated workflow and extracted probes must actually pass before claiming
 this scope. Local source tests alone cannot establish a Windows frozen build.
-That scoped observation now passed at `63d0602` in
-[Windows run 40845350877](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40845350877):
-104 affected contracts, relocated native/worker/frontend/API/WS/Setup probes,
+That scoped observation, including owned NTE collection, passed at `d6e593a` in
+[Windows run 40877210344](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40877210344):
+112 affected contracts, relocated native/worker/frontend/API/WS/Setup probes,
 complete pre/post file and directory inventory, and owned cleanup. The downloaded
 metadata ZIP and its source/build/inventory identities were independently checked;
 all redistribution/native Windows 11 acceptance gates remain pending. See the
-[R19 evidence](../../docs/r19-runtime-bundle.md#integrated-follow-up-with-setup-and-directory-verification)
+[R19 evidence](../../docs/r19-runtime-bundle.md#integrated-owned-nte-bridge)
 for exact digests and unrun scopes. No binary or installer was published.
 
 This directory defines a Windows x64 PyInstaller **onedir** build of the existing
@@ -186,8 +193,9 @@ supervision or the full runtime. Source Vinext remains the default route.
 | --- | --- |
 | Managed `ProxyTranscriptLauncher.exe` | Build/adapt on Windows; retain actual Framework/PowerShell requirements and source-pointer recovery. The prototype does not silently ship the old source launcher. |
 | PowerShell `Add-Type` interop | Separate Windows system compilation dependency; precompile or declare and probe it. This is distinct from game SDK builds. |
-| NTE/Endfield | Publish reviewed self-contained net10 helper directories on the build host, close runtime/NuGet/native notices and prove dynamic assembly/resource loading without SDK or restore. |
-| PRAGMATA selective REE | Rights to modified x86 helper unresolved; no compiler or substitute all-files extraction is enabled for the user. |
+| NTE | Owned self-contained bridge is collected with exact identity; authored reflection protocol passed. Actual external assemblies/native rights and game loading remain open. |
+| Endfield | Actual self-contained reader passed bounded empty/malformed probes in private blocked quarantine; constants/provenance/format/rights gates prevent collection. |
+| PRAGMATA selective REE | Actual precompiled x86 reader passed authored selection/rejection probes in private blocked quarantine. Modified helper/native rights and clean Windows 11 acceptance remain unresolved. |
 | ZZZ Node/TypeScript/WASM | Prebuild app-local helper with exact Node/modules/WASM and copyleft closure; no runtime npm/transpilation hidden in the candidate. |
 | FFmpeg/vgmstream/Unreal tools | Close each actual binary/archive, codec, source and native dependency independently; deterministic paths and functional probes are required. |
 

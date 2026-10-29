@@ -5,7 +5,7 @@ starts from R18 commit `8369c9534762cd2232fb44424772bd6b5a72b6d2` on
 `codex/r19-runtime-bundle`. The dependency remains [PR #59](https://github.com/Firebird55/Game-immersion-toolkit/pull/59).
 It is not changed or merged by this work. The actual target is
 `Firebird55/Game-immersion-toolkit:main`; freshly fetched `upstream/main` was
-`ba0b7c34c358f1664220674e5ff8bb7f30502e5f` on 2026-10-28.
+`ba0b7c34c358f1664220674e5ff8bb7f30502e5f` on 2026-10-29.
 
 This implements the source/frozen host boundary, static frontend and integrated
 quarantined runtime experiments needed for the
@@ -419,6 +419,47 @@ The final documentation-only `check:changed` invocation
 the packaging README, then again stopped at unavailable macOS `pyaudiowpatch`.
 It is not a full pass. Documentation links/generated guides, public audit and
 diff checks were run explicitly for the evidence-only changes.
+
+### Integrated owned NTE bridge
+
+[Run 40877210344](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40877210344)
+passed **112 affected contracts** and the extracted runtime probes at clean
+`d6e593ad2853b155ea2ed9faae7c25cceb31387a`. Collection now requires the owned,
+self-contained NTE bridge and verifies its exact current source inputs, nested
+manifest, runtime-package payloads and notices. The frozen native probe executes
+only its fixed read-only runtime identity operation: app-local CoreLib
+**10.0.14**, SHA-256
+`69d56e12535d3a8f2f8f89ac8f97577e6dc788d26f2e7b69be8fb5f6ff17ff28`.
+Normal NTE game execution remains blocked; external UEExtractor/CUE4Parse/Oodle
+files are rejected from this owned subtree. Endfield and REE blocked build
+manifests cannot be collected as NTE resources.
+
+Downloaded metadata artifact **12899640632** matched GitHub ZIP SHA-256
+`5e21d09c92fe3643093384876d15c127edbfbae7b079236a8f90349a5919244d`.
+The inventory digest independently matched the frozen receipt:
+`a416000639832711cd43bd24606acbdab7504d4366443e476fd011292a15f1bf`.
+Source/build identity, **1,502 files**, **633 directories**, **622,316,061 bytes**,
+57 Python/build component identities and the separate NTE helper identity were
+checked. Its four executable entries are the main runtime, isolated ASR,
+`NteReader.exe` and the pinned .NET runtime's `createdump.exe`. No SDK/compiler
+is collected. These sizes and hashes are metadata observations; no binary was
+uploaded or independently downloaded, and no R02b size/performance pass is claimed.
+
+The actual native/registry/VAD/worker/ASR/frontend/API/WS/Setup probes passed
+with cleared developer/loader/account environment, read-only application files,
+unchanged file/directory inventory and confirmed owned cleanup. The receipt keeps
+all rights gates pending, native Windows 11 acceptance unavailable,
+`game_execution_approved: false`, `r19_complete: false` and `installer: not-built`.
+Previously unrun native/game/model/export scopes remain unrun.
+
+At subsequent clean `a72c703`, the actual owned NTE reflection fixture and private
+precompiled Endfield/selective x86 REE probes passed. Endfield/REE remain excluded
+from runtime collection and distribution. Their exact scopes, digests, original
+failure/correction and remaining rights/Windows gates are recorded in the
+[compiler-free helper evidence](r19-compiler-free-helpers.md#continued-windows-evidence-2026-10-29).
+That REE-only build/probe correction did not modify the integrated runtime code
+or NTE builder tested at `d6e593a`. Frontend/stdlib/protected-TEST jobs also passed
+at `a72c703`; this does not claim a new full source/browser/package run.
 
 ## Continuation and rollback
 
