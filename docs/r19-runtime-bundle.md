@@ -461,6 +461,62 @@ That REE-only build/probe correction did not modify the integrated runtime code
 or NTE builder tested at `d6e593a`. Frontend/stdlib/protected-TEST jobs also passed
 at `a72c703`; this does not claim a new full source/browser/package run.
 
+### Critical recheck of collection and Windows inventories
+
+Review reproduced a destination-link failure in the NTE collector: an existing
+private evidence `helpers` junction could receive copied bytes before validation
+failed. `06eeb97` checks that ancestry before any destination write. Both authored
+external-tree preservation regressions now pass. Review also found that several
+Windows probes omitted Hidden/System entries; the shared scanner and actual
+Windows attribute/mutation fixture are recorded with the original fixture failure
+and correction in the [helper recheck](r19-compiler-free-helpers.md#critical-recheck).
+
+[Integrated run 40892020624](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40892020624)
+passed **114 affected contracts** at clean `3837b6dd6222ab3a2fd057e498ea8a847fc45547`, including the corrected
+Windows inventory fixture and the extracted native/worker/ASR/frontend/API/WS/Setup
+probes. Downloaded artifact **12906455506** matched GitHub ZIP SHA-256
+`01d416893fcf4f86ddc1260ff31777e5c1f650c9d0cc44e91ed43fa39da49593`.
+Its inventory digest independently matched the frozen receipt:
+`2a8c34f1eed254050c79d58fd7184e36c9ef02078825af85f8ddd612bc995cbf`.
+The same four executable roles, **1,502 files**, **633 directories** and
+**622,316,065 bytes** were recorded. The four-byte difference from `d6e593a`
+is an inventory observation, not a measured optimization. Source/build identity,
+app-local NTE identity, passing cleanup, no observed application writes and all
+pending rights/native/full-R19 gates were checked. No binary was downloaded.
+
+Managed/NTE/Node, frontend equivalence, frozen frontend and protected-TEST jobs
+also passed at that same clean source. Endfield/selective REE retain their separate
+private blocked scope. The [recheck metadata table](r19-compiler-free-helpers.md#critical-recheck)
+records all exact ZIP digests. Native Windows 11 25H2, real games/voices, model/codec
+closure and owner-aware update/recovery remain unaccepted; no installer is built.
+
+The fresh [full source/browser candidate run 40888558019](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40888558019)
+at `06eeb9790ef7f2103343327a3ee64f6e5001c766` passed source audit, full source
+checks (**1,759 Python tests passed, one skipped**) and all five browser groups.
+Desktop first failed a 30-second click because the account-preferences dialog
+remained open. The failed group passed on one unchanged repeat in Chromium and
+Firefox across its complete viewport/zoom matrix; the original timeout is retained,
+and no assertion, retry, timeout or threshold was changed. The other successful
+groups were reused by the aggregate, not silently rerun or relabelled.
+
+Downloaded successful gate artifact **12905408338** matched ZIP SHA-256
+`74922230ef97cf4d043c7348be1e025f24668e32b14cfc65afe3258ef0c8791c`.
+Its verified identity, full/valid scope, equal tested/workflow commits, passing
+audit/check/browser jobs and empty errors were checked. The manual event has no
+PR base-freshness evidence and cannot replace the upstream PR required context.
+Later commits change only the Windows probe inventory and its authored fixture;
+their native execution is independently verified at `3837b6d` above.
+
+Packaging and extracted source-ZIP validation also passed in that full run;
+publish was skipped. Downloaded artifact **12905867145** matched GitHub ZIP SHA-256
+`cc8d1aff6b3b2671e9912067c2b27a3a39208bbda04a86f20730d88575611f0a`.
+All **12** SHA256SUMS entries matched downloaded bytes, including the actual
+distribution ZIP. Outer and nested PROVENANCE agreed on exact source `06eeb97`
+and shared **1.0.12** revision `2e84f74cf77ea4773463331c7ecde0b05faf31f8`.
+This remains the existing source-style distribution, separate from the quarantined
+extracted runtime and its narrower native/rights evidence. No installer, tag,
+release, merge or Pages publication occurred.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

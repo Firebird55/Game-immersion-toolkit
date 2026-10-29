@@ -199,8 +199,8 @@ inventory and receipt evidence are in the
 The subsequent REE-only correction did not change that runtime or NTE builder.
 
 Local affected pure contracts passed **85 tests**. Stable-source aggregate
-`check:changed -- --base upstream/main` record
-`9eeb2302-38b4-4f27-8b3c-dfd895b3fc95` remains **failed/incomplete**: typecheck
+`check:changed` record `9eeb2302-38b4-4f27-8b3c-dfd895b3fc95` requested no
+comparison base and remains **failed/incomplete**: typecheck
 and 271 Node tests passed (one skipped), then collection lacked macOS
 `pyaudiowpatch`; later aggregate commands did not run. Workflow parsing,
 documentation links, public audit and diff checks passed separately. The public
@@ -208,6 +208,68 @@ compatibility watch returned 2 on 2026-10-29 for docs/UI changes with no endpoin
 additions/removals; its baseline remains unchanged pending full lookup/UI review.
 No full source/browser/package pass is claimed for this helper commit; the
 previous full candidate retains its exact source identity in the runtime report.
+
+### Critical recheck
+
+Review found that the NTE collector checked input links but could follow an
+existing `helpers` junction in its private evidence destination before rejecting
+the copied tree. `06eeb97` checks destination ancestry before creating or copying
+anything. Two authored regressions reproduced the external writes before the
+fix and now retain both external trees and their unrelated bytes unchanged.
+The resolver documentation now also states the permitted fixed read-only NTE
+identity operation explicitly. Game dispatch remains blocked.
+
+Review also found that some PowerShell inventory scans omitted Windows
+Hidden/System entries. `e653e8a` uses one complete file/directory scanner in the
+managed, integrated-runtime and diagnostic probes. Its Windows fixture requires
+hidden/system files, traversal of a hidden/system directory, an empty hidden
+directory and detection of a changed hidden file. Each affected receipt can
+report `hidden_system_inventory_fixture: passed` only after that fixture runs.
+Earlier inventory observations do not establish this additional attribute case.
+The first fixture run at `e653e8a` correctly emitted no passing receipts: its
+`WriteAllText` mutation used CREATE_ALWAYS, which Windows refuses for an existing
+Hidden/System file. `3837b6d` opens that same file in place, retaining both
+attributes while changing its bytes; no inventory assertion was removed.
+
+Before these corrections, the combined local R19 selection passed **130 tests**
+with one Windows-only skip. After the collector correction, **87 affected tests**
+passed. The initial critical aggregate `ccfd1a60-cc36-4ba7-b72b-2a24751cb518`
+failed on sandbox loopback/process permissions. The permitted stable-source
+repeat `3ad6331c-3047-4618-8c86-11a875195aab` resolved the freshly fetched actual
+`upstream/main` target to `ba0b7c3`: typecheck and 271 Node tests passed (one skip),
+then Python collection lacked macOS `pyaudiowpatch`; later aggregate commands
+did not run. Neither aggregate is a full pass.
+
+The public compatibility watch again returned 2. The public
+[API/settings reference](https://lexirise.app/api-reference) and public landing
+assets were reviewed read-only; no endpoint additions/removals were reported.
+Full live lookup/UI compatibility remains open and the baseline is unchanged.
+The initial sandbox DNS failure supplied no compatibility result.
+
+The corrected [integrated runtime run 40892020624](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40892020624),
+[managed/NTE/Node run 40892020564](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40892020564)
+and all three [frontend/diagnostic/protected-TEST jobs 40892020847](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40892020847)
+passed at clean `3837b6dd6222ab3a2fd057e498ea8a847fc45547`. The affected native
+receipts confirm the Hidden/System fixture, unchanged application inventories
+and owned cleanup. Private Endfield and selective x86 REE probes also passed
+again in [40889152477](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40889152477)
+at `e653e8a`; the following commit changed only the owned inventory fixture,
+not either reader or its private probe. Both still forbid runtime collection,
+game acceptance and distribution.
+
+These downloaded metadata ZIPs matched GitHub's digests; source identity,
+passing scope/cleanup and the explicit incomplete rights/native fields were
+checked. Executables and private upstream inputs are not in these artifacts.
+
+| Recheck metadata artifact | ZIP SHA-256 |
+| --- | --- |
+| Runtime `12906455506` | `01d416893fcf4f86ddc1260ff31777e5c1f650c9d0cc44e91ed43fa39da49593` |
+| Managed/NTE `12903944219` | `74eabe74220707367d05cfa71fdf229dd1390a5e37974903795eea613e77dc48` |
+| Node `12906110109` | `fd604f575f2b68031744db957d544ff7e5b9d963975661188a6635e8eacf98f3` |
+| Frontend `12905202510` | `4c0aa917220f99cd65014e8e8688d77e8588d873a9e8aa682379df056a92daad` |
+| Diagnostic `12905665752` | `f29394e5b9cfbcbc3aaf801daf053ca18c696a5146539e526826a122fb67b86c` |
+| Endfield `12904271681` | `6ee100e4d8e7c2ed2bf6e7a7eef18e4839a0ee7acdd830dea832d3c5ddc9828c` |
+| PRAGMATA `12903513249` | `4e488ea19cd1dcb861bed3f41a3890a3b3e84b1208db50c863c27d82a2c6bf64` |
 
 ## Earlier local and hosted checks
 
