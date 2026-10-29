@@ -33,6 +33,14 @@ Every passing receipt requires owned process and fixture cleanup.
 
 The integrated workflow and extracted probes must actually pass before claiming
 this scope. Local source tests alone cannot establish a Windows frozen build.
+That scoped observation now passed at `63d0602` in
+[Windows run 40845350877](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40845350877):
+104 affected contracts, relocated native/worker/frontend/API/WS/Setup probes,
+complete pre/post file and directory inventory, and owned cleanup. The downloaded
+metadata ZIP and its source/build/inventory identities were independently checked;
+all redistribution/native Windows 11 acceptance gates remain pending. See the
+[R19 evidence](../../docs/r19-runtime-bundle.md#integrated-follow-up-with-setup-and-directory-verification)
+for exact digests and unrun scopes. No binary or installer was published.
 
 This directory defines a Windows x64 PyInstaller **onedir** build of the existing
 Python runtime. It does not release, tag, install, alter Pages, acquire games or

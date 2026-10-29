@@ -7,7 +7,8 @@ It is not changed or merged by this work. The actual target is
 `Firebird55/Game-immersion-toolkit:main`; freshly fetched `upstream/main` was
 `ba0b7c34c358f1664220674e5ff8bb7f30502e5f` on 2026-10-28.
 
-This implements the source/frozen host boundary and an opt-in static frontend experiment needed for the
+This implements the source/frozen host boundary, static frontend and integrated
+quarantined runtime experiments needed for the
 [R18 acceptance plan](r18-runtime-inventory.md#r19-acceptance-plan). It retains
 the Python runtime, normal browser, existing public origins and all 25 active
 game/language choices. R14 onboarding, an OCR rewrite, R20 installation and live
@@ -56,11 +57,11 @@ OCR/capture/DPI, DPAPI or installed-game playback. Those measurements remain
 
 ## Ownership and evidence boundary
 
-Exactly two GPT-6.1 Sol agents with xhigh reasoning implement nonoverlapping
-runtime/packaging and host/frontend/recovery lanes. The integrator owns shared
-composition, consumer adapters, Git and combined checks. Each agent reviews the
-other's actual changes before integration is committed. No nested agents are
-used. The [host experiment](r19-host-experiment.md) records static-host and
+The initial runtime/frontend/helper phases used two GPT-6.1 Sol agents with xhigh
+reasoning in nonoverlapping lanes and reciprocal reviews. The integrator owned
+composition, consumer adapters, Git and combined checks. The 2026-10-29 integrated
+runtime continuation is implemented and reviewed by the integrator without
+additional agents. The [host experiment](r19-host-experiment.md) records static-host and
 synthetic recovery results. This task keeps the source Vinext host until an
 equivalent replacement is proved.
 
@@ -81,7 +82,7 @@ All [R18 component gates](r18-runtime-components.md) remain binding for the
 actual shipped bytes. Exact maintained CPython supplier, Windows wheels and
 native closure, models/fonts/WASM, FFmpeg configuration/source obligations,
 vgmstream codec closure, GPL integrations, PRAGMATA REE rights, Oodle and
-game-derived constants require evidence before inclusion. Snipping Tool's OCR
+game-derived constants require evidence before inclusion in an approved distribution. Snipping Tool's OCR
 DLL/model files and Death Stranding's install-local DLL are never collected.
 Persona's pinned character metadata remains separately acquired private state.
 
@@ -310,13 +311,122 @@ endpoint additions or removals. Public API/settings/language documentation and
 the public landing page were inspected without an account. Full live lookup/UI
 compatibility remains open; the baseline is unchanged.
 
+### First integrated Windows observation
+
+[Integrated run 40844344068](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40844344068)
+passed at clean commit `cb6a3addcd9abf0b941aebf4cb7a506ca29e0099` on hosted
+Windows Server 2025 with the pinned CPython 3.12.16 supplier. The relocated
+application had only `ProxyTranscriptRuntime.exe` and its separate
+`asr/ProxyTranscriptAsr.exe`; no external Python/Node/npm/dotnet/compiler was
+discoverable in the cleared child environment. Application files were read-only;
+content hashes were unchanged and owned process/fixture cleanup passed.
+
+The actual runtime imported all **25** registry readers, ran FireRedVAD inference
+on authored silence, executed game-index and language workers on authored
+GoldSrc fixtures with retained Chinese translation, exported an authored catalog
+through the library, and passed frontend/API HTTP plus a complete WebSocket
+snapshot. Main and ASR processes observed **211** and **59** loaded images,
+respectively, all originating inside their application tree or Windows. This
+proves observed native loading, not complete CRT/native or Windows 11 acceptance.
+ASR model inference, native OCR/frame capture, voice refresh, installed-game
+formats/playback and full game-export execution remain unrun.
+
+Downloaded metadata artifact **12883719274** matched GitHub ZIP SHA-256
+`4a462a8c0c653f3ffb15a3a4bc54279c258fa080996b46494004f8f9c0996e58`.
+Its source/build/scope/cleanup fields were checked. The independently hashed
+inventory matched the probe's
+`8329ecdb64b7f48df6b267cc5d0f33fa4dbaa37b10e268e8e1a3bba44efe9be8`:
+**1,301 files**, **540,463,762 bytes**, **57 component identities**, all rights
+gates still pending and `r19_complete: false`. Recorded executable hashes are
+`a082adde39246f2c73cddd79103c964e0adb6e2c4f59723132f3d5e9ef2f255d`
+and `79d37668d05223b50b612418beb573f88854e834fed8223734978538dfbae040`.
+Those match inventory entries, but remain job observations: no binary was
+uploaded or independently downloaded. Size is an inventory observation, not an
+R02b optimization result.
+
+Earlier integrated attempts failed closed: `40841870506` compared pip-rewritten
+RECORD metadata as immutable payload; `40842311387` found non-JSON UTF-8 email
+headers in license metadata; `40842833946` found the generic PyInstaller hook's
+wrong `webrtcvad` distribution identity; `40843631872` collected unused OpenCV
+Haar-cascade examples under `cv2/data`. The corrections preserve actual payload
+hash checking, full available notice bytes, the pinned `webrtcvad-wheels`
+distribution and the private-tree gate. No failed attempt counts as a pass.
+
+### Integrated follow-up with Setup and directory verification
+
+[Run 40845350877](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40845350877)
+passed at clean `63d0602aa7a2f1e0f0aefeb1e834f60e92583b47`, including **104
+affected contracts** and the complete extracted probes. Frozen Setup no longer
+requires Node/npm or recommends an Endfield SDK/source installer; it reports
+explicit pending runtime/codec/OCR/toolchain gates. Source Setup is unchanged.
+The actual frozen API's Setup response is checked. The pre/post inventory now
+includes directories, detecting directory-only application writes as well as
+file creation, deletion, renaming and content changes.
+
+Downloaded artifact **12885490202** matched ZIP SHA-256
+`e43844daea4fae794b2588a5fe808764e2e55cd18186c082b33be4144b6630ab`.
+Its matching source/build identity, incomplete acceptance, successful cleanup,
+two executable entries, **1,301 files**, **628 directories**, **540,464,283
+bytes**, 57 components and all pending rights gates were verified. Inventory
+SHA-256 `96abce9641e7e9419dc4cd6540e791f3ce60b29e4713012673e843643239b063`
+matches the probe receipt. Main/ASR executable hashes are respectively
+`b2c3cc4cc31bd2a0b218772835653db9e5377625085bda078de329e7e045a0d1`
+and `da41b4fb76a0881a48e816b4fe0e309f15c47737510812f2374bc7837924abe2`.
+They remain job observations, not verification of downloaded binaries.
+
+At the same exact source, all three frontend/stdlib/protected-TEST jobs passed in
+[40845350966](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40845350966),
+and both authored managed/Node helper jobs passed in
+[40845350864](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40845350864).
+These preserve their existing narrower scopes. Local affected setup/runtime
+contracts also passed **65 tests** (one existing deprecation warning).
+
+PR #59 remains open and unchanged at `8369c9534762cd2232fb44424772bd6b5a72b6d2`.
+The upstream required PR context at this head remains `action_required` in
+[40845361053](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/40845361053).
+Current-account admin approval was previously refused; manual fork observations
+do not replace that context. No ready-for-review transition, merge, installer,
+release or production migration is enabled.
+
+### Full source/browser candidate
+
+[Run 40842180569](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40842180569)
+at `1fdf1608d4a6a1a460a7528d316d3514b95a568f` passed source audit, full source
+checks (**1,746 Python tests passed, one skipped**), all five browser groups,
+`required-checks`, packaging and extracted source-ZIP validation. Publish was
+skipped. Setup's first attempt failed a 30-second page navigation in the React
+fixture; that job was repeated unchanged and passed. The original failure is
+retained; no test, timeout or threshold was relaxed. Other successful groups
+were reused by the workflow's aggregate.
+
+Downloaded source artifact **12885241570** matched GitHub ZIP digest
+`ca9342b3b2ec69480c550f98f97d9f6512899cf8c6022d99b60a282e524506e3`.
+All **12** SHA256SUMS entries matched actual downloaded bytes. PROVENANCE binds
+the exact source and shared component **1.0.12** revision
+`2e84f74cf77ea4773463331c7ecde0b05faf31f8`.
+Downloaded gate artifact **12884817934** matched
+`afa0dfc8379bfe1e79c9020e8f43625d6c0e8314764baaadf0f7dd9b9d533f47`
+and confirmed success, verified identity, full valid scope, equal tested/workflow
+commits and no errors. Its manual event has no PR base-freshness evidence.
+
+Later changes affect frozen packaging/probes/Setup and their evidence; the
+affected contracts and actual frozen Setup are verified at `63d0602` above.
+This source-style ZIP remains separate from the quarantined extracted runtime.
+Neither observation completes R19 rights, Windows 11 or supervised-update gates.
+
+The final documentation-only `check:changed` invocation
+`ab57f584-42c8-4e37-93d2-f6f694f1bbaf` conservatively selected full checks for
+the packaging README, then again stopped at unavailable macOS `pyaudiowpatch`.
+It is not a full pass. Documentation links/generated guides, public audit and
+diff checks were run explicitly for the evidence-only changes.
+
 ## Continuation and rollback
 
-Run the new diagnostic workflow on this branch, inspect actual job and metadata
-results, then keep the full runtime profile disabled until the required
-helper/host artifacts and exact-output rights/native evidence exist. A static
-prerender/export implementation or an explicitly reviewed app-local server
-runtime is required to remove end-user frontend tooling. Prebuild NTE/Endfield
+Use the integrated workflow for the extracted runtime/native/ASR observations,
+keeping the production runtime profile disabled until required helper/host and
+exact-output rights/native evidence exist. The static CSR frontend removes
+end-user Node/Wrangler in the observed experiment; real browser-profile/update
+continuity and the native acceptance gates remain open. Prebuild NTE/Endfield
 helpers only with complete runtime/NuGet/source evidence; keep PRAGMATA/Oodle/GPL
 and metadata rights gates explicit. Execute every toolchain's R18 functional
 protocol against the same accepted extracted artifact, then the native and R02b
