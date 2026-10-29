@@ -19,12 +19,14 @@ hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experime
 binaries = []
 
 def production_module(name):
-    return not any(part in {'tests', 'test', 'testing', 'conftest', 'pytest'} for part in name.split('.'))
+    if name.startswith(('onnxruntime.quantization', 'onnxruntime.transformers', 'scipy._lib.array_api_compat.torch')):
+        return False
+    return not any(part.lower() in {'tests', 'test', 'testing', 'selftest', 'conftest', 'pytest'} for part in name.split('.'))
 
 def package_closure(package):
     # Test corpora, private examples and embedded FFmpeg are not runtime inputs.
     # PyInstaller's normal package hooks still collect dependent native DLLs.
-    return (collect_data_files(package, excludes=['**/tests/**', '**/test/**', '**/testing/**', '**/__pycache__/**']),
+    return (collect_data_files(package, excludes=['**/tests/**', '**/test/**', '**/testing/**', '**/SelfTest/**', '**/__pycache__/**']),
             collect_dynamic_libs(package), collect_submodules(package, filter=production_module))
 
 if runtime:
@@ -43,6 +45,7 @@ if runtime:
         hidden += package_hidden
 
 main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
+    hookspath=[str(root / 'packaging/runtime-bundle/hooks')],
     binaries=binaries, datas=data, hiddenimports=hidden,
     excludes=['sherpa_onnx', 'sherpa_onnx_core', 'pytest', 'backend.tests', 'pip', 'setuptools', 'imageio_ffmpeg'])
 main_pyz = PYZ(main.pure)

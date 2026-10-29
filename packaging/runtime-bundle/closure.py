@@ -230,6 +230,20 @@ def write_candidate(value, source, evidence, output):
         'components': [{key: item[key] for key in ('name', 'version', 'source', 'architecture', 'license_expression')}
                        for item in value['components']]}
     (output / 'CANDIDATE-PROVENANCE.json').write_text(json.dumps(proof, indent=2) + '\n', encoding='utf-8')
+    if value['profile'] == 'runtime-experiment':
+        # Public review metadata has only logical names and digests. Raw
+        # receipts, installed host paths and complete license text stay private.
+        inventory = {'schema': 'proxy-r19-runtime-inventory-v1', 'source_commit': value['source_commit'],
+            'profile': value['profile'], 'build_id': value['build_id'], 'files': files,
+            'file_count': len(files), 'bytes': sum(item['bytes'] for item in files),
+            'components': [{'name': item['name'], 'version': item['version'],
+                'architecture': item['architecture'], 'source': item['source'],
+                'artifact_sha256': item['artifact']['sha256'],
+                'notice_sha256': [notice['sha256'] for notice in item['licenses']],
+                'rights_review': 'pending-exact-output'} for item in value['components']],
+            'gates': {name: 'pending' for name in GATES}, 'r19_complete': False,
+            'native_windows_11_acceptance': 'unavailable', 'installer': 'not-built'}
+        (output / 'RUNTIME-INVENTORY.json').write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8')
 
 
 def main():

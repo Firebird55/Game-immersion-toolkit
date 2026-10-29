@@ -90,5 +90,6 @@ jobs:
           path: |
             output/checks/r19-frozen-runtime.json
             output/runtime-bundle/build-check.json
+            output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
           if-no-files-found: error
           retention-days: 7

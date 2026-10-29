@@ -2,9 +2,15 @@
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 
 from .runtime_bundle import RuntimeBundleError
+
+
+def developer_environment():
+    if any(shutil.which(name) for name in ('python', 'python3', 'pip', 'node', 'npm', 'npx', 'dotnet', 'csc', 'cl', 'wrangler')):
+        raise RuntimeBundleError('Developer tools are still discoverable in the probe environment.')
 
 
 def synthetic_roots(layout):
@@ -58,5 +64,3 @@ def loaded_native(layout):
             checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
         result.append({'file': relative, 'origin': origin, 'sha256': checksum})
     return sorted(result, key=lambda item: (item['origin'], item['file']))
-
-

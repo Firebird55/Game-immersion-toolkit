@@ -11,7 +11,7 @@ import subprocess
 import sys
 
 from .runtime_bundle import EXPERIMENT_CHILDREN, RuntimeBundleError
-from .runtime_probe_common import synthetic_roots, block_remote_access, loaded_native
+from .runtime_probe_common import synthetic_roots, block_remote_access, loaded_native, developer_environment
 
 
 def worker(layout, kind, arguments):
@@ -99,6 +99,7 @@ def main(kind, layout):
     if sys.platform != 'win32':
         raise RuntimeBundleError('Extracted native probes require Windows x64.')
     synthetic_roots(layout)
+    developer_environment()
     sys.addaudithook(block_remote_access)
     if kind == 'api':
         return api(layout)

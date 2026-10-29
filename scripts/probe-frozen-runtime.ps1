@@ -95,9 +95,18 @@ try {
     $cancel = [Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(10))
     try {
         $websocket.ConnectAsync([Uri]'ws://127.0.0.1:8766/api/ws', $cancel.Token).GetAwaiter().GetResult()
-        $buffer = [byte[]]::new(1048576)
-        $received = $websocket.ReceiveAsync([ArraySegment[byte]]::new($buffer), $cancel.Token).GetAwaiter().GetResult()
-        if ($received.Count -le 0 -or $received.MessageType -ne [Net.WebSockets.WebSocketMessageType]::Text) { throw 'Actual frozen API WebSocket did not produce an event.' }
+        $buffer = [byte[]]::new(65536)
+        $message = [IO.MemoryStream]::new()
+        try {
+            do {
+                $received = $websocket.ReceiveAsync([ArraySegment[byte]]::new($buffer), $cancel.Token).GetAwaiter().GetResult()
+                if ($received.Count -le 0 -or $received.MessageType -ne [Net.WebSockets.WebSocketMessageType]::Text) { throw 'Actual frozen API WebSocket did not produce a text event.' }
+                $message.Write($buffer, 0, $received.Count)
+                if ($message.Length -gt 1048576) { throw 'Frozen API event exceeded its fixture bound.' }
+            } until ($received.EndOfMessage)
+            $event = [Text.Encoding]::UTF8.GetString($message.ToArray()) | ConvertFrom-Json
+            if ($event.type -ne 'snapshot' -or $event.snapshot.capture.running -or @($event.snapshot.game_textmaps.PSObject.Properties).Count -lt 25) { throw 'Actual frozen WebSocket snapshot lost capture or registry state.' }
+        } finally { $message.Dispose() }
     } finally { $cancel.Dispose() }
     $after = @(Inventory $RuntimeRoot)
     if (@(Compare-Object $before $after).Count) { throw 'Frozen runtime wrote into its application tree.' }
@@ -118,6 +127,9 @@ try {
 if (Test-Path -LiteralPath $temporary) { throw 'Owned runtime fixture cleanup is incomplete.' }
 New-Item -ItemType Directory -Path (Split-Path $output) -Force | Out-Null
 @{schema='proxy-r19-frozen-runtime-v1'; source_commit=$env:GITHUB_SHA; build_id=$manifest.build_id; status='passed';
+    executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
+    asr_executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'asr/ProxyTranscriptAsr.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
+    inventory_sha256=(Get-FileHash -LiteralPath (Join-Path (Split-Path $Provenance) 'RUNTIME-INVENTORY.json') -Algorithm SHA256).Hash.ToLowerInvariant();
     native=$native; asr=$asr; frontend_api_http_ws='passed'; api_external_side_effects='mocked';
     developer_environment='cleared; only OS essentials and synthetic roots'; application_writes_observed=$false;
     owned_cleanup='passed'; r19_complete=$false; rights_review='pending-exact-output'; native_windows_11_acceptance='unavailable';

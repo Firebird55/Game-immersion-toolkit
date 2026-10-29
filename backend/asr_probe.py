@@ -3,7 +3,7 @@ import json
 import sys
 
 from .runtime_bundle import RuntimeBundleError
-from .runtime_probe_common import synthetic_roots, block_remote_access, loaded_native
+from .runtime_probe_common import synthetic_roots, block_remote_access, loaded_native, developer_environment
 
 
 def asr(layout):
@@ -22,6 +22,7 @@ def main(kind, layout):
     if sys.platform != 'win32' or kind != 'asr':
         raise RuntimeBundleError('ASR probe requires its isolated Windows image.')
     synthetic_roots(layout)
+    developer_environment()
     sys.addaudithook(block_remote_access)
     details = asr(layout)
     print(json.dumps({'schema': 'proxy-r19-runtime-probe-v1', 'source_commit': layout.source_commit,
