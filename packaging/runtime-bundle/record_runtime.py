@@ -49,6 +49,9 @@ def collect_nte(helper_root, evidence, commit, source):
         if not (path.is_file() or path.is_dir()):
             raise ClosureError('Owned helper inputs must be regular files/directories.')
     target = evidence / 'helpers/nte'
+    # Check destination ancestry before copytree can traverse an existing
+    # helpers junction and write owned bytes outside the private evidence root.
+    _no_links(target.absolute())
     target.parent.mkdir(exist_ok=True)
     shutil.copytree(helper_root, target)
     resources = [{'path': path.relative_to(evidence).as_posix(), 'sha256': digest(path), 'version': commit,

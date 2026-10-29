@@ -1,8 +1,9 @@
 """Closed .NET helper resources; source SDK behavior is a separate adapter.
 
-Only the authored probe may execute in this prototype. An owned NTE bridge
-manifest can supply a source identity, but does not authorize its separately
-acquired UEExtractor/native dependencies. Endfield constants remain unreviewed.
+The authored probe and fixed read-only NTE runtime identity operation may execute.
+An owned NTE bridge manifest can supply a source identity, but does not authorize
+its separately acquired UEExtractor/native game chain. Endfield constants remain
+unreviewed.
 """
 from __future__ import annotations
 

@@ -171,3 +171,28 @@ def test_runtime_collection_binds_owned_bridge_to_current_sources_not_only_recei
     (source / 'scripts/game-readers/NteReader.cs').write_bytes(b'changed current source')
     with pytest.raises(module.ClosureError, match='sources differ'):
         module.verified_nte(layout.resource_root, resources, layout.source_commit, source)
+
+
+@pytest.mark.parametrize('linked', ['evidence', 'helpers'])
+def test_nte_collection_rejects_linked_destination_before_copying_outside_evidence(tmp_path, monkeypatch, linked):
+    # Input-tree link checks do not protect the copy destination: validation
+    # after copytree used to leave helper bytes in an unrelated directory.
+    from backend.preparation_errors import PreparationFailure
+    module = recorder(monkeypatch)
+    helper = tmp_path / 'owned-helper'; helper.mkdir()
+    (helper / 'owned.txt').write_bytes(b'authored helper fixture')
+    outside = tmp_path / 'unrelated'; outside.mkdir()
+    preserved = outside / 'preserved.txt'; preserved.write_bytes(b'preserve unrelated bytes')
+    evidence = tmp_path / 'evidence'
+    link = evidence
+    if linked == 'helpers':
+        evidence.mkdir()
+        link = evidence / 'helpers'
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip('This host cannot create directory symlinks.')
+    with pytest.raises(PreparationFailure):
+        module.collect_nte(helper, evidence, 'a' * 40, tmp_path / 'source')
+    assert list(outside.iterdir()) == [preserved]
+    assert preserved.read_bytes() == b'preserve unrelated bytes'
