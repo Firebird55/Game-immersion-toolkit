@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from importlib import import_module
 import runpy
 import sys
 
@@ -17,8 +18,11 @@ def main(arguments=None):
         asr_image = layout.executable.name.casefold() == 'proxytranscriptasr.exe'
         if asr_image != (args[1] == 'asr'):
             raise RuntimeBundleError('Probe must use its isolated runtime image.')
-        from backend.runtime_probe import main as probe
-        return probe(args[1], layout)
+        # Keep the stdlib diagnostic/frontend and ASR analyses independent of
+        # the main probe's native imports; experimental specs collect these
+        # fixed modules explicitly.
+        probe = import_module('backend.asr_probe' if asr_image else 'backend.runtime_probe')
+        return probe.main(args[1], layout)
     if args == ['--runtime-diagnose']:
         layout = discover_layout()
         # Public diagnostics contain logical state, never private root paths.

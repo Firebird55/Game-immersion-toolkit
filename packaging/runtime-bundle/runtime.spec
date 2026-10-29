@@ -31,7 +31,7 @@ if runtime:
     # Registry-selected imports cannot be discovered from import_module alone.
     # Collect every backend reader, retaining all 25 games and shared parsers.
     hidden = [name for name in collect_submodules('backend', filter=production_module)
-              if name != 'backend.agent_transcribe']
+              if name not in {'backend.agent_transcribe', 'backend.asr_probe'}]
     hidden += [target for kind, (mode, target) in CHILD_TARGETS.items()
                if mode == 'module' and kind != 'asr']
     for package in ('uvicorn', 'numpy', 'scipy', 'kaldi_native_fbank', 'onnxruntime',
@@ -58,7 +58,7 @@ if runtime:
     # live in sherpa_onnx/lib and package_closure above collects that exact tree.
     asr_data += copy_metadata('sherpa-onnx-core')
     asr = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
-        binaries=asr_binaries, datas=asr_data, hiddenimports=['backend.agent_transcribe', 'backend.runtime_probe', *asr_hidden],
+        binaries=asr_binaries, datas=asr_data, hiddenimports=['backend.agent_transcribe', 'backend.asr_probe', *asr_hidden],
         excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture', 'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,

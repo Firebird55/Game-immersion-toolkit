@@ -128,3 +128,13 @@ def test_wheel_payload_tampering_is_not_accepted_by_version_metadata(tmp_path, m
     (prefix / 'owned.py').write_bytes(b'ALTERED = True\n')
     with pytest.raises(module.ClosureError, match='differs from archive'):
         module.verify_wheel(wheel)
+
+
+def test_actual_utf8_wheel_notice_metadata_can_be_recorded_as_json(tmp_path, monkeypatch):
+    module = recorder(monkeypatch)
+    wheel = tmp_path / 'unicode-notice.whl'
+    with zipfile.ZipFile(wheel, 'w') as package:
+        package.writestr('owned-1.0.dist-info/METADATA', 'Name: owned\nVersion: 1.0\nLicense: Copyright \u00e9\n'.encode())
+    with zipfile.ZipFile(wheel) as package:
+        value = module.wheel_metadata(package)
+    assert json.loads(json.dumps({'license': value['License']})) == {'license': 'Copyright \u00e9'}

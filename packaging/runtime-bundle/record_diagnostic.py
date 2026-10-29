@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from email.parser import BytesParser
+from email import policy
 from importlib import metadata
 import json
 from pathlib import Path
@@ -30,7 +31,9 @@ def wheel_metadata(package):
         # Count archive entries, not a set: a duplicate of the same top-level
         # name is ambiguous too and must not be silently selected by ZipFile.
         raise ClosureError('A wheel has missing or ambiguous top-level package identity.')
-    return BytesParser().parsebytes(package.read(info[0]))
+    # Wheel metadata is UTF-8. compat32 can return non-serializable Header
+    # objects for incorporated license text containing non-ASCII names.
+    return BytesParser(policy=policy.default).parsebytes(package.read(info[0]))
 
 
 def record(evidence, python_artifact, python_source, build_id, source, frontend_root=None, *, metadata_notices=False):
