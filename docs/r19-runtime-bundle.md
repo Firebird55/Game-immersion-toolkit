@@ -74,6 +74,11 @@ PowerShell updater is never run under a lifetime guard or given a bypass flag.
 
 ## Remaining acceptance gates
 
+The [completion plan](r19-completion-plan.md) turns the remaining R18 acceptance
+rows into ordered implementation, component-review and native-validation work,
+with per-toolchain cases, dependencies and explicit completion criteria. It does
+not change the acceptance contract or approve production activation.
+
 The continued [compiler-free helper experiment](r19-compiler-free-helpers.md)
 separates authored packaging probes, the owned NTE bridge and blocked game chains.
 It does not convert unresolved helper rights or native evidence into approval.

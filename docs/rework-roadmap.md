@@ -248,8 +248,10 @@ Python runtime, plus a bounded local static-frontend equivalence experiment.
 Retain the ordinary browser and current desktop origin/API addresses; source
 hosting remains the diagnostic fallback until equivalent behavior is proved.
 R19 acceptance still requires an extracted candidate without preinstalled
-Python/Node/npm or SDK/compiler toolchains. The
-[component inventory](r18-runtime-components.md) tracks unresolved redistribution
+Python/Node/npm or SDK/compiler toolchains. The [R19 completion plan](r19-completion-plan.md)
+orders the remaining implementation,
+component decisions and Windows validation without starting the R20 installer.
+The [component inventory](r18-runtime-components.md) tracks unresolved redistribution
 closure (including GPL/WASM, FFmpeg and decompression binaries), .NET/native helper
 dependencies and Windows/OCR constraints. The
 [host contract](r18-storage-host-contract.md) defines opt-in ZIP copy migration,

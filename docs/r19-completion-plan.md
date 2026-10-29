@@ -1,0 +1,318 @@
+# R19 completion plan
+
+Status: **planned remaining work; no acceptance gate is closed by this plan**.
+Updated 2026-10-29 against `2e10dff78fb89f48584ff4f3ddb087e12e71c3ec`.
+The acceptance contract remains the [R18 plan](r18-runtime-inventory.md#r19-acceptance-plan),
+[component inventory](r18-runtime-components.md) and
+[storage/host contract](r18-storage-host-contract.md). Current implementation and
+exact test/artifact identities are in the [runtime evidence](r19-runtime-bundle.md)
+and [helper evidence](r19-compiler-free-helpers.md).
+
+The deliverable is an extracted Windows x64 runtime that an ordinary user can
+operate without separately installed Python/Node/npm, a Wrangler service, an
+SDK, restore or a game-reader compiler. App-local runtimes remain allowed;
+build-host tools stay separate. Keep the existing origins, 25 active
+games/languages, Chinese transcripts, independent Migaku mode, storage keys and
+source installation behavior. Preserve unavailable pack/format states explicitly.
+PR #59 remains unchanged. No installer, release/tag, Pages publication, installed
+shortcut transaction or live migration is authorized by this plan.
+
+## Starting point
+
+| Area | Established evidence | Remaining boundary |
+| --- | --- | --- |
+| Source candidate | Full Windows source/browser/package run at `06eeb97`: 1,759 Python tests passed, one skipped; all five browser groups and extracted source-ZIP validation passed; downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime |
+| Extracted runtime | At `3837b6d`, 114 affected contracts plus native imports, all 25 registry readers, VAD silence, authored index/language workers, catalog export, isolated ASR imports and frontend/API/WS/Setup passed | API external side effects were mocked; real OCR/capture, game voices, ASR inference and full export remain unverified |
+| Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
+| NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
+| Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
+| ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
+| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+
+The `runtime` profile stays hard-disabled and `r19_complete` stays false. The dated
+`packaging/runtime-bundle/toolchains.json` is an inventory baseline; its old
+`blocked` labels must be reconciled with later scoped evidence before becoming a
+current acceptance ledger. A successful helper build must not erase a remaining
+rights, format or Windows gate.
+
+## Execution order and ownership
+
+Owner names below are roles for the implementation, artifact review and Windows
+test work, not assignments to new agents or people.
+
+| Work package | Owner role | Dependency / first useful result | Completion artifact |
+| --- | --- | --- | --- |
+| A. Exact component disposition | Runtime implementer + component reviewer | Start now; review codecs first because most voiced chains share them | Exact file/native/notice/source-delivery ledger; every unresolved file stays excluded |
+| B. Functional toolchains | Runtime implementer | Build-only fixtures can advance now; each runtime integration requires its A decision | Fixed resolvers and real subprocess/format receipts, mapped to all 25 games |
+| C. Supervising host | Host implementer | Can advance independently of blocked game rights, using authored services | Prebuilt host/interop, real ownership/quiesce/update/recovery integration |
+| D. Clean Windows acceptance | Windows tester | Protocol/fixtures can be prepared now; results require a frozen eligible candidate | Exact-image ordinary-user OCR/capture/DPI/dependency report |
+| E. Browser/data continuity | Host implementer + Windows tester | C writer exclusion before copy/update tests; disposable copied data only | Candidate copy/restore, protected TEST and selected-profile continuity evidence |
+| F. Final candidate and R02b | Integrator + Windows tester | A–E on one final artifact; reuse unaffected evidence only with matching identities | Frozen acceptance matrix, measurements, downloaded sums/provenance and explicit remaining limits |
+
+Work can proceed on independent packages while a particular right or native
+input is unavailable. That unavailable gate stays open; it does not justify
+removing supported languages, substituting a compiler fallback or silently
+reducing the R19 definition of done.
+
+Implementation boundaries are the existing collection scripts
+(`packaging/runtime-bundle/record_runtime.py`, `closure.py`, `runtime.spec`),
+tool adapters (`backend/media_tools.py`, `game_tools.py`, `bundle_tools.py`,
+`prebuilt_readers.py`, `prebuilt_node_reader.py`), and runtime dispatch
+(`backend/runtime_bundle.py`, `bundle_entry.py`). Host work connects the existing
+API/handoff/preparation lifecycle and Windows ownership code; keep the explicitly
+synthetic `bundle_host.py`/`bundle_migration.py` fixtures distinguishable from new
+production adapters. Extend the existing frozen/helper/functional probes and
+GitHub workflows instead of duplicating the source updater or extractor stack.
+
+## A. Exact components, resources and rights
+
+**A1 — Record decisions per actual file.** Extend the existing input/closure
+records with archive/source revision, file SHA-256, architecture, native imports
+and delay imports, complete notice paths, applicable source-delivery mapping,
+acquisition mode and deterministic execution/resource path. Use the existing
+P1/J1/M1/V1/F1/G1 requirements. Distinguish app-local files, separately verified
+downloads, named OS/VC prerequisites and install-local game files. A receipt's
+`approved` string cannot unlock a disabled helper kind.
+
+**A2 — Close the observed runtime inputs.** Review the pinned CPython 3.12.16
+supplier and exact wheel/native payloads already collected, including CRT/CPU
+requirements and the independent ASR native tree. Complete missing notice text
+instead of treating retained METADATA as approval. Review emitted frontend,
+fonts, WASM, dictionaries and model bytes; build-only npm/SDK/test packages do
+not become user dependencies. Record the chosen x64/x86 VC runtime requirements
+and official repair path without copying arbitrary System32 files.
+
+**A3 — Resolve the shared audio and blocked reader inputs.** For FFmpeg and
+vgmstream, select exact artifacts/configuration, codec/native dependencies,
+notices and required source delivery. Recheck actual current primary upstream
+sources before recording a disposition. Independently close NTE external/Oodle,
+Endfield constants/port provenance, REE modified-reader/native and ZZZ GPL/WASM/
+custom-term/metadata questions. Separate downloads are not automatic rights
+approval. Preserve the never-collect rules for Snipping Tool OCR and the Decima
+game DLL, and the separate private Persona character cache.
+
+Acceptance: the collector can identify every selected output file and rejects
+unreviewed extras, changed bytes, path aliases and wrong architectures. Each
+required component has an evidenced delivery/prerequisite decision and an actual
+functional probe. If a needed component remains unresolved, the related toolchain
+and full R19 acceptance remain unavailable.
+
+## B. Functional compiler-free toolchains
+
+**B1 — Add the shared executable adapters first.** Implement fixed bundle
+resolution/invocation for accepted FFmpeg/vgmstream artifacts, preserving source
+behavior. Where A selects a separately acquired tool, use its verified private
+tool root and exact receipt. Do not discover arbitrary PATH binaries, borrow a
+development installation or start SDK/npm/pip/restore. Test real decoding with
+owned audio, bounded cancellation and previous-output retention before attaching
+more game readers.
+
+**B2 — Complete the per-family integrations below.** Use the current adapters,
+prebuilt helper resolvers and collection gate; do not create an independent
+extractor stack. The public fixtures must be authored and exercise the actual
+format/parser/subprocess rather than mock process success. Keep game constants,
+private sources and unapproved binaries in the existing blocked quarantine.
+
+| Games / chain | Missing implementation or proof | Required positive case and boundary |
+| --- | --- | --- |
+| NTE | Exact external managed/native closure; reviewed fixed game dispatch | Real locres/text-to-bank/media binding and one original-voice output; authored reflection stand-ins remain separately labelled |
+| Endfield | Accepted selected-source/helper policy and actual VFS/audio path | Representative VFS block/chunk/hash lookup and voice bytes; retain four voice choices and actionable absent-pack states |
+| ZZZ | Reviewed precompiled reader, app-local Node/modules/WASM and immutable extractor integration | Real scene/cinematic unpacking, worker/WASM codec execution and text/voice identity without runtime transpilation |
+| PRAGMATA | Modified x86/native rights and resolver integration; remaining PAK formats | Selective compressed/encrypted-format cases and oversized/corrupt rejection; preserve the existing uncompressed selection pass |
+| Cyberpunk | Exact WolvenKit/.NET/native invocation and source obligations | Real selected text/voice extraction with accepted app-local or declared runtime, no developer SDK |
+| Wuthering Waves | Exact FModel/decompression/native policy and invocation | Actual archive/binding/decompression path; unresolved Oodle stays blocked |
+| The Witcher 3 | Frozen speech/narrative path through the shared decoder | Original text/voice identity and codec output, preserving selected player voice |
+| BEYOND / Heavy Rain / Detroit | Three distinct Quantic resource/audio variants | Separate reservoir-sensitive MP3, legacy resources/game-data and v18 Wwise cases; one game's pass cannot cover all three |
+| Star Rail / Genshin | Private snapshot acquisition and distinct pack/root layouts | Separate original-voice binding cases, including the regional-root distinction; no shipped metadata seed |
+| Rise / Shadow of the Tomb Raider | Distinct Tiger MUL/movie and locale-segment/Wwise paths | One fixture per distinct variant, including channel/locale and voice identity |
+| Spyro | Frozen Unreal/zlib and three-game table/media mapping | Three game namespaces retained with representative actual-format text/WEM binding |
+| MGSV TPP / Ground Zeroes | Distinct Fox SQAR and GZS/XOR/container bindings | Separate radio/tape/cinematic and STE/WIN/SANI/FSM coverage where those formats apply |
+| Death Stranding | Explicit installed-game DLL ABI/loader boundary | Exact read-only install-local DLL binding and missing/wrong-ABI rejection; never collect that DLL |
+| A Plague Tale: Innocence | Frozen Asobo raw/LZ4/Wwise chain | Package precedence, text/voice binding and decoder output |
+| Portal / Portal 2 / Half-Life 2 | Source mount/version/campaign and Bink/multitrack differences | Separate ordered mounts, VSIF3/Bink and VSIF2/campaign cases; preserve each game's identity |
+| Half-Life | Candidate execution of the existing unvoiced GoldSrc capability | Exact text/translation behavior and text-only capture; no invented original-voice support or per-reader vgmstream dependency |
+| Persona 5 Royal | Separately verified character cache and CRI MSG/flow/ADX integration | Correct character/text and cue/bank/ADX output; missing cache is actionable and remains private |
+| Deus Ex: Human Revolution DC | Frozen bigfile/CDRM/MUL/USM decoding | Stereo interleave, USM/ADX and exact text/voice identity |
+
+This table maps all 25 active games to distinct remaining cases. Reuse shared
+codec probes; retain separate format/locale cases where the table names a
+difference. Installed-game playback is a private additional observation for the
+named installed pack; an authored-format pass never labels an absent pack as
+played or native-verified.
+
+**B3 — Exercise ordinary consumers.** Run the actual language/index worker and
+full mobile-export worker through an accepted chain, including original audio,
+chosen source/translation locale and normal package import/readback. Worker
+`--help` and direct catalog-library export do not satisfy this case. For optional
+ASR, record the separately licensed model/token source/version/hash and execute
+one actual inference in the isolated image when enabled. Missing model files
+remain actionable; they are never filled from an arbitrary old installation.
+
+For each chain, require exact expected/forbidden text and voice identities,
+wrong/missing/corrupt native inputs, interrupted extraction, cancellation and
+unchanged last complete indexes. Output stays outside the app/helper/game trees.
+No failed voice lookup becomes unvoiced dialogue or a different language.
+
+## C. Real host ownership, update and recovery
+
+**C1 — Establish the extracted entry host.** Prebuild/adapt the owned host and
+interop on Windows, preserving existing ports, ordinary-browser selection and
+legacy exclusion. Inventory any remaining PowerShell/Framework behavior. A
+remaining `Add-Type` path is not proved compiler-free by a game-helper pass;
+prefer the precompiled interop path. Installer registration and shortcut/pointer
+installation transactions stay with R20/R21.
+
+**C2 — Connect real ownership and a global writer barrier.** Adapt existing
+runtime readiness/quiesce/handoff and Windows process-tree ownership. Identify
+children using owned handles/start identity/image/root; a copied PID or route
+record cannot authorize termination. Stop preparation/native setup jobs,
+manual/automatic exports, capture, queued reading/audio writes and request
+mutations before copy or takeover. Wait for actual drain/descendant exit. A
+cancelled future, `/api/health`, standby or OCR readiness is not that barrier.
+
+**C3 — Implement the frozen update transaction.** Verify a new immutable slot,
+prepare it against copied test state, warm OCR/selected index and frontend, drain
+the old owner within the preselected 30-second budget, transfer bounded capture
+state, publish the route atomically and retire owned old children. Retain old
+chunks and reconnect WebSockets. Keep the legacy operation lease continuously
+held: do not invoke the current nested-lock source updater or briefly release
+exclusion. Reuse its established behavior through an owner-aware adapter, with
+the frozen updater still disabled until the integrated transaction passes.
+
+**C4 — Prove failure and recovery.** Inject failure after verification, standby,
+drain, activation and route publication. Also cover nested update contention,
+quiesce timeout, corrupt receipts, parent crash, reused/unknown PIDs, stale routes
+and native child failure. Confirm at most one capture owner, previous runtime
+usability or a retained explicit recovery-required state. Application rollback
+must not let old code open an incompatible new writable schema. Never infer
+permission to restore data merely because code rollback is possible.
+
+Acceptance: actual extracted processes, handles, routes and copied stores satisfy
+these cases. The `SyntheticHostCoordinator` and synthetic migration tests remain
+cheap ordering/failure regressions, not replacements for this integration.
+
+## D. Clean Windows 11 acceptance
+
+Prepare a private protocol and safe result template before involving a tester.
+Use a standard Windows 11 25H2 x64 user without development tools. Record exact
+OS/build, CPU/GPU, selected browser, runtime/CRT, Snipping Tool build and relevant
+file hashes, display topology/DPI and candidate/inventory identity. Keep personal
+paths, game files, credentials and recordings out of public reports.
+
+Run one bounded case for each distinct risk:
+
+- Extract to spaces/Unicode, start from unrelated CWD and a read-only app tree;
+  prove fixed child dispatch and app-local or declared OS DLL origins.
+- Initialize user-provided Snipping Tool OCR and read independently authored
+  Chinese and non-Chinese captions through native capture and transcript output.
+- Cover window and monitor selection, 125/150/200% DPI, multiple monitors and
+  negative display coordinates; verify expected and forbidden crop bounds.
+- Exercise missing/stale OCR assets, denied capture, unavailable display/device,
+  wrong architecture, missing CRT, offline first start/reuse, interrupted or
+  blocked tool acquisition, no space and locked files. Never report partly ready.
+- Confirm an audio/decoder failure preserves the confirmed transcript and prior
+  complete index/export. Run selected installed-game/locale playback only where
+  those private inputs are available; label other packs unavailable.
+
+Server 2025 CI remains build/loading evidence. It cannot close these Windows 11
+hardware/capture criteria. No real account write is needed for the protocol.
+
+## E. Data and ordinary-browser continuity
+
+**E1 — Extend copied-data probes after C2.** Use opt-in disposable copies and a
+current writer-stop proof. Preserve synthetic transcripts/favorites, archived
+data, account/locale selections, grammar choices, export ledgers, outstanding
+export-volume work and previous complete libraries. Validate SQLite/WAL/schema
+sets, aliases and inventories. Cover interrupted/resumed copy, no space, locks,
+unknown schema and malformed/changed manifests; retain originals and failed
+targets. Do not perform an actual existing-installation migration in this phase.
+
+**E2 — Verify protected TEST credentials on the candidate.** Preserve host
+locators and encrypted legacy fallback under the same Windows user. Use newly
+created protected TEST blobs and mock clients only. Verify no plaintext or key
+enters a manifest, log, browser or workflow secret. An unreadable named store
+retains its bytes and reaches an explicit preserving repair/reconnect design;
+the existing add-account prompt is not evidence of that repair.
+
+**E3 — Reopen the selected ordinary browser profile.** On the retained origin,
+verify localStorage, IndexedDB, OPFS, userscript keys, reading mode, account/locale
+selection, audio/export and WebSocket recovery through restart and update.
+Exercise Chromium and Firefox with relevant real extension behavior separately
+from fresh synthetic profiles. Test missing/stale assets, old chunks and offline
+reopen without copying raw browser-profile directories or clearing user stores.
+
+Acceptance: copied-state and ordinary-profile evidence names the actual candidate,
+browser/extension versions and verified operations. Keep source/Server protected
+TEST evidence, synthetic browser equivalence and candidate results distinguishable.
+
+## F. Final artifact, measurements and completion decision
+
+Freeze one eligible candidate after A–E implementation: source commit, source/
+dependency locks, per-component inputs, model/tool digests, complete files and
+directories, executable hashes, native/host policy and fixture versions. Run
+functional, ordinary-browser and native acceptance against those exact bytes.
+Change only invalidates the affected evidence, but final combined acceptance
+must identify one coherent candidate rather than combine unrelated artifacts.
+
+Use the [preselected R02b method](r19-runtime-bundle.md#r02b-method-fixed-before-optimization):
+one cold start after reboot, five warm starts, frontend plus true runtime
+readiness, first usable caption, process-tree memory/CPU and 60-second idle CPU,
+extracted/compressed size, peak preparation/failure disk usage and recovery.
+Measure the source runtime on the same machine/configuration. Retain failures
+and unavailable measurements; invent no retrospective speed/size threshold.
+
+Run supported-target full source/browser/package CI and the relevant **extracted
+runtime** probes. The existing source-ZIP package job is useful evidence but does
+not replace a frozen artifact check. Download eligible candidate/check metadata,
+verify every checksum and exact source/shared provenance, and report signature/
+attestation status separately. Until distribution is eligible, keep binaries and
+raw/private evidence quarantined and publish only allowlisted sanitized metadata.
+
+The completion review must answer every R18 acceptance row with pass, failure or
+unavailable, exact artifact/case identity and scope. Required unavailable or
+failed rows prevent a full R19-complete claim. Optional component absence must
+have its declared actionable state and cannot conceal a required capability.
+Only after this review may a separate implementation change enable the production
+profile; this document does not flip a gate or authorize activation/release.
+
+## Check cost and evidence rules
+
+Use `dev:doctor` before dependency preparation and `check:changed` for edits;
+fetch the actual PR target for branch comparisons. Run cheap contract tests for
+new resolver/ownership/failure behavior and only missing authored format cases.
+Do not mirror implementation details or multiply every game by every locale,
+browser and DPI. Batch cases by distinct format/codec and retain the per-game map.
+
+Reuse existing hosted helper budgets (managed 20 minutes, Node 15 minutes,
+private readers 25 minutes per kind) and the integrated-runtime 45-minute ceiling.
+These are limits, not target durations or permission to add a full matrix to
+every commit. Measure the first new case's cost before expanding a job. Build
+once per exact input identity and reuse the output across probes. Rerun passed
+broad suites only for relevant changes, reproduced failures or final acceptance.
+Documentation-only work uses documentation/publication checks.
+
+Each result records source, exact artifact/inventory, build/probe/fixture identity,
+OS/architecture, elapsed time, result, cleanup and unrun scope. A skipped native
+case, delegated check, successful import or receipt label is not a functional or
+rights pass. Preserve the observed first failures, including unchanged successful
+repeats, in the evidence ledger. Never upload private source/constants, accounts,
+game media, raw compiler logs or recordings as failure artifacts.
+
+## Immediate next implementation slice
+
+Start A1/A3 and B1 with one accepted codec artifact and one independently authored
+real decode, plus missing/corrupt/cancellation cases. Add its exact disposition
+record and closed frozen resolver before the next codec family. Continue that
+pattern for FFmpeg/vgmstream; do not put all codecs and games into the first
+change. Keep unresolved artifacts disabled. This enables subsequent voice-reader
+work without promoting NTE stand-ins or private Endfield/REE outputs.
+
+Then integrate B2 one distinct chain at a time while C proceeds on authored
+services. D/E protocols can be prepared before device access; their results wait
+for the corresponding candidate. Final measurements and the full R19 decision
+follow F. Installer construction, installed repair/uninstall and installed
+shortcut/upgrade migration remain R20/R21; release/signing delivery remains R22.
+
+PR #60 may be reviewed as a bounded experimental foundation while this ledger
+remains open. That review decision is separate from full R19 acceptance and
+upstream CI approval. This plan does not change its draft state or PR #59.
