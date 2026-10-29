@@ -41,6 +41,11 @@ function Finish-Probe($process, [string]$kind) {
     if ($process.ExitCode -ne 0) {
         # Private failure evidence stays on this disposable build host.
         [IO.File]::WriteAllText((Join-Path $temporary ($kind + '-failure.log')), $stdout + $stderr)
+        try {
+            $failure = $stdout | ConvertFrom-Json
+            # This fixed probe's JSON excludes paths, fixture text and accounts.
+            if ($failure.status -eq 'failed') { Write-Host ($failure.error | ConvertTo-Json -Compress) }
+        } catch { }
         throw "Frozen $kind probe failed; inspect private build-host evidence."
     }
     $result = $stdout | ConvertFrom-Json

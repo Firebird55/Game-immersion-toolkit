@@ -65,6 +65,11 @@ def verify_wheel(wheel):
             seen.add(name.casefold())
             if member.is_dir():
                 continue
+            if name.endswith('.dist-info/RECORD'):
+                # pip rewrites RECORD to include installed scripts, bytecode
+                # and INSTALLER/REQUESTED. It is not executable wheel payload;
+                # the recorder separately hashes its actual installed bytes.
+                continue
             # Windows entry scripts have installer-rewritten shebangs. They
             # are build-only; no scripts/SDK/compiler enter the frozen tree.
             data_path = None

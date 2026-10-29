@@ -168,7 +168,16 @@ def main(kind, layout):
     sys.addaudithook(block_remote_access)
     if kind == 'api':
         return api(layout)
-    details = native(layout) if kind == 'native' else asr(layout)
+    try:
+        details = native(layout) if kind == 'native' else asr(layout)
+    except Exception as error:
+        failure = {'type': type(error).__name__}
+        if isinstance(error, ModuleNotFoundError):
+            failure['module'] = error.name
+        elif isinstance(error, RuntimeBundleError):
+            failure['contract'] = str(error)
+        print(json.dumps({'status': 'failed', 'kind': kind, 'error': failure}))
+        return 2
     print(json.dumps({'schema': 'proxy-r19-runtime-probe-v1', 'source_commit': layout.source_commit,
         'build_id': layout.build_id, 'kind': kind, 'status': 'passed', 'details': details,
         'real_accounts_accessed': False, 'installed_game_probe': 'not-run', 'rights_review': 'pending-exact-output',

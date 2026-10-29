@@ -114,7 +114,8 @@ def test_supplier_archive_rejects_traversal_and_links(tmp_path, monkeypatch, nam
 def test_wheel_payload_tampering_is_not_accepted_by_version_metadata(tmp_path, monkeypatch):
     module = recorder(monkeypatch)
     prefix = tmp_path / 'environment'; prefix.mkdir()
-    files = {'owned-1.0.dist-info/METADATA': b'Name: owned\nVersion: 1.0\n', 'owned.py': b'OWNED = True\n'}
+    files = {'owned-1.0.dist-info/METADATA': b'Name: owned\nVersion: 1.0\n',
+             'owned-1.0.dist-info/RECORD': b'original archive inventory', 'owned.py': b'OWNED = True\n'}
     wheel = tmp_path / 'owned.whl'
     with zipfile.ZipFile(wheel, 'w') as package:
         for name, content in files.items():
@@ -122,6 +123,7 @@ def test_wheel_payload_tampering_is_not_accepted_by_version_metadata(tmp_path, m
             target = prefix / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(content)
     monkeypatch.setattr(sys, 'prefix', str(prefix))
     monkeypatch.setattr(module.metadata, 'distribution', lambda _: SimpleNamespace(locate_file=lambda name: prefix / name))
+    (prefix / 'owned-1.0.dist-info/RECORD').write_bytes(b'pip rewritten installed inventory')
     module.verify_wheel(wheel)
     (prefix / 'owned.py').write_bytes(b'ALTERED = True\n')
     with pytest.raises(module.ClosureError, match='differs from archive'):
