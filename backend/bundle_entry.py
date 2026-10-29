@@ -10,6 +10,15 @@ from backend.runtime_bundle import CHILD_TARGETS, RuntimeBundleError, discover_l
 
 def main(arguments=None):
     args = list(sys.argv[1:] if arguments is None else arguments)
+    if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api'}:
+        layout = discover_layout()
+        if layout.mode != 'bundle' or layout.profile != 'runtime-experiment':
+            raise RuntimeBundleError('Runtime probes require the quarantined runtime-experiment profile.')
+        asr_image = layout.executable.name.casefold() == 'proxytranscriptasr.exe'
+        if asr_image != (args[1] == 'asr'):
+            raise RuntimeBundleError('Probe must use its isolated runtime image.')
+        from backend.runtime_probe import main as probe
+        return probe(args[1], layout)
     if args == ['--runtime-diagnose']:
         layout = discover_layout()
         # Public diagnostics contain logical state, never private root paths.

@@ -1,5 +1,39 @@
 # R19 quarantined Windows onedir prototype
 
+The `runtime-experiment` profile now assembles the static frontend, backend,
+dynamic game readers and workers, VAD resources and a separate ASR native tree.
+It uses the exact observed CPython 3.12.16 Windows archive in
+`python-supplier.json`. `record_runtime.py` compares installed Python/wheel
+payloads with their actual archives, records notices (explicitly marking
+metadata-only notice evidence as incomplete), and binds the frontend and model
+bytes to the clean source commit. This is a quarantined extracted experiment,
+not an approved complete R19 distribution. The `runtime` production profile
+remains hard-disabled. Neither credential-writing prompts nor the source updater
+are enabled by the experimental child manifest.
+
+On a Windows build host, provision the pinned archive and locked wheels, build
+the desktop frontend, then run `record_runtime.py --evidence <private-evidence>
+--frontend-root <built-desktop> --build-id <identity> --output <private-inputs>`
+and `scripts/build-runtime-bundle.ps1 -RuntimeExperiment` with its mandatory
+input/evidence/Python arguments. The integrated experiment workflow performs
+this preparation on GitHub-hosted Windows and uploads sanitized metadata only.
+Raw executables, private receipts, native outputs and caches stay quarantined.
+The exact output inventory remains a rights-review input, not an approval.
+
+`probe-frozen-runtime.ps1` compares the relocated candidate with that complete
+inventory, marks application files read-only, clears inherited developer and
+credential environment variables, and selects new synthetic roots. Fixed probes
+exercise actual native imports, all active registry readers, real VAD inference
+on authored silence, isolated ASR imports, real index/language worker fixtures,
+catalog-library export, and actual frontend/API HTTP and WebSocket routes.
+The API probe mocks background updates, game discovery and OCR warmup; it never
+loads real accounts or installed games. Export-worker help is narrower than
+end-to-end game export. ASR model inference and native OCR/capture remain unrun.
+Every passing receipt requires owned process and fixture cleanup.
+
+The integrated workflow and extracted probes must actually pass before claiming
+this scope. Local source tests alone cannot establish a Windows frozen build.
+
 This directory defines a Windows x64 PyInstaller **onedir** build of the existing
 Python runtime. It does not release, tag, install, alter Pages, acquire games or
 write accounts. R19 remains incomplete: no clean Windows 11 25H2 acceptance,

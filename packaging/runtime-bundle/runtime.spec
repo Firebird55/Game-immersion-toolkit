@@ -6,35 +6,45 @@ import sys
 
 root = Path(SPECPATH).parents[1]
 sys.path.insert(0, str(root))
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
 from backend.runtime_bundle import CHILD_TARGETS
 
 inputs = json.loads(Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']).read_text(encoding='utf-8'))
-runtime = inputs['profile'] == 'runtime'
-if runtime:
+runtime = inputs['profile'] == 'runtime-experiment'
+if inputs['profile'] == 'runtime':
     raise SystemExit('Full runtime profile is disabled until helper/host artifacts and exact collected-file closure are implemented and reviewed.')
-resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT']) if inputs['profile'] == 'frontend-experiment' else root
+resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT'])
 data = [(str(resource_root / item['path']), str(Path(item['path']).parent)) for item in inputs['resources']]
 hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experiment' else []
 binaries = []
+
+def production_module(name):
+    return not any(part in {'tests', 'test', 'testing', 'conftest', 'pytest'} for part in name.split('.'))
+
+def package_closure(package):
+    # Test corpora, private examples and embedded FFmpeg are not runtime inputs.
+    # PyInstaller's normal package hooks still collect dependent native DLLs.
+    return (collect_data_files(package, excludes=['**/tests/**', '**/test/**', '**/testing/**', '**/__pycache__/**']),
+            collect_dynamic_libs(package), collect_submodules(package, filter=production_module))
+
 if runtime:
     # Registry-selected imports cannot be discovered from import_module alone.
     # Collect every backend reader, retaining all 25 games and shared parsers.
-    hidden = [name for name in collect_submodules('backend')
-              if not name.startswith('backend.tests') and name != 'backend.agent_transcribe']
+    hidden = [name for name in collect_submodules('backend', filter=production_module)
+              if name != 'backend.agent_transcribe']
     hidden += [target for kind, (mode, target) in CHILD_TARGETS.items()
                if mode == 'module' and kind != 'asr']
     for package in ('uvicorn', 'numpy', 'scipy', 'kaldi_native_fbank', 'onnxruntime',
                     'cv2', 'PIL', 'windows_capture', 'pyaudiowpatch', 'Crypto',
                     'rapidfuzz', 'opencc', 'pypinyin', 'certifi', 'oneocr'):
-        package_data, package_binaries, package_hidden = collect_all(package)
+        package_data, package_binaries, package_hidden = package_closure(package)
         data += package_data
         binaries += package_binaries
         hidden += package_hidden
 
 main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
     binaries=binaries, datas=data, hiddenimports=hidden,
-    excludes=['sherpa_onnx', 'sherpa_onnx_core', 'pytest', 'backend.tests'])
+    excludes=['sherpa_onnx', 'sherpa_onnx_core', 'pytest', 'backend.tests', 'pip', 'setuptools', 'imageio_ffmpeg'])
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
     name='ProxyTranscriptRuntime', console=True, contents_directory='_internal')
@@ -43,10 +53,13 @@ main_collection = COLLECT(main_exe, main.binaries, main.datas, name='ProxyTransc
 if runtime:
     # Separate Analysis, executable, directory and native library tree. Putting
     # both ONNX families in one collection defeats process/DLL isolation.
-    asr_data, asr_binaries, asr_hidden = collect_all('sherpa_onnx')
+    asr_data, asr_binaries, asr_hidden = package_closure('sherpa_onnx')
+    # sherpa-onnx-core is a distribution, not an importable module. Its DLLs
+    # live in sherpa_onnx/lib and package_closure above collects that exact tree.
+    asr_data += copy_metadata('sherpa-onnx-core')
     asr = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
-        binaries=asr_binaries, datas=asr_data, hiddenimports=['backend.agent_transcribe', *asr_hidden],
-        excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture', 'pytest'])
+        binaries=asr_binaries, datas=asr_data, hiddenimports=['backend.agent_transcribe', 'backend.runtime_probe', *asr_hidden],
+        excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture', 'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,
         name='ProxyTranscriptAsr', console=True, contents_directory='_internal')

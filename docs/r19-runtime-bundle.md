@@ -254,6 +254,62 @@ Upstream fork workflow approval requires a repository admin; the current account
 received HTTP 403. A manual fork candidate run is additional evidence and cannot
 replace that PR's required check context.
 
+## Integrated extracted runtime continuation (2026-10-29)
+
+The new `runtime-experiment` build profile composes the static frontend with
+the complete backend/dynamic-reader import closure, workers, reviewed-in-source
+FireRedVAD resources and a separately collected ASR executable/native tree.
+Credential-writing prompts and the source updater remain disabled. All existing
+frozen game-helper/codec rights refusals remain in force. The production
+`runtime` profile remains hard-disabled; approval-like strings cannot enable it.
+
+The observed supplier is [Astral's immutable 20261026 release](https://github.com/astral-sh/python-build-standalone/releases/tag/20261026),
+CPython **3.12.16**, Windows x64, source revision
+`fa506e0858ac9f2cc5b289c137b888a2aa24d1ee`. Its install-only archive SHA-256 is
+`590dfcbe3a34c07301e6332e13e2188b98655cd072b08afa45a7998dc4c22bc5`,
+independently downloaded and matched against GitHub's asset digest. The
+[Python release](https://www.python.org/downloads/release/python-31216/)
+is a source-only security release; the Astral binary is a distinct supplier,
+not a new PSF Windows installer. Exact-output incorporated notices, CRT/native
+closure and supplier acceptance remain open. Existing diagnostic observations
+using 3.12.10 remain historical and do not establish maintained-runtime acceptance.
+
+Before collection, `record_runtime.py` compares actual installed interpreter and
+wheel payloads against their archives and records exact artifacts, installed
+hashes and actual notices. Missing standalone notice text retains complete
+METADATA as explicitly incomplete evidence, never an inferred license approval.
+The frontend, required application resources and source-pinned VAD model hashes
+are bound to the same clean commit. The complete extracted file inventory is
+checked again after relocation; binaries are not published.
+
+Fixed frozen probes use new build-bound synthetic roots and an allowlisted OS
+environment without inherited developer/loader/account variables. They exercise
+actual native imports and all 25 registry adapters, VAD on authored silence,
+separate ASR native loading, real index/language workers on authored GoldSrc
+fixtures, catalog-library export, and frontend plus real API HTTP/WS together.
+API background updates, game discovery and OCR warmup are mocked in that probe
+process. No account writes or installed game files are used. The ASR import
+probe does not establish model inference; catalog-library export and worker help
+do not establish full game export. Loaded native images must originate in the
+selected application tree or Windows; main/ASR families remain separate.
+
+Local development doctor returned 2 for unavailable macOS native dependencies.
+The focused source contracts passed **101 tests** after granting the owned
+loopback tests their required host permission. A sandboxed first attempt passed
+93 and failed eight loopback binds; it is not a pass. Windows build/probe results
+must be recorded after the integrated workflow executes. Local `check:changed`
+record `70735e9b-3fc3-4c89-8a3b-95cea5a231c1` remains failed: typecheck and
+271 Node tests passed (one skip), then Python collection lacked macOS
+`pyaudiowpatch`; subsequent aggregate checks did not run. The preceding sandboxed
+aggregate also failed on process/loopback restrictions. Neither is a full pass.
+No installer, release,
+tag, Pages publication, live migration or change to PR #59 is part of this phase.
+
+Public compatibility watch returned 2 on 2026-10-29: docs/UI changed, with no
+endpoint additions or removals. Public API/settings/language documentation and
+the public landing page were inspected without an account. Full live lookup/UI
+compatibility remains open; the baseline is unchanged.
+
 ## Continuation and rollback
 
 Run the new diagnostic workflow on this branch, inspect actual job and metadata

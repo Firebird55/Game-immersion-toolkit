@@ -33,7 +33,7 @@ def wheel_metadata(package):
     return BytesParser().parsebytes(package.read(info[0]))
 
 
-def record(evidence, python_artifact, python_source, build_id, source, frontend_root=None):
+def record(evidence, python_artifact, python_source, build_id, source, frontend_root=None, *, metadata_notices=False):
     if sys.platform != 'win32' or platform.architecture()[0] != '64bit':
         raise ClosureError('Observe diagnostic inputs on the Windows x64 build host.')
     archive = evidence / python_artifact
@@ -80,13 +80,19 @@ def record(evidence, python_artifact, python_source, build_id, source, frontend_
             if path.name.lower().startswith(('license', 'copying', 'notice')):
                 licenses.append(notice(path, normalized(name), relative))
         if not licenses:
-            raise ClosureError('Actual installed license/notice files are missing: ' + name)
+            if not metadata_notices:
+                raise ClosureError('Actual installed license/notice files are missing: ' + name)
+            # Preserve the complete actual metadata, without promoting a short
+            # license label (or missing text) into redistribution permission.
+            member = next(item for item in installed.files if str(item).endswith('.dist-info/METADATA'))
+            licenses.append(notice(Path(installed.locate_file(member)), normalized(name), 'METADATA'))
         components.append({'name': name, 'version': version, 'source': f'https://pypi.org/project/{name}/{version}/',
             'architecture': 'win-amd64' if 'win_amd64' in wheel.name else 'any',
             'review_status': 'observed-diagnostic', 'native_closure': 'unverified',
             'license_expression': package_metadata.get('License-Expression') or package_metadata.get('License') or 'observed notices; review pending',
             'artifact': {'path': wheel.relative_to(evidence).as_posix(), 'sha256': digest(wheel)},
-            'licenses': licenses, 'installed_files': files})
+            'licenses': licenses, 'installed_files': files,
+            'notice_review': 'pending; metadata alone may not contain complete terms'})
     commit = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
     resources = []
     if frontend_root is not None:

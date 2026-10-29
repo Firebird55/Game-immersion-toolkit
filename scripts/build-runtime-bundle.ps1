@@ -4,7 +4,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Python,
     [string]$OutputRoot,
     [switch]$DiagnosticOnly,
-    [switch]$FrontendExperiment
+    [switch]$FrontendExperiment,
+    [switch]$RuntimeExperiment
 )
 $ErrorActionPreference = 'Stop'
 $SourceRoot = Split-Path -Parent $PSScriptRoot
@@ -24,11 +25,12 @@ $DoctorExit = $LASTEXITCODE
 $Inputs = Get-Content -LiteralPath $InputManifest -Raw | ConvertFrom-Json
 if ($DiagnosticOnly -and $Inputs.profile -ne 'diagnostic') { throw '-DiagnosticOnly requires the diagnostic profile.' }
 if ($FrontendExperiment -and $Inputs.profile -ne 'frontend-experiment') { throw '-FrontendExperiment requires the frontend-experiment profile.' }
-if ($DiagnosticOnly -and $FrontendExperiment) { throw 'Choose one quarantined experimental profile.' }
-if ($DoctorExit -ne 0 -and -not (($DiagnosticOnly -or $FrontendExperiment) -and $DoctorExit -eq 2)) {
+if ($RuntimeExperiment -and $Inputs.profile -ne 'runtime-experiment') { throw '-RuntimeExperiment requires the runtime-experiment profile.' }
+if (@($DiagnosticOnly, $FrontendExperiment, $RuntimeExperiment | Where-Object { $_ }).Count -ne 1) { throw 'Choose exactly one quarantined experimental profile.' }
+if ($DoctorExit -ne 0 -and -not (($DiagnosticOnly -or $FrontendExperiment -or $RuntimeExperiment) -and $DoctorExit -eq 2)) {
     throw 'Development prerequisites are unavailable; no build was started.'
 }
-if ($DoctorExit -ne 0) { Write-Host 'Application doctor unavailable. Only the separately validated diagnostic/frontend subset may proceed.' }
+if ($DoctorExit -ne 0) { Write-Host 'Application doctor unavailable. Exact experimental inputs and hosted probes must establish their own limited scope.' }
 $Policy = Join-Path $SourceRoot 'packaging/runtime-bundle/closure.py'
 & $Python -B $Policy preflight --inputs $InputManifest --evidence $EvidenceRoot --source $SourceRoot
 if ($LASTEXITCODE -ne 0) { throw 'Exact input/source/hash/license/native evidence is incomplete.' }

@@ -17,7 +17,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from backend.runtime_bundle import CHILD_TARGETS, MANIFEST_SCHEMA, relative_resource
+from backend.runtime_bundle import CHILD_TARGETS, EXPERIMENT_CHILDREN, MANIFEST_SCHEMA, relative_resource
 
 GATES = ('python-supplier', 'python-native', 'javascript-native', 'models',
          'vgmstream', 'ffmpeg', 'copyleft', 'game-helper-rights', 'compiler-free-helpers',
@@ -54,7 +54,7 @@ def normalized(name):
 
 
 def validate_inputs(value, source, evidence, *, check_host=True):
-    if value.get('schema') != 'proxy-runtime-build-inputs-v1' or value.get('profile') not in {'diagnostic', 'frontend-experiment', 'runtime'}:
+    if value.get('schema') != 'proxy-runtime-build-inputs-v1' or value.get('profile') not in {'diagnostic', 'frontend-experiment', 'runtime-experiment', 'runtime'}:
         raise ClosureError('Unsupported build-input schema or profile.')
     if not re.fullmatch(r'[a-f0-9]{40}', str(value.get('source_commit', ''))):
         raise ClosureError('An exact source commit is required.')
@@ -71,6 +71,9 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         names.add(name)
         diagnostic_observation = (value['profile'] in {'diagnostic', 'frontend-experiment'}
             and component.get('review_status') == 'observed-diagnostic'
+            and component.get('native_closure') == 'unverified')
+        diagnostic_observation |= (value['profile'] == 'runtime-experiment'
+            and component.get('review_status') == 'observed-experiment'
             and component.get('native_closure') == 'unverified')
         if ((component.get('review_status') != 'approved' and not diagnostic_observation)
                 or component.get('architecture') not in {'win-amd64', 'win32', 'any'}
@@ -108,9 +111,9 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         dirty = subprocess.check_output(['git', '-C', str(source), 'status', '--porcelain'], text=True)
         if commit != value['source_commit'] or dirty.strip():
             raise ClosureError('Build input must match a clean source commit.')
-    if value['profile'] == 'runtime':
+    if value['profile'] in {'runtime', 'runtime-experiment'}:
         gates = value.get('gates', {})
-        if any(gates.get(name) != 'approved' for name in GATES):
+        if value['profile'] == 'runtime' and any(gates.get(name) != 'approved' for name in GATES):
             raise ClosureError('Full runtime closure remains incomplete; use an explicitly diagnostic candidate.')
         lock_names = set()
         for line in (source / 'requirements.lock.txt').read_text().splitlines():
@@ -131,10 +134,10 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         name = relative_resource(resource.get('path', ''))
         if Path(name).name.lower() in FORBIDDEN_NAMES or any(part.lower() in PRIVATE_PARTS for part in Path(name).parts):
             raise ClosureError('Private or proprietary resources must never be collected.')
-        checked_file(evidence if value['profile'] == 'frontend-experiment' else source, resource)
+        checked_file(evidence if value['profile'] in {'frontend-experiment', 'runtime-experiment'} else source, resource)
         if not resource.get('license_expression') or not resource.get('source') or not resource.get('version'):
             raise ClosureError('Resource source/version/license evidence is incomplete: ' + name)
-    if value['profile'] == 'frontend-experiment':
+    if value['profile'] in {'frontend-experiment', 'runtime-experiment'}:
         from backend.desktop_frontend import FrontendBuild, MANIFEST
         frontend = FrontendBuild(evidence / 'desktop')
         expected = {'desktop/' + name: digest(evidence / 'desktop' / name) for name in (*frontend.files, MANIFEST)}
@@ -142,9 +145,21 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         if (frontend.value['source_commit'] != value['source_commit']
                 or frontend.value['version'] != package['version']
                 or frontend.value['lock_sha256'] != digest(source / 'package-lock.json')
-                or {item['path']: item['sha256'] for item in resources} != expected
-                or len(resources) != len(expected)):
+                or {item['path']: item['sha256'] for item in resources if item['path'].startswith('desktop/')} != expected
+                or len({item['path'] for item in resources}) != len(resources)
+                or (value['profile'] == 'frontend-experiment' and len(resources) != len(expected))):
             raise ClosureError('Frontend candidate must collect exactly the verified public desktop tree, version and lock from this commit.')
+    if value['profile'] == 'runtime-experiment':
+        from record_runtime import RESOURCES
+        pin = json.loads((source / 'packaging/runtime-bundle/python-supplier.json').read_text())
+        if (value.get('python_supplier') != pin or python['version'] != pin['version']
+                or python['artifact']['sha256'] != pin['sha256'] or python['source'] != pin['url']
+                or value.get('runtime_lock_sha256') != digest(source / 'requirements.lock.txt')
+                or {item['path'] for item in resources} != set(RESOURCES) | set(expected)):
+            raise ClosureError('Integrated experiment supplier, lock or exact resource closure differs.')
+        for resource in resources:
+            if not resource['path'].startswith('desktop/') and digest(source / resource['path']) != resource['sha256']:
+                raise ClosureError('Experimental resource differs from source.')
     if value['profile'] == 'runtime':
         required_resources = {'package.json', 'public/mobile-capture/games-data.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
             'assets/fireredvad/fireredvad_vad.onnx', 'assets/fireredvad/cmvn.ark',
@@ -180,10 +195,10 @@ def inventory_output(folder):
 def write_candidate(value, source, evidence, output):
     resources = {entry['path']: entry['sha256'] for entry in value.get('resources', [])}
     package = json.loads((source / 'package.json').read_text())
-    runtime = value['profile'] == 'runtime'
+    runtime = value['profile'] in {'runtime', 'runtime-experiment'}
     manifest = {'schema': MANIFEST_SCHEMA, 'profile': value['profile'], 'version': package['version'],
         'source_commit': value['source_commit'], 'build_id': value['build_id'], 'resources': resources,
-        'children': list(CHILD_TARGETS) if runtime else ['frontend'] if value['profile'] == 'frontend-experiment' else [], 'r19_complete': False}
+        'children': list(EXPERIMENT_CHILDREN) if value['profile'] == 'runtime-experiment' else list(CHILD_TARGETS) if runtime else ['frontend'] if value['profile'] == 'frontend-experiment' else [], 'r19_complete': False}
     internal = output / 'ProxyTranscriptRuntime' / '_internal'
     internal.mkdir(parents=True, exist_ok=True)
     (internal / 'runtime-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
