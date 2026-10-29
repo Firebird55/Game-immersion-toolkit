@@ -10,6 +10,10 @@ and [helper evidence](r19-compiler-free-helpers.md).
 The [first codec slice](r19-codec-experiment.md) now implements experimental fixed
 FFmpeg/FLAC dispatch and its decode/failure probe; broader codecs and rights remain
 open. Its execution evidence is separate from the earlier checkpoint below.
+The [codec artifact review](r19-codec-artifact-review.md) identifies the exact
+Gyan supplier/FFmpeg source and rejects the current 7.1 snapshot for production.
+Full dependency source/notice delivery and a maintained replacement remain
+required. This is a completed negative artifact disposition, not acceptance.
 
 The deliverable is an extracted Windows x64 runtime that an ordinary user can
 operate without separately installed Python/Node/npm, a Wrangler service, an
@@ -303,14 +307,17 @@ game media, raw compiler logs or recordings as failure artifacts.
 
 ## Immediate next implementation slice
 
-Continue A1/A3 and B1 from the first experimental codec slice. Complete that
-artifact's open review before considering it accepted for production. For the
-next codec family use one accepted codec artifact and one independently authored
-real decode, plus missing/corrupt/cancellation cases. Add its exact disposition
-record and closed frozen resolver before the next codec family. Continue that
-pattern for FFmpeg/vgmstream; do not put all codecs and games into the first
-change. Keep unresolved artifacts disabled. This enables subsequent voice-reader
-work without promoting NTE stand-ins or private Endfield/REE outputs.
+Continue A1/A3 and B1 by selecting a maintained replacement for the rejected
+experimental FFmpeg 7.1 snapshot. Close exact source/patch/build-recipe/notice
+delivery for that replacement, then update its fixed resolver and repeat the
+actual frozen decode/failure/lifecycle cases. The existing fixture proves a
+baseline only; it does not qualify the replacement.
+
+For each subsequent codec family use one accepted artifact and an independently
+authored real decode, plus missing/corrupt/cancellation cases. Add its exact
+disposition record before broadening FFmpeg/vgmstream/game coverage. Keep
+unresolved artifacts disabled; NTE stand-ins and private Endfield/REE outputs
+remain distinct from accepted game chains.
 
 Then integrate B2 one distinct chain at a time while C proceeds on authored
 services. D/E protocols can be prepared before device access; their results wait

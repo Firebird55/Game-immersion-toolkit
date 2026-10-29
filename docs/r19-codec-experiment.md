@@ -5,6 +5,12 @@ This implements the first bounded slice from the [completion plan](r19-completio
 It does not enable the production runtime, general game FFmpeg paths, vgmstream,
 an installer or redistribution of the candidate. PR #59 stays unchanged.
 
+The subsequent [artifact review](r19-codec-artifact-review.md) identifies the
+original supplier and FFmpeg source pointer but **rejects this exact artifact for
+production**: full source/notice delivery remains incomplete and later security
+servicing is absent. Historical experimental receipts retain their pending/open
+fields; they are not approvals. Select a maintained replacement before promotion.
+
 ## Exact artifact and remaining rights
 
 The existing lock selects imageio-ffmpeg **0.6.0**. Its

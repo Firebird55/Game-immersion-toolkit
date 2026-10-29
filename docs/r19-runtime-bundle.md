@@ -85,6 +85,10 @@ It does not convert unresolved helper rights or native evidence into approval.
 The [first codec step](r19-codec-experiment.md) adds one pinned experimental
 FFmpeg artifact, fixed FLAC-to-PCM dispatch and an independently authored decode
 case. General game FFmpeg, redistribution and Windows 11 gates remain open.
+The [codec artifact review](r19-codec-artifact-review.md) now resolves the original
+Gyan supplier/top-level FFmpeg source identity and rejects that snapshot for
+production. Complete dependency source/notices and a maintained replacement are
+required; the successful experimental decode does not override that disposition.
 
 All [R18 component gates](r18-runtime-components.md) remain binding for the
 actual shipped bytes. Exact maintained CPython supplier, Windows wheels and
