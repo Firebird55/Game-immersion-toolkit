@@ -118,6 +118,19 @@ change the selected payload hash. This closes central notice attribution and
 delivery, subject to the next actual frozen output. It does not identify the
 separate ONNX library embedded in sherpa-onnx-core or approve either native tree.
 
+The exact [windows-capture 2.0.1 wheel](https://pypi.org/pypi/windows-capture/2.0.1/json)
+has SHA-256 209c2318e2168802b9afd1005e99499639e8835e71a1e188a3ddc77c7ccc3f04.
+It contains a full wrapper MIT notice at
+windows_capture-2.0.1.dist-info/licenses/LICENCE: 1,091 bytes, SHA-256
+e11eff681f6f0eb76dbea5787b100d646e4eb5d711e50cb5c9032595f6ca6a68.
+The generic recorder now recognizes the British LICENCE spelling and delivers
+the original installed/wheel-bound text centrally instead of falling back to
+METADATA. Its delivery regression preserves original CRLF bytes and excludes a
+raw SBOM fixture. The real supplier SBOM includes upstream absolute build paths
+and all-target dependencies; it remains private review material. This notice
+step does not approve Rust/native dependencies, compiler/SDK/runtime terms or
+Windows capture, and its exact frozen delivery still requires a hosted build.
+
 | Component/output | Observed evidence | Remaining disposition input |
 | --- | --- | --- |
 | CPython 3.12.16 and both interpreter trees | Historical output has one matching LICENSE.txt; new collection also requires the twenty retained supplier texts plus provenance. Main/ASR trees contain Python, OpenSSL, libffi and other extensions. | Confirm the new notice bytes in the next frozen output; map every shipped and compiled-in native dependency to source/version/build recipe/terms, including duplicate ASR files. Reconcile Microsoft runtime ownership and conditions. |
@@ -125,7 +138,8 @@ separate ONNX library embedded in sherpa-onnx-core or approve either native tree
 | ONNX Runtime 1.24.4 in main | Historical package data includes exact ThirdPartyNotices, while central notice evidence has LICENSE only; new collection also binds and centrally delivers the original wheel's ThirdPartyNotices. Main and ASR have distinct ONNX libraries. | Confirm the new central bytes in the next frozen output; establish upstream source/build identity and inspect provider DLLs, compiler/CRT requirements and actual origins for each process. Do not substitute main's version for ASR's bundled runtime. |
 | NumPy 1.26.4 and SciPy 1.14.1 | Four/five notice records; OpenBLAS DLLs are collected, including ASR's NumPy tree. | Inspect the actual notice text and map OpenBLAS/LAPACK/compiler runtime and incorporated routines to the exact collected files and corresponding sources. Notice count alone is not a completeness decision. |
 | OpenCV Python 4.11.0.86 and Pillow 13.0.0 | OpenCV has LICENSE and LICENSE-3RD-PARTY copies; Pillow has one license record. | Review selected native image/video codec features and actual incorporated notices/source obligations, including FFmpeg if present. Excluding imageio-ffmpeg or Haar data does not establish OpenCV's native closure. |
-| windows-capture 2.0.1, flatbuffers 25.12.19, oneocr 1.0.12 | Historical notice records are METADATA fallbacks. | Retain actual versioned licenses, copyright notices and incorporated dependency terms. oneocr's wrapper license cannot grant rights to proprietary Snipping Tool DLLs/models; those remain user-local prerequisites. |
+| windows-capture 2.0.1 | Historical notice records fell back to METADATA because the collector missed LICENCE; new collection binds and delivers the existing exact wheel's wrapper notice. | Confirm the central notice bytes in the next frozen output; complete Rust/native/compiler/runtime attribution and capture acceptance separately. Raw supplier SBOM publication remains closed. |
+| flatbuffers 25.12.19, oneocr 1.0.12 | Historical notice records are METADATA fallbacks. | Retain actual versioned licenses, copyright notices and incorporated dependency terms. oneocr's wrapper license cannot grant rights to proprietary Snipping Tool DLLs/models; those remain user-local prerequisites. |
 | kaldi-native-fbank, PyAudioWPatch, webrtcvad-wheels, PyCryptodome, RapidFuzz, pydantic_core, httptools, watchfiles, websockets, PyYAML, protobuf and other collected wheels | Exact distribution/version/wheel hashes and installed file checks exist; native imports remain observed/unverified. | Use the selected wheel's own complete notices and source/native-build records. Reconcile PortAudio/PyAudio, WebRTC and compiled Rust/C/C++ dependencies rather than inheriting one wrapper license. |
 | certifi, OpenCC, pypinyin and FireRedVAD resources | Wheel notices and owned FireRedVAD provenance/resources are recorded. | Review the exact CA/dictionary/model data terms and final bytes independently of implementation licenses. Optional agent model/tokens require their own manifest; no private model may become seed data. |
 | Freezer/build-only packages | Recorder includes the locked build environment as well as runtime packages; runtime.spec excludes pip/setuptools/pytest and selected other packages. | Distinguish actual emitted code from build-only packages, retain exact PyInstaller bootloader exception and embedded native notices, and verify exclusions in the final output. All 49 lock entries need a disposition, not necessarily inclusion. |
