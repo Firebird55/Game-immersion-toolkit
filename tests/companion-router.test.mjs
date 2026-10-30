@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import net from 'node:net';
 import {createHash} from 'node:crypto';
 import {once} from 'node:events';
 import {mkdtempSync,writeFileSync,renameSync,mkdirSync,rmSync} from 'node:fs';
@@ -10,6 +11,41 @@ import {startRouter} from '../scripts/companion-router.mjs';
 
 const listen=server=>new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve(server.address().port)));
 const close=server=>new Promise(resolve=>server.close(resolve));
+test('router shutdown closes owned preconnected sockets without stopping an unrelated listener',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json');
+ const backend=http.createServer((_request,response)=>response.end('still available'));
+ let router,idle,closing,timer;
+ try{
+  const port=await listen(backend);writeFileSync(statePath,JSON.stringify({active:{apiPort:port,frontendPort:port}}));
+  router=await startRouter({statePath,apiPort:0,frontendPort:0});
+  idle=net.connect({host:'127.0.0.1',port:router.apiPort});await once(idle,'connect');
+  closing=router.close();
+  const result=await Promise.race([closing.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),1000);})]);
+  assert.equal(result,true,'Shutdown retained a preconnected socket with no active request');
+  assert.equal(await(await fetch('http://127.0.0.1:'+port)).text(),'still available');
+ }finally{
+  clearTimeout(timer);idle?.destroy();await closing;await router?.close();await close(backend);
+  rmSync(directory,{recursive:true,force:true});
+ }
+});
+
+for(const finishDuringDrain of [true,false])test(`router shutdown ${finishDuringDrain?'drains a finishing response':'reports its deadline and reaps a stalled response'}`,async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json');
+ let started,response,router,closing;
+ const pending=new Promise(resolve=>started=resolve);
+ const backend=http.createServer((_request,reply)=>{response=reply;started();});
+ try{
+  const port=await listen(backend);writeFileSync(statePath,JSON.stringify({active:{apiPort:port,frontendPort:port}}));
+  router=await startRouter({statePath,apiPort:0,frontendPort:0,shutdownTimeoutMs:100});
+  const answer=fetch('http://127.0.0.1:'+router.apiPort).then(reply=>reply.text()).catch(()=>null);
+  await pending;closing=router.close();assert.equal(router.close(),closing,'Concurrent shutdown must share one outcome');
+  if(finishDuringDrain){response.end('complete response');assert.equal(await answer,'complete response');await closing;}
+  else{await assert.rejects(closing,/shutdown deadline expired/);assert.equal(await answer,null);}
+ }finally{
+  response?.destroy();await closing?.catch(()=>{});await router?.close().catch(()=>{});
+  backend.closeAllConnections();await close(backend);rmSync(directory,{recursive:true,force:true});
+ }
+});
 test('prepared runtime switches without interrupting active responses or losing old interface assets',async()=>{
  const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json'),assets=join(directory,'assets');
  mkdirSync(assets);writeFileSync(join(assets,'old-reader.js'),'old interface asset');
