@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import json
 import subprocess
 import tempfile
@@ -142,7 +143,7 @@ class Runtime:
         self.repair_task = None
         self.state_version = StateVersion()
         self.hub = EventHub(lambda: self.state_version.publish(self.accounts.generation))
-        local_settings = (RUNTIME_LAYOUT.settings_root / 'settings.json' if RUNTIME_LAYOUT.mode == 'bundle' else
+        local_settings = (RUNTIME_LAYOUT.settings_root / 'settings.json' if RUNTIME_LAYOUT.mode == 'bundle' or sys.platform != 'win32' else
             Path(os.environ.get("LOCALAPPDATA", DATA_DIR)) / "Proxy Transcript/settings.json")
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
@@ -157,7 +158,7 @@ class Runtime:
         self.hito = HitoTextIndex(DATA_DIR / "hito")
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            None,
             DATA_DIR / "audio",
             DATA_DIR / "voice-assets/learned-manifest.json",
         )
@@ -165,14 +166,14 @@ class Runtime:
         self._legacy_zzz_index = self.textmaps
         self.pragmata_voice_assets = PragmataVoiceAssetService(
             DATA_DIR / "pragmata",
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            None,
             DATA_DIR / "audio",
         )
         self._legacy_pragmata_voice = self.pragmata_voice_assets
         self._legacy_pragmata_index = self.pragmata
         self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in LOCAL_GAMES}
         self.game_voice_assets = {game: LocalVoiceAssetService(game, DATA_DIR / game,
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
+            None, DATA_DIR / "audio") for game in self.game_indexes}
         self._legacy_game_voices = tuple(self.game_voice_assets.values())
         self._legacy_game_voice_map = dict(self.game_voice_assets)
         self._legacy_game_indexes = dict(self.game_indexes)
@@ -426,7 +427,7 @@ class Runtime:
             key = (game, locale)
             voices = self._locale_voices.get(key)
             if voices is None:
-                decoder = DATA_DIR / 'voice-assets/vgmstream/vgmstream-cli.exe'
+                decoder = None  # Resolve the managed codec on demand, including after Setup.
                 voices = (PragmataVoiceAssetService(directory, decoder, DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools')
                           if game == 'pragmata' else LocalVoiceAssetService(game, directory, decoder,
                               DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools',

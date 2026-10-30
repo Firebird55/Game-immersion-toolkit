@@ -292,8 +292,8 @@ class AutomaticMobileExports:
         if observed != identity or time.monotonic() - since < 30:
             self._set(game, locale, state='waiting', message='Waiting for stable game files.')
             return
-        from .media_tools import ffmpeg_executable
-        if not ffmpeg_executable() or game not in ('beyond', 'heavyrain') and not (runtime_data_root(self.root) / 'voice-assets/vgmstream/vgmstream-cli.exe').is_file():
+        from .media_tools import ffmpeg_executable, vgmstream_executable
+        if not ffmpeg_executable() or game not in ('beyond', 'heavyrain') and vgmstream_executable(self.root) is None:
             self._set(game, locale, state='waiting', message='Prepare game voice tools in Setup. Tools will be checked again automatically.')
             return
         if shutil.disk_usage(self.home).free < max(512 * 1024**2, job.get('estimatedBytes', 0) * 2):

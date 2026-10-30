@@ -14,6 +14,7 @@ from .runtime_workers import ResumableExecutor
 from pathlib import Path
 
 from .media_tools import ffmpeg_executable
+from .voice_decoder import VoiceDecoder
 from .game_assets import asset_adapter
 
 
@@ -58,8 +59,8 @@ def _audio_options(audio, wav):
     return trim + (['-af', ','.join(filters)] if filters else [])
 
 
-class LocalVoiceAssetService:
-    def __init__(self, game: str, data_dir: Path, decoder: Path, output_dir: Path, *, tools_dir: Path | None = None, snapshot_index=None):
+class LocalVoiceAssetService(VoiceDecoder):
+    def __init__(self, game: str, data_dir: Path, decoder: Path | None, output_dir: Path, *, tools_dir: Path | None = None, snapshot_index=None):
         self._adapter, self._extractor = asset_adapter(game)
         self.game, self.data_dir, self.decoder, self.output_dir = game, data_dir, decoder, output_dir
         self.tools_dir = tools_dir or data_dir / 'tools'
@@ -85,7 +86,7 @@ class LocalVoiceAssetService:
         try:
             path = self.data_dir / "textmap.json"
             stat = path.stat()
-            signature = (stat.st_mtime_ns, stat.st_size, (self.game in {'beyond', 'heavyrain'} or self.decoder.is_file()), bool(ffmpeg_executable()))
+            signature = (stat.st_mtime_ns, stat.st_size, (self.game in {'beyond', 'heavyrain'} or self.decoder_available()), bool(ffmpeg_executable()))
             if self._loaded_signature == signature:
                 return self.ready
             payload = (self._snapshot_index.voice_snapshot((stat.st_size, stat.st_mtime_ns))
@@ -96,7 +97,7 @@ class LocalVoiceAssetService:
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
             install = Path(payload["install"])
             stamp = payload["fingerprint"]
-            ready = bool(entries and install.is_dir() and (self.game in {'beyond', 'heavyrain'} or self.decoder.is_file()) and ffmpeg_executable())
+            ready = bool(entries and install.is_dir() and (self.game in {'beyond', 'heavyrain'} or self.decoder_available()) and ffmpeg_executable())
             with self._lock:
                 self.locale = locale
                 self._entries, self._install, self._fingerprint = entries, install, stamp
@@ -168,7 +169,7 @@ class LocalVoiceAssetService:
             elif self.game in {"beyond", "heavyrain"}:
                 wav.write_bytes(data)
             else:
-                subprocess.run([str(self.decoder), "-i", "-o", str(wav), str(wem)], **options)
+                subprocess.run([str(self.require_decoder()), "-i", "-o", str(wav), str(wem)], **options)
             trim = _audio_options(audio, wav)
             subprocess.run([str(ffmpeg_executable()), "-hide_banner", "-loglevel", "error", "-y",
                             "-i", str(wav), *trim, "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
@@ -240,7 +241,7 @@ class LocalVoiceAssetService:
                 for wem in inputs:
                     Path(str(wem) + '.wav').write_bytes(wem.read_bytes())
             else:
-                subprocess.run([str(self.decoder), '-i', *map(str, inputs)], **options)
+                subprocess.run([str(self.require_decoder()), '-i', *map(str, inputs)], **options)
             command = [str(ffmpeg_executable()), '-hide_banner', '-loglevel', 'error', '-nostdin',
                        '-filter_threads', '1', '-filter_complex_threads', '1']
             for wem in inputs:

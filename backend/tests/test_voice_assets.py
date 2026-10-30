@@ -179,7 +179,9 @@ def test_batch_keeps_exact_player_variants_and_never_publishes_incomplete_audio(
             'file_id': f'{number:016x}', 'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
     manifest = tmp_path / 'manifest.json'
     manifest.write_text(json.dumps({'version': 1, 'entries': entries}))
-    service = VoiceAssetService(manifest, tmp_path / 'decoder.exe', tmp_path / 'out')
+    decoder = tmp_path / 'decoder.exe'
+    decoder.touch()
+    service = VoiceAssetService(manifest, decoder, tmp_path / 'out')
     calls = []
     def run(command, **options):
         calls.append(command)

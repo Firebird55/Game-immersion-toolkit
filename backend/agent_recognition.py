@@ -254,12 +254,15 @@ class AgentRecognizer:
         target = self.folder / 'audio' / f'{asset}.wav'
         target.parent.mkdir(exist_ok=True)
         if not target.exists():
-            decoder = self.folder.parent / 'voice-assets/vgmstream/vgmstream-cli.exe'
+            from .media_tools import vgmstream_executable
+            decoder = vgmstream_executable()
+            if decoder is None:
+                raise RuntimeError('Original voice decoder is unavailable. Prepare voice tools in Setup.')
             with tempfile.TemporaryDirectory(prefix='agent-', dir=self.folder) as scratch:
                 wem, wav = Path(scratch)/'voice.wem', Path(scratch)/'voice.wav'
                 wem.write_bytes(VoiceEntry(path, entry['offset'], entry['size'], entry['file_id']).read())
                 subprocess.run([str(decoder), '-o', str(wav), str(wem)], capture_output=True,
-                               check=True, timeout=15, creationflags=subprocess.CREATE_NO_WINDOW)
+                               check=True, timeout=15, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
                 wav.replace(target)
         with wave.open(str(target)) as audio:
             samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype='<i2').astype(np.float32)/32768
