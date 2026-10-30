@@ -36,7 +36,7 @@
     }
   ],
   "game_reader_acceptance": {
-    "nte": "owned bridge only; external UEExtractor/native chain unavailable",
-    "endfield": "blocked: selected upstream Keys.cs embeds unreviewed game-derived constants"
+    "nte": "owned apphost plus independently verified dependency inventory; exact supplier distribution/native acceptance remains pending",
+    "endfield": "normal preparation uses the owned Python VFS/PCK reader and private verified numerical metadata; compiled legacy helper is not required"
   }
 }

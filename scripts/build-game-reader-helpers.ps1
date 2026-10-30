@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory=$true)][string]$Dotnet,
     [string]$ExpectedSdkVersion='10.0.403',
     [switch]$BlockedQuarantine,
-    [string]$PreparedRoot
+    [string]$PreparedRoot,
+    [string]$BaseRef
 )
 $ErrorActionPreference='Stop'
 if (($Kind -eq 'endfield') -ne [bool]$BlockedQuarantine) { throw 'Endfield can only be prebuilt in explicit unpublished quarantine; other owned helpers cannot use that profile.' }
@@ -51,6 +52,12 @@ $Dotnet=(Resolve-Path -LiteralPath $Dotnet).Path
 $EvidenceRoot=(Resolve-Path -LiteralPath $EvidenceRoot).Path
 $OutputRoot=[IO.Path]::GetFullPath($OutputRoot)
 if (Test-Path -LiteralPath $OutputRoot) { throw 'Choose a new helper output directory; existing candidates are retained.' }
+Write-Host 'Checking build-host prerequisites before preparing the reader...'
+if($BaseRef) { & npm --prefix $SourceRoot run dev:doctor -- --base $BaseRef }
+else { & npm --prefix $SourceRoot run dev:doctor }
+$doctorExit=$LASTEXITCODE
+if ($doctorExit -notin @(0,2)) { throw 'Development preflight is invalid. No helper build was started.' }
+Write-Host 'Verifying the exact SDK archive and expanded files...'
 $archive=Join-Path $EvidenceRoot $Pins.sdk.artifact
 if (-not (Test-Path -LiteralPath $archive) -or (Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $Pins.sdk.sha512) { throw 'The exact official SDK archive is missing or has the wrong SHA-512.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -78,6 +85,12 @@ $sdkRoot=Split-Path -Parent $Dotnet
 # state must never be accepted as part of the supplier input inventory.
 $sdkFiles=[ordered]@{}
 $sdkDirectories=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+# Check the tree once before reading supplier bytes. Rewalking every parent of
+# every file makes a cloud-synced SDK take minutes without improving this check.
+# The root ancestry was checked above; child links are rejected, not followed.
+foreach($installed in @(Get-ChildItem -LiteralPath $sdkRoot -Recurse -Force)) {
+    if($installed.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'The SDK expansion contains a link or reparse point.' }
+}
 $sdkArchive=[IO.Compression.ZipFile]::OpenRead($archive)
 try {
     foreach($member in $sdkArchive.Entries) {
@@ -88,7 +101,6 @@ try {
         $parent=[IO.Path]::GetDirectoryName($relative).Replace('\','/')
         while($parent) { [void]$sdkDirectories.Add($parent); $parent=[IO.Path]::GetDirectoryName($parent).Replace('\','/') }
         $installed=Join-Path $sdkRoot $member.FullName
-        Assert-NoLinks $installed
         if(-not (Test-Path -LiteralPath $installed)) { throw 'The expanded SDK does not contain every pinned archive file.' }
         $stream=$member.Open(); try {$expected=Stream-Sha256 $stream} finally {$stream.Dispose()}
         if((Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Expanded SDK bytes differ from the verified supplier archive.' }
@@ -96,7 +108,7 @@ try {
     }
 } finally {$sdkArchive.Dispose()}
 foreach($installed in @(Get-ChildItem -LiteralPath $sdkRoot -Recurse -Force)) {
-    Assert-NoLinks $installed.FullName
+    if($installed.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'The SDK expansion contains a link or reparse point.' }
     $relative=[IO.Path]::GetRelativePath($sdkRoot,$installed.FullName).Replace('\','/')
     if($installed.PSIsContainer) { if(-not $sdkDirectories.Contains($relative)) { throw 'The expanded SDK contains an unlisted directory.' } }
     elseif(-not $sdkFiles.Contains($relative)) { throw 'The expanded SDK contains an unlisted supplier file.' }
@@ -105,9 +117,7 @@ if(-not $sdkFiles.Contains('dotnet.exe') -or (Get-FileHash -LiteralPath $Dotnet 
 $actualSource=(& git -C $SourceRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualSource -notmatch '^[0-9a-f]{40}$') { throw 'An exact source commit is required.' }
 $sourceDirty=-not [string]::IsNullOrWhiteSpace((& git -C $SourceRoot status --porcelain | Out-String))
-& npm --prefix $SourceRoot run dev:doctor -- --base upstream/main
-$doctorExit=$LASTEXITCODE
-if ($doctorExit -notin @(0,2)) { throw 'Development preflight is invalid. No helper build was started.' }
+Write-Host 'SDK verified. Restoring pinned build packages and publishing the self-contained reader...'
 $saved=@{}
 foreach ($name in @('NUGET_PACKAGES','DOTNET_CLI_HOME','DOTNET_CLI_TELEMETRY_OPTOUT','DOTNET_SKIP_FIRST_TIME_EXPERIENCE','DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE','DOTNET_MULTILEVEL_LOOKUP')) { $saved[$name]=[Environment]::GetEnvironmentVariable($name) }
 $feed=Join-Path $EvidenceRoot 'nuget-feed'

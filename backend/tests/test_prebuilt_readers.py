@@ -169,20 +169,22 @@ def test_probe_and_owned_bridge_receipts_cannot_authorize_game_chains(tmp_path, 
         helper.command(['inventory'])
     monkeypatch.setattr(readers, 'discover_layout', lambda: layout)
     for kind in ('nte', 'endfield'):
-        with pytest.raises(PreparationFailure, match='unavailable'):
+        with pytest.raises(PreparationFailure):
             readers.require_game_reader(kind)
     with pytest.raises(PreparationFailure, match='compiled helper kind'):
         readers.prebuilt_reader('endfield', layout=layout)
 
 
 def test_frozen_external_nte_adapter_fails_before_sdk_download_or_source_compilation(tmp_path, monkeypatch):
-    from backend import nte_assets
+    from backend import nte_assets, nte_toolchain, runtime_bundle
     layout, _, _ = helper_fixture(tmp_path)
     monkeypatch.setattr(readers, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(nte_toolchain, 'discover_layout', lambda: layout)
     monkeypatch.setattr(nte_assets, 'dotnet_sdk', lambda: pytest.fail('Frozen NTE cannot inspect a system SDK'))
     for operation in (lambda: nte_assets.ensure_extractor(tmp_path / 'nte'),
-                      lambda: nte_assets.run_reader(tmp_path, tmp_path / 'tool', tmp_path / 'out', 'index')):
-        with pytest.raises(PreparationFailure, match='unavailable'):
+                      lambda: nte_assets.run_reader(tmp_path / 'game', tmp_path / 'tool', tmp_path / 'out', 'index')):
+        with pytest.raises(PreparationFailure):
             operation()
     assert not (tmp_path / 'nte').exists()
 

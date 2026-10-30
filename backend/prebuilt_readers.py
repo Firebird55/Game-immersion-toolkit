@@ -1,8 +1,8 @@
 """Closed .NET helper resources; source SDK behavior is a separate adapter.
 
 The authored probe and fixed read-only NTE runtime identity operation may execute.
-An owned NTE bridge manifest can supply a source identity, but does not authorize
-its separately acquired UEExtractor/native game chain. Normal Endfield reading
+Actual NTE archive operations additionally use nte_toolchain's verified external
+dependency inventory and bounded private output contract. Normal Endfield reading
 uses the owned Python VFS adapter and private verified numerical metadata.
 """
 from __future__ import annotations
@@ -226,8 +226,12 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
 
 
 def require_game_reader(kind: str) -> None:
-    """Never interpret a probe/bridge receipt as rights to run a game chain."""
+    """Resolve actual dependencies; a bridge/probe alone is never sufficient."""
     if discover_layout().mode == 'bundle':
+        if kind == 'nte':
+            from .nte_toolchain import resolve
+            resolve(layout=discover_layout())
+            return
         raise _failure('The compiled ' + kind + ' helper chain is unavailable without verified executable and native dependencies. '
                        'An owned in-process reader does not use this legacy helper contract.')
 

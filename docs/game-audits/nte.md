@@ -5,6 +5,12 @@ Reviewed on 2026-10-27 against the locally installed client, using discovery fro
 or evidence that every visible layout works in OCR. Game files, extracted text,
 audio, credentials and machine paths remain in private ignored storage.
 
+2026-10-30 runtime update: [compiler-free desktop dispatch](../nte-runtime.md)
+now resolves the self-contained bridge and exact separately inventoried native
+dependencies. This changes installation/runtime mechanics, not language or
+presentation coverage. Supplier redistribution and full frozen-image acceptance
+remain explicit remaining work.
+
 ## Installed evidence
 
 The installation contains 20 PAK files, 22 UTOC/UCAS pairs and 178 HPW hotpatch

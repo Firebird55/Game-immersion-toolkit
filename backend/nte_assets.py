@@ -57,8 +57,10 @@ def dotnet_sdk() -> Path | None:
 
 
 def ensure_extractor(directory: Path) -> Path:
-    from .prebuilt_readers import require_game_reader
-    require_game_reader('nte')
+    from .runtime_bundle import discover_layout
+    if discover_layout().mode == 'bundle':
+        from .nte_toolchain import resolve
+        return resolve().executable
     sdk = dotnet_sdk()
     if sdk is None:
         raise ValueError("NTE needs the .NET 10 SDK. Install it from https://dotnet.microsoft.com/download/dotnet/10.0, then prepare tools again.")
@@ -157,14 +159,23 @@ def _archive_metadata(install: Path, stamp: str) -> str:
 
 
 def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None) -> None:
-    from .prebuilt_readers import require_game_reader
-    require_game_reader('nte')
-    install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the game installation")
-    sdk = dotnet_sdk()
-    if sdk is None or not executable.is_file():
-        raise ValueError("Prepare NTE tools in Setup before indexing")
+    from .runtime_bundle import discover_layout
+    layout = discover_layout()
+    if layout.mode == 'bundle':
+        from .nte_toolchain import command
+        invocation, environment, working_directory = command(install, destination, mode, layout=layout)
+        if str(executable) != invocation[0]:
+            raise ValueError('The selected archive reader differs from the bundled executable')
+    else:
+        sdk = dotnet_sdk()
+        if sdk is None or not executable.is_file():
+            raise ValueError("Prepare NTE tools in Setup before indexing")
+        working_directory = executable.resolve().parent / 'upstream'
+        invocation = [str(sdk), str(executable.resolve()), mode, str(install.resolve()), str(working_directory), str(destination.resolve())]
+        environment = None
+    install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     stamp = fingerprint(install)
     root = install / "Client/WindowsNoEditor/HT/Content"
     if any(any(part.startswith("~") for part in path.relative_to(root).parts) or
@@ -188,8 +199,8 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
     if cinema_events is not None:
         request['cinema_events'] = cinema_events
     try:
-        result = subprocess.run([str(sdk), str(executable), mode, str(install), str(executable.parent / "upstream"), str(destination)],
-            input=json.dumps(request).encode(), capture_output=True, timeout=600, cwd=executable.parent / "upstream",
+        result = subprocess.run(invocation,
+            input=json.dumps(request).encode(), capture_output=True, timeout=600, cwd=working_directory, env=environment,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.SubprocessError):
         raise RuntimeError("NTE reader could not complete") from None

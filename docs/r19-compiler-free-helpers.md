@@ -15,12 +15,18 @@ metadata acquisition and actual installed text/voice evidence. Its historical
 compiled quarantine is no longer required. Shared codecs and full frozen
 acceptance remain open.
 
+The NTE runtime now has a [verified actual-dependency dispatch](nte-runtime.md):
+the self-contained owned bridge plus separately inventoried supplier DLLs can
+perform fixed archive operations without an SDK. Historical probe-only limits
+below describe the earlier checkpoint. Exact supplier distribution/source
+obligations, final frozen/native evidence and non-Windows resources remain open.
+
 ## Implemented boundaries and gates
 
 | Helper | Implemented direction | Remaining gate |
 | --- | --- | --- |
 | Authored .NET probe | Fixed JSON stdin/stdout operation, self-contained `win-x64` directory, app-local runtime/resource identity and hash-bound inventory; hosted Server probe passed | Exact-output/runtime/native Windows 11 review; this probe authorizes no game |
-| Owned NTE bridge | Collected self-contained bridge with exact source/resource identity; app-local runtime and actual reflection/protocol fixture passed on Server 2025 | Actual UEExtractor/CUE4Parse/native dependency closure, Oodle rights and installed-game evidence; authored stand-ins cannot approve that chain |
+| Owned NTE bridge | Self-contained bridge plus exact immutable supplier dependencies support fixed archive operations; app-local runtime and actual reflection/protocol fixture passed on Server 2025 | Complete merged supplier source/notices, Oodle redistribution evidence, actual frozen-image and target-platform validation; authored stand-ins cannot approve that chain |
 | Endfield archive reader | Owned Python VFS/PCK range reader replaces the compiler bridge; verified numerical metadata stays in private storage; installed Chinese join and selected voice extraction passed | Frozen candidate, shared codec closure and target-platform native acceptance; legacy compiled helper is not required |
 | Authored Node probe | Exact app-local Node, module worker and authored WASM; absolute immutable entry/resource paths and private work; hosted Server probe passed | Exact runtime/native/notices and Windows 11 review; no real ZZZ extraction claim |
 | ZZZ production reader | Separate build-only quarantine preparation with pinned source/module inputs; frozen production dispatch remains blocked | GPL/corresponding-source obligations, upstream custom terms, game-derived metadata and actual reader/codec probes |
