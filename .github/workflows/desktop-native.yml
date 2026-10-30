@@ -49,6 +49,15 @@ jobs:
           python -m pip install --no-index --find-links output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py
+      - name: Install Linux build-runner display services
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Probe native desktop discovery and capture
+        run: |
+          if ($IsLinux) { xvfb-run -a python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json }
+          else { python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json }
+          if ($LASTEXITCODE -eq 2) { Write-Output 'Native capture is unavailable on this runner; this is not native acceptance.'; exit 0 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run desktop:build -- --output-root output/desktop-frontend
       - name: Freeze the native runtime and isolated ASR child
         run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse
@@ -83,5 +92,6 @@ jobs:
           path: |
             output/native-distribution/DESKTOP-PROVENANCE.json
             output/native-distribution/SHA256SUMS
+            output/native-capture-probe.json
           if-no-files-found: error
           retention-days: 7

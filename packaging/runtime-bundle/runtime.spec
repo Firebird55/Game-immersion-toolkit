@@ -43,6 +43,14 @@ if runtime:
                 'rapidocr_onnxruntime', 'pyclipper', 'shapely', 'zstandard']
     if sys.platform == 'win32':
         packages += ['windows_capture', 'pyaudiowpatch', 'oneocr']
+    elif sys.platform == 'linux':
+        packages += ['Xlib', 'secretstorage', 'jeepney', 'cryptography', 'cffi']
+        hidden += ['keyring.backends.SecretService', 'jaraco.classes',
+                   'jaraco.context', 'jaraco.functools', 'more_itertools']
+    elif sys.platform == 'darwin':
+        packages += ['objc', 'Quartz', 'AppKit', 'Foundation']
+        hidden += ['keyring.backends.macOS', 'jaraco.classes',
+                   'jaraco.context', 'jaraco.functools', 'more_itertools']
     # Qt's module hooks collect the platform plugin and its native dependencies.
     # Do not collect all of Essentials (Designer, QML, SQL, etc. are not used).
     hidden += ['PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets', 'shiboken6']

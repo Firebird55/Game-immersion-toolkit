@@ -1,5 +1,26 @@
 # Third-party notices
 
+## Portable desktop access
+
+Native desktop construction uses pinned python-xlib 0.33 on Linux
+([LGPL-2.1-or-later](https://github.com/python-xlib/python-xlib/blob/master/LICENSE)),
+and PyObjC core/Cocoa/Quartz 13.0 on macOS
+([MIT](https://github.com/ronaldoussoren/pyobjc/blob/main/pyobjc-core/LICENSE.txt)).
+Credential storage selects the host's existing macOS Keychain or Linux Secret
+Service through keyring 25.7.0 (MIT); Linux additionally uses SecretStorage 3.5.0
+(BSD-3-Clause) and jeepney 0.9.0 (MIT). A missing or locked host credential service
+is an explicit unavailable state; these dependencies do not introduce a plaintext
+credential fallback. Windows continues to use the operating system's DPAPI.
+
+The native builder retains the exact installed license/notice files for these
+packages and their locked transitive dependencies, including cryptography's
+Apache-2.0/BSD-3-Clause and its bundled OpenSSL notice. Candidate construction is
+not an assertion that redistribution review of every collected native file is
+complete. Source references: [keyring](https://pypi.org/project/keyring/25.7.0/),
+[SecretStorage](https://pypi.org/project/SecretStorage/3.5.0/),
+[jeepney](https://pypi.org/project/jeepney/0.9.0/),
+[cryptography](https://pypi.org/project/cryptography/50.0.2/).
+
 The Firebird55 license covers original project code only. Dependencies retain their own terms: React/React DOM (Meta, MIT), Base UI (MUI, MIT), Lucide (ISC), TypeScript (Microsoft, Apache-2.0). Package metadata and dependency distributions contain their upstream notices. Builds and consumers must retain notices for dependencies they bundle.
 
 The component uses documented Lexirise interfaces; this repository does not redistribute Lexirise's website bundles, account data or dictionaries. Public upstream bundles inspected by the compatibility watcher remain ignored local review material.
