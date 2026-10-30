@@ -241,6 +241,106 @@ def test_original_pcm_decode_and_capsule_bounds(tmp_path):
         sound_path('../escape.wav')
 
 
+@pytest.mark.parametrize('fault', ['truncated', 'truncated-data', 'partial-frame', 'riff-length',
+                                  'chunk-header', 'duplicate-data', 'truncated-format'])
+def test_damaged_pcm_is_rejected_without_decoder_or_previous_output_loss(tmp_path, monkeypatch, fault):
+    data = pcm()
+    if fault in {'truncated', 'truncated-data'}:
+        data = data[:-10]
+        if fault == 'truncated-data':
+            data = data[:4] + struct.pack('<I', len(data) - 8) + data[8:]
+    elif fault == 'partial-frame':
+        data = data[:-1]
+        data = data[:4] + struct.pack('<I', len(data) - 8) + data[8:40] + struct.pack('<I', len(data) - 44) + data[44:]
+    elif fault == 'riff-length':
+        data = data[:4] + struct.pack('<I', len(data) + 2) + data[8:]
+    elif fault == 'chunk-header':
+        data += b'JUNK'
+        data = data[:4] + struct.pack('<I', len(data) - 8) + data[8:]
+    elif fault == 'duplicate-data':
+        data += b'data' + bytes(4)
+        data = data[:4] + struct.pack('<I', len(data) - 8) + data[8:]
+    else:
+        data = data[:16] + struct.pack('<I', 14) + data[20:34] + data[36:]
+        data = data[:4] + struct.pack('<I', len(data) - 8) + data[8:]
+    def forbidden():
+        pytest.fail('Damaged PCM must not fall back to a media decoder')
+    monkeypatch.setattr('backend.media_tools.ffmpeg_executable', forbidden)
+    output = tmp_path / 'decoded.wav'
+    output.write_bytes(b'previous completed original audio')
+    with pytest.raises(PreparationFailure):
+        decode_performance(pack_performance([data]), {'parts': [{'at_ms': 0}]}, output, None, tmp_path)
+    assert output.read_bytes() == b'previous completed original audio'
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['decoded.wav']
+
+
+@pytest.mark.parametrize('channels,width,frames', [(1, 1, 3), (1, 2, 160), (2, 2, 160), (2, 3, 160)])
+def test_complete_pcm_with_metadata_retains_original_bytes_without_a_decoder(tmp_path, monkeypatch, channels, width, frames):
+    data = io.BytesIO()
+    with wave.open(data, 'wb') as stream:
+        stream.setparams((channels, width, 16000, 0, 'NONE', 'not compressed'))
+        stream.writeframes(bytes([11]) * channels * width * frames)
+    original = data.getvalue()
+    # Preserve an authored unknown metadata chunk and its odd-byte padding.
+    original = original[:12] + b'JUNK' + struct.pack('<I', 3) + b'own\0' + original[12:]
+    original = original[:4] + struct.pack('<I', len(original) - 8) + original[8:]
+    monkeypatch.setattr('backend.media_tools.ffmpeg_executable', lambda: pytest.fail('Complete PCM needs no decoder'))
+    output = tmp_path / 'decoded.wav'
+    output.write_bytes(b'previous complete output')
+    decode_performance(pack_performance([original]), {'parts': [{'at_ms': 0}]}, output, None, tmp_path)
+    assert output.read_bytes() == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['decoded.wav']
+
+
+def test_source_codec_failure_preserves_previous_output_and_cleans_pending_file(tmp_path, monkeypatch):
+    monkeypatch.setattr('backend.media_tools.ffmpeg_executable', lambda: Path('existing-source-codec'))
+    def failed(command, **_options):
+        Path(command[-1]).write_bytes(b'incomplete codec output')
+        raise RuntimeError('owned synthetic codec failure')
+    monkeypatch.setattr('backend.source_dialogue.subprocess.run', failed)
+    output = tmp_path / 'decoded.wav'
+    output.write_bytes(b'previous complete output')
+    with pytest.raises(RuntimeError, match='synthetic codec failure'):
+        decode_performance(pack_performance([b'ID3owned']), {'parts': [{'at_ms': 0}]}, output, None, tmp_path)
+    assert output.read_bytes() == b'previous complete output'
+    assert not list(tmp_path.glob('source-pcm-*'))
+
+
+@pytest.mark.parametrize('offset,value,kind', [(22, 0, 'H'), (24, 0, 'I'), (34, 0, 'H'),
+    (34, 40, 'H'), (32, 1, 'H'), (28, 1, 'I')])
+def test_malformed_declared_pcm_never_reaches_an_available_source_codec(tmp_path, monkeypatch, offset, value, kind):
+    data = bytearray(pcm())
+    struct.pack_into('<' + kind, data, offset, value)
+    calls = []
+    monkeypatch.setattr('backend.media_tools.ffmpeg_executable', lambda: Path('existing-source-codec'))
+    def available(command, **_options):
+        calls.append(command)
+        Path(command[-1]).write_bytes(pcm())
+    monkeypatch.setattr('backend.source_dialogue.subprocess.run', available)
+    output = tmp_path / 'decoded.wav'
+    output.write_bytes(b'previous complete output')
+    with pytest.raises(PreparationFailure):
+        decode_performance(pack_performance([bytes(data)]), {'parts': [{'at_ms': 0}]}, output, None, tmp_path)
+    assert calls == [] and output.read_bytes() == b'previous complete output'
+    assert not list(tmp_path.glob('source-pcm-*'))
+
+
+def test_structurally_valid_non_pcm_retains_existing_source_codec_path(tmp_path, monkeypatch):
+    body = (b'WAVEfmt ' + struct.pack('<IHHIIHH', 16, 6, 1, 8000, 8000, 1, 8)
+            + b'data' + struct.pack('<I', 80) + bytes([0xd5]) * 80)
+    alaw = b'RIFF' + struct.pack('<I', len(body)) + body
+    monkeypatch.setattr('backend.media_tools.ffmpeg_executable', lambda: Path('existing-source-codec'))
+    calls = []
+    def available(command, **_options):
+        calls.append(command)
+        Path(command[-1]).write_bytes(pcm())
+    monkeypatch.setattr('backend.source_dialogue.subprocess.run', available)
+    output = tmp_path / 'decoded.wav'
+    decode_performance(pack_performance([alaw]), {'parts': [{'at_ms': 0}]}, output, None, tmp_path)
+    assert len(calls) == 1 and output.read_bytes() == pcm()
+    assert not list(tmp_path.glob('source-pcm-*'))
+
+
 def test_composite_decode_uses_authored_offsets_and_rejects_invalid_delays(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr('backend.media_tools.ffmpeg_executable', lambda: Path('existing-ffmpeg'))

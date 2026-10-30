@@ -55,8 +55,10 @@ def native(layout):
             worker(layout, kind, ['--help'])
     from .unvoiced_export_probe import probe as export_probe
     unvoiced_export = export_probe(layout, lambda kind, arguments, **options: worker(layout, kind, arguments, **options))
+    from .source_pcm_probe import probe as source_pcm_probe
+    source_pcm = source_pcm_probe(layout, lambda kind, arguments, **options: worker(layout, kind, arguments, **options))
     return {'registry_readers_imported': len(GAMES), 'real_vad_silence': 'passed', 'nte_bridge_runtime': identity,
-        'codec': codec,
+        'codec': codec, 'source_pcm': source_pcm,
         'game_index_worker': 'authored-format-passed', 'language_worker': 'authored-format-passed',
         'export': 'authored-unvoiced-worker-roundtrip; voiced-export-not-verified', 'unvoiced_export': unvoiced_export,
         'worker_entrypoints': [kind for kind in EXPERIMENT_CHILDREN if kind not in
