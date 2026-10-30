@@ -97,8 +97,15 @@ def observe(layout, decoder, data, expected):
                     raise RuntimeBundleError('Owned codec DLL inventory was not observable before its deadline.')
                 writer.write(data); writer.close()
                 thread.join(15)
-                if thread.is_alive() or errors or statuses != [0] or output.read_bytes() != expected:
-                    raise RuntimeBundleError('Observed codec process did not finish the authored decode with owned cleanup.')
+                if thread.is_alive():
+                    raise RuntimeBundleError('Observed codec thread did not finish before its deadline.')
+                if errors:
+                    raise RuntimeBundleError('Observed codec process failed: ' + type(errors[0]).__name__)
+                if statuses != [0]:
+                    raise RuntimeBundleError('Observed codec exited with status ' + str(statuses))
+                if not output.is_file() or output.read_bytes() != expected:
+                    count = output.stat().st_size if output.is_file() else -1
+                    raise RuntimeBundleError('Observed codec PCM mismatch; actual bytes ' + str(count))
             finally:
                 cancelled.set()
                 writer.close()
