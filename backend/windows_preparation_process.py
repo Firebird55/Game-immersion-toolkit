@@ -186,7 +186,11 @@ def _bootstrap(name, command):
         _check(kernel.CloseHandle(handle))
     # A failed assignment exits before spawning anything. The parent owns the
     # remaining handle, including if cancellation races with this bootstrap.
-    return subprocess.call(command, creationflags=subprocess.CREATE_NO_WINDOW)
+    # Explicit handles survive CREATE_NO_WINDOW and venv redirectors. Leaving
+    # them implicit can give a worker a console input handle instead of the
+    # parent's private request pipe, causing an otherwise healthy child to hang.
+    return subprocess.call(command, stdin=sys.stdin, stdout=sys.stdout,
+                           stderr=sys.stderr, creationflags=subprocess.CREATE_NO_WINDOW)
 
 
 if __name__ == '__main__':

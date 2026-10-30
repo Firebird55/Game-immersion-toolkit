@@ -22,6 +22,7 @@ MANIFEST_SCHEMA = 'proxy-runtime-bundle-v1'
 CHILD_TARGETS = {
     'frontend': ('module', 'backend.desktop_frontend'),
     'api': ('module', 'backend.main'),
+    'window-capture': ('module', 'backend.window_capture_worker'),
     'language': ('module', 'backend.language_worker'),
     'game-index': ('module', 'backend.game_index_worker'),
     'mobile-export': ('module', 'backend.mobile_export_worker'),

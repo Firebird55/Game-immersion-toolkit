@@ -1,12 +1,15 @@
 import ctypes
 import sys
 import threading
+import time
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from PIL import Image
 
 from backend import window_capture
+from backend import window_capture_worker
 from backend.capture import CaptureService
 from backend.windows import WindowInfo
 
@@ -69,7 +72,7 @@ def test_foreground_game_keeps_desktop_capture(monkeypatch):
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Windows capture API')
-def test_background_gpu_session_reuses_frames_and_restarts_after_resize(monkeypatch):
+def test_native_gpu_session_copies_frames_and_rejects_expired_buffers(monkeypatch):
     monkeypatch.undo()
     captures, stopped = [], []
     class Foreground:
@@ -77,7 +80,7 @@ def test_background_gpu_session_reuses_frames_and_restarts_after_resize(monkeypa
         def __call__(self):
             return 99
     monkeypatch.setattr(ctypes, 'WinDLL', lambda *a, **k: SimpleNamespace(GetForegroundWindow=Foreground()))
-    monkeypatch.setattr(window_capture, '_client_crop', lambda image, window: image)
+    monkeypatch.setattr(window_capture_worker, '_client_crop', lambda image, window: image)
     class Capture:
         def __init__(self, **options):
             captures.append(options)
@@ -91,16 +94,92 @@ def test_background_gpu_session_reuses_frames_and_restarts_after_resize(monkeypa
                 frame_buffer=SimpleNamespace(tobytes=lambda: bytes([0, 0, 255, 0] * 2))), control)
             return control
     monkeypatch.setitem(sys.modules, 'windows_capture', SimpleNamespace(WindowsCapture=Capture))
-    source = window_capture.BackgroundCapture()
     window = WindowInfo(2**40, 'fixture', 'game.exe', (-100, 50, 2, 1))
-    assert source.frame(window).getpixel((0, 0)) == (255, 0, 0)
-    assert source.frame(window).size == (2, 1)
+    source = window_capture_worker.NativeCapture(window)
+    assert source.frame().getpixel((0, 0)) == (255, 0, 0)
+    assert source.frame().size == (2, 1)
     assert len(captures) == 1 and captures[0]['window_hwnd'] == 2**40
-    source.frame(WindowInfo(window.handle, 'fixture', 'game.exe', (-100, 50, 3, 1)))
-    assert len(captures) == 2 and len(stopped) == 1
+    source.latest = (source.latest[0], time.monotonic() - 4)
+    with pytest.raises(OSError, match='expired'):
+        source.frame()
     source.close()
     source.close()
-    assert len(stopped) == 2
+    assert len(stopped) == 1
+
+
+def frame_process(mode):
+    script = Path(__file__).parent / 'fixtures/capture_worker.py'
+    return window_capture.FrameProcess([sys.executable, '-u', str(script), mode])
+
+
+@pytest.mark.parametrize('mode', ['crash', 'hang', 'oversized', 'truncated'])
+def test_worker_fault_is_bounded_and_owned_process_is_reaped(mode):
+    worker = frame_process(mode)
+    process = worker.process
+    started = time.monotonic()
+    try:
+        with pytest.raises(OSError):
+            worker.frame(timeout=1)
+    finally:
+        worker.close()
+    assert process.poll() is not None
+    assert not worker.reader.is_alive()
+    assert time.monotonic() - started < 8
+
+
+def test_real_frame_channel_reuses_child_and_never_buffers_unsolicited_frames():
+    worker = frame_process('frames')
+    try:
+        assert worker.frame().getpixel((0, 0)) == (255, 0, 0)
+        assert worker.frame().getpixel((0, 0)) == (0, 255, 0)
+        assert worker.frames.empty()
+    finally:
+        worker.close()
+        worker.close()
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows foreground selection')
+def test_background_recovers_after_child_crash_and_replaces_resized_session(monkeypatch, caplog):
+    monkeypatch.undo()
+    class Foreground:
+        restype = None
+        def __call__(self):
+            return 99
+    monkeypatch.setattr(ctypes, 'WinDLL', lambda *a, **k: SimpleNamespace(GetForegroundWindow=Foreground()))
+    # Real IPC/process cleanup is covered above. This test drives session selection
+    # without faking the actual Win32 Job Object used by those process tests.
+    workers = []
+    class Worker:
+        process = SimpleNamespace(poll=lambda: 0xc0000005)
+        closed = False
+        def __init__(self, window):
+            self.window = window
+        def frame(self):
+            if len(workers) == 1:
+                raise OSError('native access violation')
+            return Image.new('RGB', self.window.bounds[2:], 'green')
+        def close(self):
+            self.closed = True
+    def start(self, window):
+        workers.append(Worker(window))
+        self._worker = workers[-1]
+        self._target = (window.handle, window.bounds)
+    monkeypatch.setattr(window_capture.BackgroundCapture, '_start', start)
+    source = window_capture.BackgroundCapture()
+    window = WindowInfo(2**40, '', '', (-100, 50, 2, 1))
+    with pytest.raises(OSError, match='automatically restarting'):
+        source.frame(window)
+    assert workers[0].closed and '0xc0000005' in caplog.text
+    with pytest.raises(OSError, match='recovering'):
+        source.frame(window)
+    assert len(workers) == 1
+    source._retry_at = 0
+    assert source.frame(window).size == (2, 1)
+    assert source.frame(window).size == (2, 1) and len(workers) == 2
+    assert source.frame(WindowInfo(window.handle, '', '', (100, -50, 3, 1))).size == (3, 1)
+    assert len(workers) == 3 and workers[1].closed
+    source.close()
+    assert workers[2].closed
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Windows physical frame coordinates')

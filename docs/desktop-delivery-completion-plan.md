@@ -15,10 +15,10 @@ an access violation (0xc0000005) in windows_capture.pyd in the toolkit's 0.20.1
 runtime. This identifies the native failing component, not its precise trigger.
 Raw event paths and machine diagnostics remain local and untracked.
 
-- [ ] Isolate Windows Graphics Capture in an owned child process so a native
+- [x] Isolate Windows Graphics Capture in an owned child process so a native
   access violation cannot terminate the transcript API. Bound request size/time,
   close obsolete sessions on resize/window change, and reject stale frames.
-- [ ] Report native child failure, restart with bounded backoff and retain
+- [x] Report native child failure, restart with bounded backoff and retain
   confirmed transcript state. Never capture an unrelated foreground window as
   an unnoticed fallback for an occluded game.
 - [ ] Keep visible timestamped startup/log/status output on Windows; provide an
@@ -57,6 +57,12 @@ Raw event paths and machine diagnostics remain local and untracked.
   corresponding sources. Report signing/notarization separately and accurately.
 
 ## Acceptance and delivery
+
+Source validation: the frame/process tests exercise real child exit, hang,
+truncated and oversized IPC, frame reuse, shutdown, resize replacement and
+restart backoff. Windows Job Object descendants are reaped before replacement.
+The native callback test checks copied pixels and expiration; a live GPU crash
+and the final frozen executable still need the native R19 D/F checks below.
 
 - [ ] Inject native-worker termination, hang, resize, stale-frame delivery and
   service crashes; verify recovery, one capture owner and preserved text.
