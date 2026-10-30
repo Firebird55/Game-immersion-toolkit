@@ -5,6 +5,11 @@ runtime-experiment profile, within the bounded scope below. Production runtime a
 general game-codec acceptance remain disabled. PR #59 is unchanged and no
 installer is built.
 
+The subsequent [rights/source/maintenance review](r19-xiph-distribution-review.md)
+retains the exact source kit in Git, defines the delivery/maintenance policy and
+records an unresolved custom build-recipe license condition. It changes no
+runtime pin or acceptance flag.
+
 This continues the [selected source-built Xiph FLAC 1.5.0 candidate](r19-codec-replacement.md).
 The old [Gyan FFmpeg artifact](r19-codec-artifact-review.md) remains rejected and
 is no longer collected in the integrated experiment. Source-mode FFmpeg behavior

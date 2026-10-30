@@ -30,4 +30,3 @@ test('game archives and voice files are rejected outside the normal cache direct
  }
  assert(!privatePath('assets/fireredvad/fireredvad_vad.onnx'));
 });
-

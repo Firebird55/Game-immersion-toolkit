@@ -19,6 +19,11 @@ The subsequent [Xiph FLAC replacement selection](r19-codec-replacement.md) verif
 the maintained source candidate, complete source kit and independent Windows
 rebuild. Its new CLI/DLL is now [integrated in the frozen experiment](r19-frozen-xiph.md);
 source/rebuild, extracted-runtime and clean Windows acceptance remain distinct.
+The [rights/source/maintenance review](r19-xiph-distribution-review.md) now retains
+the exact source kit in Git and records all 35 post-release changes. It also
+corrects the earlier MIT description: the required build recipes carry the
+custom attribution license. Resolve that scoped license condition and canonical
+binary/source cohosting before production adoption; native gates remain open.
 
 The deliverable is an extracted Windows x64 runtime that an ordinary user can
 operate without separately installed Python/Node/npm, a Wrangler service, an
@@ -316,6 +321,9 @@ Continue A1/A3 and B1 from the [frozen Xiph integration](r19-frozen-xiph.md),
 retaining its complete source/recipe/notice delivery and exact observed binary
 identity. Review its extracted decode/failure/DLL-origin evidence separately from
 clean Windows 11/ordinary-user CRT acceptance and production source hosting.
+First resolve the build-recipe terms and release-source requirements in the
+[rights/source review](r19-xiph-distribution-review.md); no blanket relicense is
+inferred and no runtime acceptance flag changes.
 The standalone source-build/rebuild pass alone does not establish those gates.
 
 For each subsequent codec family use one accepted artifact and an independently

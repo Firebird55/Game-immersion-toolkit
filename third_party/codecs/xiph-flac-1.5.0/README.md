@@ -29,6 +29,9 @@ LGPL-2.0-or-later and ReplayGain support is LGPL-2.1-or-later. The selected
 reference library uses BSD-3-Clause. Documentation and other original files
 retain their own notices. Preserve all of them, including contributor notices
 inside files. This is third-party licensed source, not an MIT-only asset.
+The build recipes use the custom Firebird55 Attribution License. The
+[distribution review](../../../docs/r19-xiph-distribution-review.md) records the
+unresolved additional-terms question before future GPLv2 binary/source delivery.
 
 ## Verify and rebuild
 

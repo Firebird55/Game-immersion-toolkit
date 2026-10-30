@@ -161,7 +161,9 @@ jobs:
       - name: Rebuild from the delivered source ZIP without repository recipe fallback
         shell: pwsh
         run: |
-          Expand-Archive output/reference-codec/codec-sources.zip output/reference-codec-delivered
+          $retained = 'third_party/codecs/xiph-flac-1.5.0/codec-sources.zip'
+          if ((Get-FileHash $retained).Hash -ne (Get-FileHash output/reference-codec/codec-sources.zip).Hash) { throw 'Retained source delivery differs from the actual build.' }
+          Expand-Archive -LiteralPath $retained -DestinationPath output/reference-codec-delivered
           & ./output/reference-codec-delivered/scripts/build-reference-codec.ps1 -SourceArchive (Join-Path $env:GITHUB_WORKSPACE 'output/reference-codec-delivered/inputs/flac-1.5.0.tar.xz') -OutputRoot output/reference-codec-rebuild
           Get-ChildItem output/reference-codec-rebuild/candidate -Recurse -File | ForEach-Object { $_.IsReadOnly = $true }
           python -B scripts/probe-reference-codec.py --root output/reference-codec-rebuild
