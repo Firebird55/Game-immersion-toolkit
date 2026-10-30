@@ -92,6 +92,14 @@ try{
   await page.goto(base+'/');
   await page.getByRole('button',{name:'Settings',exact:true}).waitFor({timeout:10000}).catch(async error=>{throw Error('Built desktop failed to mount: '+JSON.stringify({errors,body:(await page.locator('body').innerText()).slice(0,2000)}),{cause:error});});
   await page.getByRole('button',{name:'Prepare language',exact:true}).waitFor();
+  // font-display:swap can mount the desktop before its fonts finish. Complete
+  // and verify both faces before navigation can abort the previous document.
+  await page.waitForFunction(async()=>{
+   const faces=await Promise.all(['Toolkit Geist','Toolkit Geist Mono'].map(family=>document.fonts.load(`16px "${family}"`)));
+   await document.fonts.ready;
+   return faces.every(group=>group.length>0&&group.every(face=>face.status==='loaded'));
+  },null,{timeout:10000});
+  assert.deepEqual(errors,[],name+' desktop companion failed to load');
   await page.goto(base+'/mobile-capture/index.html');
   await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();
   // Fetch from the browser origin to prove the deployed worker serves all OCR,
