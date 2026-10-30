@@ -53,6 +53,18 @@ def normalized(name):
     return re.sub(r'[-_.]+', '-', name).lower()
 
 
+def validate_python_notice_delivery(component, source, evidence):
+    """Notice-only completeness, never native ownership or rights approval."""
+    from record_runtime import expected_python_notice_records
+    pin = json.loads((source / 'packaging/runtime-bundle/python-supplier.json').read_text())
+    expected = expected_python_notice_records(source, pin)
+    for notice in expected:
+        if notice not in component['licenses']:
+            raise ClosureError('Runtime Python supplier notice delivery is missing or source-invalid.')
+        if checked_file(evidence, notice).stat().st_size != notice['bytes']:
+            raise ClosureError('Runtime Python supplier notice length differs from source.')
+
+
 def validate_inputs(value, source, evidence, *, check_host=True):
     if value.get('schema') != 'proxy-runtime-build-inputs-v1' or value.get('profile') not in {'diagnostic', 'frontend-experiment', 'runtime-experiment', 'runtime'}:
         raise ClosureError('Unsupported build-input schema or profile.')
@@ -102,6 +114,8 @@ def validate_inputs(value, source, evidence, *, check_host=True):
     python = next(item for item in components if normalized(item['name']) == 'cpython')
     if not python['version'].startswith('3.12.') or python['architecture'] != 'win-amd64':
         raise ClosureError('A reviewed maintained CPython 3.12 Windows x64 distribution is required.')
+    if value['profile'] in {'runtime-experiment', 'runtime'}:
+        validate_python_notice_delivery(python, source, evidence)
     if check_host:
         if sys.platform != 'win32' or platform.machine().lower() not in {'amd64', 'x86_64'} or platform.architecture()[0] != '64bit':
             raise ClosureError('Build on Windows x64; cross-building from another platform is unsupported.')

@@ -171,6 +171,115 @@ def verify_wheel(wheel):
                 raise ClosureError('Installed wheel payload differs from archive: ' + info['Name'])
 
 
+def python_supplier_notice_files(source, pin):
+    """Validate retained primary texts, without approving native applicability."""
+    from backend.prebuilt_readers import _no_links
+    root = source / 'packaging/runtime-bundle/python-notices'
+    _no_links(root.absolute())
+    provenance = root / 'PROVENANCE.json'
+    _no_links(provenance.absolute())
+    if not provenance.is_file() or provenance.stat().st_size > 65536:
+        raise ClosureError('Retained Python supplier notice provenance is missing or oversized.')
+    value = json.loads(provenance.read_text(encoding='utf-8'))
+    supplier = {key: pin[key] for key in ('supplier', 'version', 'architecture', 'release', 'source_commit', 'sha256')}
+    archive = value.get('archive', {})
+    name = f"cpython-{pin['version']}+{pin['release']}-x86_64-pc-windows-msvc-pgo-full.tar.zst"
+    url = f"https://github.com/astral-sh/python-build-standalone/releases/download/{pin['release']}/{name.replace('+', '%2B')}"
+    if (value.get('schema') != 'proxy-python-supplier-notices-v1' or value.get('supplier') != supplier
+            or value.get('native_closure') != 'unverified' or value.get('redistribution_review') != 'pending-exact-output'
+            or not isinstance(archive, dict) or archive.get('name') != name or archive.get('url') != url
+            or archive.get('github_release_id') != pin['github_release_id']
+            or type(archive.get('github_asset_id')) is not int or archive['github_asset_id'] <= 0
+            or type(archive.get('bytes')) is not int or not 0 < archive['bytes'] <= 100 * 1024 * 1024
+            or not isinstance(archive.get('sha256'), str) or len(archive['sha256']) != 64
+            or any(c not in '0123456789abcdef' for c in archive['sha256'])):
+        raise ClosureError('Retained Python notices differ from the exact observed supplier identity.')
+    files = value.get('files')
+    if not isinstance(files, list) or len(files) != 20:
+        raise ClosureError('Retain all twenty original supplier notice files.')
+    entries, names = [], set()
+    for entry in files:
+        if not isinstance(entry, dict) or set(entry) != {'path', 'archive_member', 'bytes', 'sha256'}:
+            raise ClosureError('Supplier notice attributes are incomplete.')
+        name = entry['path']
+        if (not isinstance(name, str) or not name.startswith('LICENSE.') or not name.endswith('.txt')
+                or Path(name).name != name or '/' in name or '\\' in name or ':' in name
+                or name.casefold() in names or entry['archive_member'] != 'python/licenses/' + name
+                or type(entry['bytes']) is not int or not 0 < entry['bytes'] <= 256 * 1024):
+            raise ClosureError('Supplier notice member identity is invalid or aliased.')
+        _no_links((root / name).absolute())
+        original = checked_file(root, entry)
+        if original.stat().st_size != entry['bytes']:
+            raise ClosureError('Retained supplier notice length differs from provenance.')
+        names.add(name.casefold()); entries.append(original)
+    if {path.name.casefold() for path in root.iterdir()} != names | {'provenance.json'}:
+        raise ClosureError('Retained supplier notice directory contains unrecorded files.')
+    return [provenance, *entries]
+
+
+def expected_python_notice_records(source, pin):
+    return [{'path': 'licenses/cpython/supplier/' + path.name,
+        'sha256': digest(path), 'bytes': path.stat().st_size}
+        for path in python_supplier_notice_files(source, pin)]
+
+
+def collect_python_notices(evidence, source, pin):
+    """Copy notice-only delivery into the existing hashed THIRD_PARTY path."""
+    import shutil
+    from backend.prebuilt_readers import _no_links
+    originals = python_supplier_notice_files(source, pin)
+    target = evidence / 'licenses/cpython/supplier'
+    _no_links(target.absolute())
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.mkdir()  # Never replace an existing evidence set.
+    records = []
+    for original in originals:
+        destination = target / original.name
+        shutil.copyfile(original, destination)
+        if digest(destination) != digest(original):
+            raise ClosureError('Supplier notice changed during evidence delivery.')
+        records.append({'path': destination.relative_to(evidence).as_posix(),
+            'sha256': digest(destination), 'bytes': destination.stat().st_size})
+    return records
+
+
+def collect_onnx_third_party_notice(evidence, component):
+    """Bind the wheel's incorporated notices, which the generic prefix scan misses."""
+    import hashlib
+    from backend.prebuilt_readers import _no_links
+    member = 'onnxruntime/ThirdPartyNotices.txt'
+    if normalized(component['name']) != 'onnxruntime' or component['architecture'] != 'win-amd64':
+        raise ClosureError('ONNX native notices need the selected Windows x64 component.')
+    archive = checked_file(evidence, component['artifact'])
+    _no_links(archive.absolute())
+    with zipfile.ZipFile(archive) as package:
+        info = wheel_metadata(package)
+        if (normalized(info['Name']) != 'onnxruntime' or info['Version'] != component['version']
+                or package.namelist().count(member) != 1):
+            raise ClosureError('ONNX third-party notices are missing, ambiguous or from another wheel.')
+        data = package.read(member)
+    if not 1 <= len(data) <= 2 * 1024 * 1024:
+        raise ClosureError('ONNX third-party notice text is empty or oversized.')
+    checksum = hashlib.sha256(data).hexdigest()
+    installed = metadata.distribution(component['name'])
+    original = Path(installed.locate_file(member)).absolute()
+    prefix = Path(sys.prefix).absolute()
+    _no_links(original)
+    if installed.version != component['version'] or prefix not in original.parents:
+        raise ClosureError('Installed ONNX notice differs from the selected build environment.')
+    installed_record = {'path': original.relative_to(prefix).as_posix(), 'sha256': checksum}
+    if installed_record not in component['installed_files']:
+        raise ClosureError('Installed ONNX third-party notice is not bound to its observed wheel bytes.')
+    if checked_file(prefix, installed_record).stat().st_size != len(data):
+        raise ClosureError('Installed ONNX third-party notice length differs from the wheel.')
+    target = evidence / 'licenses/onnxruntime/ThirdPartyNotices.txt'
+    _no_links(target.absolute())
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open('xb') as stream:
+        stream.write(data)
+    return {'path': target.relative_to(evidence).as_posix(), 'sha256': checksum, 'bytes': len(data)}
+
+
 def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root, codec_root):
     import shutil
     pin = json.loads((source / 'packaging/runtime-bundle/python-supplier.json').read_text())
@@ -185,6 +294,12 @@ def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root, codec
     if python['version'] != pin['version']:
         raise ClosureError('Interpreter version differs from the pinned supplier.')
     python['installed_files'] = installed_python
+    python['licenses'].extend(collect_python_notices(evidence, source, pin))
+    python['notice_review'] = 'Exact supplier texts retained; native applicability, ownership and redistribution conditions remain pending'
+    onnx = next((item for item in value['components'] if normalized(item['name']) == 'onnxruntime'), None)
+    if onnx is None:
+        raise ClosureError('The locked ONNX Runtime component is missing.')
+    onnx['licenses'].append(collect_onnx_third_party_notice(evidence, onnx))
     value['python_supplier'] = pin
     value['runtime_lock_sha256'] = digest(source / 'requirements.lock.txt')
     helpers, value['helpers'] = collect_nte(nte_helper_root, evidence, value['source_commit'], source)

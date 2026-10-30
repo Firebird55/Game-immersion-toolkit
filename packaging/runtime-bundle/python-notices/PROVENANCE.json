@@ -1,0 +1,145 @@
+{
+  "schema": "proxy-python-supplier-notices-v1",
+  "retained_on": "2026-10-30",
+  "supplier": {
+    "supplier": "astral-sh/python-build-standalone",
+    "version": "3.12.16",
+    "architecture": "win-amd64",
+    "release": "20261026",
+    "source_commit": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
+    "sha256": "590dfcbe3a34c07301e6332e13e2188b98655cd072b08afa45a7998dc4c22bc5"
+  },
+  "archive": {
+    "name": "cpython-3.12.16+20261026-x86_64-pc-windows-msvc-pgo-full.tar.zst",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-pgo-full.tar.zst",
+    "bytes": 43768992,
+    "sha256": "37b4eb2818fee605fefa75ed156c4f2e1aaeaebaf662f9b30177c842ee16c48f",
+    "github_release_id": 424411241,
+    "github_asset_id": 678575271
+  },
+  "scope": "All twenty raw python/licenses files in the exact supplier full archive; retained primary review inputs, not a claim that every named library is included or that native ownership is complete.",
+  "native_closure": "unverified",
+  "redistribution_review": "pending-exact-output",
+  "files": [
+    {
+      "path": "LICENSE.bdb.txt",
+      "archive_member": "python/licenses/LICENSE.bdb.txt",
+      "bytes": 7419,
+      "sha256": "8f2d533ab34899499d5b07f209854b101b17dba2c69f3251860aecf3e4005faa"
+    },
+    {
+      "path": "LICENSE.bzip2.txt",
+      "archive_member": "python/licenses/LICENSE.bzip2.txt",
+      "bytes": 1780,
+      "sha256": "bd5628cc76fb0ebf9c657d1dd4d1a240a1a7b216c31663e7bbf1131c0b70a910"
+    },
+    {
+      "path": "LICENSE.cpython.txt",
+      "archive_member": "python/licenses/LICENSE.cpython.txt",
+      "bytes": 36935,
+      "sha256": "8fe98bf9822926d854f56ffd8d97877d8b942617aa44eb7ea77fd99e22f2537e"
+    },
+    {
+      "path": "LICENSE.expat.txt",
+      "archive_member": "python/licenses/LICENSE.expat.txt",
+      "bytes": 1165,
+      "sha256": "8a9cfe4b5924f4b25881aa0c9f5e4561c5f31065d0c4a13cdcdbcf917edf39aa"
+    },
+    {
+      "path": "LICENSE.libX11.txt",
+      "archive_member": "python/licenses/LICENSE.libX11.txt",
+      "bytes": 47960,
+      "sha256": "f353accfe2976df31ea297a77d1d454bd51ef6be8c3df39bd6aca95901579357"
+    },
+    {
+      "path": "LICENSE.libXau.txt",
+      "archive_member": "python/licenses/LICENSE.libXau.txt",
+      "bytes": 1169,
+      "sha256": "cec808cd2163fccdc8de4a91d526490777afbaeea060e1168c40a804694b7444"
+    },
+    {
+      "path": "LICENSE.libedit.txt",
+      "archive_member": "python/licenses/LICENSE.libedit.txt",
+      "bytes": 1643,
+      "sha256": "d9932ccdd42eccf6cdded7bcb35b088e64cfc7c24d355af2cc0d02edb6b637d3"
+    },
+    {
+      "path": "LICENSE.libffi.txt",
+      "archive_member": "python/licenses/LICENSE.libffi.txt",
+      "bytes": 1153,
+      "sha256": "9afb8970cd29fc1031fa647278e4bef613399e2e3468a1e3a397f4d158c6101c"
+    },
+    {
+      "path": "LICENSE.liblzma.txt",
+      "archive_member": "python/licenses/LICENSE.liblzma.txt",
+      "bytes": 673,
+      "sha256": "d87d218dd908b3243ec4cbc72af400e5b7437513ea9d9229291d0812b8464fec"
+    },
+    {
+      "path": "LICENSE.libuuid.txt",
+      "archive_member": "python/licenses/LICENSE.libuuid.txt",
+      "bytes": 1459,
+      "sha256": "cbccaa3efe07a9a602751375085be572d4410a250b996716fbe8c5255c7ec6f2"
+    },
+    {
+      "path": "LICENSE.libxcb.txt",
+      "archive_member": "python/licenses/LICENSE.libxcb.txt",
+      "bytes": 1367,
+      "sha256": "29a9539190e6de1af5fd06a9139c7103137cd1f9290b08c7b11bce89c01c14d2"
+    },
+    {
+      "path": "LICENSE.mpdecimal.txt",
+      "archive_member": "python/licenses/LICENSE.mpdecimal.txt",
+      "bytes": 1308,
+      "sha256": "f094277cd46e1f6e4d87916cc4b51e22f613d45eb81f48231c3cb7caf8fc8a6a"
+    },
+    {
+      "path": "LICENSE.ncurses.txt",
+      "archive_member": "python/licenses/LICENSE.ncurses.txt",
+      "bytes": 1476,
+      "sha256": "4f571cad3ea6c888bf0a7092e5b215dddb3142e9e3f1857fd5fac6cf13d345d7"
+    },
+    {
+      "path": "LICENSE.openssl-3.txt",
+      "archive_member": "python/licenses/LICENSE.openssl-3.txt",
+      "bytes": 10352,
+      "sha256": "ed72ce2b51ee58f117e5a021e2e04af158857f40269fbc03491f0b2a99dbcc96"
+    },
+    {
+      "path": "LICENSE.sqlite.txt",
+      "archive_member": "python/licenses/LICENSE.sqlite.txt",
+      "bytes": 1504,
+      "sha256": "d8eb9aba7ef6b5ed06cb3ec19a7242316af2e5933c638eb67fb781c13884e01d"
+    },
+    {
+      "path": "LICENSE.tcl.txt",
+      "archive_member": "python/licenses/LICENSE.tcl.txt",
+      "bytes": 2295,
+      "sha256": "41613eabfc08921a7da9c4bfd7f3ce5d5406f55214b253d89f392ed86eebeb8f"
+    },
+    {
+      "path": "LICENSE.tix.txt",
+      "archive_member": "python/licenses/LICENSE.tix.txt",
+      "bytes": 2880,
+      "sha256": "8cdff3addb9e9eb108c78e2cf5e05f26b216c098304945733bbec382b2eaef66"
+    },
+    {
+      "path": "LICENSE.zlib-ng.txt",
+      "archive_member": "python/licenses/LICENSE.zlib-ng.txt",
+      "bytes": 886,
+      "sha256": "608fa5505ed17a5353e71ce74abec88569c3dc69515ff9a6f286f53bce4393cd"
+    },
+    {
+      "path": "LICENSE.zlib.txt",
+      "archive_member": "python/licenses/LICENSE.zlib.txt",
+      "bytes": 1016,
+      "sha256": "365e36720db366054863235aea5d6f440142ab968834bfaf81fa9d187c99b9b8"
+    },
+    {
+      "path": "LICENSE.zstd.txt",
+      "archive_member": "python/licenses/LICENSE.zstd.txt",
+      "bytes": 1579,
+      "sha256": "d3baadc2e1dd7a7e0b483633e6b39743c16a16f28d696baff507fcd451f3d4ad"
+    }
+  ]
+}

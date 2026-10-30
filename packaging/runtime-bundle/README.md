@@ -12,6 +12,13 @@ not an approved complete R19 distribution. The `runtime` production profile
 remains hard-disabled. Neither credential-writing prompts nor the source updater
 are enabled by the experimental child manifest.
 
+CPython notice delivery also retains the exact supplier full archive's twenty
+raw license texts and [provenance](python-notices/PROVENANCE.json). Runtime
+preflight requires matching source/evidence hashes and byte lengths; finalized
+THIRD_PARTY includes them. This closes notice delivery only. See the
+[A2 component review](../../docs/r19-python-component-review.md) for remaining
+native ownership, incorporated notices, Microsoft terms and source mappings.
+
 On a Windows build host, provision the pinned archive and locked wheels, build
 the desktop frontend and publish the owned NTE bridge from the exact pinned SDK
 on that build host. Then run `record_runtime.py --evidence <private-evidence>
