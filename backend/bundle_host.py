@@ -121,8 +121,12 @@ class ExclusiveFileLease:
         return self._handle is not None
 
     def retained_descriptors(self):
-        """POSIX watchdogs retain the same OS lease through parent death."""
-        return (self._handle.fileno(),) if os.name != 'nt' and self.held else ()
+        """Guardians retain this OS lease through parent death, not a PID copy.
+
+        Values are Windows HANDLEs or POSIX descriptors, consumed on the same
+        platform by OwnedProcess before it starts any application child.
+        """
+        return ((self._handle if os.name == 'nt' else self._handle.fileno()),) if self.held else ()
 
     def acquire(self) -> None:
         if self.held:

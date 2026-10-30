@@ -23,6 +23,7 @@ class OwnedProcess:
                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False, visible_console=False,
                  show_window=False, independent_session=False, retained_fds=()):
         self.tree = None
+        self._guardian = False
         self._control = None
         self._lock = threading.RLock()
         self.process = None
@@ -31,7 +32,35 @@ class OwnedProcess:
                            text=text, bufsize=1 if text else -1)
             if text:
                 options.update(encoding='utf-8', errors='replace')
-            if os.name == 'nt':
+            if os.name == 'nt' and (independent_session or retained_fds):
+                # This guardian is outside its service Job. It keeps the actual
+                # exclusive installation handle until every Job member's process
+                # object has signaled, including after an abrupt host exit.
+                import ctypes
+                import msvcrt
+                from .windows_preparation_process import _kernel, _check
+                image = ctypes.create_unicode_buffer(32768)
+                if _check(_kernel().GetModuleFileNameW(None, image, len(image))) >= len(image):
+                    raise OSError('Windows guardian image path was truncated.')
+                bootstrap = [image.value, '--runtime-child', 'owned-process', '--'] if getattr(sys, 'frozen', False) else [image.value, str(Path(__file__).resolve())]
+                read_fd, self._control = os.pipe()
+                read_handle = msvcrt.get_osfhandle(read_fd)
+                handles = (read_handle, *(int(value) for value in retained_fds))
+                prior = [os.get_handle_inheritable(handle) for handle in handles]
+                startup = subprocess.STARTUPINFO()
+                startup.lpAttributeList = {'handle_list': list(handles)}
+                try:
+                    for handle in handles:
+                        os.set_handle_inheritable(handle, True)
+                    extra = [part for handle in retained_fds for part in ('--retain-handle', str(handle))]
+                    self.process = subprocess.Popen([*bootstrap, '--windows-parent-handle', str(read_handle), *extra, '--', *command],
+                        creationflags=subprocess.CREATE_NO_WINDOW, startupinfo=startup, close_fds=True, **options)
+                    self._guardian = True
+                finally:
+                    for handle, inherited in zip(handles, prior):
+                        os.set_handle_inheritable(handle, inherited)
+                    os.close(read_fd)
+            elif os.name == 'nt':
                 from .windows_preparation_process import WindowsPreparationProcess
                 options['env'] = {**(os.environ if env is None else env),
                     'PROXY_TRANSCRIPT_CHILD_CONSOLE': '1' if visible_console else '0',
@@ -83,7 +112,14 @@ class OwnedProcess:
                     process.stdin.close()
                 except (OSError, ValueError):
                     pass
-            if os.name == 'nt':
+            if self._guardian:
+                if self._control is not None:
+                    os.close(self._control)
+                    self._control = None
+                process.wait(timeout=max(.01, deadline - time.monotonic()))
+                if process.returncode == 125:
+                    raise RuntimeError('Owned Windows service lifetime could not be verified.')
+            elif os.name == 'nt':
                 try:
                     process.wait(timeout=min(1, timeout / 3))
                 except subprocess.TimeoutExpired:
@@ -189,15 +225,67 @@ def _posix_bootstrap(parent_fd, command, retained_fds=()):
             os.close(descriptor)
 
 
+def _windows_guardian(parent_handle, command, retained_handles=()):
+    if os.name != 'nt':
+        return 125
+    import msvcrt
+    # The source bootstrap runs as a file before importing third-party code.
+    # This import uses the package's ordinary Job implementation, not recursion
+    # into another guardian (independent_session=False, no retained handles).
+    if not __package__:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from backend.owned_process import OwnedProcess as JobChild
+    from backend.windows_preparation_process import _kernel, _check
+    for handle in (parent_handle, *retained_handles):
+        os.set_handle_inheritable(handle, False)
+    parent_fd = msvcrt.open_osfhandle(parent_handle, os.O_RDONLY | os.O_BINARY)
+    owner_gone = threading.Event()
+    def watch_parent():
+        try:
+            os.read(parent_fd, 1)
+        finally:
+            os.close(parent_fd)
+            owner_gone.set()
+    watcher = threading.Thread(target=watch_parent, name='host-liveness', daemon=True)
+    watcher.start()
+    child = None
+    try:
+        child = JobChild(command, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
+        while child.poll() is None and not owner_gone.wait(.1):
+            pass
+        while True:
+            try:
+                result = child.stop(timeout=10)
+                return result if result != 125 else 1
+            except (OSError, RuntimeError, subprocess.TimeoutExpired):
+                print('Windows service descendants are still stopping; installation ownership is retained.', file=sys.stderr, flush=True)
+                time.sleep(1)
+    finally:
+        # A constructor failure cannot have an unowned application command:
+        # join-before-spawn ensures its Job still owns every successful spawn.
+        if child is not None:
+            child.close_streams()
+        for handle in retained_handles:
+            _check(_kernel().CloseHandle(handle))
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--parent-fd', required=True, type=int)
+    parser.add_argument('--parent-fd', type=int)
+    parser.add_argument('--windows-parent-handle', type=int)
     parser.add_argument('--retain-fd', action='append', type=int, default=[])
+    parser.add_argument('--retain-handle', action='append', type=int, default=[])
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
     if not command:
         parser.error('A child command is required.')
+    if os.name == 'nt':
+        if args.windows_parent_handle is None or args.parent_fd is not None or args.retain_fd:
+            parser.error('Windows guardian requires its private parent handle.')
+        return _windows_guardian(args.windows_parent_handle, command, args.retain_handle)
+    if args.parent_fd is None or args.windows_parent_handle is not None or args.retain_handle:
+        parser.error('POSIX guardian requires its private parent descriptor.')
     return _posix_bootstrap(args.parent_fd, command, args.retain_fd)
 
 

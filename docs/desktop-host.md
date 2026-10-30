@@ -79,6 +79,14 @@ verified cleanup. Unknown cleanup retains ownership and keeps reporting status.
 This prevents a host crash from releasing the installation while nested writers
 are still exiting. Native Linux/macOS failure acceptance remains required.
 
+Windows top-level services have an outer guardian that inherits the exact
+exclusive installation handle. The application joins its child Job before it
+can spawn helpers; the guardian stays outside that Job and retains the lease
+until all Job members have signaled exit. This closes the interval between host
+death and completion of asynchronous Job termination. An actual source-process
+test kills the host and proves a second owner cannot acquire before the writer
+has exited. Extracted bootloader/installer acceptance remains a separate check.
+
 Atomic route/control publication preserves the previous file and retries short
 Windows sharing conflicts. Shutdown likewise retains ownership while a local
 reader temporarily holds a state file. The local control token is written with

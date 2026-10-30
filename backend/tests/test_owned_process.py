@@ -99,7 +99,6 @@ def test_nested_owned_helpers_cannot_outlive_top_level_service_crash():
         owner.close_streams()
 
 
-@pytest.mark.skipif(os.name == 'nt', reason='POSIX inherited descriptor and session lifetime contract')
 def test_parent_death_retains_installation_lease_until_descendants_stop(tmp_path):
     from backend.bundle_host import ExclusiveFileLease, HostProbeError
     lock_path, info_path = tmp_path / 'operation.lock', tmp_path / 'ready.json'
