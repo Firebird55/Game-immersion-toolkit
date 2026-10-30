@@ -132,6 +132,10 @@ def running_picker(manager, tmp_path):
     process.poll = lambda: process.returncode
     process.terminate = lambda: setattr(process, 'terminated', True)
     process.wait = lambda timeout: setattr(process, 'returncode', -1)
+    def stop():
+        process.terminate()
+        process.wait(timeout=5)
+    manager._picker_owner = SimpleNamespace(process=process, stop=stop, close_streams=lambda: None)
     manager._picker, manager._picker_result = process, result
     manager._picker_started = time.monotonic()
     return process, result
@@ -179,10 +183,10 @@ def test_ready_picker_waits_for_user_and_reports_failure_without_private_details
 @pytest.mark.skipif(sys.platform != 'win32', reason='Windows startup flags')
 def test_picker_requests_visible_dialog_from_hidden_companion(manager, monkeypatch):
     calls = []
-    monkeypatch.setattr(controls.subprocess, 'Popen', lambda args, **kwargs: calls.append((args, kwargs)) or SimpleNamespace(poll=lambda: None))
+    monkeypatch.setattr(controls, 'OwnedProcess', lambda args, **kwargs: calls.append((args, kwargs)) or
+                        SimpleNamespace(process=SimpleNamespace(poll=lambda: None)))
     assert manager.browse()
     args, options = calls[0]
     assert '-STA' in args
-    assert options['startupinfo'].dwFlags & controls.subprocess.STARTF_USESHOWWINDOW
-    assert options['startupinfo'].wShowWindow == 1
-    assert options['creationflags'] == controls.subprocess.CREATE_NO_WINDOW
+    assert options['show_window'] is True
+    assert not options.get('visible_console', False)
