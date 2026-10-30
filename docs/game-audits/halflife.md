@@ -153,6 +153,7 @@ the real index, language and normal mobile-export workers on owned BSP/title
 bytes in English and Simplified Chinese, then opens their ZIPs with the mobile
 reader. Only confirmed sound-free screen messages enter that text-only library;
 unknown titles and attached-sound messages stay excluded. Missing selected packs
-fail without replacing the prior completed export. This source-worker evidence
-does not establish extracted-runtime, installed-pack or live Windows capture
+fail without replacing the prior completed export. The same bounded workers
+passed the [acc68be frozen checkpoint](../r19-frozen-checkpoint-20261031.json)
+on Server 2025. This establishes neither installed-pack nor live Windows capture
 acceptance, and provides no original-speech playback.

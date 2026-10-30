@@ -147,9 +147,10 @@ Native Windows gates remain explicit; `r19_complete` stays false.
 
 The [authored unvoiced export continuation](r19-unvoiced-export.md) exercises the
 actual GoldSrc index/language and normal mobile-export workers through portable
-bundle creation and the mobile parser. Its source pass is limited to confirmed
-unvoiced screen messages and explicit missing-pack rejection; the new extracted
-Windows probe remains unrun. This is not real ZZZ/NTE/Endfield/REE or voiced
+bundle creation and the mobile parser. Its source and acc68be frozen passes are
+limited to confirmed unvoiced screen messages and explicit missing-pack rejection;
+the [download review](r19-frozen-checkpoint-20261031.json) binds that exact output.
+This is not real ZZZ/NTE/Endfield/REE or voiced
 game-format acceptance. The reconciled `toolchains.json` records existing owned
 and private helper observations separately from collection/rights approval.
 

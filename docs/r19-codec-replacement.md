@@ -55,8 +55,10 @@ earlier MIT label was incorrect. The owner subsequently approved a limited
 additional GPL-2.0-or-later route for those three inputs, without the extra
 visible-credit/link condition. The [new source kit](../third_party/codecs/xiph-flac-1.5.0-gpl-recipes/README.md)
 includes the scoped grant. Its Windows build and independent delivered-kit rebuild
-have passed and the source artifact was downloaded and verified; a successful
-current frozen receipt remains pending. Exact identities are recorded in the
+have passed and the source artifact was downloaded and verified. The bounded
+[frozen checkpoint at acc68be](r19-frozen-checkpoint-20261031.json) also passed;
+its source and sanitized metadata were downloaded and checked. Production and
+final-candidate acceptance remain open. Exact identities are recorded in the
 [distribution review](r19-xiph-distribution-review.md#durable-source-delivery);
 the historical selection hashes below are preserved. The
 [rights/source/maintenance review](r19-xiph-distribution-review.md) records both.

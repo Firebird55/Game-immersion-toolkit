@@ -533,6 +533,39 @@ This remains the existing source-style distribution, separate from the quarantin
 extracted runtime and its narrower native/rights evidence. No installer, tag,
 release, merge or Pages publication occurred.
 
+## Downloaded acc68be checkpoint
+
+[Integrated run 41144087092](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092)
+passed at `acc68be0f6f47cb9a0cd928c9394743483c40c24` on hosted Server 2025,
+image `windows-2025-vs2026/20261021.278.1`, with **628 Windows contracts** and
+actual relocated frozen probes. The [download review](r19-frozen-checkpoint-20261031.json)
+binds both artifacts, build identity and inventory SHA-256
+491f4277802249fa7cee42cffcd5cae642ed0f390d926be7e31ca45513d9bf5b:
+1,535 files, 641 directories and 624,729,673 bytes. Native binaries stayed
+runner-local; the downloaded evidence contains source and sanitized metadata.
+
+The grant-bearing Xiph kit, all six source inputs, pinned codec/notice bytes,
+actual decode/fault/DLL-origin receipts, real authored Half-Life unvoiced export
+and Portal original-PCM paths matched. All twenty retained Python supplier
+texts plus the Windows-checkout provenance bytes reached central delivery;
+the exact ONNX incorporated notice and windows-capture LICENCE also matched.
+Later Flatbuffers source-notice collection is outside this checkpoint and needs
+its own frozen output. Native output attribution reports 461 exact, seven
+ambiguous, two generated and 91 unmatched files; no hash match grants rights.
+
+The actual frozen host passed normal stop, child failure, host crash and absent
+index readiness with all retained runtime/Windows-console handles signaled and
+ports released. A foreign-ready-listener case refused adoption without stopping
+the outer fixture services. API external effects remained mocked. No account,
+installed game, actual OCR/capture or trained-model inference was exercised.
+Every rights/production/Windows 11/R19 gate remains open.
+
+The separate full source run 41143154298 at `1958866` passed 1,933 Python tests,
+one skip and five subtests plus four browser groups. Its capture group failed
+on Firefox's initial authored loopback navigation; the package job was skipped.
+That run is incomplete and does not replace the earlier complete source-ZIP
+evidence. The failure is retained for diagnosis; no assertion is waived.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

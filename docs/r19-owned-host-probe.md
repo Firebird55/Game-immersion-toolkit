@@ -85,6 +85,22 @@ ordinary-user and capture acceptance.
 
 ## Remaining host/update gates
 
+The actual Server 2025 checkpoint at `acc68be` passed in
+[run 41144087092](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092).
+The [download review](r19-frozen-checkpoint-20261031.json) binds its source,
+build and complete inventory identities. Each of the four owned stop/failure
+cases retained four exact runtime-image handles plus two exact Windows console
+helpers; all six became signaled and both canonical ports were released.
+The foreign-ready-listener case refused adoption and left both outside-Job
+fixtures alive. All 628 Windows contracts passed. The separate twenty authored
+classifier cases also passed in the observer-only job; that smaller receipt
+built or started no runtime and is not native ownership evidence.
+
+Downloaded sanitized metadata artifact 13019929500 matched SHA-256
+cb129c1d431a3e74909e2e973b6f01772d4e7a05af8faf1fa19f03d8f2df529f.
+Native binaries stayed runner-local. API side effects were mocked, no account
+was accessed and Windows 11/capture/production acceptance remains open.
+
 This is cold-start/stop ownership for one disposable slot. It performs no route
 switch, installed-host adoption, browser launch, update, migration, store copy
 or credential operation. It neither consumes nor weakens the separate

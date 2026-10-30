@@ -29,8 +29,10 @@ at `8f38e6debddecacba9197946a2ff70ee3fc24e59` passed both the selected Windows
 build and an independent rebuild using this kit's own inputs/scripts, with
 unchanged executable/DLL hashes, actual decode, fault, cleanup and DLL-origin
 checks. The [distribution review](../../../docs/r19-xiph-distribution-review.md#durable-source-delivery)
-records the downloaded artifact identity and limits. A successful current
-integrated frozen receipt remains pending.
+records the downloaded artifact identity and limits. The later bounded
+[frozen checkpoint at acc68be](../../../docs/r19-frozen-checkpoint-20261031.json)
+also passed, with its source and sanitized metadata downloaded and verified.
+Native binaries remain runner-local; this is not final-candidate acceptance.
 No production or Windows 11 gate is granted by this file.
 
 Canonical retention and cohosting beside any future binary remain required.

@@ -183,7 +183,7 @@
         "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070"
       }
     },
-    "status": "Windows-build-rebuild-and-downloaded-source-verified;integrated-frozen-receipt-pending",
+    "status": "Windows-build-rebuild-downloaded-source-and-bounded-frozen-checkpoint-verified;production-not-approved",
     "historical_selection_above": "preserved;not-retroactively-relicensed",
     "general_project_license_changed": false,
     "production_execution_allowed": false,
@@ -218,6 +218,7 @@
       "r19_complete": false,
       "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454",
       "scope": "Standalone selected Windows build and independent delivered-source-kit rebuild; no integrated frozen or Windows 11 acceptance"
-    }
+    },
+    "frozen_verification": "docs/r19-frozen-checkpoint-20261031.json"
   }
 }

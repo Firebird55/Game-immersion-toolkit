@@ -164,9 +164,10 @@ and language workers on owned English/French VPK/VCCD fixtures, followed by the
 existing adapter's selected-pack extraction and unchanged PCM path. It checks
 compiled-caption authority, missing-pack isolation, CRC/reference rejection and
 complete frame bytes before atomic output publication. Truncated PCM cannot
-replace a prior good output or fall back to a media decoder. The new extracted
-Windows run is pending; this adds no installed-pack playback or voiced mobile
-export acceptance.
+replace a prior good output or fall back to a media decoder. The same bounded
+path passed the [acc68be frozen checkpoint](../r19-frozen-checkpoint-20261031.json)
+on Server 2025; this adds no installed-pack playback or voiced mobile export
+acceptance.
 
 This archive audit does not validate live OCR, physical mobile capture,
 Firefox/Chromium rendering, ultrawide, Windows zoom/DPI or actual capture bounds.

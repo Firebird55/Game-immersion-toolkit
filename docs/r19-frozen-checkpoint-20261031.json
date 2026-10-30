@@ -1,0 +1,111 @@
+{
+  "schema": "proxy-r19-frozen-checkpoint-review-v1",
+  "source_commit": "acc68be0f6f47cb9a0cd928c9394743483c40c24",
+  "run": 41144087092,
+  "build_id": "runtime-experiment-41144087092-1",
+  "scope": "Downloaded source and sanitized metadata checked; native binaries remain runner-local; not final candidate or rights acceptance",
+  "artifacts": [
+    {
+      "name": "r19-frozen-acc68be.zip",
+      "bytes": 1231229,
+      "sha256": "cb129c1d431a3e74909e2e973b6f01772d4e7a05af8faf1fa19f03d8f2df529f",
+      "artifact_id": 13019929500,
+      "github_name": "r19-integrated-runtime-metadata"
+    },
+    {
+      "name": "r19-gpl-source-acc68be.zip",
+      "bytes": 1095195,
+      "sha256": "022075b2ad04c635287b0d97b1c8b3dc679f04f00e96f3de98ab7c6bebb17daf",
+      "artifact_id": 13019143815,
+      "github_name": "r19-reference-codec-source-and-metadata"
+    }
+  ],
+  "inventory_sha256": "491f4277802249fa7cee42cffcd5cae642ed0f390d926be7e31ca45513d9bf5b",
+  "file_count": 1535,
+  "directory_count": 641,
+  "bytes": 624729673,
+  "main_executable_sha256": "d7eae25310ecf41167acf94b0308b44249540eed64aa4b9db2642f84f69d1d42",
+  "asr_executable_sha256": "93ffdead6224251d10dcefe7133448babe67fea045b9067f9952682d03e96bbc",
+  "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+  "source_inputs": 6,
+  "retained_python_supplier_texts": 20,
+  "python_supplier_provenance": "Windows CRLF checkout bytes matched",
+  "onnx_incorporated_notices": "exact wheel to central output matched",
+  "windows_capture_LICENCE": "exact wheel to central output matched",
+  "native_input_ownership_counts": {
+    "exact": 461,
+    "ambiguous": 7,
+    "generated": 2,
+    "unmatched": 91
+  },
+  "authored_half_life_unvoiced_worker": "passed en/zh-Hans both directions; previous export preserved",
+  "authored_portal_original_pcm": "passed en/fr both directions; CRC/binding/truncation refusal; no voiced mobile export",
+  "host": [
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "stop",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "exit-frontend",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "parent-crash",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "unprepared-index",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "status": "passed",
+      "case": "foreign-ready-listeners",
+      "outside_job_services": "retained-fixture-still-live",
+      "readiness": "refused"
+    }
+  ],
+  "production_execution_allowed": false,
+  "rights_review": "pending-exact-output",
+  "native_windows_11_acceptance": "unavailable",
+  "r19_complete": false,
+  "installer": "not-built",
+  "later_flatbuffers_notice_change": "not covered by this acc68be output; separate frozen build required",
+  "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092",
+  "hosted_image": {
+    "name": "windows-2025-vs2026",
+    "version": "20261021.278.1",
+    "os": "Server 2025; not Windows 11 acceptance"
+  },
+  "windows_contracts": {
+    "passed": 628,
+    "skipped": 0
+  }
+}

@@ -13,14 +13,37 @@ the grant and replaces the fixed source-kit pin. Its Windows build and independe
 delivered-kit rebuild passed in
 [run 41137727454](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454),
 and the source artifact/anonymous Git copy were downloaded and byte-verified.
-A successful current integrated frozen receipt remains pending. Completed
-frozen runs below used the historical kit.
+The later bounded [frozen checkpoint at acc68be](r19-frozen-checkpoint-20261031.json)
+also passed; its source and sanitized metadata were downloaded and verified.
+Earlier frozen runs below used the historical kit. Production and final-candidate
+acceptance remain open.
 The general project license, binary hashes and acceptance flags are unchanged.
 
 This continues the [selected source-built Xiph FLAC 1.5.0 candidate](r19-codec-replacement.md).
 The old [Gyan FFmpeg artifact](r19-codec-artifact-review.md) remains rejected and
 is no longer collected in the integrated experiment. Source-mode FFmpeg behavior
 and unrelated game/language/account behavior remain unchanged.
+
+## Grant-bearing frozen checkpoint
+
+The [acc68be download review](r19-frozen-checkpoint-20261031.json) records
+[integrated run 41144087092](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092),
+build `runtime-experiment-41144087092-1`. All 628 Windows contracts and actual
+frozen probes passed on Server 2025. Downloaded metadata artifact 13019929500
+matched SHA-256 cb129c1d431a3e74909e2e973b6f01772d4e7a05af8faf1fa19f03d8f2df529f;
+the matching standalone-source artifact 13019143815 matched SHA-256
+022075b2ad04c635287b0d97b1c8b3dc679f04f00e96f3de98ab7c6bebb17daf.
+The grant-bearing kit, all six source inputs and all nine pinned native/notice
+records matched across source build, independent rebuild and frozen inventory.
+Exactly one codec executable and DLL occur at their isolated paths.
+
+Actual file and held-stdin decode produced the expected PCM; missing/corrupt
+DLL, cancellation/deadline/truncation, previous-output preservation, CWD bait
+rejection, actual module origins and cleanup passed. Native binaries remained
+runner-local. The receipt also covers the bounded authored game-worker and
+owned-host cases, with all rights and Windows 11 fields still pending/unavailable.
+It neither establishes general game-codec coverage nor accepts later output
+changes without a new matching receipt.
 
 ## Exact resources and bounded operation
 
@@ -34,7 +57,7 @@ The current resolver requires the new six-input kit, SHA-256
 7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9;
 its standalone Windows build/rebuild is verified separately in the
 [distribution review](r19-xiph-distribution-review.md#durable-source-delivery).
-A successful current integrated frozen receipt remains pending.
+The acc68be frozen checkpoint verifies that kit in the integrated bounded probe.
 
 Preparation compares the clean current source commit, build configuration,
 original upstream tarball, all source-kit/recipe bytes, notice inventory and

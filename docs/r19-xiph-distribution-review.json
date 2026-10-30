@@ -5,7 +5,7 @@
   "integration_evidence": "docs/r19-frozen-xiph.md",
   "scope": "Unmodified source-built Xiph FLAC 1.5.0 Windows x64; fixed native FLAC to mono 16 kHz s16le PCM, <=1 second, <=1 MiB; experimental only",
   "rights_review": {
-    "status": "scoped-owner-grant-applied;source-kit-build-rebuild-verified;integrated-frozen-receipt-pending",
+    "status": "scoped-owner-grant-applied;source-kit-build-rebuild-and-bounded-frozen-checkpoint-verified;production-not-approved",
     "cli": "GPL-2.0-or-later",
     "reference_library": "BSD-3-Clause",
     "static_support": [
@@ -44,7 +44,7 @@
     "bytes": 1087821,
     "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
     "coverage": "Exact six-input source kit; original unmodified 907-entry upstream tar, complete current build inputs, original alternative license and scoped additional GPL grant",
-    "state": "Git-and-anonymous-copy-byte-verified;Windows-build-and-independent-rebuild-verified;integrated-frozen-receipt-pending",
+    "state": "Git-and-anonymous-copy-byte-verified;Windows-build-rebuild-and-bounded-frozen-checkpoint-verified;canonical-production-cohosting-open",
     "publication_guard": "Only the exact current and historical path/size/hash tuples are exempt; all content/profile/credential scanning remains active",
     "release_policy": "After rights resolution, embed the matching complete source kit beside the codec and cohost a named source asset beside each future binary; bind both in checksums/provenance and download-verify before publication. No production release in this review.",
     "retention": "Retain all source snapshots indefinitely; never remove matching source while any covered binary remains available. Preserve historical source if withdrawing a binary.",
@@ -563,5 +563,15 @@
     "r19_complete": false,
     "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454",
     "scope": "Standalone selected Windows build and independent delivered-source-kit rebuild; no integrated frozen or Windows 11 acceptance"
+  },
+  "post_grant_frozen_verification": {
+    "reference": "docs/r19-frozen-checkpoint-20261031.json",
+    "source_commit": "acc68be0f6f47cb9a0cd928c9394743483c40c24",
+    "run": 41144087092,
+    "artifact": 13019929500,
+    "sha256": "cb129c1d431a3e74909e2e973b6f01772d4e7a05af8faf1fa19f03d8f2df529f",
+    "scope": "Source kit and sanitized metadata downloaded; actual bounded decode/fault/DLL-origin and host receipts; native binaries remain runner-local",
+    "production_execution_allowed": false,
+    "r19_complete": false
   }
 }

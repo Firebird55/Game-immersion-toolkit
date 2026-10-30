@@ -13,8 +13,10 @@ without the extra visible-credit/link condition. The
 [scoped grant](../packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt) is delivered in
 a new source kit. The general project license remains unchanged. The earlier
 MIT description was wrong. The historical kit keeps its original terms.
-The new kit has passed a Windows build and an independent rebuild from the
-delivered source; its successful integrated frozen receipt remains pending.
+The new kit has passed a Windows build, an independent delivered-source rebuild
+and a bounded integrated frozen checkpoint at `acc68be`. The downloaded source
+and sanitized metadata were independently checked; native binaries remain
+runner-local and production acceptance stays open.
 Canonical source retention, future binary cohosting, other component rights and
 ordinary-user Windows acceptance remain separate open gates.
 
@@ -138,6 +140,15 @@ matched the Git and CI kit bytes. This establishes the new source review copy
 and standalone native build/rebuild. That run's frozen job failed before build;
 neither it nor the historical frozen receipts establish the current integrated
 candidate's acceptance. All production, Windows 11 and R19 gates stay open.
+
+The later [frozen checkpoint at acc68be](r19-frozen-checkpoint-20261031.json)
+completed the actual integrated probes in run 41144087092. Its downloaded
+metadata artifact 13019929500 matched 1,231,229 bytes and SHA-256
+cb129c1d431a3e74909e2e973b6f01772d4e7a05af8faf1fa19f03d8f2df529f.
+The embedded kit, all six input identities, pinned codec/notice inventories,
+actual decode/fault/cleanup/DLL-origin receipts and disabled gates matched.
+This adds bounded frozen execution evidence for the grant-bearing kit. It is
+not an independent binary download or a final-candidate rights decision.
 
 This removes dependence on seven-day Actions retention for the review copies.
 The publication scanner admits only these two exact path/size/hash tuples; changed,

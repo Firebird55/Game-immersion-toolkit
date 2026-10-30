@@ -1,6 +1,6 @@
 # R19 authored unvoiced export experiment
 
-Status: **bounded source-worker pass; extracted Windows execution pending**.
+Status: **bounded source-worker and acc68be extracted Windows checkpoint passed**.
 Reviewed 2026-10-30 against source checkpoint
 `22d99059b88892f87bce0118fd5e15a556ed6459` plus this change.
 This extends the [compiler-free helper experiment](r19-compiler-free-helpers.md)
@@ -58,8 +58,16 @@ environment and Node 22. This is a source-only functional observation. The
 development doctor still reports unavailable Windows host and nonmatching
 applicable dependency metadata; it is not a full development/packaging pass.
 The integrated `runtime_probe` now uses this real worker path and emits bounded,
-sanitized counts, locale identities and bundle hashes. An exact extracted
-candidate run is still required before recording a frozen pass for this change.
+sanitized counts, locale identities and bundle hashes.
+
+The exact extracted checkpoint at `acc68be` passed in
+[run 41144087092](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092).
+The downloaded [source/metadata review](r19-frozen-checkpoint-20261031.json)
+verified both locale directions, actual index/language/mobile-export workers,
+one unvoiced row and zero voice packs per case, missing-pack refusal, unchanged
+export reuse and previous-bundle preservation. Application inventory and owned
+cleanup passed. Native binaries remain runner-local; this is authored-format
+Server 2025 evidence rather than installed-game or clean Windows 11 acceptance.
 
 Clean Windows 11 25H2 ordinary-user operation, real OCR/capture/DPI, selected
 installed language-pack operation and broader game/audio export remain open.

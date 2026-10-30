@@ -1,6 +1,6 @@
 # R19 authored Source PCM format experiment
 
-Status: **source checks passed; exact extracted Windows run pending**.
+Status: **source checks and exact acc68be extracted Windows checkpoint passed**.
 Implemented 2026-10-30 as a bounded continuation of the
 [unvoiced export experiment](r19-unvoiced-export.md) and
 [R19 completion plan](r19-completion-plan.md). This exercises an existing
@@ -55,8 +55,16 @@ and prohibits external-codec/account initialization in extraction/PCM checks.
 
 Affected Source/Portal/Portal 2/Half-Life 2 checks and the new real-worker probe
 pass locally. `runtime_probe` includes the same bounded path and emits sanitized
-locale, size/hash and rejection metadata. Its exact frozen candidate execution
-is still pending; source execution is not a frozen or Windows 11 pass.
+locale, size/hash and rejection metadata.
+
+The exact extracted checkpoint at `acc68be` passed in
+[run 41144087092](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092).
+The downloaded [source/metadata review](r19-frozen-checkpoint-20261031.json)
+verified both en/fr directions through the actual frozen workers and existing
+in-process extraction/PCM adapter, distinct WAV/PCM hashes, missing selected
+pack state and binding/CRC/truncation rejection with previous-output retention.
+Application inventory and owned cleanup passed. No external codec or installed
+game was used; native binaries stayed runner-local and Windows 11 remains open.
 
 This covers one inline VPK v1 member per original PCM recording and one caption
 event. Numbered VPK chunks, VPK v2, scenes/composites, MP3, Bink, resampling,
