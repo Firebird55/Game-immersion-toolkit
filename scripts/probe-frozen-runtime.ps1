@@ -85,11 +85,30 @@ function Get-HostObserverIdentityCategory($Observer, $Owner, [string]$ExpectedIm
     }
     return 'unexpected-image'
 }
+function Get-HostObserverRole($Observer, $Owner, [string]$RuntimeImage, [string]$SystemConsoleImage) {
+    $identity = Get-HostObserverIdentityCategory $Observer $Owner $RuntimeImage
+    if ($identity -eq 'verified-runtime') { return 'runtime' }
+    if ($identity -eq 'windows-console-host-image') {
+        # A Job may also own its OS console helper. The name alone is never
+        # sufficient: repeat every identity check against the exact OS image.
+        $systemIdentity = Get-HostObserverIdentityCategory $Observer $Owner $SystemConsoleImage
+        if ($systemIdentity -eq 'verified-runtime') { return 'windows-console-host' }
+        return 'system-console-image-unverified'
+    }
+    return $identity
+}
 function Start-HostProbe([string]$Case='normal') {
     $image = Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe'
     $process = Start-Owned $image '--runtime-probe host' $Case
     $held = [Collections.Generic.List[Diagnostics.Process]]::new()
     try {
+        # Environment.SystemDirectory queries the OS; do not accept a helper
+        # through a caller-selected WINDIR, CWD or basename allowlist.
+        $systemDirectory = [Environment]::SystemDirectory
+        if ([string]::IsNullOrWhiteSpace($systemDirectory) -or -not [IO.Path]::IsPathRooted($systemDirectory)) {
+            throw 'Authoritative Windows system directory is unavailable.'
+        }
+        $systemConsoleImage = [IO.Path]::Combine($systemDirectory, 'conhost.exe')
         if (-not $tasks[$process.Id][0].Wait(70000)) { throw 'Owned host startup deadline expired.' }
         $control = $tasks[$process.Id][0].GetAwaiter().GetResult() | ConvertFrom-Json
         if ($control.schema -ne 'proxy-r19-owned-host-probe-v1' -or $control.status -ne 'services-ready' -or
@@ -100,6 +119,7 @@ function Start-HostProbe([string]$Case='normal') {
         if ($members.Count -lt 4 -or $members.Count -gt 16 -or @($members | Select-Object -Unique).Count -ne $members.Count) {
             throw 'Owned host did not retain its bootstraps and service processes.'
         }
+        $runtimeImages = 0; $consoleHelpers = 0
         foreach ($member in $members) {
             if (($member -isnot [long] -and $member -isnot [int]) -or $member -lt 1) { throw 'Invalid private job member identity.' }
             try {
@@ -109,10 +129,15 @@ function Start-HostProbe([string]$Case='normal') {
             } catch { throw 'Owned host observation handle identity failed: handle-open-unavailable.' }
             # These handles are for exit observation only. No PID/control
             # message authorizes a process termination or ownership adoption.
-            $identity = Get-HostObserverIdentityCategory $observer $process $image
-            if ($identity -ne 'verified-runtime') { throw ('Owned host observation handle identity failed: ' + $identity + '.') }
+            $role = Get-HostObserverRole $observer $process $image $systemConsoleImage
+            if ($role -eq 'runtime') { $runtimeImages++ }
+            elseif ($role -eq 'windows-console-host') { $consoleHelpers++ }
+            else { throw ('Owned host observation handle identity failed: ' + $role + '.') }
         }
-        return [pscustomobject]@{process=$process; held=$held; case=$Case}
+        if ($runtimeImages -lt 4 -or $runtimeImages + $consoleHelpers -ne $held.Count) {
+            throw 'Owned host runtime image observations are incomplete.'
+        }
+        return [pscustomobject]@{process=$process; held=$held; case=$Case; runtimeImages=$runtimeImages; consoleHelpers=$consoleHelpers}
     } catch {
         foreach ($observer in $held) { $observer.Dispose() }
         throw
@@ -151,6 +176,7 @@ function Complete-HostProbe($Context, [ValidateSet('stop','exit-frontend','paren
         }
         # No raw control records, Job members, native handles or logs escape.
         return @{case=$Action; status='passed'; retained_children=$Context.held.Count;
+            retained_runtime_images=$Context.runtimeImages; retained_windows_console_helpers=$Context.consoleHelpers;
             child_exit='retained-handles-signaled'; canonical_ports='released'; native_owned_process_tree='real'; api_external_side_effects='mocked'}
     } finally {
         foreach ($observer in $Context.held) { $observer.Dispose() }

@@ -226,6 +226,9 @@ if ($parseErrors) { throw 'Owned host probe PowerShell parsing failed.' }
 $definition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-HostObserverIdentityCategory'}, $true)
 if (-not $definition) { throw 'Missing fixed host observer classifier.' }
 . ([scriptblock]::Create($definition.Extent.Text))
+$roleDefinition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-HostObserverRole'}, $true)
+if (-not $roleDefinition) { throw 'Missing fixed host observer role classifier.' }
+. ([scriptblock]::Create($roleDefinition.Extent.Text))
 $expected = 'C:\authored-runtime\ProxyTranscriptRuntime.exe'
 $owner = [pscustomobject]@{StartTime=[DateTime]'2020-01-01T00:00:00Z'}
 function New-Observer([string]$Image=$expected, [bool]$Exited=$false, [int]$Offset=1) {
@@ -267,6 +270,29 @@ $script:exitReads = 0
 $exiting = New-Observer
 $exiting | Add-Member -MemberType ScriptProperty -Name HasExited -Value {$script:exitReads++; return $script:exitReads -ge 2} -Force
 Assert-Category $exiting 'process-exited-during-identity'
+function Assert-Role($Observer, [string]$ExpectedRole) {
+    $role = Get-HostObserverRole $Observer $owner $expected 'C:\Windows\System32\conhost.exe'
+    $allowed = @('runtime', 'windows-console-host', 'system-console-image-unverified',
+        'process-exited', 'process-predates-owner', 'process-state-unavailable',
+        'image-unavailable', 'unexpected-image')
+    if ($role -ne $ExpectedRole) {
+        $safeActual = if ($role -in $allowed) {$role} else {'unrecognized-category'}
+        $safeExpected = if ($ExpectedRole -in $allowed) {$ExpectedRole} else {'unrecognized-category'}
+        [Console]::Out.WriteLine('host-observer-mismatch expected=' + $safeExpected + ' actual=' + $safeActual)
+        [Console]::Out.Flush()
+        throw 'Fixed host observer role classification failed.'
+    }
+}
+Assert-Role (New-Observer) 'runtime'
+Assert-Role (New-Observer -Image 'C:\Windows\System32\conhost.exe') 'windows-console-host'
+Assert-Role (New-Observer -Image 'C:\authored-cwd\conhost.exe') 'system-console-image-unverified'
+Assert-Role (New-Observer -Image 'C:\Windows\System32\other.exe') 'unexpected-image'
+Assert-Role (New-Observer -Image 'C:\Windows\System32\conhost.exe' -Exited $true) 'process-exited'
+Assert-Role (New-Observer -Image 'C:\Windows\System32\conhost.exe' -Offset -1) 'process-predates-owner'
+$unknownConsole = New-Observer -Image 'C:\Windows\System32\conhost.exe'
+$unknownConsole.HasExited = $null
+Assert-Role $unknownConsole 'process-state-unavailable'
+Assert-Role (New-Observer -Image '') 'image-unavailable'
 Write-Output 'host-observer-categories-passed'
 ''', encoding='utf-8')
     shell = shutil.which('pwsh')
@@ -278,7 +304,7 @@ Write-Output 'host-observer-categories-passed'
             'creation-time-unavailable', 'process-predates-owner', 'image-unavailable',
             'process-exited-during-identity', 'runtime-image-prefix-spelling-mismatch',
             'runtime-image-other-path', 'windows-console-host-image', 'unexpected-image',
-            'unrecognized-category'}
+            'unrecognized-category', 'runtime', 'windows-console-host', 'system-console-image-unverified'}
         safe = 'no-safe-category-result'
         for line in result.stdout.splitlines():
             parts = line.split()

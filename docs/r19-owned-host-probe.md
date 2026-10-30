@@ -58,6 +58,17 @@ signaled and both canonical ports to be available after:
 - actual host termination through its already retained parent handle;
 - a real HTTP selected-index readiness deadline on the empty authored state.
 
+The observation set must include at least four exact runtime-image processes
+(the two bootstraps and two services). A native Job snapshot can also contain
+an OS console helper. Such an additional observation is accepted only for the
+exact `conhost.exe` under the authoritative .NET `Environment.SystemDirectory`,
+with the same creation-time and live-handle checks. An arbitrary `WINDIR`, CWD
+or matching basename cannot select that image. Every console-helper handle is
+retained and must become signaled too; it cannot substitute for a runtime image
+or bypass Job cleanup and port-release checks. This OS prerequisite is not
+collected or redistributed in the candidate, and grants no component rights or
+production activation approval.
+
 A separate negative case starts the same fixed authored frontend/API outside the
 new host Job. Both really answer readiness/HTTP before the new host starts. The
 host must refuse them and leave those outer-owned fixture services alive; it
