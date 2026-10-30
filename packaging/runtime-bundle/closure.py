@@ -271,6 +271,10 @@ def write_candidate(value, source, evidence, output):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
     files = inventory_output(output / 'ProxyTranscriptRuntime')
+    ownership = None
+    if value['profile'] == 'runtime-experiment':
+        from native_ownership import native_input_ownership
+        ownership = native_input_ownership(value['components'], value.get('resources', []), files)
     directories = sorted(path.relative_to(output / 'ProxyTranscriptRuntime').as_posix()
         for path in (output / 'ProxyTranscriptRuntime').rglob('*') if path.is_dir())
     proof = {'schema': 'proxy-runtime-candidate-v1', 'repository': 'Firebird55/Game-immersion-toolkit',
@@ -293,6 +297,7 @@ def write_candidate(value, source, evidence, output):
                 'rights_review': 'pending-exact-output'} for item in value['components']],
             'helpers': value.get('helpers', {}),
             'codecs': value.get('codecs', {}),
+            'native_input_ownership': ownership,
             'gates': {name: 'pending' for name in GATES}, 'r19_complete': False,
             'native_windows_11_acceptance': 'unavailable', 'installer': 'not-built'}
         (output / 'RUNTIME-INVENTORY.json').write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8')

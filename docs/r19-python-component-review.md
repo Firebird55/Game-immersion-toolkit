@@ -144,10 +144,23 @@ collected into the candidate.
 For one clean candidate, retain its actual input records and wheel filenames/
 hashes, original notice paths/text/hashes, source revisions or source archives,
 build recipes/options, and a file-to-component ownership map covering every
-collected EXE/DLL/PYD plus compiled-in dependencies. The current public inventory
-has component wheel hashes and notice hashes but drops original notice names,
-license expressions and installed-file ownership; it cannot alone support the
-exact-output review. METADATA fallback explicitly remains incomplete evidence.
+collected EXE/DLL/PYD plus compiled-in dependencies. The additive
+native_input_ownership report now joins each native output hash to verified
+component artifact/hash/relative-input records and resource path/version/public
+source records. It preserves every exact match and distinguishes ambiguous,
+unmatched and expected generated executable paths. It does not guess by file
+name or assign transformed/unmatched binaries to a supplier. Original file
+entries keep exactly path, SHA-256 and bytes; existing inventory readers retain
+their schema. Raw host paths, object representations and unused diagnostic
+fields are excluded; invalid private path spellings reject the report.
+
+An exact byte match identifies a supplying input, not its incorporated code's
+copyright owners, licenses or runtime load origin. Generated executable contents
+and transformed binaries still need a sanitized build-input/TOC provenance
+chain. Original notice names/text, complete dependency/source mapping and actual
+native behavior remain necessary for exact-output review; METADATA fallback
+explicitly remains incomplete evidence. The report grants no production or
+rights approval and preserves the pending native/component gates.
 Required corresponding-source delivery must follow each applicable license;
 permissive packages need notice compliance and traceable sources, without an
 invented universal requirement to redistribute all source code.

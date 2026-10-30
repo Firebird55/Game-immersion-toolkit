@@ -18,6 +18,10 @@ preflight requires matching source/evidence hashes and byte lengths; finalized
 THIRD_PARTY includes them. This closes notice delivery only. See the
 [A2 component review](../../docs/r19-python-component-review.md) for remaining
 native ownership, incorporated notices, Microsoft terms and source mappings.
+The runtime inventory also adds native_input_ownership: exact output hashes are
+joined to verified component/resource input records, with ambiguous, generated
+and unmatched files explicit. It contains relative public identities only and
+does not establish native loading, incorporated ownership or redistribution rights.
 
 On a Windows build host, provision the pinned archive and locked wheels, build
 the desktop frontend and publish the owned NTE bridge from the exact pinned SDK
