@@ -1712,12 +1712,22 @@ def toolkit_update_check(x_proxy_transcript: str = Header(default='')):
         raise HTTPException(403, 'Use Setup on this PC to update the toolkit.')
     if runtime.standby:
         raise HTTPException(409, 'The replacement is still preparing.')
-    return {'started': runtime.toolkit_updater.request()}
+    from .desktop_control import HostControlError
+    from .runtime_bundle import RuntimeBundleError
+    try:
+        return {'started': runtime.toolkit_updater.request()}
+    except (HostControlError, RuntimeBundleError) as error:
+        raise HTTPException(503, str(error)) from error
 
 
 @app.post('/api/toolkit-update/preferences')
 def toolkit_update_preferences(payload: ToolkitUpdatePreferences, x_proxy_transcript: str = Header(default='')):
     if x_proxy_transcript != 'setup':
         raise HTTPException(403, 'Use Setup on this PC to change toolkit updates.')
-    runtime.toolkit_updater.configure(payload.enabled)
+    from .desktop_control import HostControlError
+    from .runtime_bundle import RuntimeBundleError
+    try:
+        runtime.toolkit_updater.configure(payload.enabled)
+    except (HostControlError, RuntimeBundleError) as error:
+        raise HTTPException(503, str(error)) from error
     return runtime.toolkit_updater.status()
