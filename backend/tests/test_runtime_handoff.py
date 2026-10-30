@@ -4,6 +4,7 @@ import time
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
+import pytest
 
 from backend.runtime_handoff import CaptureHandoff
 from backend.tests.test_subtitle_capture import fixture_service
@@ -82,6 +83,10 @@ def test_runtime_activation_requires_local_action_and_ready_candidate(monkeypatc
         languages=SimpleNamespace(selected=lambda *_: 'zh-Hans', prepared=lambda *_: {'targets': ['en']}),
         language_state=lambda *_: {'ready': True},
         capture=capture, start_updates=lambda: calls.append('updates'))
+    fake._handoff_lock, fake._writer_handoff = asyncio.Lock(), False
+    fake.resume_writers = lambda: None
+    fake.admit_requests = lambda: None
+    fake.activate_handoff = lambda payload, **options: api.Runtime.activate_handoff(fake, payload, **options)
     monkeypatch.setattr(api, 'runtime', fake, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767')
     assert not client.get('/api/runtime/ready?game=zzz').json()['ready']
@@ -131,18 +136,78 @@ def test_standby_readiness_uses_only_the_active_accounts_prepared_language(monke
     assert not client.get('/api/runtime/ready?game=unknown').json()['ready']
 
 
-def test_old_capture_remains_active_until_background_work_has_quiesced(monkeypatch):
+@pytest.mark.parametrize('hito_active', [False, True])
+def test_old_capture_remains_active_until_background_work_has_quiesced(monkeypatch, hito_active):
     from backend import api
     calls = []
-    async def stop_updates():
+    async def stop_updates(**_options):
         calls.append('updates')
     async def stop_capture():
         calls.append('capture')
-    fake = SimpleNamespace(standby=False, stop_updates=stop_updates,
-        capture=SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), stop=stop_capture,
-            export_handoff=lambda running: CaptureHandoff(running=running, session_id='continued')))
+    from backend.runtime_writers import RuntimeWriterGate
+    fake = api.Runtime.__new__(api.Runtime)
+    fake.standby, fake.stop_updates = False, stop_updates
+    fake.request_writers, fake._handoff_lock, fake._handoff_drains = RuntimeWriterGate(), asyncio.Lock(), []
+    fake.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), quiesce=lambda _timeout: stop_capture(),
+        export_handoff=lambda running: CaptureHandoff(running=running, session_id='continued'))
+    fake.mobile_exports = SimpleNamespace(quiesce=lambda: calls.append('manual-exports'))
+    fake.installation = SimpleNamespace(quiesce=lambda _timeout: calls.append('setup'))
+    fake.reading = type('Reader', (), {'quiesce': lambda _self, _timeout: calls.append('reading')})()
+    fake.automatic_exports = SimpleNamespace(picker=SimpleNamespace(quiesce=lambda: calls.append('automatic-picker')))
+    fake.capture.drain_publications = lambda: asyncio.sleep(0)
+    fake._readers, fake.map_task = {}, None
+    fake.hito = SimpleNamespace(_process=SimpleNamespace(poll=lambda: None)) if hito_active else None
+    fake._voice_pools = lambda: []
+    fake._verify_background_stopped = lambda: None
     monkeypatch.setattr(api, 'runtime', fake, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767')
-    response = client.post('/api/runtime/quiesce', headers={'X-Proxy-Transcript': 'update'})
+    response = client.post('/api/runtime/quiesce?writers=true', headers={'X-Proxy-Transcript': 'update'})
+    if hito_active:
+        assert response.status_code == 409 and 'Hito grammar worker' in response.json()['detail']
+        assert not fake.standby
+    else:
+        assert response.status_code == 200 and response.json()['running']
+    assert calls == ['manual-exports', 'automatic-picker', 'setup', 'updates', 'reading', 'capture']
+
+
+def test_source_handoff_keeps_legacy_behavior_with_a_live_hito_worker(monkeypatch):
+    from backend import api
+    from backend.runtime_writers import RuntimeWriterGate
+    calls, running = [], [True]
+    old = api.Runtime.__new__(api.Runtime)
+    old._handoff_lock, old._writer_handoff = asyncio.Lock(), False
+    old.request_writers, old.standby = RuntimeWriterGate(), False
+    old.textmaps = old.pragmata = None
+    old.game_indexes, old.warm_task = {}, None
+    old.hito = SimpleNamespace(ready=True, _process=SimpleNamespace(poll=lambda: None))
+    async def stop_updates(): calls.append('updates-stop')
+    async def stop_capture():
+        calls.append('capture-stop')
+        running[0] = False
+    old.stop_updates = stop_updates
+    old.start_updates = lambda: calls.append('updates-start')
+    old.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=running[0]), stop=stop_capture,
+        export_handoff=lambda active: CaptureHandoff(running=active, session_id='legacy-session'),
+        import_handoff=lambda state: calls.append(('import', state.session_id)),
+        start=lambda: (calls.append('capture-start'), running.__setitem__(0, True)))
+    monkeypatch.setattr(api, 'runtime', old, raising=False)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8767')
+    headers = {'X-Proxy-Transcript': 'update'}
+    response = client.post('/api/runtime/quiesce', headers=headers)
     assert response.status_code == 200 and response.json()['running']
-    assert calls == ['updates', 'capture']
+    old.request_writers.enter(); old.request_writers.leave()
+    assert client.post('/api/runtime/activate', headers=headers, json=response.json()).status_code == 200
+    assert running[0] and not old.standby and not old._writer_handoff
+    assert calls == ['updates-stop', 'capture-stop', ('import', 'legacy-session'), 'capture-start', 'updates-start']
+
+
+def test_legacy_activation_cannot_bypass_explicit_strict_handoff():
+    from backend.api import Runtime
+    async def run():
+        old = Runtime.__new__(Runtime)
+        old._handoff_lock, old._writer_handoff = asyncio.Lock(), True
+        with pytest.raises(TimeoutError, match='explicit writers protocol'):
+            await old.activate_handoff(CaptureHandoff(running=True))
+        with pytest.raises(TimeoutError, match='explicit writers protocol'):
+            await old.quiesce_capture_handoff()
+    asyncio.run(run())

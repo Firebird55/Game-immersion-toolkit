@@ -122,3 +122,21 @@ def test_gpu_frame_excludes_titlebar_and_keeps_client_pixels(monkeypatch):
 
 
 
+
+def test_failed_native_stop_keeps_control_and_session_until_retry_succeeds():
+    source = window_capture.BackgroundCapture()
+    failing, calls = [True], []
+    def stop():
+        calls.append('stop')
+        if failing[0]:
+            raise OSError('Synthetic native stop failed')
+    control, target, state = SimpleNamespace(stop=stop), (123, (0, 0, 10, 10)), object()
+    source._control, source._target, source._state = control, target, state
+    with pytest.raises(OSError, match='native stop failed'):
+        source.close()
+    assert source._control is control and source._target is target and source._state is state
+    failing[0] = False
+    source.close()
+    assert source._control is source._target is source._state is None
+    source.close()
+    assert calls == ['stop', 'stop']

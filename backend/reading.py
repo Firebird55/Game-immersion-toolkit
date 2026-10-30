@@ -7,13 +7,14 @@ import sqlite3
 import threading
 import time
 from html.parser import HTMLParser
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
 from contextlib import closing
 from pathlib import Path
 
 import httpx
 from pypinyin import Style, lazy_pinyin
 
+from .runtime_writers import QuiesceableExecutor
 from .lexirise import API_BASE, LexiriseError, LexiriseService
 from .grammar import normalize_grammar
 from .lexirise_settings import STUDY_LANGUAGES
@@ -92,7 +93,7 @@ class LexiriseReadingService:
         self.path = directory / "reading-cache-v2.db"
         self.lexirise = lexirise
         self.lock = threading.RLock()
-        self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
+        self.pool = QuiesceableExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
         self.pending_meanings: set[str] = set()
         directory.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(self.path)) as db, db:
@@ -103,6 +104,18 @@ class LexiriseReadingService:
         account = hashlib.sha256(self.lexirise._key().encode()).hexdigest()
         settings = getattr(self.lexirise, '_settings_scope', 'unloaded')
         return f'{account}:{self.source_language}:{self.translation_language}:{settings}:{kind}'
+
+    def quiesce(self, timeout=5):
+        """Wait for queued lookups *and their cache-writing callbacks*.
+
+        Waiting on Future.done() alone can precede its completion callbacks.
+        Executor shutdown joins its actual worker threads. A timed-out drain
+        remains owned and cannot be replaced by a newly resumed pool.
+        """
+        self.pool.quiesce(timeout)
+
+    def resume(self):
+        self.pool.resume()
 
     def _cached(self, kind: str, key: str, max_age: float):
         kind = self._scope(kind)

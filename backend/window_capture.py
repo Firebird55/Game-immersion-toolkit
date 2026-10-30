@@ -22,10 +22,12 @@ class BackgroundCapture:
 
     def close(self):
         with self._lock:
-            control, self._control = self._control, None
+            # A failed stop is still owned. Keep both control and its session
+            # state so recovery can retry instead of starting a replacement.
+            if self._control is not None:
+                self._control.stop()
+            self._control = None
             self._target = self._state = None
-            if control is not None:
-                control.stop()
 
     def frame(self, window: WindowInfo) -> Image.Image | None:
         if sys.platform != 'win32':
