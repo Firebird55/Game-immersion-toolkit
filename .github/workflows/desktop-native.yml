@@ -13,10 +13,13 @@ jobs:
         include:
           - runner: windows-2025
             target: windows-x64
+            node_target: win-x64
           - runner: ubuntu-24.04
             target: linux-x64
+            node_target: linux-x64
           - runner: macos-15
             target: macos-arm64
+            node_target: darwin-arm64
           # ONNX Runtime 1.24.4 publishes macOS arm64 wheels only. Intel
           # requires a separately verified native build before joining CI.
     runs-on: ${{ matrix.runner }}
@@ -38,6 +41,7 @@ jobs:
           cache-dependency-path: |
             requirements.lock.txt
             packaging/desktop/build-requirements.lock.txt
+      - run: node scripts/prepare-release-version.mjs
       - name: Inspect missing build prerequisites before acquisition
         continue-on-error: true
         run: npm run dev:doctor -- --full
@@ -59,6 +63,8 @@ jobs:
           if ($LASTEXITCODE -eq 2) { Write-Output 'Native capture is unavailable on this runner; this is not native acceptance.'; exit 0 }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run desktop:build -- --output-root output/desktop-frontend
+      - name: Collect the pinned app-local grammar runtime
+        run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources
       - name: Acquire the verified Windows codec build compiler
         if: runner.os == 'Windows'
         run: ./scripts/prepare-codec-compiler.ps1 -OutputRoot output/codec-compiler
@@ -74,7 +80,7 @@ jobs:
           python scripts/probe-native-audio.py --resources output/audio-resources --output output/native-audio-probe.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Freeze the native runtime and isolated ASR child
-        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources
+        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources --resources-root output/node-resources
       - name: Check the frozen host with no Python or Node dependency
         env:
           QT_QPA_PLATFORM: offscreen
@@ -91,22 +97,41 @@ jobs:
         if: runner.os == 'Windows'
         run: ./scripts/prepare-installer-compiler.ps1 -OutputRoot output/installer-compiler
       - name: Construct the platform installer
+        id: package
         run: |
-          $options = @('--runtime-root', 'output/native-candidate/runtime/ProxyTranscriptRuntime', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--target', '${{ matrix.target }}', '--output', 'output/native-distribution', '--candidate')
+          $receipt = Get-Content output/native-candidate/CANDIDATE-PROVENANCE.json -Raw | ConvertFrom-Json
+          $options = @('--runtime-root', 'output/native-candidate/runtime/ProxyTranscriptRuntime', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--target', '${{ matrix.target }}', '--output', 'output/native-distribution')
+          if ($receipt.profile -ne 'runtime' -or $receipt.redistribution_review -ne 'approved' -or $receipt.native_acceptance -ne 'approved') { $options += '--candidate' }
           if ($IsWindows) { $options += @('--iscc', 'output/installer-compiler/compiler/ISCC.exe') }
           if ($IsMacOS) { $options += '--dmg' }
           python scripts/package-desktop.py @options
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      # Unreviewed binaries never leave this runner. Construction is not the
-      # R19 signed native acceptance/redistribution gate and cannot publish.
+          $result = Get-Content 'output/native-distribution/DESKTOP-PROVENANCE-${{ matrix.target }}.json' -Raw | ConvertFrom-Json
+          "release_eligible=$($result.release_eligible.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      # Candidate metadata is useful evidence, but never substitutes for a
+      # completed target receipt when the publication job assembles all assets.
       - name: Upload safe construction metadata only
         uses: actions/upload-artifact@v7
         with:
           name: native-construction-${{ matrix.target }}
           path: |
-            output/native-distribution/DESKTOP-PROVENANCE.json
+            output/native-distribution/DESKTOP-PROVENANCE-${{ matrix.target }}.json
             output/native-distribution/SHA256SUMS
             output/native-capture-probe.json
             output/native-audio-probe.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload verified desktop release assets
+        if: steps.package.outputs.release_eligible == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: tested-desktop-${{ matrix.target }}
+          path: |
+            output/native-distribution/*.zip
+            output/native-distribution/*.tar.gz
+            output/native-distribution/*.dmg
+            output/native-distribution/*.exe
+            output/native-distribution/DESKTOP-PROVENANCE-${{ matrix.target }}.json
+            output/native-distribution/SHA256SUMS
           if-no-files-found: error
           retention-days: 7

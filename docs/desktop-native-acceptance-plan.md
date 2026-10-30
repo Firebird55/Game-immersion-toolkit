@@ -81,9 +81,12 @@ Neither installer compilation nor a successful import probe closes that gate.
   capture or microphone/audio acceptance.
 - [ ] Verify installed launch opens the browser and keeps console/status logs,
   including child crashes, restart backoff and capture-worker replacement.
-- [ ] Establish Windows signing and macOS signing/notarization evidence, then
-  wire approved native artifacts into release publication with downloaded
-  checksum/provenance verification. Current candidates are unsigned.
+- [ ] Verify downloaded native assets and their provenance before release.
+  Publication now waits for native construction and verifies the source archive
+  and all three target receipts/checksum inventories together. A missing target,
+  candidate, changed asset or different source commit stops publication.
+  Current candidates are unsigned; signing/notarization is recorded separately
+  and is not an additional owner-approval requirement for an unsigned release.
 - [ ] Close the exact R19 acceptance rows before describing the native packages
   as the final all-games, no-prerequisites release.
 
