@@ -107,10 +107,14 @@ class RuntimeLayout:
     resources: Mapping[str, str] = field(default_factory=dict, repr=False)
     children: tuple[str, ...] = ()
     profile: str = 'source'
+    storage_epoch: int = 1
+    host_protocol: int = 1
 
     def __post_init__(self):
         if self.schema != SCHEMA or self.mode not in {'source', 'bundle'}:
             raise RuntimeBundleError('Unsupported runtime layout schema or mode.')
+        if any(type(value) is not int or value < 1 for value in (self.storage_epoch, self.host_protocol)):
+            raise RuntimeBundleError('Invalid runtime storage epoch or host protocol.')
         for name in ('application_root', 'resource_root', 'executable', *_ROOT_FIELDS):
             if self.mode == 'bundle':
                 original = Path(getattr(self, name))
@@ -274,7 +278,8 @@ def discover_layout(environ: Mapping[str, str] | None = None) -> RuntimeLayout:
         resource_root=resources, legacy_root=legacy, **roots,
         version=manifest.get('version', package.get('version', '')),
         source_commit=manifest.get('source_commit', ''), build_id=manifest.get('build_id', ''),
-        resources=files, children=tuple(children), profile=manifest.get('profile', 'source'))
+        resources=files, children=tuple(children), profile=manifest.get('profile', 'source'),
+        storage_epoch=manifest.get('storage_epoch', 1), host_protocol=manifest.get('host_protocol', 1))
 
 
 def child_command(kind: str, arguments: Sequence[str] = (), *, layout: RuntimeLayout | None = None) -> list[str]:
