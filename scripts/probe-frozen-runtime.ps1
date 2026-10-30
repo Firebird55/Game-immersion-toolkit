@@ -47,7 +47,13 @@ function Start-Owned([string]$image, [string]$arguments, [string]$HostCase='') {
 function Get-HostObserverIdentityCategory($Observer, $Owner, [string]$ExpectedImage) {
     # Return only fixed diagnostic categories. Image strings, IDs and times
     # remain private; none of these failure categories permit adoption or kill.
-    try { if ($Observer.HasExited) { return 'process-exited' } }
+    try {
+        # PowerShell dot access can suppress a getter exception into $null.
+        # Only an actual Boolean observation can establish live/exited state.
+        $exited = $Observer.HasExited
+        if ($exited -isnot [bool]) { return 'process-state-unavailable' }
+        if ($exited) { return 'process-exited' }
+    }
     catch { return 'process-state-unavailable' }
     try {
         $started = $Observer.StartTime.ToUniversalTime()
@@ -60,7 +66,11 @@ function Get-HostObserverIdentityCategory($Observer, $Owner, [string]$ExpectedIm
         $actual = [IO.Path]::GetFullPath($actual)
         $expected = [IO.Path]::GetFullPath($ExpectedImage)
     } catch { return 'image-unavailable' }
-    try { if ($Observer.HasExited) { return 'process-exited-during-identity' } }
+    try {
+        $exited = $Observer.HasExited
+        if ($exited -isnot [bool]) { return 'process-state-unavailable' }
+        if ($exited) { return 'process-exited-during-identity' }
+    }
     catch { return 'process-state-unavailable' }
     if ([string]::Equals($actual, $expected, [StringComparison]::OrdinalIgnoreCase)) { return 'verified-runtime' }
     if (($actual.StartsWith('\\?\') -and [string]::Equals($actual.Substring(4), $expected, [StringComparison]::OrdinalIgnoreCase)) -or
