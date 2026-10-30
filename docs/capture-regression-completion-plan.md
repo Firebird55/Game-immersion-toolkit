@@ -24,8 +24,11 @@ does not turn a voiced row into an unvoiced row or select another language.
   while retaining legitimate short captions and comic menu controls.
 - [x] Capture complete top-right bubbles promptly and retain multiple comics.
   Apply common scheduling and wrapped-line fixes to other adapters.
-- [ ] Separate NTE custom-player speaker labels from caption matching; retain
+- [x] Separate NTE custom-player speaker labels from caption matching; retain
   official identity/voice ambiguity when the observed text cannot settle it.
+  Production capture/index regressions cover renamed players, wrapped captions,
+  the supplied partial NTE frame and name-only collisions. They retain authored
+  speaker identity and refuse ambiguous voices without inferring a player variant.
 - [ ] Handle speaker titles, unknown speakers, narration, choices and partially
   revealed captions without inventing missing text or speaking order.
 - [x] Follow the game window's physical bounds and monitor, including negative
