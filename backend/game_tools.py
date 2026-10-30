@@ -1,4 +1,4 @@
-"""Separately download verified tools; all outputs stay in ignored local caches."""
+"""Shared tool readiness and preparation for source and packaged installations."""
 from __future__ import annotations
 
 from .runtime_paths import data_root as runtime_data_root, voice_work_root
@@ -118,12 +118,16 @@ def refresh_zzz_metadata(root: Path, *, revision=None) -> tuple[str, bool]:
 
 
 def missing_tools(root: Path, game: str) -> list[str]:
-    if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
+    if game == "hito" or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return []
     from .runtime_bundle import discover_layout
     if discover_layout().mode == 'bundle':
-        return ['R19 decoder/helper closure unavailable']
-    required = [("Voice decoder", runtime_data_root(root) / "voice-assets/vgmstream/vgmstream-cli.exe")]
+        return [*_bundle_runtime_missing(root, game), *_metadata_missing(root, game)]
+    if game in {"beyond", "heavyrain"}:
+        return []
+    from .media_tools import vgmstream_executable
+    missing = [] if vgmstream_executable(root) else ['Voice decoder']
+    required = []
     if game == "zzz":
         required += [("ZZZ scene reader", voice_work_root(root) / "galgame-perform.ts")]
         required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
@@ -142,21 +146,76 @@ def missing_tools(root: Path, game: str) -> list[str]:
                      ("NTE archive reader", runtime_data_root(root) / "nte/tools/upstream/UEExtractor.dll"),
                      ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/oodle-data-shared.dll"),
                      ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/zlib-ng2.dll")]
-    if game == "endfield":
+    return list(dict.fromkeys([*missing, *(name for name, path in required if not path.is_file()),
+                               *_metadata_missing(root, game)]))
+
+
+def _metadata_missing(root: Path, game: str) -> list[str]:
+    """Inert format documents are prepared privately, never compiler resources."""
+    if game == 'endfield':
         from .endfield_metadata import ready
-        if not ready(runtime_data_root(root) / 'endfield/tools'):
-            required.append(("Archive format metadata", runtime_data_root(root) / "endfield/tools/missing-metadata"))
-    return list(dict.fromkeys(name for name, path in required if not path.is_file()))
+        return [] if ready(runtime_data_root(root) / 'endfield/tools') else ['Archive format metadata']
+    if game == 'pragmata':
+        from .re_pak_metadata import ready
+        return [] if ready(runtime_data_root(root) / 'pragmata/tools') else ['Archive format metadata']
+    return []
+
+
+def _bundle_runtime_missing(root: Path, game: str) -> list[str]:
+    """Report missing operations, without disabling unrelated working readers."""
+    from .media_tools import ffmpeg_executable, vgmstream_executable
+    from .preparation_errors import PreparationFailure
+    missing = [] if ffmpeg_executable() else ['Audio converter']
+    if game not in {'beyond', 'heavyrain'} and not vgmstream_executable(root):
+        missing.append('Voice decoder')
+    reader, label = None, None
+    if game == 'nte':
+        from .nte_toolchain import resolve
+        reader, label = resolve, 'Unreal archive reader and native dependencies'
+    elif game == 'zzz':
+        from .prebuilt_node_reader import require_zzz_reader
+        reader, label = require_zzz_reader, 'Scene and voice graph reader'
+    elif game in {'wuwa', 'cyberpunk'}:
+        # These adapters currently have source-only executable acquisition.
+        # Their actual immutable apphost/native closures must be implemented;
+        # a common codec or another game's .NET helper is not that capability.
+        label = 'Unreal archive extractor' if game == 'wuwa' else 'REDengine archive extractor'
+        missing.append(label)
+    if reader:
+        try:
+            reader()
+        except PreparationFailure:
+            missing.append(label)
+    return missing
 
 
 def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None:
     from .game_paths import GAMES
     if game not in GAMES:
         raise ValueError("Unsupported game")
-    if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
+    if game == "hito" or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return
-    from .bundle_tools import require_source_toolchain
-    require_source_toolchain(game + ' decoder/helper')
+    from .runtime_bundle import discover_layout
+    if discover_layout().mode == 'bundle':
+        from .preparation_errors import PreparationFailure
+        progress('Checking bundled reader and audio capabilities')
+        missing = _bundle_runtime_missing(root, game)
+        if missing:
+            raise PreparationFailure('bundle_toolchain_unavailable',
+                'This installation is missing: ' + ', '.join(missing) +
+                '. Install a complete toolkit package for this platform, then retry preparation.')
+        if game == 'endfield':
+            from .endfield_assets import ensure_extractor
+            progress('Preparing verified archive format metadata')
+            ensure_extractor(runtime_data_root(root) / 'endfield/tools')
+        elif game == 'pragmata':
+            from .re_pak_metadata import prepare
+            progress('Preparing verified archive format metadata')
+            prepare(runtime_data_root(root) / 'pragmata/tools')
+        progress('Bundled reader and audio tools are ready')
+        return
+    if game in {'beyond', 'heavyrain'}:
+        return
     decoder = runtime_data_root(root) / "voice-assets/vgmstream"
     progress("Preparing the verified original-voice decoder")
     install_archive(VGM_URL, VGM_SHA, decoder, ("vgmstream-cli.exe", "COPYING"))
@@ -187,8 +246,9 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
         ensure_wolvenkit(runtime_data_root(root) / "cyberpunk/tools")
     elif game == "wuwa":
         from .wuthering_assets import ensure_extractor
+        from .media_tools import vgmstream_executable
         progress("Preparing the verified Wuthering Waves extractor")
-        ensure_extractor(runtime_data_root(root) / "wuwa/tools", decoder / "vgmstream-cli.exe")
+        ensure_extractor(runtime_data_root(root) / "wuwa/tools", vgmstream_executable(root))
     elif game == "nte":
         from .nte_assets import ensure_extractor
         progress("Preparing the verified NTE archive reader and local .NET bridge")

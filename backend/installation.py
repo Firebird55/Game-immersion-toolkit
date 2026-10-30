@@ -4,6 +4,7 @@ from __future__ import annotations
 from .runtime_paths import data_root as runtime_data_root
 from .runtime_bundle import child_command, discover_layout, resource_path
 import json
+import logging
 import os
 from pathlib import Path
 import platform
@@ -17,6 +18,7 @@ from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install,
 from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
 from .steam_games import STEAM_GAMES
+from .preparation_errors import PreparationFailure, public_failure
 
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
@@ -48,7 +50,7 @@ VOICE_HINTS = {
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
     "wuwa": "Download the selected study language's voice pack in Wuthering Waves, then prepare it in Languages.",
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
-    "nte": "Download the selected study language's original voice pack, then prepare its authored dialogue and cinematic bindings in Languages.",
+    "nte": "Download the selected original voice pack, choose Prepare game tools, then prepare its dialogue and cinematic bindings in Languages.",
 }
 
 
@@ -201,17 +203,18 @@ class InstallationService:
             prepare_tools(self.root, game, progress)
             missing = missing_tools(self.root, game)
             if missing:
-                raise ValueError("Tools are incomplete")
+                raise PreparationFailure('tools_incomplete',
+                    'Preparation still needs: ' + ', '.join(missing) + '. Retry preparation or repair the toolkit installation.')
             with self._lock:
                 self._jobs[game] = {"state": "ready", "message": "Tools ready; checking game data", "progress": 100}
             if self.install_lookup(game):
                 self.refresh_game(game)
-        except Exception:
+        except Exception as error:
+            logging.getLogger(__name__).exception('Tool preparation failed for %s', game)
+            failure = public_failure(error)
             with self._lock:
-                message = ("This experimental bundle's game tools are unavailable. Keep using your existing installation until those tools are verified."
-                    if discover_layout().mode == 'bundle' else
-                    "Preparation failed. Check your connection and retry. Re-run Install.cmd if dependencies are missing.")
-                self._jobs[game] = {"state": "error", "message": message, "progress": 100}
+                self._jobs[game] = {"state": "error", "message": failure['message'],
+                                    "code": failure['code'], "progress": 100}
 
     def launch_native(self, kind: str) -> bool:
         if kind not in {"folders", "lexirise", "checks"}:

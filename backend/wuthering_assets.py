@@ -81,13 +81,15 @@ def ensure_unreal_decompression(dependencies: Path) -> None:
         _verified_file(zlib, gzip.decompress(compressed), zlib_digest)
 
 
-def ensure_extractor(directory: Path, decoder: Path) -> Path:
+def ensure_extractor(directory: Path, decoder: Path | None) -> Path:
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain('Unreal archive extractor')
     executable = directory / "FModelCLI.exe"
     if not _matches_digest(executable, EXTRACTOR_SHA256):
         _verified_file(executable, _download(EXTRACTOR_URL), EXTRACTOR_SHA256)
     dependencies = directory / ".data"
     ensure_unreal_decompression(dependencies)
-    if not decoder.is_file():
+    if decoder is None or not decoder.is_file():
         raise FileNotFoundError("Original voice decoder is missing; run setup again")
     shutil.copyfile(decoder, dependencies / "vgmstream-cli.exe")
     return executable
@@ -162,6 +164,8 @@ def _archive_metadata(install: Path, stamp: str) -> tuple[str, ...]:
 
 
 def run_extractor(install: Path, executable: Path, destination: Path | None, filter_text: str) -> list[str]:
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain('Unreal archive extractor')
     for root in (install / "Client/Content/Paks", install / "Client/Saved/Resources"):
         if root.is_dir() and any(not _official_archive(root, path) for path in root.rglob("*.pak")):
             raise ValueError("Wuthering Waves indexing requires official archives; unsupported mod archives were found")
@@ -363,8 +367,9 @@ def _prepare_text_tables(install, executable, cache, locales, progress):
 
 
 def index_install(install: Path, data_dir: Path, progress=lambda _message: None) -> dict:
+    from .media_tools import vgmstream_executable
     stamp = fingerprint(install)
-    decoder = data_dir.parent / "voice-assets/vgmstream/vgmstream-cli.exe"
+    decoder = vgmstream_executable(data_dir.parent.parent)
     executable = ensure_extractor(data_dir / "tools", decoder)
     cache = data_dir / "index-cache" / stamp[:16]
     _prepare_text_tables(install, executable, cache, {'en', 'zh-Hans'}, progress)
@@ -435,10 +440,11 @@ def build_language_records(db_root: Path, files: list[str], source_locale: str, 
 
 def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
     from .languages import resolve_locale
+    from .media_tools import vgmstream_executable
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Wuthering study/audio locale')
     stamp = fingerprint(install)
-    executable = ensure_extractor(data_dir / 'tools', data_dir.parent / 'voice-assets/vgmstream/vgmstream-cli.exe')
+    executable = ensure_extractor(data_dir / 'tools', vgmstream_executable(data_dir.parent.parent))
     cache = data_dir / 'index-cache' / stamp[:16]
     cache.mkdir(parents=True, exist_ok=True)
     targets = {value: resolve_locale(value, TEXT_LOCALES) for value in target_locales}

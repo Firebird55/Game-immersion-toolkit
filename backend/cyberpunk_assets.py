@@ -43,6 +43,8 @@ def unsupported_format():
 
 
 def ensure_wolvenkit(directory: Path) -> Path:
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain('REDengine archive extractor')
     executable = directory / "WolvenKit.CLI.exe"
     marker = directory / "verified-version.json"
     if executable.is_file() and marker.is_file():
@@ -69,6 +71,8 @@ def ensure_wolvenkit(directory: Path) -> Path:
 
 
 def run_wolvenkit(executable: Path, *arguments: str) -> None:
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain('REDengine archive extractor')
     result = subprocess.run([str(executable), *map(str, arguments)], capture_output=True,
                             timeout=600, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if result.returncode or b"[ 0: Error" in result.stdout:

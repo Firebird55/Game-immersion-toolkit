@@ -89,10 +89,13 @@ def test_frozen_reader_refuses_before_download_sdk_or_compiler(tmp_path, monkeyp
     assert not list(tmp_path.iterdir())
 
 
-def test_diagnostic_readiness_keeps_text_only_game_distinct_from_global_audio(tmp_path, monkeypatch):
+def test_bundle_readiness_reports_actual_missing_operations_without_a_global_game_gate(tmp_path, monkeypatch):
     from backend import game_tools, media_tools
     from backend.game_paths import GAMES
-    fixture_layout(tmp_path, monkeypatch)
+    layout = fixture_layout(tmp_path, monkeypatch)
+    from backend import nte_toolchain, prebuilt_node_reader
+    monkeypatch.setattr(nte_toolchain, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(prebuilt_node_reader, 'discover_layout', lambda: layout)
     monkeypatch.setattr(media_tools.shutil, 'which', lambda *_: pytest.fail('Frozen FFmpeg fell back to PATH'))
     media_tools.ffmpeg_executable.cache_clear()
     try:
@@ -100,8 +103,11 @@ def test_diagnostic_readiness_keeps_text_only_game_distinct_from_global_audio(tm
         assert game_tools.missing_tools(tmp_path, 'halflife') == []
         assert len(GAMES) == 25
         for game in GAMES:
-            if game not in {'halflife', 'beyond', 'heavyrain'}:
-                assert game_tools.missing_tools(tmp_path, game) == ['R19 decoder/helper closure unavailable']
+            if game != 'halflife':
+                missing = game_tools.missing_tools(tmp_path, game)
+                assert 'Audio converter' in missing
+                assert ('Voice decoder' in missing) == (game not in {'beyond', 'heavyrain'})
+                assert not any('R19' in item or 'quarantine' in item for item in missing)
     finally:
         media_tools.ffmpeg_executable.cache_clear()
 

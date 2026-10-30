@@ -118,6 +118,21 @@ def test_tool_download_failure_is_recoverable_and_does_not_expose_raw_errors(set
     assert "private transcript marker" not in job["message"]
 
 
+def test_specific_missing_capability_survives_setup_error_handling(setup, monkeypatch, caplog):
+    from backend.preparation_errors import PreparationFailure
+    service, _, _, _ = setup
+    def failed(*_args):
+        raise PreparationFailure('bundle_toolchain_unavailable',
+            'This installation is missing the original voice decoder. Repair the toolkit installation.')
+    monkeypatch.setattr('backend.installation.prepare_tools', failed)
+    service._prepare('nte')
+    job = service.status()['jobs']['nte']
+    assert job['code'] == 'bundle_toolchain_unavailable'
+    assert 'original voice decoder' in job['message']
+    assert 'experimental' not in job['message'] and 'SDK' not in job['message']
+    assert 'Tool preparation failed for nte' in caplog.text
+
+
 @pytest.mark.parametrize('platform', ['win32', 'linux', 'darwin'])
 def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, monkeypatch, platform):
     service, _, _, _ = setup

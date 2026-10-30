@@ -1,6 +1,6 @@
 # Shared reader completion work
 
-Updated 2026-10-30. This supplements [R19 A/B](r19-completion-plan.md) and
+Updated 2026-10-31. This supplements [R19 A/B](r19-completion-plan.md) and
 [desktop delivery](desktop-delivery-completion-plan.md). Game identity must not
 permanently select a quarantine or a different installation experience. Format,
 dependency, rights and native-platform evidence determine each operation's
@@ -46,3 +46,7 @@ official voiced languages and their authored bindings while replacing runtime
 dependencies. Do not mark unavailable recordings as unvoiced or infer voices
 from adjacent text. Missing cross-game screenshot tests remain tracked in the
 [screenshot regression plan](screenshot-regression-plan.md).
+
+The blanket bundled-game preparation refusal has been replaced with checks of
+the actual audio and archive operations. See [shared preparation readiness](bundled-tool-readiness.md)
+for verified behavior, exact missing extractor capabilities and focused checks.

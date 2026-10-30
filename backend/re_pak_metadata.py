@@ -57,3 +57,18 @@ def parameters(tools: Path, kind: str) -> CipherParameters:
 def prepare(tools: Path) -> None:
     for kind in SOURCES:
         parameters(tools, kind)
+
+
+def ready(tools: Path) -> bool:
+    """Check private metadata without starting network work from status polling."""
+    try:
+        for filename, digest, sizes in SOURCES.values():
+            path = tools / 'format-metadata/re-pak-v1' / filename
+            with path.open('rb') as stream:
+                data = stream.read(16385)
+            if len(data) > 16384 or hashlib.sha256(data).hexdigest() != digest:
+                return False
+            _parse(data, sizes)
+        return True
+    except (OSError, ValueError, UnicodeError):
+        return False
