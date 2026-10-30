@@ -82,6 +82,9 @@ def test_bootstrap_clears_inherited_frozen_dll_directory_before_native_spawn(mon
     def spawn(command, **kwargs):
         assert calls == ['join', ('dll-directory', None)]
         assert command == ['owned.exe'] and kwargs['creationflags'] == 0x8000000
+        assert kwargs['stdin'] is module.sys.stdin
+        assert kwargs['stdout'] is module.sys.stdout
+        assert kwargs['stderr'] is module.sys.stderr
         return 0
     monkeypatch.setattr(module.subprocess, 'call', spawn)
     assert module._bootstrap('owned-job', ['owned.exe']) == 0

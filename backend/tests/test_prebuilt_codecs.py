@@ -162,12 +162,15 @@ def test_metadata_cannot_expand_the_bounded_decode_scope(tmp_path, monkeypatch, 
 
 
 @pytest.mark.parametrize('change', ['missing', 'wrong-hash', 'other-app-dll', 'app-crt', 'external', 'duplicate'])
-def test_module_origin_check_rejects_wrong_or_incomplete_native_bindings(tmp_path, change):
+@pytest.mark.parametrize('nested', [False, True])
+def test_module_origin_check_rejects_wrong_or_incomplete_native_bindings(tmp_path, change, nested):
     from types import SimpleNamespace
     from backend.codec_module_probe import checked_modules, PINNED_FILES
     layout = frozen_layout(tmp_path, profile='runtime-experiment')
-    decoder = SimpleNamespace(executable=layout.resource_root / codec.PREFIX / 'flac.exe')
-    prefix = decoder.executable.parent.relative_to(layout.application_root).as_posix() + '/'
+    directory = layout.resource_root / codec.PREFIX if nested else layout.application_root
+    decoder = SimpleNamespace(executable=directory / 'flac.exe')
+    relative = directory.relative_to(layout.application_root).as_posix()
+    prefix = '' if relative == '.' else relative + '/'
     records = [{'file': prefix+n, 'origin': 'application', 'sha256': PINNED_FILES[n]} for n in ('flac.exe','FLAC.dll')]
     records += [{'file': n, 'origin': 'windows-system', 'sha256': 'a'*64} for n in ('VCRUNTIME140.dll','ucrtbase.dll')]
     assert checked_modules(layout, decoder, records) == records

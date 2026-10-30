@@ -191,7 +191,10 @@ def _bootstrap(name, command):
     # Windows' ordinary native search before an external helper is spawned;
     # its own app directory and named OS/CRT prerequisites remain explicit.
     _check(kernel.SetDllDirectoryW(None))
-    return subprocess.call(command, creationflags=subprocess.CREATE_NO_WINDOW)
+    # CREATE_NO_WINDOW must still receive the bootstrap's redirected handles.
+    # Leaving every stream as None bypasses Popen's explicit handle setup.
+    return subprocess.call(command, stdin=sys.stdin, stdout=sys.stdout,
+        stderr=sys.stderr, creationflags=subprocess.CREATE_NO_WINDOW)
 
 
 if __name__ == '__main__':

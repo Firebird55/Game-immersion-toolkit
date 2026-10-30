@@ -24,7 +24,8 @@ from .windows_preparation_process import WindowsPreparationProcess
 
 
 def checked_modules(layout, decoder, records):
-    prefix = decoder.executable.parent.relative_to(layout.application_root).as_posix() + '/'
+    relative = decoder.executable.parent.relative_to(layout.application_root).as_posix()
+    prefix = '' if relative == '.' else relative + '/'
     expected = {(prefix + name).casefold(): PINNED_FILES[name] for name in ('flac.exe', 'FLAC.dll')}
     actual = {r['file'].casefold(): r['sha256'] for r in records if r['origin'] == 'application'}
     system = {r['file'].casefold() for r in records if r['origin'] == 'windows-system'}
