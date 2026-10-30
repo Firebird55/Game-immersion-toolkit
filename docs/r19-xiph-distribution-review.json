@@ -440,6 +440,29 @@
       "action": "recorded; no backport or scope expansion in this review"
     }
   ],
+  "retained_source_verification": {
+    "source_commit": "0c7941585066d1815cdc57eb71152c8565055f5c",
+    "workflow_run": 41128774508,
+    "url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41128774508",
+    "status": "passed",
+    "scope": "Windows Server 2025 source-publication boundary, source trust, selected build and independent rebuild from retained Git kit; not frozen/Windows 11 acceptance",
+    "publication_cli_regressions": "passed on Node 24; exact/changed/appended/truncated/unknown/case-varied/current/history archive cases",
+    "source_trust_tests": 4,
+    "artifact": {
+      "id": 13012097837,
+      "bytes": 1094227,
+      "sha256": "17a0af9b36663a06d39c0bb2ab948aa5cb63870eb067d62f5a6dc2b2fade0200"
+    },
+    "independent_download_review": "Exact outer five-entry allowlist, source-kit/anonymous/Git bytes, original custom recipe license, both receipts, binary/notice/PCM/failure/native-origin hashes and disabled gates verified",
+    "retained_kit_rebuild": "passed; retained Git kit expanded with its own recipes, no live repository build-script fallback",
+    "binary_hashes_unchanged": true,
+    "source_kit_hash_unchanged": true,
+    "recipe_license_granted": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
   "gates": {
     "recipe_license_resolution": "blocked-owner-decision",
     "canonical_source_retention": "pending-merge-and-retained-canonical-lineage",

@@ -240,6 +240,24 @@ the runner finalized failed/incomplete. Neither aggregate is a full pass, and
 the later case-extension correction is covered by the targeted cases above.
 Generated-guide/link checks and public audit are run separately.
 
+[Windows retained-source run 41128774508](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41128774508)
+passed at clean source 0c7941585066d1815cdc57eb71152c8565055f5c: the real
+publication-CLI regression, four source-trust tests, actual selected-codec
+build/decode/fault/cleanup/DLL-origin probe, then a fresh build and the same
+probe from the retained Git kit using its own delivered recipes. The generated
+kit was required to match that retained copy before expansion. All selected
+binary/notice/source-kit hashes were unchanged. This is hosted Server 2025
+source/rebuild evidence; the full frozen job was skipped in this bounded mode.
+
+Downloaded artifact 13012097837 (1,094,227 bytes) matched SHA-256
+17a0af9b36663a06d39c0bb2ab948aa5cb63870eb067d62f5a6dc2b2fade0200.
+Its five outer entries, source/recipe hashes and original custom LICENSE,
+anonymous/Git/CI source-kit byte equality, both build/probe identities, exact
+binary/notice hashes, PCM/failure/cleanup/native-origin records and disabled
+gates were independently checked. No binary or raw process/compiler log was
+uploaded. The recipe-license finding remains unresolved: a successful rebuild
+does not grant rights or prove production source-hosting/Windows acceptance.
+
 Compatibility watch returned 2 after an initial sandbox DNS failure. Public
 settings/lookup/language/AI/API reference review found no added/removed endpoints;
 live account/UI equivalence remains outside this source-policy change. Its
