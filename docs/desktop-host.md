@@ -61,9 +61,11 @@ instance reuse, browser-origin rejection on host control, log redaction,
 single-browser startup, restart ordering and retained exclusion after a failed
 cleanup. These are source-host results, not extracted-installer acceptance.
 
-Automatic software updates remain explicitly unavailable in this host until
-the owner-aware frozen transaction in [R19 C3](r19-completion-plan.md) is complete.
-The source updater cannot be nested inside its continuous operation lease.
+Eligible frozen releases use the [owner-held update transaction](desktop-update-handoff.md).
+Source checkouts and private experimental artifacts keep automatic installation
+unavailable. The source updater cannot be nested inside the continuous operation
+lease. Implemented transaction checks do not close the native acceptance gate
+in [R19 C3](r19-completion-plan.md).
 Game-data preparation continues through the normal shared runtime services.
 Final frozen resource closure, ordinary browser profile continuity, platform
 native capture and installed repair/update/uninstall remain in the

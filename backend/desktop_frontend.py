@@ -247,8 +247,13 @@ def frontend_root(args, layout):
         root = manifest.parent
         if args.root is not None and args.root.resolve() != root.resolve():
             raise FrontendError('Frozen frontend must use its verified application resource tree.')
-        if args.retained_root:
-            raise FrontendError('Frozen retained builds require a reviewed update supervisor; this candidate has none.')
+        if args.retained_root and os.environ.get('PROXY_TRANSCRIPT_HOST_MANAGED') != '1':
+            raise FrontendError('Frozen retained builds require the desktop update supervisor.')
+        # The host selects these only from verified installed slots. Every old
+        # build still has its own closed public-only inventory and byte hashes;
+        # the server exposes only immutable chunk URLs, never an old index.html.
+        for retained in args.retained_root:
+            FrontendBuild(retained)
         current = FrontendBuild(root)
         if {name for name in layout.resources if name.startswith('desktop/')} != {
                 'desktop/' + name for name in (*current.files, MANIFEST)}:
