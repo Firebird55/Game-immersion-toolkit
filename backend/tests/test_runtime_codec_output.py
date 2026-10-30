@@ -86,7 +86,7 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
         'PYZ': lambda *_a, **_k: None, 'EXE': lambda *_a, **_k: None, 'COLLECT': lambda *_a, **_k: None})
     assert len(analyses) == 2
     assert not any(Path(origin).name.casefold() in {'flac.exe', 'flac.dll'} for rows in analyses for origin, _ in rows)
-    actual = {name: (origin, kind) for name, origin, kind in result['main'].datas}
+    actual = {name.replace('\\', '/'): (origin, kind) for name, origin, kind in result['main'].datas}
     for name in ('flac.exe', 'FLAC.dll'):
         member = 'codecs/xiph-flac/' + name
         assert actual[member] == (str(evidence / member), 'DATA')
