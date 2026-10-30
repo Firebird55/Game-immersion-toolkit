@@ -42,8 +42,11 @@ def _version(value):
 
 
 def _public_source(value):
-    _require(isinstance(value, str))
-    uri = urlsplit(value)
+    _require(isinstance(value, str) and not any(ord(c) < 32 or ord(c) == 127 for c in value))
+    try:
+        uri = urlsplit(value)
+    except ValueError:
+        raise ValueError('Native input attribution contains an invalid public source identity.') from None
     _require(uri.scheme == 'https' and uri.netloc in {'github.com', 'raw.githubusercontent.com', 'pypi.org'}
         and not uri.query and not uri.fragment and re.fullmatch(r'/[A-Za-z0-9._~/-]+', uri.path))
     return value

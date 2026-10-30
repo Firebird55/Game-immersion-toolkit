@@ -99,3 +99,23 @@ def test_additive_report_preserves_exact_files_entry_schema_and_existing_candida
     assert files == original and all(set(entry) == {'path', 'sha256', 'bytes'} for entry in files)
     assert identity['inventory_sha256'] == hashlib.sha256(data).hexdigest()
     assert parsed['native_input_ownership']['files'][0]['status'] == 'exact'
+
+
+@pytest.mark.parametrize('control', ['\t', '\r', '\n', '\x00', '\x1f', '\x7f'])
+def test_public_source_rejects_original_controls_before_url_normalization(monkeypatch, control):
+    resource = {'path': 'helpers/nte/owned.dll', 'version': '1.0', 'sha256': 'b' * 64,
+        'source': 'https://github.com/owned/' + control + 'private-fixture'}
+    with pytest.raises(ValueError) as error:
+        report(monkeypatch, [], [resource], [row('_internal/owned.dll', 'b' * 64)])
+    assert 'private-fixture' not in str(error.value) and resource['source'] not in repr(error.value)
+
+
+def test_malformed_public_source_parser_error_never_exposes_private_netloc(monkeypatch):
+    # urllib rejects this netloc during NFKC validation and includes its raw
+    # spelling in its own error. Public attribution must replace that message.
+    resource = {'path': 'helpers/nte/owned.dll', 'version': '1.0', 'sha256': 'b' * 64,
+        'source': 'https://private-fixture\u2100github.com/source'}
+    with pytest.raises(ValueError) as error:
+        report(monkeypatch, [], [resource], [row('_internal/owned.dll', 'b' * 64)])
+    assert 'private-fixture' not in str(error.value) and 'private-fixture' not in repr(error.value)
+    assert error.value.__cause__ is None and error.value.__suppress_context__ is True
