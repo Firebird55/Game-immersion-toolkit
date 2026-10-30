@@ -65,6 +65,16 @@ def validate_python_notice_delivery(component, source, evidence):
             raise ClosureError('Runtime Python supplier notice length differs from source.')
 
 
+def validate_flatbuffers_notice_delivery(component, source, evidence):
+    """Exact source-notice delivery, without promoting component rights."""
+    from record_runtime import expected_flatbuffers_notice_records
+    for notice in expected_flatbuffers_notice_records(evidence, source, component):
+        if notice not in component['licenses']:
+            raise ClosureError('Runtime Flatbuffers source notice delivery is missing or source-invalid.')
+        if checked_file(evidence, notice).stat().st_size != notice['bytes']:
+            raise ClosureError('Runtime Flatbuffers source notice length differs from source.')
+
+
 def validate_inputs(value, source, evidence, *, check_host=True):
     if value.get('schema') != 'proxy-runtime-build-inputs-v1' or value.get('profile') not in {'diagnostic', 'frontend-experiment', 'runtime-experiment', 'runtime'}:
         raise ClosureError('Unsupported build-input schema or profile.')
@@ -116,6 +126,10 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         raise ClosureError('A reviewed maintained CPython 3.12 Windows x64 distribution is required.')
     if value['profile'] in {'runtime-experiment', 'runtime'}:
         validate_python_notice_delivery(python, source, evidence)
+        flatbuffers = next((item for item in components if normalized(item['name']) == 'flatbuffers'), None)
+        if flatbuffers is None:
+            raise ClosureError('The locked Flatbuffers source-notice component is missing.')
+        validate_flatbuffers_notice_delivery(flatbuffers, source, evidence)
     if check_host:
         if sys.platform != 'win32' or platform.machine().lower() not in {'amd64', 'x86_64'} or platform.architecture()[0] != '64bit':
             raise ClosureError('Build on Windows x64; cross-building from another platform is unsupported.')

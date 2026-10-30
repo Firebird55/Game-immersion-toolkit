@@ -280,6 +280,109 @@ def collect_onnx_third_party_notice(evidence, component):
     return {'path': target.relative_to(evidence).as_posix(), 'sha256': checksum, 'bytes': len(data)}
 
 
+def _flatbuffers_notice_inputs(evidence, source, component, *, check_installed):
+    """Bind the retained source notice to the exact source-identical wheel."""
+    import hashlib
+    from backend.prebuilt_readers import _no_links
+    from backend.runtime_bundle import relative_resource
+    root = source / 'packaging/runtime-bundle/flatbuffers-notices'
+    provenance = root / 'PROVENANCE.json'
+    _no_links(provenance.absolute())
+    if not provenance.is_file() or provenance.stat().st_size > 65536:
+        raise ClosureError('Retained Flatbuffers source provenance is missing or oversized.')
+    value = json.loads(provenance.read_bytes())
+    if not isinstance(value, dict):
+        raise ClosureError('Retained Flatbuffers source provenance is invalid.')
+    wheel, origin, notice = value.get('wheel', {}), value.get('source', {}), value.get('notice', {})
+    version = component['version']
+    if (value.get('schema') != 'proxy-flatbuffers-source-notices-v1' or value.get('version') != version
+            or normalized(component['name']) != 'flatbuffers' or component['architecture'] != 'any'
+            or value.get('redistribution_review') != 'pending-exact-output' or value.get('native_closure') != 'unverified'
+            or value.get('production_execution_allowed') is not False or value.get('upstream_NOTICE_file_observed') is not False
+            or not isinstance(wheel, dict) or wheel.get('sha256') != component['artifact']['sha256']
+            or wheel.get('name') != f'flatbuffers-{version}-py2.py3-none-any.whl'
+            or not isinstance(origin, dict) or origin.get('repository') != 'https://github.com/google/flatbuffers'
+            or origin.get('tag') != 'v' + version or not isinstance(origin.get('commit'), str)
+            or len(origin['commit']) != 40 or any(c not in '0123456789abcdef' for c in origin['commit'])
+            or origin.get('archive_url') != 'https://codeload.github.com/google/flatbuffers/tar.gz/' + origin['commit']
+            or not isinstance(origin.get('archive_sha256'), str) or len(origin['archive_sha256']) != 64
+            or any(c not in '0123456789abcdef' for c in origin['archive_sha256'])
+            or not isinstance(notice, dict) or set(notice) != {'path', 'source_member', 'bytes', 'sha256'}
+            or notice.get('path') != 'LICENSE' or notice.get('source_member') != 'LICENSE'
+            or type(notice.get('bytes')) is not int or not 0 < notice['bytes'] <= 256 * 1024):
+        raise ClosureError('Retained Flatbuffers notice differs from the exact observed wheel/source identity.')
+    license_file = checked_file(root, notice)
+    _no_links(license_file.absolute())
+    if license_file.stat().st_size != notice['bytes']:
+        raise ClosureError('Retained Flatbuffers notice length differs from source provenance.')
+    payload = value.get('python_payload')
+    if not isinstance(payload, list) or len(payload) != 10:
+        raise ClosureError('Retain all ten source-identical Flatbuffers Python member identities.')
+    archive = checked_file(evidence, component['artifact'])
+    _no_links(archive.absolute())
+    if archive.stat().st_size != wheel.get('bytes'):
+        raise ClosureError('Flatbuffers wheel length differs from source provenance.')
+    installed = metadata.distribution('flatbuffers') if check_installed else None
+    if installed is not None and installed.version != version:
+        raise ClosureError('Installed Flatbuffers version differs from the observed wheel.')
+    seen = set()
+    with zipfile.ZipFile(archive) as package:
+        info = wheel_metadata(package)
+        if normalized(info['Name']) != 'flatbuffers' or info['Version'] != version:
+            raise ClosureError('Flatbuffers source notices belong to another wheel identity.')
+        for entry in payload:
+            if not isinstance(entry, dict) or set(entry) != {'path', 'source_member', 'bytes', 'sha256'}:
+                raise ClosureError('Flatbuffers source member attributes are incomplete.')
+            name = relative_resource(entry['path'])
+            if (not name.startswith('flatbuffers/') or not name.endswith('.py') or name in seen
+                    or entry['source_member'] != 'python/' + name or package.namelist().count(name) != 1
+                    or type(entry['bytes']) is not int or not 0 < entry['bytes'] <= 1024 * 1024):
+                raise ClosureError('Flatbuffers source member identity is missing or aliased.')
+            seen.add(name)
+            data = package.read(name)
+            records = [row for row in component.get('installed_files', [])
+                if row['path'] == name or row['path'].endswith('/' + name)]
+            if (len(data) != entry['bytes'] or hashlib.sha256(data).hexdigest() != entry['sha256']
+                    or len(records) != 1 or records[0]['sha256'] != entry['sha256']):
+                raise ClosureError('Flatbuffers source/wheel/observed installed bytes differ.')
+            relative_resource(records[0]['path'])
+            if installed is not None:
+                original = Path(installed.locate_file(name)).absolute()
+                _no_links(original)
+                prefix = Path(sys.prefix).absolute()
+                if (prefix not in original.parents or original.relative_to(prefix).as_posix() != records[0]['path']
+                        or checked_file(prefix, records[0]).stat().st_size != entry['bytes']):
+                    raise ClosureError('Installed Flatbuffers payload differs from its verified wheel.')
+        if seen != {name for name in package.namelist() if name.startswith('flatbuffers/') and name.endswith('.py')}:
+            raise ClosureError('Flatbuffers wheel has unbound Python source members.')
+    return [license_file, provenance]
+
+
+def expected_flatbuffers_notice_records(evidence, source, component):
+    return [{'path': 'licenses/flatbuffers/source/' + path.name,
+        'sha256': digest(path), 'bytes': path.stat().st_size}
+        for path in _flatbuffers_notice_inputs(evidence, source, component, check_installed=False)]
+
+
+def collect_flatbuffers_notices(evidence, source, component):
+    import shutil
+    from backend.prebuilt_readers import _no_links
+    originals = _flatbuffers_notice_inputs(evidence, source, component, check_installed=True)
+    target = evidence / 'licenses/flatbuffers/source'
+    _no_links(target.absolute())
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.mkdir()  # Preserve any existing evidence instead of replacing it.
+    records = []
+    for original in originals:
+        destination = target / original.name
+        shutil.copyfile(original, destination)
+        if digest(destination) != digest(original):
+            raise ClosureError('Retained Flatbuffers notice changed during delivery.')
+        records.append({'path': destination.relative_to(evidence).as_posix(),
+            'sha256': digest(destination), 'bytes': destination.stat().st_size})
+    return records
+
+
 def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root, codec_root):
     import shutil
     pin = json.loads((source / 'packaging/runtime-bundle/python-supplier.json').read_text())
@@ -300,6 +403,10 @@ def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root, codec
     if onnx is None:
         raise ClosureError('The locked ONNX Runtime component is missing.')
     onnx['licenses'].append(collect_onnx_third_party_notice(evidence, onnx))
+    flatbuffers = next((item for item in value['components'] if normalized(item['name']) == 'flatbuffers'), None)
+    if flatbuffers is None:
+        raise ClosureError('The locked Flatbuffers component is missing.')
+    flatbuffers['licenses'].extend(collect_flatbuffers_notices(evidence, source, flatbuffers))
     value['python_supplier'] = pin
     value['runtime_lock_sha256'] = digest(source / 'requirements.lock.txt')
     helpers, value['helpers'] = collect_nte(nte_helper_root, evidence, value['source_commit'], source)

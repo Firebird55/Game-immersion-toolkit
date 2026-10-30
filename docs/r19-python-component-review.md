@@ -131,6 +131,34 @@ and all-target dependencies; it remains private review material. This notice
 step does not approve Rust/native dependencies, compiler/SDK/runtime terms or
 Windows capture, and its exact frozen delivery still requires a hosted build.
 
+Flatbuffers 25.12.19's ten Python wheel members were byte-compared with fixed
+upstream commit 7e163021e59cca4f8e1e35a7c828b5c6b7915953; all match. Its full
+[Apache-2.0 LICENSE](https://github.com/google/flatbuffers/blob/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE)
+is now retained with [source/wheel provenance](../packaging/runtime-bundle/flatbuffers-notices/PROVENANCE.json):
+11,358 bytes, SHA-256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30.
+The inspected upstream archive has no supplementary NOTICE file. The recorder
+binds all ten source identities to the exact wheel and observed installed bytes,
+then delivers LICENSE and provenance centrally. Runtime preflight rejects
+omitted, stale or changed notice records. This source-notice step retains the
+pending component/native gates and needs exact frozen-output confirmation; the
+pure Python wheel does not identify FlatBuffers embedded in other native code.
+
+The sherpa rights question also affects the Python binding actually imported by
+the ASR worker. The exact cp312 wheel has SHA-256
+566e49ad3fb2aa8ceb723a52f9809aa6c2ee0a5eb3b0946c3fd2374af807a5c6;
+its _sherpa_onnx.cp312-win_amd64.pyd has SHA-256
+c7cbe8071492dde37f7c9d640fd882ff52f62073c5214741c74178502aa6c593.
+Static PE inspection finds espeak_Initialize implemented in .text at RVA
+3743504, without export forwarding. The binding imports ONNX/Python, while
+[matching pybind CMake](https://github.com/k2-fsa/sherpa-onnx/blob/11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf/sherpa-onnx/python/csrc/CMakeLists.txt)
+links it directly to static core; removing unused C/C++ API DLLs cannot remove
+that eSpeak implementation. TTS OFF preserves unconditional ASR/SenseVoice
+sources, but the [disabled-feature placeholders](https://github.com/k2-fsa/sherpa-onnx/blob/11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf/sherpa-onnx/python/csrc/sherpa-onnx.cc)
+omit GenerationConfig and OfflineTtsSupertonicModelConfig although the package
+imports them. An ASR-only rebuild is plausible with a recorded compatibility
+fix and new build/native/inference evidence. No such replacement was built or
+executed here, and the incorporated eSpeak/source/rights gate remains open.
+
 | Component/output | Observed evidence | Remaining disposition input |
 | --- | --- | --- |
 | CPython 3.12.16 and both interpreter trees | Historical output has one matching LICENSE.txt; new collection also requires the twenty retained supplier texts plus provenance. Main/ASR trees contain Python, OpenSSL, libffi and other extensions. | Confirm the new notice bytes in the next frozen output; map every shipped and compiled-in native dependency to source/version/build recipe/terms, including duplicate ASR files. Reconcile Microsoft runtime ownership and conditions. |
@@ -139,7 +167,8 @@ Windows capture, and its exact frozen delivery still requires a hosted build.
 | NumPy 1.26.4 and SciPy 1.14.1 | Four/five notice records; OpenBLAS DLLs are collected, including ASR's NumPy tree. | Inspect the actual notice text and map OpenBLAS/LAPACK/compiler runtime and incorporated routines to the exact collected files and corresponding sources. Notice count alone is not a completeness decision. |
 | OpenCV Python 4.11.0.86 and Pillow 13.0.0 | OpenCV has LICENSE and LICENSE-3RD-PARTY copies; Pillow has one license record. | Review selected native image/video codec features and actual incorporated notices/source obligations, including FFmpeg if present. Excluding imageio-ffmpeg or Haar data does not establish OpenCV's native closure. |
 | windows-capture 2.0.1 | Historical notice records fell back to METADATA because the collector missed LICENCE; new collection binds and delivers the existing exact wheel's wrapper notice. | Confirm the central notice bytes in the next frozen output; complete Rust/native/compiler/runtime attribution and capture acceptance separately. Raw supplier SBOM publication remains closed. |
-| flatbuffers 25.12.19, oneocr 1.0.12 | Historical notice records are METADATA fallbacks. | Retain actual versioned licenses, copyright notices and incorporated dependency terms. oneocr's wrapper license cannot grant rights to proprietary Snipping Tool DLLs/models; those remain user-local prerequisites. |
+| flatbuffers 25.12.19 | Historical notice evidence falls back to METADATA; new collection requires the exact retained source LICENSE/provenance and ten source-identical wheel/installed member records. | Confirm central notice bytes in the next frozen output and retain source attribution. Native libraries incorporating FlatBuffers need their own version/source/native review. |
+| oneocr 1.0.12 | Historical notice records are METADATA fallbacks. | Retain authoritative versioned copyright/license evidence. Its wrapper license cannot grant rights to proprietary Snipping Tool DLLs/models; those remain user-local prerequisites. |
 | kaldi-native-fbank, PyAudioWPatch, webrtcvad-wheels, PyCryptodome, RapidFuzz, pydantic_core, httptools, watchfiles, websockets, PyYAML, protobuf and other collected wheels | Exact distribution/version/wheel hashes and installed file checks exist; native imports remain observed/unverified. | Use the selected wheel's own complete notices and source/native-build records. Reconcile PortAudio/PyAudio, WebRTC and compiled Rust/C/C++ dependencies rather than inheriting one wrapper license. |
 | certifi, OpenCC, pypinyin and FireRedVAD resources | Wheel notices and owned FireRedVAD provenance/resources are recorded. | Review the exact CA/dictionary/model data terms and final bytes independently of implementation licenses. Optional agent model/tokens require their own manifest; no private model may become seed data. |
 | Freezer/build-only packages | Recorder includes the locked build environment as well as runtime packages; runtime.spec excludes pip/setuptools/pytest and selected other packages. | Distinguish actual emitted code from build-only packages, retain exact PyInstaller bootloader exception and embedded native notices, and verify exclusions in the final output. All 49 lock entries need a disposition, not necessarily inclusion. |
