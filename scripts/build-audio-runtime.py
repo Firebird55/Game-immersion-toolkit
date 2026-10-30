@@ -14,11 +14,13 @@ import json
 import os
 from pathlib import Path
 import shutil
+import ssl
 import subprocess
 import sys
 import tarfile
 import urllib.request
 import zipfile
+import certifi
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -37,7 +39,7 @@ def acquire(pin, cache):
     path = cache / pin['archive']
     if not path.exists():
         request = urllib.request.Request(pin['url'], headers={'User-Agent': 'GameImmersionToolkit-build/1', 'Accept': 'application/octet-stream'})
-        with urllib.request.urlopen(request, timeout=90) as response, path.open('xb') as target:
+        with urllib.request.urlopen(request, context=ssl.create_default_context(cafile=certifi.where()), timeout=90) as response, path.open('xb') as target:
             shutil.copyfileobj(response, target)
     if digest(path) != pin['sha256']:
         raise ValueError('Source archive checksum differs: ' + pin['archive'])
@@ -144,6 +146,25 @@ def build(work, output, cache, shell, toolchain=None, windows_vgmstream=False, j
                     destination = root / 'vgmstream-licenses' / relative_resource(member.name.split(marker, 1)[1])
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes(value.extractfile(member).read())
+        # The release's exact dependency versions are named by its retained
+        # notices. Keep their complete sources, including LGPL libraries, with
+        # the upstream build instructions and patches already in this archive.
+        for dependency in pin['dependency_sources']:
+            dependency_archive = acquire(dependency, cache)
+            shutil.copyfile(dependency_archive, sources / dependency['archive'])
+        import ctypes
+        observed = {}
+        with os.add_dll_directory(str(root.resolve())):
+            for filename, api in [('avcodec-vgmstream-63.dll', 'avcodec'), ('avformat-vgmstream-63.dll', 'avformat'),
+                                  ('avutil-vgmstream-61.dll', 'avutil'), ('swresample-vgmstream-7.dll', 'swresample')]:
+                library = ctypes.CDLL(str((root / filename).resolve()))
+                config = getattr(library, api + '_configuration'); config.restype = ctypes.c_char_p
+                license = getattr(library, api + '_license'); license.restype = ctypes.c_char_p
+                configuration, licensing = config().decode(), license().decode()
+                if licensing != 'LGPL version 2.1 or later' or '--enable-gpl' in configuration or '--enable-nonfree' in configuration:
+                    raise ValueError('Unexpected vgmstream FFmpeg build licensing or configuration')
+                observed[filename] = {'configuration': configuration, 'license': licensing, 'sha256': digest(root / filename)}
+        (sources / 'vgmstream-native-configuration.json').write_text(json.dumps(observed, indent=2) + '\n')
         components.append({'name': 'vgmstream', **pin})
         tools['vgmstream'] = 'vgmstream-cli.exe'
     shutil.copyfile(__file__, sources / 'build-audio-runtime.py')
@@ -153,7 +174,8 @@ def build(work, output, cache, shell, toolchain=None, windows_vgmstream=False, j
         'Unmodified source archives, exact source hashes and build recipe are in sources/.\n'
         'Audio-only FFmpeg disables network, autodetection and GPL/nonfree options.\n'
         'The application communicates with separate codec processes.\n'
-        'Optional vgmstream carries its component notices. Its complete binary dependency source review is pending.\n', encoding='utf-8')
+        'Optional vgmstream carries exact dependency sources, notices and upstream rebuild instructions.\n'
+        'Replaceable LGPL DLLs are kept beside the CLI; reverse engineering for debugging modifications is permitted.\n', encoding='utf-8')
     files = {p.relative_to(root).as_posix(): digest(p) for p in sorted(root.rglob('*')) if p.is_file()}
     manifest = {'schema': SCHEMA, 'target': host_target(), 'tools': tools, 'files': files, 'components': components,
                 'build_recipe_sha256': digest(__file__), 'native_decode_acceptance': 'not-run', 'redistribution_review': 'pending-exact-output'}
