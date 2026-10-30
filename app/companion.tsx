@@ -1,6 +1,5 @@
 'use client';
 import {useInterfaceLanguage, useInterfaceTranslation} from '../lib/interface-language';
-import {languageName} from '../public/mobile-capture/interface-language.mjs';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
@@ -13,19 +12,16 @@ import {GamePicker, useTargetLanguage} from './game-picker';
 import {GAME_NAMES, captureRegionKey, type GameId} from '../lib/games';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity,
   Crosshair,
-  Database,
   MessageSquareText,
   Pause,
   Play,
-  Radio,
   RefreshCw,
   ScanLine,
   Settings2,
   Star,
+  UserRound,
   Volume2,
-  Gamepad2,
   Send,
   Check,
   Loader2,
@@ -371,11 +367,11 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_english && <StableInline className="line-speaker" text={line.speaker_english} />}
-      <EnglishTranslation line={line} summary={readingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : "off"} />
+      <EnglishTranslation line={line} summary={readingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : "off"} current />
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang={line.source_locale ?? line.source_language ?? 'zh-Hans'} text={line.source_text??line.chinese} />}
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} current onSummary={setReadingSummary} /> : <StableText className="current-chinese" lang={line.source_locale ?? line.source_language ?? 'zh-Hans'} text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>
@@ -396,7 +392,7 @@ const TranscriptRow = memo(function TranscriptRow({
 });
 
 function CompanionClient() {
- const {t: uiText, locale: interfaceLocale}=useInterfaceLanguage();
+ const {t: uiText}=useInterfaceLanguage();
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
@@ -424,6 +420,12 @@ function CompanionClient() {
   const pollOwner = useRef<StatePoll<CompanionSnapshot> | null>(null);
   const knownLineIds = useRef(new Set<number>());
   const historyList = useRef<HTMLDivElement>(null);
+  const currentLineElement = useRef<HTMLElement>(null);
+  const footerElement = useRef<HTMLElement>(null);
+  const [readerScrolled, setReaderScrolled] = useState(false);
+  const [pinCurrent, setPinCurrent] = useState(false);
+  const [footerHeight, setFooterHeight] = useState(96);
+
   const playback = useRef<HTMLAudioElement | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
@@ -725,25 +727,28 @@ function CompanionClient() {
         currentHistoryPage * HISTORY_PAGE_SIZE,
         (currentHistoryPage + 1) * HISTORY_PAGE_SIZE,
       );
-  const columnLanguage = (kind: 'source' | 'translation') => {
-    const locales = new Set(visibleTranscriptLines.map(line => kind === 'source'
-      ? line.source_locale ?? line.source_language ?? 'zh-Hans'
-      : line.translation_locale ?? 'en'));
-    if (locales.size === 1) return languageName([...locales][0], interfaceLocale);
-    if (!locales.size && kind === 'source') {
-      const selected = status?.selected_languages?.[selectedGame];
-      if (selected) return languageName(selected.source_locale, interfaceLocale);
-    }
-    return uiText(kind === 'source' ? 'Game text' : 'Translation');
-  };
-  const sessionId = status?.session.id;
-  const sessionLines = useMemo(
-    () => lines.filter((line) => line.game === selectedGame && (!sessionId || line.session_id === sessionId)),
-    [lines, selectedGame, sessionId],
-  );
   useEffect(() => {
-    if (historyList.current) historyList.current.scrollTop = 0;
-  }, [historyLines.length, favoriteLines.length, transcriptTab, currentHistoryPage]);
+    const reader = historyList.current;
+    if (reader && window.scrollY > reader.offsetTop) window.scrollTo({top: reader.offsetTop});
+  }, [transcriptTab, currentHistoryPage, selectedGame]);
+
+  useEffect(() => {
+    if (!snapshotLoaded) return;
+    const measure = () => {
+      const reader = historyList.current, current = currentLineElement.current;
+      const footer = footerElement.current?.getBoundingClientRect().height ?? 96;
+      setFooterHeight(footer);
+      // A long sentence must remain fully scrollable, including at high zoom.
+      setPinCurrent(!!current && current.getBoundingClientRect().height < (window.innerHeight - footer) * .55);
+      setReaderScrolled(!!reader && reader.getBoundingClientRect().top < -1);
+    };
+    const observer = new ResizeObserver(measure);
+    for (const element of [historyList.current, currentLineElement.current, footerElement.current]) if (element) observer.observe(element);
+    window.addEventListener('scroll', measure, {passive: true});
+    window.addEventListener('resize', measure);
+    measure();
+    return () => {observer.disconnect(); window.removeEventListener('scroll', measure); window.removeEventListener('resize', measure);};
+  }, [snapshotLoaded, selectedGame]);
 
   async function toggleCapture() {
     if (!status) return;
@@ -858,7 +863,6 @@ function CompanionClient() {
   const capture = status?.capture;
   const mapStatus = status?.game_textmaps?.[selectedGame] ?? status?.textmaps;
   const updateStatus = status?.updates;
-  const currentCount = sessionLines.length;
   const manualRegion = draftSettings ? draftSettings[captureRegionKey(selectedGame, setupChannel)] : null;
   const detectedBounds = setupChannel === 'tip' ? capture?.tip_crop_bounds : capture?.crop_bounds;
   const gameBounds = capture?.window_bounds;
@@ -887,33 +891,30 @@ function CompanionClient() {
   if (!snapshotLoaded) return <main className="companion-shell" aria-busy="true" />;
 
   return (
-    <main className="companion-shell" style={{'--lexirise-font-size': (readingOptions.fontSize ?? 27) + 'px'} as React.CSSProperties}>
+    <main className="companion-shell" style={{'--lexirise-font-size': (readingOptions.fontSize ?? 27) + 'px', '--footer-height': footerHeight + 'px'} as React.CSSProperties}>
       <header className="topbar">
         <div>
-          <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
           <h1>Game immersion toolkit</h1>
           {!archivedHistory && <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>}
         </div>
+      <div className="game-tabs">
+        <div className="reading-controls" aria-label={uiText("Reading options")}>
+        <label><span className="control-label">{uiText("Reading")}</span><select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
+          const value = event.target.value as ReadingMode;
+          setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
+        }}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise" disabled={!lexirise.configured}>{uiText("Lexirise")}</option></select></label>
+        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={openReadingOptions} disabled={!providerReadingSource}
+          title={!providerReadingSource ? uiText('Lexirise reading tools are unavailable for this language.') : undefined}
+          aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> <span className="control-label">{uiText("Reading options")}</span></button>}
+        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" aria-label={uiText("Account settings")} title={uiText("Account settings")} onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}><UserRound size={15} /><span className="control-label">{uiText("Account settings")}</span></button>}
+        </div>
+      </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
           <span className="live-pulse" />
           <StableInline text={online ? phaseLabel(capture?.phase ?? 'starting') : "Service offline"} />
         </div>
       </header>
 
-      <div className="game-tabs">
-        <span><Gamepad2 size={15} /> {uiText("Games & Languages")}</span>
-        {status?.capture.active_game && <small>{uiText("Capturing")} {GAME_NAMES[status.capture.active_game]}</small>}
-        <div className="reading-controls" aria-label={uiText("Reading options")}>
-        <label>{uiText("Reading")}<select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
-          const value = event.target.value as ReadingMode;
-          setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
-        }}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise" disabled={!lexirise.configured}>{uiText("Lexirise")}</option></select></label>
-        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={openReadingOptions} disabled={!providerReadingSource}
-          title={!providerReadingSource ? uiText('Lexirise reading tools are unavailable for this language.') : undefined}
-          aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> {uiText("Reading options")}</button>}
-        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>{uiText("Account settings")}</button>}
-        </div>
-      </div>
       <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
@@ -923,45 +924,14 @@ function CompanionClient() {
         <LanguageSetup game={selectedGame} compact targetLanguage={gamePicker.target} showAccount={false} onConfigure={() => {}} onChanged={() => void loadSnapshot()}/>
       </div>}
 
-      <section className="status-strip" aria-label={uiText("Companion status")}>
-        <div>
-          <Radio size={17} />
-          <span>{archivedHistory ? 'Archived history' : selectedGame !== 'zzz' ? uiText("Subtitle OCR + original voice") : uiText("3-zone OCR + voice")}</span>
-          <strong><StableInline text={archivedHistory ? "Capture disabled" : capture?.running ? phaseLabel(capture.phase) : "Paused"} /></strong>
-        </div>
-        <div>
-          <Database size={17} />
-          <span>{archivedHistory ? 'Saved records' : selectedGame !== 'zzz' ? uiText("Official game text") : uiText("TextMaps")}</span>
-          <strong><StableInline text={archivedHistory ? `${recentLines.length} saved lines` : mapStatus?.ready && mapStatus.state !== 'missing_voice' ? `${mapStatus.entry_count.toLocaleString()} pairs` : mapStatus?.message ?? 'Connecting'} /></strong>
-        </div>
-        <div>
-          <Activity size={17} />
-          <span>{uiText("This session")}</span>
-          <strong><StableInline text={`${currentCount} ${currentCount === 1 ? 'line' : 'lines'}`} /></strong>
-        </div>
-      </section>
-
-      {!archivedHistory && updateStatus && ['checking','updating','retrying','error'].includes(updateStatus.state) && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
-        <div className="update-progress-copy">
-          <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
-          <strong>{uiText("Game language updates")}</strong>
-          <StableInline text={updateStatus.message} />
-        </div>
-        {updateStatus.progress != null && <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />}
-        <span className="update-progress-value">{updateStatus.elapsed_seconds != null && updateStatus.state === 'updating' ? `${Math.floor(updateStatus.elapsed_seconds / 60)}m ${updateStatus.elapsed_seconds % 60}s` : updateStatus.state === 'ready' ? 'Ready' : ''}</span>
-        {!!updateStatus.queued && <span>{updateStatus.queued} queued</span>}
-        {!!updateStatus.items?.length && <details><summary>Details for all games</summary>{updateStatus.items.map(item => <p key={item.game + item.locale}><strong>{GAME_NAMES[item.game as GameId] ?? item.game} · {item.locale} — {uiText(item.state === 'ready' ? 'Ready' : item.state === 'error' ? 'Preparation failed' : item.state === 'preparing' ? 'Preparing' : item.state)}</strong><br/>{item.message} {item.retry_after}</p>)}</details>}
-      </section>}
-
-      {capture && ['needs_language_setup','unvoiced_disabled'].includes(capture.phase) && <p role="status" className="toolkit-setup-note">{capture.message}</p>}
-
-      {!archivedHistory && <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
+      <div ref={historyList} className={`reader-stream ${pinCurrent ? 'can-pin' : ''} ${readerScrolled ? 'is-scrolled' : ''}`}>
+      {!archivedHistory && <section ref={currentLineElement} className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
           <span id="current-heading"><Crosshair size={16} /> {uiText("Current line")}</span>
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={`${latestLine.channel === 'tip' ? 'Top-right' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -988,56 +958,15 @@ function CompanionClient() {
             <ScanLine size={28} />
             <div>
               <strong>{uiText('Waiting for dialogue')}</strong>
-              <p>{uiText('Matched game dialogue appears here. Previous lines stay in History.')}</p>
+              <p>{uiText('Matched game dialogue appears here.')}</p>
             </div>
           </div>
         )}
       </section>}
 
-      <div className="study-status" role="status" aria-live="polite">
-        {studyMessage || (online && !lexirise.configured ? 'Lexirise is not configured on this computer.' : '')}
-      </div>
       {archivedHistory && <p role="status">Hito’s World capture is disabled. Your saved history and favorites remain available.</p>}
-      <section className="transcript" aria-labelledby="transcript-heading">
-        <div className="transcript-heading">
-          <div>
-            <p className="eyebrow">{uiText("Saved transcript")}</p>
-            <h2 id="transcript-heading">{transcriptTab === 'favorites' ? uiText("Favorites") : uiText("Earlier lines")}</h2>
-          </div>
-          {lines.some(line => line.game === 'hito') && <label className="playback-speed archived-history">Archived game history
-            <select aria-label="Archived game history" value={archivedHistory ? 'hito' : ''} onChange={event => {
-              setSelectedGame(event.target.value === 'hito' ? 'hito' : status?.capture.active_game && status.capture.active_game !== 'hito' ? status.capture.active_game : 'zzz');
-              setHistoryPage(0); changeTranscriptTab('history', true);
-            }}><option value="">Active games</option><option value="hito">Hito's World (archived)</option></select>
-          </label>}
-          <p>{transcriptTab === 'favorites' ? `${favoriteLines.length} saved forever` : uiText("10 at a time · up to 50 recent lines")}</p>
-        </div>
-
-        <div className="transcript-tabs" role="tablist" aria-label={uiText("Transcript view")}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={transcriptTab === 'history'}
-            className={transcriptTab === 'history' ? "is-active" : ''}
-            onClick={() => changeTranscriptTab('history', true)}
-          >
-            {uiText("History")}</button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={transcriptTab === 'favorites'}
-            className={transcriptTab === 'favorites' ? "is-active" : ''}
-            onClick={() => changeTranscriptTab('favorites', true)}
-          >
-            <Star size={14} fill={transcriptTab === 'favorites' ? "currentColor" : "none"} />
-            {uiText("Favorites")}<span>{favoriteLines.length}</span>
-          </button>
-        </div>
-
-        <div className="column-labels" aria-hidden="true">
-          <span>{uiText("Time / type")}</span><span>{columnLanguage('translation')}</span><span>{columnLanguage('source')}</span><span>{uiText("Match")}</span>
-        </div>
-        <div className="line-list" ref={historyList}>
+      <section className="transcript" aria-label={transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}>
+        <div className="line-list">
           {visibleTranscriptLines.length ? visibleTranscriptLines.map((line) => (
             <TranscriptRow
               key={line.id}
@@ -1053,10 +982,8 @@ function CompanionClient() {
             />
           )) : (
             <div className="transcript-empty">
-              {transcriptTab === 'favorites' ? <Star size={24} /> : <Database size={24} />}
-              <p>{transcriptTab === 'favorites'
-                ? 'Favorite a line with the star button and it will stay here between sessions.'
-                : `Your matched ${GAME_NAMES[selectedGame]} lines will remain after a restart.`}</p>
+              <h2>{transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}</h2>
+              {transcriptTab === 'favorites' && <p>{uiText('Favorite a line with the star button and it will stay here between sessions.')}</p>}
             </div>
           )}
         </div>
@@ -1081,11 +1008,18 @@ function CompanionClient() {
         )}
       </section>
 
-      <footer className="capture-footer">
+      </div>
+      <footer ref={footerElement} className="capture-footer">
+        <div className="study-status" role="status" aria-live="polite">{studyMessage}</div>
         <span className={capture?.phase === 'error' ? "has-error" : ''}>
-          <span className="live-pulse" /> <StableInline text={capture?.message ?? 'Connecting to local capture service'} />
+          <span className="live-pulse" /> <StableInline text={mapStatus?.state === 'missing_voice' ? mapStatus.message : capture?.message ?? 'Connecting to local capture service'} />
         </span>
         <div className="footer-actions">
+          <Button variant="outline" className="transcript-view-toggle" aria-pressed={transcriptTab === 'favorites'}
+            onClick={() => changeTranscriptTab(transcriptTab === 'favorites' ? 'history' : 'favorites', true)}>
+            <Star size={16} fill={transcriptTab === 'favorites' ? 'currentColor' : 'none'} />
+            {uiText(transcriptTab === 'favorites' ? 'History' : 'Favorites')}
+          </Button>
           <label className="playback-speed">
             <Volume2 size={16} />
             <span>{uiText("Speed")}</span>
@@ -1113,6 +1047,29 @@ function CompanionClient() {
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
             readingSupported={!!providerReadingSource} onReading={openReadingOptions} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
+          <details className="update-disclosure">
+            <summary aria-label={uiText('Game language updates')}><RefreshCw size={16} className={updateStatus && ['checking','updating'].includes(updateStatus.state) ? 'is-spinning' : ''} />{uiText('Updates')}</summary>
+            <div className="update-popover">
+              {!archivedHistory && updateStatus && ['checking','updating','retrying','error'].includes(updateStatus.state) && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
+        <div className="update-progress-copy">
+          <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
+          <strong>{uiText("Game language updates")}</strong>
+          <StableInline text={updateStatus.message} />
+        </div>
+        {updateStatus.progress != null && <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />}
+        <span className="update-progress-value">{updateStatus.elapsed_seconds != null && updateStatus.state === 'updating' ? `${Math.floor(updateStatus.elapsed_seconds / 60)}m ${updateStatus.elapsed_seconds % 60}s` : updateStatus.state === 'ready' ? 'Ready' : ''}</span>
+        {!!updateStatus.queued && <span>{updateStatus.queued} queued</span>}
+        {!!updateStatus.items?.length && <details><summary>Details for all games</summary>{updateStatus.items.map(item => <p key={item.game + item.locale}><strong>{GAME_NAMES[item.game as GameId] ?? item.game} · {item.locale} — {uiText(item.state === 'ready' ? 'Ready' : item.state === 'error' ? 'Preparation failed' : item.state === 'preparing' ? 'Preparing' : item.state)}</strong><br/>{item.message} {item.retry_after}</p>)}</details>}
+      </section>}
+              {(!updateStatus || !['checking','updating','retrying','error'].includes(updateStatus.state)) && <p>{uiText('Up to date')}</p>}
+            </div>
+          </details>
+          {lines.some(line => line.game === 'hito') && <label className="playback-speed archived-history"><span className="sr-only">Archived game history</span>
+            <select aria-label="Archived game history" value={archivedHistory ? 'hito' : ''} onChange={event => {
+              setSelectedGame(event.target.value === 'hito' ? 'hito' : status?.capture.active_game && status.capture.active_game !== 'hito' ? status.capture.active_game : 'zzz');
+              setHistoryPage(0); changeTranscriptTab('history', true);
+            }}><option value="">Active games</option><option value="hito">Hito's World (archived)</option></select>
+          </label>}
         </div>
       </footer>
 

@@ -1,12 +1,12 @@
 
-import assert from 'node:assert/strict';import {startPreview} from './e2e-preview.mjs';import {chromium,firefox} from 'playwright';
+import assert from 'node:assert/strict';import {startPreview} from './e2e-preview.mjs';import {chromium,firefox,webkit} from 'playwright';
 // Exercise the actual built Windows distribution, not the dev dependency optimizer.
 const preview=await startPreview('browser');
 let browser;
 const region={left:.1,top:.6,width:.8,height:.25},settings={beyond_region:{left:.10,top:.70,width:.80,height:.28},nte_region:{left:.10,top:.70,width:.80,height:.28},nte_picture_area:'window',nte_player_voice:'unconfigured',honkai3_picture_area:'window',honkai3_region:{left:.04,top:.72,width:.96,height:.24},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
 const comicLine={...line,id:6,text_id:'Comic_'+'a'.repeat(32),channel:'cinematic',voiced:false,english:'Keep the gate closed until tomorrow.',chinese:'请把门关到明天。'};
-let includeComic=false,includeZzzStudy=false;
+let includeComic=false,includeZzzStudy=false,readerRows=null,readerUpdates=null;
 let fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
 const cyberpunkLine={...line,id:2,game:'cyberpunk',english:'Cyberpunk dialogue fixture',text_id:'cyberpunk-fixture',has_audio:true,audio_source:'original'};
 const witcherLine={...cyberpunkLine,id:3,game:'witcher3',english:'Witcher dialogue fixture',text_id:'witcher-fixture'};
@@ -33,6 +33,10 @@ account.languages.push('de');account.languageSettings.de={fontSize:'md',effectiv
 let stateRevision=0;
 const stateContext=()=>({runtime_id:'browser-fixture',state_version:stateRevision,account_generation:0});
 function response(path,query,method,body){
+ if(readerRows!==null){
+  if(path==='/api/lines')return query.get('game')==='zzz'?readerRows:[];
+  if(/^\/api\/lines\/6[0-9]+\/reading$/.test(path))return {text:readerRows.find(row=>row.id===Number(path.split('/')[3]))?.chinese??'',tokens:[token],grammar:[]};
+ }
  if(path==='/api/lines'&&newRpgLines[query.get('game')])return [newRpgLines[query.get('game')]];
  if(/^\/api\/lines\/2[012]\/reading$/.test(path))return {text:nteLine.source_text,tokens:[],grammar:[]};
  if(path==='/api/snapshot')return {context:stateContext(),status:response('/api/status',query,'GET',{}),lines:['zzz','pragmata','cyberpunk','wuwa','witcher3','nte','beyond','heavyrain','starrail','genshin','endfield','hito'].flatMap(game=>response('/api/lines',new URLSearchParams({game}),'GET',{})),lexirise:response('/api/lexirise',query,'GET',{})};
@@ -50,7 +54,7 @@ function response(path,query,method,body){
  if(path==='/api/lines/4/reading')return {text:nteLine.source_text,tokens:[{start:0,end:3,word:'ここで',meaning:'在这里',proficiency:0}],grammar:[]};
  if(path==='/api/lines'&&query.get('game')==='heavyrain')return [heavyRainLine];
  if(path==='/api/lines/8/reading')return {text:heavyRainLine.source_text,tokens:[{start:0,end:3,word:'Een',meaning:'一个',proficiency:0}],grammar:[]};
- if(path==='/api/status')return {capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{starrail:mapStatus,genshin:mapStatus,endfield:mapStatus,beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
+ if(path==='/api/status')return {updates:readerUpdates,capture:fixtureCapture,textmaps:mapStatus,game_textmaps:{starrail:mapStatus,genshin:mapStatus,endfield:mapStatus,beyond:mapStatus,nte:mapStatus,honkai3:{...mapStatus,message:'165 verified lines; limited to catalog 4.7 content'},zzz:mapStatus,pragmata:mapStatus,cyberpunk:mapStatus,witcher3:mapStatus,wuwa:{...mapStatus,ready:true,state:'missing_voice',message:'Download the Chinese voice pack in Wuthering Waves'}},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:1,total_line_count:3}};
  if(path==='/api/settings'&&method==='PATCH'){Object.assign(settings,body);return settings;}
  if(path==='/api/lexirise')return {configured:true,account:'legacy',decks:{},sent:{}};
  if(path==='/api/lines')return query.get('game')==='zzz'?(includeComic?[comicLine,line]:[line]):query.get('game')==='cyberpunk'?[cyberpunkLine]:query.get('game')==='witcher3'?[witcherLine]:query.get('game')==='nte'?[nteLine]:query.get('game')==='honkai3'?[honkaiLine]:query.get('game')==='beyond'?[beyondLine]:[];
@@ -66,9 +70,10 @@ function response(path,query,method,body){
  return {};
 }
 try{
- for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){browser=await preview.launchBrowser(engine,{headless:true});
+ for(const[name,engine]of [['chromium',chromium],['firefox',firefox],['webkit',webkit]]){browser=await preview.launchBrowser(engine,{headless:true});
  const sizes=process.argv.includes('--reading-settings')?[[1920,1080,1],[390,844,1],[320,568,1],[768,1024,1.25]]:process.argv.includes('--game-support')?[[320,568,1],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]:[[1920,1080,1],[1920,1080,1.25],[1280,720,1.5],[1280,720,2],[390,844,1],[320,568,1],[568,320,1],[900,720,1],[768,1024,1.25],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]];
  for(const[pw,ph,zoom]of sizes){
+ if(name==='webkit'&&!([390,320,768,568].includes(pw)))continue;
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
  includeComic=false;includeZzzStudy=false;settings.zzz_proxy_voice='unconfigured';
  for(const[game]of newRpgs){settings[game+'_region']={left:.10,top:.70,width:.80,height:.28};settings[game+'_player_voice']='unconfigured';}
@@ -84,6 +89,54 @@ try{
  if(req.method()==='PATCH'&&url.pathname==='/api/lexirise/settings')writes.push(body);
  if(req.method()!=='GET'&&req.method()!=='OPTIONS')localWrites.push({path:url.pathname,body});
  await route.fulfill({status:body.question==='Simulate busy AI'?503:200,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,X-Proxy-Transcript','Access-Control-Allow-Methods':'GET,POST,PATCH,OPTIONS'},body:JSON.stringify(response(url.pathname,url.searchParams,req.method(),body))});});
+ if(!process.argv.includes('--game-support')&&!process.argv.includes('--reading-settings')){
+  readerRows=Array.from({length:31},(_,i)=>({...line,id:6000+i,text_id:'reader-'+i,
+   english:'We have checked the other exits. Please wait here while we get everything ready.',
+   chinese:'你好，今天我们一起去看看。路上还有很多有趣的事情，慢慢来就好。',favorite:i%5===0}));
+  await page.goto(preview.origin);await page.locator('.transcript-line .reading-text').first().waitFor();
+  const current=page.locator('.current-line'),history=page.locator('.transcript-line');
+  assert.equal(await history.count(),10,'History has ten complete, scrollable captions');
+  for(const selector of ['.current-english','.current-chinese']){
+   const size=await current.locator(selector).evaluate(el=>getComputedStyle(el).fontSize);
+   assert.equal(await history.first().locator(selector).evaluate(el=>getComputedStyle(el).fontSize),size,'Current/history typography is equal');
+   assert(parseFloat(size)>=27,'Default text stays large at every width');
+  }
+  assert.equal(await page.locator('.line-list').evaluate(el=>getComputedStyle(el).overflowY),'visible','History uses document scrolling');
+  assert.equal(await page.locator('.status-strip,.transcript-tabs,.transcript-heading,.column-labels').count(),0,'Obsolete dashboard chrome is removed');
+  const before=await current.boundingBox();
+  const publishUpdates=state=>{readerUpdates={state,message:'Checking installed language files',progress:state==='updating'?.4:null,items:[]};stateRevision++;fixtureSocket.send(JSON.stringify({type:'update_status',updates:readerUpdates,context:stateContext()}));};
+  for(const state of ['checking','updating','retrying','error','ready']){
+   publishUpdates(state);
+   await page.getByLabel('Game language updates',{exact:true}).click();
+   await page.locator('.update-popover').waitFor();
+   assert.equal((await current.boundingBox()).y,before.y,'Game updates never displace the caption');
+   await page.getByLabel('Game language updates',{exact:true}).click();
+  }
+  await page.screenshot({path:`${preview.output}/${name}-reader-${pw}-${ph}-${zoom}.png`});
+  await page.getByRole('button',{name:'Favorites',exact:true}).click();
+  assert.equal(await history.count(),7,'Favorites includes saved lines from the current session');
+  assert.equal(await page.getByRole('button',{name:'History',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.getByRole('button',{name:'History',exact:true}).click();
+  await page.getByRole('button',{name:'Previous 10',exact:true}).click();
+  assert.match(await page.locator('.history-pagination').textContent(),/11–20/);
+  await page.getByRole('button',{name:'Newer 10',exact:true}).click();
+  if(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight+100)){
+   await page.mouse.wheel(0,600);await page.waitForFunction(()=>scrollY>100);
+   await page.locator('.reader-stream.is-scrolled').waitFor();
+  }
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Reader has no horizontal overflow');
+  // A caption taller than the viewport must be scrollable, not permanently pinned.
+  readerRows=readerRows.map(row=>row.id===6030?{...row,english:row.english.repeat(80),chinese:row.chinese.repeat(80)}:row);
+  await page.reload();await current.locator('.current-english').waitFor();
+  await page.waitForFunction(()=>!document.querySelector('.reader-stream').classList.contains('can-pin'));
+  await page.getByRole('button',{name:'Previous 10',exact:true}).click();
+  assert.match(await page.locator('.history-pagination').textContent(),/11–20/,'Long current captions do not prevent history access');
+  readerRows=[];await page.reload();await page.getByText('Matched game dialogue appears here.',{exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Earlier lines',exact:true}).waitFor();
+  console.log(`${name}: reader ${width}x${height} / ${zoom} passed`);
+  readerRows=null;readerUpdates=null;
+ }
+ if(name==='webkit'||process.argv.includes('--reader-layout')){await context.close();continue;}
  await page.goto(preview.origin);await page.locator('.reading-hanzi').first().click();await page.locator('.word-sheet').waitFor();
  await page.getByRole('tab',{name:'Context',exact:true}).waitFor();
  assert.deepEqual(await page.locator('.word-tabs').getByRole('tab').allTextContents(),['Context','Translation','Definition'],'Toolkit reads the account popup order and enable flags');
@@ -167,10 +220,10 @@ try{
  await page.locator(`.current-line.game-${game}`).waitFor();
  await page.locator('.current-line').getByText(beyondLine.source_text,{exact:true}).waitFor();
  assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'nl',label+' uses Dutch study text');
- await page.getByRole('tab',{name:/Favorites/}).click();
- assert.equal(await page.locator('.column-labels span').nth(2).textContent(),'Dutch','History header follows the displayed source locale');
- assert.match(await page.locator('.column-labels span').nth(1).textContent(),/Chinese/,'Translation header follows the saved translation locale');
- await page.getByRole('tab',{name:'History',exact:true}).click();
+ await page.getByRole('button',{name:'Favorites',exact:true}).click();
+ assert.equal(await page.locator('.transcript-line .current-chinese').getAttribute('lang'),'nl','Saved source uses its actual locale');
+ assert.equal(await page.locator('.transcript-line .current-english').getAttribute('lang'),'zh-Hans','Saved translation uses its actual locale');
+ await page.getByRole('button',{name:'History',exact:true}).click();
  assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' uses original Dutch audio');
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' fits the viewport');
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
@@ -255,7 +308,7 @@ try{
   assert(await page.getByRole('button',{name:'Capture setup',exact:true}).isDisabled());
   assert(await page.locator('.capture-toggle').isDisabled());
   assert.equal(await page.getByRole('link',{name:'Share transcript to another device',exact:true}).count(),0);
-  await page.getByRole('tab',{name:/Favorites/}).click();
+  await page.getByRole('button',{name:'Favorites',exact:true}).click();
   assert.equal(await page.locator('.line-list .transcript-line').count(),1,'Archived favorites remain accessible');
   await page.locator('.line-list').getByText(hitoFavorite.english,{exact:true}).waitFor();
   assert.equal(localWrites.length,beforeArchive,'Viewing retired history does not write or refresh game assets');
