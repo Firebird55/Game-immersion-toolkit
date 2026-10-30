@@ -132,17 +132,18 @@ class InstallationService:
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
                           "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
         ocr = Path.home() / ".config/oneocr"
+        from .ocr_engine import portable_models_available
         requirements = [
             {"id": "windows", "title": "Windows", "ready": sys.platform == "win32",
              "help": "Desktop game capture requires Windows. The mobile capture test is a separate browser page."},
-            {"id": "ocr", "title": "Subtitle OCR", "ready": all((ocr / name).is_file() for name in
+            {"id": "ocr", "title": "Subtitle OCR", "ready": portable_models_available() or all((ocr / name).is_file() for name in
               ("oneocr.dll", "oneocr.onemodel", "onnxruntime.dll")),
-             "help": "Install or update Windows Snipping Tool, then re-run Install.cmd to repair OCR."},
+             "help": "Offline OCR is included. Repair the toolkit installation if its model files are missing."},
             {"id": "audio", "title": "Audio conversion", "ready": bool(ffmpeg_executable()),
              "help": "Re-run Install.cmd to repair the local audio dependencies."},
         ]
         if layout.mode == 'bundle':
-            requirements[1]['help'] = "Install or update Windows Snipping Tool. OCR file preparation and native capture verification remain unavailable in this experimental bundle."
+            requirements[1]['help'] = "Offline OCR is included. This experimental bundle still needs native capture verification."
             requirements[2]['help'] = "Audio conversion is unavailable until this bundle's codec and game-tool verification is complete. Keep using your existing toolkit installation."
             requirements.append({'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
                 'help': "This experimental runtime is awaiting Windows capture, game-tool and distribution review. Keep using your existing installation."})

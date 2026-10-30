@@ -167,7 +167,7 @@ test('evidence uploads stay limited to JSON and survive failed checks', () => {
     assert.match(content, /if: \$\{\{ always\(\) && hashFiles\('output\/checks\//);
     assert.doesNotMatch(content, /path: output\/?\s*$|path: output\/checks\/?\s*$/m);
     for (const line of content.split('\n').filter(line => /^\s+(?:path: )?output\//.test(line)))
-      assert.match(line, /output\/checks\/(?:ci\/[a-z-]+\.json|runs\/\*\.json|latest\.json)$/);
+      assert.match(line, /output\/checks\/(?:ci\/[a-z-]+\.json|runs\/\*\.json|latest\.json|game-screenshots\/rapid\.json)$/);
   }
 });
 

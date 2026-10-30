@@ -40,7 +40,8 @@ if runtime:
                if mode == 'module' and kind != 'asr']
     for package in ('uvicorn', 'numpy', 'scipy', 'kaldi_native_fbank', 'onnxruntime',
                     'cv2', 'PIL', 'windows_capture', 'pyaudiowpatch', 'Crypto',
-                    'rapidfuzz', 'opencc', 'pypinyin', 'certifi', 'oneocr'):
+                    'rapidfuzz', 'opencc', 'pypinyin', 'certifi', 'oneocr',
+                    'rapidocr_onnxruntime', 'pyclipper', 'shapely'):
         package_data, package_binaries, package_hidden = package_closure(package)
         data += package_data
         binaries += package_binaries

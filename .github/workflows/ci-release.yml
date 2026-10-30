@@ -107,6 +107,16 @@ jobs:
           # The separate source-audit job checks PR author/history metadata.
           CHECK_SKIP_PUBLIC_AUDIT: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
         run: node scripts/check-changed.mjs ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
+      - name: Replay supplied game screenshots with bundled offline OCR
+        if: steps.scope.outputs.python == 'true'
+        run: python scripts/check-game-screenshots.py
+      - name: Upload screenshot OCR and resolver evidence
+        if: ${{ always() && hashFiles('output/checks/game-screenshots/rapid.json') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: game-screenshot-regressions
+          path: output/checks/game-screenshots/rapid.json
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         if: steps.scope.outputs.full == 'true'
         with:

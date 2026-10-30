@@ -13,7 +13,7 @@ from typing import Awaitable, Callable
 from pathlib import Path
 
 import mss
-from oneocr import OcrEngine
+from .ocr_engine import OcrEngine
 from PIL import Image
 
 from .config import SettingsStore

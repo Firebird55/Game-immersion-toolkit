@@ -39,6 +39,24 @@ notice remains beside the locally built reader. Sources, native binaries,
 archive metadata and game data stay in ignored local tool storage and are not
 bundled in the repository, release ZIP or public mobile preview.
 
+## Offline subtitle OCR
+
+RapidOCR (`rapidocr-onnxruntime` 1.4.4) is Apache-2.0 licensed:
+[source and license](https://github.com/RapidAI/RapidOCR),
+[pinned distribution](https://pypi.org/project/rapidocr-onnxruntime/1.4.4/).
+Its bundled PP-OCRv4 detector/recognizer and PP-OCRv2 classifier originate from
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR), also Apache-2.0 licensed.
+The pinned wheel includes these converted ONNX models; recognition makes no
+network requests. Preserve both upstream licenses in packaged distribution
+notices. Model hashes are recorded in `backend/ocr_engine.py` and must be included
+in frozen runtime closure evidence. The supplied English screenshot corpus
+validates this fallback; it does not establish coverage for every game locale.
+
+RapidOCR depends on Pyclipper (MIT), Shapely (BSD-3-Clause, with GEOS LGPL-2.1
+native libraries), ONNX Runtime (MIT), NumPy (BSD-3-Clause), Pillow (HPND),
+PyYAML (MIT) and OpenCV (Apache-2.0, with bundled dependency notices). Their
+distribution notices and native-library closure belong in packaged artifacts.
+
 ## Additional native game readers
 
 The Fox readers retain the complete Atvaark, Google CityHash and kapuragu MIT

@@ -17,12 +17,12 @@ does not turn a voiced row into an unvoiced row or select another language.
 
 ## Remaining implementation
 
-- [ ] Persist ZZZ Automatic/Belle/Wise selection across all caption channels.
+- [x] Persist ZZZ Automatic/Belle/Wise selection across all caption channels.
   Infer Automatic only from unique authored player/scene evidence; never from
   the mere appearance of Belle or Wise as the sibling NPC. A manual choice wins.
-- [ ] Reject the ZZZ account/events menu, including the false "…New?" result,
+- [x] Reject the ZZZ account/events menu, including the false "…New?" result,
   while retaining legitimate short captions and comic menu controls.
-- [ ] Capture complete top-right bubbles promptly and retain multiple comics.
+- [x] Capture complete top-right bubbles promptly and retain multiple comics.
   Apply common scheduling and wrapped-line fixes to other adapters.
 - [ ] Separate NTE custom-player speaker labels from caption matching; retain
   official identity/voice ambiguity when the observed text cannot settle it.
@@ -45,14 +45,14 @@ does not turn a voiced row into an unvoiced row or select another language.
 | Genshin Impact | 4 | Movie, speaker titles and colored dialogue |
 | Wuthering Waves | 9 | Named/unknown speakers, narration, choices and illustrated scenes |
 
-- [ ] Import all 36 game images with source dimensions and SHA-256. Redact
+- [x] Import all 36 game images with source dimensions and SHA-256. Redact
   nonessential account IDs before committing; preserve caption pixels and
   creator attribution. Record redactions and derived-image hashes.
-- [ ] Independently annotate required/forbidden text, regions, speaker and
+- [x] Independently annotate required/forbidden text, regions, speaker and
   partial-text state. Voice is unknown unless verified outside the still image.
-- [ ] Exercise real OCR and production crop/matching. Bind catalog and voice IDs
+- [x] Exercise real OCR and production crop/matching. Bind catalog and voice IDs
   only where verified; label OCR-only cases separately from package acceptance.
-- [ ] Verify voiced and explicitly unvoiced paths with suitable catalog fixtures.
+- [x] Verify voiced and explicitly unvoiced paths with suitable catalog fixtures.
   Public decoder fixtures use authored audio, not original game recordings.
 - [ ] Run the corpus in GitHub Actions; missing expected text fails, empty output
   is not success. Record engine/model, fixture and source identity per run.
@@ -60,7 +60,7 @@ does not turn a voiced row into an unvoiced row or select another language.
 ## Missing game screenshots and tests
 
 Every other supported game still needs representative screenshots and regression
-tests: Cyberpunk 2077, The Witcher 3, Honkai Impact 3rd, BEYOND: Two Souls,
+tests: Cyberpunk 2077, The Witcher 3, BEYOND: Two Souls,
 Heavy Rain, Detroit: Become Human, Rise of the Tomb Raider, Shadow of the Tomb
 Raider, Spyro Reignited Trilogy, Metal Gear Solid V: The Phantom Pain,
 Metal Gear Solid V: Ground Zeroes, Death Stranding, A Plague Tale: Innocence,
@@ -75,6 +75,11 @@ continues to define package input, sampled locale and temporal-evidence rules.
 ## Acceptance and R19 dependencies
 
 Source OCR/caption tests can proceed before R19's helper collection is complete.
+Local replay on 2026-10-30 passed all 36 cases with Windows OCR and the bundled
+RapidOCR 1.4.4 offline engine. The required integration job now runs the offline
+replay with Python checks and uploads observations and source identity. Hosted
+execution remains unchecked above until a run succeeds. Browser Tesseract is a
+separate diagnostic comparison and does not yet pass this entire corpus.
 Frozen OCR/voice/export acceptance names the eligible R19 artifact and actual
 toolchain. Native monitor/DPI evidence contributes to R19 D; package readback
 contributes to B3. A still frame proves neither temporal order nor actual audio.
