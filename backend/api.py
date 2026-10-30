@@ -6,6 +6,7 @@ import json
 import subprocess
 import tempfile
 import threading
+import logging
 from contextlib import asynccontextmanager, contextmanager, nullcontext
 from pathlib import Path
 from subprocess import TimeoutExpired
@@ -36,6 +37,7 @@ from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
+from .runtime_workers import RequestBarrier, WriterBarrierMiddleware
 from .state_version import StateVersion
 from .lexirise_settings import account_settings, STUDY_LANGUAGES
 from .accounts import AccountStore
@@ -54,6 +56,7 @@ from .runtime_bundle import discover_layout, child_command
 RUNTIME_LAYOUT = discover_layout()
 PROJECT_ROOT = RUNTIME_LAYOUT.legacy_root or RUNTIME_LAYOUT.application_root
 DATA_DIR = RUNTIME_LAYOUT.data_root
+HANDOFF_TIMEOUT_SECONDS = 30
 
 
 class ManualIngest(BaseModel):
@@ -130,6 +133,9 @@ class EventHub:
 class Runtime:
     def __init__(self) -> None:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
+        self.request_barrier = RequestBarrier(paused=self.standby)
+        self._quiesce_task = None
+        self._handoff_state = None
         self._updates_started = False
         self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
@@ -210,6 +216,7 @@ class Runtime:
             supported=self.reader_locales, cancellable=True,
             rebuild=lambda game, locale, targets, **options: self.build_language(game, locale, targets, force=True, **options))
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
+        self._retired_voices = set()
         self._locale_voice_lock = threading.RLock()
         self.capture.recorded_voice_assets = self.recorded_voice_assets
         self.capture.language_setup = self.capture_language_ready
@@ -588,6 +595,8 @@ class Runtime:
         # for the game. Newly discovered comic mappings repair existing rows.
         loop = asyncio.get_running_loop()
         for line in self.transcript.list(limit=50):
+            if not self._updates_started or self.standby:
+                return
             ready = asyncio.Event()
             if await asyncio.to_thread(self.capture.repair_recorded_line, line,
                                        completed=lambda: loop.call_soon_threadsafe(ready.set)):
@@ -599,27 +608,68 @@ class Runtime:
     async def stop_updates(self) -> None:
         self._updates_started = False
         if hasattr(self, 'toolkit_updater'):
-            self.toolkit_updater.close()
+            await asyncio.to_thread(self.toolkit_updater.close)
         if hasattr(self, 'automatic_exports'):
             await asyncio.to_thread(self.automatic_exports.close)
         await asyncio.to_thread(self.languages.close)
-        if self.repair_task:
-            self.repair_task.cancel()
-            try:
-                await self.repair_task
-            except asyncio.CancelledError:
-                pass
-            self.repair_task = None
-        if self.index_task:
-            self.index_task.cancel()
-            try:
-                await self.index_task
-            except asyncio.CancelledError:
-                pass
-            self.index_task = None
+        # Never cancel a to_thread waiter: the catalog/cache writer would keep
+        # running after its asyncio task claimed to have stopped.
+        for name in ('repair_task', 'index_task', 'map_task'):
+            task = getattr(self, name)
+            if task is not None:
+                await asyncio.shield(task)
+                setattr(self, name, None)
         await asyncio.gather(*(asyncio.to_thread(updater.close) for updater in
             [self.update_manager, self.pragmata_updater, *self.game_updaters.values()]))
         self._updates_started = False
+
+    def worker_pools(self):
+        voices = {self._legacy_zzz_voice, self._legacy_pragmata_voice,
+                  *self._legacy_game_voices, *self.game_voice_assets.values(),
+                  *self._locale_voices.values(), *self._retired_voices}
+        readers = {self.reading, *self._readers.values()}
+        return {self.capture._executor, *(v._executor for v in voices),
+                *(reader.pool for reader in readers)}
+
+    async def quiesce(self):
+        retry = (self._quiesce_task is not None and self._quiesce_task.done()
+                 and not self._quiesce_task.cancelled() and self._quiesce_task.exception() is not None)
+        if self._quiesce_task is None or retry:
+            if self._handoff_state is None:
+                self._handoff_state = self.capture.export_handoff(self.capture.snapshot().running)
+            self._quiesce_task = asyncio.create_task(self._drain_workers(), name='runtime-handoff-drain')
+        await asyncio.shield(self._quiesce_task)
+        # Capture's suppression state can advance while requests finish.
+        return self.capture.export_handoff(self._handoff_state.running)
+
+    async def _drain_workers(self):
+        log = logging.getLogger('toolkit.lifecycle')
+        log.info('Update: waiting for active reader requests to finish')
+        await self.request_barrier.pause()
+        self.standby = True
+        log.info('Update: stopping game refresh and export workers')
+        await asyncio.to_thread(self.installation.pause)
+        await self.stop_updates()
+        await asyncio.to_thread(self.mobile_exports.drain)
+        log.info('Update: finishing capture, original voice and dictionary work')
+        await self.capture.stop()
+        await asyncio.to_thread(self.hito.close)
+        await asyncio.gather(*(asyncio.to_thread(pool.drain) for pool in self.worker_pools()))
+        log.info('Update: all runtime writers stopped; ready to transfer capture')
+
+    def activate_workers(self):
+        if self._quiesce_task is not None:
+            if not self._quiesce_task.done() or self._quiesce_task.cancelled():
+                raise RuntimeError('Previous runtime work is still stopping.')
+            if self._quiesce_task.exception() is not None:
+                raise RuntimeError('A worker could not be stopped; restart the owned runtime before activation.')
+        for pool in self.worker_pools():
+            pool.resume()
+        self.hito.resume()
+        self.installation.resume()
+        self.mobile_exports.resume()
+        self.request_barrier.resume()
+        self._quiesce_task = self._handoff_state = None
 
     async def on_line(self, line: TranscriptLine) -> None:
         # Capture/audio threads can queue this coroutine before a favorite,
@@ -734,23 +784,10 @@ async def lifespan(_app: FastAPI):
                 await runtime.warm_task
             except (Exception, asyncio.CancelledError):
                 pass
-        runtime.mobile_exports.cancel_all()
-        runtime.standby = True
-        await runtime.stop_updates()
+        await runtime.quiesce()
         await runtime.capture.close()
-        await asyncio.to_thread(runtime.hito.close)
-        runtime._legacy_zzz_voice.close()
-        runtime._legacy_pragmata_voice.close()
-        for reader in runtime._readers.values():
-            reader.pool.shutdown(wait=False, cancel_futures=True)
-        for voices in set([*runtime._legacy_game_voices, *runtime.game_voice_assets.values(), *runtime._locale_voices.values()]):
-            voices.close()
-        if runtime.map_task and not runtime.map_task.done():
-            runtime.map_task.cancel()
-            try:
-                await runtime.map_task
-            except asyncio.CancelledError:
-                pass
+        for pool in runtime.worker_pools():
+            pool.shutdown(wait=True)
 
 
 app = FastAPI(title="Proxy Transcript API", version="0.1.0", lifespan=lifespan)
@@ -788,6 +825,8 @@ app.add_middleware(
 )
 # Outermost: reject HTTP/preflight and WebSocket requests before account pinning,
 # endpoint side effects, acceptance, or capture/status snapshots.
+app.add_middleware(WriterBarrierMiddleware,
+    barrier=lambda: getattr(globals().get('runtime'), 'request_barrier', None))
 app.add_middleware(LocalAccessMiddleware)
 
 
@@ -830,12 +869,14 @@ def runtime_ready(game: str | None = None) -> dict:
 @app.post('/api/runtime/quiesce')
 async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default='')) -> dict:
     runtime_access(request, x_proxy_transcript)
-    running = runtime.capture.snapshot().running
-    # Stop resource-heavy refreshes while capture is still serving the old app.
-    await runtime.stop_updates()
-    await runtime.capture.stop()
-    runtime.standby = True
-    return runtime.capture.export_handoff(running).model_dump()
+    try:
+        state = await asyncio.wait_for(runtime.quiesce(), timeout=HANDOFF_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(503, 'Background work is still stopping. Retry the handoff; it has not been cancelled.')
+    except Exception:
+        logging.getLogger('toolkit.lifecycle').exception('Update handoff could not finish')
+        raise HTTPException(503, 'Could not stop every worker. The replacement has not been activated.')
+    return state.model_dump()
 
 
 @app.post('/api/runtime/activate')
@@ -844,6 +885,10 @@ async def runtime_activate(payload: CaptureHandoff, request: Request,
     runtime_access(request, x_proxy_transcript)
     if not runtime_ready()['ready']:
         raise HTTPException(409, 'Replacement OCR is still warming up')
+    try:
+        runtime.activate_workers()
+    except RuntimeError as error:
+        raise HTTPException(409, str(error))
     if runtime.capture.snapshot().running:
         # A failed quiesce may stop updates while leaving capture serving.
         # Rollback resumes that work without replacing its live session.
@@ -952,7 +997,9 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
             result = runtime.language_inventory.cleanup(game, payload.locale, runtime.languages, busy)
             runtime.capture._scan_epoch += 1
             runtime._locale_indexes.pop((game, payload.locale), None)
-            runtime._locale_voices.pop((game, payload.locale), None)
+            voices = runtime._locale_voices.pop((game, payload.locale), None)
+            if voices is not None:
+                runtime._retired_voices.add(voices)
             return result
         if payload.action == 'remove':
             runtime.languages.remove(game, payload.locale)

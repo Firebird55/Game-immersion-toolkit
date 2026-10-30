@@ -252,11 +252,11 @@ def test_quiesce_failure_keeps_old_capture_active(monkeypatch):
     stopped = []
     async def fail():
         raise TimeoutError('synthetic quiesce deadline')
-    monkeypatch.setattr(api, 'runtime', SimpleNamespace(standby=False, stop_updates=fail,
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(standby=False, quiesce=fail,
         capture=SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), stop=lambda: stopped.append(True))), raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767', raise_server_exceptions=False)
     response = client.post('/api/runtime/quiesce', headers={'X-Proxy-Transcript': 'update'})
-    assert response.status_code == 500
+    assert response.status_code == 503
     assert not stopped
 
 
@@ -350,28 +350,46 @@ def test_first_monitor_start_preserves_foreground_preparation_in_standby(tmp_pat
         manager.close()
 
 
-def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_capture(tmp_path, monkeypatch):
+def test_failed_quiesce_blocks_rollback_until_every_worker_is_joined(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+    from backend.runtime_handoff import CaptureHandoff
+    from backend.runtime_workers import RequestBarrier
     entered, release = threading.Event(), threading.Event()
     resumed, resume_release = threading.Event(), threading.Event()
-    audio_restarts, activated = [], []
+    audio_restarts, activated, capture_events = [], [], []
     runtime = api.Runtime.__new__(api.Runtime)
     runtime.standby = False
     runtime._updates_started = True
-    runtime.textmaps = runtime.pragmata = runtime.hito = None
+    runtime._quiesce_task = runtime._handoff_state = None
+    runtime.request_barrier = RequestBarrier()
+    runtime.textmaps = runtime.pragmata = None
+    runtime.hito = SimpleNamespace(close=lambda: None, resume=lambda: None)
+    runtime.installation = SimpleNamespace(pause=lambda: None, resume=lambda: None)
+    runtime.mobile_exports = SimpleNamespace(drain=lambda: None, resume=lambda: None)
+    runtime.worker_pools = lambda: []
+    runtime.repair_task = runtime.index_task = runtime.map_task = None
+    runtime.update_manager = runtime.pragmata_updater = SimpleNamespace(close=lambda: None)
+    runtime.game_updaters = {}
     runtime.game_indexes, runtime.warm_task = {}, None
     runtime.start_audio_repair = lambda: audio_restarts.append(True)
-    def untouched(*_):
-        pytest.fail('Rollback must preserve the running capture and its session')
-    runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True, session_id='preserved'),
-        stop=untouched, start=untouched, import_handoff=untouched)
+    running = [True]
+    async def stop_capture():
+        running[0] = False
+        capture_events.append('stop')
+    def start_capture():
+        running[0] = True
+        capture_events.append('start')
+    runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=running[0]),
+        stop=stop_capture, start=start_capture,
+        import_handoff=lambda state: capture_events.append(state.session_id),
+        export_handoff=lambda active: CaptureHandoff(running=active, session_id='preserved'))
     def build(*_, job):
         if job.cancelled is old_token:
             entered.set()
-            assert release.wait(3)
+            assert release.wait(5)
         else:
             resumed.set()
-            assert resume_release.wait(3)
+            assert resume_release.wait(5)
         job.checkpoint()
     manager = runtime.languages = LanguagePreparation(build, lambda *args: activated.append(args),
         lambda *_: {'ready': True}, path=tmp_path / 'languages.json', cancellable=True)
@@ -385,20 +403,28 @@ def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_cap
     try:
         assert manager.request('cyberpunk', 'zh-Hans', 'en', 'first')
         assert entered.wait(1)
-        assert client.post('/api/runtime/quiesce', headers=headers).status_code == 500
+        assert client.post('/api/runtime/quiesce', headers=headers).status_code == 503
         assert old_token.is_set() and not runtime._updates_started
-        payload = {'running': True, 'session_id': 'must-not-replace-preserved-session'}
-        response = client.post('/api/runtime/activate', headers=headers, json=payload)
+        assert running[0] and capture_events == []
+        payload = {'running': True, 'session_id': 'preserved'}
+        # An asyncio cancellation or a failed join cannot authorize another
+        # generation of catalog writers, even when capture itself still runs.
+        assert client.post('/api/runtime/activate', headers=headers, json=payload).status_code == 409
+        assert manager.stop_event is old_token and not audio_restarts
+        release.set()
+        wait_for(lambda: not manager._workers)
+        response = client.post('/api/runtime/quiesce', headers=headers)
+        assert response.status_code == 200 and response.json()['running']
+        assert capture_events == ['stop']
+        response = client.post('/api/runtime/activate', headers=headers, json=response.json())
         assert response.status_code == 200
         assert runtime._updates_started and not runtime.standby
         assert manager.stop_event is not old_token and not manager.stop_event.is_set()
         assert audio_restarts == [True]
+        assert capture_events == ['stop', 'preserved', 'start']
         monitor = manager.monitor
-        assert monitor.is_alive()
-        assert resumed.wait(1)
+        assert monitor.is_alive() and resumed.wait(1)
         assert not manager.request('cyberpunk', 'zh-Hans', 'en', 'second')
-        release.set()
-        wait_for(lambda: len(manager._workers) == 1)
         assert not activated and manager.selected('cyberpunk', 'first') is None
         resume_release.set()
         wait_for(lambda: not manager._workers)

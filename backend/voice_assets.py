@@ -12,7 +12,7 @@ import struct
 import subprocess
 import tempfile
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from .runtime_workers import ResumableExecutor
 from typing import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -200,7 +200,7 @@ class VoiceAssetService:
         self._entries: dict[str, dict] = {}
         self._learned_entries: dict[str, dict] = {}
         self._manifest_lock = threading.RLock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
+        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
         try:

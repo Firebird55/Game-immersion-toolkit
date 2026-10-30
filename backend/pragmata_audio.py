@@ -9,7 +9,7 @@ import tempfile
 import threading
 import uuid
 import wave
-from concurrent.futures import ThreadPoolExecutor
+from .runtime_workers import ResumableExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -509,7 +509,7 @@ class PragmataVoiceAssetService:
         self._fingerprint: str | None = None
         self._lock = threading.RLock()
         self._package_lock = threading.Lock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pragmata-original-voice")
+        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="pragmata-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
         self.ready = False
@@ -519,8 +519,7 @@ class PragmataVoiceAssetService:
     def reload(self) -> bool:
         try:
             stat = self.manifest.stat()
-            signature = (stat.st_mtime_ns, stat.st_size, self.decoder.is_file(),
-                         (self.tools / 'REE.Unpacker.exe').is_file(), bool(ffmpeg_executable()))
+            signature = (stat.st_mtime_ns, stat.st_size, self.decoder.is_file(), bool(ffmpeg_executable()))
             if self._loaded_signature == signature:
                 return self.ready
             payload = json.loads(self.manifest.read_text(encoding="utf-8"))
@@ -565,7 +564,6 @@ class PragmataVoiceAssetService:
                     and self._install
                     and self._install.is_dir()
                     and self.decoder.is_file()
-                    and (self.tools / "REE.Unpacker.exe").is_file()
                     and ffmpeg_executable()
                 )
                 self.last_error = None
@@ -610,7 +608,7 @@ class PragmataVoiceAssetService:
         cache = self._cache_root()
         for virtual in (entry.streaming, entry.index):
             if virtual:
-                candidate = cache / Path(virtual.replace("/", "\\"))
+                candidate = cache / Path(virtual)
                 if candidate.is_file():
                     try:
                         for media_id in entry.media_ids:
@@ -632,7 +630,7 @@ class PragmataVoiceAssetService:
         finally:
             project.unlink(missing_ok=True)
         for virtual in virtuals:
-            candidate = cache / Path(virtual.replace("/", "\\"))
+            candidate = cache / Path(virtual)
             if candidate.is_file():
                 try:
                     for media_id in entry.media_ids:

@@ -14,7 +14,7 @@ from typing import Callable
 
 from .textmaps import TextMapIndex
 from .voice_assets import VoiceAssetService
-from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
+from .update_workers import start_process, INDEX_BUILD_LOCK, subprocess_options, stop_process
 
 
 class BackgroundUpdateManager:
@@ -62,6 +62,8 @@ class BackgroundUpdateManager:
         stop_process(self._process)
         if self._thread:
             self._thread.join(timeout=5)
+            if self._thread.is_alive():
+                raise RuntimeError('Game update worker did not stop; runtime handoff is blocked.')
 
     def request_check(self) -> bool:
         with self._lock:
@@ -95,7 +97,7 @@ class BackgroundUpdateManager:
     def _run_command(self, arguments: list[str], *, cwd: Path, timeout: int = 900) -> str:
         if self._stop.is_set():
             raise RuntimeError('Background update stopped')
-        process = subprocess.Popen(arguments, cwd=cwd, stdout=subprocess.PIPE,
+        process = start_process(arguments, cwd=cwd, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True, **subprocess_options())
         self._process = process
         try:

@@ -40,7 +40,14 @@ def fixture(tmp_path, monkeypatch):
             if state['change']:
                 state['stamp'] += '-changed'
         def poll(self): return self.returncode
-    monkeypatch.setattr(auto.subprocess, 'Popen', Process)
+    class Owned:
+        def __init__(self, command, **kwargs):
+            self.process = Process(command, **kwargs)
+        def stop(self):
+            return self.process.returncode
+        def close_streams(self):
+            pass
+    monkeypatch.setattr(auto, 'OwnedProcess', Owned)
     def run():
         manager.reconcile()
         manager.observed = {key: (stamp, -1000) for key, (stamp, _) in manager.observed.items()}

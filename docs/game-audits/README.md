@@ -10,7 +10,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 | Zenless Zone Zero | Unity-wrapped catalogs; typed stories, bubbles, cinematics, messages and gameplay tips | [ZZZ](zzz.md) |
 | Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions | [Wuthering](wuwa.md) |
 | Neverness to Everness | Typed subtitles; mail, summaries and messages; original voice provenance | [NTE](nte.md) |
-| PRAGMATA | Bounded selective extraction; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md) |
+| PRAGMATA | Owned compiler-free selected PAK reader; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md), [reader evidence](../re-pak-runtime.md) |
 | Cyberpunk 2077 | Base game and Phantom Liberty; exact hashed voices; journal messages and readables | [Cyberpunk](cyberpunk.md) |
 | The Witcher 3: Wild Hunt | Legacy/current bundles; authored choices, journals, profiles and readable body keys | [Witcher](witcher3.md) |
 | Honkai: Star Rail | Messages, choices, narrated story and combat metadata; explicit voice states | [Star Rail](starrail.md) |

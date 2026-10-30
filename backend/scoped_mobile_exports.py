@@ -22,6 +22,7 @@ class ScopedMobileExports:
         self.root, self.accounts, self.languages = Path(root), accounts, languages
         self.lock = threading.RLock()
         self.managers, self.last_games = {}, {}
+        self._paused = False
 
     def context(self, game=None):
         status = self.accounts.status()
@@ -42,6 +43,8 @@ class ScopedMobileExports:
 
     def _manager(self, game=None):
         with self.accounts.lock, self.lock:
+            if self._paused:
+                raise RuntimeError('Mobile exports are paused for the runtime update.')
             account, locale, game, signature, token = self.context(game)
             self.last_games[account] = game
             for old in self.managers.values():
@@ -113,3 +116,18 @@ class ScopedMobileExports:
             for manager in self.managers.values():
                 manager.cancel()
                 manager.close_picker()
+
+    def drain(self):
+        with self.lock:
+            self._paused = True
+            managers = list(self.managers.values())
+        # Join outside account/manager locks: completion callbacks need them.
+        for manager in managers:
+            manager.drain()
+
+    def resume(self):
+        with self.lock:
+            for manager in self.managers.values():
+                if manager._thread and manager._thread.is_alive():
+                    raise RuntimeError('A mobile export is still stopping.')
+            self._paused = False

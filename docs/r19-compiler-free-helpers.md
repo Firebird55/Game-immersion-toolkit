@@ -6,6 +6,11 @@ PR #59, the source adapter, every game/language choice and protected user data s
 in place. No installer, release, tag, Pages deployment or production activation is
 part of this work. Build tools below run on a build host, not on the user's PC.
 
+2026-10-30 update: the normal PRAGMATA extraction path now uses the
+[owned Python PAK reader](re-pak-runtime.md). The selective x86 REE evidence below
+is historical; its quarantine is no longer a prerequisite for that archive
+operation. Shared codecs and full frozen acceptance remain open.
+
 ## Implemented boundaries and gates
 
 | Helper | Implemented direction | Remaining gate |
@@ -15,7 +20,7 @@ part of this work. Build tools below run on a build host, not on the user's PC.
 | Endfield | Actual selected reader prebuilt in separate blocked quarantine; app-local runtime/hashing and empty/malformed-input probes passed | Embedded game constants, file-level port provenance, real VFS/audio and Windows 11 acceptance; no Endfield artifact is collected |
 | Authored Node probe | Exact app-local Node, module worker and authored WASM; absolute immutable entry/resource paths and private work; hosted Server probe passed | Exact runtime/native/notices and Windows 11 review; no real ZZZ extraction claim |
 | ZZZ production reader | Separate build-only quarantine preparation with pinned source/module inputs; frozen production dispatch remains blocked | GPL/corresponding-source obligations, upstream custom terms, game-derived metadata and actual reader/codec probes |
-| PRAGMATA selective REE | Actual modified x86 helper precompiled in blocked quarantine; authored uncompressed PAK selection and oversized-table rejection passed | Modified helper/native redistribution, compressed/encrypted formats, clean Windows 11 WOW64/Framework and installed-game evidence; frozen dispatch stays blocked |
+| PRAGMATA archive reader | Owned Python selected reader replaces REE on the normal path; authored format tests and eight installed MSG/SBNK/SPCK/TMLFSM2 comparisons passed | Frozen candidate/native Zstandard closure, shared voice codecs and target-platform acceptance; old REE binary is not collected |
 
 The game resolvers never interpret an `approved` string, an authored probe or a
 successful build as permission to run an incomplete game chain. Missing, changed,

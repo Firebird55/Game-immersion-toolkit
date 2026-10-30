@@ -1,8 +1,7 @@
-"""Build a selective reader from verified upstream source in the private tool cache.
+"""Selected RE PAK extraction using the bundled, cross-platform Python reader.
 
-REE's project lists resolve names; they do NOT limit extraction. Never invoke
-the stock all-files unpacker for language preparation or on-demand voices.
-Upstream source and binaries are downloaded locally, not redistributed.
+The old source patch/build routine is retained solely for reproducible historical
+private probes. Normal indexing and voice extraction never compile or invoke it.
 """
 from __future__ import annotations
 
@@ -60,6 +59,7 @@ def patch_source(name: str, source: str) -> str:
 
 
 def ensure_extractor(tools: Path) -> Path:
+    """Legacy private probe only; normal extraction uses ``re_pak`` below."""
     from .bundle_tools import require_source_toolchain
     require_source_toolchain('PRAGMATA selective x86 reader')
     tools = tools.resolve()
@@ -121,10 +121,11 @@ def extract_project(tools: Path, project: str, archive: Path, destination: Path)
         path = PurePosixPath(line)
         if not line.startswith('natives/') or '..' in path.parts or '\\' in line or ':' in line or not line.isascii():
             raise ValueError('Unsafe requested game asset path')
-    executable = ensure_extractor(tools)
-    result = subprocess.run([str(executable), project, str(archive.resolve()), str(destination.resolve())],
-        cwd=tools, capture_output=True, timeout=180, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    if result.returncode:
-        if b'exceeds the reader limit' in result.stderr:
-            raise PreparationFailure('reader_resource_limit', 'A requested PRAGMATA voice file exceeds this reader\'s safe memory limit. Update the toolkit before retrying.')
-        raise PreparationFailure('archive_unreadable', 'The selective PRAGMATA reader could not read the installed archive. Verify game files in Steam, then retry language preparation.')
+    from .re_pak import extract_selected
+    from .re_pak_metadata import parameters
+    metadata = {}
+    def resolve(kind):
+        if kind not in metadata:
+            metadata[kind] = parameters(tools, kind)
+        return metadata[kind]
+    extract_selected(archive, destination, lines, parameters=resolve)

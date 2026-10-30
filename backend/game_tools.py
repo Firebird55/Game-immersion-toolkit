@@ -128,8 +128,6 @@ def missing_tools(root: Path, game: str) -> list[str]:
         required += [("ZZZ scene reader", voice_work_root(root) / "galgame-perform.ts")]
         required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
         required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
-    if game == "pragmata":
-        required += [("PRAGMATA extractor", runtime_data_root(root) / "pragmata/tools/REE.Unpacker.exe")]
     if game == "cyberpunk":
         required += [("Cyberpunk extractor", runtime_data_root(root) / "cyberpunk/tools/WolvenKit.CLI.exe")]
     if game == "wuwa":
@@ -181,8 +179,9 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
         progress("Preparing the verified Endfield VFS voice reader")
         ensure_extractor(runtime_data_root(root) / "endfield/tools")
     elif game == "pragmata":
-        progress("Preparing the separately downloaded PRAGMATA extractor")
-        install_archive(REE_URL, REE_SHA, runtime_data_root(root) / "pragmata/tools", ("REE.Unpacker.exe",))
+        from .re_pak_metadata import prepare
+        progress("Preparing verified archive format metadata")
+        prepare(runtime_data_root(root) / "pragmata/tools")
     elif game == "cyberpunk":
         from .cyberpunk_assets import ensure_wolvenkit
         progress("Preparing the verified Cyberpunk extractor")

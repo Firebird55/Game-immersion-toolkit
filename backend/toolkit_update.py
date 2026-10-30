@@ -191,6 +191,9 @@ class ToolkitUpdater:
         self.lock = threading.Lock()
 
     def status(self):
+        if os.environ.get('PROXY_TRANSCRIPT_HOST_MANAGED') == '1':
+            return {'state': 'unavailable', 'message': 'This desktop host keeps ownership during its session. Install a verified newer executable after quitting; automatic supervised updates are not yet available.',
+                'installed_version': self.current, 'enabled': False}
         if self.layout.mode == 'bundle':
             return {'state': 'unavailable', 'message': 'Frozen updates require a verified supervising host; the current candidate is retained.',
                 'installed_version': self.current, 'enabled': False}
@@ -207,6 +210,8 @@ class ToolkitUpdater:
         return value
 
     def configure(self, enabled):
+        if os.environ.get('PROXY_TRANSCRIPT_HOST_MANAGED') == '1':
+            raise RuntimeBundleError('Quit the desktop host before installing a verified update. Automatic supervised updates are not yet available.')
         if self.layout.mode == 'bundle':
             raise RuntimeBundleError('Automatic frozen updates are unavailable until supervised takeover is verified.')
         home = self.root / 'data/toolkit-updates'
@@ -218,6 +223,8 @@ class ToolkitUpdater:
             self.request()
 
     def request(self):
+        if os.environ.get('PROXY_TRANSCRIPT_HOST_MANAGED') == '1':
+            return False
         if self.layout.mode == 'bundle':
             return False
         with self.lock:
@@ -254,6 +261,8 @@ class ToolkitUpdater:
         self.stop.set()
         if self.thread:
             self.thread.join(timeout=2)
+            if self.thread.is_alive():
+                raise RuntimeError('Toolkit update monitor is still stopping; handoff is blocked.')
 
 
 if __name__ == '__main__':

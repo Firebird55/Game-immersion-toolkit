@@ -11,11 +11,15 @@ from backend.runtime_bundle import CHILD_TARGETS, RuntimeBundleError, discover_l
 
 def main(arguments=None):
     args = list(sys.argv[1:] if arguments is None else arguments)
+    if not args or args[0] in {'--data-root', '--frontend-root', '--port', '--api-port',
+                               '--headless', '--no-browser', '--host-check', '--request-quit'}:
+        from backend.desktop_host import launch as desktop_main
+        return desktop_main(args)
     if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api'}:
         layout = discover_layout()
         if layout.mode != 'bundle' or layout.profile != 'runtime-experiment':
             raise RuntimeBundleError('Runtime probes require the quarantined runtime-experiment profile.')
-        asr_image = layout.executable.name.casefold() == 'proxytranscriptasr.exe'
+        asr_image = layout.executable.name.casefold() in {'proxytranscriptasr.exe', 'proxytranscriptasr'}
         if asr_image != (args[1] == 'asr'):
             raise RuntimeBundleError('Probe must use its isolated runtime image.')
         # Keep the stdlib diagnostic/frontend and ASR analyses independent of
@@ -43,7 +47,7 @@ def main(arguments=None):
             raise RuntimeBundleError('Windows bootstrap requires a job name and child command.')
         from backend.windows_preparation_process import _bootstrap
         return _bootstrap(child_args[0], child_args[1:])
-    if layout.mode == 'bundle' and kind == 'asr' and layout.executable.name.casefold() != 'proxytranscriptasr.exe':
+    if layout.mode == 'bundle' and kind == 'asr' and layout.executable.name.casefold() not in {'proxytranscriptasr.exe', 'proxytranscriptasr'}:
         raise RuntimeBundleError('ASR requires its separate frozen executable and native library tree.')
     target_type, target = CHILD_TARGETS[kind]
     sys.argv = [target, *child_args]

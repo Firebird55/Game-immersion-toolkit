@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import threading
+from .owned_process import OwnedProcess
 
 from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install, load_paths
 from .game_tools import missing_tools, prepare_tools
@@ -97,6 +98,9 @@ class InstallationService:
         self._jobs: dict[str, dict] = {}
         self._tool_thread: threading.Thread | None = None
         self._native: dict[str, subprocess.Popen] = {}
+        self._native_owners = {}
+        self._native_threads = []
+        self._paused = False
         self.completed = existing_user
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
@@ -181,6 +185,8 @@ class InstallationService:
         if install and self.root.resolve().is_relative_to(install.resolve()):
             raise ValueError("Move the toolkit to a folder outside the game installation before preparing tools")
         with self._lock:
+            if self._paused:
+                return False
             if self._tool_thread and self._tool_thread.is_alive():
                 return False
             self._jobs[game] = {"state": "preparing", "message": "Preparing game tools", "progress": 5}
@@ -215,6 +221,8 @@ class InstallationService:
         if sys.platform != "win32":
             raise ValueError("Native setup dialogs require Windows")
         with self._lock:
+            if self._paused:
+                return False
             if any(process.poll() is None for process in self._native.values()):
                 return False
             before = load_paths()
@@ -232,13 +240,42 @@ class InstallationService:
                 args = child_command('capture-readiness', ['--pause'])
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
             environment = {'env': layout.child_environment()} if layout.mode == 'bundle' else {}
-            process = subprocess.Popen(args, cwd=source, creationflags=flags, **environment)
+            owner = OwnedProcess(args, cwd=source, stdin=None, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, visible_console=kind != 'folders', **environment)
+            process = owner.process
+            self._native_owners[kind] = owner
             self._native[kind] = process
-            threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True).start()
+            monitor = threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True)
+            self._native_threads.append(monitor)
+            monitor.start()
             return True
+
+    def pause(self):
+        with self._lock:
+            self._paused = True
+            owners = list(self._native_owners.values())
+            threads = [self._tool_thread, *self._native_threads]
+        for owner in owners:
+            owner.stop()
+        for thread in threads:
+            if thread is not None:
+                thread.join(timeout=30)
+                if thread.is_alive():
+                    raise RuntimeError('Game setup is still finishing; runtime handoff is blocked.')
+
+    def resume(self):
+        with self._lock:
+            if self._tool_thread and self._tool_thread.is_alive():
+                raise RuntimeError('Game setup has not finished stopping.')
+            if any(thread.is_alive() for thread in self._native_threads):
+                raise RuntimeError('Setup dialogs have not finished stopping.')
+            self._paused = False
 
     def _native_finished(self, kind, process, before):
         process.wait()
+        owner = self._native_owners[kind]
+        owner.stop()
+        owner.close_streams()
         if kind == "folders":
             after = load_paths()
             for game in GAMES:

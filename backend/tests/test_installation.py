@@ -127,10 +127,19 @@ def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, 
         def wait(self):
             return 0
     monkeypatch.setattr("backend.installation.sys.platform", "win32")
-    monkeypatch.setattr("backend.installation.subprocess.Popen", lambda args, **kwargs: launched.append((args, kwargs)) or Process())
+    class Owned:
+        def __init__(self, args, **kwargs):
+            launched.append((args, kwargs))
+            self.process = Process()
+        def stop(self):
+            pass
+        def close_streams(self):
+            pass
+    monkeypatch.setattr("backend.installation.OwnedProcess", Owned)
     assert service.launch_native("lexirise")
     assert launched[0][0][-3:] == ["-m", "scripts.set_lexirise_key", "--account"]
-    assert "stdin" not in launched[0][1]
+    assert launched[0][1]['stdin'] is None
+    assert launched[0][1]['visible_console'] is True
     assert "env" not in launched[0][1]
     source = Path(__file__).resolve().parents[2]
     assert launched[0][1]['cwd'] == source != service.root

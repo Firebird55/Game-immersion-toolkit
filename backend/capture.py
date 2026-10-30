@@ -6,7 +6,7 @@ import io
 import re
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from .runtime_workers import ResumableExecutor
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Awaitable, Callable
@@ -118,7 +118,9 @@ class CaptureService:
         self._tip_tracker = StableMatchTracker()
         self._cinematic_tracker = StableMatchTracker()
         self._event_loop: asyncio.AbstractEventLoop | None = None
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+        self._retired_executors = []
+        self._stop_task = None
         self._scan_epoch = 0
         self._scan_index = 0
         self._last_emitted_at: dict[str, float] = {}
@@ -196,6 +198,11 @@ class CaptureService:
     def start(self) -> bool:
         if self._task and not self._task.done():
             return False
+        if self._stop_task and not self._stop_task.done():
+            raise RuntimeError('Capture is still finishing its previous scan.')
+        if self._stop_task and (self._stop_task.cancelled() or self._stop_task.exception() is not None):
+            raise RuntimeError('Capture could not finish stopping. Restart the runtime before capturing again.')
+        self._executor.resume()
         self._event_loop = asyncio.get_running_loop()
         self._update_snapshot(running=True, phase="starting", message="Starting subtitle OCR and original game voices")
         self._task = asyncio.create_task(self._run(), name="zzz-capture")
@@ -234,28 +241,36 @@ class CaptureService:
         self._cinematic_panel_text = state.cinematic_panel_text
 
     async def stop(self) -> bool:
-        if not self._task or self._task.done():
-            await asyncio.to_thread(self._background_capture.close)
-            self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
-            return False
-        self._task.cancel()
+        if self._stop_task is None or self._stop_task.done():
+            self._stop_task = asyncio.create_task(self._stop_workers(), name='drain-capture-workers')
+        # Client disconnect/cancellation must not abandon the real native join.
+        return await asyncio.shield(self._stop_task)
+
+    async def _stop_workers(self) -> bool:
+        running = bool(self._task and not self._task.done())
         self._scan_epoch += 1
-        try:
-            await self._task
-        except asyncio.CancelledError:
-            pass
+        if running:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
         self._task = None
         await asyncio.to_thread(self._background_capture.close)
-        # A cancelled asyncio future cannot cancel native OCR. Drain its worker
-        # before exporting state so the retiring runtime cannot emit afterward.
-        await asyncio.wait_for(asyncio.get_running_loop().run_in_executor(self._executor, lambda: None), 15)
+        # Timed-out native workers remain owned until their actual thread exits.
+        # A sentinel in a replacement pool proves nothing about those old scans.
+        await asyncio.to_thread(self._executor.drain)
+        for retired in self._retired_executors:
+            await asyncio.to_thread(retired.shutdown, wait=True)
+        self._retired_executors.clear()
+        self._executor.resume()  # Capture preview remains usable after Stop.
         snapshot = self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
         await self.on_status(snapshot)
-        return True
+        return running
 
     async def close(self) -> None:
         await self.stop()
-        self._executor.shutdown(wait=False, cancel_futures=True)
+        await asyncio.to_thread(self._executor.shutdown, wait=True)
 
     async def _run(self) -> None:
         loop = asyncio.get_running_loop()
@@ -285,7 +300,8 @@ class CaptureService:
                     # leaving a stale screen classification in the UI forever.
                     self._scan_epoch += 1
                     self._executor.shutdown(wait=False, cancel_futures=True)
-                    self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+                    self._retired_executors.append(self._executor)
+                    self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
                     self._engine = None
                     self._excluded_screen = None
                     self._tracker.observe(None)

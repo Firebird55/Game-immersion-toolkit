@@ -7,7 +7,8 @@ import sqlite3
 import threading
 import time
 from html.parser import HTMLParser
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
+from .runtime_workers import ResumableExecutor
 from contextlib import closing
 from pathlib import Path
 
@@ -92,7 +93,7 @@ class LexiriseReadingService:
         self.path = directory / "reading-cache-v2.db"
         self.lexirise = lexirise
         self.lock = threading.RLock()
-        self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
+        self.pool = ResumableExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
         self.pending_meanings: set[str] = set()
         directory.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(self.path)) as db, db:

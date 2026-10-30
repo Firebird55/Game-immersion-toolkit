@@ -11,6 +11,7 @@ from contextlib import ExitStack
 import ctypes
 from ctypes import wintypes
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -189,8 +190,18 @@ def _bootstrap(name, command):
     # Explicit handles survive CREATE_NO_WINDOW and venv redirectors. Leaving
     # them implicit can give a worker a console input handle instead of the
     # parent's private request pipe, causing an otherwise healthy child to hang.
-    return subprocess.call(command, stdin=sys.stdin, stdout=sys.stdout,
-                           stderr=sys.stderr, creationflags=subprocess.CREATE_NO_WINDOW)
+    visible_console = os.environ.pop('PROXY_TRANSCRIPT_CHILD_CONSOLE', '') == '1'
+    show_window = os.environ.pop('PROXY_TRANSCRIPT_CHILD_SHOW_WINDOW', '') == '1'
+    startup = None
+    if show_window:
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 1  # SW_SHOWNORMAL for an explicitly requested native dialog.
+    return subprocess.call(command, stdin=None if visible_console else sys.stdin,
+                           stdout=None if visible_console else sys.stdout,
+                           stderr=None if visible_console else sys.stderr,
+                           creationflags=subprocess.CREATE_NEW_CONSOLE if visible_console else subprocess.CREATE_NO_WINDOW,
+                           startupinfo=startup)
 
 
 if __name__ == '__main__':
