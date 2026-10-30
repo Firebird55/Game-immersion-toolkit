@@ -179,6 +179,7 @@ def finish(output, compiler, cmake):
     result = {'schema': 'proxy-r19-reference-codec-v1', 'source_commit': commit,
         'upstream_source_sha256': pin['source']['sha256'], 'upstream_commit': pin['source']['commit'],
         'version': pin['version'], 'platform': pin['platform'], 'configuration': pin['cmake'],
+        'generator': cache.get('CMAKE_GENERATOR'), 'compiler_family': 'MSVC',
         'files': files, 'pe': imports, 'source_files': source_files,
         'source_archive_sha256': digest((output / 'codec-sources.zip').read_bytes()),
         'compiler_version': compiler, 'cmake_version': cmake, 'source_patches': [],

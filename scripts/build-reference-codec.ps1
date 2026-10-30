@@ -9,7 +9,12 @@ if ($LASTEXITCODE -ne 0) { throw 'Exact source/notice preparation failed.' }
 $OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
 $source = Join-Path $OutputRoot ('upstream/flac-' + $pin.version)
 $build = Join-Path $OutputRoot 'build'
-$options = @('-S', $source, '-B', $build, '-G', 'Visual Studio 17 2022', '-A', 'x64')
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+$installed = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion
+$generators = @{17='Visual Studio 17 2022'; 18='Visual Studio 18 2026'}
+$generator = $generators[([version]$installed).Major]
+if (-not $generator) { throw 'A supported MSVC build-host installation is required.' }
+$options = @('-S', $source, '-B', $build, '-G', $generator, '-A', 'x64')
 foreach ($item in $pin.cmake.PSObject.Properties) { $options += "-D$($item.Name)=$($item.Value)" }
 # CRT stays an explicit native/system prerequisite; no MSVC redistributable is
 # copied from a developer installation or silently added to the candidate.
