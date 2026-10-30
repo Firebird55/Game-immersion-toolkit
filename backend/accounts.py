@@ -1,20 +1,20 @@
-"""Host-local, DPAPI protected account profiles. No credential leaves this host."""
+"""Host-protected account profiles; credentials never pass through the browser."""
 from __future__ import annotations
 
 import copy
 import hashlib
 import json
-import os
 from pathlib import Path
 import threading
 
 import httpx
 
 from .lexirise import API_BASE, LexiriseError, LexiriseService, _protect
+from .protected_storage import credential_directory, private_write
 
 
 def accounts_path() -> Path:
-    return Path(os.environ.get('LOCALAPPDATA', Path.home() / '.local/share')) / 'Programs/Proxy Transcript/accounts.dpapi'
+    return credential_directory() / 'accounts.dpapi'
 
 
 class AccountStore:
@@ -39,15 +39,12 @@ class AccountStore:
                 raise ValueError()
             self._cached_signature, self._cached_data = signature, copy.deepcopy(value)
             return value
-        except (OSError, ValueError, TypeError, KeyError):
-            raise LexiriseError('Saved accounts could not be read for this Windows user.') from None
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            raise LexiriseError('Saved accounts could not be read for this desktop user. Existing accounts were kept.') from None
 
     def _write(self, value: dict) -> None:
         data = self.protect(json.dumps(value, ensure_ascii=False).encode())
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        pending = self.path.with_suffix('.pending')
-        pending.write_bytes(data)
-        pending.replace(self.path)
+        private_write(self.path, data)
         self._cached_signature = None
         self.generation += 1
 

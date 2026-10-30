@@ -35,6 +35,36 @@ audio device. The legacy Windows WASAPI recorder is unavailable on other
 platforms and reports that limitation without preventing the application from
 importing or turning a missing recording into confirmed unvoiced dialogue.
 
+## Local setup and accounts
+
+Game-folder selection, account entry and capture checks use bundled Qt dialogs
+on each platform. Account keys are entered in a native password field. Verification
+only reads the account identity (`GET /v1/me`); saving a local account does not
+change remote settings, decks or vocabulary. Keys are never put in the browser,
+command arguments or process environment by these dialogs. Canceling a folder
+selection leaves the saved game locations unchanged.
+
+Windows retains its existing DPAPI credential format. macOS uses Keychain and
+Linux uses the desktop Secret Service through explicitly selected bundled
+backends. Those stores hold the random master key; application files contain a
+versioned authenticated AES-GCM envelope. The toolkit does not select alternate
+keyring plugins or fall back to plaintext. Locked, denied or missing desktop
+storage produces an actionable message while preserving saved ciphertext.
+An unlocked OS credential service is required for saving accounts; capture and
+independent reading modes do not require a Lexirise account.
+
+Frozen account and game-folder settings use the selected user data directory.
+Source Windows installations retain their legacy per-user credential location;
+source Linux/macOS settings use XDG data storage or Application Support. The
+optional command-line key prompt remains available to source developers, with
+hidden input and the same protected storage.
+
+The local capture check loads the real OCR engine and reads an authored English
+sentence, checks desktop permission/display access, and verifies the bundled
+audio converter is present. This is component readiness, not acceptance of a
+particular game or every OCR language. The native-window probe below tests
+actual capture geometry separately.
+
 ## Verification
 
 Contract tests cover negative coordinates, monitor movement, occlusion,
@@ -49,6 +79,12 @@ captured at 720×480 physical pixels. This validates the existing Windows geomet
 and the probe itself; it does not prove Linux/macOS behavior or final packaged
 game capture. Hosted Linux/macOS runs and physical permission/display cases remain
 part of the [desktop delivery plan](desktop-delivery-completion-plan.md).
+
+Native Qt account-form tests use mock identity responses and mock protected
+storage only. They cover cancellation, failed verification, hidden key entry,
+encrypted persistence, locked/missing master keys and interrupted atomic writes.
+Actual macOS Keychain/Linux Secret Service interaction and native setup on those
+platforms remain required candidate acceptance; these mocks do not prove it.
 
 The native API contracts are documented in the
 [EWMH specification](https://specifications.freedesktop.org/wm/latest/ar01s05.html),

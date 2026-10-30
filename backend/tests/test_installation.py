@@ -118,7 +118,8 @@ def test_tool_download_failure_is_recoverable_and_does_not_expose_raw_errors(set
     assert "private transcript marker" not in job["message"]
 
 
-def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, monkeypatch):
+@pytest.mark.parametrize('platform', ['win32', 'linux', 'darwin'])
+def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, monkeypatch, platform):
     service, _, _, _ = setup
     launched = []
     class Process:
@@ -126,7 +127,7 @@ def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, 
             return 0
         def wait(self):
             return 0
-    monkeypatch.setattr("backend.installation.sys.platform", "win32")
+    monkeypatch.setattr("backend.installation.sys.platform", platform)
     class Owned:
         def __init__(self, args, **kwargs):
             launched.append((args, kwargs))
@@ -137,16 +138,16 @@ def test_native_key_prompt_passes_no_credential_to_subprocess_or_browser(setup, 
             pass
     monkeypatch.setattr("backend.installation.OwnedProcess", Owned)
     assert service.launch_native("lexirise")
-    assert launched[0][0][-3:] == ["-m", "scripts.set_lexirise_key", "--account"]
+    assert launched[0][0][-4:] == ["-m", "scripts.set_lexirise_key", "--account", '--gui']
     assert launched[0][1]['stdin'] is None
-    assert launched[0][1]['visible_console'] is True
+    assert not launched[0][1].get('visible_console')
     assert "env" not in launched[0][1]
     source = Path(__file__).resolve().parents[2]
     assert launched[0][1]['cwd'] == source != service.root
-    for kind, script in [('folders', 'select-game-folders.ps1'), ('checks', 'check-capture-readiness.py')]:
+    for kind in ['folders', 'checks']:
         assert service.launch_native(kind)
         args, options = launched[-1]
-        assert str(source / 'scripts' / script) in args
+        assert args[-3:] == ['-m', 'backend.native_setup', kind]
         assert options['cwd'] == source
 
 

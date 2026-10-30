@@ -35,13 +35,15 @@ CHILD_TARGETS = {
     'story-fingerprints': ('module', 'scripts.build_story_fingerprints'),
     'capture-readiness': ('script', 'scripts/check-capture-readiness.py'),
     'account-key': ('module', 'scripts.set_lexirise_key'),
+    'native-setup': ('module', 'backend.native_setup'),
     'index-pragmata': ('module', 'scripts.index_pragmata_assets'),
     'index-voice': ('module', 'scripts.index_voice_assets'),
     'update-voice': ('module', 'scripts.update_voice_assets'),
 }
-# The extracted experiment has no live updater or credential-writing prompt.
+# The extracted experiment has no live updater. Account entry is a fixed local
+# product dialog; verification is GET-only and writes stay in protected storage.
 # ASR is accepted only by its own image, with its own native dependency tree.
-EXPERIMENT_CHILDREN = tuple(kind for kind in CHILD_TARGETS if kind not in {'toolkit-update', 'account-key'})
+EXPERIMENT_CHILDREN = tuple(kind for kind in CHILD_TARGETS if kind != 'toolkit-update')
 SOURCE_RESOURCES = frozenset({
     'package.json', 'public/mobile-capture/games-data.json',
     'assets/fireredvad/fireredvad_vad.onnx', 'assets/fireredvad/cmvn.ark',
@@ -248,7 +250,12 @@ def discover_layout(environ: Mapping[str, str] | None = None) -> RuntimeLayout:
         roots = {name: Path(env['PROXY_TRANSCRIPT_' + name.upper()]) for name in _ROOT_FIELDS}
     else:
         manifest = {}
-        settings = Path(env.get('LOCALAPPDATA', str(Path.home()))) / 'Proxy Transcript'
+        if 'LOCALAPPDATA' in env:
+            settings = Path(env['LOCALAPPDATA']) / 'Proxy Transcript'
+        elif sys.platform == 'darwin':
+            settings = Path.home() / 'Library/Application Support/Game Immersion Toolkit'
+        else:
+            settings = Path(env.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'game-immersion-toolkit'
         defaults = dict(data_root=legacy / 'data', settings_root=settings,
             cache_root=settings / 'cache-v1', tool_root=legacy / 'data',
             work_root=legacy / 'work/voice-assets', state_root=legacy / 'data',

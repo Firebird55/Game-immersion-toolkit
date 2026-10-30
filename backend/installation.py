@@ -92,7 +92,7 @@ class InstallationService:
         self.game_state, self.refresh_game = game_state, refresh
         self.account_configured, self.install_lookup = account_configured, install_lookup
         layout = discover_layout()
-        self.path = (layout.settings_root / 'setup.json' if layout.mode == 'bundle' else
+        self.path = (layout.settings_root / 'setup.json' if layout.mode == 'bundle' or sys.platform != 'win32' else
                      Path(os.environ.get("LOCALAPPDATA", runtime_data_root(root))) / "Proxy Transcript/setup.json")
         self._lock = threading.RLock()
         self._jobs: dict[str, dict] = {}
@@ -135,20 +135,20 @@ class InstallationService:
                           "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
         ocr = Path.home() / ".config/oneocr"
         from .ocr_engine import portable_models_available
+        from .desktop_capabilities import capture_capability
         requirements = [
-            {"id": "windows", "title": "Windows", "ready": sys.platform == "win32",
-             "help": "Desktop game capture requires Windows. The mobile capture test is a separate browser page."},
+            capture_capability(),
             {"id": "ocr", "title": "Subtitle OCR", "ready": portable_models_available() or all((ocr / name).is_file() for name in
               ("oneocr.dll", "oneocr.onemodel", "onnxruntime.dll")),
              "help": "Offline OCR is included. Repair the toolkit installation if its model files are missing."},
             {"id": "audio", "title": "Audio conversion", "ready": bool(ffmpeg_executable()),
-             "help": "Re-run Install.cmd to repair the local audio dependencies."},
+             "help": "Repair the toolkit installation if the bundled audio converter is missing."},
         ]
         if layout.mode == 'bundle':
             requirements[1]['help'] = "Offline OCR is included. This experimental bundle still needs native capture verification."
             requirements[2]['help'] = "Audio conversion is unavailable until this bundle's codec and game-tool verification is complete. Keep using your existing toolkit installation."
             requirements.append({'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
-                'help': "This experimental runtime is awaiting Windows capture, game-tool and distribution review. Keep using your existing installation."})
+                'help': "This candidate is awaiting native capture, game-tool and distribution review."})
         else:
             requirements.append({"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
                 "help": "Install Node.js 24 with npm, then re-run Install.cmd."})
@@ -216,8 +216,6 @@ class InstallationService:
     def launch_native(self, kind: str) -> bool:
         if kind not in {"folders", "lexirise", "checks"}:
             raise ValueError("Unsupported setup action")
-        if sys.platform != "win32":
-            raise ValueError("Native setup dialogs require Windows")
         with self._lock:
             if self._paused:
                 return False
@@ -226,20 +224,15 @@ class InstallationService:
             before = load_paths()
             layout = discover_layout()
             source = layout.resource_root
-            if kind == "folders":
-                args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                        str(resource_path('scripts/select-game-folders.ps1'))]
-                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            elif kind == "lexirise":
-                # The hidden-input prompt owns its console. No key is sent to the browser or command line.
-                args = child_command('account-key', ['--account'])
-                flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+            if kind == 'lexirise':
+                # A password field on the host owns the credential. No key is
+                # sent to the browser, command line or process environment.
+                args = child_command('account-key', ['--account', '--gui'])
             else:
-                args = child_command('capture-readiness', ['--pause'])
-                flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+                args = child_command('native-setup', [kind])
             environment = {'env': layout.child_environment()} if layout.mode == 'bundle' else {}
             owner = OwnedProcess(args, cwd=source, stdin=None, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, visible_console=kind != 'folders', **environment)
+                stderr=subprocess.DEVNULL, **environment)
             process = owner.process
             self._native_owners[kind] = owner
             self._native[kind] = process

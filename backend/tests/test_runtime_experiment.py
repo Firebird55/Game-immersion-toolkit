@@ -39,7 +39,7 @@ def test_probe_refuses_wrong_profile_or_native_image_before_import(tmp_path, mon
         bundle_entry.main(['--runtime-probe', kind])
 
 
-def test_experiment_manifest_cannot_expand_to_credential_or_update_children(tmp_path, monkeypatch):
+def test_experiment_manifest_allows_fixed_account_dialog_but_cannot_expand_to_update_children(tmp_path, monkeypatch):
     layout = frozen_layout(tmp_path, children=runtime_bundle.EXPERIMENT_CHILDREN, profile='runtime-experiment')
     manifest = dict(schema=runtime_bundle.MANIFEST_SCHEMA, profile=layout.profile, version=layout.version,
         source_commit=layout.source_commit, build_id=layout.build_id,
@@ -51,7 +51,8 @@ def test_experiment_manifest_cannot_expand_to_credential_or_update_children(tmp_
     path.write_text(json.dumps(manifest))
     env = layout.child_environment(environ={})
     assert runtime_bundle.discover_layout(env).children == runtime_bundle.EXPERIMENT_CHILDREN
-    for child in ('toolkit-update', 'account-key'):
+    assert 'account-key' in layout.children
+    for child in ('toolkit-update', 'unregistered-command'):
         manifest['children'] = [*layout.children, child]
         path.write_text(json.dumps(manifest))
         with pytest.raises(runtime_bundle.RuntimeBundleError, match='child inventory'):
