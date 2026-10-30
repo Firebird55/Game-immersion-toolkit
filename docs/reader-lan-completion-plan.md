@@ -45,8 +45,8 @@ server or duplicated reading engine is required.
   sizes, no horizontal overflow, usable history, toggle and pagination.
 - [ ] WebKit/Chromium phone/tablet layouts: touch, safe areas, long captions and
   lookup overlays. Keep physical-device evidence distinct from browser emulation.
-- [ ] Assert zero current-line displacement as game-update state changes.
-- [ ] Exercise desktop plus second LAN client, reload/reconnect, playback and
+- [x] Assert zero current-line displacement as game-update state changes.
+- [x] Exercise desktop plus second LAN client, reload/reconnect, playback and
   favorites; reject unintended cross-origin operations.
 - [ ] Test the built static R19 frontend and the source frontend using the same
   assertions; retain browser storage/userscript identity through restart/update.
@@ -61,7 +61,14 @@ Reader validation: production frontend in Chromium, Firefox and WebKit; 28
 viewport/DPR cases including phone landscape and 150%/200% equivalent CSS
 viewports. Assertions cover equal typography, document scrolling, favorites,
 pagination, update displacement, empty history and oversized current captions.
-Physical browser zoom/DPI and physical phone/tablet acceptance remain separate.
+Native browser validation on 2026-10-30 used installed Edge 156.0.4314.50,
+Windows 150% DPI and actual browser zoom controls at 100% and 150%.
+Both caption areas retained the same 27px computed font size, with no horizontal
+overflow; history used document scrolling. Favorites switched to seven authored
+saved rows and the button changed to History. A game update and its open status
+popover caused exactly zero current-caption displacement. Screenshots and the
+measurement receipt remain in ignored local output. Native Firefox/200% zoom and
+physical phone/tablet acceptance remain separate from viewport emulation.
 
 LAN validation: the actual Python gateway serves paired Chromium, Firefox and
 WebKit clients over a private interface. The same assertions exercise the built
