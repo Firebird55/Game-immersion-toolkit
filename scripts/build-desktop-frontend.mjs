@@ -132,7 +132,7 @@ export function inventoryDesktopPayload(root) {
   const files = {}, names = new Set(), directories = [];
   for (const name of walkFiles(root, name => directories.push(name))) {
     if (name === MANIFEST_NAME) continue;
-    if (!permittedPayload(name)) throw Error('Unreviewed file in the desktop payload.');
+    if (!permittedPayload(name)) throw Error('Unreviewed file in the desktop payload: ' + name);
     const folded = name.toLowerCase();
     if (names.has(folded)) throw Error('Case-aliased desktop payload names are prohibited.');
     names.add(folded);
@@ -224,6 +224,26 @@ function dependencyInputsUnchanged(inputs) {
   });
 }
 
+async function renameBuildDirectory(from, to) {
+  // Antivirus and filesystem sync clients briefly hold new Windows assets.
+  // Keep the atomic rename and rollback semantics; never copy a partial tree.
+  for (let attempt = 0; ; attempt++) {
+    try { renameSync(from, to); return; }
+    catch (error) {
+      if (process.platform !== 'win32' || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= 9) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.min(1000, 100 * (attempt + 1))));
+    }
+  }
+}
+
+function removeBuildFolderMetadata(directory) {
+  // Only a dedicated ignored build directory may call this. Installed payload
+  // validation remains read-only and continues to reject unexpected files.
+  for (const name of walkFiles(directory)) {
+    if (name.split('/').at(-1).toLowerCase() === 'desktop.ini') rmSync(join(directory, name));
+  }
+}
+
 /** Build on the developer host; the emitted payload needs no JS server/runtime. */
 export async function buildDesktopFrontend({outputDirectory = join(repository, 'output/desktop-frontend'), force = false} = {}) {
   outputDirectory = resolve(outputDirectory);
@@ -237,7 +257,10 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
   const inputKey = sha256(stable(state));
   const receiptPath = join(outputParent, 'build-cache/desktop-frontend-' + sha256(Buffer.from(local)).slice(0, 16) + '.json');
   let prior = null;
-  if (existsSync(outputDirectory)) prior = verifyDesktopOutput(outputDirectory);
+  if (existsSync(outputDirectory)) {
+    removeBuildFolderMetadata(outputDirectory);
+    prior = verifyDesktopOutput(outputDirectory);
+  }
   if (!force && prior && existsSync(receiptPath)) {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     if (receipt.input_key === inputKey && receipt.build_id === prior.build_id && dependencyInputsUnchanged(receipt.module_inputs) &&
@@ -286,6 +309,10 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
       ['SHADCN-LICENSE.md', 'styles/SHADCN-LICENSE.md']]) writePayload(staging, 'notices/' + name, readInput(source));
     writePayload(staging, 'notices/THIRD_PARTY_LICENSES.txt', Buffer.from(sourceCwd(dependencyNotices)));
     if (stable(inputState(selectedPublic())) !== stable(state) || !dependencyInputsUnchanged(moduleInputs)) throw Error('Desktop build inputs changed during compilation.');
+    // Windows shell / sync clients can decorate newly created build folders.
+    // Remove only that exact metadata filename from our owned staging tree;
+    // the inventory and installed-payload verifier still reject every extra file.
+    removeBuildFolderMetadata(staging);
     const files = inventoryDesktopPayload(staging);
     const sourceFingerprint = sha256(stable({state, module_inputs: moduleInputs}));
     const fontAssets = Object.fromEntries(Object.entries(fonts.files).map(([name, record]) => [name,
@@ -307,9 +334,9 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
       retainedDirectory = join(outputParent, 'desktop-frontend-retained', prior.build_id + '-' + randomUUID().slice(0, 8));
       rejectLinks(retainedDirectory);
       mkdirSync(dirname(retainedDirectory), {recursive: true});
-      renameSync(outputDirectory, retainedDirectory);
+      await renameBuildDirectory(outputDirectory, retainedDirectory);
     }
-    try { renameSync(staging, outputDirectory); } catch (error) { if (retainedDirectory) renameSync(retainedDirectory, outputDirectory); throw error; }
+    try { await renameBuildDirectory(staging, outputDirectory); } catch (error) { if (retainedDirectory) await renameBuildDirectory(retainedDirectory, outputDirectory); throw error; }
     mkdirSync(dirname(receiptPath), {recursive: true});
     writeFileSync(receiptPath, stable({input_key: inputKey, build_id: manifest.build_id, module_inputs: moduleInputs}) + '\n');
     return {root: outputDirectory, manifest, reused: false, retainedDirectory};
