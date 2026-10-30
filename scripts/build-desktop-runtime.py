@@ -95,6 +95,7 @@ def extra_resources(root, destination):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / name, target)
         shutil.copymode(root / name, target)
+    return manifest
 
 
 def build(frontend_root, output, wheelhouse=None, resources_root=None):
@@ -148,8 +149,9 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None):
         destination = evidence / name
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, destination)
-    if resources_root:
-        extra_resources(resources_root, evidence)
+    native_resources = []
+    for resource_input in resources_root or []:
+        native_resources.append(extra_resources(resource_input, evidence))
     resources = [{'path': p.relative_to(evidence).as_posix(), 'sha256': digest(p)}
         for p in sorted(evidence.rglob('*')) if p.is_file()]
     source_hash = hashlib.sha256(json.dumps(before, sort_keys=True).encode()).hexdigest()
@@ -158,6 +160,7 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None):
     inputs = {'schema': 'proxy-desktop-observed-build-v1', **identity, 'resources': resources,
         'source_inputs': before, 'python_version': platform.python_version(),
         'python_executable_sha256': digest(sys.executable), 'components': components,
+        'native_resources': native_resources,
         'r19_complete': False, 'redistribution_review': 'pending-exact-output'}
     inputs_path = output / 'OBSERVED-INPUTS.json'
     inputs_path.write_text(json.dumps(inputs, indent=2) + '\n')
@@ -169,7 +172,7 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None):
         raise ValueError('Source changed during the candidate build; retained output is invalid and must not be packaged.')
     runtime = output / 'runtime/ProxyTranscriptRuntime'
     manifest = {'schema': MANIFEST_SCHEMA, **identity, 'resources': {item['path']: item['sha256'] for item in resources},
-        'children': list(EXPERIMENT_CHILDREN), 'r19_complete': False}
+        'children': list(EXPERIMENT_CHILDREN), 'r19_complete': False, 'storage_epoch': 1, 'host_protocol': 1}
     (runtime / '_internal/runtime-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     asr = output / 'runtime/ProxyTranscriptAsr'
     target = runtime / 'asr'
@@ -200,6 +203,7 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None):
     proof = {'schema': 'proxy-runtime-candidate-v1', **identity, 'repository': 'Firebird55/Game-immersion-toolkit',
         'r19_complete': False, 'redistribution_review': 'pending-exact-output', 'native_acceptance': 'unavailable',
         'signing': 'not-established', 'source_inputs_sha256': source_hash, 'components': components,
+        'native_resources': native_resources, 'storage_epoch': 1, 'host_protocol': 1,
         'files': files, 'directories': sorted(p.relative_to(runtime).as_posix() for p in runtime.rglob('*') if p.is_dir() and not p.is_symlink())}
     (output / 'CANDIDATE-PROVENANCE.json').write_text(json.dumps(proof, indent=2) + '\n')
     print(json.dumps({'build_id': identity['build_id'], 'files': len(files), 'bytes': sum(p['bytes'] for p in files),
@@ -212,7 +216,7 @@ def main():
     parser.add_argument('--frontend-root', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--wheelhouse', type=Path)
-    parser.add_argument('--resources-root', type=Path)
+    parser.add_argument('--resources-root', type=Path, action='append', default=[])
     args = parser.parse_args()
     try:
         build(args.frontend_root.absolute(), args.output.absolute(), args.wheelhouse, args.resources_root)

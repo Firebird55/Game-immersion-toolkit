@@ -1,0 +1,44 @@
+{
+  "schema": "toolkit-audio-sources-v1",
+  "reviewed_at": "2026-10-30",
+  "ffmpeg": {
+    "version": "9.0.2",
+    "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+    "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+    "archive": "ffmpeg-9.0.2.tar.xz",
+    "directory": "ffmpeg-9.0.2",
+    "license": "LGPL-2.1-or-later"
+  },
+  "lame": {
+    "version": "4.0",
+    "url": "https://master.dl.sourceforge.net/project/lame/lame/4.0/lame-4.0.tar.gz?viasf=1",
+    "sha256": "3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb",
+    "archive": "lame-4.0.tar.gz",
+    "directory": "lame-4.0",
+    "license": "LGPL-2.0-or-later"
+  },
+  "vgmstream": {
+    "version": "r2168",
+    "source_commit": "d9875b1fff307e4759dfb85e49e3d5e6fb196f7c",
+    "url": "https://codeload.github.com/vgmstream/vgmstream/tar.gz/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c",
+    "sha256": "e74334a13007655b5812af1f4b5880dbb11516dfc0a114d3cffe2dd09dc4fe1b",
+    "archive": "vgmstream-r2168-source.tar.gz",
+    "directory": "vgmstream-d9875b1fff307e4759dfb85e49e3d5e6fb196f7c",
+    "license": "BSD-3-Clause; see retained component licenses",
+    "windows_artifact": {
+      "url": "https://github.com/vgmstream/vgmstream/releases/download/r2168/vgmstream-win64.zip",
+      "sha256": "692d45070852a35c1fa42726aa3c9de528e44eec925d37d99b1074256b99a229",
+      "archive": "vgmstream-win64.zip",
+      "redistribution_review": "pending-native-dependency-corresponding-source"
+    }
+  },
+  "windows_build_toolchain": {
+    "name": "w64devkit",
+    "version": "2.11.0",
+    "url": "https://github.com/skeeto/w64devkit/releases/download/v2.11.0/w64devkit-x64-2.11.0.7z.exe",
+    "sha256": "54c2bb9962e8a30c8270e34c5efc3d5fee579f53087fa7d435b95fbba2af7b2b",
+    "source_url": "https://github.com/skeeto/w64devkit/releases/download/v2.11.0/source.tar",
+    "source_sha256": "50ee43ca02b9ca49e0e16da7eaf9701c9a396a019ebb2416a93d16769d53e5ff",
+    "delivered_to_user": false
+  }
+}

@@ -9,8 +9,9 @@ payloads with their actual archives, records notices (explicitly marking
 metadata-only notice evidence as incomplete), and binds the frontend and model
 bytes to the clean source commit. This is a quarantined extracted experiment,
 not an approved complete R19 distribution. The `runtime` production profile
-remains hard-disabled. Neither credential-writing prompts nor the source updater
-are enabled by the experimental child manifest.
+remains hard-disabled. Native setup uses the fixed account-key child and host
+protected credential storage. The source updater remains excluded from the
+experimental child manifest.
 
 On a Windows build host, provision the pinned archive and locked wheels, build
 the desktop frontend and publish the owned NTE bridge from the exact pinned SDK

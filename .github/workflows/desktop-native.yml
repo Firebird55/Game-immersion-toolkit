@@ -59,8 +59,22 @@ jobs:
           if ($LASTEXITCODE -eq 2) { Write-Output 'Native capture is unavailable on this runner; this is not native acceptance.'; exit 0 }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run desktop:build -- --output-root output/desktop-frontend
+      - name: Acquire the verified Windows codec build compiler
+        if: runner.os == 'Windows'
+        run: ./scripts/prepare-codec-compiler.ps1 -OutputRoot output/codec-compiler
+      - name: Build maintained audio tools from retained sources
+        run: |
+          $options = @('--work', (Join-Path $env:RUNNER_TEMP 'toolkit-codec-build'), '--output', 'output/audio-resources', '--cache', 'output/audio-source-cache', '--jobs', '4')
+          if ($IsWindows) {
+            $gitRoot = Split-Path (Split-Path (Get-Command git).Source)
+            $options += @('--shell', (Join-Path $gitRoot 'usr/bin/bash.exe'), '--toolchain', (Resolve-Path 'output/codec-compiler/w64devkit').Path, '--windows-vgmstream')
+          } else { $options += @('--shell', '/bin/sh') }
+          python scripts/build-audio-runtime.py @options
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/probe-native-audio.py --resources output/audio-resources --output output/native-audio-probe.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Freeze the native runtime and isolated ASR child
-        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse
+        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources
       - name: Check the frozen host with no Python or Node dependency
         env:
           QT_QPA_PLATFORM: offscreen
@@ -93,5 +107,6 @@ jobs:
             output/native-distribution/DESKTOP-PROVENANCE.json
             output/native-distribution/SHA256SUMS
             output/native-capture-probe.json
+            output/native-audio-probe.json
           if-no-files-found: error
           retention-days: 7
