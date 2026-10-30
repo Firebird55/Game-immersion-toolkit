@@ -137,3 +137,24 @@ def test_parent_death_retains_installation_lease_until_descendants_stop(tmp_path
             parent.wait(timeout=5)
         parent.stdout.close()
         parent.stderr.close()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Retained outer Windows Job after guardian failure')
+def test_guardian_crash_still_leaves_host_with_verified_job_ownership(tmp_path):
+    from backend.bundle_host import ExclusiveFileLease
+    lease = ExclusiveFileLease(tmp_path / 'operation.lock')
+    lease.acquire()
+    leaf = 'import os,psutil,json,time; print(json.dumps([os.getpid(),psutil.Process().create_time()]),flush=True); time.sleep(120)'
+    owner = OwnedProcess([sys.executable, '-u', '-c', leaf], text=True,
+        independent_session=True, retained_fds=lease.retained_descriptors())
+    try:
+        identity = json.loads(owner.process.stdout.readline())
+        owner.process.kill()
+        owner.process.wait(timeout=5)
+        owner.stop()
+        assert gone(*identity), 'Guardian crash lost the retained descendant Job'
+        assert lease.held
+    finally:
+        owner.stop()
+        owner.close_streams()
+        lease.close()
