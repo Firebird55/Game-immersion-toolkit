@@ -38,7 +38,7 @@ def authored_release(tmp_path, monkeypatch):
             for p in (root / '_internal/desktop').rglob('*') if p.is_file()})
     (root / '_internal/runtime-manifest.json').write_text(json.dumps(manifest))
     receipt.update({key: manifest[key] for key in ('source_commit', 'version', 'build_id', 'profile', 'storage_epoch', 'host_protocol')})
-    receipt.update(r19_complete=True, redistribution_review='approved', native_acceptance='approved',
+    receipt.update(r19_complete=False, release_eligible=True, redistribution_review='approved', native_acceptance='approved',
         files=[dict(path=p.relative_to(root).as_posix(), bytes=p.stat().st_size, sha256=packaging.digest(p))
             for p in sorted(root.rglob('*')) if p.is_file()],
         directories=[p.relative_to(root).as_posix() for p in sorted(root.rglob('*')) if p.is_dir()])

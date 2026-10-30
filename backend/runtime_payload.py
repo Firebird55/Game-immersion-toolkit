@@ -53,10 +53,10 @@ def validate(root, receipt, target, *, candidate=False, installed=False):
         raise PackageError('Installer needs an exact numeric version.')
     if not re.fullmatch(r'[a-f0-9]{40}', str(receipt.get('source_commit', ''))):
         raise PackageError('Installer needs an exact source commit.')
-    eligible = (receipt.get('profile') == 'runtime' and receipt.get('r19_complete') is True
+    eligible = (receipt.get('profile') == 'runtime' and receipt.get('release_eligible') is True
         and receipt.get('redistribution_review') == 'approved' and receipt.get('native_acceptance') == 'approved')
     if not candidate and not eligible:
-        raise PackageError('Release packaging requires completed runtime, redistribution and native acceptance. Use --candidate for private construction tests.')
+        raise PackageError('Release packaging requires exact target input, redistribution and native acceptance. Use --candidate for construction tests.')
     expected = {}
     entries = receipt.get('files')
     if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):

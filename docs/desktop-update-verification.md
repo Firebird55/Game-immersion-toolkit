@@ -1,7 +1,7 @@
 # Immutable desktop update verification
 
 Implemented on 2026-10-30. This is source-level update delivery and rejection
-coverage, not a claim that an eligible signed native release has been published.
+coverage, not a claim that an eligible native release has been published.
 
 The native packager emits a separate `DESKTOP-PROVENANCE-<target>.json` and
 `Game-immersion-toolkit-<version>-<target>-runtime.zip` for each target. The ZIP
@@ -21,8 +21,11 @@ activated through a command-line override.
 The current trust boundary is the canonical repository's HTTPS release API and
 asset digests. This implementation does **not** verify a Sigstore attestation,
 Windows Authenticode signature or macOS notarization ticket. Those are separate
-release and native acceptance requirements. A locally constructed candidate
-cannot supply their evidence by changing approval strings.
+release properties; unsigned releases report that state explicitly. A locally
+constructed candidate cannot supply their evidence by changing approval strings.
+Target eligibility uses the exact input and native evidence described in
+[desktop target acceptance](desktop-target-acceptance.md), independently of the
+remaining all-game R19 plan.
 
 The downloaded archive is bounded in compressed size, expanded size and file
 count. Extraction rejects traversal, Windows device names and alternate streams,
@@ -58,8 +61,8 @@ Remaining acceptance:
   and offline restart with copied synthetic stores on each declared platform.
 - Verify protected storage using disposable TEST entries on native macOS/Linux
   acceptance hosts, and Windows DPAPI using a disposable test installation.
-- Complete each native release's dependency/source/notice, signing and
-  notarization requirements; then publish target-specific receipts and update
+- Complete each native release's dependency/source/notice and target evidence,
+  explicitly disclose signing/notarization status, then publish receipts and update
   ZIPs together with installation artifacts and verify downloaded checksums.
 - Verify installer repair/uninstall and recovery from interrupted downloads,
   full disks, failed activation and retained browser chunks in packaged builds.

@@ -1,4 +1,5 @@
-# Executed only after closure.py has validated the exact Windows build inputs.
+# Executed after the native builder has validated its exact installed inputs.
+# A runtime profile is a construction choice, never a release approval.
 import json
 import os
 from pathlib import Path
@@ -10,9 +11,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, co
 from backend.runtime_bundle import CHILD_TARGETS
 
 inputs = json.loads(Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']).read_text(encoding='utf-8'))
-runtime = inputs['profile'] == 'runtime-experiment'
-if inputs['profile'] == 'runtime':
-    raise SystemExit('Full runtime profile is disabled until helper/host artifacts and exact collected-file closure are implemented and reviewed.')
+runtime = inputs['profile'] in {'runtime', 'runtime-experiment'}
 resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT'])
 data = [(str(resource_root / item['path']), str(Path(item['path']).parent)) for item in inputs['resources']]
 hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experiment' else []

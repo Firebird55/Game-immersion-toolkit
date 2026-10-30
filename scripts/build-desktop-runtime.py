@@ -1,7 +1,7 @@
-"""Build an observed native desktop candidate using R19's isolated spec.
+"""Build an exact native desktop inventory for subsequent target acceptance.
 
-This constructs private artifacts for host/installer acceptance. It deliberately
-does not replace record_runtime.py/closure.py approval or enable production.
+Construction never grants release eligibility. The unchanged payload is promoted
+only after its input closure and native target evidence have been verified.
 No dependency or tool is installed by this command.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ from backend.desktop_frontend import FrontendBuild, MANIFEST
 from backend.runtime_bundle import EXPERIMENT_CHILDREN, MANIFEST_SCHEMA, relative_resource
 from closure import FORBIDDEN_NAMES, PRIVATE_PARTS
 from record_diagnostic import wheel_metadata
-from record_runtime import RESOURCES, verify_wheel
+from record_runtime import RESOURCES, verify_python, verify_wheel
 from packaging.requirements import Requirement
 
 
@@ -98,9 +98,11 @@ def extra_resources(root, destination):
     return manifest
 
 
-def build(frontend_root, output, wheelhouse=None, resources_root=None):
+def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profile='runtime', python_archive=None):
     if sys.version_info[:2] != (3, 12):
         raise ValueError('Desktop candidates require Python 3.12.')
+    if profile not in {'runtime', 'runtime-experiment'}:
+        raise ValueError('Unsupported desktop construction profile.')
     if output.exists():
         raise ValueError('Choose a fresh output directory; previous candidates are preserved.')
     for path in (output, *output.parents):
@@ -114,6 +116,13 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None):
     if frontend.value['source_commit'] != commit or frontend.value['version'] != package['version']:
         raise ValueError('Build the desktop frontend from the current source identity first.')
     before = source_inputs()
+    python_supplier = None
+    if python_archive:
+        pin = json.loads((ROOT / 'packaging/runtime-bundle/python-supplier.json').read_text())
+        if platform.python_version() != pin['version'] or sys.platform != 'win32':
+            raise ValueError('Python supplier pin does not match this native build target.')
+        installed_python = verify_python(python_archive, Path(sys.base_prefix), pin)
+        python_supplier = {**pin, 'installed_files': installed_python}
     components = []
     for lock in ['requirements.lock.txt', 'packaging/desktop/build-requirements.lock.txt']:
         for line in (ROOT / lock).read_text().splitlines():
@@ -155,16 +164,19 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None):
     resources = [{'path': p.relative_to(evidence).as_posix(), 'sha256': digest(p)}
         for p in sorted(evidence.rglob('*')) if p.is_file()]
     source_hash = hashlib.sha256(json.dumps(before, sort_keys=True).encode()).hexdigest()
-    identity = {'profile': 'runtime-experiment', 'version': package['version'], 'source_commit': commit,
+    identity = {'profile': profile, 'version': package['version'], 'source_commit': commit,
         'build_id': 'desktop-' + source_hash[:20]}
     inputs = {'schema': 'proxy-desktop-observed-build-v1', **identity, 'resources': resources,
         'source_inputs': before, 'python_version': platform.python_version(),
         'python_executable_sha256': digest(sys.executable), 'components': components,
+        'python_supplier': python_supplier,
         'native_resources': native_resources,
         'r19_complete': False, 'redistribution_review': 'pending-exact-output'}
     inputs_path = output / 'OBSERVED-INPUTS.json'
     inputs_path.write_text(json.dumps(inputs, indent=2) + '\n')
-    env = dict(os.environ, PROXY_RUNTIME_BUILD_INPUTS=str(inputs_path), PROXY_RUNTIME_EVIDENCE_ROOT=str(evidence))
+    env = dict(os.environ, PYTHONNOUSERSITE='1', PROXY_RUNTIME_BUILD_INPUTS=str(inputs_path), PROXY_RUNTIME_EVIDENCE_ROOT=str(evidence))
+    env.pop('PYTHONPATH', None)
+    env.pop('PYTHONHOME', None)
     subprocess.run([sys.executable, '-B', '-m', 'PyInstaller', '--noconfirm', '--clean',
         '--distpath', str(output / 'runtime'), '--workpath', str(output / 'build'),
         str(ROOT / 'packaging/runtime-bundle/runtime.spec')], cwd=ROOT, env=env, check=True)
@@ -203,7 +215,9 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None):
     proof = {'schema': 'proxy-runtime-candidate-v1', **identity, 'repository': 'Firebird55/Game-immersion-toolkit',
         'r19_complete': False, 'redistribution_review': 'pending-exact-output', 'native_acceptance': 'unavailable',
         'signing': 'not-established', 'source_inputs_sha256': source_hash, 'components': components,
-        'native_resources': native_resources, 'storage_epoch': 1, 'host_protocol': 1,
+        'native_resources': native_resources, 'python_supplier': python_supplier,
+        'python_version': platform.python_version(), 'python_executable_sha256': digest(sys.executable),
+        'release_eligible': False, 'storage_epoch': 1, 'host_protocol': 1,
         'files': files, 'directories': sorted(p.relative_to(runtime).as_posix() for p in runtime.rglob('*') if p.is_dir() and not p.is_symlink())}
     (output / 'CANDIDATE-PROVENANCE.json').write_text(json.dumps(proof, indent=2) + '\n')
     print(json.dumps({'build_id': identity['build_id'], 'files': len(files), 'bytes': sum(p['bytes'] for p in files),
@@ -217,9 +231,13 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--wheelhouse', type=Path)
     parser.add_argument('--resources-root', type=Path, action='append', default=[])
+    parser.add_argument('--profile', choices=['runtime', 'runtime-experiment'], default='runtime')
+    parser.add_argument('--python-archive', type=Path,
+        help='Verify the provisioned Windows interpreter byte-for-byte against its pinned supplier archive.')
     args = parser.parse_args()
     try:
-        build(args.frontend_root.absolute(), args.output.absolute(), args.wheelhouse, args.resources_root)
+        build(args.frontend_root.absolute(), args.output.absolute(), args.wheelhouse, args.resources_root,
+            profile=args.profile, python_archive=args.python_archive)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print('Observed desktop build failed: ' + str(error), file=sys.stderr)
         return 2
