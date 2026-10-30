@@ -81,7 +81,8 @@ if sys.platform == "win32":
 
 def _process_path_for_window(hwnd: int) -> str:
     if sys.platform != 'win32':
-        return ''
+        from .platform_windows import executable_path_for_handle
+        return executable_path_for_handle(hwnd)
     process_id = wintypes.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
     process = kernel32.OpenProcess(0x1000, False, process_id.value)
@@ -233,7 +234,8 @@ def monitor_for_window(hwnd: int) -> MonitorInfo | None:
 
 def list_visible_windows() -> list[WindowInfo]:
     if sys.platform != "win32":
-        return []
+        from .platform_windows import list_visible_windows as platform_windows
+        return platform_windows()
     windows: list[WindowInfo] = []
     callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 

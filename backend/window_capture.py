@@ -140,7 +140,8 @@ class BackgroundCapture:
 
     def frame(self, window: WindowInfo) -> Image.Image | None:
         if sys.platform != 'win32':
-            return None
+            from .platform_windows import capture_window
+            return capture_window(window)
         user32 = ctypes.WinDLL('user32', use_last_error=True)
         user32.GetForegroundWindow.restype = wintypes.HWND
         with self._lock:

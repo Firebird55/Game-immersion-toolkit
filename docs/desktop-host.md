@@ -68,3 +68,5 @@ Game-data preparation continues through the normal shared runtime services.
 Final frozen resource closure, ordinary browser profile continuity, platform
 native capture and installed repair/update/uninstall remain in the
 [desktop delivery plan](desktop-delivery-completion-plan.md).
+See [desktop platforms](desktop-platforms.md) for the implemented discovery
+backends, capture permission requirements and native verification limits.
