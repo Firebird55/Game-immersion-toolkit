@@ -145,6 +145,14 @@ Windows Server evidence cannot establish Windows 11 25H2 OCR/capture/DPI, instal
 voice playback, complete loaded-DLL/CRT closure or clean real-user acceptance.
 Native Windows gates remain explicit; `r19_complete` stays false.
 
+The [authored unvoiced export continuation](r19-unvoiced-export.md) exercises the
+actual GoldSrc index/language and normal mobile-export workers through portable
+bundle creation and the mobile parser. Its source pass is limited to confirmed
+unvoiced screen messages and explicit missing-pack rejection; the new extracted
+Windows probe remains unrun. This is not real ZZZ/NTE/Endfield/REE or voiced
+game-format acceptance. The reconciled `toolchains.json` records existing owned
+and private helper observations separately from collection/rights approval.
+
 ## Continued Windows evidence (2026-10-29)
 
 [Helper run 40882378706](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/40882378706)

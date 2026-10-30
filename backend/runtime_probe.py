@@ -14,12 +14,13 @@ from .runtime_bundle import EXPERIMENT_CHILDREN, RuntimeBundleError
 from .runtime_probe_common import synthetic_roots, block_remote_access, loaded_native, developer_environment
 
 
-def worker(layout, kind, arguments):
+def worker(layout, kind, arguments, *, expected_status=0):
     result = subprocess.run(layout.child_command(kind, arguments), env=layout.child_environment(kind),
         cwd=layout.work_root, capture_output=True, timeout=90)
-    if result.returncode:
+    if result.returncode != expected_status:
         # Raw child output can contain private paths and fixture text.
         raise RuntimeBundleError('Frozen synthetic worker failed: ' + kind)
+    return result
 
 
 def native(layout):
@@ -52,34 +53,12 @@ def native(layout):
     for kind in EXPERIMENT_CHILDREN:
         if kind not in {'frontend', 'windows-bootstrap', 'asr', 'capture-readiness', 'update-voice'}:
             worker(layout, kind, ['--help'])
-    fixture = layout.work_root / 'authored-goldsrc'
-    for name, content in {
-        'hl.exe': b'owned fixture marker, not an executable',
-        'valve/liblist.gam': b'game "Owned runtime fixture"',
-        'valve/titles.txt': b'CARD\n{\nAuthored runtime fixture\n}\n',
-        'valve_schinese/titles.txt': 'CARD\n{\n\u4e2d\u6587\u6d4b\u8bd5\n}\n'.encode('gbk'),
-    }.items():
-        path = fixture / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
-    index = layout.work_root / 'index.json'
-    language = layout.work_root / 'language.json'
-    worker(layout, 'game-index', ['--game', 'halflife', '--install', str(fixture),
-        '--directory', str(layout.work_root), '--output', str(index)])
-    worker(layout, 'language', ['--game', 'halflife', '--install', str(fixture),
-        '--directory', str(layout.work_root), '--output', str(language), '--locale', 'en', '--targets', '["zh-Hans"]'])
-    records = json.loads(language.read_text(encoding='utf-8'))['records']
-    if not json.loads(index.read_text(encoding='utf-8'))['records'] or not any(
-            row['source_text'] == 'Authored runtime fixture' and row['texts'].get('zh-Hans') == '\u4e2d\u6587\u6d4b\u8bd5' for row in records):
-        raise RuntimeBundleError('Frozen worker fixture identity/language was lost.')
-    from .mobile_library import export_library
-    destination = layout.default_export_root / 'authored-catalog'
-    export_library('halflife', [{'textId': 'halflife:owned-runtime-fixture', 'english': 'Authored runtime fixture',
-        'chinese': '\u4e2d\u6587\u6d4b\u8bd5', 'channels': ['dialogue']}], destination, include_audio=False)
+    from .unvoiced_export_probe import probe as export_probe
+    unvoiced_export = export_probe(layout, lambda kind, arguments, **options: worker(layout, kind, arguments, **options))
     return {'registry_readers_imported': len(GAMES), 'real_vad_silence': 'passed', 'nte_bridge_runtime': identity,
         'codec': codec,
         'game_index_worker': 'authored-format-passed', 'language_worker': 'authored-format-passed',
-        'export': 'authored-catalog-library-only; worker-help-only',
+        'export': 'authored-unvoiced-worker-roundtrip; voiced-export-not-verified', 'unvoiced_export': unvoiced_export,
         'worker_entrypoints': [kind for kind in EXPERIMENT_CHILDREN if kind not in
             {'frontend', 'windows-bootstrap', 'asr', 'capture-readiness', 'update-voice'}],
         'native_ocr_capture': 'not-run; proprietary files and Windows 11 required',
