@@ -20,6 +20,13 @@ approved for distribution. Its [exact-artifact review](docs/r19-codec-artifact-r
 identifies the GPLv3 build separately from the imageio wrapper's BSD license and
 rejects the old snapshot for production pending a maintained replacement and
 complete source/notice delivery. No R19 installer exists.
+
+The subsequent [Xiph FLAC selection](docs/r19-codec-replacement.md) builds version
+1.5.0 from its exact official source with Ogg and external pthreads disabled.
+Its GPL-2.0-or-later CLI and BSD-3-Clause reference library retain GPL/LGPL/Xiph
+texts, authorship and file notices, with a complete verified source/build kit.
+This separate candidate is not collected by the frozen runtime or published as
+a production binary; Windows/CRT and production source-delivery gates stay open.
 - scripts/extract_voice_links.mjs loads a separately downloaded GalScript reader from simon300000/zenless-voice (MIT, copyright 2024 simon3000). Setup retains its full license beside the pinned reader in the ignored local tool cache. Its ooz-wasm (GPL-3.0-or-later) and xxhash-wasm (MIT) dependencies retain their own notices. Neither game metadata nor the reader is bundled as original project code.
 - vgmstream is downloaded from its official r2117 Windows x64 release with full COPYING and dependency notices retained. The REE unpacker is downloaded separately from Ekey/REE.PAK.Tool; its upstream terms apply, and the project license grants no redistribution rights over that tool. Tool downloads are checksum verified and excluded from source/installer bundles.
 - Game scripts, subtitle catalogs, audio, recordings and extracted archives belong to their respective publishers and remain user-local. The project license grants no rights over game content.

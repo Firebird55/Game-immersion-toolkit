@@ -89,6 +89,9 @@ The [codec artifact review](r19-codec-artifact-review.md) now resolves the origi
 Gyan supplier/top-level FFmpeg source identity and rejects that snapshot for
 production. Complete dependency source/notices and a maintained replacement are
 required; the successful experimental decode does not override that disposition.
+The [Xiph replacement selection](r19-codec-replacement.md) now has complete-source
+kit/rebuild evidence on Server 2025. It is not collected by the frozen runtime
+yet and does not close native Windows 11 or general game-codec acceptance.
 
 All [R18 component gates](r18-runtime-components.md) remain binding for the
 actual shipped bytes. Exact maintained CPython supplier, Windows wheels and

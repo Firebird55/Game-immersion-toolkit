@@ -1,5 +1,9 @@
 # R19 codec artifact: rights, source delivery and servicing review
 
+Subsequent work on 2026-10-30 [selected and source-verified Xiph FLAC](r19-codec-replacement.md).
+The negative disposition below applies to the old Gyan FFmpeg artifact and is
+not reversed by the new candidate's source/decode evidence.
+
 Reviewed **2026-10-29** against implementation commit
 93cd61c3f3d206533312172113646e4ebc21b954 and its
 [extracted Windows evidence](r19-codec-experiment.md#extracted-windows-observation-2026-10-29).
