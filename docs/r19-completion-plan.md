@@ -1,22 +1,24 @@
 # R19 completion plan
 
 Status: **planned remaining work; no acceptance gate is closed by this plan**.
-Updated 2026-10-29 against `2e10dff78fb89f48584ff4f3ddb087e12e71c3ec`.
+Plan baseline: 2026-10-29 at `2e10dff78fb89f48584ff4f3ddb087e12e71c3ec`;
+codec integration checkpoint updated 2026-10-30.
 The acceptance contract remains the [R18 plan](r18-runtime-inventory.md#r19-acceptance-plan),
 [component inventory](r18-runtime-components.md) and
 [storage/host contract](r18-storage-host-contract.md). Current implementation and
 exact test/artifact identities are in the [runtime evidence](r19-runtime-bundle.md)
 and [helper evidence](r19-compiler-free-helpers.md).
-The [first codec slice](r19-codec-experiment.md) now implements experimental fixed
-FFmpeg/FLAC dispatch and its decode/failure probe; broader codecs and rights remain
-open. Its execution evidence is separate from the earlier checkpoint below.
+The [first codec slice](r19-codec-experiment.md) used experimental fixed
+FFmpeg/FLAC dispatch and its decode/failure probe. That historical execution
+evidence remains separate from the Xiph integration and earlier checkpoint below.
 The [codec artifact review](r19-codec-artifact-review.md) identifies the exact
-Gyan supplier/FFmpeg source and rejects the current 7.1 snapshot for production.
-Full dependency source/notice delivery and a maintained replacement remain
-required. This is a completed negative artifact disposition, not acceptance.
+Gyan supplier/FFmpeg source and rejects that 7.1 snapshot for production.
+It does not establish complete dependency source/notice delivery or acceptable
+maintenance for that artifact. This is a completed negative disposition.
 The subsequent [Xiph FLAC replacement selection](r19-codec-replacement.md) verifies
 the maintained source candidate, complete source kit and independent Windows
-rebuild. Its new CLI/DLL still needs frozen integration and native acceptance.
+rebuild. Its new CLI/DLL is now [integrated in the frozen experiment](r19-frozen-xiph.md);
+source/rebuild, extracted-runtime and clean Windows acceptance remain distinct.
 
 The deliverable is an extracted Windows x64 runtime that an ordinary user can
 operate without separately installed Python/Node/npm, a Wrangler service, an
@@ -310,12 +312,11 @@ game media, raw compiler logs or recordings as failure artifacts.
 
 ## Immediate next implementation slice
 
-Continue A1/A3 and B1 by integrating the source-verified Xiph FLAC replacement's
-new CLI/DLL into the fixed resolver, preserving its complete source/recipe/notice
-delivery and exact observed binary identity. Repeat the actual frozen
-decode/failure/lifecycle cases and observe codec-process DLL origins/CRT
-resolution. The standalone source-build/rebuild pass does not establish frozen
-or clean Windows 11 acceptance.
+Continue A1/A3 and B1 from the [frozen Xiph integration](r19-frozen-xiph.md),
+retaining its complete source/recipe/notice delivery and exact observed binary
+identity. Review its extracted decode/failure/DLL-origin evidence separately from
+clean Windows 11/ordinary-user CRT acceptance and production source hosting.
+The standalone source-build/rebuild pass alone does not establish those gates.
 
 For each subsequent codec family use one accepted artifact and an independently
 authored real decode, plus missing/corrupt/cancellation cases. Add its exact

@@ -82,16 +82,17 @@ not change the acceptance contract or approve production activation.
 The continued [compiler-free helper experiment](r19-compiler-free-helpers.md)
 separates authored packaging probes, the owned NTE bridge and blocked game chains.
 It does not convert unresolved helper rights or native evidence into approval.
-The [first codec step](r19-codec-experiment.md) adds one pinned experimental
+The [first codec step](r19-codec-experiment.md) added one pinned experimental
 FFmpeg artifact, fixed FLAC-to-PCM dispatch and an independently authored decode
 case. General game FFmpeg, redistribution and Windows 11 gates remain open.
 The [codec artifact review](r19-codec-artifact-review.md) now resolves the original
 Gyan supplier/top-level FFmpeg source identity and rejects that snapshot for
-production. Complete dependency source/notices and a maintained replacement are
-required; the successful experimental decode does not override that disposition.
+production. Its dependency source/notice and maintenance gaps remain recorded;
+the successful experimental decode does not override that disposition.
 The [Xiph replacement selection](r19-codec-replacement.md) now has complete-source
-kit/rebuild evidence on Server 2025. It is not collected by the frozen runtime
-yet and does not close native Windows 11 or general game-codec acceptance.
+kit/rebuild evidence on Server 2025. The [frozen integration](r19-frozen-xiph.md)
+collects its exact CLI/DLL, notices and source kit into the experiment. It does
+not close native Windows 11 or general game-codec acceptance.
 
 All [R18 component gates](r18-runtime-components.md) remain binding for the
 actual shipped bytes. Exact maintained CPython supplier, Windows wheels and

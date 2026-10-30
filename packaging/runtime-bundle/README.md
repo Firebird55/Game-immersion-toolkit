@@ -38,10 +38,14 @@ The owned NTE bridge adds only a fixed read-only app-local runtime identity
 operation to the frozen probe. Normal game dispatch remains blocked until its
 external assembly/native chain and rights are accepted. Private Endfield/REE
 builds use a distinct blocked manifest and cannot enter this collection.
-The first [codec experiment](../../docs/r19-codec-experiment.md) requires an exact
-prepared FFmpeg/notice subtree. Build-host preparation uses
-scripts/prepare-runtime-codec.py --wheel <exact-wheel> --output <fresh-directory>;
+The current [Xiph codec integration](../../docs/r19-frozen-xiph.md) requires its
+exact prepared executable/DLL/notice/source subtree. Build-host preparation uses
+scripts/prepare-runtime-codec.py --reference-root <verified-source-build> --output <fresh-directory>;
 only the fixed bounded FLAC-to-PCM operation is permitted in this profile.
+The reference root is produced by scripts/build-reference-codec.ps1 from the
+exact source pin. Its selected Xiph executable/DLL, full notices and complete
+source ZIP are verified before collection; the old wheel/binary is rejected.
+See the [frozen Xiph integration](../../docs/r19-frozen-xiph.md).
 Ordinary game FFmpeg remains unavailable and distribution/servicing/native gates
 remain open. No imageio wrapper, package manager or runtime download is enabled.
 

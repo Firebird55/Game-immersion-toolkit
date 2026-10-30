@@ -8,8 +8,10 @@ a general FFmpeg/game decoder or a production-runtime activation.
 
 The [rejected Gyan FFmpeg 7.1 review](r19-codec-artifact-review.md) remains binding.
 That binary is not a fallback for this candidate. The existing frozen experiment
-has not yet been migrated to the new CLI/DLL; its old decode receipt cannot be
-attributed to Xiph. PR #59 remains unchanged; no installer is built.
+now uses the new CLI/DLL in the [frozen integration](r19-frozen-xiph.md); its old
+FFmpeg receipt cannot be attributed to Xiph. The standalone source/rebuild
+checkpoint below remains distinct from subsequent frozen evidence.
+PR #59 remains unchanged; no installer is built.
 
 ## Selection and maintained scope
 
@@ -114,10 +116,12 @@ Dynamic MSVC/UCRT system DLLs remain named native prerequisites; no redistributa
 CRT files are collected. Static import inspection cannot prove actual loaded
 module origins, ordinary-user availability, CPU coverage or clean Windows 11
 25H2 behavior. Hosted Server 2025 evidence does not close those gates.
-Integration into the frozen adapter, codec subprocess DLL-origin observation,
-clean-PC CRT resolution and real game/export acceptance remain required.
-Every receipt keeps production/runtime collection disabled, Windows 11
-unavailable, installer not built and R19 incomplete.
+Frozen adapter/DLL-origin work is tracked in the [integration evidence](r19-frozen-xiph.md).
+Clean-PC CRT resolution and real game/export acceptance remain required.
+The standalone source-candidate receipts keep runtime collection disabled;
+the separate frozen collector permits only its bounded experimental operation.
+All receipts keep production disabled, Windows 11 unavailable, installer not
+built and R19 incomplete.
 
 ## Verified Windows candidate and downloaded source delivery
 
@@ -152,11 +156,13 @@ for recipe text: exact raw receipt hashes were checked first, then canonical
 LF text was compared with Git sources. The original tarball bytes remain exact.
 No runtime executable/DLL was uploaded or independently downloaded.
 
-Source-kit preparation and self-contained rebuild are therefore verified for
-this selected candidate. Production source hosting/retention, license integration,
-frozen dispatch and the explicit Windows gates still need their own acceptance.
+Source-kit preparation and self-contained rebuild were verified at this
+checkpoint. Production source hosting/retention, license integration and the
+explicit Windows gates still need their own acceptance.
 Static PE imports name FLAC.dll, KERNEL32.dll, VCRUNTIME140.dll and UCRT API sets;
-no delay imports were found. Actual codec-process DLL origins are still unprobed.
+no delay imports were found. Actual DLL observation and frozen dispatch were
+unprobed at this checkpoint; subsequent results are recorded in the
+[frozen integration](r19-frozen-xiph.md).
 
 ## Local checks and first native attempt
 
