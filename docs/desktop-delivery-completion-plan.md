@@ -21,14 +21,18 @@ Raw event paths and machine diagnostics remain local and untracked.
 - [x] Report native child failure, restart with bounded backoff and retain
   confirmed transcript state. Never capture an unrelated foreground window as
   an unnoticed fallback for an occluded game.
-- [ ] Keep visible timestamped startup/log/status output on Windows; provide an
+- [x] Implement visible timestamped startup/log/status output on Windows; provide an
   equivalent visible status/log window on Linux and macOS desktop launches.
-- [ ] Persist rotating logs, child exit status and recovery state without tokens.
-- [ ] Open the default browser after readiness; reopening the executable reuses
+- [x] Persist rotating logs, child exit status and recovery state without tokens.
+- [x] Implement default-browser opening after readiness; reopening the executable reuses
   the running instance. Do not open another browser on every child restart.
-- [ ] Add tray/menu-bar Open transcript, Show logs and Quit; shut down only owned
+- [x] Add tray/menu-bar Open transcript, Show logs and Quit; shut down only owned
   descendants. Reuse R19 C's real ownership and writer barrier instead of treating
   the synthetic host coordinator as production supervision.
+- [x] Implement the production [writer barrier](runtime-writer-handoff.md),
+  retaining executor and descendant ownership through timeouts and retries.
+- [ ] Verify the final executable's ordinary-browser launch and native platform
+  window/tray behavior; source and callback probes are not that acceptance.
 - [ ] Keep the legacy operation lease, stable origin, atomic route activation,
   old asset chunks, schema compatibility and rollback guarantees for updates.
 

@@ -2,6 +2,15 @@
 
 Windows companion for official multilingual game transcripts, local subtitle OCR and Lexirise/Migaku reading. See the [current game and language matrix](docs/languages/en.md) and [per-game dialogue inventories](docs/game-audits/README.md) for supported voices, text-only dialogue and remaining gaps.
 
+Native Windows, Linux and macOS installers are being validated through the
+[desktop delivery acceptance plan](docs/desktop-native-acceptance-plan.md).
+Their executable includes Python and the frontend, opens the transcript browser,
+and keeps a status/log window and tray menu. Windows Setup offers a changeable
+Program Files destination and independent Start menu/Desktop shortcuts. These
+candidate packages are not yet an accepted dependency-free release for every
+game; the source installation below remains the published path until the native
+runtime, helper, codec and redistribution checks pass.
+
 ## Install on a new PC
 
 1. Download the latest release ZIP and SHA256SUMS from [GitHub releases](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest). Check the ZIP's SHA-256 before extracting it to a writable folder outside your game installation.

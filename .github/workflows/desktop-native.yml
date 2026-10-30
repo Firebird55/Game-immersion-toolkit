@@ -1,0 +1,87 @@
+name: Native desktop construction
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  construct:
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            target: windows-x64
+          - runner: ubuntu-24.04
+            target: linux-x64
+          - runner: macos-15
+            target: macos-arm64
+          - runner: macos-15-intel
+            target: macos-x64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock.txt
+            packaging/desktop/build-requirements.lock.txt
+      - name: Inspect missing build prerequisites before acquisition
+        continue-on-error: true
+        run: npm run dev:doctor -- --full
+      - run: npm ci --ignore-scripts
+      - name: Acquire exact native Python wheels
+        run: |
+          python -m pip download --only-binary=:all: --dest output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install --no-index --find-links output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py
+      - run: npm run desktop:build -- --output-root output/desktop-frontend
+      - name: Freeze the native runtime and isolated ASR child
+        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse
+      - name: Check the frozen host with no Python or Node dependency
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $binary = if ($IsWindows) { 'ProxyTranscriptRuntime.exe' } else { 'ProxyTranscriptRuntime' }
+          $runtime = (Resolve-Path "output/native-candidate/runtime/ProxyTranscriptRuntime/$binary").Path
+          $originalPath = $env:PATH
+          try {
+            $env:PATH = if ($IsWindows) { "$env:SystemRoot\System32;$env:SystemRoot" } else { '/usr/bin:/bin' }
+            & $runtime --host-check
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally { $env:PATH = $originalPath }
+      - name: Acquire verified Windows installer compiler
+        if: runner.os == 'Windows'
+        run: ./scripts/prepare-installer-compiler.ps1 -OutputRoot output/installer-compiler
+      - name: Construct the platform installer
+        run: |
+          $options = @('--runtime-root', 'output/native-candidate/runtime/ProxyTranscriptRuntime', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--target', '${{ matrix.target }}', '--output', 'output/native-distribution', '--candidate')
+          if ($IsWindows) { $options += @('--iscc', 'output/installer-compiler/compiler/ISCC.exe') }
+          if ($IsMacOS) { $options += '--dmg' }
+          python scripts/package-desktop.py @options
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # Unreviewed binaries never leave this runner. Construction is not the
+      # R19 signed native acceptance/redistribution gate and cannot publish.
+      - name: Upload safe construction metadata only
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-construction-${{ matrix.target }}
+          path: |
+            output/native-distribution/DESKTOP-PROVENANCE.json
+            output/native-distribution/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7

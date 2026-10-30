@@ -1,3 +1,4 @@
 # Keep the pinned upstream font notice byte-exact, including its original spaces.
 desktop/fonts/LICENSE.txt -text whitespace=-blank-at-eol
 styles/GEIST-OFL.txt -text whitespace=-blank-at-eol
+packaging/desktop/*.sh text eol=lf

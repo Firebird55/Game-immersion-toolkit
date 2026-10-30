@@ -6,6 +6,19 @@ The component uses documented Lexirise interfaces; this repository does not redi
 
 ## Toolkit assets and tools
 
+- Desktop status/tray uses PySide6-Essentials and shiboken6 6.12.0 from Qt.
+  Qt Core, GUI and Widgets are dynamically loaded; the toolkit does not claim
+  ownership of Qt. The applicable Qt/PySide LGPLv3/GPL/commercial terms and
+  selected native plugins must be reviewed against the exact frozen output.
+  Candidate construction retains the wheel's actual notices and metadata;
+  it does not establish an open-source redistribution grant for every collected
+  file. Corresponding source/notice delivery is tracked in
+  [native delivery acceptance](docs/desktop-native-acceptance-plan.md).
+- Selective RE archive decompression uses zstandard 0.25.0 (Gregory Szorc,
+  BSD-3-Clause); its bundled Zstandard implementation retains its own BSD
+  notices. The complete installed distribution notices are retained in each
+  constructed native candidate under THIRD_PARTY/zstandard.
+
 - Local network interface discovery uses psutil 7.2.2 (BSD-3-Clause), copyright
   2009 Jay Loden, Dave Daeschler and Giampaolo Rodola. The full notice is retained
   in packaging/licenses/psutil-LICENSE.txt and in the collected Python distribution.
@@ -23,7 +36,9 @@ FFmpeg binary with notices; it is excluded from published source ZIPs and is not
 approved for distribution. Its [exact-artifact review](docs/r19-codec-artifact-review.md)
 identifies the GPLv3 build separately from the imageio wrapper's BSD license and
 rejects the old snapshot for production pending a maintained replacement and
-complete source/notice delivery. No R19 installer exists.
+complete source/notice delivery. The native desktop packaging scripts now
+construct explicitly marked private installer candidates; no production R19
+installer is accepted by this construction step.
 - scripts/extract_voice_links.mjs loads a separately downloaded GalScript reader from simon300000/zenless-voice (MIT, copyright 2024 simon3000). Setup retains its full license beside the pinned reader in the ignored local tool cache. Its ooz-wasm (GPL-3.0-or-later) and xxhash-wasm (MIT) dependencies retain their own notices. Neither game metadata nor the reader is bundled as original project code.
 - vgmstream is downloaded from its official r2117 Windows x64 release with full COPYING and dependency notices retained. The REE unpacker is downloaded separately from Ekey/REE.PAK.Tool; its upstream terms apply, and the project license grants no redistribution rights over that tool. Tool downloads are checksum verified and excluded from source/installer bundles.
 - Game scripts, subtitle catalogs, audio, recordings and extracted archives belong to their respective publishers and remain user-local. The project license grants no rights over game content.

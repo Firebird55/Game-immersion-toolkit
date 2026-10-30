@@ -38,10 +38,16 @@ if runtime:
               if name not in {'backend.agent_transcribe', 'backend.asr_probe'}]
     hidden += [target for kind, (mode, target) in CHILD_TARGETS.items()
                if mode == 'module' and kind != 'asr']
-    for package in ('uvicorn', 'numpy', 'scipy', 'kaldi_native_fbank', 'onnxruntime',
-                    'cv2', 'PIL', 'windows_capture', 'pyaudiowpatch', 'Crypto',
-                    'rapidfuzz', 'opencc', 'pypinyin', 'certifi', 'oneocr',
-                    'rapidocr_onnxruntime', 'pyclipper', 'shapely'):
+    packages = ['uvicorn', 'numpy', 'scipy', 'kaldi_native_fbank', 'onnxruntime',
+                'cv2', 'PIL', 'Crypto', 'rapidfuzz', 'opencc', 'pypinyin', 'certifi',
+                'rapidocr_onnxruntime', 'pyclipper', 'shapely', 'zstandard']
+    if sys.platform == 'win32':
+        packages += ['windows_capture', 'pyaudiowpatch', 'oneocr']
+    # Qt's module hooks collect the platform plugin and its native dependencies.
+    # Do not collect all of Essentials (Designer, QML, SQL, etc. are not used).
+    hidden += ['PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets', 'shiboken6']
+    data += copy_metadata('PySide6-Essentials') + copy_metadata('shiboken6')
+    for package in packages:
         package_data, package_binaries, package_hidden = package_closure(package)
         data += package_data
         binaries += package_binaries
@@ -69,7 +75,9 @@ if runtime:
     asr_data += copy_metadata('sherpa-onnx-core')
     asr = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
         binaries=asr_binaries, datas=asr_data, hiddenimports=['backend.agent_transcribe', 'backend.asr_probe', *asr_hidden],
-        excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture', 'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
+        excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture',
+                  'backend.desktop_host', 'backend.desktop_host_ui', 'PySide6', 'shiboken6',
+                  'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,
         name='ProxyTranscriptAsr', console=True, contents_directory='_internal')
