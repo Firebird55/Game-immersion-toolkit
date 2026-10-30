@@ -31,6 +31,7 @@ def is_comic_text_id(text_id: str) -> bool:
 
 class AppSettings(BaseModel):
     zzz_proxy_voice: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
+    zzz_detected_proxy: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
     preferred_game: Literal["auto", "zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield", "riseofthetombraider", "shadowofthetombraider", "spyro", "mgsvtpp", "mgsvgz", "deathstranding", "plaguetaleinnocence", "detroit", "portal", "portal2", "halflife", "halflife2", "persona5royal", "deusexhrdc"] = "auto"
 
     @field_validator("preferred_game", mode="before")

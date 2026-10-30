@@ -37,6 +37,69 @@ def fixture_service(tmp_path, channel="dialogue", mapped=True, game="zzz", text_
     return service, match, scheduled, published
 
 
+@pytest.mark.parametrize('include_unvoiced', [False, True])
+def test_account_menu_never_publishes_newcomer_or_leaves_visible_tip(tmp_path, monkeypatch, include_unvoiced):
+    import backend.capture as module
+    service, match, scheduled, published = fixture_service(tmp_path)
+    match.english, match.chinese = '...New?', '…新人？'
+    settings = service.settings.get()
+    settings.capture_unvoiced = include_unvoiced
+    service.settings.save(settings)
+    # Even a catalog containing this exact voiced and text-only phrase cannot
+    # turn the account menu's NEW badge into a subtitle.
+    service.textmaps.match_unvoiced_lines = lambda *_: pytest.fail('Menu must skip the full-frame reader')
+    service.textmaps.status = lambda: {'unvoiced_count': 1}
+    service._observe_visible_matches('tip', ['old-tip'], 1)
+    service._engine = SimpleNamespace(recognize_pil=lambda image: {'lines': [
+        {'text': text, 'confidence': .99} for text in ['EVENTS', 'LEVEL', 'NEW!', 'Mail', 'Options', 'Notices']]})
+    monkeypatch.setattr(module, 'find_active_game_window', lambda settings:
+        (SimpleNamespace(id='zzz'), SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title='ZZZ')))
+    try:
+        for _ in range(3):
+            assert not service._scan_once().emitted_lines
+        assert not scheduled and not published and service.transcript.count() == 0
+        assert service.snapshot().phase == 'excluded_screen'
+        assert not service.snapshot().visible_text_ids
+    finally:
+        service._executor.shutdown()
+
+
+@pytest.mark.parametrize('manual,detected,expected', [
+    ('unconfigured', 'female', 'female'), ('male', 'female', 'male'),
+])
+@pytest.mark.parametrize('channel', ['dialogue', 'gameplay', 'tip', 'cinematic'])
+def test_persistent_player_selection_reaches_every_caption_channel(tmp_path, monkeypatch, manual, detected, expected, channel):
+    import backend.capture as module
+    service, _, scheduled, published = fixture_service(tmp_path, channel=channel)
+    settings = service.settings.get()
+    settings.zzz_proxy_voice, settings.zzz_detected_proxy = manual, detected
+    service.settings.save(settings)
+    checked = []
+    original = service.textmaps.match_lines
+    def match_lines(lines, **kwargs):
+        checked.append((kwargs.get('channel', 'dialogue'), service.textmaps.player_voice))
+        return original(lines, **kwargs)
+    service.textmaps.match_lines = match_lines
+    service._scan_index = 0
+    service._tip_tracker.configure(2)
+    monkeypatch.setattr(module, 'find_active_game_window', lambda settings:
+        (SimpleNamespace(id='zzz'), SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title='ZZZ')))
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        service._scan_once()
+        service._scan_once()
+        await asyncio.sleep(.02)
+    try:
+        asyncio.run(run())
+        assert checked and all(voice == expected for _, voice in checked)
+        assert len(scheduled) == len(published) == 1
+        if channel == 'tip':
+            assert sum(kind == 'tip' for kind, _ in checked) == 2
+            assert published[0].channel == 'tip', 'A brief bubble is captured in consecutive scans'
+    finally:
+        service._executor.shutdown()
+
+
 def test_new_voice_mapping_repairs_a_previously_unvoiced_saved_comic(tmp_path):
     service, match, scheduled, published = fixture_service(tmp_path,channel='cinematic',text_id='Comic_'+'a'*32)
     async def run():
@@ -308,13 +371,13 @@ def test_comic_suffix_cannot_publish_as_unrelated_dialogue(tmp_path, monkeypatch
         service.transcript.add(index.match_text(full, channel="cinematic"),
                                service.session_id, channel="cinematic")
         service._cinematic_seen_ids.add(comic_id)
-    service._scan_index = 1  # No periodic header/tip OCR during these three scans.
+    service._scan_index = 1
     service._tracker.configure(1)
     service._capture = lambda bounds: Image.new("RGB", (800, 200), (4, 4, 4))
     responses = iter([
-        ["home..."], [full],
-        ["home..."], [full],
-        ["Home."], ["Home."],
+        [], ["home..."], [full], [],
+        [], ["home..."], [full], [],
+        [], ["Home."], ["Home."], [],
     ])
     service._engine = SimpleNamespace(recognize_pil=lambda image:
         {"lines": [{"text": text, "confidence": .99} for text in next(responses)]})

@@ -52,7 +52,40 @@ class ZzzCutsceneContext:
     def reset(self):
         self.scope = None
         self.proxy = None
+        self.player_pending = None
+        self.player_count = 0
+        self.player_observed_at = 0.
         self.clear_scene()
+
+    def observe_proxy(self, index, groups, *, now, stable_frames):
+        """Learn across dialogue, comics and tips from unique authored player text.
+
+        Names in the picture are not evidence. Repeated text with two player
+        performances, a choice, or an NPC performance remains ambiguous.
+        """
+        if getattr(index, 'game', None) != 'zzz' or not hasattr(index, '_lookup'):
+            return None
+        evidence = set()
+        with index.lock:
+            for caption in groups:
+                minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', caption) else 12
+                for locale, lookup in index._lookup.items():
+                    key = normalize_text(display_text(caption), locale)
+                    if len(key) < minimum or key in getattr(index, '_full_frame_veto', {}).get(locale, set()):
+                        continue
+                    rows = lookup.get(key, ())
+                    players = {protagonist(row) for row in rows}
+                    if len(players) == 1 and None not in players:
+                        evidence.add((next(iter(players)), key))
+        voices = {voice for voice, _ in evidence}
+        token = max(evidence, key=lambda item: len(item[1])) if len(voices) == 1 else None
+        self.player_count = (self.player_count + 1 if token and token == self.player_pending
+                             and now - self.player_observed_at <= 5 else 1)
+        self.player_pending, self.player_observed_at = token, now
+        if token and self.player_count >= max(2, stable_frames):
+            self.proxy = token[0]
+            return self.proxy
+        return None
 
     def clear_scene(self):
         self.scene = None

@@ -389,7 +389,8 @@ class CaptureService:
         if profile.id == "hito":
             return self._scan_hito(window, engine, epoch, now)
 
-        self.textmaps.player_voice = settings.zzz_proxy_voice
+        self.textmaps.player_voice = (settings.zzz_proxy_voice if settings.zzz_proxy_voice != 'unconfigured'
+                                     else settings.zzz_detected_proxy)
         self.textmaps.capture_unvoiced = settings.capture_unvoiced
 
         crop_bounds = self._region_bounds(window, settings.region)
@@ -400,23 +401,22 @@ class CaptureService:
         layout_probe = self._capture(self._region_bounds(
             window, CaptureRegion(left=0, top=0, width=1, height=.10)))
         self._visual_novel_layout = self._is_visual_novel_layout(layout_probe)
-        if self._scan_index % 4 == 1:
-            # One inexpensive upper-screen signature pass covers the left-side
-            # Story Recap header, centered Knock Knock panel, and the HDD hub.
-            header_bounds = self._region_bounds(
-                window, CaptureRegion(left=0, top=0, width=1, height=0.55)
-            )
-            header_image = self._capture(header_bounds)
-            header_image = self._ocr_image(header_image, window)
-            header_response = engine.recognize_pil(header_image)
-            if epoch != self._scan_epoch:
-                return _ScanOutcome([])
-            header_lines = [
-                line.get("text", "").strip()
-                for line in header_response.get("lines", [])
-                if line.get("text", "").strip()
-            ]
-            self._excluded_screen = self._classify_screen_header(header_lines)
+        # One inexpensive upper-screen signature pass covers the left-side
+        # Story Recap header, centered Knock Knock panel, and the HDD hub.
+        header_bounds = self._region_bounds(
+            window, CaptureRegion(left=0, top=0, width=1, height=0.55)
+        )
+        header_image = self._capture(header_bounds)
+        header_image = self._ocr_image(header_image, window)
+        header_response = engine.recognize_pil(header_image)
+        if epoch != self._scan_epoch:
+            return _ScanOutcome([])
+        header_lines = [
+            line.get("text", "").strip()
+            for line in header_response.get("lines", [])
+            if line.get("text", "").strip()
+        ]
+        self._excluded_screen = self._classify_screen_header(header_lines)
         image = self._capture(crop_bounds)
         self._set_preview(image)
         dialogue_box_layout = self._has_dialogue_box(image)
@@ -448,7 +448,9 @@ class CaptureService:
             return _ScanOutcome([])
 
         phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
-        excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd"}
+        # The menu's lower navigation may be more legible than its header.
+        self._excluded_screen = self._classify_screen_header([*header_lines, *lines])
+        excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd", "menu"}
         cutscene_scope = (epoch, window.handle, window.bounds, crop_bounds, self.session_id,
                           getattr(self.textmaps, '_signature', None),
                           getattr(self.textmaps, 'source_locale', None), settings.zzz_proxy_voice,
@@ -458,6 +460,9 @@ class CaptureService:
                 self.transcript.list(limit=50), self.session_id)
         if excluded_screen:
             self._zzz_cutscene_context.clear_scene()
+            self._tip_tracker.observe(None)
+            self._visible_text_by_channel.clear()
+            self._visible_match_started.clear()
         cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
         cinematic_raw_text = ""
         cinematic_confidence: float | None = None
@@ -468,6 +473,7 @@ class CaptureService:
         scan_cinematic = (self._visual_novel_layout or self._zzz_cutscene_context.scene is not None
                           or self._scan_index % 2 == 1)
         cinematic_matches: list[TextMatch] = []
+        cinematic_lines = []
         # Resolve the broad region before publishing narrower crops: a comic
         # bubble can extend into the dialogue crop and expose only its last word.
         if not excluded_screen and scan_cinematic:
@@ -495,7 +501,7 @@ class CaptureService:
             movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size))
             movie_matches = self._zzz_cutscene_context.match(self.textmaps, movie_groups,
                 cinematic_matches, now=time.monotonic(), stable_frames=settings.stable_frames,
-                configured=settings.zzz_proxy_voice)
+                configured=self.textmaps.player_voice)
             cinematic_matches = [hit for hit in cinematic_matches if not cutscene_scene(hit.text_id)] + movie_matches
 
         # The broad gameplay scan still rejects short HUD labels such as INFO.
@@ -588,11 +594,14 @@ class CaptureService:
 
         tip_bounds = self._region_bounds(window, settings.tip_region)
         previous_snapshot = self.snapshot()
-        tip_raw_text = previous_snapshot.last_tip_ocr
-        tip_confidence = previous_snapshot.last_tip_ocr_confidence
+        tip_raw_text = "" if excluded_screen else previous_snapshot.last_tip_ocr
+        tip_confidence = None if excluded_screen else previous_snapshot.last_tip_ocr_confidence
         tip_match = None
         tip_match_score: float | None = None
-        scan_tip = self._scan_index % 4 == 1
+        # Short combat bubbles can disappear before a fourth scan completes.
+        # Give this small independent region a confirmation opportunity each pass.
+        scan_tip = not excluded_screen
+        tip_lines = []
         if scan_tip:
             tip_image = self._capture(tip_bounds)
             tip_image = self._ocr_image(tip_image, window)
@@ -636,6 +645,12 @@ class CaptureService:
                 if match is None:
                     phase = "matched"
                     message = "Official top-right tip matched"
+
+        if not excluded_screen:
+            detected = self._zzz_cutscene_context.observe_proxy(self.textmaps,
+                [*lines, *cinematic_lines, *tip_lines], now=monotonic_now, stable_frames=settings.stable_frames)
+            if detected:
+                self.settings.remember_zzz_proxy(detected)
 
         if not excluded_screen and tip_match is None and scan_cinematic:
             self._observe_visible_matches("cinematic", [item.text_id for item in cinematic_matches], monotonic_now)
@@ -700,6 +715,7 @@ class CaptureService:
                 "story_recap": "Story Recap ignored",
                 "hdd": "HDD commission screen ignored",
                 "phone": "Phone screen ignored",
+                "menu": "Account and events menu ignored",
             }
             message = messages.get(self._excluded_screen, "Phone screen ignored")
         elif unvoiced_gameplay_dialogue:
@@ -750,7 +766,8 @@ class CaptureService:
                  getattr(self, 'context_scope', lambda: None)(), settings.capture_unvoiced, voice_enabled)
         silent_enabled = bool(settings.capture_unvoiced and match_lines and index.ready
                               and index.status().get('unvoiced_count', 0))
-        enabled = (silent_enabled or voice_enabled) and epoch == self._scan_epoch
+        enabled = ((silent_enabled or voice_enabled) and epoch == self._scan_epoch
+                   and not getattr(self, '_excluded_screen', None))
         if not enabled or scope != self._unvoiced_scope:
             for key in list(self._unvoiced_trackers):
                 if key.startswith(prefix):
@@ -1691,6 +1708,14 @@ class CaptureService:
     def _classify_screen_header(lines: list[str]) -> str | None:
         text = " ".join(lines).casefold()
         chinese = normalize_subtitle(text)
+        # Compound signatures, never NEW or Menu alone: those labels also
+        # accompany real comic dialogue and legitimate short captions.
+        navigation = ('mail', 'options', 'notices', 'achievements', 'inter-knot',
+                      'storage', 'agents', 'signal search')
+        if ((re.search(r'\bevents\b', text) and re.search(r'\blevel\b', text))
+                or sum(bool(re.search(r'(?<!\w)' + re.escape(label) + r'(?!\w)', text)) for label in navigation) >= 3
+                or sum(label in chinese for label in ('邮件', '公告', '成就', '绳网', '仓库', '代理人', '调频')) >= 3):
+            return 'menu'
         if "story recap" in text or any(title in chinese for title in ("前情回顾", "剧情回顾")):
             return "story_recap"
         if "knock knock" in text:

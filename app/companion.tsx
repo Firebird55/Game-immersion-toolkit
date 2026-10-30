@@ -64,6 +64,7 @@ type Settings = Record<`${Exclude<GameId, 'zzz' | 'pragmata'>}_region`, CaptureR
   cyberpunk_tip_region: CaptureRegion;
   cyberpunk_capture_chatter: boolean;
   zzz_proxy_voice: 'unconfigured' | 'female' | 'male';
+  zzz_detected_proxy?: 'unconfigured' | 'female' | 'male';
   cyberpunk_v_voice: 'unconfigured' | 'female' | 'male';
   wuwa_region: CaptureRegion;
   wuwa_tip_region: CaptureRegion;
@@ -1139,9 +1140,10 @@ function CompanionClient() {
           <p className="toolkit-setup-note">{uiText('Applies to all games. Includes text the game identifies as unvoiced; missing voice files are reported separately. Saved history is kept when this is off.')}</p>
           {selectedGame === 'zzz' && draftSettings && <label>{uiText("Proxy voice")}<select aria-label={uiText("Proxy voice")} value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, zzz_proxy_voice: event.target.value as Settings['zzz_proxy_voice'] } : current)}>
-              <option value="unconfigured">{uiText("Choose the Proxy for variant lines")}</option>
+              <option value="unconfigured">{draftSettings.zzz_detected_proxy === 'female' ? 'Automatic · Belle' : draftSettings.zzz_detected_proxy === 'male' ? 'Automatic · Wise' : 'Automatic · detect from dialogue'}</option>
               <option value="female">{uiText("Belle")}</option><option value="male">{uiText("Wise")}</option>
             </select>
+            <small>Applies to all scenes. A choice here overrides automatic detection.</small>
           </label>}
           {selectedGame === 'cyberpunk' && draftSettings && <label>{uiText("V voice")}<select value={draftSettings.cyberpunk_v_voice} onChange={event => setDraftSettings(current => current ? { ...current, cyberpunk_v_voice: event.target.value as Settings['cyberpunk_v_voice'] } : current)}>
               <option value="unconfigured">{uiText("Choose V's voice to capture variant lines")}</option>
