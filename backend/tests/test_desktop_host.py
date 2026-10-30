@@ -1,6 +1,7 @@
 """Host restart/exclusion/log privacy with owned authored services, no accounts."""
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
 import sys
 import threading
@@ -126,3 +127,26 @@ def test_failed_descendant_cleanup_keeps_instance_lease_and_never_restarts(tmp_p
         host.services.clear()
         host._shutdown()
         host.log.close()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows FILE_SHARE_DELETE race')
+def test_route_publish_survives_concurrent_windows_reader_without_removing_previous_route(tmp_path):
+    from backend.bundle_host import _atomic_json
+    route = tmp_path / 'route.json'
+    _atomic_json(route, {'active': 'old'})
+    errors, finished = [], threading.Event()
+    def publish():
+        try:
+            _atomic_json(route, {'active': 'new'})
+        except Exception as error:
+            errors.append(error)
+        finally:
+            finished.set()
+    with route.open('rb') as reader:
+        thread = threading.Thread(target=publish)
+        thread.start()
+        assert not finished.wait(.1), 'Held Windows reader should delay replacement'
+        assert json.loads(reader.read()) == {'active': 'old'}
+    thread.join(timeout=2)
+    assert finished.is_set() and not errors
+    assert json.loads(route.read_text()) == {'active': 'new'}

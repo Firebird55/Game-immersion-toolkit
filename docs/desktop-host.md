@@ -70,3 +70,16 @@ native capture and installed repair/update/uninstall remain in the
 [desktop delivery plan](desktop-delivery-completion-plan.md).
 See [desktop platforms](desktop-platforms.md) for the implemented discovery
 backends, capture permission requirements and native verification limits.
+
+POSIX service watchdogs retain a session identity; nested owned helpers use
+separate groups inside that session. The outer watchdog stops every group before
+reporting service exit. It also inherits the installation lease descriptor,
+which is excluded from actual commands and retained by the watchdog until
+verified cleanup. Unknown cleanup retains ownership and keeps reporting status.
+This prevents a host crash from releasing the installation while nested writers
+are still exiting. Native Linux/macOS failure acceptance remains required.
+
+Atomic route/control publication preserves the previous file and retries short
+Windows sharing conflicts. Shutdown likewise retains ownership while a local
+reader temporarily holds a state file. The local control token is written with
+private permissions before publication.

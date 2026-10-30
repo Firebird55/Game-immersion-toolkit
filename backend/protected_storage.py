@@ -42,7 +42,8 @@ def private_write(path: Path, value: bytes):
             stream.write(value)
             stream.flush()
             os.fsync(stream.fileno())
-        pending.replace(path)
+        from .atomic_files import replace
+        replace(pending, path)
     finally:
         pending.unlink(missing_ok=True)
 

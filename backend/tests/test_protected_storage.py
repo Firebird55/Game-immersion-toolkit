@@ -100,12 +100,12 @@ def test_concurrent_initialization_fails_closed_until_owner_releases_lock(tmp_pa
 
 
 def test_interrupted_atomic_write_keeps_previous_file(tmp_path, monkeypatch):
-    from pathlib import Path
+    from backend import atomic_files
     target = tmp_path / 'account'
     private_write(target, b'old ciphertext')
     def fail(*_):
         raise OSError('Disk unavailable')
-    monkeypatch.setattr(Path, 'replace', fail)
+    monkeypatch.setattr(atomic_files, 'replace', fail)
     with pytest.raises(OSError):
         private_write(target, b'new ciphertext')
     assert target.read_bytes() == b'old ciphertext'
@@ -114,10 +114,10 @@ def test_interrupted_atomic_write_keeps_previous_file(tmp_path, monkeypatch):
 
 @pytest.mark.skipif(os.name == 'nt', reason='POSIX file mode contract')
 def test_private_permissions_exist_before_atomic_publish(tmp_path, monkeypatch):
-    from pathlib import Path
-    original = Path.replace
+    from backend import atomic_files
+    original = atomic_files.replace
     def replace(path, destination):
         assert path.stat().st_mode & 0o777 == 0o600
         return original(path, destination)
-    monkeypatch.setattr(Path, 'replace', replace)
+    monkeypatch.setattr(atomic_files, 'replace', replace)
     private_write(tmp_path / 'account', b'TEST encrypted bytes')

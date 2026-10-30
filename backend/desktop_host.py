@@ -106,11 +106,12 @@ class HostLog:
 
 
 class Service:
-    def __init__(self, name, command, *, cwd, env, log):
+    def __init__(self, name, command, *, cwd, env, log, retained_fds=()):
         self.name, self.log = name, log
         self.ready = queue.Queue(maxsize=1)
         self.started = time.monotonic()
-        self.owner = OwnedProcess(command, cwd=cwd, env=env, text=True)
+        self.owner = OwnedProcess(command, cwd=cwd, env=env, text=True,
+            independent_session=True, retained_fds=retained_fds)
         self.threads = []
         for channel in ('stdout', 'stderr'):
             thread = threading.Thread(target=self._read, args=(channel,), name=name + '-' + channel, daemon=True)
@@ -194,15 +195,16 @@ class HostControl:
         self.server.daemon_threads = True
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True, name='desktop-control')
         self.thread.start()
-        _atomic_json(path, {'schema': 'toolkit-host-control-v1', 'port': self.server.server_port, 'token': self.token})
-        if os.name != 'nt':
-            path.chmod(0o600)
+        from .protected_storage import private_write
+        private_write(path, json.dumps({'schema': 'toolkit-host-control-v1',
+            'port': self.server.server_port, 'token': self.token}).encode('utf-8'))
 
     def close(self):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=2)
-        self.path.unlink(missing_ok=True)
+        from .atomic_files import remove
+        remove(self.path)
 
 
 def contact_instance(path, action='open'):
@@ -278,7 +280,8 @@ class DesktopHost:
         env.update(PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8', PROXY_TRANSCRIPT_HOST_MANAGED='1')
         self.log.write('Starting ' + name.lower() + '.')
         service = self.service_factory(name, self.layout.child_command(kind, arguments),
-            cwd=self.layout.application_root, env=env, log=self.log)
+            cwd=self.layout.application_root, env=env, log=self.log,
+            retained_fds=self.lease.retained_descriptors())
         self.services[name] = service
         ready = service.wait_ready(self.stop_requested)
         if name == 'Gateway':
@@ -401,12 +404,18 @@ class DesktopHost:
                     self.exit_code = 1
                     self.log.write(name + ' cleanup failed: ' + type(error).__name__ + '. Installation ownership is retained; no replacement will start.')
         if all_stopped:
-            self.route_path.unlink(missing_ok=True)
-            if self.control:
-                self.control.close()
-            self.lease.close()
-            self.log.write('Stopped. Saved transcripts remain available for the next launch.')
-            self.finished.set()
+            try:
+                from .atomic_files import remove
+                remove(self.route_path)
+                if self.control:
+                    self.control.close()
+                    self.control = None
+                self.lease.close()
+                self.log.write('Stopped. Saved transcripts remain available for the next launch.')
+                self.finished.set()
+            except OSError:
+                self.status = 'Finishing shutdown'
+                self.log.write('A local state file is still in use. Retaining ownership and retrying shutdown.')
         else:
             self.status = 'Recovery required: children are still stopping'
 
