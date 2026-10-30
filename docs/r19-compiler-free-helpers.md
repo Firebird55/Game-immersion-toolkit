@@ -9,7 +9,11 @@ part of this work. Build tools below run on a build host, not on the user's PC.
 2026-10-30 update: the normal PRAGMATA extraction path now uses the
 [owned Python PAK reader](re-pak-runtime.md). The selective x86 REE evidence below
 is historical; its quarantine is no longer a prerequisite for that archive
-operation. Shared codecs and full frozen acceptance remain open.
+operation. The normal Endfield path likewise uses the
+[owned Python VFS/PCK reader](endfield-runtime.md), with private numerical
+metadata acquisition and actual installed text/voice evidence. Its historical
+compiled quarantine is no longer required. Shared codecs and full frozen
+acceptance remain open.
 
 ## Implemented boundaries and gates
 
@@ -17,7 +21,7 @@ operation. Shared codecs and full frozen acceptance remain open.
 | --- | --- | --- |
 | Authored .NET probe | Fixed JSON stdin/stdout operation, self-contained `win-x64` directory, app-local runtime/resource identity and hash-bound inventory; hosted Server probe passed | Exact-output/runtime/native Windows 11 review; this probe authorizes no game |
 | Owned NTE bridge | Collected self-contained bridge with exact source/resource identity; app-local runtime and actual reflection/protocol fixture passed on Server 2025 | Actual UEExtractor/CUE4Parse/native dependency closure, Oodle rights and installed-game evidence; authored stand-ins cannot approve that chain |
-| Endfield | Actual selected reader prebuilt in separate blocked quarantine; app-local runtime/hashing and empty/malformed-input probes passed | Embedded game constants, file-level port provenance, real VFS/audio and Windows 11 acceptance; no Endfield artifact is collected |
+| Endfield archive reader | Owned Python VFS/PCK range reader replaces the compiler bridge; verified numerical metadata stays in private storage; installed Chinese join and selected voice extraction passed | Frozen candidate, shared codec closure and target-platform native acceptance; legacy compiled helper is not required |
 | Authored Node probe | Exact app-local Node, module worker and authored WASM; absolute immutable entry/resource paths and private work; hosted Server probe passed | Exact runtime/native/notices and Windows 11 review; no real ZZZ extraction claim |
 | ZZZ production reader | Separate build-only quarantine preparation with pinned source/module inputs; frozen production dispatch remains blocked | GPL/corresponding-source obligations, upstream custom terms, game-derived metadata and actual reader/codec probes |
 | PRAGMATA archive reader | Owned Python selected reader replaces REE on the normal path; authored format tests and eight installed MSG/SBNK/SPCK/TMLFSM2 comparisons passed | Frozen candidate/native Zstandard closure, shared voice codecs and target-platform acceptance; old REE binary is not collected |
@@ -25,9 +29,11 @@ operation. Shared codecs and full frozen acceptance remain open.
 The game resolvers never interpret an `approved` string, an authored probe or a
 successful build as permission to run an incomplete game chain. Missing, changed,
 unlisted, linked, wrong-platform or incompatible resources fail with an actionable
-unavailable state. They do not discover an SDK/compiler/npm through PATH or start
-a download on the frozen PC. The existing source SDK/TypeScript adapters remain
-separate and retain their established behavior.
+unavailable state. Closed executable helpers do not discover an SDK/compiler/npm
+through PATH or download missing executables on the frozen PC. The owned Python
+archive adapters separately acquire exact-verified numerical metadata as private
+data, without compiling or executing downloaded documents. Remaining source
+SDK/TypeScript adapters retain their established behavior.
 
 These boundaries do not claim that the launcher/PowerShell `Add-Type` path is
 compiler-free. Its exact Framework/compiler requirements and precompiled host

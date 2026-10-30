@@ -2,8 +2,8 @@
 
 The authored probe and fixed read-only NTE runtime identity operation may execute.
 An owned NTE bridge manifest can supply a source identity, but does not authorize
-its separately acquired UEExtractor/native game chain. Endfield constants remain
-unreviewed.
+its separately acquired UEExtractor/native game chain. Normal Endfield reading
+uses the owned Python VFS adapter and private verified numerical metadata.
 """
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def reader_environment(environ=None):
 
 def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
     if kind not in ENTRIES:
-        raise _failure('Endfield remains blocked by unreviewed embedded constants; unknown helper kinds are not executable.')
+        raise _failure('This compiled helper kind has no accepted resource contract; use its owned reader adapter when available.')
     layout = layout or discover_layout()
     if layout.mode != 'bundle':
         raise _failure('The prebuilt reader resolver requires an explicit frozen resource layout.')
@@ -228,8 +228,8 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
 def require_game_reader(kind: str) -> None:
     """Never interpret a probe/bridge receipt as rights to run a game chain."""
     if discover_layout().mode == 'bundle':
-        reason = 'unreviewed embedded game constants' if kind == 'endfield' else 'unverified external UEExtractor/native dependencies'
-        raise _failure('The frozen ' + kind + ' reader remains unavailable due to ' + reason + '. Keep using the source runtime.')
+        raise _failure('The compiled ' + kind + ' helper chain is unavailable without verified executable and native dependencies. '
+                       'An owned in-process reader does not use this legacy helper contract.')
 
 
 def reader_source_identity(kind: str, *, layout=None) -> str:

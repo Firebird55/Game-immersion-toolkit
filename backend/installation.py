@@ -39,7 +39,7 @@ VOICE_HINTS = {
     "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
     "starrail": "Install your chosen original voice in the game, then prepare its learning language and translation in Languages.",
     "genshin": "Install your chosen voice pack through the game's language settings, then prepare it in Languages.",
-    "endfield": "Install the matching voice pack and Microsoft .NET 10 SDK, then prepare tools and the selected language.",
+    "endfield": "Install the matching voice pack, then prepare tools and the selected language.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
     "zzz": "Install the selected study language's original voice pack through the launcher, then prepare it in Languages.",
@@ -129,8 +129,6 @@ class InstallationService:
             except OSError:
                 voice = "not_checked"
             voice_hint = VOICE_HINTS[game]
-            if layout.mode == 'bundle' and game == 'endfield':
-                voice_hint = "Install the selected voice pack in the game. This experimental bundle's Endfield reader is awaiting verification; keep using your existing toolkit installation."
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,

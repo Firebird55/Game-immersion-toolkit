@@ -143,10 +143,9 @@ def missing_tools(root: Path, game: str) -> list[str]:
                      ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/oodle-data-shared.dll"),
                      ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/zlib-ng2.dll")]
     if game == "endfield":
-        from .nte_assets import dotnet_sdk
-        if dotnet_sdk() is None:
-            required.append((".NET 10 SDK", runtime_data_root(root) / "endfield/tools/missing-sdk"))
-        required.append(("Endfield reader", runtime_data_root(root) / "endfield/tools/EndfieldReader.dll"))
+        from .endfield_metadata import ready
+        if not ready(runtime_data_root(root) / 'endfield/tools'):
+            required.append(("Archive format metadata", runtime_data_root(root) / "endfield/tools/missing-metadata"))
     return list(dict.fromkeys(name for name, path in required if not path.is_file()))
 
 

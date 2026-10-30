@@ -15,7 +15,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 | The Witcher 3: Wild Hunt | Legacy/current bundles; authored choices, journals, profiles and readable body keys | [Witcher](witcher3.md) |
 | Honkai: Star Rail | Messages, choices, narrated story and combat metadata; explicit voice states | [Star Rail](starrail.md) |
 | Genshin Impact | Dialogue fallback, reminders, card dialogue and book paragraphs; version checks | [Genshin](genshin.md) |
-| Arknights: Endfield | Conversations, choices, panels, messages, readables and operator archives | [Endfield](endfield.md) |
+| Arknights: Endfield | Conversations, choices, panels, messages, readables and operator archives; compiler-free VFS/PCK reader | [Endfield](endfield.md), [runtime evidence](../endfield-runtime.md) |
 | Rise of the Tomb Raider | TIGER archives; authored subtitle and FMOD voice bindings; regional and DLC languages | [Rise](rise-tomb-raider.md) |
 | Shadow of the Tomb Raider | TIGER archives; Wwise subtitle labels, cinematic timing and collectible narration | [Shadow](shadow-tomb-raider.md) |
 | BEYOND: Two Souls | Explicit chapter choices; missing-performance inventory; faster repeated-performance validation | [BEYOND](beyond.md) |

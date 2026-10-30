@@ -171,23 +171,20 @@ def test_probe_and_owned_bridge_receipts_cannot_authorize_game_chains(tmp_path, 
     for kind in ('nte', 'endfield'):
         with pytest.raises(PreparationFailure, match='unavailable'):
             readers.require_game_reader(kind)
-    with pytest.raises(PreparationFailure, match='Endfield'):
+    with pytest.raises(PreparationFailure, match='compiled helper kind'):
         readers.prebuilt_reader('endfield', layout=layout)
 
 
-def test_frozen_game_adapters_fail_before_sdk_download_or_source_compilation(tmp_path, monkeypatch):
-    from backend import nte_assets, endfield_assets
+def test_frozen_external_nte_adapter_fails_before_sdk_download_or_source_compilation(tmp_path, monkeypatch):
+    from backend import nte_assets
     layout, _, _ = helper_fixture(tmp_path)
     monkeypatch.setattr(readers, 'discover_layout', lambda: layout)
     monkeypatch.setattr(nte_assets, 'dotnet_sdk', lambda: pytest.fail('Frozen NTE cannot inspect a system SDK'))
-    monkeypatch.setattr(endfield_assets, 'dotnet_sdk', lambda: pytest.fail('Frozen Endfield cannot inspect a system SDK'))
     for operation in (lambda: nte_assets.ensure_extractor(tmp_path / 'nte'),
-                      lambda: endfield_assets.ensure_extractor(tmp_path / 'endfield'),
-                      lambda: nte_assets.run_reader(tmp_path, tmp_path / 'tool', tmp_path / 'out', 'index'),
-                      lambda: endfield_assets.reader(tmp_path, tmp_path / 'tool', 'inventory', {})):
+                      lambda: nte_assets.run_reader(tmp_path, tmp_path / 'tool', tmp_path / 'out', 'index')):
         with pytest.raises(PreparationFailure, match='unavailable'):
             operation()
-    assert not (tmp_path / 'nte').exists() and not (tmp_path / 'endfield').exists()
+    assert not (tmp_path / 'nte').exists()
 
 
 def test_frozen_nte_fingerprint_uses_verified_helper_identity_not_cs_source(tmp_path, monkeypatch):
