@@ -215,10 +215,35 @@ def inventory_output(folder):
     return result
 
 
+def validate_codec_output(value, source, evidence, output):
+    """Reject unintended codec copies before publishing any candidate metadata."""
+    from record_runtime import verified_codec
+    from backend.prebuilt_readers import _no_links
+    codec = verified_codec(evidence, value.get('resources', []), value['source_commit'], source)
+    expected = {'ProxyTranscriptRuntime/_internal/codecs/xiph-flac/' + name: codec.manifest['files'][name]
+        for name in ('flac.exe', 'FLAC.dll')}
+    actual = set()
+    for path in output.rglob('*'):
+        if path.name.casefold() not in {'flac.exe', 'flac.dll'}:
+            continue
+        name = path.relative_to(output).as_posix()
+        if name not in expected:
+            raise ClosureError('Codec output contains an extra or misplaced native file.')
+        _no_links(path.absolute())
+        entry = expected[name]
+        if not path.is_file() or path.stat().st_size != entry['bytes'] or digest(path) != entry['sha256']:
+            raise ClosureError('Codec output differs from its verified native input.')
+        actual.add(name)
+    if actual != set(expected):
+        raise ClosureError('Codec output is missing its exact isolated native files.')
+
+
 def write_candidate(value, source, evidence, output):
     resources = {entry['path']: entry['sha256'] for entry in value.get('resources', [])}
     package = json.loads((source / 'package.json').read_text())
     runtime = value['profile'] in {'runtime', 'runtime-experiment'}
+    if runtime:
+        validate_codec_output(value, source, evidence, output)
     manifest = {'schema': MANIFEST_SCHEMA, 'profile': value['profile'], 'version': package['version'],
         'source_commit': value['source_commit'], 'build_id': value['build_id'], 'resources': resources,
         'children': list(EXPERIMENT_CHILDREN) if value['profile'] == 'runtime-experiment' else list(CHILD_TARGETS) if runtime else ['frontend'] if value['profile'] == 'frontend-experiment' else [], 'r19_complete': False}

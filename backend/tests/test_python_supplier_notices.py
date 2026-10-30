@@ -83,6 +83,8 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
     value = {'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-test', 'components': [component]}
     from closure import write_candidate
+    # This exercises notice delivery; isolated codec output is tested separately.
+    monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     write_candidate(value, source, evidence, output)
     inventory = json.loads((output / 'RUNTIME-INVENTORY.json').read_bytes())
     files = {row['path']: row for row in inventory['files']}
@@ -153,6 +155,7 @@ def test_onnx_notice_binds_wheel_installed_and_final_third_party_bytes(tmp_path,
     (source / 'package.json').write_text(json.dumps({'version': '0.0.1'}))
     output = tmp_path / 'candidate'; (output / 'ProxyTranscriptAsr/_internal').mkdir(parents=True)
     from closure import write_candidate
+    monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-onnx', 'components': [component]}, source, evidence, output)
     target = output / 'ProxyTranscriptRuntime/THIRD_PARTY/onnxruntime' / notice['path']

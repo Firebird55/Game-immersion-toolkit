@@ -53,6 +53,11 @@ The reference root is produced by scripts/build-reference-codec.ps1 from the
 exact source pin. Its selected Xiph executable/DLL, full notices and complete
 source ZIP are verified before collection; the old wheel/binary is rejected.
 See the [frozen Xiph integration](../../docs/r19-frozen-xiph.md).
+The standalone codec EXE/DLL are delivered after main Analysis as explicit data,
+keeping their PE imports outside Python-host dependency scanning. Finalization
+rejects extra codec basenames anywhere in the output and verifies both exact
+isolated native files before metadata; existing codec source/notice/PE and
+runtime DLL-origin checks remain required.
 Ordinary game FFmpeg remains unavailable and distribution/servicing/native gates
 remain open. No imageio wrapper, package manager or runtime download is enabled.
 

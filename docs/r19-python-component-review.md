@@ -94,8 +94,15 @@ then [collects dependencies outside package paths at the root](https://github.co
 The codec's PE report confirms flac.exe imports FLAC.dll. This explains the
 duplicate without identifying a second codec family; the original build TOC
 source paths were not retained, so that collection path remains an inference.
-An extra root copy still requires an explicit output-scope rejection; an
-inventory generated after collection does not establish that scope.
+The freezer now keeps only the two verified standalone codec PE files outside
+main Analysis dependency scanning and appends them afterward as explicit DATA.
+Finalization revalidates the existing codec source/notice/PE inputs, then rejects
+every extra flac.exe/FLAC.dll basename outside the exact isolated subtree,
+including byte-identical copies. It also checks both canonical output hashes
+and lengths before writing candidate metadata; no failed file is deleted.
+The codec's runtime module-origin check is unchanged. Disk/configuration tests
+cover this boundary; the new complete frozen output still needs hosted Windows
+validation. An inventory generated after collection alone cannot establish scope.
 
 The exact ONNX Runtime 1.24.4 cp312 Windows x64 wheel has SHA-256
 535b29475ca42b593c45fbb2152fbf1cdf3f287315bf650e6a724a0a1d065cdb.

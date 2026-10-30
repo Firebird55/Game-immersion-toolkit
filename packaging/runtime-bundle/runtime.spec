@@ -14,7 +14,15 @@ runtime = inputs['profile'] == 'runtime-experiment'
 if inputs['profile'] == 'runtime':
     raise SystemExit('Full runtime profile is disabled until helper/host artifacts and exact collected-file closure are implemented and reviewed.')
 resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT'])
-data = [(str(resource_root / item['path']), str(Path(item['path']).parent)) for item in inputs['resources']]
+# This standalone subprocess owns its sibling DLL closure. Analysis reclassifies
+# PE data as binaries and flattens dependencies outside site-packages, which
+# otherwise adds an unintended root FLAC.dll. Deliver only these verified files
+# as explicit DATA after Analysis; never scan them as Python-host dependencies.
+codec_native = {'codecs/xiph-flac/flac.exe', 'codecs/xiph-flac/FLAC.dll'} if runtime else set()
+isolated_codec_data = [(item['path'], str(resource_root / item['path']), 'DATA')
+    for item in inputs['resources'] if item['path'] in codec_native]
+data = [(str(resource_root / item['path']), str(Path(item['path']).parent))
+    for item in inputs['resources'] if item['path'] not in codec_native]
 hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experiment' else []
 binaries = []
 
@@ -54,6 +62,7 @@ main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
 # image conversion/thresholding, never those models; do not relabel them as user
 # data or relax the private-tree gate to accept arbitrary `data/` directories.
 main.datas = [entry for entry in main.datas if not entry[0].replace('\\', '/').startswith('cv2/data/')]
+main.datas += isolated_codec_data
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
     name='ProxyTranscriptRuntime', console=True, contents_directory='_internal')
