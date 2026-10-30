@@ -90,6 +90,11 @@ class WindowsPreparationProcess:
         length = _check(self.kernel.GetModuleFileNameW(None, image, len(image)))
         if length >= len(image):
             raise OSError('Windows preparation interpreter path was truncated.')
+        if getattr(sys, 'frozen', False):
+            # A bootloader cannot execute this module's .py path. Dispatch the
+            # stdlib bootstrap in the real executable, retaining join-before-
+            # spawn and all parent-owned Job Object cleanup below.
+            return [image.value, '--runtime-child', 'windows-bootstrap', '--', self.name, *command]
         return [image.value, str(Path(__file__).resolve()), self.name, *command]
 
     def _process_ids(self, deadline):

@@ -1,0 +1,174 @@
+name: R19 integrated extracted runtime experiment
+on:
+  push:
+    branches: [codex/r19-runtime-bundle]
+    paths:
+      - 'backend/**'
+      - 'packaging/runtime-bundle/**'
+      - 'packaging/codecs/**'
+      - 'scripts/*runtime*'
+      - 'requirements*.txt'
+      - '.github/workflows/r19-runtime-experiment.yml'
+  workflow_dispatch:
+    inputs:
+      codec_source_only:
+        description: Build and verify the reference-codec source kit only
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: r19-integrated-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  extracted-runtime:
+    if: ${{ !inputs.codec_source_only }}
+    # Server packaging/loading evidence, never Windows 11 capture acceptance.
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites and audit before preparing dependencies
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual PR comparison target is unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public source audit failed.' }
+      - name: Prepare exact supplier and locked wheel payloads on build host only
+        shell: pwsh
+        run: |
+          $pin = Get-Content packaging/runtime-bundle/python-supplier.json -Raw | ConvertFrom-Json
+          $evidence = Join-Path $env:RUNNER_TEMP 'r19-integrated-evidence'
+          New-Item -ItemType Directory -Path (Join-Path $evidence 'wheelhouse') -Force | Out-Null
+          $archive = Join-Path $evidence $pin.archive
+          Invoke-WebRequest $pin.url -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Python supplier archive hash mismatch.' }
+          $pythonRoot = Join-Path $env:RUNNER_TEMP 'r19-integrated-python'
+          New-Item -ItemType Directory -Path $pythonRoot | Out-Null
+          tar -xzf $archive -C $pythonRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Python extraction failed.' }
+          $python = Join-Path $pythonRoot 'python/python.exe'
+          & $python -m pip download --only-binary=:all: --dest (Join-Path $evidence 'wheelhouse') -r requirements.lock.txt PyInstaller==6.22.3 setuptools
+          if ($LASTEXITCODE -ne 0) { throw 'Exact runtime/build wheel acquisition failed.' }
+          & $python -m pip install --no-index --find-links (Join-Path $evidence 'wheelhouse') -r requirements.lock.txt PyInstaller==6.22.3 setuptools
+          if ($LASTEXITCODE -ne 0) { throw 'Offline runtime/build provisioning failed.' }
+          & $python -m pip check
+          if ($LASTEXITCODE -ne 0) { throw 'Provisioned dependency closure is inconsistent.' }
+          "PYTHON=$python" >> $env:GITHUB_ENV
+          "R19_EVIDENCE=$evidence" >> $env:GITHUB_ENV
+      - name: Build static frontend and run affected contracts
+        shell: pwsh
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'Locked frontend preparation failed.' }
+          npm run desktop:build
+          if ($LASTEXITCODE -ne 0) { throw 'Static frontend build failed.' }
+          & $env:PYTHON -B -m pytest -q backend/tests/test_runtime_bundle.py backend/tests/test_runtime_composition.py backend/tests/test_runtime_experiment.py backend/tests/test_desktop_frontend.py backend/tests/test_prebuilt_readers.py backend/tests/test_prebuilt_node_reader.py backend/tests/test_blocked_game_helpers.py backend/tests/test_prebuilt_codecs.py
+          if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
+      - name: Prebuild only the owned NTE bridge on the build host
+        shell: pwsh
+        run: |
+          $pin = Get-Content packaging/game-readers/inputs.json -Raw | ConvertFrom-Json
+          $evidence = Join-Path $env:RUNNER_TEMP 'r19-runtime-managed-inputs'
+          New-Item -ItemType Directory -Path $evidence | Out-Null
+          $archive = Join-Path $evidence $pin.sdk.artifact
+          Invoke-WebRequest $pin.sdk.source -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $pin.sdk.sha512) { throw 'NTE build-host SDK archive hash mismatch.' }
+          $sdk = Join-Path $env:RUNNER_TEMP 'r19-runtime-managed-sdk'
+          Expand-Archive -LiteralPath $archive -DestinationPath $sdk
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -OutputRoot output/runtime-nte-helper -EvidenceRoot $evidence -Dotnet (Join-Path $sdk 'dotnet.exe')
+      - name: Observe exact inputs and build isolated executable trees
+        shell: pwsh
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'r19-integrated-inputs.json'
+          & $env:PYTHON -B scripts/prepare-runtime-codec.py --wheel (Join-Path $env:R19_EVIDENCE 'wheelhouse/imageio_ffmpeg-0.6.0-py3-none-win_amd64.whl') --output output/runtime-codec
+          if ($LASTEXITCODE -ne 0) { throw 'Exact experimental codec preparation failed.' }
+          & $env:PYTHON -B packaging/runtime-bundle/record_runtime.py --evidence $env:R19_EVIDENCE --frontend-root (Join-Path $env:GITHUB_WORKSPACE 'output/desktop-frontend') --nte-helper-root (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-nte-helper/nte') --codec-root (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-codec') --build-id "runtime-experiment-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $inputs
+          if ($LASTEXITCODE -ne 0) { throw 'Exact source/archive/installed payload observation failed.' }
+          ./scripts/build-runtime-bundle.ps1 -InputManifest $inputs -EvidenceRoot $env:R19_EVIDENCE -Python $env:PYTHON -RuntimeExperiment
+      - name: Relocate and probe extracted candidate with no developer environment
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/ProxyTranscriptRuntime'
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          New-Item -ItemType Directory -Path (Split-Path $relocated) -Force | Out-Null
+          Copy-Item -LiteralPath $source -Destination $relocated -Recurse
+          ./scripts/probe-frozen-runtime.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json')
+      - name: Upload sanitized metadata only
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-integrated-runtime-metadata
+          # No binaries, wheelhouse, private receipt, fixture content or raw log.
+          path: |
+            output/checks/r19-frozen-runtime.json
+            output/runtime-bundle/build-check.json
+            output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
+          if-no-files-found: error
+          retention-days: 7
+  reference-codec-source:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.codec_source_only }}
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites and audit public source before build preparation
+        shell: pwsh
+        run: |
+          npm run dev:doctor
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid build preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public audit failed.' }
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Check trust boundaries and acquire exact upstream source only
+        shell: pwsh
+        run: |
+          python -B -m unittest backend.tests.test_reference_codec
+          if ($LASTEXITCODE -ne 0) { throw 'Source trust contracts failed.' }
+          $pin = Get-Content packaging/codecs/flac-reference.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $pin.source.filename
+          Invoke-WebRequest $pin.source.url -OutFile $archive
+          "R19_CODEC_SOURCE=$archive" >> $env:GITHUB_ENV
+      - name: Build selected x64 codec and probe owned audio without developer PATH
+        shell: pwsh
+        run: |
+          ./scripts/build-reference-codec.ps1 -SourceArchive $env:R19_CODEC_SOURCE -OutputRoot output/reference-codec
+          Get-ChildItem output/reference-codec/candidate -Recurse -File | ForEach-Object { $_.IsReadOnly = $true }
+          python -B scripts/probe-reference-codec.py --root output/reference-codec
+          if ($LASTEXITCODE -ne 0) { throw 'Actual selected codec probe failed.' }
+      - name: Rebuild from the delivered source ZIP without repository recipe fallback
+        shell: pwsh
+        run: |
+          Expand-Archive output/reference-codec/codec-sources.zip output/reference-codec-delivered
+          & ./output/reference-codec-delivered/scripts/build-reference-codec.ps1 -SourceArchive (Join-Path $env:GITHUB_WORKSPACE 'output/reference-codec-delivered/inputs/flac-1.5.0.tar.xz') -OutputRoot output/reference-codec-rebuild
+          Get-ChildItem output/reference-codec-rebuild/candidate -Recurse -File | ForEach-Object { $_.IsReadOnly = $true }
+          python -B scripts/probe-reference-codec.py --root output/reference-codec-rebuild
+          if ($LASTEXITCODE -ne 0) { throw 'Delivered-source rebuild decode failed.' }
+          if ((Get-FileHash output/reference-codec/codec-sources.zip).Hash -ne (Get-FileHash output/reference-codec-rebuild/codec-sources.zip).Hash) { throw 'Rebuilt source kit differs.' }
+      - name: Upload complete public source delivery and sanitized metadata only
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-reference-codec-source-and-metadata
+          path: |
+            output/reference-codec/codec-sources.zip
+            output/reference-codec/CODEC-CANDIDATE.json
+            output/reference-codec/CODEC-PROBE.json
+            output/reference-codec-rebuild/CODEC-CANDIDATE.json
+            output/reference-codec-rebuild/CODEC-PROBE.json
+          if-no-files-found: error
+          retention-days: 7

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import os
 import json
-import sys
 import subprocess
 import tempfile
 import threading
@@ -49,10 +48,12 @@ from .scoped_mobile_exports import ScopedMobileExports
 from .automatic_mobile_export import AutomaticMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
+from .runtime_bundle import discover_layout, child_command
 
 
-PROJECT_ROOT = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
-DATA_DIR = PROJECT_ROOT / "data"
+RUNTIME_LAYOUT = discover_layout()
+PROJECT_ROOT = RUNTIME_LAYOUT.legacy_root or RUNTIME_LAYOUT.application_root
+DATA_DIR = RUNTIME_LAYOUT.data_root
 
 
 class ManualIngest(BaseModel):
@@ -135,7 +136,8 @@ class Runtime:
         self.repair_task = None
         self.state_version = StateVersion()
         self.hub = EventHub(lambda: self.state_version.publish(self.accounts.generation))
-        local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
+        local_settings = (RUNTIME_LAYOUT.settings_root / 'settings.json' if RUNTIME_LAYOUT.mode == 'bundle' else
+            Path(os.environ.get("LOCALAPPDATA", DATA_DIR)) / "Proxy Transcript/settings.json")
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript-v2.db")
@@ -296,14 +298,14 @@ class Runtime:
                     if job:
                         job.report('extracting', 'Reading official subtitles and original voice mappings; large games can take several minutes (30-minute limit)')
                     output = Path(temporary) / 'textmap.json'
-                    command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
+                    command = child_command('language', ['--game', game,
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
-                        '--targets', json.dumps(targets), '--output', str(output)]
+                        '--targets', json.dumps(targets), '--output', str(output)])
                     if job:
-                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800,
+                        returncode = job.run(command, cwd=RUNTIME_LAYOUT.resource_root, timeout=1800,
                                              progress_path=output.with_name('progress.json'), **subprocess_options())
                     else:
-                        returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
+                        returncode = subprocess.run(command, cwd=RUNTIME_LAYOUT.resource_root,
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
                         from .preparation_errors import PreparationFailure, public_failure

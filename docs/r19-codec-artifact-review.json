@@ -1,0 +1,401 @@
+{
+  "schema": "proxy-r19-codec-artifact-review-v1",
+  "reviewed_on": "2026-10-29",
+  "review_kind": "engineering distribution readiness; does not grant distribution or patent rights",
+  "artifact": {
+    "wheel": "imageio_ffmpeg-0.6.0-py3-none-win_amd64.whl",
+    "wheel_sha256": "02fa47c83703c37df6bfe4896aab339013f62bf02c5ebf2dce6da56af04ffc0a",
+    "executable_bytes": 87638016,
+    "executable_sha256": "2ce797a0f88d7f067180338fb227f7b1928ea727bd9a4d7a1d022f7c52af71a3",
+    "imageio_binary_git_blob": "2f7e6546b8648db9a1e2a7270d02e4569e3fd546",
+    "supplier_version": "7.1-essentials_build-www.gyan.dev",
+    "compiler": "gcc 14.2.0 (Rev1, Built by MSYS2 project)"
+  },
+  "origin": {
+    "imageio_release_commit": "ae47d8028c237ca5507ceef1b843ee427b442887",
+    "imageio_binaries_commit": "f8f64710ea88e7e4a352c0f7d8c0deac9f5fd685",
+    "supplier_archive_url": "https://github.com/GyanD/codexffmpeg/releases/download/7.1/ffmpeg-7.1-essentials_build.7z",
+    "supplier_archive_bytes": 28223874,
+    "supplier_archive_sha256": "4d903da24c1c07ee72e08a38689327ab0593da9d8802beae2fc50868c0c04cfe",
+    "supplier_archive_digest_kind": "locally computed; GitHub release asset digest is null; not an attestation",
+    "supplier_readme_sha256": "cf9643d68f4149f534cf5e010760cb5125b109c1ec04cfdab4fd38e968212e69",
+    "supplier_license_sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "ffmpeg_source_commit": "b08d7969c550a804a59511c7b83f2dd8cc0499b8",
+    "binary_match": "wheel, imageio Git blob and supplier archive ffmpeg.exe bytes agree"
+  },
+  "decision": {
+    "production_disposition": "reject-this-artifact-for-production",
+    "rights_review": "identified-GPLv3-or-later; exact-output-notice-and-integration-review-incomplete",
+    "source_delivery_review": "not-ready; FFmpeg source pointer identified, complete corresponding source not established",
+    "servicing_review": "rejected-for-production; unserviced 7.1 snapshot with later upstream security fixes",
+    "production_execution_allowed": false,
+    "redistribution_approved": false,
+    "replacement_artifact_selected": false,
+    "runtime_policy_changed": false,
+    "r19_complete": false
+  },
+  "rights": {
+    "wrapper_license": "BSD-2-Clause; applies to wrapper, not embedded FFmpeg",
+    "ffmpeg_license_basis": "GPL-3.0-or-later; actual GPL/version3 configuration, binary license text and supplier GPLv3 notice",
+    "nonfree_enabled": false,
+    "complete_dependency_notices": false,
+    "complete_dependency_source_mapping": false,
+    "integration_assessment": "separate CLI process and standard audio files; aggregate assessment remains provisional, not automatic copyleft clearance",
+    "patent_clearance": "not-established"
+  },
+  "source_delivery": {
+    "route": "proposed GPLv3 section 6(d) equivalent network access beside binary; no assets published",
+    "ffmpeg_pointer_identified": true,
+    "dependency_sources_patches_and_build_scripts_complete": false,
+    "source_delivery_verified": false,
+    "byte_reproducibility": "not demonstrated; GPL source correspondence is not defined as byte-identical rebuilding",
+    "exclusions": "System Libraries and unmodified general-purpose build tools only where the applicable license supports the exclusion; linked runtime objects still need classification"
+  },
+  "servicing": {
+    "later_security_fixes": [
+      {
+        "cve": "CVE-2025-0518",
+        "release": "7.1.1",
+        "commit": "b827ac49b770635fc666f8543cb9585e1bc6308b",
+        "component": "libavfilter/af_pan.c"
+      },
+      {
+        "cve": "CVE-2023-6602 and CVE-2023-6604",
+        "release": "7.1.1",
+        "commit": "b753bac08f6881b2d3dea8f1ab84c81550f35897",
+        "component": "libavformat/hls.c"
+      },
+      {
+        "cve": "CVE-2025-9951",
+        "release": "7.1.2",
+        "commit": "4c036ec307040469783bab0b7223006c0facec1d",
+        "component": "libavcodec/jpeg2000dec.c"
+      }
+    ],
+    "scope": "upstream fixes after supplied FFmpeg source; not reproduced exploits or claims of reachability through bounded FLAC dispatch",
+    "dependency_advisory_review_complete": false,
+    "owner_role": "runtime component maintainer and release maintainer",
+    "next_step": "select a maintained, minimal Windows codec build with exact source/patch/recipe/notice closure; keep current artifact quarantined"
+  },
+  "windows": {
+    "server_2025_decode": "passed at 93cd61c3f3d206533312172113646e4ebc21b954; run 40941114224",
+    "windows_11_25H2_clean_host": "unavailable",
+    "codec_loaded_module_inventory": "not-observed; normal/delay PE imports are static evidence only",
+    "framework_wow64_capture_ocr_dpi": "not-run by codec review",
+    "installer": "not-built"
+  },
+  "observations": {
+    "configuration_sha256": "5c7613daf44b35cec408d53ce3ccacc609f543cb89d3d6564d7625ca3325f92c",
+    "configuration_sha256_scope": "ASCII configuration string without trailing NUL; differs from full -buildconf diagnostic hash",
+    "configuration_flags": [
+      "--disable-autodetect",
+      "--disable-w32threads",
+      "--enable-amf",
+      "--enable-avisynth",
+      "--enable-bzlib",
+      "--enable-cuda-llvm",
+      "--enable-cuvid",
+      "--enable-d3d11va",
+      "--enable-d3d12va",
+      "--enable-dxva2",
+      "--enable-ffnvcodec",
+      "--enable-fontconfig",
+      "--enable-gmp",
+      "--enable-gnutls",
+      "--enable-gpl",
+      "--enable-iconv",
+      "--enable-libaom",
+      "--enable-libass",
+      "--enable-libfreetype",
+      "--enable-libfribidi",
+      "--enable-libgme",
+      "--enable-libgsm",
+      "--enable-libharfbuzz",
+      "--enable-libmp3lame",
+      "--enable-libopencore-amrnb",
+      "--enable-libopencore-amrwb",
+      "--enable-libopenjpeg",
+      "--enable-libopenmpt",
+      "--enable-libopus",
+      "--enable-librubberband",
+      "--enable-libspeex",
+      "--enable-libsrt",
+      "--enable-libssh",
+      "--enable-libtheora",
+      "--enable-libvidstab",
+      "--enable-libvmaf",
+      "--enable-libvo-amrwbenc",
+      "--enable-libvorbis",
+      "--enable-libvpl",
+      "--enable-libvpx",
+      "--enable-libwebp",
+      "--enable-libx264",
+      "--enable-libx265",
+      "--enable-libxml2",
+      "--enable-libxvid",
+      "--enable-libzimg",
+      "--enable-libzmq",
+      "--enable-lzma",
+      "--enable-mediafoundation",
+      "--enable-nvdec",
+      "--enable-nvenc",
+      "--enable-sdl2",
+      "--enable-static",
+      "--enable-vaapi",
+      "--enable-version3",
+      "--enable-zlib"
+    ],
+    "external_libraries": {
+      "avisynth": {
+        "supplier_version": "v3.7.3-75-gc6649361",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "bzlib": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "gmp": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "gnutls": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "iconv": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libaom": {
+        "supplier_version": "v3.10.0-110-g3817481261",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libass": {
+        "supplier_version": "0.17.3-32-g5298859",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libfontconfig": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libfreetype": {
+        "supplier_version": "VER-2-13-3",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libfribidi": {
+        "supplier_version": "v1.0.16",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libgme": {
+        "supplier_version": "0.6.3",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libgsm": {
+        "supplier_version": "1.0.22",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libharfbuzz": {
+        "supplier_version": "10.0.1-1-gc7ef6a2e",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libmp3lame": {
+        "supplier_version": "3.100",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libopencore_amrnb": {
+        "supplier_version": "0.1.6",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libopencore_amrwb": {
+        "supplier_version": "0.1.6",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libopenjpeg": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libopenmpt": {
+        "supplier_version": "libopenmpt-0.6.19-9-g1a29ac622",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libopus": {
+        "supplier_version": "v1.5.2-21-gff6dea5e",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "librubberband": {
+        "supplier_version": "v1.8.1",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libspeex": {
+        "supplier_version": "Speex-1.2.1-28-g1de1260",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libsrt": {
+        "supplier_version": "v1.5.4-rc.0-11-ga7b3711",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libssh": {
+        "supplier_version": "0.11.1",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libtheora": {
+        "supplier_version": "1.1.1",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libvidstab": {
+        "supplier_version": "v1.1.1-13-g8dff7ad",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libvmaf": {
+        "supplier_version": "v3.0.0-95-gd95b69e0",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libvo_amrwbenc": {
+        "supplier_version": "0.1.3",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libvorbis": {
+        "supplier_version": "v1.3.7-10-g84c02369",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libvpx": {
+        "supplier_version": "v1.14.1-371-g32de9c2be",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libwebp": {
+        "supplier_version": "v1.4.0-97-g220ee529",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libx264": {
+        "supplier_version": "v0.164.3192",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libx265": {
+        "supplier_version": "4.0-6-ga009ec077",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libxml2": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libxvid": {
+        "supplier_version": "v1.3.7",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libzimg": {
+        "supplier_version": "release-3.0.5-150-g7143181",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "libzmq": {
+        "supplier_version": "4.3.5",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "lzma": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "mediafoundation": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "sdl2": {
+        "supplier_version": "prerelease-2.29.2-377-g1edaad172",
+        "exact_source_and_notice_mapping": "not-established"
+      },
+      "zlib": {
+        "supplier_version": null,
+        "exact_source_and_notice_mapping": "not-established"
+      }
+    },
+    "hardware_entries": {
+      "amf": {
+        "supplier_version": "v1.4.34-6-g3db6164",
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "cuda": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "cuda_llvm": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "cuvid": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "d3d11va": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "d3d12va": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "dxva2": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "ffnvcodec": {
+        "supplier_version": "n12.2.72.0-1-g9934f17",
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "libmfx": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "libvpl": {
+        "supplier_version": "2.13",
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "nvdec": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "nvenc": {
+        "supplier_version": null,
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      },
+      "vaapi": {
+        "supplier_version": "2.23.0.",
+        "scope": "supplier capability entry; not proof of a bundled driver or independently versioned package"
+      }
+    },
+    "pe": {
+      "imports": [
+        "ADVAPI32.dll",
+        "AVICAP32.dll",
+        "bcrypt.dll",
+        "CRYPT32.dll",
+        "GDI32.dll",
+        "IMM32.dll",
+        "IPHLPAPI.DLL",
+        "KERNEL32.dll",
+        "msvcrt.dll",
+        "ncrypt.dll",
+        "ole32.dll",
+        "OLEAUT32.dll",
+        "SETUPAPI.dll",
+        "SHELL32.dll",
+        "SHLWAPI.dll",
+        "USER32.dll",
+        "VERSION.dll",
+        "WINMM.dll",
+        "WS2_32.dll"
+      ],
+      "delay_imports": [],
+      "certificate_table_bytes": 0
+    }
+  },
+  "evidence_sources": [
+    "https://pypi.org/pypi/imageio-ffmpeg/0.6.0/json",
+    "https://github.com/imageio/imageio-ffmpeg/blob/ae47d8028c237ca5507ceef1b843ee427b442887/tasks.py",
+    "https://github.com/imageio/imageio-binaries/commit/f8f64710ea88e7e4a352c0f7d8c0deac9f5fd685",
+    "https://github.com/GyanD/codexffmpeg/releases/tag/7.1",
+    "https://github.com/FFmpeg/FFmpeg/blob/b08d7969c550a804a59511c7b83f2dd8cc0499b8/LICENSE.md",
+    "https://github.com/FFmpeg/FFmpeg/blob/b08d7969c550a804a59511c7b83f2dd8cc0499b8/COPYING.GPLv3",
+    "https://ffmpeg.org/legal.html",
+    "https://ffmpeg.org/security.html",
+    "https://www.gyan.dev/ffmpeg/builds/"
+  ]
+}

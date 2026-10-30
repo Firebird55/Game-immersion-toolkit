@@ -1,6 +1,8 @@
 """First-run setup and local maintenance. No credentials or game assets leave the PC."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
+from .runtime_bundle import child_command, discover_layout, resource_path
 import json
 import os
 from pathlib import Path
@@ -88,7 +90,9 @@ class InstallationService:
         self.root, self.settings = root, settings
         self.game_state, self.refresh_game = game_state, refresh
         self.account_configured, self.install_lookup = account_configured, install_lookup
-        self.path = Path(os.environ.get("LOCALAPPDATA", root / "data")) / "Proxy Transcript/setup.json"
+        layout = discover_layout()
+        self.path = (layout.settings_root / 'setup.json' if layout.mode == 'bundle' else
+                     Path(os.environ.get("LOCALAPPDATA", runtime_data_root(root))) / "Proxy Transcript/setup.json")
         self._lock = threading.RLock()
         self._jobs: dict[str, dict] = {}
         self._tool_thread: threading.Thread | None = None
@@ -102,6 +106,7 @@ class InstallationService:
             pass
 
     def status(self) -> dict:
+        layout = discover_layout()
         saved = load_paths()
         games = []
         for game in GAMES:
@@ -119,10 +124,13 @@ class InstallationService:
                 voice = _voice_state(game, install, state)
             except OSError:
                 voice = "not_checked"
+            voice_hint = VOICE_HINTS[game]
+            if layout.mode == 'bundle' and game == 'endfield':
+                voice_hint = "Install the selected voice pack in the game. This experimental bundle's Endfield reader is awaiting verification; keep using your existing toolkit installation."
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
-                          "voice_hint": VOICE_HINTS[game], "tools_missing": missing_tools(self.root, game), **state})
+                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
         ocr = Path.home() / ".config/oneocr"
         requirements = [
             {"id": "windows", "title": "Windows", "ready": sys.platform == "win32",
@@ -132,9 +140,15 @@ class InstallationService:
              "help": "Install or update Windows Snipping Tool, then re-run Install.cmd to repair OCR."},
             {"id": "audio", "title": "Audio conversion", "ready": bool(ffmpeg_executable()),
              "help": "Re-run Install.cmd to repair the local audio dependencies."},
-            {"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
-             "help": "Install Node.js 24 with npm, then re-run Install.cmd."},
         ]
+        if layout.mode == 'bundle':
+            requirements[1]['help'] = "Install or update Windows Snipping Tool. OCR file preparation and native capture verification remain unavailable in this experimental bundle."
+            requirements[2]['help'] = "Audio conversion is unavailable until this bundle's codec and game-tool verification is complete. Keep using your existing toolkit installation."
+            requirements.append({'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
+                'help': "This experimental runtime is awaiting Windows capture, game-tool and distribution review. Keep using your existing installation."})
+        else:
+            requirements.append({"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
+                "help": "Install Node.js 24 with npm, then re-run Install.cmd."})
         try:
             free_gb = round(shutil.disk_usage(self.root).free / 1024 ** 3, 1)
         except OSError:
@@ -147,7 +161,7 @@ class InstallationService:
         return {"completed": self.completed, "games": games, "requirements": requirements, "jobs": jobs,
                 "native": native, "free_gb": free_gb, "lexirise_configured": self.account_configured(),
                 "auto_start": self.settings.get().auto_start if self.completed else False,
-                "version": json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text(encoding="utf-8"))["version"],
+                "version": json.loads(resource_path('package.json').read_text(encoding="utf-8"))["version"],
                 "capture_check": capture_check}
 
     def complete(self, auto_start: bool) -> None:
@@ -189,7 +203,10 @@ class InstallationService:
                 self.refresh_game(game)
         except Exception:
             with self._lock:
-                self._jobs[game] = {"state": "error", "message": "Preparation failed. Check your connection and retry. Re-run Install.cmd if dependencies are missing.", "progress": 100}
+                message = ("This experimental bundle's game tools are unavailable. Keep using your existing installation until those tools are verified."
+                    if discover_layout().mode == 'bundle' else
+                    "Preparation failed. Check your connection and retry. Re-run Install.cmd if dependencies are missing.")
+                self._jobs[game] = {"state": "error", "message": message, "progress": 100}
 
     def launch_native(self, kind: str) -> bool:
         if kind not in {"folders", "lexirise", "checks"}:
@@ -200,19 +217,21 @@ class InstallationService:
             if any(process.poll() is None for process in self._native.values()):
                 return False
             before = load_paths()
-            source = Path(__file__).resolve().parents[1]
+            layout = discover_layout()
+            source = layout.resource_root
             if kind == "folders":
                 args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                        str(source / "scripts/select-game-folders.ps1")]
+                        str(resource_path('scripts/select-game-folders.ps1'))]
                 flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             elif kind == "lexirise":
                 # The hidden-input prompt owns its console. No key is sent to the browser or command line.
-                args = [sys.executable, "-m", "scripts.set_lexirise_key", "--account"]
+                args = child_command('account-key', ['--account'])
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
             else:
-                args = [sys.executable, str(source / "scripts/check-capture-readiness.py"), "--pause"]
+                args = child_command('capture-readiness', ['--pause'])
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-            process = subprocess.Popen(args, cwd=source, creationflags=flags)
+            environment = {'env': layout.child_environment()} if layout.mode == 'bundle' else {}
+            process = subprocess.Popen(args, cwd=source, creationflags=flags, **environment)
             self._native[kind] = process
             threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True).start()
             return True

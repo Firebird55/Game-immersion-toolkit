@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import subprocess
 import threading
+from .runtime_bundle import discover_layout
 
 INDEX_BUILD_LOCK = threading.Lock()
 
@@ -20,7 +21,7 @@ def stop_process(process) -> None:
 
 
 def subprocess_options() -> dict:
-    environment = dict(os.environ)
+    environment = discover_layout().child_environment()
     for name in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS'):
         environment[name] = '1'
     return {

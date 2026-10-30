@@ -3,6 +3,7 @@
 using System.Collections;
 using System.Reflection;
 using System.Text.Json;
+using System.Security.Cryptography;
 
 internal static class NteReader
 {
@@ -13,6 +14,17 @@ internal static class NteReader
         Console.SetError(TextWriter.Null);
         try
         {
+            if (args is ["--runtime-identity"])
+            {
+                var core = typeof(object).Assembly.Location;
+                var local = Path.GetFullPath(core).StartsWith(Path.GetFullPath(AppContext.BaseDirectory), StringComparison.OrdinalIgnoreCase);
+                Console.SetOut(output);
+                Console.WriteLine(JsonSerializer.Serialize(new { schema = "proxy-nte-runtime-identity-v1",
+                    runtime_version = Environment.Version.ToString(), runtime_origin = local ? "app-local" : "external",
+                    corelib_sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(core))).ToLowerInvariant(),
+                    game_execution_approved = false }));
+                return local ? 0 : 2;
+            }
             if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory")) throw new ArgumentException();
             var install = Path.GetFullPath(args[1]);
             var tools = Path.GetFullPath(args[2]);
@@ -26,6 +38,11 @@ internal static class NteReader
             if (destination.Equals(install, StringComparison.OrdinalIgnoreCase) ||
                 destination.StartsWith(install.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException("Choose an output folder outside the game installation");
+            foreach (var immutable in new[] { tools, Path.GetFullPath(AppContext.BaseDirectory) })
+                if (destination.Equals(immutable, StringComparison.OrdinalIgnoreCase) ||
+                    destination.StartsWith(immutable.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                    immutable.StartsWith(destination.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("Choose a separate private output folder");
             using var request = JsonDocument.Parse(Console.In.ReadToEnd());
             var voiceLanguage = request.RootElement.TryGetProperty("voice_language", out var requestedVoice) ? requestedVoice.GetString()! : "Chinese";
             if (voiceLanguage is not ("Chinese" or "English" or "Japanese" or "Korean")) throw new ArgumentException();

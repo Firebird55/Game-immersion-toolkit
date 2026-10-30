@@ -1,6 +1,7 @@
 """Private, resumable mobile exports. Never serialize original archive references."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
 import hashlib
 from itertools import islice
 import json
@@ -308,7 +309,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
 def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None, source_path=None, translation_locale=None):
     """Adapt owned indexes and decoders without touching the user's transcript/audio history."""
     root, decode_dir = Path(root), Path(decode_dir)
-    data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
+    data, decoder = runtime_data_root(root), runtime_data_root(root) / "voice-assets/vgmstream/vgmstream-cli.exe"
     watched = {}
     service = None
     account_check = lambda: True

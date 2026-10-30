@@ -43,6 +43,8 @@ def fingerprint(install):
 
 
 def ensure_extractor(directory):
+    from .prebuilt_readers import require_game_reader
+    require_game_reader('endfield')
     directory = directory.resolve()
     sdk = dotnet_sdk()
     if sdk is None:
@@ -96,6 +98,8 @@ def ensure_extractor(directory):
 
 
 def reader(install, executable, action, request):
+    from .prebuilt_readers import require_game_reader
+    require_game_reader('endfield')
     sdk = dotnet_sdk()
     if sdk is None or not executable.is_file():
         raise ValueError('Prepare Endfield game tools in Setup first.')

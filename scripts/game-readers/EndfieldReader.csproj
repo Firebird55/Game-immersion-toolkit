@@ -12,4 +12,7 @@
     <Compile Include="$(EndfieldSource)/**/*.cs" />
     <PackageReference Include="System.IO.Hashing" Version="9.0.0" />
   </ItemGroup>
+  <Target Name="RequireSelectedSources" BeforeTargets="CoreCompile">
+    <Error Condition="'$(EndfieldSource)' == ''" Text="A verified selected source directory is required." />
+  </Target>
 </Project>

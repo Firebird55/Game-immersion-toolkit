@@ -1,6 +1,7 @@
 """Host export preferences and jobs partitioned by account and learning locale."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
 import hashlib
 import json
 from pathlib import Path
@@ -32,7 +33,7 @@ class ScopedMobileExports:
         if locale and locale not in GAME_LOCALES.get(game, ('zh-Hans',)):
             raise ValueError('Select a supported prepared learning language.')
         if not locale:
-            legacy = account == 'legacy' and not (self.root / 'data/languages' / game).is_dir()
+            legacy = account == 'legacy' and not (runtime_data_root(self.root) / 'languages' / game).is_dir()
             locale = 'zh-Hans' if game == 'hito' or legacy else 'unconfigured'
         signature = account_signature(self.accounts)
         generation = self.languages.selection_generation(game, account)
@@ -72,7 +73,7 @@ class ScopedMobileExports:
         self._require_table(context[0], context[2], context[1])
 
     def _require_table(self, account, game, locale):
-        if self.languages.selected(game, account) and not (self.root / 'data/languages' / game / locale / 'textmap.json').is_file():
+        if self.languages.selected(game, account) and not (runtime_data_root(self.root) / 'languages' / game / locale / 'textmap.json').is_file():
             raise ValueError('The selected language table is unavailable. Rebuild it in Languages before exporting.')
 
     def status(self, game=None):

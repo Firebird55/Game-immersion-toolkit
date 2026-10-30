@@ -1,6 +1,7 @@
 """Separately download verified tools; all outputs stay in ignored local caches."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root, voice_work_root
 import hashlib
 import io
 import json
@@ -97,7 +98,7 @@ def install_archive(url: str, digest: str, directory: Path, required: tuple[str,
 
 
 def refresh_zzz_metadata(root: Path, *, revision=None) -> tuple[str, bool]:
-    directory = root / "work/voice-assets"
+    directory = voice_work_root(root)
     base = METADATA_BASE.replace('/branch/master/', '/commit/' + revision + '/') if revision else METADATA_BASE
     payloads = {name: download(base + source) for name, source in METADATA_FILES.items()}
     for name, data in payloads.items():
@@ -119,32 +120,35 @@ def refresh_zzz_metadata(root: Path, *, revision=None) -> tuple[str, bool]:
 def missing_tools(root: Path, game: str) -> list[str]:
     if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return []
-    required = [("Voice decoder", root / "data/voice-assets/vgmstream/vgmstream-cli.exe")]
+    from .runtime_bundle import discover_layout
+    if discover_layout().mode == 'bundle':
+        return ['R19 decoder/helper closure unavailable']
+    required = [("Voice decoder", runtime_data_root(root) / "voice-assets/vgmstream/vgmstream-cli.exe")]
     if game == "zzz":
-        required += [("ZZZ scene reader", root / "work/voice-assets/galgame-perform.ts")]
-        required += [(name, root / "work/voice-assets" / name) for name in METADATA_FILES]
+        required += [("ZZZ scene reader", voice_work_root(root) / "galgame-perform.ts")]
+        required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
         required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "pragmata":
-        required += [("PRAGMATA extractor", root / "data/pragmata/tools/REE.Unpacker.exe")]
+        required += [("PRAGMATA extractor", runtime_data_root(root) / "pragmata/tools/REE.Unpacker.exe")]
     if game == "cyberpunk":
-        required += [("Cyberpunk extractor", root / "data/cyberpunk/tools/WolvenKit.CLI.exe")]
+        required += [("Cyberpunk extractor", runtime_data_root(root) / "cyberpunk/tools/WolvenKit.CLI.exe")]
     if game == "wuwa":
-        required += [("Wuthering Waves extractor", root / "data/wuwa/tools/FModelCLI.exe"),
-                     ("Wuthering Waves decompression", root / "data/wuwa/tools/.data/oodle-data-shared.dll"),
-                     ("Wuthering Waves decompression", root / "data/wuwa/tools/.data/zlib-ng2.dll")]
+        required += [("Wuthering Waves extractor", runtime_data_root(root) / "wuwa/tools/FModelCLI.exe"),
+                     ("Wuthering Waves decompression", runtime_data_root(root) / "wuwa/tools/.data/oodle-data-shared.dll"),
+                     ("Wuthering Waves decompression", runtime_data_root(root) / "wuwa/tools/.data/zlib-ng2.dll")]
     if game == "nte":
         from .nte_assets import dotnet_sdk
         if dotnet_sdk() is None:
-            required.append((".NET 10 SDK", root / "data/nte/tools/missing-sdk"))
-        required += [("NTE reader", root / "data/nte/tools/NteReader.dll"),
-                     ("NTE archive reader", root / "data/nte/tools/upstream/UEExtractor.dll"),
-                     ("NTE decompression", root / "data/nte/tools/upstream/oodle-data-shared.dll"),
-                     ("NTE decompression", root / "data/nte/tools/upstream/zlib-ng2.dll")]
+            required.append((".NET 10 SDK", runtime_data_root(root) / "nte/tools/missing-sdk"))
+        required += [("NTE reader", runtime_data_root(root) / "nte/tools/NteReader.dll"),
+                     ("NTE archive reader", runtime_data_root(root) / "nte/tools/upstream/UEExtractor.dll"),
+                     ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/oodle-data-shared.dll"),
+                     ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/zlib-ng2.dll")]
     if game == "endfield":
         from .nte_assets import dotnet_sdk
         if dotnet_sdk() is None:
-            required.append((".NET 10 SDK", root / "data/endfield/tools/missing-sdk"))
-        required.append(("Endfield reader", root / "data/endfield/tools/EndfieldReader.dll"))
+            required.append((".NET 10 SDK", runtime_data_root(root) / "endfield/tools/missing-sdk"))
+        required.append(("Endfield reader", runtime_data_root(root) / "endfield/tools/EndfieldReader.dll"))
     return list(dict.fromkeys(name for name, path in required if not path.is_file()))
 
 
@@ -154,11 +158,13 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
         raise ValueError("Unsupported game")
     if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return
-    decoder = root / "data/voice-assets/vgmstream"
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain(game + ' decoder/helper')
+    decoder = runtime_data_root(root) / "voice-assets/vgmstream"
     progress("Preparing the verified original-voice decoder")
     install_archive(VGM_URL, VGM_SHA, decoder, ("vgmstream-cli.exe", "COPYING"))
     if game == "zzz":
-        directory = root / "work/voice-assets"
+        directory = voice_work_root(root)
         progress("Preparing the ZZZ scene reader and metadata")
         source = download(READER_BASE + "galgame-perform.ts")
         if _digest(source) != READER_SHA:
@@ -173,19 +179,19 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
     elif game == "endfield":
         from .endfield_assets import ensure_extractor
         progress("Preparing the verified Endfield VFS voice reader")
-        ensure_extractor(root / "data/endfield/tools")
+        ensure_extractor(runtime_data_root(root) / "endfield/tools")
     elif game == "pragmata":
         progress("Preparing the separately downloaded PRAGMATA extractor")
-        install_archive(REE_URL, REE_SHA, root / "data/pragmata/tools", ("REE.Unpacker.exe",))
+        install_archive(REE_URL, REE_SHA, runtime_data_root(root) / "pragmata/tools", ("REE.Unpacker.exe",))
     elif game == "cyberpunk":
         from .cyberpunk_assets import ensure_wolvenkit
         progress("Preparing the verified Cyberpunk extractor")
-        ensure_wolvenkit(root / "data/cyberpunk/tools")
+        ensure_wolvenkit(runtime_data_root(root) / "cyberpunk/tools")
     elif game == "wuwa":
         from .wuthering_assets import ensure_extractor
         progress("Preparing the verified Wuthering Waves extractor")
-        ensure_extractor(root / "data/wuwa/tools", decoder / "vgmstream-cli.exe")
+        ensure_extractor(runtime_data_root(root) / "wuwa/tools", decoder / "vgmstream-cli.exe")
     elif game == "nte":
         from .nte_assets import ensure_extractor
         progress("Preparing the verified NTE archive reader and local .NET bridge")
-        ensure_extractor(root / "data/nte/tools")
+        ensure_extractor(runtime_data_root(root) / "nte/tools")

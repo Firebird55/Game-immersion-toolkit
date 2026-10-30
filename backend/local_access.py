@@ -19,9 +19,6 @@ so rejected requests cannot capture, read snapshots or mutate local data.
 """
 import re
 
-from starlette.responses import JSONResponse
-
-
 COMPANION_ORIGINS = frozenset(f'http://{host}:{port}'
                               for host in ('localhost', '127.0.0.1') for port in (3000, 3001))
 _HOST = re.compile(r'(?:localhost|127\.0\.0\.1)(?::([0-9]{1,5}))?', re.IGNORECASE)
@@ -47,6 +44,7 @@ class LocalAccessMiddleware:
             if scope['type'] == 'websocket':
                 await send({'type': 'websocket.close', 'code': 1008})
             else:
+                from starlette.responses import JSONResponse
                 await JSONResponse({'detail': 'Use the local companion on this PC.'}, status_code=403)(scope, receive, send)
             return
         await self.app(scope, receive, send)
