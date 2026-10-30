@@ -1,7 +1,9 @@
 """Scoped behavior fixtures; real extracted Job/handle cases run on Windows."""
 import io
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 from types import SimpleNamespace
 
@@ -208,3 +210,59 @@ def test_native_listener_table_uses_fixed_windows_rows_and_only_canonical_addres
     monkeypatch.setattr(runtime_host.ctypes, 'WinDLL', lambda *_a, **_k: SimpleNamespace(GetExtendedTcpTable=Query()), raising=False)
     assert ctypes.sizeof(runtime_host._TcpRow) == 24
     assert runtime_host.listener_processes() == {3000: {102}, 8766: {104}}
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows PowerShell observer identity categories')
+def test_observer_diagnostics_are_fixed_categories_and_do_not_weaken_identity(tmp_path):
+    # Extract only the pure classifier. Do not execute the candidate probe,
+    # create real processes, inspect the desktop or access an account.
+    source = Path(__file__).resolve().parents[2]/'scripts/probe-frozen-runtime.ps1'
+    script = tmp_path/'observer-fixture.ps1'
+    script.write_text(r'''param([string]$ProbeScript)
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $parseErrors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile($ProbeScript, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors) { throw 'Owned host probe PowerShell parsing failed.' }
+$definition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-HostObserverIdentityCategory'}, $true)
+if (-not $definition) { throw 'Missing fixed host observer classifier.' }
+. ([scriptblock]::Create($definition.Extent.Text))
+$expected = 'C:\authored-runtime\ProxyTranscriptRuntime.exe'
+$owner = [pscustomobject]@{StartTime=[DateTime]'2020-01-01T00:00:00Z'}
+function New-Observer([string]$Image=$expected, [bool]$Exited=$false, [int]$Offset=1) {
+    return [pscustomobject]@{HasExited=$Exited; StartTime=$owner.StartTime.AddSeconds($Offset); MainModule=[pscustomobject]@{FileName=$Image}}
+}
+function Assert-Category($Observer, [string]$ExpectedCategory) {
+    $category = Get-HostObserverIdentityCategory $Observer $owner $expected
+    if ($category -ne $ExpectedCategory) { throw 'Fixed host observer classification failed.' }
+    if ($category -match 'PRIVATE|authored-runtime|secret-user|^[A-Z]:') { throw 'Observer diagnostics exposed fixture identity.' }
+}
+Assert-Category (New-Observer) 'verified-runtime'
+Assert-Category (New-Observer -Exited $true) 'process-exited'
+Assert-Category (New-Observer -Offset -1) 'process-predates-owner'
+Assert-Category (New-Observer -Image '') 'image-unavailable'
+Assert-Category (New-Observer -Image 'C:\Windows\System32\conhost.exe') 'windows-console-host-image'
+Assert-Category (New-Observer -Image 'C:\other-runtime\ProxyTranscriptRuntime.exe') 'runtime-image-other-path'
+Assert-Category (New-Observer -Image '\\?\C:\authored-runtime\ProxyTranscriptRuntime.exe') 'runtime-image-prefix-spelling-mismatch'
+Assert-Category (New-Observer -Image 'C:\secret-user\private-program.exe') 'unexpected-image'
+$unreadable = New-Observer
+$unreadable | Add-Member -MemberType ScriptProperty -Name HasExited -Value {throw 'PRIVATE fixture state failure'} -Force
+Assert-Category $unreadable 'process-state-unavailable'
+$unreadable = New-Observer
+$unreadable | Add-Member -MemberType ScriptProperty -Name StartTime -Value {throw 'PRIVATE fixture time failure'} -Force
+Assert-Category $unreadable 'creation-time-unavailable'
+$unreadable = New-Observer
+$unreadable | Add-Member -MemberType ScriptProperty -Name MainModule -Value {throw 'PRIVATE fixture image failure'} -Force
+Assert-Category $unreadable 'image-unavailable'
+$script:exitReads = 0
+$exiting = New-Observer
+$exiting | Add-Member -MemberType ScriptProperty -Name HasExited -Value {$script:exitReads++; return $script:exitReads -ge 2} -Force
+Assert-Category $exiting 'process-exited-during-identity'
+Write-Output 'host-observer-categories-passed'
+''', encoding='utf-8')
+    shell = shutil.which('pwsh')
+    assert shell, 'Hosted Windows observer tests require the workflow PowerShell runtime'
+    result = subprocess.run([shell, '-NoProfile', '-NonInteractive', '-File', str(script),
+        '-ProbeScript', str(source)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, 'Fixed observer classifier/parser contract failed on Windows'
+    assert result.stdout.strip() == 'host-observer-categories-passed'
+    assert 'PRIVATE' not in result.stderr and 'secret-user' not in result.stderr

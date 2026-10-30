@@ -44,6 +44,37 @@ function Start-Owned([string]$image, [string]$arguments, [string]$HostCase='') {
     }
     return $process
 }
+function Get-HostObserverIdentityCategory($Observer, $Owner, [string]$ExpectedImage) {
+    # Return only fixed diagnostic categories. Image strings, IDs and times
+    # remain private; none of these failure categories permit adoption or kill.
+    try { if ($Observer.HasExited) { return 'process-exited' } }
+    catch { return 'process-state-unavailable' }
+    try {
+        $started = $Observer.StartTime.ToUniversalTime()
+        $ownerStarted = $Owner.StartTime.ToUniversalTime()
+    } catch { return 'creation-time-unavailable' }
+    if ($started -lt $ownerStarted) { return 'process-predates-owner' }
+    try {
+        $actual = $Observer.MainModule.FileName
+        if ([string]::IsNullOrWhiteSpace($actual)) { return 'image-unavailable' }
+        $actual = [IO.Path]::GetFullPath($actual)
+        $expected = [IO.Path]::GetFullPath($ExpectedImage)
+    } catch { return 'image-unavailable' }
+    try { if ($Observer.HasExited) { return 'process-exited-during-identity' } }
+    catch { return 'process-state-unavailable' }
+    if ([string]::Equals($actual, $expected, [StringComparison]::OrdinalIgnoreCase)) { return 'verified-runtime' }
+    if (($actual.StartsWith('\\?\') -and [string]::Equals($actual.Substring(4), $expected, [StringComparison]::OrdinalIgnoreCase)) -or
+        ($expected.StartsWith('\\?\') -and [string]::Equals($actual, $expected.Substring(4), [StringComparison]::OrdinalIgnoreCase))) {
+        return 'runtime-image-prefix-spelling-mismatch'
+    }
+    if ([string]::Equals([IO.Path]::GetFileName($actual), [IO.Path]::GetFileName($expected), [StringComparison]::OrdinalIgnoreCase)) {
+        return 'runtime-image-other-path'
+    }
+    if ([string]::Equals([IO.Path]::GetFileName($actual), 'conhost.exe', [StringComparison]::OrdinalIgnoreCase)) {
+        return 'windows-console-host-image'
+    }
+    return 'unexpected-image'
+}
 function Start-HostProbe([string]$Case='normal') {
     $image = Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe'
     $process = Start-Owned $image '--runtime-probe host' $Case
@@ -61,15 +92,15 @@ function Start-HostProbe([string]$Case='normal') {
         }
         foreach ($member in $members) {
             if (($member -isnot [long] -and $member -isnot [int]) -or $member -lt 1) { throw 'Invalid private job member identity.' }
-            $observer = [Diagnostics.Process]::GetProcessById([int]$member)
-            $held.Add($observer)
-            $null = $observer.Handle
+            try {
+                $observer = [Diagnostics.Process]::GetProcessById([int]$member)
+                $held.Add($observer)
+                $null = $observer.Handle
+            } catch { throw 'Owned host observation handle identity failed: handle-open-unavailable.' }
             # These handles are for exit observation only. No PID/control
             # message authorizes a process termination or ownership adoption.
-            if ($observer.HasExited -or $observer.StartTime.ToUniversalTime() -lt $process.StartTime.ToUniversalTime() -or
-                [IO.Path]::GetFullPath($observer.MainModule.FileName) -ne [IO.Path]::GetFullPath($image)) {
-                throw 'Owned host observation handle identity is unavailable.'
-            }
+            $identity = Get-HostObserverIdentityCategory $observer $process $image
+            if ($identity -ne 'verified-runtime') { throw ('Owned host observation handle identity failed: ' + $identity + '.') }
         }
         return [pscustomobject]@{process=$process; held=$held; case=$Case}
     } catch {
