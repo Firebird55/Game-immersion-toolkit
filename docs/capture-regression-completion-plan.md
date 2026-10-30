@@ -28,7 +28,7 @@ does not turn a voiced row into an unvoiced row or select another language.
   official identity/voice ambiguity when the observed text cannot settle it.
 - [ ] Handle speaker titles, unknown speakers, narration, choices and partially
   revealed captions without inventing missing text or speaking order.
-- [ ] Follow the game window's physical bounds and monitor, including negative
+- [x] Follow the game window's physical bounds and monitor, including negative
   coordinates, per-monitor DPI, resize and display movement. Retain calibration.
 - [ ] Add equivalent platform discovery/capture adapters as declared in the
   [host delivery plan](desktop-delivery-completion-plan.md).
@@ -83,3 +83,16 @@ separate diagnostic comparison and does not yet pass this entire corpus.
 Frozen OCR/voice/export acceptance names the eligible R19 artifact and actual
 toolchain. Native monitor/DPI evidence contributes to R19 D; package readback
 contributes to B3. A still frame proves neither temporal order nor actual audio.
+
+Windows discovery now retains pointer-sized native handles and identifies the
+monitor containing most of the game window using
+[MonitorFromWindow](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-monitorfromwindow).
+Capture continues to use the complete physical client rectangle, including a
+window spanning displays; it is never clipped to the primary monitor. Capture
+setup reports the detected display. On 2026-10-30 the opt-in
+`scripts/check-monitor-capture.py --background` probe moved an owned colour window
+across three real displays (portrait, negative-origin and primary), verified its
+pixels, then covered it and verified isolated background capture on each display.
+No screen images were saved. Unit cases cover monitor changes, lost windows,
+physical crop bounds and 64-bit handle declarations. This is source/host evidence;
+the final frozen candidate still requires the same native acceptance.

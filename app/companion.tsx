@@ -104,6 +104,8 @@ type CaptureStatus = {
   active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | 'riseofthetombraider' | 'shadowofthetombraider' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
+  monitor_name?: string | null;
+  monitor_bounds?: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
   tip_crop_bounds: [number, number, number, number] | null;
   cinematic_crop_bounds: [number, number, number, number] | null;
@@ -228,6 +230,8 @@ function captureStatusEqual(left: CaptureStatus, right: CaptureStatus, includeDi
   if (!visibleStateMatches || !includeDiagnostics) return visibleStateMatches;
 
   return left.window_title === right.window_title
+    && left.monitor_name === right.monitor_name
+    && sameBounds(left.monitor_bounds ?? null, right.monitor_bounds ?? null)
     && sameBounds(left.window_bounds, right.window_bounds)
     && sameBounds(left.crop_bounds, right.crop_bounds)
     && sameBounds(left.tip_crop_bounds, right.tip_crop_bounds)
@@ -1181,6 +1185,8 @@ function CompanionClient() {
             onClick={() => setDraftSettings(current => current ? { ...current, [`${selectedGame}_region`]: { left: .10, top: .70, width: .80, height: .28 } } : current)}>
             {uiText("Use tested dialogue crop")}</button>}
 
+          {capture?.active_game === selectedGame && capture.monitor_name &&
+            <p className="subtle">{uiText("Following game on")} {capture.monitor_name.replace(/^\\\\\.\\/, '')}</p>}
           <div className="capture-preview">
             {capture?.active_game === selectedGame && capture?.window_bounds ? (
               <img

@@ -332,6 +332,8 @@ class CaptureService:
                 active_game=None,
                 window_title=None,
                 window_bounds=None,
+                monitor_name=None,
+                monitor_bounds=None,
                 crop_bounds=None,
                 tip_crop_bounds=None,
                 cinematic_crop_bounds=None,
@@ -342,6 +344,9 @@ class CaptureService:
 
         profile, window = active
         language_setup = getattr(self, 'language_setup', None)
+        monitor = getattr(window, 'monitor', None)
+        self._update_snapshot(monitor_name=monitor.name if monitor else None,
+                              monitor_bounds=monitor.bounds if monitor else None)
         if profile.id != self.snapshot().active_game:
             self._zzz_cutscene_context.reset()
             self._zzz_dialogue_context.reset()

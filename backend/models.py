@@ -182,6 +182,8 @@ class CaptureSnapshot(BaseModel):
     active_game: GameId | None = None
     window_title: str | None = None
     window_bounds: tuple[int, int, int, int] | None = None
+    monitor_name: str | None = None
+    monitor_bounds: tuple[int, int, int, int] | None = None
     crop_bounds: tuple[int, int, int, int] | None = None
     tip_crop_bounds: tuple[int, int, int, int] | None = None
     cinematic_crop_bounds: tuple[int, int, int, int] | None = None

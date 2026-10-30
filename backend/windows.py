@@ -13,19 +13,63 @@ from .steam_games import STEAM_GAMES
 
 
 @dataclass(frozen=True, slots=True)
+class MonitorInfo:
+    name: str
+    bounds: tuple[int, int, int, int]
+    primary: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class WindowInfo:
     handle: int
     title: str
     process_name: str
     bounds: tuple[int, int, int, int]
+    monitor: MonitorInfo | None = None
+
+
+class _MonitorInfoEx(ctypes.Structure):
+    _fields_ = [('cbSize', wintypes.DWORD), ('rcMonitor', wintypes.RECT),
+                ('rcWork', wintypes.RECT), ('dwFlags', wintypes.DWORD),
+                ('szDevice', wintypes.WCHAR * 32)]
+
+
+def _declare_windows_api(user, kernel):
+    # ctypes otherwise assumes a 32-bit int return/argument. HWND, HMONITOR
+    # and process handles must keep all pointer bits on 64-bit installations.
+    callback = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    signatures = [
+        (user, 'EnumWindows', [callback, wintypes.LPARAM], wintypes.BOOL),
+        (user, 'IsWindowVisible', [wintypes.HWND], wintypes.BOOL),
+        (user, 'IsIconic', [wintypes.HWND], wintypes.BOOL),
+        (user, 'GetWindowTextLengthW', [wintypes.HWND], ctypes.c_int),
+        (user, 'GetWindowTextW', [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int], ctypes.c_int),
+        (user, 'GetClientRect', [wintypes.HWND, ctypes.POINTER(wintypes.RECT)], wintypes.BOOL),
+        (user, 'GetWindowRect', [wintypes.HWND, ctypes.POINTER(wintypes.RECT)], wintypes.BOOL),
+        (user, 'ClientToScreen', [wintypes.HWND, ctypes.POINTER(wintypes.POINT)], wintypes.BOOL),
+        (user, 'GetWindowThreadProcessId', [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)], wintypes.DWORD),
+        (user, 'MonitorFromWindow', [wintypes.HWND, wintypes.DWORD], wintypes.HANDLE),
+        (user, 'GetMonitorInfoW', [wintypes.HANDLE, ctypes.POINTER(_MonitorInfoEx)], wintypes.BOOL),
+        (kernel, 'OpenProcess', [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD], wintypes.HANDLE),
+        (kernel, 'QueryFullProcessImageNameW', [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+                                              ctypes.POINTER(wintypes.DWORD)], wintypes.BOOL),
+        (kernel, 'CloseHandle', [wintypes.HANDLE], wintypes.BOOL),
+        (kernel, 'GetLogicalDrives', [], wintypes.DWORD),
+    ]
+    for library, name, args, result in signatures:
+        function = getattr(library, name)
+        function.argtypes, function.restype = args, result
 
 
 if sys.platform == "win32":
     user32 = ctypes.windll.user32
     kernel32 = ctypes.windll.kernel32
+    _declare_windows_api(user32, kernel32)
     try:
         # Per-monitor V2 keeps client bounds and screenshots in physical pixels
         # when a window moves between displays with different Windows zoom.
+        user32.SetProcessDpiAwarenessContext.argtypes = [ctypes.c_void_p]
+        user32.SetProcessDpiAwarenessContext.restype = wintypes.BOOL
         if not user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
             ctypes.windll.shcore.SetProcessDpiAwareness(2)
     except (AttributeError, OSError):
@@ -36,6 +80,8 @@ if sys.platform == "win32":
 
 
 def _process_path_for_window(hwnd: int) -> str:
+    if sys.platform != 'win32':
+        return ''
     process_id = wintypes.DWORD()
     user32.GetWindowThreadProcessId(hwnd, ctypes.byref(process_id))
     process = kernel32.OpenProcess(0x1000, False, process_id.value)
@@ -148,6 +194,8 @@ def _window_bounds(hwnd: int) -> tuple[int, int, int, int] | None:
     rect = wintypes.RECT()
     try:
         dwmapi = ctypes.windll.dwmapi
+        dwmapi.DwmGetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
+        dwmapi.DwmGetWindowAttribute.restype = ctypes.c_long
         result = dwmapi.DwmGetWindowAttribute(
             hwnd,
             9,
@@ -164,6 +212,23 @@ def _window_bounds(hwnd: int) -> tuple[int, int, int, int] | None:
     if width <= 0 or height <= 0:
         return None
     return rect.left, rect.top, width, height
+
+
+def monitor_for_window(hwnd: int) -> MonitorInfo | None:
+    """Follow the display containing most of the game; never default to primary.
+
+    Client capture still uses its full physical rectangle, including a game
+    spanning two displays. This is identification, not a clipping rectangle.
+    """
+    handle = user32.MonitorFromWindow(hwnd, 0)  # MONITOR_DEFAULTTONULL
+    if not handle:
+        return None
+    info = _MonitorInfoEx(cbSize=ctypes.sizeof(_MonitorInfoEx))
+    if not user32.GetMonitorInfoW(handle, ctypes.byref(info)):
+        return None
+    rect = info.rcMonitor
+    return MonitorInfo(info.szDevice, (rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top),
+                       bool(info.dwFlags & 1))
 
 
 def list_visible_windows() -> list[WindowInfo]:
@@ -189,6 +254,7 @@ def list_visible_windows() -> list[WindowInfo]:
                 title=title_buffer.value,
                 process_name=_process_name_for_window(hwnd),
                 bounds=bounds,
+                monitor=monitor_for_window(hwnd),
             )
         )
         return True
