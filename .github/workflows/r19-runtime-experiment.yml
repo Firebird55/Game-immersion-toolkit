@@ -11,6 +11,10 @@ on:
       - '.github/workflows/r19-runtime-experiment.yml'
   workflow_dispatch:
     inputs:
+      observer_contract_only:
+        description: Run only the pure PowerShell observer classifier contract (no runtime build)
+        type: boolean
+        default: false
       codec_source_only:
         description: Build and verify the reference-codec source kit only
         type: boolean
@@ -18,11 +22,84 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: r19-integrated-${{ github.ref }}
+  group: r19-${{ inputs.observer_contract_only && 'observer-contract' || 'integrated' }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  observer-contract:
+    # Pure authored classifier fixtures, not frozen/native ownership evidence.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.observer_contract_only }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before preparing the isolated contract environment
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual comparison target is unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid contract preflight.' }
+          # Missing application/browser packages are intentional, not a product pass.
+          exit 0
+      - uses: actions/setup-python@v7
+        with:
+          # Test interpreter only; no runtime supplier or product acceptance claim.
+          python-version: '3.12.10'
+      - name: Prepare only the exactly locked pytest dependency subset
+        shell: pwsh
+        run: |
+          $names = @('pytest', 'iniconfig', 'packaging', 'pluggy', 'Pygments', 'colorama')
+          $locked = @(Get-Content requirements.lock.txt | Where-Object { ($_ -split '==')[0] -in $names })
+          if ($locked.Count -ne $names.Count -or @($locked | Where-Object { $_ -notmatch '^[A-Za-z0-9_.-]+==[A-Za-z0-9.+!-]+$' }).Count) { throw 'Pytest subset differs from the exact application lock.' }
+          $requirements = Join-Path $env:RUNNER_TEMP 'r19-observer-contract-requirements.txt'
+          $locked | Set-Content -LiteralPath $requirements -Encoding utf8NoBOM
+          $environment = Join-Path $env:RUNNER_TEMP 'r19-observer-contract-venv'
+          python -m venv $environment
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated test environment creation failed.' }
+          $python = Join-Path $environment 'Scripts/python.exe'
+          & $python -m pip install --disable-pip-version-check --only-binary=:all: --no-deps -r $requirements
+          if ($LASTEXITCODE -ne 0) { throw 'Exact pytest subset installation failed.' }
+          & $python -m pip check
+          if ($LASTEXITCODE -ne 0) { throw 'Pytest subset is inconsistent.' }
+          "R19_OBSERVER_PYTHON=$python" >> $env:GITHUB_ENV
+      - name: Execute the one pure classifier contract without application conftest
+        shell: pwsh
+        run: |
+          $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = '1'
+          $env:PYTEST_ADDOPTS = ''
+          $report = Join-Path $env:RUNNER_TEMP 'r19-observer-contract-junit.xml'
+          & $env:R19_OBSERVER_PYTHON -B -m pytest --noconftest -q --junitxml=$report backend/tests/test_runtime_host.py::test_observer_diagnostics_are_fixed_categories_and_do_not_weaken_identity
+          $testExit = $LASTEXITCODE
+          [xml]$junit = Get-Content -LiteralPath $report -Raw
+          $tests = [int]$junit.testsuites.testsuite.tests
+          $skipped = [int]$junit.testsuites.testsuite.skipped
+          if ($tests -ne 1 -or $skipped -ne 0) { $testExit = 1 }
+          $status = if ($testExit -eq 0) {'passed'} else {'failed'}
+          # This diagnostic receipt schema cannot satisfy runtime acceptance rows.
+          $receipt = @{schema='proxy-r19-host-observer-contract-v1'; source_commit=$env:GITHUB_SHA;
+            scope='pure-powershell-classifier-fixtures'; status=$status; tests=$tests; skipped=$skipped;
+            runtime_built=$false; frozen_runtime_started=$false; native_process_ownership='not-tested';
+            runtime_gates_changed=$false; r19_complete=$false}
+          New-Item -ItemType Directory -Path output/checks -Force | Out-Null
+          $receipt | ConvertTo-Json | Set-Content output/checks/r19-host-observer-contract.json -Encoding utf8NoBOM
+          'Pure observer classifier contract only. No frontend/freezer build, frozen process ownership, runtime schema/gate change or R19 acceptance.' >> $env:GITHUB_STEP_SUMMARY
+          exit $testExit
+      - name: Upload only the sanitized classifier contract receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-host-observer-contract
+          path: output/checks/r19-host-observer-contract.json
+          if-no-files-found: ignore
+          retention-days: 7
   extracted-runtime:
-    if: ${{ !inputs.codec_source_only }}
+    if: ${{ !inputs.codec_source_only && !inputs.observer_contract_only }}
     # Server packaging/loading evidence, never Windows 11 capture acceptance.
     runs-on: windows-2025
     timeout-minutes: 45
@@ -133,6 +210,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   reference-codec-source:
+    if: ${{ !inputs.observer_contract_only }}
     # Keep delivered-kit rebuild evidence on the same head as frozen collection.
     # codec_source_only omits the larger runtime job, never this source boundary.
     runs-on: windows-2025

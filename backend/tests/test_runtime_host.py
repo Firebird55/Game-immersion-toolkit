@@ -233,7 +233,17 @@ function New-Observer([string]$Image=$expected, [bool]$Exited=$false, [int]$Offs
 }
 function Assert-Category($Observer, [string]$ExpectedCategory) {
     $category = Get-HostObserverIdentityCategory $Observer $owner $expected
-    if ($category -ne $ExpectedCategory) { throw 'Fixed host observer classification failed.' }
+    $allowed = @('verified-runtime', 'process-exited', 'process-state-unavailable',
+        'creation-time-unavailable', 'process-predates-owner', 'image-unavailable',
+        'process-exited-during-identity', 'runtime-image-prefix-spelling-mismatch',
+        'runtime-image-other-path', 'windows-console-host-image', 'unexpected-image')
+    if ($category -ne $ExpectedCategory) {
+        $safeActual = if ($category -in $allowed) {$category} else {'unrecognized-category'}
+        $safeExpected = if ($ExpectedCategory -in $allowed) {$ExpectedCategory} else {'unrecognized-category'}
+        [Console]::Out.WriteLine('host-observer-mismatch expected=' + $safeExpected + ' actual=' + $safeActual)
+        [Console]::Out.Flush()
+        throw 'Fixed host observer classification failed.'
+    }
     if ($category -match 'PRIVATE|authored-runtime|secret-user|^[A-Z]:') { throw 'Observer diagnostics exposed fixture identity.' }
 }
 Assert-Category (New-Observer) 'verified-runtime'
@@ -263,6 +273,21 @@ Write-Output 'host-observer-categories-passed'
     assert shell, 'Hosted Windows observer tests require the workflow PowerShell runtime'
     result = subprocess.run([shell, '-NoProfile', '-NonInteractive', '-File', str(script),
         '-ProbeScript', str(source)], capture_output=True, text=True, timeout=30)
-    assert result.returncode == 0, 'Fixed observer classifier/parser contract failed on Windows'
-    assert result.stdout.strip() == 'host-observer-categories-passed'
-    assert 'PRIVATE' not in result.stderr and 'secret-user' not in result.stderr
+    if result.returncode != 0:
+        categories = {'verified-runtime', 'process-exited', 'process-state-unavailable',
+            'creation-time-unavailable', 'process-predates-owner', 'image-unavailable',
+            'process-exited-during-identity', 'runtime-image-prefix-spelling-mismatch',
+            'runtime-image-other-path', 'windows-console-host-image', 'unexpected-image',
+            'unrecognized-category'}
+        safe = 'no-safe-category-result'
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if (len(parts) == 3 and parts[0] == 'host-observer-mismatch'
+                    and parts[1].startswith('expected=') and parts[2].startswith('actual=')
+                    and parts[1][9:] in categories and parts[2][7:] in categories):
+                safe = ' '.join(parts[1:])
+        pytest.fail('Fixed observer classifier failed: ' + safe, pytrace=False)
+    if result.stdout.strip() != 'host-observer-categories-passed':
+        pytest.fail('Observer classifier returned an unexpected control result', pytrace=False)
+    if 'PRIVATE' in result.stderr or 'secret-user' in result.stderr:
+        pytest.fail('Observer diagnostics exposed private fixture detail', pytrace=False)
