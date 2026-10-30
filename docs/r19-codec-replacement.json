@@ -183,10 +183,41 @@
         "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070"
       }
     },
-    "status": "prepared;Windows-build-rebuild-and-frozen-verification-pending",
+    "status": "Windows-build-rebuild-and-downloaded-source-verified;integrated-frozen-receipt-pending",
     "historical_selection_above": "preserved;not-retroactively-relicensed",
     "general_project_license_changed": false,
     "production_execution_allowed": false,
-    "r19_complete": false
+    "r19_complete": false,
+    "verification": {
+      "source_commit": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+      "run": 41137727454,
+      "artifact": 13017103947,
+      "bytes": 1095190,
+      "sha256": "38f0bfe2f0f909e702f5ebc9376eb4e12346e01b2edbd75e47c4129fcfab5dfd",
+      "kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+      "builds": [
+        {
+          "build": "reference-codec",
+          "source_identity": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+          "pcm": "verified",
+          "faults_cleanup_native_origins": "verified",
+          "scoped_grant_source_inputs": "verified"
+        },
+        {
+          "build": "reference-codec-rebuild",
+          "source_identity": "source-kit-rebuild",
+          "pcm": "verified",
+          "faults_cleanup_native_origins": "verified",
+          "scoped_grant_source_inputs": "verified"
+        }
+      ],
+      "historical_binary_hashes_unchanged": true,
+      "new_kit_anonymous_git_ci_bytes": "identical",
+      "frozen_runtime": "not-run-failed-before-build",
+      "production_execution_allowed": false,
+      "r19_complete": false,
+      "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454",
+      "scope": "Standalone selected Windows build and independent delivered-source-kit rebuild; no integrated frozen or Windows 11 acceptance"
+    }
   }
 }

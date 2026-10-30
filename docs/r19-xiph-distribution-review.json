@@ -5,7 +5,7 @@
   "integration_evidence": "docs/r19-frozen-xiph.md",
   "scope": "Unmodified source-built Xiph FLAC 1.5.0 Windows x64; fixed native FLAC to mono 16 kHz s16le PCM, <=1 second, <=1 MiB; experimental only",
   "rights_review": {
-    "status": "scoped-owner-grant-applied;new-kit-native-verification-pending",
+    "status": "scoped-owner-grant-applied;source-kit-build-rebuild-verified;integrated-frozen-receipt-pending",
     "cli": "GPL-2.0-or-later",
     "reference_library": "BSD-3-Clause",
     "static_support": [
@@ -39,12 +39,12 @@
   },
   "durable_source": {
     "path": "third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip",
-    "commit": null,
-    "permalink": null,
+    "commit": "b73573a89a7a2a81dae12b8734f646dbae68013b",
+    "permalink": "https://raw.githubusercontent.com/matthias-van-der-galien/Game-immersion-toolkit/b73573a89a7a2a81dae12b8734f646dbae68013b/third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip",
     "bytes": 1087821,
     "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
     "coverage": "Exact six-input source kit; original unmodified 907-entry upstream tar, complete current build inputs, original alternative license and scoped additional GPL grant",
-    "state": "prepared-source-only-copy;Windows-build-rebuild-and-frozen-verification-pending",
+    "state": "Git-and-anonymous-copy-byte-verified;Windows-build-and-independent-rebuild-verified;integrated-frozen-receipt-pending",
     "publication_guard": "Only the exact current and historical path/size/hash tuples are exempt; all content/profile/credential scanning remains active",
     "release_policy": "After rights resolution, embed the matching complete source kit beside the codec and cohost a named source asset beside each future binary; bind both in checksums/provenance and download-verify before publication. No production release in this review.",
     "retention": "Retain all source snapshots indefinitely; never remove matching source while any covered binary remains available. Preserve historical source if withdrawing a binary.",
@@ -532,5 +532,36 @@
     "retention": "Retain all source snapshots indefinitely; never remove matching source while any covered binary remains available. Preserve historical source if withdrawing a binary.",
     "expiry": "Actions artifacts are review evidence only; not the retention service",
     "repository_protection_or_release_settings_changed": false
+  },
+  "post_grant_source_verification": {
+    "source_commit": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+    "run": 41137727454,
+    "artifact": 13017103947,
+    "bytes": 1095190,
+    "sha256": "38f0bfe2f0f909e702f5ebc9376eb4e12346e01b2edbd75e47c4129fcfab5dfd",
+    "kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "builds": [
+      {
+        "build": "reference-codec",
+        "source_identity": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+        "pcm": "verified",
+        "faults_cleanup_native_origins": "verified",
+        "scoped_grant_source_inputs": "verified"
+      },
+      {
+        "build": "reference-codec-rebuild",
+        "source_identity": "source-kit-rebuild",
+        "pcm": "verified",
+        "faults_cleanup_native_origins": "verified",
+        "scoped_grant_source_inputs": "verified"
+      }
+    ],
+    "historical_binary_hashes_unchanged": true,
+    "new_kit_anonymous_git_ci_bytes": "identical",
+    "frozen_runtime": "not-run-failed-before-build",
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454",
+    "scope": "Standalone selected Windows build and independent delivered-source-kit rebuild; no integrated frozen or Windows 11 acceptance"
   }
 }

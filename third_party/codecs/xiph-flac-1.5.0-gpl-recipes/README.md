@@ -22,8 +22,15 @@ Python are separate prerequisites; no developer tools are needed on the user PC.
 
 The historical 7dc11c7f kit remains retained at its original path and is not
 retroactively relicensed. New kit hashes, independent build/relink and native
-results must be recorded separately. This new source copy is byte-verified;
-its Windows build/rebuild and frozen integration checks are pending at preparation.
+results are recorded separately. This new source copy is byte-verified against
+Git, an anonymous commit-pinned download and the downloaded CI artifact.
+[Run 41137727454](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454)
+at `8f38e6debddecacba9197946a2ff70ee3fc24e59` passed both the selected Windows
+build and an independent rebuild using this kit's own inputs/scripts, with
+unchanged executable/DLL hashes, actual decode, fault, cleanup and DLL-origin
+checks. The [distribution review](../../../docs/r19-xiph-distribution-review.md#durable-source-delivery)
+records the downloaded artifact identity and limits. A successful current
+integrated frozen receipt remains pending.
 No production or Windows 11 gate is granted by this file.
 
 Canonical retention and cohosting beside any future binary remain required.

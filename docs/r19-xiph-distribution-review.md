@@ -12,8 +12,9 @@ GPL-2.0-or-later route for exactly the two codec build scripts and input policy,
 without the extra visible-credit/link condition. The
 [scoped grant](../packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt) is delivered in
 a new source kit. The general project license remains unchanged. The earlier
-MIT description was wrong. The historical kit keeps its original terms;
-new-kit build/rebuild and frozen evidence are still pending at preparation.
+MIT description was wrong. The historical kit keeps its original terms.
+The new kit has passed a Windows build and an independent rebuild from the
+delivered source; its successful integrated frozen receipt remains pending.
 Canonical source retention, future binary cohosting, other component rights and
 ordinary-user Windows acceptance remain separate open gates.
 
@@ -117,8 +118,26 @@ contains six inputs, **1,087,821 bytes**, SHA-256
 7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9.
 It retains the same unmodified upstream tarball and original LICENSE, plus the
 exact scoped grant and current recipes/policy. Windows CRLF recipe bytes and
-byte-exact LF grant text are recorded separately. New Windows build/rebuild and
-frozen receipts are pending; historical successful receipts above do not cover it.
+byte-exact LF grant text are recorded separately.
+
+[Run 41137727454](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454)
+at `8f38e6debddecacba9197946a2ff70ee3fc24e59` built the selected codec and
+independently rebuilt it using only this delivered kit's own scripts. Both
+verified the unchanged pinned executable/DLL and notice hashes, all six source
+inputs, real PCM decode, cancellation/deadline/truncation, previous-output
+retention, owned cleanup and actual DLL origins. The rebuild's source identity
+is explicitly `source-kit-rebuild`, rather than a fabricated Git checkout.
+
+Downloaded source artifact **13017103947**, **1,095,190 bytes**, matched SHA-256
+38f0bfe2f0f909e702f5ebc9376eb4e12346e01b2edbd75e47c4129fcfab5dfd.
+Its five entries contain the complete kit and both build/probe receipts; no
+executable or DLL is uploaded. All six nested input hashes and the original
+907-entry tar were checked. An anonymous download from the
+[commit-pinned source copy](https://raw.githubusercontent.com/matthias-van-der-galien/Game-immersion-toolkit/b73573a89a7a2a81dae12b8734f646dbae68013b/third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip)
+matched the Git and CI kit bytes. This establishes the new source review copy
+and standalone native build/rebuild. That run's frozen job failed before build;
+neither it nor the historical frozen receipts establish the current integrated
+candidate's acceptance. All production, Windows 11 and R19 gates stay open.
 
 This removes dependence on seven-day Actions retention for the review copies.
 The publication scanner admits only these two exact path/size/hash tuples; changed,

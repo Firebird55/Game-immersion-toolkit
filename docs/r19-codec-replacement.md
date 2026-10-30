@@ -54,7 +54,10 @@ The historical kit carries the custom Firebird55 Attribution License; the
 earlier MIT label was incorrect. The owner subsequently approved a limited
 additional GPL-2.0-or-later route for those three inputs, without the extra
 visible-credit/link condition. The [new source kit](../third_party/codecs/xiph-flac-1.5.0-gpl-recipes/README.md)
-includes the scoped grant. Its Windows rebuild and frozen evidence remain pending;
+includes the scoped grant. Its Windows build and independent delivered-kit rebuild
+have passed and the source artifact was downloaded and verified; a successful
+current frozen receipt remains pending. Exact identities are recorded in the
+[distribution review](r19-xiph-distribution-review.md#durable-source-delivery);
 the historical selection hashes below are preserved. The
 [rights/source/maintenance review](r19-xiph-distribution-review.md) records both.
 No source patch is applied. The tarball retains

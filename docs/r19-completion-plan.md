@@ -23,8 +23,9 @@ The [rights/source/maintenance review](r19-xiph-distribution-review.md) now reta
 the exact source kit in Git and records all 35 post-release changes. It also
 corrects the earlier MIT description. The owner approved a limited additional
 GPL-2.0-or-later route for the two codec build scripts and input policy on
-2026-10-30. The new source kit contains that grant; independent Windows
-build/rebuild and frozen verification are pending. Canonical binary/source
+2026-10-30. The new source kit contains that grant; its independent Windows
+build/rebuild and downloaded source artifact are verified. A successful current
+integrated frozen receipt remains pending. Canonical binary/source
 cohosting, other component rights and native gates remain open.
 
 The deliverable is an extracted Windows x64 runtime that an ordinary user can
