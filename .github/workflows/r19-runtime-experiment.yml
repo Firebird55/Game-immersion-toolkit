@@ -72,7 +72,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Locked frontend preparation failed.' }
           npm run desktop:build
           if ($LASTEXITCODE -ne 0) { throw 'Static frontend build failed.' }
-          & $env:PYTHON -B -m pytest -q backend/tests/test_runtime_bundle.py backend/tests/test_runtime_composition.py backend/tests/test_runtime_experiment.py backend/tests/test_desktop_frontend.py backend/tests/test_prebuilt_readers.py backend/tests/test_prebuilt_node_reader.py backend/tests/test_blocked_game_helpers.py backend/tests/test_prebuilt_codecs.py
+          & $env:PYTHON -B -m pytest -q backend/tests/test_runtime_bundle.py backend/tests/test_runtime_composition.py backend/tests/test_runtime_experiment.py backend/tests/test_desktop_frontend.py backend/tests/test_prebuilt_readers.py backend/tests/test_prebuilt_node_reader.py backend/tests/test_blocked_game_helpers.py backend/tests/test_prebuilt_codecs.py backend/tests/test_windows_preparation_drain.py backend/tests/test_preparation_process_tree.py
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
       - name: Prebuild only the owned NTE bridge on the build host
         shell: pwsh
@@ -90,7 +90,11 @@ jobs:
         shell: pwsh
         run: |
           $inputs = Join-Path $env:RUNNER_TEMP 'r19-integrated-inputs.json'
-          & $env:PYTHON -B scripts/prepare-runtime-codec.py --wheel (Join-Path $env:R19_EVIDENCE 'wheelhouse/imageio_ffmpeg-0.6.0-py3-none-win_amd64.whl') --output output/runtime-codec
+          $codec = Get-Content packaging/codecs/flac-reference.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $codec.source.filename
+          Invoke-WebRequest $codec.source.url -OutFile $archive
+          ./scripts/build-reference-codec.ps1 -SourceArchive $archive -OutputRoot output/reference-codec -Python $env:PYTHON
+          & $env:PYTHON -B scripts/prepare-runtime-codec.py --reference-root output/reference-codec --output output/runtime-codec
           if ($LASTEXITCODE -ne 0) { throw 'Exact experimental codec preparation failed.' }
           & $env:PYTHON -B packaging/runtime-bundle/record_runtime.py --evidence $env:R19_EVIDENCE --frontend-root (Join-Path $env:GITHUB_WORKSPACE 'output/desktop-frontend') --nte-helper-root (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-nte-helper/nte') --codec-root (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-codec') --build-id "runtime-experiment-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $inputs
           if ($LASTEXITCODE -ne 0) { throw 'Exact source/archive/installed payload observation failed.' }
@@ -103,7 +107,7 @@ jobs:
           New-Item -ItemType Directory -Path (Split-Path $relocated) -Force | Out-Null
           Copy-Item -LiteralPath $source -Destination $relocated -Recurse
           ./scripts/probe-frozen-runtime.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json')
-      - name: Upload sanitized metadata only
+      - name: Upload public source kit and sanitized metadata only
         uses: actions/upload-artifact@v7
         with:
           name: r19-integrated-runtime-metadata
@@ -112,6 +116,7 @@ jobs:
             output/checks/r19-frozen-runtime.json
             output/runtime-bundle/build-check.json
             output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
+            output/reference-codec/codec-sources.zip
           if-no-files-found: error
           retention-days: 7
   reference-codec-source:

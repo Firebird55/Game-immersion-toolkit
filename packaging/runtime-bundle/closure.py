@@ -153,7 +153,7 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         from record_runtime import RESOURCES, verified_nte, verified_codec, codec_identity
         helper = verified_nte(evidence, resources, value['source_commit'], source)
         codec = verified_codec(evidence, resources, value['source_commit'], source)
-        codec_names = {'codecs/ffmpeg-flac/' + name for name in (*codec.manifest['files'], 'codec-manifest.json')}
+        codec_names = {'codecs/xiph-flac/' + name for name in (*codec.manifest['files'], 'codec-manifest.json')}
         helper_names = {'helpers/nte/' + name for name in (*helper.manifest['files'], 'helper-manifest.json')}
         helper_identity = {'nte': {'build_id': helper.manifest['build_id'], 'source_identity': helper.source_identity,
             'manifest_sha256': digest(evidence / 'helpers/nte/helper-manifest.json'), 'game_execution_approved': False}}

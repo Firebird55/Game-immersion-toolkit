@@ -225,7 +225,7 @@ def test_bootstrap_joins_job_before_spawn_and_failed_join_never_spawns(monkeypat
     events = []
     kernel = SimpleNamespace(OpenJobObjectW=lambda *_: events.append('open') or 1,
         GetCurrentProcess=lambda: 2, AssignProcessToJobObject=lambda *_: events.append('join') or 1,
-        CloseHandle=lambda *_: events.append('close') or 1)
+        CloseHandle=lambda *_: events.append('close') or 1, SetDllDirectoryW=lambda *_: 1)
     monkeypatch.setattr(preparation, '_kernel', lambda: kernel)
     monkeypatch.setattr(preparation.subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
     monkeypatch.setattr(preparation.subprocess, 'call', lambda *_a, **_k: events.append('spawn') or 0)

@@ -79,7 +79,7 @@ def verified_codec(evidence, resources, commit, source):
 
 
 def codec_identity(codec):
-    return {'ffmpeg-flac': {'build_id': codec.manifest['build_id'],
+    return {'xiph-flac': {'build_id': codec.manifest['build_id'],
         'manifest_sha256': digest(codec.executable.parent / 'codec-manifest.json'),
         'artifact_sha256': codec.manifest['archive_sha256'], 'production_execution_allowed': False}}
 
@@ -92,13 +92,13 @@ def collect_codec(codec_root, evidence, commit, source):
         _no_links(path)
         if not (path.is_file() or path.is_dir()):
             raise ClosureError('Codec inputs must be regular files/directories.')
-    target = evidence / 'codecs/ffmpeg-flac'
+    target = evidence / 'codecs/xiph-flac'
     _no_links(target.absolute())
     target.parent.mkdir(exist_ok=True)
     shutil.copytree(codec_root, target)
-    resources = [{'path': path.relative_to(evidence).as_posix(), 'sha256': digest(path), 'version': '7.1',
-        'source': 'https://pypi.org/project/imageio-ffmpeg/0.6.0/',
-        'license_expression': 'Exact upstream notices retained; GPL/source/native review pending'}
+    resources = [{'path': path.relative_to(evidence).as_posix(), 'sha256': digest(path), 'version': '1.5.0',
+        'source': 'https://github.com/xiph/flac/releases/tag/1.5.0',
+        'license_expression': 'GPL-2.0-or-later CLI, BSD library, LGPL support; source kit retained; production/native review pending'}
         for path in sorted(target.rglob('*')) if path.is_file()]
     codec = verified_codec(evidence, resources, commit, source)
     return resources, codec_identity(codec)

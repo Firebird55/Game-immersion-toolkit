@@ -54,6 +54,7 @@ def _kernel():
         'WaitForSingleObject': ([wintypes.HANDLE, wintypes.DWORD], wintypes.DWORD),
         'GetCurrentProcess': ([], wintypes.HANDLE),
         'GetModuleFileNameW': ([wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD], wintypes.DWORD),
+        'SetDllDirectoryW': ([wintypes.LPCWSTR], wintypes.BOOL),
         'CloseHandle': ([wintypes.HANDLE], wintypes.BOOL),
     }
     for name, (arguments, result) in functions.items():
@@ -186,6 +187,10 @@ def _bootstrap(name, command):
         _check(kernel.CloseHandle(handle))
     # A failed assignment exits before spawning anything. The parent owns the
     # remaining handle, including if cancellation races with this bootstrap.
+    # PyInstaller's DLL directory is inherited across process creation. Restore
+    # Windows' ordinary native search before an external helper is spawned;
+    # its own app directory and named OS/CRT prerequisites remain explicit.
+    _check(kernel.SetDllDirectoryW(None))
     return subprocess.call(command, creationflags=subprocess.CREATE_NO_WINDOW)
 
 

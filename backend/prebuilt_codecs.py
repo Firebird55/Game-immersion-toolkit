@@ -1,6 +1,6 @@
 """One verified experimental codec and fixed decode operation; no tool discovery.
 
-This does not approve FFmpeg redistribution or enable the general game/audio
+This does not approve production redistribution or enable the general game/audio
 adapter. The production profile and all unprobed codec capabilities stay closed.
 """
 from dataclasses import dataclass
@@ -17,17 +17,27 @@ from .preparation_errors import PreparationFailure
 from .preparation_worker import PreparationJob
 from .runtime_bundle import RuntimeBundleError, discover_layout, relative_resource
 
-PREFIX = 'codecs/ffmpeg-flac/'
-SCHEMA = 'proxy-experimental-codec-v1'
-ARCHIVE_SHA256 = '02fa47c83703c37df6bfe4896aab339013f62bf02c5ebf2dce6da56af04ffc0a'
-EXECUTABLE_SHA256 = '2ce797a0f88d7f067180338fb227f7b1928ea727bd9a4d7a1d022f7c52af71a3'
+PREFIX = 'codecs/xiph-flac/'
+SCHEMA = 'proxy-experimental-codec-v2'
+ARCHIVE_SHA256 = 'f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920'
+EXECUTABLE_SHA256 = '959b7871c00598360734b3792e24b369de6a08f91c02d18abaa7678488b9a355'
+SOURCE_KIT_SHA256 = '7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b'
 PINNED_FILES = {
-    'ffmpeg.exe': EXECUTABLE_SHA256,
-    'notices/IMAGEIO-LICENSE.txt': 'eca73421d0c905a92e952a553d4d58919c5a507c2c2c76e3c0cf9ba408c299e4',
-    'notices/FFMPEG-GPLv3.txt': '8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903',
-    'notices/FFMPEG-LICENSE.md': 'cb48bf09a11f5fb576cddb0431c8f5ed0a60157a9ec942adffc13907cbe083f2',
+    'flac.exe': EXECUTABLE_SHA256,
+    'FLAC.dll': '29c4c88bc8cb17e30aaef2d9af50455abeeccc59bda18d1189dfb7568d9e27d8',
+    'codec-sources.zip': SOURCE_KIT_SHA256,
+    'notices/COPYING.GPL': '8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643',
+    'notices/COPYING.LGPL': '5df07007198989c622f5d41de8d703e7bef3d0e79d62e24332ee739a452af62a',
+    'notices/COPYING.Xiph': '7866ee98760fc1f0156b4fe6bf530257e02be487ab3fd94e2b63799dd32d6b2c',
+    'notices/COPYING.FDL': 'c5d2b95c2538d2e41d8eedd9ecc750cd5fee085c7bb2bc3e2f95f4e59cc0b10d',
+    'notices/AUTHORS': '89d44b9c876a8a5cbfc886348a151abd74eeb49e4b690b0cfe96d44a9afe8118',
+    'notices/README.md': '60f6958863c656e55017928edfda20ec26f60b06d673a68cc0030fd24f27f544',
+    'notices/SOURCE-COPYRIGHTS.txt': 'b80a97d5c805983929421d3d91d6d39a9393994825004f11d5a9ed356efba767',
 }
-SOURCE_INPUTS = {'packaging/codecs/ffmpeg-flac.json', 'scripts/prepare-runtime-codec.py', 'backend/prebuilt_codecs.py'}
+SOURCE_INPUTS = {'packaging/codecs/flac-reference.json', 'scripts/build-reference-codec.ps1',
+    'scripts/reference-codec.py', 'LICENSE', 'scripts/prepare-runtime-codec.py', 'backend/prebuilt_codecs.py'}
+SOURCE_REVIEW = 'verified-source-kit;production-hosting-open'
+SERVICING_REVIEW = 'current-stable-bounded-scope;postrelease-review-required'
 POLICY = {'operation': 'flac-to-pcm-s16le', 'rate': 16000, 'channels': 1, 'max_samples': 16000}
 
 
@@ -53,6 +63,11 @@ class FlacDecoder:
     layout: object
     manifest: dict
     executable: Path
+
+    def _command(self, source, destination, samples):
+        return [str(self.executable), '--decode', '--silent', '--force-raw-format',
+            '--endian=little', '--sign=signed', '--until='+str(samples),
+            '--output-name='+str(destination), '--', str(source)]
 
     def decode(self, source, destination, *, cancelled=None, timeout=10):
         """Publish PCM atomically after owned child cleanup; failed attempts retain old bytes."""
@@ -83,10 +98,7 @@ class FlacDecoder:
             raise _failure('Codec execution needs a bounded deadline of at most 30 seconds.')
         with tempfile.TemporaryDirectory(prefix='codec-attempt-', dir=destination.parent) as temporary:
             pending = Path(temporary) / 'decoded.pcm'
-            command = [str(self.executable), '-nostdin', '-hide_banner', '-loglevel', 'error', '-nostats',
-                '-xerror', '-err_detect', 'explode', '-y', '-protocol_whitelist', 'file', '-f', 'flac', '-i', str(source),
-                '-map', '0:a:0', '-vn', '-sn', '-dn', '-threads', '1', '-filter_threads', '1',
-                '-c:a', 'pcm_s16le', '-ac', '1', '-ar', '16000', '-t', '1', '-fs', '32000', '-f', 's16le', str(pending)]
+            command = self._command(source, pending, samples)
             # The owned Windows bootstrap needs these explicit roots before it
             # joins its Job Object; no inherited loader/account state is retained.
             environment = self.layout.child_environment('windows-bootstrap', reader_environment())
@@ -112,13 +124,13 @@ def prebuilt_flac_decoder(*, layout=None):
         if path.stat().st_size > 128 * 1024:
             raise ValueError()
         value = json.loads(path.read_bytes(), object_pairs_hook=_unique_json)
-        if (value.get('schema') != SCHEMA or value.get('kind') != 'ffmpeg-flac-experiment'
-                or value.get('platform') != 'win-x64' or value.get('version') != '7.1'
+        if (value.get('schema') != SCHEMA or value.get('kind') != 'xiph-flac-experiment'
+                or value.get('platform') != 'win-x64' or value.get('version') != '1.5.0'
                 or value.get('source_commit') != layout.source_commit or value.get('source_dirty') is not False
-                or value.get('archive_sha256') != ARCHIVE_SHA256 or value.get('entry') != 'ffmpeg.exe'
+                or value.get('archive_sha256') != ARCHIVE_SHA256 or value.get('entry') != 'flac.exe'
                 or value.get('policy') != POLICY or value.get('production_execution_allowed') is not False
                 or value.get('redistribution_review') != 'pending-exact-output'
-                or value.get('source_delivery_review') != 'open' or value.get('servicing_review') != 'open'
+                or value.get('source_delivery_review') != SOURCE_REVIEW or value.get('servicing_review') != SERVICING_REVIEW
                 or value.get('native_windows_11_acceptance') != 'unavailable' or value.get('r19_complete') is not False):
             raise ValueError()
         files = value['files']
@@ -145,13 +157,13 @@ def prebuilt_flac_decoder(*, layout=None):
         if (not isinstance(sources, dict) or set(sources) != SOURCE_INPUTS
                 or any(not isinstance(sha, str) or len(sha) != 64 or any(c not in '0123456789abcdef' for c in sha) for sha in sources.values())):
             raise ValueError()
-        executable = root / 'ffmpeg.exe'
-        # The actual executable hash is pinned above; inspect PE architecture too.
-        with executable.open('rb') as stream:
-            header = stream.read(64); offset = struct.unpack_from('<I', header, 60)[0]
-            stream.seek(offset); pe = stream.read(26)
-        if header[:2] != b'MZ' or pe[:4] != b'PE\0\0' or pe[4:6] != b'\x64\x86' or pe[24:26] != b'\x0b\x02':
-            raise ValueError()
+        executable = root / 'flac.exe'
+        for name in ('flac.exe', 'FLAC.dll'):
+            with (root / name).open('rb') as stream:
+                header = stream.read(64); offset = struct.unpack_from('<I', header, 60)[0]
+                stream.seek(offset); pe = stream.read(26)
+            if header[:2] != b'MZ' or pe[:4] != b'PE\0\0' or pe[4:6] != b'\x64\x86' or pe[24:26] != b'\x0b\x02':
+                raise ValueError()
         return FlacDecoder(layout, value, executable)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, struct.error, RuntimeBundleError) as error:
         raise _failure('The experimental codec is missing, changed or incompatible. Re-extract a verified candidate; no PATH, download or development fallback was used.') from error

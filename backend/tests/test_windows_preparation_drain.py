@@ -70,6 +70,23 @@ def tree(kernel):
     return instance
 
 
+def test_bootstrap_clears_inherited_frozen_dll_directory_before_native_spawn(monkeypatch):
+    from backend import windows_preparation_process as module
+    from types import SimpleNamespace
+    calls = []
+    kernel = SimpleNamespace(OpenJobObjectW=lambda *_: 1, GetCurrentProcess=lambda: 2,
+        AssignProcessToJobObject=lambda *_: calls.append('join') or 1,
+        CloseHandle=lambda *_: 1, SetDllDirectoryW=lambda path: calls.append(('dll-directory', path)) or 1)
+    monkeypatch.setattr(module, '_kernel', lambda: kernel)
+    monkeypatch.setattr(module.subprocess, 'CREATE_NO_WINDOW', 0x8000000, raising=False)
+    def spawn(command, **kwargs):
+        assert calls == ['join', ('dll-directory', None)]
+        assert command == ['owned.exe'] and kwargs['creationflags'] == 0x8000000
+        return 0
+    monkeypatch.setattr(module.subprocess, 'call', spawn)
+    assert module._bootstrap('owned-job', ['owned.exe']) == 0
+
+
 def test_job_accounting_zero_is_not_process_completion():
     kernel = Kernel()
     tree(kernel).terminate()
