@@ -18,7 +18,7 @@ from .media_tools import ffmpeg_executable
 
 
 ZERO_GUID = "00000000-0000-0000-0000-000000000000"
-INDEX_FORMAT = 4
+INDEX_FORMAT = 5
 SCENE_CLIP_RE = re.compile(r"^cs\d+_s(\d+)$", re.IGNORECASE)
 
 
@@ -530,6 +530,10 @@ class PragmataVoiceAssetService:
                 audio = record.get("audio")
                 if not isinstance(audio, dict):
                     continue
+                # Older indexes borrowed performances by equal bilingual text.
+                # Do not expose those voices while a format-5 refresh runs.
+                if audio.get('mapping') == 'bilingual_alias':
+                    continue
                 if payload.get('format') == 2:
                     from .pragmata_assets import VOICE_LOCALES
                     code = VOICE_LOCALES.get(locale)
@@ -622,13 +626,9 @@ class PragmataVoiceAssetService:
         project.write_text("\n".join(virtuals) + "\n", encoding="utf-8")
         cache.mkdir(parents=True, exist_ok=True)
         try:
+            from .ree_extractor import extract_project
             for archive in sorted(install.glob("re_chunk_*.pak*"), key=_archive_order):
-                result = subprocess.run(
-                    [str(self.tools / 'REE.Unpacker.exe'), project.stem, str(archive), str(cache)],
-                    cwd=self.tools, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120,
-                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-                if result.returncode:
-                    raise RuntimeError('PRAGMATA voice extraction failed; check the installed archives')
+                extract_project(self.tools, project.stem, archive, cache)
         finally:
             project.unlink(missing_ok=True)
         for virtual in virtuals:

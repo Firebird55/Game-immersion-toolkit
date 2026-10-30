@@ -1,5 +1,11 @@
 # BEYOND: Two Souls
 
+The [narrative-format audit](game-audits/beyond.md) inventories voiced dialogue,
+text-only choices, localized textures and video limitations. **Capture setup →
+Include unvoiced dialogue** enables confirmed chapter choice labels separately
+from speech. System/controller prompts stay excluded; missing voice data never
+becomes an unvoiced line.
+
 Choose the installed Steam folder in Setup, select the original spoken
 language you are learning, then explicitly prepare that learning language in
 **Languages**. Steam downloads additional original voice packs when its game

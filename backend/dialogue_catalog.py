@@ -30,9 +30,11 @@ class DialogueCatalog:
             self.api = api
             metadata = json.loads(download(api + '/branches/' + branch))
             self.revision = metadata['commit']['id']
+            self.revision_title = metadata['commit'].get('title') or metadata['commit'].get('message', '').split('\n', 1)[0]
         else:
             metadata = json.loads(download(f'https://api.github.com/repos/{self.repository}/commits/{branch}'))
             self.revision = metadata['sha']
+            self.revision_title = metadata.get('commit', {}).get('message', '').split('\n', 1)[0]
         if not re.fullmatch('[a-f0-9]{40}', self.revision):
             raise ValueError('Official dialogue catalog revision is unavailable.')
         self.root = self.directory / self.revision
@@ -82,6 +84,42 @@ class DialogueCatalog:
                     raise ValueError('Dialogue catalog expands beyond its size limit.')
                 # Parse in memory; never extract upstream file paths to the host.
                 yield json.load(archive.extractfile(item))
+
+    def directory_text(self, relative, suffix='.txt'):
+        """Read bounded UTF-8 assets without extracting untrusted archive paths."""
+        directory = PurePosixPath(relative)
+        if (self.host != 'gitlab' or directory.is_absolute() or '..' in directory.parts
+                or not relative or '\\' in relative or ':' in relative
+                or suffix not in {'.txt', '.srt'}):
+            raise ValueError('Unsupported dialogue text directory.')
+        name = relative.replace('/', '-') + '-text.tar.gz'
+        url = self.api + '/archive.tar.gz?sha=' + self.revision + '&path=' + quote(relative)
+        data = self._bytes(name, url)
+        total, count, seen = 0, 0, set()
+        with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
+            for item in archive:
+                path = PurePosixPath(item.name)
+                if (path.is_absolute() or '..' in path.parts or '\\' in item.name
+                        or ':' in item.name or item.issym() or item.islnk()):
+                    raise ValueError('Unsafe dialogue catalog archive.')
+                if not item.isfile():
+                    continue
+                total += item.size
+                count += 1
+                if item.size > 4 * 1024 * 1024 or total > 128 * 1024 * 1024 or count > 50000:
+                    raise ValueError('Dialogue text archive expands beyond its size limit.')
+                # GitLab prefixes one repository/revision directory. Require the
+                # requested path beneath it; never join an arbitrary basename.
+                parts = path.parts[1:]
+                if tuple(parts[:len(directory.parts)]) != directory.parts:
+                    raise ValueError('Dialogue text archive crosses its requested directory.')
+                identity = PurePosixPath(*parts[len(directory.parts):]).as_posix()
+                if not item.name.endswith(suffix):
+                    continue
+                if identity in seen:
+                    raise ValueError('Duplicate dialogue text identity in archive.')
+                seen.add(identity)
+                yield identity, archive.extractfile(item).read().decode('utf-8-sig')
 
 
 def selected_tables(catalog, mapping, source, targets, *, medium=False, prefix='TextMap/TextMap'):

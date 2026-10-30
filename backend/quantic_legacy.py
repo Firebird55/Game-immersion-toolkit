@@ -164,19 +164,23 @@ def localization(data, locales=None):
         size = cursor.integer()
         if size > METADATA_LIMIT or size % 2:
             raise ValueError('Invalid HEAVY RAIN official text pool size')
-        pool, texts, bindings = cursor.read(size), {}, {}
-        for key, offset, length, _flags, pointer, kind, identity in rows:
+        pool, texts, bindings, text_flags, binding_states = cursor.read(size), {}, {}, {}, {}
+        for key, offset, length, flags, pointer, kind, identity in rows:
+            if flags > 65535:
+                raise ValueError('Unsupported HEAVY RAIN localization text flags')
             if offset % 2 or offset + length * 2 > size or pointer or (not kind and identity):
                 raise ValueError('Invalid HEAVY RAIN official text or voice pointer')
             if locales is not None and code not in locales:
                 continue
             text = pool[offset:offset + length * 2].decode('utf-16-be').rstrip('\0')
             binding = (kind, identity) if kind and (kind, identity) in dependencies else None
-            if key in texts and (texts[key], bindings[key]) != (text, binding):
+            state = 'none' if not kind else 'resolved' if binding else 'unresolved'
+            if key in texts and (texts[key], bindings[key], text_flags[key], binding_states[key]) != (text, binding, flags, state):
                 raise ValueError('Conflicting HEAVY RAIN official localization identity')
             texts[key], bindings[key] = text, binding
+            text_flags[key], binding_states[key] = flags, state
         if locales is None or code in locales:
-            result[code] = {'texts': texts, 'bindings': bindings}
+            result[code] = {'texts': texts, 'bindings': bindings, 'text_flags': text_flags, 'binding_states': binding_states}
     if cursor.position != len(data):
         raise ValueError('Unsupported trailing HEAVY RAIN localization fields')
     return result

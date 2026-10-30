@@ -11,7 +11,9 @@
 
 ## Zenless Zone Zero
 
-[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · [覆盖范围说明](../zzz-languages.md)
+[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [覆盖范围说明](../zzz-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
 <details>
 <summary>语言详情</summary>
@@ -38,7 +40,9 @@
 
 ## Wuthering Waves
 
-[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · [覆盖范围说明](../wuthering-languages.md)
+[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [覆盖范围说明](../wuthering-languages.md)
+
+Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
 
 <details>
 <summary>语言详情</summary>
@@ -62,7 +66,9 @@
 
 ## Neverness to Everness
 
-[官方语言列表](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · [覆盖范围说明](../nte-languages.md)
+[官方语言列表](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-10-25 · [覆盖范围说明](../nte-languages.md)
+
+Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.
 
 <details>
 <summary>语言详情</summary>
@@ -85,7 +91,9 @@
 
 ## PRAGMATA
 
-[官方语言列表](https://store.steampowered.com/app/3357650/PRAGMATA/) · [覆盖范围说明](../pragmata-languages.md)
+[官方语言列表](https://store.steampowered.com/app/3357650/PRAGMATA/) · 2026-10-25 · [覆盖范围说明](../pragmata-languages.md)
+
+Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.
 
 <details>
 <summary>语言详情</summary>
@@ -113,7 +121,9 @@
 
 ## Cyberpunk 2077
 
-[官方语言列表](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · [覆盖范围说明](../cyberpunk-languages.md)
+[官方语言列表](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · 2026-10-25 · [覆盖范围说明](../cyberpunk-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.
 
 <details>
 <summary>语言详情</summary>
@@ -146,7 +156,9 @@
 
 ## The Witcher 3: Wild Hunt
 
-[官方语言列表](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · [覆盖范围说明](../witcher-languages.md)
+[官方语言列表](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · 2026-10-25 · [覆盖范围说明](../witcher-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.
 
 <details>
 <summary>语言详情</summary>
@@ -178,7 +190,9 @@
 
 ## BEYOND: Two Souls
 
-[官方语言列表](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · [覆盖范围说明](../beyond-support.md)
+[官方语言列表](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · 2026-10-25 · [覆盖范围说明](../beyond-support.md)
+
+Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.
 
 <details>
 <summary>语言详情</summary>
@@ -215,7 +229,9 @@
 
 ## HEAVY RAIN
 
-[官方语言列表](https://store.steampowered.com/app/960910/Heavy_Rain/) · [覆盖范围说明](../heavy-rain-support.md)
+[官方语言列表](https://store.steampowered.com/app/960910/Heavy_Rain/) · 2026-10-25 · [覆盖范围说明](../heavy-rain-support.md)
+
+Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.
 
 <details>
 <summary>语言详情</summary>
@@ -246,7 +262,9 @@
 
 ## Honkai: Star Rail
 
-[官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · [覆盖范围说明](../starrail-languages.md)
+[官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [覆盖范围说明](../starrail-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
 <details>
 <summary>语言详情</summary>
@@ -273,7 +291,9 @@
 
 ## Genshin Impact
 
-[官方语言列表](https://store.epicgames.com/p/genshin-impact) · [覆盖范围说明](../genshin-languages.md)
+[官方语言列表](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [覆盖范围说明](../genshin-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
 <details>
 <summary>语言详情</summary>
@@ -292,9 +312,10 @@
 | 俄语 | — | — | ✓ | 已实现读取器 |
 | 泰语 | — | — | ✓ | 已实现读取器 |
 | 越南语 | — | — | ✓ | 已实现读取器 |
-| 印度尼西亚语 | — | — | ✓ | 已实现读取器 |
 | 意大利语 | — | — | ✓ | 已实现读取器 |
 | 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | — | 不可用 |
+| 印度尼西亚语 | — | — | ✓ | 已实现读取器 |
 
 </details>
 
@@ -302,18 +323,20 @@
 
 ## Arknights: Endfield
 
-[官方语言列表](https://store.epicgames.com/p/arknightsendfield-f0f167) · [覆盖范围说明](../endfield-languages.md)
+[官方语言列表](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [覆盖范围说明](../endfield-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
 <details>
 <summary>语言详情</summary>
 
 | 语言 | 原版配音 | 学习 | 翻译 | 依据 |
 | :--- | :---: | :---: | :---: | :--- |
-| 英语 | ✓ | ✓ | ✓ | 已实现读取器 |
-| 简体中文 | ✓ | ✓ | ✓ | 已实现读取器 |
-| 繁体中文 | 共用普通话配音 | ✓ | ✓ | 已实现读取器 |
-| 日语 | ✓ | ✓ | ✓ | 已实现读取器 |
-| 韩语 | ✓ | ✓ | ✓ | 已实现读取器 |
+| 英语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 简体中文 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 繁体中文 | 共用普通话配音 | ✓ | ✓ | 已在本机解码原始配音 |
+| 日语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
 | 法语 | — | — | ✓ | 已实现读取器 |
 | 德语 | — | — | ✓ | 已实现读取器 |
 | 意大利语 | — | — | ✓ | 已实现读取器 |
@@ -323,5 +346,449 @@
 | 泰语 | — | — | ✓ | 已实现读取器 |
 | 越南语 | — | — | ✓ | 已实现读取器 |
 | 印度尼西亚语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="riseofthetombraider"></a>
+
+## Rise of the Tomb Raider
+
+[官方语言列表](https://store.steampowered.com/app/391220/?l=english) · 2026-10-27 · [覆盖范围说明](../rise-tomb-raider-languages.md)
+
+All twelve Steam full-audio languages plus evidenced Latin American Spanish and Arabic DLC formats. Dutch is text-only. Arabic base-game voice coverage is not claimed; regional/DLC packs may be partial. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language. Local non-English playback evidence comes from installed DLC; base-language packs other than English were absent.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 拉丁美洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 日语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 巴西葡萄牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 波兰语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 俄语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 韩语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 繁体中文 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 简体中文 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 阿拉伯语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+
+</details>
+
+<a id="shadowofthetombraider"></a>
+
+## Shadow of the Tomb Raider
+
+[官方语言列表](https://store.steampowered.com/app/750920/?l=english) · 2026-10-27 · [覆盖范围说明](../shadow-tomb-raider-languages.md)
+
+All eleven global Steam full-audio languages plus Japanese and Latin American Spanish evidenced by official regional manifests. Korean is text-only. Some packs require the corresponding regional edition. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 意大利语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 拉丁美洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 日语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 巴西葡萄牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 波兰语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 俄语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 简体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 阿拉伯语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+
+</details>
+
+<a id="spyro"></a>
+
+## Spyro Reignited Trilogy
+
+[官方语言列表](https://store.steampowered.com/app/996580/Spyro_Reignited_Trilogy/) · 2026-10-28 · [覆盖范围说明](../game-audits/spyro.md)
+
+All 14 official PC languages use authored localized text and Wwise voice events. Norwegian uses native nb text and no audio identifiers. One Arabic voice event is unavailable in the inspected installation.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 阿拉伯语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 丹麦语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 荷兰语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 芬兰语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 挪威语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 波兰语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 巴西葡萄牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 拉丁美洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 瑞典语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+
+</details>
+
+<a id="detroit"></a>
+
+## Detroit: Become Human
+
+[官方语言列表](https://store.steampowered.com/app/1222140/Detroit_Become_Human/) · 2026-10-28 · [覆盖范围说明](../game-audits/detroit.md)
+
+All 12 official voice languages and 24 official text locales use exact authored localization, FlowDialog and sound dependencies. Each installed voice locale has a verified original decode sample.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 瑞典语 | — | — | ✓ | 已实现读取器 |
+| 丹麦语 | — | — | ✓ | 已实现读取器 |
+| 挪威语 | — | — | ✓ | 已实现读取器 |
+| 芬兰语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 波兰语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 日语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 巴西葡萄牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 阿拉伯语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="deathstranding"></a>
+
+## DEATH STRANDING
+
+[官方语言列表](https://store.steampowered.com/app/1190460/DEATH_STRANDING/) · 2026-10-28 · [覆盖范围说明](../game-audits/deathstranding.md)
+
+Original PC edition only; all twelve official voice locales and twenty text locales. Ordinary and cinematic original samples decoded in every installed voice language. The reader uses the game-owned Oodle library and the verified voice decoder.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 波兰语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 日语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 拉丁美洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 巴西葡萄牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 阿拉伯语 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="portal"></a>
+
+## Portal
+
+[官方语言列表](https://store.steampowered.com/app/400/Portal/) · 2026-10-28 · [覆盖范围说明](../game-audits/portal.md)
+
+Six official voice locales and 27 text locales. English originals decoded locally; the other voice packs use format-tested locale mounts and never borrow English recordings.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 俄语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 丹麦语 | — | — | ✓ | 已实现读取器 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 芬兰语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 挪威语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 瑞典语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 保加利亚语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 罗马尼亚语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 泰语 | — | — | ✓ | 已实现读取器 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 乌克兰语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="halflife"></a>
+
+## Half-Life
+
+[官方语言列表](https://store.steampowered.com/app/70/HalfLife/) · 2026-10-28 · [覆盖范围说明](../game-audits/halflife.md)
+
+Limited support: authored text messages only. Original Half-Life has no official spoken subtitle track. Eight official language mount schemas are inventoried; spoken dialogue capture is not implemented.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 法语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 意大利语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 欧洲西班牙语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 简体中文 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 繁体中文 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | — | 仅文本 | ✓ | 格式已测试；未在本机验证配音包 |
+
+</details>
+
+<a id="plaguetaleinnocence"></a>
+
+## A Plague Tale: Innocence
+
+[官方语言列表](https://store.steampowered.com/app/752590/A_Plague_Tale_Innocence/) · 2026-10-28 · [覆盖范围说明](../game-audits/plaguetaleinnocence.md)
+
+All three official originals and fourteen text locales. English, French and German installed cinematic and ambient recordings decoded with the verified voice decoder.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="mgsvgz"></a>
+
+## METAL GEAR SOLID V: GROUND ZEROES
+
+[官方语言列表](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvgz.md)
+
+English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 日语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 德语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="mgsvtpp"></a>
+
+## METAL GEAR SOLID V: THE PHANTOM PAIN
+
+[官方语言列表](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvtpp.md)
+
+English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 日语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 德语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 俄语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="portal2"></a>
+
+## Portal 2
+
+[官方语言列表](https://store.steampowered.com/app/620/Portal_2/) · 2026-10-28 · [覆盖范围说明](../game-audits/portal2.md)
+
+Five official original voice locales and 27 text locales. English installed dialogue, commentary, movie and song audio decoded. Four absent voice packs remain implemented by isolated native locale schemas, without English fallback.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 俄语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 丹麦语 | — | — | ✓ | 已实现读取器 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 芬兰语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 挪威语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 瑞典语 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 保加利亚语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 罗马尼亚语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 泰语 | — | — | ✓ | 已实现读取器 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 乌克兰语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="halflife2"></a>
+
+## Half-Life 2
+
+[官方语言列表](https://store.steampowered.com/app/220/HalfLife_2/) · 2026-10-28 · [覆盖范围说明](../game-audits/halflife2.md)
+
+Half-Life 2 and its bundled Episode One and Episode Two use separate campaign namespaces. Base game: seven original voice locales; Episode One additionally supports official regional Simplified Chinese, Traditional Chinese and Thai; Episode Two has five originals. Regional languages are not represented as base-game dubs. All 27 text locale schemas are implemented.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 德语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 意大利语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 韩语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 俄语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 简体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 繁体中文 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 荷兰语 | — | — | ✓ | 已实现读取器 |
+| 丹麦语 | — | — | ✓ | 已实现读取器 |
+| 芬兰语 | — | — | ✓ | 已实现读取器 |
+| 日语 | — | — | ✓ | 已实现读取器 |
+| 挪威语 | — | — | ✓ | 已实现读取器 |
+| 波兰语 | — | — | ✓ | 已实现读取器 |
+| 欧洲葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 瑞典语 | — | — | ✓ | 已实现读取器 |
+| 泰语 | ✓ | ✓ | ✓ | 格式已测试；未在本机验证配音包 |
+| 保加利亚语 | — | — | ✓ | 已实现读取器 |
+| 捷克语 | — | — | ✓ | 已实现读取器 |
+| 希腊语 | — | — | ✓ | 已实现读取器 |
+| 匈牙利语 | — | — | ✓ | 已实现读取器 |
+| 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
+| 罗马尼亚语 | — | — | ✓ | 已实现读取器 |
+| 拉丁美洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 土耳其语 | — | — | ✓ | 已实现读取器 |
+| 乌克兰语 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[官方语言列表](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [覆盖范围说明](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | — | — | ✓ | 已实现读取器 |
+| 意大利语 | — | — | ✓ | 已实现读取器 |
+| 德语 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | — | — | ✓ | 已实现读取器 |
+| 日语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 韩语 | — | — | ✓ | 已实现读取器 |
+| 简体中文 | — | — | ✓ | 已实现读取器 |
+| 繁体中文 | — | — | ✓ | 已实现读取器 |
+
+</details>
+
+<a id="deusexhrdc"></a>
+
+## Deus Ex: Human Revolution - Director's Cut
+
+[官方语言列表](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/) · 2026-10-28 · [覆盖范围说明](../game-audits/deusexhrdc.md)
+
+All five official original voice and text locales. Native BIGFILE, CDRM, DRM and FMOD/CRI schemas retain exact language identities. Original dialogue and cinematic samples were decoded in each installed language.
+
+<details>
+<summary>语言详情</summary>
+
+| 语言 | 原版配音 | 学习 | 翻译 | 依据 |
+| :--- | :---: | :---: | :---: | :--- |
+| 英语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 法语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 意大利语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 德语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
+| 欧洲西班牙语 | ✓ | ✓ | ✓ | 已在本机解码原始配音 |
 
 </details>

@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 import {zipSync,strToU8} from 'fflate';
 import {createHash} from 'node:crypto';
 import {ocrAssets,mime} from './mobile-assets.mjs';
-import {TONE,VIDEO,WEBM_VIDEO,CHINESE_VIDEO,CHINESE_WEBM} from '../tests/mobile-media-fixtures.mjs';
+import {TONE} from '../tests/mobile-media-fixtures.mjs';
 const engines=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href:'playwright');
 const root=process.env.MOBILE_PREVIEW_DIR?pathToFileURL(resolve(process.env.MOBILE_PREVIEW_DIR)+sep):new URL('../public/mobile-capture/',import.meta.url),ocr=ocrAssets();
 const files=new Map(readdirSync(root,{recursive:true}).filter(n=>statSync(new URL(n.replaceAll('\\','/'),root)).isFile()).map(n=>['/'+n.replaceAll('\\','/'),n.replaceAll('\\','/')]));files.set('/','index.html');
@@ -21,6 +21,7 @@ const input=(name,buffer)=>({name,mimeType:'application/zip',buffer});
 mkdirSync('output/playwright',{recursive:true});
 const pipelinePath=[...files.keys()].find(p=>/\/ocr-pipeline(?:\.[a-f0-9]+)?\.mjs$/.test(p));
 const libraryWorkerPath=[...files.keys()].find(p=>/\/library-worker(?:\.[a-f0-9]+)?\.mjs$/.test(p));
+const storagePath=[...files.keys()].find(p=>/\/storage(?:\.[a-f0-9]+)?\.mjs$/.test(p));
 async function verifyZzzProxy(page){
  const female={...row,id:'7'.repeat(64),textId:'GalGame_fixture:F',sourceVoice:'7'.repeat(64),playerVoice:'female',sourceLanguage:'ja',sourceLocale:'ja',audioLocale:'ja',sourceText:'私の言葉です。',translationLocale:'zh-Hans',translationText:'这句话的字幕相同。',memberTextIds:['GalGame_fixture']},
  male={...female,id:'6'.repeat(64),textId:'GalGame_fixture:M',sourceVoice:'6'.repeat(64),playerVoice:'male',sourceText:'僕の言葉です。',memberTextIds:['GalGame_fixture']};
@@ -84,85 +85,74 @@ async function verifyHeavyRainPages(page){
  assert.equal(result.short.state,'unmatched');
  assert.equal(result.initial.matches.length,1);assert.equal(result.contextual.matches.length,2);assert.deepEqual(result.initial.groups,['heavyrain:100']);
 }
-async function diagnoseOcr(page,name,stage){
- await page.screenshot({path:`output/playwright/mobile-library-${name}-failure.png`,fullPage:true});
- const data=await page.evaluate(async({base,pipelinePath})=>{
-  const video=document.querySelector('#preview'),{crops,cropFrame,recognizeRegion,candidates}=await import(base+pipelinePath),{default:Tesseract}=await import(base+'/ocr/tesseract.esm.min.js'),language=document.querySelector('#ocr-language').value;
-  const worker=await Tesseract.createWorker(language,1,{workerPath:base+'/ocr/worker.min.js',corePath:base+'/ocr/core/',langPath:base+'/ocr/lang/',workerBlobURL:false}),canvas=document.createElement('canvas'),region={crop:crops.zzz,channel:'dialogue',ink:'white'};
-  cropFrame(video,canvas,region.crop);const data=await recognizeRegion(worker,canvas,region,language);await worker.terminate();
-  return {width:video.videoWidth,height:video.videoHeight,readyState:video.readyState,paused:video.paused,time:video.currentTime,text:data?.text,confidence:data?.confidence,candidates:data?candidates(data,region,canvas.width,canvas.height,'zzz'):null};
- },{base,pipelinePath});console.error({name,stage,...data});
-}
 let browser;
+const bundle=encode({'manifest.json':{format:'proxy-mobile-bundle-v1',kind:'bundle',game:'zzz',revision:id,catalog:'library/catalog.zip',voices:[`library/voices/${id}.zip`]},'library/catalog.zip':catalog,[`library/voices/${id}.zip`]:voices});
 try{
  for(const name of (process.env.MOBILE_TEST_BROWSERS??'chromium,firefox,webkit').split(',')){
-  browser=await engines[name].launch({headless:true});
-  const context=await browser.newContext({acceptDownloads:true,viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],external=[];
-  page.on('pageerror',e=>errors.push(e.message));context.on('request',request=>{if(!request.url().startsWith(base)&&!request.url().startsWith('blob:')&&!request.url().startsWith('data:'))external.push(request.url());});
-  await page.goto(base+'?developer=1');await verifyZzzProxy(page);await verifyBeyondContext(page);await verifyHeavyRainPages(page);await page.selectOption('#role','receiver');
+  browser=await engines[name].launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844},acceptDownloads:true}),page=await context.newPage(),errors=[],external=[];
+  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(!r.url().startsWith(base)&&!r.url().startsWith('blob:')&&!r.url().startsWith('data:'))external.push(r.url());});
+  await page.goto(base+'?developer=1');await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();
+  await page.setInputFiles('#library-files',input('retained-test.zip',bundle));
+  await page.waitForFunction(()=>!document.querySelector('#library-files').disabled&&document.querySelector('#cache-status').textContent.includes('on this device'));
+  const retention=await page.locator('#cache-status').textContent();
+  if(name==='webkit'&&process.platform==='win32'&&retention.includes('could not be kept')){
+   assert.match(retention,/works this session/);
+   console.log('Windows WebKit OPFS unavailable: session-only fallback verified; retained reopening UNVERIFIED on this runtime.');
+  }else{
+   assert.match(retention,/^Library kept on this device/);
+   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+   assert.equal(await page.locator('#saved-libraries option').count(),2);
+   await page.setInputFiles('#library-files',input('bad-update.zip',Buffer.from('broken')));
+   await page.waitForFunction(()=>!document.querySelector('#library-files').disabled);
+   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+   await page.click('#remove-retained-library');await page.waitForFunction(()=>document.querySelector('#saved-libraries').options.length===1);
+  }
+  await page.click('#forget-library');await page.locator('#keep-library').uncheck();
+  await verifyZzzProxy(page);await verifyBeyondContext(page);await verifyHeavyRainPages(page);
+  assert.equal(await page.locator('.companion-nav button').count(),2);
+  await page.setInputFiles('#library-files',input('old-voices.zip',voices));
+  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('voice-only'));
+  const chooser=page.waitForEvent('filechooser');await page.click('#open-library');await(await chooser).setFiles(input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));
+  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+  assert.match(await page.locator('#selected-library').textContent(),/Mandarin - Mobile Library/);
+  await page.waitForFunction(()=>!document.querySelector('#library-files').disabled);
+  assert.equal(await page.inputValue('#library-files'),'','Resetting the picker permits retry without losing the visible selected file');
+  assert(await page.getByRole('button',{name:'Change library',exact:true}).isVisible());
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.fill('#find-text',row.english);await page.click('#find-line');
+  await page.getByRole('button',{name:'Play',exact:true}).click();
+  await page.locator('.current-card').filter({hasText:row.chinese}).waitFor();
+  if(!(name==='webkit'&&process.platform==='win32')){
+   await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).click();
+   await page.waitForFunction(()=>document.querySelector('#voice-player').currentTime>0,null,{timeout:15000});
+  }else console.log('Windows WebKit audio decoding is unavailable; bundle bytes and clip checksum are still verified.');
+  await page.locator('.current-card').getByRole('button',{name:'☆ Favorite',exact:true}).click();
+  await page.locator('.current-card').getByRole('button',{name:'★ Favorited',exact:true}).waitFor();
+  await page.setInputFiles('#library-files',input('broken.zip',Buffer.from('broken')));
+  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('incomplete'));
+  assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'A bad replacement preserves working voices');
+  await page.evaluate(async path=>{const storage=await import(path),history=await storage.get('history');await storage.put('history',history.map(row=>({...row,audio:'f'.repeat(64)})));},storagePath);
+  await page.reload();await page.locator('#keep-library').uncheck();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Reopen library for voices'));
+  await page.getByRole('button',{name:'Reopen voice library',exact:true}).waitFor();
+  assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isDisabled());
+  await page.locator('.current-card').getByRole('button',{name:'★ Favorited',exact:true}).waitFor();
+  const reopen=page.waitForEvent('filechooser');await page.locator('.current-card').getByRole('button',{name:'Open voice library',exact:true}).click();await(await reopen).setFiles(input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));
+  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+  await page.waitForFunction(()=>!document.querySelector('.current-card .line-actions button').disabled);
+  assert(await page.locator('.current-card').getByRole('button',{name:'▶ Play voice',exact:true}).isEnabled(),'Reopening repairs an old saved audio hash');
+  // Older catalog + voice files remain usable, including voice-only reselection with a remembered catalog.
   await page.setInputFiles('#library-files',[input('catalog.zip',catalog),input('voices.zip',voices)]);
-  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('1 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent()});throw error;});
-  await page.fill('#find-text',quietRow.english+'\n'+quietRow.chinese);await page.click('#find-line');await page.getByRole('button',{name:'No verified original voice',exact:true}).waitFor();assert(await page.getByRole('button',{name:'No verified original voice',exact:true}).isDisabled());await page.click('#clear-history');
-  if(name==='webkit'&&process.platform==='win32'){
-   const recognized=await page.evaluate(async base=>{const {default:Tesseract}=await import(base+'/ocr/tesseract.esm.min.js');const worker=await Tesseract.createWorker('eng',1,{workerPath:base+'/ocr/worker.min.js',corePath:base+'/ocr/core/',langPath:base+'/ocr/lang/',workerBlobURL:false});const canvas=document.createElement('canvas');canvas.width=900;canvas.height=100;const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,900,100);ctx.fillStyle='black';ctx.font='40px Arial';ctx.fillText('The lantern is bright.',30,65);const result=await worker.recognize(canvas);await worker.terminate();return result.data.text;},base);
-   assert(recognized.includes(row.english));assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
-   await page.screenshot({path:'output/playwright/mobile-library-webkit.png',fullPage:true});
-   console.log('webkit Windows: file opening and real canvas OCR passed; video/MP3 decoding unavailable in this test runtime. Full media checks run on Linux CI.');
-   await context.close();await browser.close();browser=null;continue;
-  }
-  const videoSource=async sources=>page.evaluate(async sources=>{const video=document.querySelector('#preview');video.loop=true;for(const [base64,type] of sources){const bytes=Uint8Array.from(atob(base64),c=>c.charCodeAt(0));video.src=URL.createObjectURL(new Blob([bytes],{type}));try{await video.play();window.dispatchEvent(new CustomEvent('mobile-stream',{detail:{generation:1,state:'connected',live:true,game:'zzz',role:'receiver'}}));return;}catch{}}throw new Error('Test browser cannot decode MP4 or WebM.');},sources);
-  await videoSource([[VIDEO,'video/mp4'],[WEBM_VIDEO,'video/webm']]);
-  await page.click('#ocr-start');
-  await page.waitForFunction(()=>document.body.classList.contains('ocr-running')).catch(async error=>{console.error({stage:'OCR startup',status:await page.locator('#match-status').textContent(),errors});throw error;});
-  assert(await page.evaluate(()=>{const r=document.querySelector('#preview').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;}),'The live preview stays visible while reading the transcript');
-  await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000}).catch(async error=>{console.error({stage:'English OCR',status:await page.locator('#match-status').textContent(),errors});await diagnoseOcr(page,name,'English OCR');throw error;});
-  assert.equal(await page.locator('.transcript-chinese').textContent(),row.chinese);
-  await page.getByRole('button',{name:'Play original voice',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('#voice-player').currentTime>0,{},{timeout:15000});
-  await page.getByRole('button',{name:'Favorite',exact:true}).click();
-  await page.click('#ocr-pause');
-  await page.click('#clear-history');
-  await page.selectOption('#ocr-language','chi_sim');
-  await videoSource([[CHINESE_VIDEO,'video/mp4'],[CHINESE_WEBM,'video/webm']]);
-  await page.click('#ocr-start');
-  await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:15000}).catch(async error=>{const diagnosis=await page.evaluate(async base=>{const {default:T}=await import(base+'/ocr/tesseract.esm.min.js'),w=await T.createWorker('chi_sim',1,{workerPath:base+'/ocr/worker.min.js',corePath:base+'/ocr/core/',langPath:base+'/ocr/lang/',workerBlobURL:false});await w.setParameters({tessedit_pageseg_mode:'6'});const v=document.querySelector('#preview'),c=document.createElement('canvas');c.width=1800;c.height=301;c.getContext('2d').drawImage(v,v.videoWidth*.08,v.videoHeight*.67,v.videoWidth*.84,v.videoHeight*.25,0,0,1800,301);const r=await w.recognize(c);await w.terminate();return r.data.text;},base);console.error({stage:'Chinese OCR',status:await page.locator('#match-status').textContent(),diagnosis,errors});throw error;});
-  assert.equal(await page.locator('.transcript-chinese').textContent(),chineseRow.chinese);
-  await page.click('#ocr-pause');
-  const offline=files.has('/sw.js');
-  if(offline){await page.waitForFunction(()=>navigator.serviceWorker.controller!=null);await context.setOffline(true);}
-  await page.reload();
-  await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000});
-  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('0 unique voice clips accessible'),{},{timeout:30000}).catch(async error=>{console.error({stage:'catalog restore',errors,status:await page.locator('#library-status').textContent(),storage:await page.locator('#storage-status').textContent(),cache:await page.locator('#cache-status').textContent()});throw error;});
-  assert(await page.getByRole('button',{name:'Reselect voice pack',exact:true}).isDisabled());
-  assert.equal(await page.locator('#library-status').textContent().then(v=>v.includes('0 unique voice clips accessible')),true);
-  await page.setInputFiles('#library-files',[input('voices.zip',voices)]);
-  await page.waitForFunction(()=>!document.querySelector('.transcript-line button').disabled,{},{timeout:15000});
-  await page.getByRole('button',{name:'Play original voice',exact:true}).click();
-  await page.waitForFunction(()=>document.querySelector('#voice-player').currentTime>0,{},{timeout:15000});
-  if(offline){
-   await page.selectOption('#role','receiver');await page.click('#clear-history');await videoSource([[CHINESE_VIDEO,'video/mp4'],[CHINESE_WEBM,'video/webm']]);await page.click('#ocr-start');
-   await page.waitForFunction(()=>document.querySelectorAll('.transcript-line').length===1,{},{timeout:30000}).catch(async error=>{console.error({stage:'Offline OCR',status:await page.locator('#match-status').textContent(),errors});throw error;});
-   assert.equal(await page.locator('.transcript-chinese').textContent(),chineseRow.chinese);await page.click('#ocr-pause');await context.setOffline(false);
-  }
-  // A malformed file must preserve the existing accessible library.
-  await page.setInputFiles('#library-files',[input('broken.zip',Buffer.from('broken'))]);
-  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('512 MiB')||document.querySelector('#library-status').textContent.includes('complete'),{},{timeout:15000});
-  assert(await page.getByRole('button',{name:'Play original voice',exact:true}).isEnabled());
+  await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready'));
+  await page.setInputFiles('#library-files',input('voices.zip',voices));
+  await page.waitForFunction(()=>!document.querySelector('#library-files').disabled);
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
   const download=page.waitForEvent('download');await page.click('#library-report');const report=JSON.parse(readFileSync(await(await download).path(),'utf8'));
-  assert.equal(report.availableVoices,1);assert.equal(report.physicalDeviceVerified,false);assert(report.samples.some(v=>v.kind==='playback'));assert(!JSON.stringify(report).includes(row.english));assert(!JSON.stringify(report).includes('catalog.zip'));
-  if(name==='chromium'&&process.env.MOBILE_STORAGE_DIR){
-   const directory=resolve(process.env.MOBILE_STORAGE_DIR),paths=readdirSync(directory).filter(n=>n.endsWith('.zip')).map(n=>resolve(directory,n)),total=paths.reduce((n,p)=>n+statSync(p).size,0);assert(total>=2*1024**3);
-   const start=Date.now();await page.setInputFiles('#library-files',paths);
-   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('50 unique voice clips accessible'),{},{timeout:60000});
-   await page.fill('#find-text','Storage test line 0');await page.click('#find-line');await page.getByRole('button',{name:'Play original voice',exact:true}).first().click();await page.waitForFunction(()=>document.querySelector('#voice-player').currentTime>0);
-   await page.reload();await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('50 bilingual rows'));assert(await page.getByRole('button',{name:'Reselect voice pack',exact:true}).first().isDisabled());
-   await page.setInputFiles('#library-files',paths.filter(p=>!p.endsWith('.catalog.zip')));await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('50 unique voice clips accessible'));
-   const saved=page.waitForEvent('download');await page.click('#library-report');const state=JSON.parse(readFileSync(await(await saved).path(),'utf8'));assert.equal(state.selectedBytes,total-statSync(paths.find(p=>p.endsWith('.catalog.zip'))).size);assert.equal(state.selectedPacks,5);assert(state.storage.usage<64*1024**2,'Voice packs must not be copied into browser storage');
-   console.log(`chromium: ${(total/1024**3).toFixed(2)} GiB in five Files packs opened, played and reselected in ${Date.now()-start} ms; browser cache below 64 MiB`);
-  }
+  assert.equal(report.availableVoices,1);assert.equal(report.physicalDeviceVerified,false);assert(!JSON.stringify(report).includes(row.english));
+  await page.getByRole('button',{name:'Play',exact:true}).click();
   await page.screenshot({path:`output/playwright/mobile-library-${name}.png`,fullPage:true});
-  assert.deepEqual(errors,[]);assert.deepEqual(external,[],'No third-party OCR/library requests');
-  console.log(`${name}: real OCR, MP3 playback, file recovery, history/favorites and private reporting passed`);
+  assert.deepEqual(errors,[]);assert.deepEqual(external,[],'No third-party library requests');
+  if(name==='chromium'&&process.env.MOBILE_REAL_BUNDLE){const start=Date.now();await page.setInputFiles('#library-files',process.env.MOBILE_REAL_BUNDLE);await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('Voices ready')&&!document.querySelector('#library-files').disabled,null,{timeout:120000});console.log(`chromium: owner-local large bundle opened through the actual UI in ${Date.now()-start} ms; no game text or audio was uploaded`);}
+  console.log(`${name}: one-file import, actionable missing catalog, persistent file status, manual voice playback, favorites, reload, legacy files and failure recovery passed`);
   await context.close();await browser.close();browser=null;
  }
 }finally{await browser?.close();await new Promise(r=>server.close(r));}

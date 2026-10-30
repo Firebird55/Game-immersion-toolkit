@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Proxy Transcript — Bilingual Game Companion',
+  title: 'Game immersion toolkit',
   description: 'A local bilingual transcript companion for voiced game dialogue.',
   icons: {
     icon: '/proxy-transcript.png',

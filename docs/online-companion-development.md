@@ -34,8 +34,8 @@ source/game-text (18–48px) and target/translation (10–32px) font controls, r
 across reloads in both reader modes. Source size also follows Reading options.
 
 During a live paired-PC session or connected mobile OCR, Reader hides the guide,
-header and device setup. Navigation remains available; Connection and Settings
-restore setup access, and stopping or disconnecting restores the idle layout.
+header and the library/screen setup steps. Navigation remains available; Settings
+and Show setup restore setup access, and stopping or disconnecting restores the idle layout.
 Starting OCR switches back to Reader.
 
 Run `node scripts/mobile-reader-layout-e2e.mjs` after bundling to verify populated

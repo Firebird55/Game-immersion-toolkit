@@ -1,24 +1,18 @@
 import assert from 'node:assert/strict';
-import {spawn,execFileSync} from 'node:child_process';
+import {startPreview} from './e2e-preview.mjs';
 import {chromium,firefox} from 'playwright';
 
 // Exercise the actual built CompanionClient, including its HTTP/WS bindings.
 // Every account request is handled locally; no real credentials or account writes.
-const port=4343,host='127.0.0.1',origin='http://'+host+':'+port;
-const server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip',host],{stdio:['ignore','pipe','pipe']});
-let browser,serverOutput='',serverErrors='',serverExit=null;
-const tail=(value,data)=>(value+data).slice(-8000);
-server.stdout.on('data',data=>serverOutput=tail(serverOutput,data));
-server.stderr.on('data',data=>serverErrors=tail(serverErrors,data));
-server.once('exit',(code,signal)=>serverExit={code,signal});
+const preview=await startPreview('ui-state-react'),{origin}=preview;
+let browser;
 const started=Date.now(),phase=message=>console.log(`React fixture +${Date.now()-started}ms: ${message}`);
 const requestInfo=request=>({method:request.method(),type:request.resourceType(),url:request.url()});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 try {
- await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('React state preview startup timeout: '+serverErrors)),30000);server.stdout.on('data',data=>{if(String(data).includes(origin)){clearTimeout(timer);resolve();}});server.once('error',reject);});
  for(const[name,engine] of Object.entries({chromium,firefox})) {
   phase(name+': launching browser');
-  browser=await engine.launch();phase(name+': browser launched');
+  browser=await preview.launchBrowser(engine);phase(name+': browser launched');
   for(const width of [1280,390]) {
    phase(`${name} ${width}: creating context and page`);
    const context=await browser.newContext({locale:'en-US',viewport:{width,height:900}}),page=await context.newPage();
@@ -79,7 +73,7 @@ try {
     phase(`${name} ${width}: navigation loaded`);
    } catch(error) {
     console.error('React fixture navigation diagnostics: '+JSON.stringify({browser:name,width,origin,
-     url:page.url(),serverExit,pending:[...pendingRequests.values()],network,serverOutput,serverErrors},null,2));
+     url:page.url(),pending:[...pendingRequests.values()],network,...preview.diagnostics()},null,2));
     throw error;
    }
    const current=page.locator('.current-line'),send=current.locator('.lexirise-send');
@@ -180,8 +174,6 @@ try {
   }
   await browser.close();browser=null;
  }
-} finally {
- await browser?.close();
- if(process.platform==='win32')try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}
- else server.kill('SIGTERM');
+}finally{
+ await preview.stop();
 }

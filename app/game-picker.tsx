@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect, useRef, useState} from 'react';
+import {isStudyLanguage} from '@firebird55/lexirise-components';
 import catalog from '../public/mobile-capture/games-data.json';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {languageName} from '../public/mobile-capture/interface-language.mjs';
@@ -8,6 +9,7 @@ import {languageName} from '../public/mobile-capture/interface-language.mjs';
 const API = 'http://127.0.0.1:8766';
 const baseLanguage = (code: string) => code.toLowerCase().split('-')[0];
 export const voicedLanguages = [...new Set(catalog.games.flatMap(game => game.audio.map(baseLanguage)))];
+const accountLanguages = voicedLanguages.filter(isStudyLanguage);
 export const gamesForLanguage = (language: string) => catalog.games.filter(game => game.audio.some(code => baseLanguage(code) === language));
 
 type Preferences = {languages: string[]};
@@ -65,7 +67,7 @@ export function useTargetLanguage(mode: 'lexirise' | 'migaku', account?: string,
 
   async function addLanguage(code: string) {
     const controller = owner.current;
-    if (!lexirise || !account || !configured || !controller || controller.signal.aborted || addingRequest.current === controller || !voicedLanguages.includes(code)) return;
+    if (!lexirise || !account || !configured || !controller || controller.signal.aborted || addingRequest.current === controller || !accountLanguages.some(language => language === code)) return;
     addingRequest.current = controller;
     setBusy(true); setError('');
     try {
@@ -94,18 +96,19 @@ export function GamePicker({picker, mode, selectedGame, onGameChange, sourceLoca
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [addition, setAddition] = useState('');
-  const available = voicedLanguages.filter(code => !picker.languages.includes(code));
+  const available: string[] = accountLanguages.filter(code => !picker.languages.includes(code));
   const sorted = (codes: string[]) => [...codes].sort((a, b) => languageName(a, locale).localeCompare(languageName(b, locale), locale));
   const games = picker.games.filter(game => game.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const selected = picker.games.find(game => game.id === selectedGame);
   const add = available.includes(addition) ? addition : sorted(available)[0] ?? '';
   return <section className="game-picker" aria-label={t('Games and target language')}>
     <div className="game-picker-toolbar">
+      <label>{t('Game')}<select aria-label={t('Game')} value={selectedGame} onChange={event=>onGameChange(event.target.value)}>{!selected&&<option value={selectedGame}>{selectedGame}</option>}{picker.games.map(game=><option key={game.id} value={game.id}>{game.name}</option>)}</select></label>
       <label>{t('Target language')}<select aria-label={t('Target language')} value={picker.target} disabled={!picker.languages.length || picker.busy} onChange={event => picker.select(event.target.value)}>
         {!picker.languages.length && <option value="">{t(picker.loading ? 'Loading languages…' : 'No account languages available')}</option>}
         {sorted(picker.languages).map(code => <option key={code} value={code}>{languageName(code, locale)}</option>)}
       </select></label>
-      <label>{t('Search games')}<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('Search games')} /></label>
+
       {mode === 'lexirise' && <button type="button" className="reader-options-button" onClick={picker.reload} disabled={picker.busy}>{t('Reload languages')}</button>}
       {mode === 'lexirise' && picker.ready && !!available.length && <button type="button" className="reader-options-button" aria-expanded={adding} onClick={() => setAdding(!adding)}>{t('Add language to Lexirise')}</button>}
     </div>
@@ -115,6 +118,8 @@ export function GamePicker({picker, mode, selectedGame, onGameChange, sourceLoca
       <p>{t('Adds this learning language to the active account and keeps your existing languages.')}</p>
     </div>}
     {picker.error && <p role="alert">{picker.error}</p>}
+    <details className="game-library"><summary>{t('Browse games and supported languages')} <span>({picker.games.length})</span></summary>
+      <label>{t('Search games')}<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder={t('Search games')} /></label>
     <div className="game-picker-heading"><strong>{t('Supported games')} <span>({games.length})</span></strong><small>{t('Filtered by original voice language')}</small></div>
     <nav className="game-card-list" aria-label={t('Game transcript')}>
       {games.map(game => <button key={game.id} type="button" aria-label={game.name} className={'game-choice ' + (game.id === selectedGame ? 'is-active' : '')} aria-pressed={game.id === selectedGame} onClick={() => onGameChange(game.id)}>
@@ -128,5 +133,6 @@ export function GamePicker({picker, mode, selectedGame, onGameChange, sourceLoca
       <p>{t('Different subtitle and account languages are allowed. Choose and prepare your source language in Settings → Games & Languages.')}</p>
       {sourceLocale && baseLanguage(sourceLocale) !== picker.target && <output>{t('Current source differs from target')}: {languageName(sourceLocale, locale)}. {t('Browsing games does not change your prepared language.')}</output>}
     </div>}
+    </details>
   </section>;
 }

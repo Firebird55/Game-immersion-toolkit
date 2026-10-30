@@ -11,6 +11,7 @@ import hashlib
 import io
 import os
 from bisect import bisect_left
+from contextlib import closing
 import json
 import re
 import shutil
@@ -23,12 +24,19 @@ from functools import lru_cache
 from pathlib import Path
 
 from .textmaps import display_text
+from .preparation_errors import PreparationFailure
 
 EXTRACTOR_URL = "https://github.com/Herselfta/FModelCLI/releases/download/v1.0.2/FModelCLI.exe"
 EXTRACTOR_SHA256 = "86426493c63f0af2ccf6d1d8b498a737723069f6c25a573a46e94d1a3f26e835"
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
+NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db')
+COVERAGE_WARNINGS = [
+    'Story-flow text, choices, messages, movie captions and readable records are indexed; presentation-specific OCR coverage is incomplete.',
+    'Combat and ambient audio events, embedded movie audio and dynamic voice filenames still lack complete per-line bindings.',
+    'Entity-only bubbles, legacy numeric subtitle tables, song lyrics and event-specific text outside story flows are not fully indexed.',
+]
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_LOCALES = {'en': ('en', 4), 'zh-Hans': ('zh', 7), 'zh-Hant': ('zh', 7), 'ja': ('ja', 5), 'ko': ('ko', 6)}
 TEXT_LOCALES = {locale: locale for locale in ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko', 'fr', 'de', 'ru', 'th', 'vi', 'id')}
@@ -172,13 +180,23 @@ def run_extractor(install: Path, executable: Path, destination: Path | None, fil
 
 
 def _field(blob: bytes, slot: int) -> int | None:
+    if len(blob) < 8 or slot < 0:
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata is truncated or uses an unsupported format.')
     table = struct.unpack_from("<I", blob)[0]
+    if table < 4 or table + 4 > len(blob):
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata has an invalid table offset.')
     vtable = table - struct.unpack_from("<i", blob, table)[0]
-    size = struct.unpack_from("<H", blob, vtable)[0]
+    if vtable < 4 or vtable + 4 > len(blob):
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata has an invalid field table.')
+    size, object_size = struct.unpack_from('<HH', blob, vtable)
+    if size < 4 or size % 2 or vtable + size > len(blob) or object_size < 4 or table + object_size > len(blob):
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata has invalid table bounds.')
     offset = 4 + slot * 2
     if offset >= size:
         return None
     relative = struct.unpack_from("<H", blob, vtable + offset)[0]
+    if relative and not 4 <= relative < object_size:
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata has an invalid field offset.')
     return table + relative if relative else None
 
 
@@ -186,11 +204,18 @@ def _string(blob: bytes, slot: int) -> str:
     offset = _field(blob, slot)
     if offset is None:
         return ""
+    if offset + 4 > len(blob):
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata contains a truncated string reference.')
     position = offset + struct.unpack_from("<I", blob, offset)[0]
+    if position <= offset or position + 4 > len(blob):
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata contains an invalid string reference.')
     size = struct.unpack_from("<I", blob, position)[0]
     if size > len(blob) - position - 4:
-        raise ValueError("Invalid dialogue metadata string")
-    return blob[position + 4:position + 4 + size].decode("utf-8")
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata contains a truncated string.')
+    try:
+        return blob[position + 4:position + 4 + size].decode("utf-8")
+    except UnicodeDecodeError:
+        raise PreparationFailure('unsupported_format', 'Wuthering dialogue metadata contains invalid text encoding.') from None
 
 
 def _boolean(blob: bytes, slot: int) -> bool:
@@ -199,32 +224,142 @@ def _boolean(blob: bytes, slot: int) -> bool:
 
 
 def _rows(path: Path, query: str) -> list:
-    with sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)) as connection:
         return connection.execute(query).fetchall()
 
 
+def _text_table(db_root: Path, locale: str) -> dict:
+    directory = db_root / TEXT_LOCALES[locale]
+    path = directory / 'lang_multi_text.db'
+    columns = {row[1] for row in _rows(path, 'PRAGMA table_info(MultiText)')}
+    if not {'Id', 'Content'} <= columns:
+        raise PreparationFailure('unsupported_format', 'Wuthering localization table schema changed; update the toolkit.')
+    rows = _rows(path, 'SELECT Id, Content' + (', RedirectDbIndex' if 'RedirectDbIndex' in columns else ', 0') + ' FROM MultiText')
+    redirects = {index for _, _, index in rows if index}
+    if redirects - {1}:
+        raise PreparationFailure('unsupported_format', 'Wuthering localization uses an unsupported text shard; update the toolkit.')
+    shard = {}
+    if redirects:
+        if not (directory / 'lang_multi_text_1sthalf.db').is_file():
+            raise PreparationFailure('incomplete_game_data', 'Wuthering localization text shard is missing; verify game files and retry.')
+        shard = dict(_rows(directory / 'lang_multi_text_1sthalf.db', 'SELECT Id, Content FROM MultiText'))
+        if any(identity not in shard for identity, _, index in rows if index):
+            raise PreparationFailure('incomplete_game_data', 'Wuthering redirected localization entries are incomplete; verify game files and retry.')
+    # Base Content can be a placeholder even when nonempty. Only the authored
+    # RedirectDbIndex selects the shard; never borrow another locale's text.
+    return {identity: (shard[identity] if index else content) or '' for identity, content, index in rows}
+
+
+def _narrative_refs(db_root: Path) -> dict[str, list[tuple[str, str]]]:
+    refs = {}
+    def add(identity, kind, status):
+        if isinstance(identity, str) and identity:
+            value = (kind, status)
+            if value not in refs.setdefault(identity, []):
+                refs[identity].append(value)
+    def walk(value, mode=None):
+        if isinstance(value, list):
+            # Flow mode persists through sequential actions and their options.
+            for item in value:
+                if isinstance(item, dict) and item.get('Disabled'):
+                    continue
+                if isinstance(item, dict) and item.get('Name') == 'SetPlotMode':
+                    mode = item.get('Params', {}).get('Mode', mode)
+                walk(item, mode)
+        elif isinstance(value, dict):
+            if value.get('Disabled'):
+                return
+            if value.get('Name') == 'ShowCenterText':
+                add(value.get('Params', {}).get('TidCenterText'), 'story_card', 'unknown')
+            if 'TidTalkOption' in value:
+                add(value['TidTalkOption'], 'choice', 'unvoiced')
+            if 'TidTalk' in value:
+                kind = value.get('Type', 'Talk')
+                message_type = value.get('MessageType', {}).get('Type')
+                audio_event = value.get('TalkAkEvent') or value.get('TalkEndAkEvent') or value.get('UniversalTone')
+                status = 'unavailable' if value.get('PlayVoice') or audio_event else 'unknown'
+                if value.get('PlayVoice') is False and not audio_event:
+                    status = 'unvoiced'
+                category = 'dialogue'
+                if kind == 'PhoneMessage':
+                    if message_type in {'Emoji', 'Attachment'}:
+                        category = None
+                    elif message_type == 'Voice':
+                        category, status = 'message', 'unavailable'
+                    elif message_type == 'SystemTip':
+                        category = 'message'
+                        if status == 'unknown':
+                            status = 'unvoiced'
+                    else:
+                        category = None
+                elif kind in {'Option', 'SystemOption'}:
+                    category = 'choice'
+                    if status == 'unknown':
+                        status = 'unvoiced'
+                elif mode == 'PhoneMessage' and kind == 'Talk':
+                    category = 'message'
+                    if status == 'unknown':
+                        status = 'unvoiced'
+                elif kind in {'CenterText', 'AvgCenterText', 'AvgNarration'}:
+                    category = 'story_card'
+                elif kind in {'NoTextItem', 'QTE'}:
+                    category = None
+                elif mode == 'Prompt':
+                    category = 'ambient'
+                if category:
+                    add(value['TidTalk'], category, status)
+            for child in value.values():
+                if isinstance(child, (list, dict)):
+                    walk(child, mode)
+    path = db_root / 'db_flowState.db'
+    if path.is_file():
+        for identity, blob in _rows(path, 'SELECT StateKey, BinData FROM flowstate'):
+            if _string(blob, 0) != identity:
+                raise PreparationFailure('unsupported_format', 'Wuthering story-flow identities do not match their metadata.')
+            try:
+                actions = json.loads(_string(blob, 6))
+            except (ValueError, TypeError):
+                raise PreparationFailure('unsupported_format', 'Wuthering story-flow actions use an unsupported format.') from None
+            if not isinstance(actions, list):
+                raise PreparationFailure('unsupported_format', 'Wuthering story-flow actions use an unsupported container.')
+            walk(actions)
+    path = db_root / 'db_cgVedio.db'
+    if path.is_file():
+        for blob, in _rows(path, 'SELECT BinData FROM videocaption'):
+            # IsPlaySubtitleVoice false does not mean silent: speech may be
+            # embedded in the video. Never substitute the whole movie track.
+            add(_string(blob, 4), 'cinematic', 'unavailable')
+    path = db_root / 'db_infodisplay.db'
+    if path.is_file():
+        for blob, in _rows(path, 'SELECT BinData FROM infodisplay'):
+            add(_string(blob, 4), 'readable', 'unavailable' if _string(blob, 6) else 'unknown')
+    return refs
+
+
 def build_records(db_root: Path, files: list[str]) -> list[dict]:
-    english = dict(_rows(db_root / "en/lang_multi_text.db", "SELECT Id, Content FROM MultiText WHERE Content IS NOT NULL"))
-    chinese = dict(_rows(db_root / "zh-Hans/lang_multi_text.db", "SELECT Id, Content FROM MultiText WHERE Content IS NOT NULL"))
-    sources = {path.casefold(): path for path in files if path.startswith(EXTERNAL_ROOT) and path.endswith(".wem")}
-    records = []
-    for text_id, blob in _rows(db_root / "db_plot_audio.db", "SELECT Id, BinData FROM plotaudio"):
-        en, zh = display_text(english.get(text_id, "")), display_text(chinese.get(text_id, ""))
-        if not en or not zh or _string(blob, 0) != text_id:
-            continue
-        filename = _string(blob, 2)
-        global_language, gender = _boolean(blob, 3), _boolean(blob, 7)
-        for variant in (["female", "male"] if gender else [None]):
-            suffix = "_F" if variant == "female" else "_M" if variant else ""
-            # GlobalLanguage voices are deliberately language independent.
-            # Mandarin capture requires an explicit zh resource; don't relabel
-            # shared creature voices or other languages as Mandarin.
-            resource = EXTERNAL_ROOT + "zh_" + filename + suffix + ".wem"
-            mapped = sources.get(resource.casefold()) if not global_language and "{" not in filename else None
-            audio = {"depot": mapped} if mapped else None
-            records.append({"text_id": f"wuwa:{text_id}" + (f":{variant}" if variant else ""),
-                "english": en, "chinese": zh, "audio": audio, "player_voice": variant})
-    return records
+    return [row for row in build_language_records(db_root, files, 'zh-Hans', ['en']) if row['english']]
+
+
+def _prepare_text_tables(install, executable, cache, locales, progress):
+    db_root = cache / 'Client/Content/Aki/ConfigDB'
+    for locale in sorted(locales):
+        directory = db_root / TEXT_LOCALES[locale]
+        path = directory / 'lang_multi_text.db'
+        needs_read = not path.is_file()
+        if not needs_read:
+            columns = {row[1] for row in _rows(path, 'PRAGMA table_info(MultiText)')}
+            needs_read = ('RedirectDbIndex' in columns and not (directory / 'lang_multi_text_1sthalf.db').is_file()
+                          and bool(_rows(path, 'SELECT 1 FROM MultiText WHERE RedirectDbIndex > 0 LIMIT 1')))
+        if needs_read:
+            progress('Reading selected Wuthering localization tables')
+            # Substring selects both the base table and its authored shard.
+            run_extractor(install, executable, cache, 'ConfigDB/' + TEXT_LOCALES[locale] + '/lang_multi_text')
+    for relative in ('db_plot_audio.db', *NARRATIVE_TABLES):
+        if not (db_root / relative).is_file():
+            progress('Reading installed Wuthering narrative metadata')
+            run_extractor(install, executable, cache, 'ConfigDB/' + relative)
+        if not (db_root / relative).is_file():
+            raise PreparationFailure('unsupported_format', 'Required Wuthering narrative tables were not found; update the toolkit or verify game files.')
 
 
 def index_install(install: Path, data_dir: Path, progress=lambda _message: None) -> dict:
@@ -232,11 +367,9 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
     decoder = data_dir.parent / "voice-assets/vgmstream/vgmstream-cli.exe"
     executable = ensure_extractor(data_dir / "tools", decoder)
     cache = data_dir / "index-cache" / stamp[:16]
+    _prepare_text_tables(install, executable, cache, {'en', 'zh-Hans'}, progress)
     complete = cache / "complete.json"
     if not complete.is_file():
-        for filter_text in ("ConfigDB/en/lang_multi_text.db", "ConfigDB/zh-Hans/lang_multi_text.db", "ConfigDB/db_plot_audio.db"):
-            progress("Reading installed Wuthering Waves dialogue metadata")
-            run_extractor(install, executable, cache, filter_text)
         progress("Checking exact Mandarin voice paths")
         files = run_extractor(install, executable, None, "WwiseExternalSource/")
         complete.parent.mkdir(parents=True, exist_ok=True)
@@ -247,6 +380,7 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
         raise ValueError("Game files are incomplete or changed while indexing; retry after the download finishes")
     mapped = sum(bool(record["audio"]) for record in records)
     return {"format": 1, "install": str(install), "fingerprint": stamp, "records": records,
+        'coverage_warnings': COVERAGE_WARNINGS,
         "message": f"{len(records):,} bilingual pairs; {mapped:,} Mandarin voices" if mapped else
                    f"{len(records):,} dialogue pairs indexed; download the Chinese voice pack in Wuthering Waves"}
 
@@ -255,27 +389,47 @@ def build_language_records(db_root: Path, files: list[str], source_locale: str, 
     from .languages import audio_locale
     if not (db_root / TEXT_LOCALES[source_locale] / 'lang_multi_text.db').is_file():
         raise ValueError('Install the selected official Wuthering text pack before preparing it.')
-    tables = {locale: dict(_rows(db_root / TEXT_LOCALES[locale] / 'lang_multi_text.db',
-        'SELECT Id, Content FROM MultiText WHERE Content IS NOT NULL')) for locale in {source_locale, *target_locales}}
-    if not tables[source_locale]:
+    tables = {locale: _text_table(db_root, locale) for locale in {source_locale, *target_locales}}
+    if not any(display_text(text) for text in tables[source_locale].values()):
         raise ValueError('The selected official Wuthering text pack is empty; no other language was substituted.')
     sources = {path.casefold(): path for path in files if path.startswith(EXTERNAL_ROOT) and path.endswith('.wem')}
     code, gender_slot = VOICE_LOCALES[source_locale]
     records = []
+    narrative = _narrative_refs(db_root)
+    emitted = set()
+    def text_fields(identity):
+        texts = {locale: value for locale, table in tables.items() if (value := display_text(table.get(identity, '')))}
+        return {'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
+                'source_text': texts.get(source_locale, ''), 'source_locale': source_locale,
+                'texts': texts, 'audio_locale': audio_locale(source_locale)}
+    def category(identity):
+        kinds = {kind for kind, _ in narrative.get(identity, [])}
+        return next((kind for kind in ('cinematic', 'story_card', 'message', 'readable', 'ambient', 'choice', 'dialogue') if kind in kinds), 'dialogue')
     for identity, blob in _rows(db_root / 'db_plot_audio.db', 'SELECT Id, BinData FROM plotaudio'):
         text = display_text(tables[source_locale].get(identity, ''))
         if not text or _string(blob, 0) != identity:
             continue
-        texts = {locale: value for locale, table in tables.items() if (value := display_text(table.get(identity, '')))}
+        fields = text_fields(identity)
+        emitted.add(identity)
         filename = _string(blob, 2)
         for variant in (['female', 'male'] if _boolean(blob, gender_slot) else [None]):
             suffix = '_F' if variant == 'female' else '_M' if variant else ''
             resource = EXTERNAL_ROOT + code + '_' + filename + suffix + '.wem'
             mapped = sources.get(resource.casefold()) if not _boolean(blob, 3) and '{' not in filename else None
-            records.append({'text_id': f'wuwa:{identity}' + (f':{variant}' if variant else ''),
-                'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''), 'source_text': text,
-                'source_locale': source_locale, 'texts': texts, 'audio_locale': audio_locale(source_locale),
-                'audio': {'depot': mapped, 'locale': audio_locale(source_locale)} if mapped else None, 'player_voice': variant})
+            records.append({'text_id': f'wuwa:{identity}' + (f':{variant}' if variant else ''), **fields,
+                'audio': {'depot': mapped, 'locale': audio_locale(source_locale)} if mapped else None, 'player_voice': variant,
+                'voice_status': 'voiced' if mapped else 'unavailable', 'dialogue_kind': category(identity)})
+    for identity, evidence in narrative.items():
+        if identity in emitted:
+            continue
+        fields = text_fields(identity)
+        if not fields['source_text']:
+            continue
+        statuses = {status for _, status in evidence}
+        # Any voiced or unresolved context prevents calling a shared ID silent.
+        status = 'unavailable' if 'unavailable' in statuses else 'unknown' if 'unknown' in statuses else 'unvoiced'
+        records.append({'text_id': f'wuwa:{identity}', **fields, 'audio': None,
+                        'voice_status': status, 'dialogue_kind': category(identity)})
     return records
 
 
@@ -289,11 +443,7 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     cache.mkdir(parents=True, exist_ok=True)
     targets = {value: resolve_locale(value, TEXT_LOCALES) for value in target_locales}
     requested = {source_locale, *(locale for locale in targets.values() if locale)}
-    for relative in ['db_plot_audio.db', *(TEXT_LOCALES[locale] + '/lang_multi_text.db' for locale in requested)]:
-        path = cache / 'Client/Content/Aki/ConfigDB' / relative
-        if not path.is_file():
-            progress(f'Reading selected Wuthering text table {relative}')
-            run_extractor(install, executable, cache, 'ConfigDB/' + relative)
+    _prepare_text_tables(install, executable, cache, requested, progress)
     for target, locale in list(targets.items()):
         if locale and not (cache / 'Client/Content/Aki/ConfigDB' / TEXT_LOCALES[locale] / 'lang_multi_text.db').is_file():
             targets[target] = None
@@ -312,6 +462,7 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     missing = [target for target, locale in targets.items() if locale not in available]
     return {'format': 2, 'game': 'wuwa', 'install': str(install), 'fingerprint': stamp,
         'source_locale': source_locale, 'records': records, 'missing_translation_locales': missing,
+        'coverage_warnings': COVERAGE_WARNINGS,
         'message': f'{len(records):,} official {source_locale} lines; {mapped:,} original voices' +
         (f'; {len(records) - mapped:,} entries without a verified voice binding' if mapped < len(records) else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +

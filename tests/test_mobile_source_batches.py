@@ -120,3 +120,28 @@ def test_selected_multilingual_exports_use_the_selected_decoder_and_official_tar
     with pytest.raises(ValueError, match='changed'): check.force()
     state['active'] = 'one'; protected.write_bytes(b'one-profile-after-switching-back')
     with pytest.raises(ValueError, match='changed'): check.force()
+
+
+def test_explicit_export_snapshot_never_reads_account_or_active_locale(tmp_path, monkeypatch):
+    from backend import local_voice, lexirise, language_preparation
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Automatic export consulted mutable account state')
+    monkeypatch.setattr(lexirise, 'LexiriseService', forbidden)
+    monkeypatch.setattr(language_preparation, 'selected_snapshot', forbidden)
+    source = tmp_path / 'private-source/textmap.json'
+    source.parent.mkdir()
+    source.write_text(json.dumps({'format': 2, 'source_locale': 'ja', 'targets_requested': ['fr'],
+        'install': str(tmp_path), 'fingerprint': 'stable', 'records': [{'text_id': 'example', 'english': '',
+        'chinese': '', 'source_text': 'synthetic Japanese', 'audio_locale': 'ja', 'audio': {'locale': 'ja'},
+        'texts': {'ja': 'synthetic Japanese', 'fr': 'synthetic French'}}]}), encoding='utf-8')
+    service = SimpleNamespace(_adapter=SimpleNamespace(fingerprint=lambda _: 'stable'))
+    monkeypatch.setattr(local_voice, 'LocalVoiceAssetService', lambda *args, **kwargs: service)
+    rows, voice, check, _ = prepare_source(tmp_path, 'zzz', tmp_path/'decoded', source_path=source,
+                                         expected_source_locale='ja', translation_locale='fr')
+    check.force()
+    assert rows[0]['sourceLocale'] == rows[0]['audioLocale'] == 'ja'
+    assert rows[0]['translationLocale'] == 'fr'
+    assert rows[0]['translationText'] == 'synthetic French'
+    with pytest.raises(ValueError):
+        prepare_source(tmp_path, 'zzz', tmp_path/'decoded', source_path=source,
+                       expected_source_locale='en', translation_locale='fr')

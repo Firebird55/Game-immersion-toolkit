@@ -32,6 +32,20 @@ Follow official game dialogue, replay original voices, and learn with reading to
 | [Honkai: Star Rail](docs/languages/en.md#starrail) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 13 |
 | [Genshin Impact](docs/languages/en.md#genshin) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 15 |
 | [Arknights: Endfield](docs/languages/en.md#endfield) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 14 |
+| [Rise of the Tomb Raider](docs/languages/en.md#riseofthetombraider) | English · French · German · Italian · Latin American Spanish · European Spanish · Japanese · Brazilian Portuguese · Polish · Russian · Korean · Traditional Chinese · Simplified Chinese · Arabic | 15 |
+| [Shadow of the Tomb Raider](docs/languages/en.md#shadowofthetombraider) | English · French · German · Italian · Latin American Spanish · European Spanish · Japanese · Brazilian Portuguese · Polish · Russian · Traditional Chinese · Simplified Chinese · Arabic | 14 |
+| [Spyro Reignited Trilogy](docs/languages/en.md#spyro) | English · French · Italian · German · European Spanish · Arabic · Danish · Dutch · Finnish · Norwegian · Polish · Brazilian Portuguese · Latin American Spanish · Swedish | 14 |
+| [Detroit: Become Human](docs/languages/en.md#detroit) | English · French · Italian · German · European Spanish · Arabic · Japanese · Polish · European Portuguese · Brazilian Portuguese · Latin American Spanish · Russian | 24 |
+| [DEATH STRANDING](docs/languages/en.md#deathstranding) | English · French · European Spanish · German · Italian · European Portuguese · Russian · Polish · Japanese · Latin American Spanish · Brazilian Portuguese · Greek | 20 |
+| [Portal](docs/languages/en.md#portal) | English · French · German · Russian · European Spanish · Traditional Chinese | 27 |
+| [Half-Life](docs/languages/en.md#halflife) | **Text only:** English · French · German · Italian · European Spanish · Simplified Chinese · Traditional Chinese · Korean | 8 |
+| [A Plague Tale: Innocence](docs/languages/en.md#plaguetaleinnocence) | English · French · German | 14 |
+| [METAL GEAR SOLID V: GROUND ZEROES](docs/languages/en.md#mgsvgz) | English · Japanese | 8 |
+| [METAL GEAR SOLID V: THE PHANTOM PAIN](docs/languages/en.md#mgsvtpp) | English · Japanese | 8 |
+| [Portal 2](docs/languages/en.md#portal2) | English · French · German · European Spanish · Russian | 27 |
+| [Half-Life 2](docs/languages/en.md#halflife2) | English · French · German · Italian · Korean · European Spanish · Russian · Simplified Chinese · Traditional Chinese · Thai | 27 |
+| [Persona 5 Royal](docs/languages/en.md#persona5royal) | English · Japanese | 9 |
+| [Deus Ex: Human Revolution - Director's Cut](docs/languages/en.md#deusexhrdc) | English · French · Italian · German · European Spanish | 5 |
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
@@ -43,7 +57,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 | :--- | :--- |
 | **Windows capture** | Capture game subtitles and read locally. Game files and account keys stay on your PC. |
 | **Phone with paired PC** | Share the Windows transcript to your phone. No mobile catalog export is required; keep the PC running. |
-| **Independent mobile OCR** | Open your private catalog and voice ZIPs. Download only the OCR languages you need; the PC can then be off. Browser capture and background operation depend on your device. |
+| **Independent mobile OCR** | Open one private Mobile Library ZIP, connect the native VDO.Ninja screen broadcast, and tap Start playing. The PC can be off. Keep the receiving page visible. |
 
 Lexirise is optional. Migaku remains an independent mode where the browser extension is supported. Existing Chinese transcripts keep their original language.
 

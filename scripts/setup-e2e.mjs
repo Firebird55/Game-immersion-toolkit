@@ -1,14 +1,12 @@
 import assert from 'node:assert/strict';
-import {spawn,execFileSync} from 'node:child_process';
-import {mkdirSync,readFileSync} from 'node:fs';
+import {startPreview} from './e2e-preview.mjs';
+import {readFileSync} from 'node:fs';
 import {chromium,firefox} from 'playwright';
-const port=4322,server=spawn(process.execPath,['node_modules/wrangler/bin/wrangler.js','dev','--config','dist/server/wrangler.json','--port',String(port),'--ip','127.0.0.1'],{stdio:['ignore','pipe','pipe']});
+const preview=await startPreview('setup');
 let browser;
-mkdirSync('output/playwright',{recursive:true});
 try{
- await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Setup preview startup timeout')),30000);server.stdout.on('data',b=>{if(String(b).includes('localhost:'+port)||String(b).includes('127.0.0.1:'+port)){clearTimeout(timer);resolve();}});server.stderr.on('data',b=>process.stderr.write(b));server.once('error',reject);});
  for(const[name,engine]of [['chromium',chromium],['firefox',firefox]]){
-  browser=await engine.launch({headless:true});
+  browser=await preview.launchBrowser(engine,{headless:true});
   for(const[width,height,dpr]of [[1280,900,1],[390,844,1],[320,568,1],[640,480,2],[640,360,2],[568,320,1],[768,1024,1.25]]){
    const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:dpr}),page=await context.newPage(),writes=[],unexpected=[];
    let pickerAttempts=0,setupOffline=false,exportRevision=0,exportLocale='ja';
@@ -37,11 +35,13 @@ try{
     if(path==='/api/snapshot')value={context:fixtureContext,status:{capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}},lines:[],lexirise:{configured:false,sent:{}}};
     else if(path==='/api/status')value={capture:{running:false,phase:'stopped',message:'Synthetic capture',active_game:null,visible_text_ids:[]},textmaps:{ready:false,state:'not_ready',message:'Choose a game',entry_count:0},audio:{ready:false,message:'fixture'},settings,session:{id:'fixture',line_count:0,total_line_count:0}};
     else if(path==='/api/setup'){if(setupOffline){await route.abort();return;}const selected=url.searchParams.get('game')??'zzz';value={...setup,mobile_export:{...setup.mobile_export,scope:exportScope(selected),sourceLocale:exportLocale,selectedGame:selected}};}
+    else if(/^\/api\/setup\/games\/[^/]+\/automatic-mobile-export$/.test(path)&&method==='GET')value={enabled:false,paused:false,destination:'',languages:{},jobs:{},locales:[{locale:'ja',name:'Japanese',voice_label:'Not detected — install this voice language in the game/launcher'}],translations:['en'],browseActive:false,browsedDestination:'',browseMessage:''};
     else if(/^\/api\/setup\/games\/[^/]+\/languages$/.test(path)&&method==='GET'){
      const selected=path.split('/')[4];assert(games.some(game=>game.id===selected&&game.id!=='hito'),'Unexpected language fixture game: '+selected);
      value={context:fixtureContext,selected:null,enabled_languages:null,targets:{},translation_locales:['en','zh-Hans'],locales:[
       {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:null,table_bytes:0,reclaimable_bytes:0,voice_state:'not_checked'}]};
     }
+    else if(path==='/api/toolkit-update'&&method==='GET')value={installed_version:'fixture',enabled:true,state:'current',message:'Toolkit is up to date'};
     else if(path==='/api/setup/report')value={version:'fixture',platform:'Windows',requirements:{ocr:true},games:[{id:'zzz',folder_state:'configured'}]};
     else if(path==='/api/setup/games/zzz'){
      if(body.path==='F:/wrong'){status=400;value={detail:'Required game files were not found. Previous folder kept.'};}
@@ -56,7 +56,7 @@ try{
      value={started:true};
     }
     else if(path==='/api/setup/mobile-export/browse/cancel'){setup.mobile_export.browseActive=false;setup.mobile_export.browsePhase=null;setup.mobile_export.browseMessage='Folder browser closed. You can paste a destination or try Browse again.';value={cancelled:true};}
-    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
+    else if(path==='/api/setup/games/zzz/mobile-export'){setup.mobile_export=body.include_audio?{...setup.mobile_export,state:'exporting',game:'zzz',progress:42,message:'Synthetic export in progress',estimatedCatalogBytes:4096,total:3}:{...setup.mobile_export,state:'complete',game:'zzz',progress:100,message:'Synthetic export complete',folder:'F:/Exports/synthetic',bundle:'F:/Exports/synthetic/Synthetic Game - Mandarin - Mobile Library.zip',bytes:4096,coverage:{dialogue:3,exportedVoices:0}};value={started:true};}
     else if(path==='/api/setup/mobile-export/cancel'){setup.mobile_export={...setup.mobile_export,state:'cancelled',message:'Synthetic export cancelled'};value={cancelled:true};}
     else if(path==='/api/setup/native/checks'){setup.capture_check=true;value={started:true};}
     else if(path.startsWith('/api/setup/native/'))value={started:true};
@@ -66,7 +66,7 @@ try{
     else {unexpected.push(method+' '+path);status=500;value={detail:'Unexpected setup fixture route'};}
     await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(value)});
    });
-   await page.goto('http://localhost:'+port);
+   await page.goto(preview.origin);
    const dialog=page.getByRole('dialog',{name:'Settings'});
    await dialog.waitFor();
    await dialog.locator('.language-table').waitFor();
@@ -81,7 +81,11 @@ try{
    await dialog.getByRole('button',{name:'Install game tools',exact:true}).click();
    await dialog.getByRole('button',{name:'Refresh game data',exact:true}).click();
    await dialog.getByText('3 pairs',{exact:true}).waitFor();
-   await dialog.locator('.toolkit-mobile-export > summary').click();
+   await dialog.locator('summary').filter({hasText:'Keep mobile library updated'}).click();
+   assert(await dialog.getByRole('checkbox',{name:'Keep mobile library updated',exact:true}).isVisible(),'First-run wizard uses the automatic export component');
+   await dialog.getByText('Not detected — install this voice language in the game/launcher',{exact:true}).waitFor();
+   await dialog.locator('summary').filter({hasText:'Keep mobile library updated'}).click();
+   await dialog.locator('summary').filter({hasText:'Export mobile library'}).click();
    await dialog.getByText('≈ 5.00 GB',{exact:true}).waitFor();
    await dialog.getByRole('button',{name:'Browse',exact:true}).click();
    await dialog.getByText('Starting the folder browser. You can close it here if no window appears.',{exact:true}).waitFor();
@@ -105,8 +109,8 @@ try{
    assert.deepEqual(writes.find(w=>w.path.endsWith('/mobile-export')).body,{include_audio:true,destination_folder:'E:/Mobile libraries'});
    await dialog.getByRole('button',{name:'Cancel export',exact:true}).click();await dialog.getByText('Synthetic export cancelled',{exact:true}).waitFor();
    await dialog.getByLabel('Original game voices',{exact:false}).uncheck();await dialog.getByRole('button',{name:'Resume export',exact:true}).click();await dialog.getByText('Ready to transfer',{exact:true}).waitFor();
-   await dialog.getByText('Copy only this folder to USB or your phone',{exact:false}).waitFor();
-   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries'});await dialog.getByText('F:/Exports/synthetic',{exact:true}).waitFor();
+   await dialog.getByText('Copy this library file to your phone',{exact:false}).waitFor();
+   assert.deepEqual(writes.filter(w=>w.path.endsWith('/mobile-export')).at(-1).body,{include_audio:false,destination_folder:'E:/Mobile libraries'});await dialog.getByText('F:/Exports/synthetic/Synthetic Game - Mandarin - Mobile Library.zip',{exact:true}).waitFor();
    if(width===1280){
     const exportsBefore=writes.filter(w=>w.path.endsWith('/mobile-export')).length;
     await dialog.getByLabel('Save libraries to',{exact:true}).fill('F:/Unsaved old-language choice');
@@ -135,7 +139,7 @@ try{
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);
    assert(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Setup has horizontal overflow');
-   if(name==='chromium'&&(width===1280||width===390))await dialog.screenshot({path:`output/playwright/toolkit-setup-${width===1280?'desktop':'mobile'}.png`});
+   if(name==='chromium'&&(width===1280||width===390))await dialog.screenshot({path:`${preview.output}/toolkit-setup-${width===1280?'desktop':'mobile'}.png`});
    await dialog.getByRole('button',{name:'Next',exact:true}).click();
    await dialog.getByRole('button',{name:'Run OCR and display test',exact:true}).click();
    await dialog.getByText('OCR and display test passed.',{exact:true}).waitFor();
@@ -146,6 +150,7 @@ try{
    await dialog.getByRole('button',{name:'Set up local API key',exact:true}).click();
    assert.equal(await dialog.locator('input[type=password]').count(),0);
    await dialog.getByRole('button',{name:'General & Updates',exact:true}).click();
+   await dialog.getByRole('region',{name:'Toolkit software updates'}).getByText('Toolkit is up to date',{exact:true}).waitFor();
    const downloaded=page.waitForEvent('download');await dialog.getByRole('button',{name:'Download setup report',exact:true}).click();
    const report=JSON.parse(readFileSync(await (await downloaded).path(),'utf8'));assert(!JSON.stringify(report).includes('F:/Games'));assert.equal(report.version,'fixture');
    await dialog.getByRole('button',{name:'Finish setup',exact:true}).click();await dialog.waitFor({state:'hidden'});
@@ -160,4 +165,6 @@ try{
   }
   await browser.close();browser=null;
  }
-}finally{await browser?.close();if(process.platform==='win32'){try{execFileSync('taskkill',['/PID',String(server.pid),'/T','/F'],{stdio:'ignore'});}catch{}}else server.kill();}
+}finally{
+ await preview.stop();
+}

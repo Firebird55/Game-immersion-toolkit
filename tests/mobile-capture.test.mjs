@@ -1,6 +1,55 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePairing, pairingMessage, samePairing, privateTrackState, privateRtcSample, frameHealth, imageSignature } from '../public/mobile-capture/core.mjs';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { createServer } from 'node:net';
+import { fileURLToPath } from 'node:url';
+import { parsePairing, pairingMessage, samePairing } from '../public/mobile-capture/core.mjs';
+
+test('local capture server loads native source modules without opening private routes or extra frame origins', { timeout: 15000 }, async t => {
+  const reservation = createServer();
+  reservation.listen(0, '127.0.0.1');
+  await once(reservation, 'listening');
+  const port = reservation.address().port;
+  await new Promise(resolve => reservation.close(resolve));
+  const child = spawn(process.execPath, [fileURLToPath(new URL('../scripts/serve-mobile-capture.mjs', import.meta.url)), '--local', '--port', String(port)], { stdio: ['ignore', 'pipe', 'pipe'] });
+  t.after(async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      const stopped = once(child, 'exit');
+      child.kill();
+      await stopped;
+    }
+  });
+  let errors = '';
+  child.stderr.on('data', data => { errors += data; });
+  await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', code => reject(new Error(`Capture server exited (${code}): ${errors}`)));
+    child.stdout.on('data', data => { if (String(data).includes('Mobile capture test:')) resolve(); });
+  });
+  const get = (path, options = {}) => fetch(`http://127.0.0.1:${port}${path}`, { ...options, signal: AbortSignal.timeout(5000) });
+  const page = await get('/');
+  assert.equal(page.status, 200);
+  const directives = new Map(page.headers.get('content-security-policy').split(';').map(value => value.trim().split(/\s+/)).filter(parts => parts[0]).map(([name, ...values]) => [name, values]));
+  assert.deepEqual(directives.get('frame-src'), ['https://vdo.ninja']);
+  assert.deepEqual(directives.get('script-src'), ["'self'", "'wasm-unsafe-eval'"]);
+  assert.ok(!directives.get('connect-src').some(value => /vdo|meshcast|\*/.test(value)));
+  await page.text();
+  for (const name of ['frame-source.mjs', 'vdo-source.mjs', 'receiver-source.mjs']) {
+    const response = await get('/' + name);
+    assert.equal(response.status, 200, name);
+    assert.match(response.headers.get('content-type'), /javascript/);
+    assert.match(await response.text(), /export /);
+  }
+  for (const path of ['/package.json', '/.git/config', '/output/checks/private.json']) {
+    const response = await get(path);
+    assert.equal(response.status, 404, path);
+    await response.text();
+  }
+  const write = await get('/frame-source.mjs', { method: 'POST' });
+  assert.equal(write.status, 404);
+  await write.text();
+});
 
 test('manual pairing rejects malformed, oversized and wrong-role descriptions', () => {
   const offer = pairingMessage({ type: 'offer', sdp: 'v=0\r\nfixture' }, 'zzz');
@@ -58,64 +107,4 @@ test('pairing matches only complete current session, pairing and attempt fields'
   assert.equal(samePairing({ sessionId: identity.sessionId }, { sessionId: identity.sessionId }), false);
   assert.equal(samePairing({ ...identity, attempt: 0 }, { ...identity, attempt: 0 }), false);
   assert.equal(samePairing(null, identity), false);
-});
-test('track diagnostics expose capture health and dimensions without device identifiers', () => {
-  const track = {
-    kind: 'video', enabled: true, muted: false, readyState: 'live',
-    id: 'private-track-id', label: 'private display name', deviceId: 'private-device',
-    getSettings: () => ({ width: 1920, height: 1080, frameRate: 30, deviceId: 'private-device',
-      groupId: 'private-group', label: 'private name', displaySurface: 'monitor', facingMode: 'user' }),
-  };
-  assert.deepEqual(privateTrackState(track), { kind: 'video', enabled: true, muted: false,
-    readyState: 'live', width: 1920, height: 1080, frameRate: 30 });
-  assert.deepEqual(privateTrackState({ ...track, getSettings: () => ({ width: Infinity, height: '1080', frameRate: NaN }) }),
-    { kind: 'video', enabled: true, muted: false, readyState: 'live' });
-  assert.deepEqual(privateTrackState({ ...track, getSettings: () => { throw new Error('unavailable'); } }),
-    { kind: 'video', enabled: true, muted: false, readyState: 'live' });
-  assert.equal(privateTrackState(null), null);
-});
-test('RTC diagnostics retain finite video RTP counters and discard identifying data', () => {
-  const report = new Map([
-    ['send', { type: 'outbound-rtp', kind: 'video', bytesSent: 100, packetsSent: 2, framesEncoded: 3,
-      framesSent: 3, retransmittedPacketsSent: 0, frameWidth: 1920, frameHeight: 1080, framesPerSecond: 30,
-      id: 'private-stream', ssrc: 12345, trackIdentifier: 'private-track', codecId: 'private-codec',
-      transportId: 'private-transport', remoteId: 'private-remote', address: '192.0.2.1',
-      candidateType: 'host', url: 'private-url', label: 'private display', arbitrary: 'private' }],
-    ['receive', { type: 'inbound-rtp', mediaType: 'video', bytesReceived: 200, packetsReceived: 4,
-      packetsLost: 0, framesReceived: 6, framesDecoded: 5, framesDropped: 1, keyFramesDecoded: 2,
-      jitter: 0.02, totalDecodeTime: 0.5, totalFreezesDuration: 1.2, freezeCount: 1,
-      frameWidth: Infinity, frameHeight: '1080', framesPerSecond: NaN, id: 'private-stream' }],
-    ['source', { type: 'media-source', kind: 'video', width: 1920, height: 1080, frames: 100,
-      framesPerSecond: 30, id: 'private-source', trackIdentifier: 'private-track', ssrc: 12345,
-      deviceId: 'private-device', label: 'private-display', bytesSent: 999 }],
-    ['audio-source', { type: 'media-source', kind: 'audio', frames: 999 }],
-    ['audio', { type: 'inbound-rtp', kind: 'audio', bytesReceived: 900 }],
-    ['audio-send', { type: 'outbound-rtp', kind: 'audio', bytesSent: 900 }],
-    ['candidate', { type: 'local-candidate', kind: 'video', bytesReceived: 999, address: '192.0.2.2' }],
-    ['pair', { type: 'candidate-pair', kind: 'video', bytesSent: 999, localCandidateId: 'private-candidate' }],
-  ]);
-  assert.deepEqual(privateRtcSample(report, 'sender'), [{ direction: 'outbound', bytesSent: 100,
-    packetsSent: 2, framesEncoded: 3, framesSent: 3, retransmittedPacketsSent: 0,
-    frameWidth: 1920, frameHeight: 1080, framesPerSecond: 30 },
-    { direction: 'source', width: 1920, height: 1080, frames: 100, framesPerSecond: 30 }]);
-  assert.deepEqual(privateRtcSample(report, 'receiver'), [{ direction: 'inbound', bytesReceived: 200,
-    packetsReceived: 4, packetsLost: 0, framesReceived: 6, framesDecoded: 5, framesDropped: 1,
-    keyFramesDecoded: 2, jitter: 0.02, totalDecodeTime: 0.5, totalFreezesDuration: 1.2, freezeCount: 1 }]);
-  assert.deepEqual(privateRtcSample(report, 'unexpected'), []);
-  assert.deepEqual(privateRtcSample(null, 'sender'), []);
-  const many = Array.from({ length: 100 }, () => ({ type: 'inbound-rtp', kind: 'video', framesReceived: 0 }));
-  assert.equal(privateRtcSample(many, 'receiver').length, 8);
-});
-test('frame health distinguishes startup, missing frames and later stalls', () => {
-  assert.equal(frameHealth(null, 2000, 0), 'Waiting for frames');
-  assert.equal(frameHealth(null, 6000, 0), 'No frames received');
-  assert.equal(frameHealth(1000, 5000, 0), 'Receiving frames');
-  assert.equal(frameHealth(1000, 6001, 0), 'Frame delivery stalled');
-});
-test('image checks distinguish changing images and black frames', () => {
-  const black = new Uint8ClampedArray([0, 0, 0, 255, 0, 0, 0, 255]);
-  const white = new Uint8ClampedArray([255, 255, 255, 255, 255, 255, 255, 255]);
-  assert.equal(imageSignature(black).dark, true);
-  assert.equal(imageSignature(white).dark, false);
-  assert.notEqual(imageSignature(black).hash, imageSignature(white).hash);
 });

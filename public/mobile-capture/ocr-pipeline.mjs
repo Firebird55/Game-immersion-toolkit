@@ -1,5 +1,7 @@
+import {STEAM_GAMES} from './core.mjs';
 import {normalize,subtitleRows} from './library.mjs';
-export const crops={starrail:[.10,.70,.80,.28],genshin:[.10,.70,.80,.28],endfield:[.10,.70,.80,.28],heavyrain:[.05,.70,.90,.28],beyond:[.05,.70,.90,.28],zzz:[.08,.67,.84,.25],wuwa:[.10,.64,.80,.32],pragmata:[.08,.67,.84,.25],cyberpunk:[.12,.59,.76,.37],witcher3:[.08,.63,.84,.34],nte:[.10,.80,.80,.18],honkai3:[.04,.72,.96,.24],hito:[.35,.765,.365,.18]};
+export const crops={riseofthetombraider:[.08,.65,.84,.33],shadowofthetombraider:[.08,.65,.84,.33],starrail:[.10,.70,.80,.28],genshin:[.10,.70,.80,.28],endfield:[.10,.70,.80,.28],heavyrain:[.05,.70,.90,.28],beyond:[.05,.70,.90,.28],zzz:[.08,.67,.84,.25],wuwa:[.10,.64,.80,.32],pragmata:[.08,.67,.84,.25],cyberpunk:[.12,.59,.76,.37],witcher3:[.08,.63,.84,.34],nte:[.10,.80,.80,.18],honkai3:[.04,.72,.96,.24],hito:[.35,.765,.365,.18]};
+Object.assign(crops, Object.fromEntries(STEAM_GAMES.map(game => [game, [.04,.60,.92,.38]])));
 export const extraCrops={cyberpunk:{overhead:[.10,.12,.70,.62]},witcher3:{overhead:[.08,0,.76,.74]},wuwa:{card:[.12,.20,.76,.43]},zzz:{comic:[.04,.06,.92,.88]},honkai3:{panel:[.39,.72,.61,.16]},nte:{compact:[.10,.80,.80,.09]}};
 export function regions(game,crop=crops[game],extra=true,cinematic=true,custom={}){
  const result=[{crop,channel:'dialogue',ink:game==='hito'?null:game==='cyberpunk'?'blue':'white'}];
@@ -17,11 +19,15 @@ export function regions(game,crop=crops[game],extra=true,cinematic=true,custom={
  return result;
 }
 export function cropFrame(source,canvas,region,picture='window'){
+ // Frame envelopes are the OCR boundary. Direct drawables remain accepted for
+ // layout fixtures and existing private footage replay tools.
+ const image=source.image??source;
  const w=source.videoWidth??source.naturalWidth??source.width,h=source.videoHeight??source.naturalHeight??source.height;
  if(!w||!h)throw new Error('Connect the receiving game screen first.');
+ if(!Array.isArray(region)||region.length!==4||region.some(v=>!Number.isFinite(v)||v<0||v>1)||region[2]<=0||region[3]<=0||region[0]+region[2]>1.00001||region[1]+region[3]>1.00001)throw new Error('Keep the crop inside the video.');
  let x=0,y=0,pw=w,ph=h;if(picture==='16:9'){if(w/h>16/9){pw=h*16/9;x=(w-pw)/2;}else{ph=w*9/16;y=(h-ph)/2;}}
  const [left,top,width,height]=region,cw=pw*width,ch=ph*height,scale=Math.min(2,1440/h,2304/cw,1024/ch);
- canvas.width=Math.max(1,Math.round(cw*scale));canvas.height=Math.max(1,Math.round(ch*scale));canvas.getContext('2d',{willReadFrequently:true}).drawImage(source,x+pw*left,y+ph*top,cw,ch,0,0,canvas.width,canvas.height);return canvas;
+ canvas.width=Math.max(1,Math.round(cw*scale));canvas.height=Math.max(1,Math.round(ch*scale));canvas.getContext('2d',{willReadFrequently:true}).drawImage(image,x+pw*left,y+ph*top,cw,ch,0,0,canvas.width,canvas.height);return canvas;
 }
 export function prepareImage(canvas,region,language){
  const context=canvas.getContext('2d',{willReadFrequently:true}),pixels=context.getImageData(0,0,canvas.width,canvas.height);let dark=0,total=0,black=0,bright=0;
@@ -53,18 +59,46 @@ function comicBubbles(canvas){
  }
  return found.sort((a,b)=>b.area-a.area).slice(0,4);
 }
+// Match the desktop bubble grouping: aligned/centered rows, then columns
+// left to right. Sparse OCR reading order alone interleaves separate bubbles.
+export function spatialTextGroups(blocks){
+ const lines=cleanOcrBlocks(blocks).flatMap(b=>b.paragraphs).flatMap(p=>p.lines).filter(l=>l.bbox&&normalize(l.text).length>=2&&(l.confidence??100)>=40).sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0),groups=[];
+ for(const line of lines){
+  const b=line.bbox,h=b.y1-b.y0;if(h<=0||b.x1<=b.x0)continue;let best=null,distance=Infinity;
+  for(const g of groups){const gap=b.y0-g.y1,overlap=Math.min(b.x1,g.x1)-Math.max(b.x0,g.x0),narrow=Math.min(b.x1-b.x0,g.x1-g.x0),tolerance=Math.max(12,g.lineHeight*1.25);
+   if(gap < -Math.max(h,g.lineHeight)||gap>Math.max(48,g.lineHeight*2.4))continue;
+   if(Math.abs(b.x0-g.x0)>tolerance&&!(Math.abs((b.x0+b.x1-g.x0-g.x1)/2)<=tolerance&&overlap>=narrow*.8))continue;
+   const d=Math.abs(gap)+Math.abs(b.x0-g.lastLeft)*.15;if(d<distance){best=g;distance=d;}
+  }
+  if(!best){groups.push({...b,lines:[line],lastLeft:b.x0,lineHeight:h});continue;}
+  best.lines.push(line);best.x0=Math.min(best.x0,b.x0);best.x1=Math.max(best.x1,b.x1);best.y1=Math.max(best.y1,b.y1);best.lastLeft=b.x0;best.lineHeight=(best.lineHeight+h)/2;
+ }
+ return groups.sort((a,b)=>a.x0-b.x0||a.y0-b.y0).map(g=>({...g,text:g.lines.map(l=>l.text).join(' ')}));
+}
 export async function recognizeRegion(worker,canvas,region,language,isCurrent=()=>true){
- let original=null;if(region.channel==='gameplay'||region.channel==='dialogue'){original=document.createElement('canvas');original.width=canvas.width;original.height=canvas.height;original.getContext('2d').drawImage(canvas,0,0);}
- if(!prepareImage(canvas,region,language))return null;
+ if(!isCurrent())return null;
+ let original=null;if(region.fragment||region.channel==='gameplay'||region.channel==='dialogue'){original=document.createElement('canvas');original.width=canvas.width;original.height=canvas.height;original.getContext('2d').drawImage(canvas,0,0);}
+ if(!prepareImage(canvas,region.fragment&&!region.raw?{...region,ink:'white'}:region,language))return null;
  await worker.setParameters({tessedit_pageseg_mode:region.fragment?'11':region.line?'7':'6'});
+ if(!isCurrent())return null;
  const result=await worker.recognize(canvas,{}, {text:true,blocks:true});if(!isCurrent())return result.data;
- if(region.fragment){const refined=[];for(const b of comicBubbles(canvas)){if(!isCurrent())break;const scale=Math.min(1.5,1280/b.w,512/b.h),image=document.createElement('canvas');image.width=Math.round(b.w*scale);image.height=Math.round(b.h*scale);image.getContext('2d').drawImage(canvas,b.x,b.y,Math.min(b.w,canvas.width-b.x),Math.min(b.h,canvas.height-b.y),0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}return {...result.data,refinedTexts:refined};}
+ if(region.fragment){
+  const groups=spatialTextGroups(result.data.blocks),refined=[];
+  // Text bounds also find white lettering on black bubbles. White connected
+  // components only cover the opposite style and miss these game panels.
+  const bounds=groups.map(g=>({x:Math.max(0,g.x0-6),y:Math.max(0,g.y0-6),w:g.x1-g.x0+12,h:g.y1-g.y0+12}));
+  const pale=comicBubbles(original);
+  for(const b of bounds.slice(0,12)){if(!isCurrent())return null;const w=Math.min(b.w,canvas.width-b.x),h=Math.min(b.h,canvas.height-b.y),scale=Math.min(2,1600/w,768/h),image=document.createElement('canvas');image.width=Math.round(w*scale);image.height=Math.round(h*scale);image.getContext('2d').drawImage(canvas,b.x,b.y,w,h,0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});if(!isCurrent())return null;const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}
+  // Preserve black lettering on pale bubbles as well as white-on-black panels.
+  for(const b of pale){if(!isCurrent())return null;const image=document.createElement('canvas');image.width=Math.min(b.w,original.width-b.x);image.height=Math.min(b.h,original.height-b.y);image.getContext('2d').drawImage(original,b.x,b.y,image.width,image.height,0,0,image.width,image.height);await worker.setParameters({tessedit_pageseg_mode:'6'});const bubble=await worker.recognize(image,{}, {text:true});refined.push(bubble.data.text);}
+  return {...result.data,comicTexts:groups.map(g=>g.text),refinedTexts:refined};
+ }
  if(!original)return result.data;
  const words=(result.data.blocks??[]).flatMap(b=>b.paragraphs??[]).flatMap(p=>p.lines??[]).filter(l=>(l.confidence??0)>=45&&l.bbox?.x1-l.bbox?.x0>canvas.width*.25&&l.bbox?.y1-l.bbox?.y0<canvas.height*.25).flatMap(l=>l.words??[]).filter(w=>w.bbox&&w.confidence<85&&normalize(w.text).length>=4).sort((a,b)=>a.confidence-b.confidence).slice(0,3);
  for(const word of words){
   if(!isCurrent())return result.data;
   const b=word.bbox,x=Math.max(0,b.x0-4),y=Math.max(0,b.y0-4),w=Math.min(original.width-x,b.x1-b.x0+8),h=Math.min(original.height-y,b.y1-b.y0+8),scale=Math.min(3,1600/w,256/h),image=document.createElement('canvas');image.width=Math.round(w*scale);image.height=Math.round(h*scale);image.getContext('2d').drawImage(original,x,y,w,h,0,0,image.width,image.height);
-  await worker.setParameters({tessedit_pageseg_mode:'7'});const reread=await worker.recognize(image,{}, {text:true});if(reread.data.confidence>=80&&reread.data.text.trim()&&reread.data.text.trim().length<150){word.text=reread.data.text.trim();word.confidence=reread.data.confidence;}
+  await worker.setParameters({tessedit_pageseg_mode:'7'});if(!isCurrent())return null;const reread=await worker.recognize(image,{}, {text:true});if(reread.data.confidence>=80&&reread.data.text.trim()&&reread.data.text.trim().length<150){word.text=reread.data.text.trim();word.confidence=reread.data.confidence;}
  }
  if(words.length){for(const line of (result.data.blocks??[]).flatMap(b=>b.paragraphs??[]).flatMap(p=>p.lines??[]))if(line.words?.length)line.text=line.words.map(w=>w.text).join(' ');result.data.text=(result.data.blocks??[]).flatMap(b=>b.paragraphs??[]).flatMap(p=>p.lines??[]).map(l=>l.text).join('\n');}
  if(region.channel!=='gameplay')return result.data;
@@ -89,6 +123,12 @@ export function cleanOcrBlocks(blocks){
  return (blocks??[]).map(block=>({...block,paragraphs:(block.paragraphs??[]).map(paragraph=>({...paragraph,lines:(paragraph.lines??[]).map(cleanLine)}))}));
 }
 export function candidates(data,region,width,height,game){
+ if(region.fragment){
+  const texts=data.comicTexts??spatialTextGroups(data.blocks).map(g=>g.text),values=[];
+  const refined=data.refinedTexts??[],ordered=texts.flatMap((text,i)=>[text,refined[i]??'']);ordered.push(...refined.slice(texts.length));
+  for(const text of ordered)values.push(...candidates({text,blocks:[]},{...region,fragment:false},width,height,game).values);
+  if(values.length)return {values:[...new Set(values)],menu:false};
+ }
  const blocks=cleanOcrBlocks(data.blocks);
  let lines=data.text.split('\n').map(s=>s.trim()).filter(Boolean),menu=false;
  if(region.channel!=='dialogue'&&blocks.length)lines=blocks.flatMap(b=>b.paragraphs).flatMap(p=>p.lines).filter(l=>(l.confidence??100)>=45&&normalize(l.text).length>=6).map(l=>l.text);

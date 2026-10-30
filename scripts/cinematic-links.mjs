@@ -68,7 +68,13 @@ export function cinematicVoicePairs(bytes){
   }
   for(const object of objects.values()){
     if(object.type!=='WwiseAudioClip'||object.namespace!=='MoleMole.Timeline')continue;
-    const reader=new Reader(object.bytes,object.body),event=reader.string(),textId=reader.string(),originalId=reader.string();
+    const reader=new Reader(object.bytes,object.body),event=reader.string();
+    let textId=reader.string();
+    // The newer typed clip layout adds an empty auxiliary event string. Both
+    // subtitle identities still have to agree; a populated unknown field is
+    // never treated as a subtitle or skipped heuristically.
+    if(textId==='')textId=reader.string();
+    const originalId=reader.string();
     if(!/^Play_vo_[A-Za-z0-9_]+$/i.test(event)||!/^CS_[A-Za-z0-9_]+$/.test(textId)||originalId!==textId)continue;
     for(const id of mandarin){
       const target=tracks.get(id).bytes;

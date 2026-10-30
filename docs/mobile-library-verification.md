@@ -133,3 +133,46 @@ Home Screen shortcut cannot add an absent capture API.
 - Older PTQR1 messages remain readable. Unusually large messages use balanced
   frames with explicit missing-frame hints; malformed metadata, checksums and
   oversized expanded payloads are rejected. Both devices need Reload latest.
+
+
+## Single-file update (2026-10-23)
+
+The v1 bundle wraps existing STORE catalog/voice ZIPs and supports ZIP64 outer
+directories, including Python writers that emit ZIP64 records before 4 GiB.
+Synthetic tests cover unsafe offsets, mismatched manifests, bounded reads,
+cancellation, legacy compatibility and Python-exporter/browser-reader round trips.
+
+An owner-local 3,797,058,275-byte ZZZ bundle was opened with the production reader:
+222,479 catalog rows and 51,814 unique clips validated. A clip from the final
+inner pack passed CRC/SHA checks. Opening and that read used 105,088,719 bytes in
+97 file reads; the largest read was 4,194,296 bytes. The Node filesystem check
+took about 2.4 seconds on this PC. This is not an iPhone performance result.
+No game text, audio or personal source paths are included in this report.
+
+The UI keeps a separate selected-file/result display, automatically includes the
+catalog, and explicitly identifies legacy voice-only selections. Physical iPhone
+provider, low-storage and reboot acceptance remain required.
+
+
+## Remembered setup and maintained exports — 2026-10-25
+
+Chromium and Firefox checks cover OPFS retention, reload, malformed replacement,
+multiple-library storage operations, interrupted copies, quota failure, missing
+files, removal, and preserving library metadata through a static application
+update and a real browser restart. Credential checks cover encrypted-vault unlock,
+explicit trusted-device conversion, reload, opt-out, Forget, and stale requests.
+The complete synthetic VDO.Ninja link restores without connecting.
+
+Windows WebKit reports an OPFS operation failure on this host. Its session-only
+fallback, credential controls and application update checks pass; OPFS reopening
+on this runtime is unverified. Its native cross-page WebRTC data channel also
+remains unavailable. Neither result establishes physical iPhone reliability.
+
+Synthetic backend checks cover initial automatic publication, unchanged-input
+no-op, source updates, language addition/removal, pause and interrupted-job
+restart, unavailable folders/packs, insufficient space, interrupted copies,
+checksum failures, locked replacement and source changes before publication.
+Account-independent preparation is checked with account access made fatal.
+Actual installations, cloud-client propagation, iPhone Files providers and Safari
+Home Screen endurance still require the physical-device acceptance procedure in
+[mobile capture verification](mobile-capture-verification.md).

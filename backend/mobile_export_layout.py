@@ -76,7 +76,7 @@ def latest_export(output, game):
     folder = output / name
     if folder.resolve().parent != output.resolve():
         raise ValueError('Invalid export folder')
-    catalog = folder / pointer.get('catalog', game + '.catalog.zip')
+    catalog = folder / pointer.get('bundle', pointer.get('catalog', game + '.catalog.zip'))
     if catalog.resolve().parent != folder.resolve():
         raise ValueError('Invalid catalog name')
     return folder, catalog
@@ -119,18 +119,20 @@ def organize_completed_export(output, game):
     return destination
 
 
-def write_instructions(output, folder, *, transfer_folder=None):
+def write_instructions(output, folder, *, transfer_folder=None, library=None):
+    files = f'Open {library} on your phone. It includes text and voices.' if library else 'Select the Catalog ZIP together with all matching Voices ZIPs.'
     (Path(output) / 'START HERE.txt').write_text(
         f'Transfer this completed folder only: {Path(transfer_folder or folder).name}\n'
-        'It contains the catalog ZIP, numbered voice ZIPs and phone instructions.\n'
-        'Keep ZIPs zipped. On the phone, select the catalog and voice ZIPs together.\n'
-        'Resumable PC work is stored outside the selected transfer folder.\n'
-        'latest.json is a private PC marker; it is not needed on the phone.\n', encoding='utf8')
+        f'{files}\nKeep the library zipped. Private resumable work stays on the PC.\n', encoding='utf8')
     (Path(folder) / 'READ ME.txt').write_text(
         'Open https://firebird55.github.io/Game-immersion-toolkit/ on the receiving phone.\n'
-        'Choose Receive screen and open the Catalog ZIP plus all matching Voices ZIPs.\n'
-        'Keep ZIPs zipped. They may stay on a connected USB drive or in On My iPhone.\n'
-        'After reopening, select the voice ZIPs again. No game files are uploaded.\n', encoding='utf8')
+        f'{files}\n'
+        'On Play, open the library, paste the VDO.Ninja viewer link and tap Start playing.\n'
+        'Keep this page visible. Tap Play voice to hear matched dialogue.\n'
+        'Leave Keep on this device enabled to reopen this library and voices automatically.\n'
+        'If storage fails or you choose session-only use, select the file after reopening.\n'
+        'On iPhone, select each newly updated cloud ZIP once. Keep a recovery copy.\n'
+        'Files may stay in On My iPhone or on a connected USB drive. Keep ZIPs zipped.\n', encoding='utf8')
 
 
 def archive_previous_exports(output, game, current):
@@ -142,7 +144,10 @@ def archive_previous_exports(output, game, current):
             continue
         catalog = folder / catalog_name(game)
         if not catalog.is_file():
-            continue
+            bundles = list(folder.glob('* - Mobile Library.zip'))
+            if len(bundles) != 1:
+                continue
+            catalog = bundles[0]
         with zipfile.ZipFile(catalog) as archive:
             manifest = json.loads(archive.read('manifest.json'))
         if manifest.get('game') != game or folder.name != export_folder_name(game, manifest['revision']):

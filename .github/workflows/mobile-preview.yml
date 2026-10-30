@@ -20,6 +20,8 @@ on:
       - 'scripts/build-mobile-preview.mjs'
       - 'scripts/serve-mobile-capture.mjs'
       - 'scripts/mobile-capture-e2e.mjs'
+      - 'scripts/mobile-source-e2e.mjs'
+      - 'scripts/mobile-vdo-source-e2e.mjs'
       - 'scripts/mobile-recovery-e2e.mjs'
       - 'services/pairing/**'
       - 'tests/mobile-recovery.test.mjs'
@@ -32,6 +34,7 @@ on:
       - 'tests/mobile-library.test.mjs'
       - 'tests/mobile-pairing-qr.test.mjs'
       - 'tests/mobile-media-fixtures.mjs'
+      - 'tests/fixtures/mobile-native-chinese.png'
       - 'package.json'
       - 'package-lock.json'
       - 'tests/mobile-capture.test.mjs'
@@ -62,7 +65,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/AppData/Local/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
@@ -89,9 +92,23 @@ jobs:
         env:
           MOBILE_TEST_BROWSERS: webkit
         run: node scripts/companion-e2e.mjs
+      - name: Check native screen frames, OCR and recovery in WebKit
+        env:
+          MOBILE_TEST_BROWSERS: webkit
+        run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
+      - name: Retain owned native WebKit fixture diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-webkit-diagnostics
+          path: |
+            output/playwright/mobile-source-*.png
+            output/playwright/mobile-source-*-failure.json
+          retention-days: 3
   preview:
     if: inputs.check != 'offline'
-    runs-on: ubuntu-latest
+    # Keep the WebKit build and its system libraries on the same Ubuntu image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -105,11 +122,18 @@ jobs:
         run: npm ci --ignore-scripts
       - run: npm run audit:public
       - name: Check capture and library logic
-        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs
-      - uses: actions/cache@v4
+        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs tests/mobile-frame-source.test.mjs tests/mobile-vdo-source.test.mjs tests/mobile-receiver-source.test.mjs
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
+          key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('node_modules/playwright/package.json') }}
+      - name: Use the primary Ubuntu package mirror
+        run: |
+          for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
+            if [ -f "$sources" ]; then
+              sudo sed -i 's|://azure.archive.ubuntu.com/ubuntu|://archive.ubuntu.com/ubuntu|g' "$sources"
+            fi
+          done
       - name: Install browsers
         run: npx playwright install --with-deps chromium firefox webkit
       - name: Package public preview files
@@ -119,6 +143,10 @@ jobs:
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/companion-e2e.mjs
+      - name: Check published native frames, OCR and automatic recovery
+        env:
+          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
+        run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
       - name: Check games guide, combinations, links and offline navigation
         env:
           MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
@@ -127,7 +155,7 @@ jobs:
         run: node scripts/ocr-packs-e2e.mjs
       - name: Retain owned browser-fixture diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mobile-test-diagnostics
           path: |
@@ -136,14 +164,16 @@ jobs:
             output/playwright/mobile-lookup-*.png
             output/playwright/mobile-layout-overflow-*.png
             output/playwright/games-guide-overflow-*.png
+            output/playwright/mobile-source-*.png
+            output/playwright/mobile-source-*-failure.json
           retention-days: 3
       - name: Retain reviewed static build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: companion-${{ github.sha }}
           path: ${{ steps.package.outputs.directory }}
           retention-days: 7
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: github.ref == 'refs/heads/main'
         with:
           path: ${{ steps.package.outputs.directory }}

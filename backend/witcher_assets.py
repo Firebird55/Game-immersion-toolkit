@@ -12,6 +12,8 @@ from pathlib import Path
 
 from .bilingual import contains_han
 from .textmaps import display_text
+from .preparation_errors import PreparationFailure
+from .witcher_narrative import bundle_sources, inventory as narrative_inventory
 
 # RTSW/CPSW language format markers (English, legacy Traditional Chinese, and
 # unmasked formats including next-gen Simplified Chinese).
@@ -19,7 +21,7 @@ _FORMAT_MAGIC = {0x43975139: 0x79321793, 0x18632176: 0x16875467, 0: 0,
     0x24987354: 0x21793217, 0x75886138: 0x42791159, 0x18796651: 0x42387566,
     0x23863176: 0x75921975, 0x42378932: 0x67823218, 0x45931894: 0x12375973,
     0x54834893: 0x59825646, 0x83496237: 0x73946816, 0x63481486: 0x42386347}
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = ('en', 'fr', 'de', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans')
 TEXT_LOCALES = {'ar': 'ar', 'pt-BR': 'br', 'zh-Hans': 'cn', 'cs': 'cz', 'de': 'de',
     'en': 'en', 'es-ES': 'es', 'es-419': 'esmx', 'fr': 'fr', 'hu': 'hu', 'it': 'it',
@@ -29,7 +31,8 @@ TEXT_LOCALES = {'ar': 'ar', 'pt-BR': 'br', 'zh-Hans': 'cn', 'cs': 'cz', 'de': 'd
 def _read(stream, size):
     value = stream.read(size)
     if len(value) != size:
-        raise ValueError("Witcher language file is incomplete")
+        raise PreparationFailure('witcher_files_incomplete',
+            'Witcher language file is incomplete. Wait for the game update to finish, then verify installed files and retry.')
     return value
 
 
@@ -52,10 +55,12 @@ def _bit6(stream):
 
 def _header(stream, signature):
     if _read(stream, 4) != signature:
-        raise ValueError("Unsupported Witcher language file format")
+        raise PreparationFailure('witcher_language_format',
+            'Unsupported Witcher language file format. The game may have updated; update the toolkit and retry preparation.')
     version, first = struct.unpack("<IH", _read(stream, 6))
     if version not in (162, 163, 164):
-        raise ValueError("Unsupported Witcher language file version")
+        raise PreparationFailure('witcher_language_format',
+            'Unsupported Witcher language file version. The game may have updated; update the toolkit and retry preparation.')
     return version, first
 
 
@@ -141,6 +146,32 @@ def read_speech(path: Path) -> dict[int, dict]:
         return result
 
 
+def read_string_keys(path: Path) -> dict[int, int | None]:
+    """Resolve authored item key hashes through the RTSW secondary table."""
+    with path.open('rb') as stream:
+        _version, first = _header(stream, b'RTSW')
+        stream.seek(-2, 2)
+        magic = _magic(first, struct.unpack('<H', _read(stream, 2))[0])
+        stream.seek(10)
+        count = _bit6(stream)
+        if count > 2_000_000 or stream.tell() + count * 12 >= path.stat().st_size:
+            raise ValueError('Witcher localization key table is incomplete')
+        stream.seek(count * 12, 1)
+        count = _bit6(stream)
+        if count > 2_000_000:
+            raise ValueError('Witcher localization key table is too large')
+        result, ambiguous = {}, set()
+        for _ in range(count):
+            key, masked = struct.unpack('<II', _read(stream, 8))
+            identity = masked ^ magic
+            if key in result and result[key] != identity:
+                ambiguous.add(key)
+            result[key] = identity
+        # Keep an ambiguity tombstone so a patch cannot silently resurrect an
+        # older, conflicting key when layered tables are merged.
+        return {key: None if key in ambiguous else identity for key, identity in result.items()}
+
+
 def archive_sources(install: Path) -> list[Path]:
     names = {name for code in TEXT_LOCALES.values() for name in (code + '.w3strings', code + 'pc.w3speech')}
     roots = [install / "content", install / "dlc"]
@@ -149,7 +180,7 @@ def archive_sources(install: Path) -> list[Path]:
 
 
 def fingerprint(install: Path) -> str:
-    values = [f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}" for p in archive_sources(install)]
+    values = [f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}" for p in [*archive_sources(install), *bundle_sources(install)]]
     return hashlib.sha256("|".join(values).encode()).hexdigest()
 
 
@@ -210,7 +241,7 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     targets = {target: resolve_locale(target, available) for target in target_locales}
     selected = {source_locale, *(locale for locale in targets.values() if locale)}
     names = {TEXT_LOCALES[locale] + '.w3strings': locale for locale in selected}
-    tables, voices, priorities = {locale: {} for locale in selected}, {}, {}
+    tables, voices, priorities, string_keys = {locale: {} for locale in selected}, {}, {}, {}
     def group(path):
         parts = path.relative_to(install).parts
         return '/'.join(parts[:2]) if parts[0].lower() == 'dlc' else 'base'
@@ -225,9 +256,12 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
             for identity, value in read_strings(path).items():
                 # The supported Dual Subtitles writer retains the file's own
                 # language first, even for two languages using the same script.
-                value = display_text(re.split(r'(?:<br\s*/?>\s*|\s+)~\s*', value, maxsplit=1, flags=re.I)[0])
+                primary = re.split(r'(?:<br\s*/?>\s*|\s+)~\s*', value, maxsplit=1, flags=re.I)[0]
+                value = display_text(re.sub(r'<br\s*/?>', ' ', primary, flags=re.I))
                 if value:
                     tables[locale][(group(path), identity)] = value
+            if locale == source_locale:
+                string_keys.update({(group(path), key): identity for key, identity in read_string_keys(path).items()})
         elif name == TEXT_LOCALES[source_locale] + 'pc.w3speech':
             progress(f'Checking original Witcher {source_locale} voice bindings')
             for identity, audio in read_speech(path).items():
@@ -237,6 +271,15 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
                     voices[key] = {'ambiguous': True}
                 else:
                     voices[key], priorities[key] = reference, priority(path)
+    references, readable_keys, coverage = narrative_inventory(install, progress)
+    unresolved_books = 0
+    for group_name, hashes in readable_keys.items():
+        for key_hash in hashes:
+            identity = string_keys.get((group_name, key_hash))
+            if identity is None:
+                unresolved_books += 1
+            else:
+                references[(group_name, identity)].add(('readable', 'unvoiced'))
     rows = []
     groups_by_id = {}
     for group_name, identity in tables[source_locale]:
@@ -244,20 +287,39 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     for key, text in tables[source_locale].items():
         texts = {locale: table[key] for locale, table in tables.items() if key in table}
         voice = voices.get(key)
+        narrative = references.get(key, set())
+        state = ('voiced' if voice and not voice.get('ambiguous') else 'unavailable' if
+                 voice or any(status == 'unavailable' for _, status in narrative) else
+                 'unvoiced' if narrative else 'unknown')
+        kinds = sorted({kind for kind, _ in narrative})
         # Do not recover an older unscoped identity as the base performance
         # when an installed DLC reuses it. Historical cached clips stay intact.
         scope = ':' + key[0] if key[0] != 'base' or len(groups_by_id[key[1]]) > 1 else ''
         rows.append({'text_id': f'witcher3:{key[1]}' + scope,
             'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
             'source_locale': source_locale, 'source_text': text, 'texts': texts, 'audio_locale': source_locale,
-            'audio': voice if voice and not voice.get('ambiguous') else None})
-    if not rows or fingerprint(install) != stamp:
-        raise ValueError('Witcher files changed or selected dialogue is incomplete; previous table retained.')
+            'audio': voice if voice and not voice.get('ambiguous') else None,
+            'voice_status': state, 'dialogue_kind': kinds[0] if len(kinds) == 1 else 'mixed' if kinds else 'unclassified'})
+    if not rows:
+        raise PreparationFailure('witcher_dialogue_missing',
+            'Selected Witcher dialogue is incomplete. Verify the selected official text pack in the launcher and retry.')
+    if fingerprint(install) != stamp:
+        raise PreparationFailure('witcher_files_changed',
+            'Witcher files changed or selected dialogue is incomplete. Wait for the game update to finish and retry; the previous table was retained.', game_files_changed=True, previous_snapshot_retained=True)
     mapped = sum(bool(row['audio']) for row in rows)
     available = {locale for row in rows for locale in row['texts']}
     missing = [target for target, locale in targets.items() if locale not in available]
+    warnings = ['Cinematic subtitle sidecars and video-track voices are inventoried separately; per-cue movie audio is not yet mapped.',
+                'Unclassified localization includes UI and other text. Missing voices are not assumed to be silent. Scene presentation alone does not prove every cutscene or combat bark is covered.']
+    if not coverage.get('scene_files'):
+        warnings.append('Scene metadata was not found; explicit silent scenes and choices cannot be classified.')
+    if unresolved_books:
+        warnings.append(f'{unresolved_books:,} authored readable keys have no unambiguous selected-language localization ID.')
+    if not mapped:
+        warnings.append('The selected original speech pack is missing or has no verified bindings. Install it through the game launcher.')
     return {'format': 2, 'game': 'witcher3', 'source_locale': source_locale, 'install': str(install),
         'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
+        'coverage_warnings': warnings, 'narrative_inventory': {**coverage, 'readable_keys': sum(map(len, readable_keys.values())), 'unresolved_readable_keys': unresolved_books},
         'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
         (f'; {len(rows) - mapped:,} entries without a verified voice binding' if mapped < len(rows) else '') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +

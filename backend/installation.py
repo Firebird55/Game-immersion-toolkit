@@ -13,8 +13,11 @@ import threading
 from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install, load_paths
 from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
+from .steam_games import STEAM_GAMES
 
 FOLDER_HINTS = {
+    "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
+    "shadowofthetombraider": "Choose the Shadow of the Tomb Raider folder containing SOTTR.exe and bigfile.000.tiger.",
     "starrail": "Choose Star Rail Games containing StarRail.exe and StarRail_Data; the launcher folder is also accepted.",
     "genshin": "Choose Genshin Impact game containing GenshinImpact.exe and GenshinImpact_Data; YuanShen clients are accepted too.",
     "endfield": "Choose the Endfield folder containing Endfield.exe and Endfield_Data/StreamingAssets/VFS.",
@@ -29,6 +32,8 @@ FOLDER_HINTS = {
     "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
 }
 VOICE_HINTS = {
+    "riseofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Regional and DLC pack availability is shown separately.",
+    "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
     "starrail": "Install your chosen original voice in the game, then prepare its learning language and translation in Languages.",
     "genshin": "Install your chosen voice pack through the game's language settings, then prepare it in Languages.",
     "endfield": "Install the matching voice pack and Microsoft .NET 10 SDK, then prepare tools and the selected language.",
@@ -44,11 +49,20 @@ VOICE_HINTS = {
 }
 
 
+FOLDER_HINTS.update({game: f"Choose the {spec.title} folder containing {spec.executable}."
+                     for game, spec in STEAM_GAMES.items()})
+VOICE_HINTS.update({game: "Install the selected original voice language through Steam Properties → Language, "
+                          "wait for the download, then prepare its language table here."
+                    for game in STEAM_GAMES})
+
+
 def _voice_state(game: str, install: Path | None, state: dict) -> str:
     if game == "hito":
         return "not_required"
     if not install:
         return "not_checked"
+    if (spec := STEAM_GAMES.get(game)) and not spec.voiced_capture:
+        return 'unvoiced_only'
     if state.get('index_state') == 'needs_language_setup':
         return 'needs_language_setup'
     if state.get("audio_ready"):
@@ -133,7 +147,7 @@ class InstallationService:
         return {"completed": self.completed, "games": games, "requirements": requirements, "jobs": jobs,
                 "native": native, "free_gb": free_gb, "lexirise_configured": self.account_configured(),
                 "auto_start": self.settings.get().auto_start if self.completed else False,
-                "version": json.loads((self.root / "package.json").read_text(encoding="utf-8"))["version"],
+                "version": json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text(encoding="utf-8"))["version"],
                 "capture_check": capture_check}
 
     def complete(self, auto_start: bool) -> None:
@@ -186,18 +200,19 @@ class InstallationService:
             if any(process.poll() is None for process in self._native.values()):
                 return False
             before = load_paths()
+            source = Path(__file__).resolve().parents[1]
             if kind == "folders":
                 args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                        str(self.root / "scripts/select-game-folders.ps1")]
+                        str(source / "scripts/select-game-folders.ps1")]
                 flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             elif kind == "lexirise":
                 # The hidden-input prompt owns its console. No key is sent to the browser or command line.
                 args = [sys.executable, "-m", "scripts.set_lexirise_key", "--account"]
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
             else:
-                args = [sys.executable, str(self.root / "scripts/check-capture-readiness.py"), "--pause"]
+                args = [sys.executable, str(source / "scripts/check-capture-readiness.py"), "--pause"]
                 flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-            process = subprocess.Popen(args, cwd=self.root, creationflags=flags)
+            process = subprocess.Popen(args, cwd=source, creationflags=flags)
             self._native[kind] = process
             threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True).start()
             return True

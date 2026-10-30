@@ -1,13 +1,13 @@
 param([switch]$InstructionsOnly)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
-if ($InstructionsOnly) { Write-Host 'Optional per-PC folders: Hito resources/app.asar, ZZZ ZenlessZoneZero_Data, PRAGMATA executable and PAKs, Cyberpunk archives, Wuthering Waves Client, Witcher 3 content, NTE Client. Cancel keeps existing settings.'; return }
+if ($InstructionsOnly) { Write-Host 'Optional per-PC folders: ZZZ ZenlessZoneZero_Data, PRAGMATA executable and PAKs, Cyberpunk archives, Wuthering Waves Client, Witcher 3 content, NTE Client. Cancel keeps existing settings.'; return }
 $python = Join-Path $env:LOCALAPPDATA 'Programs\Proxy Transcript\venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python)) { throw 'Run Install.cmd first.' }
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Game immersion toolkit — local game folders'
+$form.Text = 'Game immersion toolkit - local game folders'
 $form.Size = New-Object System.Drawing.Size(740, 625)
 $form.MinimumSize = New-Object System.Drawing.Size(640, 430)
 $form.StartPosition = 'CenterScreen'
@@ -20,7 +20,7 @@ $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute',
 $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Percent', 100))) | Out-Null
 $table.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle('Absolute', 90))) | Out-Null
 $intro = New-Object System.Windows.Forms.Label
-$intro.Text = "Optional: choose each installed game folder, or leave it blank for automatic detection. Game archives stay in place and are never uploaded.`r`nHito: resources\app.asar. ZZZ: ZenlessZoneZero_Data. NTE: folder containing Client. Other games: installation roots.`r`nAI contributors: read AGENTS.md, CONTRIBUTING.md and RELEASE.md in the installer folder."
+$intro.Text = "Optional: choose each installed game folder, or leave it blank for automatic detection. Game archives stay in place and are never uploaded.`r`nZZZ: ZenlessZoneZero_Data. NTE: folder containing Client. Other games: installation roots."
 $intro.Dock = 'Fill'; $intro.AutoSize = $true
 $table.Controls.Add($intro, 0, 0); $table.SetColumnSpan($intro, 3)
 $table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('AutoSize'))) | Out-Null
@@ -29,13 +29,14 @@ $oldLocation = Get-Location
 try {
     Set-Location -LiteralPath $projectRoot
     $existing = (& $python -m scripts.configure_game_paths --list | ConvertFrom-Json)
-    $games = @(@('starrail', 'Honkai: Star Rail'), @('genshin', 'Genshin Impact'), @('endfield', 'Arknights: Endfield'), @('zzz', 'Zenless Zone Zero'), @('pragmata', 'PRAGMATA'), @('cyberpunk', 'Cyberpunk 2077'), @('wuwa', 'Wuthering Waves'), @('witcher3', 'The Witcher 3'), @('nte', 'Neverness to Everness'), @('beyond', 'BEYOND: Two Souls'), @('heavyrain', 'HEAVY RAIN'))
+    $games = @(& $python -m scripts.configure_game_paths --catalog | ConvertFrom-Json)
+    if ($LASTEXITCODE -ne 0) { throw 'Could not read the supported game catalog.' }
     for ($index = 0; $index -lt $games.Count; $index++) {
-        $game = $games[$index][0]; $name = $games[$index][1]; $row = $index + 1
+        $game = $games[$index].id; $name = $games[$index].name; $row = $index + 1
         $table.RowStyles.Add((New-Object System.Windows.Forms.RowStyle('Absolute', 55))) | Out-Null
         $label = New-Object System.Windows.Forms.Label; $label.Text = $name; $label.AutoSize = $true; $label.Anchor = 'Left'
         $input = New-Object System.Windows.Forms.TextBox; $input.Dock = 'Fill'; $input.Anchor = 'Left,Right'; $input.Text = [string]$existing.$game
-        $browse = New-Object System.Windows.Forms.Button; $browse.Text = 'Browse…'; $browse.Dock = 'Fill'; $browse.Tag = $input
+        $browse = New-Object System.Windows.Forms.Button; $browse.Text = 'Browse...'; $browse.Dock = 'Fill'; $browse.Tag = $input
         $browse.Add_Click({
             $picker = New-Object System.Windows.Forms.FolderBrowserDialog
             $picker.Description = 'Select the installed game folder (not a ZIP or an extracted asset cache)'

@@ -5,12 +5,13 @@ import {once} from 'node:events';
 import {mkdirSync, writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
+import {resolvePython} from './python-runtime.mjs';
 
 mkdirSync('output/checks', {recursive:true});
 const baselineIndex = process.argv.indexOf('--baseline');
 const baseline = baselineIndex < 0 ? '' : resolve('output/checks/access-baseline-api.py');
 if (baseline) writeFileSync(baseline, execFileSync('git', ['show', `${process.argv[baselineIndex + 1]}:backend/api.py`]));
-const python = spawn(process.env.PYTHON || 'python', ['scripts/local-access-browser-server.py'], {
+const python = spawn(resolvePython().command, ['scripts/local-access-browser-server.py'], {
   env:{...process.env, ...(baseline ? {TOOLKIT_ACCESS_BASELINE:baseline} : {})}, stdio:['ignore', 'pipe', 'pipe'],
 });
 let browser;

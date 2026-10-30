@@ -4,6 +4,15 @@ param([string]$SourceRoot=(Split-Path -Parent $PSScriptRoot),
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'companion-runtime.ps1')
 $Root = (Resolve-Path -LiteralPath $Root).Path
+function Write-UpdateStage([string]$Message) {
+    Write-Host $Message
+    $homePath = Join-Path $Root 'data/toolkit-updates'
+    New-Item -ItemType Directory -Path $homePath -Force | Out-Null
+    $stagePath = Join-Path $homePath 'stage.json'
+    @{message=$Message; updated_at=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath ($stagePath+'.pending') -Encoding UTF8
+    Move-Item -LiteralPath ($stagePath+'.pending') -Destination $stagePath -Force
+}
+
 $SourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
 $operation = Enter-CompanionOperation $Root
 try {
@@ -46,15 +55,17 @@ if (-not (Test-Path -LiteralPath $npm)) {
 if (-not (Test-Path -LiteralPath $npm)) { throw 'The Node.js npm CLI could not be found.' }
 $python = Join-Path $env:LOCALAPPDATA 'Programs\Proxy Transcript\venv\Scripts\python.exe'
 if ($originalState -and $originalState.active.python) { $python=$originalState.active.python }
-Write-Host 'Preparing the update while the current companion keeps capturing.'
+Write-UpdateStage 'Checking Python dependencies while the current companion keeps capturing.'
 Push-Location -LiteralPath $stage
 try { & $python -m backend.check_environment (Join-Path $stage 'requirements.lock.txt') *> $null; $compatible=$LASTEXITCODE -eq 0 }
 finally { Pop-Location }
 if (-not $compatible) {
+    Write-UpdateStage 'Installing changed Python dependencies into the replacement environment.'
     Invoke-CompanionBuild $python @('-m','venv',(Join-Path $stage '.venv')) $stage (Join-Path $logs 'venv')
     $python=Join-Path $stage '.venv\Scripts\python.exe'
     Invoke-CompanionBuild $python @('-m','pip','install','--disable-pip-version-check','-r','requirements.lock.txt') $stage (Join-Path $logs 'python-install')
 }
+Write-UpdateStage 'Installing the locked toolkit dependencies.'
 Invoke-CompanionBuild $node @($npm,'ci','--no-audit','--no-fund') $stage (Join-Path $logs 'npm-install')
 $usePrebuilt=$PreparedBuild.IsPresent
 $provenance=Join-Path $SourceRoot 'PROVENANCE.json'
@@ -71,18 +82,25 @@ $handoff=$null
 $oldApi=if($originalState){'http://127.0.0.1:'+$originalState.active.apiPort}else{'http://127.0.0.1:'+$ApiPort}
 $headers=@{'X-Proxy-Transcript'='update'}
 try {
-    Write-Host 'Replacement prepared; warming capture while the current version stays active.'
+    Write-UpdateStage 'Warming OCR and the selected game index; current capture remains active.'
     $candidate=Start-CompanionSlot $Root $stage $python -Standby
     $newApi='http://127.0.0.1:'+$candidate.apiPort
     $game=''
+    $warmingRunning=$false
     try {
         $current=Invoke-RestMethod ($oldApi+'/api/status') -TimeoutSec 3
-        $game=[string]$current.capture.active_game
-        if(-not $game -and $current.settings.preferred_game -and $current.settings.preferred_game -ne 'auto'){$game=[string]$current.settings.preferred_game}
-        if(-not $game){
-            $recent=@(Invoke-RestMethod ($oldApi+'/api/lines?limit=1') -TimeoutSec 3)
-            if($recent.Count -and $recent[0].game){$game=[string]$recent[0].game}
-            elseif($current.textmaps.ready){$game='zzz'}
+        $warmingRunning=[bool]$current.capture.running
+        # Paused capture has no active dialogue to preserve. Historical lines
+        # can belong to another account with no selected language here. Warm
+        # the service/OCR and let normal background repair start after handoff.
+        if($warmingRunning){
+            $game=[string]$current.capture.active_game
+            if(-not $game -and $current.settings.preferred_game -and $current.settings.preferred_game -ne 'auto'){$game=[string]$current.settings.preferred_game}
+            if(-not $game){
+                $recent=@(Invoke-RestMethod ($oldApi+'/api/lines?limit=1') -TimeoutSec 3)
+                if($recent.Count -and $recent[0].game){$game=[string]$recent[0].game}
+                elseif($current.textmaps.ready){$game='zzz'}
+            }
         }
     } catch { }
     $query=if($game){'?game='+[uri]::EscapeDataString($game)}else{''}
@@ -96,13 +114,16 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if(-not $ready){throw 'Replacement was not ready. The current companion was kept active.'}
-    Write-Host 'Replacement is ready; transferring the current capture session.'
+    Write-UpdateStage 'Transferring capture to the verified replacement.'
     $null=Copy-CompanionAssets $Root $Root
     $null=Copy-CompanionAssets $stage $Root
     # The candidate is fully warm before any old capture process is paused.
     $current=$null
     try {$current=Invoke-RestMethod ($oldApi+'/api/status') -TimeoutSec 3} catch { }
     if($current) {
+        if($current.capture.running -and -not $warmingRunning){
+            throw 'Capture started while the update was preparing. The current companion remains active; retry the update to warm its game.'
+        }
         $handoff=@{running=[bool]$current.capture.running;session_id=$current.session.id}
         $quiesced=$true
         try { $handoff=Invoke-RestMethod -Method Post ($oldApi+'/api/runtime/quiesce') -Headers $headers -TimeoutSec 30 }
@@ -115,6 +136,12 @@ try {
             throw 'The current backend did not provide capture state. Restart the companion before updating; the replacement remains in standby.'
         }
         $handoff=Get-CompanionStartupHandoff $newApi
+    }
+    # Quiesce is the authoritative capture snapshot. Capture may have started
+    # after the final status request; restore the old runtime in the catch path
+    # instead of activating a game that this paused preparation did not warm.
+    if($current -and $handoff.running -and -not $warmingRunning){
+        throw 'Capture started while the update was preparing. The current companion will be restored; retry the update to warm its game.'
     }
     Set-CompanionNormalPriority $candidate.processRecords.backend $Root
     $null=Invoke-RestMethod -Method Post ($newApi+'/api/runtime/activate') -Headers $headers -ContentType 'application/json' -Body ($handoff|ConvertTo-Json -Depth 12) -TimeoutSec 15

@@ -14,6 +14,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
+from .mobile_bundle import write_bundle
 from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions, archive_previous_exports, hide_work_metadata
 
 FORMAT = "proxy-mobile-library-v1"
@@ -205,12 +206,14 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         required = path.stat().st_size + 1024
         if required + 2048 > pack_limit or path.stat().st_size > 64 * 1024 * 1024:
             raise ValueError("A voice clip is too large for a mobile pack")
-        if current and size + required > pack_limit:
+        if current and (size + required > pack_limit or len(current) >= 65530):
             chunks.append(current)
             current, size = [], 2048
         current.append((sha, path)); size += required
     if current:
         chunks.append(current)
+    parts_root = work / 'libraries'
+    parts_root.mkdir(exist_ok=True)
     packs = []
     for pack_number, chunk in enumerate(chunks):
         guard()
@@ -220,7 +223,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         packs.append({"id": pack_id, "name": name, "clips": list(index)})
         target = staging / name
         manifest = {"format": FORMAT, "kind": "voices", "game": game, "id": pack_id, "clips": index}
-        candidates = [*output.glob("*/" + name), *(work / 'previous-libraries').glob("*/" + name)]
+        candidates = [*parts_root.glob("*/" + name), *output.glob("*/" + name), *(work / 'previous-libraries').glob("*/" + name)]
         previous = next((p for p in candidates
                          if (p.parent / catalog_name(game)).is_file()), None)
         if previous and previous.stat().st_size <= PACK_LIMIT:
@@ -253,36 +256,38 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     coverage = {"dialogue": len(rows), "mappedVoices": sum(bool(r.get("sourceVoice")) for r in rows),
                 "exportedVoices": sum(bool(r["audio"]) for r in rows), "partial": True}
     manifest = {"format": FORMAT, "kind": "catalog", "game": game, "title": GAME_NAMES[game],
-                "revision": revision, "languages": sorted({locale for row in rows for locale in (row.get("sourceLocale", "zh-Hans"), row.get("translationLocale", "en"))}), "coverage": coverage,
+                "revision": revision, "sourceLocale": rows[0].get("sourceLocale", "zh-Hans"),
+                "audioLocale": rows[0].get("audioLocale", "zh-Hans"), "translationLocale": rows[0].get("translationLocale", "en"), "languages": sorted({locale for row in rows for locale in (row.get("sourceLocale", "zh-Hans"), row.get("translationLocale", "en"))}), "coverage": coverage,
                 "catalog": catalog, "packs": packs}
     name = catalog_name(game)
     write_pack(staging / name, manifest, [(item["name"], value) for item, value in zip(catalog, segments)])
-    write_instructions(output, staging, transfer_folder=destination)
     guard()
     getattr(check, "force", check)()
-    if destination.exists():
-        try:
-            with zipfile.ZipFile(destination / name) as previous_catalog:
-                valid = json.loads(previous_catalog.read("manifest.json")) == manifest and previous_catalog.testzip() is None
-            for pack in packs:
-                with zipfile.ZipFile(destination / pack["name"]) as previous_pack:
-                    valid = valid and previous_pack.testzip() is None
-        except (OSError, ValueError, KeyError, zipfile.BadZipFile):
-            valid = False
-        if not valid:
-            # Checked, same-parent private move; retain damaged files for diagnosis.
-            if destination.resolve().parent != output.resolve():
-                raise ValueError("Unsafe export destination")
+    # Inner packs remain private and resumable; only the bundle is transferred.
+    parts = parts_root / revision
+    if parts.resolve().parent != parts_root.resolve() or parts.is_symlink():
+        raise ValueError("Unsafe private pack location")
+    parts.mkdir(exist_ok=True)
+    for path in staging.iterdir():
+        path.replace(parts / path.name)
+    staging.rmdir()
+    transfer = work / (revision + ".transfer.pending")
+    if destination.exists() and (destination.resolve().parent != output.resolve()
+                                 or destination.is_symlink() or not destination.is_dir()):
+        raise ValueError("Unsafe export destination")
+    bundle = write_bundle(parts / name, transfer, guard=guard, progress=progress, reuse_from=destination)
+    reused = bundle.parent == destination
+    write_instructions(output, destination if reused else transfer,
+                       transfer_folder=destination, library=bundle.name)
+    guard()
+    getattr(check, "force", check)()
+    if not reused:
+        if destination.exists():
             destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
-    if not destination.exists():
-        staging.replace(destination)
-    else:
-        # An identical revision is immutable. Leave resumable staging private.
-        for path in staging.iterdir():
-            path.unlink()
-        staging.rmdir()
+        transfer.replace(destination)
+    bundle = destination / bundle.name
     pointer = output / "latest.pending"
-    pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": name, "coverage": coverage}))
+    pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": bundle.name, "bundle": bundle.name, "coverage": coverage}))
     guard()
     getattr(check, "force", check)()
     os.replace(pointer, output / "latest.json")
@@ -293,14 +298,14 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         archive_previous_exports(output, game, destination)
     except (OSError, ValueError, KeyError, zipfile.BadZipFile):
         pass
-    result = {"state": "complete", "progress": 100, "message": "Copy the catalog and voice ZIPs to On My iPhone",
+    result = {"state": "complete", "progress": 100, "message": "Open the single Mobile Library ZIP on your phone",
               "done": len(rows), "total": len(rows),
-              "folder": str(destination), "coverage": coverage, "bytes": sum(p.stat().st_size for p in destination.glob("*.zip"))}
+              "folder": str(destination), "bundle": str(bundle), "catalog": str(parts / name), "coverage": coverage, "bytes": sum(p.stat().st_size for p in destination.glob("*.zip"))}
     progress(result)
     return result
 
 
-def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None):
+def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None, source_path=None, translation_locale=None):
     """Adapt owned indexes and decoders without touching the user's transcript/audio history."""
     root, decode_dir = Path(root), Path(decode_dir)
     data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
@@ -314,7 +319,7 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         account_check = lambda: account_signature(scoped_accounts) == expected_account_signature
         if not account_check():
             raise ValueError('Account changed before export preparation.')
-    if game == "zzz" and not (data / 'languages/zzz').is_dir():
+    if source_path is None and game == "zzz" and not (data / 'languages/zzz').is_dir():
         if expected_source_locale not in (None, 'zh-Hans'):
             raise ValueError('The selected language table is unavailable; prepare it before exporting.')
         from .voice_assets import VoiceAssetService
@@ -363,7 +368,7 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         source_check = lambda: package_inventory() == inventory
     else:
         from .language_preparation import selected_snapshot
-        source, accounts, account = selected_snapshot(root, game)
+        source, accounts, account = (Path(source_path), None, None) if source_path else selected_snapshot(root, game)
         directory = source.parent
         payload = json.loads(source.read_text(encoding="utf-8"))
         inputs = [source]
@@ -376,12 +381,19 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
             from .lexirise import LexiriseService
             from .lexirise_settings import account_settings
             from .languages import study_language, translation_language, resolve_locale
-            client = LexiriseService(data / 'lexirise', accounts=accounts).pin(study_language(payload['source_locale']))
-            target = translation_language(account_settings(client), study_language(payload['source_locale']))
+            if source_path:
+                if not translation_locale:
+                    raise ValueError('Automatic exports require an explicit translation locale.')
+                target = translation_locale
+            else:
+                client = LexiriseService(data / 'lexirise', accounts=accounts).pin(study_language(payload['source_locale']))
+                target = translation_language(account_settings(client), study_language(payload['source_locale']))
             if target.casefold() not in {value.casefold() for value in payload.get('targets_requested', [])}:
                 raise ValueError('Prepare the account translation table in Languages before exporting.')
             prior_check = account_check
-            if hasattr(accounts, 'path'):
+            if source_path:
+                pass
+            elif hasattr(accounts, 'path'):
                 from .scoped_mobile_exports import account_signature
                 from .language_preparation import LanguagePreparation
                 signature = account_signature(accounts)
@@ -404,15 +416,15 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         elif game == "pragmata":
             from .pragmata_audio import PragmataVoiceAssetService
             from scripts.index_pragmata_assets import fingerprint
-            service = (PragmataVoiceAssetService(directory, decoder, decode_dir, tools_dir=data / game / 'tools')
+            service = (PragmataVoiceAssetService(directory, decoder, decode_dir, tools_dir=directory / 'tools' if source_path else data / game / 'tools')
                        if payload.get('format') == 2 else PragmataVoiceAssetService(directory, decoder, decode_dir))
             source_check = lambda: fingerprint(Path(payload["install"])) == payload["fingerprint"]
         else:
             from .local_voice import LocalVoiceAssetService
             if game == 'nte':
                 from .nte_assets import ensure_extractor
-                ensure_extractor(data / game / 'tools')
-            service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=data / game / "tools")
+                ensure_extractor(directory / 'tools' if source_path else data / game / 'tools')
+            service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=directory / 'tools' if source_path else data / game / 'tools')
             source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
         records = []
         for item in payload["records"]:

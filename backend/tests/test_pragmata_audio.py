@@ -157,11 +157,14 @@ def test_mix_uses_sentence_duration_and_authored_delays(tmp_path):
     assert max(struct.unpack(f'<{len(raw)//2}h', raw)) > 500
 
 
-def test_index_excludes_non_dialogue_and_reuses_exact_bilingual_speaker_alias(tmp_path, monkeypatch):
+def test_index_excludes_non_dialogue_and_never_borrows_an_identical_performance(tmp_path, monkeypatch):
     from scripts import index_pragmata_assets as indexer
     path = tmp_path / 'mes_main/conv/test.msg.23'
     path.parent.mkdir(parents=True)
     path.touch()
+    bank = tmp_path.parent / 'sound/wwise/dialogue.sbnk.1.x64.zhcn'
+    bank.parent.mkdir(parents=True)
+    bank.touch()
     def row(name, en='Hello.', zh='你好。', sid=0):
         return dict(name=name, english=en, chinese=zh, sound_id=sid, guid='')
     monkeypatch.setattr(indexer, 'read_msg', lambda _: [
@@ -169,11 +172,33 @@ def test_index_excludes_non_dialogue_and_reuses_exact_bilingual_speaker_alias(tm
         row('OtherSpeaker_Ch05000'), row('OtherTranslation_Ch01000', zh='您好。'),
         row('OP_StaffList_1'), row('SoundSupport_1'), row('Rejected_Ch01000', en='#Rejected# Hello.'),
     ])
-    monkeypatch.setattr(indexer, 'build_sound_id_audio_map', lambda *_: {1: {'media_id': 123}})
+    monkeypatch.setattr(indexer, 'build_sound_id_audio_map', lambda *_: {1: {'media_id': 123, 'bank': 'dialogue'}})
     payload = indexer.build_index(tmp_path, None, sound_graph={'test': True})
     records = payload['records']
     assert len(records) == 4
-    assert records[1]['audio']['mapping'] == 'bilingual_alias'
-    assert 'audio' not in records[2] and 'audio' not in records[3]
+    assert records[0]['audio']['media_id'] == 123
+    assert all('audio' not in record for record in records[1:])
     assert len(payload['excluded']) == 3
-    assert len(payload['unresolved_audio']) == 2
+    assert len(payload['unresolved_audio']) == 3
+
+
+def test_old_alias_index_cannot_play_borrowed_audio_while_refresh_is_pending(tmp_path, monkeypatch):
+    import json
+    from backend import pragmata_audio
+    decoder = tmp_path / 'decoder.exe'
+    decoder.touch()
+    tools = tmp_path / 'tools'
+    tools.mkdir()
+    (tools / 'REE.Unpacker.exe').touch()
+    monkeypatch.setattr(pragmata_audio, 'ffmpeg_executable', lambda: 'ffmpeg')
+    audio = {'media_id': 1, 'bank': 'dialogue', 'mapping': 'sound_id'}
+    (tmp_path / 'textmap.json').write_text(json.dumps({
+        'format': 4, 'install': str(tmp_path), 'records': [
+            {'text_id': 'authored', 'audio': audio},
+            {'text_id': 'borrowed', 'audio': {**audio, 'mapping': 'bilingual_alias'}}]}))
+    service = pragmata_audio.PragmataVoiceAssetService(tmp_path, decoder, tmp_path / 'audio')
+    try:
+        assert service.has('pragmata:authored')
+        assert not service.has('pragmata:borrowed')
+    finally:
+        service.close()

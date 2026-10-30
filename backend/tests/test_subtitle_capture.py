@@ -81,7 +81,7 @@ def test_zzz_channels_capture_only_subtitles_with_game_voice_mapping(tmp_path, m
     import backend.capture as module
     service, match, scheduled, published = fixture_service(tmp_path, channel, mapped)
     monkeypatch.setattr(module, "find_active_game_window", lambda settings:
-        (SimpleNamespace(id="zzz"), SimpleNamespace(bounds=(0, 0, 1920, 1080), title="ZZZ")))
+        (SimpleNamespace(id="zzz"), SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title="ZZZ")))
     async def run():
         service._event_loop = asyncio.get_running_loop()
         service._scan_once()
@@ -118,6 +118,96 @@ def test_pragmata_uses_subtitles_and_original_assets_without_speech_gate(tmp_pat
         assert len(scheduled) == len(published) == int(mapped)
         if mapped:
             assert published[0].game == "pragmata" and published[0].audio_pending
+    finally:
+        service._executor.shutdown()
+
+
+def test_certified_unvoiced_dialogue_is_opt_in_durable_and_never_schedules_audio(tmp_path):
+    service, match, scheduled, published = fixture_service(tmp_path, mapped=False, game='pragmata')
+    match.voice_status, match.dialogue_kind = 'unvoiced', 'conversation'
+
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        window = SimpleNamespace(bounds=(0, 0, 1920, 1080), title='PRAGMATA')
+        def scan():
+            service._scan_pragmata(window, service.settings.get().region, service._engine, 0, datetime.now(timezone.utc))
+        for _ in range(3):
+            scan()
+        assert not published and service.transcript.count() == 0
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
+        assert SettingsStore(service.settings.path).get().capture_unvoiced
+        for _ in range(3):
+            scan()
+        await asyncio.sleep(.02)
+        assert len(published) == 1 and not scheduled
+        line = published[0]
+        assert line.voice_status == 'unvoiced' and line.dialogue_kind == 'conversation'
+        assert not line.voiced and not line.has_audio and not line.audio_pending
+        restarted = TranscriptStore(service.transcript.path)
+        assert restarted.purge_unvoiced() == []
+        assert restarted.get(line.id).voice_status == 'unvoiced'
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        assert not service._capturable_match(match)
+        assert restarted.get(line.id) is not None
+    try:
+        asyncio.run(run())
+    finally:
+        service._executor.shutdown()
+
+
+def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_toggle(tmp_path, monkeypatch):
+    import json
+    from backend import api
+    from backend.capture import _ScanOutcome
+    from backend.multilingual_index import MultilingualTextIndex
+    text = 'The sealed letter is waiting in your room.'
+    directory = tmp_path / 'language'
+    directory.mkdir()
+    (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'cyberpunk',
+        'source_locale': 'en', 'records': [{'text_id': 'letter', 'english': text, 'chinese': '',
+            'source_locale': 'en', 'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en',
+            'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'readable', 'channels': ['tip']}]}), encoding='utf-8')
+    index = MultilingualTextIndex('cyberpunk', directory)
+    service, _, scheduled, published = fixture_service(tmp_path, game='cyberpunk')
+    window = SimpleNamespace(bounds=(-1920, 0, 1920, 1080), title='Game')
+    scans = []
+    # A right-side page is deliberately excluded by the normal spoken-subtitle
+    # lane; the silent pass reads it without borrowing a voiced match.
+    response = {'lines': [{'text': text, 'bounding_rect':
+        {'x1': 1400, 'y1': 120, 'x2': 1800, 'y2': 120, 'x3': 1800, 'y3': 150, 'x4': 1400, 'y4': 150}}]}
+    engine = SimpleNamespace(recognize_pil=lambda image: scans.append(image.size) or response)
+    async def run():
+        service._event_loop = asyncio.get_running_loop()
+        def scan():
+            index.capture_unvoiced = service.settings.get().capture_unvoiced
+            # A phone/page screen is deliberately excluded from voiced OCR on
+            # every frame; it must not reset the separate silent confirmation.
+            service._update_snapshot(phase='excluded_screen')
+            return service._with_unvoiced(_ScanOutcome([]), index, window, engine, 0,
+                                         datetime.now(timezone.utc), 'cyberpunk')
+        scan()
+        assert scans == []
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
+        assert not scan().emitted_lines
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        scan()
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
+        assert not scan().emitted_lines, 'A toggle resets partial frame confirmation'
+        assert len(scan().emitted_lines) == 1
+        await asyncio.sleep(.02)
+        assert len(published) == 1 and not scheduled
+        assert published[0].dialogue_kind == 'readable' and published[0].voice_status == 'unvoiced'
+        assert published[0].channel == 'tip'
+        assert not scan().emitted_lines
+        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        reopened = TranscriptStore(service.transcript.path)
+        monkeypatch.setattr(api, 'runtime', SimpleNamespace(transcript=reopened,
+            game_indexes={'cyberpunk': MultilingualTextIndex('cyberpunk', directory)}), raising=False)
+        history = api.get_lines(limit=250, before_id=None, game='cyberpunk')
+        assert [line.id for line in history] == [published[0].id]
+        assert history[0].channel == 'tip'
+    try:
+        asyncio.run(run())
     finally:
         service._executor.shutdown()
 
@@ -160,8 +250,10 @@ def test_official_comic_publishes_once_and_survives_restart_without_voice(tmp_pa
 
     service, match, scheduled, published = fixture_service(
         tmp_path, "cinematic", mapped, text_id="Comic_" + "a" * 32)
+    match.voice_status = 'voiced' if mapped else 'unvoiced'
+    service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
     monkeypatch.setattr(module, "find_active_game_window", lambda settings:
-        (SimpleNamespace(id="zzz"), SimpleNamespace(bounds=(0, 0, 1920, 1080), title="ZZZ")))
+        (SimpleNamespace(id="zzz"), SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title="ZZZ")))
 
     async def run():
         service._event_loop = asyncio.get_running_loop()
@@ -227,7 +319,7 @@ def test_comic_suffix_cannot_publish_as_unrelated_dialogue(tmp_path, monkeypatch
     service._engine = SimpleNamespace(recognize_pil=lambda image:
         {"lines": [{"text": text, "confidence": .99} for text in next(responses)]})
     monkeypatch.setattr(module, "find_active_game_window", lambda settings:
-        (SimpleNamespace(id="zzz"), SimpleNamespace(bounds=(0, 0, 1920, 1080), title="ZZZ")))
+        (SimpleNamespace(id="zzz"), SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title="ZZZ")))
 
     async def run():
         service._event_loop = asyncio.get_running_loop()

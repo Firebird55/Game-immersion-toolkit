@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {zipSync,strToU8} from 'fflate';
-import {openZip,readCatalog,readVoice,validateVoices,validateRow,sha256,FORMAT,DialogueMatcher,ratio,subtitleRows,searchCatalog} from '../public/mobile-capture/library.mjs';
-import {regions,candidates,cleanOcrBlocks} from '../public/mobile-capture/ocr-pipeline.mjs';
+import {openZip,openLibraryFiles,readCatalog,readVoice,validateVoices,validateRow,sha256,FORMAT,refreshHistoryVoices,DialogueMatcher,ratio,subtitleRows,searchCatalog} from '../public/mobile-capture/library.mjs';
+import {regions,candidates,cleanOcrBlocks,spatialTextGroups} from '../public/mobile-capture/ocr-pipeline.mjs';
 import {cacheBudget} from '../public/mobile-capture/storage.mjs';
 const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
 const row={id:hex,textId:'dialogue-one',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:hex,audio:voiceHash,channels:['dialogue','cinematic','gameplay']};
@@ -31,6 +31,41 @@ test('Traditional Chinese OCR and search resolve the original performance',()=>{
 const bytes=strToU8(JSON.stringify(row)+'\n');
 const manifest={format:FORMAT,kind:'catalog',game:'zzz',title:'Synthetic game',revision:hex,coverage:{dialogue:1},catalog:[{name:'catalog/00000.ndjson',size:bytes.length,sha256:await sha256(bytes)}],packs:[{id:hex,clips:[voiceHash]}]};
 const make=(entries,level=0)=>new File([zipSync(Object.fromEntries(Object.entries(entries).map(([key,value])=>[key,typeof value==='object'&&!(value instanceof Uint8Array)?strToU8(JSON.stringify(value)):value])),{level})],'library.zip');
+
+async function bundleFixture(overrides={}){
+ const catalog=make({'manifest.json':manifest,'catalog/00000.ndjson':bytes});
+ const voice=make({'manifest.json':{format:FORMAT,kind:'voices',game:'zzz',id:hex,clips:{[voiceHash]:{size:3,sha256:voiceHash}}},['audio/'+voiceHash+'.mp3']:new Uint8Array([1,2,3])});
+ return make({'manifest.json':{format:'proxy-mobile-bundle-v1',kind:'bundle',game:'zzz',revision:hex,catalog:'library/catalog.zip',voices:[`library/voices/${hex}.zip`],...overrides},'library/catalog.zip':new Uint8Array(await catalog.arrayBuffer()),[`library/voices/${hex}.zip`]:new Uint8Array(await voice.arrayBuffer())});
+}
+
+test('single-file bundle opens catalog and voices and reads only the requested clip',async()=>{
+ const file=await bundleFixture(),opened=await openLibraryFiles([file]);
+ const catalog=await readCatalog(opened[0]);assert.equal(catalog.rows.length,1);
+ assert.deepEqual(validateVoices(opened[1],catalog),[voiceHash]);
+ assert.deepEqual([...new Uint8Array(await (await readVoice(opened[1],voiceHash)).arrayBuffer())],[1,2,3]);
+ await assert.rejects(openLibraryFiles([file,file]),/on its own/);
+ await assert.rejects(openLibraryFiles([await bundleFixture({revision:'b'.repeat(64)})]),/does not match/);
+ await assert.rejects(openLibraryFiles([await bundleFixture({voices:['../unsafe.zip']})]),/Invalid/);
+ let active=true;
+ await assert.rejects(openLibraryFiles([file],()=>{active=false;},()=>{if(!active)throw Error('cancelled');}),/cancelled/);
+});
+
+test('ZIP64 bundle beyond 4 GiB uses bounded reads and rejects unsafe directory values',async()=>{
+ const file=await bundleFixture(),raw=new Uint8Array(await file.arrayBuffer()),old=new DataView(raw.buffer),e=raw.length-22;
+ const centralOffset=old.getUint32(e+16,true),centralSize=old.getUint32(e+12,true),count=old.getUint16(e+10,true),shift=2**32;
+ const ending=new Uint8Array(98),v=new DataView(ending.buffer),zip64Offset=shift+centralOffset+centralSize;
+ v.setUint32(0,0x06064b50,true);v.setBigUint64(4,44n,true);v.setUint16(12,45,true);v.setUint16(14,45,true);
+ v.setBigUint64(24,BigInt(count),true);v.setBigUint64(32,BigInt(count),true);v.setBigUint64(40,BigInt(centralSize),true);v.setBigUint64(48,BigInt(shift+centralOffset),true);
+ v.setUint32(56,0x07064b50,true);v.setBigUint64(64,BigInt(zip64Offset),true);v.setUint32(72,1,true);
+ ending.set(raw.slice(e),76);v.setUint32(92,0xffffffff,true);
+ let readBytes=0,maxRead=0;
+ const parts=[[0,raw.slice(0,centralOffset)],[shift+centralOffset,raw.slice(centralOffset,e)],[zip64Offset,ending]];
+ const sparse={size:zip64Offset+98,slice(start,end){const length=end-start;readBytes+=length;maxRead=Math.max(maxRead,length);assert.ok(length<128*1024,'Never read the multi-GB gap');const result=new Uint8Array(length);for(const [offset,data]of parts){const a=Math.max(start,offset),b=Math.min(end,offset+data.length);if(b>a)result.set(data.slice(a-offset,b-offset),a-start);}return new Blob([result]);}};
+ const opened=await openLibraryFiles([sparse]);const catalog=await readCatalog(opened[0]);validateVoices(opened[1],catalog);assert.equal((await readVoice(opened[1],voiceHash)).size,3);
+ assert.ok(readBytes<256*1024&&maxRead<=65557);
+ v.setBigUint64(48,BigInt(Number.MAX_SAFE_INTEGER)+1n,true);
+ await assert.rejects(openLibraryFiles([sparse]),/too large/);
+});
 test('catalog checksum, metadata, Unicode and random-access reading',async()=>{const file=make({'manifest.json':manifest,'catalog/00000.ndjson':bytes}),zip=await openZip(file),result=await readCatalog(zip);assert.equal(result.rows[0].chinese,row.chinese);assert.equal(result.rows[0].id,hex);});
 test('unknown metadata is discarded rather than retained in the browser catalog cache',async()=>{const extra={...manifest,accountData:{nested:{anything:'discard'}}};const result=await readCatalog(await openZip(make({'manifest.json':extra,'catalog/00000.ndjson':bytes})));assert.equal(result.manifest.accountData,undefined);assert.equal(result.manifest.coverage.exportedVoices,1);});
 test('voice association and per-entry checksum',async()=>{const m={format:FORMAT,kind:'voices',game:'zzz',id:hex,clips:{[voiceHash]:{size:3,sha256:voiceHash}}},zip=await openZip(make({'manifest.json':m,['audio/'+voiceHash+'.mp3']:new Uint8Array([1,2,3])}));assert.deepEqual(validateVoices(zip,{manifest}),[voiceHash]);assert.equal((await readVoice(zip,voiceHash)).size,3);assert.throws(()=>validateVoices(zip,{manifest:{...manifest,game:'wuwa'}}),/belong/);});
@@ -168,4 +203,48 @@ test('ZZZ Proxy variants retain authored identity and old aliases are not captio
  assert.equal(matcher.match(female.sourceText,'dialogue','male').row.id,male.id);
  assert.throws(()=>validateRow({...female,memberTextIds:['Unrelated_identity']}),/context members/);
  assert.equal(new DialogueMatcher([clean],'cyberpunk').match(female.sourceText).state,'unmatched');
+});
+
+test('comic bubbles use geometry and left-to-right order with independent exact matches',()=>{
+ const line=(text,x0,y0,x1,y1)=>({text,confidence:95,bbox:{x0,y0,x1,y1}});
+ const blocks=[{paragraphs:[{lines:[line('Another bubble appears',500,70,800,90),line('Keep the gate closed',50,200,350,220),line('above the first.',500,95,730,115),line('until tomorrow.',50,225,260,245)]}]}];
+ assert.deepEqual(spatialTextGroups(blocks).map(g=>g.text),['Keep the gate closed until tomorrow.','Another bubble appears above the first.']);
+ const parsed=candidates({text:'interleaved OCR text',blocks},{channel:'cinematic',fragment:true},1000,600,'zzz');
+ const first={...row,english:'Keep the gate closed until tomorrow.'},second={...row,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),english:'Another bubble appears above the first.'};
+ const hits=new DialogueMatcher([first,second],'zzz').comicMatches(parsed.values);
+ assert.deepEqual(hits.map(hit=>hit.row.id),[first.id,second.id]);
+ assert(!parsed.values.some(v=>v.includes('closed Another')));
+ const collision={...first,id:'c'.repeat(64),sourceVoice:'c'.repeat(64)};
+ assert.deepEqual(new DialogueMatcher([first,second,collision],'zzz').comicMatches(parsed.values).map(hit=>hit.row.id),[second.id]);
+});
+
+test('reopening a revised library refreshes saved voice hashes without losing favorites or crossing locales',()=>{
+ const saved={...row,game:'zzz',createdAt:123,favorite:true,audio:'b'.repeat(64)};
+ const catalog={manifest:{game:'zzz'},rows:[row]};
+ assert.deepEqual(refreshHistoryVoices([saved],catalog)[0],{...saved,audio:row.audio});
+ const revised={...row,id:'c'.repeat(64),sourceVoice:'c'.repeat(64)};
+ const refreshed=refreshHistoryVoices([saved],{...catalog,rows:[revised]})[0];assert.equal(refreshed.audio,row.audio);assert.equal(refreshed.favorite,true);
+ for(const different of [{...row,sourceLocale:'ja'},{...row,playerVoice:'male'}])assert.equal(refreshHistoryVoices([saved],{...catalog,rows:[{...different,id:'d'.repeat(64)}]})[0].audio,saved.audio);
+ // Export IDs historically omit locale fields, so an ID match alone cannot
+ // authorize changing a saved learning/audio performance.
+ for(const different of [{...row,sourceLocale:'ja',audioLocale:'ja'},{...row,audioLocale:'en'},{...row,sourceText:'A different source sentence.'}]){
+  assert.equal(refreshHistoryVoices([saved],{...catalog,rows:[different]})[0].audio,saved.audio);
+ }
+});
+
+test('authored ZZZ comics recover OCR errors using desktop threshold and reject close competing lines',()=>{
+ const comic={...row,textId:'Comic_synthetic',english:'The lantern is bright. We can continue walking tomorrow.'};
+ const value='The lantern is brlght. We can continue walking tomorrow.';
+ const matcher=new DialogueMatcher([comic],'zzz');assert.equal(matcher.comicMatches([value])[0].row.id,comic.id);
+ assert.equal(new DialogueMatcher([{...comic,textId:'HUD_synthetic'}],'zzz').comicMatches([value]).length,0);
+ const other={...comic,id:'b'.repeat(64),sourceVoice:'b'.repeat(64),english:'The lantern is bright. We can continue walking tomorrow!'};
+ assert.equal(new DialogueMatcher([comic,other],'zzz').comicMatches([value]).length,0);
+ assert.equal(matcher.comicMatches(['lantern brlght']).length,0);
+});
+
+test('optional library identity is preserved and cannot mislabel replacement languages',async()=>{
+ const tagged={...manifest,sourceLocale:'zh-Hans',audioLocale:'zh-Hans',translationLocale:'en'};
+ const catalog=await readCatalog(await openZip(make({'manifest.json':tagged,'catalog/00000.ndjson':bytes})));
+ assert.equal(catalog.manifest.sourceLocale,'zh-Hans');assert.equal(catalog.manifest.translationLocale,'en');
+ await assert.rejects(readCatalog(await openZip(make({'manifest.json':{...tagged,sourceLocale:'ja'},'catalog/00000.ndjson':bytes}))),/language identity/);
 });

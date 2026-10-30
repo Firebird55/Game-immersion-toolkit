@@ -11,7 +11,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Zenless Zone Zero
 
-[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · [Coverage notes](../zzz-languages.md)
+[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [Coverage notes](../zzz-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
 <details>
 <summary>Language details</summary>
@@ -38,7 +40,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Wuthering Waves
 
-[Official language listing](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · [Coverage notes](../wuthering-languages.md)
+[Official language listing](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [Coverage notes](../wuthering-languages.md)
+
+Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
 
 <details>
 <summary>Language details</summary>
@@ -62,7 +66,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Neverness to Everness
 
-[Official language listing](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · [Coverage notes](../nte-languages.md)
+[Official language listing](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-10-25 · [Coverage notes](../nte-languages.md)
+
+Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.
 
 <details>
 <summary>Language details</summary>
@@ -85,7 +91,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## PRAGMATA
 
-[Official language listing](https://store.steampowered.com/app/3357650/PRAGMATA/) · [Coverage notes](../pragmata-languages.md)
+[Official language listing](https://store.steampowered.com/app/3357650/PRAGMATA/) · 2026-10-25 · [Coverage notes](../pragmata-languages.md)
+
+Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.
 
 <details>
 <summary>Language details</summary>
@@ -113,7 +121,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Cyberpunk 2077
 
-[Official language listing](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · [Coverage notes](../cyberpunk-languages.md)
+[Official language listing](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · 2026-10-25 · [Coverage notes](../cyberpunk-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.
 
 <details>
 <summary>Language details</summary>
@@ -146,7 +156,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## The Witcher 3: Wild Hunt
 
-[Official language listing](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · [Coverage notes](../witcher-languages.md)
+[Official language listing](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · 2026-10-25 · [Coverage notes](../witcher-languages.md)
+
+Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.
 
 <details>
 <summary>Language details</summary>
@@ -178,7 +190,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## BEYOND: Two Souls
 
-[Official language listing](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · [Coverage notes](../beyond-support.md)
+[Official language listing](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · 2026-10-25 · [Coverage notes](../beyond-support.md)
+
+Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.
 
 <details>
 <summary>Language details</summary>
@@ -215,7 +229,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## HEAVY RAIN
 
-[Official language listing](https://store.steampowered.com/app/960910/Heavy_Rain/) · [Coverage notes](../heavy-rain-support.md)
+[Official language listing](https://store.steampowered.com/app/960910/Heavy_Rain/) · 2026-10-25 · [Coverage notes](../heavy-rain-support.md)
+
+Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.
 
 <details>
 <summary>Language details</summary>
@@ -246,7 +262,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Honkai: Star Rail
 
-[Official language listing](https://store.epicgames.com/p/honkai-star-rail) · [Coverage notes](../starrail-languages.md)
+[Official language listing](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [Coverage notes](../starrail-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
 <details>
 <summary>Language details</summary>
@@ -273,7 +291,9 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Genshin Impact
 
-[Official language listing](https://store.epicgames.com/p/genshin-impact) · [Coverage notes](../genshin-languages.md)
+[Official language listing](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [Coverage notes](../genshin-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
 <details>
 <summary>Language details</summary>
@@ -292,9 +312,10 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Russian | — | — | ✓ | Reader implemented |
 | Thai | — | — | ✓ | Reader implemented |
 | Vietnamese | — | — | ✓ | Reader implemented |
-| Indonesian | — | — | ✓ | Reader implemented |
 | Italian | — | — | ✓ | Reader implemented |
 | Turkish | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | — | Unavailable |
+| Indonesian | — | — | ✓ | Reader implemented |
 
 </details>
 
@@ -302,18 +323,20 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Arknights: Endfield
 
-[Official language listing](https://store.epicgames.com/p/arknightsendfield-f0f167) · [Coverage notes](../endfield-languages.md)
+[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [Coverage notes](../endfield-languages.md)
+
+Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
 
 <details>
 <summary>Language details</summary>
 
 | Language | Original voice | Learning | Translation | Evidence |
 | :--- | :---: | :---: | :---: | :--- |
-| English | ✓ | ✓ | ✓ | Reader implemented |
-| Simplified Chinese | ✓ | ✓ | ✓ | Reader implemented |
-| Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Reader implemented |
-| Japanese | ✓ | ✓ | ✓ | Reader implemented |
-| Korean | ✓ | ✓ | ✓ | Reader implemented |
+| English | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
 | French | — | — | ✓ | Reader implemented |
 | German | — | — | ✓ | Reader implemented |
 | Italian | — | — | ✓ | Reader implemented |
@@ -323,5 +346,449 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Thai | — | — | ✓ | Reader implemented |
 | Vietnamese | — | — | ✓ | Reader implemented |
 | Indonesian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="riseofthetombraider"></a>
+
+## Rise of the Tomb Raider
+
+[Official language listing](https://store.steampowered.com/app/391220/?l=english) · 2026-10-27 · [Coverage notes](../rise-tomb-raider-languages.md)
+
+All twelve Steam full-audio languages plus evidenced Latin American Spanish and Arabic DLC formats. Dutch is text-only. Arabic base-game voice coverage is not claimed; regional/DLC packs may be partial. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language. Local non-English playback evidence comes from installed DLC; base-language packs other than English were absent.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Latin American Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Polish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Russian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| Korean | ✓ | ✓ | ✓ | Audio decoded locally |
+| Traditional Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Arabic | ✓ | ✓ | ✓ | Audio decoded locally |
+
+</details>
+
+<a id="shadowofthetombraider"></a>
+
+## Shadow of the Tomb Raider
+
+[Official language listing](https://store.steampowered.com/app/750920/?l=english) · 2026-10-27 · [Coverage notes](../shadow-tomb-raider-languages.md)
+
+All eleven global Steam full-audio languages plus Japanese and Latin American Spanish evidenced by official regional manifests. Korean is text-only. Some packs require the corresponding regional edition. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Italian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Latin American Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Polish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Traditional Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Arabic | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+
+</details>
+
+<a id="spyro"></a>
+
+## Spyro Reignited Trilogy
+
+[Official language listing](https://store.steampowered.com/app/996580/Spyro_Reignited_Trilogy/) · 2026-10-28 · [Coverage notes](../game-audits/spyro.md)
+
+All 14 official PC languages use authored localized text and Wwise voice events. Norwegian uses native nb text and no audio identifiers. One Arabic voice event is unavailable in the inspected installation.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Arabic | ✓ | ✓ | ✓ | Audio decoded locally |
+| Danish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Dutch | ✓ | ✓ | ✓ | Audio decoded locally |
+| Finnish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Norwegian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Polish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Latin American Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Swedish | ✓ | ✓ | ✓ | Audio decoded locally |
+
+</details>
+
+<a id="detroit"></a>
+
+## Detroit: Become Human
+
+[Official language listing](https://store.steampowered.com/app/1222140/Detroit_Become_Human/) · 2026-10-28 · [Coverage notes](../game-audits/detroit.md)
+
+All 12 official voice languages and 24 official text locales use exact authored localization, FlowDialog and sound dependencies. Each installed voice locale has a verified original decode sample.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| European Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Swedish | — | — | ✓ | Reader implemented |
+| Danish | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Russian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Polish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Turkish | — | — | ✓ | Reader implemented |
+| Arabic | ✓ | ✓ | ✓ | Audio decoded locally |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="deathstranding"></a>
+
+## DEATH STRANDING
+
+[Official language listing](https://store.steampowered.com/app/1190460/DEATH_STRANDING/) · 2026-10-28 · [Coverage notes](../game-audits/deathstranding.md)
+
+Original PC edition only; all twelve official voice locales and twenty text locales. Ordinary and cinematic original samples decoded in every installed voice language. The reader uses the game-owned Oodle library and the verified voice decoder.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| European Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Korean | — | — | ✓ | Reader implemented |
+| Russian | ✓ | ✓ | ✓ | Audio decoded locally |
+| Polish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Latin American Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
+| Brazilian Portuguese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Turkish | — | — | ✓ | Reader implemented |
+| Arabic | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| Greek | ✓ | ✓ | ✓ | Audio decoded locally |
+| Czech | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="portal"></a>
+
+## Portal
+
+[Official language listing](https://store.steampowered.com/app/400/Portal/) · 2026-10-28 · [Coverage notes](../game-audits/portal.md)
+
+Six official voice locales and 27 text locales. English originals decoded locally; the other voice packs use format-tested locale mounts and never borrow English recordings.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Danish | — | — | ✓ | Reader implemented |
+| Dutch | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| European Portuguese | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Swedish | — | — | ✓ | Reader implemented |
+| Traditional Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Bulgarian | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Romanian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Thai | — | — | ✓ | Reader implemented |
+| Turkish | — | — | ✓ | Reader implemented |
+| Ukrainian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="halflife"></a>
+
+## Half-Life
+
+[Official language listing](https://store.steampowered.com/app/70/HalfLife/) · 2026-10-28 · [Coverage notes](../game-audits/halflife.md)
+
+Limited support: authored text messages only. Original Half-Life has no official spoken subtitle track. Eight official language mount schemas are inventoried; spoken dialogue capture is not implemented.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| French | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| German | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Italian | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| European Spanish | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Traditional Chinese | — | Text only | ✓ | Format tested; voice pack not verified locally |
+| Korean | — | Text only | ✓ | Format tested; voice pack not verified locally |
+
+</details>
+
+<a id="plaguetaleinnocence"></a>
+
+## A Plague Tale: Innocence
+
+[Official language listing](https://store.steampowered.com/app/752590/A_Plague_Tale_Innocence/) · 2026-10-28 · [Coverage notes](../game-audits/plaguetaleinnocence.md)
+
+All three official originals and fourteen text locales. English, French and German installed cinematic and ambient recordings decoded with the verified voice decoder.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Korean | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="mgsvgz"></a>
+
+## METAL GEAR SOLID V: GROUND ZEROES
+
+[Official language listing](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [Coverage notes](../game-audits/mgsvgz.md)
+
+English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="mgsvtpp"></a>
+
+## METAL GEAR SOLID V: THE PHANTOM PAIN
+
+[Official language listing](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [Coverage notes](../game-audits/mgsvtpp.md)
+
+English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Russian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="portal2"></a>
+
+## Portal 2
+
+[Official language listing](https://store.steampowered.com/app/620/Portal_2/) · 2026-10-28 · [Coverage notes](../game-audits/portal2.md)
+
+Five official original voice locales and 27 text locales. English installed dialogue, commentary, movie and song audio decoded. Four absent voice packs remain implemented by isolated native locale schemas, without English fallback.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Danish | — | — | ✓ | Reader implemented |
+| Dutch | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| European Portuguese | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Swedish | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+| Korean | — | — | ✓ | Reader implemented |
+| Bulgarian | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Romanian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Thai | — | — | ✓ | Reader implemented |
+| Turkish | — | — | ✓ | Reader implemented |
+| Ukrainian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="halflife2"></a>
+
+## Half-Life 2
+
+[Official language listing](https://store.steampowered.com/app/220/HalfLife_2/) · 2026-10-28 · [Coverage notes](../game-audits/halflife2.md)
+
+Half-Life 2 and its bundled Episode One and Episode Two use separate campaign namespaces. Base game: seven original voice locales; Episode One additionally supports official regional Simplified Chinese, Traditional Chinese and Thai; Episode Two has five originals. Regional languages are not represented as base-game dubs. All 27 text locale schemas are implemented.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| German | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Italian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Korean | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| European Spanish | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Russian | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Simplified Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Traditional Chinese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Dutch | — | — | ✓ | Reader implemented |
+| Danish | — | — | ✓ | Reader implemented |
+| Finnish | — | — | ✓ | Reader implemented |
+| Japanese | — | — | ✓ | Reader implemented |
+| Norwegian | — | — | ✓ | Reader implemented |
+| Polish | — | — | ✓ | Reader implemented |
+| European Portuguese | — | — | ✓ | Reader implemented |
+| Swedish | — | — | ✓ | Reader implemented |
+| Thai | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Bulgarian | — | — | ✓ | Reader implemented |
+| Czech | — | — | ✓ | Reader implemented |
+| Greek | — | — | ✓ | Reader implemented |
+| Hungarian | — | — | ✓ | Reader implemented |
+| Brazilian Portuguese | — | — | ✓ | Reader implemented |
+| Romanian | — | — | ✓ | Reader implemented |
+| Latin American Spanish | — | — | ✓ | Reader implemented |
+| Turkish | — | — | ✓ | Reader implemented |
+| Ukrainian | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="persona5royal"></a>
+
+## Persona 5 Royal
+
+[Official language listing](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [Coverage notes](../game-audits/persona5royal.md)
+
+English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | — | — | ✓ | Reader implemented |
+| Italian | — | — | ✓ | Reader implemented |
+| German | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Korean | — | — | ✓ | Reader implemented |
+| Simplified Chinese | — | — | ✓ | Reader implemented |
+| Traditional Chinese | — | — | ✓ | Reader implemented |
+
+</details>
+
+<a id="deusexhrdc"></a>
+
+## Deus Ex: Human Revolution - Director's Cut
+
+[Official language listing](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/) · 2026-10-28 · [Coverage notes](../game-audits/deusexhrdc.md)
+
+All five official original voice and text locales. Native BIGFILE, CDRM, DRM and FMOD/CRI schemas retain exact language identities. Original dialogue and cinematic samples were decoded in each installed language.
+
+<details>
+<summary>Language details</summary>
+
+| Language | Original voice | Learning | Translation | Evidence |
+| :--- | :---: | :---: | :---: | :--- |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
+| French | ✓ | ✓ | ✓ | Audio decoded locally |
+| Italian | ✓ | ✓ | ✓ | Audio decoded locally |
+| German | ✓ | ✓ | ✓ | Audio decoded locally |
+| European Spanish | ✓ | ✓ | ✓ | Audio decoded locally |
 
 </details>

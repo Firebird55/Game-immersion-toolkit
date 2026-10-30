@@ -7,12 +7,17 @@ from that account; its explicit save preserves the other learning languages.
 Reload languages to pick up account changes made elsewhere. Migaku mode lists
 all voiced game languages without requiring Lexirise membership.
 
-Search the game cards to find a title. Selecting it shows the toolkit-supported
+Use the Game selector or expand Browse games and supported languages to search
+the game cards. Selecting a card shows the toolkit-supported
 subtitle languages, marking differences from the target and current source.
 These differences do not block local play or preparation. Browsing does not
 change capture or prepare files: Settings → Games & Languages suggests the
 target as the source, and lets you explicitly prepare another supported source.
 Languages without matching game voices show an empty game list.
+For a source outside the account, the explicitly prepared translation target
+is remembered per local account and source locale, including after a restart.
+Activation and history retain that target instead of using the account's global
+translation preference.
 
 Open **Account settings → Lexirise accounts on this PC** to choose a saved
 account. **Add account securely** opens a local hidden-input prompt. The key is
@@ -28,11 +33,13 @@ not save preferences or create decks. Account changes require an explicit save.
 Where the public API does not offer a writable per-language translation target,
 change it in Lexirise; the companion consumes its effective value.
 
-In **Setup → Games → Languages**, select a game locale and click **Prepare
-selected language**. Only the requested source and translation tables are
+In **Settings → Games & Languages**, select a game locale and click **Prepare
+language**. The transcript also offers this action when the current game needs
+setup. Only the requested source and translation tables are
 prepared. Available locale choices depend on the installed toolkit reader;
-an unavailable reader or voice pack is reported, never substituted. Languages
-are not prepared by opening setup, adding an account or starting the companion.
+an unavailable reader or voice pack is reported, never substituted. Opening
+setup or adding an account does not prepare an unrequested language. Explicit
+requests survive failure and restart, and are retried automatically.
 
 Setup reads readiness and mapped counts from that account's selected prepared
 snapshot, even before a game window starts capture. Reading this status does
@@ -40,6 +47,8 @@ not activate a language, extract files or call the account API. Missing or
 mismatched snapshots cannot borrow another language's index or original voices.
 
 Previously prepared languages check for compatible game updates automatically.
+The [dialogue audits](game-audits/README.md) distinguish verified original voices,
+opt-in unvoiced content and unresolved presentations for each game.
 Selecting another locale requires its own prepared table. A translation-target
 change offers preparation of that target instead of building every language.
 **Rebuild prepared language** explicitly rebuilds its index even when the game

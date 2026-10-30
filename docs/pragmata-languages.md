@@ -20,13 +20,20 @@ authored SoundID events; cutscenes use authored timeline GUIDs and intervals.
 Only the selected localized bank can establish an installed voice binding.
 Ambiguous events, conflicting timeline bindings and unresolved text references
 cannot borrow another performance or become partial official translations.
+Localized bank preparation includes authored banks whose names do not end in
+`dialogue`. Narrative archive bodies and archive conversation/hologram pages are
+indexed separately as readable text; menu labels, item labels and archive
+headings are not dialogue. Missing audio does not prove an entry is unvoiced.
 Base archives are read before patch archives, and changed archives invalidate
 the complete index. A failed replacement keeps the previous preparation.
 
-Validation on the installed assets found 3,889–3,906 study lines per dub, with
-3,742–3,757 original voice bindings. Dialogue and cutscene samples decoded to
-non-silent audio in every dub. Counts describe indexed bindings, not exhaustive
-playback verification. Production OCR regressions cover every study language
+The [dialogue coverage audit](game-audits/pragmata.md) records the current
+Simplified Chinese inventory and its remaining unavailable/unknown voices.
+Earlier per-dub validation predates the expanded bank selection and readable
+categories, so its counts are not the current completeness measure. Dialogue
+and cutscene samples were previously decoded in every dub; the latest audit
+also decoded two recovered Mandarin bindings. Counts describe indexed bindings,
+not exhaustive playback verification. Production OCR regressions cover every study language
 at 720p, 1080p and 4K using synthetic official text fixtures, including wrapped
 bilingual layouts. They are not native gameplay or full-game footage coverage.
 Chromium/Firefox reading checks exercise localized study text and original

@@ -221,6 +221,8 @@ def test_unprepared_language_blocks_capture_before_ocr_but_allows_preview(monkey
     service._scan_epoch = 0
     service._scan_index = 0
     service._tracker = StableMatchTracker(2)
+    service._zzz_cutscene_context = module.ZzzCutsceneContext()
+    service._zzz_dialogue_context = module.ZzzDialogueContext()
     service.language_setup = lambda game: False
     service.snapshot = lambda: SimpleNamespace(active_game=None)
     service._caption_context = []
@@ -235,3 +237,10 @@ def test_unprepared_language_blocks_capture_before_ocr_but_allows_preview(monkey
     assert service._scan_once().emitted_lines == []
     assert status[-1]['phase'] == 'needs_language_setup'
     assert service.preview_for_region(CaptureRegion(left=0, top=0, width=1, height=1)) == b'preview'
+    service.language_setup = lambda game: True
+    service.settings = SimpleNamespace(get=lambda: SimpleNamespace(capture_unvoiced=False))
+    monkeypatch.setattr(module, 'find_active_game_window', lambda _: (GAME_PROFILES['halflife'],
+        WindowInfo(0, 'Half-Life', 'hl.exe', (0, 0, 1280, 720))))
+    assert service._scan_once().emitted_lines == []
+    assert status[-1]['phase'] == 'unvoiced_disabled'
+    assert 'spoken dialogue capture is not implemented' in status[-1]['message']

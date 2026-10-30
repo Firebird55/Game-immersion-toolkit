@@ -12,12 +12,15 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
+from .steam_games import STEAM_GAMES
 
 
 GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
                   "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
                   "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
 GAME_TITLES.update(starrail="Honkai: Star Rail", genshin="Genshin Impact", endfield="Arknights: Endfield")
+GAME_TITLES.update(riseofthetombraider="Rise of the Tomb Raider", shadowofthetombraider="Shadow of the Tomb Raider")
+GAME_TITLES.update({game: spec.title for game, spec in STEAM_GAMES.items()})
 API_BASE = "https://api.lexirise.app"
 REQUEST_KEY = ContextVar('lexirise_request_key', default=None)
 
@@ -268,7 +271,7 @@ class LexiriseService:
         db.commit()
 
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
-             audio: Path, audio_source: str = "original") -> dict:
+             audio: Path | None, audio_source: str = "original") -> dict:
         if game not in GAME_TITLES or not chinese.strip():
             raise LexiriseError("This line has no supported game or study sentence.")
         if not self._lock.acquire(blocking=False):
@@ -290,11 +293,11 @@ class LexiriseService:
             if state.get("complete"):
                 self._save(db, key, ref, state)
                 return {"sent": True, "already_sent": True, "deck_id": deck_id}
-            if not audio.is_file() or not 0 < audio.stat().st_size <= 25 * 1024 * 1024:
+            if audio is not None and (not audio.is_file() or not 0 < audio.stat().st_size <= 25 * 1024 * 1024):
                 raise LexiriseError("Voice audio is missing or too large. Wait until the clip is ready.")
             # Read before network work: history pruning may remove the local file
             # while the game continues. No paths or arbitrary URLs come from the browser.
-            clip = audio.read_bytes()
+            clip = audio.read_bytes() if audio is not None else None
             with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self._key()}"},
                               timeout=60, follow_redirects=False, transport=self.transport) as client:
                 account = self._account(client)
@@ -310,7 +313,7 @@ class LexiriseService:
                 if old.get("complete") and old.get("vocabulary_id") and self._deck_contains(client, deck_id, old["vocabulary_id"], chinese):
                     self._save(db, key, ref, old)
                     return {"sent":True,"already_sent":True,"deck_id":deck_id}
-                if not state.get("audio_url"):
+                if audio is not None and not state.get("audio_url"):
                     result = self._request(client, "POST", "/v1/vocabulary/audio",
                                            files={"file": (f"voice{audio.suffix}", clip, "audio/mpeg" if audio.suffix == ".mp3" else "audio/wav")})
                     url = result.get("publicUrl")
@@ -328,12 +331,13 @@ class LexiriseService:
                         if not vocabulary_id:
                             raise LexiriseError("Lexirise returned a sentence without an item ID.")
                         urls = item.get("audio_urls") or item.get("audioUrls") or []
-                        if state["audio_url"] not in urls:
+                        if audio is not None and state.get("audio_url") not in urls:
                             self._request(client, "PATCH", f"/v1/vocabulary/{vocabulary_id}", json={"audioUrls": [*urls, state["audio_url"]]})
                     else:
                         payload = {"language": self.source_language, "text": chinese, "mode": "sentence",
-                                   "notes": f"{game_title}{' — ' + speaker if speaker else ''}\nAudio: {audio_source}",
-                                   "tags": [game], "audioUrls": [state["audio_url"]]}
+                                   "notes": f"{game_title}{' — ' + speaker if speaker else ''}\n" +
+                                            (f"Audio: {audio_source}" if audio is not None else "Unvoiced game dialogue"),
+                                   "tags": [game], "audioUrls": [state["audio_url"]] if audio is not None else []}
                         if english:
                             payload["translation"] = english
                         result = self._request(client, "POST", "/v1/vocabulary", json=payload)

@@ -2,7 +2,7 @@
 // timelines. This runs once per changed local catalog, outside the OCR process.
 import {readFile,writeFile,rename,open}from'node:fs/promises';
 import{join,resolve}from'node:path';import{pathToFileURL}from'node:url';import{createHash}from'node:crypto';import ts from'typescript';
-import{sceneCatalog,cinematicBundleRanges}from'./scene-catalog.mjs';
+import{sceneCatalog,cinematicBundleRanges,resourceCatalogBytes}from'./scene-catalog.mjs';
 import{cinematicVoicePairs}from'./cinematic-links.mjs';
 const[gameArgument,toolsArgument]=process.argv.slice(2);
 if(!gameArgument||!toolsArgument)throw Error('Pass installed game data and the private tool directory');
@@ -32,8 +32,8 @@ for(const[layer,name]of[['Persistent','res_version_persist'],['StreamingAssets',
  let version;try{version=JSON.parse(await readFile(join(game,layer,name),'utf8'));}catch{continue;}
  for(const row of version.files??[]){
   if(row.tags?.length||!/^Blocks\/\d+\.blk$/.test(row.remoteName))continue;
-  const compressed=await local(row.remoteName);if(compressed?.[0]!==31||compressed[1]!==139)continue;
-  try{const current=sceneCatalog(compressed);if(!catalog||current.assets>catalog.assets)catalog=current;}catch{/* another catalog kind */}
+  const compressed=await local(row.remoteName);if(!compressed)continue;
+  try{const bytes=resourceCatalogBytes(compressed,unpackMhyFile);if(!bytes)continue;const current=sceneCatalog(bytes,true);if(!catalog||current.assets>catalog.assets)catalog=current;}catch{/* another catalog kind */}
  }
  if(catalog)break; // A complete current patch catalog supersedes the base.
 }

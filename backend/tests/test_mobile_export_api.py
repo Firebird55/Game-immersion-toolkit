@@ -44,3 +44,20 @@ def test_export_folder_and_estimate_actions_keep_setup_protections(monkeypatch):
     manager.close_picker = lambda: (_ for _ in ()).throw(TimeoutExpired('private process', 5))
     response = client.post('/api/setup/mobile-export/browse/cancel', headers=headers)
     assert response.status_code == 409 and 'private process' not in response.text
+
+
+def test_automatic_rules_require_local_setup_but_no_account(monkeypatch):
+    calls = []
+    manager = SimpleNamespace(status=lambda game: {'enabled': False},
+        configure=lambda *args: calls.append(args) or {'enabled': True},
+        action=lambda *args: {'paused': True})
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(automatic_exports=manager), raising=False)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8766')
+    path = '/api/setup/games/zzz/automatic-mobile-export'
+    body = {'enabled': True, 'destination': 'F:/Private/Mobile', 'languages': {'ja': 'en'}}
+    assert client.post(path, json=body).status_code == 403
+    headers = {'X-Proxy-Transcript': 'setup', 'Origin': 'http://127.0.0.1:3000'}
+    assert client.post(path, json=body, headers={**headers, 'Origin': 'https://example.com'}).status_code == 403
+    assert client.post(path, json=body, headers=headers).status_code == 200
+    assert calls == [('zzz', True, 'F:/Private/Mobile', {'ja': 'en'})]
+    assert client.post(path, json={**body, 'api_key': 'mock'}, headers=headers).status_code == 422

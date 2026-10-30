@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import os
+import json
 import signal
 import subprocess
 import tempfile
@@ -20,10 +21,18 @@ class PreparationCleanupError(RuntimeError):
 
 
 class PreparationJob:
-    def __init__(self, owner, cancelled):
+    def __init__(self, owner, cancelled, key=None):
         self.owner = owner
+        self.key = key
         # Never clear this event: a restarted monitor owns a different one.
         self.cancelled = cancelled
+
+    def report(self, stage, message):
+        self.checkpoint()
+        if self.key is not None:
+            with self.owner.lock:
+                if self.current():
+                    self.owner.jobs[self.key].update(stage=stage, message=message, stage_started=time.monotonic())
 
     def current(self):
         return self.owner.stop_event is self.cancelled and not self.cancelled.is_set()
@@ -48,7 +57,7 @@ class PreparationJob:
         finally:
             lock.release()
 
-    def run(self, command, *, cwd, timeout, **options):
+    def run(self, command, *, cwd, timeout, progress_path=None, **options):
         """Keep ownership until the extraction process has exited and been reaped."""
         self.checkpoint()
         # The Windows bootstrap joins its owned job before spawning extraction.
@@ -64,8 +73,18 @@ class PreparationJob:
                     process = subprocess.Popen(tree.command(command) if tree else command,
                         cwd=cwd, stdout=stdout, stderr=stderr, **options)
                 deadline = time.monotonic() + timeout
+                next_report, last_message = 0, None
                 while True:
                     self.checkpoint()
+                    if progress_path is not None and time.monotonic() >= next_report:
+                        next_report = time.monotonic() + 1
+                        try:
+                            message = json.loads(progress_path.read_text(encoding='utf-8'))['message']
+                            if isinstance(message, str) and message != last_message:
+                                self.report('extracting', message[:500])
+                                last_message = message
+                        except (OSError, ValueError, KeyError, TypeError):
+                            pass
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         raise subprocess.TimeoutExpired(command, timeout)

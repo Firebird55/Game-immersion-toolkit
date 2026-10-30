@@ -1,62 +1,82 @@
-# Pair devices and read a transcript
+# Connect your game on mobile
 
-Open the [online companion](https://firebird55.github.io/Game-immersion-toolkit/)
-on the receiving phone, tablet or computer. Choose **Receiver**. Reading is the
-default view; setup stays in **Connection**, **Library** and **Settings**.
+Open the [mobile companion](https://firebird55.github.io/Game-immersion-toolkit/)
+on the receiving phone or tablet. **Play** is the default screen. The PC can be
+off when using a local library and VDO.Ninja.
 
-## Share a PC transcript
+## Two iOS devices with native VDO.Ninja
 
-1. In the Windows desktop companion, select a game and click **Share transcript
-   to another device**. The local sharing page opens separately.
-2. Click **Share transcript & create offer**. This does not request screen capture.
-3. On the receiver choose **Paired PC**, then **Connection → Scan the other
-   device's QR**. Allow the camera and local network access when requested.
-4. With automatic recovery enabled, the answer returns automatically. Otherwise
-   scan the receiver's answer QR back on the sender or transfer its pairing file.
-5. Open **Reader**. The latest lines arrive first. **Load older PC history** pages
-   backward; new dialogue arrives live. Play **Original voice** on demand.
+1. On the gaming iPhone/iPad, open the native VDO.Ninja app and choose **SCREEN**.
+2. Choose **VDO.Ninja Screen Recorder** in the broadcast picker, then **Start
+   Broadcast** and open the game. Confirm moving gameplay in the standard viewer.
+3. On the receiving phone, tap **Open library** and select your single Mobile
+   Library ZIP. Keep it zipped and check **Voices ready**.
+4. Paste the complete private VDO.Ninja viewer link, including its password.
+5. Tap **Start playing**. The app connects the screen and starts local OCR.
+   Read the matched dialogue and tap **Play voice** to hear its original audio.
 
-Keep both devices on the same network and keep the desktop companion and local
-sharing page running. No relay for remote-network video/audio is provided. The
-signaling service exchanges encrypted connection details only. Receiver favorites
-remain local; clearing receiver history never deletes PC data. Unlock the
-receiver's own Lexirise key for account actions; the desktop key is never shared.
+English subtitle recognition is the default. Change language or player voice,
+preview the crop and adjust capture regions in **Settings**. Optional offline
+OCR models must be downloaded before an offline session. Keep the receiving
+page visible and any selected USB drive connected.
 
-**Stop** closes access immediately. To resume, create a new offer and pair again.
-For interruptions, use **Reconnect** or automatic recovery; the refreshed snapshot
-is deduplicated against receiver history. If the companion restarts, reconnect to
-refresh the snapshot. Saved local text remains readable while disconnected.
+If frames stop, the receiver reports the interruption and attempts same-link
+recovery. If iOS ended the broadcast, restart SCREEN on the gaming device.
+A new viewer link requires a new connection. **Pause** pauses recognition;
+**Disconnect screen** cancels recovery and OCR intent. Stop the actual broadcast
+on the gaming device separately. The private viewer URL is never persisted.
 
-## Receive a game screen for Mobile OCR
+The hosted viewer is an external service and may use relays. It is not a promise
+of local-only routing. Frames are processed on the receiving device; neither
+OCR nor library import uploads your game files. See the
+[physical-device protocol](mobile-capture-verification.md) before claiming iOS
+background/endurance reliability.
 
-1. On the gaming device choose **Sender** and the game, then **Share screen &
-   create offer**. Choose the game screen when the browser asks.
-2. On the reading device choose **Receiver → Mobile OCR**, select the game and
-   open its catalog and optional voice ZIPs in **Library**.
-3. Pair in **Connection** using the same QR/answer flow above.
-4. In **Library**, choose the subtitle language and player voice where applicable,
-   then **Start OCR**. Return to **Reader**. A small video remains visible so frame
-   processing is not disrupted by scrolling through the transcript.
-5. Use calibration only if the subtitle region needs adjusting. Text is matched
-   against verified catalog entries on this device; ambiguous scenes are skipped.
+## Optional paired PC transcript
 
-The PC can be off after exporting the library. Voice packs must be reselected
-after reopening. Keep the receiving page open and a selected USB drive connected.
-Browser backgrounding suspends OCR; returning resumes it when the stream survives.
-Use **Resume screen sharing** on the sender if the browser ended its capture.
+In **Settings → Transcript source**, choose **Paired PC**. On the running desktop
+companion, choose **Share transcript to another device**. Scan its QR on the
+phone; when automatic recovery is unavailable, scan the phone's answer back.
+Keep the desktop companion and sharing page running. This mode shares text and
+requested original audio; it does not capture or send a browser screen.
 
-## Browser limitations and recovery
+Pairing messages, manual pairing files and the recovery relay belong only to
+this optional PC transcript mode. Browser screen pairing and its capture code
+have been removed. VDO.Ninja is the only screen source.
 
-The native iPad capture helper is unfinished and not included. Safari may have no
-screen-sharing API, or capture may stop when the game opens. Installing the page
-on the Home Screen does not change this. Use a supported sender; do not interpret
-successful pairing as proof of background game capture.
+## Reopen and update
 
-If scanning is difficult, use **Larger QR**. Multi-frame codes show progress and
-can be paused/stepped. Pairing messages contain local connection details; share
-them privately. Camera access ends after scanning or leaving the page. Switching
-sources stops capture/OCR and cameras without deleting stored data.
+Libraries imported with **Keep on this device** reopen automatically, including
+voices. If retention failed or you chose session-only use, select the ZIP again.
+Remembered viewer links restore the connection controls; **Start playing** connects.
+On iPhone, select each newly updated cloud ZIP once. Disconnect before applying
+a website update.
+[Library setup and recovery](mobile-library.md) explains older multi-ZIP imports,
+quota errors, supported languages and private export handling.
 
-For tests, enable **Settings → Developer mode** and follow the
-[developer guide](online-companion-development.md). Ordinary use needs no
-observation form or test report.
+## VDO.Ninja codes and saved keys
+
+The receiver accepts a stream code or a complete VDO.Ninja viewer link. Keep
+using the full link for streams with passwords or additional viewer options.
+A saved Lexirise key can use a passphrase of four or more characters. Entering
+a stream code also attempts to unlock that key. If the code differs from the
+existing passphrase, unlock once in Settings and connect the screen; subsequent
+connections with that code unlock the key automatically. Only an encrypted
+copy of the key is saved for this purpose. The code stays in session memory.
+Changing the passphrase or replacing/forgetting the key removes the linked code.
+
+## Remember this device
+
+Lexirise and VDO.Ninja have separate **Remember on this device** controls, both
+off initially. The Lexirise option saves the API key in browser storage without
+an application passphrase. This site can access it on this device; enable it only
+on a trusted device. An existing encrypted vault must be unlocked successfully
+once before enabling remembering. It is never silently migrated. Turning off
+remembering removes the automatic copy and preserves any existing encrypted vault.
+**Forget key** removes saved credentials and clears the active account session.
+
+VDO.Ninja remembering saves the complete validated viewer URL, including passwords
+and options. It restores the input but never connects automatically. Unchecking
+removes the saved copy; **Forget link** removes it and stops the active connection.
+Credentials and viewer links are excluded from libraries, diagnostics and static
+service-worker caches. Encrypted passphrase mode remains available.

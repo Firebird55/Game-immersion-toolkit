@@ -172,7 +172,7 @@ class MobileExportManager:
             startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             startup.wShowWindow = 1  # SW_SHOWNORMAL: do not inherit the hidden companion's show state.
             self._picker = subprocess.Popen(['powershell.exe', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
-                '-File', str(self.root / 'scripts/select-export-folder.ps1'),
+                '-File', str(Path(__file__).resolve().parents[1] / 'scripts/select-export-folder.ps1'),
                 '-InitialPath', str(initial), '-ResultPath', str(result)],
                 creationflags=subprocess.CREATE_NO_WINDOW, startupinfo=startup,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -294,7 +294,7 @@ class MobileExportManager:
                     self._cancel.set()
                 if self._cancel.is_set():
                     return
-                process = subprocess.Popen(args, cwd=self.root, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                process = subprocess.Popen(args, cwd=Path(__file__).resolve().parents[1], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                     text=True, encoding='utf-8', creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
                     start_new_session=sys.platform != 'win32', env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
                 self._process = process

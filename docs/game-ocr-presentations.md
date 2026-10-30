@@ -1,5 +1,25 @@
 # Game-specific subtitle presentations
 
+For the October 2026 installed-file inventory, unvoiced capture and update
+resilience work, see the [per-game dialogue audits](game-audits/README.md).
+The footage replay results below cover the specific older samples described;
+they are not a full acceptance run for every newly indexed presentation.
+
+The Steam expansion gives each game its own saved caption crop, initially
+`(.04, .60, .92, .38)`. This broad lower lane retains left-aligned Source captions
+and text beside character portraits; it does not apply the older centered-HUD
+filter. These are adjustable starting bounds, not measurements certified for
+every subtitle-size setting, scene or Windows DPI. Confirm the preview while
+playing and adjust **Capture setup** if a presentation falls outside it.
+Confirmed text-only choices and readables use the separate full-window exact
+pass when **Include unvoiced dialogue** is enabled. Catalog eligibility, stable
+observations and original-audio identity checks still apply.
+
+The **Current line** keeps the last confirmed subtitle after it disappears from
+the game. A new subtitle replaces it. The retained line stays scoped to the
+selected game and current capture session. History column headings follow the
+stored source/translation locales; mixed-language rows use generic headings.
+
 The lower subtitle lane is sufficient for ordinary cutscenes, radio and most
 walk-and-talk dialogue in the reviewed footage. It is insufficient for these
 separate presentations:
@@ -213,3 +233,22 @@ Original playback separately resolves exact installed source hashes. A locally
 installed Star Rail Mandarin source also decoded successfully to original MP3.
 Recordings, extracted frames, catalogs, tools and playback caches remain ignored
 local artifacts.
+
+## Floating dialogue and separate panels
+
+Persona 5 Royal, both Portal games, Half-Life 2, Deus Ex: Human Revolution -
+Director's Cut, DEATH STRANDING and both Metal Gear Solid V games retain their calibrated lower
+subtitle lane and additionally
+check spatial text groups across the game window for longer original-voice
+dialogue. This covers the implemented recognition path for upper navigator
+bubbles, NPC balloons and tape/iDroid panels outside the lower lane. The extra pass requires an
+exact, unique catalog match and at least two stable observations. It never
+fuzzily searches the whole screen. Short interjections and text shared with a
+confirmed silent choice or unknown UI are excluded, even when silent capture is disabled.
+Independent bubbles retain independent confirmation and original voices.
+
+The existing **Include unvoiced dialogue** control independently enables
+confirmed silent choices, thoughts and messages. Unknown UI and unresolved
+voice selectors remain excluded. Synthetic production-pipeline regressions
+exercise separated bubbles, choice collisions, short labels and OCR errors;
+they do not certify every retail layout, resolution or physical capture setup.

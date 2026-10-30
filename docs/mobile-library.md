@@ -1,187 +1,155 @@
-# Mobile libraries in On My iPhone
+# Play on mobile with one library file
 
-The public [mobile companion](https://firebird55.github.io/Game-immersion-toolkit/)
-reads ZIPs you select from Files. Your PC prepares those ZIPs from your own
-installed game; it can be off during play. Catalogs and voices are never hosted
-on Pages, uploaded to an OCR service or included in toolkit releases.
+The [mobile companion](https://firebird55.github.io/Game-immersion-toolkit/)
+reads your private library from Files. Your PC prepares it from your installed
+game and can be off during play. Game libraries never belong in GitHub, Pages
+or toolkit releases.
 
 ## Export on Windows
 
-1. Install the current toolkit release and open **Setup → Games**.
-2. Choose one supported game, configure its installed folder and install its
-   Mandarin voice pack. Install/repair its reader tools if Setup requests them.
-3. After the launcher finishes updating, click **Refresh game data** and wait
-   for the index to become ready. Check the game's documented coverage.
-4. Under **Mobile library**, choose **Save libraries to → Browse**, or paste an
-   absolute folder path. This destination is remembered on this PC. Each game
-   gets its own subfolder. Choose a drive with enough free space for ZIPs,
-   conversion and reusable caches; Setup shows an approximate working-space budget.
-   Leave **Original Mandarin voices** enabled and click **Export mobile library**.
-   Uncheck it for a smaller, text-only catalog. Setup shows an estimated size in
-   GB before export, a range and the estimate's basis. Typical clip sizes are used
-   initially, or the size of a previous completed export. During conversion the
-   estimate is refined from measured clips and deduplication; completed ZIP bytes
-   are exact. First voice conversion can take considerable time.
-5. Open the readable **Game - Mobile Library - revision** folder. Its catalog
-   and numbered voice ZIPs are the transfer files. Copy only that completed
-   folder, not the parent folder of an older export: it may contain thousands of
-   cached clips. New exports keep resumable work in `.toolkit-mobile-work`
-   outside the selected save folder, on the same drive. Legacy work moves there
-   when the same destination is next exported; completed libraries stay in place. Copy the completed **catalog ZIP and voice ZIPs** to your phone.
-   Keep them zipped, in **Files → On My iPhone**, with enough free space. Transfer
-   using your normal cable, AirDrop from a Mac, or file-transfer method. A cloud
-   file provider can be used for transfer, but download/move the final copies
-   locally before playing. Alternatively, select ZIPs directly from a connected
-   USB drive in Files. Keep the drive connected and the phone unlocked. The app
-   does not copy voice packs into browser storage; Safari/Files may still stage
-   selected files temporarily, so zero temporary device storage is not guaranteed.
+1. In **Setup → Games & Languages**, choose **Keep mobile library updated**.
+   The same controls are available in the first-run wizard.
+2. Choose an existing private export folder, preferably one synchronized with a
+   cloud-storage service available on your phone. Select voice languages and one
+   translation for each, then **Save settings**. Chinese text scripts share
+   Mandarin audio. Each selected script remains a distinct library.
+3. The companion waits for stable game files and creates one ZIP per selection:
+   **Zenless Zone Zero/Zenless Zone Zero - Japanese - English translation - Mobile Library.zip**.
+   Cloud synchronization is performed by your cloud application. **Updated in
+   export folder** does not mean the phone has downloaded it.
 
-The CLI uses the same exporter, from the toolkit folder:
+Automatic rules are per-PC settings, independent of Lexirise credentials and
+active reading selections. The companion must be running to detect updates.
+It checks at startup and periodically, catches up after downtime, and preserves
+**Pause** across restart. **Resume**, **Update now**, and **Retry** are available.
+Adding a language queues a package; removing it stops updates without deleting
+existing ZIPs. Manual account-scoped exports remain under **Export mobile library**.
+
+Voice status is separate from table preparation: **Installed**, **Not detected —
+install this voice language in the game/launcher**, **Incomplete**, or **Unable to
+verify**. Checks are bounded; shared or encrypted archives may require successful
+language preparation to establish their locale. An unprepared table does not
+mean that the voice pack is absent. Missing selections stay configured and wait;
+no other language's audio is substituted.
+
+Working files and verified converted clips stay in host-local managed storage,
+outside the synchronized destination. Publication copies and verifies a temporary
+ZIP before replacing the final filename. Copy, disk-space, locked-file and source
+change failures preserve the old ZIP. One previous completed ZIP is kept in local
+recovery storage. Interrupted work resumes; unknown repeated preparation failures
+require **Retry**. Unrelated destination files are never removed.
+
+Conversion still uses up to eight parallel workers and compatible batches.
+Verified clips and bounded inner packs remain in a separate private workspace
+for resuming. The final STORE bundle includes the catalog automatically, without
+re-encoding voices. Its last packaging step streams files from disk.
+Cancellation or changed game assets cannot replace the last completed pointer.
+Keep enough space for decoded clips, inner packs and the final bundle.
+
+The existing CLI keeps its game, output, worker and catalog-only options:
 
 ```powershell
-python scripts/export-mobile-library.py --game zzz
-python scripts/export-mobile-library.py --game cyberpunk --catalog-only
+python scripts/export-mobile-library.py --game zzz --output <private-folder>
+python scripts/export-mobile-library.py --game zzz --catalog-only
 ```
 
-Use the toolkit's installed Python environment if system Python lacks its
-dependencies. `--output <private-folder>` changes the destination. `--max-lines`
-is a verification subset, not a complete-game export. The default private
-destination is `output/mobile-libraries/<game>/<revision>/`; `latest.json` points
-to the last completed readable folder. Use its `folder` and `catalog` fields
-rather than constructing a path from the revision hash. Intermediate caches and decoded originals are
-not transfer files. Do not upload any of these to GitHub.
+To combine an existing catalog and matching voice ZIPs without decoding again:
 
-Cancel and retry safely. Completed decoded clips are verified and reused;
-unchanged completed voice packs can be reused. Previous valid exports remain
-available if indexing, decoding, cancellation, disk space or source checks fail.
-Do not patch the game during an export. Refresh and export again afterward.
-The exporter detects changes to its source files and refuses to publish a mixed
-snapshot. The desktop Cancel button stops the isolated export process and its
-decoder children, including during catalog preparation. Setup shows **Stopping…**
-until the process exits, then **Resume export**. Cancellation keeps verified
-completed clips and the previous valid export. The CLI uses the same package
-writer; Ctrl+C interrupts its current command.
+```powershell
+python scripts/bundle-mobile-library.py '<Catalog ZIP>' --output '<private-folder>'
+```
 
-Voice conversion automatically uses up to eight parallel workers, scaled to
-the PC's CPU count. Existing audio quality and cinematic timing are preserved.
-All eight voice-supported games convert up to eight clips per worker batch
-to reduce decoder launches. Archive extraction groups compatible resources,
-including Cyberpunk DLC, and reuses package tables within each batch. Wuthering
-uses shared prefixes only when its installed inventory bounds the extraction.
-Each clip keeps its verified binding, player variant and cinematic timing;
-PRAGMATA retains its authored layer mix. Hito remains catalog-only.
-The CLI accepts `--workers 1` through `--workers 8` for manual tuning. Use the
-same destination when resuming so verified clips can be reused.
+Use the installed toolkit Python environment when system dependencies are missing.
+`latest.json` identifies the completed folder and bundle; its `catalog` field
+also points to the transferable bundle for older folder readers. Export status
+adds `bundle` and retains a private inner `catalog` path for local tooling.
+Neither the work directory nor its decoded audio is a transfer item.
 
-## Open on the receiving phone
+## Open and play
 
-1. Open the companion in Safari, then use **Share → Add to
-   Home Screen** if desired. Set up the library in the surface you intend to use;
-   Safari and a Home Screen application can have separate browser storage.
-2. Choose **Receiver → Mobile OCR** and your game. Open **Library**, then tap
-   the file picker, browse **On My iPhone** or your connected USB drive, and select the catalog and multiple
-   voice ZIPs. You can open additional matching voice packs later.
-3. Check the bilingual row count, partial coverage notice, selected pack size
-   and the count of voice clips **accessible this session**. Remembered catalog
-   information does not mean the audio files are currently open.
-4. Pair with the device sending the game using the existing offer/answer flow.
-   Select English, Simplified Chinese or Traditional Chinese subtitles, and the player voice if the
-   game has player variants. Tap **Start OCR**. Keep the receiving page visible.
-   A small live preview stays visible while OCR runs, including when you scroll
-   to the transcript; browsers can suspend video that moves off screen.
-5. Read the prepared learning/translation transcript and tap **Play original voice**. If Safari
-   requires another playback gesture, use the visible audio control. **Find line**
-   searches English or Chinese fragments without a live stream. Multiple scenes
-   or voice variants are listed for explicit selection. Unvoiced bilingual text
-   is retained and labeled **No verified original voice**, rather than silently
-   omitted. Existing voice-only exports need a newly exported catalog for that
-   additional text; unchanged voice-pack identities remain usable.
+1. Open the companion on the receiving phone. Add it to the Home Screen first
+   if that is where you intend to use it; Safari can have separate storage.
+2. On **Play**, tap **Open library** and select the single Mobile Library ZIP.
+   Check the game title and **Voices ready** status.
+3. On the gaming iPhone/iPad, start the native VDO.Ninja **SCREEN** broadcast.
+   Enter its stream code or complete private viewer link on the receiving phone.
+4. Tap **Start playing**. It connects the screen and starts subtitle recognition.
+   Keep this receiving page visible. Tap **Play voice** on matched dialogue.
 
-See [Games & Languages](https://firebird55.github.io/Game-immersion-toolkit/games.html)
-for each game's learning/audio and official translation combinations. Catalogs
-retain the selected learning, translation and audio locales. Mobile OCR's three
-recognition models do not cover every learning language; use supported in-game
-subtitle text that exists in the prepared catalog, or use the paired-PC reader.
-Full-game footage coverage remains incomplete.
+English subtitle recognition is the default. **Settings** contains other subtitle
+languages, optional OCR downloads, player voice selection, calibration, library
+search, reading options and accounts. Select the player variant when a game has
+ambiguous protagonist performances. Matching never guesses a missing voice.
+Lexirise is optional; plain transcript and independent Migaku mode remain usable.
 
-After reopening or rebooting, text/history can be restored from browser storage,
-but select the voice ZIPs again. Files permissions and objects are session-only.
-The page verifies the selected packs against the remembered catalog. If browser
-data was cleared, reopen the catalog as well. Missing, corrupt or wrong-game
-packs cannot enable playback. Keep the Files copies as your recovery source.
+**Paired PC** is also in Settings. It receives the running desktop companion's
+transcript and needs no mobile library. Browser screen pairing has been removed;
+VDO.Ninja is the only screen source. See [connection setup](mobile-capture.md).
 
-The page requests persistent browser storage and displays the actual granted
-status. The page checks remaining browser quota against an estimated catalog cache
-budget, excluding voice-pack sizes. This is website quota, not actual device free
-disk space; consult **Settings → General → iPhone Storage** for that. If quota is
-low or caching fails, the current session remains usable and requests catalog
-reselection next time. Persistence permission requests are bounded and do not
-block catalog caching. A request is not a guarantee: Safari may still clear best-effort data or
-the user can delete it. Audio stays in Files; only catalogs, preferences,
-calibration, bounded transcript history and favorites are cached. A voice is read
-by ZIP entry using `File.slice()` when played, rather than importing a multi-GB
-pack into IndexedDB. Opening validates directories and manifests with four reads
-per ZIP; selected entries receive local-header, bounds and checksum validation
-before use. Progress, cancellation and file-read timeouts explain slow or
-disconnected providers. Large catalogs stay in the worker rather than being
-copied into the page, and fuzzy OCR indexing is delayed until needed. SHA-256 and ZIP CRC checks protect those reads.
+## Reopening, storage and recovery
 
-## Capture, matching and updates
+Leave **Keep on this device** checked when importing. A dedicated worker copies
+bounded chunks into browser-owned private file storage; the library selector
+shows each retained game's languages and size. Several games and language
+variants can coexist. The last retained selection reopens automatically, including
+voices. **Update from file** replaces the matching variant only after a successful
+copy and validation. Interrupted copies are cleaned up without deleting the last
+working copy. **Remove downloaded copy** preserves history, favorites, calibration
+and credentials.
 
-Direct pairing and reconnect remain available; reconnecting
-does not clear your library or history. The gaming device must actually supply
-moving frames while the game is foregrounded. iPad Safari generally cannot
-provide that system capture; a native sender helper is still outside this build.
-Use a supported screen-sharing device, or choose **Paired PC** to receive the desktop transcript.
-A Home Screen shortcut does not add a missing screen-capture API.
+The app requests persistent storage, but browser/OS eviction, private browsing,
+user clearing and device storage pressure can still remove it. Missing files keep
+their library metadata and show restoration instructions. Keep your ZIP in Files
+or cloud storage as the recovery source. Quota or unavailable file-system support
+produces an explicit session-only warning. Uncheck **Keep on this device** for
+session-only use; selecting the original file is then required after reopening.
 
-OCR runs in one pinned, self-hosted Tesseract.js 7 worker. Frames remain on the
-devices. Scans use the newest frame, without a queued backlog, and suspend when
-paused, hidden, disconnected or superseded by a new stream/game. Two stable
-sightings confirm an accepted line. Short/ambiguous text and response menus are
-rejected; additional presentations retain stricter, exact matching.
+On iPhone, Safari cannot silently reopen a previous Files-provider selection to
+read its replacement. After the desktop updates a cloud ZIP, select the new ZIP
+once. The retained copy then reopens automatically. No cloud API or hosted account
+service is used. Safari and Home Screen storage must be tested separately.
 
-**Capture regions and calibration** lets you select dialogue, overhead, comic or
-card regions independently. **Preview dialogue crop** shows the selected region.
-Use **Original image** for custom colors/fonts if outlined-subtitle preparation
-loses text. Percentages follow video pixels, not phone orientation or browser
-zoom. Select **Centered 16:9** when the video has black bars. Recheck after stream
-resolution, subtitle size, aspect ratio or safe-zone changes. Overhead captions,
-comics and centered cards can be enabled separately. A supported catalog does
-not prove recognition of every layout, font or scene.
+A disabled **Play voice** now explains whether the line has no exported audio or
+this session needs the original file. Tap **Open voice library** beside the line
+to reselect it directly. Reopening refreshes saved voice references against the
+current catalog while preserving favorites. If Safari requests another gesture,
+tap play on the visible audio control.
 
-Only catalog-backed bilingual text is displayed. Original voice playback needs
-a unique exact binding and an open pack. Unmatched scenes and ambiguous bindings
-are skipped explicitly. Export supports ZZZ, Wuthering, PRAGMATA, Cyberpunk,
-Witcher, NTE and limited Honkai catalogs. Hito exports its fixed verified rows
-without audio; its desktop runtime grammar generator is not included on mobile.
-Installed DLC is included where the existing adapter maps it, including
-Cyberpunk Phantom Liberty. Honkai's newer chapters remain outside the verified
-catalog; successful export does not extend that coverage. Upstream format
-changes can still require a toolkit update.
+ZZZ comic recognition groups text by bubble and handles multiple visible bubbles
+independently. It accepts the same 88% OCR similarity threshold as desktop for
+authored comic lines, rejects ambiguous matches and confirms each bubble in two
+frames. A bubble is added once while it remains visible, including slow scans.
 
-After a game patch, refresh and export on your PC and transfer the new catalog
-and required voice packs. Unchanged pack identities may remain usable. No new
-GitHub release is required for an ordinary locally readable game-data update.
+Download cloud-provider files locally before playing, or keep a selected USB
+drive connected. Safari/Files may stage the file temporarily. Browser quota is
+not actual device free space; use iPhone Storage settings to check that.
+If retaining the package fails, this session can still work; reopen the file next time.
 
-Software updates cache only allowlisted application/OCR assets. The service
-worker waits rather than replacing an active session. Stop sharing, tap
-**Reload latest**, check the build version, then pair again. Application updates
-preserve and migrate the catalog/history/preferences database in place.
-The first visit requires Internet access. Start OCR once with each subtitle
-language you intend to use offline, so its worker, core and model are cached.
-Remembered catalogs and local voice playback do not require a model download.
+Older exports remain supported: select their **Catalog ZIP plus matching Voices
+ZIPs together**. Seven voice ZIPs alone cannot supply subtitle matching unless
+the correct catalog was already remembered. A missing catalog now produces an
+explicit message. Picker resets no longer erase the visible selection/result.
+Malformed, mismatched or cancelled replacements preserve the working library.
 
-## Reading and account tools
+The reader validates the bundle directory and opens bounded inner packs through
+file slices. ZIP64 supports large outer files; every inner pack stays at most
+512 MiB. Catalog segments and played clips keep their bounds, CRC and SHA-256
+checks. Whole voice packs are not read into browser memory. Unsupported archive
+paths, compression, overlapping entries and unsafe offsets are rejected.
 
-Choose **Receiver → Mobile OCR**, then use **Library** to open ZIPs, search catalog
-text, start/pause OCR and calibrate regions if necessary. Return to **Reader** for
-the current line and bilingual history. Favorites belong to this browser.
-**Settings** controls reading modes, translation visibility and encrypted Lexirise
-credentials. Paired PC reading does not need an exported library.
+## Capture and updates
 
-Application updates migrate existing catalog, calibration and history storage in
-place. Clearing browser/site data removes these and your encrypted key. Keep
-original ZIPs. Updates wait for sharing and library operations to finish; select
-voice packs again after reloading. See the [main guide](../README.md) for vault
-locking and gateway data handling.
+VDO.Ninja uses its hosted viewer and may use relay services. The private link stays in memory unless **Remember on this device** is enabled; OCR runs locally with one bounded, self-hosted worker. Hidden
+pages suspend reading; resuming requires fresh frames. Automatic same-link
+recovery retains OCR intent. **Disconnect screen** cancels that intent, while
+**Pause** pauses recognition without stopping the gaming device's broadcast.
+
+Automatic rules prepare new libraries after game updates while the companion runs.
+Software updates replace only static assets and preserve libraries and settings.
+Disconnect before applying **Reload latest**, then tap **Start playing** to connect.
+Remembered links restore the controls without starting a connection.
+
+Catalog coverage and recognition vary by game, scene, font and subtitle layout.
+See [Games & Languages](https://firebird55.github.io/Game-immersion-toolkit/games.html).
+Physical iPhone Files/provider and native broadcast endurance remain explicit
+acceptance checks; desktop WebKit is not a physical iPhone pass.

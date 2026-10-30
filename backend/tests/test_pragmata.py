@@ -13,6 +13,8 @@ def test_official_pragmata_line_and_speaker_match(tmp_path) -> None:
             "chinese": "这里是欧罗塔斯号调查船。\nIDUS，请回复。完毕。靠，还是不行啊。",
             "source": "mes_main/event/cutscene/cs0010.msg.23",
             "speaker_code": "Ch07200",
+            "voice_status": "unknown",
+            "dialogue_kind": "cutscene",
         }],
         "speakers": {"Ken": ["Ken", "肯"]},
     }

@@ -124,6 +124,21 @@ def test_existing_notes_and_proficiency_are_not_overwritten(tmp_path):
     assert ('PATCH', '/v1/vocabulary/100') in api.calls
 
 
+def test_unvoiced_sentence_export_never_uploads_audio_or_overwrites_existing_voice(tmp_path):
+    api, service, kwargs = fixture(tmp_path)
+    kwargs['audio'] = None
+    assert service.send(**kwargs)['sent']
+    assert ('POST', '/v1/vocabulary/audio') not in api.calls
+    assert api.items[0]['audio_urls'] == []
+    # Another game's text-only occurrence reuses the sentence without removing
+    # an original clip attached previously from another authored occurrence.
+    api.items[0]['audio_urls'] = ['https://audio.lexirise.test/existing.mp3']
+    kwargs.update(ref='line:2', game='zzz')
+    assert service.send(**kwargs)['sent']
+    assert ('PATCH', '/v1/vocabulary/100') not in api.calls
+    assert api.items[0]['audio_urls'] == ['https://audio.lexirise.test/existing.mp3']
+
+
 def test_wrong_deck_type_fails_before_upload(tmp_path):
     _, service, kwargs = fixture(tmp_path)
     calls = []
@@ -176,6 +191,10 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
     line.voiced = False
     assert client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'}).status_code == 409
     assert len(sent) == 1
+    line.voice_status = 'unvoiced'
+    response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
+    assert response.status_code == 200 and response.json()['audio_included'] is False
+    assert sent[-1]['audio'] is None
 
 def test_foreign_account_cannot_reuse_decks_or_export_markers(tmp_path):
     api, service, kwargs = fixture(tmp_path)

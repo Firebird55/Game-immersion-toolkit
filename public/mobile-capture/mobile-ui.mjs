@@ -1,6 +1,7 @@
 import {manifest as ocrManifest,loadModel,modelStatus,removeModel} from './ocr-packs.mjs';
 import {translate,languageName,formatBytes,bindStaticTranslation} from './interface-language.mjs';
-import {confirmCaptions} from './caption-confirmation.mjs';
+import {confirmCaptions,confirmComicCaptions} from './caption-confirmation.mjs';
+import {receiverSource,connectVdo} from './capture.js';
 import {get,put,remove,storageStatus,cacheBudget} from './storage.mjs';
 import Tesseract from './ocr/tesseract.esm.min.js';
 const {createWorker}=Tesseract;
@@ -8,9 +9,10 @@ bindStaticTranslation(document.body);
 import {crops,extraCrops,cropFrame as drawCrop,recognizeRegion,candidates,regions as captureRegions} from './ocr-pipeline.mjs';
 const $=id=>document.getElementById(id), text=(id,message)=>$(id).textContent=translate(message);
 const reader=new Worker(new URL('./library-worker.mjs',import.meta.url),{type:'module'}), pending=new Map();
-let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, streamState=null, stable=null, emitted=new Map(), samples=[];
-let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,lastMediaTime=-1;
-let scanCompletion=Promise.resolve(),voiceBusy=false;
+let sequence=0, library=null, available=new Set(), declaredAudio=new Set(), history=[], preferences={}, engine=null, engineLanguage=null, loading=null, resetting=Promise.resolve(), scanning=false, busy=false, epoch=0, sourceState=null, stable=null, emitted=new Map(), samples=[];
+let selectedBytes=0, selectedPacks=0, openMs=0, audioUrl=null, selection=0,activeJob=null;
+let scanCompletion=Promise.resolve(),probeCompletion=Promise.resolve(),voiceBusy=false,startIntent=0;
+let comicVisible=new Map();
 let captionContext={epoch:-1,entries:[],candidate:null,count:0};
 let parallelContext={epoch:-1,groups:new Map(),counts:new Map(),stable:new Map()};
 reader.onmessage=({data})=>{const request=pending.get(data.id);if(!request)return;if(data.progress!=null||data.stage){if(request.selection===selection)text('library-status',data.stage??`Reading ${data.progress.toLocaleString()} verified dialogue rows…`);return;}pending.delete(data.id);data.error?request.reject(new Error(data.error)):request.resolve(data.result);};
@@ -18,40 +20,56 @@ reader.onerror=()=>{for(const request of pending.values())request.reject(new Err
 function request(action,body={}){return new Promise((resolve,reject)=>{const id=++sequence;pending.set(id,{resolve,reject,selection});reader.postMessage({id,action,...body});});}
 function currentGame(){return $('game').value;}
 let reportedScanning=false;
-function updatePreview(){document.body.classList.toggle('ocr-running',scanning&&$('role').value==='receiver'&&streamState?.state==='connected'&&streamState?.live!==false&&!document.hidden);if(scanning!==reportedScanning){reportedScanning=scanning;window.dispatchEvent(new CustomEvent('mobile-ocr-state',{detail:{scanning}}));}}
+function invalidate(){epoch++;stable=null;comicVisible=new Map([...comicVisible].filter(([,state])=>state.published));activeJob?.abort();$('crop-preview').hidden=true;return epoch;}
+function updatePreview(){$('ocr-start').hidden=scanning&&!document.body.classList.contains('developer-mode');$('ocr-pause').hidden=!scanning;$('show-setup').hidden=!scanning;document.body.classList.toggle('ocr-running',scanning&&$('role').value==='receiver'&&receiverSource.active&&!['ended','error','paused'].includes(sourceState?.status)&&!document.hidden);if(scanning!==reportedScanning){reportedScanning=scanning;window.dispatchEvent(new CustomEvent('mobile-ocr-state',{detail:{scanning}}));}}
 const optionIds=['ocr-language','player-voice','show-english','extra-regions','cinematic-regions','ocr-contrast'];
 function setupCrop(){const game=currentGame(),saved=preferences[game]??{},selected=$('calibrate-region').value,keys=['dialogue',...Object.keys(extraCrops[game]??{})];$('calibrate-region').replaceChildren(...keys.map(key=>{const option=document.createElement('option');option.value=key;option.textContent={dialogue:'Dialogue',overhead:'Overhead captions',card:'Centered story card',comic:'Comic panels',panel:'Legacy dialogue panel',compact:'Compact subtitle strip'}[key];return option;}));$('calibrate-region').value=keys.includes(selected)?selected:'dialogue';const key=$('calibrate-region').value,crop=key==='dialogue'?saved.crop??crops[game]:saved.regions?.[key]??extraCrops[game][key];['left','top','width','height'].forEach((field,i)=>$('crop-'+field).value=String(crop[i]*100));$('picture-area').value=saved.picture??'window';for(const id of optionIds)if(saved[id]!=null){if($(id).type==='checkbox')$(id).checked=saved[id];else $(id).value=saved[id];}}
 function cropValue(){const values=['left','top','width','height'].map(key=>Number($('crop-'+key).value)/100);if(values.some(v=>!Number.isFinite(v)||v<0||v>1)||values[2]<=0||values[3]<=0||values[0]+values[2]>1.00001||values[1]+values[3]>1.00001)throw new Error('Keep the crop inside the video.');return values;}
-async function savePreferences(){epoch++;stable=null;const saved=preferences[currentGame()]??{},key=$('calibrate-region').value,value=cropValue();preferences[currentGame()]={...saved,...key==='dialogue'?{crop:value}:{regions:{...saved.regions,[key]:value}},picture:$('picture-area').value,...Object.fromEntries(optionIds.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]))};await put('preferences',preferences).catch(()=>text('storage-status','Calibration is temporary; browser storage is unavailable.'));}
-async function reportStorage(requestPersistence=false){const state=await storageStatus(requestPersistence);text('storage-status',`${state.persistent?'Persistent browser storage granted':'Browser cache is best effort; retain your Files copies'}${state.usage!=null?` · ${(state.usage/1024**2).toFixed(1)} MiB cached`:''}${state.quota!=null?` · ${(Math.max(0,state.quota-(state.usage??0))/1024**3).toFixed(2)} GiB browser quota remaining (not device free space)`:''}. Audio packs stay in Files and must be reselected after reopening.`);return state;}
+async function savePreferences(){invalidate();const saved=preferences[currentGame()]??{},key=$('calibrate-region').value,value=cropValue();preferences[currentGame()]={...saved,...key==='dialogue'?{crop:value}:{regions:{...saved.regions,[key]:value}},picture:$('picture-area').value,...Object.fromEntries(optionIds.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]))};await put('preferences',preferences).catch(()=>text('storage-status','Calibration is temporary; browser storage is unavailable.'));}
+async function reportStorage(requestPersistence=false){const state=await storageStatus(requestPersistence);text('storage-status',`${state.persistent?'Persistent browser storage granted':'Browser cache is best effort; retain your Files copies'}${state.usage!=null?` · ${(state.usage/1024**2).toFixed(1)} MiB cached`:''}${state.quota!=null?` · ${(Math.max(0,state.quota-(state.usage??0))/1024**3).toFixed(2)} GiB browser quota remaining (not device free space)`:''}. Retained libraries reopen automatically; session-only files must be reselected.`);return state;}
 function libraryStatus(){
- if(!library){declaredAudio.clear();text('pack-status','');text('coverage-status','');text('library-status','Open your exported catalog ZIP and optional voice ZIPs from On My iPhone.');return;}
+ if(!library){declaredAudio.clear();text('pack-status','');text('coverage-status','');text('library-status','No library open.');$('open-library').textContent=translate('Open library');$('selected-library').textContent='';document.body.dataset.libraryReady='false';return;}
  const coverage=library.manifest.coverage;
  declaredAudio=new Set(library.manifest.packs.flatMap(p=>p.clips));
- text('library-status',`${library.manifest.title} · ${library.rowCount.toLocaleString()} bilingual rows · ${available.size.toLocaleString()} unique voice clips accessible this session${coverage.partial?' · Partial catalog: newer/unmapped scenes remain unsupported':''}. ${available.size?'Audio packs are open.':'Reselect voice ZIPs for playback.'}`);
+ text('library-status',`${library.manifest.title} · ${library.rowCount.toLocaleString()} lines · ${available.size?'Voices ready':declaredAudio.size?'Reopen library for voices':'Text-only library'}`);
+ $('open-library').textContent=translate(available.size?'Change library':'Reopen voice library');
+ document.body.dataset.libraryReady='true';
  text('pack-status',`${selectedPacks} voice packs selected · ${(selectedBytes/1024**3).toFixed(2)} GiB selected. Audio is read per clip, without importing whole packs.`);
- const coverageNotes={heavyrain:'Original-voice bindings use installed game assets. Gameplay OCR verification is in progress; untested chapters and branches remain outside verified coverage.',beyond:'Opening narration, police and laboratory overlap segments pass desktop OCR. Later chapters, branches and mobile gameplay footage remain unverified.',zzz:'Comic crops pass synthetic layout checks; real mobile comic footage verification remains pending.',wuwa:'Sampled dialogue and centered cards pass; some resized movie/story captions still miss.',pragmata:'Mobile layout checks use synthetic scenes; real browser footage verification remains pending.',cyberpunk:'Small overhead captions still miss in recorded footage. Verify your subtitle size and crop.',witcher3:'Sampled cutscene captions pass; top-edge NPC captions still miss in recorded footage.',nte:'Sampled movie radio/intro cards pass; wrapped subtitles and some movie variants still miss.',honkai3:'Sampled modern, legacy and multi-page panels pass both tested resolutions. Newer chapters remain outside the verified catalog.',hito:'Fixed catalog rows are text-only. Mobile does not run the desktop grammar generator.'};
+ const coverageNotes={heavyrain:'Original-voice bindings use installed game assets. Gameplay OCR verification is in progress; untested chapters and branches remain outside verified coverage.',beyond:'Opening narration, police and laboratory overlap segments pass desktop OCR. Later chapters, branches and mobile gameplay footage remain unverified.',zzz:'Multiple black and pale comic bubbles pass layout checks; the supplied comic screenshot matches its catalog. Physical-phone gameplay verification remains pending.',wuwa:'Sampled dialogue and centered cards pass; some resized movie/story captions still miss.',pragmata:'Mobile layout checks use synthetic scenes; real browser footage verification remains pending.',cyberpunk:'Small overhead captions still miss in recorded footage. Verify your subtitle size and crop.',witcher3:'Sampled cutscene captions pass; top-edge NPC captions still miss in recorded footage.',nte:'Sampled movie radio/intro cards pass; wrapped subtitles and some movie variants still miss.',honkai3:'Sampled modern, legacy and multi-page panels pass both tested resolutions. Newer chapters remain outside the verified catalog.',hito:'Fixed catalog rows are text-only. Mobile does not run the desktop grammar generator.'};
  text('coverage-status','Browser OCR coverage: '+coverageNotes[library.manifest.game]);
 }
+function showSaved(registry){const select=$('saved-libraries');select.replaceChildren(new Option('Choose a saved library',''),...(registry?.items??[]).map(item=>new Option(`${item.title} · ${languageName(item.sourceLocale)} → ${languageName(item.translationLocale)} · ${formatBytes(item.bytes)}`,item.id)));select.value=registry?.last??'';}
+$('open-library').onclick=()=>$('library-files').click();
+$('update-library').onclick=()=>$('library-files').click();
+$('saved-libraries').onchange=async()=>{
+ if(!$('saved-libraries').value||$('library-files').disabled||receiverSource.active)return;
+ const token=++selection;invalidate();$('library-files').disabled=true;
+ try{const result=await request('open-retained',{libraryId:$('saved-libraries').value});if(token!==selection)return;library=result.catalog;available=new Set(result.available);selectedBytes=result.selectedBytes;selectedPacks=result.selectedPacks;$('game').value=library.manifest.game;$('game').dispatchEvent(new Event('change'));history=await request('refresh-history',{history});await saveHistory();libraryStatus();render();showSaved(result.libraries);text('cache-status','Library kept on this device.');$('cache-status').hidden=false;}
+ catch(error){text('library-status',error.message);}finally{$('library-files').disabled=false;}
+};
+$('remove-retained-library').onclick=async()=>{if($('library-files').disabled||receiverSource.active)return;try{showSaved(await request('remove-retained',{libraryId:$('saved-libraries').value}));text('cache-status','Downloaded copy removed. History and favorites are preserved.');$('cache-status').hidden=false;}catch(error){text('library-status',error.message);}};
+$('show-setup').onclick=()=>{document.body.classList.toggle('show-play-setup');};
 $('library-files').onchange=async event=>{
- const token=++selection;epoch++;stable=null;
  const files=[...event.target.files];if(!files.length)return;
- const start=performance.now();$('library-files').disabled=true;$('cancel-library').hidden=false;text('library-status','Opening selected ZIPs. Keep a USB drive connected and unlocked…');
+ const token=++selection;invalidate();
+ const start=performance.now();$('library-files').disabled=true;$('open-library').disabled=true;$('cancel-library').hidden=false;text('library-status','Opening your library…');
  try{
-  const result=await request('open',{files,expectedGame:$('game').disabled?currentGame():null});if(token!==selection)return;
+  const result=await request('open',{files,keep:$('keep-library').checked,expectedGame:$('game').disabled?currentGame():null});if(token!==selection)return;
   if($('game').disabled&&result.catalog.manifest.game!==currentGame())throw new Error('Stop this capture session before opening a different game.');
   library=result.catalog;available=new Set(result.available);selectedBytes=result.selectedBytes;selectedPacks=result.selectedPacks;openMs=performance.now()-start;
   if(!$('game').disabled){$('game').value=library.manifest.game;$('game').dispatchEvent(new Event('change'));}
-  libraryStatus();render();$('search-results').replaceChildren();$('cancel-library').hidden=true;
-  const state=await reportStorage(),budget=cacheBudget(library.manifest,state);
-  if(budget.sufficient===false)text('cache-status',`Not enough browser quota for the estimated ${(budget.needed/1024**2).toFixed(0)} MiB catalog cache. This library works this session; reselect the catalog after reopening. Voices remain in Files.`);
-  else try{await request('cache');text('cache-status',`Catalog remembered for reopening · estimated cache budget ${(budget.needed/1024**2).toFixed(0)} MiB. Voice ZIPs are not cached.`);}catch{ text('cache-status','Catalog could not be cached, possibly because device storage is low. This session still works. Check iPhone Storage in Settings and reopen the catalog next time.');}
+  const refreshed=await request('refresh-history',{history});if(token!==selection)return;history=refreshed;await saveHistory();
+  libraryStatus();$('selected-library').textContent=files.map(file=>file.name).join(' · ');render();$('search-results').replaceChildren();$('cancel-library').hidden=true;
+  $('cache-status').hidden=true;const state=await reportStorage(),budget=cacheBudget(library.manifest,state);
+  if(budget.sufficient===false){$('cache-status').hidden=false;text('cache-status',`Not enough browser quota for the estimated ${(budget.needed/1024**2).toFixed(0)} MiB catalog cache. This library works this session; reselect the catalog after reopening. Voices remain in Files.`);}
+  else try{await request('cache');text('cache-status',`Catalog remembered for reopening · estimated cache budget ${(budget.needed/1024**2).toFixed(0)} MiB. Voice ZIPs are not cached.`);}catch{$('cache-status').hidden=false;text('cache-status','Catalog could not be cached, possibly because device storage is low. This session still works. Check iPhone Storage in Settings and reopen the catalog next time.');}
+  showSaved(result.libraries);if(result.warning||result.selectedLibrary){$('cache-status').hidden=false;text('cache-status',result.warning??'Library kept on this device. It will reopen automatically.');}
   void reportStorage(true);
 
- }catch(error){if(token===selection)text('library-status',error.message);}finally{if(token===selection){$('library-files').disabled=false;$('cancel-library').hidden=true;}event.target.value='';}
+ }catch(error){if(token===selection){text('library-status',error.message);$('selected-library').textContent=files.map(file=>file.name).join(' · ');}}finally{if(token===selection){$('library-files').disabled=false;$('open-library').disabled=false;$('cancel-library').hidden=true;}event.target.value='';}
 };
-$('cancel-library').onclick=()=>{selection++;void request('cancel-open');$('library-files').disabled=false;$('library-files').value='';$('cancel-library').hidden=true;text('library-status','File opening cancelled. Your previous library remains available. Select ZIPs again to retry.');};
-$('forget-library').onclick=async()=>{selection++;epoch++;scanning=false;updatePreview();stable=null;await request('forget');library=null;available.clear();selectedBytes=selectedPacks=0;await remove('catalog').catch(()=>{});libraryStatus();render();};
+$('cancel-library').onclick=()=>{selection++;void request('cancel-open');$('library-files').disabled=false;$('open-library').disabled=false;$('library-files').value='';$('cancel-library').hidden=true;text('library-status','File opening cancelled. Your previous library remains available. Select ZIPs again to retry.');};
+$('forget-library').onclick=async()=>{selection++;invalidate();scanning=false;updatePreview();stable=null;await request('forget');library=null;available.clear();selectedBytes=selectedPacks=0;await remove('catalog').catch(()=>{});libraryStatus();render();};
 function saveHistory(){const favorites=history.filter(r=>r.favorite).slice(-5000),rest=history.filter(r=>!r.favorite).slice(-500);history=[...favorites,...rest].sort((a,b)=>a.createdAt-b.createdAt);return put('history',history).catch(()=>text('storage-status','Transcript history is temporary; storage could not be saved.'));}
 function render(){
  window.dispatchEvent(new CustomEvent('mobile-history',{detail:history.map(r=>({...r,source:'mobile-ocr'}))}));
@@ -84,15 +102,22 @@ $('find-line').onclick=async()=>{
  }catch(e){if(token===selection)text('match-status',e.message);}
 };
 $('find-text').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();$('find-line').click();}});
-$('clear-history').onclick=()=>{history=history.filter(r=>r.game!==currentGame());emitted.clear();stable=null;void saveHistory();render();};
+$('clear-history').onclick=()=>{invalidate();history=history.filter(r=>r.game!==currentGame());emitted.clear();comicVisible.clear();void saveHistory();render();};
 for(const key of ['left','top','width','height'])$('crop-'+key).onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
 $('picture-area').onchange=()=>void savePreferences().catch(e=>text('match-status',e.message));
 $('calibrate-region').onchange=setupCrop;
 $('reset-crop').onclick=()=>{const game=currentGame(),key=$('calibrate-region').value,saved=preferences[game]??{};preferences[game]={...saved,...key==='dialogue'?{crop:crops[game]}:{regions:{...saved.regions,[key]:extraCrops[game][key]}}};setupCrop();void savePreferences();};
-$('game').addEventListener('change',()=>{epoch++;stable=null;scanning=false;updatePreview();setupCrop();render();});
+$('game').addEventListener('change',()=>{startIntent++;invalidate();scanning=false;updatePreview();setupCrop();render();});
 const canvas=document.createElement('canvas');
-function cropFrame(region){return drawCrop($('preview'),canvas,region,$('picture-area').value);}
-$('preview-crop').onclick=()=>{try{const image=cropFrame(cropValue()),preview=$('crop-preview');preview.width=image.width;preview.height=image.height;preview.getContext('2d').drawImage(image,0,0);preview.hidden=false;}catch(e){text('match-status',e.message);}};
+function cropFrame(frame,region,target=canvas){return drawCrop(frame,target,region,$('picture-area').value);}
+$('preview-crop').onclick=async()=>{
+ if(scanning){text('match-status','Pause OCR before previewing the crop.');return;}
+ const token=epoch;await scanCompletion;await probeCompletion;
+ if(token!==epoch||scanning||busy)return;
+ busy=true;let frame;
+ try{frame=await receiverSource.readFrame();if(token!==epoch)return;if(!frame)throw Error('Wait for a fresh screen frame, then try the crop again.');const preview=$('crop-preview');cropFrame(frame,cropValue(),preview);preview.hidden=false;}
+ catch(e){if(token===epoch)text('match-status',e.message);}finally{frame?.release();busy=false;}
+};
 async function initEngine(){
  await resetting;
  const base=new URL('./ocr/',import.meta.url),lang=$('ocr-language').value;
@@ -106,26 +131,54 @@ async function refreshPackStatus(){
 }
 void ocrManifest().then(data=>{const present=new Set([...$('ocr-language').options].map(o=>o.value));for(const [locale,code] of Object.entries(data.locales)){if(!present.has(code)){$('ocr-language').add(new Option(languageName(locale),code));present.add(code);}}return refreshPackStatus();}).catch(e=>text('ocr-pack-status',e.message));
 $('ocr-pack-download').onclick=async()=>{const codes=$('ocr-language').value.split('+');$('ocr-pack-download').disabled=true;$('ocr-pack-progress').hidden=false;try{for(const code of codes)await loadModel(code,{download:true,onProgress:value=>$('ocr-pack-progress').value=value});}catch(e){text('ocr-pack-status',e.message);return;}finally{$('ocr-pack-download').disabled=false;$('ocr-pack-progress').hidden=true;}await refreshPackStatus();};
-$('ocr-pack-remove').onclick=async()=>{scanning=false;epoch++;stable=null;updatePreview();await resetting;await scanCompletion;if(loading)await loading.catch(()=>{});if(engine){await engine.terminate();engine=null;engineLanguage=null;}try{for(const code of $('ocr-language').value.split('+'))if(!(await modelStatus(code)).builtin)await removeModel(code);await refreshPackStatus();}catch(e){text('ocr-pack-status',e.message);}};
+$('ocr-pack-remove').onclick=async()=>{scanning=false;invalidate();updatePreview();await resetting;await scanCompletion;if(loading)await loading.catch(()=>{});if(engine){await engine.terminate();engine=null;engineLanguage=null;}try{for(const code of $('ocr-language').value.split('+'))if(!(await modelStatus(code)).builtin)await removeModel(code);await refreshPackStatus();}catch(e){text('ocr-pack-status',e.message);}};
 window.addEventListener('toolkit-interface-language',()=>void refreshPackStatus());
-$('ocr-language').onchange=()=>{void refreshPackStatus();epoch++;stable=null;scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
-$('ocr-start').onclick=async()=>{const token=++epoch;try{if(!library)throw new Error('Open a game catalog first.');if(library.manifest.game!==currentGame())throw new Error('Open a catalog for the selected game.');text('match-status','Loading on-device OCR…');await initEngine();if(token!==epoch)return;scanning=true;updatePreview();text('match-status','OCR ready. Keep this receiving page open while playing.');}catch(e){text('match-status',e.message);}};
-$('ocr-pause').onclick=()=>{scanning=false;updatePreview();epoch++;stable=null;text('match-status','OCR paused.');};
-window.addEventListener('mobile-stream',event=>{if(!streamState||streamState.generation!==event.detail.generation||streamState.state!==event.detail.state){epoch++;stable=null;lastMediaTime=-1;}streamState=event.detail;updatePreview();});
-document.addEventListener('visibilitychange',()=>{epoch++;stable=null;updatePreview();if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
-function regions(){return captureRegions(currentGame(),preferences[currentGame()]?.crop??crops[currentGame()],$('extra-regions').checked,$('cinematic-regions').checked,preferences[currentGame()]?.regions).map(region=>$('ocr-contrast').value==='raw'?{...region,raw:true}:region);}
-async function scan(){
- if(busy||!scanning||!engine||document.hidden||!library||library.manifest.game!==currentGame()||$('role').value!=='receiver'||streamState?.state!=='connected'||streamState?.live===false||$('preview').readyState<2||$('preview').currentTime===lastMediaTime)return;
- lastMediaTime=$('preview').currentTime;
- busy=true;let finishScan;scanCompletion=new Promise(resolve=>finishScan=resolve);const token=epoch,start=performance.now();
+$('ocr-language').onchange=()=>{startIntent++;void refreshPackStatus();invalidate();scanning=false;updatePreview();text('match-status','OCR paused. Start with the selected subtitle language.');resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const old=engine;engine=null;if(old)await old.terminate();});};
+$('ocr-start').onclick=async()=>{
+ const intent=++startIntent;invalidate();$('ocr-start').disabled=true;
  try{
+  if(!library)throw new Error('Open your Mobile Library ZIP first.');
+  if(library.manifest.game!==currentGame())throw new Error('Open a library for the selected game.');
+  if(!receiverSource.active){text('match-status','Connecting your game screen…');await connectVdo();}
+  if(intent!==startIntent)return;
+  // Connecting creates a new frame session and invalidates old OCR epochs.
+  // Own the new session only after that transition; one tap still starts OCR.
+  const token=invalidate();text('match-status','Preparing subtitle recognition…');await initEngine();
+  if(intent!==startIntent||token!==epoch)return;
+  scanning=true;updatePreview();document.body.classList.remove('show-play-setup');text('match-status','Following subtitles. Keep this page visible.');
+ }catch(e){if(intent===startIntent)text('match-status',e.message);}
+ finally{$('ocr-start').disabled=false;}
+};
+function pauseOcr(){startIntent++;scanning=false;updatePreview();invalidate();text('match-status','OCR paused.');}
+$('ocr-pause').onclick=pauseOcr;
+// An explicit receiver Stop also cancels the user's OCR intent (including a
+// pending Start). Automatic source reconnect/pause events retain that intent.
+$('vdo-stop').addEventListener('click',pauseOcr);
+// A scan owns the only frame until recognition/matching finishes. During a slow
+// scan no new pixels can be observed, so a same-session stall is not evidence
+// that its captured frame is invalid. Session changes and terminal states are.
+receiverSource.subscribe(value=>{if(!sourceState||sourceState.revision!==value.revision||sourceState.sessionId!==value.sessionId||sourceState.status!==value.status&&['ended','error','paused'].includes(value.status))invalidate();sourceState=value;updatePreview();});
+window.addEventListener('mobile-source-changed',()=>{startIntent++;scanning=false;invalidate();updatePreview();text('match-status','Screen source changed. Connect it, then start OCR.');});
+document.addEventListener('visibilitychange',()=>{invalidate();updatePreview();if(document.hidden)text('match-status','OCR suspended while the phone page is hidden.');});
+for(const kind of ['freeze','pagehide'])window.addEventListener(kind,()=>{invalidate();updatePreview();});
+function regions(){return captureRegions(currentGame(),preferences[currentGame()]?.crop??crops[currentGame()],$('extra-regions').checked,$('cinematic-regions').checked,preferences[currentGame()]?.regions).sort((a,b)=>Number(Boolean(b.fragment))-Number(Boolean(a.fragment))).map(region=>$('ocr-contrast').value==='raw'?{...region,raw:true}:region);}
+async function scan(){
+ if(busy||!scanning||!engine||document.hidden||!library||library.manifest.game!==currentGame()||$('role').value!=='receiver'||!receiverSource.active)return;
+ busy=true;let finishScan,frame;scanCompletion=new Promise(resolve=>finishScan=resolve);const token=epoch,start=performance.now(),controller=new AbortController();activeJob=controller;
+ try{
+  frame=await receiverSource.readFrame({signal:controller.signal});if(token!==epoch||!frame)return;
   let accepted=null,acceptedMany=null,ambiguous=false,dialogueMenu=false;
   for(const region of regions()){
    if(token!==epoch)return;
    if(region.channel!=='dialogue'&&dialogueMenu)continue;
-   const image=cropFrame(region.crop);
+   const image=cropFrame(frame,region.crop);
    const recognized=await recognizeRegion(engine,image,region,$('ocr-language').value,()=>token===epoch);if(token!==epoch)return;if(!recognized)continue;
    const parsed=candidates(recognized,region,image.width,image.height,currentGame());if(region.channel==='dialogue')dialogueMenu=parsed.menu;
+   if(region.fragment){
+    const hits=await request('comic-matches',{values:parsed.values,player:$('player-voice').value});if(token!==epoch)return;
+    if(hits.length){acceptedMany=hits.map(hit=>({...hit,channel:region.channel,comic:true}));accepted=acceptedMany[0];break;}
+    continue;
+   }
    let match=await request('match-candidates',{values:parsed.values,channel:region.channel,player:$('player-voice').value,fragment:region.fragment});if(token!==epoch)return;
    if(currentGame()==='heavyrain'&&region.channel==='dialogue'){
     if(parallelContext.epoch!==token||parsed.menu)parallelContext={epoch:token,groups:new Map(),counts:new Map(),stable:new Map()};
@@ -159,30 +212,37 @@ async function scan(){
    if(accepted)break;
   }
   const elapsed=performance.now()-start;samples.push({kind:'ocr',ms:elapsed});samples=samples.slice(-120);
+  const comicConfirmation=confirmComicCaptions(comicVisible,(acceptedMany??[]).filter(hit=>hit.comic).map(hit=>hit.row.id));comicVisible=comicConfirmation.state;
   if(!accepted){stable=null;if(['heavyrain','beyond'].includes(currentGame()))parallelContext.stable=confirmCaptions(parallelContext.stable,[],performance.now(),currentGame()==='beyond'&&!ambiguous);text('match-status',ambiguous?'Ambiguous dialogue/voice; skipped.':'No verified match: unsupported scene, incomplete text, or crop needs calibration.');return;}
   const matches=acceptedMany??[accepted];let changed=false;
-  if(acceptedMany)parallelContext.stable=confirmCaptions(parallelContext.stable,matches.map(hit=>hit.row.id),performance.now(),currentGame()==='beyond');
+  if(acceptedMany&&!accepted.comic)parallelContext.stable=confirmCaptions(parallelContext.stable,matches.map(hit=>hit.row.id),performance.now(),currentGame()==='beyond');
+  const observedAt=Date.now();let order=0;
   for(const hit of matches){
-  const key=hit.row.id;stable=acceptedMany?{key,count:parallelContext.stable.get(key)?.count??1}:stable?.key===key?{key,count:stable.count+1}:{key,count:1};
+  const key=hit.row.id;stable=hit.comic?{key,count:comicVisible.get(key)?.count??1}:acceptedMany?{key,count:parallelContext.stable.get(key)?.count??1}:stable?.key===key?{key,count:stable.count+1}:{key,count:1};
   text('match-status',`Verified ${hit.channel} match · ${elapsed.toFixed(0)} ms${stable.count<2?' · confirming…':''}`);
-  if(stable.count===2&&(!emitted.has(key)||Date.now()-emitted.get(key)>10000)&&!history.some(r=>r.id===key&&Date.now()-r.createdAt<10000)){
-   emitted.set(key,Date.now());history.push({...hit.row,score:hit.score,matching:hit.score===100?'exact':'fuzzy',game:currentGame(),createdAt:Date.now(),favorite:false});changed=true;
+  if(hit.comic?comicConfirmation.ready.has(key):stable.count===2&&(!emitted.has(key)||Date.now()-emitted.get(key)>10000)&&!history.some(r=>r.id===key&&Date.now()-r.createdAt<10000)){
+   emitted.set(key,Date.now());history.push({...hit.row,score:hit.score,matching:hit.score===100?'exact':'fuzzy',game:currentGame(),createdAt:observedAt+order++,favorite:false});changed=true;
    if(emitted.size>2048){const cutoff=Date.now()-10000;for(const [id,time] of emitted)if(time<cutoff)emitted.delete(id);}
   }
   }
-  if(changed){await saveHistory();render();}
- }catch(e){if(token===epoch){parallelContext.epoch=-1;text('match-status',`OCR needs attention: ${e.message}`);}}finally{busy=false;finishScan();}
+  if(changed){render();await saveHistory();}
+ }catch(e){if(token===epoch){parallelContext.epoch=-1;text('match-status',`OCR needs attention: ${e.message}`);}}finally{frame?.release();if(activeJob===controller)activeJob=null;busy=false;finishScan();}
 }
-// One in-flight scan: the next scan always uses the latest video frame.
-setInterval(()=>void scan(),600);
+// Probe through the same bounded source while OCR is paused, so connecting and
+// unchanged-picture status reflects frame observations, not iframe load events.
+setInterval(async()=>{
+ if(scanning){void scan();return;}
+ if(busy||document.hidden||!receiverSource.active)return;
+ busy=true;let frame,finishProbe;probeCompletion=new Promise(resolve=>finishProbe=resolve);try{frame=await receiverSource.readFrame();}catch{/* Source owns its safe status. */}finally{frame?.release();busy=false;finishProbe();}
+},600);
 $('library-report').onclick=async()=>{
  const observations={device:$('test-device').value,outcome:$('test-outcome').value,...Object.fromEntries(['large','playback','reload','reboot','update','gameplay'].map(name=>[name,$('test-'+name).checked]))};
  const storage=await storageStatus(),data={format:'proxy-mobile-library-report-v1',build:document.documentElement.dataset.buildCommit??null,game:currentGame(),createdAt:new Date().toISOString(),libraryRows:library?.rowCount??0,availableVoices:available.size,selectedBytes,selectedPacks,openMs,storage,samples:samples.slice(-120),transcriptRows:history.filter(r=>r.game===currentGame()).length,observations,physicalDeviceVerified:observations.device==='iphone'&&observations.outcome==='passed'&&['large','playback','reload','reboot','update','gameplay'].every(name=>observations[name])};
  const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='mobile-library-report.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
-async function restore(){const token=selection;try{preferences=await get('preferences')??{};history=await get('history')??[];if(token===selection){const result=await request('restore');if(token!==selection)return;library=result.catalog;if(library&&!$('game').disabled){$('game').value=library.manifest.game;$('game').dispatchEvent(new Event('change'));}libraryStatus();}setupCrop();render();await reportStorage();}catch{setupCrop();text('storage-status','Browser cache unavailable. Open the catalog again from Files.');}}
+async function restore(){const token=selection;try{preferences=await get('preferences')??{};history=await get('history')??[];if(token===selection){const result=await request('restore');if(token!==selection)return;library=result.catalog;available=new Set(result.available??[]);selectedBytes=result.selectedBytes??0;selectedPacks=result.selectedPacks??0;showSaved(result.libraries);if(result.available?.length){history=await request('refresh-history',{history});await saveHistory();}if(result.warning){text('cache-status',result.warning);$('cache-status').hidden=false;}if(library&&!$('game').disabled){$('game').value=library.manifest.game;$('game').dispatchEvent(new Event('change'));}libraryStatus();}setupCrop();render();await reportStorage();}catch{setupCrop();text('storage-status','Browser cache unavailable. Open the catalog again from Files.');}}
 void restore();
-for(const id of ['player-voice','extra-regions','cinematic-regions'])$(id).addEventListener('change',()=>{epoch++;stable=null;});
+for(const id of ['player-voice','extra-regions','cinematic-regions'])$(id).addEventListener('change',()=>{invalidate();});
 for(const id of optionIds)$(id).addEventListener('change',()=>void savePreferences().catch(e=>text('match-status',e.message)));
 if(!document.getElementById('app-root')&&'serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').then(registration=>{
  $('reload-build').onclick=async()=>{if($('role').disabled)return;await registration.update().catch(()=>{});if(registration.installing)await new Promise(resolve=>{const worker=registration.installing;worker.addEventListener('statechange',()=>{if(['installed','redundant'].includes(worker.state))resolve();});setTimeout(resolve,5000);});if(registration.waiting){const activated=new Promise(resolve=>{navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true});setTimeout(resolve,3000);});registration.waiting.postMessage('activate-update');await activated;}const url=new URL(location.href);url.searchParams.set('v',String(Date.now()));location.replace(url);};
@@ -192,9 +252,11 @@ export const libraryLifecycle={
  get history(){return history.map(r=>({...r,source:'mobile-ocr'}));},
  get busy(){return $('library-files').disabled||voiceBusy;},
  get ready(){return Boolean(library);},
- stop(){scanning=false;epoch++;stable=null;updatePreview();$('voice-player').pause();resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const previous=engine;engine=null;engineLanguage=null;await previous?.terminate();});},
+ canPlay:row=>library?.manifest.game===row.game&&available.has(row.audio),
+ voiceStatus:row=>!row.audio?(row.sourceVoice?'Original voice was not included in this export.':'No verified original voice for this line.'):available.has(row.audio)?'':'Reopen your Mobile Library ZIP from Files to enable playback.',
+ stop(){startIntent++;scanning=false;invalidate();updatePreview();$('voice-player').pause();resetting=resetting.then(async()=>{await scanCompletion;if(loading)await loading.catch(()=>{});const previous=engine;engine=null;engineLanguage=null;await previous?.terminate();});},
  async favorite(id,game,value){for(const row of history)if(row.id===id&&row.game===game)row.favorite=value;await saveHistory();render();},
- async voice(row){if(!available.has(row.audio))throw Error('Reselect the original voice ZIP in Library.');return request('voice',{sha:row.audio});},
+ async voice(row){if(!available.has(row.audio))throw Error('Reopen your mobile library from Files to play voices.');return request('voice',{sha:row.audio});},
  search:text=>request('search',{text}),
  choose:addSearchLine
 };

@@ -35,6 +35,9 @@ class Handler(BaseHTTPRequestHandler):
         global noted
         if self.path.startswith('/api/runtime/ready'):
             warm = time.monotonic() - started > 1 and not (Path(__file__).parent / 'fail.flag').exists()
+            # History from another account must not block a paused update. A
+            # running game still needs its own prepared index before handoff.
+            warm = warm and ('?' not in self.path or self.path.endswith('?game=zzz'))
             if warm and not noted:
                 note('ready')
                 noted = True

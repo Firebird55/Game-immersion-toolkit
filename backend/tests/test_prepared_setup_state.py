@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 import json
+import threading
 
 import pytest
 
@@ -10,6 +11,8 @@ from backend.installation import _voice_state
 
 def runtime(tmp_path, account='owner', locale='nl'):
     value = api.Runtime.__new__(api.Runtime)
+    value._locale_voice_lock = threading.RLock()
+    value._locale_indexes = {}
     value.accounts = SimpleNamespace(status=lambda: {'active': account})
     value.languages = LanguagePreparation(None, None, None, path=tmp_path / 'languages.json')
     if locale:
@@ -73,3 +76,66 @@ def test_a_snapshot_from_another_locale_is_not_ready_for_the_selected_language(t
     directory = tmp_path / 'languages/beyond/nl'; directory.mkdir(parents=True)
     (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'ja', 'records': []}))
     assert not value.language_state('beyond', 'nl')['ready']
+
+
+@pytest.mark.parametrize('game', ['beyond', 'cyberpunk'])
+def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, game):
+    from backend import game_assets
+    from backend.languages import audio_locale
+    value = runtime(tmp_path, locale='nl')
+    monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
+    install = tmp_path / 'game'; install.mkdir()
+    directory = tmp_path / 'languages' / game / 'nl'; directory.mkdir(parents=True)
+    payload = {'format': 2, 'game': game, 'install': str(install), 'source_locale': 'nl',
+               'fingerprint': 'unchanged', 'targets_requested': ['en'], 'reader_revision': 1,
+               'records': []}
+    (directory / 'textmap.json').write_text(json.dumps(payload))
+    monkeypatch.setattr(game_assets, 'asset_adapter', lambda _: (SimpleNamespace(
+        index_language=True, fingerprint=lambda _: 'unchanged', LANGUAGE_INDEX_VERSION=1), None))
+    value.setup_install = lambda _: install
+    extracted = []
+    def run(command, **options):
+        extracted.append(command)
+        payload['records'] = [{'text_id': 'fixture', 'source_locale': 'nl', 'source_text': 'Blijf hier.',
+            'audio_locale': audio_locale('nl'), 'texts': {'nl': 'Blijf hier.', 'en': 'Stay here.'}, 'audio': {'voice': 1}}]
+        from pathlib import Path
+        Path(command[command.index('--output') + 1]).write_text(json.dumps(payload))
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(api.subprocess, 'run', run)
+    value.build_language(game, 'nl', ('en',))
+    assert len(extracted) == 1, 'Invalid unchanged snapshots must be repaired without Rebuild'
+    value.build_language(game, 'nl', ('en',))
+    assert len(extracted) == 1, 'A valid unchanged table must not be extracted again'
+    monkeypatch.setattr(api.json, 'loads', lambda *_: pytest.fail('Unchanged validated data should not be parsed again'))
+    value.build_language(game, 'nl', ('en',))
+
+
+def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):
+    from pathlib import Path
+    from backend import game_assets
+    from backend.preparation_errors import PreparationFailure, public_failure
+    value = runtime(tmp_path)
+    monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
+    install = tmp_path / 'game'; install.mkdir()
+    directory = tmp_path / 'languages/beyond/nl'; directory.mkdir(parents=True)
+    original = json.dumps({'fingerprint': 'previous-game-version', 'records': [{'synthetic': True}]})
+    (directory / 'textmap.json').write_text(original)
+    monkeypatch.setattr(game_assets, 'asset_adapter', lambda _: (SimpleNamespace(
+        index_language=True, fingerprint=lambda _: 'new-game-version', LANGUAGE_INDEX_VERSION=1), None))
+    value.setup_install = lambda _: install
+    def run(command, **options):
+        output = Path(command[command.index('--output') + 1])
+        output.with_name('failure.json').write_text(json.dumps({'code': 'unsupported_game_format',
+            'message': 'This archive format needs a newer reader. Update the toolkit and retry.'}))
+        output.with_name('failure.log').write_text('Synthetic private diagnostic.')
+        return SimpleNamespace(returncode=1)
+    monkeypatch.setattr(api.subprocess, 'run', run)
+    with pytest.raises(PreparationFailure) as caught:
+        value.build_language('beyond', 'nl', ('en',))
+    failure = public_failure(caught.value)
+    assert failure['code'] == 'unsupported_game_format' and failure['game_files_changed']
+    assert failure['previous_snapshot_retained']
+    assert 'Installed game files changed' in failure['message'] and 'newer reader' in failure['message']
+    assert str(tmp_path) not in failure['message']
+    assert (directory / 'textmap.json').read_text() == original
+    assert (directory / 'last-preparation-error.log').is_file()

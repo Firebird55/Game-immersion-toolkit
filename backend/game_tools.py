@@ -9,7 +9,9 @@ import shutil
 import tempfile
 import urllib.request
 import zipfile
+from .steam_games import STEAM_GAMES
 
+CODE_ROOT = Path(__file__).resolve().parents[1]
 VGM_URL = "https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-win64.zip"
 VGM_SHA = "6c4a8a3813864fefed081bbd337dbc0ad93bf88e0b92f5db98d7ab258b22dc6c"
 REE_URL = "https://github.com/Ekey/REE.PAK.Tool/releases/download/Latest/REE.Unpacker-x86.zip"
@@ -115,13 +117,13 @@ def refresh_zzz_metadata(root: Path, *, revision=None) -> tuple[str, bool]:
 
 
 def missing_tools(root: Path, game: str) -> list[str]:
-    if game in {"hito", "beyond", "heavyrain"}:
+    if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return []
     required = [("Voice decoder", root / "data/voice-assets/vgmstream/vgmstream-cli.exe")]
     if game == "zzz":
         required += [("ZZZ scene reader", root / "work/voice-assets/galgame-perform.ts")]
         required += [(name, root / "work/voice-assets" / name) for name in METADATA_FILES]
-        required += [(name, root / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
+        required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "pragmata":
         required += [("PRAGMATA extractor", root / "data/pragmata/tools/REE.Unpacker.exe")]
     if game == "cyberpunk":
@@ -150,7 +152,7 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
     from .game_paths import GAMES
     if game not in GAMES:
         raise ValueError("Unsupported game")
-    if game in {"hito", "beyond", "heavyrain"}:
+    if game in {"hito", "beyond", "heavyrain"} or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return
     decoder = root / "data/voice-assets/vgmstream"
     progress("Preparing the verified original-voice decoder")

@@ -1,5 +1,6 @@
 'use client';
-import {useInterfaceTranslation} from '../lib/interface-language';
+import {useInterfaceLanguage, useInterfaceTranslation} from '../lib/interface-language';
+import {languageName} from '../public/mobile-capture/interface-language.mjs';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
@@ -7,7 +8,9 @@ import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
+import {LanguageSetup} from './language-setup';
 import {GamePicker, useTargetLanguage} from './game-picker';
+import {GAME_NAMES, captureRegionKey, type GameId} from '../lib/games';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -47,8 +50,8 @@ const HISTORY_LIMIT = 50;
 const HISTORY_PAGE_SIZE = 10;
 
 type CaptureRegion = { left: number; top: number; width: number; height: number };
-type Settings = {
-  preferred_game: 'auto' | 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
+type Settings = Record<`${Exclude<GameId, 'zzz' | 'pragmata'>}_region`, CaptureRegion> & {
+  preferred_game: 'auto' | GameId;
   process_names: string[];
   window_title_contains: string[];
   region: CaptureRegion;
@@ -70,6 +73,8 @@ type Settings = {
   wuwa_rover_voice: 'unconfigured' | 'female' | 'male';
   beyond_region: CaptureRegion;
   heavyrain_region: CaptureRegion;
+  riseofthetombraider_region: CaptureRegion;
+  shadowofthetombraider_region: CaptureRegion;
   starrail_region: CaptureRegion;
   starrail_player_voice: 'unconfigured' | 'female' | 'male';
   genshin_region: CaptureRegion;
@@ -89,13 +94,14 @@ type Settings = {
   fuzzy_threshold: number;
   auto_start: boolean;
   save_unmatched: boolean;
+  capture_unvoiced: boolean;
 };
 type CaptureStatus = {
   visible_text_ids: string[];
   running: boolean;
   phase: string;
   message: string;
-  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | null;
+  active_game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield' | 'riseofthetombraider' | 'shadowofthetombraider' | null;
   window_title: string | null;
   window_bounds: [number, number, number, number] | null;
   crop_bounds: [number, number, number, number] | null;
@@ -118,7 +124,7 @@ type TranscriptLine = {
   id: number;
   created_at: string;
   session_id: string;
-  game: 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
+  game: GameId;
   source_ocr: string;
   source_language?:string; source_locale?:string; source_text?:string; translation_text?:string; translation_locale?:string; audio_locale?:string;
   english: string;
@@ -129,6 +135,8 @@ type TranscriptLine = {
   ambiguous: boolean;
   channel: 'dialogue' | 'gameplay' | 'tip' | 'cinematic';
   voiced: boolean;
+  voice_status?: 'voiced' | 'unvoiced' | 'unavailable' | 'unknown';
+  dialogue_kind?: string | null;
   has_audio: boolean;
   audio_pending?: boolean;
   audio_source?: 'original' | 'recording';
@@ -139,13 +147,20 @@ type TranscriptLine = {
 function isComicLine(line: TranscriptLine) {
   return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}(?::[MF])?$/i.test(line.text_id);
 }
+function voicePlaybackLabel(line: TranscriptLine) {
+  return line.dialogue_kind?.endsWith('_full_track') ? 'Original audio · full track' : 'Original voice';
+}
 function isReadableLine(line: TranscriptLine) {
-  return line.voiced || line.game === 'hito' || isComicLine(line);
+  return line.voiced || line.voice_status === 'unvoiced' || line.game === 'hito' || isComicLine(line);
 }
 type UpdateStatus = {
   state: string;
   message: string;
-  progress: number;
+  progress: number | null;
+  elapsed_seconds?: number;
+  stage_seconds?: number;
+  queued?: number;
+  items?: {game: string; locale: string; state: string; message: string; retry_after?: string}[];
   automatic: boolean;
   last_checked: string | null;
   last_error: string | null;
@@ -162,21 +177,6 @@ type StatusPayload = {
 };
 type CompanionSnapshot = {context:StateContext; status:StatusPayload; lines:TranscriptLine[]; lexirise:LexiriseStatus};
 type TranscriptTab = 'history' | 'favorites';
-type GameId = 'zzz' | 'pragmata' | 'hito' | 'cyberpunk' | 'wuwa' | 'witcher3' | 'nte' | 'beyond' | 'heavyrain' | 'starrail' | 'genshin' | 'endfield';
-const GAME_NAMES: Record<GameId, string> = {
-  zzz: 'Zenless Zone Zero',
-  pragmata: 'PRAGMATA',
-  cyberpunk: 'Cyberpunk 2077',
-  wuwa: 'Wuthering Waves',
-  witcher3: 'The Witcher 3',
-  nte: 'Neverness to Everness',
-  beyond: 'BEYOND: Two Souls',
-  heavyrain: 'HEAVY RAIN',
-  starrail: 'Honkai: Star Rail',
-  genshin: 'Genshin Impact',
-  endfield: 'Arknights: Endfield',
-  hito: "Hito's World",
-};
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
   return Date.parse(right.created_at) - Date.parse(left.created_at) || right.id - left.id;
 }
@@ -187,7 +187,7 @@ const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game
 }) {
   const uiText=useInterfaceTranslation();
   if (game === 'hito') return null;
-  const title = sent ? 'Already sent to Lexirise' : `Send sentence and voice to Lexirise · ${GAME_NAMES[game]}`;
+  const title = sent ? 'Already sent to Lexirise' : `Save sentence to Lexirise · ${GAME_NAMES[game]}`;
   return <button type="button" className={`lexirise-send ${sent ? 'is-sent' : ''}`} translate="no"
     disabled={disabled || busy || sent} onClick={onClick} title={title} aria-label={title} aria-busy={busy}>
     {busy ? <Loader2 size={16} className="animate-spin" /> : sent ? <Check size={16} /> : <Send size={16} />}
@@ -272,6 +272,7 @@ function phaseLabel(phase: string) {
     matched: 'Matched',
     error: 'Retrying',
     stopped: 'Paused',
+    unvoiced_disabled: 'Enable text-message capture',
   };
   return labels[phase] ?? phase.replaceAll('_', ' ');
 }
@@ -305,19 +306,19 @@ const StableInline = memo(function StableInline({ text, className }: { text: str
   return <span ref={element} className={className} />;
 });
 
-const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId }: { text: string; lineId: number }) {
+const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId, locale }: { text: string; lineId: number; locale: string }) {
   const host = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!host.current) return;
     const paragraph = document.createElement('p');
     paragraph.className = 'current-chinese';
-    paragraph.lang = 'zh-Hans';
+    paragraph.lang = locale;
     paragraph.dataset.migakuLineId = String(lineId);
     paragraph.textContent = text;
     // A fresh node is important: Migaku processes newly inserted transcript
     // nodes, but does not reliably revisit text replaced inside an old node.
     host.current.replaceChildren(paragraph);
-  }, [lineId, text]);
+  }, [lineId, text, locale]);
   return <div className="current-chinese-host" ref={host} />;
 });
 
@@ -330,10 +331,10 @@ function EnglishTranslation({ line, summary, limit, current = false }: {
   const count = summary?.id === line.id && summary.text === (line.source_text??line.chinese) ? summary.unknownWords : null;
   const hidden = shouldHideTranslation(limit, count) && revealed !== key;
   if (line.translation_text === '') return <p className="translation-unavailable">{uiText("Official")} {line.translation_locale} {uiText("translation unavailable. Prepare its table in Setup → Languages.")}</p>;
-  if (!hidden) return <StableText className={current ? "current-english" : undefined} text={line.translation_text??line.english} />;
+  if (!hidden) return <StableText className={current ? "current-english" : undefined} lang={line.translation_locale ?? 'en'} text={line.translation_text??line.english} />;
   return <button type="button" className={`english-reveal ${current ? 'current-english-reveal' : ''}`}
-    onClick={() => setRevealed(key)} aria-label={uiText("Show English translation")}>
-    <span>{uiText("English hidden · Tap to reveal")}</span>
+    onClick={() => setRevealed(key)} aria-label={uiText("Show translation")}>
+    <span>{uiText("Translation hidden · Tap to reveal")}</span>
     <small>{count} {uiText("unknown")} {count === 1 ? uiText("word") : uiText("words")}</small>
   </button>;
 }
@@ -373,17 +374,17 @@ const TranscriptRow = memo(function TranscriptRow({
     </div>
     <div className="line-language">
       {line.speaker_chinese && <StableInline className="line-speaker speaker-chinese" text={line.speaker_chinese} />}
-      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang="zh-Hans" text={line.source_text??line.chinese} />}
+      {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} onSummary={setReadingSummary} /> : <StableText lang={line.source_locale ?? line.source_language ?? 'zh-Hans'} text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
       <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>
       <div className="line-actions">
-        <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`Play voice line: ${line.english}`} title="Play voice line"><Volume2 size={16} /></button>
+        <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`${voicePlaybackLabel(line)}: ${line.english}`} title={voicePlaybackLabel(line)}><Volume2 size={16} /></button>
         <button type="button" className={line.favorite ? "is-favorite" : ''} onClick={() => onToggleFavorite(line)} aria-label={line.favorite ? uiText("Remove from favorites") : uiText("Favorite line")} title={line.favorite ? uiText("Remove favorite") : uiText("Keep forever")}><Star size={16} fill={line.favorite ? "currentColor" : "none"} /></button>
         <LexiriseButton
           sent={sentToLexirise}
           busy={sendingRef === ref}
-          disabled={!canUseLexirise || !line.has_audio || (sendingRef !== null && sendingRef !== ref)}
+          disabled={!canUseLexirise || !(line.has_audio || line.voice_status === 'unvoiced') || (sendingRef !== null && sendingRef !== ref)}
           game={line.game}
           onClick={() => onSendToLexirise('line', line.id)}
           compact
@@ -394,7 +395,7 @@ const TranscriptRow = memo(function TranscriptRow({
 });
 
 function CompanionClient() {
- const uiText=useInterfaceTranslation();
+ const {t: uiText, locale: interfaceLocale}=useInterfaceLanguage();
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
@@ -431,18 +432,21 @@ function CompanionClient() {
   const gamePicker = useTargetLanguage(readingMode, lexirise.account, lexirise.configured);
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
-  const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
+  const [readerSettingsOpen, setReaderSettingsOpen] = useState<{language: import('@firebird55/lexirise-components').StudyLanguage; account: string} | null>(null);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const [accountSection, setAccountSection] = useState<'connection'|'preferences'>('connection');
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
   const sendingStudy = useRef(false);
-  const saveReadingOptions = useCallback((next: LocalSettings) => {
+  const saveReadingOptions = useCallback((next: LocalSettings, owner?: {language: string; account: string}) => {
     setReadingOptions(next);
     window.localStorage.setItem('proxy-transcript-reading-options', JSON.stringify(next));
-    const language=status?.selected_languages?.[selectedGame]?.source_language??'zh';
-    window.localStorage.setItem('proxy-transcript-reading-options:'+ (lexirise.account??'legacy')+':'+language,JSON.stringify(next));
+    const language=owner?.language??status?.selected_languages?.[selectedGame]?.source_language??'zh';
+    window.localStorage.setItem('proxy-transcript-reading-options:'+ (owner?.account??lexirise.account??'legacy')+':'+language,JSON.stringify(next));
     window.dispatchEvent(new Event('lexirise-local-reading-options'));
   }, [selectedGame,status?.selected_languages,lexirise.account]);
+
+  useEffect(() => { setReaderSettingsOpen(null); }, [lexirise.account]);
 
   useEffect(() => {
     const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
@@ -660,14 +664,22 @@ function CompanionClient() {
     return () => window.clearInterval(timer);
   }, [settingsOpen]);
 
+  const activeGameAvailable = gamePicker.games.some(game => game.id === status?.capture.active_game);
   useEffect(() => {
     const active = status?.capture.active_game;
-    if (active && active !== lastActiveGame.current) {
+    if (active && activeGameAvailable && active !== lastActiveGame.current) {
       lastActiveGame.current = active;
       if (gamePicker.games.some(game => game.id === active)) setSelectedGame(active);
       setHistoryPage(0);
     }
-  }, [changeTranscriptTab, status?.capture.active_game, transcriptTab]);
+  }, [activeGameAvailable, status?.capture.active_game]);
+
+  useEffect(() => {
+    if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
+      setSelectedGame((activeGameAvailable ? status!.capture.active_game : gamePicker.games[0].id) as GameId);
+      setHistoryPage(0);
+    }
+  }, [gamePicker.target, selectedGame, activeGameAvailable, status?.capture.active_game]);
 
   useEffect(() => {
     if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
@@ -689,14 +701,13 @@ function CompanionClient() {
   const latestSessionLine = recentLines.find((line) =>
     line.session_id === status?.session.id && isReadableLine(line)
   ) ?? null;
-  // Free-roam subtitles disappear from the game almost immediately. Keep the
-  // newest one available to read/Migaku until any later voiced line arrives.
-  // Other presentation modes still disappear from Current line with the game.
-  const latestLine = archivedHistory ? null : visibleLine ?? (
-    latestSessionLine && (latestSessionLine.channel === 'gameplay' || latestSessionLine.game !== 'zzz')
-      ? latestSessionLine
-      : null
-  );
+  // Keep confirmed dialogue readable between subtitles, including comics and
+  // unvoiced lines. Session/game filtering prevents carrying it into another game.
+  const latestLine = archivedHistory ? null : visibleLine ?? latestSessionLine;
+  const activeReadingSource = latestLine?.source_language ?? status?.selected_languages?.[selectedGame]?.source_language ?? 'zh';
+  const providerReadingSource = isStudyLanguage(activeReadingSource) ? activeReadingSource : null;
+  const openReadingOptions = () => setReaderSettingsOpen(providerReadingSource
+    ? {language: providerReadingSource, account: lexirise.account ?? 'legacy'} : null);
   const historyLines = useMemo(
     () => recentLines.filter((line) => line.id !== latestLine?.id),
     [recentLines, latestLine?.id],
@@ -713,6 +724,17 @@ function CompanionClient() {
         currentHistoryPage * HISTORY_PAGE_SIZE,
         (currentHistoryPage + 1) * HISTORY_PAGE_SIZE,
       );
+  const columnLanguage = (kind: 'source' | 'translation') => {
+    const locales = new Set(visibleTranscriptLines.map(line => kind === 'source'
+      ? line.source_locale ?? line.source_language ?? 'zh-Hans'
+      : line.translation_locale ?? 'en'));
+    if (locales.size === 1) return languageName([...locales][0], interfaceLocale);
+    if (!locales.size && kind === 'source') {
+      const selected = status?.selected_languages?.[selectedGame];
+      if (selected) return languageName(selected.source_locale, interfaceLocale);
+    }
+    return uiText(kind === 'source' ? 'Game text' : 'Translation');
+  };
   const sessionId = status?.session.id;
   const sessionLines = useMemo(
     () => lines.filter((line) => line.game === selectedGame && (!sessionId || line.session_id === sessionId)),
@@ -732,9 +754,7 @@ function CompanionClient() {
   function updateRegion(field: keyof CaptureRegion, percent: number) {
     setDraftSettings((current) => {
       if (!current) return current;
-      const regionKey = selectedGame === 'starrail' ? 'starrail_region' : selectedGame === 'genshin' ? 'genshin_region' : selectedGame === 'endfield' ? 'endfield_region' : selectedGame === 'heavyrain' ? 'heavyrain_region' : selectedGame === 'beyond' ? 'beyond_region' : selectedGame === 'nte' ? 'nte_region' : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? 'witcher3_tip_region' : 'witcher3_region') : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? 'wuwa_tip_region' : setupChannel === 'cinematic' ? 'wuwa_cinematic_region' : 'wuwa_region') : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? 'cyberpunk_tip_region' : 'cyberpunk_region') : selectedGame === 'hito' ? (setupChannel === 'tip' ? 'hito_tip_region' : 'hito_region') : setupChannel === 'tip'
-        ? 'tip_region'
-        : setupChannel === 'cinematic' ? 'cinematic_region' : 'region';
+      const regionKey = captureRegionKey(selectedGame, setupChannel);
       const value = percent / 100;
       const nextRegion = { ...(selectedGame === 'hito' && current.hito_auto_regions ? activeRegion ?? current[regionKey] : current[regionKey]), [field]: value };
       if (field === 'left') nextRegion.width = Math.min(nextRegion.width, 1 - value);
@@ -767,7 +787,7 @@ function CompanionClient() {
   async function refreshTextMaps() {
     setRefreshingMaps(true);
     try {
-      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
+      const endpoint = selectedGame === 'hito' ? '/api/hito/update' : ['cyberpunk', 'wuwa', 'witcher3', 'nte', 'beyond', 'heavyrain', 'starrail', 'genshin', 'endfield', 'riseofthetombraider', 'shadowofthetombraider'].includes(selectedGame) ? `/api/games/${selectedGame}/update` : '/api/textmaps/update';
       await fetch(`${API_URL}${endpoint}`, { method: 'POST' });
       await loadSnapshot();
     } finally {
@@ -802,17 +822,17 @@ function CompanionClient() {
     sendingStudy.current = true;
     const ref = `${kind}:${id}`;
     setSendingRef(ref);
-    setStudyMessage('Sending sentence and voice to Lexirise…');
+    setStudyMessage('Saving sentence to Lexirise…');
     try {
       const response = await fetch(`${API_URL}/api/lines/${id}/lexirise`, {
         method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':scope.account },
       });
-      const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean };
+      const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean; audio_included?: boolean };
       if (!isCurrent()) return;
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Could not send to Lexirise.');
       pollOwner.current?.reset(); // A previously read ledger cannot erase this completed export.
       setLexirise(current => ({ ...current, sent: { ...current.sent, [ref]: result.deck_id } }));
-      setStudyMessage(`${result.already_sent ? 'Already saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
+      setStudyMessage(`${result.already_sent ? 'Already saved' : result.audio_included === false ? 'Sentence saved' : 'Sentence and voice saved'} in Lexirise · ${GAME_NAMES[game]}.`);
     } catch (error) {
       if (isCurrent()) setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
     } finally {
@@ -821,10 +841,10 @@ function CompanionClient() {
     }
   }, []);
 
-  function studyButton(kind: 'line', id: number | string, game: GameId, hasAudio: boolean, compact = false) {
+  function studyButton(kind: 'line', id: number | string, game: GameId, canExport: boolean, compact = false) {
     const ref = `${kind}:${id}`;
     return <LexiriseButton sent={!!lexirise.sent[ref]} busy={sendingRef === ref}
-      disabled={!online || !lexirise.configured || !hasAudio || (sendingRef !== null && sendingRef !== ref)}
+      disabled={!online || !lexirise.configured || !canExport || (sendingRef !== null && sendingRef !== ref)}
       game={game} onClick={() => void sendToLexirise(kind, id, game)} compact={compact} />;
   }
 
@@ -838,11 +858,7 @@ function CompanionClient() {
   const mapStatus = status?.game_textmaps?.[selectedGame] ?? status?.textmaps;
   const updateStatus = status?.updates;
   const currentCount = sessionLines.length;
-  const manualRegion = draftSettings
-    ? (selectedGame === 'starrail' ? draftSettings.starrail_region : selectedGame === 'genshin' ? draftSettings.genshin_region : selectedGame === 'endfield' ? draftSettings.endfield_region : selectedGame === 'heavyrain' ? draftSettings.heavyrain_region : selectedGame === 'beyond' ? draftSettings.beyond_region : selectedGame === 'nte' ? draftSettings.nte_region : selectedGame === 'witcher3' ? (setupChannel === 'tip' ? draftSettings.witcher3_tip_region : draftSettings.witcher3_region) : selectedGame === 'wuwa' ? (setupChannel === 'tip' ? draftSettings.wuwa_tip_region : setupChannel === 'cinematic' ? draftSettings.wuwa_cinematic_region : draftSettings.wuwa_region) : selectedGame === 'cyberpunk' ? (setupChannel === 'tip' ? draftSettings.cyberpunk_tip_region : draftSettings.cyberpunk_region) : selectedGame === 'hito' ? (setupChannel === 'tip' ? draftSettings.hito_tip_region : draftSettings.hito_region) : setupChannel === 'tip'
-        ? draftSettings.tip_region
-        : setupChannel === 'cinematic' ? draftSettings.cinematic_region : draftSettings.region)
-    : null;
+  const manualRegion = draftSettings ? draftSettings[captureRegionKey(selectedGame, setupChannel)] : null;
   const detectedBounds = setupChannel === 'tip' ? capture?.tip_crop_bounds : capture?.crop_bounds;
   const gameBounds = capture?.window_bounds;
   const setupRegionLabel = setupChannel === 'dialogue' ? 'Dialogue'
@@ -874,7 +890,7 @@ function CompanionClient() {
       <header className="topbar">
         <div>
           <p className="eyebrow">{GAME_NAMES[selectedGame]}</p>
-          <h1>{uiText("Proxy Transcript")}</h1>
+          <h1>Game immersion toolkit</h1>
           {!archivedHistory && <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>}
         </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
@@ -885,20 +901,26 @@ function CompanionClient() {
 
       <div className="game-tabs">
         <span><Gamepad2 size={15} /> {uiText("Games & Languages")}</span>
-        {status?.capture.active_game && <small>{uiText("Capturing")}{GAME_NAMES[status.capture.active_game]}</small>}
-        <div className="reading-controls" aria-label={uiText("Chinese reading options")}>
+        {status?.capture.active_game && <small>{uiText("Capturing")} {GAME_NAMES[status.capture.active_game]}</small>}
+        <div className="reading-controls" aria-label={uiText("Reading options")}>
         <label>{uiText("Reading")}<select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
           const value = event.target.value as ReadingMode;
           setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
         }}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise" disabled={!lexirise.configured}>{uiText("Lexirise")}</option></select></label>
-        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => setReaderSettingsOpen(true)}
+        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={openReadingOptions} disabled={!providerReadingSource}
+          title={!providerReadingSource ? uiText('Lexirise reading tools are unavailable for this language.') : undefined}
           aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> {uiText("Reading options")}</button>}
-        <button type="button" className="reader-options-button" onClick={() => {setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>{uiText("Account settings")}</button>
+        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}>{uiText("Account settings")}</button>}
         </div>
       </div>
       <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
+
+      {!archivedHistory && online && !status?.selected_languages?.[selectedGame]?.source_locale && (capture?.phase === 'needs_language_setup' || !mapStatus?.ready) && <div className="game-start-card">
+        <div><h2>Prepare {GAME_NAMES[selectedGame]} for play</h2><p>Choose the subtitles and original voice you use in the game, then prepare them here. Preparation continues in the background.</p></div>
+        <LanguageSetup game={selectedGame} compact targetLanguage={gamePicker.target} showAccount={false} onConfigure={() => {}} onChanged={() => void loadSnapshot()}/>
+      </div>}
 
       <section className="status-strip" aria-label={uiText("Companion status")}>
         <div>
@@ -918,15 +940,19 @@ function CompanionClient() {
         </div>
       </section>
 
-      {!archivedHistory && updateStatus && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
+      {!archivedHistory && updateStatus && ['checking','updating','retrying','error'].includes(updateStatus.state) && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
         <div className="update-progress-copy">
           <RefreshCw size={16} className={updateStatus.state === 'checking' || updateStatus.state === 'updating' ? "is-spinning" : ''} />
-          <strong>{uiText("Automatic updates")}</strong>
+          <strong>{uiText("Game language updates")}</strong>
           <StableInline text={updateStatus.message} />
         </div>
-        <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />
-        <span className="update-progress-value">{updateStatus.progress}%</span>
+        {updateStatus.progress != null && <Progress value={updateStatus.progress} aria-label={`${updateStatus.progress}% complete`} />}
+        <span className="update-progress-value">{updateStatus.elapsed_seconds != null && updateStatus.state === 'updating' ? `${Math.floor(updateStatus.elapsed_seconds / 60)}m ${updateStatus.elapsed_seconds % 60}s` : updateStatus.state === 'ready' ? 'Ready' : ''}</span>
+        {!!updateStatus.queued && <span>{updateStatus.queued} queued</span>}
+        {!!updateStatus.items?.length && <details><summary>Details for all games</summary>{updateStatus.items.map(item => <p key={item.game + item.locale}><strong>{GAME_NAMES[item.game as GameId] ?? item.game} · {item.locale} — {uiText(item.state === 'ready' ? 'Ready' : item.state === 'error' ? 'Preparation failed' : item.state === 'preparing' ? 'Preparing' : item.state)}</strong><br/>{item.message} {item.retry_after}</p>)}</details>}
       </section>}
+
+      {capture && ['needs_language_setup','unvoiced_disabled'].includes(capture.phase) && <p role="status" className="toolkit-setup-note">{capture.message}</p>}
 
       {!archivedHistory && <section className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
         <div className="section-label">
@@ -934,7 +960,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={latestLine.game === 'hito' ? `${latestLine.channel === 'tip' ? 'Top box' : 'Dialogue'} · Game-file text · ${Math.round(latestLine.score)}%` : `${latestLine.game === 'pragmata' ? 'PRAGMATA dialogue' : latestLine.channel === 'tip' ? 'Top-right voice' : latestLine.channel === 'cinematic' ? latestLine.game === 'wuwa' ? 'Centered story card' : 'Cinematic / comic' : latestLine.channel === 'gameplay' ? latestLine.game === 'cyberpunk' || latestLine.game === 'witcher3' ? 'NPC chatter' : 'Gameplay voice' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -945,23 +971,23 @@ function CompanionClient() {
               {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
             </div>}
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
-            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} />}
+            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} locale={latestLine.source_locale ?? latestLine.source_language ?? 'zh-Hans'} />}
             <div className="current-actions">
-              <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
-                <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? 'Original voice' : 'Play voice'}
-              </button>
+              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? 'Play voice line' : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
+                <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? voicePlaybackLabel(latestLine) : 'Play voice'}
+              </button>}
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
               </button>
-              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio)}
+              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio || latestLine.voice_status === 'unvoiced')}
             </div>
           </div>
         ) : (
           <div className="current-empty">
             <ScanLine size={28} />
             <div>
-              <strong>{selectedGame === 'zzz' ? 'No confirmed subtitle on screen' : 'No confirmed voiced subtitle on screen'}</strong>
-              <p>{selectedGame === 'zzz' ? 'The next verified game-text match will appear here. Previous lines stay in History.' : 'The next voiced line will appear here. Previous lines stay in History.'}</p>
+              <strong>{uiText('Waiting for dialogue')}</strong>
+              <p>{uiText('Matched game dialogue appears here. Previous lines stay in History.')}</p>
             </div>
           </div>
         )}
@@ -1008,7 +1034,7 @@ function CompanionClient() {
         </div>
 
         <div className="column-labels" aria-hidden="true">
-          <span>{uiText("Time / type")}</span><span>{uiText("English")}</span><span>中文</span><span>{uiText("Match")}</span>
+          <span>{uiText("Time / type")}</span><span>{columnLanguage('translation')}</span><span>{columnLanguage('source')}</span><span>{uiText("Match")}</span>
         </div>
         <div className="line-list" ref={historyList}>
           {visibleTranscriptLines.length ? visibleTranscriptLines.map((line) => (
@@ -1085,12 +1111,17 @@ function CompanionClient() {
           <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
-            onReading={() => setReaderSettingsOpen(true)} onAccount={language => {setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
+            readingSupported={!!providerReadingSource} onReading={openReadingOptions} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
         </div>
       </footer>
 
-      {readerSettingsOpen && <ReadingOptionsDialog initial={readingOptions} onChange={saveReadingOptions} onClose={() => setReaderSettingsOpen(false)} sourceLanguage={isStudyLanguage(status?.selected_languages?.[selectedGame]?.source_language)?status!.selected_languages![selectedGame]!.source_language as import('@firebird55/lexirise-components').StudyLanguage:"zh"} />}
-      {accountSettingsOpen && <SettingsPanel title={uiText("Lexirise account settings")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<><AccountSwitcher onChanged={() => void loadSnapshot()}/>{selectedGame !== 'hito' && <GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} />}</>} />}
+      {readerSettingsOpen && readerSettingsOpen.account === (lexirise.account ?? 'legacy') && <ReadingOptionsDialog initial={readingOptions} onChange={next => saveReadingOptions(next, readerSettingsOpen)} onClose={() => setReaderSettingsOpen(null)} sourceLanguage={readerSettingsOpen.language} />}
+      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Choose your account and where sentences are saved.</DialogDescription></DialogHeader>
+        <AccountSwitcher onChanged={() => void loadSnapshot()}/>
+        {selectedGame !== 'hito' && <details open><summary>Sentence destination · {GAME_NAMES[selectedGame]}</summary><GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} /></details>}
+        <Button className="account-preferences" variant="outline" onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
+      </DialogContent></Dialog>}
+      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">
@@ -1102,6 +1133,10 @@ function CompanionClient() {
           </DialogHeader>
 
           <p>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
+          {draftSettings && <label className="toolkit-setup-checkbox"><input type="checkbox" checked={draftSettings.capture_unvoiced ?? false}
+            onChange={event => setDraftSettings(current => current ? {...current, capture_unvoiced: event.target.checked} : current)} /> {uiText('Include unvoiced dialogue')}
+          </label>}
+          <p className="toolkit-setup-note">{uiText('Applies to all games. Includes text the game identifies as unvoiced; missing voice files are reported separately. Saved history is kept when this is off.')}</p>
           {selectedGame === 'zzz' && draftSettings && <label>{uiText("Proxy voice")}<select aria-label={uiText("Proxy voice")} value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, zzz_proxy_voice: event.target.value as Settings['zzz_proxy_voice'] } : current)}>
               <option value="unconfigured">{uiText("Choose the Proxy for variant lines")}</option>

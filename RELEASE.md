@@ -31,4 +31,27 @@ It does not silently update code or account settings. Follow AGENTS.md, update t
 ## Rollback
 Download and install a prior release using the same steps. Keep user data, local preferences and keys. Do not rewrite tags. For dependency rollback, import the prior shared release using shared:update, then publish new consumer versions.
 
-Routine development: use `npm run check:changed` for uncommitted changes or `npm run check:changed -- --base origin/main` for a branch. The selector runs relevant checks; full browser and packaging validation belongs to release CI. Record timings in ignored output/checks.
+Routine development: follow [development checks](docs/development-checks.md). Fetch the actual PR target and use `npm run check:changed -- --base <target-remote>/<target-branch>`, or omit the base for uncommitted changes. Review the per-run evidence and native limitations.
+
+The `required-checks` job aggregates submitted-head publication audit, tests on the verified event merge commit, and all selected browser jobs. Maintainers must configure this exact context as required and enable an up-to-date branch rule (or an independently validated merge queue); workflow code alone cannot enforce either repository setting. A manual workflow run is additional evidence, not a substitute for the PR's required context. Event-parent verification proves the base/head snapshot, not that the target stayed current afterward.
+
+Both release tags and manual candidates now validate the extracted ZIP after packaging. This checks the packaged frontend with synthetic services; it does not prove installation, native OCR, Windows capture/DPI, or physical iOS behavior. Preserve the corresponding native acceptance checks. Publication remains limited to an upstream version-tag push.
+
+## Manual GitHub releases and software updates
+
+Publishing a GitHub release on a version tag triggers the same comprehensive
+checks and packaging as a tag push, then uploads verified assets to the existing
+release. CI derives distribution version metadata from the tag without rewriting
+its source commit. This applies to tags containing this workflow revision.
+For a manual workflow run, select a version tag and enable `publish` to upload;
+a branch run remains an unpublished candidate. Existing release text is preserved.
+Authored notes in `docs/releases/<version>.md` accompany the assets and are used
+when the workflow creates a release itself.
+
+Toolkit software updates are separate from game-data refreshes. Starting with
+0.20.0, the running companion checks stable releases at startup and every six
+hours, verifies checksums and tag provenance, then uses the normal replacement
+handoff. Setup → General & Updates shows progress and the actual runtime version,
+allows manual retry and can disable automatic installs. An older installation
+needs one manual upgrade to acquire this feature. See
+[update reliability](docs/update-reliability.md) for recovery and coverage details.

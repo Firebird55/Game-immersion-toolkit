@@ -210,7 +210,7 @@ def localization(data):
         count = cursor.integer()
         if count > 100000:
             raise ValueError('Invalid localized text count')
-        texts = {}
+        texts, text_flags = {}, {}
         for _ in range(count):
             key, text = cursor.string(), cursor.string(unicode=True)
             if key in texts and texts[key] != text:
@@ -219,7 +219,10 @@ def localization(data):
             text_flag = cursor.integer()
             if text_flag > 65535:
                 raise ValueError(f'Unsupported official localization text flags: {text_flag}')
-        bindings = {}
+            if key in text_flags and text_flags[key] != text_flag:
+                raise ValueError('Conflicting official localization text flags')
+            text_flags[key] = text_flag
+        bindings, binding_states = {}, {}
         pairs = cursor.integer()
         if pairs > 100000:
             raise ValueError('Invalid localization alias count')
@@ -227,17 +230,28 @@ def localization(data):
             key = cursor.string()
             exists = cursor.read(1)
             reference = None
+            state = 'none'
             if exists == b'\1':
                 external = cursor.read(1)
+                if external not in (b'\0', b'\1'):
+                    raise ValueError('Unsupported authored localization pointer scope')
                 kind, identity = cursor.integer(), cursor.integer()
+                state = 'unresolved' if external == b'\1' else 'internal'
                 if external == b'\1' and (kind, identity) in dependencies:
                     reference = (kind, identity)
+                    state = 'resolved'
             elif exists != b'\0':
                 raise ValueError('Unsupported authored localization pointer')
             if key in bindings and bindings[key] != reference:
                 raise ValueError('Ambiguous original speech binding')
+            if key in binding_states and binding_states[key] != state:
+                raise ValueError('Ambiguous original speech pointer state')
             bindings[key] = reference
-        result[code] = {'texts': texts, 'bindings': bindings}
+            binding_states[key] = state
+        if code in result:
+            raise ValueError('Duplicate official localization language')
+        result[code] = {'texts': texts, 'bindings': bindings, 'text_flags': text_flags,
+                        'binding_states': binding_states}
     if cursor.position != len(data):
         raise ValueError('Unsupported trailing localization fields')
     return result

@@ -33,11 +33,12 @@ from .local_game_updates import LocalGameUpdateManager
 from .game_assets import LOCAL_GAMES
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
+from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
 from .state_version import StateVersion
-from .lexirise_settings import account_settings
+from .lexirise_settings import account_settings, STUDY_LANGUAGES
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
 from .language_preparation import LanguagePreparation
@@ -45,6 +46,7 @@ from .language_inventory import LanguageInventory
 from .windows import list_visible_windows, game_data_directory, installed_zzz_game_data_directory
 from .installation import InstallationService
 from .scoped_mobile_exports import ScopedMobileExports
+from .automatic_mobile_export import AutomaticMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
 
@@ -128,6 +130,7 @@ class Runtime:
     def __init__(self) -> None:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
         self._updates_started = False
+        self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
         self.repair_task = None
         self.state_version = StateVersion()
@@ -208,13 +211,15 @@ class Runtime:
         self._locale_voice_lock = threading.RLock()
         self.capture.recorded_voice_assets = self.recorded_voice_assets
         self.capture.language_setup = self.capture_language_ready
+        self.capture.language_problem = self.capture_language_problem
         self.capture.context_scope = lambda: self.accounts.generation
         self.installation = InstallationService(PROJECT_ROOT, settings=self.settings,
             game_state=self.setup_game_state, refresh=self.refresh_game, existing_user=existing_user,
             account_configured=lambda: self.lexirise.status()["configured"], install_lookup=self.setup_install)
         self.index_task: asyncio.Task[None] | None = None
         self.mobile_exports = ScopedMobileExports(PROJECT_ROOT, self.accounts, self.languages)
-        self.language_inventory = LanguageInventory(DATA_DIR, PROJECT_ROOT / 'public/mobile-capture/games-data.json', self.setup_install)
+        self.automatic_exports = AutomaticMobileExports(PROJECT_ROOT, install_lookup=self.setup_install)
+        self.language_inventory = LanguageInventory(DATA_DIR, self.setup_install)
 
     def account_preferences(self):
         session = self.lexirise.pin()
@@ -256,32 +261,76 @@ class Runtime:
                 directory.mkdir(parents=True, exist_ok=True)
                 path = directory / 'textmap.json'
                 stamp = adapter.fingerprint(install)
-                cached = self.locale_index(game, locale)
-                current_table = cached.load()
+                indexes = self.__dict__.setdefault('_locale_indexes', {})
+                key = (game, locale)
+                cached = indexes.get(key)
+                if cached is None:
+                    cached = indexes[key] = MultilingualTextIndex(game, directory)
+                    current_table = cached.ready
+                else:
+                    current_table = cached.load()
+                # The validated generation already owns the large text table.
+                # Periodic checks need its tiny metadata, not another full JSON
+                # allocation while capture is matching the same records.
                 old = cached.snapshot_metadata
+                if not current_table:
+                    try:
+                        old = json.loads(path.read_text(encoding='utf-8'))
+                    except (OSError, ValueError):
+                        old = {}
                 if (not force and old.get('format') == 2 and old.get('game') == game and old.get('source_locale') == locale
                         and old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
                         and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION
-                        and old.get('install') == str(install) and current_table):
-                    return
+                        and old.get('install') == str(install)):
+                    # Matching metadata alone does not prove the table is usable.
+                    # A truncated/invalid snapshot used to be skipped forever.
+                    # load() cheaply reuses an unchanged validated file. Its
+                    # return value is essential: a failed reload can retain an
+                    # older usable in-memory index while disk still needs repair.
+                    if current_table and cached.ready and cached.source_locale == locale and cached.entry_count:
+                        return
                 from .update_workers import INDEX_BUILD_LOCK, subprocess_options
+                if job:
+                    job.report('queued', 'Waiting for another game to finish preparing; capture stays available')
                 with (job.acquire(INDEX_BUILD_LOCK) if job else INDEX_BUILD_LOCK), tempfile.TemporaryDirectory(prefix='language-', dir=directory) as temporary:
+                    if job:
+                        job.report('extracting', 'Reading official subtitles and original voice mappings; large games can take several minutes (30-minute limit)')
                     output = Path(temporary) / 'textmap.json'
                     command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
                         '--targets', json.dumps(targets), '--output', str(output)]
                     if job:
-                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800, **subprocess_options())
+                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800,
+                                             progress_path=output.with_name('progress.json'), **subprocess_options())
                     else:
                         returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
-                        raise ValueError('Language extraction failed. Check installed text/voice packs and game tools; previous table retained.')
+                        from .preparation_errors import PreparationFailure, public_failure
+                        failure = public_failure(RuntimeError())
+                        try:
+                            failure = json.loads(output.with_name('failure.json').read_text(encoding='utf-8'))
+                            output.with_name('failure.log').replace(directory / 'last-preparation-error.log')
+                        except (OSError, ValueError):
+                            pass
+                        changed = bool(old.get('fingerprint') and old['fingerprint'] != stamp)
+                        message = failure['message']
+                        if changed:
+                            message = 'Installed game files changed since the last preparation. ' + message
+                        if old:
+                            message += ' The previous table was kept; changed voice files may remain unavailable until repair succeeds.'
+                        raise PreparationFailure(failure.get('code', 'reader_failed'), message,
+                            game_files_changed=changed, previous_snapshot_retained=bool(old),
+                            retry_seconds=failure.get('retry_seconds', 120))
+                    if job:
+                        job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))
                     if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
                     with job.publication() if job else nullcontext():
                         cached.publish(candidate)
+                if hasattr(self, 'automatic_exports'):
+                    self.automatic_exports.wake.set()
                 return
         if job:
             raise ValueError('This reader cannot prepare a cancellable language snapshot; previous table retained.')
@@ -326,9 +375,12 @@ class Runtime:
             if not index.ready or index.source_locale != locale or voices is None:
                 return False
             try:
-                index.target_locale = translation_language(self.account_preferences(), study_language(locale))
+                settings = self.account_preferences()
+                source = study_language(locale)
+                index.target_locale = (translation_language(settings, source) if source in settings['languages']
+                                       else self.languages.selected_target(game, locale, account))
             except LexiriseError:
-                index.target_locale = self.languages.prepared(game, locale)['targets'][0]
+                index.target_locale = self.languages.selected_target(game, locale, account)
             if game == 'zzz':
                 self.textmaps = self.capture.textmaps = index
                 self.voice_assets = self.capture.voice_assets = voices
@@ -386,6 +438,24 @@ class Runtime:
             return scoped
         return self.capture._assets_for(line.game)
 
+    def capture_language_problem(self, game):
+        account = self.accounts.status()['active']
+        locale = self.languages.selected(game, account)
+        if not locale:
+            with self.languages.lock:
+                choice = self.languages.data.get('requested', {}).get(account, {}).get(game)
+                pending = dict(self.languages.jobs.get((game, choice['locale']), {})) if choice else {}
+            if choice:
+                return f"{choice['locale']}: {pending.get('message', 'Your requested language is queued for preparation.')}"
+            return 'Choose a game language and press Prepare language below. The toolkit will keep it ready automatically.'
+        with self.languages.lock:
+            job = dict(self.languages.jobs.get((game, locale), {}))
+        if job.get('state') == 'preparing':
+            return f"{locale}: {job['message']}. This runs automatically for all configured games."
+        if job.get('state') == 'error':
+            return f"{locale}: {job['message']} {job.get('retry_after', 'Check Games & Languages to retry.')}"
+        return f'{locale}: the prepared table is missing or cannot be activated. Automatic repair checks run every 2 minutes; see Setup → Languages.'
+
     def capture_language_ready(self, game):
         if game == 'hito':
             return True
@@ -408,7 +478,9 @@ class Runtime:
 
     def present_line(self, line: TranscriptLine) -> TranscriptLine:
         try:
-            target = translation_language(self.account_preferences(), line.source_language)
+            settings = self.account_preferences()
+            target = (translation_language(settings, line.source_language) if line.source_language in settings['languages']
+                      else line.translation_locale)
         except LexiriseError:
             if not self.lexirise.status()['configured']:
                 return line
@@ -498,6 +570,10 @@ class Runtime:
             return
         self._updates_started = True
         self.languages.start()
+        if hasattr(self, 'toolkit_updater'):
+            self.toolkit_updater.start()
+        if hasattr(self, 'automatic_exports'):
+            self.automatic_exports.start()
         self.start_audio_repair()
 
     def start_audio_repair(self) -> None:
@@ -520,6 +596,10 @@ class Runtime:
 
     async def stop_updates(self) -> None:
         self._updates_started = False
+        if hasattr(self, 'toolkit_updater'):
+            self.toolkit_updater.close()
+        if hasattr(self, 'automatic_exports'):
+            await asyncio.to_thread(self.automatic_exports.close)
         await asyncio.to_thread(self.languages.close)
         if self.repair_task:
             self.repair_task.cancel()
@@ -570,31 +650,7 @@ class Runtime:
         await self.hub.broadcast({"type": "capture_status", "capture": status.model_dump(mode="json")})
 
     def update_status(self) -> dict[str, object]:
-        update = self.update_manager.status()
-        if update["state"] in {"checking", "updating"}:
-            return update
-        pragmata_update = self.pragmata_updater.status()
-        if pragmata_update.get("state") in {"checking", "updating"}:
-            return pragmata_update
-        retry = next(
-            (
-                item for item in (pragmata_update,)
-                if item.get("state") == "retrying"
-            ),
-            None,
-        )
-        if retry:
-            return {
-                **update,
-                "state": "retrying",
-                "message": retry.get("message", "An audio index will retry automatically"),
-                "progress": 100,
-            }
-        for updater in self.game_updaters.values():
-            current = updater.status()
-            if current["state"] in {"updating", "retrying"}:
-                return current
-        return update
+        return self.languages.update_status()
 
     def context(self):
         return self.state_version.snapshot(self.accounts.generation)
@@ -635,17 +691,20 @@ class Runtime:
         return True
 
     async def prepare_maps(self, force: bool = False) -> None:
+        # A language switch may replace the active index while this task waits.
+        # Legacy preparation must never call its APIs on a multilingual index.
+        index = self._legacy_zzz_index
         try:
             await asyncio.to_thread(
-                self.textmaps.prepare,
+                index.prepare,
                 force_download=force,
-                progress=self.textmaps.set_message,
+                progress=index.set_message,
             )
             if not self.standby:
                 await asyncio.to_thread(self.speakers.backfill)
         except Exception as error:
-            self.textmaps.state = "ready" if self.textmaps.ready else "error"
-            self.textmaps.message = "Refresh failed; keeping the previous complete TextMaps" if self.textmaps.ready else str(error)
+            index.state = "ready" if index.ready else "error"
+            index.message = "Refresh failed; keeping the previous complete TextMaps" if index.ready else str(error)
         await self.hub.broadcast({"type": "textmaps_status", "textmaps": self.textmaps.status()})
 
 
@@ -898,7 +957,7 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
             return {'removed': True}
         source = study_language(payload.locale)
         if payload.action == 'select':
-            runtime.languages.select(game, payload.locale, account)
+            runtime.languages.select(game, payload.locale, account, target=payload.target)
             return {'selected': payload.locale}
         settings = runtime.account_preferences() if runtime.lexirise.status()['configured'] else None
         # Account membership controls the picker and account features, not local play.
@@ -909,6 +968,43 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
                                                     rebuild=payload.action == 'rebuild')}
     except (ValueError, LexiriseError) as error:
         raise HTTPException(400, str(error)) from None
+
+
+class AutomaticExportOptions(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    action: Literal['save', 'update', 'pause', 'resume', 'retry', 'browse', 'close-picker'] = 'save'
+    enabled: bool = False
+    destination: str = Field(default='', max_length=2000)
+    languages: dict[str, str] = Field(default_factory=dict, max_length=20)
+
+
+@app.get('/api/setup/games/{game}/automatic-mobile-export')
+def automatic_export_status(game: str, request: Request) -> dict:
+    setup_access(request)
+    if game not in GAME_LOCALES:
+        raise HTTPException(404, 'Unsupported game')
+    return runtime.automatic_exports.status(game)
+
+
+@app.post('/api/setup/games/{game}/automatic-mobile-export')
+def automatic_export_action(game: str, payload: AutomaticExportOptions, request: Request,
+                            x_proxy_transcript: str = Header(default='')) -> dict:
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in GAME_LOCALES:
+        raise HTTPException(404, 'Unsupported game')
+    manager = runtime.automatic_exports
+    try:
+        if payload.action == 'save':
+            return manager.configure(game, payload.enabled, payload.destination, payload.languages)
+        if payload.action == 'browse':
+            manager.picker.browse(payload.destination or None)
+            return manager.status(game)
+        if payload.action == 'close-picker':
+            manager.picker.close_picker()
+            return manager.status(game)
+        return manager.action(game, payload.action)
+    except (ValueError, OSError):
+        raise HTTPException(400, 'Check the export folder and select supported voice and translation languages.') from None
 
 
 class MobileExportOptions(BaseModel):
@@ -1088,12 +1184,12 @@ async def update_settings(settings: AppSettings) -> AppSettings:
 def get_lines(
     limit: int = Query(default=250, ge=1, le=1000),
     before_id: int | None = Query(default=None, ge=1),
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider|spyro|mgsvtpp|mgsvgz|deathstranding|plaguetaleinnocence|detroit|portal|portal2|halflife|halflife2|persona5royal|deusexhrdc)$"),
 ) -> list[TranscriptLine]:
     return [
         presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
         for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
-        if line.game == "hito" or ((line.voiced or line.is_comic) and (
+        if line.game == "hito" or ((line.voiced or line.is_comic or line.voice_status == 'unvoiced') and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
             else runtime.game_indexes[line.game].is_capture_text(line.text_id, line.english, line.channel)
@@ -1105,7 +1201,7 @@ def get_lines(
 
 @app.get("/api/favorites", response_model=list[TranscriptLine])
 def get_favorites(
-    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield)$"),
+    game: str | None = Query(default=None, pattern="^(zzz|pragmata|hito|cyberpunk|wuwa|witcher3|nte|beyond|heavyrain|honkai3|starrail|genshin|endfield|riseofthetombraider|shadowofthetombraider|spyro|mgsvtpp|mgsvgz|deathstranding|plaguetaleinnocence|detroit|portal|portal2|halflife|halflife2|persona5royal|deusexhrdc)$"),
 ) -> list[TranscriptLine]:
     return [runtime.speakers.enrich(line) if line.game == "zzz" else line
             for line in runtime.transcript.list_favorites(game=game)]
@@ -1158,7 +1254,7 @@ def integration_status(language: str = 'zh', *, refresh_settings=True) -> dict:
         account = runtime.accounts.status()['active']
         sources.update(study_language(locale) for game in GAME_LOCALES
                        if (locale := runtime.languages.selected(game, account)))
-    by_language = {source: runtime.lexirise.pin(source).status() for source in sources}
+    by_language = {source: runtime.lexirise.pin(source).status() for source in sources if source in STUDY_LANGUAGES}
     status['sent'] = {ref: deck for value in by_language.values() for ref, deck in value['sent'].items()}
     status['by_language'] = by_language
     status['account'] = account
@@ -1421,8 +1517,8 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
     line = runtime.transcript.get(line_id)
     if line is None:
         raise HTTPException(404, "This line is no longer in local history.")
-    if not line.voiced:
-        raise HTTPException(409, "Wait until this line is confirmed voiced.")
+    if not line.voiced and line.voice_status != 'unvoiced':
+        raise HTTPException(409, "This line needs a verified original voice or confirmed unvoiced dialogue before export.")
     if line.game == "zzz":
         line = runtime.speakers.enrich(line)
     root = (DATA_DIR / "audio").resolve()
@@ -1431,9 +1527,10 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         raise HTTPException(404, "Voice file unavailable.")
     try:
         line = presented(line)
-        return runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
+        result = runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
             english=line.translation_text, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
-            audio=path, audio_source=line.audio_source)
+            audio=None if line.voice_status == 'unvoiced' else path, audio_source=line.audio_source)
+        return {**result, 'audio_included': line.voice_status != 'unvoiced'}
     except LexiriseError as error:
         raise HTTPException(409, str(error)) from None
     except OSError:
@@ -1548,3 +1645,29 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         await runtime.hub.disconnect(websocket)
     except Exception:
         await runtime.hub.disconnect(websocket)
+
+
+class ToolkitUpdatePreferences(BaseModel):
+    enabled: bool = Field(strict=True)
+
+
+@app.get('/api/toolkit-update')
+def toolkit_update_status():
+    return runtime.toolkit_updater.status()
+
+
+@app.post('/api/toolkit-update/check')
+def toolkit_update_check(x_proxy_transcript: str = Header(default='')):
+    if x_proxy_transcript != 'setup':
+        raise HTTPException(403, 'Use Setup on this PC to update the toolkit.')
+    if runtime.standby:
+        raise HTTPException(409, 'The replacement is still preparing.')
+    return {'started': runtime.toolkit_updater.request()}
+
+
+@app.post('/api/toolkit-update/preferences')
+def toolkit_update_preferences(payload: ToolkitUpdatePreferences, x_proxy_transcript: str = Header(default='')):
+    if x_proxy_transcript != 'setup':
+        raise HTTPException(403, 'Use Setup on this PC to change toolkit updates.')
+    runtime.toolkit_updater.configure(payload.enabled)
+    return runtime.toolkit_updater.status()
