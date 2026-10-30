@@ -11,7 +11,7 @@ from backend.runtime_bundle import CHILD_TARGETS, RuntimeBundleError, discover_l
 
 def main(arguments=None):
     args = list(sys.argv[1:] if arguments is None else arguments)
-    if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api'}:
+    if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api', 'host'}:
         layout = discover_layout()
         if layout.mode != 'bundle' or layout.profile != 'runtime-experiment':
             raise RuntimeBundleError('Runtime probes require the quarantined runtime-experiment profile.')
@@ -21,7 +21,8 @@ def main(arguments=None):
         # Keep the stdlib diagnostic/frontend and ASR analyses independent of
         # the main probe's native imports; experimental specs collect these
         # fixed modules explicitly.
-        probe = import_module('backend.asr_probe' if asr_image else 'backend.runtime_probe')
+        probe = import_module('backend.asr_probe' if asr_image else
+            'backend.runtime_host' if args[1] == 'host' else 'backend.runtime_probe')
         return probe.main(args[1], layout)
     if args == ['--runtime-diagnose']:
         layout = discover_layout()
