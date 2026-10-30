@@ -72,7 +72,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Locked frontend preparation failed.' }
           npm run desktop:build
           if ($LASTEXITCODE -ne 0) { throw 'Static frontend build failed.' }
-          & $env:PYTHON -B -m pytest -q backend/tests/test_runtime_bundle.py backend/tests/test_runtime_composition.py backend/tests/test_runtime_experiment.py backend/tests/test_desktop_frontend.py backend/tests/test_prebuilt_readers.py backend/tests/test_prebuilt_node_reader.py backend/tests/test_blocked_game_helpers.py backend/tests/test_prebuilt_codecs.py backend/tests/test_windows_preparation_drain.py backend/tests/test_preparation_process_tree.py
+          node --test tests/companion-router.test.mjs tests/source-delivery-publication.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Router ownership/source delivery boundaries failed.' }
+          $contracts = @(
+            'runtime_bundle', 'runtime_composition', 'runtime_experiment', 'desktop_frontend',
+            'prebuilt_readers', 'prebuilt_node_reader', 'blocked_game_helpers', 'prebuilt_codecs',
+            'windows_preparation_drain', 'preparation_process_tree', 'python_supplier_notices',
+            'r19_acceptance', 'game_paths', 'unvoiced_export_probe', 'runtime_writers',
+            'runtime_handoff', 'preparation_cancellation', 'mobile_export_api',
+            'scoped_mobile_exports', 'automatic_mobile_exports', 'installation', 'local_access',
+            'runtime_codec_output', 'native_input_ownership', 'source_pcm_probe', 'source_formats',
+            'portal_assets', 'portal2_assets', 'halflife2_assets', 'window_capture', 'runtime_host'
+          ) | ForEach-Object { "backend/tests/test_$_.py" }
+          & $env:PYTHON -B -m pytest -q @contracts
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
       - name: Prebuild only the owned NTE bridge on the build host
         shell: pwsh
@@ -120,7 +132,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   reference-codec-source:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.codec_source_only }}
+    # Keep delivered-kit rebuild evidence on the same head as frozen collection.
+    # codec_source_only omits the larger runtime job, never this source boundary.
     runs-on: windows-2025
     timeout-minutes: 12
     steps:
@@ -161,7 +174,7 @@ jobs:
       - name: Rebuild from the delivered source ZIP without repository recipe fallback
         shell: pwsh
         run: |
-          $retained = 'third_party/codecs/xiph-flac-1.5.0/codec-sources.zip'
+          $retained = 'third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip'
           if ((Get-FileHash $retained).Hash -ne (Get-FileHash output/reference-codec/codec-sources.zip).Hash) { throw 'Retained source delivery differs from the actual build.' }
           Expand-Archive -LiteralPath $retained -DestinationPath output/reference-codec-delivered
           & ./output/reference-codec-delivered/scripts/build-reference-codec.ps1 -SourceArchive (Join-Path $env:GITHUB_WORKSPACE 'output/reference-codec-delivered/inputs/flac-1.5.0.tar.xz') -OutputRoot output/reference-codec-rebuild

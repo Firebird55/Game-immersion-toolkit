@@ -46,7 +46,9 @@ shortcut transaction or live migration is authorized by this plan.
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
 | ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
-| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist; owned router shutdown and selected frozen settings/export-lock roots are corrected | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist; owned router shutdown and selected frozen settings/export-lock roots are corrected; strict writer handoff is explicitly opt-in | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+| Unvoiced export | Actual authored Half-Life index/language/mobile-export workers and the portable mobile parser pass for English and Simplified Chinese, with missing-pack rejection and previous-export preservation | Exact frozen execution and native/installed-pack acceptance remain pending; no original speech binding is added |
+| Source original PCM | Authored Portal VPK/VCCD/event and selected English/French pack bindings pass actual index/language workers and in-process extraction/PCM validation; truncated PCM preserves prior output | Exact frozen execution, MP3/composite/Bink decoding, voiced mobile export and installed-game/native coverage remain pending |
 
 The [Python component review](r19-python-component-review.md) retains twenty
 exact supplier notice texts and provenance. Runtime collection/finalization
@@ -55,11 +57,19 @@ still pending. The [native acceptance protocol](r19-native-acceptance.md) valida
 candidate-bound receipts without granting acceptance. The user confirmed on
 2026-10-30 that Windows 11 25H2 x64 test hardware is not yet available.
 
-The `runtime` profile stays hard-disabled and `r19_complete` stays false. The dated
-`packaging/runtime-bundle/toolchains.json` is an inventory baseline; its old
-`blocked` labels must be reconciled with later scoped evidence before becoming a
-current acceptance ledger. A successful helper build must not erase a remaining
-rights, format or Windows gate.
+The `runtime` profile stays hard-disabled and `r19_complete` stays false. The
+dated `packaging/runtime-bundle/toolchains.json` now distinguishes later bounded
+helper evidence from remaining rights, format and Windows blockers for all 25
+games. A successful helper build does not erase those remaining gates.
+The [strict writer protocol](r19-writer-quiesce.md) accounts for admitted HTTP
+work and registered background producers, while default source updates retain
+their capture-only protocol. Neither returns production store-copy authority.
+The [owned frozen host probe](r19-owned-host-probe.md) now uses actual Windows
+Job Objects and retained process/listener handles for one disposable frontend/API
+slot. Its API external side effects remain mocked. Local ordering/refusal tests
+pass; extracted Windows stop, child-exit, parent-crash, readiness and foreign-
+listener cases await hosted execution. It is not a production launcher or update
+transaction.
 
 ## Execution order and ownership
 
