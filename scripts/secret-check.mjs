@@ -10,15 +10,25 @@ if(process.argv.includes('--public')){
  for(const ref of refs.filter(r=>r.startsWith('refs/tags/'))){const mail=git('for-each-ref','--format=%(taggeremail)',ref).trim().replace(/^<|>$/g,'');if(mail&&!identity(mail))throw new Error('Personal email in tag metadata');}
 }
 const objects=git('rev-list','--objects','HEAD',...refs).trim().split('\n');
+const sourceArchives=new Map();
 for(const row of objects){const name=row.slice(row.indexOf(' ')+1);if(row.includes(' ')&&privatePath(name))throw new Error('Private path in reachable history: '+name);}
+for(const row of objects){
+ const split=row.indexOf(' '),name=row.slice(split+1);
+ if(split>=0&&/\.(zip|tgz)$/i.test(name)){
+  const oid=row.slice(0,split);sourceArchives.set(oid,[...(sourceArchives.get(oid)||[]),name]);
+ }
+}
 const ids=[...new Set(objects.map(l=>l.split(' ')[0]))];
 const batch=execFileSync('git',['cat-file','--batch'],{input:ids.join('\n')+'\n',maxBuffer:512*1024*1024});
 let offset=0,blobs=0;
-while(offset<batch.length){const end=batch.indexOf(10,offset);if(end<0)break;const [oid,type,length]=batch.subarray(offset,end).toString().split(' ');offset=end+1;const size=Number(length);if(!Number.isFinite(size))throw new Error('Unscannable Git object');if(type==='blob'){blobs++;scanContent(batch.subarray(offset,offset+size),'reachable blob '+oid);}offset+=size+1;}
+while(offset<batch.length){const end=batch.indexOf(10,offset);if(end<0)break;const [oid,type,length]=batch.subarray(offset,end).toString().split(' ');offset=end+1;const size=Number(length);if(!Number.isFinite(size))throw new Error('Unscannable Git object');if(type==='blob'){
+ blobs++;const data=batch.subarray(offset,offset+size);scanContent(data,'reachable blob '+oid);
+ for(const name of sourceArchives.get(oid)||[])if(!reviewedSourceArchive(name,data))throw new Error('Unreviewed source archive in reachable history: '+name);
+}offset+=size+1;}
 for(const file of git('ls-files').trim().split('\n').filter(Boolean)){
  if(privatePath(file))throw new Error('Private/generated tracked file: '+file);
  const data=readFileSync(file);
- if(/\.(zip|tgz)$/.test(file)&&!(lstatSync(file).isFile()&&reviewedSourceArchive(file,data)))throw new Error('Private/generated tracked file: '+file);
+ if(/\.(zip|tgz)$/i.test(file)&&!(lstatSync(file).isFile()&&reviewedSourceArchive(file,data)))throw new Error('Private/generated tracked file: '+file);
  scanContent(data,file);
 }
 console.log('Publication scan passed: '+commits.length+' commits, '+blobs+' blobs and working files.');

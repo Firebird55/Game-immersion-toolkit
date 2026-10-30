@@ -137,6 +137,8 @@ jobs:
           if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid build preflight.' }
           npm run audit:public
           if ($LASTEXITCODE -ne 0) { throw 'Public audit failed.' }
+          node --test tests/source-delivery-publication.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Source delivery publication boundary failed.' }
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
