@@ -26,7 +26,7 @@ missing native results or redistribution evidence into a pass.
   installation prerequisites. Missing game helper/codec capabilities still need
   closure before a dependency-free release can be claimed.
 - The release workflow invokes native construction on Windows x64, Ubuntu 24.04
-  x64, macOS 15 arm64 and macOS 15 Intel. It checks the frozen host with a reduced
+  x64 and macOS 15 arm64. It checks the frozen host with a reduced
   PATH and uploads construction metadata only. Unreviewed binary candidates are
   not uploaded, signed or published.
 
@@ -47,7 +47,12 @@ binds wheel hashes and verifies installed distribution files. No dependency is
 downloaded by the runtime builder or packager. Windows compiler acquisition is
 separate, pinned by SHA-256 and verified Authenticode publisher in
 `scripts/prepare-installer-compiler.ps1`. Use `linux-x64`, `macos-arm64` or
-`macos-x64` for corresponding native builds; `--dmg` requires macOS.
+`macos-x64` for corresponding native builds; `--dmg` requires macOS. The archive
+formatter supports Intel Mac layout, but Intel native construction is currently
+unavailable: [ONNX Runtime 1.24.4](https://pypi.org/project/onnxruntime/1.24.4/#files)
+provides a macOS arm64 wheel and no Intel wheel. The initial Mac runtime target
+is Apple silicon on macOS 14 or later; a maintained, verified Intel ONNX Runtime
+build is required before adding Intel to the supported build matrix.
 
 The construction receipt deliberately has `r19_complete: false`, pending
 redistribution and unavailable native acceptance. Omitting `--candidate` fails
@@ -57,11 +62,14 @@ Neither installer compilation nor a successful import probe closes that gate.
 ## Remaining evidence and implementation
 
 - [ ] Record a maintained, exact CPython supplier and complete wheel/native
-  dependency closure for all four targets; retain required corresponding sources
+  dependency closure for all three initial targets; retain required corresponding sources
   and full selected Qt/plugin/PySide/Shiboken notices and license choices.
 - [ ] Close common game-helper and audio-codec delivery, including the owned Node
   grammar reader. All games use the same capability states; unsupported or
   unverified inputs cannot silently fall back to a developer SDK/compiler.
+- [ ] Build and validate maintained ONNX Runtime for Intel macOS before enabling
+  that native target. Do not substitute an old unsupported wheel merely to make
+  the installer matrix green.
 - [ ] Run the frozen executable and installer with developer runtimes absent,
   offline reuse, a read-only installation tree, unrelated working directory,
   spaces/Unicode, resource corruption, port collision and clean Quit.

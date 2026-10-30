@@ -17,8 +17,8 @@ jobs:
             target: linux-x64
           - runner: macos-15
             target: macos-arm64
-          - runner: macos-15-intel
-            target: macos-x64
+          # ONNX Runtime 1.24.4 publishes macOS arm64 wheels only. Intel
+          # requires a separately verified native build before joining CI.
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
