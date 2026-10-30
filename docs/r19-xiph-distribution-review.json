@@ -5,7 +5,7 @@
   "integration_evidence": "docs/r19-frozen-xiph.md",
   "scope": "Unmodified source-built Xiph FLAC 1.5.0 Windows x64; fixed native FLAC to mono 16 kHz s16le PCM, <=1 second, <=1 MiB; experimental only",
   "rights_review": {
-    "status": "completed-with-blocking-recipe-license-finding",
+    "status": "scoped-owner-grant-applied;new-kit-native-verification-pending",
     "cli": "GPL-2.0-or-later",
     "reference_library": "BSD-3-Clause",
     "static_support": [
@@ -15,27 +15,67 @@
       "BSD support notices"
     ],
     "documentation": "Preserve full unmodified upstream tar and COPYING.FDL 1.3; no manual excerpts are republished",
-    "build_recipes": "Firebird55 Attribution License 1.0, not MIT",
+    "build_recipes": "Additional GPL-2.0-or-later on exactly the two codec build scripts and input policy; original Firebird55 Attribution License 1.0 remains an alternative",
     "build_recipe_license_sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca",
-    "blocker": "The visible attribution/link condition on the required build recipes has not been established compatible with GPLv2 source-delivery/no-further-restrictions terms. No relicensing or compatibility approval is inferred.",
-    "resolution": "Owner may grant GPL-2.0-or-later (without additional attribution conditions) for the exact two build scripts and input policy, or provide a reviewed alternative. Regenerate source kit and all affected pins/receipts after an actual grant; do not alter this retained snapshot.",
-    "changed_licenses": false,
+    "resolution": "Copyright holder explicitly approved the limited additional grant on 2026-10-30, without extra visible-credit/link terms on the GPL route; general project license unchanged.",
+    "changed_licenses": true,
     "source_patches": [],
-    "no_toolkit_wide_copyleft_or_license_clearance_claim": true
+    "no_toolkit_wide_copyleft_or_license_clearance_claim": true,
+    "historical_blocker": "The visible attribution/link condition on the required build recipes has not been established compatible with GPLv2 source-delivery/no-further-restrictions terms. No relicensing or compatibility approval is inferred.",
+    "general_project_license_changed": false,
+    "additional_grant": {
+      "path": "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt",
+      "bytes": 1161,
+      "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070",
+      "approved_on": "2026-10-30",
+      "license": "GPL-2.0-or-later",
+      "scope": [
+        "packaging/codecs/flac-reference.json",
+        "scripts/build-reference-codec.ps1",
+        "scripts/reference-codec.py"
+      ],
+      "extra_visible_credit_link_condition_on_gpl_route": false
+    }
   },
   "durable_source": {
-    "path": "third_party/codecs/xiph-flac-1.5.0/codec-sources.zip",
-    "commit": "0b2ae0e4d4890225b2551c98d52ee9d4fea1412e",
-    "permalink": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/blob/0b2ae0e4d4890225b2551c98d52ee9d4fea1412e/third_party/codecs/xiph-flac-1.5.0/codec-sources.zip",
-    "bytes": 1086902,
-    "sha256": "7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b",
-    "coverage": "Exact five-file source kit; original unmodified 907-entry upstream source tar plus complete build inputs and original license",
-    "state": "versioned-source-only-copy;canonical-retention-and-binary-cohosting-pending",
-    "publication_guard": "Only this exact path/size/hash is exempt from the tracked-archive ban; credential/profile scanning remains active",
+    "path": "third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip",
+    "commit": null,
+    "permalink": null,
+    "bytes": 1087821,
+    "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "coverage": "Exact six-input source kit; original unmodified 907-entry upstream tar, complete current build inputs, original alternative license and scoped additional GPL grant",
+    "state": "prepared-source-only-copy;Windows-build-rebuild-and-frozen-verification-pending",
+    "publication_guard": "Only the exact current and historical path/size/hash tuples are exempt; all content/profile/credential scanning remains active",
     "release_policy": "After rights resolution, embed the matching complete source kit beside the codec and cohost a named source asset beside each future binary; bind both in checksums/provenance and download-verify before publication. No production release in this review.",
     "retention": "Retain all source snapshots indefinitely; never remove matching source while any covered binary remains available. Preserve historical source if withdrawing a binary.",
     "expiry": "Actions artifacts are review evidence only; not the retention service",
-    "repository_protection_or_release_settings_changed": false
+    "repository_protection_or_release_settings_changed": false,
+    "source_files": {
+      "inputs/flac-1.5.0.tar.xz": {
+        "bytes": 1078872,
+        "sha256": "f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920"
+      },
+      "packaging/codecs/flac-reference.json": {
+        "bytes": 2362,
+        "sha256": "2329d272b2dec03b31baa05c093819b25db8dbd14dff609f2d207abb6ccec685"
+      },
+      "scripts/build-reference-codec.ps1": {
+        "bytes": 2494,
+        "sha256": "b90da52ea75fb2f042cfd86f8aeabbd67ffc21efe95235c21dff908c9bcd5fa9"
+      },
+      "scripts/reference-codec.py": {
+        "bytes": 10790,
+        "sha256": "f864bdadf181993b5660a58d96b8b24903a6e215692a46f3d80a892504af0850"
+      },
+      "LICENSE": {
+        "bytes": 1520,
+        "sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca"
+      },
+      "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt": {
+        "bytes": 1161,
+        "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070"
+      }
+    }
   },
   "maintenance": {
     "status": "policy-defined;bounded-scope-source-triage-complete;production-not-approved",
@@ -464,10 +504,10 @@
     "installer": "not-built"
   },
   "gates": {
-    "recipe_license_resolution": "blocked-owner-decision",
+    "recipe_license_resolution": "owner-approved-limited-additional-GPL-2.0-or-later-grant-applied-2026-10-30",
     "canonical_source_retention": "pending-merge-and-retained-canonical-lineage",
     "source_asset_beside_production_binary": "not-published",
-    "source_retrieval_public_check": "passed-anonymous-commit-pinned-download-2026-10-30;exact-size-sha256-and-byte-comparison",
+    "source_retrieval_public_check": "historical-kit-passed;new-kit-pending-publication",
     "ordinary_user_vcruntime_ucrt": "unavailable",
     "clean_windows_11_25h2": "unavailable",
     "capture_ocr_dpi_and_framework_wow64": "not-run",
@@ -475,6 +515,22 @@
     "production_execution_allowed": false,
     "runtime_profile": "hard-disabled",
     "r19_complete": false,
-    "installer": "not-built"
+    "installer": "not-built",
+    "new_source_kit_build_rebuild": "pending",
+    "new_source_kit_frozen_verification": "pending"
+  },
+  "historical_durable_source": {
+    "path": "third_party/codecs/xiph-flac-1.5.0/codec-sources.zip",
+    "commit": "0b2ae0e4d4890225b2551c98d52ee9d4fea1412e",
+    "permalink": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/blob/0b2ae0e4d4890225b2551c98d52ee9d4fea1412e/third_party/codecs/xiph-flac-1.5.0/codec-sources.zip",
+    "bytes": 1086902,
+    "sha256": "7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b",
+    "coverage": "Exact five-file source kit; original unmodified 907-entry upstream source tar plus complete build inputs and original license",
+    "state": "versioned-source-only-copy;canonical-retention-and-binary-cohosting-pending",
+    "publication_guard": "Only this exact path/size/hash is exempt from the tracked-archive ban; credential/profile scanning remains active",
+    "release_policy": "After rights resolution, embed the matching complete source kit beside the codec and cohost a named source asset beside each future binary; bind both in checksums/provenance and download-verify before publication. No production release in this review.",
+    "retention": "Retain all source snapshots indefinitely; never remove matching source while any covered binary remains available. Preserve historical source if withdrawing a binary.",
+    "expiry": "Actions artifacts are review evidence only; not the retention service",
+    "repository_protection_or_release_settings_changed": false
   }
 }

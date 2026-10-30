@@ -8,13 +8,13 @@ import {execFileSync} from 'node:child_process';
 // The existing compressed-payload tests do not exercise the real tracked-ZIP
 // ban, exact source exception or a bad historical version hidden by a revert.
 // Builtins only, so the bounded Windows source job needs no npm dependencies.
-test('publication accepts only the reviewed source snapshot, including every reachable historical version',()=>{
+for(const name of ['third_party/codecs/xiph-flac-1.5.0/codec-sources.zip',
+ 'third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip'])test('publication accepts only the reviewed source snapshot, including every reachable historical version: '+name,()=>{
  const root=mkdtempSync(join(tmpdir(),'xiph-source-publication-'));
  try{
-  const name='third_party/codecs/xiph-flac-1.5.0/codec-sources.zip';
   const bytes=readFileSync(name),target=join(root,name);
   mkdirSync(join(root,'scripts'),{recursive:true});mkdirSync(join(root,'hooks'));
-  mkdirSync(join(root,'third_party/codecs/xiph-flac-1.5.0'),{recursive:true});
+  mkdirSync(join(root,name,'..'),{recursive:true});
   for(const file of ['secret-check.mjs','publication-scan.mjs','mobile-ocr-integrity.json'])copyFileSync('scripts/'+file,join(root,'scripts',file));
   const git=(...args)=>execFileSync('git',['-c','user.name=fixture','-c','user.email=noreply@github.com','-c','commit.gpgsign=false','-c','core.hooksPath='+join(root,'hooks'),...args],{cwd:root,stdio:'pipe',env:{...process.env,GIT_AUTHOR_EMAIL:'noreply@github.com',GIT_COMMITTER_EMAIL:'noreply@github.com'}});
   git('init');writeFileSync(target,bytes);git('add',name);git('commit','-m','Public source fixture');

@@ -7,8 +7,11 @@ installer is built.
 
 The subsequent [rights/source/maintenance review](r19-xiph-distribution-review.md)
 retains the exact source kit in Git, defines the delivery/maintenance policy and
-records an unresolved custom build-recipe license condition. It changes no
-runtime pin or acceptance flag.
+records the owner's 2026-10-30 scoped additional GPL-2.0-or-later grant for the
+two codec build scripts and input policy. A new six-input source kit includes
+the grant and replaces the fixed source-kit pin; its Windows rebuild and frozen
+verification are pending. All completed runs below used the historical kit.
+The general project license, binary hashes and acceptance flags are unchanged.
 
 This continues the [selected source-built Xiph FLAC 1.5.0 candidate](r19-codec-replacement.md).
 The old [Gyan FFmpeg artifact](r19-codec-artifact-review.md) remains rejected and
@@ -21,8 +24,11 @@ The build host builds the same selected source/configuration and checks the
 previously verified executable/DLL hashes before collection. The runtime resolves
 only codecs/xiph-flac/flac.exe and its exact FLAC.dll through the frozen
 resource manifest. Notices and the complete codec-sources.zip are bound by fixed
-hashes and carried alongside them. The source kit remains SHA-256
-7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b.
+hashes and carried alongside them. Completed frozen runs below used source-kit
+SHA-256 7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b.
+The current resolver requires the new six-input kit, SHA-256
+7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9;
+its Windows build/rebuild and frozen verification are pending.
 
 Preparation compares the clean current source commit, build configuration,
 original upstream tarball, all source-kit/recipe bytes, notice inventory and

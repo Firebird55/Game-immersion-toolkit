@@ -1,5 +1,10 @@
 # Xiph FLAC 1.5.0 complete source delivery
 
+This historical snapshot keeps its original terms. The subsequent
+[six-input kit](../xiph-flac-1.5.0-gpl-recipes/README.md) includes the owner's
+2026-10-30 additional GPL-2.0-or-later grant for the exact build scripts and
+policy. Use its separately verified identity for new deliveries.
+
 This directory retains the exact source kit used to build the selected R19
 Windows x64 codec. It contains source and build recipes only. It grants no
 production-runtime or Windows acceptance and contains no codec executable/DLL.

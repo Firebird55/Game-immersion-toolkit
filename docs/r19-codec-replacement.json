@@ -150,5 +150,43 @@
     "durable_production_source_publication": "not-performed",
     "installer": "not-built",
     "r19_complete": false
+  },
+  "subsequent_scoped_recipe_grant": {
+    "approved_on": "2026-10-30",
+    "review": "docs/r19-xiph-distribution-review.json",
+    "source_kit_path": "third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip",
+    "bytes": 1087821,
+    "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_files": {
+      "inputs/flac-1.5.0.tar.xz": {
+        "bytes": 1078872,
+        "sha256": "f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920"
+      },
+      "packaging/codecs/flac-reference.json": {
+        "bytes": 2362,
+        "sha256": "2329d272b2dec03b31baa05c093819b25db8dbd14dff609f2d207abb6ccec685"
+      },
+      "scripts/build-reference-codec.ps1": {
+        "bytes": 2494,
+        "sha256": "b90da52ea75fb2f042cfd86f8aeabbd67ffc21efe95235c21dff908c9bcd5fa9"
+      },
+      "scripts/reference-codec.py": {
+        "bytes": 10790,
+        "sha256": "f864bdadf181993b5660a58d96b8b24903a6e215692a46f3d80a892504af0850"
+      },
+      "LICENSE": {
+        "bytes": 1520,
+        "sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca"
+      },
+      "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt": {
+        "bytes": 1161,
+        "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070"
+      }
+    },
+    "status": "prepared;Windows-build-rebuild-and-frozen-verification-pending",
+    "historical_selection_above": "preserved;not-retroactively-relicensed",
+    "general_project_license_changed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false
   }
 }

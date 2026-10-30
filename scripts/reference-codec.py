@@ -16,7 +16,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUTS = ('packaging/codecs/flac-reference.json', 'scripts/build-reference-codec.ps1',
-          'scripts/reference-codec.py', 'LICENSE')
+          'scripts/reference-codec.py', 'LICENSE', 'packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt')
 
 
 def digest(data):

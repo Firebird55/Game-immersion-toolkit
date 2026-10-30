@@ -20,7 +20,7 @@ from backend.prebuilt_codecs import (ARCHIVE_SHA256, PINNED_FILES, POLICY, SCHEM
 from backend.prebuilt_readers import _no_links, _unique_json
 
 KIT_INPUTS = {'packaging/codecs/flac-reference.json', 'scripts/build-reference-codec.ps1',
-              'scripts/reference-codec.py', 'LICENSE'}
+              'scripts/reference-codec.py', 'LICENSE', 'packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt'}
 
 
 def digest(data):

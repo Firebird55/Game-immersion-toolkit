@@ -21,7 +21,7 @@ PREFIX = 'codecs/xiph-flac/'
 SCHEMA = 'proxy-experimental-codec-v2'
 ARCHIVE_SHA256 = 'f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920'
 EXECUTABLE_SHA256 = '959b7871c00598360734b3792e24b369de6a08f91c02d18abaa7678488b9a355'
-SOURCE_KIT_SHA256 = '7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b'
+SOURCE_KIT_SHA256 = '7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9'
 PINNED_FILES = {
     'flac.exe': EXECUTABLE_SHA256,
     'FLAC.dll': '29c4c88bc8cb17e30aaef2d9af50455abeeccc59bda18d1189dfb7568d9e27d8',
@@ -35,8 +35,9 @@ PINNED_FILES = {
     'notices/SOURCE-COPYRIGHTS.txt': 'b80a97d5c805983929421d3d91d6d39a9393994825004f11d5a9ed356efba767',
 }
 SOURCE_INPUTS = {'packaging/codecs/flac-reference.json', 'scripts/build-reference-codec.ps1',
-    'scripts/reference-codec.py', 'LICENSE', 'scripts/prepare-runtime-codec.py', 'backend/prebuilt_codecs.py'}
-SOURCE_REVIEW = 'verified-source-kit;production-hosting-open'
+    'scripts/reference-codec.py', 'LICENSE', 'packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt',
+    'scripts/prepare-runtime-codec.py', 'backend/prebuilt_codecs.py'}
+SOURCE_REVIEW = 'verified-source-kit;scoped-GPL-build-recipes;production-hosting-open'
 SERVICING_REVIEW = 'current-stable-bounded-scope;postrelease-review-required'
 POLICY = {'operation': 'flac-to-pcm-s16le', 'rate': 16000, 'channels': 1, 'max_samples': 16000}
 

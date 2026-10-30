@@ -5,9 +5,11 @@ const trustedOcr=JSON.parse(readFileSync(new URL('./mobile-ocr-integrity.json',i
 // A reviewed public source snapshot, never a general tracked-archive exemption.
 // This exact kit's original tar, recipes and notices were verified independently.
 export function reviewedSourceArchive(name,data){
- return name==='third_party/codecs/xiph-flac-1.5.0/codec-sources.zip'
-  && data.length===1086902
-  && createHash('sha256').update(data).digest('hex')==='7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b';
+ const expected=name==='third_party/codecs/xiph-flac-1.5.0/codec-sources.zip'
+  ? [1086902,'7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b']
+  : name==='third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip'
+   ? [1087821,'7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9'] : null;
+ return !!expected&&data.length===expected[0]&&createHash('sha256').update(data).digest('hex')===expected[1];
 }
 export const credentialPatterns=[/lx_[A-Za-z0-9]{40,}/,/gh[pousr]_[A-Za-z0-9]{30,}/,/github_pat_[A-Za-z0-9_]{30,}/,/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,/(?:AKIA|ASIA)[0-9A-Z]{16}/,/sk-(?:proj-|ant-)?[A-Za-z0-9_-]{40,}/,/xox[baprs]-[A-Za-z0-9-]{24,}/];
 export function scanContent(data,label){

@@ -49,10 +49,14 @@ published advisories/policy; that is not evidence of absence of vulnerabilities.
 ## Complete covered source, recipes and notices
 
 The self-contained source kit contains the original unmodified source tarball,
-the exact input policy, the two build/verification scripts and the custom
-Firebird55 Attribution License covering those scripts. The earlier MIT label
-was incorrect; [the rights/source/maintenance review](r19-xiph-distribution-review.md)
-records the resulting build-recipe license blocker and a scoped owner decision.
+the exact input policy, the two build/verification scripts and their license.
+The historical kit carries the custom Firebird55 Attribution License; the
+earlier MIT label was incorrect. The owner subsequently approved a limited
+additional GPL-2.0-or-later route for those three inputs, without the extra
+visible-credit/link condition. The [new source kit](../third_party/codecs/xiph-flac-1.5.0-gpl-recipes/README.md)
+includes the scoped grant. Its Windows rebuild and frozen evidence remain pending;
+the historical selection hashes below are preserved. The
+[rights/source/maintenance review](r19-xiph-distribution-review.md) records both.
 No source patch is applied. The tarball retains
 all upstream build systems, C/C++ sources, headers, resource files, copyright
 headers, licenses and authorship; it is not a wrapper sdist or a source link.

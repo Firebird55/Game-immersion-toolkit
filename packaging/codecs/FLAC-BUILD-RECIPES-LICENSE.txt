@@ -1,0 +1,24 @@
+Scoped additional license for Xiph FLAC build recipes
+Approved by the copyright holder on 2026-10-30.
+
+Copyright (c) 2026 Firebird55 and contributors.
+
+The copyright holder additionally licenses the following original project
+files, when distributed as build inputs of the Xiph FLAC source-delivery kit,
+under the GNU General Public License, version 2 or (at your option) any later
+version:
+
+- packaging/codecs/flac-reference.json
+- scripts/build-reference-codec.ps1
+- scripts/reference-codec.py
+
+Recipients choosing this additional GPL license are not subject to the
+Firebird55 Attribution License's additional visible-credit/link condition for
+these files. Copyright, license and warranty notices required by the chosen
+GPL version must be retained. The original project license remains an
+alternative for these files and continues to cover other original project
+software. No other project file or third-party code is relicensed by this grant.
+
+These files are distributed without any warranty; the GNU General Public
+License states the applicable terms. A complete copy of GPL version 2 accompanies
+the source kit in the original FLAC source's COPYING.GPL.

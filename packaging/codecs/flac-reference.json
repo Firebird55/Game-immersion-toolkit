@@ -36,6 +36,13 @@
     "flac.exe": "GPL-2.0-or-later; incorporates LGPL getopt/replaygain code supplied in the same source archive",
     "FLAC.dll": "BSD-3-Clause; full source/copyright notices retained"
   },
+  "build_recipe_license": {
+    "path": "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt",
+    "additional_grant": "GPL-2.0-or-later",
+    "approved_on": "2026-10-30",
+    "scope": ["packaging/codecs/flac-reference.json", "scripts/build-reference-codec.ps1", "scripts/reference-codec.py"],
+    "general_project_license_changed": false
+  },
   "excluded_inputs": [
     "supplier prebuilt Win32/Win64 binaries",
     "libogg",

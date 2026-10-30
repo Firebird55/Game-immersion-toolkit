@@ -3,3 +3,6 @@ desktop/fonts/LICENSE.txt -text whitespace=-blank-at-eol
 styles/GEIST-OFL.txt -text
 # Retain the reviewed complete codec source delivery byte for byte.
 third_party/codecs/xiph-flac-1.5.0/codec-sources.zip -text
+packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt -text
+third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip -text
+packaging/runtime-bundle/python-notices/*.txt -text whitespace=-blank-at-eol

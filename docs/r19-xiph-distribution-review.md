@@ -6,14 +6,16 @@ candidate in the [selection ledger](r19-codec-replacement.json) and
 The [structured review](r19-xiph-distribution-review.json) binds this decision,
 the retained source snapshot, all 35 inspected post-release commits and gates.
 
-**Disposition: review complete with a production blocker.** Upstream code,
-notices and build inputs are present. A source-only copy is now retained in Git.
-The delivered build recipes use the custom Firebird55 Attribution License,
-whose extra visible-credit/link condition has not been established compatible
-with GPLv2 corresponding-source distribution. The earlier MIT description was
-wrong. No authors' license is changed here and no production permission follows
-from this review. Source retention, future binary cohosting and ordinary-user
-Windows acceptance are separate decisions.
+**Disposition: the owner approved the scoped build-recipe license resolution.**
+On 2026-10-30 the copyright holder explicitly authorized an additional
+GPL-2.0-or-later route for exactly the two codec build scripts and input policy,
+without the extra visible-credit/link condition. The
+[scoped grant](../packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt) is delivered in
+a new source kit. The general project license remains unchanged. The earlier
+MIT description was wrong. The historical kit keeps its original terms;
+new-kit build/rebuild and frozen evidence are still pending at preparation.
+Canonical source retention, future binary cohosting, other component rights and
+ordinary-user Windows acceptance remain separate open gates.
 
 ## Exact rights and collected scope
 
@@ -33,7 +35,7 @@ CMake targets in the retained source provide the more precise inventory below.
 | Static ReplayGain analysis/synthesis | LGPL-2.1-or-later; src/share/replaygain_analysis and replaygain_synthesis | Preserve contributors' headers and source/relink materials even though fixed dispatch does not enable gain application |
 | FLAC.dll, grabbag/Windows UTF-8 and other BSD support | BSD notices in the original files, including Xiph contributors | Retain each copyright/conditions/disclaimer, including binary notice delivery and non-endorsement |
 | Original documentation | Original file notices and COPYING.FDL 1.3 | Retain the entire unmodified source archive; no edited manual is substituted |
-| Toolkit build scripts and policy | Firebird55 Attribution License 1.0; exact LICENSE hash 5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca | Preserve the license; resolve the additional-terms question below before binary publication |
+| Toolkit build scripts and policy | Additional GPL-2.0-or-later route for exactly the three named inputs; original Firebird55 Attribution License 1.0 remains an alternative | Deliver the scoped grant and full GPL text; no extra visible-credit/link term on the GPL route; general project license unchanged |
 
 The CMake flacapp target links FLAC, getopt, replaygain_synthesis and utf8;
 utf8 links grabbag, which links replaygain_analysis. No assumption that unused
@@ -56,7 +58,7 @@ remain the basis for aggregation, full source and no further restrictions.
 Game audio and publisher data are outside this code review. Xiph's upstream
 patent statement is not a project-specific patent clearance or warranty.
 
-## Build-recipe license blocker and concrete resolution
+## Build-recipe license finding and approved resolution
 
 The retained kit's LICENSE is the custom attribution license, not MIT. Its
 public-adaptation condition requires visible Firebird55 credit and a specified
@@ -67,26 +69,25 @@ scripts. Compatibility of this custom condition has not been established.
 Source-only retention under the files' existing separate terms is not approval
 to use this kit as the compliant source offering for a future GPL binary.
 
-A narrow owner decision can resolve this without changing the toolkit-wide
-license. Proposed scope is the exact policy and two build scripts in this kit:
+A narrow owner decision resolved the additional-terms finding for the new kit
+without changing the toolkit-wide license. Approved scope is exactly:
 
 - packaging/codecs/flac-reference.json;
 - scripts/build-reference-codec.ps1;
 - scripts/reference-codec.py.
 
-One concrete option is an additional **GPL-2.0-or-later** grant for these exact
-build inputs, without the custom visible-credit/link condition. Preserve author
-notices. Record the owner's actual grant in a scoped license file and in the
-delivered kit; the general project license continues to cover other original
-project software. A reviewed alternative compliance basis is also possible;
-do not infer one from repository ownership or silently convert headers.
+The owner explicitly approved the additional **GPL-2.0-or-later** grant on
+2026-10-30, without that extra condition on the GPL route. The scoped grant is
+1,161 bytes, SHA-256
+2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070.
+It preserves copyright/license/warranty notices and the original license as an
+alternative. It grants no rights over other toolkit files or third-party code.
 
-After a grant, regenerate the source kit, update its exact inventory/hash and
-notices, rerun the independent delivered-kit build/relink and decode checks,
-then update the frozen source-kit pins/manifests and affected native probes.
-Even unchanged executable bytes need newly matched source-delivery evidence.
-Keep the old snapshot as historical source. This step neither grants that
-license nor changes any runtime hash, acceptance flag or license file.
+The regenerated six-input kit and fixed resolver pins below now include the
+grant. Independent delivered-kit build/relink, decode and frozen checks must
+still bind these new bytes before acceptance. Even unchanged executable bytes
+need newly matched source-delivery evidence. The old snapshot remains historical
+source; no runtime binary hash or acceptance flag is changed by this grant.
 
 [LGPL 2.1 section 6(a)/(d)](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html)
 supports complete source/relink materials with equivalent network access.
@@ -111,13 +112,21 @@ The commit-pinned raw download was retrieved without authentication on
 2026-10-30 and matched all 1,086,902 bytes and the SHA-256 above. This verifies
 the public review copy, not future canonical release hosting.
 
-This removes dependence on seven-day Actions retention for the review copy.
-The publication scanner admits only this exact path, size and SHA-256; changed,
+The new [GPL-recipe source kit](../third_party/codecs/xiph-flac-1.5.0-gpl-recipes/README.md)
+contains six inputs, **1,087,821 bytes**, SHA-256
+7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9.
+It retains the same unmodified upstream tarball and original LICENSE, plus the
+exact scoped grant and current recipes/policy. Windows CRLF recipe bytes and
+byte-exact LF grant text are recorded separately. New Windows build/rebuild and
+frozen receipts are pending; historical successful receipts above do not cover it.
+
+This removes dependence on seven-day Actions retention for the review copies.
+The publication scanner admits only these two exact path/size/hash tuples; changed,
 appended, truncated or unrelated ZIPs remain rejected and content scanning stays
 active. A PR branch still does not prove protected canonical upstream retention.
 No repository protection setting, tag or release was created or changed.
 
-For each future binary publication, after the recipe-license decision:
+For each future binary publication:
 
 1. Retain the matching source kit on the canonical main/release lineage. Keep
    every old source snapshot indefinitely, including withdrawn binary versions.
@@ -255,8 +264,8 @@ Its five outer entries, source/recipe hashes and original custom LICENSE,
 anonymous/Git/CI source-kit byte equality, both build/probe identities, exact
 binary/notice hashes, PCM/failure/cleanup/native-origin records and disabled
 gates were independently checked. No binary or raw process/compiler log was
-uploaded. The recipe-license finding remains unresolved: a successful rebuild
-does not grant rights or prove production source-hosting/Windows acceptance.
+uploaded. This historical run preceded the scoped grant; it does not verify the
+new six-input kit or prove production source-hosting/Windows acceptance.
 
 Compatibility watch returned 2 after an initial sandbox DNS failure. Public
 settings/lookup/language/AI/API reference review found no added/removed endpoints;

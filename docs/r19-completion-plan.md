@@ -21,9 +21,11 @@ rebuild. Its new CLI/DLL is now [integrated in the frozen experiment](r19-frozen
 source/rebuild, extracted-runtime and clean Windows acceptance remain distinct.
 The [rights/source/maintenance review](r19-xiph-distribution-review.md) now retains
 the exact source kit in Git and records all 35 post-release changes. It also
-corrects the earlier MIT description: the required build recipes carry the
-custom attribution license. Resolve that scoped license condition and canonical
-binary/source cohosting before production adoption; native gates remain open.
+corrects the earlier MIT description. The owner approved a limited additional
+GPL-2.0-or-later route for the two codec build scripts and input policy on
+2026-10-30. The new source kit contains that grant; independent Windows
+build/rebuild and frozen verification are pending. Canonical binary/source
+cohosting, other component rights and native gates remain open.
 
 The deliverable is an extracted Windows x64 runtime that an ordinary user can
 operate without separately installed Python/Node/npm, a Wrangler service, an
@@ -44,7 +46,14 @@ shortcut transaction or live migration is authorized by this plan.
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
 | ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
-| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist; owned router shutdown and selected frozen settings/export-lock roots are corrected | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+
+The [Python component review](r19-python-component-review.md) retains twenty
+exact supplier notice texts and provenance. Runtime collection/finalization
+requires their delivery; native ownership, incorporated notices and rights are
+still pending. The [native acceptance protocol](r19-native-acceptance.md) validates
+candidate-bound receipts without granting acceptance. The user confirmed on
+2026-10-30 that Windows 11 25H2 x64 test hardware is not yet available.
 
 The `runtime` profile stays hard-disabled and `r19_complete` stays false. The dated
 `packaging/runtime-bundle/toolchains.json` is an inventory baseline; its old
