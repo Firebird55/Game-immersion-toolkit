@@ -762,3 +762,9 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.02em; }
   .reading-controls .control-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .reading-controls .reader-options-button { min-width: 36px; min-height: 36px; justify-content: center; }
 }
+.desktop-sharing { position: relative; font-size: .9rem; }
+.desktop-sharing > summary { display: flex; gap: .35rem; align-items: center; cursor: pointer; padding: .35rem; }
+.desktop-sharing-panel { position: absolute; top: 100%; left: 0; z-index: 80; width: min(24rem, calc(100vw - 1rem)); background: #111820; border: 1px solid #394551; border-radius: .6rem; padding: 1rem; box-shadow: 0 8px 30px #0008; }
+.desktop-sharing-panel p { margin: .6rem 0; line-height: 1.45; }
+.desktop-sharing-panel output { display: block; font-size: 2rem; letter-spacing: .25em; color: #ceff40; }
+.desktop-sharing-panel a { overflow-wrap: anywhere; }

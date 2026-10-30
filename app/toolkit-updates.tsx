@@ -1,7 +1,9 @@
 'use client';
+import {desktopApiBase} from '../lib/desktop-endpoints';
+
 import {useEffect, useState} from 'react';
 import {Button} from '@/components/ui/button';
-const API = 'http://127.0.0.1:8766/api/toolkit-update';
+const API = desktopApiBase()+'/api/toolkit-update';
 type Update = {installed_version?: string; available_version?: string; enabled?: boolean; state?: string; message?: string; stage?: string; downloaded_bytes?: number; total_bytes?: number; updated_at?: string};
 export function ToolkitUpdates() {
   const [status, setStatus] = useState<Update>({}), [error, setError] = useState(''), [busy, setBusy] = useState(false);

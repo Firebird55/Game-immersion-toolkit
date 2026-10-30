@@ -2,7 +2,7 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
 export const browserSuites = {
-  desktop: ['browser-e2e'],
+  desktop: ['browser-e2e', 'desktop-lan-e2e'],
   setup: ['setup-e2e', 'language-account-e2e', 'ui-state-e2e', 'ui-state-react-e2e', 'setup-build-e2e', 'local-access-e2e'],
   capture: ['companion-e2e', 'mobile-reader-layout-e2e', 'mobile-capture-e2e', 'mobile-recovery-e2e', 'mobile-vdo-source-e2e', 'mobile-source-e2e'],
   offline: ['mobile-update-e2e'],

@@ -20,6 +20,7 @@ from typing import Mapping, Sequence
 SCHEMA = 'proxy-runtime-host-v1'
 MANIFEST_SCHEMA = 'proxy-runtime-bundle-v1'
 CHILD_TARGETS = {
+    'gateway': ('module', 'backend.desktop_gateway'),
     'frontend': ('module', 'backend.desktop_frontend'),
     'api': ('module', 'backend.main'),
     'window-capture': ('module', 'backend.window_capture_worker'),

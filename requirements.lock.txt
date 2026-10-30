@@ -31,6 +31,7 @@ packaging==26.3
 pillow==13.0.0
 pluggy==1.7.0
 protobuf==7.36.2
+psutil==7.2.2
 PyAudioWPatch==0.2.12.9; sys_platform == 'win32'
 pycryptodome==3.24.1
 pydantic==2.14.1

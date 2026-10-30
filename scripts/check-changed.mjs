@@ -57,6 +57,7 @@ export function scenarioPlan(files, checks = selectChecks(files)) {
   const browser = new Set(), windows = new Set();
   if (checks.includes('desktop')) browser.add('language-account-e2e');
   if (files.includes('scripts/browser-e2e.mjs')) browser.add('browser-e2e');
+  if (files.some(file => ['backend/desktop_gateway.py','lib/desktop-endpoints.ts','lib/desktop-address.mjs','app/desktop-sharing.tsx','mobile/desktop-connection.jsx','scripts/desktop-lan-e2e.mjs','scripts/companion-router.mjs'].includes(file))) browser.add('desktop-lan-e2e');
   if (checks.includes('mobile')) for (const name of ['companion-e2e','mobile-reader-layout-e2e','mobile-games-e2e','ocr-packs-e2e']) browser.add(name);
   // A source change must exercise actual frames through the receiver as well as
   // the retained QR/PC transport; selecting only layout checks misses lifecycle bugs.

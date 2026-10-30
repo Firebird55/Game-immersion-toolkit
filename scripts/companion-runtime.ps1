@@ -488,11 +488,13 @@ function Copy-CompanionAssets([string]$Source, [string]$Root) {
 }
 
 function Start-CompanionRouter([string]$Root, [string]$Source, [int]$ApiPort=8766, [int]$FrontendPort=3000) {
-    $node = (Get-Command node -ErrorAction Stop).Source
+    $runtimeState = Get-Content -LiteralPath (Join-Path $Root 'data\companion-runtime.json') -Raw | ConvertFrom-Json
+    $routerPython = [string]$runtimeState.active.python
+    if (-not $routerPython -or -not (Test-Path -LiteralPath $routerPython)) { throw 'The active runtime has no usable Python host.' }
     $assets = Copy-CompanionAssets $Source $Root
     $logs = Join-Path $Root 'data\runtime-logs'
     New-Item -ItemType Directory -Path $logs -Force | Out-Null
-    return Start-CompanionProcess $node @((Join-Path $Source 'scripts\companion-router.mjs'),'--state',(Join-Path $Root 'data\companion-runtime.json'),'--assets',$assets,'--api-port',[string]$ApiPort,'--frontend-port',[string]$FrontendPort) $Source (Join-Path $logs 'router')
+    return Start-CompanionProcess $routerPython @('-u','-m','backend.desktop_gateway','--state',(Join-Path $Root 'data\companion-runtime.json'),'--assets',$assets,'--api-port',[string]$ApiPort,'--frontend-port',[string]$FrontendPort) $Source (Join-Path $logs 'router')
 }
 
 function Set-CompanionNormalPriority($Record, [string]$Root) {

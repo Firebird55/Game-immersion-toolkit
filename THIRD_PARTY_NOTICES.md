@@ -6,6 +6,10 @@ The component uses documented Lexirise interfaces; this repository does not redi
 
 ## Toolkit assets and tools
 
+- Local network interface discovery uses psutil 7.2.2 (BSD-3-Clause), copyright
+  2009 Jay Loden, Dave Daeschler and Giampaolo Rodola. The full notice is retained
+  in packaging/licenses/psutil-LICENSE.txt and in the collected Python distribution.
+
 - FireRedVAD ONNX model and CMVN data: FireRedTeam, Apache-2.0. Full license, source revision and file hashes are in assets/fireredvad. These terms remain independent of the project license.
 - Original PT launcher icon and favicon: generated from project-owned geometric shapes. Covered by LICENSE.
 - shadcn-derived styling: retain styles/SHADCN-LICENSE.md (MIT).

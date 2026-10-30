@@ -23,10 +23,12 @@ test('prepared runtime switches without interrupting active responses or losing 
   router=await startRouter({statePath,assetDirectory:assets,apiPort:0,frontendPort:0});
   const base='http://127.0.0.1:'+router.apiPort;
   assert.equal(await(await fetch(base)).text(),'old runtime');
-  const answer=fetch(base+'/slow').then(response=>response.text());await pending;
+  const answer=fetch(base+'/slow').then(async response=>({text:await response.text(),port:response.headers.get('x-proxy-transcript-upstream-port')}));await pending;
   const temporary=statePath+'.pending';writeFileSync(temporary,JSON.stringify({active:{apiPort:b,frontendPort:b}}));renameSync(temporary,statePath);
-  assert.equal(await(await fetch(base)).text(),'new runtime');
-  finish();assert.equal(await answer,'old answer completed');
+  const until=Date.now()+2000;while(await(await fetch(base)).text()!=='new runtime'&&Date.now()<until)await new Promise(resolve=>setTimeout(resolve,25));
+  const switched=await fetch(base);assert.equal(await switched.text(),'new runtime');
+  assert.equal(switched.headers.get('x-proxy-transcript-upstream-port'),String(b));
+  finish();assert.deepEqual(await answer,{text:'old answer completed',port:String(a)});
   assert.equal(await(await fetch('http://127.0.0.1:'+router.frontendPort+'/_next/static/old-reader.js')).text(),'old interface asset');
   writeFileSync(statePath,'{incomplete');
   assert.equal(await(await fetch(base)).text(),'new runtime','A broken candidate cannot replace the working route');
@@ -49,11 +51,11 @@ test('open readers reconnect their WebSocket to the prepared runtime',async()=>{
  try{
   const a=await listen(old),b=await listen(fresh);writeFileSync(statePath,JSON.stringify({active:{apiPort:a,frontendPort:a}}));
   router=await startRouter({statePath,apiPort:0,frontendPort:0});
-  first=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/ws');
+  first=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/api/ws');
   assert.equal((await event(first,'message'))[0].data,'old');
   const disconnected=event(first,'close');
   writeFileSync(statePath,JSON.stringify({active:{apiPort:b,frontendPort:b}}));await disconnected;
-  second=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/ws');
+  second=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/api/ws');
   assert.equal((await event(second,'message'))[0].data,'new');
  }finally{
   first?.close();second?.close();await router?.close();for(const socket of sockets)socket.destroy();

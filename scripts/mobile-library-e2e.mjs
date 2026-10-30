@@ -109,7 +109,7 @@ try{
   }
   await page.click('#forget-library');await page.locator('#keep-library').uncheck();
   await verifyZzzProxy(page);await verifyBeyondContext(page);await verifyHeavyRainPages(page);
-  assert.equal(await page.locator('.companion-nav button').count(),2);
+  assert.equal(await page.locator('.companion-nav > button').count(),2);
   await page.setInputFiles('#library-files',input('old-voices.zip',voices));
   await page.waitForFunction(()=>document.querySelector('#library-status').textContent.includes('voice-only'));
   const chooser=page.waitForEvent('filechooser');await page.click('#open-library');await(await chooser).setFiles(input('Synthetic Game - Mandarin - Mobile Library.zip',bundle));

@@ -1,9 +1,12 @@
 'use client';
+import {desktopApiBase, desktopWebSocketUrl} from '../lib/desktop-endpoints';
+
 import {useInterfaceLanguage, useInterfaceTranslation} from '../lib/interface-language';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
 import { settingsAdapter } from './lexirise-settings';
 import {StateEvents, StatePoll, type StateContext} from './state-sync';
+import {DesktopSharing} from './desktop-sharing';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
@@ -40,8 +43,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const API_URL = 'http://127.0.0.1:8766';
-const WS_URL = 'ws://127.0.0.1:8766/api/ws';
+const API_URL = desktopApiBase();
+const WS_URL = desktopWebSocketUrl();
 const HISTORY_LIMIT = 50;
 const HISTORY_PAGE_SIZE = 10;
 
@@ -485,6 +488,7 @@ function CompanionClient() {
     };
     const owner = new StatePoll<CompanionSnapshot>(async signal => {
       const response = await fetch(`${API_URL}/api/snapshot`, {cache:'no-store', signal});
+      if (response.status === 401 && API_URL === '') window.location.replace('/');
       if (!response.ok) throw Error('Companion service unavailable');
       return await response.json() as CompanionSnapshot;
     }, value => {
@@ -895,7 +899,7 @@ function CompanionClient() {
       <header className="topbar">
         <div>
           <h1>Game immersion toolkit</h1>
-          {!archivedHistory && <a href={'/mobile-capture/?pc=1&game='+selectedGame} target="_blank" rel="noopener noreferrer">{uiText("Share transcript to another device")}</a>}
+          {!archivedHistory && <DesktopSharing game={selectedGame} />}
         </div>
       <div className="game-tabs">
         <div className="reading-controls" aria-label={uiText("Reading options")}>

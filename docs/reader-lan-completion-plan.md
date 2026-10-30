@@ -1,6 +1,6 @@
 # Reader and LAN completion plan
 
-Status: reader implementation complete; LAN and final artifact acceptance remain. Companion to the
+Status: reader and LAN implementation complete; final installed artifact and physical-device acceptance remain. Companion to the
 [R19 completion plan](r19-completion-plan.md), especially C/E's retained-origin,
 browser and update continuity, and [issue #61](https://github.com/Firebird55/Game-immersion-toolkit/issues/61).
 Use the existing desktop/static frontend and mobile reader; no second frontend
@@ -26,17 +26,17 @@ server or duplicated reading engine is required.
 
 ## One desktop origin on the LAN
 
-- [ ] Remove client-side loopback constants in favor of one endpoint resolver.
+- [x] Remove client-side loopback constants in favor of one endpoint resolver.
   Preserve the existing local browser origin and storage keys for installed users.
-- [ ] Serve UI/API/WebSocket routes through the existing source router and R19
+- [x] Serve UI/API/WebSocket routes through the existing source router and R19
   static host. The frozen build must not reintroduce Node/Wrangler as a prerequisite.
-- [ ] Display a usable local-network URL/port and allow a phone/tablet to open it.
+- [x] Display a usable local-network URL/port and allow a phone/tablet to open it.
   Keep protected account/setup routes protected and validate origin/host handling.
-- [ ] Add Connect to desktop to the mobile player; accept an address and open
+- [x] Add Connect to desktop to the mobile player; accept an address and open
   the same desktop Web UI. Preserve the independent mobile/offline mode.
-- [ ] Handle disconnect/reconnect without losing transcript or favorite state.
+- [x] Handle disconnect/reconnect without losing transcript or favorite state.
   Show connection status compactly without moving the text.
-- [ ] Use safe-area insets, large default text, compact touch controls and minimal
+- [x] Use safe-area insets, large default text, compact touch controls and minimal
   margins on iPhone, iPad and Android portrait/landscape screens.
 
 ## Checks and R19 compatibility
@@ -62,3 +62,25 @@ viewport/DPR cases including phone landscape and 150%/200% equivalent CSS
 viewports. Assertions cover equal typography, document scrolling, favorites,
 pagination, update displacement, empty history and oversized current captions.
 Physical browser zoom/DPI and physical phone/tablet acceptance remain separate.
+
+LAN validation: the actual Python gateway serves paired Chromium, Firefox and
+WebKit clients over a private interface. The same assertions exercise the built
+source frontend and verified R19 static frontend: shared favorites, original
+audio byte ranges, live WebSockets, retained pairing and runtime activation.
+Chromium/Firefox also decode the owned MP3 fixture. Windows WebKit rejects even
+the local MP3 blob; its transport/layout checks pass while native playback remains
+unavailable in that test engine. Physical Safari/iPhone/iPad testing remains open.
+The mobile player's Connect to desktop form opens this same paired reader.
+Host/Origin validation, restricted host account/runtime operations and short-lived
+invitation codes preserve the loopback backend boundary. Phone sessions expire
+after 24 hours and return to pairing when the next snapshot is unauthorized.
+
+Source recovery validation also covers the real gateway: owned frontend/router/
+backend crashes, concurrent launchers, failed publication cleanup and preservation
+of the single capture owner. Update completion waits for the gateway to acknowledge
+the candidate API and frontend ports; an old healthy response is insufficient.
+Running/paused updates, capture resumed during preparation/quiesce and failed
+candidates passed with authored services. The initial selected run caught stale
+mobile navigation assertions; the corrected affected scenarios and remaining
+Windows checks passed separately, rather than treating that failed aggregate as
+a full passing run. Final branch/release gates still remain.

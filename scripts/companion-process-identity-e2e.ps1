@@ -95,17 +95,27 @@ function Stop-CompanionProcess($Record,[string]$Root) {
     }finally{Remove-Item -LiteralPath $temporary -Recurse -Force}
 }
 function Test-LauncherRecovery {
+    if (Get-NetTCPConnection -State Listen -LocalPort 3000,8766 -ErrorAction SilentlyContinue) {
+        throw 'Recovery fixtures need free ports 3000 and 8766. Stop the owned companion before running this check.'
+    }
     $recoveryRoot = Join-Path ([IO.Path]::GetTempPath()) ('companion-recovery-'+[guid]::NewGuid().ToString('N'))
     $recoveryScripts = Join-Path $recoveryRoot 'scripts'
     $recoveryData = Join-Path $recoveryRoot 'data'
     $recoveryRecordFile = Join-Path $recoveryData 'processes.json'
     $recoveryStateFile = Join-Path $recoveryData 'companion-runtime.json'
     $node = (Get-Command node -ErrorAction Stop).Source
+    $gatewayPython = (& $node --input-type=module -e "import {resolvePython} from './scripts/python-runtime.mjs'; console.log(resolvePython().command)").Trim()
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $gatewayPython)) { throw 'Recovery fixtures require the prepared project Python environment.' }
     $launchers = @()
     New-Item -ItemType Directory -Path $recoveryScripts,$recoveryData,(Join-Path $recoveryRoot 'dist\server') -Force | Out-Null
     foreach ($name in @('start-companion.ps1','update-companion.ps1','companion-runtime.ps1','companion-router.mjs')) {
         Copy-Item (Join-Path $repository ('scripts\'+$name)) (Join-Path $recoveryScripts $name)
     }
+    New-Item -ItemType Directory -Path (Join-Path $recoveryRoot 'backend') -Force | Out-Null
+    foreach ($name in @('__init__.py','desktop_gateway.py','local_access.py')) {
+        Copy-Item (Join-Path $repository ('backend\'+$name)) (Join-Path $recoveryRoot ('backend\'+$name))
+    }
+    Save-CompanionJson (Join-Path $recoveryData 'fixture-python.json') @{python=$gatewayPython}
     [IO.File]::WriteAllText((Join-Path $recoveryRoot 'dist\server\wrangler.json'),'{}')
     # Real HTTP fixture processes retain session/capture state. An activation
     # refuses to run alongside any other live fixture capturer, including one
@@ -179,6 +189,11 @@ function Get-CompanionOwnedProcess($Record,[string]$Root) {
     return & $script:FixtureOwnedLookup $Record $Root
 }
 function Start-CompanionProcess([string]$Executable,[string[]]$Arguments,[string]$Directory,[string]$Log,[switch]$LowPriority) {
+    if ($Arguments -contains 'backend.desktop_gateway') {
+        # Run the real gateway with prepared dependencies, including the fresh
+        # installation case whose backend executable is deliberately synthetic.
+        $Executable = [string](Get-Content (Join-Path $Directory 'data\fixture-python.json') -Raw | ConvertFrom-Json).python
+    }
     $role = if ($Arguments -contains 'backend.main') {'backend'} elseif ($Arguments -contains 'dev') {'frontend'} else {''}
     if ($role) {
         $port = $Arguments[[Array]::IndexOf($Arguments,'--port')+1]
@@ -225,7 +240,7 @@ function Start-CompanionProcess([string]$Executable,[string[]]$Arguments,[string
     }
     $script:recoveryLaunchers = @()
     try {
-        $slot = Start-CompanionSlot $recoveryRoot $recoveryRoot $node
+        $slot = Start-CompanionSlot $recoveryRoot $recoveryRoot $gatewayPython
         Wait-CompanionService ('http://127.0.0.1:'+$slot.apiPort) $slot.processRecords.backend $recoveryRoot -Backend
         Wait-CompanionService ('http://127.0.0.1:'+$slot.frontendPort) $slot.processRecords.frontend $recoveryRoot
         Save-CompanionJson $recoveryStateFile @{version=1;active=$slot}
