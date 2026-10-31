@@ -10,9 +10,9 @@ import subprocess
 import tempfile
 import threading
 import wave
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from .runtime_writers import QuiesceableExecutor
 from .media_tools import ffmpeg_executable
 from .game_assets import asset_adapter
 
@@ -71,7 +71,7 @@ class LocalVoiceAssetService:
         self._fingerprint = ""
         self._loaded_signature = None
         self._lock = threading.RLock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"{game}-voice")
+        self._executor = QuiesceableExecutor(max_workers=1, thread_name_prefix=f"{game}-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.reload()
 

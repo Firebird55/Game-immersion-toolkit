@@ -9,11 +9,11 @@ import tempfile
 import threading
 import uuid
 import wave
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
+from .runtime_writers import QuiesceableExecutor
 from .media_tools import ffmpeg_executable
 
 
@@ -509,7 +509,7 @@ class PragmataVoiceAssetService:
         self._fingerprint: str | None = None
         self._lock = threading.RLock()
         self._package_lock = threading.Lock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pragmata-original-voice")
+        self._executor = QuiesceableExecutor(max_workers=1, thread_name_prefix="pragmata-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
         self.ready = False

@@ -1,6 +1,7 @@
 """Host export preferences and jobs partitioned by account and learning locale."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
 import hashlib
 import json
 from pathlib import Path
@@ -21,6 +22,7 @@ class ScopedMobileExports:
         self.root, self.accounts, self.languages = Path(root), accounts, languages
         self.lock = threading.RLock()
         self.managers, self.last_games = {}, {}
+        self._quiescing = False
 
     def context(self, game=None):
         status = self.accounts.status()
@@ -32,7 +34,7 @@ class ScopedMobileExports:
         if locale and locale not in GAME_LOCALES.get(game, ('zh-Hans',)):
             raise ValueError('Select a supported prepared learning language.')
         if not locale:
-            legacy = account == 'legacy' and not (self.root / 'data/languages' / game).is_dir()
+            legacy = account == 'legacy' and not (runtime_data_root(self.root) / 'languages' / game).is_dir()
             locale = 'zh-Hans' if game == 'hito' or legacy else 'unconfigured'
         signature = account_signature(self.accounts)
         generation = self.languages.selection_generation(game, account)
@@ -72,7 +74,7 @@ class ScopedMobileExports:
         self._require_table(context[0], context[2], context[1])
 
     def _require_table(self, account, game, locale):
-        if self.languages.selected(game, account) and not (self.root / 'data/languages' / game / locale / 'textmap.json').is_file():
+        if self.languages.selected(game, account) and not (runtime_data_root(self.root) / 'languages' / game / locale / 'textmap.json').is_file():
             raise ValueError('The selected language table is unavailable. Rebuild it in Languages before exporting.')
 
     def status(self, game=None):
@@ -88,6 +90,8 @@ class ScopedMobileExports:
 
     def start(self, game, include_audio=True, destination_folder=None):
         with self.accounts.lock, self.lock:
+            if self._quiescing:
+                return False
             manager, _, locale = self._manager(game)
             if locale == 'unconfigured':
                 raise ValueError('Select and prepare a learning language before exporting.')
@@ -98,8 +102,23 @@ class ScopedMobileExports:
             return manager.start(game, include_audio, destination_folder)
 
     def browse(self, folder=None, *, game=None):
-        manager, _, _ = self._manager(game)
-        return manager.browse(folder)
+        with self.accounts.lock, self.lock:
+            if self._quiescing:
+                return False
+            manager, _, _ = self._manager(game)
+            return manager.browse(folder)
+
+    def quiesce(self):
+        with self.accounts.lock, self.lock:
+            self._quiescing = True
+            for manager in self.managers.values():
+                manager.quiesce()
+
+    def resume(self):
+        with self.accounts.lock, self.lock:
+            for manager in self.managers.values():
+                manager.resume()
+            self._quiescing = False
 
     def close_picker(self, game=None):
         return self._manager(game)[0].close_picker()

@@ -1,0 +1,27 @@
+--- a/share/cmake-4.4/Modules/CMakeDetermineCompilerId.cmake
++++ b/share/cmake-4.4/Modules/CMakeDetermineCompilerId.cmake
+@@ -606,14 +606,22 @@
+       else()
+         set(id_toolset "<PlatformToolset>${CMAKE_VS_PLATFORM_TOOLSET}</PlatformToolset>")
+         if(CMAKE_VS_PLATFORM_TOOLSET_VERSION)
++          # R19 ASR-only module variant: retain the complete instance identity.
++          string(REGEX REPLACE ",version=[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$" ""
++            _proxy_r19_id_instance_root "${CMAKE_GENERATOR_INSTANCE}")
++          if(NOT "${CMAKE_GENERATOR_INSTANCE}" STREQUAL
++              "${_proxy_r19_id_instance_root},version=${CMAKE_VS_VERSION_BUILD_NUMBER}")
++            message(FATAL_ERROR "R19 ASR CompilerId exact VS instance identity differs.")
++          endif()
+           set(id_sep "\\")
+           if(CMAKE_VS_PLATFORM_TOOLSET_VERSION VERSION_GREATER_EQUAL "14.20")
+-            if(EXISTS "${CMAKE_GENERATOR_INSTANCE}/VC/Auxiliary/Build.${CMAKE_VS_PLATFORM_TOOLSET_VERSION}/Microsoft.VCToolsVersion.${CMAKE_VS_PLATFORM_TOOLSET_VERSION}.props")
++            if(EXISTS "${_proxy_r19_id_instance_root}/VC/Auxiliary/Build.${CMAKE_VS_PLATFORM_TOOLSET_VERSION}/Microsoft.VCToolsVersion.${CMAKE_VS_PLATFORM_TOOLSET_VERSION}.props")
+               set(id_sep ".")
+             endif()
+           endif()
+-          set(id_toolset_version_props "<Import Project=\"${CMAKE_GENERATOR_INSTANCE}\\VC\\Auxiliary\\Build${id_sep}${CMAKE_VS_PLATFORM_TOOLSET_VERSION}\\Microsoft.VCToolsVersion.${CMAKE_VS_PLATFORM_TOOLSET_VERSION}.props\" />")
++          set(id_toolset_version_props "<Import Project=\"${_proxy_r19_id_instance_root}\\VC\\Auxiliary\\Build${id_sep}${CMAKE_VS_PLATFORM_TOOLSET_VERSION}\\Microsoft.VCToolsVersion.${CMAKE_VS_PLATFORM_TOOLSET_VERSION}.props\" />")
+           unset(id_sep)
++          unset(_proxy_r19_id_instance_root)
+         endif()
+       endif()
+     else()

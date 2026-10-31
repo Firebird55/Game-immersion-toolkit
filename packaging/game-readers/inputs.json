@@ -1,0 +1,42 @@
+{
+  "schema": "proxy-dotnet-helper-inputs-v1",
+  "observed": "2026-10-28",
+  "release_metadata": {
+    "url": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+    "sha256": "8fa7ae2d46b1f94416d5458c7ed68b0c3cafc5efb8e34d89dea3a98bf0a38b33",
+    "release_date": "2026-10-25",
+    "support_phase": "active"
+  },
+  "sdk": {
+    "version": "10.0.403",
+    "artifact": "dotnet-sdk-10.0.403-win-x64.zip",
+    "source": "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.403/dotnet-sdk-10.0.403-win-x64.zip",
+    "sha512": "7a114c318fa7f1d9822991b534b2814d0e78386ceda816b371f5141acefe741d87ccb606ede06cadac8f9ac5070e32b708a67bbd1619ff5e5a7858a27874ef48"
+  },
+  "runtime_version": "10.0.14",
+  "rid": "win-x64",
+  "packages": [
+    {
+      "name": "Microsoft.NETCore.App.Runtime.win-x64",
+      "version": "10.0.14",
+      "artifact": "microsoft.netcore.app.runtime.win-x64.10.0.14.nupkg",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.win-x64/10.0.14/microsoft.netcore.app.runtime.win-x64.10.0.14.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.10.25.17.31.05/microsoft.netcore.app.runtime.win-x64.10.0.14.json",
+      "sha512_base64": "mLWGagTP5n7nMfJQI2XpXRYgvPcnyYvAc8ZiDfum8ShM0UcrPDyfW4Lqo45UtlCHCucERUHQuMTI6ybVweCN9A==",
+      "license_expression": "MIT"
+    },
+    {
+      "name": "Microsoft.NETCore.App.Host.win-x64",
+      "version": "10.0.14",
+      "artifact": "microsoft.netcore.app.host.win-x64.10.0.14.nupkg",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.host.win-x64/10.0.14/microsoft.netcore.app.host.win-x64.10.0.14.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.10.25.17.30.18/microsoft.netcore.app.host.win-x64.10.0.14.json",
+      "sha512_base64": "Kn602fS/n6hsgpCW8HzykOu31D/oNrxhETNlgoou5yj7Zvvw9KWX3GnG7hevtm9R3VKdP1kPEfQ0Y3eo83YafQ==",
+      "license_expression": "MIT"
+    }
+  ],
+  "game_reader_acceptance": {
+    "nte": "owned bridge only; external UEExtractor/native chain unavailable",
+    "endfield": "blocked: selected upstream Keys.cs embeds unreviewed game-derived constants"
+  }
+}

@@ -5,7 +5,7 @@ import {chromium,firefox} from 'playwright';
 // Exercise the actual built CompanionClient, including its HTTP/WS bindings.
 // Every account request is handled locally; no real credentials or account writes.
 const preview=await startPreview('ui-state-react'),{origin}=preview;
-let browser;
+let browser,releaseInitialSocket;
 const started=Date.now(),phase=message=>console.log(`React fixture +${Date.now()-started}ms: ${message}`);
 const requestInfo=request=>({method:request.method(),type:request.resourceType(),url:request.url()});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -27,7 +27,7 @@ try {
    page.on('load',()=>record({event:'load',url:page.url()}));
    page.on('crash',()=>record({event:'crash'}));
    const errors=[],requests=[];page.on('pageerror',error=>errors.push(error.message));
-   let socket,active='first',runtimeId='react-fixture',generation=0,revision=0,holdSnapshot=false,releaseSnapshot,extraLine=false,emptySnapshot=false,sourceText='Hello';
+   let socket,active='first',runtimeId='react-fixture',generation=0,revision=0,holdSnapshot=false,releaseSnapshot,extraLine=false,emptySnapshot=false,sourceText='Hello',startupSnapshot=true;
    const stateContext=()=>({runtime_id:runtimeId,state_version:revision,account_generation:generation});
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
@@ -46,7 +46,21 @@ try {
      return nativeInterval(callback,delay,...args);
     };
    });
-   await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',ws=>{socket=ws;});
+   const initialSocketGate=new Promise(resolve=>{releaseInitialSocket=resolve;});
+   await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',async ws=>{socket=ws;await initialSocketGate;});
+   await page.addInitScript(()=>{
+    // Observe the real mock connection's open event without delaying or
+    // replacing the application's handler. Its reset starts a fresh HTTP read.
+    const NativeWebSocket=window.WebSocket;
+    window.WebSocket=class extends NativeWebSocket {
+     constructor(...args){
+      super(...args);
+      if(this.url==='ws://127.0.0.1:8766/api/ws')this.addEventListener('open',()=>{
+       window.fixtureCompanionSocketOpened=true;
+      },{once:true});
+     }
+    };
+   });
    await page.route('http://127.0.0.1:8766/**',async route=>{
     const request=route.request(),path=new URL(request.url()).pathname;
     requests.push({path,method:request.method(),account:request.headers()['x-proxy-transcript-account']});
@@ -54,6 +68,8 @@ try {
     if(request.method()==='OPTIONS')return respond({});
     if(path==='/api/snapshot') {
      const body=snapshot();
+     if(startupSnapshot&&await page.evaluate(()=>window.fixtureCompanionSocketOpened===true))
+      body.status.capture={...body.status.capture,phase:'fixture_socket_ready'};
      if(holdSnapshot){holdSnapshot=false;releaseSnapshot=()=>respond(body);return;}
      return respond(body);
     }
@@ -77,6 +93,14 @@ try {
     throw error;
    }
    const current=page.locator('.current-line'),send=current.locator('.lexirise-send');
+   // Force the first HTTP read to publish before the mock connection opens.
+   // This is an explicit ordering gate, without a timing delay or a retry.
+   await send.waitFor();await until(()=>send.isEnabled());releaseInitialSocket();
+   // An enabled button can come from the initial HTTP read before WS opens.
+   // Publish ordered events only after the post-open reset/read has rendered;
+   // otherwise a revision-2 startup fixture can erase our revision-1 event.
+   await page.getByText('fixture socket ready',{exact:true}).first().waitFor();
+   startupSnapshot=false;
    await send.waitFor();await until(()=>send.isEnabled());
    // Independent domains can arrive out of publication order. The older line
    // remains newer than that line's last snapshot, despite a newer capture event.
@@ -175,5 +199,6 @@ try {
   await browser.close();browser=null;
  }
 }finally{
+ releaseInitialSocket?.();
  await preview.stop();
 }

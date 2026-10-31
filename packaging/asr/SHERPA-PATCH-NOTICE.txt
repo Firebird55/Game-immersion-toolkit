@@ -1,0 +1,28 @@
+sherpa-onnx disabled-TTS compatibility and candidate-package modifications
+
+Upstream file: sherpa-onnx/python/csrc/sherpa-onnx.cc
+Copyright (c)  2023  Xiaomi Corporation
+Upstream source revision: 11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf
+Source: https://github.com/k2-fsa/sherpa-onnx/blob/11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf/sherpa-onnx/python/csrc/sherpa-onnx.cc
+
+The upstream work is licensed under the Apache License, Version 2.0.
+The complete original upstream license accompanies this notice as
+SHERPA-LICENSE.txt. Original source notices and headers remain in the exact
+upstream archive and prepared source. Other dependencies retain their own terms.
+
+Modification by the Game immersion toolkit project, 2026-10-31:
+The recorded tts-off-python-symbols.patch adds GenerationConfig and
+OfflineTtsSupertonicModelConfig as py::none() attributes in the disabled-TTS
+branch. This preserves the existing Python initializer's symbol imports when
+TTS is OFF. No other upstream source change is made by this patch.
+
+The private candidate package separately modifies its copy of
+sherpa_onnx/__init__.py: scripts/reference-asr.py appends an identifying comment
+and __version__ = "1.13.8+proxy.r19.asr1" for the distinct unpublished reference
+variant. The original upstream initializer remains unchanged in the retained
+archive and prepared source. This package-copy modification is separate from
+the two C++ additions recorded in tts-off-python-symbols.patch.
+
+This attribution and modification notice preserves upstream terms. It is not
+a new license grant, native redistribution approval, model-license acceptance
+or approval of the separate experiment's combined dependencies.

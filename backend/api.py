@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import os
 import json
-import sys
 import subprocess
 import tempfile
 import threading
+import time
 from contextlib import asynccontextmanager, contextmanager, nullcontext
 from pathlib import Path
 from subprocess import TimeoutExpired
@@ -37,6 +37,7 @@ from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
+from .runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware
 from .state_version import StateVersion
 from .lexirise_settings import account_settings, STUDY_LANGUAGES
 from .accounts import AccountStore
@@ -49,10 +50,12 @@ from .scoped_mobile_exports import ScopedMobileExports
 from .automatic_mobile_export import AutomaticMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
+from .runtime_bundle import discover_layout, child_command
 
 
-PROJECT_ROOT = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
-DATA_DIR = PROJECT_ROOT / "data"
+RUNTIME_LAYOUT = discover_layout()
+PROJECT_ROOT = RUNTIME_LAYOUT.legacy_root or RUNTIME_LAYOUT.application_root
+DATA_DIR = RUNTIME_LAYOUT.data_root
 
 
 class ManualIngest(BaseModel):
@@ -129,13 +132,18 @@ class EventHub:
 class Runtime:
     def __init__(self) -> None:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
+        self.request_writers = RuntimeWriterGate()
+        self._handoff_lock = asyncio.Lock()
+        self._handoff_drains = []
+        self._writer_handoff = False
         self._updates_started = False
         self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
         self.repair_task = None
         self.state_version = StateVersion()
         self.hub = EventHub(lambda: self.state_version.publish(self.accounts.generation))
-        local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
+        local_settings = (RUNTIME_LAYOUT.settings_root / 'settings.json' if RUNTIME_LAYOUT.mode == 'bundle' else
+            Path(os.environ.get("LOCALAPPDATA", DATA_DIR)) / "Proxy Transcript/settings.json")
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript-v2.db")
@@ -285,14 +293,14 @@ class Runtime:
                     if job:
                         job.report('extracting', 'Reading official subtitles and original voice mappings; large games can take several minutes (30-minute limit)')
                     output = Path(temporary) / 'textmap.json'
-                    command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
+                    command = child_command('language', ['--game', game,
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
-                        '--targets', json.dumps(targets), '--output', str(output)]
+                        '--targets', json.dumps(targets), '--output', str(output)])
                     if job:
-                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800,
+                        returncode = job.run(command, cwd=RUNTIME_LAYOUT.resource_root, timeout=1800,
                                              progress_path=output.with_name('progress.json'), **subprocess_options())
                     else:
-                        returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
+                        returncode = subprocess.run(command, cwd=RUNTIME_LAYOUT.resource_root,
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
                         from .preparation_errors import PreparationFailure, public_failure
@@ -589,7 +597,7 @@ class Runtime:
                 except asyncio.TimeoutError:
                     return
 
-    async def stop_updates(self) -> None:
+    async def stop_updates(self, *, drain=False) -> None:
         self._updates_started = False
         if hasattr(self, 'toolkit_updater'):
             self.toolkit_updater.close()
@@ -604,15 +612,147 @@ class Runtime:
                 pass
             self.repair_task = None
         if self.index_task:
-            self.index_task.cancel()
+            if not drain:
+                self.index_task.cancel()
             try:
-                await self.index_task
+                if drain:
+                    await asyncio.shield(self.index_task)
+                else:
+                    await self.index_task
             except asyncio.CancelledError:
-                pass
+                if drain:
+                    raise
             self.index_task = None
         await asyncio.gather(*(asyncio.to_thread(updater.close) for updater in
             [self.update_manager, self.pragmata_updater, *self.game_updaters.values()]))
         self._updates_started = False
+
+    async def _handoff_step(self, operation, deadline, *, blocking=False):
+        remaining = deadline-time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Runtime writer quiesce deadline expired.')
+        task = asyncio.create_task(asyncio.to_thread(operation) if blocking else operation())
+        self._handoff_drains.append(task)
+        # Keep the actual step owned after a timeout/client disconnect. A
+        # cancelled executor future would not prove its thread stopped.
+        done, _ = await asyncio.wait({task}, timeout=remaining)
+        if not done:
+            raise TimeoutError('Runtime writers have not finished; handoff is unavailable.')
+        return task.result()
+
+    def _verify_background_stopped(self):
+        for producer in [self.toolkit_updater, self.automatic_exports, self.update_manager,
+                         self.pragmata_updater, *self.game_updaters.values()]:
+            thread = getattr(producer, '_thread', getattr(producer, 'thread', None))
+            process = getattr(producer, '_process', getattr(producer, 'process', None))
+            if (thread and thread.is_alive()) or (process and process.poll() is None):
+                raise TimeoutError('A background writer still owns work; runtime handoff is unavailable.')
+
+    def _voice_pools(self):
+        voices = set([self._legacy_zzz_voice, self._legacy_pragmata_voice, *self._legacy_game_voices,
+                      *self.game_voice_assets.values(), *self._locale_voices.values()])
+        return [voice._executor for voice in voices]
+
+    async def _drain_map(self):
+        if self.map_task:
+            await asyncio.shield(self.map_task)
+
+    async def quiesce_capture_handoff(self):
+        # Preserve the source updater's existing capture-only protocol. It is
+        # explicitly not a settings/database writer-stop or store-copy proof.
+        async with self._handoff_lock:
+            if self._writer_handoff:
+                raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
+            running = self.capture.snapshot().running
+            await self.stop_updates()
+            await self.capture.stop()
+            self.standby = True
+            return self.capture.export_handoff(running)
+
+    async def quiesce_writers(self, timeout=30):
+        async with self._handoff_lock:
+            self._writer_handoff = True
+            self.request_writers.stop_admission()
+            if any(not task.done() for task in self._handoff_drains):
+                raise TimeoutError('A previous runtime writer drain is still running.')
+            self._clear_handoff_drains()
+            deadline = time.monotonic()+timeout
+            running = self.capture.snapshot().running
+            await self._handoff_step(lambda: self.request_writers.wait_drained(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            # Do not manufacture native cleanup by cancelling a Future or
+            # terminating a native setup/export process by a stored PID.
+            await self._handoff_step(self.mobile_exports.quiesce, deadline, blocking=True)
+            await self._handoff_step(self.automatic_exports.picker.quiesce, deadline, blocking=True)
+            await self._handoff_step(lambda: self.installation.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            await self._handoff_step(lambda: self.stop_updates(drain=True), deadline)
+            self._verify_background_stopped()
+            await self._handoff_step(self._drain_map, deadline)
+            for reader in set([self.reading, *self._readers.values()]):
+                await self._handoff_step(lambda reader=reader: reader.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            await self._handoff_step(lambda: self.capture.quiesce(max(0, deadline-time.monotonic())), deadline)
+            for pool in self._voice_pools():
+                await self._handoff_step(lambda pool=pool: pool.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            await self._handoff_step(self.capture.drain_publications, deadline)
+            # Hito still has a separately launched grammar worker. Its native
+            # ownership/restart adapter is not proved: refuse handoff rather
+            # than claim a global writer barrier while it can publish a cache.
+            hito = self.hito
+            if hito and ((getattr(hito, '_thread', None) and hito._thread.is_alive()) or any(
+                    process and process.poll() is None for process in
+                    (getattr(hito, '_process', None), getattr(hito, '_starting_process', None)))):
+                raise TimeoutError('The Hito grammar worker is still active; supervised handoff is unavailable.')
+            self.standby = True
+            return self.capture.export_handoff(running)
+
+    def _clear_handoff_drains(self):
+        for task in self._handoff_drains:
+            if task.done() and not task.cancelled():
+                task.exception()  # Observe an error that finished after its bounded waiter.
+        self._handoff_drains.clear()
+
+    async def activate_handoff(self, payload, *, writers=False):
+        # A recovery call cannot reopen admission between two quiesce steps.
+        async with self._handoff_lock:
+            if self._writer_handoff and not writers:
+                raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
+            if writers:
+                if any(not task.done() for task in self._handoff_drains):
+                    raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
+                if self.capture.native_stop_pending:
+                    await self._handoff_step(self.capture.finish_native_stop, time.monotonic()+30)
+                self.resume_writers()
+            if self.capture.snapshot().running:
+                self.standby = False
+                self.start_updates()
+            else:
+                self.capture.import_handoff(payload)
+                self.standby = False
+                if payload.running:
+                    self.capture.start()
+                self.start_updates()
+            if writers:
+                self.admit_requests()
+                self._writer_handoff = False
+            return {'active': True}
+
+    def resume_writers(self):
+        if any(not task.done() for task in self._handoff_drains):
+            raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
+        if self._handoff_drains and not self._updates_started:
+            self.languages.close(timeout=0)
+            self._verify_background_stopped()
+        self.capture.resume_workers()
+        for pool in self._voice_pools():
+            pool.resume()
+        for reader in set([self.reading, *self._readers.values()]):
+            reader.resume()
+        self.installation.resume()
+        self.mobile_exports.resume()
+        self.automatic_exports.picker.resume()
+        self._clear_handoff_drains()
+
+    def admit_requests(self):
+        self.request_writers.resume()
 
     async def on_line(self, line: TranscriptLine) -> None:
         # Capture/audio threads can queue this coroutine before a favorite,
@@ -772,6 +912,7 @@ async def pin_account_request(request: Request, call_next):
         REQUEST_KEY.reset(token)
 
 
+app.add_middleware(RuntimeWriterMiddleware, current_runtime=lambda: globals().get('runtime'))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(COMPANION_ORIGINS),
@@ -821,34 +962,25 @@ def runtime_ready(game: str | None = None) -> dict:
 
 
 @app.post('/api/runtime/quiesce')
-async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default='')) -> dict:
+async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default=''), writers: bool = False) -> dict:
     runtime_access(request, x_proxy_transcript)
-    running = runtime.capture.snapshot().running
-    # Stop resource-heavy refreshes while capture is still serving the old app.
-    await runtime.stop_updates()
-    await runtime.capture.stop()
-    runtime.standby = True
-    return runtime.capture.export_handoff(running).model_dump()
+    try:
+        handoff = await runtime.quiesce_writers() if writers else await runtime.quiesce_capture_handoff()
+        return handoff.model_dump()
+    except TimeoutError as error:
+        raise HTTPException(409, str(error)) from None
 
 
 @app.post('/api/runtime/activate')
 async def runtime_activate(payload: CaptureHandoff, request: Request,
-                           x_proxy_transcript: str = Header(default='')) -> dict:
+                           x_proxy_transcript: str = Header(default=''), writers: bool = False) -> dict:
     runtime_access(request, x_proxy_transcript)
     if not runtime_ready()['ready']:
         raise HTTPException(409, 'Replacement OCR is still warming up')
-    if runtime.capture.snapshot().running:
-        # A failed quiesce may stop updates while leaving capture serving.
-        # Rollback resumes that work without replacing its live session.
-        runtime.standby = False
-        runtime.start_updates()
-        return {'active': True}
-    runtime.capture.import_handoff(payload)
-    runtime.standby = False
-    if payload.running:
-        runtime.capture.start()
-    runtime.start_updates()
-    return {'active': True}
+    try:
+        return await runtime.activate_handoff(payload, writers=writers)
+    except TimeoutError as error:
+        raise HTTPException(409, str(error)) from None
 
 
 @app.get("/api/status")

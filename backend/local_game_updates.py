@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import threading
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
@@ -11,6 +10,7 @@ from datetime import datetime, timezone
 from .game_paths import discover_install
 from .game_assets import asset_adapter, LOCAL_GAMES
 from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
+from .runtime_bundle import child_command, discover_layout
 
 
 class LocalGameUpdateManager:
@@ -134,9 +134,9 @@ class LocalGameUpdateManager:
         directory.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=directory, prefix='candidate-') as temporary:
             output = Path(temporary) / 'index.json'
-            command = [sys.executable, '-m', 'backend.game_index_worker', '--game', self.game,
-                       '--install', str(install), '--directory', str(directory), '--output', str(output)]
-            self._process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[1],
+            command = child_command('game-index', ['--game', self.game,
+                       '--install', str(install), '--directory', str(directory), '--output', str(output)])
+            self._process = subprocess.Popen(command, cwd=discover_layout().resource_root,
                                              stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                                              text=True, **subprocess_options())
             try:

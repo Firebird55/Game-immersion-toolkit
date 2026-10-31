@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root, voice_work_root
+from .runtime_bundle import child_command, discover_layout
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -33,7 +35,7 @@ class BackgroundUpdateManager:
         self.publish = publish
         self.interval = interval
         self.game_data_provider = game_data_provider
-        self.state_path = project_root / "data/voice-assets/background-update-state.json"
+        self.state_path = runtime_data_root(project_root) / "voice-assets/background-update-state.json"
         self._lock = threading.RLock()
         self._stop = threading.Event()
         self._wake = threading.Event()
@@ -126,7 +128,7 @@ class BackgroundUpdateManager:
         return digest.hexdigest()
 
     def _update_metadata_repository(self) -> tuple[str | None, bool, str]:
-        repository = self.project_root / "work/voice-assets/ZenlessData"
+        repository = voice_work_root(self.project_root) / "ZenlessData"
         if not (repository / ".git").exists() or not shutil.which("git"):
             from .game_tools import refresh_zzz_metadata
             revision, changed = refresh_zzz_metadata(self.project_root)
@@ -152,7 +154,7 @@ class BackgroundUpdateManager:
         from .game_tools import METADATA_FILES
         sources = METADATA_FILES
         for name, relative in sources.items():
-            destination = self.project_root / "work/voice-assets" / name
+            destination = voice_work_root(self.project_root) / name
             if dirty:
                 source_bytes = subprocess.run([*git, "show", f"{after}:{relative}"],
                     cwd=repository, check=True, capture_output=True, timeout=30,
@@ -224,8 +226,8 @@ class BackgroundUpdateManager:
             if self._stop.is_set():
                 return
             output = self._run_command(
-                [sys.executable, "-m", "scripts.update_voice_assets"],
-                cwd=Path(__file__).resolve().parents[1],
+                child_command('update-voice'),
+                cwd=discover_layout().resource_root,
                 timeout=900,
             )
         if self.voice_assets.manifest.is_file():

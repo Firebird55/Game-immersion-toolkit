@@ -1,0 +1,224 @@
+{
+  "schema": "proxy-r19-codec-selection-v1",
+  "selected_on": "2026-10-30",
+  "selection": "Xiph FLAC 1.5.0, source-built Windows x64; native FLAC/PCM slice only",
+  "policy": "packaging/codecs/flac-reference.json",
+  "producer_source_commit": "9dc86be1886084afd9084fd291abc196f66f9beb",
+  "source_upstream_commit": "1507800de4b70e21be71f38caa0d9079d0bc6e45",
+  "source_upstream_sha256": "f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920",
+  "source_files": {
+    "inputs/flac-1.5.0.tar.xz": {
+      "bytes": 1078872,
+      "sha256": "f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920"
+    },
+    "LICENSE": {
+      "bytes": 1520,
+      "sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca"
+    },
+    "packaging/codecs/flac-reference.json": {
+      "bytes": 2015,
+      "sha256": "c3b8a67e8b594bbdad0a2126af7565cef19f8f9988fa9f7e8370fe3757ae5024"
+    },
+    "scripts/build-reference-codec.ps1": {
+      "bytes": 2494,
+      "sha256": "b90da52ea75fb2f042cfd86f8aeabbd67ffc21efe95235c21dff908c9bcd5fa9"
+    },
+    "scripts/reference-codec.py": {
+      "bytes": 10739,
+      "sha256": "1c225b02be99d6363b39045b4dda0580161f42b7fa7ae30e679ad69c7c7ac0f7"
+    }
+  },
+  "source_delivery_archive": {
+    "name": "codec-sources.zip",
+    "bytes": 1086902,
+    "sha256": "7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b",
+    "original_tar_entries": 907,
+    "matching_source_rebuild": "passed",
+    "matching_rebuild_binary_hashes": true,
+    "scope": "two builds in separate directories on the same hosted MSVC image; not cross-image reproducibility"
+  },
+  "candidate_files": {
+    "FLAC.dll": {
+      "bytes": 247808,
+      "sha256": "29c4c88bc8cb17e30aaef2d9af50455abeeccc59bda18d1189dfb7568d9e27d8"
+    },
+    "flac.exe": {
+      "bytes": 187392,
+      "sha256": "959b7871c00598360734b3792e24b369de6a08f91c02d18abaa7678488b9a355"
+    },
+    "notices/AUTHORS": {
+      "bytes": 2354,
+      "sha256": "89d44b9c876a8a5cbfc886348a151abd74eeb49e4b690b0cfe96d44a9afe8118"
+    },
+    "notices/COPYING.FDL": {
+      "bytes": 22954,
+      "sha256": "c5d2b95c2538d2e41d8eedd9ecc750cd5fee085c7bb2bc3e2f95f4e59cc0b10d"
+    },
+    "notices/COPYING.GPL": {
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    "notices/COPYING.LGPL": {
+      "bytes": 26436,
+      "sha256": "5df07007198989c622f5d41de8d703e7bef3d0e79d62e24332ee739a452af62a"
+    },
+    "notices/COPYING.Xiph": {
+      "bytes": 1509,
+      "sha256": "7866ee98760fc1f0156b4fe6bf530257e02be487ab3fd94e2b63799dd32d6b2c"
+    },
+    "notices/README.md": {
+      "bytes": 9870,
+      "sha256": "60f6958863c656e55017928edfda20ec26f60b06d673a68cc0030fd24f27f544"
+    },
+    "notices/SOURCE-COPYRIGHTS.txt": {
+      "bytes": 270276,
+      "sha256": "b80a97d5c805983929421d3d91d6d39a9393994825004f11d5a9ed356efba767"
+    }
+  },
+  "toolchain": {
+    "compiler_family": "MSVC",
+    "compiler_version": "19.51.36260.0",
+    "cmake_version": "cmake version 4.4.4",
+    "generator": "Visual Studio 18 2026"
+  },
+  "native_imports": {
+    "flac.exe": {
+      "imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "FLAC.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll"
+      ],
+      "delay_imports": []
+    },
+    "FLAC.dll": {
+      "imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll"
+      ],
+      "delay_imports": []
+    }
+  },
+  "source_patches": [],
+  "evidence": {
+    "workflow_run": 41072777245,
+    "url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41072777245",
+    "artifact_id": 12986665350,
+    "artifact_bytes": 1093294,
+    "artifact_sha256": "c0a23208750458fce5c5ba3ae7cc909c65e70a8967cfb4a3fc65fadf4666f01c",
+    "download_verification": "passed; all raw file hashes checked; Windows CRLF recipes also compared to canonical Git text",
+    "binary_download": "not-uploaded-or-independently-downloaded; hashes and execution observed on hosted build"
+  },
+  "decode": {
+    "pcm_bytes": 1024,
+    "pcm_sha256": "e153774c8d06b094341ec9eb1e1f53571d3398a01cfd6526df97bc073f7ef379",
+    "initial_build": "passed",
+    "delivered_source_rebuild": "passed",
+    "pre_cancelled": "previous-output-retained",
+    "deadline": "owned-cleanup-passed",
+    "truncated_input": "previous-output-retained"
+  },
+  "gates": {
+    "source_and_recipe_delivery_verification": "passed for selected covered source and build",
+    "selected_notices": "retained in source and candidate inventory",
+    "servicing": "current stable release selected; post-release RF64/ReplayGain fixes documented outside selected probe surface",
+    "frozen_runtime_integration": "not-run",
+    "codec_loaded_module_origins": "not-observed",
+    "windows_11_25H2": "unavailable",
+    "ordinary_user_CRT_resolution": "unavailable",
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "durable_production_source_publication": "not-performed",
+    "installer": "not-built",
+    "r19_complete": false
+  },
+  "subsequent_scoped_recipe_grant": {
+    "approved_on": "2026-10-30",
+    "review": "docs/r19-xiph-distribution-review.json",
+    "source_kit_path": "third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip",
+    "bytes": 1087821,
+    "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_files": {
+      "inputs/flac-1.5.0.tar.xz": {
+        "bytes": 1078872,
+        "sha256": "f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920"
+      },
+      "packaging/codecs/flac-reference.json": {
+        "bytes": 2362,
+        "sha256": "2329d272b2dec03b31baa05c093819b25db8dbd14dff609f2d207abb6ccec685"
+      },
+      "scripts/build-reference-codec.ps1": {
+        "bytes": 2494,
+        "sha256": "b90da52ea75fb2f042cfd86f8aeabbd67ffc21efe95235c21dff908c9bcd5fa9"
+      },
+      "scripts/reference-codec.py": {
+        "bytes": 10790,
+        "sha256": "f864bdadf181993b5660a58d96b8b24903a6e215692a46f3d80a892504af0850"
+      },
+      "LICENSE": {
+        "bytes": 1520,
+        "sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca"
+      },
+      "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt": {
+        "bytes": 1161,
+        "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070"
+      }
+    },
+    "status": "Windows-build-rebuild-downloaded-source-and-bounded-frozen-checkpoint-verified;production-not-approved",
+    "historical_selection_above": "preserved;not-retroactively-relicensed",
+    "general_project_license_changed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "verification": {
+      "source_commit": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+      "run": 41137727454,
+      "artifact": 13017103947,
+      "bytes": 1095190,
+      "sha256": "38f0bfe2f0f909e702f5ebc9376eb4e12346e01b2edbd75e47c4129fcfab5dfd",
+      "kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+      "builds": [
+        {
+          "build": "reference-codec",
+          "source_identity": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+          "pcm": "verified",
+          "faults_cleanup_native_origins": "verified",
+          "scoped_grant_source_inputs": "verified"
+        },
+        {
+          "build": "reference-codec-rebuild",
+          "source_identity": "source-kit-rebuild",
+          "pcm": "verified",
+          "faults_cleanup_native_origins": "verified",
+          "scoped_grant_source_inputs": "verified"
+        }
+      ],
+      "historical_binary_hashes_unchanged": true,
+      "new_kit_anonymous_git_ci_bytes": "identical",
+      "frozen_runtime": "not-run-failed-before-build",
+      "production_execution_allowed": false,
+      "r19_complete": false,
+      "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454",
+      "scope": "Standalone selected Windows build and independent delivered-source-kit rebuild; no integrated frozen or Windows 11 acceptance"
+    },
+    "frozen_verification": "docs/r19-frozen-checkpoint-20261031.json"
+  }
+}

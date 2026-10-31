@@ -1,0 +1,12 @@
+CMake 4.4.5 ASR-only CompilerId instance-location adaptation
+
+Upstream module: share/cmake-4.4/Modules/CMakeDetermineCompilerId.cmake
+Copyright 2000-2026 Kitware, Inc. and Contributors.
+Original source: https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/CMakeDetermineCompilerId.cmake
+Original complete license accompanies this notice as CMAKE-LICENSE.rst.
+The original module header, complete original tool tree and all notices remain unchanged in the retained official input.
+
+Modification by the Game immersion toolkit project, 2026-10-31:
+cmake-compilerid-instance-location.patch derives a local directory by removing only a trailing four-component version field. The complete instance must still equal that directory plus the version reported by CMAKE_VS_VERSION_BUILD_NUMBER, or configuration fails. Only the two CompilerId auxiliary property-path constructions use this local directory, which is then unset. The global instance identity, generator, exact toolset and SDK flags, executable and every other supplier file remain unchanged.
+
+This is a separately identified, private ASR build-host source-module adaptation, not an upstream CMake release. The shared official tool and FFmpeg build do not use it. This notice preserves upstream terms; it grants no additional project license, runtime redistribution, supplier/source approval, model terms or Windows acceptance.

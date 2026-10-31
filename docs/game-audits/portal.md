@@ -159,6 +159,16 @@ PCM decoding and composite timeline offsets. Native output, transcripts,
 decoded audio and paths stay in ignored `output/checks/portal-native`; tracked
 fixtures contain only authored synthetic data.
 
+The [R19 Source PCM experiment](../r19-source-pcm.md) now executes actual index
+and language workers on owned English/French VPK/VCCD fixtures, followed by the
+existing adapter's selected-pack extraction and unchanged PCM path. It checks
+compiled-caption authority, missing-pack isolation, CRC/reference rejection and
+complete frame bytes before atomic output publication. Truncated PCM cannot
+replace a prior good output or fall back to a media decoder. The same bounded
+path passed the [acc68be frozen checkpoint](../r19-frozen-checkpoint-20261031.json)
+on Server 2025; this adds no installed-pack playback or voiced mobile export
+acceptance.
+
 This archive audit does not validate live OCR, physical mobile capture,
 Firefox/Chromium rendering, ultrawide, Windows zoom/DPI or actual capture bounds.
 Those remain separate capture acceptance checks. Custom/mod mounts, loose audio

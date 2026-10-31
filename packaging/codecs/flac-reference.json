@@ -1,0 +1,57 @@
+{
+  "schema": "proxy-r19-reference-codec-inputs-v1",
+  "reviewed_on": "2026-10-30",
+  "name": "Xiph FLAC",
+  "version": "1.5.0",
+  "platform": "win-x64",
+  "source": {
+    "filename": "flac-1.5.0.tar.xz",
+    "url": "https://github.com/xiph/flac/releases/download/1.5.0/flac-1.5.0.tar.xz",
+    "sha256": "f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920",
+    "commit": "1507800de4b70e21be71f38caa0d9079d0bc6e45",
+    "release": "https://github.com/xiph/flac/releases/tag/1.5.0"
+  },
+  "notices": {
+    "COPYING.GPL": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "COPYING.LGPL": "5df07007198989c622f5d41de8d703e7bef3d0e79d62e24332ee739a452af62a",
+    "COPYING.Xiph": "7866ee98760fc1f0156b4fe6bf530257e02be487ab3fd94e2b63799dd32d6b2c",
+    "COPYING.FDL": "c5d2b95c2538d2e41d8eedd9ecc750cd5fee085c7bb2bc3e2f95f4e59cc0b10d",
+    "AUTHORS": "89d44b9c876a8a5cbfc886348a151abd74eeb49e4b690b0cfe96d44a9afe8118",
+    "README.md": "60f6958863c656e55017928edfda20ec26f60b06d673a68cc0030fd24f27f544"
+  },
+  "cmake": {
+    "BUILD_SHARED_LIBS": "ON",
+    "BUILD_PROGRAMS": "ON",
+    "BUILD_CXXLIBS": "OFF",
+    "BUILD_TESTING": "OFF",
+    "BUILD_EXAMPLES": "OFF",
+    "BUILD_DOCS": "OFF",
+    "INSTALL_MANPAGES": "OFF",
+    "WITH_OGG": "OFF",
+    "ENABLE_MULTITHREADING": "OFF",
+    "WITH_ASM": "OFF",
+    "WITH_AVX": "OFF"
+  },
+  "license_basis": {
+    "flac.exe": "GPL-2.0-or-later; incorporates LGPL getopt/replaygain code supplied in the same source archive",
+    "FLAC.dll": "BSD-3-Clause; full source/copyright notices retained"
+  },
+  "build_recipe_license": {
+    "path": "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt",
+    "additional_grant": "GPL-2.0-or-later",
+    "approved_on": "2026-10-30",
+    "scope": ["packaging/codecs/flac-reference.json", "scripts/build-reference-codec.ps1", "scripts/reference-codec.py"],
+    "general_project_license_changed": false
+  },
+  "excluded_inputs": [
+    "supplier prebuilt Win32/Win64 binaries",
+    "libogg",
+    "libFLAC++",
+    "metaflac",
+    "external pthread library"
+  ],
+  "production_execution_allowed": false,
+  "source_delivery": "complete source kit required beside any future binary download; no production publication in this step",
+  "native_windows_11_acceptance": "unavailable",
+  "r19_complete": false
+}

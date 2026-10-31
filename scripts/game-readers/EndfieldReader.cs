@@ -1,6 +1,7 @@
 // Toolkit-owned bridge. Pinned MIT reader sources are downloaded separately
 // into private tool storage; no archive keys or game data are bundled here.
 using System.Text.Json;
+using System.Security.Cryptography;
 using AnimeStudio.Endfield;
 using AnimeStudio.Endfield.Processors;
 
@@ -17,6 +18,19 @@ internal static class EndfieldReader
     {
         try
         {
+            if (args is ["--runtime-identity"])
+            {
+                var core = typeof(object).Assembly.Location;
+                var hashing = typeof(System.IO.Hashing.XxHash64).Assembly.Location;
+                var local = new[] { core, hashing }.All(path => Path.GetFullPath(path).StartsWith(
+                    Path.GetFullPath(AppContext.BaseDirectory), StringComparison.OrdinalIgnoreCase));
+                Console.WriteLine(JsonSerializer.Serialize(new { schema = "proxy-endfield-runtime-identity-v1",
+                    runtime_version = Environment.Version.ToString(), runtime_origin = local ? "app-local" : "external",
+                    corelib_sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(core))).ToLowerInvariant(),
+                    hashing_sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(hashing))).ToLowerInvariant(),
+                    game_execution_approved = false }));
+                return local ? 0 : 2;
+            }
             if (args.Length != 2 || args[0] is not ("inventory" or "voice")) throw new ArgumentException();
             using var request = JsonDocument.Parse(Console.In.ReadToEnd());
             var root = request.RootElement;

@@ -1,0 +1,65 @@
+{
+  "schema": "proxy-pinned-build-cmake-inputs-v1",
+  "name": "CMake",
+  "version": "4.4.5",
+  "platform": "win-x64",
+  "reviewed_on": "2026-10-31",
+  "release": "https://github.com/Kitware/CMake/releases/tag/v4.4.5",
+  "archive": {
+    "filename": "cmake-4.4.5-windows-x86_64.zip",
+    "url": "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-windows-x86_64.zip",
+    "asset_id": 682701242,
+    "bytes": 54412232,
+    "sha256": "326c826486d46a23cf9d5a1c9ee3a567d427bdd02c4a34071937a2a675cff004",
+    "root": "cmake-4.4.5-windows-x86_64",
+    "entries": 8979,
+    "regular_files": 8817,
+    "expanded_bytes": 143317490
+  },
+  "publisher_checksums": {
+    "filename": "cmake-4.4.5-SHA-256.txt",
+    "url": "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-SHA-256.txt",
+    "asset_id": 682700096,
+    "bytes": 2015,
+    "sha256": "f502d7058129606f8e468d2373178a5b48eb2c5f9785641b706f45952956dd25"
+  },
+  "executable": {
+    "path": "cmake-4.4.5-windows-x86_64/bin/cmake.exe",
+    "bytes": 13465672,
+    "sha256": "84935c0b7cb09c140de0d3b042d4e93e5fac4e6371e75bf28eae3d841f79dfb3"
+  },
+  "notices": [
+    {
+      "path": "cmake-4.4.5-windows-x86_64/doc/cmake/LICENSE.rst",
+      "bytes": 1526,
+      "sha256": "cd944d878806fee998ef3f88ca41ec060ae198bd8ba615e284f7d8d90c25593e"
+    },
+    {
+      "path": "cmake-4.4.5-windows-x86_64/doc/cmake/cmsys/Copyright.txt",
+      "bytes": 1851,
+      "sha256": "0998690e8dc877e5d9d79d852f85630ba42b4061962baefc9651675ecf972082"
+    },
+    {
+      "path": "cmake-4.4.5-windows-x86_64/doc/cmake/cmzlib/Copyright.txt",
+      "bytes": 1063,
+      "sha256": "d5bbd7748a19e3fed6ea31242e8de9814e69a0125ae7758a7491057d5fe76f34"
+    }
+  ],
+  "upstream_source_reference": {
+    "filename": "cmake-4.4.5.tar.gz",
+    "url": "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5.tar.gz",
+    "bytes": 13289246,
+    "sha256": "a0c54c88abb8078dd8eccadb717fc6bb194bf18e7d44c86309910288886e04e2",
+    "source_to_binary_correspondence": "not-rebuilt-or-approved"
+  },
+  "scope": "isolated-build-host-only; complete original ZIP retained beside the closed tool tree",
+  "verification": "exact HTTPS bytes, official GitHub asset digest and original SHA-256 list; signature not verified",
+  "license_boundary": "All original notices remain in the complete isolated ZIP/tree. This tool receipt grants no runtime redistribution, complete supplier/source approval or additional project license. Xiph FLAC's three approved recipe files and source kit remain unchanged.",
+  "native_payload_in_source_review": false,
+  "runtime_collection_allowed": false,
+  "production_execution_allowed": false,
+  "source_delivery_approved": false,
+  "native_windows_11_acceptance": "unavailable",
+  "installer": "not-built",
+  "r19_complete": false
+}

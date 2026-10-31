@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,6 +10,7 @@ from typing import Callable
 from .pragmata import PragmataTextIndex
 from .pragmata_audio import INDEX_FORMAT, PragmataVoiceAssetService
 from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
+from .runtime_bundle import child_command, discover_layout
 
 
 class PragmataUpdateManager:
@@ -117,12 +117,12 @@ class PragmataUpdateManager:
                 self._set(state="idle", message="PRAGMATA game files are current", progress=100, last_error=None)
                 return
             self._set(state="updating", message="Indexing official PRAGMATA subtitles", progress=15)
-            command = [sys.executable, str(Path(__file__).resolve().parents[1] / "scripts/index_pragmata_assets.py")]
+            command = child_command('index-pragmata')
             command.extend(["--install", str(install)])
             with INDEX_BUILD_LOCK:
                 if self._stop.is_set():
                     return
-                process = subprocess.Popen(command, cwd=self.project_root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                process = subprocess.Popen(command, cwd=discover_layout().resource_root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                            text=True, **subprocess_options())
                 self._process = process
                 try:

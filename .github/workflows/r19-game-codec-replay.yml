@@ -1,0 +1,75 @@
+name: R19 quarantined FFmpeg Opus source replay
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: r19-game-codec-source-replay-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-replay:
+    # Build-host Server evidence only; no shipping/runtime/Win11 acceptance.
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before isolated source/tool preparation
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual PR comparison target unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid source replay preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public source audit failed.' }
+      - uses: actions/setup-python@v7
+        with:
+          # Build/probe interpreter, no runtime supplier identity.
+          python-version: '3.12.10'
+      - name: Check compiler activation and search-path evidence with authored inputs
+        shell: pwsh
+        run: |
+          python -I -B backend/tests/test_game_codec_replay.py ReplayTrustTests.test_host_image_policy_requires_explicit_versions_without_rolling_or_wildcard_fallback ReplayTrustTests.test_compiler_activation_handles_spaced_batch_paths_and_never_exports_failed_or_foreign_values ReplayTrustTests.test_search_path_failure_is_bounded_source_bound_and_strips_arbitrary_paths_and_exceptions ReplayTrustTests.test_process_environment_deletion_removes_empty_and_nonempty_keys_before_inputs
+          if ($LASTEXITCODE -ne 0) { throw 'Authored compiler/search-path contract failed before input preparation.' }
+      - name: Acquire exact source, original recipe and isolated tool inputs
+        shell: pwsh
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'r19-game-codec-inputs'
+          python -I -B scripts/replay-game-codec.py acquire --input-root $inputs
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned input acquisition failed.' }
+          "R19_GAME_CODEC_INPUTS=$inputs" >> $env:GITHUB_ENV
+          $cmakeInputs = Join-Path $env:RUNNER_TEMP 'r19-cmake-inputs'
+          python -I -B scripts/pinned-build-cmake.py acquire --input-root $cmakeInputs
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned original CMake acquisition failed.' }
+          python -I -B scripts/pinned-build-cmake.py prepare --archive (Join-Path $cmakeInputs 'cmake-4.4.5-windows-x86_64.zip') --output 'C:/r19-build-tools/cmake-4.4.5'
+          if ($LASTEXITCODE -ne 0) { throw 'Closed isolated CMake preparation failed.' }
+      - name: Build and probe the distinct quarantined dependency identity
+        shell: pwsh
+        run: |
+          ./scripts/build-game-codec-replay.ps1 -InputRoot $env:R19_GAME_CODEC_INPUTS -CMakeRoot 'C:/r19-build-tools/cmake-4.4.5' -Python (Join-Path $env:pythonLocation 'python.exe')
+          'Quarantined FFmpeg9.0.2/Opus1.6.1 source replay only; no upstream binary equivalence, rights/source-delivery approval, runtime integration, full game acceptance or Windows11 native acceptance.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload only sanitized receipt and explicitly unapproved source review kit
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-game-codec-source-replay-metadata
+          # No DLL/EXE/LIB/PDB, private log, tool archives or authored audio.
+          path: |
+            C:/r19-game-codec-replay/REPLAY-RECEIPT.json
+            C:/r19-game-codec-replay/source-review.zip
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload only sanitized failed-stage diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-game-codec-source-replay-failure
+          path: C:/r19-game-codec-replay/FAILED-STAGE.json
+          if-no-files-found: ignore
+          retention-days: 7

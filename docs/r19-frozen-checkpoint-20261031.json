@@ -1,0 +1,2743 @@
+{
+  "schema": "proxy-r19-frozen-checkpoint-review-v1",
+  "source_commit": "acc68be0f6f47cb9a0cd928c9394743483c40c24",
+  "run": 41144087092,
+  "build_id": "runtime-experiment-41144087092-1",
+  "scope": "Downloaded source and sanitized metadata checked; native binaries remain runner-local; not final candidate or rights acceptance",
+  "artifacts": [
+    {
+      "name": "r19-frozen-acc68be.zip",
+      "bytes": 1231229,
+      "sha256": "cb129c1d431a3e74909e2e973b6f01772d4e7a05af8faf1fa19f03d8f2df529f",
+      "artifact_id": 13019929500,
+      "github_name": "r19-integrated-runtime-metadata"
+    },
+    {
+      "name": "r19-gpl-source-acc68be.zip",
+      "bytes": 1095195,
+      "sha256": "022075b2ad04c635287b0d97b1c8b3dc679f04f00e96f3de98ab7c6bebb17daf",
+      "artifact_id": 13019143815,
+      "github_name": "r19-reference-codec-source-and-metadata"
+    }
+  ],
+  "inventory_sha256": "491f4277802249fa7cee42cffcd5cae642ed0f390d926be7e31ca45513d9bf5b",
+  "file_count": 1535,
+  "directory_count": 641,
+  "bytes": 624729673,
+  "main_executable_sha256": "d7eae25310ecf41167acf94b0308b44249540eed64aa4b9db2642f84f69d1d42",
+  "asr_executable_sha256": "93ffdead6224251d10dcefe7133448babe67fea045b9067f9952682d03e96bbc",
+  "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+  "source_inputs": 6,
+  "retained_python_supplier_texts": 20,
+  "python_supplier_provenance": "Windows CRLF checkout bytes matched",
+  "onnx_incorporated_notices": "exact wheel to central output matched",
+  "windows_capture_LICENCE": "exact wheel to central output matched",
+  "native_input_ownership_counts": {
+    "exact": 461,
+    "ambiguous": 7,
+    "generated": 2,
+    "unmatched": 91
+  },
+  "authored_half_life_unvoiced_worker": "passed en/zh-Hans both directions; previous export preserved",
+  "authored_portal_original_pcm": "passed en/fr both directions; CRC/binding/truncation refusal; no voiced mobile export",
+  "host": [
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "stop",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "exit-frontend",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "parent-crash",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "api_external_side_effects": "mocked",
+      "retained_windows_console_helpers": 2,
+      "status": "passed",
+      "case": "unprepared-index",
+      "canonical_ports": "released",
+      "retained_children": 6,
+      "native_owned_process_tree": "real",
+      "child_exit": "retained-handles-signaled",
+      "retained_runtime_images": 4
+    },
+    {
+      "status": "passed",
+      "case": "foreign-ready-listeners",
+      "outside_job_services": "retained-fixture-still-live",
+      "readiness": "refused"
+    }
+  ],
+  "production_execution_allowed": false,
+  "rights_review": "pending-exact-output",
+  "native_windows_11_acceptance": "unavailable",
+  "r19_complete": false,
+  "installer": "not-built",
+  "later_flatbuffers_notice_change": "not covered by this acc68be output; separate frozen build required",
+  "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092",
+  "hosted_image": {
+    "name": "windows-2025-vs2026",
+    "version": "20261021.278.1",
+    "os": "Server 2025; not Windows 11 acceptance"
+  },
+  "windows_contracts": {
+    "passed": 628,
+    "skipped": 0
+  },
+  "subsequent_guarded_slot_checkpoint": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "12d0d0e9ddf926b07ed8da61da144ce331ade48a",
+    "run": 41146850040,
+    "build_id": "runtime-experiment-41146850040-1",
+    "scope": "Downloaded source and sanitized metadata checked; native binaries remain runner-local; not final candidate or rights acceptance",
+    "artifacts": [
+      {
+        "name": "r19-frozen-12d0d0e.zip",
+        "bytes": 1232301,
+        "sha256": "823d4a7e995d0cb6f6ba89ac0d6c97923cf96266c15102f09ec1bcf7e0f42f9b",
+        "artifact_id": 13021800802,
+        "github_name": "r19-integrated-runtime-metadata"
+      },
+      {
+        "name": "r19-gpl-source-12d0d0e.zip",
+        "bytes": 1095189,
+        "sha256": "531feca2cb59c14c212197bc29de5eabf3013bb338880cbf8c69bc17c396f7ca",
+        "artifact_id": 13021177717,
+        "github_name": "r19-reference-codec-source-and-metadata"
+      }
+    ],
+    "inventory_sha256": "28f79748c209450640d755a5403757e26ac1f42ad61575739636dd750d368cd6",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624744695,
+    "main_executable_sha256": "dd585117d8fc4153fdab56a97ea417e76952fb0be0397fa76298d8fe8689739f",
+    "asr_executable_sha256": "ed0cbbb76b096d535f5810b17ffab08035dec24e2b0b373414325e8b97829cd2",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_inputs": 6,
+    "retained_python_supplier_texts": 20,
+    "python_supplier_provenance": "Windows CRLF checkout bytes matched",
+    "onnx_incorporated_notices": "exact wheel to central output matched",
+    "windows_capture_LICENCE": "exact wheel to central output matched",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "authored_half_life_unvoiced_worker": "passed en/zh-Hans both directions; previous export preserved",
+    "authored_portal_original_pcm": "passed en/fr both directions; CRC/binding/truncation refusal; no voiced mobile export",
+    "host": [
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "stop",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "exit-frontend",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "parent-crash",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "unprepared-index",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "status": "passed",
+        "case": "foreign-ready-listeners",
+        "readiness": "refused",
+        "outside_job_services": "retained-fixture-still-live"
+      }
+    ],
+    "guarded_slots": {
+      "credentials": "not-accessed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "r19_complete": false,
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "source_commit": "12d0d0e9ddf926b07ed8da61da144ce331ade48a",
+      "build_id": "runtime-experiment-41146850040-1",
+      "status": "passed",
+      "source_operation_blocked_observations": 29,
+      "stages": [
+        "leases-held",
+        "slot-a-ready",
+        "slot-a-drained",
+        "slot-a-reaped",
+        "slot-b-paused-active",
+        "cold-rollback-a",
+        "candidate-readiness-failure-reaped",
+        "rollback-after-readiness-failure",
+        "host-crash-children-signaled-leases-held"
+      ],
+      "installer": "not-built",
+      "strict_writer_protocol": "actual-api-paused-capture",
+      "legacy_exclusion": "guardian-exclusive-open-through-retained-child-exit",
+      "legacy_source_operation": "existing-enter-operation-blocked",
+      "warm_candidate_before_drain": "not-proved",
+      "production_activation": false,
+      "store_copy": false,
+      "migration": false,
+      "scope": "authored-cold-slot-lifecycle",
+      "candidate_versions": "two-identical-verified-copies",
+      "http_transport_timeout_ms": 35000,
+      "guardian_crash": "unavailable",
+      "early_unregistered_host_crash": "recovery-required",
+      "target_lease": "separate-private-guardian-root",
+      "source_updater_invoked": false,
+      "api_external_side_effects": "mocked",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "native_owned_process_tree": "observed-existing-c1",
+      "router_takeover": "not-tested"
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "flatbuffers_source_notice_delivery": "verified exact LICENSE and Windows-checkout provenance",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41146850040",
+    "windows_contracts": {
+      "passed": 640,
+      "skipped": 0
+    }
+  },
+  "source_style_package_checkpoint": {
+    "schema": "proxy-r19-source-package-download-review-v1",
+    "run": 41143154298,
+    "source_commit": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+    "artifact": 13020538696,
+    "bytes": 33409219,
+    "sha256": "98fa6332557452e4678cf848f99c2c27f057ef082e08ca272fcf1cfe2576db0a",
+    "checksums_verified": 12,
+    "inner_outer_provenance": {
+      "version": "0.22.0",
+      "sourceCommit": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+      "repository": "matthias-van-der-galien/Game-immersion-toolkit",
+      "shared": {
+        "version": "1.0.12",
+        "sourceCommit": "2e84f74cf77ea4773463331c7ecde0b05faf31f8",
+        "repository": "Firebird55/Lexirise-shared-components",
+        "shared": null
+      }
+    },
+    "source_distribution_sha256": "46fb70be14896910ee5615afa5b10afc8a9ef79e5245bae4d719de3751ed25a1",
+    "required_gate_artifact": 13020952307,
+    "required_gate_sha256": "09017fcedb052eca96e47b4ae98b4d2db09ec91d0faef6a0fa38c81c6508673a",
+    "required_gate": {
+      "schemaVersion": 1,
+      "kind": "required-checks",
+      "event": "workflow_dispatch",
+      "status": "success",
+      "testedSha": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+      "workflowSha": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+      "source": "workflow-commit",
+      "baseFreshness": "not-applicable",
+      "scopeValid": true,
+      "full": true,
+      "jobs": {
+        "audit": "success",
+        "check": "success",
+        "browsers": "success"
+      },
+      "errors": [],
+      "identityStatus": "verified"
+    },
+    "scope": "Existing source-style ZIP; not frozen runtime or native Win11 acceptance",
+    "first_capture_attempt": "Firefox bare-loopback navigation timeout; retained failure",
+    "capture_retry": "One same-head failed-job retry passed, no source/harness change",
+    "package": "passed; includes font-lifecycle correction",
+    "publish": "skipped",
+    "r19_complete": false
+  },
+  "subsequent_handle_cleanup_checkpoint": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "0b7642794c54eefc3c7d0dbe848a83356d417ea0",
+    "run": 41152516394,
+    "build_id": "runtime-experiment-41152516394-1",
+    "artifacts": [
+      {
+        "name": "r19-frozen-0b76427.zip",
+        "bytes": 1232252,
+        "sha256": "f6dd602407e463074c7783ec42f4a5ed420053a653bf195a5f3ebf62b880af03",
+        "artifact_id": 13023663874,
+        "github_name": "r19-integrated-runtime-metadata"
+      },
+      {
+        "name": "r19-gpl-source-0b76427.zip",
+        "bytes": 1095191,
+        "sha256": "12030a0576098fc9c231bd3f7d892da7411feb51a3a570cc0b1552fdd724d1f9",
+        "artifact_id": 13023871979,
+        "github_name": "r19-reference-codec-source-and-metadata"
+      }
+    ],
+    "inventory_sha256": "d526db6533cf6f2aae27a059e7a50e7be27d55ccaa6b2597ed7c7ab2690b8e67",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624746487,
+    "main_executable_sha256": "69b9eca974e1bd61f4f6510f0eaf9cbb7c7d5abf8ca0fa70b33e2af6b230983a",
+    "asr_executable_sha256": "2a68ff4429c0fbf7adfb83849e5ae65f2db9861ac349d00a33ee0b669d77fe99",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "scope": "Bounded frozen/guarded cold-slot protocol after handle cleanup hardening; subsequent frontend/suspended-writer changes require new matching evidence.",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41152516394",
+    "windows_contracts": {
+      "passed": 649,
+      "skipped": 0
+    },
+    "exact_notices_source_and_module_bindings": "independently verified against downloaded metadata and exact supplier/source inputs",
+    "guarded_cold_slots": {
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "source_commit": "0b7642794c54eefc3c7d0dbe848a83356d417ea0",
+      "build_id": "runtime-experiment-41152516394-1",
+      "status": "passed",
+      "source_operation_blocked_observations": 29,
+      "guardian_crash": "unavailable",
+      "early_unregistered_host_crash": "recovery-required",
+      "warm_candidate_before_drain": "not-proved",
+      "router_takeover": "not-tested",
+      "store_copy": false,
+      "migration": false,
+      "production_activation": false,
+      "r19_complete": false
+    }
+  },
+  "subsequent_suspended_source_checkpoint": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "f11e96d70a548978017b441f67379209190ab62a",
+    "run": 41155245089,
+    "build_id": "runtime-experiment-41155245089-1",
+    "artifacts": [
+      {
+        "name": "r19-frozen-f11e96d.zip",
+        "bytes": 1232351,
+        "sha256": "8807fdee70483950c3f03348997e30741ee233b4e5516b8d919731eaadaf7834",
+        "artifact_id": 13024079240
+      },
+      {
+        "name": "r19-gpl-source-f11e96d.zip",
+        "bytes": 1095190,
+        "sha256": "87c8ffd60e03b502dc5b9a5573cb6ee4c574de2737fd942e1004f6fd0e9ea212",
+        "artifact_id": 13024474177
+      }
+    ],
+    "inventory_sha256": "a4b44e352c929efdb9be8b4ced8e1bd09e8ca110b1f7a5cec03a81ee67f0241f",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624765091,
+    "main_executable_sha256": "35cabdae1a9b78d035a5ca0c852f3fa78a53044eed40c38105e3838bd58313fb",
+    "asr_executable_sha256": "4fac8f7cf9bd4af6d7f78377de22e68e2cf813eb1fc75740d2129c682d4bf7ae",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "windows_contracts": {
+      "passed": 689,
+      "skipped": 0
+    },
+    "scope": "Existing frozen protocol after direct-suspended primitive; two native source contracts use a living pytest keeper, not an autonomous/frozen keeper.",
+    "suspended_source_contracts": {
+      "selected": 2,
+      "skipped": 0,
+      "guardian_loss": "before and after writer admission with living pytest keeper",
+      "autonomous_keeper": "not-implemented",
+      "frozen_direct_creation": "not-tested",
+      "dynamic_writer_registration": "not-proved"
+    },
+    "exact_source_notices_native_origins_host_and_guarded_slots": "independently verified downloaded metadata; all existing disabled gates retained",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41155245089"
+  },
+  "subsequent_source_style_package_checkpoint": {
+    "schema": "proxy-r19-source-package-download-review-v1",
+    "run": 41155289055,
+    "source_commit": "f11e96d70a548978017b441f67379209190ab62a",
+    "artifact": 13025361570,
+    "bytes": 33555951,
+    "sha256": "4a28fc447c33555a2d24bf632c74821cc90225835ffd26d05d88b001d10ecd9c",
+    "checksums_verified": 12,
+    "inner_outer_provenance": {
+      "version": "0.22.0",
+      "sourceCommit": "f11e96d70a548978017b441f67379209190ab62a",
+      "repository": "matthias-van-der-galien/Game-immersion-toolkit",
+      "shared": {
+        "version": "1.0.12",
+        "sourceCommit": "2e84f74cf77ea4773463331c7ecde0b05faf31f8",
+        "repository": "Firebird55/Lexirise-shared-components",
+        "shared": null
+      }
+    },
+    "source_distribution_sha256": "fba8da886351c36d1158e591208ce422c732da945541c00491a06a94a6c97574",
+    "required_gate_artifact": 13025580858,
+    "required_gate_bytes": 410,
+    "required_gate_sha256": "b25ac0a7e23a8a0a5880d5031f24483883724b4cda52012853a4adcdb393a6c4",
+    "required_gate": {
+      "schemaVersion": 1,
+      "kind": "required-checks",
+      "event": "workflow_dispatch",
+      "status": "success",
+      "testedSha": "f11e96d70a548978017b441f67379209190ab62a",
+      "workflowSha": "f11e96d70a548978017b441f67379209190ab62a",
+      "source": "workflow-commit",
+      "baseFreshness": "not-applicable",
+      "scopeValid": true,
+      "full": true,
+      "jobs": {
+        "audit": "success",
+        "check": "success",
+        "browsers": "success"
+      },
+      "errors": [],
+      "identityStatus": "verified"
+    },
+    "scope": "Existing source-style ZIP; not frozen runtime or native Win11 acceptance",
+    "source_python": {
+      "passed": 2058,
+      "skipped": 1,
+      "subtests": 36
+    },
+    "browser_groups": 5,
+    "package": "passed",
+    "publish": "skipped",
+    "source_retry": "none at this head; prior 0b76427 setup failure retained",
+    "r19_complete": false
+  },
+  "subsequent_pinned_cmake_checkpoint": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "a079232352ddbd6e344ea3cd5c8f4812096ac26b",
+    "run": 41157097572,
+    "build_id": "runtime-experiment-41157097572-1",
+    "scope": "Downloaded source and sanitized metadata checked; native binaries remain runner-local; not final candidate or rights acceptance",
+    "artifacts": [
+      {
+        "name": "r19-frozen-a079232.zip",
+        "bytes": 1232316,
+        "sha256": "a98a30b6e0e834e93ff140c7590c125e7b0570a9724c425b14b2f35051b86cef",
+        "artifact_id": 13025298596,
+        "github_name": "r19-integrated-runtime-metadata"
+      },
+      {
+        "name": "r19-gpl-source-a079232.zip",
+        "bytes": 1095193,
+        "sha256": "82d48e7e6d5294738b84e5fb64619b60901cce8c1c90b5f658532d8156f67e88",
+        "artifact_id": 13025661915,
+        "github_name": "r19-reference-codec-source-and-metadata"
+      }
+    ],
+    "inventory_sha256": "935c6cd2c5dc3ee3a119591317469ba89ed9d008c91223a8cae722ef7f94400f",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624765091,
+    "main_executable_sha256": "c7d2b9a568f3e7a24cdd43658af2285bb97c31dd54cb01ff20d1eaf7c656ead7",
+    "asr_executable_sha256": "61a8adb97ff8a01fee66830c26e43cc4fa6c15d55cbbeddf6ff5e4e829ad12ea",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_inputs": 6,
+    "retained_python_supplier_texts": 20,
+    "python_supplier_provenance": "Windows CRLF checkout bytes matched",
+    "onnx_incorporated_notices": "exact wheel to central output matched",
+    "windows_capture_LICENCE": "exact wheel to central output matched",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "authored_half_life_unvoiced_worker": "passed en/zh-Hans both directions; previous export preserved",
+    "authored_portal_original_pcm": "passed en/fr both directions; CRC/binding/truncation refusal; no voiced mobile export",
+    "host": [
+      {
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_runtime_images": 4,
+        "case": "stop",
+        "api_external_side_effects": "mocked",
+        "retained_windows_console_helpers": 2,
+        "retained_children": 6,
+        "canonical_ports": "released"
+      },
+      {
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_runtime_images": 4,
+        "case": "exit-frontend",
+        "api_external_side_effects": "mocked",
+        "retained_windows_console_helpers": 2,
+        "retained_children": 6,
+        "canonical_ports": "released"
+      },
+      {
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_runtime_images": 4,
+        "case": "parent-crash",
+        "api_external_side_effects": "mocked",
+        "retained_windows_console_helpers": 2,
+        "retained_children": 6,
+        "canonical_ports": "released"
+      },
+      {
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_runtime_images": 4,
+        "case": "unprepared-index",
+        "api_external_side_effects": "mocked",
+        "retained_windows_console_helpers": 2,
+        "retained_children": 6,
+        "canonical_ports": "released"
+      },
+      {
+        "status": "passed",
+        "case": "foreign-ready-listeners",
+        "outside_job_services": "retained-fixture-still-live",
+        "readiness": "refused"
+      }
+    ],
+    "guarded_slots": {
+      "status": "passed",
+      "candidate_versions": "two-identical-verified-copies",
+      "warm_candidate_before_drain": "not-proved",
+      "target_lease": "separate-private-guardian-root",
+      "credentials": "not-accessed",
+      "stages": [
+        "leases-held",
+        "slot-a-ready",
+        "slot-a-drained",
+        "slot-a-reaped",
+        "slot-b-paused-active",
+        "cold-rollback-a",
+        "candidate-readiness-failure-reaped",
+        "rollback-after-readiness-failure",
+        "host-crash-children-signaled-leases-held"
+      ],
+      "api_external_side_effects": "mocked",
+      "source_commit": "a079232352ddbd6e344ea3cd5c8f4812096ac26b",
+      "native_owned_process_tree": "observed-existing-c1",
+      "legacy_source_operation": "existing-enter-operation-blocked",
+      "scope": "authored-cold-slot-lifecycle",
+      "migration": false,
+      "guardian_crash": "unavailable",
+      "http_transport_timeout_ms": 35000,
+      "build_id": "runtime-experiment-41157097572-1",
+      "legacy_exclusion": "guardian-exclusive-open-through-retained-child-exit",
+      "source_operation_blocked_observations": 29,
+      "strict_writer_protocol": "actual-api-paused-capture",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "r19_complete": false,
+      "installer": "not-built",
+      "store_copy": false,
+      "production_activation": false,
+      "router_takeover": "not-tested",
+      "strict_writer_runtime_budget_ms": 30000,
+      "source_updater_invoked": false,
+      "early_unregistered_host_crash": "recovery-required"
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "flatbuffers_source_notice_delivery": "verified exact LICENSE and Windows-checkout provenance",
+    "run_status": "completed",
+    "run_conclusion": "success",
+    "native_job": 124406230246,
+    "native_contracts_passed": 689,
+    "native_contract_skips": 0,
+    "native_contract_warnings": 1,
+    "keeper_receipt": "not-present-in-this-historical-checkpoint",
+    "keeper_proof": "unavailable",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41157097572",
+    "windows_contracts": {
+      "passed": 689,
+      "skipped": 0
+    },
+    "keeper": "not-run; no keeper receipt in this checkpoint"
+  },
+  "first_living_keeper_attempt": {
+    "source_commit": "c18d07a8138234df64c5b86dc21c99cac46931a1",
+    "run": 41160402137,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160402137",
+    "native_job": 124416508390,
+    "status": "failed-before-freezing",
+    "affected_contracts": {
+      "passed": 721,
+      "failed": 1
+    },
+    "failed_expectation": "NUL automatic color detection assumed false; actual Windows formatter initialized with use_colors true",
+    "correction": "Test actual Unicode formatting and non-inheritable owned NUL descriptors; production streams implementation unchanged",
+    "frozen_build": "not-reached",
+    "keeper_receipt": "not-produced",
+    "keeper_loss": "unavailable",
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "subsequent_source_failure_c18d07a": {
+    "source_commit": "c18d07a8138234df64c5b86dc21c99cac46931a1",
+    "run": 41160409828,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160409828",
+    "check_job": 124416510233,
+    "source_audit": "passed",
+    "status": "failed",
+    "python": {
+      "passed": 2127,
+      "failed": 2,
+      "skipped": 1,
+      "subtests_passed": 62
+    },
+    "failed_cases": [
+      "Windows NUL automatic-color expectation",
+      "authored compiler activation contract"
+    ],
+    "raw_zip_refusal": "previous Windows case passed",
+    "browser_groups": "skipped",
+    "package": "skipped",
+    "publish": "skipped",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "subsequent_complete_source_package_e8a76d4": {
+    "schema": "proxy-r19-source-package-download-review-v1",
+    "source_commit": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+    "run": 41161762483,
+    "scope": "Existing source-style ZIP; not frozen runtime or native Windows 11 acceptance; manual gate does not replace PR required context",
+    "artifact": 13027753225,
+    "bytes": 33601963,
+    "sha256": "cad8928450899e9e9203178782f6d0f6cb388e1ad98aa4211942d756848cefab",
+    "checksums_verified": 12,
+    "checksums": {
+      "AGENTS.md": {
+        "bytes": 4876,
+        "sha256": "77f559b49fbb8f455c80827e8397116a8197fceb305860b154626c86c52a6890"
+      },
+      "CONTRIBUTING.md": {
+        "bytes": 3730,
+        "sha256": "bf57691ee83c36b733957d89e7349aef1e7fa813200d9610024e9717eb2c4c55"
+      },
+      "Game-immersion-toolkit-0.22.0.zip": {
+        "bytes": 33656923,
+        "sha256": "c112e279fa9b7104f45178912aa4c0dd20808a79883ccf744ffb2eb11e7d2101"
+      },
+      "INSTALL.html": {
+        "bytes": 12668,
+        "sha256": "28a72da73a5853f923036a1ec7b3b56bbe18f7aeed8f3ba44e7f814dfd8008b2"
+      },
+      "INSTALL.md": {
+        "bytes": 13300,
+        "sha256": "ae9e1aff53807428aeca285f6af4e8160df17cbaa49b96c61317dc128cd6ff74"
+      },
+      "LICENSE": {
+        "bytes": 1520,
+        "sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca"
+      },
+      "NOTICE.md": {
+        "bytes": 884,
+        "sha256": "80761ded402abf0af3d2de976ad4fd39c5cb5447733a2fbf5609eaa03075de05"
+      },
+      "PROVENANCE.json": {
+        "bytes": 340,
+        "sha256": "5e74e5a068f457cb56f3f4a75d941c3442380be91ffe59bcc7bf6b59b18a13fb"
+      },
+      "RELEASE_NOTES.md": {
+        "bytes": 4681,
+        "sha256": "55b5201aed790cbceb52391350c0076f999c4dca87d81676fbf582fed1aedd42"
+      },
+      "SECURITY.md": {
+        "bytes": 4273,
+        "sha256": "7b01bb155818550103e4d66b76c51eee82bece7d2b2a9da505a8f0f6f6b8d433"
+      },
+      "THIRD_PARTY_LICENSES.txt": {
+        "bytes": 738099,
+        "sha256": "629d430ffa4f5387338be36288d84fa1044fba73da8263d95e598213f80659e2"
+      },
+      "THIRD_PARTY_NOTICES.md": {
+        "bytes": 10590,
+        "sha256": "63738dccf9419d1e8c3ac68282ef01816c706fa261b31f169672ab176fd6ec97"
+      }
+    },
+    "inner_outer_provenance": {
+      "repository": "matthias-van-der-galien/Game-immersion-toolkit",
+      "shared": {
+        "repository": "Firebird55/Lexirise-shared-components",
+        "shared": null,
+        "sourceCommit": "2e84f74cf77ea4773463331c7ecde0b05faf31f8",
+        "version": "1.0.12"
+      },
+      "sourceCommit": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+      "version": "0.22.0"
+    },
+    "required_gate_artifact": 13027198460,
+    "required_gate_bytes": 406,
+    "required_gate_sha256": "14fc46fc955b7c1dacde4aa502745d8c28e7237ef5062cc35237b1078efbdf16",
+    "required_gate": {
+      "baseFreshness": "not-applicable",
+      "errors": [],
+      "event": "workflow_dispatch",
+      "full": true,
+      "identityStatus": "verified",
+      "jobs": {
+        "audit": "success",
+        "browsers": "success",
+        "check": "success"
+      },
+      "kind": "required-checks",
+      "schemaVersion": 1,
+      "scopeValid": true,
+      "source": "workflow-commit",
+      "status": "success",
+      "testedSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+      "workflowSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0"
+    },
+    "package_evidence_artifact": 13027653466,
+    "package_evidence_bytes": 1226,
+    "package_evidence_sha256": "d0e4c8225bc052d02c7b6e38b09685a818d9ce1ca677ff92528e66b49860dcee",
+    "package_identity": {
+      "baseFreshness": "not-applicable",
+      "event": "workflow_dispatch",
+      "kind": "package",
+      "schemaVersion": 1,
+      "source": "workflow-commit",
+      "status": "verified",
+      "testedSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+      "workflowSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0"
+    },
+    "candidate": {
+      "command": {
+        "durationMs": 26360,
+        "exitCode": 0,
+        "finishedAt": "2026-10-31T03:08:25.890Z",
+        "id": "release:candidate",
+        "reason": null,
+        "startedAt": "2026-10-31T03:07:59.530Z",
+        "status": "passed"
+      },
+      "id": "3592a385-97f0-4c40-b89b-be3f9f087801",
+      "scope": "candidate",
+      "sourceAfter": {
+        "base": {
+          "sha": null,
+          "status": "not-requested"
+        },
+        "head": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+        "sourceHash": "c74acd05e029a4797624a2111a98f375d8f738d8b6ba2943d2919d6b0d3cdb21",
+        "sourceIssue": null,
+        "sourceStatus": "available"
+      },
+      "sourceBefore": {
+        "base": {
+          "sha": null,
+          "status": "not-requested"
+        },
+        "head": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+        "sourceHash": "c74acd05e029a4797624a2111a98f375d8f738d8b6ba2943d2919d6b0d3cdb21",
+        "sourceIssue": null,
+        "sourceStatus": "available"
+      },
+      "status": "passed"
+    },
+    "retained_supplier_provenance": {
+      "assets/fireredvad/PROVENANCE.json": {
+        "bytes": 761,
+        "git_blob_bytes": 744,
+        "git_blob_sha256": "4d850211fd11f38672221648faeac3fcb4a992acf6e87b06e75ab753b1a6d79b",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "57cd5fc5ad579bb28ee2083c02100fcf683891005e8ef3555ea14743bafee0a1"
+      },
+      "desktop/fonts/PROVENANCE.json": {
+        "bytes": 1574,
+        "git_blob_bytes": 1538,
+        "git_blob_sha256": "5acfca253d7a95ae33be00e245bdade35abcefccef4629f0f0e194b8d2806700",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "f152fd1e87db120650b8c51d1cf68dbe20cfdb5560d0e67c67e675f44ec8f4c8"
+      },
+      "packaging/runtime-bundle/flatbuffers-notices/PROVENANCE.json": {
+        "bytes": 3664,
+        "git_blob_bytes": 3571,
+        "git_blob_sha256": "a28fbe0f4241379beb26a3be491f2c674c34f4192d14cb2faa8870e91c684b1f",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "ce769f16e66540c16409029afa561ce819ab2939dbad72761c52893775ca5759"
+      },
+      "packaging/runtime-bundle/python-notices/PROVENANCE.json": {
+        "bytes": 5571,
+        "git_blob_bytes": 5426,
+        "git_blob_sha256": "59401d66a5426663bda4c9698855c0a8ceb0a5041858a2e2069df0d88d476854",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "f073414776435fbdb9770136416771e0432f65d4ea24b0184d308a97ffbdf867"
+      },
+      "vendor/lexirise-components/PROVENANCE.json": {
+        "bytes": 169,
+        "git_blob_bytes": 163,
+        "git_blob_sha256": "c760cab731c7139a6c15d6476293df45e8e3fc5417e9f1198d8092e56783b9b2",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "0e34725faf0776861139ff56d03820d936c7744898f439b8c4fb82b952dd9d12"
+      }
+    },
+    "source_distribution_bytes": 33656923,
+    "source_distribution_sha256": "c112e279fa9b7104f45178912aa4c0dd20808a79883ccf744ffb2eb11e7d2101",
+    "source_distribution_entries": 1143,
+    "source_distribution_expanded_bytes": 75584990,
+    "source_python": {
+      "evidence": "completed-job-log-numeric-summary",
+      "job": 124420636883,
+      "passed": 2138,
+      "skipped": 1,
+      "subtests": 62
+    },
+    "source_kits": {
+      "third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip": {
+        "bytes": 1087821,
+        "entries": [
+          "LICENSE",
+          "inputs/flac-1.5.0.tar.xz",
+          "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt",
+          "packaging/codecs/flac-reference.json",
+          "scripts/build-reference-codec.ps1",
+          "scripts/reference-codec.py"
+        ],
+        "git_byte_identical": true,
+        "original_tar_entries": 907,
+        "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+        "working_copy_byte_identical": true
+      },
+      "third_party/codecs/xiph-flac-1.5.0/codec-sources.zip": {
+        "bytes": 1086902,
+        "entries": [
+          "LICENSE",
+          "inputs/flac-1.5.0.tar.xz",
+          "packaging/codecs/flac-reference.json",
+          "scripts/build-reference-codec.ps1",
+          "scripts/reference-codec.py"
+        ],
+        "git_byte_identical": true,
+        "original_tar_entries": 907,
+        "sha256": "7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b",
+        "working_copy_byte_identical": true
+      }
+    },
+    "browser_groups": 5,
+    "job_results": {
+      "browser-checks (capture)": {
+        "conclusion": "success",
+        "id": 124422092449
+      },
+      "browser-checks (desktop)": {
+        "conclusion": "success",
+        "id": 124422092406
+      },
+      "browser-checks (ocr)": {
+        "conclusion": "success",
+        "id": 124422092380
+      },
+      "browser-checks (offline)": {
+        "conclusion": "success",
+        "id": 124422092441
+      },
+      "browser-checks (setup)": {
+        "conclusion": "success",
+        "id": 124422092404
+      },
+      "check": {
+        "conclusion": "success",
+        "id": 124420636883
+      },
+      "package": {
+        "conclusion": "success",
+        "id": 124424041263
+      },
+      "required-checks": {
+        "conclusion": "success",
+        "id": 124424007156
+      },
+      "source-audit": {
+        "conclusion": "success",
+        "id": 124420637168
+      }
+    },
+    "package": "passed",
+    "publish": "skipped",
+    "r19_complete": false,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161762483"
+  },
+  "first_frozen_keeper_execution": {
+    "source_commit": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+    "run": 41161553165,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161553165",
+    "affected_contracts": {
+      "passed": 722,
+      "skipped": 0
+    },
+    "earlier_native_c1_cold_steps": "passed; combined runtime metadata upload skipped after later keeper failure",
+    "status": "failed",
+    "failure_artifact": 13027876505,
+    "failure_artifact_bytes": 813,
+    "failure_artifact_sha256": "5712699b524eafcff0129483be91e6505dc335e255fed56d02af57da0c5f807c",
+    "failure_stage": "registered-start",
+    "failure_category": "keeper-guardian-descendants",
+    "descendant_identity": "unknown",
+    "writer_cohort": "not-created",
+    "cases": [],
+    "source_operation_blocked_observations": 0,
+    "cleanup": "unconfirmed-recovery-required",
+    "external_deadline_minutes": 5,
+    "keeper_loss": "unavailable",
+    "production_activation": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "preserved_frozen_observations_with_keeper_refusal_dc62a46": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "dc62a46aaf72c443f449c2608cb14cba5a491ce6",
+    "run": 41163848906,
+    "build_id": "runtime-experiment-41163848906-1",
+    "scope": "Preserved earlier frozen/native/C1/cold-slot observations and exact source/notices checked independently; later keeper step refused and timed out; workflow failed; no final candidate, rights, Windows11 or keeper-loss acceptance.",
+    "artifacts": [
+      {
+        "name": "r19-dc62a46-review/runtime-metadata.zip",
+        "bytes": 1233308,
+        "sha256": "b0f5efeb723fbdcd4a8603cd52db602e2784099ddf5190435b893387d9b9c4d0",
+        "artifact_id": 13028966469,
+        "github_name": "r19-integrated-runtime-metadata"
+      },
+      {
+        "name": "r19-dc62a46-review/codec-source.zip",
+        "bytes": 1095193,
+        "sha256": "cb08a16c7bfc138e0216d22d11d68b203d735b003357b299129611234f6858c5",
+        "artifact_id": 13028875035,
+        "github_name": "r19-reference-codec-source-and-metadata"
+      }
+    ],
+    "inventory_sha256": "637c2febfb13428e5b15530ca5c0453dcee14c5ba3b7caa81aa3b4050d08dcc0",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624783815,
+    "main_executable_sha256": "6a03fd0585fe16b3ebbd0f1d4fbd7e9974040ae1950b052ce40cb4ac52473106",
+    "asr_executable_sha256": "4bbcd57aae563eebd428dc697e3b3c40a579a0965b84938fc24060cde055b217",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_inputs": 6,
+    "retained_python_supplier_texts": 20,
+    "python_supplier_provenance": "Windows CRLF checkout bytes matched",
+    "onnx_incorporated_notices": "exact wheel to central output matched",
+    "windows_capture_LICENCE": "exact wheel to central output matched",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "authored_half_life_unvoiced_worker": "passed en/zh-Hans both directions; previous export preserved",
+    "authored_portal_original_pcm": "passed en/fr both directions; CRC/binding/truncation refusal; no voiced mobile export",
+    "host": [
+      {
+        "case": "stop",
+        "child_exit": "retained-handles-signaled",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "retained_children": 6,
+        "retained_windows_console_helpers": 2
+      },
+      {
+        "case": "exit-frontend",
+        "child_exit": "retained-handles-signaled",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "retained_children": 6,
+        "retained_windows_console_helpers": 2
+      },
+      {
+        "case": "parent-crash",
+        "child_exit": "retained-handles-signaled",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "retained_children": 6,
+        "retained_windows_console_helpers": 2
+      },
+      {
+        "case": "unprepared-index",
+        "child_exit": "retained-handles-signaled",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "retained_children": 6,
+        "retained_windows_console_helpers": 2
+      },
+      {
+        "outside_job_services": "retained-fixture-still-live",
+        "readiness": "refused",
+        "case": "foreign-ready-listeners",
+        "status": "passed"
+      }
+    ],
+    "guarded_slots": {
+      "early_unregistered_host_crash": "recovery-required",
+      "strict_writer_runtime_budget_ms": 30000,
+      "status": "passed",
+      "http_transport_timeout_ms": 35000,
+      "migration": false,
+      "router_takeover": "not-tested",
+      "strict_writer_protocol": "actual-api-paused-capture",
+      "r19_complete": false,
+      "target_lease": "separate-private-guardian-root",
+      "legacy_exclusion": "guardian-exclusive-open-through-retained-child-exit",
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "scope": "authored-cold-slot-lifecycle",
+      "warm_candidate_before_drain": "not-proved",
+      "installer": "not-built",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "stages": [
+        "leases-held",
+        "slot-a-ready",
+        "slot-a-drained",
+        "slot-a-reaped",
+        "slot-b-paused-active",
+        "cold-rollback-a",
+        "candidate-readiness-failure-reaped",
+        "rollback-after-readiness-failure",
+        "host-crash-children-signaled-leases-held"
+      ],
+      "build_id": "runtime-experiment-41163848906-1",
+      "native_owned_process_tree": "observed-existing-c1",
+      "production_activation": false,
+      "legacy_source_operation": "existing-enter-operation-blocked",
+      "api_external_side_effects": "mocked",
+      "source_operation_blocked_observations": 29,
+      "source_commit": "dc62a46aaf72c443f449c2608cb14cba5a491ce6",
+      "credentials": "not-accessed",
+      "guardian_crash": "unavailable",
+      "candidate_versions": "two-identical-verified-copies",
+      "source_updater_invoked": false,
+      "store_copy": false
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "run_status": "completed",
+    "run_conclusion": "failure",
+    "native_job": 124427059877,
+    "native_contracts_passed": 735,
+    "native_contract_skips": 0,
+    "actual_runner_images": {
+      "extracted_runtime": {
+        "image": "windows-2025-vs2026",
+        "version": "20261021.278.1"
+      },
+      "reference_codec_source": {
+        "image": "windows-2025-vs2026",
+        "version": "20261030.294.1"
+      }
+    },
+    "keeper_failure_artifact": {
+      "id": 13029071295,
+      "bytes": 967,
+      "sha256": "a61f1d81119c7e8bd31f25da501b0be05ddafa393d588af0906caa32464c69dc"
+    },
+    "keeper_receipt": {
+      "scope": "authored-guardian-loss-with-living-frozen-keeper",
+      "dynamic_writer_admission": "unavailable",
+      "credentials": "not-accessed",
+      "warm_routing": "unavailable",
+      "cleanup": "unconfirmed-recovery-required",
+      "http_transport_timeout_ms": 35000,
+      "census": "bounded-observations-and-onedir-source-inference-not-lifetime-proof",
+      "status": "failed",
+      "migration": false,
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "store_copy": false,
+      "source_operation_blocked_observations": 0,
+      "build_id": "runtime-experiment-41163848906-1",
+      "legacy_source_operation": "existing-enter-operation",
+      "failure_stage": "registered-start",
+      "failure_category": "keeper-guardian-descendants",
+      "writer_state": "fresh-authored-state",
+      "authority": "two-retained-createprocess-records",
+      "installer": "not-built",
+      "strict_writer_runtime_budget_ms": 30000,
+      "source_commit": "dc62a46aaf72c443f449c2608cb14cba5a491ce6",
+      "cases": [],
+      "schema": "proxy-r19-frozen-keeper-receipt-v1",
+      "guardian_descendants": {
+        "schema": "proxy-r19-guardian-census-observation-v1",
+        "state": "observed",
+        "reason": "none",
+        "candidate_count": 1,
+        "inspected_count": 1,
+        "truncated": false,
+        "lineage": "census-not-authority",
+        "records": [
+          {
+            "role": "windows-console-host",
+            "state": "observed",
+            "creation_order": "at-or-after-guardian"
+          }
+        ]
+      },
+      "r19_complete": false,
+      "production_activation": false,
+      "guardian": "retained-popen-readonly-frontend-port-zero",
+      "keeper_loss": "unavailable",
+      "target_lease": "separate-private-keeper-root",
+      "api_external_side_effects": "mocked"
+    },
+    "keeper_acceptance": "failed-before-writer-cohort",
+    "keeper_loss": "unavailable",
+    "rights_transfer_from_a079": false,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41163848906"
+  },
+  "later_collection_refusal_423e843": {
+    "source_commit": "423e843bb4758acef35d0fbe217250bb2c7b3daf",
+    "run": 41169070412,
+    "native_job": 124442903194,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 769,
+    "native_contract_skips": 0,
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "failure_artifact": {
+      "id": 13030418382,
+      "bytes": 520,
+      "sha256": "25f3fdfe867e369facb851233639dd9de72b78cace721a19aa9ec87831580d16"
+    },
+    "download_review": "independently-verified-source-provider-digest-single-entry-and-false-gates",
+    "phase": "analysis",
+    "failure_code": "other-host-unresolved",
+    "observed_records": 239,
+    "native_collection_complete": false,
+    "freezer_complete": false,
+    "frozen_host_probes": "not-run",
+    "frozen_detached_keeper": "not-run",
+    "native_closure": "unverified",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_configure_failure_423e843": {
+    "source_commit": "423e843bb4758acef35d0fbe217250bb2c7b3daf",
+    "run": 41169084584,
+    "native_job": 124442955639,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13030152316,
+      "bytes": 1387,
+      "sha256": "79d8bc8184c6a319669bcea76e1b3d15b86c188d78f2cf68f070f78976257b87"
+    },
+    "download_review": "independently-verified-source-provider-digest-single-entry-and-false-gates",
+    "phase": "cmake-configure",
+    "diagnostic_categories": [
+      "cmake-compiler-not-recorded",
+      "cmake-configure-incomplete",
+      "cmake-error"
+    ],
+    "known_cmake_site": {
+      "command": "project",
+      "line": 26
+    },
+    "nested_log_context": {
+      "evidence_scope": "observed-context-not-fatal-cause",
+      "known_codes": [
+        "MSB4019"
+      ],
+      "compiler_identification_build_failed": true,
+      "exact_missing_import": "unknown"
+    },
+    "compiler_cache_C_CXX_RC": "observed-with-missing-compiler-entries",
+    "compiler_configuration_C_CXX_RC": "missing-files",
+    "observed_visual_studio_version": "18.11.12315.225",
+    "observed_cmake_version": "4.4.5",
+    "selected_v180_props_pin_matched": true,
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "native_compile": "not-proved",
+    "native_inference": "not-run",
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
+  },
+  "later_ffmpeg_compile_failure_423e843": {
+    "source_commit": "423e843bb4758acef35d0fbe217250bb2c7b3daf",
+    "run": 41169075509,
+    "run_attempt": 2,
+    "native_job": 124443482342,
+    "run_conclusion": "failure",
+    "first_attempt": {
+      "native_job": 124442923291,
+      "outcome": "input-acquisition-connection-reset",
+      "error": "WinError-10054",
+      "native_build": "not-run",
+      "artifact": "none",
+      "retry_reason": "one-justified-same-head-job-retry-after-transport-failure"
+    },
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "early_windows_contracts_passed": 3,
+    "early_windows_contract_skips": 0,
+    "failure_artifact": {
+      "id": 13030628980,
+      "bytes": 467,
+      "sha256": "af2cdd2a0ed337fbfb1594bf3637a32b8cdc81bca50366a0689e528e9741d38a"
+    },
+    "download_review": "independently-verified-source-provider-digest-single-entry-and-false-gates",
+    "phase": "build-ffmpeg",
+    "exit_code": 2,
+    "diagnostic_codes": [],
+    "diagnostic_categories": [
+      "unclassified-command-failure"
+    ],
+    "log_truncated": false,
+    "earlier_strict_build_commands": "returned-zero; not-a-final-native-output-or-tool-seal-proof",
+    "final_native_decode": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
+  },
+  "later_collection_census_ab84772": {
+    "source_commit": "ab8477225b2cd5b9a7a3521fedbba98332c6b9d1",
+    "run": 41171329086,
+    "native_job": 124449730913,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 886,
+    "native_contract_skips": 0,
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "failure_artifact": {
+      "id": 13031377564,
+      "bytes": 747,
+      "sha256": "3916c89595831595c3e773948883870134f23dc732152bcbf113f9f858af37e8"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-census-and-false-gates",
+    "phase": "analysis",
+    "failure_code": "other-host-unresolved",
+    "observed_records": 426,
+    "analysis_scope": "complete-current-main-call",
+    "asr_analysis": "not-run",
+    "rows_examined": 495,
+    "native_rows_examined": 474,
+    "unresolved_rows": 48,
+    "windows_root_query": "observed",
+    "unresolved_buckets": [
+      {
+        "family": "api-core",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 29
+      },
+      {
+        "family": "api-crt",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 14
+      },
+      {
+        "family": "ucrt",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 1
+      },
+      {
+        "family": "vc-runtime",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 4
+      }
+    ],
+    "supplier_identity": "not-attributed",
+    "ambient_path_hypothesis": "not-proved",
+    "p1_final_images": "not-run",
+    "frozen_host_probes": "not-run",
+    "detached_keeper": "not-run",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_import_observation_ab84772": {
+    "source_commit": "ab8477225b2cd5b9a7a3521fedbba98332c6b9d1",
+    "run": 41171353894,
+    "native_job": 124449813702,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13031640010,
+      "bytes": 1680,
+      "sha256": "2b8a6b4f379a3d6c77d5f400d2e8a2fbfe1e48b99dc33af0079b42569cefba2b"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "cmake-configure",
+    "compiler_id_projects": {
+      "C": "all-five-reviewed-properties-exact-match",
+      "CXX": "all-five-reviewed-properties-exact-match"
+    },
+    "nested_import_context": {
+      "known_code": "MSB4019",
+      "record_count": 8,
+      "truncated": false,
+      "callers": [
+        {
+          "file_label": "compiler-id-c-project",
+          "line": 37,
+          "column": 3,
+          "records": 4
+        },
+        {
+          "file_label": "compiler-id-cxx-project",
+          "line": 37,
+          "column": 3,
+          "records": 4
+        }
+      ],
+      "import_target": "unknown-not-inspected",
+      "fatal_cause": "not-proved"
+    },
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "native_compile": "not-proved",
+    "native_inference": "not-run",
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
+  },
+  "later_ffmpeg_makedef_failure_ab84772": {
+    "source_commit": "ab8477225b2cd5b9a7a3521fedbba98332c6b9d1",
+    "run": 41171349043,
+    "native_job": 124449825885,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13031800496,
+      "bytes": 492,
+      "sha256": "3353975fa4c79dc72117ca32df7619607b3390ca4d5c3b6503772af8ab630edb"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "build-ffmpeg",
+    "exit_code": 2,
+    "diagnostic_codes": [],
+    "diagnostic_categories": [
+      "ffmpeg-makedef-temporary-library",
+      "make-fatal-error",
+      "make-recipe-error"
+    ],
+    "log_truncated": false,
+    "source_observation": "original-makedef-discards-temporary-archiver-stdout",
+    "underlying_library_tool_cause": "not-proved",
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "native_decode": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
+  },
+  "later_static_image_refusal_702d667": {
+    "source_commit": "702d6673c893942c92079c139fa800cd94cb9be7",
+    "run": 41174915697,
+    "native_job": 124460378942,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 909,
+    "native_contract_skips": 0,
+    "new_path_contracts_passed": 7,
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "failure_artifact": {
+      "id": 13031904081,
+      "bytes": 498,
+      "sha256": "ae73fe5c1c26ec9d69f9d2e0d361444a1f1ca2ce8b4b89bf6a8868640a4f2a49"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "finalize",
+    "failure_code": "invalid-import",
+    "exe_collect_completed": {
+      "exe": 2,
+      "collect": 2
+    },
+    "a2_sidecars_delivered": false,
+    "final_inventory_delivered": false,
+    "retention_of_previous_48_unknowns": "not-proved",
+    "complete_import_closure": "not-proved",
+    "public_missing_library_warning_count": 0,
+    "earlier_same_image_missing_warning_count": 0,
+    "p1": "refused-no-selected-file-or-subphase-receipt",
+    "frozen_host_probes": "not-run",
+    "detached_keeper": "not-run",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_unmapped_alias_702d667": {
+    "source_commit": "702d6673c893942c92079c139fa800cd94cb9be7",
+    "run": 41174924122,
+    "native_job": 124460403759,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13033155032,
+      "bytes": 1889,
+      "sha256": "b18022bbfd24c84e924152a004d0418f831facd5d995b8eefd8ea53af48ca434"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "cmake-configure",
+    "compiler_id_projects": {
+      "C": "five-reviewed-properties-exact-match-three-known-cpp-imports-present-one-unknown-second-import",
+      "CXX": "five-reviewed-properties-exact-match-three-known-cpp-imports-present-one-unknown-second-import"
+    },
+    "msb4019_records": 8,
+    "literal_template_match": "all-eight-matched",
+    "caller_line": 37,
+    "caller_column": 3,
+    "import_projection_truncated": false,
+    "actual_toolset_alias": "unknown",
+    "actual_instance_version_suffix": "not-proved",
+    "native_compile": "not-proved",
+    "native_inference": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
+  },
+  "later_ffmpeg_nonempty_ar_refusal_702d667": {
+    "source_commit": "702d6673c893942c92079c139fa800cd94cb9be7",
+    "run": 41174918440,
+    "native_job": 124460383918,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13032836679,
+      "bytes": 668,
+      "sha256": "7966cf9b4b153d823972994adfef7d85a4eaf31983e5ee0e05f501e93c53a4dd"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "build-ffmpeg",
+    "exit_code": 2,
+    "diagnostic_codes": [],
+    "diagnostic_categories": [
+      "make-fatal-error",
+      "make-recipe-error"
+    ],
+    "makedef_diagnostics": "unavailable-nonempty-ar",
+    "response_files": "yes",
+    "archiver_environment": "nonempty",
+    "components": [],
+    "actual_ar_value": "unknown",
+    "underlying_lib_cause": "not-proved",
+    "native_decode": "not-run",
+    "environment_deletion_fix": "source-orchestration-fixed-native-verification-pending",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_sealed_alias_import_failure_02c6380": {
+    "source_commit": "02c6380bfbdccc63af311391ede52a1a4020153d",
+    "run": 41181127131,
+    "native_job": 124478593454,
+    "run_conclusion": "failure",
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261030.294.1"
+    },
+    "visual_studio_instance_version": "18.11.12328.437",
+    "failure_artifact": {
+      "id": 13034697875,
+      "bytes": 2049,
+      "sha256": "58d020c5208facffb91d8ec554cf35d3ad63ed25d5e7167bb4c764fec68ba77f"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-crlf-manifest-and-false-gates",
+    "phase": "cmake-configure",
+    "generated_project_second_imports": "both-mapped-template-with-verified-instance-version-field-outside-declared-roots-not-inspected",
+    "toolset_mapping": {
+      "relationship": "verified-toolset-alias",
+      "matched_candidate_count": 1,
+      "matches_policy": true,
+      "member_exists_state": "regular-files-present"
+    },
+    "msb4019_records": 8,
+    "caller_line": 37,
+    "caller_column": 3,
+    "reviewed_globals": "all-ten-exact-match",
+    "known_cpp_imports": "three-per-project-regular-files-present-under-selected-v180",
+    "observed_problem": "full-generator-argument-including-instance-version-used-as-auxiliary-import-directory",
+    "native_compile": "not-reached",
+    "native_inference": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
+  },
+  "later_static_duplicate_import_refusal_02c6380": {
+    "source_commit": "02c6380bfbdccc63af311391ede52a1a4020153d",
+    "run": 41181114221,
+    "native_job": 124478547076,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 955,
+    "native_contracts_skipped": 0,
+    "failure_artifact": {
+      "id": 13035391503,
+      "bytes": 614,
+      "sha256": "7b23530cb9b10a25a27e3924dde62aaa5658bdc2bb7f67cdcae77810b66bb2ca"
+    },
+    "completed_metadata_artifact": {
+      "id": 13035177079,
+      "bytes": 196875,
+      "sha256": "1a997798baf2e7d4c190e9576d94564851a82aa1bb6decaae8760fdb8342e541"
+    },
+    "download_review": "independently-verified-provider-digests-exact-head-build-single-refusal-three-completed-json-raw-inventory-snapshot-bindings-and-false-gates",
+    "inventory_files": 1449,
+    "a2_records": 473,
+    "a2_process_counts": {
+      "main": 431,
+      "asr": 42
+    },
+    "a2_inputs_and_final_records_identical": true,
+    "p1_diagnostic": {
+      "ordinal": 430,
+      "count": 473,
+      "tree": "main",
+      "role": "other-native",
+      "import_table": "normal",
+      "import_phase": "duplicate",
+      "import_reason": "duplicate-module-name"
+    },
+    "selected_image": {
+      "path": "_internal/windows_capture/windows_capture.pyd",
+      "bytes": 534016,
+      "sha256": "9464e5a6a05e980418eeab6b3a774441b4c737ba6bd596ff0d1eead3e48bf7aa"
+    },
+    "selected_supplier": {
+      "component": "windows-capture",
+      "version": "2.0.1",
+      "artifact_sha256": "209c2318e2168802b9afd1005e99499639e8835e71a1e188a3ddc77c7ccc3f04",
+      "member": "windows_capture/windows_capture.pyd"
+    },
+    "independent_static_cached_wheel_reproduction": {
+      "normal_descriptors": 18,
+      "casefolded_module_names": 17,
+      "repeated_basename": "kernel32.dll",
+      "occurrences": 2,
+      "loaded_or_executed": false
+    },
+    "current_api_core_basename_count": 0,
+    "current_api_crt_basename_count": 0,
+    "current_ucrt_basename_count": 0,
+    "old_48_exact_identity_retention": "not-established-old-refusal-buckets-only",
+    "public_missing_library_warning_count": 0,
+    "complete_import_closure": "not-proved",
+    "p1": "refused",
+    "frozen_host_probes": "not-run",
+    "detached_keeper": "not-run",
+    "native_closure": "unverified",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_ffmpeg_native_source_replay_02c6380": {
+    "source_commit": "02c6380bfbdccc63af311391ede52a1a4020153d",
+    "run": 41181125810,
+    "first_attempt": {
+      "native_job": 124478580335,
+      "actual_image": "20261030.294.1",
+      "four_early_windows_contracts": "passed-zero-skips",
+      "failure": "source-acquisition-transport-timeout-before-build",
+      "error_family": "WinError10060",
+      "artifacts": []
+    },
+    "single_justified_same_head_failed_job_retry": {
+      "attempt": 2,
+      "native_job": 124479298683,
+      "actual_image": "20261021.278.1",
+      "four_early_windows_contracts": "passed-zero-skips",
+      "build_and_probe": "passed"
+    },
+    "artifact": {
+      "id": 13035402527,
+      "bytes": 24210834,
+      "sha256": "fb6167d101e1cb31894d1c223d5ed833a43c04d679962739b854f6d6be0e9cbf"
+    },
+    "receipt": {
+      "bytes": 6486029,
+      "sha256": "40c9576e1ddf8585ec29df4c0d89288ad50a00b73f4c768209e6af55148afd7f"
+    },
+    "source_review_zip": {
+      "bytes": 22575610,
+      "sha256": "471ba459964e006920aedf83974c3cb1cb6e2c3cc9f46d6e74e12f9ec422abf9",
+      "files": 18
+    },
+    "download_review": "independently-verified-provider-digest-head-source-kit-members-canonical-identity-and-false-gates",
+    "raw_windows_project_cohort": "82da524d682dc8c0781095d6dc1e2261b4e139a212c07511737ece8f945d3e0d",
+    "lf_equivalent_reviewed_project_cohort": "4a769ab884ff6a3ff182db4dd0f36e338b76a2e1b2c920e45936763bfa1efc03",
+    "project_byte_equivalence": "eight-CRLF-only-text-inputs-and-one-raw-patch-not-raw-cohort-equality",
+    "original_options": 36,
+    "actual_configurations": 4,
+    "makedef_roles": 4,
+    "archiver_environment": "empty",
+    "response_files": "yes",
+    "makedef_error_codes": [],
+    "authored_flac_pcm_bytes": 1024,
+    "authored_flac_pcm_sha256": "e153774c8d06b094341ec9eb1e1f53571d3398a01cfd6526df97bc073f7ef379",
+    "flac_faults": "truncation-and-CRC-rejected-previous-output-retained",
+    "authored_opus": "static-encode-external-libopus-decode-invalid-packet-rejected",
+    "loaded_dlls": "four-quarantined-candidate-origins-hash-consistent",
+    "private_log_hash_review": "existing-config-log-in-public-generated-inventory-projection-fix-pending-no-raw-log-downloaded",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_initial_module_variant_msb4018_1c2d931": {
+    "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+    "run": 41196924582,
+    "native_job": 124524887038,
+    "run_conclusion": "failure",
+    "actual_runner_image": "20261021.278.1",
+    "visual_studio_instance_version": "18.11.12315.225",
+    "failure_artifact": {
+      "id": 13040999035,
+      "bytes": 2450,
+      "sha256": "855f3168be12f679e045e89ba32aa074489b9c0a865d012cd63de07cacd5f0b1"
+    },
+    "download_review": "independently-verified-provider-digest-head-single-json-crlf-manifest-initial-variant-and-failure-gates",
+    "phase": "cmake-configure",
+    "module_variant": {
+      "identity": "cmake-4.4.5-r19-asr-compilerid-instance.1",
+      "scope": "initial-exact-tree-final-required-for-success",
+      "files": 8817,
+      "directories": 163,
+      "tree_sha256": "3084625cac5d54bd47f7983ef56b06305c40718d1a0024d10f8de82632b3c022",
+      "module_before": "dfcd059e686a773e58004608e655278bd5f4d1993b3540b9392549c9499f544a",
+      "module_after": "4ef0b318b3f80a02091ae44973dfe573f042fdd3bf6a3c25c5bddfbd2c63f0bc",
+      "original_executable_and_notices": "unchanged"
+    },
+    "reviewed_globals": "all-ten-exact-match",
+    "known_cpp_imports": "three-per-project-present-under-selected-v180",
+    "second_generated_imports": "unknown-not-inspected-by-historical-full-instance-classifier",
+    "bounded_nested_log_known_codes": [
+      "MSB4018"
+    ],
+    "bounded_nested_log_msb4019_records": 0,
+    "msbuild_task": "not-identified",
+    "exception_family": "not-identified",
+    "complete_source_graph": "not-reached",
+    "native_compile": "not-reached",
+    "native_inference": "not-run",
+    "final_tool_seals_and_variant_review": "not-reached",
+    "source_files_cohort_delivered": false,
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
+  },
+  "later_verified_frozen_checkpoint_1c2d931": {
+    "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+    "scope": "bounded-extracted-runtime-and-living-keeper-observation-not-final-acceptance",
+    "run_id": 41196908591,
+    "run_attempt": 1,
+    "native_job_id": 124524833303,
+    "inventory_files": 1449,
+    "native_files": 473,
+    "a2_snapshot_and_final_record_equality": true,
+    "a2_inventory_and_snapshot_sha_bindings": true,
+    "a2_process_counts": {
+      "main": 431,
+      "asr": 42
+    },
+    "a2_processing_counts": {
+      "pyinstaller-generated-executable": 2,
+      "analysis-native": 469,
+      "explicit-native-resource": 2
+    },
+    "a2_source_roles": {
+      "generated-processing-observed": 2,
+      "declared-supplier-observed": 469,
+      "windows-system-observed": 2
+    },
+    "p1_static_header_observation": "passed-observed-not-approved",
+    "p1_architectures": {
+      "x64": 392,
+      "anycpu": 81
+    },
+    "p1_implementations": {
+      "native": 300,
+      "managed-native": 91,
+      "managed-il": 82
+    },
+    "p1_clr_images": 173,
+    "p1_normal_module_identity_occurrences": 2708,
+    "p1_delay_module_identity_occurrences": 6,
+    "component_count": 57,
+    "component_notice_bindings": 113,
+    "loaded_native_origin_counts": {
+      "native": {
+        "application": 155,
+        "windows-system": 60
+      },
+      "asr": {
+        "application": 29,
+        "windows-system": 29
+      },
+      "codec": {
+        "application": 2,
+        "windows-system": 6
+      }
+    },
+    "host_cases": 5,
+    "cold_slot_stages": 9,
+    "cold_slot_source_blocks": 29,
+    "keeper_cases": [
+      {
+        "writers_resumed": 0,
+        "writers_created": 2,
+        "case": "keeper-before-resume",
+        "guardian_exit": "signaled",
+        "legacy_exclusion": "held-through-writer-exit",
+        "status": "passed",
+        "strict_writer_protocol": "writers-never-resumed",
+        "writer_exit": "retained-objects-signaled"
+      },
+      {
+        "writers_resumed": 2,
+        "writers_created": 2,
+        "case": "keeper-after-ready",
+        "guardian_exit": "signaled",
+        "legacy_exclusion": "held-through-writer-exit",
+        "status": "passed",
+        "strict_writer_protocol": "existing-c2-paused-api",
+        "writer_exit": "retained-objects-signaled"
+      }
+    ],
+    "keeper_source_blocks": 4,
+    "keeper_detached_modes": true,
+    "keeper_cleanup": "retained-writers-signaled-leases-explicitly-released-private-tree-removed",
+    "keeper_loss": "unavailable",
+    "dynamic_writer_admission": "unavailable",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_kit_exact_six_file_allowlist_and_upstream_source_hash": true,
+    "source_kit_head_text_binding_with_ordinary_crlf_checkout": true,
+    "reference_probes": [
+      {
+        "kind": "reference-codec",
+        "status": "passed",
+        "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+        "source_kit_bound": true,
+        "all_nine_outputs_match_frozen_resource_inventory": true
+      },
+      {
+        "kind": "reference-codec-rebuild",
+        "status": "passed",
+        "source_commit": "source-kit-rebuild",
+        "source_kit_bound": true,
+        "all_nine_outputs_match_frozen_resource_inventory": true
+      }
+    ],
+    "doctor_exit": 2,
+    "old44_or48_exact_retention": "not-established",
+    "complete_import_loading": "not-established",
+    "ordinary_user_windows11_acceptance": "unavailable",
+    "rights_review": "pending-exact-output",
+    "native_closure": "unverified",
+    "production_activation": false,
+    "r19_complete": false,
+    "installer": "not-built",
+    "artifacts": [
+      {
+        "id": 13041353581,
+        "bytes": 1333511,
+        "sha256": "1b162244abd6f9c13a25210b6b9c0982854549320dea4c4f3082ec4b56d69ceb"
+      },
+      {
+        "id": 13041157227,
+        "bytes": 1095191,
+        "sha256": "226d683295d73c9fa77e6078b76d9a763fb21a53523b2e189e8379d0d3285989"
+      }
+    ],
+    "download_review": "independently-verified-provider-digests-exact-allowlists-source-build-raw-inventory-snapshots-all-p1-files-notices-module-origins-keeper-cases-and-false-gates",
+    "native_contracts_passed": 971,
+    "native_contracts_skipped": 0,
+    "actual_runner_image": "20261021.278.1",
+    "native_windows_11_acceptance": "unavailable"
+  },
+  "later_verified_codec_private_log_projection_1c2d931": {
+    "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+    "scope": "bounded-separate-source-experiment-not-runtime-integration-or-CCS-approval",
+    "run": 41196918141,
+    "job": 124524864925,
+    "image_version": "20261021.278.1",
+    "artifact_id": 13040643659,
+    "artifact_bytes": 24211130,
+    "artifact_sha256": "efe36ef86dd853f5ecefff74a6946a6419f3db3df9bb2c9c3f835f8883e8d6ed",
+    "receipt_bytes": 6485884,
+    "receipt_sha256": "f3007c0e32cbade949f82e76fbfc73f555e751ad462bbaeff68ec726abce146d",
+    "source_review_zip_bytes": 22575945,
+    "source_review_zip_sha256": "9a540d7c1836a54022a30d2ad77c785006d1f77ce80a89cda7d24f32b90895bf",
+    "candidate_identity": "quarantined-source-replay-ef405984459d640d259df9b4cef3f0fe7d65556e81b89ca14477f01f6cc6275b",
+    "diagnostic_variant": "diagnostic-makedef-ab6a5b88e842da528f2a34c7b39b9fd269a424df23772b68d00526b049dd6a34",
+    "project_inputs": 9,
+    "raw_windows_project_cohort": "4bd3fb2a7a4f536c571d3786c89c34127ce546c878325cf61d9a83cf9672acd4",
+    "lf_equivalent_reviewed_cohort": "a736ba26ad7f6d04bd7f26212bbaeca5d8829c94e1c99b0342c56bbb15085df3",
+    "crlf_only_input_differences": 8,
+    "original_source_inventory": {
+      "files": 10881,
+      "sha256": "bbc268df6a8c447172cc13dc88ea71dd2247e4331a0dec43515db057446807a4"
+    },
+    "modified_source_inventory": {
+      "files": 10881,
+      "sha256": "14df3b93e3a4c2330e5bb706be16711a979ab6225a8629280fbc783814284a7e"
+    },
+    "source_review_files": 18,
+    "original_options": 36,
+    "makedef_roles_empty_ar": 4,
+    "known_lib_errors": 0,
+    "public_generated_configurations": [
+      ".config",
+      "config.fate",
+      "config.mak",
+      "config.sh"
+    ],
+    "private_log_or_inventory_metadata_in_correspondence": false,
+    "candidate_identity_recomputed_from_public_correspondence": true,
+    "authored_flac_pcm_bytes": 1024,
+    "authored_flac_pcm_sha256": "e153774c8d06b094341ec9eb1e1f53571d3398a01cfd6526df97bc073f7ef379",
+    "flac_faults_and_prior_output": "passed by bounded hosted harness",
+    "opus_roundtrip_and_invalid_packet": "passed by bounded hosted harness",
+    "loaded_dlls": {
+      "avcodec-vgmstream-63.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "b82833b792059a63575ab96d107dbbd488e4454e2eb52a326971048adaa6e750"
+      },
+      "avformat-vgmstream-63.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "d4229b9b1ea1375df33b8ab6d80bef87e49bd9cf5e3219916b2f453846631862"
+      },
+      "avutil-vgmstream-61.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "65836ec11e040876abdb67cad3132ed1b7ab9aa7ef2cd722b02883de62bba4e1"
+      },
+      "swresample-vgmstream-7.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "a4e17cfbbe1220ad8e3bcd321d37d51a5153f46c954fdc55c1eb84b52980b9f0"
+      }
+    },
+    "native_imports": {
+      "avcodec-vgmstream-63.dll": {
+        "imports": [
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "avformat-vgmstream-63.dll": {
+        "imports": [
+          "avcodec-vgmstream-63.dll",
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "avutil-vgmstream-61.dll": {
+        "imports": [
+          "bcrypt.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "swresample-vgmstream-7.dll": {
+        "imports": [
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "game-codec-probe.exe": {
+        "imports": [
+          "avcodec-vgmstream-63.dll",
+          "avformat-vgmstream-63.dll",
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll",
+          "swresample-vgmstream-7.dll"
+        ],
+        "delay_imports": []
+      }
+    },
+    "official_cmake_module_unchanged": true,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "download_review": "independently-verified-provider-digest-head-source-kit-members-CRLF-mapping-public-only-candidate-identity-probes-and-false-gates",
+    "four_early_windows_contracts": "passed-without-skips",
+    "installer": "not-built"
+  },
+  "later_isolated_asr_task_context_ce09ea2": {
+    "head": "ce09ea2cf844f40c4109beb8d877628585a83ed8",
+    "run": 41200812627,
+    "job": 124536096996,
+    "scope": "isolated-ASR-source-build-host-only",
+    "workflow": "failed",
+    "phase": "cmake-configure",
+    "configure_seconds": 9.37,
+    "image": "windows-2025-vs2026",
+    "image_version": "20261030.294.1",
+    "vs_version": "18.11.12328.437",
+    "artifact": {
+      "id": 13042148305,
+      "bytes": 2681,
+      "sha256": "e922329b1af1685f209757cd6f5b9f37f83f6243e7b02f3a02df0f07a402f1e6",
+      "sole_entry": "ASR-FAILURE.json",
+      "entry_bytes": 13967,
+      "entry_sha256": "3f106a4508be52fda8b3caf9e1f9a559bb98aac637d57f9acf087590c13cbde8"
+    },
+    "initial_module_variant_files": 8817,
+    "initial_module_variant_directories": 163,
+    "initial_module_variant_tree_sha256": "3084625cac5d54bd47f7983ef56b06305c40718d1a0024d10f8de82632b3c022",
+    "matching_globals": 10,
+    "canonical_second_imports": 2,
+    "second_import_instance_version_field": false,
+    "canonical_auxiliary_files": "regular-file-present",
+    "initially_sealed_alias_pairs_per_import": 1,
+    "toolset_policy": "14.51.36231",
+    "msb4018_records": 8,
+    "task": "cl",
+    "exception_families": [
+      "type-initialization"
+    ],
+    "context_truncated": false,
+    "hresult_labels": [],
+    "win32_labels": [],
+    "msb4019_records": 0,
+    "underlying_cause": "unknown",
+    "build_graph": "not-reached",
+    "compilation": "not-run",
+    "inference": "not-run",
+    "final_variant_verification": "not-reached",
+    "complete_tool_seal": "not-delivered",
+    "source_cohort_receipt": "not-delivered",
+    "download_review": "independently-verified-by-two-reviewers-provider-digest-head-manifest-CRLF-initial-variant-imports-task-context-and-closed-gates",
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_verified_frozen_checkpoint_ed153ab": {
+    "schema": "proxy-r19-ed153-root-runtime-review-v1",
+    "head": "ed153abbbf29ab9c7cb5a71c8be58158513cf519",
+    "run": 41204305394,
+    "artifact": 13044112368,
+    "bytes": 1334433,
+    "sha256": "89e3f21dd887c60a72958612f7765562e812018cd065161b2db989d9160988e6",
+    "exact_entries": 10,
+    "inventory_files": 1449,
+    "native_records": 473,
+    "notice_occurrences": 113,
+    "distinct_notice_hashes": 104,
+    "component_count": 57,
+    "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+    "source_blocks": {
+      "cold": 29,
+      "keeper": 4,
+      "authored_copy": 9
+    },
+    "copy": "verified-two-source-cohorts-four-retained-writer-signals",
+    "actual_wal_shm_files": 0,
+    "credentials": "not-accessed",
+    "target_activation": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "workflow_status": "success",
+    "attempt": 1,
+    "job": 124546185365,
+    "image": "windows-2025-vs2026",
+    "image_version": "20261030.294.1",
+    "actual_windows_contracts": 1018,
+    "skipped": 0,
+    "warnings": 1,
+    "contract_seconds": 52.49,
+    "inventory_directories": 642,
+    "inventory_bytes": 620089722,
+    "a2_input_final_records_identical": true,
+    "p1_inventory_bindings_verified": 473,
+    "main_records": 431,
+    "asr_records": 42,
+    "source_ownership_disposition": "observed-not-approved",
+    "native_closure": "unverified",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "keeper_cases": [
+      "keeper-before-resume",
+      "keeper-after-ready"
+    ],
+    "copy_schema_pins": [
+      0,
+      0,
+      0
+    ],
+    "copy_authored_rows": 2,
+    "copy_source_cohorts": 2,
+    "copy_retained_writer_signals": 4,
+    "copy_source_bytes": "preserved-before-resume",
+    "copy_logical_state": "passed-after-fresh-source-cohort",
+    "copy_pointer": "baseline-unchanged",
+    "copy_old_barrier": "refused-after-new-generation",
+    "copy_cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+    "strict_writer_runtime_budget_ms": 30000,
+    "http_transport_timeout_ms": 35000,
+    "keeper_loss": "unavailable",
+    "dynamic_writer_admission": "unavailable",
+    "warm_routing": "unavailable",
+    "api_external_side_effects": "mocked",
+    "sqlite": "real",
+    "browser": "not-run",
+    "reference_source_artifact": {
+      "id": 13043907363,
+      "bytes": 1095193,
+      "sha256": "ad32e13b8ad2230d914e65c128884a5fb1d31bcd255c387a1654e06ad8a0a626",
+      "exact_entries": 5,
+      "kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+      "kit_entries": 6,
+      "upstream_tar_entries": 907,
+      "original_rebuild_matching_outputs": 9,
+      "decode_fault_cleanup_origins": "passed"
+    },
+    "diagnostic_run": 41204305397,
+    "diagnostic_status": "success",
+    "authored_helpers_run": 41204305360,
+    "authored_helpers_status": "success",
+    "download_review": "independently-verified-by-two-reviewers-provider-head-digest-exact-entries-A2-P1-inventory-notices-loads-legacy-source-CRLF-keeper-and-authored-copy",
+    "no_native_wal_shm_claim": true,
+    "interrupted_copy_recovery": "not-tested",
+    "production_activation": false
+  },
+  "later_asr_inner_argument_failure_ed153ab": {
+    "schema": "proxy-r19-asr-root-download-review-v1",
+    "head": "ed153abbbf29ab9c7cb5a71c8be58158513cf519",
+    "run": 41204339894,
+    "artifact": 13044461089,
+    "bytes": 2760,
+    "sha256": "bb9547d84a21f8c1aaa9f2be32f7633081d9ea2fd50d3026c5ca4be829baf395",
+    "sole_entry_bytes": 16255,
+    "sole_entry_sha256": "0fb361b6248631a96dd613aedb731a4aa5c753867b61a97c120aea56b1756cce",
+    "records": 8,
+    "chain": [
+      "type-initialization",
+      "argument"
+    ],
+    "actual_message_parameter_initializer": "not-delivered",
+    "underlying_cause": "unknown",
+    "compile": "not-run",
+    "inference": "not-run",
+    "final_seals": "not-delivered",
+    "runtime_collection_allowed": false,
+    "r19_complete": false,
+    "job": 124546285598,
+    "attempt": 1,
+    "status": "failed",
+    "phase": "cmake-configure",
+    "configure_seconds": 6.716,
+    "image_version": "20261021.278.1",
+    "vs_version": "18.11.12315.225",
+    "initial_variant_files": 8817,
+    "initial_variant_directories": 163,
+    "initial_variant_tree_sha256": "3084625cac5d54bd47f7983ef56b06305c40718d1a0024d10f8de82632b3c022",
+    "canonical_second_imports": 2,
+    "matching_globals": 10,
+    "hresult_labels": [],
+    "win32_labels": [],
+    "message_parameter_initializer": "not-delivered",
+    "exact_underlying_cause": "unknown",
+    "rights_approval": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built"
+  },
+  "first_msvc_census_wrapper_failure_ed153ab": {
+    "head": "ed153abbbf29ab9c7cb5a71c8be58158513cf519",
+    "run": 41204341666,
+    "job": 124546290582,
+    "attempt": 1,
+    "status": "failed-before-publication",
+    "image_version": "20261021.278.1",
+    "node": "24.22.1",
+    "python_observer": "3.12.10",
+    "node_contracts": 6,
+    "node_skipped": 0,
+    "python_contracts": "not-proven",
+    "observer_subphase": "unknown",
+    "upload": "skipped",
+    "artifacts": [],
+    "source_binding": "not-established",
+    "census": "not-proven",
+    "vendor_file_content_read": "not-proven-no-census-receipt",
+    "source_delivery_approved": false,
+    "redistribution_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "first_source_bound_negative_msvc_census_c3639ce": {
+    "head": "c3639ce1a627a46f6a7794fc905d309cc68b240e",
+    "run": 41210956581,
+    "job": 124565656571,
+    "attempt": 1,
+    "workflow": "failure",
+    "status": "source-bound-unavailable",
+    "reason": "unknown-version-entry",
+    "entry_name_and_type": "not-delivered",
+    "image_version": "20261021.278.1",
+    "node": "24.22.1",
+    "python_observer": "3.12.10",
+    "node_contracts": 11,
+    "node_skipped": 0,
+    "python_contracts": 37,
+    "python_skipped": 0,
+    "selected_instance": {
+      "version": "18.11.12315.225",
+      "edition": "enterprise",
+      "release_state": "release"
+    },
+    "query_utility": {
+      "bytes": 469456,
+      "sha256": "c54f3b7c9164ea9a0db8641e81ecdda80c2664ef5a47c4191406f848cc07c662"
+    },
+    "versions": 0,
+    "families": 0,
+    "files": 0,
+    "artifact": {
+      "id": 13045883628,
+      "bytes": 1520,
+      "sha256": "0503ca359e59ecc3d53475002642f5de0ec4dcbd2386e5a5bbffd69fc609f34c",
+      "entries": [
+        "MSVC-REDIST-CENSUS.json",
+        "MSVC-REDIST-CI-BINDING.json"
+      ]
+    },
+    "census": {
+      "bytes": 1200,
+      "sha256": "7b7cac53c62fd830e85f2eb6ea989581fad07bdf5381a297f445df0863127d47"
+    },
+    "binding": {
+      "bytes": 1292,
+      "sha256": "dc869de33e79c0d0d7c4b13ff83719d28660a4f53dfaa8ee8304a08608ec18db"
+    },
+    "source_before_after_hash": "7532be8c9fea9f0165d286d7118bebabede05ed049ad6ce53cd04319c277fc36",
+    "clean_source": true,
+    "independent_download_review": "root-and-peer-verified",
+    "vendor_file_content_read": false,
+    "vendor_file_hashes_observed": false,
+    "vendor_file_versions_observed": false,
+    "vendor_signatures_observed": false,
+    "source_delivery_approved": false,
+    "redistribution_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "asr_file_tracker_common_data_failure_14babb6": {
+    "head": "14babb685156ddb74254b7a2d16c090073ef6342",
+    "run": 41210502791,
+    "job": 124564316205,
+    "attempt": 1,
+    "status": "failure",
+    "phase": "cmake-configure",
+    "image_version": "20261030.294.1",
+    "node": "24.22.2",
+    "vs_version": "18.11.12328.437",
+    "artifact": {
+      "id": 13045988466,
+      "bytes": 3042,
+      "sha256": "af7ced3c67f5868d9cc5364f4f90c734667a775c03c44e9dd81d597514d2df4b",
+      "entries": [
+        "ASR-FAILURE.json"
+      ]
+    },
+    "failure_json": {
+      "bytes": 25495,
+      "sha256": "94956a939d0f1611162772223167856a90847d2ef37b0864d4c445283bd15cbb"
+    },
+    "independent_download_review": "root-and-peer-verified",
+    "cl_records": 8,
+    "exception_chain": [
+      "type-initialization",
+      "argument"
+    ],
+    "resource_label": "path-illegal",
+    "resource_state": "matched",
+    "initializer_roles": [
+      "file-tracker"
+    ],
+    "inner_framework_frames": [
+      "path-normalization",
+      "path-root",
+      "file-tracker-common-data",
+      "file-tracker-initialization"
+    ],
+    "context_state": "incomplete",
+    "unknown_frame_seen": true,
+    "context_truncated": false,
+    "parameter_state": "not-observed",
+    "actual_common_folder_result": "not-delivered",
+    "underlying_environment_cause": "unproven",
+    "initial_cmake_variant": "verified-8817-files-163-directories",
+    "canonical_second_imports": 2,
+    "matching_globals": 10,
+    "graph_compile_inference": "not-reached",
+    "final_seals_and_source_cohort_receipt": "not-delivered",
+    "source_delivery_approved": false,
+    "redistribution_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "interrupted_copy_contract_failure_c3639ce": {
+    "head": "c3639ce1a627a46f6a7794fc905d309cc68b240e",
+    "run": 41211228454,
+    "job": 124566500738,
+    "attempt": 1,
+    "status": "failed-before-freezing",
+    "failed_step": "Build static frontend and run affected contracts",
+    "contracts_passed": 1043,
+    "contracts_failed": 2,
+    "failures": "source and target authority-root replacement fixture did not raise HeldRecovery",
+    "fixture_precondition_cause": "under-review",
+    "frozen_runtime_receipt": "not-produced",
+    "interrupted_copy_native_receipt": "not-produced",
+    "source_delivery_approved": false,
+    "redistribution_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "verified_living_owner_interrupted_copy_5640d6b": {
+    "head": "5640d6b5aa6365402f0872bd097dc6020d596bbf",
+    "run": 41212338528,
+    "job": 124569787653,
+    "attempt": 1,
+    "workflow": "success",
+    "image_version": "20261021.278.1",
+    "node": "24.22.1",
+    "contracts_passed": 1047,
+    "contracts_skipped": 0,
+    "metadata_artifact": {
+      "id": 13047476386,
+      "bytes": 1335531,
+      "sha256": "9a974836bd6c9cbb12f4b7ab4f56d4ebf6e25f771e056567cba9d114f8ab9ad6",
+      "entries": 11
+    },
+    "source_rebuild_artifact": {
+      "id": 13046324690,
+      "bytes": 1095194,
+      "sha256": "2cfe11fecdd02787cc42c652b6fe75425dd1927e5148d04ebc72d99d51305193"
+    },
+    "independent_download_review": "root-and-peer-verified",
+    "inventory": {
+      "files": 1449,
+      "directories": 642,
+      "total_bytes": 620097858,
+      "bytes": 661687,
+      "sha256": "31e81988a220dd28f0fe1a054016278bb821351ea795c15bdd946b1ed893e7f1"
+    },
+    "native_a2_p1_records": 473,
+    "a2_input_sha256": "48e79df3e506fa19ce479039f4fce4b8842942f4b9bcbbff6246577c92bb46d1",
+    "components": 57,
+    "notice_occurrences": 113,
+    "distinct_notice_hashes": 104,
+    "all_notice_hashes_in_inventory": true,
+    "main_executable_sha256": "7f47a8b862451f2748681f7ea04f3baabbd451515c1516292303dceb5667f9b3",
+    "asr_executable_sha256": "5c56f30095cdfd647e31bbe91a4dc72cd5e8939c06efdce0d6dac0e27ac71621",
+    "xiph_source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "identical_rebuilt_outputs": 9,
+    "c1_cases": 5,
+    "cold_slot_source_blocks": 29,
+    "keeper_source_blocks": 4,
+    "plain_copy_source_blocks": 9,
+    "interrupted_copy": {
+      "schema": "proxy-r19-frozen-data-copy-resume-receipt-v1",
+      "status": "passed",
+      "source_commit": "5640d6b5aa6365402f0872bd097dc6020d596bbf",
+      "build_id": "runtime-experiment-41212338528-1",
+      "case": "authored-data-copy-resume",
+      "scope": "authored-transcript-interrupted-copy-resume-with-living-coordinator",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "legacy_source_operation": "existing-enter-operation",
+      "source_operation_blocked_observations": 10,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "writer_console_mode": "detached-process",
+      "api_external_side_effects": "mocked",
+      "sqlite": "real",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "authored_transcript_rows": 2,
+      "source_cohorts": 2,
+      "retained_writer_signals": 4,
+      "copy_verification": "passed",
+      "source_bytes": "preserved-before-resume",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "pointer": "baseline-unchanged",
+      "old_barrier": "refused-after-new-generation",
+      "wal_files": 0,
+      "shm_files": 0,
+      "strict_writer_runtime_budget_ms": 30000,
+      "http_transport_timeout_ms": 35000,
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "failure_stage": "none",
+      "failure_category": "none",
+      "keeper_loss": "unavailable",
+      "dynamic_writer_admission": "unavailable",
+      "warm_routing": "unavailable",
+      "credentials": "not-accessed",
+      "browser": "not-run",
+      "target_activation": false,
+      "production_activation": false,
+      "installer": "not-built",
+      "r19_complete": false,
+      "fault_model": "one-authored-post-file-checkpoint-exception",
+      "copy_attempts": 2,
+      "authored_interruptions": 1,
+      "partial_completed_files": 1,
+      "partial_revalidations": 2,
+      "resume_authority": "same-live-owner-plan-barrier-generation-leases"
+    },
+    "scope_limits": [
+      "one authored post-file-checkpoint exception with live coordinator",
+      "zero WAL and SHM files",
+      "no keeper loss or global/dynamic writer admission",
+      "no copied-target activation or warm routing",
+      "no credential/browser/schema migration or real user state",
+      "no rights or ordinary-user Windows 11 acceptance"
+    ],
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "msvc_v2_noncanonical_name_refusal_2a169bd": {
+    "head": "2a169bd745a577f89368fad5335c8394cb137362",
+    "run": 41215460473,
+    "job": 124578963405,
+    "attempt": 1,
+    "workflow": "failure",
+    "schema": "proxy-r19-msvc-redist-census-v2",
+    "status": "source-bound-unavailable",
+    "reason": "unknown-version-entry",
+    "version_entry_refusal": "other-noncanonical-name",
+    "entry_name_and_type": "not-delivered",
+    "image_version": "20261030.294.1",
+    "selected_vs_version": "18.11.12328.437",
+    "node_contracts_passed": 11,
+    "node_skipped": 0,
+    "python_contracts": 37,
+    "python_skipped": 0,
+    "native_subtest_count": "not-published",
+    "versions": 0,
+    "families": 0,
+    "files": 0,
+    "artifact": {
+      "id": 13048385190,
+      "bytes": 1552,
+      "sha256": "fd3c1ba8643f7eaafd17c91a234f45ab0d0d1c868d98a1bb2a2704328cdf85eb",
+      "entries": [
+        "MSVC-REDIST-CENSUS.json",
+        "MSVC-REDIST-CI-BINDING.json"
+      ]
+    },
+    "census": {
+      "bytes": 1250,
+      "sha256": "4f06194c247f68b68deb61e4143909da8d81900cb2c9d6f9b2710844c67d895f"
+    },
+    "binding_sha256": "79d36c4405fb2a14ff177e576ce7d550f2b07968ae165b3f6832a7cfefb7132d",
+    "clean_source": true,
+    "source_before_after_sha256": "efdcf6254f7f9c5fbfc548b46137eaf42640b7ba93547bc57796d93e727eba2d",
+    "independent_download_review": "root-and-peer-verified",
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_approval": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "asr_common_data_invalid_markers_2a169bd": {
+    "head": "2a169bd745a577f89368fad5335c8394cb137362",
+    "run": 41215443407,
+    "job": 124578937025,
+    "attempt": 1,
+    "workflow": "failure",
+    "phase": "common-data-bound",
+    "image_version": "20261021.278.1",
+    "selected_vs_version": "18.11.12315.225",
+    "artifact": {
+      "id": 13048610435,
+      "bytes": 1963,
+      "sha256": "80ac92a53a6f9c30f8f4c83ea3f4870caacd52d47ea0c15d96dafd08ba613338",
+      "entries": [
+        "ASR-FAILURE.json"
+      ]
+    },
+    "failure_json": {
+      "bytes": 4749,
+      "sha256": "d9fa8f13a62bcfb35998775a1cf2b6890f502fc936cbd2c61a026b8e2eda71d9"
+    },
+    "origin_stable": "verified",
+    "baseline": "rejected-invalid-markers",
+    "bound": "rejected-invalid-markers",
+    "folder_CLR_root_alias_values": "not-delivered",
+    "child_exit_MSB_code_and_marker_spelling": "not-delivered",
+    "configure_compile_probes": "not-reached",
+    "final_native_tool_seals_and_cohort": "not-delivered",
+    "local_prepare_scope": "separate fifteen Git-exact inputs at2a; prepared-not-built; cohort20e4e753ac095beac408af71efda7a28f5a5ea7e76e2f545070155babcea7fe9",
+    "independent_download_review": "root-and-peer-verified",
+    "native_cause": "unproven; subsequent source review found unqualified enum literals",
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_approval": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "verified_living_owner_retained_wal_5c9db76": {
+    "head": "5c9db765d86b2fa7787788dadc1f742dfd478c5b",
+    "run": 41217533269,
+    "job": 124585123856,
+    "attempt": 1,
+    "workflow": "success",
+    "image_version": "20261021.278.1",
+    "contracts_passed": 1090,
+    "contracts_skipped": 0,
+    "metadata_artifact": {
+      "id": 13048504859,
+      "bytes": 1336445,
+      "sha256": "0a8dc638234e91a03cde8afaf87dd66f7c7f191b3dc203b5e6e3ff32cbb78cc6",
+      "entries": 12
+    },
+    "source_rebuild_artifact": {
+      "id": 13048284661,
+      "bytes": 1095192,
+      "sha256": "d634836fef26059cc1de59614032a69f5f22d7717c03d33260c75dff7db135ba"
+    },
+    "independent_download_review": "root-and-peer-verified",
+    "inventory": {
+      "files": 1449,
+      "directories": 642,
+      "total_bytes": 620104421,
+      "bytes": 661687,
+      "sha256": "85ba540768601e442121e22c9ba7466c3bba8de541e1b89f324658249d6a8317"
+    },
+    "native_a2_p1_records": 473,
+    "a2_input_sha256": "e4f5aaea427a5da83d4555d1e7648aef99833b2eb505e3e1a9262378a8435d34",
+    "components": 57,
+    "notice_occurrences": 113,
+    "distinct_notice_hashes": 104,
+    "all_notice_hashes_in_inventory": true,
+    "main_executable_sha256": "44620d93f8fa2cb527024058f5ddf35b428bc696e7e54c901072ae3e46325233",
+    "asr_executable_sha256": "ebb07ca1ade58c7aefd37e64f3208428df5f0078030f73e61514bae34aea77ce",
+    "xiph_source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "identical_rebuilt_outputs": 9,
+    "reference_tools": {
+      "cmake": "4.4.4",
+      "compiler": "19.51.36260.0"
+    },
+    "c1_cases": 5,
+    "cold_slot_source_blocks": 29,
+    "keeper_source_blocks": 4,
+    "plain_copy_source_blocks": 9,
+    "interrupted_copy_source_blocks": 10,
+    "c3_c4_wal_and_shm_files": 0,
+    "retained_wal_copy": {
+      "schema": "proxy-r19-frozen-data-copy-wal-receipt-v1",
+      "status": "passed",
+      "source_commit": "5c9db765d86b2fa7787788dadc1f742dfd478c5b",
+      "build_id": "runtime-experiment-41217533269-1",
+      "case": "authored-data-copy-wal",
+      "scope": "authored-transcript-retained-wal-copy-with-living-coordinator",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "legacy_source_operation": "existing-enter-operation",
+      "source_operation_blocked_observations": 10,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "writer_console_mode": "detached-process",
+      "api_external_side_effects": "mocked",
+      "sqlite": "real",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "authored_transcript_rows": 2,
+      "source_cohorts": 2,
+      "retained_writer_signals": 4,
+      "copy_verification": "passed",
+      "source_bytes": "preserved-before-resume",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "pointer": "baseline-unchanged",
+      "old_barrier": "refused-after-new-generation",
+      "wal_files": 2,
+      "shm_files": 2,
+      "strict_writer_runtime_budget_ms": 30000,
+      "http_transport_timeout_ms": 35000,
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "failure_stage": "none",
+      "failure_category": "none",
+      "keeper_loss": "unavailable",
+      "dynamic_writer_admission": "unavailable",
+      "warm_routing": "unavailable",
+      "credentials": "not-accessed",
+      "browser": "not-run",
+      "target_activation": false,
+      "production_activation": false,
+      "installer": "not-built",
+      "r19_complete": false,
+      "copy_model": "one-plain-copy-without-injected-interruption",
+      "sqlite_policy": "no-checkpoint-on-close-per-open-readback",
+      "sqlite_version": "3.53.1",
+      "sqlite_version_scope": "frozen-coordinator",
+      "transcript_wal_bytes": 16512,
+      "transcript_shm_bytes": 32768,
+      "wal_set": "nonempty-after-retained-signals",
+      "wal_dependency": "main-only-false-full-set-true"
+    },
+    "sqlite_supplier_inputs": [
+      {
+        "path": "_internal/_sqlite3.pyd",
+        "bytes": 112128,
+        "sha256": "d192b0d3acaf0da667f1c8e9a01dc75e0889b5ba0580321df0b7f7c5e928af0a"
+      },
+      {
+        "path": "_internal/sqlite3.dll",
+        "bytes": 1607680,
+        "sha256": "fc119cc8bf851b5e0e53532a564547807fc39db23e87c66fdd9246b51ea33d97"
+      }
+    ],
+    "auxiliary_same_head_review": "five exact metadata artifacts; protected TEST, diagnostic/static frontend and authored helper scope only",
+    "scope_limits": [
+      "authored stores only; schema pins zero",
+      "two authored transcript rows",
+      "C3/C4 observed zero WAL/SHM; separate C5 retained real WAL",
+      "living keeper only; keeper loss unavailable",
+      "dynamic writer admission and warm routing unavailable",
+      "no production migration or native Windows11 approval",
+      "no interrupted-WAL observation",
+      "no full populated-data or settings continuity proof"
+    ],
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "asr_empty_common_data_two_alias_intervention_5c9db76": {
+    "head": "5c9db765d86b2fa7787788dadc1f742dfd478c5b",
+    "run": 41217577067,
+    "job": 124585253395,
+    "attempt": 1,
+    "workflow": "failure",
+    "phase": "common-data-bound",
+    "image_version": "20261021.278.1",
+    "selected_vs_version": "18.11.12315.225",
+    "artifact": {
+      "id": 13048758883,
+      "bytes": 1971,
+      "sha256": "0c1ab404b26d948811e58271285f7370011b1c7d5acf0f9752e7df3e5211b52e",
+      "entries": [
+        "ASR-FAILURE.json"
+      ]
+    },
+    "failure_json": {
+      "bytes": 4727,
+      "sha256": "150eca7687fff56f48610ca4aa41c5853e6513cf3a74329496b32d6ff4c7ecb1"
+    },
+    "common_data": {
+      "baseline": {
+        "allusersprofile_equal": true,
+        "folder": "empty",
+        "programdata_equal": true,
+        "reason": "process-rejected",
+        "root": "not-run",
+        "rooted": null,
+        "runtime": "full",
+        "status": "rejected",
+        "x64": true
+      },
+      "binding": "PROGRAMDATA+ALLUSERSPROFILE",
+      "bound": {
+        "allusersprofile_equal": false,
+        "folder": "empty",
+        "programdata_equal": false,
+        "reason": "process-rejected",
+        "root": "not-run",
+        "rooted": null,
+        "runtime": "full",
+        "status": "rejected",
+        "x64": true
+      },
+      "origin": "FOLDERID_ProgramData",
+      "origin_stable": "verified"
+    },
+    "disposition": "two-alias intervention negative; both default Full CLR/x64 folder results empty; baseline alias equality compares empty results",
+    "native_cause": "unknown; no SystemDrive or other missing-variable cause inferred",
+    "initial_cmake_variant_verified": true,
+    "configure_compile_probes": "not-reached",
+    "final_native_tool_seals_and_cohort": "not-delivered",
+    "independent_download_review": "root-and-peer-verified",
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_approval": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  }
+}

@@ -6,7 +6,6 @@ import json
 import re
 from pathlib import Path
 import subprocess
-import sys
 import threading
 
 from .agent_bank import bank_media, package_table
@@ -161,11 +160,13 @@ class AgentLibraryUpdater:
             return
         pending = self.folder / 'next-library.json'
         atomic_json(pending, updated)
-        root = Path(__file__).resolve().parents[1]
+        from .runtime_bundle import child_command, discover_layout
+        layout = discover_layout()
         with (self.folder / 'update.log').open('w', encoding='utf-8') as log:
             self._process = subprocess.Popen(
-                [sys.executable, '-m', 'scripts.build_agent_fingerprints', '--library', str(pending)],
-                cwd=root, stdout=log, stderr=log, creationflags=subprocess.CREATE_NO_WINDOW)
+                child_command('agent-fingerprints', ['--library', str(pending)]),
+                cwd=layout.resource_root, env=layout.child_environment('agent-fingerprints'),
+                stdout=log, stderr=log, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             while self._process.poll() is None:
                 if self._stop.wait(1):
                     self._process.terminate()

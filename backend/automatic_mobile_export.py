@@ -1,12 +1,13 @@
 """One host-local rule record and a recoverable queue using the existing exporter."""
 from __future__ import annotations
+from .runtime_paths import data_root as runtime_data_root
+from .runtime_bundle import child_command, discover_layout, resource_path
 import copy
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import threading
 import time
 import zipfile
@@ -119,7 +120,7 @@ class AutomaticMobileExports:
 
     def choices(self, game):
         adapter, _ = asset_adapter(game)
-        catalog = json.loads((Path(__file__).resolve().parents[1] / 'public/mobile-capture/games-data.json').read_text(encoding='utf-8'))
+        catalog = json.loads(resource_path('public/mobile-capture/games-data.json').read_text(encoding='utf-8'))
         entry = next(row for row in catalog['games'] if row['id'] == game)
         targets = [locale for locale in entry['targets'] if locale in adapter.TEXT_LOCALES]
         install = self.install_lookup(game)
@@ -286,7 +287,7 @@ class AutomaticMobileExports:
             self._set(game, locale, state='waiting', message='Waiting for stable game files.')
             return
         from .media_tools import ffmpeg_executable
-        if not ffmpeg_executable() or game not in ('beyond', 'heavyrain') and not (self.root / 'data/voice-assets/vgmstream/vgmstream-cli.exe').is_file():
+        if not ffmpeg_executable() or game not in ('beyond', 'heavyrain') and not (runtime_data_root(self.root) / 'voice-assets/vgmstream/vgmstream-cli.exe').is_file():
             self._set(game, locale, state='waiting', message='Prepare game voice tools in Setup. Tools will be checked again automatically.')
             return
         if shutil.disk_usage(self.home).free < max(512 * 1024**2, job.get('estimatedBytes', 0) * 2):
@@ -305,16 +306,16 @@ class AutomaticMobileExports:
                     raise InterruptedError()
         guard()
         self._set(game, locale, state='preparing', attempt=identity, message='Preparing mobile library in local working storage.')
-        command = [sys.executable, '-m', 'backend.mobile_export_worker', '--root', str(self.root), '--game', game,
+        command = child_command('mobile-export', ['--root', str(self.root), '--game', game,
                    '--output', str(output), '--source-locale', locale, '--translation-locale', translation,
-                   '--automatic-install', str(install)]
+                   '--automatic-install', str(install)])
         from .update_workers import INDEX_BUILD_LOCK, subprocess_options
         while not INDEX_BUILD_LOCK.acquire(timeout=.5):
             guard()
         log = output.parent / 'progress.jsonl'
         try:
             with log.open('w', encoding='utf-8') as stream:
-                self.process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[1], stdout=stream, stderr=subprocess.DEVNULL,
+                self.process = subprocess.Popen(command, cwd=discover_layout().resource_root, stdout=stream, stderr=subprocess.DEVNULL,
                     **subprocess_options(), start_new_session=os.name != 'nt')
                 offset = 0
                 while self.process.poll() is None:

@@ -1,6 +1,9 @@
 """Local destination preferences, honest estimates and interruptible export jobs."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
+from .runtime_paths import default_export_root
+from .runtime_bundle import child_command, discover_layout, resource_path
 import json
 import hashlib
 import os
@@ -47,6 +50,8 @@ class MobileExportManager:
         self._picker_message = ''
         self._status = {'state': 'idle', 'progress': 0, 'message': 'Ready to export a mobile library'}
         self._estimates = {}
+        self._quiescing = False
+        self._stop_threads = set()
 
     @property
     def preferences_path(self):
@@ -69,7 +74,7 @@ class MobileExportManager:
                 return Path(value)
         except (OSError, ValueError):
             pass
-        return self.root / 'output/mobile-libraries'
+        return default_export_root(self.root)
 
     def _save_destination(self, folder):
         if not self.guard():
@@ -161,6 +166,8 @@ class MobileExportManager:
         if sys.platform != 'win32':
             raise ValueError('The folder picker requires Windows. You can paste a folder path instead.')
         with self._lock:
+            if self._quiescing:
+                return False
             self._finish_picker()
             if self._picker or self._status['state'] in ACTIVE:
                 return False
@@ -172,7 +179,7 @@ class MobileExportManager:
             startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             startup.wShowWindow = 1  # SW_SHOWNORMAL: do not inherit the hidden companion's show state.
             self._picker = subprocess.Popen(['powershell.exe', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
-                '-File', str(Path(__file__).resolve().parents[1] / 'scripts/select-export-folder.ps1'),
+                '-File', str(resource_path('scripts/select-export-folder.ps1')),
                 '-InitialPath', str(initial), '-ResultPath', str(result)],
                 creationflags=subprocess.CREATE_NO_WINDOW, startupinfo=startup,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -187,7 +194,7 @@ class MobileExportManager:
         if not self.guard():
             raise ValueError('Account or learning language changed; reopen Setup.')
         folder, existing = self._validate_folder(destination_folder or self.destination())
-        data = self.root / 'data'
+        data = runtime_data_root(self.root)
         from .language_preparation import selected_snapshot
         legacy_zzz = game == 'zzz' and not (data / 'languages/zzz').is_dir()
         inputs = ([data / 'voice-assets/manifest.json', data / 'voice-assets/learned-manifest.json']
@@ -241,8 +248,34 @@ class MobileExportManager:
             self._status.update(state='cancelling', message='Stopping export and its decoder…')
             process = self._process
         if process:
-            threading.Thread(target=self._stop, args=(process,), daemon=True).start()
+            def stop():
+                try:
+                    self._stop(process)
+                finally:
+                    with self._lock:
+                        self._stop_threads.discard(threading.current_thread())
+            thread = threading.Thread(target=stop, daemon=True)
+            with self._lock:
+                self._stop_threads.add(thread)
+                thread.start()
         return True
+
+    def quiesce(self):
+        """Refuse a live export/picker; a cancel request is not a drain proof.
+
+        Existing export cancellation still has its own native ownership gate.
+        Handoff does not start taskkill from a copied PID or pretend that the
+        monitor's cancelled status proves all native descendants exited.
+        """
+        with self._lock:
+            self._quiescing = True
+            if ((self._thread and self._thread.is_alive()) or self._picker
+                    or self._stop_threads or (self._process and self._process.poll() is None)):
+                raise TimeoutError('Finish or cancel the active mobile export/folder picker before runtime handoff.')
+
+    def resume(self):
+        with self._lock:
+            self._quiescing = False
 
     def _stop(self, process):
         try:
@@ -258,6 +291,8 @@ class MobileExportManager:
 
     def start(self, game, include_audio=True, destination_folder=None):
         with self._lock:
+            if self._quiescing:
+                return False
             self._finish_picker()
             if self._thread and self._thread.is_alive() or self._picker or self._status['state'] in ACTIVE:
                 return False
@@ -279,8 +314,8 @@ class MobileExportManager:
             return True
 
     def _worker_args(self, game, include_audio, output):
-        args = [sys.executable, '-u', '-m', 'backend.mobile_export_worker', '--root', str(self.root),
-                '--game', game, '--output', str(output)]
+        args = child_command('mobile-export', ['--root', str(self.root),
+                '--game', game, '--output', str(output)])
         if self.account_signature is not None:
             args += ['--account-signature', self.account_signature, '--source-locale', self.source_locale]
         return args if include_audio else [*args, '--catalog-only']
@@ -294,9 +329,10 @@ class MobileExportManager:
                     self._cancel.set()
                 if self._cancel.is_set():
                     return
-                process = subprocess.Popen(args, cwd=Path(__file__).resolve().parents[1], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                layout = discover_layout()
+                process = subprocess.Popen(args, cwd=layout.resource_root, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                     text=True, encoding='utf-8', creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
-                    start_new_session=sys.platform != 'win32', env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
+                    start_new_session=sys.platform != 'win32', env={**layout.child_environment('mobile-export'), 'PYTHONIOENCODING': 'utf-8', 'PYTHONUNBUFFERED': '1'})
                 self._process = process
             for line in process.stdout:
                 if not self.guard():

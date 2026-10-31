@@ -60,6 +60,8 @@ def patch_source(name: str, source: str) -> str:
 
 
 def ensure_extractor(tools: Path) -> Path:
+    from .bundle_tools import require_source_toolchain
+    require_source_toolchain('PRAGMATA selective x86 reader')
     tools = tools.resolve()
     game_tools.install_archive(game_tools.REE_URL, game_tools.REE_SHA, tools,
                                ('REE.Unpacker.exe', 'Zstandard.Net.dll', 'System.Buffers.dll', 'libzstd.dll'))

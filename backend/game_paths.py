@@ -18,6 +18,10 @@ _path_lock = threading.RLock()
 
 
 def settings_path() -> Path:
+    from .runtime_bundle import discover_layout
+    layout = discover_layout()
+    if layout.mode == 'bundle':
+        return layout.settings_root / 'game-paths.json'
     return Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local/share")) / "Proxy Transcript/game-paths.json"
 
 

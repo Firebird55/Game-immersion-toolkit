@@ -140,7 +140,9 @@ def test_incremental_manifest_keeps_only_valid_previous_entries(tmp_path):
     assert set(merged) == {"old", "new"}
 
 
-def test_fingerprint_learned_alias_survives_restart(tmp_path):
+def test_fingerprint_learned_alias_survives_restart(tmp_path, monkeypatch):
+    # This tests the alias manifest, not an installed encoder or decoding.
+    monkeypatch.setattr('backend.voice_assets.ffmpeg_executable', lambda: 'fixture-ffmpeg')
     path = package(tmp_path)
     manifest = tmp_path / "manifest.json"
     learned = tmp_path / "learned.json"

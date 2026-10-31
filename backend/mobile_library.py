@@ -1,6 +1,7 @@
 """Private, resumable mobile exports. Never serialize original archive references."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
 import hashlib
 from itertools import islice
 import json
@@ -308,7 +309,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
 def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None, source_path=None, translation_locale=None):
     """Adapt owned indexes and decoders without touching the user's transcript/audio history."""
     root, decode_dir = Path(root), Path(decode_dir)
-    data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
+    data, decoder = runtime_data_root(root), runtime_data_root(root) / "voice-assets/vgmstream/vgmstream-cli.exe"
     watched = {}
     service = None
     account_check = lambda: True
@@ -413,6 +414,18 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
                 raise ValueError("Hito changed; refresh game data first")
             inputs.append(archive)
             source_check = lambda: True
+        elif game == 'halflife':
+            # Original GoldSrc has authored sound-free screen messages, but no
+            # implemented speech/transcript binding. Do not initialize a voice
+            # service (and its decoder lookup) for this text-only capability.
+            from .game_assets import asset_adapter
+            capabilities = payload.get('capture_capabilities', {})
+            if (payload.get('format') != 2 or payload.get('game') != game
+                    or capabilities.get('voiced') is not False or capabilities.get('unvoiced') is not True
+                    or any(item.get('audio') for item in payload['records'])):
+                raise ValueError('Prepare the confirmed unvoiced Half-Life language table before exporting.')
+            adapter, _ = asset_adapter(game)
+            source_check = lambda: adapter.fingerprint(Path(payload['install'])) == payload['fingerprint']
         elif game == "pragmata":
             from .pragmata_audio import PragmataVoiceAssetService
             from scripts.index_pragmata_assets import fingerprint
@@ -430,7 +443,12 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         for item in payload["records"]:
             # Other adapters retain their verified performance coverage gates.
             # In particular, unbound Honkai/NTE tables do not verify new scenes.
-            if game != 'hito' and not item.get('audio'):
+            if game == 'halflife':
+                from .local_game import LocalDialogue
+                validated = LocalDialogue(**item)
+                if validated.voice_status != 'unvoiced' or validated.dialogue_kind != 'screen_message':
+                    continue
+            elif game != 'hito' and not item.get('audio'):
                 continue
             text_id = str(item.get("text_id", item.get("identity", digest(item))))
             if game == "pragmata" and not text_id.startswith("pragmata:"):

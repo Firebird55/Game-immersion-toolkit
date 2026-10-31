@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import struct
 import subprocess
+import tempfile
 import wave
 import zlib
 
@@ -229,7 +230,87 @@ def unpack_performance(data):
     return blobs
 
 
+def _complete_pcm_wave(data):
+    """Validate actual PCM bytes, rather than trusting a WAV's declared frames.
+
+    Structurally valid non-PCM WAVE stays eligible for the source codec path.
+    Damaged containers fail before any decoder or output publication.
+    """
+    if len(data) < 12 or data[:4] != b'RIFF' or data[8:12] != b'WAVE':
+        raise invalid('Invalid Source original WAVE container.')
+    if struct.unpack_from('<I', data, 4)[0] + 8 != len(data):
+        raise invalid('Source original WAVE container length changed.')
+    cursor, chunks, fmt = 12, defaultdict(list), None
+    while cursor < len(data):
+        if cursor + 8 > len(data):
+            raise invalid('Truncated Source original WAVE chunk.')
+        name, size = struct.unpack_from('<4sI', data, cursor)
+        start, end = cursor + 8, cursor + 8 + size
+        if end > len(data):
+            raise invalid('Truncated Source original WAVE data.')
+        chunks[name].append(size)
+        if name == b'fmt ':
+            fmt = data[start:end]
+        # Some original PCM writers omit the final odd-byte padding. There is
+        # no following chunk to misalign in that case; retain those valid bytes.
+        cursor = end if end == len(data) else end + (size & 1)
+    if cursor != len(data) or len(chunks[b'fmt ']) != 1 or len(chunks[b'data']) != 1:
+        raise invalid('Unsupported Source original WAVE chunk layout.')
+    if len(fmt) < 16:
+        raise invalid('Truncated Source original WAVE format.')
+    tag, channels, rate, byte_rate, alignment, bits = struct.unpack_from('<HHIIHH', fmt)
+    if not tag or not channels or not rate or not byte_rate or not alignment:
+        raise invalid('Invalid Source original WAVE format fields.')
+    is_pcm = tag == 1
+    if tag == 0xfffe:
+        if len(fmt) < 40 or struct.unpack_from('<H', fmt, 16)[0] < 22:
+            raise invalid('Truncated Source original extensible WAVE format.')
+        if 18 + struct.unpack_from('<H', fmt, 16)[0] > len(fmt):
+            raise invalid('Truncated Source original WAVE format extension.')
+        is_pcm = fmt[24:40] == bytes.fromhex('0100000000001000800000aa00389b71')
+        if is_pcm and not 0 < struct.unpack_from('<H', fmt, 18)[0] <= bits:
+            raise invalid('Invalid Source original PCM valid-bit count.')
+    if not is_pcm:
+        return False
+    if (bits not in {8, 16, 24, 32} or alignment != channels * (bits // 8)
+            or byte_rate != rate * alignment):
+        raise invalid('Invalid Source original PCM frame format.')
+    try:
+        stream = wave.open(io.BytesIO(data))
+    except wave.Error:
+        raise invalid('Invalid Source original PCM format.') from None
+    except EOFError:
+        raise invalid('Truncated Source original WAVE format.') from None
+    with stream:
+        if stream.getcomptype() != 'NONE':
+            return False
+        frames, rate = stream.getnframes(), stream.getframerate()
+        frame_bytes = stream.getnchannels() * stream.getsampwidth()
+        if not rate or not frame_bytes or not 0 < frames <= rate * 1800:
+            raise invalid('Source original audio duration exceeds its limit.')
+        expected = frames * frame_bytes
+        if chunks[b'data'][0] != expected:
+            raise invalid('Source original PCM data is not aligned to complete frames.')
+        remaining = expected
+        while remaining:
+            block = stream.readframes(min(65536, (remaining + frame_bytes - 1) // frame_bytes))
+            if not block or len(block) > remaining:
+                raise invalid('Truncated Source original PCM frames.')
+            remaining -= len(block)
+        return True
+
+
 def decode_performance(data, audio, output, decoder, scratch):
+    # Both the unchanged-PCM path and the source codec path publish only after
+    # validation. A malformed stream or failed decoder retains prior output.
+    output = Path(output)
+    with tempfile.TemporaryDirectory(prefix='source-pcm-', dir=output.parent) as temporary:
+        pending = Path(temporary) / 'performance.wav'
+        _decode_performance(data, audio, pending, decoder, scratch)
+        pending.replace(output)
+
+
+def _decode_performance(data, audio, output, decoder, scratch):
     from .media_tools import ffmpeg_executable
     blobs = unpack_performance(data)
     parts = audio.get('parts', [])
@@ -238,15 +319,9 @@ def decode_performance(data, audio, output, decoder, scratch):
     options = {'check': True, 'capture_output': True, 'timeout': 90,
                'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0)}
     if len(blobs) == 1 and blobs[0][:4] == b'RIFF' and parts[0].get('at_ms') == 0:
-        try:
-            with wave.open(io.BytesIO(blobs[0])) as stream:
-                if stream.getcomptype() == 'NONE':
-                    if not 0 < stream.getnframes() <= stream.getframerate() * 1800:
-                        raise invalid('Source original audio duration exceeds its limit.')
-                    Path(output).write_bytes(blobs[0])
-                    return
-        except (wave.Error, EOFError):
-            pass
+        if _complete_pcm_wave(blobs[0]):
+            Path(output).write_bytes(blobs[0])
+            return
     executable = ffmpeg_executable()
     if not executable:
         raise invalid('The installed media decoder is unavailable.')
