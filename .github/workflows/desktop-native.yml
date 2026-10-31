@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   construct:
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +45,9 @@ jobs:
       - name: Inspect missing build prerequisites before acquisition
         continue-on-error: true
         run: npm run dev:doctor -- --full
+      - name: Prepare the exact native CPython supplier
+        id: python_supplier
+        run: python scripts/prepare-desktop-python.py --output output/python-supplier --cache output/python-archive-cache --github-output $env:GITHUB_OUTPUT --github-path $env:GITHUB_PATH
       - run: npm ci --ignore-scripts
       - name: Acquire exact native Python wheels
         run: |
@@ -80,6 +83,8 @@ jobs:
         run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources
       - name: Retain pinned Qt sources and full notices
         run: python scripts/build-qt-resources.py --output output/qt-resources --cache output/qt-source-cache
+      - name: Retain exact OCR, ASR and native library sources and notices
+        run: python scripts/build-native-notices.py --output output/native-notices --cache output/native-source-cache
       - name: Acquire the verified Windows codec build compiler
         if: runner.os == 'Windows'
         run: ./scripts/prepare-codec-compiler.ps1 -OutputRoot output/codec-compiler
@@ -95,7 +100,7 @@ jobs:
           python scripts/probe-native-audio.py --resources output/audio-resources --output output/native-audio-probe.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Freeze the native runtime and isolated ASR child
-        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources --resources-root output/node-resources --resources-root output/qt-resources
+        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --python-archive '${{ steps.python_supplier.outputs.python_archive }}' --resources-root output/audio-resources --resources-root output/node-resources --resources-root output/qt-resources --resources-root output/native-notices
       - name: Exercise frozen startup, API crash recovery and owned shutdown
         run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
       - name: Observe native window, tray and browser handler requests
@@ -123,6 +128,7 @@ jobs:
       # Candidate metadata is useful evidence, but never substitutes for a
       # completed target receipt when the publication job assembles all assets.
       - name: Upload safe construction metadata only
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: native-construction-${{ matrix.target }}
@@ -133,7 +139,7 @@ jobs:
             output/native-audio-probe.json
             output/native-host-probe.json
             output/native-ui-probe.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
       - name: Upload verified desktop release assets
         if: steps.package.outputs.release_eligible == 'true'

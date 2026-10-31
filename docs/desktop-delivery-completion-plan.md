@@ -62,6 +62,22 @@ Raw event paths and machine diagnostics remain local and untracked.
 
 ## Acceptance and delivery
 
+### Native build integration: 2026-10-31
+
+The three-target construction workflow now prepares checksum-pinned CPython
+3.12.16 from the same immutable supplier release before installing its exact
+wheels. The freeze step verifies the installed interpreter against that archive;
+Python and full license notices ship inside the application. The build also
+collects OCR/model, ASR, ONNX, GEOS and software-renderer sources and notices,
+alongside the expanded Qt sources. Exact selected-output review remains required.
+Linux/macOS audio construction now includes the same pinned vgmstream decoder
+family as Windows. Source downloads retry transient failures with bounded waits
+and verify the complete digest before publishing cache entries. The source-build
+budget is 90 minutes; failure diagnostics remain available as bounded JSON
+artifacts. Native execution on each target is still required before claiming these
+integrated builds pass. Common managed Unreal and Cyberpunk helper integration
+continues in the remaining-work list below.
+
 ### Checkpoint: 2026-10-31
 
 PR #62 integrates the current branch with main and PR #60. Hosted validation

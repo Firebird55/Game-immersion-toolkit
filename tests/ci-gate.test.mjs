@@ -122,6 +122,9 @@ test('publication waits for native construction and rechecks all downloaded arti
   assert.match(nativeWorkflow, /if: steps\.package\.outputs\.release_eligible == 'true'/);
   assert.match(nativeWorkflow, /DESKTOP-PROVENANCE-\$\{\{ matrix\.target \}\}\.json/);
   assert.match(nativeWorkflow, /--resources-root output\/node-resources/);
+  assert.match(nativeWorkflow, /--resources-root output\/native-notices/);
+  assert.match(nativeWorkflow, /prepare-desktop-python\.py.*--github-path \$env:GITHUB_PATH/);
+  assert.match(nativeWorkflow, /--python-archive '\$\{\{ steps\.python_supplier\.outputs\.python_archive \}\}'/);
 });
 
 test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {
