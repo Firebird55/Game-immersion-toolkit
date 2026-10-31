@@ -9,6 +9,7 @@ import { countUnknownWords, restoreTranslationLimit, type ReadingSummary, type T
 import { appliesToWord, unknownWordGrammar, grammarUrl, type GrammarRule } from './grammar-rules.js';
 import { popupPreferences, popupOpensOnPointerEnter, popupTogglesOnShift, orderWordPopupTabs, orderWordPopupDefinitionSections, resolveInitialWordPopupTab, type WordTab, type DefinitionSection } from './word-popup.js';
 import type { AccountSettings } from './account.js';
+import { readingWrapRanges } from './reading-layout.js';
 
 export type ReadingScope = 'unknown' | 'all' | 'off';
 export type ReadingOptions = {
@@ -141,6 +142,31 @@ function shortGloss(meaning: string) {
   const first = meaning.split(/[,;]/, 1)[0].trim();
   return first.length > 32 ? `${first.slice(0, 29)}…` : first;
 }
+type ReadingPart = { start: number; end: number; node: React.ReactNode };
+function groupReadingParts(text: string, parts: ReadingPart[]) {
+  const ranges = readingWrapRanges(text, parts.filter(part => typeof part.node !== 'string'));
+  type Group = { key: string; children: React.ReactNode[] };
+  const groups = new Map<number, Group>();
+  const result: (ReadingPart | Group)[] = [];
+  for (const part of parts) {
+    const cuts = typeof part.node === 'string'
+      ? [...new Set([part.start, ...ranges.flatMap(range => [range.start, range.end]).filter(at => at > part.start && at < part.end), part.end])].sort((a,b) => a-b)
+      : [part.start, part.end];
+    for (let i = 0; i < cuts.length - 1; i++) {
+      const start = cuts[i], end = cuts[i+1];
+      const range = ranges.find(range => range.start <= start && range.end >= end);
+      const node = typeof part.node === 'string' ? text.slice(start, end) : part.node;
+      if (!range) { result.push({ start, end, node }); continue; }
+      if (!groups.has(range.start)) {
+        const group = { key: `word-${range.start}`, children: [] as React.ReactNode[] };
+        groups.set(range.start, group); result.push(group);
+      }
+      groups.get(range.start)!.children.push(node);
+    }
+  }
+  return result.map(part => 'children' in part
+    ? <span className="reading-word" key={part.key}>{part.children}</span> : part.node);
+}
 const WORD_LEVELS = [
   { value: 1, short: 'T', label: 'Tracked' },
   { value: 2, short: 'L', label: 'Learning' },
@@ -160,23 +186,26 @@ function speakChinese(text: string) {
 }
 
 function ExampleChinese({ text, tokens, options }: { text: string; tokens: Token[]; options: ReadingOptions }) {
-  const parts: React.ReactNode[] = [];
+  const parts: ReadingPart[] = [];
   let cursor = 0;
   for (const [index, token] of tokens.entries()) {
     if (token.start < cursor || token.end > text.length) continue;
-    if (token.start > cursor) parts.push(text.slice(cursor, token.start));
+    if (token.start > cursor) parts.push({ start: cursor, end: token.start, node: text.slice(cursor, token.start) });
     const word = text.slice(token.start, token.end);
     const unknown = token.proficiency < 4;
-    parts.push(<span key={`${token.start}-${index}`} className="reading-token">
+    const meaning = enabled(options.meanings, unknown) && !!token.meaning;
+    parts.push({ start: token.start, end: token.end, node: <span key={`${token.start}-${index}`} className={`reading-token${meaning ? ' has-meaning' : ''}`}>
+      <span className="reading-above">
       {enabled(options.pinyin, unknown) && token.pinyin && <span className="reading-pinyin">{token.pinyin}</span>}
       {enabled(options.zhuyin, unknown) && token.zhuyin && <span className="reading-zhuyin">{token.zhuyin}</span>}
+      </span>
       <span className="reading-hanzi" style={enabled(options.toneColors, unknown) ? toneStyle(token.tones || [], word, options.palette) : undefined}>{word}</span>
-      {enabled(options.meanings, unknown) && token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
-    </span>);
+      {meaning && <span className="reading-meaning" title={token.meaning}>{shortGloss(token.meaning)}</span>}
+    </span> });
     cursor = token.end;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
-  return <div className="word-example-chinese" lang={language} dir={capability.direction}>{parts}</div>;
+  if (cursor < text.length) parts.push({ start: cursor, end: text.length, node: text.slice(cursor) });
+  return <div className="word-example-chinese" lang={language} dir={capability.direction}>{groupReadingParts(text, parts)}</div>;
 }
 
 function pronunciationTone(reading: string): number {
@@ -680,20 +709,23 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
   }
 
   if (!reading || reading.text !== text) return <p className={current ? 'current-chinese' : undefined} lang={language} dir={capability.direction} title={error ? 'Lexirise analysis unavailable' : 'Analyzing with Lexirise'}>{text}{error && <button className="reading-retry" type="button" onClick={() => void refreshReading.current?.()}>Retry Lexirise</button>}</p>;
-  const parts: React.ReactNode[] = [];
+  const parts: ReadingPart[] = [];
   let cursor = 0;
   for (const [index, token] of reading.tokens.entries()) {
     if (token.start < cursor || token.end > text.length) continue;
-    if (token.start > cursor) parts.push(text.slice(cursor, token.start));
+    if (token.start > cursor) parts.push({ start: cursor, end: token.start, node: text.slice(cursor, token.start) });
     const unknown = token.proficiency < 4;
     const wordText = text.slice(token.start, token.end);
     const colorStyle = enabled(options.toneColors, unknown)
       ? toneStyle(token.tones || [], wordText, options.palette) : undefined;
     const toneMarks = token.tones?.map(value => TONE_MARKS[value] || '').filter(Boolean).join(' ');
-    parts.push(<span key={`${token.start}-${index}`} className="reading-token">
+    const meaning = enabled(options.meanings, unknown) && !!token.meaning;
+    parts.push({ start: token.start, end: token.end, node: <span key={`${token.start}-${index}`} className={`reading-token${meaning ? ' has-meaning' : ''}`}>
+      <span className="reading-above" aria-hidden="true">
       {enabled(options.toneMarks, unknown) && !!toneMarks && <span className="reading-tone-marks" aria-hidden="true">{toneMarks}</span>}
       {enabled(options.pinyin, unknown) && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
       {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true">{token.zhuyin}</span>}
+      </span>
       <span className="reading-hanzi" role="button" tabIndex={0}
         aria-haspopup={preferences.disabled ? undefined : 'dialog'} aria-expanded={open === index}
         onPointerEnter={event => {
@@ -706,13 +738,13 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
         onClick={event => { cancelHover(); hoverOpened.current = false; if (preferences.disabled) return; event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }}
         onKeyDown={event => { if (!preferences.disabled && (event.key === 'Enter' || event.key === ' ')) { cancelHover(); hoverOpened.current = false; event.preventDefault(); event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(true); setOpen(open === index ? null : index); } }}
         style={colorStyle} title={token.meaning || 'Tap for word details'}>{wordText}</span>
-      {enabled(options.meanings, unknown) && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
-    </span>);
+      {meaning && <span className="reading-meaning" aria-hidden="true" title={token.meaning}>{shortGloss(token.meaning)}</span>}
+    </span> });
     cursor = token.end;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (cursor < text.length) parts.push({ start: cursor, end: text.length, node: text.slice(cursor) });
   const selected = open === null ? null : reading.tokens[open];
-  return <><p className={`reading-text ${current ? 'current-chinese' : ''}`} lang={language} dir={capability.direction}>{parts}</p>
+  return <><p className={`reading-text ${current ? 'current-chinese' : ''}`} lang={language} dir={capability.direction}>{groupReadingParts(text, parts)}</p>
     {selected && anchor && !preferences.disabled && <WordSheet key={`${id}:${selected.start}`} id={id} text={text} token={selected} options={options} anchor={anchor} keyboard={keyboard} preferences={preferences} sentenceTranslation={sentenceTranslation}
       grammar={reading.grammar || []} analysisPending={!!reading.analysisPending} onGrammarChange={onGrammarChange}
       onGrammarRetry={() => void refreshReading.current?.()}

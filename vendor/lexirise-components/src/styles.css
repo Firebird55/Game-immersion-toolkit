@@ -14,13 +14,18 @@
 .reading-controls select { color:#eff7ff; background:#18212a; border:1px solid #41505e; border-radius:5px; padding:5px 25px 5px 8px; font:inherit; }
 .reader-options-button { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
 .reading-text { line-height:2.35; overflow-wrap:anywhere; }
-.reading-token { display:inline-flex; position:relative; flex-direction:column; align-items:center; vertical-align:middle; margin:0 2px 7px; line-height:1.1; }
+/* The last in-flow line is the source text, so optional readings/glosses do not
+   change its baseline. Glosses fit two lines inside the source token's width. */
+.reading-token { display:inline-block; position:relative; vertical-align:baseline; margin:0; padding-bottom:var(--reading-gloss-space,0); line-height:1.15; text-align:center; }
+.reading-token.has-meaning { --reading-gloss-space:1.15em; }
+.reading-above { display:flex; flex-direction:column; align-items:center; }
+.reading-word { display:inline-block; max-width:100%; vertical-align:baseline; white-space:normal; }
 .reading-pinyin,.reading-zhuyin,.reading-tone-marks { font-size:.42em; line-height:1.15; color:#a9c9dc; white-space:nowrap; }
 .reading-zhuyin { font-size:.43em; }
 .reading-tone-marks { color:#e6cd87; letter-spacing:.08em; }
 .reading-hanzi { color:#d9e3ed; cursor:pointer; text-decoration:underline; text-decoration-color:transparent; text-underline-offset:3px; }
 .reading-hanzi:hover,.reading-hanzi:focus { text-decoration-color:currentColor; }
-.reading-meaning { max-width:12em; font-size:.38em; line-height:1.2; color:#c2c7ce; text-align:center; white-space:normal; }
+.reading-meaning { position:absolute; inset-inline:0; top:calc(100% - 2.4em); max-height:2.4em; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; font-size:.38em; line-height:1.2; color:#c2c7ce; text-align:center; white-space:normal; overflow-wrap:anywhere; overflow:hidden; }
 .reader-settings-dialog { max-height:min(86svh,800px); overflow-y:auto; }
 .reader-option-list { display:grid; gap:4px; }
 .reader-option-row { display:grid; grid-template-columns:minmax(0,1fr) 150px; align-items:center; gap:14px; min-height:54px; padding:7px 0; border-bottom:1px solid #333d47; }
@@ -152,7 +157,7 @@
 .word-example { display:flex; align-items:center; gap:9px; padding:10px 0; border-bottom:1px solid #494b50; }
 .word-example-main { flex:1; min-width:0; }
 .word-example-chinese { color:#f4f4f4; font-size:22px; line-height:1.9; }
-.word-example-chinese .reading-token { margin-bottom:5px; }
+.word-example-chinese .reading-token { margin-bottom:0; }
 .word-example-main > p { margin:7px 0 0; color:#c4c4c7; font-size:12px; }
 .word-example-actions { display:flex; flex:none; gap:7px; }
 .word-example-actions button { display:grid; place-items:center; width:39px; height:39px; border:1px solid #565a60; border-radius:50%; color:#d9d9dc; cursor:pointer; }
@@ -210,7 +215,7 @@
 /* Adapt to the available host width, not only the whole browser window. */
 .reading-text { min-width:0; max-width:100%; white-space:normal; }
 .reading-token { max-width:100%; }
-.reading-hanzi { max-width:100%; overflow-wrap:anywhere; }
+.reading-hanzi { max-width:100%; overflow-wrap:anywhere; white-space:normal; }
 .word-sheet-top { flex-wrap:wrap; }
 .word-sheet-identity { max-width:100%; }
 .word-sheet-title { min-width:0; }
