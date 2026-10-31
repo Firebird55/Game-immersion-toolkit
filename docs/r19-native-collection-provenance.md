@@ -29,8 +29,12 @@ under its private `quarantine` directory:
 The successful observation status is `observed-not-approved`. Native closure,
 incorporated code, generated executable internals and rights remain unverified
 or pending; production execution and source-delivery approval remain false.
-Windows 11 acceptance stays unavailable. Neither JSON is added to the runtime
-or workflow artifact allowlist in this slice. The original `files` entries and
+Windows 11 acceptance stays unavailable. No observation JSON enters the runtime.
+The integrated workflow allowlists only the sanitized input/final JSON beside
+its existing metadata, and a separate fixed failure JSON on refusal. Raw TOCs,
+source paths, tool logs and native payloads remain excluded. Artifact presence
+does not turn `observed-not-approved` or a failed workflow into acceptance.
+The original `files` entries and
 `native_input_ownership` schema, classifications and counts are unchanged.
 
 ## Exact source boundary
