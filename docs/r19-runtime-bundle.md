@@ -1247,8 +1247,8 @@ Windows11 remain open. PR #59 stays intact; no installer is built.
 ## Verified reading SQL-owner checkpoint at 973db81
 
 [Run 41242293732](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41242293732)
-at `973db810f4a7c9add384133647f96b1674543cde` is now the latest complete bounded
-frozen checkpoint. It passed 1,284 contracts without skips (one warning,
+at `973db810f4a7c9add384133647f96b1674543cde` was the latest complete bounded
+frozen checkpoint before `d329027` below. It passed 1,284 contracts without skips (one warning,
 329.21 seconds), the native/C1/cold-slot probes, both keeper cases and C3–C6.
 The new per-reader SQL owner preserves five existing connection boundaries,
 nontransactional reads, original transaction/close failures and the earlier
@@ -1273,6 +1273,41 @@ This justified a later internal test-predicate correction; the producer is
 unchanged. No mechanism artifact, actual grant-conversion cause or recovery
 acceptance follows. Physical resources, reader retention, global writers,
 keeper death, warm OCR/routing, rights and ordinary-user Windows11 remain open.
+
+## Verified reading-registry checkpoint at d329027
+
+[Run 41245764306](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41245764306)
+at `d329027b850ebd7fc01ad6db6d366ec3a3ee9bf9` is the latest complete bounded
+frozen checkpoint. It passed 1,319 Windows contracts without skips (one warning,
+179.85 seconds), native/C1/cold-slot, both living-keeper cases and C3–C6.
+The reading registry now retains default, cached, in-flight and failed
+constructor objects, closes creation before strict C2 request drain and keeps
+pool recovery within the existing lifecycle. The source race/failure contracts
+and extracted paused-API fixture are distinct checks; this does not claim every
+registry race ran inside the frozen executable. SQL admission, physical resources
+and aggregate/global ownership remain separate.
+
+Root and peer independently verified seven provider-bound source/metadata
+archives, seven actual job images/logs, 81 exact named Git blobs, 473 A2/P1
+records and 113 notice references covering 104 hashes. Inventory: 1,449 files,
+642 directories and 620,159,375 bytes; SHA256
+`0c6526b7d7998466103542e1e60aa3ae2ecd671fe398ed6e92078157a1310195`.
+All seven jobs used image `20261021.278.1`; reference CMake 4.4.4 and compiler
+19.51.36260.0. Xiph source/rebuild/PE/decode/fault/origin checks pass again.
+The fifteen ASR recipe inputs are unchanged, with no prepare or source replay.
+The later HTTP worker fix is outside this exact checkpoint.
+
+The separate C7 [run 41245783408](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41245783408)
+passes all 175 authored contracts, including both actual Windows engine cases,
+then fails the mechanism at the last complete `grantread` checkpoint.
+Its bounded conversion context is null, child state before cleanup is
+`not-signaled`, and cleanup remains unconfirmed. Empty observations do not prove
+no physical operation occurred. The 764-byte provider ZIP and sole 1,201-byte
+receipt are independently hash/schema/source/publisher verified in the
+[ledger](r19-frozen-checkpoint-20261031.json). The test correction is validated;
+the actual conversion cause, legacy attribute mechanism and keeper-loss result
+remain unproved. No global/physical/warm, rights, ordinary-user Windows11 or
+R19 acceptance gate is upgraded.
 
 ## Continuation and rollback
 

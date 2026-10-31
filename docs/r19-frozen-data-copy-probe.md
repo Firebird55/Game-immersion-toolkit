@@ -13,8 +13,14 @@ The later explicit-close `31ee4c9` run failed its keeper step before C3/C4/C5/C6
 It supplies no new copy pass. The later `f43cec7` run passed keeper and all four
 copy cases again. The subsequent `eaa42b2` shared SQL-owner run also passed them
 with the earlier SQL helper. The later `973db81` reading SQL-owner checkpoint
-passed all four cases and is now the latest complete bounded checkpoint; its exact
-source/metadata artifacts were independently reviewed by root and peer.
+passed all four cases. The subsequent `d329027` reading-registry checkpoint
+passes them again and is now the latest complete bounded checkpoint; its seven
+source/metadata archives and 81 named Git inputs were independently reviewed by
+root and peer. Its source contracts pass 1,319 cases without skips. The registry
+does not freeze SQL or certify a physical/global fence; copied-target activation,
+keeper loss and warm routing remain open. The separate C7 mechanism still fails
+after `grantread` with null conversion context and unconfirmed cleanup; it
+supplies no legacy attribute or copy authority.
 
 The existing [completion plan](r19-completion-plan.md) C2/C3/C4 gates remain
 open. The successful historical owned-host, cold-slot and
