@@ -275,5 +275,54 @@ $value | ConvertTo-Json -Compress
             str(selected_python), str(canonical)], check=True, capture_output=True, text=True, timeout=20)
         self.assertEqual(json.loads(result.stdout), {'CMake': str(canonical), 'Python': str(selected_python)})
 
+    @unittest.skipUnless(shutil.which('pwsh') and shutil.which('cmd.exe'),
+                         'Compiler activation quoting contract requires Windows pwsh/cmd')
+    def test_compiler_activation_handles_spaced_batch_paths_and_never_exports_failed_or_foreign_values(self):
+        tools = self.root / 'authored VC tools with spaces'; tools.mkdir()
+        success = tools / 'vcvarsall.bat'
+        success.write_text('''@echo off
+if not "%~1"=="x64" exit /b 61
+if not "%~2"=="10.0.26100.0" exit /b 62
+if not "%~3"=="-vcvars_ver=14.51.36231" exit /b 63
+set "INCLUDE=authored include"
+set "LIB=authored lib"
+set "VCToolsInstallDir=authored toolset"
+set "WindowsSdkDir=authored SDK"
+set "WindowsSDKVersion=10.0.26100.0"
+set "FOREIGN_PRIVATE_FIXTURE=private-stdout-marker"
+exit /b 0
+''', encoding='utf-8')
+        failed = tools / 'failing vcvarsall.bat'
+        failed.write_text('@echo off\nset "INCLUDE=partial value"\necho private-stdout-marker\nexit /b 7\n', encoding='utf-8')
+        contract = self.root / 'activation-contract.ps1'
+        contract.write_text('''param($SourcePath, $SuccessBatch, $FailedBatch, $ProfileParent)
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $parseErrors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($SourcePath, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors.Count) { throw 'Build script has parse errors.' }
+$definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-CompilerEnvironment'}, $true)
+if (-not $definition) { throw 'Compiler environment activation function unavailable.' }
+. ([ScriptBlock]::Create($definition.Extent.Text))
+$beforeInclude = $env:INCLUDE
+$profile = Join-Path $ProfileParent 'profile with spaces'
+$failedProfile = Join-Path $ProfileParent 'failed profile with spaces'
+New-Item -ItemType Directory -Path $profile, $failedProfile | Out-Null
+$value = Get-CompilerEnvironment -ActivationRoot $profile -VcvarsPath $SuccessBatch -SdkVersion '10.0.26100.0' -ToolsetVersion '14.51.36231'
+if ($value.Count -ne 5 -or $value.INCLUDE -ne 'authored include' -or $value.LIB -ne 'authored lib' -or
+    $value.VCToolsInstallDir -ne 'authored toolset' -or $value.WindowsSdkDir -ne 'authored SDK' -or
+    $value.WindowsSDKVersion -ne '10.0.26100.0') { throw 'Authored activation arguments or allowlist differed.' }
+$failedAsExpected = $false
+try { Get-CompilerEnvironment -ActivationRoot $failedProfile -VcvarsPath $FailedBatch -SdkVersion '10.0.26100.0' -ToolsetVersion '14.51.36231' | Out-Null }
+catch { if ($_.Exception.Message -eq 'Exact compiler/SDK activation failed; exit code 7.') { $failedAsExpected = $true } }
+if (-not $failedAsExpected -or $env:INCLUDE -ne $beforeInclude) { throw 'Failed activation exported partial environment.' }
+$value | ConvertTo-Json -Compress
+''', encoding='utf-8')
+        result = subprocess.run([shutil.which('pwsh'), '-NoProfile', '-NonInteractive', '-File', str(contract),
+            str(ROOT / 'scripts/build-game-codec-replay.ps1'), str(success), str(failed), str(self.root)],
+            check=True, capture_output=True, text=True, timeout=20)
+        self.assertEqual(json.loads(result.stdout), {'INCLUDE': 'authored include', 'LIB': 'authored lib',
+            'VCToolsInstallDir': 'authored toolset', 'WindowsSdkDir': 'authored SDK', 'WindowsSDKVersion': '10.0.26100.0'})
+        self.assertNotIn('private-stdout-marker', result.stdout + result.stderr)
+
 
 if __name__ == '__main__': unittest.main()

@@ -62,6 +62,14 @@ headers, libraries, targets and activation scripts. Original source bytes must
 remain unchanged. The original VS2019 recipe and notices are retained alongside
 the declared generator, prefix and build-isolation adaptations.
 
+Compiler activation uses one generated `activation.cmd` under the fresh private
+profile. It calls the exact selected vcvars batch with numeric SDK/toolset
+arguments and exits on any nonzero result before reading the environment.
+Only the existing compiler/SDK variable allowlist is imported. Generated batch,
+activation logs and raw environment output remain private and outside the
+source-review ZIP; authored Windows contracts cover paths with spaces and
+failed activation without partial or foreign variable export.
+
 ## Evidence and publication boundary
 
 DLLs, the authored probe executable, static/import libraries, generated headers,

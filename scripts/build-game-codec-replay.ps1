@@ -71,6 +71,39 @@ function Get-NumericToolObservation([string]$CMakePath, [string]$CompilerPath) {
         $process.Dispose()
     }
 }
+function Get-CompilerEnvironment([string]$ActivationRoot, [string]$VcvarsPath,
+    [string]$SdkVersion, [string]$ToolsetVersion) {
+    if (-not [IO.Path]::IsPathFullyQualified($ActivationRoot) -or
+        -not [IO.Path]::IsPathFullyQualified($VcvarsPath) -or
+        $VcvarsPath -match '["%!^&|<>\r\n]' -or $ActivationRoot -match '["%!^&|<>\r\n]' -or
+        $SdkVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' -or
+        $ToolsetVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+        throw 'Exact safe compiler activation inputs are required.'
+    }
+    $activation = Join-Path $ActivationRoot 'activation.cmd'
+    $privateActivationLog = Join-Path $ActivationRoot 'PRIVATE-ACTIVATION.log'
+    $privateShellLog = Join-Path $ActivationRoot 'PRIVATE-ACTIVATION-CMD.log'
+    if (Test-Path -LiteralPath $activation) { throw 'Compiler activation script must be fresh.' }
+    $vcvars = Get-Item -LiteralPath $VcvarsPath -ErrorAction Stop
+    if ($vcvars.PSIsContainer -or $vcvars.Extension -ne '.bat' -or
+        ($vcvars.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Exact compiler activation batch is unavailable.' }
+    $lines = @('@echo off', 'set "ERRORLEVEL="',
+        ('call "' + $vcvars.FullName + '" x64 ' + $SdkVersion + ' -vcvars_ver=' + $ToolsetVersion +
+            ' > "' + $privateActivationLog + '" 2>&1'),
+        'if not "%errorlevel%"=="0" exit /b %errorlevel%', 'set')
+    [IO.File]::WriteAllLines($activation, $lines, [Text.UTF8Encoding]::new($false))
+    $PSNativeCommandUseErrorActionPreference = $false
+    $rows = & $env:ComSpec /d /q /c $activation 2>> $privateShellLog
+    $activationExit = [long]$LASTEXITCODE
+    if ($activationExit -ne 0) { throw ('Exact compiler/SDK activation failed; exit code ' + $activationExit + '.') }
+    $selected = [ordered]@{}
+    foreach ($line in $rows) {
+        if ($line -match '^([^=]+)=(.*)$' -and $Matches[1] -in @('INCLUDE','LIB','VCToolsInstallDir','WindowsSdkDir','WindowsSDKVersion')) {
+            $selected[$Matches[1]] = $Matches[2]
+        }
+    }
+    return $selected
+}
 $root = Split-Path $PSScriptRoot
 $pin = Get-Content (Join-Path $root 'packaging/codecs/ffmpeg-opus-replay.json') -Raw | ConvertFrom-Json
 # This is build-host orchestration under the project LICENSE, not one of the
@@ -141,13 +174,10 @@ $env:PATH = (Join-Path $env:SystemRoot 'System32') + ';' + $env:SystemRoot
 # No inherited INCLUDE/LIB/LIBPATH, HOME, ENV/BASH_ENV or pkg-config override.
 # Import only the explicitly selected compiler/SDK environment, never stdout it.
 $vcvars = Join-Path $instance.installationPath 'VC/Auxiliary/Build/vcvarsall.bat'
-$command = '"' + $vcvars + '" x64 ' + $pin.host.sdk_version + ' -vcvars_ver=' + $pin.host.toolset_directory + ' >nul && set'
-$variables = & $env:ComSpec /d /s /c ('"' + $command + '"')
-if ($LASTEXITCODE -ne 0) { throw 'Exact compiler/SDK activation failed.' }
-foreach ($line in $variables) {
-    if ($line -match '^([^=]+)=(.*)$' -and $Matches[1] -in @('INCLUDE','LIB','VCToolsInstallDir','WindowsSdkDir','WindowsSDKVersion')) {
-        [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], 'Process')
-    }
+$variables = Get-CompilerEnvironment -ActivationRoot $profileRoot -VcvarsPath $vcvars `
+    -SdkVersion $pin.host.sdk_version -ToolsetVersion $pin.host.toolset_directory
+foreach ($name in $variables.Keys) {
+    [Environment]::SetEnvironmentVariable($name, $variables[$name], 'Process')
 }
 if ($env:WindowsSDKVersion.TrimEnd('\') -ne $pin.host.sdk_version -or
     $env:VCToolsInstallDir.TrimEnd('\') -ne $toolset.TrimEnd('\')) { throw 'Activated toolchain identity differs.' }
