@@ -6,6 +6,7 @@ not native runtime loading or an installer UI. Native installer probes are separ
 from importlib.util import module_from_spec, spec_from_file_location
 import json
 import hashlib
+import os
 from pathlib import Path
 import struct
 import tarfile
@@ -124,8 +125,11 @@ def test_native_links_must_be_inventoried_and_contained(tmp_path):
         link.symlink_to('../LICENSE')
     except OSError:
         pytest.skip('Host does not permit creating symbolic links.')
-    entry = dict(path='_internal/native-link', link='../LICENSE', bytes=len(b'../LICENSE'),
-        sha256=hashlib.sha256(b'../LICENSE').hexdigest())
+    # Windows stores native separators even when symlink_to receives POSIX
+    # syntax. Inventory the actual link bytes, as the production builder does.
+    link_text = os.readlink(link)
+    entry = dict(path='_internal/native-link', link=link_text, bytes=len(link_text.encode()),
+        sha256=hashlib.sha256(link_text.encode()).hexdigest())
     receipt['files'].append(entry)
     assert packaging.validate(root, receipt, 'macos-arm64', candidate=True) is False
     provenance.write_text(json.dumps(receipt))
@@ -133,11 +137,12 @@ def test_native_links_must_be_inventoried_and_contained(tmp_path):
     with zipfile.ZipFile(tmp_path / 'linked-package' / result['artifacts'][0]['path']) as stream:
         archived = stream.getinfo('Game Immersion Toolkit.app/Contents/MacOS/_internal/native-link')
         assert (archived.external_attr >> 16) & 0o170000 == 0o120000
-        assert stream.read(archived) == b'../LICENSE'
+        assert stream.read(archived) == link_text.encode()
     link.unlink()
     outside = tmp_path / 'outside'
     outside.write_text('must never enter package')
     link.symlink_to('../../outside')
-    entry.update(link='../../outside', bytes=len(b'../../outside'), sha256=hashlib.sha256(b'../../outside').hexdigest())
+    link_text = os.readlink(link)
+    entry.update(link=link_text, bytes=len(link_text.encode()), sha256=hashlib.sha256(link_text.encode()).hexdigest())
     with pytest.raises(packaging.PackageError, match='symbolic link'):
         packaging.validate(root, receipt, 'macos-arm64', candidate=True)
