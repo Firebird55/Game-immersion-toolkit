@@ -59,10 +59,22 @@ build. The workflow passes the absolute python.exe selected by setup-python
 3.12.10. Installed ProgramFiles/Strawberry/PATH matches are not candidates.
 Optional Git discovery is disabled:
 the original Opus cmake/OpusPackageVersion.cmake selects its unchanged
-package_version file when Git is unavailable. The declared NETFX 4.8
+package_version file when Git is unavailable. The declared NETFX 4.8.1
 headers/libraries are bound when
 present. Windows/.NET runtime implementation and independent compiler supplier
 source/rights recovery remain explicitly unbound prerequisites.
+
+The exact NETFX selection follows the verified
+[native preflight at `a57cc6c`](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41167086271):
+three early Windows contracts passed without skips, then the original 4.8 policy
+refused the actual 4.8.1 `Include/um` and `Lib/um/x64` entries. Failure artifact
+13029314482 matched 833 bytes / SHA-256
+7253217c0f12a619ecca190196a264246fb28cc08fc294984f92cb9cc74e7731,
+the exact source/manifest and the fixed numeric/suffix projection. The other
+twelve entries, including the observed VC Auxiliary header, were accepted.
+The policy now selects only that evidenced 4.8.1 input and retains before/after
+tree sealing; it does not admit an arbitrary sibling SDK or establish native
+codec build/decode, runtime requirements or redistribution rights.
 
 The build uses a fresh isolated profile, disabled user/Directory.Build imports,
 validated header/library search roots and before/after hashes of selected tools,

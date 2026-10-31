@@ -143,7 +143,7 @@
       124364965922
     ],
     "policy": "Exact observed host tuple required; changed/unavailable tools fail before building. Hash selected tool/header/library trees before and after. The hosted image is not an independently recoverable toolchain source kit. This is observed experiment input binding, not complete immutable compiler supplier/source closure.",
-    "netfx_sdk_headers": "4.8",
+    "netfx_sdk_headers": "4.8.1",
     "unbound_prerequisites": [
       "Windows OS/loader/system DLL implementation and registry",
       "Host .NET runtime/framework/GAC used by MSBuild",
@@ -171,6 +171,22 @@
         "sha256": "7770133c6cbdf6e2e189b7a346d23749996886fed07f7fcafe52d291617c310b"
       },
       "scope": "Two exact contemporaneous GitHub image versions are admitted to preflight. Compiler/toolset/SDK/CMake checks and complete per-run tool seals remain unchanged. Public catalog metadata is not proof of actual compiler bytes, reproducible host source, runtime rights or Windows 11 acceptance."
+    },
+    "netfx_sdk_review": {
+      "source_commit": "a57cc6c67049701ef31f64fcedcc372386757a45",
+      "workflow_run": 41167086271,
+      "workflow_job": 124436892474,
+      "failure_artifact": 13029314482,
+      "failure_artifact_bytes": 833,
+      "failure_artifact_sha256": "7253217c0f12a619ecca190196a264246fb28cc08fc294984f92cb9cc74e7731",
+      "observed_image_version": "20261030.294.1",
+      "previous_manifest_windows_sha256": "90552cd5c1b85366f2320663fecab64734ef38888446ec399a7627f618d51d38",
+      "observed_version": "4.8.1",
+      "observed_existing_roles": [
+        "include-um",
+        "lib-um-x64"
+      ],
+      "scope": "Exact activated INCLUDE/LIB entries under the declared NETFXSDK parent were independently verified from the fixed numeric/suffix projection. Only this exact version is selected and its complete declared header/library trees must be sealed before and after building. No runtime prerequisite, source-delivery or redistribution approval follows."
     }
   },
   "adaptations": [
