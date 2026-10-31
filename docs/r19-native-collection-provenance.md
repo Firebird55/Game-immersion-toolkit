@@ -142,9 +142,57 @@ by a fixed `unavailable` census; arbitrary exception attributes are never read
 as diagnostic evidence. The failed receipt retains the exact source/build
 identity and every pending/false gate. A complete current-call census is not a
 complete native inventory, source approval or native execution result. The
-first real A2 Analysis refused `other-host-unresolved`; the diagnostic extension
-still needs its own actual frozen Windows observation and independent artifact
-review before any origin conclusion can be drawn.
+first real A2 Analysis refused `other-host-unresolved`. The independently
+reviewed diagnostic refusal below still establishes no supplying origin.
+
+## Experimental freezer PATH isolation
+
+The main census on source `ab8477225b2cd5b9a7a3521fedbba98332c6b9d1`
+([run 41171329086](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171329086))
+completed 495 current-call rows, including 474 native rows: 426 valid records
+and 48 unresolved rows. Their fixed categories were `api-core` 29, `api-crt` 14,
+`ucrt` 1 and `vc-runtime` 4, all under `other`; ASR was not run. The authoritative
+Windows-root query succeeded. The downloaded 747-byte failure ZIP matched
+provider SHA-256
+`3916c89595831595c3e773948883870134f23dc732152bcbf113f9f858af37e8`.
+This establishes neither an actual supplier nor which search mechanism chose
+those sources. P1 and frozen host/keeper probes were not reached.
+
+The exact
+[PyInstaller 6.22.3 Windows resolver](https://github.com/pyinstaller/pyinstaller/blob/v6.22.3/PyInstaller/depend/bindepend.py#L728)
+uses caller search directories and then inherited PATH entries. Its existing
+[dependency analysis](https://github.com/pyinstaller/pyinstaller/blob/v6.22.3/PyInstaller/building/build_main.py#L134)
+also includes the base/interpreter directories and package-registered search
+directories. A narrowly scoped build experiment therefore restricts only the
+PyInstaller subprocess PATH in
+[build-runtime-bundle.ps1](../scripts/build-runtime-bundle.ps1) for
+`-RuntimeExperiment`. This tests inherited lookup as a hypothesis; it does not
+claim the 48 sources came from PATH or approve, drop or replace any DLL.
+
+The selected, preflight-verified `$Python` runs the private
+[build_environment.py](../packaging/runtime-bundle/build_environment.py) query.
+The helper reuses the existing canonical/no-link guards and authoritative Win32
+directory queries. Its only possible roots are the selected interpreter's
+directory, `sys.prefix/Scripts`, the selected interpreter's already checked
+`sys.base_prefix` if distinct, `GetSystemDirectoryW` and
+`GetSystemWindowsDirectoryW`. At most five canonical unique roots are returned,
+with a combined limit of 32,766 UTF-16 units. Missing, linked, inconsistent,
+relative or malformed roots refuse the query. The selected executable must match
+`sys.executable` and reside in the selected prefix or its Scripts directory;
+another Python, PATH, WINDIR or an ambient SDK cannot supply a fallback.
+
+The private query travels through a captured pipe and is never written to an
+uploaded receipt. Only the freezer invocation receives the restricted PATH.
+A nested `finally` restores and verifies the parent's exact prior PATH value
+and presence, including an empty or absent PATH, before finalization or further
+probes. Query or child failure remains a failure. The other build profiles and
+source updater keep their existing behavior. No `-I`, broad environment scrub,
+spec/collector-order change or native-admission exception is added. Package
+search directories and other process environment variables remain outside this
+limited PATH experiment; A2 still checks every actual source and rejects an
+unknown source before EXE/COLLECT. An actual subsequent Windows run must verify
+both the isolation contract and the resulting census before any stronger
+source-origin or P1/runtime claim.
 
 ## Finalization and refusal
 

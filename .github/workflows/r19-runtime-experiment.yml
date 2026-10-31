@@ -189,7 +189,7 @@ jobs:
           $contracts = @(
             'runtime_bundle', 'runtime_composition', 'runtime_experiment', 'desktop_frontend',
             'prebuilt_readers', 'prebuilt_node_reader', 'blocked_game_helpers', 'prebuilt_codecs',
-            'native_collection_provenance', 'native_images', 'native_image_collection',
+            'native_collection_provenance', 'native_images', 'native_image_collection', 'runtime_build_environment',
             'windows_preparation_drain', 'preparation_process_tree', 'suspended_preparation_process', 'python_supplier_notices',
             'r19_acceptance', 'game_paths', 'unvoiced_export_probe', 'runtime_writers',
             'runtime_handoff', 'preparation_cancellation', 'mobile_export_api',
