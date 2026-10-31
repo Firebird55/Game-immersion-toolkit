@@ -32,6 +32,8 @@ SOURCE_FILES = (MANIFEST, 'packaging/asr/tts-off-python-symbols.patch',
                 'backend/windows_preparation_process.py', 'LICENSE')
 
 BUILD_PHASES = frozenset({'build-preflight', 'source-validation', 'toolchain-validation',
+    'vs-installation-origin', 'tool-root-schema', 'tool-root-filesystem',
+    'python-interpreter-origin', 'python-supplier-bytes', 'cmake-version-review',
     'toolchain-seal', 'probe-dependency-preparation', 'build-environment', 'cmake-configure',
     'build-graph-review', 'native-build', 'native-output-review', 'candidate-assembly',
     'probe-decode', 'probe-wrong-shape', 'probe-corrupt', 'final-source-review',
@@ -51,6 +53,7 @@ KNOWN_BUILD_CODES = frozenset({'C1001', 'C1010', 'C1083', 'C1189', 'C1900', 'C20
     'MSB6003', 'MSB6006', 'MSB8020', 'MSB8036'})
 _BUILD_PHASE = 'build-preflight'
 _BUILD_SOURCE_COMMIT = None
+_BUILD_CMAKE_OBSERVATION = None
 
 
 def build_phase(value):
@@ -351,7 +354,7 @@ def verify_cache(path, output):
             raise ValueError('The observed ASR source override differs from its exact prepared input.')
 
 
-def validate_tool_roots(roots):
+def validate_tool_root_schema(roots):
     required = {'vc', 'vc-auxiliary', 'msbuild', 'sdk-include', 'sdk-lib', 'sdk-bin', 'cmake', 'python'}
     if (not isinstance(roots, dict) or not required <= set(roots)
             or set(roots) - required - {'netfx-include', 'netfx-lib'}):
@@ -361,11 +364,56 @@ def validate_tool_roots(roots):
     if any(not isinstance(value, str) or not value.strip()
            or any(ord(c) < 32 or ord(c) == 127 for c in value) for value in roots.values()):
         raise ValueError('Every explicit tool root must be one directory string.')
+
+
+def validate_tool_roots(roots):
+    validate_tool_root_schema(roots)
     for value in roots.values():
         path = Path(value)
         no_links(path)
         if not path.is_absolute() or not path.is_dir():
             raise ValueError('Every explicit tool root must be one existing absolute directory.')
+
+
+def numeric_version(value):
+    return value if isinstance(value, str) and re.fullmatch(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,4}', value) else None
+
+
+def safe_cmake_observation():
+    """Project only bounded values, including if a caller alters private state."""
+    value = _BUILD_CMAKE_OBSERVATION
+    if not isinstance(value, dict):
+        return None
+    result = {'expected_version': numeric_version(value.get('expected_version')),
+        'observed_version': numeric_version(value.get('observed_version')), 'executable': None}
+    executable = value.get('executable')
+    if (isinstance(executable, dict) and type(executable.get('bytes')) is int
+            and 0 < executable['bytes'] <= 512 * 1024 * 1024
+            and isinstance(executable.get('sha256'), str)
+            and re.fullmatch('[0-9a-f]{64}', executable['sha256'])):
+        result['executable'] = {'bytes': executable['bytes'], 'sha256': executable['sha256']}
+    return result
+
+
+def observe_cmake_version(executable, expected):
+    global _BUILD_CMAKE_OBSERVATION
+    _BUILD_CMAKE_OBSERVATION = {'expected_version': numeric_version(expected),
+        'observed_version': None, 'executable': None}
+    no_links(executable)
+    if not executable.is_file() or numeric_version(expected) is None:
+        raise ValueError('The explicit CMake executable or numeric version constraint is unavailable.')
+    _BUILD_CMAKE_OBSERVATION['executable'] = attributes(executable.read_bytes())
+    output = subprocess.check_output([str(executable), '--version'], text=True,
+        stderr=subprocess.STDOUT, timeout=30)
+    first = output.splitlines()[0] if output.splitlines() else ''
+    match = re.fullmatch(r'cmake version ([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,4})', first)
+    if match:
+        _BUILD_CMAKE_OBSERVATION['observed_version'] = match[1]
+    if first != 'cmake version ' + expected:
+        raise ValueError('The required CMake version is unavailable.')
+    if attributes(executable.read_bytes()) != _BUILD_CMAKE_OBSERVATION['executable']:
+        raise ValueError('The observed CMake executable changed during its version query.')
+    return safe_cmake_observation()
 
 
 def seal_toolchain(roots):
@@ -630,6 +678,7 @@ def failed_build_receipt(output, phase, error):
     receipt = {'schema': 'proxy-r19-asr-source-failure-v1', 'identity': policy['identity'],
         'status': 'failed', 'phase': phase, 'failure_category': category,
         'diagnostics': known_log_diagnostics(output, phase),
+        'cmake_observation': safe_cmake_observation(),
         'source_commit': _BUILD_SOURCE_COMMIT if isinstance(_BUILD_SOURCE_COMMIT, str)
             and re.fullmatch('[0-9a-f]{40}', _BUILD_SOURCE_COMMIT) else None,
         'manifest_sha256': sha((ROOT / MANIFEST).read_bytes()),
@@ -668,9 +717,10 @@ def reject_parent_imports(output):
 
 
 def build(output, tool_roots, vs_root, inputs):
-    global _BUILD_SOURCE_COMMIT
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
+    _BUILD_CMAKE_OBSERVATION = None
     try:
         return _build(output, tool_roots, vs_root, inputs)
     except Exception as error:
@@ -699,16 +749,23 @@ def _build(output, tool_roots, vs_root, inputs):
             or subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'], text=True).strip()):
         raise ValueError('A clean candidate source commit is required before native building.')
     _BUILD_SOURCE_COMMIT = source_commit
+    build_phase('vs-installation-origin')
     no_links(vs_root)
+    build_phase('tool-root-schema')
     roots = read_json(Path(tool_roots))
+    validate_tool_root_schema(roots)
+    build_phase('tool-root-filesystem')
     validate_tool_roots(roots)
+    build_phase('python-interpreter-origin')
     if Path(roots['python']).resolve() != Path(sys.prefix).resolve():
         raise ValueError('The sealed Python root is not this interpreter.')
+    build_phase('python-supplier-bytes')
     verify_python(inputs, roots['python'])
+    build_phase('tool-root-filesystem')
     for path in roots.values(): no_links(Path(path))
     cmake = Path(roots['cmake']) / 'bin/cmake.exe'
-    if subprocess.check_output([str(cmake), '--version'], text=True).splitlines()[0] != 'cmake version ' + policy['toolchain']['cmake_version']:
-        raise ValueError('The required CMake version is unavailable.')
+    build_phase('cmake-version-review')
+    observe_cmake_version(cmake, policy['toolchain']['cmake_version'])
     build_phase('toolchain-seal')
     initial = seal_toolchain(roots)
     write_json(output / 'PRIVATE-TOOLCHAIN-INVENTORY.json', initial)

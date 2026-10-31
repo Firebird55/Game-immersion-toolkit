@@ -100,6 +100,11 @@ whose observed version must still equal 4.4.5. It does not select from PATH's
 potentially multiple CMake installations. Each declared tool root must resolve
 to one existing filesystem directory and enter Python as a single string;
 arrays, missing roots and additional root labels are rejected before sealing.
+Failed toolchain validation distinguishes fixed root-schema/filesystem,
+interpreter-origin, supplier-byte and CMake-version subphases. A failed receipt
+may include only bounded numeric expected/observed CMake versions and the
+executable's byte count/SHA-256; raw version lines, paths, arguments and exception
+text remain private. An observed mismatch does not relax the 4.4.5 constraint.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

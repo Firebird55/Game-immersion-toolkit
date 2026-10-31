@@ -229,6 +229,47 @@ def test_tool_roots_reject_ambiguous_or_unavailable_selection_before_inventory(m
     with pytest.raises(ValueError): module.seal_toolchain(roots)
 
 
+@pytest.mark.parametrize('observed,valid', [('4.4.5', True), ('4.4.4', False)])
+def test_cmake_numeric_observation_preserves_exact_constraint_without_private_text(module, tmp_path, monkeypatch, observed, valid):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    executable = tmp_path / 'private-directory/cmake.exe'; executable.parent.mkdir()
+    executable.write_bytes(b'owned non-executable CMake fixture with private model text')
+    def version_query(command, **kwargs):
+        assert command == [str(executable), '--version']
+        assert kwargs['stderr'] == module.subprocess.STDOUT and kwargs['timeout'] == 30
+        return 'cmake version ' + observed + '\nprivate directory/model/exception text\n'
+    monkeypatch.setattr(module.subprocess, 'check_output', version_query)
+    if valid:
+        observation = module.observe_cmake_version(executable, '4.4.5')
+    else:
+        with pytest.raises(ValueError): module.observe_cmake_version(executable, '4.4.5')
+        report = module.failed_build_receipt(output, 'cmake-version-review', ValueError('private exception'))
+        assert report['status'] == 'failed' and report['native_reference_probes_passed'] is False
+        observation = report['cmake_observation']
+        assert not (output / 'ASR-RECEIPT.json').exists()
+    assert observation == {'expected_version': '4.4.5', 'observed_version': observed,
+        'executable': module.attributes(executable.read_bytes())}
+    assert str(tmp_path) not in json.dumps(observation) and 'private' not in json.dumps(observation)
+    assert module.pin()['toolchain']['cmake_version'] == '4.4.5'
+
+
+def test_cmake_observation_never_serializes_raw_version_output_or_unbounded_private_state(module, tmp_path, monkeypatch):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    executable = tmp_path / 'cmake.exe'; executable.write_bytes(b'owned executable fixture')
+    monkeypatch.setattr(module.subprocess, 'check_output', lambda *_args, **_kwargs:
+        'cmake version 4.4.5/private-model-and-path\n')
+    with pytest.raises(ValueError): module.observe_cmake_version(executable, '4.4.5')
+    assert module.safe_cmake_observation()['observed_version'] is None
+    monkeypatch.setattr(module, '_BUILD_CMAKE_OBSERVATION', {'expected_version': '4.4.5',
+        'observed_version': str(tmp_path / 'private-model'),
+        'executable': {**module.attributes(executable.read_bytes()), 'path': str(executable)},
+        'raw_output': 'private model and log text'})
+    report = module.failed_build_receipt(output, 'cmake-version-review', ValueError('private message'))
+    assert report['cmake_observation']['observed_version'] is None
+    delivered = (output / 'ASR-FAILURE.json').read_text()
+    assert str(tmp_path) not in delivered and 'private' not in delivered and 'raw_output' not in delivered
+
+
 def test_actual_python_tree_must_match_supplier_archive_not_only_version(module, tmp_path, monkeypatch):
     source = tmp_path / 'source'; source.mkdir()
     archive_path = tmp_path / 'python.tar.gz'
