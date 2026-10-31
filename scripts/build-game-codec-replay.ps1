@@ -358,7 +358,7 @@ function Invoke-Build(
         # The classifier emits no log text, paths, arguments or passing receipt.
         # Its own diagnostics also stay private if receipt generation fails.
         & $pythonExe -I -B (Join-Path $PSScriptRoot 'replay-game-codec.py') failure --output $OutputRoot `
-            --phase $Phase --exit-code $commandExit --log $privateLog --log-offset $offset `
+            --phase $Phase --exit-code $commandExit --log $privateLog --log-offset $offset --include-makedef `
             >> (Join-Path $OutputRoot 'PRIVATE-DIAGNOSIS.log') 2>&1
         throw ('Quarantined build phase failed: ' + $Phase + '; exit code ' + $commandExit + '.')
     }
@@ -455,6 +455,9 @@ Invoke-Build 'install-opus' $cmake @('--install', $opusBuild, '--config', 'Relea
 $options = @(Get-Content (Join-Path $OutputRoot 'ORIGINAL-OPTIONS.json') -Raw | ConvertFrom-Json)
 $ffmpegBuild = Join-Path $OutputRoot 'ffmpeg-build'
 New-Item -ItemType Directory -Path $ffmpegBuild | Out-Null
+# Only the separately identified makedef variant consumes this private sink.
+# It is absent from the source-review kit, public metadata and tool search path.
+$env:R19_MAKEDEF_LOG_ROOT = '/c/r19-game-codec-replay/PRIVATE-MAKEDEF'
 Push-Location $ffmpegBuild
 try {
     # Original option bytes are not rewritten. No GPL/version3/nonfree additions,

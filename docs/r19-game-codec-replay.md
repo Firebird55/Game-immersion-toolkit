@@ -8,7 +8,8 @@ This implements the first dependency replay proposed by the
 isolated MSYS2/make/NASM/pkgconf inputs.
 
 The replay builds the four FFmpeg dependency DLLs used by the indexed Windows
-recipe, with static Opus. It retains the original FFmpeg option file unchanged:
+recipe, with static Opus. Its explicitly identified diagnostic source variant
+retains the original FFmpeg option file unchanged:
 CLI programs and file/network protocols stay disabled. An authored, non-shipping
 C harness supplies FLAC through memory-backed AVIO, compares independently
 authored PCM, rejects truncation/CRC faults while preserving the prior complete
@@ -78,9 +79,11 @@ codec build/decode, runtime requirements or redistribution rights.
 
 The build uses a fresh isolated profile, disabled user/Directory.Build imports,
 validated header/library search roots and before/after hashes of selected tools,
-headers, libraries, targets and activation scripts. Original source bytes must
-remain unchanged. The original VS2019 recipe and notices are retained alongside
-the declared generator, prefix and build-isolation adaptations.
+headers, libraries, targets and activation scripts. Exact original source archives
+and the original `makedef` script remain retained unchanged. The working source
+tree must match the separately pinned diagnostic postimage described below;
+every other source file remains unchanged. The original VS2019 recipe and notices
+are retained alongside the declared generator, prefix and build-isolation adaptations.
 
 Compiler activation uses one generated `activation.cmd` under the fresh private
 profile. It calls the exact selected vcvars batch with numeric SDK/toolset
@@ -107,9 +110,10 @@ ephemeral build host. The workflow uploads only:
 - `REPLAY-RECEIPT.json`: sanitized source/tool/output hashes, actual configuration,
   native imports, candidate-relative DLL origins and bounded authored probes.
 - `source-review.zip`: complete pinned source archives, unmodified original
-  recipes/notices and project orchestration with its existing LICENSE and an
-  explicit unapproved-source boundary. A passing receipt is written only after
-  this archive has closed successfully.
+  recipes/notices, both original and diagnostic `makedef` scripts, the exact
+  patch and its variant notice, and project orchestration with its existing
+  LICENSE and an explicit unapproved-source boundary. A passing receipt is
+  written only after this archive has closed successfully.
 
 The helper and shared CMake policy are included as project recipe inputs; the
 complete original CMake ZIP and its native tree stay in the separate isolated
@@ -145,6 +149,48 @@ are not inferred from that enclosing make exit code. Earlier commands, error
 text, matched targets, paths, arguments, source/model strings and raw logs are
 not published. Unknown diagnostics remain a fixed unclassified category. This
 receipt cannot establish a passing replay or change any gate.
+
+The diagnostic variant changes only `compat/windows/makedef`: its original LIB
+and AR command arguments, exit-code check and EXIT cleanup are retained. Output
+previously discarded on stdout is redirected to a separate private sink. The
+[exact patch](../packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch)
+and input policy bind the complete script preimage/postimage and both complete
+source-tree inventories. `PROJECT_INPUTS` includes the patch. A distinct
+`diagnostic-makedef-…` identity and `DIAGNOSTIC-VARIANT.json` bind these changes
+into source correspondence and candidate identity. The original Derek Buitenhuis
+ISC-style header stays unchanged in both scripts. This is an instrumented source
+variant; it does not establish equivalence to an unmodified-source build or
+approve corresponding-source delivery.
+
+The script atomically claims one private directory for each fixed `avcodec`,
+`avformat`, `avutil` or `swresample` role before the original library call. This
+separates the two parallel make workers without publishing process identifiers
+or generated temporary-library names. Unknown/duplicate roles and a nonempty
+`AR` environment fail closed. Fixed `empty`, `nonempty` or `unsupported` branch
+observations expose that diagnostic boundary without revealing an AR value or
+tool name. An unsupported preimage, changed source/patch/variant identity,
+unexpected private layout, malformed generated `RESPONSE_FILES` value or a log
+larger than 2 MiB makes the diagnostic unavailable and prevents a passing replay;
+there is no fallback to the original script. Only an exact generated `yes`/`no`
+response-file value and at most four role/code/family records are public.
+Raw paths are checked from root to leaf with no-follow metadata before any
+descendant metadata, enumeration or content access. Inventory visits each checked
+directory before enumerating it. Config, branch, stdout and bound byte inputs
+must be regular files before opening; directories and FIFOs are refused. A missing
+suffix remains valid for fresh preparation/acquisition without inspecting children
+beneath the first missing ancestor.
+Private stdout, object lists, arguments, paths, source/model text, host/user/process
+identifiers and log hashes are never added to the receipt or source-review ZIP.
+Logs that fit the bound are read from their actual beginning; oversized logs are
+rejected without classifying a truncated fragment. The enclosing build failure
+retains the separate failed-command offset/tail policy above. These observations
+remain noncausal and cannot establish decode, rights or runtime acceptance.
+
+Authored shell stubs execute the complete original and instrumented scripts in
+the same parent shell, comparing actual LIB argv, exit behavior, generated
+library effects and cleanup. They also exercise concurrent role separation and
+guard refusals. These are orchestration contracts; they do not run a native LIB
+tool or establish a successful Windows codec build.
 
 A version-gate mismatch uses a separate preflight-failure schema at the same
 failed-receipt filename. It binds the source commit and input-manifest hash to

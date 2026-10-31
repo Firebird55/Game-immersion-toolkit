@@ -11,3 +11,5 @@ packaging/runtime-bundle/flatbuffers-notices/LICENSE -text whitespace=-blank-at-
 packaging/asr/tts-off-python-symbols.patch -text
 packaging/asr/SHERPA-LICENSE.txt -text whitespace=-blank-at-eol
 packaging/asr/SHERPA-PATCH-NOTICE.txt -text
+# Preserve the exact-byte, separately identified FFmpeg diagnostic patch.
+packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch -text

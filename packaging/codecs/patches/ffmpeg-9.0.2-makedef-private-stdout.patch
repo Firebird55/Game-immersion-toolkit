@@ -1,0 +1,40 @@
+--- a/compat/windows/makedef
++++ b/compat/windows/makedef
+@@ -52,0 +53,31 @@
++# R19 diagnostic variant: private stdout only; original invocation is unchanged.
++r19_private_root=${R19_MAKEDEF_LOG_ROOT-}
++if [ -z "$r19_private_root" ] || [ ! -d "$r19_private_root" ]; then
++    echo "R19 makedef diagnostics unavailable" >&2
++    exit 1
++fi
++case "$vscript" in
++    libavutil/libavutil.ver) r19_role=avutil ;;
++    libavcodec/libavcodec.ver) r19_role=avcodec ;;
++    libavformat/libavformat.ver) r19_role=avformat ;;
++    libswresample/libswresample.ver) r19_role=swresample ;;
++    *) mkdir "$r19_private_root/unavailable-unknown-role" 2>/dev/null
++       echo "R19 makedef diagnostics unavailable" >&2
++       exit 1 ;;
++esac
++if ! mkdir "$r19_private_root/$r19_role"; then
++    mkdir "$r19_private_root/unavailable-duplicate-role" 2>/dev/null
++    echo "R19 makedef diagnostics unavailable" >&2
++    exit 1
++fi
++if [ -z "${AR-}" ]; then r19_branch=empty; else r19_branch=nonempty; fi
++if ! printf '%s\n' "$r19_branch" >"$r19_private_root/$r19_role/branch-state"; then
++    echo "R19 makedef diagnostics unavailable" >&2
++    exit 1
++fi
++if [ "$r19_branch" != empty ]; then
++    echo "R19 makedef diagnostics unavailable" >&2
++    exit 1
++fi
++r19_private_stdout="$r19_private_root/$r19_role/stdout.log"
++
+@@ -54 +85 @@
+-    $AR rcs ${libname} $@ >/dev/null
++    $AR rcs ${libname} $@ >"$r19_private_stdout"
+@@ -62 +93 @@
+-    lib.exe ${machine_flag} -out:${libname} $@ >/dev/null
++    lib.exe ${machine_flag} -out:${libname} $@ >"$r19_private_stdout"

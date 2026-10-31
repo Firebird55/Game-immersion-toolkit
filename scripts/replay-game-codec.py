@@ -7,6 +7,7 @@ notices are retained separately, without a source-delivery approval claim.
 import argparse
 import hashlib
 import importlib.util
+import itertools
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -27,7 +28,13 @@ PIN = ROOT / 'packaging/codecs/ffmpeg-opus-replay.json'
 PROJECT_INPUTS = ('packaging/codecs/ffmpeg-opus-replay.json',
     'scripts/replay-game-codec.py', 'scripts/build-game-codec-replay.ps1',
     'scripts/fixtures/game-codec-replay.c', 'backend/codec_fixture.py', 'LICENSE',
-    'scripts/pinned-build-cmake.py', 'packaging/build-tools/cmake-4.4.5-windows-x64.json')
+    'scripts/pinned-build-cmake.py', 'packaging/build-tools/cmake-4.4.5-windows-x64.json',
+    'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch')
+MAKEDEF_ROLES = ('avcodec', 'avformat', 'avutil', 'swresample')
+VARIANT_PATCH = 'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch'
+DIAGNOSTIC_REASONS = frozenset(('source-binding', 'missing-layout', 'unexpected-layout',
+    'unsupported-role', 'duplicate-role', 'nonempty-ar', 'unsupported-branch',
+    'oversized-input', 'unsupported-response-files'))
 DLLS = ('avcodec-vgmstream-63.dll', 'avformat-vgmstream-63.dll',
         'avutil-vgmstream-61.dll', 'swresample-vgmstream-7.dll')
 BUILD_PHASES = ('extract-msys-base', 'extract-make', 'extract-nasm', 'extract-pkgconf',
@@ -81,22 +88,133 @@ def policy():
 
 
 def no_links(path):
-    for item in (path, *path.parents):
-        if (item.is_symlink() or getattr(item, 'is_junction', lambda: False)()
-                or item.exists() and getattr(item.lstat(), 'st_file_attributes', 0) & 0x400):
+    path = Path(path).absolute()
+    if '..' in path.parts: raise ValueError('Non-canonical experiment input.')
+    # Inspect the raw path from root to leaf. Even a descendant stat/lstat can
+    # traverse a linked ancestor, before any content-open guard gets a chance.
+    for item in (*reversed(path.parents), path):
+        try: info = item.lstat()
+        except FileNotFoundError:
+            return None  # Fresh outputs may have a missing suffix; do not inspect it.
+        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
             raise ValueError('Links and reparse points are not experiment inputs.')
+        if item != path and not stat.S_ISDIR(info.st_mode):
+            raise ValueError('Experiment input ancestor is not a directory.')
+    return info
+
+
+def regular_file(path):
+    info = no_links(path)
+    if info is None or not stat.S_ISREG(info.st_mode):
+        raise ValueError('Experiment input is not a regular file.')
+    return info
 
 
 def inventory(root):
-    result = {}
-    for path in sorted(root.rglob('*')):
-        no_links(path)
-        if path.is_file():
-            result[path.relative_to(root).as_posix()] = {
-                'bytes': path.stat().st_size, 'sha256': digest(path.read_bytes())}
-        elif not path.is_dir():
-            raise ValueError('Non-regular experiment entry.')
-    return result
+    root = Path(root); info = no_links(root)
+    if info is None or not stat.S_ISDIR(info.st_mode):
+        raise ValueError('Experiment inventory root is not a directory.')
+    result = {}; pending = [root]
+    while pending:
+        directory = pending.pop(); no_links(directory)
+        for path in sorted(directory.iterdir()):
+            info = no_links(path)
+            if info is not None and stat.S_ISREG(info.st_mode):
+                result[path.relative_to(root).as_posix()] = {
+                    'bytes': info.st_size, 'sha256': digest(path.read_bytes())}
+            elif info is not None and stat.S_ISDIR(info.st_mode): pending.append(path)
+            else: raise ValueError('Non-regular experiment entry.')
+    return dict(sorted(result.items()))
+
+
+def tree_identity(value):
+    return {'files': len(value), 'sha256': digest(json.dumps(value, sort_keys=True,
+        separators=(',', ':')).encode())}
+
+
+def variant_definition(pin):
+    variant = pin.get('diagnostic_variant')
+    if variant is None and not any(x['component'] == 'ffmpeg' for x in pin['sources']):
+        return None  # Authored non-FFmpeg source fixtures only.
+    if (type(variant) is not dict or set(variant) != {'schema', 'scope', 'source_member',
+            'preimage', 'patch', 'postimage', 'original_tree', 'modified_tree', 'roles', 'original_notice'}
+            or variant['schema'] != 'proxy-r19-makedef-stdout-variant-v1'
+            or variant['roles'] != list(MAKEDEF_ROLES)
+            or type(variant['patch']) is not dict or variant['patch'].get('path') != VARIANT_PATCH):
+        raise ValueError('Unsupported fixed diagnostic variant.')
+    source = [x for x in pin['sources'] if x['component'] == 'ffmpeg']
+    if len(source) != 1 or variant['source_member'] != source[0]['root'] + '/compat/windows/makedef':
+        raise ValueError('Diagnostic variant is not the exact FFmpeg script.')
+    for key in ('preimage', 'postimage', 'patch'):
+        record = variant[key]
+        if (type(record) is not dict or set(record) != ({'bytes', 'sha256', 'path'} if key == 'patch' else {'bytes', 'sha256'})
+                or type(record['bytes']) is not int or not 0 < record['bytes'] <= 65536
+                or not isinstance(record['sha256'], str) or not re.fullmatch('[a-f0-9]{64}', record['sha256'])):
+            raise ValueError('Invalid diagnostic byte binding.')
+    for key in ('original_tree', 'modified_tree'):
+        record = variant[key]
+        if (type(record) is not dict or set(record) != {'files', 'sha256'}
+                or type(record['files']) is not int or not 0 < record['files'] < 32000
+                or not isinstance(record['sha256'], str) or not re.fullmatch('[a-f0-9]{64}', record['sha256'])):
+            raise ValueError('Invalid diagnostic source tree binding.')
+    return variant
+
+
+def bound_bytes(path, record):
+    regular_file(path)
+    if type(record.get('bytes')) is not int or not 0 < record['bytes'] <= 64 * 1024 * 1024:
+        raise ValueError('Diagnostic byte count exceeds its fixed bound.')
+    with path.open('rb') as stream: raw = stream.read(record['bytes'] + 1)
+    if len(raw) != record['bytes'] or digest(raw) != record['sha256']:
+        raise ValueError('Diagnostic input differs from its exact byte binding.')
+    return raw
+
+
+def instrument_makedef(original, patch, variant):
+    """Apply only the fully bound single-file unified patch, without a tool fallback."""
+    for raw, key in ((original, 'preimage'), (patch, 'patch')):
+        if len(raw) != variant[key]['bytes'] or digest(raw) != variant[key]['sha256']:
+            raise ValueError('Diagnostic patch preimage or patch hash differs.')
+    source = original.splitlines(keepends=True); lines = patch.splitlines(keepends=True)
+    if lines[:2] != [b'--- a/compat/windows/makedef\n', b'+++ b/compat/windows/makedef\n']:
+        raise ValueError('Unsupported diagnostic patch header.')
+    result = []; cursor = 0; index = 2; hunks = 0
+    while index < len(lines):
+        match = re.fullmatch(rb'@@ -([0-9]+)(?:,([0-9]+))? \+([0-9]+)(?:,([0-9]+))? @@\n', lines[index])
+        if not match: raise ValueError('Unsupported diagnostic patch hunk.')
+        old, count, new, added = [int(x) if x else 1 for x in match.groups()]
+        position = old if count == 0 else old - 1
+        if position < cursor or position > len(source):
+            raise ValueError('Diagnostic patch hunk is outside its preimage.')
+        result.extend(source[cursor:position]); cursor = position
+        if new != len(result) + 1: raise ValueError('Diagnostic patch position differs.')
+        index += 1; removed = inserted = 0
+        while index < len(lines) and not lines[index].startswith(b'@@ '):
+            line = lines[index]; kind, value = line[:1], line[1:]
+            if kind in (b' ', b'-'):
+                if cursor >= len(source) or source[cursor] != value:
+                    raise ValueError('Diagnostic patch context differs.')
+                cursor += 1; removed += 1
+            if kind in (b' ', b'+'): result.append(value); inserted += 1
+            if kind not in (b' ', b'-', b'+'): raise ValueError('Unsupported diagnostic patch operation.')
+            index += 1
+        if (removed, inserted) != (count, added): raise ValueError('Diagnostic patch hunk size differs.')
+        hunks += 1
+    result.extend(source[cursor:]); modified = b''.join(result)
+    if (not hunks or len(modified) != variant['postimage']['bytes']
+            or digest(modified) != variant['postimage']['sha256']):
+        raise ValueError('Diagnostic postimage differs.')
+    return modified
+
+
+def variant_receipt(pin):
+    variant = variant_definition(pin)
+    if variant is None: return None
+    return {'schema': 'proxy-r19-makedef-stdout-variant-receipt-v1',
+        'identity': 'diagnostic-makedef-' + digest(json.dumps(variant, sort_keys=True, separators=(',', ':')).encode()),
+        'status': 'diagnostic-only; observed-not-approved', 'definition': variant,
+        'original_source_archive': next(x for x in pin['sources'] if x['component'] == 'ffmpeg'),
+        'source_delivery_approved': False, 'runtime_collection_allowed': False, 'r19_complete': False}
 
 
 def inputs(pin, *, tools=True):
@@ -223,7 +341,7 @@ def read_preflight_observation(stream):
     return json.loads(raw, object_pairs_hook=unique)
 
 
-def failure(output, phase, exit_code, log, offset):
+def failure(output, phase, exit_code, log, offset, *, include_makedef=False):
     """Emit categories only, never log text/path/arguments or a passing receipt.
 
     A fixed code allowlist prevents arbitrary numbers/tokens from private input
@@ -247,6 +365,23 @@ def failure(output, phase, exit_code, log, offset):
         # The byte bound may cut through a diagnostic or its original prefix.
         # Never turn that fragment into a new line/word boundary for parsing.
         raw = raw.partition(b'\n')[2]
+    codes, categories = classify_failure(raw, phase)
+    commit = os.environ.get('GITHUB_SHA', '')
+    report = {'schema': 'proxy-r19-game-codec-replay-failure-v1', 'status': 'failed',
+        'source_commit': commit if re.fullmatch(r'[a-f0-9]{40}', commit) else None,
+        'phase': phase, 'exit_code': exit_code, 'diagnostic_codes': codes,
+        'diagnostic_categories': categories,
+        'log_scope': 'failed-command-only-bounded-tail', 'log_truncated': start > offset,
+        'raw_log_published': False, 'runtime_collection_allowed': False,
+        'production_execution_allowed': False, 'source_delivery_approved': False,
+        'native_windows_11_acceptance': 'unavailable', 'r19_complete': False}
+    if include_makedef and phase in ('build-ffmpeg', 'install-ffmpeg', 'observe-and-package'):
+        report['makedef_diagnostics'] = makedef_diagnostics(output)
+    write_json(output / 'FAILED-STAGE.json', report)
+    return report
+
+
+def classify_failure(raw, phase, *, unclassified=True):
     text = raw.decode('utf-8', errors='replace')
     observed_codes = {code.upper() for code in re.findall(
         r'\berror[ \t]+((?:C|D|LNK|MSB)[0-9]{4})[ \t]*:', text, flags=re.IGNORECASE)}
@@ -263,18 +398,8 @@ def failure(output, phase, exit_code, log, offset):
     if phase in ('build-ffmpeg', 'install-ffmpeg'):
         for category, pattern in MAKEDEF_CATEGORIES.items():
             if re.search(pattern, text, flags=re.MULTILINE): categories.add(category)
-    if not categories: categories.add('unclassified-command-failure')
-    commit = os.environ.get('GITHUB_SHA', '')
-    report = {'schema': 'proxy-r19-game-codec-replay-failure-v1', 'status': 'failed',
-        'source_commit': commit if re.fullmatch(r'[a-f0-9]{40}', commit) else None,
-        'phase': phase, 'exit_code': exit_code, 'diagnostic_codes': codes,
-        'diagnostic_categories': sorted(categories),
-        'log_scope': 'failed-command-only-bounded-tail', 'log_truncated': start > offset,
-        'raw_log_published': False, 'runtime_collection_allowed': False,
-        'production_execution_allowed': False, 'source_delivery_approved': False,
-        'native_windows_11_acceptance': 'unavailable', 'r19_complete': False}
-    write_json(output / 'FAILED-STAGE.json', report)
-    return report
+    if unclassified and not categories: categories.add('unclassified-command-failure')
+    return codes, sorted(categories)
 
 
 def prepare(input_root, output, *, include_tools=True):
@@ -290,6 +415,15 @@ def prepare(input_root, output, *, include_tools=True):
     for record in pin['sources']:
         validate_source(input_root / record['filename'], record,
                         [n for n in pin['notices'] if n['component'] == record['component']])
+    variant = variant_definition(pin)
+    if variant:
+        patch = bound_bytes(ROOT / VARIANT_PATCH, variant['patch'])
+        record = next(x for x in pin['sources'] if x['component'] == 'ffmpeg')
+        with tarfile.open(input_root / record['filename']) as tar:
+            stream = tar.extractfile(variant['source_member'])
+            if stream is None: raise ValueError('Exact diagnostic preimage is unavailable.')
+            original = stream.read(65537)
+        modified = instrument_makedef(original, patch, variant)
     options = original_options((input_root / 'vgmstream-ffmpeg_options.txt').read_bytes())
     output.mkdir(parents=True)
     kit = output / 'source-review'; (kit / 'original-inputs').mkdir(parents=True)
@@ -302,6 +436,21 @@ def prepare(input_root, output, *, include_tools=True):
     for record in pin['sources']:
         with tarfile.open(input_root / record['filename']) as tar:
             tar.extractall(source, filter='data')
+    if variant:
+        before = inventory(source)
+        if tree_identity(before) != variant['original_tree']:
+            raise ValueError('Original diagnostic source inventory differs.')
+        write_json(output / 'ORIGINAL-SOURCE.json', before)
+        retained = kit / 'diagnostic-variant'; retained.mkdir()
+        (retained / 'ORIGINAL-makedef').write_bytes(original)
+        (retained / 'MODIFIED-makedef').write_bytes(modified)
+        (source / variant['source_member']).write_bytes(modified)
+        if tree_identity(inventory(source)) != variant['modified_tree']:
+            raise ValueError('Modified diagnostic source inventory differs.')
+        receipt = variant_receipt(pin)
+        write_json(output / 'DIAGNOSTIC-VARIANT.json', receipt)
+        write_json(kit / 'DIAGNOSTIC-VARIANT.json', receipt)
+        (output / 'PRIVATE-MAKEDEF').mkdir()
     write_json(output / 'PREPARED-SOURCE.json', inventory(source))
     write_json(output / 'ORIGINAL-OPTIONS.json', options)
     write_json(kit / 'BOUNDARY.json', {'scope': 'source-review-only; not approved corresponding source',
@@ -354,8 +503,88 @@ def pe_imports(raw):
 
 
 def verify_sources(root):
-    if inventory(root / 'upstream') != json.loads((root / 'PREPARED-SOURCE.json').read_text()):
+    no_links(root / 'PREPARED-SOURCE.json')
+    current = inventory(root / 'upstream')
+    if current != json.loads((root / 'PREPARED-SOURCE.json').read_text()):
         raise ValueError('Build changed the original verified sources.')
+    pin = policy(); variant = variant_definition(pin)
+    if variant:
+        for record in inputs(pin, tools=False):
+            bound_bytes(root / 'source-review/original-inputs' / record['filename'], record)
+        no_links(root / 'ORIGINAL-SOURCE.json')
+        before = json.loads((root / 'ORIGINAL-SOURCE.json').read_text())
+        if tree_identity(before) != variant['original_tree'] or tree_identity(current) != variant['modified_tree']:
+            raise ValueError('Diagnostic source inventory differs from the exact original or variant.')
+        for path in (root / 'DIAGNOSTIC-VARIANT.json', root / 'source-review/DIAGNOSTIC-VARIANT.json'):
+            no_links(path)
+            if json.loads(path.read_text()) != variant_receipt(pin):
+                raise ValueError('Diagnostic variant identity differs.')
+        original = bound_bytes(root / 'source-review/diagnostic-variant/ORIGINAL-makedef', variant['preimage'])
+        modified = bound_bytes(root / 'source-review/diagnostic-variant/MODIFIED-makedef', variant['postimage'])
+        patch = bound_bytes(ROOT / VARIANT_PATCH, variant['patch'])
+        bound_bytes(root / 'source-review/project-orchestration' / VARIANT_PATCH, variant['patch'])
+        if instrument_makedef(original, patch, variant) != modified:
+            raise ValueError('Diagnostic source transformation differs.')
+
+
+class DiagnosticUnavailable(ValueError):
+    pass
+
+
+def makedef_diagnostics(root):
+    """Read only fixed owned layout and bounded private stdout; publish no text/hash."""
+    result = {'schema': 'proxy-r19-makedef-private-stdout-observation-v1',
+        'status': 'unavailable', 'reason': 'source-binding', 'variant_identity': None,
+        'response_files': 'unavailable', 'archiver_environment': 'unsupported', 'components': [],
+        'causal_attribution': 'not-established', 'raw_log_published': False,
+        'source_delivery_approved': False, 'runtime_collection_allowed': False, 'r19_complete': False}
+    try:
+        verify_sources(root)
+        receipt = variant_receipt(policy())
+        if receipt is None: raise DiagnosticUnavailable('source-binding')
+        result['variant_identity'] = receipt['identity']
+        config = root / 'ffmpeg-build/ffbuild/config.mak'; regular_file(config)
+        with config.open('rb') as stream: data = stream.read(1024 * 1024 + 1)
+        if len(data) > 1024 * 1024: raise DiagnosticUnavailable('oversized-input')
+        values = re.findall(rb'^RESPONSE_FILES=([^\r\n]*)\r?$', data, flags=re.MULTILINE)
+        if len(values) != 1 or values[0] not in (b'yes', b'no'):
+            raise DiagnosticUnavailable('unsupported-response-files')
+        result['response_files'] = values[0].decode('ascii')
+        private = root / 'PRIVATE-MAKEDEF'; no_links(private)
+        if not private.is_dir(): raise DiagnosticUnavailable('missing-layout')
+        entries = list(itertools.islice(private.iterdir(), 7))
+        if len(entries) > 6: raise DiagnosticUnavailable('unexpected-layout')
+        names = {x.name for x in entries}
+        if 'unavailable-unknown-role' in names: raise DiagnosticUnavailable('unsupported-role')
+        if 'unavailable-duplicate-role' in names: raise DiagnosticUnavailable('duplicate-role')
+        if not names or not names <= set(MAKEDEF_ROLES): raise DiagnosticUnavailable('unexpected-layout')
+        observations = []
+        for role in sorted(names):
+            directory = private / role; no_links(directory)
+            if not directory.is_dir(): raise DiagnosticUnavailable('unexpected-layout')
+            members = list(itertools.islice(directory.iterdir(), 3))
+            if len(members) > 2: raise DiagnosticUnavailable('unexpected-layout')
+            if {x.name for x in members} not in ({'branch-state'}, {'branch-state', 'stdout.log'}):
+                raise DiagnosticUnavailable('unexpected-layout')
+            for member in members: regular_file(member)
+            branch = directory / 'branch-state'
+            with branch.open('rb') as stream: state = stream.read(17)
+            if state not in (b'empty\n', b'nonempty\n'): raise DiagnosticUnavailable('unsupported-branch')
+            result['archiver_environment'] = state.strip().decode('ascii')
+            if state == b'nonempty\n': raise DiagnosticUnavailable('nonempty-ar')
+            log = directory / 'stdout.log'
+            regular_file(log)
+            with log.open('rb') as stream: raw = stream.read(FAILURE_LOG_LIMIT + 1)
+            if len(raw) > FAILURE_LOG_LIMIT: raise DiagnosticUnavailable('oversized-input')
+            codes, categories = classify_failure(raw, 'build-ffmpeg', unclassified=False)
+            observations.append({'role': role, 'archiver_environment': 'empty',
+                'diagnostic_codes': codes, 'diagnostic_categories': categories})
+        result.update(status='observed-noncausal', reason=None, components=observations)
+    except DiagnosticUnavailable as error:
+        result['reason'] = error.args[0] if error.args and error.args[0] in DIAGNOSTIC_REASONS else 'source-binding'
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        result['reason'] = 'source-binding'
+    return result
 
 
 def validate_configuration(root, configuration):
@@ -393,6 +622,9 @@ def publish_attempt(run, work, previous, expected):
 def finish(root, cmake_root):
     if sys.platform != 'win32': raise ValueError('Actual Windows source build/probe required.')
     pin = policy(); root = Path(root).absolute(); no_links(root); verify_sources(root)
+    makedef = makedef_diagnostics(root)
+    if (makedef['status'] != 'observed-noncausal' or len(makedef['components']) != len(MAKEDEF_ROLES)):
+        raise ValueError('Exact diagnostic variant observations are unavailable.')
     spec = importlib.util.spec_from_file_location('pinned_build_cmake', ROOT / 'scripts/pinned-build-cmake.py')
     cmake_helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(cmake_helper)
     cmake_supplier = cmake_helper.verify(cmake_root)
@@ -459,6 +691,7 @@ def finish(root, cmake_root):
     # and notice in runner-local quarantine. Only their inventory is public.
     correspondence = {'sources': pin['sources'], 'original_recipes': pin['original_recipes'],
         'notices': pin['notices'], 'upstream_files': inventory(root / 'upstream'),
+        'diagnostic_variant': variant_receipt(pin),
         'cmake_supplier': cmake_supplier,
         'source_review_files': inventory(root / 'source-review'),
         'installed_files': inventory(root / 'out'), 'build_tools': tools,
@@ -470,6 +703,7 @@ def finish(root, cmake_root):
     report = {'schema': 'proxy-r19-ffmpeg-opus-source-replay-v1', 'status': 'passed',
         'identity': 'quarantined-source-replay-' + identity, 'source_commit': os.environ.get('GITHUB_SHA'),
         'host': pin['host'], 'source_correspondence': correspondence, 'candidate_files': before,
+        'makedef_diagnostics': makedef,
         'native_imports': imports, 'actual_configurations': configurations, 'loaded_dlls': modules,
         'ffmpeg_self_reported_license': licenses[0],
         'authored_flac_pcm_sha256': digest(expected), 'authored_flac_pcm_bytes': len(expected),
@@ -500,9 +734,11 @@ if __name__ == '__main__':
     parser.add_argument('--phase', choices=BUILD_PHASES)
     parser.add_argument('--exit-code', type=int); parser.add_argument('--log', type=Path)
     parser.add_argument('--log-offset', type=int)
+    parser.add_argument('--include-makedef', action='store_true')
     args = parser.parse_args()
     if args.command == 'acquire': acquire(args.input_root)
     elif args.command == 'prepare': prepare(args.input_root, args.output)
-    elif args.command == 'failure': failure(args.output, args.phase, args.exit_code, args.log, args.log_offset)
+    elif args.command == 'failure': failure(args.output, args.phase, args.exit_code, args.log, args.log_offset,
+                                           include_makedef=args.include_makedef)
     elif args.command == 'preflight-failure': preflight_failure(args.output, read_preflight_observation(sys.stdin.buffer))
     else: finish(args.output, args.cmake_root)

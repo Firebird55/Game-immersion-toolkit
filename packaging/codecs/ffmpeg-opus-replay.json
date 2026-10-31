@@ -192,7 +192,7 @@
   "adaptations": [
     "Original VS2019 generator replaced by explicitly selected VS2026 instance/toolset/SDK; original upstream instructions retained unmodified.",
     "Fixed isolated C:/r19-game-codec-replay prefixes instead of upstream C:/vgmstream-dlls; no changes to original FFmpeg options.",
-    "Out-of-source builds preserve original source bytes.",
+    "Out-of-source builds retain exact original archives and script; the separately identified diagnostic variant changes only makedef private stdout routing and its fail-closed diagnostic admission.",
     "No rolling pacman install: exact original tool archives extracted into an isolated build-host directory.",
     "An authored non-shipping C harness uses custom AVIO because the original configuration disables file protocol and CLI programs.",
     "Allowlisted process environment; fresh empty user/AppData/MSBuild profile; selected VC/SDK/header/lib roots only; user and Directory.Build imports disabled.",
@@ -209,5 +209,38 @@
   "source_delivery_approved": false,
   "native_windows_11_acceptance": "unavailable",
   "installer": "not-built",
-  "r19_complete": false
+  "r19_complete": false,
+  "diagnostic_variant": {
+    "schema": "proxy-r19-makedef-stdout-variant-v1",
+    "scope": "diagnostic-only private stdout routing; not original source equivalence or corresponding-source approval",
+    "source_member": "ffmpeg-9.0.2/compat/windows/makedef",
+    "preimage": {
+      "bytes": 3685,
+      "sha256": "289c5eee3ff1cbf7f1d96cb7838a49b4cb3645780592ce78165cf9e418bc64f8"
+    },
+    "patch": {
+      "path": "packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch",
+      "bytes": 1551,
+      "sha256": "5306d015bbb01949b7f09c753a5a23cd5abae4816e889f536ba27b8ac139419c"
+    },
+    "postimage": {
+      "bytes": 4906,
+      "sha256": "eeb4441af318d7e1085b7d42d70780ad412938c36189d06205dc8e0e73c55ac4"
+    },
+    "original_tree": {
+      "files": 10881,
+      "sha256": "bbc268df6a8c447172cc13dc88ea71dd2247e4331a0dec43515db057446807a4"
+    },
+    "modified_tree": {
+      "files": 10881,
+      "sha256": "14df3b93e3a4c2330e5bb706be16711a979ab6225a8629280fbc783814284a7e"
+    },
+    "roles": [
+      "avcodec",
+      "avformat",
+      "avutil",
+      "swresample"
+    ],
+    "original_notice": "Original Derek Buitenhuis ISC-style header remains unchanged in original and modified makedef. Project diagnostic orchestration remains under LICENSE; compatibility and durable corresponding-source delivery remain unapproved."
+  }
 }

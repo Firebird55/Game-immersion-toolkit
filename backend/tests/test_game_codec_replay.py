@@ -1,7 +1,9 @@
 """Authored trust/publication fixtures; not actual FFmpeg/Windows acceptance."""
 import importlib.util
+from contextlib import contextmanager, ExitStack
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -11,6 +13,159 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+
+# Original FFmpeg 9.0.2 makedef fixture, including its complete ISC-style notice.
+# Runs only against authored shell stubs; never an actual compiler/library tool.
+ORIGINAL_MAKEDEF = rb'''#!/bin/sh
+
+# Copyright (c) 2013, Derek Buitenhuis
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# mktemp isn't POSIX, so supply an implementation
+mktemp() {
+    echo "${2%%XXX*}.${HOSTNAME}.${UID}.$$"
+}
+
+if [ $# -lt 2 ]; then
+    echo "Usage: makedef <version_script> <objects>" >&2
+    exit 0
+fi
+
+vscript=$1
+shift
+
+if [ ! -f "$vscript" ]; then
+    echo "Version script does not exist" >&2
+    exit 1
+fi
+
+for object in "$@"; do
+    case "$object" in
+    @*)
+        object="${object#@}"
+        ;;
+    esac
+    if [ ! -f "$object" ]; then
+        echo "Object does not exist: ${object}" >&2
+        exit 1
+    fi
+done
+
+# Create a lib temporarily to dump symbols from.
+# It's just much easier to do it this way
+libname=$(mktemp -u "library").lib
+
+trap 'rm -f -- $libname' EXIT
+
+if [ -n "$AR" ]; then
+    $AR rcs ${libname} $@ >/dev/null
+else
+    machine_flag=""
+    case "$LDFLAGS" in
+    *"machine:arm64ec"*)
+        machine_flag="-machine:arm64ec"
+        ;;
+    esac
+    lib.exe ${machine_flag} -out:${libname} $@ >/dev/null
+fi
+if [ $? != 0 ]; then
+    echo "Could not create temporary library." >&2
+    exit 1
+fi
+
+IFS='
+'
+
+prefix="$EXTERN_PREFIX"
+
+started=0
+regex="none"
+
+for line in $(cat ${vscript} | tr '\t' ' '); do
+    # We only care about global symbols
+    echo "${line}" | grep -q '^ \+global:'
+    if [ $? = 0 ]; then
+        started=1
+        line=$(echo "${line}" | sed -e 's/^ \{1,\}global: *//')
+    else
+        echo "${line}" | grep -q '^ \+local:'
+        if [ $? = 0 ]; then
+            started=0
+        fi
+    fi
+
+    if [ ${started} = 0 ]; then
+        continue
+    fi
+
+    # Handle multiple symbols on one line
+    IFS=';'
+
+    # Work around stupid expansion to filenames
+    line=$(echo "${line}" | sed -e 's/\*/.\\+/g')
+    for exp in ${line}; do
+        # Remove leading and trailing whitespace
+        exp=$(echo "${exp}" | sed -e 's/^ *//' -e 's/ *$//')
+
+        if [ "${regex}" = "none" ]; then
+            regex="${exp}"
+        else
+            regex="${regex};${exp}"
+        fi
+    done
+
+    IFS='
+'
+done
+
+if [ -n "$NM" ]; then
+    # Use eval, since NM="nm -g"
+    dump=$(eval "$NM --defined-only -g ${libname}" |
+              grep -v : |
+              grep -v ^$ |
+              cut -d' ' -f3 |
+              sed -e "s/^${prefix}//" -e "s/^#//" |
+              grep -v '\$entry_thunk' |
+              grep -v '\$exit_thunk')
+else
+    member=1
+    case "$LDFLAGS" in
+    *"machine:arm64ec"*)
+        member=32
+        ;;
+    esac
+    dump=$(dumpbin.exe -linkermember:${member} ${libname} |
+              sed -e '/public symbols/,$!d' -e '/^ \{1,\}Summary/,$d' -e 's/^[[:space:]]*[0-9A-Fa-f]\{1,\}[[:space:]]\{1,\}//' -e "s/^${prefix}//" -e 's/^#//' |
+              tail -n +2 |
+              grep -v '\$entry_thunk' |
+              grep -v '\$exit_thunk')
+fi
+
+rm ${libname}
+
+IFS=';'
+list=""
+for exp in ${regex}; do
+    list="${list}"'
+'$(echo "${dump}" |
+          grep "^${exp}" |
+          sed -e 's/^/    /')
+done
+
+echo "EXPORTS"
+echo "${list}" | sort | uniq | tail -n +2
+'''
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('game_codec_replay', ROOT / 'scripts/replay-game-codec.py')
@@ -46,6 +201,320 @@ class ReplayTrustTests(unittest.TestCase):
         with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project):
             replay.prepare(self.inputs, output)
 
+    def diagnostic_fixture(self):
+        pin = self.fixture(); variant = json.loads(json.dumps(replay.policy()['diagnostic_variant']))
+        variant['source_member'] = 'owned-1/compat/windows/makedef'
+        patch_bytes = (ROOT / replay.VARIANT_PATCH).read_bytes()
+        (self.project / replay.VARIANT_PATCH).write_bytes(patch_bytes)
+        modified = replay.instrument_makedef(ORIGINAL_MAKEDEF, patch_bytes, variant)
+        members = {'owned-1/COPYING': b'original authored notice', 'owned-1/own.c': b'authored source',
+                   variant['source_member']: ORIGINAL_MAKEDEF}
+        with tarfile.open(self.inputs / 'owned.tar.xz', 'w:xz') as tar:
+            for name, raw in members.items():
+                entry = tarfile.TarInfo(name); entry.size = len(raw); tar.addfile(entry, io.BytesIO(raw))
+        pin['sources'][0].update(component='ffmpeg', bytes=(self.inputs / 'owned.tar.xz').stat().st_size,
+            sha256=replay.digest((self.inputs / 'owned.tar.xz').read_bytes()))
+        for record in pin['original_recipes']: record['bytes'] = (self.inputs / record['filename']).stat().st_size
+        pin['notices'][0]['component'] = 'ffmpeg'
+        before = {name: {'bytes': len(raw), 'sha256': replay.digest(raw)} for name, raw in members.items()}
+        variant['original_tree'] = replay.tree_identity(before)
+        before[variant['source_member']] = {'bytes': len(modified), 'sha256': replay.digest(modified)}
+        variant['modified_tree'] = replay.tree_identity(before)
+        pin['diagnostic_variant'] = variant
+        return pin, modified
+
+    def diagnostic_observation(self, pin, output):
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project):
+            return replay.makedef_diagnostics(output)
+
+    @contextmanager
+    def forbid_link_descendant_access(self, boundary):
+        counts = {name: 0 for name in ('stat', 'lstat', 'open', 'iterdir', 'scandir', 'listdir')}
+        def guarded(name, original):
+            def call(path, *args, **kwargs):
+                value = Path(path).absolute() if not isinstance(path, int) else None
+                nofollow_boundary = name == 'lstat' or name == 'stat' and kwargs.get('follow_symlinks') is False
+                if value is not None and (boundary in value.parents or value == boundary and not nofollow_boundary):
+                    counts[name] += 1
+                    raise AssertionError('Linked descendant metadata/content/enumeration must not be accessed.')
+                return original(path, *args, **kwargs)
+            return call
+        with ExitStack() as stack:
+            for name in ('stat', 'lstat', 'open', 'iterdir'):
+                stack.enter_context(patch.object(Path, name, guarded(name, getattr(Path, name))))
+            for name in ('scandir', 'listdir'):
+                stack.enter_context(patch.object(os, name, guarded(name, getattr(os, name))))
+            yield counts
+        self.assertEqual(counts, dict.fromkeys(counts, 0))
+
+    def test_parent_symlink_refuses_before_descendant_stat_lstat_open_or_enumeration(self):
+        outside = self.root / 'outside'; outside.mkdir(); (outside / 'stdout.log').write_bytes(b'private sentinel')
+        link = self.root / 'linked-parent'
+        try: link.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError): self.skipTest('Authored directory symlink unavailable on this host')
+        with self.forbid_link_descendant_access(link):
+            for action in (lambda: replay.no_links(link / 'stdout.log'),
+                    lambda: replay.bound_bytes(link / 'stdout.log', {'bytes': 16, 'sha256': 'a'*64}),
+                    lambda: replay.inventory(link), lambda: replay.inventory(self.root)):
+                with self.assertRaises(ValueError): action()
+        pin, _ = self.diagnostic_fixture(); output = self.root / 'variant'; self.prepare(pin, output)
+        parent = output / 'ffmpeg-build'; parent.symlink_to(outside, target_is_directory=True)
+        with self.forbid_link_descendant_access(parent):
+            report = self.diagnostic_observation(pin, output)
+        self.assertEqual(report['status'], 'unavailable'); self.assertEqual(report['reason'], 'source-binding')
+        self.assertNotIn('outside', json.dumps(report))
+
+    def test_windows_reparse_attribute_refuses_before_any_descendant_access(self):
+        parent = self.root / 'authored-reparse'; parent.mkdir(); (parent / 'stdout.log').write_bytes(b'private sentinel')
+        original = Path.lstat
+        def reparse(path, *args, **kwargs):
+            info = original(path, *args, **kwargs)
+            if path == parent: return SimpleNamespace(st_mode=info.st_mode, st_file_attributes=0x400)
+            return info
+        with patch.object(Path, 'lstat', reparse), self.forbid_link_descendant_access(parent):
+            for action in (lambda: replay.no_links(parent / 'stdout.log'),
+                    lambda: replay.bound_bytes(parent / 'stdout.log', {'bytes': 16, 'sha256': 'a'*64}),
+                    lambda: replay.inventory(parent), lambda: replay.inventory(self.root)):
+                with self.assertRaises(ValueError): action()
+
+    def test_missing_output_suffix_stops_metadata_walk_and_preserves_fresh_prepare_and_acquire(self):
+        missing = self.root / 'fresh-parent'
+        with self.forbid_link_descendant_access(missing):
+            self.assertIsNone(replay.no_links(missing / 'child' / 'leaf'))
+        pin = self.fixture(); output = missing / 'prepared'; self.prepare(pin, output)
+        self.assertTrue((output / 'upstream/owned-1/own.c').is_file())
+        acquired = self.root / 'fresh-acquire-parent' / 'inputs'
+        with patch.object(replay, 'policy', return_value={'sources': [], 'original_recipes': [], 'build_tools': []}):
+            replay.acquire(acquired)  # Empty authored input set; no network access.
+        self.assertTrue(acquired.is_dir())
+
+    def test_config_branch_stdout_and_bound_inputs_require_regular_files_before_open(self):
+        pin, _ = self.diagnostic_fixture(); output = self.root / 'variant'; self.prepare(pin, output)
+        config = output / 'ffmpeg-build/ffbuild/config.mak'; config.parent.mkdir(parents=True)
+        config.write_bytes(b'RESPONSE_FILES=yes\n')
+        role = output / 'PRIVATE-MAKEDEF/avutil'; role.mkdir()
+        branch = role / 'branch-state'; branch.write_bytes(b'empty\n')
+        stdout = role / 'stdout.log'; stdout.write_bytes(b'authored stdout')
+        original_open = Path.open
+        for target in (config, branch, stdout):
+            for kind in ('directory', 'fifo') if hasattr(os, 'mkfifo') else ('directory',):
+                with self.subTest(input=target.name, kind=kind):
+                    prior = target.read_bytes(); target.unlink()
+                    if kind == 'directory': target.mkdir()
+                    else: os.mkfifo(target)
+                    def no_open(path, *args, **kwargs):
+                        if path == target: raise AssertionError('Non-regular diagnostic input must not be opened.')
+                        return original_open(path, *args, **kwargs)
+                    with patch.object(Path, 'open', no_open):
+                        with self.assertRaises(ValueError): replay.bound_bytes(target, {'bytes': 1, 'sha256': 'a'*64})
+                        report = self.diagnostic_observation(pin, output)
+                    self.assertEqual(report['status'], 'unavailable')
+                    self.assertFalse(report['r19_complete']); self.assertEqual(report['components'], [])
+                    if kind == 'directory': target.rmdir()
+                    else: target.unlink()
+                    target.write_bytes(prior)
+
+    def makedef_shell_fixture(self):
+        pin, modified = self.diagnostic_fixture()
+        original = self.root / 'original-makedef'; original.write_bytes(ORIGINAL_MAKEDEF)
+        instrumented = self.root / 'instrumented-makedef'; instrumented.write_bytes(modified)
+        tools = self.root / 'authored-shell-tools'; tools.mkdir()
+        library = tools / 'lib.exe'
+        library.write_text('''#!/bin/sh
+printf '%s\\n' "$@" >"$R19_TEST_ARGS"
+for argument; do
+    case "$argument" in -out:*) output=${argument#-out:} ;; esac
+done
+printf 'authored library bytes' >"$output"
+cat "$output" >"$R19_TEST_EFFECT"
+printf 'LIB : fatal error LNK1104: private-object --private-argv\\n'
+exit "$R19_TEST_EXIT"
+''')
+        dump = tools / 'dumpbin.exe'
+        dump.write_text("#!/bin/sh\nprintf '1 public symbols\\n  1 owned_export\\n   Summary\\n'\n")
+        library.chmod(0o755); dump.chmod(0o755)
+        for role in replay.MAKEDEF_ROLES:
+            version = self.root / ('lib' + role) / ('lib' + role + '.ver')
+            version.parent.mkdir(); version.write_text('VERSION {\n    global: owned_export;\n    local: *;\n};\n')
+        (self.root / 'owned.rsp').write_text('authored-object.o\n')
+        private = self.root / 'PRIVATE-MAKEDEF'; private.mkdir()
+        environment = dict(os.environ)
+        for name in ('AR', 'NM', 'LDFLAGS', 'EXTERN_PREFIX', 'ENV', 'BASH_ENV'):
+            environment.pop(name, None)
+        environment.update(PATH=str(tools) + os.pathsep + environment.get('PATH', ''),
+            R19_MAKEDEF_LOG_ROOT=private.as_posix(), R19_TEST_EXIT='0',
+            R19_TEST_ARGS=(self.root / 'arguments').as_posix(),
+            R19_TEST_EFFECT=(self.root / 'effect').as_posix(),
+            R19_TEST_ORIGINAL=original.as_posix(), R19_TEST_INSTRUMENTED=instrumented.as_posix())
+        return pin, instrumented, private, environment
+
+    @unittest.skipUnless(shutil.which('sh'), 'Authored original/variant shell behavior requires a POSIX shell')
+    def test_original_and_instrumented_makedef_have_identical_lib_argv_exit_and_library_effects(self):
+        _, _, private, environment = self.makedef_shell_fixture()
+        harness = '''
+(
+    export R19_TEST_ARGS="$R19_TEST_BASE_ARGS" R19_TEST_EFFECT="$R19_TEST_BASE_EFFECT"
+    set -- libavutil/libavutil.ver @owned.rsp
+    . "$R19_TEST_ORIGINAL"
+) >baseline.def 2>baseline.err
+original_status=$?
+(
+    export R19_TEST_ARGS="$R19_TEST_VARIANT_ARGS" R19_TEST_EFFECT="$R19_TEST_VARIANT_EFFECT"
+    set -- libavutil/libavutil.ver @owned.rsp
+    . "$R19_TEST_INSTRUMENTED"
+) >variant.def 2>variant.err
+variant_status=$?
+printf '%s %s\\n' "$original_status" "$variant_status"
+'''
+        for exit_code, expected in ((0, b'0 0\n'), (7, b'1 1\n')):
+            with self.subTest(authored_library_exit=exit_code):
+                environment.update(R19_TEST_EXIT=str(exit_code),
+                    R19_TEST_BASE_ARGS=(self.root / 'baseline.args').as_posix(),
+                    R19_TEST_VARIANT_ARGS=(self.root / 'variant.args').as_posix(),
+                    R19_TEST_BASE_EFFECT=(self.root / 'baseline.effect').as_posix(),
+                    R19_TEST_VARIANT_EFFECT=(self.root / 'variant.effect').as_posix())
+                result = subprocess.run([shutil.which('sh'), '-c', harness], cwd=self.root,
+                    env=environment, capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, 0); self.assertEqual(result.stdout.replace(b'\r\n', b'\n'), expected)
+                self.assertEqual((self.root / 'baseline.args').read_bytes(), (self.root / 'variant.args').read_bytes())
+                self.assertEqual((self.root / 'baseline.effect').read_bytes(), (self.root / 'variant.effect').read_bytes())
+                self.assertEqual((self.root / 'baseline.def').read_bytes(), (self.root / 'variant.def').read_bytes())
+                self.assertEqual((self.root / 'baseline.err').read_bytes(), (self.root / 'variant.err').read_bytes())
+                self.assertEqual(list(self.root.glob('*.lib')), [])  # Original EXIT cleanup still ran.
+                self.assertIn(b'LNK1104', (private / 'avutil/stdout.log').read_bytes())
+                self.assertEqual((private / 'avutil/branch-state').read_bytes(), b'empty\n')
+                shutil.rmtree(private / 'avutil')
+
+    @unittest.skipUnless(shutil.which('sh'), 'Authored concurrent/guard shell behavior requires a POSIX shell')
+    def test_instrumented_makedef_owns_roles_atomically_and_refuses_duplicate_unknown_or_nonempty_ar(self):
+        _, instrumented, private, environment = self.makedef_shell_fixture()
+        from concurrent.futures import ThreadPoolExecutor
+        def invoke(role, env):
+            return subprocess.run([shutil.which('sh'), str(instrumented),
+                'lib' + role + '/lib' + role + '.ver', '@owned.rsp'],
+                cwd=self.root, env=env, capture_output=True, timeout=10)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            jobs = []
+            for role in replay.MAKEDEF_ROLES:
+                env = dict(environment, R19_TEST_ARGS=(self.root / (role + '.args')).as_posix(),
+                           R19_TEST_EFFECT=(self.root / (role + '.effect')).as_posix())
+                jobs.append(pool.submit(invoke, role, env))
+            self.assertEqual([job.result().returncode for job in jobs], [0, 0, 0, 0])
+        for role in replay.MAKEDEF_ROLES:
+            self.assertEqual((private / role / 'branch-state').read_bytes(), b'empty\n')
+            self.assertIn(b'LNK1104', (private / role / 'stdout.log').read_bytes())
+        shutil.rmtree(private / 'avutil')
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            jobs = [pool.submit(invoke, 'avutil', environment) for _ in range(2)]
+            self.assertEqual(sorted(job.result().returncode for job in jobs), [0, 1])
+        before = (private / 'avutil/stdout.log').read_bytes()
+        self.assertEqual(invoke('avutil', environment).returncode, 1)
+        self.assertTrue((private / 'unavailable-duplicate-role').is_dir())
+        self.assertEqual((private / 'avutil/stdout.log').read_bytes(), before)
+        unknown = self.root / 'libprivate-source'; unknown.mkdir(); (unknown / 'libprivate-source.ver').write_text('authored')
+        self.assertEqual(invoke('private-source', environment).returncode, 1)
+        self.assertTrue((private / 'unavailable-unknown-role').is_dir())
+        shutil.rmtree(private / 'avutil')
+        self.assertEqual(invoke('avutil', dict(environment, AR='private-tool-name --private-argument')).returncode, 1)
+        self.assertEqual((private / 'avutil/branch-state').read_bytes(), b'nonempty\n')
+        self.assertFalse((private / 'avutil/stdout.log').exists())
+        self.assertEqual(list(self.root.glob('*.lib')), [])
+
+    def test_exact_diagnostic_variant_retains_original_script_notice_archive_and_both_source_identities(self):
+        pin, modified = self.diagnostic_fixture(); output = self.root / 'variant'; self.prepare(pin, output)
+        kit = output / 'source-review'
+        self.assertEqual((kit / 'diagnostic-variant/ORIGINAL-makedef').read_bytes(), ORIGINAL_MAKEDEF)
+        self.assertEqual((kit / 'diagnostic-variant/MODIFIED-makedef').read_bytes(), modified)
+        self.assertEqual((kit / 'original-inputs/owned.tar.xz').read_bytes(), (self.inputs / 'owned.tar.xz').read_bytes())
+        self.assertTrue(modified.startswith(ORIGINAL_MAKEDEF.split(b'# mktemp')[0]))
+        self.assertEqual((output / 'upstream' / pin['diagnostic_variant']['source_member']).read_bytes(), modified)
+        self.assertEqual(replay.tree_identity(json.loads((output / 'ORIGINAL-SOURCE.json').read_text())),
+                         pin['diagnostic_variant']['original_tree'])
+        self.assertEqual(replay.tree_identity(json.loads((output / 'PREPARED-SOURCE.json').read_text())),
+                         pin['diagnostic_variant']['modified_tree'])
+        receipt = json.loads((kit / 'DIAGNOSTIC-VARIANT.json').read_text())
+        self.assertEqual(receipt, replay.variant_receipt(pin)); self.assertIn('diagnostic-makedef-', receipt['identity'])
+        self.assertFalse(receipt['source_delivery_approved']); self.assertFalse(receipt['runtime_collection_allowed'])
+        self.assertFalse(receipt['r19_complete']); self.assertIn(replay.VARIANT_PATCH, replay.PROJECT_INPUTS)
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project):
+            replay.verify_sources(output)
+        for relative in ('upstream/owned-1/own.c', 'source-review/original-inputs/owned.tar.xz',
+                         'source-review/project-orchestration/' + replay.VARIANT_PATCH,
+                         'source-review/diagnostic-variant/ORIGINAL-makedef',
+                         'source-review/diagnostic-variant/MODIFIED-makedef', 'DIAGNOSTIC-VARIANT.json',
+                         'ORIGINAL-SOURCE.json', 'PREPARED-SOURCE.json'):
+            path = output / relative; before = path.read_bytes(); path.write_bytes(before + b'changed')
+            with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project), self.assertRaises(ValueError):
+                replay.verify_sources(output)
+            path.write_bytes(before)
+        self.assertFalse((output / 'source-review.zip').exists())
+        self.assertFalse((output / 'REPLAY-RECEIPT.json').exists())
+
+    def test_diagnostic_patch_preimage_patch_postimage_and_hunk_changes_never_fall_back(self):
+        pin, _ = self.diagnostic_fixture(); original = ORIGINAL_MAKEDEF
+        exact_patch = (self.project / replay.VARIANT_PATCH).read_bytes()
+        for case in ('preimage', 'patch', 'postimage', 'malformed-hunk', 'unsupported-file'):
+            with self.subTest(case=case):
+                variant = json.loads(json.dumps(pin['diagnostic_variant'])); raw = exact_patch
+                source = original + b'changed' if case == 'preimage' else original
+                if case == 'patch': raw += b'changed'
+                if case == 'postimage': variant['postimage']['sha256'] = 'a'*64
+                if case == 'malformed-hunk': raw = raw.replace(b'@@ ', b'@@ invalid ', 1)
+                if case == 'unsupported-file': raw = raw.replace(b'a/compat/windows/makedef', b'a/private-source', 1)
+                if case in ('malformed-hunk', 'unsupported-file'):
+                    variant['patch'].update(bytes=len(raw), sha256=replay.digest(raw))
+                with self.assertRaises(ValueError): replay.instrument_makedef(source, raw, variant)
+        pin['diagnostic_variant']['patch']['sha256'] = 'a'*64
+        output = self.root / 'rejected'
+        with self.assertRaises(ValueError): self.prepare(pin, output)
+        self.assertFalse(output.exists())
+
+    def test_private_makedef_projection_is_source_bound_bounded_and_has_only_fixed_roles_and_codes(self):
+        pin, _ = self.diagnostic_fixture(); output = self.root / 'variant'; self.prepare(pin, output)
+        config = output / 'ffmpeg-build/ffbuild/config.mak'; config.parent.mkdir(parents=True)
+        config.write_bytes(b'RESPONSE_FILES=yes\n')
+        role = output / 'PRIVATE-MAKEDEF/avutil'; role.mkdir()
+        (role / 'branch-state').write_bytes(b'empty\n')
+        raw = b'LIB : fatal error LNK1104: C:\\private-profile\\object-name --private-argv\nerror LNK9999: private-model\n'
+        (role / 'stdout.log').write_bytes(raw)
+        report = self.diagnostic_observation(pin, output)
+        self.assertEqual(report['status'], 'observed-noncausal'); self.assertEqual(report['response_files'], 'yes')
+        self.assertEqual(report['archiver_environment'], 'empty')
+        self.assertEqual(report['components'], [{'role': 'avutil', 'archiver_environment': 'empty',
+            'diagnostic_codes': ['LNK1104'], 'diagnostic_categories': ['linker-error', 'unclassified-linker-code']}])
+        for marker in ('private-profile', 'object-name', 'private-argv', 'private-model', 'LNK9999', replay.digest(raw), str(output)):
+            self.assertNotIn(marker, json.dumps(report))
+        private_log = output / 'PRIVATE-BUILD.log'; private_log.write_bytes(b'Could not create temporary library.\n')
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project):
+            failure = replay.failure(output, 'build-ffmpeg', 2, private_log, 0, include_makedef=True)
+        self.assertEqual(failure['makedef_diagnostics'], report); self.assertEqual(failure['status'], 'failed')
+        self.assertFalse(failure['r19_complete']); self.assertFalse(failure['production_execution_allowed'])
+        for case, expected in (('unknown', 'unexpected-layout'), ('duplicate', 'duplicate-role'),
+                ('nonempty', 'nonempty-ar'), ('malformed-branch', 'unsupported-branch'),
+                ('oversize', 'oversized-input'), ('response', 'unsupported-response-files'), ('duplicate-response', 'unsupported-response-files')):
+            with self.subTest(case=case):
+                extra = None
+                if case in ('unknown', 'duplicate'):
+                    extra = output / 'PRIVATE-MAKEDEF' / ('private-path-secret' if case == 'unknown' else 'unavailable-duplicate-role')
+                    extra.mkdir()
+                if case == 'nonempty': (role / 'branch-state').write_bytes(b'nonempty\n')
+                if case == 'malformed-branch': (role / 'branch-state').write_bytes(b'empty\nprivate-path')
+                if case == 'oversize': (role / 'stdout.log').write_bytes(b'x' * (2*1024*1024+1))
+                if case == 'response': config.write_bytes(b'RESPONSE_FILES=yes private-path\n')
+                if case == 'duplicate-response': config.write_bytes(b'RESPONSE_FILES=yes\nRESPONSE_FILES=no\n')
+                refused = self.diagnostic_observation(pin, output)
+                self.assertEqual(refused['status'], 'unavailable'); self.assertEqual(refused['reason'], expected)
+                self.assertEqual(refused['components'], [])
+                if case == 'nonempty': self.assertEqual(refused['archiver_environment'], 'nonempty')
+                self.assertNotIn('private-path', json.dumps(refused)); self.assertFalse(refused['r19_complete'])
+                if extra: extra.rmdir()
+                (role / 'branch-state').write_bytes(b'empty\n'); (role / 'stdout.log').write_bytes(raw)
+                config.write_bytes(b'RESPONSE_FILES=yes\n')
+        with patch.object(replay, 'verify_sources', side_effect=OSError('private exception C:\\profile-secret')):
+            refused = replay.makedef_diagnostics(output)
+        self.assertEqual(refused['reason'], 'source-binding'); self.assertNotIn('profile-secret', json.dumps(refused))
+        self.assertFalse((output / 'REPLAY-RECEIPT.json').exists())
+
     def test_exact_originals_and_notices_retained_without_binary_or_source_approval(self):
         pin = self.fixture(); output = self.root / 'experiment'; self.prepare(pin, output)
         self.assertEqual((output / 'upstream/owned-1/own.c').read_bytes(), b'authored source')
@@ -55,9 +524,10 @@ class ReplayTrustTests(unittest.TestCase):
         self.assertFalse(boundary['source_delivery_approved']); self.assertFalse(boundary['runtime_collection_allowed'])
         self.assertEqual(json.loads((output / 'ORIGINAL-OPTIONS.json').read_text()),
                          ['--disable-everything', '--enable-libopus'])
-        replay.verify_sources(output)
+        with patch.object(replay, 'policy', return_value=pin): replay.verify_sources(output)
         (output / 'upstream/owned-1/own.c').write_bytes(b'changed')
-        with self.assertRaisesRegex(ValueError, 'changed the original'): replay.verify_sources(output)
+        with patch.object(replay, 'policy', return_value=pin), self.assertRaisesRegex(ValueError, 'changed the original'):
+            replay.verify_sources(output)
 
     def test_changed_input_notice_or_existing_output_never_overwritten(self):
         for changed in ('hash', 'notice', 'existing'):
