@@ -165,6 +165,17 @@ wrong/missing origin, wrong challenge and incomplete rendering evidence. Native
 execution of this revised probe remains pending; ordinary-profile persistence
 and physical-device capture remain separate checks.
 
+The Windows candidate at `f453e59` passed frozen startup, API crash recovery,
+same-state restart, host-crash cleanup and immutable payload checks. Its visible
+status/log windows and tray actions passed, but the mounted-reader acknowledgement
+timed out: the standalone localhost frontend still requested the legacy API port
+8766 when the host had bound independent ports. Standalone HTML now explicitly
+selects same-origin API and WebSocket transport through its own gateway. Source
+development retains the existing localhost API port; LAN readers retain their
+page origin. Focused tests cover separate custom-port hosts, secure WebSockets
+and absence of the standalone marker. Native execution of this correction is
+still required; the failed candidate is not accepted for release.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),
