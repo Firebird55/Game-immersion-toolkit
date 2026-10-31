@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
 import queue
+import re
 import shutil
 import sqlite3
 import stat
@@ -27,15 +29,22 @@ CASE = 'authored-data-copy'
 RESUME_CASE = 'authored-data-copy-resume'
 RESUME_SCHEMA = 'proxy-r19-frozen-data-copy-resume-probe-v1'
 RESUME_SCOPE = 'authored-transcript-interrupted-copy-resume-with-living-coordinator'
+WAL_CASE = 'authored-data-copy-wal'
+WAL_SCHEMA = 'proxy-r19-frozen-data-copy-wal-probe-v1'
+WAL_SCOPE = 'authored-transcript-retained-wal-copy-with-living-coordinator'
+WAL_POLICY = 'no-checkpoint-on-close-per-open-readback'
+WAL_FILE_BYTES = 8 * 1024 * 1024
 PHASES = ('setup-closed', 'favorite-written', 'strict-drain-complete', 'writers-signaled',
           'copy-progress', 'copy-verified', 'source-resumed', 'final-strict-drain-complete',
           'final-writers-signaled', 'released')
 RESUME_PHASES = (*PHASES[:5], 'copy-interrupted', *PHASES[5:])
+WAL_PHASES = (*PHASES[:4], 'wal-set-observed', *PHASES[4:])
 FAILURES = frozenset({'fixture-unavailable', 'setup-close-unconfirmed', 'setup-still-open',
     'cohort-unconfirmed', 'owned-host-unconfirmed', 'copy-refused', 'copy-result-unconfirmed',
     'schema-unconfirmed', 'authored-rows-differ', 'pointer-changed', 'source-changed',
     'control-unavailable', 'control-invalid', 'lease-release-unconfirmed', 'interrupted-copy-unconfirmed',
-    'unexpected-data-copy-failure'})
+    'unexpected-data-copy-failure', 'wal-set-unavailable', 'wal-dependency-unconfirmed',
+    'wal-verification-cleanup-unconfirmed', 'sqlite-version-unavailable'})
 DATABASE_VERSIONS = {'data/transcript-v2.db': 0, 'data/lexirise/exports-v2.db': 0,
                      'data/lexirise/reading-cache-v2.db': 0}
 TABLE_COLUMNS = {
@@ -228,44 +237,93 @@ def seed_authored(path):
             raise DataCopyFailure('setup-close-unconfirmed')
 
 
-def verify_authored_snapshot(snapshot, target, expected):
-    """Read separate verification copies; never run store initialization here."""
-    for name, tables in TABLE_COLUMNS.items():
+@contextmanager
+def _verification_scope(target, retained=None):
+    if retained is None:
+        # Existing C3/C4 lifetime and error behavior stay unchanged.
         with tempfile.TemporaryDirectory(prefix='authored-semantic-', dir=target) as temporary:
-            database = Path(temporary)/'store.db'
+            record = {'root': Path(temporary), 'connection': None}
+            try:
+                yield record
+            finally:
+                if record['connection'] is not None:
+                    record['connection'].close()
+        return
+    record = {'root': Path(tempfile.mkdtemp(prefix='authored-wal-semantic-', dir=target)), 'connection': None}
+    retained.append(record)
+    try:
+        yield record
+    finally:
+        try:
+            if record['connection'] is not None:
+                record['connection'].close()
+                record['connection'] = None
+            shutil.rmtree(record['root'])
+        except BaseException:
+            # Retain the exact failed verification owner; no destructor/retry
+            # or successful metadata can silently dispose unknown cleanup.
+            raise DataCopyFailure('wal-verification-cleanup-unconfirmed') from None
+        retained.remove(record)
+
+
+def verify_authored_snapshot(snapshot, target, expected, *, retained=None):
+    """Read separate verification copies; never run store initialization here."""
+    for name in TABLE_COLUMNS:
+        with _verification_scope(target, retained) as record:
+            database = record['root']/'store.db'
             source = snapshot/name
             shutil.copy2(source, database)
             for suffix in ('-wal', '-shm'):
                 sidecar = source.with_name(source.name+suffix)
                 if sidecar.exists():
                     shutil.copy2(sidecar, database.with_name(database.name+suffix))
-            connection = sqlite3.connect(database.as_uri()+'?mode=ro', uri=True)
+            connection = record['connection'] = sqlite3.connect(database.as_uri()+'?mode=ro', uri=True)
             connection.row_factory = sqlite3.Row
-            try:
-                actual = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-                known = {**tables, **OPTIONAL_TABLE_COLUMNS.get(name, {})}
-                if (not set(tables) <= actual or not actual <= set(known)
-                        or connection.execute('PRAGMA user_version').fetchone()[0] != 0):
-                    raise DataCopyFailure('schema-unconfirmed')
-                for table in actual:
-                    columns = known[table]
-                    # Every identifier above is a fixed authored constant.
-                    found = tuple(row[1] for row in connection.execute('PRAGMA table_info('+table+')'))
-                    if found != columns:
-                        raise DataCopyFailure('schema-unconfirmed')
-                if name == 'data/transcript-v2.db':
-                    rows = [_row(TranscriptStore._row_to_line(row).model_dump(mode='json'))
-                            for row in connection.execute('SELECT * FROM transcript_lines ORDER BY id')]
-                    if rows != expected:
-                        raise DataCopyFailure('authored-rows-differ')
-            finally:
-                connection.close()
+            _verify_store(connection, name, expected)
+
+
+def _verify_store(connection, name, expected):
+    tables = TABLE_COLUMNS[name]
+    actual = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    known = {**tables, **OPTIONAL_TABLE_COLUMNS.get(name, {})}
+    if (not set(tables) <= actual or not actual <= set(known)
+            or connection.execute('PRAGMA user_version').fetchone()[0] != 0):
+        raise DataCopyFailure('schema-unconfirmed')
+    for table in actual:
+        found = tuple(row[1] for row in connection.execute('PRAGMA table_info('+table+')'))
+        if found != known[table]:
+            raise DataCopyFailure('schema-unconfirmed')
+    if name == 'data/transcript-v2.db':
+        rows = [_row(TranscriptStore._row_to_line(row).model_dump(mode='json'))
+                for row in connection.execute('SELECT * FROM transcript_lines ORDER BY id')]
+        if rows != expected:
+            raise DataCopyFailure('authored-rows-differ')
+
+
+def verify_main_only_transcript(source, target, expected, retained):
+    """Frozen private DB-only copy; never assert immutable on a live source."""
+    _guard_path(target, 'directory')
+    _guard_path(source, 'file')
+    try:
+        with _verification_scope(target, retained) as record:
+            database = record['root']/'store.db'
+            shutil.copy2(source, database)
+            connection = record['connection'] = sqlite3.connect(database.as_uri()+'?mode=ro&immutable=1', uri=True)
+            connection.row_factory = sqlite3.Row
+            _verify_store(connection, 'data/transcript-v2.db', expected)
+    except DataCopyFailure as error:
+        if error.code == 'wal-verification-cleanup-unconfirmed':
+            raise
+        raise DataCopyFailure('wal-dependency-unconfirmed') from None
 
 
 class _FrozenAuthoredDataRuntime:
     """Fixed writer admission only. The coordinator, not this adapter, owns leases."""
-    def __init__(self, layout, installation_id, observe):
+    def __init__(self, layout, installation_id, observe, *, wal_probe=False):
+        if type(wal_probe) is not bool:
+            raise DataCopyFailure('control-invalid')
         self.layout, self.installation_id, self.observe = layout, installation_id, observe
+        self.wal_probe = wal_probe
         self.runtime_id = 'authored-source'
         self.generation = self.drains = 0
         self.setup_open = self.active = self.poisoned = False
@@ -298,7 +356,10 @@ class _FrozenAuthoredDataRuntime:
         try:
             self.host = FrozenProbeHost(self.layout)
             self.cohorts.append(self.host)
-            self.host.start_registered(detached_console=True)
+            if self.wal_probe:
+                self.host.start_registered(detached_console=True, wal_probe=True)
+            else:
+                self.host.start_registered(detached_console=True)
             self.host.resume_registered()
             self.host.wait_services()
         except BaseException:
@@ -364,7 +425,7 @@ class _FrozenAuthoredDataRuntime:
 
 class _DataCopyProbe:
     def __init__(self, layout, stream, *, case=CASE):
-        if type(case) is not str or case not in {CASE, RESUME_CASE}:
+        if type(case) is not str or case not in {CASE, RESUME_CASE, WAL_CASE}:
             raise DataCopyFailure('control-invalid')
         FrozenProbeHost(layout)  # Existing exact-image/profile/private-root/dev-tool guards.
         self.outer, self.stream = layout, stream
@@ -378,6 +439,11 @@ class _DataCopyProbe:
         self.copy_attempts = self.authored_interruptions = self.partial_revalidations = 0
         self.partial_completed_files = 0
         self.same_plan_barrier_generation = self.copy_resumed = False
+        self.sqlite_version = ''
+        self.transcript_wal_bytes = self.transcript_shm_bytes = 0
+        self.wal_set_observed = self.wal_dependency = False
+        self.verification_ownership = []
+        self.core_copy_failure = None
         self.commands = queue.Queue(maxsize=1)
         def read():
             try:
@@ -393,7 +459,7 @@ class _DataCopyProbe:
     def emit(self, phase, *, failure='none'):
         adapter = self.adapter
         children = [child for host in adapter.cohorts for child in host.registered.values()] if adapter else []
-        value = {'schema': RESUME_SCHEMA if self.case == RESUME_CASE else SCHEMA,
+        value = {'schema': WAL_SCHEMA if self.case == WAL_CASE else RESUME_SCHEMA if self.case == RESUME_CASE else SCHEMA,
             'kind': 'data-copy', 'case': self.case, 'phase': phase,
             'status': 'failed' if failure != 'none' else 'passed' if phase == 'released' else 'observing',
             'failure': failure, 'source_commit': self.outer.source_commit, 'build_id': self.outer.build_id,
@@ -419,10 +485,16 @@ class _DataCopyProbe:
                 partial_revalidations=self.partial_revalidations,
                 same_plan_barrier_generation=self.same_plan_barrier_generation,
                 copy_resumed=self.copy_resumed)
+        if self.case == WAL_CASE:
+            value.update(scope=WAL_SCOPE, sqlite_policy=WAL_POLICY, sqlite_version=self.sqlite_version,
+                sqlite_version_scope='frozen-coordinator',
+                transcript_wal_bytes=self.transcript_wal_bytes, transcript_shm_bytes=self.transcript_shm_bytes,
+                wal_set='nonempty-after-retained-signals' if self.wal_set_observed else 'not-run',
+                wal_dependency='main-only-false-full-set-true' if self.wal_dependency else 'not-run')
         print(json.dumps(value, separators=(',', ':')), flush=True)
 
     def observe(self, phase):
-        phases = RESUME_PHASES if self.case == RESUME_CASE else PHASES
+        phases = WAL_PHASES if self.case == WAL_CASE else RESUME_PHASES if self.case == RESUME_CASE else PHASES
         if phase not in phases or phase == 'released':
             raise DataCopyFailure('control-invalid')
         self.phase = phase
@@ -443,6 +515,11 @@ class _DataCopyProbe:
             raise DataCopyFailure('pointer-changed')
 
     def prepare(self):
+        if self.case == WAL_CASE:
+            version = sqlite3.sqlite_version
+            if type(version) is not str or re.fullmatch(r'[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}', version) is None:
+                raise DataCopyFailure('sqlite-version-unavailable')
+            self.sqlite_version = version
         work = self.outer.work_root
         temporary = Path(tempfile.gettempdir()).resolve()
         if work == temporary or not work.is_relative_to(temporary):
@@ -458,7 +535,8 @@ class _DataCopyProbe:
         layout.state_root.mkdir()
         (layout.state_root/'synthetic-probe.json').write_text(
             json.dumps({'build_id': layout.build_id, 'synthetic': True}), encoding='utf-8')
-        self.adapter = _FrozenAuthoredDataRuntime(layout, self.source.installation_id, self.observe)
+        self.adapter = _FrozenAuthoredDataRuntime(layout, self.source.installation_id, self.observe,
+                                                wal_probe=self.case == WAL_CASE)
         self.coordinator = _ProbeCoordinator(self.source, self.target, self.adapter)
         self.enter_attempted = True
         self.coordinator.__enter__()
@@ -467,6 +545,8 @@ class _DataCopyProbe:
         self.adapter.setup_open = True
         try:
             self.expected = seed_authored(layout.data_root/'transcript-v2.db')
+            if self.case == WAL_CASE:
+                self.main_only_expected = json.loads(json.dumps(self.expected))
             (layout.data_root/'authored-payload.bin').write_bytes(b'R19 authored bytes only\x00\xff')
         except BaseException as error:
             if isinstance(error, DataCopyFailure) and error.code == 'setup-close-unconfirmed':
@@ -487,6 +567,13 @@ class _DataCopyProbe:
                 if group == 'data':
                     files.add('companion-operation.lock')  # Metadata only; the core inventory skips the held lease.
             _guard_tree(self.source.path/group, missing=True, files=files, directories=directories, sizes=sizes)
+
+    def _guard_wal_file_bounds(self):
+        for name in DATABASE_VERSIONS:
+            for suffix in ('', '-wal', '-shm'):
+                info = _guard_path(self.source.path/(name+suffix), 'file', missing=True)
+                if info is not None and info.st_size > WAL_FILE_BYTES:
+                    raise DataCopyFailure('wal-set-unavailable')
 
     def _confirm_source_authority(self, plan, barrier, baseline, generation, leases):
         """Recheck actual authority on failure, never infer cause from a core code."""
@@ -516,7 +603,15 @@ class _DataCopyProbe:
     def _invoke_copy(self, plan, barrier, baseline, generation, leases, **options):
         try:
             return migration.copy_and_verify_synthetic(plan, barrier, **options)
-        except BaseException:
+        except BaseException as error:
+            if self.case == WAL_CASE:
+                # The unchanged helper also opens integrity-verification copies.
+                # Its exception may mean failed close/cleanup, even while source
+                # bytes still match. Keep the original private traceback/context
+                # owner alive; never classify C5 helper failure as safe release.
+                self.core_copy_failure = error
+                self.adapter.poisoned = True
+                raise
             # Includes the exact planned sentinel. A target binding mismatch
             # can share a core error code with source change; inspect real state.
             self._confirm_source_authority(plan, barrier, baseline, generation, leases)
@@ -598,6 +693,24 @@ class _DataCopyProbe:
             raise DataCopyFailure('interrupted-copy-unconfirmed')
         return result, progress
 
+    def _observe_wal_set(self, plan, barrier, baseline, generation, leases):
+        self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+        files = {item['name']: item['size'] for item in baseline[0]}
+        for name in DATABASE_VERSIONS:
+            for suffix in ('', '-wal', '-shm'):
+                if files.get(name+suffix, 0) > WAL_FILE_BYTES:
+                    raise DataCopyFailure('wal-set-unavailable')
+        name = 'data/transcript-v2.db'
+        wal, shm = files.get(name+'-wal', 0), files.get(name+'-shm', 0)
+        if wal <= 32 or shm <= 0:
+            raise DataCopyFailure('wal-set-unavailable')
+        verify_main_only_transcript(self.source.path/name, self.target.path, self.main_only_expected,
+                                    self.verification_ownership)
+        self.transcript_wal_bytes, self.transcript_shm_bytes = wal, shm
+        self.wal_set_observed = True
+        self.observe('wal-set-observed')
+        self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+
     def exercise(self):
         self.adapter.start()
         first = self.expected[0]
@@ -614,6 +727,8 @@ class _DataCopyProbe:
             with self.coordinator.stopped_writers(self.coordinator.owner) as barrier:
                 try:
                     self._guard_source_groups()
+                    if self.case == WAL_CASE:
+                        self._guard_wal_file_bounds()
                     baseline = migration._source_inventory(plan)
                 except BaseException:
                     self.adapter.poisoned = True
@@ -621,13 +736,21 @@ class _DataCopyProbe:
                 generation = self.adapter.write_generation()
                 leases = (self.coordinator._legacy_lease, self.coordinator._target_lease)
                 try:
+                    if self.case == WAL_CASE:
+                        self._observe_wal_set(plan, barrier, baseline, generation, leases)
                     result, progress = self._copy(plan, barrier, baseline)
                     if (result.get('state') != 'verified' or result.get('activation_allowed') is not False
                             or result.get('migration_acceptance') != 'incomplete' or not progress):
                         raise DataCopyFailure('copy-result-unconfirmed')
                     snapshot = self.target.path/'staging'/plan.migration_id
                     _guard_snapshot(snapshot, *baseline)
-                    verify_authored_snapshot(snapshot, self.target.path, self.expected)
+                    if self.case == WAL_CASE:
+                        verify_authored_snapshot(snapshot, self.target.path, self.expected,
+                                                 retained=self.verification_ownership)
+                    else:
+                        verify_authored_snapshot(snapshot, self.target.path, self.expected)
+                    if self.case == WAL_CASE:
+                        self.wal_dependency = True
                     self._confirm_source_authority(plan, barrier, baseline, generation, leases)
                     migration._verify_snapshot(snapshot, *baseline)
                     self.wal_files = sum((snapshot/name).with_name(Path(name).name+'-wal').is_file() for name in DATABASE_VERSIONS)
@@ -636,6 +759,8 @@ class _DataCopyProbe:
                     self.observe('copy-verified')
                     self._confirm_source_authority(plan, barrier, baseline, generation, leases)
                 except BaseException:
+                    if self.case == WAL_CASE and self.verification_ownership:
+                        self.adapter.poisoned = True
                     if not self.adapter.poisoned:
                         self._confirm_source_authority(plan, barrier, baseline, generation, leases)
                         failure_source_confirmed = True
@@ -693,12 +818,14 @@ class _DataCopyProbe:
             if self.entered and not self.release_attempted:
                 try:
                     failure = {
-                        'schema': RESUME_SCHEMA if self.case == RESUME_CASE else SCHEMA,
+                        'schema': WAL_SCHEMA if self.case == WAL_CASE else RESUME_SCHEMA if self.case == RESUME_CASE else SCHEMA,
                         'status': 'failed', 'failure': code, 'phase': self.phase,
                         'source_commit': self.outer.source_commit, 'build_id': self.outer.build_id,
                         'target_activation': False, 'r19_complete': False}
                     if self.case == RESUME_CASE:
                         failure.update(case=self.case, scope=RESUME_SCOPE)
+                    if self.case == WAL_CASE:
+                        failure.update(case=self.case, scope=WAL_SCOPE)
                     failure_path = self.target.path/'host-v1/data-copy-failure.json'
                     _guard_path(failure_path.parent, 'directory')
                     _guard_path(failure_path, 'file', missing=True)

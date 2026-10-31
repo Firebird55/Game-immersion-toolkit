@@ -1,11 +1,14 @@
 param([Parameter(Mandatory=$true)][string]$RuntimeRoot,
       [Parameter(Mandatory=$true)][string]$Provenance,
-      [ValidateSet('authored-data-copy','authored-data-copy-resume')][string]$ProbeCase='authored-data-copy',
+      [ValidateSet('authored-data-copy','authored-data-copy-resume','authored-data-copy-wal')][string]$ProbeCase='authored-data-copy',
       [string]$Output=(Join-Path $PSScriptRoot '../output/checks/r19-frozen-data-copy.json'))
 $ErrorActionPreference='Stop'
-if ($ProbeCase -cnotin @('authored-data-copy','authored-data-copy-resume')) { throw 'Unknown fixed authored data-copy case.' }
+if ($ProbeCase -cnotin @('authored-data-copy','authored-data-copy-resume','authored-data-copy-wal')) { throw 'Unknown fixed authored data-copy case.' }
 if ($ProbeCase -ceq 'authored-data-copy-resume' -and -not $PSBoundParameters.ContainsKey('Output')) {
     $Output=Join-Path $PSScriptRoot '../output/checks/r19-frozen-data-copy-resume.json'
+}
+if ($ProbeCase -ceq 'authored-data-copy-wal' -and -not $PSBoundParameters.ContainsKey('Output')) {
+    $Output=Join-Path $PSScriptRoot '../output/checks/r19-frozen-data-copy-wal.json'
 }
 Remove-Item -LiteralPath $Output -Force -ErrorAction SilentlyContinue
 if ($PSVersionTable.PSEdition -ne 'Core' -or -not $IsWindows) { throw 'The authored data-copy harness requires Windows PowerShell 7 on the build host.' }
@@ -97,7 +100,7 @@ function Read-DataCopyControlLine($Reader, [int]$TimeoutMilliseconds=120000, [bo
     }
 }
 
-function Get-DataCopyRoots([string]$TemporaryRoot, [ValidateSet('authored-data-copy','authored-data-copy-resume')][string]$Case='authored-data-copy') {
+function Get-DataCopyRoots([string]$TemporaryRoot, [ValidateSet('authored-data-copy','authored-data-copy-resume','authored-data-copy-wal')][string]$Case='authored-data-copy') {
     $private=Join-Path (Join-Path $TemporaryRoot 'empty-host') $Case
     return @{PROXY_TRANSCRIPT_SETTINGS_ROOT=$private;PROXY_TRANSCRIPT_DATA_ROOT=(Join-Path $private 'data-v1');
         PROXY_TRANSCRIPT_CACHE_ROOT=(Join-Path $private 'cache-v1');PROXY_TRANSCRIPT_WORK_ROOT=(Join-Path $private 'cache-v1/work');
@@ -118,9 +121,11 @@ function Assert-DataCopyLeases([ValidateSet('open','blocked')][string]$Expected)
     if ($Expected -eq 'blocked') { $script:sourceBlocks++ }
 }
 function Read-DataCopyEvent([string]$Phase) {
-    if ($script:ProbeCase -cnotin @('authored-data-copy','authored-data-copy-resume')) { throw 'Unknown fixed authored data-copy case.' }
+    if ($script:ProbeCase -cnotin @('authored-data-copy','authored-data-copy-resume','authored-data-copy-wal')) { throw 'Unknown fixed authored data-copy case.' }
     $resumeCase=$script:ProbeCase -ceq 'authored-data-copy-resume'
+    $walCase=$script:ProbeCase -ceq 'authored-data-copy-wal'
     if ($Phase -ceq 'copy-interrupted' -and -not $resumeCase) { throw 'Only the fixed resume case can observe an interruption.' }
+    if ($Phase -ceq 'wal-set-observed' -and -not $walCase) { throw 'Only the fixed WAL case can observe a retained WAL set.' }
     $line=Read-DataCopyControlLine $script:controlReader
     if (-not $line) { throw 'Authored data-copy event is unavailable.' }
     $value=$line | ConvertFrom-Json
@@ -131,7 +136,9 @@ function Read-DataCopyEvent([string]$Phase) {
         'r19_complete','keeper_loss','dynamic_writer_admission','warm_routing','credentials','browser','installer')
     if ($resumeCase) { $keys+=@('scope','copy_attempts','authored_interruptions','partial_completed_files',
         'partial_revalidations','same_plan_barrier_generation','copy_resumed') }
-    $schema=if ($resumeCase) {'proxy-r19-frozen-data-copy-resume-probe-v1'} else {'proxy-r19-frozen-data-copy-probe-v1'}
+    if ($walCase) { $keys+=@('scope','sqlite_policy','sqlite_version','sqlite_version_scope',
+        'transcript_wal_bytes','transcript_shm_bytes','wal_set','wal_dependency') }
+    $schema=if ($walCase) {'proxy-r19-frozen-data-copy-wal-probe-v1'} elseif ($resumeCase) {'proxy-r19-frozen-data-copy-resume-probe-v1'} else {'proxy-r19-frozen-data-copy-probe-v1'}
     if ($null -eq $value -or @(Compare-Object $keys @($value.PSObject.Properties.Name) -CaseSensitive).Count -or
         $value.schema -cne $schema -or $value.kind -cne 'data-copy' -or
         $value.case -cne $script:ProbeCase -or $value.source_commit -cne $proof.source_commit -or
@@ -176,10 +183,28 @@ function Read-DataCopyEvent([string]$Phase) {
         }
         if ($value.authored_interruptions -gt 1 -or $value.partial_completed_files -gt 1) { throw 'Authored interruption count differs.' }
     }
+    if ($walCase) {
+        foreach ($name in @('scope','sqlite_policy','sqlite_version','sqlite_version_scope','wal_set','wal_dependency')) {
+            if ($value.$name -isnot [string]) { throw 'Authored WAL string is unavailable.' }
+        }
+        if ($value.scope -cne 'authored-transcript-retained-wal-copy-with-living-coordinator' -or
+            $value.sqlite_policy -cne 'no-checkpoint-on-close-per-open-readback' -or
+            $value.sqlite_version_scope -cne 'frozen-coordinator' -or
+            $value.sqlite_version -cnotmatch '\A[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}\z' -or
+            $value.wal_set -cnotin @('not-run','nonempty-after-retained-signals') -or
+            $value.wal_dependency -cnotin @('not-run','main-only-false-full-set-true')) { throw 'Authored WAL scope differs.' }
+        foreach ($name in @('transcript_wal_bytes','transcript_shm_bytes')) {
+            if (($value.$name -isnot [int] -and $value.$name -isnot [long]) -or $value.$name -lt 0 -or $value.$name -gt 8388608) {
+                throw 'Authored WAL byte bound differs.'
+            }
+        }
+    }
     $failures=@('fixture-unavailable','setup-close-unconfirmed','setup-still-open','cohort-unconfirmed',
         'owned-host-unconfirmed','copy-refused','copy-result-unconfirmed','schema-unconfirmed','authored-rows-differ',
         'pointer-changed','source-changed','control-unavailable','control-invalid','lease-release-unconfirmed',
         'interrupted-copy-unconfirmed','unexpected-data-copy-failure')
+    if ($walCase) { $failures+=@('wal-set-unavailable','wal-dependency-unconfirmed',
+        'wal-verification-cleanup-unconfirmed','sqlite-version-unavailable') }
     if ($value.phase -ceq 'recovery-required' -and $value.status -ceq 'failed' -and $value.failure -cin $failures) {
         $script:failureCategory=$value.failure
         throw 'Authored data-copy owner requires recovery.'
@@ -190,6 +215,7 @@ function Read-DataCopyEvent([string]$Phase) {
         'favorite-written' { @(1,2,2,0,0) }
         'strict-drain-complete' { @(1,2,2,0,1) }
         'writers-signaled' { @(1,2,2,2,1) }
+        'wal-set-observed' { @(1,2,2,2,1) }
         'copy-progress' { @(1,2,2,2,1) }
         'copy-interrupted' { @(1,2,2,2,1) }
         'copy-verified' { @(1,2,2,2,1) }
@@ -221,7 +247,21 @@ function Read-DataCopyEvent([string]$Phase) {
             throw 'Authored copy-resume verification order differs.'
         }
     }
-    if ($Phase -eq 'released') { $script:walFiles=$value.wal_files; $script:shmFiles=$value.shm_files }
+    if ($walCase) {
+        $walObserved=$verified -or $Phase -cin @('wal-set-observed','copy-progress')
+        if ($value.wal_set -cne $(if ($walObserved) {'nonempty-after-retained-signals'} else {'not-run'}) -or
+            $value.wal_dependency -cne $(if ($verified) {'main-only-false-full-set-true'} else {'not-run'}) -or
+            ($walObserved -and ($value.transcript_wal_bytes -le 32 -or $value.transcript_shm_bytes -le 0)) -or
+            (-not $walObserved -and ($value.transcript_wal_bytes -ne 0 -or $value.transcript_shm_bytes -ne 0)) -or
+            ($verified -and ($value.wal_files -lt 1 -or $value.shm_files -lt 1))) { throw 'Authored WAL verification order differs.' }
+    }
+    if ($Phase -eq 'released') {
+        $script:walFiles=$value.wal_files; $script:shmFiles=$value.shm_files
+        if ($walCase) {
+            $script:sqliteVersion=$value.sqlite_version
+            $script:transcriptWalBytes=$value.transcript_wal_bytes; $script:transcriptShmBytes=$value.transcript_shm_bytes
+        }
+    }
 }
 function Write-DataCopyReceipt([string]$Status) {
     $receipt=[ordered]@{schema='proxy-r19-frozen-data-copy-receipt-v1';status=$Status;source_commit=$proof.source_commit;
@@ -256,6 +296,30 @@ function Write-DataCopyReceipt([string]$Status) {
         $receipt['partial_revalidations']=$(if ($Status -ceq 'passed') {2} else {0})
         $receipt['resume_authority']=$(if ($Status -ceq 'passed') {'same-live-owner-plan-barrier-generation-leases'} else {'not-approved'})
     }
+    if ($script:ProbeCase -ceq 'authored-data-copy-wal') {
+        if ($Status -ceq 'passed') {
+            foreach ($count in @($sourceBlocks,$walFiles,$shmFiles,$transcriptWalBytes,$transcriptShmBytes)) {
+                if ($count -isnot [int] -and $count -isnot [long]) { throw 'Authored WAL receipt integer differs.' }
+            }
+        }
+        if ($Status -ceq 'passed' -and ($sourceBlocks -ne 10 -or $walFiles -lt 1 -or $shmFiles -lt 1 -or
+            $walFiles -gt 3 -or $shmFiles -gt 3 -or
+            $transcriptWalBytes -le 32 -or $transcriptWalBytes -gt 8388608 -or
+            $transcriptShmBytes -le 0 -or $transcriptShmBytes -gt 8388608 -or
+            $sqliteVersion -isnot [string] -or $sqliteVersion -cnotmatch '\A[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}\z')) {
+            throw 'Authored WAL receipt proof is incomplete.'
+        }
+        $receipt.schema='proxy-r19-frozen-data-copy-wal-receipt-v1'
+        $receipt.case='authored-data-copy-wal'
+        $receipt.scope='authored-transcript-retained-wal-copy-with-living-coordinator'
+        $receipt['copy_model']='one-plain-copy-without-injected-interruption'
+        $receipt['sqlite_policy']='no-checkpoint-on-close-per-open-readback'
+        $receipt['sqlite_version']=$sqliteVersion
+        $receipt['sqlite_version_scope']='frozen-coordinator'
+        $receipt['transcript_wal_bytes']=$transcriptWalBytes; $receipt['transcript_shm_bytes']=$transcriptShmBytes
+        $receipt['wal_set']=$(if ($Status -ceq 'passed') {'nonempty-after-retained-signals'} else {'not-approved'})
+        $receipt['wal_dependency']=$(if ($Status -ceq 'passed') {'main-only-false-full-set-true'} else {'not-approved'})
+    }
     New-Item -ItemType Directory -Path (Split-Path $Output) -Force | Out-Null
     $receipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $Output -Encoding utf8NoBOM
 }
@@ -285,6 +349,7 @@ Assert-SlotInventory $RuntimeRoot $proof
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('R19 data copy space 漢字 '+[guid]::NewGuid().ToString('N'))
 $owned=[Collections.Generic.List[Diagnostics.Process]]::new();$controlReader=$null;$stderrDiscard=$null
 $ownerExitConfirmed=$false;$sourceBlocks=0;$walFiles=0;$shmFiles=0;$stage='prepare';$failureCategory='harness-unconfirmed';$failed=$false
+$sqliteVersion='';$transcriptWalBytes=0;$transcriptShmBytes=0
 $roots=Get-DataCopyRoots $temporary $ProbeCase
 New-Item -ItemType Directory -Path (Join-Path $temporary 'empty-host'),$roots.PROXY_TRANSCRIPT_STATE_ROOT -Force | Out-Null
 @{build_id=$proof.build_id;synthetic=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $roots.PROXY_TRANSCRIPT_STATE_ROOT 'synthetic-probe.json') -Encoding utf8NoBOM
@@ -294,7 +359,9 @@ $leasePaths=@((Join-Path $legacyRoot 'data/companion-operation.lock'),(Join-Path
 try {
     Assert-DataCopyPortsFree
     $process=Start-DataCopyOwner
-    $phases=@('setup-closed','favorite-written','strict-drain-complete','writers-signaled','copy-progress')
+    $phases=@('setup-closed','favorite-written','strict-drain-complete','writers-signaled')
+    if ($ProbeCase -ceq 'authored-data-copy-wal') { $phases+=@('wal-set-observed') }
+    $phases+=@('copy-progress')
     if ($ProbeCase -ceq 'authored-data-copy-resume') { $phases+=@('copy-interrupted') }
     $phases+=@('copy-verified','source-resumed','final-strict-drain-complete','final-writers-signaled')
     foreach ($phase in $phases) {

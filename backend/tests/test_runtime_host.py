@@ -298,6 +298,26 @@ def test_registered_detached_mode_is_explicit_for_both_fixed_writers(registered)
     host.close()
 
 
+def test_registered_wal_choice_changes_only_the_fixed_api_probe(registered, layout):
+    host, calls, _ = registered
+    host.start_registered(detached_console=True, wal_probe=True)
+    creation = [call for call in calls if call[0] == 'create']
+    assert creation[0][2] == layout.child_command('frontend', ['--port', '3000'])
+    assert creation[1][2] == [str(layout.executable), '--runtime-probe', 'api-wal']
+    assert all(call[3]['detached_console'] is True for call in creation)
+    assert not any(call[0] == 'resume' for call in calls)
+    host.resume_registered(); host.close()
+    assert calls[-3:] == [('stop', 101), ('stop', 102), 'job-close']
+
+
+@pytest.mark.parametrize('value', [None, 0, 1, 'true', 'api-wal', [], {}])
+def test_registered_wal_choice_refuses_non_bool_before_any_native_creation(registered, value):
+    host, calls, _ = registered
+    with pytest.raises(runtime_host.HostProbeFailure, match='invalid-private-probe-case'):
+        host.start_registered(wal_probe=value)
+    assert host.tree is None and host.scratch is None and not calls
+
+
 def test_registered_unknown_same_image_member_cannot_be_drained_or_adopted(registered):
     host, calls, members = registered
     host.start_registered()

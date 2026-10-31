@@ -10,6 +10,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import zipfile
 
 import pytest
@@ -130,6 +131,44 @@ def test_durable_settings_cannot_be_equal_to_or_below_disposable_roots(tmp_path)
         with pytest.raises(bundle.RuntimeBundleError, match='Settings root'):
             replace(layout, settings_root=selected)
     assert layout.settings_root in layout.cache_root.parents, 'The intended settings parent may contain disposable sibling groups'
+
+
+@pytest.mark.parametrize('kind', ['api', 'api-wal'])
+def test_fixed_api_probe_dispatch_keeps_experimental_main_image_gate(tmp_path, monkeypatch, kind):
+    layout = frozen_layout(tmp_path, profile='runtime-experiment')
+    calls = []
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(bundle_entry, 'import_module', lambda name: SimpleNamespace(
+        main=lambda probe_kind, current: calls.append((name, probe_kind, current)) or 17))
+    assert bundle_entry.main(['--runtime-probe', kind]) == 17
+    assert calls == [('backend.runtime_probe', kind, layout)]
+    for forbidden in (replace(layout, profile='runtime'), replace(layout, profile='diagnostic'),
+                      replace(layout, executable=layout.application_root/'ProxyTranscriptAsr.exe')):
+        monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: forbidden)
+        with pytest.raises(bundle.RuntimeBundleError): bundle_entry.main(['--runtime-probe', kind])
+    assert len(calls) == 1 and 'api-wal' not in bundle_entry.CHILD_TARGETS
+    for arguments in (['--runtime-probe', 'api-wal-extra'], ['--runtime-probe', kind, 'extra']):
+        with pytest.raises(bundle.RuntimeBundleError): bundle_entry.main(arguments)
+
+
+def test_fixed_wal_probe_requires_exact_supplier_before_api_start(tmp_path, monkeypatch):
+    from backend import runtime_probe
+    layout = frozen_layout(tmp_path, profile='runtime-experiment')
+    layout.state_root.mkdir(parents=True)
+    (layout.state_root/'synthetic-probe.json').write_text(json.dumps({'build_id': layout.build_id, 'synthetic': True}))
+    calls = []
+    monkeypatch.setattr(runtime_probe, 'sys', SimpleNamespace(platform='win32', version_info=(3,12,16),
+        addaudithook=lambda hook: calls.append('audit')))
+    monkeypatch.setattr(runtime_probe, 'developer_environment', lambda: None)
+    monkeypatch.setattr(runtime_probe, 'api', lambda current, **options: calls.append((current, options)) or 23)
+    assert runtime_probe.main('api-wal', layout) == 23
+    assert calls[-1] == (layout, {'wal_probe': True})
+    monkeypatch.setattr(runtime_probe.sys, 'version_info', (3,12,15))
+    with pytest.raises(bundle.RuntimeBundleError, match='exact reviewed Python supplier'):
+        runtime_probe.main('api-wal', layout)
+    assert runtime_probe.main('api', layout) == 23 and calls[-1] == (layout, {'wal_probe': False})
+    supplier = json.loads((Path(__file__).parents[2]/'packaging/runtime-bundle/python-supplier.json').read_text())
+    assert supplier['version'] == '3.12.16'
 
 
 def test_children_use_fixed_dispatch_and_keep_arguments_opaque(tmp_path):

@@ -7,8 +7,11 @@ from __future__ import annotations
 
 import importlib
 import json
+from contextlib import contextmanager
+from pathlib import Path
 import subprocess
 import sys
+import threading
 
 from .runtime_bundle import EXPERIMENT_CHILDREN, RuntimeBundleError
 from .runtime_probe_common import synthetic_roots, block_remote_access, loaded_native, developer_environment
@@ -67,9 +70,85 @@ def native(layout):
         'voice_refresh': 'not-run; game helper rights gate open', 'loaded_native': loaded_native(layout)}
 
 
-def api(layout):
+class _AuthoredWalConnections:
+    """Only the three fixed authored stores; no successful connection retention."""
+    def __init__(self, layout, connect):
+        import sqlite3
+        from .runtime_data_copy_probe import _guard_path
+        self.guard = _guard_path
+        self.guard(layout.data_root, 'directory')
+        self.root = layout.data_root
+        self.paths = {self.root/'transcript-v2.db': 'transcript',
+            self.root/'lexirise/exports-v2.db': 'exports',
+            self.root/'lexirise/reading-cache-v2.db': 'reading'}
+        self.original = connect
+        self.configured = set()
+        self.opens = 0
+        self.lock = threading.Lock()
+        if (not callable(getattr(sqlite3.Connection, 'setconfig', None))
+                or not callable(getattr(sqlite3.Connection, 'getconfig', None))
+                or type(getattr(sqlite3, 'SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE', None)) is not int):
+            raise RuntimeBundleError('Authored WAL configuration is unavailable.')
+        self.option = sqlite3.SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE
+
+    def connect(self, database, *args, **options):
+        # No caller-controlled URI, memory database, factory or alternate root.
+        if (not isinstance(database, (str, Path)) or args or 'uri' in options or 'factory' in options
+                or type(database) is str and (database.startswith('file:') or database == ':memory:')):
+            raise RuntimeBundleError('Authored WAL database selection differs.')
+        path = Path(database)
+        if path not in self.paths:
+            raise RuntimeBundleError('Authored WAL database selection differs.')
+        self.guard(self.root, 'directory')
+        self.guard(path, 'file', missing=True)  # Raw ancestors before resolve/open.
+        if path.resolve() != path:
+            raise RuntimeBundleError('Authored WAL database identity differs.')
+        with self.lock:
+            if self.opens >= 256:
+                raise RuntimeBundleError('Authored WAL connection bound exceeded.')
+            self.opens += 1
+        connection = self.original(database, **options)
+        try:
+            connection.setconfig(self.option, True)
+            if connection.getconfig(self.option) is not True:
+                raise RuntimeBundleError('Authored WAL configuration readback differs.')
+        except BaseException:
+            try:
+                connection.close()
+            except BaseException:
+                raise RuntimeBundleError('Authored WAL connection cleanup is unconfirmed.') from None
+            raise RuntimeBundleError('Authored WAL configuration is unavailable.') from None
+        with self.lock:
+            self.configured.add(self.paths[path])
+        return connection
+
+    def require_stores(self):
+        with self.lock:
+            if self.configured != {'transcript', 'exports', 'reading'}:
+                raise RuntimeBundleError('Authored WAL constructor configuration is incomplete.')
+
+    def begin_constructor(self):
+        with self.lock:
+            if self.opens or self.configured:
+                raise RuntimeBundleError('Authored WAL stores opened before the fixed Runtime constructor.')
+
+
+@contextmanager
+def _authored_wal_connections(layout):
+    import sqlite3
+    from unittest.mock import patch
+    policy = _AuthoredWalConnections(layout, sqlite3.connect)
+    with patch.object(sqlite3, 'connect', policy.connect):
+        yield policy
+
+
+def api(layout, *, wal_probe=False):
     # Patch external side effects only in this fixed probe process. The ordinary
     # API child is unchanged. Its real Runtime, SQLite, routes and WS run here.
+    if type(wal_probe) is not bool:
+        raise RuntimeBundleError('Unknown fixed authored API policy.')
+    if wal_probe and 'backend.api' in sys.modules:
+        raise RuntimeBundleError('Authored WAL API import was not isolated.')
     from unittest.mock import patch
     from contextlib import ExitStack
     from . import game_paths
@@ -77,7 +156,22 @@ def api(layout):
     with ExitStack() as stack:
         for name in ('discover_install', 'configured_install'):
             stack.enter_context(patch.object(game_paths, name, lambda *_a, **_k: None))
-        from . import api as service
+        policy = stack.enter_context(_authored_wal_connections(layout)) if wal_probe else None
+        if wal_probe and 'backend.api' in sys.modules:
+            raise RuntimeBundleError('Authored WAL API import was not isolated.')
+        service = importlib.import_module('backend.api')
+        if policy is not None:
+            initialize = service.Runtime.__init__
+            constructed = False
+            def authored_runtime(runtime):
+                nonlocal constructed
+                if constructed:
+                    raise RuntimeBundleError('Authored WAL runtime was already initialized.')
+                constructed = True
+                policy.begin_constructor()
+                initialize(runtime)
+                policy.require_stores()  # All three actual constructor paths, before readiness.
+            stack.enter_context(patch.object(service.Runtime, '__init__', authored_runtime))
         async def no_ocr(_self):
             return None
         stack.enter_context(patch.object(service.Runtime, 'start_updates', lambda _self: None))
@@ -94,8 +188,10 @@ def main(kind, layout):
     synthetic_roots(layout)
     developer_environment()
     sys.addaudithook(block_remote_access)
-    if kind == 'api':
-        return api(layout)
+    if kind in {'api', 'api-wal'}:
+        if kind == 'api-wal' and sys.version_info[:3] != (3, 12, 16):
+            raise RuntimeBundleError('Authored WAL probe requires its exact reviewed Python supplier.')
+        return api(layout, wal_probe=kind == 'api-wal')
     try:
         details = native(layout)
     except Exception as error:

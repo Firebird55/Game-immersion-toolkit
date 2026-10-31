@@ -327,8 +327,10 @@ class FrozenProbeHost:
         self.recovery_required = True
         raise HostProbeFailure(code)
 
-    def start_registered(self, *, detached_console=False):
+    def start_registered(self, *, detached_console=False, wal_probe=False):
         """Create the two fixed actual writers before resuming either of them."""
+        if type(wal_probe) is not bool:
+            raise HostProbeFailure('invalid-private-probe-case')
         if self.tree is not None or self.closed:
             raise HostProbeFailure('host-already-started-or-closed')
         self.registered_mode = True
@@ -336,7 +338,7 @@ class FrozenProbeHost:
         self.scratch = Path(tempfile.mkdtemp(prefix='registered-host-', dir=self.layout.work_root))
         self.tree = WindowsPreparationProcess()
         commands = [('frontend', self.layout.child_command('frontend', ['--port', '3000'])),
-                    ('api', [str(self.layout.executable), '--runtime-probe', 'api'])]
+                    ('api', [str(self.layout.executable), '--runtime-probe', 'api-wal' if wal_probe else 'api'])]
         try:
             for role, command in commands:
                 environment = self.layout.child_environment(role)
@@ -822,7 +824,7 @@ def main(kind, layout):
     # Fixed authored test controls only. Nothing is accepted by a production
     # child or API; the full runtime profile and source launcher stay unchanged.
     case = sys.stdin.readline().strip()
-    if case in {'authored-data-copy', 'authored-data-copy-resume'}:
+    if case in {'authored-data-copy', 'authored-data-copy-resume', 'authored-data-copy-wal'}:
         from .runtime_data_copy_probe import run as data_copy_probe
         return data_copy_probe(layout, sys.stdin, case=case)
     if case in {'keeper-before-resume', 'keeper-after-ready'}:

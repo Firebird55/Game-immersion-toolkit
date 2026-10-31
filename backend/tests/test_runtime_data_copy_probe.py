@@ -1,17 +1,21 @@
 """Authored SQLite/ordering fixtures. Frozen Win32 process proof is separate."""
 from contextlib import closing, contextmanager
 import io
+import gc
 import json
 from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
 import tempfile
+import weakref
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
 from backend import runtime_data_copy_probe as probe
+from backend import runtime_probe
 from backend.bundle_host import HostProbeError
 from backend.lexirise import LexiriseService
 from backend.reading import LexiriseReadingService
@@ -36,13 +40,30 @@ def fixture(tmp_path, monkeypatch):
             self.registered = {}
             self.closed = self.recovery_required = False
             self.tree = object()
-        def start_registered(self, *, detached_console):
+        def start_registered(self, *, detached_console, wal_probe=False):
             assert detached_console is True
+            assert type(wal_probe) is bool
+            self.wal_probe = wal_probe
             calls.append(('create', self))
             self.registered = {role: SimpleNamespace(created=True, resumed=False, exited=False, closed=False)
                                for role in ('frontend', 'api')}
-            self.exports = LexiriseService(self.layout.data_root/'lexirise')
-            self.reading = LexiriseReadingService(self.layout.data_root/'lexirise', self.exports)
+            def initialize():
+                connections = []
+                try:
+                    probe._SetupStore(self.layout.data_root/'transcript-v2.db', connections)
+                finally:
+                    for connection in connections: connection.close()
+                self.exports = LexiriseService(self.layout.data_root/'lexirise')
+                self.reading = LexiriseReadingService(self.layout.data_root/'lexirise', self.exports)
+            if wal_probe:
+                with runtime_probe._authored_wal_connections(self.layout) as policy:
+                    initialize()
+                    policy.require_stores()
+                self.wal_policy = policy
+            else:
+                # Keep the original control's store initialization unchanged.
+                self.exports = LexiriseService(self.layout.data_root/'lexirise')
+                self.reading = LexiriseReadingService(self.layout.data_root/'lexirise', self.exports)
         def resume_registered(self):
             calls.append(('resume', self))
             for child in self.registered.values(): child.resumed = True
@@ -62,7 +83,7 @@ def fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(probe, 'FrozenProbeHost', FakeHost)
     instances = []
     def make(case=probe.CASE):
-        phases = probe.RESUME_PHASES if case == probe.RESUME_CASE else probe.PHASES
+        phases = probe.WAL_PHASES if case == probe.WAL_CASE else probe.RESUME_PHASES if case == probe.RESUME_CASE else probe.PHASES
         stream = io.StringIO(''.join('observed '+phase+'\n' for phase in phases[:-1]))
         value = probe._DataCopyProbe(layout, stream, case=case)
         instances.append(value)
@@ -70,6 +91,11 @@ def fixture(tmp_path, monkeypatch):
     def response(request, timeout):
         # Use actual store mutation/row parsing, but this is an HTTP double.
         value = instances[-1]
+        if value.case == probe.WAL_CASE:
+            with patch.object(sqlite3, 'connect', value.adapter.host.wal_policy.connect):
+                return actual_response(value, request)
+        return actual_response(value, request)
+    def actual_response(value, request):
         connections = []
         try:
             store = probe._SetupStore(value.adapter.layout.data_root/'transcript-v2.db', connections)
@@ -123,6 +149,375 @@ def test_actual_sql_copy_and_chinese_context_with_fresh_cohort_order(fixture, ca
     assert all(event['r19_complete'] is False and event['target_activation'] is False for event in events)
     assert all(event['schema'] == probe.SCHEMA and event['case'] == probe.CASE for event in events)
     assert not ({'scope', 'copy_attempts', 'authored_interruptions', 'partial_revalidations'} & set(events[-1]))
+
+
+def test_actual_closed_connections_leave_wal_dependent_favorite_for_plain_copy(fixture, monkeypatch, capsys):
+    value = fixture.make(probe.WAL_CASE)
+    observed = []
+    main_only = probe.verify_main_only_transcript
+    verify = probe.verify_authored_snapshot
+    sqlite_connect = sqlite3.connect
+    def no_source_inspection(database, *args, **options):
+        if value.adapter is not None and not value.adapter.active and not value.adapter.setup_open:
+            assert str(value.source.path) not in str(database), 'Stopped original source must never be SQLite-opened.'
+        return sqlite_connect(database, *args, **options)
+    monkeypatch.setattr(sqlite3, 'connect', no_source_inspection)
+    def baseline(source, target, expected, retained):
+        assert not value.adapter.active and value.coordinator._leases_held()
+        assert all(child.exited for child in value.adapter.host.registered.values())
+        assert expected[0]['favorite'] is False and expected[0]['source_locale'] == 'zh-Hans'
+        main_only(source, target, expected, retained)
+        assert not retained
+        observed.append('main-only-false')
+    def complete(snapshot, target, expected, **options):
+        before = probe.migration._inventory(snapshot)
+        verify(snapshot, target, expected, **options)
+        assert probe.migration._inventory(snapshot) == before and expected[0]['favorite'] is True
+        observed.append('full-set-true')
+    monkeypatch.setattr(probe, 'verify_main_only_transcript', baseline)
+    monkeypatch.setattr(probe, 'verify_authored_snapshot', complete)
+    assert value.run() == 0
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert tuple(event['phase'] for event in events) == probe.WAL_PHASES
+    assert all(event['schema'] == probe.WAL_SCHEMA and event['case'] == probe.WAL_CASE for event in events)
+    assert observed == ['main-only-false', 'full-set-true'] and value.copy_attempts == 1
+    wal = next(event for event in events if event['phase'] == 'wal-set-observed')
+    assert wal['writers_signaled'] == 2 and wal['generation'] == 1 and wal['copy_verification'] == 'not-run'
+    assert wal['wal_set'] == 'nonempty-after-retained-signals' and wal['wal_dependency'] == 'not-run'
+    final = events[-1]
+    assert final['wal_files'] >= 1 and final['shm_files'] >= 1 and final['writers_signaled'] == 4
+    assert 32 < final['transcript_wal_bytes'] <= probe.WAL_FILE_BYTES
+    assert 0 < final['transcript_shm_bytes'] <= probe.WAL_FILE_BYTES
+    assert final['wal_dependency'] == 'main-only-false-full-set-true'
+    assert final['sqlite_version'] == sqlite3.sqlite_version and final['sqlite_version_scope'] == 'frozen-coordinator'
+    assert final['sqlite_policy'] == probe.WAL_POLICY and final['scope'] == probe.WAL_SCOPE
+    assert not value.verification_ownership and all(host.wal_probe for host in value.adapter.cohorts)
+    assert not value.coordinator._leases_held() and value.released and not value.copy_resumed
+    assert value.coordinator.pointer_path.read_bytes() == value.pointer
+    assert all(event['production_activation'] is False and event['target_activation'] is False
+               and event['r19_complete'] is False and event['keeper_loss'] == 'unavailable' for event in events)
+    assert not ({'copy_resumed', 'authored_interruptions'} & set(final))
+
+
+def test_nonempty_wal_that_no_longer_changes_main_database_is_not_dependency_proof(fixture, monkeypatch, capsys):
+    value = fixture.make(probe.WAL_CASE)
+    favorite = probe._SetupStore.set_favorite
+    def checkpointed(store, *args):
+        result = favorite(store, *args)
+        # An actual SQLite checkpoint in the authored API double's already
+        # owned connection; no fabricated WAL or extra holder is introduced.
+        assert store._owned_connections[-1].execute('PRAGMA wal_checkpoint(PASSIVE)').fetchone()[0] == 0
+        return result
+    monkeypatch.setattr(probe._SetupStore, 'set_favorite', checkpointed)
+    assert value.run() == 2 and value.copy_attempts == 0 and value.released
+    assert not value.wal_dependency and not value.adapter.poisoned
+    assert (value.source.path/'data/transcript-v2.db-wal').stat().st_size > 32
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])['failure'] == 'wal-dependency-unconfirmed'
+
+
+def test_complete_set_without_its_real_wal_cannot_pass_semantic_verification(fixture, monkeypatch):
+    value = fixture.make(probe.WAL_CASE)
+    original = probe.verify_authored_snapshot
+    def missing(snapshot, target, expected, **options):
+        (snapshot/'data/transcript-v2.db-wal').unlink()
+        original(snapshot, target, expected, **options)
+    monkeypatch.setattr(probe, 'verify_authored_snapshot', missing)
+    assert value.run() == 2 and value.released and not value.wal_dependency
+    assert value.wal_set_observed and value.adapter.generation == 1
+
+
+def test_wal_file_cap_is_enforced_before_a_copy_or_main_only_sqlite_open(fixture, monkeypatch):
+    value = fixture.make(probe.WAL_CASE)
+    monkeypatch.setattr(probe, 'WAL_FILE_BYTES', 32)
+    monkeypatch.setattr(probe, 'verify_main_only_transcript', lambda *_: pytest.fail('Overbound set cannot be SQLite-opened'))
+    monkeypatch.setattr(probe.migration, '_source_inventory', lambda *_: pytest.fail('Overbound set cannot be content-hashed'))
+    def hold():
+        assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    with pytest.raises(HeldRecovery): value.run()
+    assert value.copy_attempts == 0 and not value.wal_set_observed
+
+
+@pytest.mark.parametrize('mutation', ['source', 'generation'])
+def test_wal_observation_handshake_cannot_outlive_actual_authority(fixture, monkeypatch, mutation):
+    value = fixture.make(probe.WAL_CASE)
+    observe = value.observe
+    def changed(phase):
+        observe(phase)
+        if phase == 'wal-set-observed':
+            if mutation == 'source':
+                (value.source.path/'data/authored-payload.bin').write_bytes(b'changed authored source')
+            else:
+                value.adapter.generation += 1
+    monkeypatch.setattr(value, 'observe', changed)
+    def hold():
+        assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    with pytest.raises(HeldRecovery): value.run()
+    assert value.copy_attempts == 0
+
+
+def test_wal_verification_close_failure_retains_exact_connection_and_live_lease_owner(fixture, monkeypatch):
+    value = fixture.make(probe.WAL_CASE)
+    connect = sqlite3.connect
+    failures = []
+    class Unclosed(sqlite3.Connection):
+        def close(self):
+            failures.append(self)
+            raise OSError('private authored close failure')
+    def verification(database, *args, **options):
+        if options.get('uri') and str(database).endswith('?mode=ro&immutable=1'):
+            return connect(database, *args, factory=Unclosed, **options)
+        return connect(database, *args, **options)
+    monkeypatch.setattr(sqlite3, 'connect', verification)
+    def hold():
+        assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+        assert len(value.verification_ownership) == 1
+        assert value.verification_ownership[0]['connection'] is failures[0]
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    try:
+        with pytest.raises(HeldRecovery): value.run()
+        assert len(failures) == 1 and value.copy_attempts == 0
+    finally:
+        for connection in failures: sqlite3.Connection.close(connection)
+        for record in value.verification_ownership: shutil.rmtree(record['root'])
+
+
+def test_core_integrity_copy_close_failure_keeps_private_exception_connection_and_live_owner(fixture, monkeypatch, capsys):
+    value = fixture.make(probe.WAL_CASE)
+    connect = sqlite3.connect
+    references, closes, escaped, held = [], [], [], []
+    class Unclosed(sqlite3.Connection):
+        def close(self):
+            closes.append(weakref.ref(self))
+            raise OSError('private core verification close sentinel')
+    def verification(database, *args, **options):
+        if options.get('uri') and '/r19-sqlite-verify-' in str(database).replace('\\', '/'):
+            connection = connect(database, *args, factory=Unclosed, **options)
+            references.append(weakref.ref(connection))
+            return connection
+        return connect(database, *args, **options)
+    monkeypatch.setattr(sqlite3, 'connect', verification)
+    copy = probe.migration.copy_and_verify_synthetic
+    def exact_failure(*args, **options):
+        try:
+            return copy(*args, **options)
+        except BaseException as error:
+            # Identity assertion only; drop this extra strong reference before
+            # checking post-unwind connection lifetime through the probe owner.
+            escaped.append(error)
+            raise
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', exact_failure)
+    def hold():
+        assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+        assert value.core_copy_failure is escaped.pop()
+        assert not value.verification_ownership  # This is the unchanged core's copy.
+        held.append(True)
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    try:
+        try:
+            value.run()
+        except HeldRecovery:
+            pass
+        else:
+            pytest.fail('Core verification close failure cannot release the C5 owner.')
+        gc.collect()
+        assert held == [True] and not escaped and len(references) == len(closes) == 1
+        assert references[0]() is closes[0]() and references[0]() is not None
+        assert value.core_copy_failure is not None and value.adapter.generation == 1
+        assert not value.release_attempted and value.copy_attempts == 1 and not value.copy_verified
+        metadata = capsys.readouterr().out
+        assert 'private core verification close sentinel' not in metadata and str(value.source.path) not in metadata
+    finally:
+        for reference in references:
+            if reference() is not None: sqlite3.Connection.close(reference())
+
+
+def test_all_c5_helper_refusals_hold_but_c3_c4_keep_existing_safe_error_policy(fixture, monkeypatch):
+    failure = HostProbeError('insufficient-space', 'private generic helper refusal')
+    def refuse(*_args, **_options): raise failure
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', refuse)
+    for case in (probe.CASE, probe.RESUME_CASE):
+        value = fixture.make(case)
+        assert value.run() == 2 and value.released and not value.adapter.poisoned
+        assert value.core_copy_failure is None and value.adapter.generation == 1
+    value = fixture.make(probe.WAL_CASE)
+    def hold():
+        assert value.core_copy_failure is failure and value.adapter.poisoned
+        assert value.coordinator._leases_held() and not value.release_attempted
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    with pytest.raises(HeldRecovery): value.run()
+    assert not value.released and value.adapter.generation == 1 and value.copy_attempts == 1
+
+
+def test_wal_policy_configures_all_real_authored_constructor_paths_and_restores_connect(fixture):
+    value = fixture.make(); value.prepare()
+    original = sqlite3.connect
+    connections = []
+    with runtime_probe._authored_wal_connections(value.adapter.layout) as policy:
+        probe._SetupStore(value.adapter.layout.data_root/'transcript-v2.db', connections)
+        exports = LexiriseService(value.adapter.layout.data_root/'lexirise')
+        reading = LexiriseReadingService(value.adapter.layout.data_root/'lexirise', exports)
+        reading.quiesce(1)
+        policy.require_stores()
+        assert policy.configured == {'transcript', 'exports', 'reading'} and policy.opens == 3
+    assert sqlite3.connect is original
+    for connection in connections:
+        assert connection.getconfig(sqlite3.SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE) is True
+        connection.close()
+
+
+def test_wal_policy_does_not_keep_successful_connections_alive_and_bounds_opens(fixture):
+    value = fixture.make(); value.prepare()
+    calls = []
+    class Connection:
+        def setconfig(self, *_): pass
+        def getconfig(self, *_): return True
+    def connect(*_a, **_k):
+        calls.append(True)
+        return Connection()
+    policy = runtime_probe._AuthoredWalConnections(value.adapter.layout, connect)
+    connection = policy.connect(value.adapter.layout.data_root/'transcript-v2.db')
+    reference = weakref.ref(connection)
+    del connection
+    gc.collect()
+    assert reference() is None  # A policy registry must not become an idle holder.
+    for _ in range(255): policy.connect(value.adapter.layout.data_root/'transcript-v2.db')
+    with pytest.raises(runtime_probe.RuntimeBundleError, match='connection bound'):
+        policy.connect(value.adapter.layout.data_root/'transcript-v2.db')
+    assert len(calls) == 256
+
+
+@pytest.mark.parametrize('missing', [None, 'reading', 'preimport'])
+def test_fixed_api_wal_patch_precedes_service_import_and_requires_actual_constructor_roles(fixture, monkeypatch, missing):
+    value = fixture.make(); value.prepare()
+    layout = value.adapter.layout
+    original_connect = sqlite3.connect
+    imported, ran = [], []
+    monkeypatch.delitem(runtime_probe.sys.modules, 'backend.api', raising=False)
+    class Runtime:
+        def __init__(self):
+            connections = []
+            try: probe._SetupStore(layout.data_root/'transcript-v2.db', connections)
+            finally:
+                for connection in connections: connection.close()
+            exports = LexiriseService(layout.data_root/'lexirise')
+            if missing != 'reading': LexiriseReadingService(layout.data_root/'lexirise', exports).quiesce(1)
+        def start_updates(self): pass
+    initialize = Runtime.__init__
+    service = SimpleNamespace(Runtime=Runtime, CaptureService=SimpleNamespace(warmup=lambda _: None),
+                              AccountStore=object, app=object())
+    import_module = runtime_probe.importlib.import_module
+    def module(name, *args):
+        if name != 'backend.api': return import_module(name, *args)
+        assert sqlite3.connect is not original_connect
+        imported.append(name)
+        if missing == 'preimport': sqlite3.connect(layout.data_root/'transcript-v2.db').close()
+        return service
+    monkeypatch.setattr(runtime_probe.importlib, 'import_module', module)
+    def uvicorn(app, **options):
+        assert app is service.app and options['host'] == '127.0.0.1' and options['port'] == 8766
+        Runtime()
+        ran.append(True)
+    monkeypatch.setitem(runtime_probe.sys.modules, 'uvicorn', SimpleNamespace(run=uvicorn))
+    if missing:
+        message = 'before the fixed Runtime constructor' if missing == 'preimport' else 'constructor configuration is incomplete'
+        with pytest.raises(runtime_probe.RuntimeBundleError, match=message):
+            runtime_probe.api(layout, wal_probe=True)
+    else:
+        assert runtime_probe.api(layout, wal_probe=True) == 0 and ran == [True]
+    assert imported == ['backend.api'] and sqlite3.connect is original_connect and Runtime.__init__ is initialize
+
+
+def test_fixed_wal_api_refuses_prior_service_import_and_non_bool_policy(fixture, monkeypatch):
+    value = fixture.make(); value.prepare()
+    monkeypatch.setitem(runtime_probe.sys.modules, 'backend.api', object())
+    with pytest.raises(runtime_probe.RuntimeBundleError, match='import was not isolated'):
+        runtime_probe.api(value.adapter.layout, wal_probe=True)
+    for invalid in (1, 0, 'api-wal', None):
+        with pytest.raises(runtime_probe.RuntimeBundleError, match='fixed authored API policy'):
+            runtime_probe.api(value.adapter.layout, wal_probe=invalid)
+
+
+@pytest.mark.parametrize('sidecar', ['-wal', '-shm'])
+def test_missing_real_sidecar_refuses_before_copy_without_inventing_wal_bytes(fixture, monkeypatch, sidecar):
+    value = fixture.make(probe.WAL_CASE)
+    close = fixture.hosts.close
+    def missing(host):
+        close(host)
+        (host.layout.data_root/('transcript-v2.db'+sidecar)).unlink()
+    monkeypatch.setattr(fixture.hosts, 'close', missing)
+    assert value.run() == 2 and value.released and not value.wal_set_observed and value.copy_attempts == 0
+    assert not value.adapter.poisoned
+
+
+def test_unsupported_wal_capability_never_mints_a_writer_barrier(fixture, monkeypatch):
+    value = fixture.make(probe.WAL_CASE)
+    monkeypatch.delattr(sqlite3, 'SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE')
+    def hold():
+        assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    with pytest.raises(HeldRecovery): value.run()
+    assert value.copy_attempts == value.adapter.drains == 0 and value.coordinator._barrier is None
+
+
+@pytest.mark.parametrize('fault', ['setconfig', 'false', 'integer', 'close'])
+def test_wal_configuration_failure_closes_once_and_never_returns_a_connection(fixture, fault):
+    value = fixture.make(); value.prepare()
+    calls = []
+    class Connection:
+        def setconfig(self, option, enabled):
+            calls.append(('set', option, enabled))
+            if fault == 'setconfig': raise OSError('private setting failure')
+        def getconfig(self, option): return 1 if fault == 'integer' else False
+        def close(self):
+            calls.append('close')
+            if fault == 'close': raise OSError('private close failure')
+    policy = runtime_probe._AuthoredWalConnections(value.adapter.layout, lambda *_a, **_k: Connection())
+    with pytest.raises(runtime_probe.RuntimeBundleError) as error:
+        policy.connect(value.adapter.layout.data_root/'transcript-v2.db')
+    assert calls.count('close') == 1 and not policy.configured and 'private' not in str(error.value)
+    assert ('cleanup is unconfirmed' in str(error.value)) is (fault == 'close')
+
+
+@pytest.mark.parametrize('selection', ['foreign', 'uri', 'memory', 'relative', 'factory', 'positional', 'traversal'])
+def test_wal_selection_refuses_before_connect_or_foreign_metadata(fixture, monkeypatch, selection):
+    value = fixture.make(); value.prepare()
+    layout = value.adapter.layout
+    policy = runtime_probe._AuthoredWalConnections(layout, lambda *_a, **_k: pytest.fail('Selection cannot reach SQLite'))
+    database, args, options = layout.data_root/'transcript-v2.db', (), {}
+    if selection == 'foreign': database = value.fixture/'outside-private-sentinel.db'
+    if selection == 'uri': database = database.as_uri();options['uri'] = True
+    if selection == 'memory': database = ':memory:'
+    if selection == 'relative': database = 'transcript-v2.db'
+    if selection == 'factory': options['factory'] = sqlite3.Connection
+    if selection == 'positional': args = (10,)
+    if selection == 'traversal': database = layout.data_root/'unused/../transcript-v2.db'
+    monkeypatch.setattr(policy, 'guard', lambda *_a, **_k: pytest.fail('Rejected selection cannot inspect metadata'))
+    with pytest.raises(runtime_probe.RuntimeBundleError): policy.connect(database, *args, **options)
+    assert policy.opens == 0
+
+
+def test_wal_parent_link_refuses_before_leaf_metadata_or_sqlite_open(fixture, monkeypatch):
+    value = fixture.make(); value.prepare()
+    layout = value.adapter.layout
+    policy = runtime_probe._AuthoredWalConnections(layout, lambda *_a, **_k: pytest.fail('Linked selection cannot open'))
+    outside = value.fixture/'outside-authored'; outside.mkdir()
+    (layout.data_root/'lexirise').symlink_to(outside, target_is_directory=True)
+    original = Path.lstat
+    link = layout.data_root/'lexirise'
+    def guarded(path, *args, **options):
+        assert link not in path.parents, 'Linked descendant metadata must remain unobserved.'
+        return original(path, *args, **options)
+    monkeypatch.setattr(Path, 'lstat', guarded)
+    with pytest.raises(probe.DataCopyFailure): policy.connect(link/'exports-v2.db')
+    assert policy.opens == 0
 
 
 def test_interrupted_copy_resumes_same_live_plan_barrier_generation_and_leases(fixture, monkeypatch, capsys):
@@ -884,6 +1279,93 @@ foreach ($case in $cases) {
     $stream.Dispose();$index++
 }
 ''', cases)
+
+
+def test_powershell_wal_protocol_binds_real_set_and_dependency_to_the_correct_phase(fixture, capsys):
+    value = fixture.make(probe.WAL_CASE)
+    assert value.run() == 0
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    cases = [{'probe_case': probe.WAL_CASE, 'phase': event['phase'], 'event': event, 'accept': True} for event in events]
+    observed = next(event for event in events if event['phase'] == 'wal-set-observed')
+    for field, changed in [('schema', probe.SCHEMA), ('sqlite_policy', True), ('sqlite_version', '/private-sentinel'),
+            ('sqlite_version_scope', 'api-asserted'), ('transcript_wal_bytes', 32), ('transcript_shm_bytes', 0),
+            ('transcript_wal_bytes', True), ('transcript_shm_bytes', 8388609), ('writers_signaled', 0),
+            ('wal_dependency', 'main-only-false-full-set-true')]:
+        cases.append({'probe_case': probe.WAL_CASE, 'phase': 'wal-set-observed',
+                      'event': {**observed, field: changed}, 'accept': False})
+    verified = next(event for event in events if event['phase'] == 'copy-verified')
+    for field, changed in [('wal_dependency', 'not-run'), ('wal_files', 0), ('shm_files', 0),
+                           ('target_activation', True), ('r19_complete', True)]:
+        cases.append({'probe_case': probe.WAL_CASE, 'phase': 'copy-verified',
+                      'event': {**verified, field: changed}, 'accept': False})
+    setup = events[0]
+    cases.append({'probe_case': probe.WAL_CASE, 'phase': 'setup-closed',
+                  'event': {**setup, 'wal_set': 'nonempty-after-retained-signals'}, 'accept': False})
+    for control in (probe.CASE, probe.RESUME_CASE):
+        cases.append({'probe_case': control, 'phase': 'wal-set-observed', 'event': observed, 'accept': False})
+    cases.append({'probe_case': probe.WAL_CASE, 'phase': 'copy-interrupted', 'event': observed, 'accept': False})
+    script = Path(__file__).resolve().parents[2]/'scripts/probe-frozen-data-copy.ps1'
+    _powershell_contract(script, ['New-DataCopyControlReader','Read-DataCopyControlLine','Read-DataCopyEvent'], r'''
+$proof=[pscustomobject]@{source_commit=('a'*40);build_id='authored-data-copy-fixture'}
+$cases=[Console]::In.ReadToEnd() | ConvertFrom-Json
+$index=0
+foreach ($case in $cases) {
+    $script:ProbeCase=$case.probe_case
+    $bytes=[Text.UTF8Encoding]::new($false,$true).GetBytes(($case.event | ConvertTo-Json -Depth 8 -Compress)+"`n")
+    $stream=[IO.MemoryStream]::new($bytes,$false)
+    $script:controlReader=New-DataCopyControlReader $stream ([Threading.Tasks.Task]::CompletedTask)
+    $accepted=$true
+    try { Read-DataCopyEvent $case.phase } catch { $accepted=$false }
+    if ($accepted -ne $case.accept) {
+        [Console]::Out.WriteLine((@{schema='proxy-r19-data-copy-contract-failure-v1';case_index=$index;
+            expected=[bool]$case.accept;actual=[bool]$accepted} | ConvertTo-Json -Compress))
+        exit 2
+    }
+    $stream.Dispose();$index++
+}
+''', cases)
+
+
+def test_powershell_wal_receipt_refuses_missing_dependency_inputs_and_extra_block():
+    script = Path(__file__).resolve().parents[2]/'scripts/probe-frozen-data-copy.ps1'
+    _powershell_contract(script, ['Write-DataCopyReceipt'], r'''
+$private=Join-Path ([IO.Path]::GetTempPath()) ('r19-authored-wal-receipt-'+[guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $private
+$slotSourceOperation=Join-Path $private 'source-fixture.ps1'
+[IO.File]::WriteAllText($slotSourceOperation,'authored source-operation fixture')
+$proof=[pscustomobject]@{source_commit=('a'*40);build_id='authored-data-copy-fixture'}
+$script:ProbeCase='authored-data-copy-wal';$Output=Join-Path $private 'wal.json'
+$sourceBlocks=9;$walFiles=1;$shmFiles=1;$sqliteVersion='3.50.4'
+$transcriptWalBytes=12392;$transcriptShmBytes=32768;$stage='release';$failureCategory='none'
+try {
+    $accepted=$true
+    try { Write-DataCopyReceipt 'passed' } catch { $accepted=$false }
+    if ($accepted -or (Test-Path -LiteralPath $Output)) { throw 'WAL receipt omitted extra actual source block.' }
+    $sourceBlocks=10
+    foreach ($fault in @('wal-empty','shm-empty','overbound','bad-version')) {
+        $transcriptWalBytes=12392;$transcriptShmBytes=32768;$sqliteVersion='3.50.4'
+        switch ($fault) {
+            'wal-empty' {$transcriptWalBytes=32}
+            'shm-empty' {$transcriptShmBytes=0}
+            'overbound' {$transcriptWalBytes=8388609}
+            'bad-version' {$sqliteVersion='private-sentinel'}
+        }
+        $accepted=$true
+        try { Write-DataCopyReceipt 'passed' } catch { $accepted=$false }
+        if ($accepted -or (Test-Path -LiteralPath $Output)) { throw 'WAL receipt accepted invalid fixed proof inputs.' }
+    }
+    $transcriptWalBytes=12392;$transcriptShmBytes=32768;$sqliteVersion='3.50.4'
+    Write-DataCopyReceipt 'passed'
+    $value=Get-Content -LiteralPath $Output -Raw | ConvertFrom-Json
+    if ($value.schema -cne 'proxy-r19-frozen-data-copy-wal-receipt-v1' -or $value.case -cne 'authored-data-copy-wal' -or
+        $value.scope -cne 'authored-transcript-retained-wal-copy-with-living-coordinator' -or
+        $value.wal_dependency -cne 'main-only-false-full-set-true' -or $value.wal_set -cne 'nonempty-after-retained-signals' -or
+        $value.sqlite_version_scope -cne 'frozen-coordinator' -or $value.source_operation_blocked_observations -ne 10 -or
+        $value.copy_model -cne 'one-plain-copy-without-injected-interruption' -or
+        $value.target_activation -or $value.production_activation -or $value.r19_complete -or
+        $null -ne $value.PSObject.Properties['authored_interruptions']) { throw 'WAL receipt scope or gate changed.' }
+} finally { Remove-Item -LiteralPath $private -Recurse -Force }
+''')
 
 
 def test_powershell_resume_receipt_cannot_relabel_positive_case_or_omit_extra_source_block():

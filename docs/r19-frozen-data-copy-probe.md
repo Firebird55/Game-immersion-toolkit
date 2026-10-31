@@ -303,3 +303,139 @@ resume. The bounded stdout/stderr and explicit living-owner failure policy are
 unchanged. Each changed candidate still requires its own exact-source Windows
 execution and independently downloaded receipt; local fixtures are not that
 proof. The first verified execution is recorded above.
+
+## Separate retained-WAL plain-copy case (C5, native pending)
+
+`authored-data-copy-wal` is a separate fixed authored experiment. Its source
+contracts exercise actual SQLite-produced WAL/SHM and the real current store
+schema; its exact frozen Windows execution is still required. The verified
+C3 and C4 checkpoints above retain their original zero-WAL meanings. This case
+does not combine WAL copying with the C4 interruption.
+
+The existing experimental main-image dispatcher accepts the literal
+`--runtime-probe api-wal`. It inherits the bundle/runtime-experiment and
+ASR-image restrictions. The registered owner selects that fixed API command
+only through a strict default-false private boolean. Its frontend/API roles,
+two creation objects per cohort, detached Job admission, listener identity,
+retained signaling and ordinary C1/default API behavior are unchanged. The
+synthetic marker remains the exact existing build-bound dictionary; it has no
+WAL option, root grant or ownership flag. No production API/storage code,
+source updater, copy helper, common Win32 primitive or runtime spec changes.
+
+Before service import, this isolated API probe temporarily wraps
+`sqlite3.connect` for exactly its newly owned transcript, exports and reading
+database paths. Raw ancestors are guarded root-first before resolution/open;
+foreign/relative/traversal/URI/memory selections, positional override arguments
+and caller-supplied factories are refused before connecting. Each accepted
+connection sets `SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE` to true and requires exact
+boolean-true readback before returning to the actual store. Configuration
+failure attempts one actual close; failed close remains unconfirmed. A finite
+256-open bound applies. The actual constructor must configure all three fixed
+store roles before it can complete startup; a previously imported API or a
+second Runtime initialization refuses the fixed WAL probe. Store opens during
+service import also refuse, so earlier opens cannot stand in for the actual
+constructor paths.
+
+[Python 3.12](https://docs.python.org/3.12/library/sqlite3.html) exposes these
+configuration APIs, with constants dependent on its linked SQLite build.
+[SQLite](https://www.sqlite.org/c3ref/c_dbconfig_defensive.html) documents
+disabling the final checkpoint on close. The fixed native child requires the
+reviewed CPython 3.12.16 supplier and actual configuration availability; source
+or macOS capability evidence cannot satisfy that Windows gate. The receipt's
+strict numeric three-part SQLite version is observed in the frozen coordinator,
+not asserted as a separately queried API-child version. The build/source and
+existing supplier/inventory/native-image evidence must bind the exact output.
+
+Successful connections are not retained by the policy. The production stores'
+normal lifetimes remain intact: exports uses explicit finally-close and
+reading uses `closing`; transcript transaction contexts commit/roll back but
+do not explicitly close. Thus the C2 acknowledgment is not a connection-close
+proof. Parent setup connections still close explicitly, and every copy barrier
+still follows the actual strict protocol/status503/health checks **and** the
+exact retained writer-process signals. The current normal host stop uses
+retained-handle termination followed by signal confirmation; this case claims
+neither a clean SQLite process shutdown nor a newly injected crash. No reader
+is kept alive to manufacture WAL persistence, and no alternative SQLite DLL,
+raw pointer, fabricated sidecar or auto-checkpoint/journal-mode policy is added.
+The reading store need not become WAL-mode merely to inflate sidecar counts.
+
+After those signals and under the same sole coordinator/continuous leases,
+the new `wal-set-observed` phase requires the transcript's actual WAL to exceed
+its 32-byte header and its SHM to be nonempty. Each named DB/WAL/SHM is capped
+at 8 MiB before content hashing/copying; the existing 64 MiB inspected-tree,
+4096-entry and 32-level bounds also apply. A missing/empty pair cannot pass.
+This phase adds one actual legacy source-entry contender, for ten blocked
+observations in a passing C5 receipt. Readiness and this observation do not
+mint the typed barrier.
+
+The semantic proof compares two independent disposable verification copies:
+
+* A main-database-only copy must contain the exact current schema, Chinese
+  language context and the pre-PATCH favorite=false state. Only this separately
+  frozen private copy is opened with `mode=ro&immutable=1`.
+* The complete copied DB/WAL/SHM set must contain the same authored rows with
+  favorite=true. Integrity checks or a nonempty stale WAL alone are insufficient.
+
+The [immutable URI setting](https://www.sqlite.org/uri.html) skips locking and
+change detection; it must never be asserted on the live source. SQLite is never
+opened on original source or byte-preserving staging snapshots. The existing
+copy helper and semantic checks use separate verification copies. Source and
+snapshot bytes, the initial pointer, actual barrier/generation/owner and exact
+leases are rechecked before the normal fresh **source** cohort starts. That
+restart invalidates the old barrier; its logical favorite/Chinese check and
+final strict cleanup remain required. Reopening can legitimately change source
+WAL/SHM bytes, so post-restart preservation remains logical.
+
+[SQLite's WAL](https://www.sqlite.org/wal.html) can contain committed state
+absent from the main database. Its [SHM wal-index](https://www.sqlite.org/walformat.html)
+contains no database content and can be rebuilt or truncated during verification.
+C5 therefore observes and byte-copies a real nonempty stopped SHM; it does not
+claim that preserving its contents is necessary for crash recovery, portable
+between VFS implementations or a power-loss durability proof.
+
+Unknown source/authority and cleanup retain the existing poisoned, living
+coordinator. Every C5 core copy-helper exception also conservatively poisons
+and holds that owner: unchanged source bytes cannot establish that the helper's
+own SQLite integrity-copy close/cleanup succeeded. The exact original exception
+is retained privately with its traceback/context references while the owner
+holds; it is not inspected, serialized, retried or turned into new authority.
+The core may already have removed its temporary files, so this policy claims
+no preservation of that directory. C3/C4 retain their existing helper-error
+policy. Additional C5 verification copies retain their exact connection
+and private-root record if close/removal fails; there is no silent destructor
+cleanup, retry, lease release or passing receipt on that path. A deterministic
+semantic refusal can close only after the current actual source/barrier/lease
+recheck confirms authority. Unsupported API-child startup, failed metadata or
+control transport cannot replace this containment boundary. The bounded raw
+control reader, stderr discard and cleanup-before-passing-receipt ordering stay
+in force.
+
+The distinct schemas are `proxy-r19-frozen-data-copy-wal-probe-v1` and
+`proxy-r19-frozen-data-copy-wal-receipt-v1`, scoped to
+`authored-transcript-retained-wal-copy-with-living-coordinator`. The sanitized
+receipt adds only the fixed policy/copy labels, bounded authored sidecar sizes,
+coordinator SQLite version and main-only/full-set outcome. It includes no
+database, row, private path, PID, handle, log or raw-data hash. Passing still
+requires two source cohorts/four retained signals, three schema0 stores, actual
+source exclusion, unchanged pointer, explicit lease release and successful
+private cleanup. Production/target/R19 remain false. Keeper death, global or
+dynamic writer admission, warm routing, schema upgrade/rollback, real user
+stores, credentials/browser continuity, rights and ordinary Windows 11 remain
+open.
+
+After exact candidate verification, the separate build-host invocation is:
+
+```powershell
+pwsh -NoProfile -File scripts/probe-frozen-data-copy.ps1 `
+  -RuntimeRoot <extracted-runtime> -Provenance <candidate-json> `
+  -ProbeCase authored-data-copy-wal `
+  -Output output/checks/r19-frozen-data-copy-wal.json
+```
+
+The default output for this case has that distinct WAL basename. The hosted
+workflow's separate fixed step and exact JSON allowlist are source integration
+only until the actual run and independently downloaded receipt pass. Its
+ten-minute outer deadline is failed, unverified external containment. Earlier
+successful metadata may be retained after a later C5 failure; artifact presence
+does not establish workflow success. No native C5 receipt or completed R19
+acceptance is implied by these source contracts.
