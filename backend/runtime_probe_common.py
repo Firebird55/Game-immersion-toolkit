@@ -58,7 +58,7 @@ def loaded_native(layout):
             origin, relative = 'windows-system', path.name
         else:
             raise RuntimeBundleError('A native image was loaded from outside the application and Windows.')
-        if layout.executable.name == 'ProxyTranscriptRuntime.exe' and relative.startswith('asr/'):
+        if layout.executable.name == 'GameImmersionToolkit.exe' and relative.startswith('asr/'):
             raise RuntimeBundleError('Main runtime loaded a native image from the ASR tree.')
         with path.open('rb') as stream:
             checksum = hashlib.file_digest(stream, 'sha256').hexdigest()

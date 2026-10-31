@@ -65,14 +65,14 @@ try {
     if (@(Compare-Object @($before | Sort-Object) @($expected | Sort-Object) -CaseSensitive).Count) { throw 'Extracted tree differs from the complete candidate inventory.' }
     Get-ChildItem -LiteralPath $RuntimeRoot -File -Recurse -Force | ForEach-Object { $_.IsReadOnly = $true }
     # No SDK, compiler, package manager or external interpreter is inherited.
-    $native = Finish-Probe (Start-Owned (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') '--runtime-probe native') 'native'
-    $asr = Finish-Probe (Start-Owned (Join-Path $RuntimeRoot 'asr/ProxyTranscriptAsr.exe') '--runtime-probe asr') 'asr'
+    $native = Finish-Probe (Start-Owned (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') '--runtime-probe native') 'native'
+    $asr = Finish-Probe (Start-Owned (Join-Path $RuntimeRoot 'asr/GameImmersionToolkitAsr.exe') '--runtime-probe asr') 'asr'
     foreach ($port in @(3000, 8766)) {
         $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
         try { $listener.Start() } finally { $listener.Stop() }
     }
-    $frontend = Start-Owned (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') '--runtime-child frontend -- --port 3000'
-    $api = Start-Owned (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') '--runtime-probe api'
+    $frontend = Start-Owned (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') '--runtime-child frontend -- --port 3000'
+    $api = Start-Owned (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') '--runtime-probe api'
     $deadline = [DateTime]::UtcNow.AddSeconds(60); $ready = $false
     do {
         if ($api.HasExited -or $frontend.HasExited) { throw 'Integrated frozen service exited before readiness.' }
@@ -127,8 +127,8 @@ try {
 if (Test-Path -LiteralPath $temporary) { throw 'Owned runtime fixture cleanup is incomplete.' }
 New-Item -ItemType Directory -Path (Split-Path $output) -Force | Out-Null
 @{schema='proxy-r19-frozen-runtime-v1'; source_commit=$env:GITHUB_SHA; build_id=$manifest.build_id; status='passed';
-    executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
-    asr_executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'asr/ProxyTranscriptAsr.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
+    executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
+    asr_executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'asr/GameImmersionToolkitAsr.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
     inventory_sha256=(Get-FileHash -LiteralPath (Join-Path (Split-Path $Provenance) 'RUNTIME-INVENTORY.json') -Algorithm SHA256).Hash.ToLowerInvariant();
     native=$native; asr=$asr; frontend_api_http_ws='passed'; api_external_side_effects='mocked';
     developer_environment='cleared; only OS essentials and synthetic roots'; application_writes_observed=$false;

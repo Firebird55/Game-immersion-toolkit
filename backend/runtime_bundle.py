@@ -181,7 +181,7 @@ class RuntimeLayout:
             return [str(self.executable), '-m', target, *arguments]
         if kind not in self.children:
             raise RuntimeBundleError('This diagnostic bundle does not include child: ' + kind)
-        image = self.application_root / 'asr' / ('ProxyTranscriptAsr.exe' if sys.platform == 'win32' else 'ProxyTranscriptAsr') if kind == 'asr' else self.executable
+        image = self.application_root / 'asr' / ('GameImmersionToolkitAsr.exe' if sys.platform == 'win32' else 'GameImmersionToolkitAsr') if kind == 'asr' else self.executable
         if not image.is_file():
             raise RuntimeBundleError('Frozen child executable is missing: ' + kind)
         return [str(image), '--runtime-child', kind, '--', *arguments]

@@ -259,7 +259,7 @@ def probe(runtime, provenance, output, timeout, *, ui=False):
         runtime = runtime.absolute()
         receipt_raw = provenance.read_bytes()
         receipt = json.loads(receipt_raw)
-        executable = runtime / ('ProxyTranscriptRuntime.exe' if os.name == 'nt' else 'ProxyTranscriptRuntime')
+        executable = runtime / ('GameImmersionToolkit.exe' if os.name == 'nt' else 'GameImmersionToolkit')
         target = executable_target(executable)
         validate(runtime, receipt, target, candidate=True)
         report.update(public_identity(receipt), target=target,

@@ -51,7 +51,7 @@ starting services, opening a window or preparing user data. It explicitly report
 native acceptance as not run. A private `runtime-experiment` candidate may test
 this host; that does not enable the production distribution gate or close R19.
 
-Run `python scripts/probe-desktop-host.py --runtime-root <candidate>/runtime/ProxyTranscriptRuntime
+Run `python scripts/probe-desktop-host.py --runtime-root <candidate>/runtime/GameImmersionToolkit
 --provenance <candidate>/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json`
 on each candidate's native platform. This starts the actual frozen executable,
 API, frontend and gateway from an unrelated working directory with reduced PATH

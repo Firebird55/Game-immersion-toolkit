@@ -82,11 +82,11 @@ jobs:
       - name: Freeze the native runtime and isolated ASR child
         run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources --resources-root output/node-resources
       - name: Exercise frozen startup, API crash recovery and owned shutdown
-        run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/ProxyTranscriptRuntime --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
+        run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
       - name: Observe native window, tray and browser handler requests
         if: runner.os != 'Linux'
         run: |
-          python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/ProxyTranscriptRuntime --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --ui --output output/native-ui-probe.json
+          python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --ui --output output/native-ui-probe.json
           if ($LASTEXITCODE -eq 2) { Write-Output 'Native UI unavailable on this runner; acceptance remains incomplete.'; exit 0 }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Acquire verified Windows installer compiler
@@ -96,7 +96,7 @@ jobs:
         id: package
         run: |
           $receipt = Get-Content output/native-candidate/CANDIDATE-PROVENANCE.json -Raw | ConvertFrom-Json
-          $options = @('--runtime-root', 'output/native-candidate/runtime/ProxyTranscriptRuntime', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--target', '${{ matrix.target }}', '--output', 'output/native-distribution')
+          $options = @('--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--target', '${{ matrix.target }}', '--output', 'output/native-distribution')
           if ($receipt.profile -ne 'runtime' -or $receipt.redistribution_review -ne 'approved' -or $receipt.native_acceptance -ne 'approved') { $options += '--candidate' }
           if ($IsWindows) { $options += @('--iscc', 'output/installer-compiler/compiler/ISCC.exe') }
           if ($IsMacOS) { $options += '--dmg' }

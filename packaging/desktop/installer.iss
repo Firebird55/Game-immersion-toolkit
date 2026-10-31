@@ -32,7 +32,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 LicenseFile={#PayloadRoot}\LICENSE
-UninstallDisplayIcon={app}\versions\{#AppVersion}\ProxyTranscriptRuntime.exe
+UninstallDisplayIcon={app}\versions\{#AppVersion}\GameImmersionToolkit.exe
 UninstallDisplayName=Game Immersion Toolkit
 CloseApplications=no
 RestartApplications=no
@@ -47,16 +47,16 @@ Name: "desktop"; Description: "Add a Desktop shortcut"; Flags: unchecked
 Source: "{#PayloadRoot}\*"; DestDir: "{app}\versions\{#AppVersion}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Game Immersion Toolkit"; Filename: "{app}\versions\{#AppVersion}\ProxyTranscriptRuntime.exe"; Tasks: startmenu
-Name: "{autodesktop}\Game Immersion Toolkit"; Filename: "{app}\versions\{#AppVersion}\ProxyTranscriptRuntime.exe"; Tasks: desktop
+Name: "{autoprograms}\Game Immersion Toolkit"; Filename: "{app}\versions\{#AppVersion}\GameImmersionToolkit.exe"; Tasks: startmenu
+Name: "{autodesktop}\Game Immersion Toolkit"; Filename: "{app}\versions\{#AppVersion}\GameImmersionToolkit.exe"; Tasks: desktop
 
 [Registry]
-Root: HKLM; Subkey: "Software\Game Immersion Toolkit"; ValueType: string; ValueName: "Executable"; ValueData: "{app}\versions\{#AppVersion}\ProxyTranscriptRuntime.exe"; Flags: uninsdeletevalue uninsdeletekeyifempty
+Root: HKLM; Subkey: "Software\Game Immersion Toolkit"; ValueType: string; ValueName: "Executable"; ValueData: "{app}\versions\{#AppVersion}\GameImmersionToolkit.exe"; Flags: uninsdeletevalue uninsdeletekeyifempty
 
 [Run]
 ; runasoriginaluser prevents an elevated installer from creating admin-owned
 ; transcript/settings stores or opening the administrator's browser profile.
-Filename: "{app}\versions\{#AppVersion}\ProxyTranscriptRuntime.exe"; Description: "Open Game Immersion Toolkit"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\versions\{#AppVersion}\GameImmersionToolkit.exe"; Description: "Open Game Immersion Toolkit"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 ; No [UninstallDelete] wildcard: uninstall removes installed payloads/shortcuts
 ; recorded by Setup, and preserves all per-user state and game installations.

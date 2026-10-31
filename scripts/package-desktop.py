@@ -38,7 +38,7 @@ def zip_tree(root, destination):
             elif path.is_file():
                 name = path.relative_to(root.parent).as_posix()
                 info = zipfile.ZipInfo.from_file(path, name)
-                if path.name in {'ProxyTranscriptRuntime', 'ProxyTranscriptAsr'}:
+                if path.name in {'GameImmersionToolkit', 'GameImmersionToolkitAsr'}:
                     info.external_attr = (stat.S_IFREG | 0o755) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
                 archive.writestr(info, path.read_bytes())
@@ -86,10 +86,10 @@ def package(root, receipt_path, target, output, *, candidate=False, iscc=None, d
     elif target == 'linux-x64':
         shutil.copyfile(ROOT / 'packaging/desktop/linux-install.sh', payload / 'install.sh')
         (payload / 'install.sh').chmod(0o755)
-        (payload / 'ProxyTranscriptRuntime').chmod(0o755)
+        (payload / 'GameImmersionToolkit').chmod(0o755)
         archive = output / (name + '.tar.gz')
         def permissions(member):
-            if Path(member.name).name in {'ProxyTranscriptRuntime', 'ProxyTranscriptAsr', 'install.sh'}:
+            if Path(member.name).name in {'GameImmersionToolkit', 'GameImmersionToolkitAsr', 'install.sh'}:
                 member.mode = 0o755
             return member
         with tarfile.open(archive, 'x:gz') as stream:
@@ -100,9 +100,9 @@ def package(root, receipt_path, target, output, *, candidate=False, iscc=None, d
         macos = app / 'Contents/MacOS'
         macos.parent.mkdir(parents=True)
         shutil.copytree(payload, macos, symlinks=True)
-        (macos / 'ProxyTranscriptRuntime').chmod(0o755)
+        (macos / 'GameImmersionToolkit').chmod(0o755)
         info = {'CFBundleName': 'Game Immersion Toolkit', 'CFBundleDisplayName': 'Game Immersion Toolkit',
-            'CFBundleIdentifier': 'org.gameimmersiontoolkit.desktop', 'CFBundleExecutable': 'ProxyTranscriptRuntime',
+            'CFBundleIdentifier': 'org.gameimmersiontoolkit.desktop', 'CFBundleExecutable': 'GameImmersionToolkit',
             'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': receipt['version'],
             'CFBundleVersion': receipt['version'], 'NSHighResolutionCapable': True,
             'LSMinimumSystemVersion': '14.0',

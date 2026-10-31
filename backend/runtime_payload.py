@@ -108,7 +108,7 @@ def validate(root, receipt, target, *, candidate=False, installed=False):
         raise PackageError('Runtime inventory has missing files.')
     if directories is not None and sorted(actual_directories) != sorted(directories):
         raise PackageError('Runtime directory inventory differs from the payload.')
-    executable = 'ProxyTranscriptRuntime.exe' if target == 'windows-x64' else 'ProxyTranscriptRuntime'
+    executable = 'GameImmersionToolkit.exe' if target == 'windows-x64' else 'GameImmersionToolkit'
     if executable_target(root / executable) != target:
         raise PackageError('Runtime executable does not match the installer target.')
     manifest = json.loads((root / '_internal/runtime-manifest.json').read_text(encoding='utf-8'))

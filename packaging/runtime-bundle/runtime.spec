@@ -70,8 +70,8 @@ main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
 main.datas = [entry for entry in main.datas if not entry[0].replace('\\', '/').startswith('cv2/data/')]
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
-    name='ProxyTranscriptRuntime', console=True, contents_directory='_internal')
-main_collection = COLLECT(main_exe, main.binaries, main.datas, name='ProxyTranscriptRuntime')
+    name='GameImmersionToolkit', console=True, contents_directory='_internal')
+main_collection = COLLECT(main_exe, main.binaries, main.datas, name='GameImmersionToolkit')
 
 if runtime:
     # Separate Analysis, executable, directory and native library tree. Putting
@@ -87,5 +87,5 @@ if runtime:
                   'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,
-        name='ProxyTranscriptAsr', console=True, contents_directory='_internal')
-    asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name='ProxyTranscriptAsr')
+        name='GameImmersionToolkitAsr', console=True, contents_directory='_internal')
+    asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name='GameImmersionToolkitAsr')

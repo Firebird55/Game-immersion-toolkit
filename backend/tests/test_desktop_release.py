@@ -22,7 +22,7 @@ def authored_release(tmp_path, monkeypatch):
     current = tmp_path / 'current'
     current.mkdir()
     root, receipt_path, receipt = payload(tmp_path)
-    executable = 'ProxyTranscriptRuntime.exe'
+    executable = 'GameImmersionToolkit.exe'
     (current / executable).write_bytes((root / executable).read_bytes())
     settings = tmp_path / 'user'
     layout = RuntimeLayout(mode='bundle', application_root=current, resource_root=current / '_internal',

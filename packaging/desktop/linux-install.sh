@@ -26,10 +26,10 @@ mkdir -p -- "$(dirname -- "$prefix")"
 prefix=$(CDPATH= cd -- "$(dirname -- "$prefix")" && pwd -P)/$(basename -- "$prefix")
 case "$prefix/" in "$source_dir/"*) printf '%s\n' 'Installation cannot be inside the extracted source directory.' >&2; exit 2 ;; esac
 cp -R -- "$source_dir" "$prefix"
-chmod +x -- "$prefix/ProxyTranscriptRuntime"
+chmod +x -- "$prefix/GameImmersionToolkit"
 applications="${XDG_DATA_HOME:-${HOME}/.local/share}/applications"
 write_launcher() {
-  printf '[Desktop Entry]\nType=Application\nName=Game Immersion Toolkit\nExec="%s/ProxyTranscriptRuntime"\nIcon=%s/_internal/desktop/proxy-transcript.png\nTerminal=false\nCategories=Game;Education;\n' "$prefix" "$prefix" > "$1"
+  printf '[Desktop Entry]\nType=Application\nName=Game Immersion Toolkit\nExec="%s/GameImmersionToolkit"\nIcon=%s/_internal/desktop/proxy-transcript.png\nTerminal=false\nCategories=Game;Education;\n' "$prefix" "$prefix" > "$1"
   chmod +x -- "$1"
 }
 if [ "$menu" = yes ]; then

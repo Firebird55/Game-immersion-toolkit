@@ -29,15 +29,15 @@ def payload(tmp_path, target='windows-x64'):
         struct.pack_into('<I', header, 60, 128)
         header[128:132] = b'PE\0\0'
         struct.pack_into('<H', header, 132, 0x8664)
-        executable = 'ProxyTranscriptRuntime.exe'
+        executable = 'GameImmersionToolkit.exe'
     elif target == 'linux-x64':
         header[:6] = b'\x7fELF\x02\x01'
         struct.pack_into('<H', header, 18, 62)
-        executable = 'ProxyTranscriptRuntime'
+        executable = 'GameImmersionToolkit'
     else:
         header[:4] = b'\xcf\xfa\xed\xfe'
         struct.pack_into('<I', header, 4, 0x100000c if target == 'macos-arm64' else 0x1000007)
-        executable = 'ProxyTranscriptRuntime'
+        executable = 'GameImmersionToolkit'
     (root / executable).write_bytes(header)
     (root / 'LICENSE').write_text('Authored fixture license')
     (root / 'THIRD_PARTY/fixture.txt').write_text('Authored dependency fixture')
@@ -66,7 +66,7 @@ def test_changed_payload_cannot_enter_an_installer(tmp_path, mutation):
     if mutation == 'extra':
         (root / 'private.db').write_bytes(b'never package')
     elif mutation == 'changed':
-        (root / 'ProxyTranscriptRuntime.exe').write_bytes(b'changed')
+        (root / 'GameImmersionToolkit.exe').write_bytes(b'changed')
     elif mutation == 'missing':
         (root / 'LICENSE').unlink()
     elif mutation == 'identity':
@@ -88,7 +88,7 @@ def test_platform_archive_has_native_entry_and_bound_provenance(tmp_path, target
     if target == 'linux-x64':
         with tarfile.open(archive) as stream:
             names = stream.getnames()
-            executable = next(item for item in stream if item.name.endswith('/ProxyTranscriptRuntime'))
+            executable = next(item for item in stream if item.name.endswith('/GameImmersionToolkit'))
             assert executable.mode & 0o111
             assert any(name.endswith('/install.sh') for name in names)
     else:
@@ -97,7 +97,7 @@ def test_platform_archive_has_native_entry_and_bound_provenance(tmp_path, target
             if target.startswith('macos-'):
                 import plistlib
                 info = plistlib.loads(stream.read('Game Immersion Toolkit.app/Contents/Info.plist'))
-                assert info['CFBundleExecutable'] == 'ProxyTranscriptRuntime'
+                assert info['CFBundleExecutable'] == 'GameImmersionToolkit'
                 assert info['CFBundleVersion'] == '1.2.3'
     assert any(name.endswith('/PROVENANCE.json') for name in names)
     assert not any('site-packages' in name or '.venv' in name for name in names)

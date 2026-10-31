@@ -220,7 +220,7 @@ def _candidate(layout, slot, receipt_digest, target):
     epochs = [manifest.get('storage_epoch'), manifest.get('host_protocol')]
     if any(type(value) is not int or value != 1 for value in epochs) or epochs != [layout.storage_epoch, layout.host_protocol]:
         raise DesktopReleaseError('Desktop update needs an unsupported storage or host migration.')
-    executable = slot / ('ProxyTranscriptRuntime.exe' if target.startswith('windows-') else 'ProxyTranscriptRuntime')
+    executable = slot / ('GameImmersionToolkit.exe' if target.startswith('windows-') else 'GameImmersionToolkit')
     selected = replace(layout, application_root=slot, resource_root=slot / '_internal', executable=executable,
         version=receipt['version'], source_commit=receipt['source_commit'], build_id=receipt['build_id'], profile='runtime',
         resources=resources, children=tuple(children), storage_epoch=epochs[0], host_protocol=epochs[1])

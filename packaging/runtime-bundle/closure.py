@@ -208,12 +208,12 @@ def write_candidate(value, source, evidence, output):
     manifest = {'schema': MANIFEST_SCHEMA, 'profile': value['profile'], 'version': package['version'],
         'source_commit': value['source_commit'], 'build_id': value['build_id'], 'resources': resources,
         'children': list(EXPERIMENT_CHILDREN) if value['profile'] == 'runtime-experiment' else list(CHILD_TARGETS) if runtime else ['frontend'] if value['profile'] == 'frontend-experiment' else [], 'r19_complete': False}
-    internal = output / 'ProxyTranscriptRuntime' / '_internal'
+    internal = output / 'GameImmersionToolkit' / '_internal'
     internal.mkdir(parents=True, exist_ok=True)
     (internal / 'runtime-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     if runtime:
-        asr = output / 'ProxyTranscriptAsr'
-        target = output / 'ProxyTranscriptRuntime/asr'
+        asr = output / 'GameImmersionToolkitAsr'
+        target = output / 'GameImmersionToolkit/asr'
         if target.exists():
             raise ClosureError('ASR target already exists; use a fresh output directory.')
         asr.rename(target)
@@ -222,7 +222,7 @@ def write_candidate(value, source, evidence, output):
     # Full notices are copied from reviewed evidence, not inferred from package
     # labels. This folder is still quarantined until exact output review.
     import shutil
-    notices = output / 'ProxyTranscriptRuntime/THIRD_PARTY'
+    notices = output / 'GameImmersionToolkit/THIRD_PARTY'
     for component in value['components']:
         home = notices / normalized(component['name'])
         home.mkdir(parents=True, exist_ok=True)
@@ -231,9 +231,9 @@ def write_candidate(value, source, evidence, output):
             target = home / notice['path']
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
-    files = inventory_output(output / 'ProxyTranscriptRuntime')
-    directories = sorted(path.relative_to(output / 'ProxyTranscriptRuntime').as_posix()
-        for path in (output / 'ProxyTranscriptRuntime').rglob('*') if path.is_dir())
+    files = inventory_output(output / 'GameImmersionToolkit')
+    directories = sorted(path.relative_to(output / 'GameImmersionToolkit').as_posix()
+        for path in (output / 'GameImmersionToolkit').rglob('*') if path.is_dir())
     proof = {'schema': 'proxy-runtime-candidate-v1', 'repository': 'Firebird55/Game-immersion-toolkit',
         'source_commit': value['source_commit'], 'version': package['version'], 'build_id': value['build_id'],
         'profile': value['profile'], 'r19_complete': False, 'redistribution_review': 'pending-exact-output',

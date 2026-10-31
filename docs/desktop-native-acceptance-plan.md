@@ -39,7 +39,7 @@ compiler. Then run:
 ```text
 npm run desktop:build -- --output-root output/desktop-frontend
 python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate
-python scripts/package-desktop.py --runtime-root output/native-candidate/runtime/ProxyTranscriptRuntime --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --target windows-x64 --output output/native-distribution --candidate --iscc <verified-build-host-ISCC.exe>
+python scripts/package-desktop.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --target windows-x64 --output output/native-distribution --candidate --iscc <verified-build-host-ISCC.exe>
 ```
 
 Every output directory must be new. A supplied exact wheelhouse additionally

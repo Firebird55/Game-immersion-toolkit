@@ -199,11 +199,11 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
         str(ROOT / 'packaging/runtime-bundle/runtime.spec')], cwd=ROOT, env=env, check=True)
     if source_inputs() != before:
         raise ValueError('Source changed during the candidate build; retained output is invalid and must not be packaged.')
-    runtime = output / 'runtime/ProxyTranscriptRuntime'
+    runtime = output / 'runtime/GameImmersionToolkit'
     manifest = {'schema': MANIFEST_SCHEMA, **identity, 'resources': {item['path']: item['sha256'] for item in resources},
         'children': list(EXPERIMENT_CHILDREN), 'r19_complete': False, 'storage_epoch': 1, 'host_protocol': 1}
     (runtime / '_internal/runtime-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    asr = output / 'runtime/ProxyTranscriptAsr'
+    asr = output / 'runtime/GameImmersionToolkitAsr'
     target = runtime / 'asr'
     if output.resolve() not in asr.resolve().parents or output.resolve() not in target.resolve().parents:
         raise ValueError('ASR move escaped the owned candidate directory.')

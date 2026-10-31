@@ -98,7 +98,7 @@ jobs:
       - name: Relocate and probe extracted candidate with no developer environment
         shell: pwsh
         run: |
-          $source = Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/ProxyTranscriptRuntime'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/GameImmersionToolkit'
           $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
           New-Item -ItemType Directory -Path (Split-Path $relocated) -Force | Out-Null
           Copy-Item -LiteralPath $source -Destination $relocated -Recurse

@@ -33,7 +33,7 @@ def frozen_layout(tmp_path, *, children=(), resources=None, profile='diagnostic'
     app.mkdir()
     internal = app / '_internal'
     internal.mkdir()
-    executable = app / 'ProxyTranscriptRuntime.exe'
+    executable = app / 'GameImmersionToolkit.exe'
     executable.touch()
     private = root / 'private'
     return bundle.RuntimeLayout(mode='bundle', application_root=app, resource_root=internal,
@@ -163,7 +163,7 @@ def test_children_use_fixed_dispatch_and_keep_arguments_opaque(tmp_path):
         layout.child_command('language', '--unsafe-string')
     with pytest.raises(bundle.RuntimeBundleError, match='missing'):
         layout.child_command('asr', [])
-    helper = layout.application_root / 'asr/ProxyTranscriptAsr.exe'
+    helper = layout.application_root / 'asr/GameImmersionToolkitAsr.exe'
     helper.parent.mkdir()
     helper.touch()
     assert layout.child_command('asr', [])[0] == str(helper)
@@ -260,7 +260,7 @@ def test_bootstrap_joins_job_before_spawn_and_failed_join_never_spawns(monkeypat
 def test_frozen_windows_command_uses_real_image_and_never_py_file(monkeypatch):
     import backend.windows_preparation_process as preparation
     from types import SimpleNamespace
-    image = r'C:\Owned App\ProxyTranscriptRuntime.exe'
+    image = r'C:\Owned App\GameImmersionToolkit.exe'
     def get_image(_module, output, _size):
         output.value = image
         return len(image)
