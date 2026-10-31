@@ -1448,5 +1448,77 @@
     "production_execution_allowed": false,
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false
+  },
+  "later_static_image_refusal_702d667": {
+    "source_commit": "702d6673c893942c92079c139fa800cd94cb9be7",
+    "run": 41174915697,
+    "native_job": 124460378942,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 909,
+    "native_contract_skips": 0,
+    "new_path_contracts_passed": 7,
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "failure_artifact": {
+      "id": 13031904081,
+      "bytes": 498,
+      "sha256": "ae73fe5c1c26ec9d69f9d2e0d361444a1f1ca2ce8b4b89bf6a8868640a4f2a49"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "finalize",
+    "failure_code": "invalid-import",
+    "exe_collect_completed": {
+      "exe": 2,
+      "collect": 2
+    },
+    "a2_sidecars_delivered": false,
+    "final_inventory_delivered": false,
+    "retention_of_previous_48_unknowns": "not-proved",
+    "complete_import_closure": "not-proved",
+    "public_missing_library_warning_count": 0,
+    "earlier_same_image_missing_warning_count": 0,
+    "p1": "refused-no-selected-file-or-subphase-receipt",
+    "frozen_host_probes": "not-run",
+    "detached_keeper": "not-run",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_unmapped_alias_702d667": {
+    "source_commit": "702d6673c893942c92079c139fa800cd94cb9be7",
+    "run": 41174924122,
+    "native_job": 124460403759,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13033155032,
+      "bytes": 1889,
+      "sha256": "b18022bbfd24c84e924152a004d0418f831facd5d995b8eefd8ea53af48ca434"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "cmake-configure",
+    "compiler_id_projects": {
+      "C": "five-reviewed-properties-exact-match-three-known-cpp-imports-present-one-unknown-second-import",
+      "CXX": "five-reviewed-properties-exact-match-three-known-cpp-imports-present-one-unknown-second-import"
+    },
+    "msb4019_records": 8,
+    "literal_template_match": "all-eight-matched",
+    "caller_line": 37,
+    "caller_column": 3,
+    "import_projection_truncated": false,
+    "actual_toolset_alias": "unknown",
+    "actual_instance_version_suffix": "not-proved",
+    "native_compile": "not-proved",
+    "native_inference": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
   }
 }

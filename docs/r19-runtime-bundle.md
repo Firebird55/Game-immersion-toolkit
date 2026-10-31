@@ -793,6 +793,28 @@ source and false gates were independently checked. The original makedef discards
 the temporary archiver's stdout. That explains a diagnostic gap, not the
 underlying tool failure. No final decode or after-build tool seal was reached.
 
+At `702d667`, [run 41174915697](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41174915697)
+passed 909 Windows contracts with zero skips, including all seven real PATH
+contracts. Both EXE/COLLECT pairs completed, then mandatory P1 refused
+`invalid-import`. Artifact 13031904081 matched 498 bytes and SHA-256
+ae73fe5c1c26ec9d69f9d2e0d361444a1f1ca2ce8b4b89bf6a8868640a4f2a49;
+source and false gates were independently checked. The final inventory and A2
+sidecars were not uploaded, so their counts and retention of the earlier 48
+unknown bytes remain unproved. Public missing-library warnings stayed at zero;
+PyInstaller can suppress unresolved imports, so this is not import closure.
+No host/cold-slot or detached-keeper probe ran after the P1 refusal.
+
+The same head's [ASR run 41174924122](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41174924122)
+again failed at configure. All ten property comparisons matched, and each
+generated project has three present known CPP imports plus an unknown second
+import. All eight MSB4019 messages matched the literal template at line 37,
+column 3; the actual toolset alias and instance-version suffix remain unproved.
+Artifact 13033155032 matched 1,889 bytes and SHA-256
+b18022bbfd24c84e924152a004d0418f831facd5d995b8eefd8ea53af48ca434.
+Independent review checked source/manifest and unchanged gates. Compiler
+selection, native compile/inference and a complete final tool seal are not
+established by these observations.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
