@@ -90,6 +90,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/build-nte-toolchain.py --platform '${{ matrix.node_target }}' --output output/managed-reader-resources
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/probe-native-unreal.py --helper-root output/reader-helper/nte --resources output/managed-reader-resources --output output/native-unreal-probe.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build and exercise the app-local Cyberpunk reader
         if: runner.os == 'Windows'
         run: |
@@ -127,7 +129,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Exercise frozen startup, API crash recovery and owned shutdown
         run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
-      - name: Observe native window, tray and browser handler requests
+      - name: Observe native window, tray and mounted transcript navigation
         run: |
           $options = @('--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--output', 'output/native-ui-probe.json')
           if ($IsLinux) { xvfb-run -a dbus-run-session -- python scripts/probe-linux-desktop-ui.py @options }
@@ -164,6 +166,7 @@ jobs:
             output/native-host-probe.json
             output/native-ui-probe.json
             output/native-cyberpunk-probe.json
+            output/native-unreal-probe.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload verified desktop release assets
