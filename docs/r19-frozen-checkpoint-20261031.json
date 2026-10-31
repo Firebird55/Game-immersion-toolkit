@@ -1185,5 +1185,81 @@
     "keeper_loss": "unavailable",
     "rights_transfer_from_a079": false,
     "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41163848906"
+  },
+  "later_collection_refusal_423e843": {
+    "source_commit": "423e843bb4758acef35d0fbe217250bb2c7b3daf",
+    "run": 41169070412,
+    "native_job": 124442903194,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 769,
+    "native_contract_skips": 0,
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "failure_artifact": {
+      "id": 13030418382,
+      "bytes": 520,
+      "sha256": "25f3fdfe867e369facb851233639dd9de72b78cace721a19aa9ec87831580d16"
+    },
+    "download_review": "independently-verified-source-provider-digest-single-entry-and-false-gates",
+    "phase": "analysis",
+    "failure_code": "other-host-unresolved",
+    "observed_records": 239,
+    "native_collection_complete": false,
+    "freezer_complete": false,
+    "frozen_host_probes": "not-run",
+    "frozen_detached_keeper": "not-run",
+    "native_closure": "unverified",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_configure_failure_423e843": {
+    "source_commit": "423e843bb4758acef35d0fbe217250bb2c7b3daf",
+    "run": 41169084584,
+    "native_job": 124442955639,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13030152316,
+      "bytes": 1387,
+      "sha256": "79d8bc8184c6a319669bcea76e1b3d15b86c188d78f2cf68f070f78976257b87"
+    },
+    "download_review": "independently-verified-source-provider-digest-single-entry-and-false-gates",
+    "phase": "cmake-configure",
+    "diagnostic_categories": [
+      "cmake-compiler-not-recorded",
+      "cmake-configure-incomplete",
+      "cmake-error"
+    ],
+    "known_cmake_site": {
+      "command": "project",
+      "line": 26
+    },
+    "nested_log_context": {
+      "evidence_scope": "observed-context-not-fatal-cause",
+      "known_codes": [
+        "MSB4019"
+      ],
+      "compiler_identification_build_failed": true,
+      "exact_missing_import": "unknown"
+    },
+    "compiler_cache_C_CXX_RC": "observed-with-missing-compiler-entries",
+    "compiler_configuration_C_CXX_RC": "missing-files",
+    "observed_visual_studio_version": "18.11.12315.225",
+    "observed_cmake_version": "4.4.5",
+    "selected_v180_props_pin_matched": true,
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "native_compile": "not-proved",
+    "native_inference": "not-run",
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
   }
 }

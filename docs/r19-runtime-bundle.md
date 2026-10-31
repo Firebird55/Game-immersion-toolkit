@@ -729,6 +729,26 @@ The [ledger](r19-frozen-checkpoint-20261031.json) preserves the failed workflow
 alongside the narrower verified observations. Native source provenance, complete
 rights, keeper loss and ordinary-user Windows 11 remain open.
 
+At `423e843`, [run 41169070412](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41169070412)
+passed 769 affected Windows contracts with zero skips, including all four
+default/detached leaf-process cases. The new collection guard then refused an
+`other-host-unresolved` input after 239 observed records. Downloaded refusal
+artifact 13030418382 matched 520 bytes and SHA-256
+25f3fdfe867e369facb851233639dd9de72b78cace721a19aa9ec87831580d16;
+its sole fixed-schema entry, source identity and pending/false gates were checked
+independently. Collection/freezing did not finish; frozen host/cold-slot and
+detached-keeper probes did not run. Source contracts do not supply their proof.
+
+The same head's [ASR run 41169084584](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41169084584)
+failed at configure with missing compiler registration. Its bounded nested log
+context records `MSB4019` during compiler identification; the exact missing import
+and fatal cause remain unknown. Downloaded artifact 13030152316 matched 1,387
+bytes and SHA-256
+79d8bc8184c6a319669bcea76e1b3d15b86c188d78f2cf68f070f78976257b87,
+including exact source/manifest and unchanged gates. This supplies no native
+compile, inference, full tool seal or source-input-cohort receipt. Both failures
+remain in the checkpoint ledger; earlier narrow passes are not transferred.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
