@@ -106,7 +106,11 @@ def inspect_archive(archive, pin):
                 or pin['archive']['expanded_bytes'] > MAX_EXPANDED):
             raise ValueError('Pinned ZIP inventory bounds differ.')
         for item in infos:
-            name = canonical(item.filename)
+            # ZipInfo preserves the decoded central name before truncating NUL
+            # or converting host separators. Validate that original spelling.
+            name = canonical(item.orig_filename)
+            if item.orig_filename != item.filename:
+                raise ValueError('ZIP member name was normalized by the host.')
             kind = stat.S_IFMT(item.external_attr >> 16)
             if (name.split('/')[0] != pin['archive']['root'] or item.flag_bits & 1
                     or item.external_attr & 0x400 or kind not in (0, stat.S_IFREG, stat.S_IFDIR)

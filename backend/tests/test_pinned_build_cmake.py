@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 import stat
+import struct
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -31,6 +32,9 @@ class PinnedCMakeTests(unittest.TestCase):
             with zipfile.ZipFile(path, 'w', zipfile.ZIP_STORED) as z:
                 for name, raw, kind, dos in entries:
                     info = zipfile.ZipInfo(name); info.external_attr = ((kind | 0o644) << 16) | dos
+                    # The constructor sanitizes on the writer's host. These
+                    # malicious fixtures must retain their actual raw names.
+                    info.filename = name
                     z.writestr(info, raw)
         pin = {'version': '4.4.5', 'platform': 'win-x64',
             'archive': {'filename': 'fixture.zip', 'root': UPSTREAM, 'entries': len(entries),
@@ -61,6 +65,7 @@ class PinnedCMakeTests(unittest.TestCase):
         malformed = [('../outside', b'x', stat.S_IFREG, 0),
             ('/' + UPSTREAM + '/abs', b'x', stat.S_IFREG, 0),
             (UPSTREAM + '/bin\\other', b'x', stat.S_IFREG, 0),
+            (UPSTREAM + '/bin/other\0hidden', b'x', stat.S_IFREG, 0),
             (UPSTREAM + '/bin/other:stream', b'x', stat.S_IFREG, 0),
             (UPSTREAM + '/bin/other.', b'x', stat.S_IFREG, 0),
             (UPSTREAM + '/bin/CON.txt', b'x', stat.S_IFREG, 0),
@@ -128,6 +133,35 @@ class PinnedCMakeTests(unittest.TestCase):
                 return_value=io.BytesIO(b'wrong')), self.assertRaises(ValueError):
             cmake.acquire(output)
         self.assertFalse(output.exists())
+
+    def test_raw_local_and_central_names_survive_windows_normalization_and_are_rejected(self):
+        for suffix in ('bin\\other', 'bin/other\0hidden'):
+            with self.subTest(suffix=suffix):
+                raw_name = UPSTREAM + '/' + suffix
+                # Simulate the Windows constructor on either test host; file
+                # operations still use the host's normal pathlib flavour.
+                with patch.object(zipfile.os, 'sep', '\\'), patch.object(zipfile.os, 'altsep', '/'):
+                    archive, pin = self.fixture(extra=[(raw_name, b'x', stat.S_IFREG, 0)])
+                    raw = archive.read_bytes()
+                    with zipfile.ZipFile(archive) as zipped:
+                        infos = zipped.infolist(); item = infos[-1]
+                        self.assertEqual(item.orig_filename, raw_name)
+                        self.assertNotEqual(item.filename, raw_name)
+                        local_name_size, = struct.unpack_from('<H', raw, item.header_offset + 26)
+                        local_name = raw[item.header_offset + 30:item.header_offset + 30 + local_name_size]
+                        position = zipped.start_dir
+                        central_names = []
+                        for _ in infos:
+                            self.assertEqual(raw[position:position+4], b'PK\x01\x02')
+                            name_size, extra_size, comment_size = struct.unpack_from('<HHH', raw, position + 28)
+                            central_names.append(raw[position+46:position+46+name_size])
+                            position += 46 + name_size + extra_size + comment_size
+                    self.assertEqual(local_name, raw_name.encode('ascii'))
+                    self.assertEqual(central_names[-1], raw_name.encode('ascii'))
+                    output = self.root / ('raw-nul' if '\0' in suffix else 'raw-backslash')
+                    with patch.object(cmake, 'policy', return_value=pin), self.assertRaises(ValueError):
+                        cmake.prepare(archive, output)
+                    self.assertFalse(output.exists())
 
     def test_archive_and_prepared_tree_links_are_not_accepted_as_byte_aliases(self):
         archive, pin = self.fixture(); linked = self.root / 'linked.zip'

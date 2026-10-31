@@ -40,6 +40,13 @@ reserved names, symlinks/reparse points, oversized entries and extra empty
 directories fail. Existing output is preserved. Receipt changes cannot approve
 different bytes: verification derives the expected tree from the pinned ZIP.
 
+ZIP path checks use the original decoded central-directory name, before
+[Python 3.12.10's ZipInfo normalization](https://github.com/python/cpython/blob/v3.12.10/Lib/zipfile/__init__.py).
+That constructor preserves `orig_filename` before truncating NUL or replacing
+host separators. Authored backslash/NUL fixtures preserve actual local and
+central header bytes on both operating systems; they test this boundary without
+claiming a malformed member in the exact pinned Kitware supplier ZIP.
+
 Python callers can import the helper and call `verify(root)` for its safe
 summary dictionary. `payload_root(root)` constructs the upstream payload path;
 it does not verify it. Verify before the first native invocation and after all
