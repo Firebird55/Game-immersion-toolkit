@@ -80,6 +80,10 @@ physical phone/tablet acceptance remain separate from viewport emulation.
   `shared:update -- --version 1.0.13 --all`, run their checks and commit both pins.
   Both isolated consumer checks and generated pin commits passed; the live game
   session was not interrupted and no consumer vendor source was patched.
+- [x] Correct the supplied annotation-baseline and split-word examples in shared
+  reader 1.0.14, import its verified release into both consumers and add real
+  Chromium/Firefox typography regressions. The [dated typography report](shared-reader-typography-2026-10-31.md)
+  records release hashes, import commits, browser assertions and native-test limits.
 
 The [2026-10-31 public compatibility review](lexirise-compatibility-review-2026-10-31.md)
 records the accepted-value gap even though the watch found no changed endpoint
