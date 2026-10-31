@@ -129,6 +129,16 @@ installation so failures do not wait for codec construction. Byte verification
 remains mandatory. Local payload/capture regressions pass (21 passed, four
 platform skips); these do not establish Linux or macOS native acceptance.
 
+The follow-up Linux diagnostic identifies a bundled PySide `__pycache__` file
+recompiled by pip. A generated cache is now accepted only when the installed
+source matches the wheel byte-for-byte and its code object matches a fresh
+compilation of that source with the same interpreter and optimization level.
+Modified code and source-less caches remain rejected. The three optimization
+levels have regression coverage (16 runtime tests passed, four platform skips).
+macOS activation alone did not resolve the reported overlap; the authored probe
+now records bounded layer/geometry diagnostics without other window titles or
+process identities. Both native follow-up results remain pending.
+
 The first native build exposed an incompatible ICU DLL collected from an
 unrelated developer tool on PATH. Restricting build discovery to the verified
 interpreter and operating-system tools fixes startup. The native probe now

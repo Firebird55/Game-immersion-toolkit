@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import marshal
 from pathlib import Path
 import sys
 import tarfile
@@ -143,6 +144,35 @@ def test_actual_utf8_wheel_notice_metadata_can_be_recorded_as_json(tmp_path, mon
     with zipfile.ZipFile(wheel) as package:
         value = module.wheel_metadata(package)
     assert json.loads(json.dumps({'license': value['License']})) == {'license': 'Copyright \u00e9'}
+
+
+@pytest.mark.parametrize('optimization', [0, 1, 2])
+def test_pip_recompiled_wheel_cache_requires_matching_verified_source(tmp_path, monkeypatch, optimization):
+    module = recorder(monkeypatch)
+    prefix = tmp_path / 'environment'; prefix.mkdir()
+    source = prefix / 'owned.py'
+    source.write_bytes(b'"authored module"\nassert True\nOWNED = True\n')
+    cache = Path(importlib.util.cache_from_source(str(source), optimization=optimization or ''))
+    cache.parent.mkdir()
+    cache_name = cache.relative_to(prefix).as_posix()
+    wheel = tmp_path / 'owned.whl'
+    with zipfile.ZipFile(wheel, 'w') as package:
+        package.writestr('owned-1.0.dist-info/METADATA', b'Name: owned\nVersion: 1.0\n')
+        package.writestr('owned.py', source.read_bytes())
+        package.writestr(cache_name, b'supplier cache from another build location')
+    metadata_path = prefix / 'owned-1.0.dist-info/METADATA'
+    metadata_path.parent.mkdir(); metadata_path.write_bytes(b'Name: owned\nVersion: 1.0\n')
+    monkeypatch.setattr(sys, 'prefix', str(prefix))
+    monkeypatch.setattr(module.metadata, 'distribution', lambda _: SimpleNamespace(locate_file=lambda name: prefix / name))
+    header = importlib.util.MAGIC_NUMBER + bytes(12)
+    cache.write_bytes(header + marshal.dumps(compile(source.read_bytes(), str(source), 'exec', optimize=optimization)))
+    module.verify_wheel(wheel)
+    cache.write_bytes(header + marshal.dumps(compile('OWNED = False', str(source), 'exec', optimize=optimization)))
+    with pytest.raises(module.ClosureError, match='content mismatch'):
+        module.verify_wheel(wheel)
+    source.unlink()
+    with zipfile.ZipFile(wheel) as package:
+        assert not module.verified_recompiled_cache(package, cache_name, cache, SimpleNamespace(locate_file=lambda name: prefix / name))
 
 
 def test_collected_tree_rejects_empty_private_directories(tmp_path, monkeypatch):

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 from pathlib import Path
 import sys
@@ -12,6 +13,31 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.platform_windows import CaptureUnavailable, require_x11
+
+
+def mac_overlap_diagnostics(title):
+    """Geometry only: never include other applications' titles or identities."""
+    import Quartz
+    from backend.platform_windows import intersection
+    values = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
+        Quartz.kCGNullWindowID)
+    def bounds(value):
+        raw = value.get('kCGWindowBounds', {})
+        return tuple(round(raw.get(key, 0)) for key in ('X', 'Y', 'Width', 'Height'))
+    target = next((value for value in values or []
+        if value.get('kCGWindowOwnerPID') == os.getpid() and value.get('kCGWindowName') == title), None)
+    if target is None:
+        return {'target_found': False}
+    blockers = []
+    for value in values:
+        if value.get('kCGWindowNumber') == target.get('kCGWindowNumber'):
+            break
+        if (value.get('kCGWindowIsOnscreen') and float(value.get('kCGWindowAlpha', 0)) > 0
+                and intersection(bounds(value), bounds(target))):
+            blockers.append({'layer': value.get('kCGWindowLayer'), 'bounds': bounds(value),
+                'alpha': value.get('kCGWindowAlpha'), 'owned': value.get('kCGWindowOwnerPID') == os.getpid()})
+    return {'target_found': True, 'target_bounds': bounds(target), 'overlaps': blockers[:12]}
 
 
 def main():
@@ -88,6 +114,11 @@ def main():
                 result.update(status='unavailable', reason=error.code)
             except Exception as error:
                 result.update(status='failed', reason=type(error).__name__, message=str(error))
+                if sys.platform == 'darwin':
+                    try:
+                        result['window_diagnostics'] = mac_overlap_diagnostics(title)
+                    except Exception as diagnostic_error:
+                        result['window_diagnostics'] = {'error': type(diagnostic_error).__name__}
             finally:
                 capture.close()
                 window.close()
