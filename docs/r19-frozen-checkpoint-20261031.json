@@ -1662,5 +1662,60 @@
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false,
     "installer": "not-built"
+  },
+  "later_ffmpeg_native_source_replay_02c6380": {
+    "source_commit": "02c6380bfbdccc63af311391ede52a1a4020153d",
+    "run": 41181125810,
+    "first_attempt": {
+      "native_job": 124478580335,
+      "actual_image": "20261030.294.1",
+      "four_early_windows_contracts": "passed-zero-skips",
+      "failure": "source-acquisition-transport-timeout-before-build",
+      "error_family": "WinError10060",
+      "artifacts": []
+    },
+    "single_justified_same_head_failed_job_retry": {
+      "attempt": 2,
+      "native_job": 124479298683,
+      "actual_image": "20261021.278.1",
+      "four_early_windows_contracts": "passed-zero-skips",
+      "build_and_probe": "passed"
+    },
+    "artifact": {
+      "id": 13035402527,
+      "bytes": 24210834,
+      "sha256": "fb6167d101e1cb31894d1c223d5ed833a43c04d679962739b854f6d6be0e9cbf"
+    },
+    "receipt": {
+      "bytes": 6486029,
+      "sha256": "40c9576e1ddf8585ec29df4c0d89288ad50a00b73f4c768209e6af55148afd7f"
+    },
+    "source_review_zip": {
+      "bytes": 22575610,
+      "sha256": "471ba459964e006920aedf83974c3cb1cb6e2c3cc9f46d6e74e12f9ec422abf9",
+      "files": 18
+    },
+    "download_review": "independently-verified-provider-digest-head-source-kit-members-canonical-identity-and-false-gates",
+    "raw_windows_project_cohort": "82da524d682dc8c0781095d6dc1e2261b4e139a212c07511737ece8f945d3e0d",
+    "lf_equivalent_reviewed_project_cohort": "4a769ab884ff6a3ff182db4dd0f36e338b76a2e1b2c920e45936763bfa1efc03",
+    "project_byte_equivalence": "eight-CRLF-only-text-inputs-and-one-raw-patch-not-raw-cohort-equality",
+    "original_options": 36,
+    "actual_configurations": 4,
+    "makedef_roles": 4,
+    "archiver_environment": "empty",
+    "response_files": "yes",
+    "makedef_error_codes": [],
+    "authored_flac_pcm_bytes": 1024,
+    "authored_flac_pcm_sha256": "e153774c8d06b094341ec9eb1e1f53571d3398a01cfd6526df97bc073f7ef379",
+    "flac_faults": "truncation-and-CRC-rejected-previous-output-retained",
+    "authored_opus": "static-encode-external-libopus-decode-invalid-packet-rejected",
+    "loaded_dlls": "four-quarantined-candidate-origins-hash-consistent",
+    "private_log_hash_review": "existing-config-log-in-public-generated-inventory-projection-fix-pending-no-raw-log-downloaded",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
   }
 }

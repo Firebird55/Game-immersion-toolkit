@@ -862,6 +862,24 @@ are from a failed run, with no host or keeper probe. Current output contains no
 api-core, api-crt or ucrt basenames: the earlier 44 bucketed files are not proved
 retained, and zero missing-library warnings cannot establish import closure.
 
+The same head's [codec run 41181125810](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41181125810)
+passed all four early Windows contracts, then hit a download timeout before
+building on image 20261030.294.1. One justified retry of only the failed job used
+image 20261021.278.1, passed the same contracts and completed build/probes.
+The four diagnostic roles now observe empty AR with no error codes. Authored
+FLAC decode (1,024 PCM bytes), truncation/CRC refusal, prior-output preservation,
+Opus roundtrip/invalid-packet refusal and four candidate DLL origins passed.
+Artifact 13035402527 matched 24,210,834 bytes and SHA-256
+fb6167d101e1cb31894d1c223d5ed833a43c04d679962739b854f6d6be0e9cbf.
+Independent review verified the receipt, all 18 source-kit members, unchanged
+source/variant bindings and false gates. The eight regular project text inputs
+have CRLF Windows bytes that normalize exactly to the reviewed LF inputs; the
+patch is raw-byte identical. The two raw cohorts are not identical. Review also
+found an existing `config.log` hash in the public generated-file inventory;
+its private projection is pending. No raw log or native payload was downloaded.
+This is bounded source-experiment evidence, with runtime integration, complete
+corresponding-source/rights approval and ordinary Windows 11 acceptance open.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
