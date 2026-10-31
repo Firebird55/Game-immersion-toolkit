@@ -38,6 +38,40 @@ by this gate completes acceptance before closing with retryable code 1013;
 untrusted Host/Origin still receives middleware code 1008 before acceptance or
 status access.
 
+The two explicit HTTP `asyncio.to_thread` producers, regional capture preview
+and manual ingest matching, also capture one Runtime, gate, opaque ticket and
+bound worker callable before their first worker await. Their actual thread
+enters with that ticket and leaves in `finally` only after its complete operation
+returns or raises. The HTTP middleware keeps its separate request scope through
+ASGI completion. Cancelling that request cannot retire an already-running worker
+scope; drain still waits for the worker. A worker whose admission is refused
+does not leave a scope it never entered. Refused/retired tickets produce a fixed
+HTTP 503 with `Retry-After: 1`; a pre-stop queued worker cannot start its resource
+operation in a later resumed epoch.
+
+Regional preview can use the capture object's shared background-capture provider
+from the loop's default executor. That thread is distinct from the capture/OCR
+executor pools. Counting its actual work prevents a cancelled HTTP waiter from
+making request drain appear complete while preview can still access that
+provider. The no-region path still reads the cached preview bytes without a new
+worker or ticket. This is an admission/operation boundary, not proof of WGC/MSS
+native handle cleanup or a warm capture session.
+
+Manual ingest's worker performs only its bound index match. After a successful
+await, transcript insertion and `on_line` remain in the coroutine's existing HTTP
+scope and use the captured Runtime. Its capture session ID is still read after
+matching. Cancelling the match await prevents those following statements from
+running; the fix does not move SQL/publication into a worker or claim that a
+cancelled ingest was previously proven to write a transcript afterward. A loaded
+TextMapIndex match can update its in-memory cache, so the surviving thread still
+has resource ownership even without a subsequent SQL write.
+
+These changes apply to those two explicit asyncio workers. Synchronous reading
+routes retain their existing FastAPI/Starlette `run_in_threadpool` dispatch
+through AnyIO, whose default is `abandon_on_cancel=False`; they are not silently
+rewritten or given an all-thread cancellation guarantee. Other default-executor
+lifecycle work remains under its own existing producer/cleanup contracts.
+
 The shared lifecycle lock serializes quiesce and activation. A strict
 quiesce attempt has the existing 30-second budget. A timed-out or disconnected
 waiter retains the real cleanup task. Activation refuses while that task or a
@@ -53,6 +87,7 @@ The lifecycle covers these existing producers:
 | --- | --- |
 | Admitted HTTP work | Wait through ASGI completion; new ordinary requests receive 503 while closed |
 | Initial WebSocket status | Count the actual status thread; retire its queued ticket on admission stop, including across resume |
+| Regional preview and manual ingest matching | Count actual default-executor work after HTTP cancellation; reject retired worker tickets before resource access, including across resume |
 | Manual mobile exports and pickers | Close admission; refuse live monitor/process, picker or asynchronous cancellation work |
 | Automatic export destination picker | Refuse an active picker before stopping the existing automatic-export service |
 | Native setup/tool preparation | Close admission; join the actual tool thread and native-completion callbacks, including refresh work after process exit |
@@ -80,7 +115,8 @@ copy settings, databases or credentials. The synthetic migration coordinator
 still requires its own synthetic proof and does not accept this response as a
 production barrier. No live migration or account write is exercised here.
 The WebSocket fix covers this one initial status producer, not every future
-message/queued callback, active socket or mutable resource. Its ticket does not
+message/queued callback, active socket or mutable resource. The two explicit HTTP
+worker scopes likewise do not enumerate every thread or lifecycle task. A ticket does not
 prove physical connection/cursor/file closure, a complete RuntimeDataFence,
 whole-process signaling, a safe copied-store cutover or preserved OCR warmth.
 
@@ -112,6 +148,17 @@ stop-plus-resume, and binding/cleanup of the original Runtime and hub.
 `test_local_access.py` exercises the actual ASGI acceptance/1013 ordering and
 preserved pre-dispatch Host/Origin refusal. Account side effects are mocked;
 these source tests introduce no new native runtime receipt.
+`test_threaded_http_producers.py` uses the actual ASGI app without lifespan,
+temporary SQLite/transcript and TextMapIndex fixtures, and authored frame/window
+providers. It verifies cancellation while actual work continues, ordinary and
+worker-cancellation error balance, a queued stale ticket across stop/resume,
+fresh success, refused-entry/no-leave, captured Runtime/gate/callable identity,
+post-match session selection and cached-preview/404 behavior. The cancelled
+match case retains its zero-row/zero-publication negative. A queued HTTP waiter
+which remains live is still counted by middleware; the test's manual stop/resume
+transition is an epoch negative, not evidence of successful Runtime quiesce.
+Credential/native/network access is forbidden by the fixtures. These source
+regressions establish no physical Windows cleanup or global resource fence.
 `test_runtime_handoff.py` exercises the existing endpoint ordering and explicit
 Hito refusal, default source compatibility and rejection of a default-protocol
 bypass. `test_preparation_cancellation.py` retains capture/session identity

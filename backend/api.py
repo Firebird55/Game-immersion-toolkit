@@ -1686,15 +1686,31 @@ async def capture_preview(
     height: float | None = Query(default=None, gt=0, le=1),
     picture_area: Literal["window", "16:9"] | None = Query(default=None),
 ) -> Response:
+    current = runtime
     values = (left, top, width, height)
     if all(value is not None for value in values):
         try:
             region = CaptureRegion(left=left, top=top, width=width, height=height)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        preview = await asyncio.to_thread(runtime.capture.preview_for_region, region, picture_area)
+        gate, preview_for_region = current.request_writers, current.capture.preview_for_region
+        try:
+            ticket = gate.capture_ticket()
+
+            def preview_region():
+                gate.enter(ticket)
+                try:
+                    return preview_for_region(region, picture_area)
+                finally:
+                    gate.leave()
+
+            preview = await asyncio.to_thread(preview_region)
+        except WritersQuiescing:
+            raise HTTPException(status_code=503,
+                detail='Runtime handoff is stopping writers. Retry after activation or recovery.',
+                headers={'Retry-After': '1'}) from None
     else:
-        preview = runtime.capture.preview_bytes()
+        preview = current.capture.preview_bytes()
     if not preview:
         raise HTTPException(status_code=404, detail="No capture preview is available yet")
     return Response(
@@ -1732,17 +1748,31 @@ def check_updates() -> dict[str, object]:
 
 @app.post("/api/ingest", response_model=TranscriptLine)
 async def manual_ingest(payload: ManualIngest) -> TranscriptLine:
-    if not runtime.textmaps.ready:
+    current = runtime
+    index = current.textmaps
+    if not index.ready:
         raise HTTPException(status_code=409, detail="TextMaps are not ready")
-    match = await asyncio.to_thread(
-        runtime.textmaps.match_text,
-        payload.text,
-        runtime.settings.get().fuzzy_threshold,
-    )
+    gate, match_text = current.request_writers, index.match_text
+    text, threshold = payload.text, current.settings.get().fuzzy_threshold
+    try:
+        ticket = gate.capture_ticket()
+
+        def match_ingest():
+            gate.enter(ticket)
+            try:
+                return match_text(text, threshold)
+            finally:
+                gate.leave()
+
+        match = await asyncio.to_thread(match_ingest)
+    except WritersQuiescing:
+        raise HTTPException(status_code=503,
+            detail='Runtime handoff is stopping writers. Retry after activation or recovery.',
+            headers={'Retry-After': '1'}) from None
     if match is None:
         raise HTTPException(status_code=404, detail="No bilingual TextMap match found")
-    line = runtime.transcript.add(match, runtime.capture.session_id)
-    await runtime.on_line(line)
+    line = current.transcript.add(match, current.capture.session_id)
+    await current.on_line(line)
     return line
 
 

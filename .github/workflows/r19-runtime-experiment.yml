@@ -406,7 +406,7 @@ jobs:
             'diagnostic_notice_delivery', 'flatbuffers_notices', 'guarded_slot_probe',
             'bundle_host', 'bundle_migration', 'runtime_data_copy_probe', 'storage',
             'hito_storage', 'lexirise_lifetime', 'reading_lifetime',
-            'runtime_readers', 'game_update_schedule'
+            'runtime_readers', 'game_update_schedule', 'threaded_http_producers'
           ) | ForEach-Object { "backend/tests/test_$_.py" }
           & $env:PYTHON -B -m pytest -q @contracts
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
