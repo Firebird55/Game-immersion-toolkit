@@ -304,11 +304,11 @@ unchanged. Each changed candidate still requires its own exact-source Windows
 execution and independently downloaded receipt; local fixtures are not that
 proof. The first verified execution is recorded above.
 
-## Separate retained-WAL plain-copy case (C5, native pending)
+## Separate retained-WAL plain-copy case (C5)
 
 `authored-data-copy-wal` is a separate fixed authored experiment. Its source
 contracts exercise actual SQLite-produced WAL/SHM and the real current store
-schema; its exact frozen Windows execution is still required. The verified
+schema; its first verified frozen Windows execution is recorded below. The verified
 C3 and C4 checkpoints above retain their original zero-WAL meanings. This case
 does not combine WAL copying with the C4 interruption.
 
@@ -437,5 +437,25 @@ workflow's separate fixed step and exact JSON allowlist are source integration
 only until the actual run and independently downloaded receipt pass. Its
 ten-minute outer deadline is failed, unverified external containment. Earlier
 successful metadata may be retained after a later C5 failure; artifact presence
-does not establish workflow success. No native C5 receipt or completed R19
-acceptance is implied by these source contracts.
+does not establish workflow success. Source contracts alone imply neither a
+native C5 receipt nor completed R19 acceptance.
+
+At `5c9db765d86b2fa7787788dadc1f742dfd478c5b`, run `41217533269`
+passed on its first attempt, including 1,090 Windows contracts without skips.
+Root and peer checked the downloaded twelve-entry metadata artifact, exact
+provider digest, inventory, native collection/image bindings and separate
+source-rebuild artifact. The C5 receipt records SQLite `3.53.1` in the frozen
+coordinator, a 16,512-byte transcript WAL and 32,768-byte SHM after retained
+writer signals, and two WAL/two SHM files in the copy set. The main-only private
+copy reads `favorite=false`; the full copied set reads `favorite=true`.
+It also verifies ten actual source-entry blocks, two cohorts/four retained
+writer signals, preserved original source and pointer, fresh-source logical
+readback, stale-barrier refusal and explicit cleanup. The collected SQLite
+extension/DLL hashes are bound to the pinned CPython `3.12.16` supplier.
+
+This is a plain retained-WAL copy with a living coordinator. C3 and C4 passed
+again with zero WAL/SHM; C5 does not add interruption, keeper-death, global
+writer-admission or warm-routing proof. Hosted image `20261021.278.1` is Server
+evidence. Rights and ordinary-user Windows 11 acceptance remain open, production
+and target activation remain false, and no installer was built. Exact identities
+are in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).

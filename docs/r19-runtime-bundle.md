@@ -994,6 +994,33 @@ cohort. WAL and SHM counts remain zero. This is no process-crash/keeper-death,
 global/dynamic admission, target activation, warm routing, rights or ordinary-user
 Windows 11 proof. Image `20261021.278.1` is hosted Server evidence.
 
+## Verified retained-WAL copy at 5c9db76
+
+Run `41217533269` at `5c9db765d86b2fa7787788dadc1f742dfd478c5b`
+passed 1,090 Windows contracts without skips and all selected extracted-runtime
+observations on its first attempt. Root and peer verified the twelve-entry
+metadata artifact, 1,449 files/642 directories/620,104,421 bytes, all 473 A2/P1
+native bindings and delivery of all 113 component-notice references (104 distinct
+hashes). The unchanged six-input Xiph source kit reproduced nine identical
+outputs; decode, error, cancellation and DLL-origin probes passed. Its actual
+build-host tools were CMake `4.4.4` and compiler `19.51.36260.0`.
+
+The separate [C5 receipt](r19-frozen-data-copy-probe.md) verifies an actual
+16,512-byte transcript WAL and 32,768-byte SHM, a main-only/full-set semantic
+contrast, ten actual source-entry blocks and preserved source/pointer through
+fresh-source restart and cleanup. C3/C4 passed again with zero WAL/SHM. The
+diagnostic, static frontend, protected TEST and authored-helper artifacts were
+also checked at this head; their existing scope limits remain.
+
+The same head's ASR source run `41217577067` stopped before configure: both
+Full CLR/x64 children reported an empty default common-data folder. Binding
+`PROGRAMDATA` and `ALLUSERSPROFILE` did not repair it. The underlying Shell cause,
+compile/probe results and final native tool/source seals remain unproved. This
+negative result grants no runtime or rights acceptance. Main image
+`20261021.278.1` is hosted Server evidence; doctor exit 2, rights, ordinary-user
+Windows 11, keeper-death, global admission and warm-routing gates remain open.
+The [checkpoint ledger](r19-frozen-checkpoint-20261031.json) retains exact bytes.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
