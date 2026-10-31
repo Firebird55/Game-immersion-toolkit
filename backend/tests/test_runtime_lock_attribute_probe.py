@@ -569,13 +569,13 @@ def test_legacy_conversion_refusal_still_runs_owned_finally_once(monkeypatch, tm
 
 
 def authored_engine_failure_context(code, stderr):
-    labels = {0: 'zero-exit', 31: 'no-finally-or-caught', 32: 'record-identity', 33: 'exception-identity'}
+    labels = {0: 'zero-exit', 31: 'no-finally-or-caught', 33: 'exception-identity'}
     return {'exit': labels.get(code, 'unknown') if type(code) is int else 'unknown',
         'stderr_present': bool(stderr)}
 
 
 @pytest.mark.parametrize(('code', 'label'), [(0, 'zero-exit'), (31, 'no-finally-or-caught'),
-    (32, 'record-identity'), (33, 'exception-identity'), (-1, 'unknown'), (123456, 'unknown'),
+    (32, 'unknown'), (33, 'exception-identity'), (-1, 'unknown'), (123456, 'unknown'),
     (None, 'unknown'), (False, 'unknown'), ('private-exit-value', 'unknown')])
 def test_authored_engine_failure_context_never_echoes_private_or_unknown_process_data(code, label):
     for stderr, present in ((b'', False), (b'private-stderr-path-message-trace', True)):
@@ -620,6 +620,34 @@ def authored_comparison_frame():
     return {'kind': 'authored-rethrow-comparison', 'baseline': dict(values), 'instrumented': dict(values)}
 
 
+def authored_rethrow_preserved(comparison):
+    # Only the existing strict frame parser supplies this value. Wrapper identity
+    # remains an observation; these four preservation predicates are per variant.
+    if type(comparison) is not dict or set(comparison) != {'baseline', 'instrumented'}:
+        return False
+    fields = ('exception_equal', 'category_equal', 'identifier_equal', 'finally_observed')
+    return all(type(comparison[variant]) is dict and all(comparison[variant].get(key) is True for key in fields)
+        for variant in ('baseline', 'instrumented'))
+
+
+@pytest.mark.parametrize('variant', ['baseline', 'instrumented'])
+@pytest.mark.parametrize('field', ['exception_equal', 'category_equal', 'identifier_equal', 'finally_observed'])
+def test_authored_rethrow_preservation_refuses_each_false_field_within_each_variant(variant, field):
+    frame = authored_comparison_frame(); frame[variant][field] = False
+    comparison = authored_rethrow_comparison(json.dumps(frame).encode('ascii'))
+    assert comparison != 'unavailable' and not authored_rethrow_preserved(comparison)
+
+
+@pytest.mark.parametrize('baseline_wrapper', [False, True])
+@pytest.mark.parametrize('instrumented_wrapper', [False, True])
+def test_authored_rethrow_preservation_accepts_either_wrapper_observation(baseline_wrapper, instrumented_wrapper):
+    frame = authored_comparison_frame()
+    frame['baseline']['record_equal'] = baseline_wrapper
+    frame['instrumented']['record_equal'] = instrumented_wrapper
+    comparison = authored_rethrow_comparison(json.dumps(frame).encode('ascii'))
+    assert authored_rethrow_preserved(comparison)
+
+
 def test_authored_rethrow_comparison_keeps_only_complete_typed_boolean_variants():
     frame = authored_comparison_frame()
     frame['instrumented']['category_equal'] = False
@@ -651,11 +679,12 @@ def test_authored_rethrow_comparison_refuses_malformed_or_private_data_without_e
     if mutation == 'duplicate-nested': raw = raw.replace(b'"record_equal":false', b'"record_equal":false,"record_equal":true', 1)
     if mutation == 'unknown-tail': raw += b'\nprivate-stdout-stderr-trace'
     assert authored_rethrow_comparison(raw) == 'unavailable'
+    assert not authored_rethrow_preserved(authored_rethrow_comparison(raw))
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Authored Windows PowerShell engine semantics unavailable locally')
 @pytest.mark.parametrize('writer_fails', [False, True])
-def test_authored_powershell_rethrows_original_record_and_exception_when_diagnostic_writer_fails(writer_fails):
+def test_authored_powershell_preserves_original_error_context_when_diagnostic_writer_fails(writer_fails):
     # Exact producer fragments; no C7 fixture, legacy source, OS APIs or process helper.
     root = os.environ.get('SystemRoot')
     if not root or not Path(root).is_absolute(): pytest.fail('Authored engine host unavailable')
@@ -720,7 +749,6 @@ function Get-C7AuthoredComparison([bool]$RecordEqual,[bool]$ExceptionEqual,[bool
     (Get-C7AuthoredComparison $baselineRecordEqual $baselineExceptionEqual $baselineCategoryEqual $baselineIdentifierEqual $baselineFinallyObserved)+
     ',"instrumented":'+(Get-C7AuthoredComparison $instrumentedRecordEqual $instrumentedExceptionEqual $instrumentedCategoryEqual $instrumentedIdentifierEqual $instrumentedFinallyObserved)+'}')
 if (-not $finallyObserved -or $null -eq $caught) { exit 31 }
-if (-not [Object]::ReferenceEquals($caught,$conversionError)) { exit 32 }
 if (-not [Object]::ReferenceEquals($caught.Exception,$conversionError.Exception)) { exit 33 }
 [Console]::Out.WriteLine('owned-catch-ok')
 if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
@@ -765,6 +793,8 @@ if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
         pytest.fail('Authored engine original-error/finally contract failed: ' + json.dumps(
             context, sort_keys=True, separators=(',', ':')))
     if comparison == 'unavailable': pytest.fail('Authored engine rethrow comparison unavailable')
+    if not authored_rethrow_preserved(comparison):
+        pytest.fail('Authored engine error-context preservation failed: ' + json.dumps(comparison, sort_keys=True, separators=(',', ':')))
     lines = captured.get('out', b'').splitlines()[1:]
     if not lines or lines[0] != b'owned-catch-ok' or len(lines) != (1 if writer_fails else 2):
         pytest.fail('Authored engine acknowledgement differs')

@@ -275,6 +275,32 @@ bare-rethrow baseline, historical grant-conversion cause or any cleanup result.
 The [checkpoint ledger](r19-frozen-checkpoint-20261031.json) preserves both
 receipt-free negatives separately from the successful main runtime checkpoint.
 
+The subsequent `973` bare-rethrow baseline,
+[run 41242358974](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41242358974),
+job `124658708683`, attempt 1 on image `20261021.278.1`, passed 161 portable
+contracts and failed the two authored Windows engine cases. Each retained
+`exit=record-identity` and `stderr_present=false`. In both the ordinary
+bare-rethrow baseline and the instrumented variant, the measured record_equal
+was false, while exception_equal, category_equal, identifier_equal and
+finally_observed were all true. This was observed in each successful/throwing
+diagnostic-writer case, with fresh ErrorRecords and exceptions per variant.
+
+That controlled comparison identifies an overstrong internal test assumption:
+ErrorRecord wrapper reference equality is not required when even the ordinary
+bare-rethrow baseline changes it while preserving the underlying context.
+The test now keeps wrapper equality only as a diagnostic boolean. It requires
+all four preservation booleans to be true independently inside both variants,
+using the same strict closed-frame parser. Missing, malformed or unavailable
+frames and any false preservation boolean still fail. The original instrumented
+exception-reference and presence/finally guards remain hard requirements.
+No exception objects are compared across the two fresh variants.
+
+This corrects only that authored test contract, with no producer, mechanism
+schema, command, parser, environment, capture or cleanup change. It supplies no
+actual C7 operation, grant-conversion cause, lock-attribute/recovery result or
+rights/Windows 11 acceptance. A new exact-source Windows attempt remains
+required. The earlier eaa/37 failures and their original evidence are preserved.
+
 The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)
 cover frame/type/overflow refusal, exact transition preservation, ABI widths,
 sticky cleanup, creation-handle/client comparison, zero-writer ordering and
@@ -282,9 +308,11 @@ retention on failure, plus closed conversion-frame admission and rejection.
 They do not exercise real Windows READONLY, PowerShell, file sharing, pipe or
 process behavior. Two separate Windows-only authored engine tests use the exact
 projector/catch fragments with synthetic ErrorRecords and a successful or
-throwing writer. Their bounded child checks original ErrorRecord/exception
-identity, finally execution and private-message exclusion; host errors, excess
-output or timeouts fail. They perform no C7 fixture, legacy operation, Win32
+throwing writer, alongside the ordinary bare-rethrow baseline. Their bounded
+child requires exception, category, identifier and finally preservation within
+each variant; wrapper identity remains diagnostic. Private messages stay
+excluded; host errors, excess output or timeouts fail. They perform no C7
+fixture, legacy operation, Win32
 API or shared-helper call. They are explicitly skipped on other hosts and
 establish no lock-attribute, cleanup/recovery or ordinary-user acceptance.
 Run the selected tests with
