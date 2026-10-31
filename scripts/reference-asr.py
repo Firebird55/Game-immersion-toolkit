@@ -20,6 +20,7 @@ import struct
 import subprocess
 import sys
 import tarfile
+import time
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -43,6 +44,7 @@ BUILD_PHASES = frozenset({'build-preflight', 'source-validation', 'toolchain-val
     'cmake-module-variant-preparation', 'final-cmake-module-variant',
     'vc-target-selection', 'parent-import-review', 'configure-argument-review',
     'toolchain-seal', 'probe-dependency-preparation', 'build-environment', 'cmake-configure',
+    'common-data-origin', 'common-data-baseline', 'common-data-bound', 'common-data-final',
     'build-graph-review', 'native-build', 'native-output-review', 'candidate-assembly',
     'probe-decode', 'probe-wrong-shape', 'probe-corrupt', 'final-source-review',
     'final-candidate-review', 'final-toolchain-review', 'source-commit-review', 'success-receipt'})
@@ -69,6 +71,26 @@ _BUILD_PROPERTIES = None  # Actual configure properties; never serialized.
 _BUILD_INSTANCE = None  # Actual generator argument/root and observed version, private.
 _BUILD_TOOLCHAIN_SEAL = None  # Initial exact native tool inventory, never serialized here.
 _BUILD_CMAKE_VARIANT = None
+_BUILD_COMMON_DATA_PATH = None  # OS value stays private; never serialized/hashed.
+COMMON_DATA_BYTES = 32768
+COMMON_DATA_SECONDS = 30
+COMMON_DATA_REASONS = frozenset({'none', 'not-run', 'process-rejected', 'invalid-markers',
+    'invalid-utf8', 'output-limit', 'deadline', 'pipe-unavailable'})
+COMMON_DATA_PROJECT = r'''<Project DefaultTargets="R19Root" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Target Name="R19Folder">
+    <PropertyGroup>
+      <_R19Folder>$([System.Environment]::GetFolderPath('CommonApplicationData'))</_R19Folder>
+      <_R19ProgramData>$([System.Environment]::GetEnvironmentVariable('PROGRAMDATA'))</_R19ProgramData>
+      <_R19AllUsers>$([System.Environment]::GetEnvironmentVariable('ALLUSERSPROFILE'))</_R19AllUsers>
+    </PropertyGroup>
+    <Message Importance="High" Text="R19-ASR-COMMON-V1 folder;runtime=$(MSBuildRuntimeType);x64=$([System.Environment]::Is64BitProcess);empty=$([System.String]::IsNullOrWhiteSpace('$(_R19Folder)'));programdata=$([System.String]::Equals('$(_R19Folder)', '$(_R19ProgramData)', 'OrdinalIgnoreCase'));allusers=$([System.String]::Equals('$(_R19Folder)', '$(_R19AllUsers)', 'OrdinalIgnoreCase'))" />
+  </Target>
+  <Target Name="R19Root" DependsOnTargets="R19Folder">
+    <PropertyGroup><_R19Root>$([System.IO.Path]::GetPathRoot('$(_R19Folder)'))</_R19Root></PropertyGroup>
+    <Message Importance="High" Text="R19-ASR-COMMON-V1 root;empty=$([System.String]::IsNullOrEmpty('$(_R19Root)'));rooted=$([System.IO.Path]::IsPathRooted('$(_R19Folder)'))" />
+  </Target>
+</Project>
+'''
 CMAKE_VARIANT_IDENTITY = 'cmake-4.4.5-r19-asr-compilerid-instance.1'
 CMAKE_VARIANT_MODULE = 'share/cmake-4.4/Modules/CMakeDetermineCompilerId.cmake'
 CMAKE_VARIANT_FILES = ('packaging/asr/cmake-compilerid-instance-location.patch',
@@ -670,9 +692,12 @@ def safe_build_environment_observation():
                 record['props'] = {'bytes': props['bytes'], 'sha256': props['sha256']}
             observed['candidates'].append(record)
     categories = value.get('parent_import_categories')
-    return {'vc_targets': observed, 'parent_import_categories': sorted({
+    result = {'vc_targets': observed, 'parent_import_categories': sorted({
         name for name in categories if isinstance(name, str) and name in PARENT_IMPORT_NAMES}
         if isinstance(categories, list) else set())}
+    if 'common_data' in value:
+        result['common_data'] = safe_common_data_observation(value['common_data'])
+    return result
 
 
 def parent_import_categories(output):
@@ -1155,6 +1180,258 @@ def cmake_failure_details(content):
         if site and site[2].casefold() in CMAKE_ERROR_COMMANDS:
             sites.add((site[2].casefold(), int(site[1])))
     return sorted(categories), [{'command': command, 'line': line} for command, line in sorted(sites)[:32]]
+
+
+class CommonDataProbeError(ValueError):
+    def __init__(self, reason):
+        self.reason = reason if reason in COMMON_DATA_REASONS else 'invalid-markers'
+        super().__init__('The fixed common-data preflight was rejected.')
+
+
+def common_data_directory(value):
+    """Validate the private OS answer using metadata only, root before leaf."""
+    if type(value) is not str or not 1 <= len(value) <= 32767 or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        raise ValueError('The OS common-data directory is unavailable.')
+    raw = value.replace('\\', '/')
+    parts = (raw[2:] if re.match(r'^[A-Za-z]:', raw) else raw).split('/')[1:]
+    if (raw.startswith('//') or not parts or any(not p or p in {'.', '..'}
+            or p.endswith((' ', '.')) or re.search(r'[<>:"|?*]', p)
+            or re.fullmatch(r'(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\..*)?', p, re.I)
+            for p in parts)):
+        raise ValueError('The OS common-data directory is not canonical.')
+    path = Path(value)
+    if not path.is_absolute() or (os.name == 'nt' and not re.fullmatch(r'[A-Za-z]:', path.drive)):
+        raise ValueError('A local absolute OS common-data directory is required.')
+    if not stat.S_ISDIR(diagnostic_file_info(path).st_mode):
+        raise ValueError('The OS common-data directory is not an existing directory.')
+    return path
+
+
+def query_common_data_directory():
+    """Original typed Known Folder call; no creation or content enumeration."""
+    import ctypes
+    import uuid
+    if sys.platform != 'win32' or struct.calcsize('P') != 8:
+        raise ValueError('The Windows x64 Known Folder API is required.')
+    class GUID(ctypes.Structure):
+        _fields_ = [('data1', ctypes.c_uint32), ('data2', ctypes.c_uint16),
+            ('data3', ctypes.c_uint16), ('data4', ctypes.c_ubyte * 8)]
+    folder = GUID.from_buffer_copy(uuid.UUID('62ab5d82-fdc1-4dc3-a9dd-070d1d495d97').bytes_le)
+    shell = ctypes.WinDLL('shell32', use_last_error=True)
+    ole = ctypes.WinDLL('ole32', use_last_error=True)
+    query = shell.SHGetKnownFolderPath
+    query.argtypes = [ctypes.POINTER(GUID), ctypes.c_uint32, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    query.restype = ctypes.c_int32
+    free = ole.CoTaskMemFree
+    free.argtypes, free.restype = [ctypes.c_void_p], None
+    pointer = ctypes.c_void_p()
+    try:
+        if query(ctypes.byref(folder), 0x4000, None, ctypes.byref(pointer)) != 0 or not pointer.value:
+            raise ValueError('The OS common-data query failed.')
+        return common_data_directory(ctypes.wstring_at(pointer))
+    finally:
+        if pointer.value:
+            free(pointer)
+
+
+def common_data_available(stream):
+    if sys.platform != 'win32':  # Owned source-only pipe fixtures.
+        import select
+        return 4096 if select.select([stream], [], [], .01)[0] else 0
+    import ctypes
+    import msvcrt
+    peek = ctypes.WinDLL('kernel32', use_last_error=True).PeekNamedPipe
+    peek.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint32)]
+    peek.restype = ctypes.c_int
+    available = ctypes.c_uint32()
+    if not peek(ctypes.c_void_p(msvcrt.get_osfhandle(stream.fileno())), None, 0, None,
+            ctypes.byref(available), None):
+        if ctypes.get_last_error() == 109:
+            return None
+        raise CommonDataProbeError('pipe-unavailable')
+    return available.value
+
+
+def capture_common_data(command, env, cwd):
+    """One owned bootstrap, bounded merged output, then confirmed owned cleanup."""
+    owner, process = process_owner(), None
+    data = bytearray()
+    deadline = time.monotonic() + COMMON_DATA_SECONDS
+    try:
+        process = subprocess.Popen(owner.command([str(v) for v in command]),
+            cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, bufsize=0,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        while True:
+            if time.monotonic() >= deadline:
+                raise CommonDataProbeError('deadline')
+            available = common_data_available(process.stdout)
+            if available is None or (available == 0 and process.poll() is not None):
+                break
+            if not available:
+                time.sleep(.01)
+                continue
+            part = os.read(process.stdout.fileno(), min(4096, available, COMMON_DATA_BYTES + 1 - len(data)))
+            if not part:
+                break
+            data.extend(part)
+            if len(data) > COMMON_DATA_BYTES:
+                raise CommonDataProbeError('output-limit')
+        try:
+            code = process.wait(timeout=max(.001, deadline - time.monotonic()))
+        except subprocess.TimeoutExpired:
+            raise CommonDataProbeError('deadline') from None
+    finally:
+        # Cleanup uncertainty overrides an ordinary rejected baseline. No second
+        # child may start while this bootstrap or its retained job is uncertain.
+        uncertain = False
+        if process is not None:
+            try:
+                live = process.poll() is None
+            except BaseException:
+                uncertain, live = True, True
+            if live:
+                try:
+                    process.kill()
+                except BaseException:
+                    uncertain = True
+            try:
+                process.wait(timeout=5)
+            except BaseException:
+                uncertain = True
+        try:
+            owner.terminate(timeout=10)
+        except BaseException:
+            uncertain = True
+        try:
+            owner.close()
+        except BaseException:
+            uncertain = True
+        try:
+            if process is not None and process.stdout is not None:
+                process.stdout.close()
+        except BaseException:
+            uncertain = True
+        if uncertain:
+            raise OSError('Common-data owned cleanup is unconfirmed.') from None
+    return code, bytes(data)
+
+
+def common_data_result(reason='not-run'):
+    return {'status': 'not-run' if reason == 'not-run' else 'rejected', 'reason': reason,
+        'runtime': 'unavailable', 'x64': None, 'folder': 'unavailable', 'root': 'not-run',
+        'rooted': None, 'programdata_equal': None, 'allusersprofile_equal': None}
+
+
+def common_data_markers(code, data):
+    if type(code) is not int or not 0 <= code <= 0xffffffff or type(data) is not bytes:
+        raise CommonDataProbeError('invalid-markers')
+    if len(data) > COMMON_DATA_BYTES:
+        raise CommonDataProbeError('output-limit')
+    try:
+        text = data.decode('utf-8', errors='strict')
+    except UnicodeError:
+        raise CommonDataProbeError('invalid-utf8') from None
+    if text.startswith('\ufeff'):
+        text = text[1:]
+    if (re.search(r'\r(?!\n)', text) or any(c in text for c in ('\x00', '\x85', '\u2028', '\u2029'))):
+        raise CommonDataProbeError('invalid-markers')
+    # Other MSBuild messages are discarded, never retained in an observation.
+    lines = [line.removesuffix('\r').lstrip(' \t') for line in text.split('\n') if 'R19-ASR-COMMON' in line]
+    folder = re.fullmatch(r'R19-ASR-COMMON-V1 folder;runtime=(Full|Core|Mono);x64=(True|False);empty=(True|False);programdata=(True|False);allusers=(True|False)', lines[0]) if lines else None
+    root = re.fullmatch(r'R19-ASR-COMMON-V1 root;empty=(True|False);rooted=(True|False)', lines[1]) if len(lines) == 2 else None
+    if not folder or len(lines) > 2 or (len(lines) == 2 and not root) or (code == 0 and not root):
+        raise CommonDataProbeError('invalid-markers')
+    value = common_data_result('none' if code == 0 else 'process-rejected')
+    value.update(status='observed' if code == 0 else 'rejected', runtime=folder[1].lower(),
+        x64=folder[2] == 'True', folder='empty' if folder[3] == 'True' else 'nonempty',
+        programdata_equal=folder[4] == 'True', allusersprofile_equal=folder[5] == 'True')
+    if root:
+        value.update(root='empty' if root[1] == 'True' else 'nonempty', rooted=root[2] == 'True')
+    return value
+
+
+def safe_common_data_observation(value):
+    if (type(value) is not dict or set(value) != {'origin', 'binding', 'origin_stable', 'baseline', 'bound'}
+            or type(value['origin']) is not str or value['origin'] != 'FOLDERID_ProgramData'
+            or type(value['binding']) is not str or value['binding'] != 'PROGRAMDATA+ALLUSERSPROFILE'
+            or type(value['origin_stable']) is not str
+            or value['origin_stable'] not in {'not-checked', 'verified', 'changed', 'unavailable'}):
+        return None
+    result = {k: value[k] for k in ('origin', 'binding', 'origin_stable')}
+    enums = {'status': {'not-run', 'observed', 'rejected'}, 'reason': COMMON_DATA_REASONS,
+        'runtime': {'unavailable', 'full', 'core', 'mono'}, 'folder': {'unavailable', 'empty', 'nonempty'},
+        'root': {'not-run', 'empty', 'nonempty'}}
+    for state in ('baseline', 'bound'):
+        item = value[state]
+        if type(item) is not dict or set(item) != set(common_data_result()):
+            return None
+        if any(type(item[k]) is not str or item[k] not in allowed for k, allowed in enums.items()):
+            return None
+        if any(item[k] is not None and type(item[k]) is not bool
+                for k in ('x64', 'rooted', 'programdata_equal', 'allusersprofile_equal')):
+            return None
+        result[state] = dict(item)
+    return result
+
+
+def check_common_data_origin():
+    if _BUILD_COMMON_DATA_PATH is None:
+        return
+    value = _BUILD_ENVIRONMENT_OBSERVATION['common_data']
+    try:
+        current = query_common_data_directory()
+    except Exception:
+        value['origin_stable'] = 'unavailable'
+        raise ValueError('The OS common-data origin could not be reverified.') from None
+    if current != _BUILD_COMMON_DATA_PATH:
+        value['origin_stable'] = 'changed'
+        raise ValueError('The OS common-data origin changed.')
+    value['origin_stable'] = 'verified'
+
+
+def common_data_environment(output, roots, initial, env):
+    global _BUILD_COMMON_DATA_PATH
+    value = {'origin': 'FOLDERID_ProgramData', 'binding': 'PROGRAMDATA+ALLUSERSPROFILE',
+        'origin_stable': 'not-checked', 'baseline': common_data_result(), 'bound': common_data_result()}
+    _BUILD_ENVIRONMENT_OBSERVATION['common_data'] = value
+    build_phase('common-data-origin')
+    try:
+        _BUILD_COMMON_DATA_PATH = query_common_data_directory()
+    except Exception:
+        value['origin_stable'] = 'unavailable'
+        raise ValueError('The OS common-data origin is unavailable.') from None
+    member = 'Current/Bin/amd64/MSBuild.exe'
+    executable = Path(roots['msbuild']) / member
+    def verify_executable():
+        state, data = diagnostic_file(executable, 64 * 1024 * 1024)
+        if state != 'observed' or attributes(data) != initial['msbuild'].get(member):
+            raise ValueError('The selected sealed x64 MSBuild executable differs.')
+    verify_executable()
+    diagnostic_file_info(output)
+    project = output / 'PRIVATE-COMMON-DATA.proj'
+    with project.open('x', encoding='utf-8', newline='\n') as handle:
+        handle.write(COMMON_DATA_PROJECT)
+    command = [executable, project, '/nologo', '/noautoresponse', '/nr:false', '/m:1', '/v:minimal']
+    bound = {k: v for k, v in env.items() if k.casefold() not in {'programdata', 'allusersprofile'}}
+    bound.update(PROGRAMDATA=str(_BUILD_COMMON_DATA_PATH), ALLUSERSPROFILE=str(_BUILD_COMMON_DATA_PATH))
+    for name, child_env in (('baseline', env), ('bound', bound)):
+        build_phase('common-data-' + name)
+        check_common_data_origin()
+        verify_executable()
+        try:
+            value[name] = common_data_markers(*capture_common_data(command, child_env, output))
+        except CommonDataProbeError as error:
+            value[name] = common_data_result(error.reason)
+        verify_executable()
+        check_common_data_origin()
+    observed = value['bound']
+    if (observed['status'] != 'observed' or observed['runtime'] != 'full' or observed['x64'] is not True
+            or observed['folder'] != 'nonempty' or observed['root'] != 'nonempty'
+            or any(observed[k] is not True for k in ('rooted', 'programdata_equal', 'allusersprofile_equal'))):
+        raise ValueError('The authoritative common-data binding was not observed by Full CLR x64 MSBuild.')
+    return bound
 
 
 def diagnostic_file_info(path):
@@ -1905,6 +2182,7 @@ def reject_parent_imports(output):
 
 def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None, vswhere=None):
     global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL, _BUILD_CMAKE_VARIANT
+    global _BUILD_COMMON_DATA_PATH
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
@@ -1915,9 +2193,14 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
     _BUILD_INSTANCE = None
     _BUILD_TOOLCHAIN_SEAL = None
     _BUILD_CMAKE_VARIANT = None
+    _BUILD_COMMON_DATA_PATH = None
     try:
         return _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     except Exception as error:
+        try:
+            check_common_data_origin()
+        except Exception:
+            pass  # Fixed origin state records failure; preserve the actual failed phase.
         try:
             failure = failed_build_receipt(output, _BUILD_PHASE, error)
         except Exception:
@@ -2004,6 +2287,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     env['MSBUILDDISABLENODEREUSE'] = '1'
     build_phase('parent-import-review')
     reject_parent_imports(output)
+    env = common_data_environment(output, roots, initial, env)
     _BUILD_INSTANCE = {'argument': cmake_instance_spec(vs_root, vs_version), 'root': str(vs_root),
         'observed_version': _BUILD_VS_VERSION}
     configure = [cmake, '-S', output / 'sources/sherpa-onnx', '-B', build_root,
@@ -2102,6 +2386,8 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     build_phase('final-cmake-module-variant')
     if verify_cmake_module_variant(cmake_root, variant_root) != cmake_variant:
         raise ValueError('The separate exact CMake module variant changed during execution.')
+    build_phase('common-data-final')
+    check_common_data_origin()
     build_phase('source-commit-review')
     commit = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     dirty = subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'], text=True).strip()

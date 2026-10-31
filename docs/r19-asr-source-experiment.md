@@ -71,6 +71,73 @@ check is a source-graph observation, not an operating-system network sandbox.
 
 ## Build and probe boundary
 
+### Common-data preflight: source implemented, native observation pending
+
+The later [14babb6 source attempt](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41210502791)
+failed during configuration. Its checksum-verified sanitized failure metadata
+contained eight identical argument contexts: the fixed illegal-path resource,
+FileTracker initializer, and inner path-normalization, path-root,
+file-tracker-common-data and file-tracker-initialization roles. Unknown frames
+left each context incomplete. This identifies delivered format context; it does
+not establish the live CommonApplicationData result or a missing-variable cause.
+
+The next source implementation adds exactly two common-data states before
+configuration. The first uses the existing filtered environment. The second
+removes case aliases of `PROGRAMDATA` and `ALLUSERSPROFILE` and binds those two
+keys to the current token's authoritative `FOLDERID_ProgramData` answer. It
+does not inherit those values from the parent, restore other variables or infer
+`SystemDrive`. There is no alternate combination or fallback folder.
+
+The original typed [Known Folder call](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderpath)
+uses [DONT_VERIFY](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/ne-shlobj_core-known_folder_flag),
+without CREATE, and always frees a returned allocation. The private answer must
+be a canonical existing local directory. Raw components are checked before a
+root-first `lstat`/reparse walk reaches descendant metadata. No common-folder
+enumeration, file content, length, digest or raw path is retained. The OS answer
+is requeried and compared privately around both children and before final
+publication; a changed or unavailable answer refuses the attempt. These checks
+do not eliminate hostile concurrent filesystem replacement between checks.
+
+One fixed private project uses only documented
+[MSBuild property functions](https://learn.microsoft.com/en-us/visualstudio/msbuild/property-functions)
+and the built-in Message task. It calls ordinary default-option
+[GetFolderPath](https://learn.microsoft.com/en-us/dotnet/api/system.environment.getfolderpath?view=netframework-4.8.1),
+then GetPathRoot/IsPathRooted in the same child. There is no SDK import, inline
+task, reflection, compiled helper or additional CLR. Both states run only the
+initially sealed `Current/Bin/amd64/MSBuild.exe`; its exact bytes are checked
+before and after each child, with no PATH or alternate executable fallback.
+Full runtime type and a true Is64BitProcess observation are required. Existing
+profile/import exclusions, no auto-response, no node reuse and final full tool
+seals remain in force.
+
+The existing retained Job Object bootstrap owns each child before it launches
+MSBuild. A local pipe reader checks available bytes before reading: at most
+32 KiB of accepted merged output (one overflow lookahead byte) and 30 seconds
+per invocation, followed by bounded owned
+cleanup. It uses no unbounded read, reader thread or raw preflight log. Exactly
+two fixed ASCII marker formats can supply typed folder/root/alias observations;
+malformed, duplicate, missing, non-UTF8, oversized or timed-out output supplies
+only a fixed refusal category. Other command text is discarded. The public
+projection rechecks every key, enum and boolean and carries no exception,
+command, folder value or private marker field.
+
+An ordinary baseline rejection still permits the one bound state. Unconfirmed
+termination, reaping or close instead aborts before another child can start.
+Bootstrap kill/reap, owned-job termination, owner close and pipe close are each
+attempted even when an earlier cleanup step fails. A later successful step
+cannot clear that uncertainty.
+Configuration requires the bound child to report Full CLR/x64, nonempty folder
+and root, rootedness, and equality with both aliases. It then receives that same
+bound map. The fixed project template, Known Folder call and two-state result
+remain **native pending** until a fresh Windows source attempt supplies them;
+local authored fixtures do not establish Windows behavior. Comparable fresh
+MSBuild children are not the later CL task's live process. Even repaired
+configuration would not prove framework binary/source correspondence, native
+closure, redistribution rights, trained recognition, Windows11 or R19 completion.
+The same 15 source inputs require a new exact prepare/verify after review.
+
+### Manual source build
+
 Use the manual **R19 separate ASR-only source experiment** workflow on a clean
 candidate commit. It observes the actual PR target's development prerequisites,
 audits public source, downloads only pinned public inputs, and invokes

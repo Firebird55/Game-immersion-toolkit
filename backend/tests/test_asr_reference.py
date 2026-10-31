@@ -27,6 +27,325 @@ def module():
     return load('asr_reference_test', 'scripts/reference-asr.py')
 
 
+def common_markers(*, runtime='Full', x64='True', empty='False', programdata='True', allusers='True', rooted='True'):
+    return (f'R19-ASR-COMMON-V1 folder;runtime={runtime};x64={x64};empty={empty};programdata={programdata};allusers={allusers}\n'
+        f'R19-ASR-COMMON-V1 root;empty=False;rooted={rooted}\n').encode()
+
+
+def common_environment_fixture(module, tmp_path, monkeypatch):
+    root = tmp_path.resolve()
+    output = root / 'attempt'; output.mkdir()
+    folder = root / 'os-common'; folder.mkdir()
+    tools = root / 'msbuild'
+    executable = tools / 'Current/Bin/amd64/MSBuild.exe'
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b'owned sealed executable bytes, never executed')
+    initial = {'msbuild': {'Current/Bin/amd64/MSBuild.exe': module.attributes(executable.read_bytes())}}
+    module._BUILD_ENVIRONMENT_OBSERVATION = {'vc_targets': None, 'parent_import_categories': []}
+    monkeypatch.setattr(module, 'query_common_data_directory', lambda: folder)
+    return output, folder, executable, {'msbuild': str(tools)}, initial
+
+
+def test_common_data_fixed_project_uses_only_builtin_property_functions_and_two_records(module):
+    tree = module.ET.fromstring(module.COMMON_DATA_PROJECT)
+    names = [element.tag.rsplit('}', 1)[-1] for element in tree.iter()]
+    assert set(names) <= {'Project', 'Target', 'PropertyGroup', 'Message', '_R19Folder', '_R19ProgramData', '_R19AllUsers', '_R19Root'}
+    assert tree.attrib == {'DefaultTargets': 'R19Root'}
+    messages = [element.attrib['Text'] for element in tree.iter() if element.tag.endswith('}Message')]
+    assert len(messages) == 2
+    assert all(message.startswith('R19-ASR-COMMON-V1 ') for message in messages)
+    assert 'GetFolderPath(\'CommonApplicationData\')' in module.COMMON_DATA_PROJECT
+    assert '$(MSBuildRuntimeType)' in module.COMMON_DATA_PROJECT and 'Is64BitProcess' in module.COMMON_DATA_PROJECT
+    assert 'GetPathRoot' in module.COMMON_DATA_PROJECT and 'IsPathRooted' in module.COMMON_DATA_PROJECT
+    assert 'SystemDrive' not in module.COMMON_DATA_PROJECT
+    assert all('$(_R19Folder)' not in message.replace("'$(_R19Folder)'", '') for message in messages)
+
+
+@pytest.mark.parametrize('ending', [b'\n', b'\r\n'])
+def test_common_data_markers_are_fixed_typed_states_without_private_output(module, ending):
+    raw = b'ordinary private error path must be discarded' + ending + common_markers().replace(b'\n', ending)
+    value = module.common_data_markers(0, raw)
+    assert value == {'status': 'observed', 'reason': 'none', 'runtime': 'full', 'x64': True,
+        'folder': 'nonempty', 'root': 'nonempty', 'rooted': True,
+        'programdata_equal': True, 'allusersprofile_equal': True}
+    assert 'private' not in json.dumps(value)
+    assert module.common_data_markers(0, b'\xef\xbb\xbf' + common_markers()) == value
+
+
+@pytest.mark.parametrize('raw', [b'', common_markers().splitlines()[0], common_markers() * 2,
+    common_markers().replace(b'runtime=Full', b'runtime=private-secret'),
+    common_markers().replace(b'x64=True', b'x64=1'), common_markers().replace(b';rooted=True', b';rooted=True;private=secret'),
+    b'private prefix ' + common_markers(), common_markers().replace(b'\n', b'\r'),
+    common_markers().replace(b'\n', b'\x00\n'), b'\xff' + common_markers(), b'x' * 32769,
+    common_markers().replace(b'\n', '\u2028'.encode())])
+def test_common_data_rejects_missing_ambiguous_raw_or_overbound_markers(module, raw):
+    with pytest.raises(module.CommonDataProbeError) as error:
+        module.common_data_markers(0, raw)
+    assert error.value.reason in module.COMMON_DATA_REASONS
+    assert 'secret' not in str(error.value)
+
+
+@pytest.mark.parametrize('code', [None, True, -1, 2**32, '0'])
+def test_common_data_marker_exit_code_requires_exact_bounded_integer(module, code):
+    with pytest.raises(module.CommonDataProbeError): module.common_data_markers(code, common_markers())
+
+
+def test_common_data_nonzero_folder_only_is_partial_evidence_not_root_success(module):
+    value = module.common_data_markers(1, common_markers(empty='True').splitlines(keepends=True)[0])
+    assert value['status'] == 'rejected' and value['reason'] == 'process-rejected'
+    assert value['folder'] == 'empty' and value['root'] == 'not-run' and value['rooted'] is None
+
+
+def test_common_data_two_states_bind_only_authoritative_aliases_and_sealed_x64_tool(module, tmp_path, monkeypatch):
+    output, folder, executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    calls = []
+    env = {'PATH': 'fixed', 'ProgramData': 'untrusted baseline', 'allusersprofile': 'other baseline',
+        'ImportDirectoryBuildProps': 'false', 'MSBUILDDISABLENODEREUSE': '1'}
+    original = dict(env)
+    def capture(command, child_env, cwd):
+        calls.append((list(command), dict(child_env), cwd))
+        return (1, common_markers(empty='True').splitlines(keepends=True)[0]) if len(calls) == 1 else (0, common_markers())
+    monkeypatch.setattr(module, 'capture_common_data', capture)
+    bound = module.common_data_environment(output, roots, initial, env)
+    assert len(calls) == 2 and calls[0][1] == original and env == original
+    assert bound == {k: v for k, v in original.items() if k not in {'ProgramData', 'allusersprofile'}} | {
+        'PROGRAMDATA': str(folder), 'ALLUSERSPROFILE': str(folder)}
+    assert 'SystemDrive' not in bound
+    assert calls[0][0] == calls[1][0] == [executable, output / 'PRIVATE-COMMON-DATA.proj',
+        '/nologo', '/noautoresponse', '/nr:false', '/m:1', '/v:minimal']
+    assert calls[0][2] == calls[1][2] == output
+    assert (output / 'PRIVATE-COMMON-DATA.proj').read_text() == module.COMMON_DATA_PROJECT
+    observed = module.safe_build_environment_observation()['common_data']
+    assert observed['origin_stable'] == 'verified' and observed['bound']['runtime'] == 'full'
+    assert str(folder) not in json.dumps(observed)
+
+
+@pytest.mark.parametrize('changes', [{'runtime': 'Core'}, {'runtime': 'Mono'}, {'x64': 'False'},
+    {'empty': 'True'}, {'rooted': 'False'}, {'programdata': 'False'}, {'allusers': 'False'}])
+def test_common_data_binding_cannot_proceed_without_full_x64_matching_nonempty_root(module, tmp_path, monkeypatch, changes):
+    output, _folder, _executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    monkeypatch.setattr(module, 'capture_common_data', lambda *_: (0, common_markers(**changes)))
+    with pytest.raises(ValueError, match='Full CLR x64'):
+        module.common_data_environment(output, roots, initial, {})
+
+
+@pytest.mark.parametrize('reason', ['output-limit', 'deadline', 'invalid-utf8', 'pipe-unavailable'])
+def test_common_data_ordinary_baseline_refusal_still_runs_bound_once(module, tmp_path, monkeypatch, reason):
+    output, _folder, _executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    calls = []
+    def capture(*_):
+        calls.append(True)
+        if len(calls) == 1: raise module.CommonDataProbeError(reason)
+        return 0, common_markers()
+    monkeypatch.setattr(module, 'capture_common_data', capture)
+    module.common_data_environment(output, roots, initial, {})
+    assert len(calls) == 2
+    assert module.safe_build_environment_observation()['common_data']['baseline']['reason'] == reason
+
+
+@pytest.mark.parametrize('mutation', ['cleanup', 'tool', 'origin'])
+def test_common_data_cleanup_or_identity_failure_never_starts_bound(module, tmp_path, monkeypatch, mutation):
+    output, folder, executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    calls = []
+    def capture(*_):
+        calls.append(True)
+        if mutation == 'cleanup': raise OSError('private cleanup uncertainty')
+        if mutation == 'tool': executable.write_bytes(b'different owned bytes')
+        if mutation == 'origin': monkeypatch.setattr(module, 'query_common_data_directory', lambda: folder.parent)
+        return 0, common_markers()
+    monkeypatch.setattr(module, 'capture_common_data', capture)
+    with pytest.raises((OSError, ValueError)):
+        module.common_data_environment(output, roots, initial, {})
+    assert len(calls) == 1
+
+
+def test_common_data_missing_selected_x64_tool_has_no_fallback(module, tmp_path, monkeypatch):
+    output, _folder, executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    executable.unlink()
+    (executable.parent.parent / 'MSBuild.exe').write_bytes(b'owned alternate, must never run')
+    monkeypatch.setattr(module, 'capture_common_data', lambda *_: pytest.fail('no fallback execution'))
+    with pytest.raises(ValueError, match='sealed x64'):
+        module.common_data_environment(output, roots, initial, {})
+
+
+@pytest.mark.parametrize('component', ['child/../secret', 'child.', 'child ', 'secret:stream', 'NUL', 'COM¹.txt'])
+def test_common_data_raw_noncanonical_directory_refuses_before_metadata(module, tmp_path, monkeypatch, component):
+    monkeypatch.setattr(module, 'diagnostic_file_info', lambda *_: pytest.fail('raw invalid path reached metadata'))
+    with pytest.raises(ValueError): module.common_data_directory(str(tmp_path.resolve() / component))
+
+
+def test_common_data_link_and_reparse_ancestors_refuse_before_leaf_metadata(module, tmp_path, monkeypatch):
+    root = tmp_path.resolve()
+    target = root / 'target'; target.mkdir(); (target / 'leaf').mkdir()
+    link = root / 'link'
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except OSError:
+        command = shutil.which('cmd.exe') if module.os.name == 'nt' else None
+        if not command: pytest.skip('Owned directory links are unavailable on this host.')
+        created = module.subprocess.run([command, '/d', '/c', 'mklink', '/J', str(link), str(target)],
+            capture_output=True, timeout=10)
+        if created.returncode: pytest.skip('Owned directory links and junctions are unavailable on this host.')
+    original = Path.lstat
+    leaf = link / 'leaf'
+    def guarded(path, *args, **kwargs):
+        if path == leaf: pytest.fail('linked descendant metadata accessed')
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'lstat', guarded)
+    with pytest.raises(ValueError): module.common_data_directory(str(leaf))
+    # Authored reparse metadata is portable; no actual Windows junction claim.
+    def reparse(path, *args, **kwargs):
+        if path == leaf: pytest.fail('reparse descendant metadata accessed')
+        if path == link: return SimpleNamespace(st_mode=module.stat.S_IFDIR, st_file_attributes=0x400)
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'lstat', reparse)
+    with pytest.raises(ValueError): module.common_data_directory(str(leaf))
+
+
+@pytest.mark.parametrize('outcome', ['success', 'hresult', 'invalid', 'null'])
+def test_common_data_known_folder_typed_call_frees_allocation_on_every_outcome(module, tmp_path, monkeypatch, outcome):
+    import ctypes
+    buffer = ctypes.create_unicode_buffer(str(tmp_path.resolve()) if outcome != 'invalid' else 'relative/private')
+    calls, freed = [], []
+    def query(guid, flags, token, pointer):
+        calls.append((ctypes.sizeof(guid._obj), bytes(guid._obj), flags, token))
+        if outcome != 'null': ctypes.cast(pointer, ctypes.POINTER(ctypes.c_void_p))[0] = ctypes.addressof(buffer)
+        return 1 if outcome == 'hresult' else 0
+    def free(pointer): freed.append(pointer.value)
+    def dll(name, **kwargs):
+        assert kwargs == {'use_last_error': True}
+        return SimpleNamespace(SHGetKnownFolderPath=query) if name == 'shell32' else SimpleNamespace(CoTaskMemFree=free)
+    monkeypatch.setattr(ctypes, 'WinDLL', dll, raising=False)
+    monkeypatch.setattr(module.sys, 'platform', 'win32')
+    if outcome == 'success': assert module.query_common_data_directory() == tmp_path.resolve()
+    else:
+        with pytest.raises(ValueError): module.query_common_data_directory()
+    assert calls[0][0] == 16 and calls[0][2:] == (0x4000, None)
+    assert calls[0][1] == bytes.fromhex('825dab62c1fdc34da9dd070d1d495d97')
+    assert len(query.argtypes) == 4 and query.restype is ctypes.c_int32
+    assert free.argtypes == [ctypes.c_void_p] and free.restype is None
+    assert freed == ([] if outcome == 'null' else [ctypes.addressof(buffer)])
+
+
+@pytest.mark.parametrize('outcome', ['available', 'broken', 'failed'])
+def test_common_data_windows_pipe_peek_preserves_64bit_handle_and_fixed_errors(module, monkeypatch, outcome):
+    import ctypes
+    handle = 0x100000007
+    def peek(raw_handle, buffer, size, read, available, left):
+        assert raw_handle.value == handle and buffer is None and size == 0 and read is None and left is None
+        available._obj.value = 7
+        return int(outcome == 'available')
+    monkeypatch.setattr(ctypes, 'WinDLL', lambda *_args, **_kwargs: SimpleNamespace(PeekNamedPipe=peek), raising=False)
+    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 109 if outcome == 'broken' else 6, raising=False)
+    monkeypatch.setitem(module.sys.modules, 'msvcrt', SimpleNamespace(get_osfhandle=lambda _: handle))
+    monkeypatch.setattr(module.sys, 'platform', 'win32')
+    stream = SimpleNamespace(fileno=lambda: 12)
+    if outcome == 'failed':
+        with pytest.raises(module.CommonDataProbeError) as error: module.common_data_available(stream)
+        assert error.value.reason == 'pipe-unavailable'
+    else: assert module.common_data_available(stream) == (7 if outcome == 'available' else None)
+    assert peek.argtypes[0] is ctypes.c_void_p and peek.restype is ctypes.c_int
+
+
+@pytest.mark.parametrize('case', ['normal', 'overflow', 'deadline'])
+def test_common_data_real_owned_pipe_is_bounded_and_drained_without_logs(module, tmp_path, monkeypatch, case):
+    events = []
+    class Owner:
+        def command(self, values): events.append('wrapped'); return values
+        def terminate(self, **kwargs): events.append(('drained', kwargs))
+        def close(self): events.append('closed')
+    monkeypatch.setattr(module, 'process_owner', Owner)
+    source = {'normal': "import os; os.write(1,b'fixed\\n')", 'overflow': "import os; os.write(1,b'x'*32769)",
+        'deadline': 'import time; time.sleep(10)'}[case]
+    if case == 'deadline': monkeypatch.setattr(module, 'COMMON_DATA_SECONDS', .1)
+    env = {k: v for k, v in module.os.environ.items() if k.casefold() in {'systemroot', 'windir', 'temp', 'tmp'}}
+    if case == 'normal':
+        assert module.capture_common_data([module.sys.executable, '-I', '-B', '-c', source], env, tmp_path) == (0, b'fixed\n')
+    else:
+        with pytest.raises(module.CommonDataProbeError) as error:
+            module.capture_common_data([module.sys.executable, '-I', '-B', '-c', source], env, tmp_path)
+        assert error.value.reason == ('output-limit' if case == 'overflow' else 'deadline')
+    assert events == ['wrapped', ('drained', {'timeout': 10}), 'closed']
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize('failure', ['terminate', 'close'])
+def test_common_data_cleanup_uncertainty_overrides_rejected_probe(module, tmp_path, monkeypatch, failure):
+    events = []
+    class Owner:
+        def command(self, values): return values
+        def terminate(self, **_):
+            events.append('terminate')
+            if failure == 'terminate': raise OSError('owned uncertain drain')
+        def close(self):
+            events.append('close')
+            if failure == 'close': raise OSError('owned uncertain close')
+    monkeypatch.setattr(module, 'process_owner', Owner)
+    monkeypatch.setattr(module, 'common_data_available', lambda _: (_ for _ in ()).throw(module.CommonDataProbeError('pipe-unavailable')))
+    with pytest.raises(OSError):
+        module.capture_common_data([module.sys.executable, '-I', '-B', '-c', 'import time; time.sleep(10)'], {}, tmp_path)
+    assert events == ['terminate', 'close']
+
+
+@pytest.mark.parametrize('failures', [('kill',), ('wait',), ('poll',), ('kill-interrupt',), ('kill', 'wait'),
+    ('kill', 'terminate'), ('wait', 'close'), ('kill', 'wait', 'terminate', 'close', 'pipe-close')])
+def test_common_data_all_cleanup_attempts_survive_bootstrap_and_combined_failures(module, tmp_path, monkeypatch, failures):
+    output, _folder, _executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    events, launches = [], []
+    def step(name):
+        events.append(name)
+        if name + '-interrupt' in failures:
+            raise KeyboardInterrupt('owned cleanup interruption')
+        if name in failures:
+            raise OSError('owned private cleanup failure')
+    class Owner:
+        def command(self, values): return values
+        def terminate(self, **kwargs):
+            assert kwargs == {'timeout': 10}
+            step('terminate')
+        def close(self): step('close')
+    class Pipe:
+        def close(self): step('pipe-close')
+    class Process:
+        stdout = Pipe()
+        def poll(self): step('poll'); return None
+        def kill(self): step('kill')
+        def wait(self, **kwargs):
+            assert kwargs == {'timeout': 5}
+            step('wait')
+            return 0
+    def popen(*_args, **_kwargs):
+        launches.append(True)
+        return Process()
+    monkeypatch.setattr(module, 'process_owner', Owner)
+    monkeypatch.setattr(module.subprocess, 'Popen', popen)
+    monkeypatch.setattr(module, 'common_data_available', lambda _: (_ for _ in ()).throw(module.CommonDataProbeError('pipe-unavailable')))
+    with pytest.raises(OSError) as error:
+        module.common_data_environment(output, roots, initial, {})
+    assert str(error.value) == 'Common-data owned cleanup is unconfirmed.'
+    assert events == ['poll', 'kill', 'wait', 'terminate', 'close', 'pipe-close']
+    assert launches == [True]
+    assert module.safe_build_environment_observation()['common_data']['bound']['status'] == 'not-run'
+    assert not (output / 'ASR-RECEIPT.json').exists()
+
+
+@pytest.mark.parametrize('field,malformed', [('origin', 'private'), ('binding', []), ('origin_stable', {}),
+    ('baseline', {'private': 'raw'}), ('bound', None)])
+def test_common_data_public_projection_drops_unknown_structure(module, field, malformed):
+    value = {'origin': 'FOLDERID_ProgramData', 'binding': 'PROGRAMDATA+ALLUSERSPROFILE', 'origin_stable': 'verified',
+        'baseline': module.common_data_result(), 'bound': module.common_data_result()}
+    value[field] = malformed
+    assert module.safe_common_data_observation(value) is None
+
+
+@pytest.mark.parametrize('field', list(('status', 'reason', 'runtime', 'folder', 'root', 'x64', 'rooted', 'programdata_equal', 'allusersprofile_equal')))
+def test_common_data_public_projection_drops_raw_marker_context(module, field):
+    value = {'origin': 'FOLDERID_ProgramData', 'binding': 'PROGRAMDATA+ALLUSERSPROFILE', 'origin_stable': 'verified',
+        'baseline': module.common_data_result(), 'bound': module.common_data_result()}
+    value['bound'][field] = ['private-path-or-environment']
+    assert module.safe_common_data_observation(value) is None
+
+
 def archive(path, files, *, link=None, root='upstream'):
     with tarfile.open(path, 'w:gz') as tar:
         for name, data in files.items():
