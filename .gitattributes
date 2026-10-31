@@ -7,3 +7,7 @@ packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt -text
 third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip -text
 packaging/runtime-bundle/python-notices/*.txt -text whitespace=-blank-at-eol
 packaging/runtime-bundle/flatbuffers-notices/LICENSE -text whitespace=-blank-at-eol
+# The recorded Apache-source compatibility patch is an exact-byte input.
+packaging/asr/tts-off-python-symbols.patch -text
+packaging/asr/SHERPA-LICENSE.txt -text whitespace=-blank-at-eol
+packaging/asr/SHERPA-PATCH-NOTICE.txt -text

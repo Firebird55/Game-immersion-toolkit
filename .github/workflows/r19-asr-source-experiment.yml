@@ -1,0 +1,80 @@
+name: R19 separate ASR-only source experiment
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: r19-asr-source-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-experiment:
+    # Hosted Server build/API evidence; never clean-client Windows11 acceptance.
+    runs-on: windows-2025
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before preparing isolated build inputs
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual PR comparison target unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid source experiment preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public source audit failed.' }
+      - uses: actions/setup-python@v7
+        with:
+          # Bootstrap only; the build and native probes use the exact supplier.
+          python-version: '3.12.10'
+      - name: Acquire exact public build inputs without pretrained ASR weights or ambient packages
+        shell: pwsh
+        run: |
+          $pin = Get-Content packaging/asr/sherpa-reference.json -Raw | ConvertFrom-Json
+          $supplier = Get-Content $pin.python_supplier_manifest -Raw | ConvertFrom-Json
+          $inputs = Join-Path $env:RUNNER_TEMP 'r19-asr-reference-inputs'
+          New-Item -ItemType Directory -Path $inputs | Out-Null
+          foreach ($item in @($pin.inputs) + @($pin.numpy)) {
+            $destination = Join-Path $inputs $item.filename
+            Invoke-WebRequest $item.url -OutFile $destination
+            if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne $item.sha256) { throw 'Exact ASR source/dependency hash mismatch.' }
+          }
+          $archive = Join-Path $inputs $supplier.archive
+          Invoke-WebRequest $supplier.url -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $supplier.sha256) { throw 'Exact build Python hash mismatch.' }
+          $pythonRoot = Join-Path $env:RUNNER_TEMP 'r19-asr-reference-python'
+          python -I -B scripts/reference-asr.py prepare-python --archive $archive --output $pythonRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Bounded supplier extraction failed.' }
+          "R19_ASR_PYTHON=$(Join-Path $pythonRoot 'python/python.exe')" >> $env:GITHUB_ENV
+          "R19_ASR_INPUTS=$inputs" >> $env:GITHUB_ENV
+          "R19_ASR_OUTPUT=$(Join-Path $env:RUNNER_TEMP 'r19-asr-reference-output')" >> $env:GITHUB_ENV
+      - name: Build the distinct private binding and exercise actual native format APIs
+        shell: pwsh
+        run: |
+          ./scripts/build-reference-asr.ps1 -InputRoot $env:R19_ASR_INPUTS -OutputRoot $env:R19_ASR_OUTPUT -Python $env:R19_ASR_PYTHON
+          'Separate TTS-disabled reference only. Owned ONNX/tokens/PCM prove native format/API execution, not speech recognition or model accuracy. ONNX native source/CRT and exact output rights remain pending. Stock runtime/lock/Migaku and every production/Windows11 gate are unchanged.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload only allowlisted sanitized metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-asr-source-experiment-metadata
+          # No wheels, DLLs/PYDs/LIBs/PDBs, archives, model/audio bytes, raw
+          # logs/traces/maps, private inventories or absolute build/tool paths.
+          path: |
+            ${{ env.R19_ASR_OUTPUT }}/PREPARED.json
+            ${{ env.R19_ASR_OUTPUT }}/ASR-RECEIPT.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload only sanitized failed-stage diagnostics
+        if: ${{ failure() && env.R19_ASR_OUTPUT != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-asr-source-experiment-failure
+          path: ${{ env.R19_ASR_OUTPUT }}/ASR-FAILURE.json
+          if-no-files-found: ignore
+          retention-days: 7
