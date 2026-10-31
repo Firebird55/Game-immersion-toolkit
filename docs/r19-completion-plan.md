@@ -154,6 +154,16 @@ fonts, WASM, dictionaries and model bytes; build-only npm/SDK/test packages do
 not become user dependencies. Record the chosen x64/x86 VC runtime requirements
 and official repair path without copying arbitrary System32 files.
 
+The [native collection observation](r19-native-collection-provenance.md) now
+binds existing PyInstaller sources to final output bytes. Its first actual
+`423e843` run refused an unresolved source before freezing; the bounded
+current-call census adds diagnostic categories without admitting that source.
+The [static image review](r19-native-image-review.md) adds a mandatory final
+inventory check for selected EXE/DLL/PYD architecture, CLR flags and import
+tables. Its authored contracts are distinct from actual frozen output evidence.
+Other extensions, embedded images, dynamic loads, incorporated rights and full
+P1/A1 closure remain open.
+
 **A3 — Resolve the shared audio and blocked reader inputs.** For FFmpeg and
 vgmstream, select exact artifacts/configuration, codec/native dependencies,
 notices and required source delivery. Recheck actual current primary upstream

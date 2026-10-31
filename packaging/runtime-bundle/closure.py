@@ -345,6 +345,39 @@ def validate_native_collection(value, evidence, output, files, input_manifest):
         raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'invalid-snapshot') from None
 
 
+def validate_native_images(value, output, inventory):
+    """Mandatory static image review, independent of native-source attribution.
+
+    Only complete parser observations reach the success sidecar. Failure
+    metadata contains fixed fields/codes, never an exception or import spelling.
+    Neither outcome authorizes production execution or redistribution.
+    """
+    from native_images import CODES, NativeImageError, review_native_images
+    from record_runtime import native_headers, native_pending, native_path, write_native_json
+    headers = {'source_commit': None, 'build_id': None, 'profile': 'runtime-experiment'}
+    try:
+        headers = native_headers(value)
+        if any(inventory.get(key) != item for key, item in headers.items()):
+            raise NativeImageError('invalid-inventory')
+        output = native_path(output, directory=True)
+        report = review_native_images(inventory, output / 'RUNTIME-INVENTORY.json', output / 'ProxyTranscriptRuntime')
+        if any(report.get(key) != item for key, item in headers.items()):
+            raise NativeImageError('invalid-inventory')
+        write_native_json(output, 'NATIVE-IMAGES.json', report)
+        return report
+    except Exception as error:
+        code = error.__dict__.get('code') if type(error) is NativeImageError else None
+        code = code if isinstance(code, str) and code in CODES else 'observation-failed'
+        failure = {'schema': 'proxy-r19-native-images-failure-v1', **headers, **native_pending(),
+            'status': 'failed', 'phase': 'finalize', 'failure_code': code,
+            'raw_paths_published': False, 'raw_exceptions_published': False, 'raw_imports_published': False}
+        try:
+            write_native_json(output, 'NATIVE-IMAGES-FAILED.json', failure)
+        except Exception:
+            pass  # A failed metadata channel cannot convert refusal into success.
+        raise ClosureError('Native image review blocked: ' + code + '.') from None
+
+
 def write_candidate(value, source, evidence, output, *, input_manifest=None):
     resources = {entry['path']: entry['sha256'] for entry in value.get('resources', [])}
     package = json.loads((source / 'package.json').read_text())
@@ -419,6 +452,7 @@ def write_candidate(value, source, evidence, output, *, input_manifest=None):
             from record_runtime import native_failure, NativeCollectionError
             native_failure(value, output, 'finalize', error)
             raise NativeCollectionError('observation-failed') from None
+        validate_native_images(value, output, inventory)
 
 
 def main():

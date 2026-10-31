@@ -19,6 +19,13 @@ def notice_only_provenance(_value, _evidence, _output, files, _input_manifest):
         'production_execution_allowed': False, 'r19_complete': False}
 
 
+def notice_only_images(_value, _output, inventory):
+    # Test-only isolation: this source-notice fixture cannot stand in for P1.
+    assert not any(Path(row['path']).suffix.lower() in {'.exe', '.dll', '.pyd'} for row in inventory['files'])
+    return {'schema': 'authored-notice-only-images-stub-v1', 'status': 'native-images-not-tested',
+        'production_execution_allowed': False, 'r19_complete': False}
+
+
 def inputs(tmp_path, monkeypatch):
     module = recorder(monkeypatch)
     source = tmp_path / 'source'
@@ -64,6 +71,7 @@ def test_source_notice_binds_all_observed_payloads_and_reaches_central_notices(t
     # This test owns notices; actual codec/provenance scope has separate disk tests.
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
+    monkeypatch.setattr(sys.modules['closure'], 'validate_native_images', notice_only_images)
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-source-notices', 'components': [component]}, source, evidence, output)
     for row in records:
@@ -73,6 +81,7 @@ def test_source_notice_binds_all_observed_payloads_and_reaches_central_notices(t
     assert inventory['components'][0]['notice_sha256'] == [row['sha256'] for row in records]
     assert inventory['components'][0]['rights_review'] == 'pending-exact-output'
     assert inventory['r19_complete'] is False and inventory['native_windows_11_acceptance'] == 'unavailable'
+    assert not (output / 'NATIVE-IMAGES.json').exists(), 'Notice-only fixtures cannot produce PE/CLR evidence'
     assert component['review_status'] == 'observed-experiment' and component['native_closure'] == 'unverified'
     with pytest.raises(FileExistsError): module.collect_flatbuffers_notices(evidence, source, component)
 

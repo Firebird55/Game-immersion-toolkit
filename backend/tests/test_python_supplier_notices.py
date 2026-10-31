@@ -20,6 +20,13 @@ def notice_only_provenance(_value, _evidence, _output, files, _input_manifest):
         'production_execution_allowed': False, 'r19_complete': False}
 
 
+def notice_only_images(_value, _output, inventory):
+    # Test-only isolation: this notice fixture has no native image to inspect.
+    assert not any(Path(row['path']).suffix.lower() in {'.exe', '.dll', '.pyd'} for row in inventory['files'])
+    return {'schema': 'authored-notice-only-images-stub-v1', 'status': 'native-images-not-tested',
+        'production_execution_allowed': False, 'r19_complete': False}
+
+
 def inputs(tmp_path, monkeypatch):
     module = recorder(monkeypatch)
     repository = Path(__file__).resolve().parents[2]
@@ -94,6 +101,7 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
     # Notice delivery is isolated from the separately tested codec/provenance gates.
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
+    monkeypatch.setattr(sys.modules['closure'], 'validate_native_images', notice_only_images)
     write_candidate(value, source, evidence, output)
     inventory = json.loads((output / 'RUNTIME-INVENTORY.json').read_bytes())
     files = {row['path']: row for row in inventory['files']}
@@ -103,6 +111,7 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
         assert (output / 'ProxyTranscriptRuntime' / name).read_bytes() == (evidence / record['path']).read_bytes()
     assert inventory['components'][0]['rights_review'] == 'pending-exact-output'
     assert inventory['native_windows_11_acceptance'] == 'unavailable' and inventory['r19_complete'] is False
+    assert not (output / 'NATIVE-IMAGES.json').exists(), 'Notice-only fixtures cannot produce PE/CLR evidence'
 
 
 @pytest.mark.parametrize('profile', ['runtime-experiment', 'runtime'])
@@ -166,6 +175,7 @@ def test_onnx_notice_binds_wheel_installed_and_final_third_party_bytes(tmp_path,
     from closure import write_candidate
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
+    monkeypatch.setattr(sys.modules['closure'], 'validate_native_images', notice_only_images)
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-onnx', 'components': [component]}, source, evidence, output)
     target = output / 'ProxyTranscriptRuntime/THIRD_PARTY/onnxruntime' / notice['path']

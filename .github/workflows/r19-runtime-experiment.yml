@@ -189,7 +189,7 @@ jobs:
           $contracts = @(
             'runtime_bundle', 'runtime_composition', 'runtime_experiment', 'desktop_frontend',
             'prebuilt_readers', 'prebuilt_node_reader', 'blocked_game_helpers', 'prebuilt_codecs',
-            'native_collection_provenance',
+            'native_collection_provenance', 'native_images', 'native_image_collection',
             'windows_preparation_drain', 'preparation_process_tree', 'suspended_preparation_process', 'python_supplier_notices',
             'r19_acceptance', 'game_paths', 'unvoiced_export_probe', 'runtime_writers',
             'runtime_handoff', 'preparation_cancellation', 'mobile_export_api',
@@ -259,6 +259,14 @@ jobs:
           path: output/runtime-bundle/quarantine/NATIVE-COLLECTION-FAILED.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Retain only sanitized native image refusal
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-native-image-refusal-metadata
+          path: output/runtime-bundle/quarantine/NATIVE-IMAGES-FAILED.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload public source kit and sanitized metadata only
         # Preserve completed earlier observations if the separate keeper fails.
         # Artifact presence never upgrades the workflow or a failed receipt.
@@ -275,6 +283,7 @@ jobs:
             output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
             output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json
             output/runtime-bundle/quarantine/NATIVE-COLLECTION.json
+            output/runtime-bundle/quarantine/NATIVE-IMAGES.json
             output/reference-codec/codec-sources.zip
           if-no-files-found: error
           retention-days: 7

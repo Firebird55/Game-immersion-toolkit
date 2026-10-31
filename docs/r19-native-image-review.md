@@ -1,7 +1,7 @@
 # R19 static PE/CLR image review
 
-Status: implemented authored-byte contracts; collector integration and actual
-frozen Windows execution remain pending. This adds no runtime capability,
+Status: implemented authored-byte contracts and mandatory experimental collector
+integration; actual frozen Windows execution remains pending. This adds no runtime capability,
 installer, supplier approval or change to PR #59.
 
 ## Boundary and API
@@ -11,8 +11,26 @@ installer, supplier approval or change to PR #59.
 `review_native_images(inventory, inventory_path, application_root)`. The latter
 consumes the existing complete final inventory. It does not enumerate a second
 output tree, discover a tool, load an image, resolve a dependency or write a
-report. The integrator may write a separate quarantined observation only after
-the complete call returns. No collector/spec/workflow is changed by this slice.
+report. [closure.py](../packaging/runtime-bundle/closure.py) now calls its
+`validate_native_images(value, output, inventory)` wrapper unconditionally for
+`runtime-experiment`, after writing the existing runtime inventory and independent
+A2 source sidecar. Only a complete review writes `NATIVE-IMAGES.json` outside the
+application tree. Refusal writes best-effort `NATIVE-IMAGES-FAILED.json` with
+fixed build headers/failure codes and pending gates, then raises a sanitized
+build error. No environment switch or production bypass is introduced.
+
+The [integrated workflow](../.github/workflows/r19-runtime-experiment.yml) adds
+the parser and collection contracts. Its existing successful metadata allowlist
+includes only the new sanitized success JSON; a separate failure-only upload
+accepts only the fixed failure JSON. It uploads no image bytes, private source,
+raw logs or exception text. A failed finalize stops before native product probes.
+The existing Analysis/COLLECT and final inventory remain the only collectors.
+
+Selection is deliberately limited to inventory names ending in `.exe`, `.dll`
+or `.pyd`, matching A2. It does not content-scan all emitted files, detect PE
+bytes under another extension, or discover native code inside embedded or
+compressed containers. A successful selected-image review therefore cannot
+close complete A1/P1 architecture, incorporated-code or native closure.
 
 The manifest's complete raw JSON, duplicate keys, fixed experimental identity,
 all file/directory names, case aliases, entry sizes/hashes, totals and parent
@@ -84,6 +102,14 @@ closure unverified, production/source-delivery false and Windows 11/R19
 acceptance unavailable. Authored structural PE fixtures exercise the parser
 and real temporary file bindings without executing a native image. Actual
 collected images and downloaded evidence still require independent review.
+
+The integration fixtures run the real parser on valid authored PE files through
+the finalization wrapper, including normal main/ASR relocation. Their isolated
+codec/source-provenance stubs explicitly say those independent gates are not
+tested; they do not manufacture an A2 source result. Notice-only fixtures may
+stub image review only after asserting their inventory has no EXE/DLL/PYD, and
+cannot write an image success sidecar. Production finalization always requires
+the real image review.
 
 One additional static compatibility observation used the already cached exact
 CMake 4.4.5 Windows x64 ZIP. Archive SHA-256
