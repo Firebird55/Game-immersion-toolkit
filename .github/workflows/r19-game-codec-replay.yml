@@ -1,6 +1,7 @@
 name: R19 quarantined FFmpeg Opus source replay
 on:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -53,4 +54,12 @@ jobs:
             C:/r19-game-codec-replay/REPLAY-RECEIPT.json
             C:/r19-game-codec-replay/source-review.zip
           if-no-files-found: error
+          retention-days: 7
+      - name: Upload only sanitized failed-stage diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-game-codec-source-replay-failure
+          path: C:/r19-game-codec-replay/FAILED-STAGE.json
+          if-no-files-found: ignore
           retention-days: 7

@@ -98,16 +98,33 @@ Assert-SearchPath $env:LIB $libraryRoots
 & $pythonExe -I -B (Join-Path $PSScriptRoot 'replay-game-codec.py') prepare --input-root $InputRoot --output $OutputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Exact source/tool hash and source-only preparation failed.' }
 $privateLog = Join-Path $OutputRoot 'PRIVATE-BUILD.log'
-function Invoke-Build([string]$Executable, [string[]]$Arguments) {
+function Invoke-Build(
+    [ValidateSet('extract-msys-base','extract-make','extract-nasm','extract-pkgconf',
+        'check-shell','check-make','check-nasm','check-pkgconf','configure-opus',
+        'build-opus','install-opus','configure-ffmpeg','clean-ffmpeg','build-ffmpeg',
+        'install-ffmpeg','compile-probe','observe-and-package')][string]$Phase,
+    [string]$Executable, [string[]]$Arguments) {
+    $offset = if (Test-Path -LiteralPath $privateLog) { (Get-Item -LiteralPath $privateLog).Length } else { 0 }
+    $PSNativeCommandUseErrorActionPreference = $false
     & $Executable @Arguments >> $privateLog 2>&1
-    if ($LASTEXITCODE -ne 0) { throw 'Quarantined build command failed; private log retained on build host.' }
+    $commandExit = [long]$LASTEXITCODE
+    if ($commandExit -ne 0) {
+        # The classifier emits no log text, paths, arguments or passing receipt.
+        # Its own diagnostics also stay private if receipt generation fails.
+        & $pythonExe -I -B (Join-Path $PSScriptRoot 'replay-game-codec.py') failure --output $OutputRoot `
+            --phase $Phase --exit-code $commandExit --log $privateLog --log-offset $offset `
+            >> (Join-Path $OutputRoot 'PRIVATE-DIAGNOSIS.log') 2>&1
+        throw ('Quarantined build phase failed: ' + $Phase + '; exit code ' + $commandExit + '.')
+    }
 }
 $toolsRoot = Join-Path $OutputRoot 'tools'
 New-Item -ItemType Directory -Path $toolsRoot | Out-Null
-Invoke-Build $tar @('-xf', (Join-Path $InputRoot $pin.build_tools[0].filename), '-C', $toolsRoot)
+Invoke-Build 'extract-msys-base' $tar @('-xf', (Join-Path $InputRoot $pin.build_tools[0].filename), '-C', $toolsRoot)
 $msys = Join-Path $toolsRoot 'msys64'
+$packagePhases = @{'make-4.4.1-3-x86_64.pkg.tar.zst'='extract-make';
+    'nasm-3.02-1-x86_64.pkg.tar.zst'='extract-nasm'; 'pkgconf-3.0.9-1-x86_64.pkg.tar.zst'='extract-pkgconf'}
 foreach ($package in @($pin.build_tools | Select-Object -Skip 1)) {
-    Invoke-Build $tar @('-xf', (Join-Path $InputRoot $package.filename), '-C', $msys,
+    Invoke-Build ($packagePhases[$package.filename]) $tar @('-xf', (Join-Path $InputRoot $package.filename), '-C', $msys,
         '--exclude=.BUILDINFO', '--exclude=.PKGINFO', '--exclude=.MTREE', '--exclude=.INSTALL')
 }
 $env:PATH = @((Join-Path $toolset 'bin/Hostx64/x64'), (Join-Path $sdk ('bin/' + $pin.host.sdk_version + '/x64')),
@@ -126,10 +143,10 @@ $bash = Join-Path $msys 'usr/bin/bash.exe'
 $make = Join-Path $msys 'usr/bin/make.exe'
 $nasm = Join-Path $msys 'usr/bin/nasm.exe'
 $pkgconf = Join-Path $msys 'usr/bin/pkgconf.exe'
-Invoke-Build $sh @('--version')
-Invoke-Build $make @('--version')
-Invoke-Build $nasm @('-v')
-Invoke-Build $pkgconf @('--version')
+Invoke-Build 'check-shell' $sh @('--version')
+Invoke-Build 'check-make' $make @('--version')
+Invoke-Build 'check-nasm' $nasm @('-v')
+Invoke-Build 'check-pkgconf' $pkgconf @('--version')
 # Identity includes exact host headers/static libraries and all isolated MSYS
 # tool bytes, not just self-reported versions. No machine paths are published.
 $toolRoots = [ordered]@{
@@ -180,14 +197,14 @@ $opusSource = Join-Path $OutputRoot 'upstream/opus-1.6.1'
 $opusBuild = Join-Path $OutputRoot 'opus-build'
 $globals = 'UserRootDir=' + $env:UserRootDir.Replace('\','/') + ';ImportDirectoryBuildProps=false;ImportDirectoryBuildTargets=false'
 # Original upstream Opus commands, with the declared generator/SDK/path control.
-Invoke-Build $cmake @('-S', $opusSource, '-B', $opusBuild, '-G', $pin.host.generator,
+Invoke-Build 'configure-opus' $cmake @('-S', $opusSource, '-B', $opusBuild, '-G', $pin.host.generator,
     '-A', 'x64', '-T', ('version=' + $pin.host.toolset_directory),
     ('-DCMAKE_GENERATOR_INSTANCE=' + $instance.installationPath), ('-DCMAKE_SYSTEM_VERSION=' + $pin.host.sdk_version),
     '-DOPUS_STATIC_RUNTIME=ON', ('-DCMAKE_INSTALL_PREFIX=' + $opusPrefix.Replace('\','/')),
     ('-DCMAKE_VS_GLOBALS=' + $globals),
     '-DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF', '-DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF')
-Invoke-Build $cmake @('--build', $opusBuild, '--config', 'Release', '--parallel', '2')
-Invoke-Build $cmake @('--install', $opusBuild, '--config', 'Release')
+Invoke-Build 'build-opus' $cmake @('--build', $opusBuild, '--config', 'Release', '--parallel', '2')
+Invoke-Build 'install-opus' $cmake @('--install', $opusBuild, '--config', 'Release')
 $options = @(Get-Content (Join-Path $OutputRoot 'ORIGINAL-OPTIONS.json') -Raw | ConvertFrom-Json)
 $ffmpegBuild = Join-Path $OutputRoot 'ffmpeg-build'
 New-Item -ItemType Directory -Path $ffmpegBuild | Out-Null
@@ -195,11 +212,11 @@ Push-Location $ffmpegBuild
 try {
     # Original option bytes are not rewritten. No GPL/version3/nonfree additions,
     # no CLI/file protocol enabling and no prebuilt codec substitution.
-    Invoke-Build $sh (@('/c/r19-game-codec-replay/upstream/ffmpeg-9.0.2/configure') + $options + @(
+    Invoke-Build 'configure-ffmpeg' $sh (@('/c/r19-game-codec-replay/upstream/ffmpeg-9.0.2/configure') + $options + @(
         '--target-os=win64', '--toolchain=msvc', '--arch=x86_64', '--prefix=/c/r19-game-codec-replay/out/ffmpeg-vs-64'))
-    Invoke-Build $make @('clean')
-    Invoke-Build $make @('-j2')
-    Invoke-Build $make @('install')
+    Invoke-Build 'clean-ffmpeg' $make @('clean')
+    Invoke-Build 'build-ffmpeg' $make @('-j2')
+    Invoke-Build 'install-ffmpeg' $make @('install')
 } finally { Pop-Location }
 $candidate = Join-Path $OutputRoot 'candidate'
 New-Item -ItemType Directory -Path $candidate | Out-Null
@@ -214,7 +231,7 @@ $ffmpegPrefix = Join-Path $OutputRoot 'out/ffmpeg-vs-64'
 $probe = Join-Path $root 'scripts/fixtures/game-codec-replay.c'
 Push-Location $candidate
 try {
-    Invoke-Build $compiler @('/nologo', '/O2', '/MT', '/utf-8', ('/I' + (Join-Path $ffmpegPrefix 'include')),
+    Invoke-Build 'compile-probe' $compiler @('/nologo', '/O2', '/MT', '/utf-8', ('/I' + (Join-Path $ffmpegPrefix 'include')),
         ('/I' + (Join-Path $opusPrefix 'include')), $probe, '/Fe:game-codec-probe.exe', '/link',
         # Original MSVC Makefile installs suffixed import libraries beside DLLs.
         ('/LIBPATH:' + (Join-Path $ffmpegPrefix 'bin')), ('/LIBPATH:' + (Join-Path $opusPrefix 'lib')),
@@ -222,5 +239,4 @@ try {
     Remove-Item -LiteralPath 'game-codec-replay.obj'
 } finally { Pop-Location }
 Write-ToolIdentity (Join-Path $OutputRoot 'BUILD-TOOLS-AFTER.json')
-& $pythonExe -I -B (Join-Path $PSScriptRoot 'replay-game-codec.py') finish --output $OutputRoot
-if ($LASTEXITCODE -ne 0) { throw 'Actual output/config/notice/source/decode/import observation failed.' }
+Invoke-Build 'observe-and-package' $pythonExe @('-I', '-B', (Join-Path $PSScriptRoot 'replay-game-codec.py'), 'finish', '--output', $OutputRoot)

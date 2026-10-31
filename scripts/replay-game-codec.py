@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import shlex
 import shutil
 import stat
@@ -27,6 +28,23 @@ PROJECT_INPUTS = ('packaging/codecs/ffmpeg-opus-replay.json',
     'scripts/fixtures/game-codec-replay.c', 'backend/codec_fixture.py', 'LICENSE')
 DLLS = ('avcodec-vgmstream-63.dll', 'avformat-vgmstream-63.dll',
         'avutil-vgmstream-61.dll', 'swresample-vgmstream-7.dll')
+BUILD_PHASES = ('extract-msys-base', 'extract-make', 'extract-nasm', 'extract-pkgconf',
+    'check-shell', 'check-make', 'check-nasm', 'check-pkgconf', 'configure-opus',
+    'build-opus', 'install-opus', 'configure-ffmpeg', 'clean-ffmpeg', 'build-ffmpeg',
+    'install-ffmpeg', 'compile-probe', 'observe-and-package')
+ERROR_CODES = frozenset(('C1083', 'C1189', 'C1900', 'C2039', 'C2059', 'C2061',
+    'C2065', 'C2143', 'C2146', 'C2371', 'C2375', 'C2440', 'C2660', 'C2664', 'C3861',
+    'LNK1104', 'LNK1112', 'LNK1120', 'LNK1169', 'LNK1181', 'LNK2001', 'LNK2005',
+    'LNK2019', 'LNK2038', 'MSB1009', 'MSB3073', 'MSB4018', 'MSB6003', 'MSB6006',
+    'MSB8020', 'MSB8036', 'MSB8066'))
+CMAKE_CATEGORIES = {
+    'cmake-error': r'\bCMake Error\b',
+    'cmake-generator-selection': r'could not create named generator|generator[^\r\n]{0,100}does not match',
+    'cmake-toolchain-selection': r'could not find any instance of Visual Studio|does not support platform specification',
+    'cmake-compiler-check': r'is not able to compile a simple test program',
+    'cmake-package-discovery': r'could not find a package configuration file provided by|could NOT find',
+}
+FAILURE_LOG_LIMIT = 2 * 1024 * 1024
 
 
 def digest(data):
@@ -119,6 +137,50 @@ def original_options(raw):
 
 def write_json(path, value):
     path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+
+def failure(output, phase, exit_code, log, offset):
+    """Emit categories only, never log text/path/arguments or a passing receipt.
+
+    A fixed code allowlist prevents arbitrary numbers/tokens from private input
+    becoming diagnostics. Offset excludes earlier successful commands; bounded
+    tail reads keep failure parsing independent of an unbounded compiler log.
+    """
+    if (phase not in BUILD_PHASES or type(exit_code) is not int or exit_code == 0
+            or not -(2**31) <= exit_code < 2**32 or type(offset) is not int or offset < 0):
+        raise ValueError('Invalid fixed build failure identity.')
+    output = Path(output).absolute(); log = Path(log).absolute()
+    no_links(output); no_links(log)
+    if not output.is_dir() or not log.is_file():
+        raise ValueError('Failure diagnosis requires the private build log and existing quarantine.')
+    with log.open('rb') as stream:
+        stream.seek(0, 2); size = stream.tell()
+        if offset > size: raise ValueError('Failure offset exceeds the completed private log.')
+        start = max(offset, size - FAILURE_LOG_LIMIT)
+        stream.seek(start)
+        raw = stream.read(size - start)
+    text = raw.decode('utf-8', errors='replace')
+    codes = sorted({code.upper() for code in re.findall(
+        r'\b(?:fatal\s+)?error\s+((?:C|LNK|MSB)[0-9]{4})\s*:', text, flags=re.IGNORECASE)} & ERROR_CODES)
+    categories = set()
+    for code in codes:
+        categories.add('compiler-error' if code.startswith('C') else
+                       'linker-error' if code.startswith('LNK') else 'msbuild-error')
+    if re.search(CMAKE_CATEGORIES['cmake-error'], text, flags=re.IGNORECASE):
+        for category, pattern in CMAKE_CATEGORIES.items():
+            if re.search(pattern, text, flags=re.IGNORECASE): categories.add(category)
+    if not categories: categories.add('unclassified-command-failure')
+    commit = os.environ.get('GITHUB_SHA', '')
+    report = {'schema': 'proxy-r19-game-codec-replay-failure-v1', 'status': 'failed',
+        'source_commit': commit if re.fullmatch(r'[a-f0-9]{40}', commit) else None,
+        'phase': phase, 'exit_code': exit_code, 'diagnostic_codes': codes,
+        'diagnostic_categories': sorted(categories),
+        'log_scope': 'failed-command-only-bounded-tail', 'log_truncated': start > offset,
+        'raw_log_published': False, 'runtime_collection_allowed': False,
+        'production_execution_allowed': False, 'source_delivery_approved': False,
+        'native_windows_11_acceptance': 'unavailable', 'r19_complete': False}
+    write_json(output / 'FAILED-STAGE.json', report)
+    return report
 
 
 def prepare(input_root, output, *, include_tools=True):
@@ -334,9 +396,13 @@ def finish(root):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['acquire', 'prepare', 'finish'])
+    parser.add_argument('command', choices=['acquire', 'prepare', 'finish', 'failure'])
     parser.add_argument('--input-root', type=Path); parser.add_argument('--output', type=Path)
+    parser.add_argument('--phase', choices=BUILD_PHASES)
+    parser.add_argument('--exit-code', type=int); parser.add_argument('--log', type=Path)
+    parser.add_argument('--log-offset', type=int)
     args = parser.parse_args()
     if args.command == 'acquire': acquire(args.input_root)
     elif args.command == 'prepare': prepare(args.input_root, args.output)
+    elif args.command == 'failure': failure(args.output, args.phase, args.exit_code, args.log, args.log_offset)
     else: finish(args.output)

@@ -25,14 +25,18 @@ It establishes no broader game, language or full-export acceptance.
 
 The [manual workflow](../.github/workflows/r19-game-codec-replay.yml),
 **R19 quarantined FFmpeg Opus source replay**, has no automatic push or PR
-trigger. Once the workflow is available in the repository containing the
-selected branch, choose Actions → that workflow → Run workflow and select the
-reviewed branch. From that repository's checkout, the equivalent invocation is:
+trigger. Before a new manual workflow has been registered, use the existing
+R19 runtime workflow's explicit source-only selector. It calls this reusable
+workflow at the same reviewed commit and skips all frozen/FLAC/observer jobs:
 
 ```sh
-gh workflow run r19-game-codec-replay.yml --ref codex/r19-runtime-bundle
+gh workflow run r19-runtime-experiment.yml --ref codex/r19-runtime-bundle -f source_replay=ffmpeg-opus
 ```
 
+Select the review repository explicitly when the checkout has multiple remotes.
+GitHub's [manual dispatch registration rules](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)
+apply; no default-branch or repository setting is changed for this experiment.
+Once registered, the dedicated workflow can also be dispatched directly.
 Record the actual run/head SHA before treating any result as evidence. The
 workflow observes prerequisites and audits public source before acquiring
 exact pinned inputs. It invokes
@@ -62,6 +66,13 @@ ephemeral build host. The workflow uploads only:
   recipes/notices and project orchestration with its existing LICENSE and an
   explicit unapproved-source boundary. A passing receipt is written only after
   this archive has closed successfully.
+
+On a failed build command, `FAILED-STAGE.json` is a separate failed receipt.
+It preserves the fixed command phase and numeric exit code, with only selected
+compiler/linker/MSBuild error codes and CMake categories from that command's
+bounded private log tail. Unknown diagnostics become a fixed unclassified
+category. Earlier commands, error text, paths, arguments and raw logs are not
+published; this receipt cannot establish a passing replay or change any gate.
 
 The source review kit is not approved corresponding-source delivery or a durable
 source service. Original upstream inputs retain their own terms. New project

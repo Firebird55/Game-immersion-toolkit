@@ -134,5 +134,60 @@ class ReplayTrustTests(unittest.TestCase):
         for damaged in (b'not PE', bytes(raw[:520]), bytes(raw[:152])+b'\0\0'+bytes(raw[154:])):
             with self.assertRaises(ValueError): replay.pe_imports(damaged)
 
+    def test_failure_receipt_exposes_only_allowlisted_codes_categories_and_numeric_exit(self):
+        log = self.root / 'private.log'
+        private = str(self.root / 'private-user' / 'credentials-fixture')
+        log.write_text(private + '\nauthored-secret-never-publish\ncompiler command --private-argument\n'
+            'own.c(5): fatal error C1083: private include file ' + private + '\n'
+            'LINK : error LNK2019: private symbol\nproject : error MSB8020: private toolset\n'
+            'error C9999: unapproved numeric token\nwarning C2065: non-error warning\n'
+            'CMake Error at ' + private + '\nCould not find a package configuration file provided by private package\n')
+        with patch.dict(replay.os.environ, {'GITHUB_SHA': 'a'*40}):
+            report = replay.failure(self.root, 'build-opus', -1073741515, log, 0)
+        self.assertEqual(report['exit_code'], -1073741515)
+        self.assertEqual(report['diagnostic_codes'], ['C1083', 'LNK2019', 'MSB8020'])
+        self.assertEqual(report['diagnostic_categories'], ['cmake-error', 'cmake-package-discovery',
+                         'compiler-error', 'linker-error', 'msbuild-error'])
+        serialized = json.dumps(report)
+        for marker in (private, str(self.root), 'authored-secret', '--private-argument', 'C9999', 'C2065'):
+            self.assertNotIn(marker, serialized)
+        self.assertEqual(json.loads((self.root / 'FAILED-STAGE.json').read_text()), report)
+        self.assertEqual(report['status'], 'failed'); self.assertFalse(report['r19_complete'])
+        self.assertFalse(report['runtime_collection_allowed']); self.assertFalse(report['source_delivery_approved'])
+        self.assertFalse(report['production_execution_allowed']); self.assertFalse(report['raw_log_published'])
+        self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
+
+    def test_failure_diagnosis_excludes_prior_successful_command_and_bounds_private_log(self):
+        log = self.root / 'private.log'
+        earlier = b'CMake Error at earlier private path\nfatal error C1083: earlier successful try-compile\n'
+        log.write_bytes(earlier + b'error lnk2019: current private symbol\n')
+        report = replay.failure(self.root, 'compile-probe', 1, log, len(earlier))
+        self.assertEqual(report['diagnostic_codes'], ['LNK2019'])
+        self.assertEqual(report['diagnostic_categories'], ['linker-error'])
+        self.assertFalse(report['log_truncated'])
+        log.write_bytes(earlier + b'private padding\n'*100 + b'error C2143: current private symbol\n')
+        with patch.object(replay, 'FAILURE_LOG_LIMIT', 100):
+            report = replay.failure(self.root, 'compile-probe', 2, log, len(earlier))
+        self.assertTrue(report['log_truncated'])
+        self.assertEqual(report['diagnostic_codes'], ['C2143'])
+        self.assertEqual(report['diagnostic_categories'], ['compiler-error'])
+
+    def test_unknown_failure_is_fixed_category_and_invalid_stage_or_exit_never_writes(self):
+        log = self.root / 'private.log'; log.write_text(
+            'private-secret-marker error C9999: unknown code\ncould NOT find private-tool-without-CMake-error\n')
+        with patch.dict(replay.os.environ, {'GITHUB_SHA': 'private-invalid-commit'}):
+            report = replay.failure(self.root, 'check-shell', 4294967295, log, 0)
+        self.assertIsNone(report['source_commit']); self.assertEqual(report['exit_code'], 4294967295)
+        self.assertEqual(report['diagnostic_codes'], [])
+        self.assertEqual(report['diagnostic_categories'], ['unclassified-command-failure'])
+        (self.root / 'FAILED-STAGE.json').unlink()
+        for phase, code, offset in [('private-phase', 1, 0), ('build-opus', 0, 0),
+                ('build-opus', True, 0), ('build-opus', 2**32, 0), ('build-opus', 1, -1),
+                ('build-opus', 1, 10000)]:
+            with self.subTest(phase=phase, code=code, offset=offset), self.assertRaises(ValueError):
+                replay.failure(self.root, phase, code, log, offset)
+            self.assertFalse((self.root / 'FAILED-STAGE.json').exists())
+        self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
+
 
 if __name__ == '__main__': unittest.main()

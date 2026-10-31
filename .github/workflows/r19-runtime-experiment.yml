@@ -11,6 +11,11 @@ on:
       - '.github/workflows/r19-runtime-experiment.yml'
   workflow_dispatch:
     inputs:
+      source_replay:
+        description: Run one separate quarantined source experiment only
+        type: choice
+        options: [none, ffmpeg-opus, sherpa-asr]
+        default: none
       observer_contract_only:
         description: Run only PowerShell observer and guardian contracts (no runtime build)
         type: boolean
@@ -22,10 +27,39 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: r19-${{ inputs.observer_contract_only && 'observer-contract' || 'integrated' }}-${{ github.ref }}
+  group: r19-${{ inputs.source_replay != '' && inputs.source_replay != 'none' && format('source-{0}', inputs.source_replay) || inputs.observer_contract_only && 'observer-contract' || 'integrated' }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  validate-selection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse ambiguous or unknown manual experiment selections
+        shell: bash
+        env:
+          R19_SOURCE_REPLAY: ${{ inputs.source_replay || 'none' }}
+          R19_OBSERVER_ONLY: ${{ inputs.observer_contract_only && 'true' || 'false' }}
+          R19_CODEC_ONLY: ${{ inputs.codec_source_only && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|sherpa-asr) ;; *) exit 1 ;; esac
+          selected=0
+          if [[ "$R19_SOURCE_REPLAY" != none ]]; then selected=$((selected+1)); fi
+          if [[ "$R19_OBSERVER_ONLY" == true ]]; then selected=$((selected+1)); fi
+          if [[ "$R19_CODEC_ONLY" == true ]]; then selected=$((selected+1)); fi
+          if (( selected > 1 )); then
+            echo 'Choose exactly one manual experiment scope.' >&2
+            exit 1
+          fi
+  game-codec-source-replay:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'ffmpeg-opus' }}
+    uses: ./.github/workflows/r19-game-codec-replay.yml
+  asr-source-replay:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'sherpa-asr' }}
+    uses: ./.github/workflows/r19-asr-source-experiment.yml
   observer-contract:
+    needs: validate-selection
     # Authored classifier/lease fixtures, not frozen process ownership evidence.
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.observer_contract_only }}
     runs-on: windows-2025
@@ -99,7 +133,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
   extracted-runtime:
-    if: ${{ !inputs.codec_source_only && !inputs.observer_contract_only }}
+    needs: validate-selection
+    if: ${{ !inputs.codec_source_only && !inputs.observer_contract_only && (!inputs.source_replay || inputs.source_replay == 'none') }}
     # Server packaging/loading evidence, never Windows 11 capture acceptance.
     runs-on: windows-2025
     timeout-minutes: 45
@@ -212,7 +247,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   reference-codec-source:
-    if: ${{ !inputs.observer_contract_only }}
+    needs: validate-selection
+    if: ${{ !inputs.observer_contract_only && (!inputs.source_replay || inputs.source_replay == 'none') }}
     # Keep delivered-kit rebuild evidence on the same head as frozen collection.
     # codec_source_only omits the larger runtime job, never this source boundary.
     runs-on: windows-2025
