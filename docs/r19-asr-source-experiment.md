@@ -405,11 +405,32 @@ It records the initial variant's 8,817-file/163-directory tree
 all ten matching Globals and the three selected CPP imports per project.
 Configuration failed with nested `MSB4018` and no `MSB4019` import records.
 The prior classifier left both second imports unknown; it supplied no actual
-canonical-layout or task/exception identity. Those are the new projections
-described above, still awaiting native observation. No build graph, binding,
+canonical-layout or task/exception identity. No build graph, binding,
 inference, final variant recheck or complete before/after tool-seal receipt was
 reached. The initial variant summary cannot substitute for those missing checks.
 No environment, ProgramData, SDK or root cause is inferred from `MSB4018` alone.
+
+The isolated [task-context run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41200812627)
+at `ce09ea2cf844f40c4109beb8d877628585a83ed8` used image `20261030.294.1`
+and VS `18.11.12328.437`. Its sole failure artifact `13042148305` is 2,681
+bytes, SHA-256
+`e922329b1af1685f209757cd6f5b9f37f83f6243e7b02f3a02df0f07a402f1e6`;
+the contained `ASR-FAILURE.json` is 13,967 bytes, SHA-256
+`3f106a4508be52fda8b3caf9e1f9a559bb98aac637d57f9acf087590c13cbde8`.
+Two reviewers independently checked provider digest, exact source head,
+Windows-CRLF manifest correspondence, initial module variant and closed gates.
+Both actual second imports now match the canonical declared auxiliary layout,
+contain no instance-version field and refer to regular files. Each matches
+exactly one initially sealed metadata/props alias pair and the `14.51.36231`
+toolset policy. All ten Globals and the other three imports per project match.
+The nested configure log reports eight untruncated `MSB4018` task contexts:
+each identifies `CL` and `System.TypeInitializationException`, with no matched
+HRESULT or Win32 labels. There are no `MSB4019` import records. Configuration
+failed after 9.37 seconds, before graph, compilation or inference; final
+variant/tool-seal checks and a delivered source-cohort receipt were not reached.
+This establishes a task type-initialization failure, not its underlying cause.
+No environment or compiler-policy change is justified by that exception alone.
+
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC
