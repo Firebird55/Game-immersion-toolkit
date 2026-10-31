@@ -141,6 +141,20 @@ test('workflow extraction accepts actual LF and Windows CRLF checkout text', () 
   assert.equal(normalizeWorkflow(crlf), workflow);
 });
 
+test('native targets run supplier replay and select only the pinned Cyberpunk package archives', () => {
+  for (const name of ['test_macos_supplier_replay.py', 'test_desktop_input_review.py',
+    'test_cyberpunk_input_review.py', 'test_cyberpunk_build.py', 'test_cyberpunk_redistribution.py'])
+    assert.ok(nativeWorkflow.includes(`backend/tests/${name}`), `Missing native supplier check: ${name}`);
+  const review = nativeWorkflow.slice(nativeWorkflow.indexOf('name: Review the exact delivered dependency inputs'),
+    nativeWorkflow.indexOf('name: Accept the exact native target'));
+  assert.match(review, /Get-Content packaging\/cyberpunk\/redistribution\.json -Raw \| ConvertFrom-Json/);
+  assert.match(review, /foreach \(\$package in \$cyberpunkPins\.packages\)/);
+  assert.match(review, /Join-Path 'output\/cyberpunk-source-cache\/nuget' \$package\.archive/);
+  assert.doesNotMatch(review, /Get-ChildItem output\/cyberpunk-source-cache/);
+  for (const name of ['wolvenkit.archive', 'dotnet.archive', 'source.archive', 'kraken-source.archive'])
+    assert.ok(review.includes(`'${name}'`), `Missing supplier archive: ${name}`);
+});
+
 test('workflow separates source audit and integration checkout and always runs stable gate', () => {
   assert.match(job('source-audit'), /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(job('source-audit'), /run: npm run audit:public/);

@@ -62,7 +62,14 @@ jobs:
         run: |
           python -c "import sys; from pathlib import Path; sys.path.insert(0, 'packaging/runtime-bundle'); from record_runtime import verify_wheel; [verify_wheel(wheel) for wheel in sorted(Path('output/wheelhouse').glob('*.whl'))]"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py backend/tests/test_owned_process.py backend/tests/test_desktop_release.py backend/tests/test_native_capture_probe.py
+      - name: Test native lifecycle and exact supplier verification
+        run: >-
+          python -m pytest -q backend/tests/test_desktop_packaging.py
+          backend/tests/test_desktop_host.py backend/tests/test_owned_process.py
+          backend/tests/test_desktop_release.py backend/tests/test_native_capture_probe.py
+          backend/tests/test_macos_supplier_replay.py backend/tests/test_desktop_input_review.py
+          backend/tests/test_cyberpunk_input_review.py backend/tests/test_cyberpunk_build.py
+          backend/tests/test_cyberpunk_redistribution.py
       - name: Install Linux build-runner display services
         if: runner.os == 'Linux'
         run: |
@@ -147,8 +154,13 @@ jobs:
           if ($IsWindows) {
             $codecs = Get-Content packaging/codecs/audio-runtime.json -Raw | ConvertFrom-Json
             $options += @('--native-archive', (Join-Path 'output/audio-source-cache' $codecs.vgmstream.windows_artifact.archive))
-            foreach ($archive in Get-ChildItem output/cyberpunk-source-cache -Filter '*.archive' -File) { $options += @('--native-archive', $archive.FullName) }
-            foreach ($archive in Get-ChildItem output/cyberpunk-source-cache/nuget -Filter '*.nupkg' -File) { $options += @('--native-archive', $archive.FullName) }
+            foreach ($archive in @('wolvenkit.archive', 'dotnet.archive', 'source.archive', 'kraken-source.archive')) {
+              $options += @('--native-archive', (Join-Path 'output/cyberpunk-source-cache' $archive))
+            }
+            $cyberpunkPins = Get-Content packaging/cyberpunk/redistribution.json -Raw | ConvertFrom-Json
+            foreach ($package in $cyberpunkPins.packages) {
+              $options += @('--native-archive', (Join-Path 'output/cyberpunk-source-cache/nuget' $package.archive))
+            }
           }
           python @options
           if ($LASTEXITCODE -notin @(0, 2)) { exit $LASTEXITCODE }
