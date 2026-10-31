@@ -27,7 +27,7 @@ reconstruction from metadata.
 
 TranscriptStore delegates this mechanism to `SqliteOperationLifetime`, the same
 small admitted-operation/transaction/freeze implementation used by the Lexirise
-ledger. Its raw `_connect` factory, `TranscriptConnectionCloseError`,
+ledger and reading SQL scopes. Its raw `_connect` factory, `TranscriptConnectionCloseError`,
 `TranscriptStorePoisonedError`, original failure identities and
 `TranscriptConnectionFence` remain unchanged. The existing private failed-list
 observation point remains an alias of the owner's actual failures; successful
@@ -48,7 +48,7 @@ only that shared owner and the current issued token; any of those pins may
 resume with that exact token. A pin created while frozen or poisoned does not
 gain fresh SQL admission. Stale, manually constructed and wrong-owner tokens
 refuse. The single timeout/polling and invalidation-before-resume rules below
-apply to both owner types.
+apply to these SQL owners.
 
 The ledger's connection scope still performs the existing dynamic
 `sqlite3.connect(self.db_path, timeout=10)` call. A scope stays active through
@@ -78,6 +78,63 @@ owner creates no extra SQLite connection, factory argument, URI, SQL query or
 successful holder. Factory failures propagate from their existing boundary;
 the new owner does not invent a physical-close proof for an object which that
 factory never handed over.
+
+## Reading SQL scopes and independent pool lifetime
+
+Each `LexiriseReadingService` now creates its own SQL-operation owner before
+constructor SQL. Its `freeze_connections(timeout)` and
+`ReadingConnectionFence.check(reader)` apply only to that exact reader, issued
+token object and local epoch. `resume_connections(fence)` invalidates the token
+before reopening SQL admission. Independent readers remain independent owners,
+even when they use the same `reading-cache-v2.db` path or Lexirise session.
+There is no path lock, account authorization or Runtime reader inventory in it.
+
+The five existing reading connection boundaries retain the exact dynamic
+`sqlite3.connect(self.path)` factory call without added arguments, PRAGMAs or
+opens. Constructor and writes keep their connection transaction context; the
+cache and grammar SELECT scopes use the helper's nontransactional
+`closing(connection)` context. It never invokes transaction enter/exit, commit
+or rollback. Existing SQL, local grammar 0/4 overrides, scoped cache keys,
+Chinese text and schema remain intact. The durable grammar choices in this
+mixed cache/choice database are not treated as disposable cache data.
+
+Existing normal sites retain the order reader RLock, SQL admission, connect,
+read/transaction, actual close and failure publication, SQL leave, RLock release.
+Constructor SQL retains its existing absence of that outer RLock. Freeze,
+check and resume do not acquire the reader RLock or join its pool. Key/settings
+selection and JSON processing stay at their existing boundaries.
+
+On failed close, `ReadingConnectionCloseError` retains the actual reader,
+owner, connection and original body/transaction/close errors. Later SQL and
+fence operations raise fresh `ReadingConnectionsPoisonedError` wrappers before
+another open, without retrying close or extending the original failure's
+traceback. These private cleanup errors are not remote `LexiriseError` retries
+and are never serialized. The shared helper's existing transactional error and
+ownership behavior remains the same for TranscriptStore and the ledger.
+
+Reading `quiesce()` and `resume()` remain separate pool-only controls. A worker's
+Future can be done before its writing callback closes SQL. An already-complete
+Future can also invoke a newly attached callback inline in its caller, outside
+any pool worker. The SQL fence counts that callback's admitted SQL scope; pool
+join alone does not certify it. A failed worker close remains owned after pool
+join; the existing callback's marker-save attempt refuses before connecting and
+its pending-word finally block still runs. Pool replacement cannot clear poison.
+
+Most reading HTTP, settings/key work and intervals between SQL scopes are
+outside SQL admission. A valid SQL token can coexist with unfinished HTTP;
+its later SQL refuses while frozen. Queued outer work has no retirement ticket
+and can seek fresh SQL admission after a valid resume. A future aggregate
+boundary must stop producers and reader creation, drain pools/callbacks before
+closing SQL admission, and reopen SQL before admitting resumed producers.
+This slice adds no aggregate control path or Runtime/API caller.
+
+Runtime's default and dynamically cached readers still need a separately
+reviewed creation/retention boundary. Concurrent same-key reader construction
+can replace a cached entry; the current reader dictionary does not establish a
+complete live-owner inventory. That prerequisite and settings/file resources
+remain outside this implementation.
+
+## Timeout and failure handling
 
 Use one finite, non-boolean int/float timeout between zero and Python's native
 `threading.TIMEOUT_MAX`. One monotonic deadline covers waiting for freeze/resume
@@ -124,12 +181,13 @@ resources; explicit cursor/resource lifetime remains a separate prerequisite
 before physical store detach. A method with multiple connection scopes may be
 between them when freeze succeeds; its next scope is refused. The fence does
 not certify that every outer public method invocation has returned. The same
-private-cursor/traceback limitation applies to Lexirise SQL scopes and pins.
+private-cursor/traceback limitation applies to Lexirise SQL scopes, pins and
+reading scopes.
 
 This is not a RuntimeDataFence, all-store/global writer proof, process signal,
 `WriterStopProof`, immutable-slot eligibility or safe copy/directory-swap token.
 Other independent service/store instances and raw SQLite clients are not
-covered. Reading, settings/file access, dynamic reader creation, indexes/voice
+covered. Settings/file access, dynamic reader creation/retention, indexes/voice
 references and other registered workers still need their own resource-lifetime
 connections. The initial WebSocket status thread has a separate epoch/admission
 boundary; it does not aggregate these owners into a RuntimeDataFence. Producer
@@ -168,4 +226,14 @@ retry through a poisoned owner, and verify exact three-store C5 constructor
 interception. Explicit fake keys and strict MockTransport prevent credential
 fallback or real account writes. A pin-specific negative cursor case preserves
 the physical-resource limitation instead of relying on fixture disposal.
+The [reading lifetime tests](../backend/tests/test_reading_lifetime.py) observe
+actual read transaction enter/exit and rollback-on-close behavior, write commit/
+rollback/early-return semantics, constructor/body/transaction/close failures,
+fresh poison wrappers and canonical per-reader fences. Events hold actual read
+and write bodies and close calls, including a worker callback and an inline
+already-done Future callback. Pool join/SQL failure and HTTP-outside-SQL negatives
+keep their separate boundaries visible. Exact three-store C5 constructor
+interception, a same-path independent reader and an unfinished private cursor
+are tested without inventing global or physical-detach authority. Fake keys and
+strict MockTransport prohibit real account or credential fallback.
 These are local source regressions, not native Windows or full R19 acceptance.

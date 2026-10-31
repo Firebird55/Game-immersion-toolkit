@@ -61,14 +61,30 @@ class SqliteOperationLifetime:
                     transaction_error = error
                 raise
         finally:
+            self._close_connection(connection, body_error, transaction_error)
+
+    @contextmanager
+    def closing(self, connection):
+        """Close a read scope without introducing transaction enter/exit."""
+        body_error = None
+        try:
             try:
-                connection.close()
-            except BaseException as close_error:
-                failure = self._close_error(self.subject, connection, body_error, transaction_error, close_error)
-                with self.failure_lock:
-                    self.failures.append(failure)
-                cause = transaction_error if transaction_error is not None else body_error if body_error is not None else close_error
-                raise failure from cause
+                yield connection
+            except BaseException as error:
+                body_error = error
+                raise
+        finally:
+            self._close_connection(connection, body_error, None)
+
+    def _close_connection(self, connection, body_error, transaction_error):
+        try:
+            connection.close()
+        except BaseException as close_error:
+            failure = self._close_error(self.subject, connection, body_error, transaction_error, close_error)
+            with self.failure_lock:
+                self.failures.append(failure)
+            cause = transaction_error if transaction_error is not None else body_error if body_error is not None else close_error
+            raise failure from cause
 
     def _acquire(self, lock, deadline):
         remaining = min(threading.TIMEOUT_MAX, max(0.0, deadline-time.monotonic()))
