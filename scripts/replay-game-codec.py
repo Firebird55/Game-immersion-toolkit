@@ -32,6 +32,7 @@ PROJECT_INPUTS = ('packaging/codecs/ffmpeg-opus-replay.json',
     'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch')
 MAKEDEF_ROLES = ('avcodec', 'avformat', 'avutil', 'swresample')
 VARIANT_PATCH = 'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch'
+PUBLIC_FFMPEG_GENERATED = ('.config', 'config.fate', 'config.mak', 'config.sh')
 DIAGNOSTIC_REASONS = frozenset(('source-binding', 'missing-layout', 'unexpected-layout',
     'unsupported-role', 'duplicate-role', 'nonempty-ar', 'unsupported-branch',
     'oversized-input', 'unsupported-response-files'))
@@ -130,6 +131,26 @@ def inventory(root):
 def tree_identity(value):
     return {'files': len(value), 'sha256': digest(json.dumps(value, sort_keys=True,
         separators=(',', ':')).encode())}
+
+
+def public_generated_configuration(root):
+    """Bind reviewed configuration publicly; keep the complete log inventory private."""
+    directory = root / 'ffmpeg-build/ffbuild'; info = no_links(directory)
+    if info is None or not stat.S_ISDIR(info.st_mode):
+        raise ValueError('Generated configuration directory is unavailable.')
+    private = root / 'PRIVATE-FFMPEG-GENERATED.json'; prior = no_links(private)
+    if prior is not None and not stat.S_ISREG(prior.st_mode):
+        raise ValueError('Private generated inventory is not a regular file.')
+    expected = set(PUBLIC_FFMPEG_GENERATED) | {'config.log'}
+    entries = list(itertools.islice(directory.iterdir(), len(expected) + 1))
+    if len(entries) != len(expected) or {path.name for path in entries} != expected:
+        raise ValueError('Unexpected generated configuration layout.')
+    # Refuse every unknown name/type/link before reading any member content.
+    checked = [(path, regular_file(path)) for path in sorted(entries)]
+    full = {path.name: {'bytes': metadata.st_size, 'sha256': digest(path.read_bytes())}
+            for path, metadata in checked}
+    write_json(private, full)
+    return {name: full[name] for name in PUBLIC_FFMPEG_GENERATED}
 
 
 def variant_definition(pin):
@@ -695,7 +716,7 @@ def finish(root, cmake_root):
         'cmake_supplier': cmake_supplier,
         'source_review_files': inventory(root / 'source-review'),
         'installed_files': inventory(root / 'out'), 'build_tools': tools,
-        'ffmpeg_generated': inventory(root / 'ffmpeg-build/ffbuild'),
+        'ffmpeg_generated': public_generated_configuration(root),
         'opus_cache_sha256': digest((root / 'opus-build/CMakeCache.txt').read_bytes()),
         'probe_source_sha256': digest((ROOT / 'scripts/fixtures/game-codec-replay.c').read_bytes()),
         'candidate_files': before}

@@ -227,6 +227,79 @@ class ReplayTrustTests(unittest.TestCase):
         with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project):
             return replay.makedef_diagnostics(output)
 
+    def generated_configuration_fixture(self):
+        directory = self.root / 'ffmpeg-build/ffbuild'; directory.mkdir(parents=True)
+        for name in ('.config', 'config.fate', 'config.mak', 'config.sh'):
+            (directory / name).write_bytes(('authored generated configuration: ' + name + '\n').encode())
+        (directory / 'config.log').write_bytes(b'private-profile --private-argument source-model-text\n' * 73)
+        return directory
+
+    def test_generated_configuration_keeps_log_size_and_hash_private_and_binds_only_reviewed_configs(self):
+        directory = self.generated_configuration_fixture()
+        public = replay.public_generated_configuration(self.root)
+        self.assertEqual(set(public), {'.config', 'config.fate', 'config.mak', 'config.sh'})
+        private = self.root / 'PRIVATE-FFMPEG-GENERATED.json'
+        full = json.loads(private.read_text()); self.assertEqual(set(full), set(public) | {'config.log'})
+        log = (directory / 'config.log').read_bytes()
+        self.assertEqual(full['config.log'], {'bytes': len(log), 'sha256': replay.digest(log)})
+        for marker in ('config.log', replay.digest(log), 'private-profile', 'private-argument', 'source-model-text'):
+            self.assertNotIn(marker, json.dumps(public))
+        self.assertNotIn(len(log), [record['bytes'] for record in public.values()])
+        (directory / 'config.log').write_bytes(log + b'other private log bytes\n')
+        after_log_change = replay.public_generated_configuration(self.root)
+        self.assertEqual(after_log_change, public)
+        changed_private = json.loads(private.read_text())
+        self.assertNotEqual(changed_private['config.log'], full['config.log'])
+        self.assertNotIn(changed_private['config.log']['sha256'], json.dumps(after_log_change))
+        (directory / 'config.mak').write_bytes(b'changed reviewed configuration\n')
+        after_config_change = replay.public_generated_configuration(self.root)
+        self.assertNotEqual(after_config_change['config.mak'], public['config.mak'])
+        for name in ('.config', 'config.fate', 'config.sh'):
+            self.assertEqual(after_config_change[name], public[name])
+        self.assertFalse((self.root / 'source-review.zip').exists())
+        self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
+
+    def test_unknown_or_missing_generated_entry_refuses_before_any_member_content_is_read(self):
+        directory = self.generated_configuration_fixture(); original_open = Path.open
+        def no_member_open(path, *args, **kwargs):
+            if directory in path.parents: raise AssertionError('Layout refusal must precede every member content read.')
+            return original_open(path, *args, **kwargs)
+        extra = directory / 'private-extra-secret'; extra.write_bytes(b'unknown private content sentinel')
+        with patch.object(Path, 'open', no_member_open), self.assertRaises(ValueError):
+            replay.public_generated_configuration(self.root)
+        extra.unlink()
+        saved = self.root / 'saved-config'; (directory / 'config.sh').rename(saved)
+        with patch.object(Path, 'open', no_member_open), self.assertRaises(ValueError):
+            replay.public_generated_configuration(self.root)
+        extra.write_bytes(b'unknown replacement with the same entry count')
+        with patch.object(Path, 'open', no_member_open), self.assertRaises(ValueError):
+            replay.public_generated_configuration(self.root)
+        self.assertFalse((self.root / 'PRIVATE-FFMPEG-GENERATED.json').exists())
+        self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
+
+    def test_generated_configuration_links_refuse_before_enumeration_content_or_private_write(self):
+        directory = self.generated_configuration_fixture(); target = self.root / 'owned-config-target'
+        directory.rename(target)
+        try: directory.symlink_to(target, target_is_directory=True)
+        except (OSError, NotImplementedError): self.skipTest('Authored directory symlink unavailable on this host')
+        with self.forbid_link_descendant_access(directory), self.assertRaises(ValueError):
+            replay.public_generated_configuration(self.root)
+        directory.unlink(); target.rename(directory)
+        outside = self.root / 'outside-log'; outside.write_bytes(b'private log sentinel')
+        log = directory / 'config.log'; log.unlink(); log.symlink_to(outside)
+        original_open = Path.open
+        def no_member_open(path, *args, **kwargs):
+            if directory in path.parents: raise AssertionError('Member link refusal must precede every content read.')
+            return original_open(path, *args, **kwargs)
+        with patch.object(Path, 'open', no_member_open), self.assertRaises(ValueError):
+            replay.public_generated_configuration(self.root)
+        log.unlink(); log.write_bytes(b'authored log')
+        private = self.root / 'PRIVATE-FFMPEG-GENERATED.json'; private.symlink_to(outside)
+        with self.forbid_link_descendant_access(private), self.assertRaises(ValueError):
+            replay.public_generated_configuration(self.root)
+        self.assertEqual(outside.read_bytes(), b'private log sentinel')
+        self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
+
     @contextmanager
     def forbid_link_descendant_access(self, boundary):
         counts = {name: 0 for name in ('stat', 'lstat', 'open', 'iterdir', 'scandir', 'listdir')}

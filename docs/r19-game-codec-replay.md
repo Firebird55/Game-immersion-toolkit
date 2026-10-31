@@ -201,6 +201,19 @@ rejected without classifying a truncated fragment. The enclosing build failure
 retains the separate failed-command offset/tail policy above. These observations
 remain noncausal and cannot establish decode, rights or runtime acceptance.
 
+The public `ffmpeg_generated` inventory contains exactly `.config`, `config.fate`,
+`config.mak` and `config.sh`. Before reading any content, the collector requires
+the exact five-entry generated layout, including the private `config.log`, and
+regular files without links. An extra, missing or unsupported entry fails closed.
+The complete five-entry inventory is written only to the runner-local
+`PRIVATE-FFMPEG-GENERATED.json`, outside the source-review tree and upload paths.
+No private log size, hash or derived inventory hash enters public correspondence.
+The candidate identity hashes only the public correspondence, preserving source,
+tool, output and the four reviewed configuration bindings. Earlier successful
+receipts used a full generated inventory and retain historical `config.log`
+metadata; their artifacts and scoped native results are not rewritten by this
+subsequent projection change.
+
 Authored shell stubs execute the complete original and instrumented scripts in
 the same parent shell, comparing actual LIB argv, exit behavior, generated
 library effects and cleanup. They also exercise concurrent role separation and
