@@ -157,6 +157,17 @@ def notices(archive, pin):
                     lambda: source.extractfile(member).read())
     if any(name not in found for name in pin['required_notices']):
         raise ValueError('Supplier archive is missing a required full notice: ' + pin['name'])
+    for supplement in pin.get('supplemental_notices', []):
+        relative = safe_path(supplement['path'])
+        if relative.parts[:2] != ('packaging', 'frontend-notices') or len(safe_path(supplement['name']).parts) != 1:
+            raise ValueError('Supplemental notice is outside the pinned notice collection.')
+        path = ROOT / relative
+        no_links(path)
+        if path.stat().st_size > NOTICE_LIMIT or digest(path) != supplement['sha256']:
+            raise ValueError('Supplemental full terms differ from the exact pin.')
+        if supplement['name'] in found:
+            raise ValueError('Supplemental notice collides with a supplier file.')
+        found[supplement['name']] = path.read_bytes()
     return sorted(found.items())
 
 
@@ -209,6 +220,10 @@ def build(output, cache, pins, *, runtime_verifier=verify_runtime):
     (root / 'SOURCES.json').write_text(json.dumps(pins, indent=2) + '\n', encoding='utf-8')
     (root / 'README.txt').write_text(
         'These are unmodified, checksum-pinned supplier sources and full notices.\n'
+        'Where a supplier declares a license without shipping its terms, SOURCES.json\n'
+        'labels the separately attributed standard terms and exact declaration.\n'
+        'For oneocr this retains MIT permission/warranty text without inventing\n'
+        'a supplier copyright statement or claiming it shipped a LICENSE file.\n'
         'The source archives preserve copyright statements and build instructions.\n'
         'OCR weights remain in the verified RapidOCR wheel; SOURCES.json records\n'
         'their exact supplier bundle, upstream attribution and individual hashes.\n'

@@ -10,6 +10,37 @@
   "geos_version": "3.13.1",
   "components": [
     {
+      "name": "flatbuffers",
+      "archive": "flatbuffers-25.12.19-source.tar.gz",
+      "format": "tar",
+      "url": "https://github.com/google/flatbuffers/archive/7e163021e59cca4f8e1e35a7c828b5c6b7915953.tar.gz",
+      "sha256": "4236c5d22309abeac2384d3800febcc8d60423e8cb2f573abfa8f798352c4536",
+      "revision": "7e163021e59cca4f8e1e35a7c828b5c6b7915953",
+      "version": "25.12.19",
+      "root": "flatbuffers-7e163021e59cca4f8e1e35a7c828b5c6b7915953",
+      "required_notices": ["LICENSE"],
+      "purpose": "Full source and Apache-2.0 terms missing from the Python wheel."
+    },
+    {
+      "name": "oneocr",
+      "archive": "oneocr-1.0.12-source.tar.gz",
+      "format": "tar",
+      "url": "https://github.com/AuroraWright/oneocr/archive/d1d401c3776b8cda9af71334a0bea2a7d1fe1305.tar.gz",
+      "sha256": "5056927359abc81ce96fc5a36494918818582e960f059aae45031e8ed5d39fee",
+      "revision": "d1d401c3776b8cda9af71334a0bea2a7d1fe1305",
+      "version": "1.0.12",
+      "root": "oneocr-d1d401c3776b8cda9af71334a0bea2a7d1fe1305",
+      "required_notices": ["pyproject.toml"],
+      "purpose": "Supplier declares MIT in pyproject.toml but publishes no LICENSE or copyright statement. Preserve the exact source/declaration/author metadata and standard MIT permission/warranty terms by reference, without inventing a supplier copyright statement.",
+      "supplemental_notices": [{
+        "name": "DECLARED-MIT-PERMISSION.txt",
+        "path": "packaging/frontend-notices/mit-permission.txt",
+        "sha256": "83330a27667f812efa9c7cdaefd4c83f95b57a7454323a61ee29291312640468",
+        "source": "https://github.com/spdx/license-list-data/blob/31846481de7ea17d92f2f46fad76abe58b2e9bb0/json/details/MIT.json",
+        "basis": "Declared license by reference; verbatim standard permission/warranty paragraphs with copyright placeholders omitted. This is not a supplier LICENSE file."
+      }]
+    },
+    {
       "name": "rapidocr",
       "archive": "rapidocr-1.4.4-source.tar.gz",
       "format": "tar",

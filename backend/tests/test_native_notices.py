@@ -81,6 +81,25 @@ def test_full_sources_and_transitive_notices_survive_collection(tmp_path, kind):
     assert len(runtime.tree(collected)) == len(receipt['files'])
 
 
+def test_declared_license_supplement_is_pinned_and_kept_distinct(tmp_path, monkeypatch):
+    cache = tmp_path / 'cache'
+    pins = fixture(cache)
+    source = tmp_path / 'source'
+    notice = source / 'packaging/frontend-notices/terms.txt'
+    notice.parent.mkdir(parents=True)
+    notice.write_bytes(b'Authored standard terms fixture; no invented holder.')
+    monkeypatch.setattr(native, 'ROOT', source)
+    pin = pins['components'][0]
+    pin['supplemental_notices'] = [{'name': 'DECLARED-PERMISSION.txt',
+        'path': 'packaging/frontend-notices/terms.txt', 'sha256': native.digest(notice)}]
+    records = dict(native.notices(cache / pin['archive'], pin))
+    assert records['DECLARED-PERMISSION.txt'] == notice.read_bytes()
+    assert records['LICENSE'] != records['DECLARED-PERMISSION.txt']
+    notice.write_bytes(b'changed')
+    with pytest.raises(ValueError, match='exact pin'):
+        native.notices(cache / pin['archive'], pin)
+
+
 @pytest.mark.parametrize('kind', ['tar', 'zip'])
 @pytest.mark.parametrize('fault', ['changed', 'missing', 'escape', 'duplicate', 'symlink'])
 def test_invalid_supplier_input_never_creates_a_resource_bundle(tmp_path, kind, fault):
