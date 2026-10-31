@@ -84,6 +84,10 @@ COMMON_DATA_PROJECT = r'''<Project DefaultTargets="R19Root" xmlns="http://schema
       <_R19AllUsers>$([System.Environment]::GetEnvironmentVariable('ALLUSERSPROFILE'))</_R19AllUsers>
     </PropertyGroup>
     <Message Importance="High" Text="R19-ASR-COMMON-V1 folder;runtime=$(MSBuildRuntimeType);x64=$([System.Environment]::Is64BitProcess);empty=$([System.String]::IsNullOrWhiteSpace('$(_R19Folder)'));programdata=$([System.String]::Equals('$(_R19Folder)', '$(_R19ProgramData)', 'StringComparison.OrdinalIgnoreCase'));allusers=$([System.String]::Equals('$(_R19Folder)', '$(_R19AllUsers)', 'StringComparison.OrdinalIgnoreCase'))" />
+    <PropertyGroup>
+      <_R19DoNotVerifyFolder>$([System.Environment]::GetFolderPath('SpecialFolder.CommonApplicationData', 'SpecialFolderOption.DoNotVerify'))</_R19DoNotVerifyFolder>
+    </PropertyGroup>
+    <Message Importance="High" Text="R19-ASR-COMMON-V1 do-not-verify;empty=$([System.String]::IsNullOrWhiteSpace('$(_R19DoNotVerifyFolder)'));rooted=$([System.IO.Path]::IsPathRooted('$(_R19DoNotVerifyFolder)'));programdata=$([System.String]::Equals('$(_R19DoNotVerifyFolder)', '$(_R19ProgramData)', 'StringComparison.OrdinalIgnoreCase'));allusers=$([System.String]::Equals('$(_R19DoNotVerifyFolder)', '$(_R19AllUsers)', 'StringComparison.OrdinalIgnoreCase'))" />
   </Target>
   <Target Name="R19Root" DependsOnTargets="R19Folder">
     <PropertyGroup><_R19Root>$([System.IO.Path]::GetPathRoot('$(_R19Folder)'))</_R19Root></PropertyGroup>
@@ -1321,7 +1325,8 @@ def capture_common_data(command, env, cwd):
 def common_data_result(reason='not-run'):
     return {'status': 'not-run' if reason == 'not-run' else 'rejected', 'reason': reason,
         'runtime': 'unavailable', 'x64': None, 'folder': 'unavailable', 'root': 'not-run',
-        'rooted': None, 'programdata_equal': None, 'allusersprofile_equal': None}
+        'rooted': None, 'programdata_equal': None, 'allusersprofile_equal': None,
+        'do_not_verify': {'empty': None, 'rooted': None, 'programdata_equal': None, 'allusersprofile_equal': None}}
 
 
 def common_data_markers(code, data):
@@ -1340,13 +1345,18 @@ def common_data_markers(code, data):
     # Other MSBuild messages are discarded, never retained in an observation.
     lines = [line.removesuffix('\r').lstrip(' \t') for line in text.split('\n') if 'R19-ASR-COMMON' in line]
     folder = re.fullmatch(r'R19-ASR-COMMON-V1 folder;runtime=(Full|Core|Mono);x64=(True|False);empty=(True|False);programdata=(True|False);allusers=(True|False)', lines[0]) if lines else None
-    root = re.fullmatch(r'R19-ASR-COMMON-V1 root;empty=(True|False);rooted=(True|False)', lines[1]) if len(lines) == 2 else None
-    if not folder or len(lines) > 2 or (len(lines) == 2 and not root) or (code == 0 and not root):
+    unverified = re.fullmatch(r'R19-ASR-COMMON-V1 do-not-verify;empty=(True|False);rooted=(True|False);programdata=(True|False);allusers=(True|False)', lines[1]) if len(lines) >= 2 else None
+    root = re.fullmatch(r'R19-ASR-COMMON-V1 root;empty=(True|False);rooted=(True|False)', lines[2]) if len(lines) == 3 else None
+    if (not folder or len(lines) > 3 or (len(lines) >= 2 and not unverified)
+            or (len(lines) == 3 and not root) or (code == 0 and not root)):
         raise CommonDataProbeError('invalid-markers')
     value = common_data_result('none' if code == 0 else 'process-rejected')
     value.update(status='observed' if code == 0 else 'rejected', runtime=folder[1].lower(),
         x64=folder[2] == 'True', folder='empty' if folder[3] == 'True' else 'nonempty',
         programdata_equal=folder[4] == 'True', allusersprofile_equal=folder[5] == 'True')
+    if unverified:
+        value['do_not_verify'] = dict(zip(('empty', 'rooted', 'programdata_equal', 'allusersprofile_equal'),
+                                        (unverified[i] == 'True' for i in range(1, 5))))
     if root:
         value.update(root='empty' if root[1] == 'True' else 'nonempty', rooted=root[2] == 'True')
     return value
@@ -1372,7 +1382,12 @@ def safe_common_data_observation(value):
         if any(item[k] is not None and type(item[k]) is not bool
                 for k in ('x64', 'rooted', 'programdata_equal', 'allusersprofile_equal')):
             return None
-        result[state] = dict(item)
+        unverified = item['do_not_verify']
+        if (type(unverified) is not dict or set(unverified) != set(common_data_result()['do_not_verify'])
+                or not (all(v is None for v in unverified.values())
+                        or all(type(v) is bool for v in unverified.values()))):
+            return None
+        result[state] = {**item, 'do_not_verify': dict(unverified)}
     return result
 
 

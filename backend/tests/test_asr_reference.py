@@ -29,6 +29,7 @@ def module():
 
 def common_markers(*, runtime='Full', x64='True', empty='False', programdata='True', allusers='True', rooted='True'):
     return (f'R19-ASR-COMMON-V1 folder;runtime={runtime};x64={x64};empty={empty};programdata={programdata};allusers={allusers}\n'
+        'R19-ASR-COMMON-V1 do-not-verify;empty=False;rooted=True;programdata=True;allusers=True\n'
         f'R19-ASR-COMMON-V1 root;empty=False;rooted={rooted}\n').encode()
 
 
@@ -46,16 +47,24 @@ def common_environment_fixture(module, tmp_path, monkeypatch):
     return output, folder, executable, {'msbuild': str(tools)}, initial
 
 
-def test_common_data_fixed_project_uses_only_builtin_property_functions_and_two_records(module):
+def test_common_data_fixed_project_uses_only_builtin_property_functions_and_ordered_records(module):
     tree = module.ET.fromstring(module.COMMON_DATA_PROJECT)
     names = [element.tag.rsplit('}', 1)[-1] for element in tree.iter()]
-    assert set(names) <= {'Project', 'Target', 'PropertyGroup', 'Message', '_R19Folder', '_R19ProgramData', '_R19AllUsers', '_R19Root'}
+    assert set(names) <= {'Project', 'Target', 'PropertyGroup', 'Message', '_R19Folder', '_R19ProgramData', '_R19AllUsers', '_R19Root', '_R19DoNotVerifyFolder'}
     assert tree.attrib == {'DefaultTargets': 'R19Root'}
     messages = [element.attrib['Text'] for element in tree.iter() if element.tag.endswith('}Message')]
-    assert len(messages) == 2
+    assert [message.split(';')[0] for message in messages] == [
+        'R19-ASR-COMMON-V1 folder', 'R19-ASR-COMMON-V1 do-not-verify', 'R19-ASR-COMMON-V1 root']
     assert all(message.startswith('R19-ASR-COMMON-V1 ') for message in messages)
     assert 'GetFolderPath(\'SpecialFolder.CommonApplicationData\')' in module.COMMON_DATA_PROJECT
-    assert module.COMMON_DATA_PROJECT.count("'StringComparison.OrdinalIgnoreCase'") == 2
+    assert "GetFolderPath('SpecialFolder.CommonApplicationData', 'SpecialFolderOption.DoNotVerify')" in module.COMMON_DATA_PROJECT
+    assert all("'StringComparison.OrdinalIgnoreCase'" in message for message in messages if '::Equals(' in message)
+    # Default emission precedes the contrast call, and both precede GetPathRoot.
+    assert module.COMMON_DATA_PROJECT.index('R19-ASR-COMMON-V1 folder;') < module.COMMON_DATA_PROJECT.index("'SpecialFolderOption.DoNotVerify'") < module.COMMON_DATA_PROJECT.index('::GetPathRoot(')
+    contrast = messages[1]
+    assert {part.split('=', 1)[0] for part in contrast.split(';')[1:]} == {'empty', 'rooted', 'programdata', 'allusers'}
+    assert all('=$([' in part for part in contrast.split(';')[1:])  # No raw property output.
+    assert '$(_R19DoNotVerifyFolder)' not in messages[2]  # Default root authority stays separate.
     assert '$(MSBuildRuntimeType)' in module.COMMON_DATA_PROJECT and 'Is64BitProcess' in module.COMMON_DATA_PROJECT
     assert 'GetPathRoot' in module.COMMON_DATA_PROJECT and 'IsPathRooted' in module.COMMON_DATA_PROJECT
     assert 'SystemDrive' not in module.COMMON_DATA_PROJECT
@@ -68,7 +77,8 @@ def test_common_data_markers_are_fixed_typed_states_without_private_output(modul
     value = module.common_data_markers(0, raw)
     assert value == {'status': 'observed', 'reason': 'none', 'runtime': 'full', 'x64': True,
         'folder': 'nonempty', 'root': 'nonempty', 'rooted': True,
-        'programdata_equal': True, 'allusersprofile_equal': True}
+        'programdata_equal': True, 'allusersprofile_equal': True,
+        'do_not_verify': {'empty': False, 'rooted': True, 'programdata_equal': True, 'allusersprofile_equal': True}}
     assert 'private' not in json.dumps(value)
     assert module.common_data_markers(0, b'\xef\xbb\xbf' + common_markers()) == value
 
@@ -95,6 +105,70 @@ def test_common_data_nonzero_folder_only_is_partial_evidence_not_root_success(mo
     value = module.common_data_markers(1, common_markers(empty='True').splitlines(keepends=True)[0])
     assert value['status'] == 'rejected' and value['reason'] == 'process-rejected'
     assert value['folder'] == 'empty' and value['root'] == 'not-run' and value['rooted'] is None
+    assert all(v is None for v in value['do_not_verify'].values())
+
+
+def test_common_data_contrast_survives_rejected_root_without_promoting_default(module):
+    partial = b'\n'.join(common_markers(empty='True').splitlines()[:2]) + b'\n'
+    value = module.common_data_markers(1, partial)
+    assert value['status'] == 'rejected' and value['folder'] == 'empty' and value['root'] == 'not-run'
+    assert value['do_not_verify'] == {'empty': False, 'rooted': True,
+        'programdata_equal': True, 'allusersprofile_equal': True}
+    with pytest.raises(module.CommonDataProbeError): module.common_data_markers(0, partial)
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'swapped', 'duplicate', 'truncated', 'unknown', 'lowercase', 'integer', 'extra'])
+def test_common_data_contrast_refuses_ambiguous_partial_or_untyped_records(module, mutation):
+    lines = common_markers().splitlines()
+    if mutation == 'missing': lines.pop(1)
+    if mutation == 'swapped': lines[1], lines[2] = lines[2], lines[1]
+    if mutation == 'duplicate': lines.insert(2, lines[1])
+    if mutation == 'truncated': lines[1] = lines[1][:-2]
+    if mutation == 'unknown': lines[1] = lines[1].replace(b'do-not-verify', b'private-unknown')
+    if mutation == 'lowercase': lines[1] = lines[1].replace(b'rooted=True', b'rooted=true')
+    if mutation == 'integer': lines[1] = lines[1].replace(b'rooted=True', b'rooted=1')
+    if mutation == 'extra': lines[1] += b';raw=private-folder-value'
+    with pytest.raises(module.CommonDataProbeError) as error:
+        module.common_data_markers(1, b'\n'.join(lines) + b'\n')
+    assert error.value.reason == 'invalid-markers' and 'private' not in str(error.value)
+
+
+@pytest.mark.parametrize('partial', [False, True])
+def test_common_data_unverified_result_cannot_authorize_empty_default(module, tmp_path, monkeypatch, partial):
+    output, _folder, _executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    raw = common_markers(empty='True')
+    if partial: raw = b'\n'.join(raw.splitlines()[:2]) + b'\n'
+    calls = []
+    def capture(*_):
+        calls.append(True)
+        return (1 if partial else 0), raw
+    monkeypatch.setattr(module, 'capture_common_data', capture)
+    with pytest.raises(ValueError, match='Full CLR x64'):
+        module.common_data_environment(output, roots, initial, {})
+    assert calls == [True, True]
+    observed = module.safe_build_environment_observation()['common_data']['bound']
+    assert observed['folder'] == 'empty' and observed['do_not_verify']['rooted'] is True
+
+
+def test_common_data_unverified_observation_never_replaces_default_acceptance(module, tmp_path, monkeypatch):
+    output, folder, _executable, roots, initial = common_environment_fixture(module, tmp_path, monkeypatch)
+    raw = common_markers().replace(
+        b'do-not-verify;empty=False;rooted=True;programdata=True;allusers=True',
+        b'do-not-verify;empty=True;rooted=False;programdata=False;allusers=False')
+    monkeypatch.setattr(module, 'capture_common_data', lambda *_: (0, raw))
+    assert module.common_data_environment(output, roots, initial, {})['PROGRAMDATA'] == str(folder)
+    assert module.safe_build_environment_observation()['common_data']['bound']['do_not_verify']['empty'] is True
+
+
+@pytest.mark.parametrize('malformed', [None, {}, {'empty': 'private-folder'},
+    {'empty': False, 'rooted': 1, 'programdata_equal': True, 'allusersprofile_equal': True},
+    {'empty': None, 'rooted': False, 'programdata_equal': False, 'allusersprofile_equal': False},
+    {'empty': False, 'rooted': True, 'programdata_equal': True, 'allusersprofile_equal': True, 'raw': 'private-folder'}])
+def test_common_data_contrast_public_projection_refuses_raw_unknown_or_partial_types(module, malformed):
+    value = {'origin': 'FOLDERID_ProgramData', 'binding': 'PROGRAMDATA+ALLUSERSPROFILE', 'origin_stable': 'verified',
+        'baseline': module.common_data_result(), 'bound': module.common_data_result()}
+    value['bound']['do_not_verify'] = malformed
+    assert module.safe_common_data_observation(value) is None
 
 
 def test_common_data_two_states_bind_only_authoritative_aliases_and_sealed_x64_tool(module, tmp_path, monkeypatch):

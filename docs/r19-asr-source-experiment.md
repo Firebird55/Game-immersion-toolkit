@@ -71,7 +71,7 @@ check is a source-graph observation, not an operating-system network sandbox.
 
 ## Build and probe boundary
 
-### Common-data preflight: source implemented, native observation pending
+### Common-data preflight and pending same-child contrast
 
 The later [14babb6 source attempt](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41210502791)
 failed during configuration. Its checksum-verified sanitized failure metadata
@@ -102,7 +102,12 @@ One fixed private project uses only documented
 [MSBuild property functions](https://learn.microsoft.com/en-us/visualstudio/msbuild/property-functions)
 and the built-in Message task. It calls ordinary default-option
 [GetFolderPath](https://learn.microsoft.com/en-us/dotnet/api/system.environment.getfolderpath?view=netframework-4.8.1),
-then GetPathRoot/IsPathRooted in the same child. There is no SDK import, inline
+emits its default observation, then calls the same method with the qualified
+`SpecialFolderOption.DoNotVerify` argument. One additional fixed record contains
+only four booleans: empty, rooted, PROGRAMDATA equality and ALLUSERSPROFILE
+equality. The existing default GetPathRoot/IsPathRooted step follows in the same
+child. The unverified result is never used for path metadata, content access,
+default substitution or configuration authority. There is no SDK import, inline
 task, reflection, compiled helper or additional CLR. Both states run only the
 initially sealed `Current/Bin/amd64/MSBuild.exe`; its exact bytes are checked
 before and after each child, with no PATH or alternate executable fallback.
@@ -115,11 +120,15 @@ MSBuild. A local pipe reader checks available bytes before reading: at most
 32 KiB of accepted merged output (one overflow lookahead byte) and 30 seconds
 per invocation, followed by bounded owned
 cleanup. It uses no unbounded read, reader thread or raw preflight log. Exactly
-two fixed ASCII marker formats can supply typed folder/root/alias observations;
+three fixed ASCII marker formats supply ordered default/DoNotVerify/root observations;
 malformed, duplicate, missing, non-UTF8, oversized or timed-out output supplies
 only a fixed refusal category. Other command text is discarded. The public
 projection rechecks every key, enum and boolean and carries no exception,
-command, folder value or private marker field.
+command, folder value or private marker field. The four `do_not_verify` fields
+are all typed booleans when that complete record is delivered, or all null when
+it is unavailable. A nonzero exit may retain a complete default-only or
+default-plus-contrast observation before the root step; malformed partial lines
+are refused, and mixed null/boolean contrast fields cannot pass projection.
 
 An ordinary baseline rejection still permits the one bound state. Unconfirmed
 termination, reaping or close instead aborts before another child can start.
@@ -128,8 +137,7 @@ attempted even when an earlier cleanup step fails. A later successful step
 cannot clear that uncertainty.
 Configuration requires the bound child to report Full CLR/x64, nonempty folder
 and root, rootedness, and equality with both aliases. It then receives that same
-bound map. The fixed project template, Known Folder call and two-state result
-remain **native pending** until a fresh Windows source attempt supplies them;
+bound map. The new same-child DoNotVerify contrast remains **native pending**;
 local authored fixtures do not establish Windows behavior. Comparable fresh
 MSBuild children are not the later CL task's live process. Even repaired
 configuration would not prove framework binary/source correspondence, native
@@ -144,8 +152,33 @@ the primary [MSBuild enum coercion](https://github.com/dotnet/msbuild/blob/86743
 requires a qualified enum string in this late-binding route. The fixed template
 now supplies `SpecialFolder.CommonApplicationData` and, twice,
 `StringComparison.OrdinalIgnoreCase`. No marker, environment, tool pin, flag or
-permission changes accompany those three tokens. Exact runner binary/source
-correspondence and the changed template's native outcome remain unproven.
+permission changes accompanied those three tokens. Exact runner binary/source
+correspondence remains unproven; the later marker outcome is recorded separately.
+
+At `5c9db76`, [run41217577067](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41217577067)
+reached the fixed markers in both Full CLR/x64 children, then stopped in
+`common-data-bound`. Both default folder results were empty. Baseline alias
+comparisons were true, while both bound comparisons were false; those baseline
+equalities compare empty results and do not identify a usable path. The OS
+origin stayed verified. Its actual job used VS18.11.12315.225 and image
+20261021.278.1. This is a negative two-alias intervention, not evidence for
+adding SystemDrive. Configuration, complete final source/tool seals and native
+format probes were not reached. It does not contain the new contrast below.
+
+The primary [Framework implementation](https://github.com/microsoft/referencesource/blob/ec9fa9ae770d522a5b5f0607898044b7478574a3/mscorlib/system/environment.cs#L1505-L1537)
+uses the legacy MAX_PATH/SHGetFolderPath interface and maps almost all negative
+HRESULTs to an empty string. [Shell documentation](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetfolderpathw)
+also permits empty output on failure. Thus the observed empty default result
+does not identify a particular error, missing variable or nonexistent folder.
+[DoNotVerify](https://learn.microsoft.com/en-us/dotnet/api/system.environment.specialfolderoption?view=netframework-4.8.1)
+skips existence verification without CREATE. The new contrast keeps the same
+two environments, child owner, executable seals and byte/time limits. It adds
+no prefix field, environment variable, expansion call, fallback or new process.
+An unverified nonempty result would be a verification-sensitive observation,
+not a repair or permission to configure; all existing default requirements
+remain necessary. No unverified string, length, digest or unknown field is
+published. A fresh reviewed15-input prepare and Windows attempt are still
+required to establish that additional observation.
 
 ### Manual source build
 
