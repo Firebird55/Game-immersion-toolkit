@@ -301,6 +301,64 @@ actual C7 operation, grant-conversion cause, lock-attribute/recovery result or
 rights/Windows 11 acceptance. A new exact-source Windows attempt remains
 required. The earlier eaa/37 failures and their original evidence are preserved.
 
+At `d329027b850ebd7fc01ad6db6d366ec3a3ee9bf9`,
+[run 41245783408](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41245783408),
+attempt 1/job `124668821163` on image `20261021.278.1`, all 175 authored
+contracts passed, including both Windows engine cases. The actual C7 step was
+then reached and failed at legacy-baseline/protocol-refused. Its independently
+verified v4 receipt still delivered only grantread, parent receive-script-progress,
+pre-close child not-signaled, null grant_conversion_failure, empty observations
+and timestamp equalities, and unconfirmed-fixture-retained. Null can also mean
+that a diagnostic candidate was invalid or its EOF was unconfirmed; it does not
+prove no caught error or no subsequent physical activity. The underlying C7
+cause remains unknown. Earlier eaa/37/973 and f43 negatives keep their meaning.
+
+### Separate paired real-cmdlet control, native pending
+
+The two preservation cases deliberately shadow ConvertFrom-Json with a synthetic
+throwing function. They do not prove the real utility cmdlet works under the
+actual Attempt environment. One additional Windows-only authored case therefore
+measures two fresh children: ordinary inherited environment contents, then the
+exact systemroot/windir/temp/tmp name filter used by Attempt. Both maps come
+from one captured parent snapshot. Values are neither modified nor published;
+no missing variable is restored. Both results are collected before a joint
+assertion, including when the first child refuses or is unavailable.
+
+Both children use the same protected `Windows().powershell()` selection, actual
+legacy argument mode, exact producer conversion projector/catch, ten-second
+wait and 8,192-byte-per-stream capture. Each invokes the real ConvertFrom-Json
+once on the literal `{"owned":true}`, then checks exactly one boolean-true owned
+property. There is no shadow, warm-up, Import-Module, Get-Command, ConvertTo-Json,
+alternative parser or second conversion. A fixed managed writer and literal
+Console output carry only the closed control observation. No real grant,
+source path, C7 fixture, lease, account or data writer is supplied.
+
+The fixed states are parsed, shape-refused, conversion-refused or unavailable,
+alongside nullable existing bounded conversion-family/category context and a
+stderr_present boolean. Exact frame keys/types/count, duplicate rejection and
+exit/state correspondence are rechecked before either result can be printed.
+Unknown text, raw code, module/type/identifier names, environment values, paths,
+stderr, lengths and hashes are excluded. A pass requires parsed, no context and
+no observed stderr in both sets. Missing/malformed output, timeout, readbudget,
+start or cleanup uncertainty fails, without hiding the other collected result.
+
+Cleanup from successful Popen creation covers both reader starts, retained-child
+kill/wait and owned streams. Unconfirmed start/close/wait leaves private
+process/pipe/thread records retained; uncertain closes are not raced or retried.
+These are authored Popen/stdout observations: the selected executable and input
+mode match C7, but the current directory, transport and ownership harness do not
+recreate its named-pipe/retained-creation/Job path. Confirmed test-child exit
+does not establish descendant closure, full C7 cleanup or recovery.
+
+A difference between these controlled environment-set results cannot identify
+which variable matters, explain the historical C7 failure or authorize an
+environment fix. Shared-host state and the fixed run order also limit that
+comparison. Both controls passing proves only this literal/control operation,
+not actual ReadLine content, true grant conversion, pipe EOF or mechanism success.
+The producer, public mechanism schema/publisher, environment policy and deadlines
+remain unchanged. Native results for this added control are pending; rights,
+ordinary-user Windows 11, keeper-loss and R19 gates remain open.
+
 The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)
 cover frame/type/overflow refusal, exact transition preservation, ABI widths,
 sticky cleanup, creation-handle/client comparison, zero-writer ordering and

@@ -1,6 +1,7 @@
 """Authored boundary fixtures only; these never establish Windows behavior."""
 import copy
 import ctypes
+import io
 import json
 import os
 from pathlib import Path
@@ -803,6 +804,298 @@ if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
         except ValueError: pytest.fail('Authored engine context is malformed')
         assert value == conversion_frame(exceptions=['argument'])
     if b'authored-private-' in captured.get('out', b''): pytest.fail('Authored context exposed private data')
+
+
+_UNCONFIRMED_REAL_CONTROLS = []  # Private process/pipe/thread records, never PID adoption/retry.
+
+
+def closed_real_conversion_observation(value):
+    fallback = {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    if type(value) is not dict:
+        return fallback
+    if type(value.get('stderr_present')) is bool:
+        fallback['stderr_present'] = value['stderr_present']
+    if (set(value) != {'state', 'context', 'stderr_present'} or type(value['state']) is not str
+            or value['state'] not in {'parsed', 'shape-refused', 'conversion-refused', 'unavailable'}
+            or type(value['stderr_present']) is not bool):
+        return fallback
+    context = None
+    if value['context'] is not None:
+        if value['state'] != 'conversion-refused': return fallback
+        try: context = module.conversion_failure(value['context'])
+        except module.Refused: return fallback
+    return {'state': value['state'], 'context': context, 'stderr_present': value['stderr_present']}
+
+
+def real_conversion_observation(code, output, stderr):
+    fallback = {'state': 'unavailable', 'context': None, 'stderr_present': bool(stderr)}
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value: raise ValueError('Duplicate authored control key')
+            value[key] = item
+        return value
+    try:
+        if (type(code) is not int or code not in (0, 2) or type(output) is not bytes
+                or type(stderr) is not bytes or len(output) > 8192 or len(stderr) > 8192):
+            return fallback
+        lines = output.splitlines()
+        if not 1 <= len(lines) <= 2: return fallback
+        frame = json.loads(lines[0], object_pairs_hook=unique)
+        if (type(frame) is not dict or set(frame) != {'kind', 'state'}
+                or frame['kind'] != 'authored-real-conversion-control'
+                or type(frame['state']) is not str
+                or frame['state'] not in {'parsed', 'shape-refused', 'conversion-refused'}
+                or code != (0 if frame['state'] == 'parsed' else 2)):
+            return fallback
+        context = None
+        if len(lines) == 2:
+            if frame['state'] != 'conversion-refused': return fallback
+            failure = json.loads(lines[1], object_pairs_hook=unique)
+            if (type(failure) is not dict or set(failure) != {'kind', 'line', 'exceptions', 'chain_end', 'category'}
+                    or failure['kind'] != 'grant-conversion-failure'):
+                return fallback
+            context = module.conversion_failure({k: v for k, v in failure.items() if k != 'kind'})
+        return closed_real_conversion_observation({'state': frame['state'], 'context': context,
+            'stderr_present': bool(stderr)})
+    except (ValueError, UnicodeError, TypeError, module.Refused):
+        return fallback
+
+
+def run_real_conversion_control(executable, script, environment):
+    import base64
+    unavailable = {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    try:
+        process = subprocess.Popen([executable, '-NoProfile', '-NonInteractive', '-EncodedCommand',
+            base64.b64encode(script.encode('utf-16le')).decode('ascii')],
+            env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+    except OSError:
+        return unavailable
+    captured, failed, uncertain = {}, [], []
+    def read(name, stream):
+        try:
+            captured[name] = stream.read(8193)
+            if len(captured[name]) > 8192:
+                failed.append(True)
+                try: process.kill()
+                except BaseException: uncertain.append(True)
+        except BaseException: failed.append(True)
+        finally:
+            try: stream.close()
+            except BaseException: uncertain.append(True)
+    readers, exited, code = [], False, None
+    try:
+        readers = [{'thread': threading.Thread(target=read, args=(name, stream), daemon=True),
+                    'stream': stream, 'attempted': False, 'started': False}
+            for name, stream in (('out', process.stdout), ('err', process.stderr))]
+        for record in readers:
+            record['attempted'] = True
+            try: record['thread'].start()
+            except BaseException:
+                uncertain.append(True)
+                raise
+            record['started'] = True
+        code = process.wait(timeout=10); exited = True
+    except BaseException:
+        failed.append(True)
+    finally:
+        if not exited:
+            try: process.kill()
+            except BaseException: uncertain.append(True)
+            try: code = process.wait(timeout=5); exited = True
+            except BaseException: uncertain.append(True)
+        if not readers:
+            # Construction failed before either start: these pipes have no reader owner.
+            for stream in (process.stdout, process.stderr):
+                try: stream.close()
+                except BaseException: uncertain.append(True)
+        for record in readers:
+            if record['started']:
+                try: record['thread'].join(timeout=1)
+                except BaseException: uncertain.append(True)
+                try:
+                    if record['thread'].is_alive(): uncertain.append(True)
+                except BaseException: uncertain.append(True)
+            elif not record['attempted']:
+                try: record['stream'].close()
+                except BaseException: uncertain.append(True)
+            # An unconfirmed start may already be running. Never race or retry its close.
+    if not exited or uncertain:
+        _UNCONFIRMED_REAL_CONTROLS.append({'process': process, 'readers': readers})
+    if failed or uncertain or not exited or any(len(value) > 8192 for value in captured.values()):
+        unavailable['stderr_present'] = bool(captured.get('err'))
+        return unavailable
+    return real_conversion_observation(code, captured.get('out', b''), captured.get('err', b''))
+
+
+def real_conversion_pair(parent_environment, run):
+    # Collect both fresh children before the caller may assert a joint outcome.
+    inherited_environment = dict(parent_environment)
+    attempt_environment = {k: v for k, v in inherited_environment.items()
+        if k.casefold() in {'systemroot', 'windir', 'temp', 'tmp'}}
+    result = {}
+    for variant, environment in (('inherited', inherited_environment), ('attempt', attempt_environment)):
+        try: observed = run(environment)
+        except Exception: observed = None
+        result[variant] = closed_real_conversion_observation(observed)
+    return result
+
+
+def test_real_conversion_pair_measures_both_sets_before_joint_refusal_without_mutating_parent():
+    parent = {'SystemRoot': 'authored-root', 'WINDIR': 'authored-windows', 'TEMP': 'authored-temp',
+        'tMp': 'authored-tmp', 'PRIVATE_PROFILE': 'private-path'}
+    original = dict(parent); calls = []
+    def run(environment):
+        calls.append(environment)
+        if len(calls) == 1: raise OSError('private-startup-error')
+        return {'state': 'parsed', 'context': None, 'stderr_present': False}
+    result = real_conversion_pair(parent, run)
+    assert len(calls) == 2 and calls[0] == original and calls[0] is not parent
+    assert calls[1] == {k: original[k] for k in ('SystemRoot', 'WINDIR', 'TEMP', 'tMp')}
+    assert parent == original
+    assert result['inherited'] == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    assert result['attempt']['state'] == 'parsed' and 'private-' not in json.dumps(result)
+
+
+@pytest.mark.parametrize(('state', 'code'), [('parsed', 0), ('shape-refused', 2), ('conversion-refused', 2)])
+def test_real_conversion_control_accepts_only_matching_typed_terminal_states(state, code):
+    raw = json.dumps({'kind': 'authored-real-conversion-control', 'state': state}).encode('ascii')
+    assert real_conversion_observation(code, raw, b'') == {'state': state, 'context': None, 'stderr_present': False}
+    assert real_conversion_observation(2 if code == 0 else 0, raw, b'')['state'] == 'unavailable'
+
+
+def test_real_conversion_control_keeps_only_existing_bounded_failure_context():
+    first = json.dumps({'kind': 'authored-real-conversion-control', 'state': 'conversion-refused'}).encode('ascii')
+    failure = conversion_frame(exceptions=['unknown'] * 8, chain_end='truncated', category='unknown')
+    result = real_conversion_observation(2, first+b'\n'+json.dumps(failure).encode('ascii'), b'private-stderr')
+    assert result == {'state': 'conversion-refused',
+        'context': {k: v for k, v in failure.items() if k != 'kind'}, 'stderr_present': True}
+    assert 'private-' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('mutation', ['absent', 'partial', 'duplicate-frame', 'duplicate-key', 'extra-key',
+    'private-state', 'private-context', 'unknown-kind', 'private-tail', 'numeric-state', 'wrong-code',
+    'extra-context', 'too-deep', 'oversized'])
+def test_real_conversion_control_refuses_malformed_or_private_output_without_echo(mutation):
+    frame = {'kind': 'authored-real-conversion-control', 'state': 'conversion-refused'}
+    code, failure = 2, conversion_frame()
+    if mutation == 'extra-key': frame['raw'] = 'private-path'
+    if mutation == 'private-state': frame['state'] = 'private-command'
+    if mutation == 'unknown-kind': frame['kind'] = 'private-type'
+    if mutation == 'numeric-state': frame['state'] = 1
+    if mutation == 'wrong-code': code = 123456
+    if mutation == 'private-context': failure['exceptions'] = ['private-error']
+    if mutation == 'extra-context': failure['raw'] = 'private-message'
+    if mutation == 'too-deep': failure['exceptions'] = ['argument'] * 9
+    raw = json.dumps(frame, separators=(',', ':')).encode('ascii')
+    if mutation in {'private-context', 'extra-context', 'too-deep'}: raw += b'\n'+json.dumps(failure).encode('ascii')
+    if mutation == 'absent': raw = b''
+    if mutation == 'partial': raw = raw[:-1]
+    if mutation == 'duplicate-frame': raw += b'\n'+raw
+    if mutation == 'duplicate-key': raw = raw.replace(b'"state":', b'"state":"private-command","state":', 1)
+    if mutation == 'private-tail': raw += b'\nprivate-stdout'
+    if mutation == 'oversized': raw = b'private-output' * 1000
+    result = real_conversion_observation(code, raw, b'private-stderr')
+    assert result == {'state': 'unavailable', 'context': None, 'stderr_present': True}
+
+
+def test_real_conversion_pair_reprojects_runner_failures_before_any_public_diagnostic():
+    result = real_conversion_pair({}, lambda _: {'state': 'private-path', 'context': 'private-value',
+        'stderr_present': True, 'raw': 'private-error'})
+    assert set(result) == {'inherited', 'attempt'}
+    assert all(value == {'state': 'unavailable', 'context': None, 'stderr_present': True} for value in result.values())
+
+
+@pytest.mark.parametrize('fault', ['start-first', 'start-second', 'stream-close', 'timeout',
+    'kill', 'cleanup-wait', 'read', 'read-budget'])
+def test_real_conversion_runner_bounds_faults_and_retains_uncertain_ownership(monkeypatch, fault):
+    retained, processes, calls = [], [], []
+    monkeypatch.setitem(globals(), '_UNCONFIRMED_REAL_CONTROLS', retained)
+    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
+    class Output(io.BytesIO):
+        def __init__(self, raw, name):
+            super().__init__(raw); self.name, self.close_attempts = name, 0
+        def read(self, size):
+            assert size == 8193
+            if fault == 'read' and self.name == 'out': raise OSError('private-read-error')
+            return super().read(size)
+        def close(self):
+            self.close_attempts += 1
+            if fault == 'stream-close' and self.name == 'out': raise OSError('private-close-error')
+            super().close()
+    class Process:
+        def __init__(self, command, **options):
+            self.stdout = Output(b'x' * 8193 if fault == 'read-budget' else json.dumps(
+                {'kind': 'authored-real-conversion-control', 'state': 'parsed'}).encode('ascii'), 'out')
+            self.stderr = Output(b'', 'err'); self.waits = 0
+            processes.append(self)
+        def wait(self, timeout):
+            calls.append(('wait', timeout)); self.waits += 1
+            if fault in {'timeout', 'kill', 'cleanup-wait'} and self.waits == 1:
+                raise subprocess.TimeoutExpired('private-program', timeout)
+            if fault == 'cleanup-wait': raise OSError('private-wait-error')
+            return 0
+        def kill(self):
+            calls.append(('kill',))
+            if fault == 'kill': raise OSError('private-kill-error')
+    monkeypatch.setattr(subprocess, 'Popen', Process)
+    if fault.startswith('start-'):
+        ordinary = threading.Thread; created = []
+        def thread(*args, **kwargs):
+            value = ordinary(*args, **kwargs); created.append(value)
+            if len(created) == (1 if fault == 'start-first' else 2):
+                def refuse(): raise OSError('private-thread-start-error')
+                value.start = refuse
+            return value
+        monkeypatch.setattr(threading, 'Thread', thread)
+    result = run_real_conversion_control('authored-program', 'authored-source', {})
+    assert result == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    assert len(processes) == 1
+    if fault in {'start-first', 'start-second', 'stream-close', 'kill', 'cleanup-wait'}:
+        assert retained and retained[0]['process'] is processes[0]
+        assert retained[0]['readers']
+    else:
+        assert not retained
+    if fault == 'stream-close': assert processes[0].stdout.close_attempts == 1
+    if fault in {'start-first', 'start-second', 'timeout', 'kill', 'cleanup-wait'}:
+        assert ('kill',) in calls and ('wait', 5) in calls
+    assert 'private-' not in json.dumps(result)
+    # Release only the authored in-memory streams after the ownership assertions.
+    for stream in (processes[0].stdout, processes[0].stderr): io.BytesIO.close(stream)
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Authored real Windows PowerShell cmdlet control unavailable locally')
+def test_authored_real_conversion_under_inherited_and_attempt_environment():
+    # No C7 fixture or grant: exact protected executable, literal input only.
+    try: executable = module.Windows().powershell()
+    except Exception: executable = None
+    script = r'''
+$ErrorActionPreference='Stop'
+class C7LiteralWriter {
+    [string]$Frame=''
+    [void]WriteLine([string]$value) { $this.Frame=$value }
+}
+$writer=[C7LiteralWriter]::new()
+$line='{"owned":true}'
+$state='conversion-refused'
+''' + module.CONVERSION_PROJECTOR + '\ntry {\n' + module.CONVERSION_CALL + r'''
+    $names=@($grant.PSObject.Properties.Name)
+    if ($names.Count -eq 1 -and $names -ccontains 'owned' -and $grant.owned -is [bool] -and $grant.owned -eq $true) {
+        $state='parsed'
+    } else { $state='shape-refused' }
+} catch { $state='conversion-refused' }
+[Console]::Out.WriteLine('{"kind":"authored-real-conversion-control","state":"'+$state+'"}')
+if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
+if ($state -ceq 'parsed') { exit 0 } else { exit 2 }
+'''
+    def run(environment):
+        if executable is None: return None
+        return run_real_conversion_control(executable, script, environment)
+    observed = real_conversion_pair(dict(os.environ), run)
+    expected = {'state': 'parsed', 'context': None, 'stderr_present': False}
+    if any(value != expected for value in observed.values()):
+        pytest.fail('Authored real conversion controls refused: ' + json.dumps(observed, sort_keys=True, separators=(',', ':')))
 
 
 def test_changed_wire_does_not_relabel_historical_v2_receipts():
