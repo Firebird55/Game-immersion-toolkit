@@ -191,6 +191,56 @@ class ReplayTrustTests(unittest.TestCase):
             self.assertFalse((self.root / 'FAILED-STAGE.json').exists())
         self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
 
+    def test_preflight_mismatch_binds_numeric_resources_source_manifest_and_both_tool_bytes(self):
+        output = self.root / 'preflight'; observed = {
+            'cmake': {'version': '4.4.4', 'bytes': 1234567, 'sha256': 'a'*64},
+            'cl': {'file_version': '14.51.36260.0', 'product_version': '19.51.36260.0',
+                   'bytes': 987654, 'sha256': 'b'*64}}
+        with patch.dict(replay.os.environ, {'GITHUB_SHA': 'c'*40}):
+            report = replay.preflight_failure(output, observed)
+        self.assertEqual(report['schema'], 'proxy-r19-game-codec-replay-preflight-failure-v1')
+        self.assertEqual(report['status'], 'failed'); self.assertEqual(report['phase'], 'preflight-tool-version')
+        self.assertEqual(report['source_commit'], 'c'*40)
+        self.assertEqual(report['input_manifest']['sha256'], replay.digest(replay.PIN.read_bytes()))
+        self.assertEqual(report['input_manifest']['bytes'], len(replay.PIN.read_bytes()))
+        self.assertEqual(report['expected_versions'], {'cmake': '4.4.5', 'compiler': '19.51.36260.0'})
+        self.assertEqual(report['observed_tools'], observed)
+        self.assertEqual(report['mismatch_fields'], ['cmake-version', 'cl-file-resource-version'])
+        self.assertNotIn(str(self.root), json.dumps(report))
+        for gate in ('raw_log_published', 'native_codec_built', 'native_codec_executed', 'runtime_collection_allowed',
+                     'production_execution_allowed', 'source_delivery_approved', 'r19_complete'):
+            self.assertFalse(report[gate])
+        self.assertEqual(json.loads((output / 'FAILED-STAGE.json').read_text()), report)
+        self.assertEqual(sorted(p.name for p in output.iterdir()), ['FAILED-STAGE.json'])
+
+    def test_preflight_never_overwrites_or_creates_output_without_numeric_source_bound_mismatch(self):
+        base = {'cmake': {'version': '4.4.5', 'bytes': 100, 'sha256': 'a'*64},
+                'cl': {'file_version': '19.51.36260.0', 'product_version': '14.51.36260.0',
+                       'bytes': 200, 'sha256': 'b'*64}}
+        for case in ('matching', 'raw-version', 'raw-product-version', 'extra-path', 'boolean-bytes', 'bad-hash', 'invalid-source'):
+            with self.subTest(case=case):
+                observed = json.loads(json.dumps(base)); output = self.root / case
+                if case != 'matching': observed['cmake']['version'] = '4.4.4'
+                if case == 'raw-version': observed['cmake']['version'] = '4.4.4 private-marker'
+                if case == 'raw-product-version': observed['cl']['product_version'] = 'private-marker'
+                if case == 'extra-path': observed['cmake']['path'] = 'private-marker'
+                if case == 'boolean-bytes': observed['cl']['bytes'] = True
+                if case == 'bad-hash': observed['cl']['sha256'] = 'private-marker'
+                with patch.dict(replay.os.environ, {'GITHUB_SHA': 'private-marker' if case == 'invalid-source' else 'c'*40}), self.assertRaises(ValueError):
+                    replay.preflight_failure(output, observed)
+                self.assertFalse(output.exists())
+        output = self.root / 'existing'; output.mkdir(); (output / 'prior').write_bytes(b'preserved')
+        with self.assertRaises(ValueError): replay.preflight_failure(output, base)
+        self.assertEqual((output / 'prior').read_bytes(), b'preserved')
+        self.assertFalse((output / 'FAILED-STAGE.json').exists())
+
+    def test_preflight_native_data_reader_rejects_duplicate_keys_and_oversized_input(self):
+        self.assertEqual(replay.read_preflight_observation(io.BytesIO(b'{"cmake": {}, "cl": {}}')),
+                         {'cmake': {}, 'cl': {}})
+        for raw in (b'{"cmake": {}, "cmake": {}}', b' '*8193):
+            with self.subTest(raw=raw[:20]), self.assertRaises(ValueError):
+                replay.read_preflight_observation(io.BytesIO(raw))
+
     @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell path-selection contract requires pwsh')
     def test_explicit_tool_selection_ignores_competing_path_matches_and_rejects_ambient_python(self):
         program_files = self.root / 'Program Files'

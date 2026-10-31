@@ -18,6 +18,58 @@ function Get-ReplayExecutables([string]$ProgramFilesRoot, [string]$PythonPath) {
     }
     return [pscustomobject]$selected
 }
+function Get-NumericToolObservation([string]$CMakePath, [string]$CompilerPath) {
+    $process = [Diagnostics.Process]::new()
+    $started = $false
+    try {
+        $start = [Diagnostics.ProcessStartInfo]::new()
+        $start.FileName = $CMakePath
+        $start.ArgumentList.Add('--version')
+        $start.UseShellExecute = $false
+        $start.CreateNoWindow = $true
+        $start.RedirectStandardOutput = $true
+        $start.RedirectStandardError = $true
+        $start.Environment.Clear()
+        foreach ($name in @('SystemRoot','WINDIR','TEMP','TMP')) {
+            $value = [Environment]::GetEnvironmentVariable($name, 'Process')
+            if ($null -ne $value) { $start.Environment[$name] = $value }
+        }
+        $start.Environment['PATH'] = (Join-Path $env:SystemRoot 'System32')
+        $process.StartInfo = $start
+        $started = $process.Start()
+        if (-not $started -or -not $process.WaitForExit(10000)) { throw 'Bounded version probe failed.' }
+        # Read only bounded native output after exit. A full pipe times out
+        # above instead of accumulating an unbounded line or hidden stderr.
+        $buffer = [char[]]::new(4097)
+        $stdoutTask = $process.StandardOutput.ReadBlockAsync($buffer, 0, $buffer.Length)
+        if (-not $stdoutTask.Wait(2000)) { throw 'Bounded version probe failed.' }
+        $count = $stdoutTask.GetAwaiter().GetResult()
+        $errorBuffer = [char[]]::new(4097)
+        $stderrTask = $process.StandardError.ReadBlockAsync($errorBuffer, 0, $errorBuffer.Length)
+        if (-not $stderrTask.Wait(2000)) { throw 'Bounded version probe failed.' }
+        $errorCount = $stderrTask.GetAwaiter().GetResult()
+        if ($process.ExitCode -ne 0 -or $count -ge 4097 -or $errorCount -ge 4097) { throw 'Bounded version probe failed.' }
+        $first = ([string]::new($buffer, 0, $count).Split("`n"))[0].TrimEnd("`r")
+        if ($first -notmatch '^cmake version ([0-9]+\.[0-9]+\.[0-9]+)$') { throw 'Non-numeric version probe result.' }
+        $cmakeNumeric = $Matches[1]
+        $resource = [Diagnostics.FileVersionInfo]::GetVersionInfo($CompilerPath)
+        $fileNumeric = @($resource.FileMajorPart, $resource.FileMinorPart, $resource.FileBuildPart, $resource.FilePrivatePart) -join '.'
+        $productNumeric = @($resource.ProductMajorPart, $resource.ProductMinorPart, $resource.ProductBuildPart, $resource.ProductPrivatePart) -join '.'
+        return [ordered]@{
+            cmake = @{version=$cmakeNumeric; bytes=(Get-Item -LiteralPath $CMakePath).Length;
+                sha256=(Get-FileHash -LiteralPath $CMakePath -Algorithm SHA256).Hash.ToLowerInvariant()}
+            cl = @{file_version=$fileNumeric; product_version=$productNumeric; bytes=(Get-Item -LiteralPath $CompilerPath).Length;
+                sha256=(Get-FileHash -LiteralPath $CompilerPath -Algorithm SHA256).Hash.ToLowerInvariant()}
+        }
+    } catch {
+        throw 'Reviewed numeric tool-version observation failed.'
+    } finally {
+        if ($started -and -not $process.HasExited) {
+            try { $process.Kill($true); $null = $process.WaitForExit(5000) } catch { }
+        }
+        $process.Dispose()
+    }
+}
 $root = Split-Path $PSScriptRoot
 $pin = Get-Content (Join-Path $root 'packaging/codecs/ffmpeg-opus-replay.json') -Raw | ConvertFrom-Json
 # This is build-host orchestration under the project LICENSE, not one of the
@@ -28,6 +80,7 @@ if (-not $IsWindows -or $env:ImageVersion -ne $pin.host.image_version -or $env:I
 if ([IO.Path]::GetFullPath($OutputRoot) -ne 'C:\r19-game-codec-replay') {
     throw 'The experimental configure prefix is fixed; use the isolated hosted job.'
 }
+if (Test-Path -LiteralPath $OutputRoot) { throw 'Quarantine output must be fresh; existing work is preserved.' }
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 $instances = @((& $vswhere -products '*' -version '[18.0,19.0)' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json) | ConvertFrom-Json)
 if ($LASTEXITCODE -ne 0 -or $instances.Count -ne 1) { throw 'Exactly one supported VS18 instance is required.' }
@@ -39,9 +92,15 @@ $executables = Get-ReplayExecutables -ProgramFilesRoot $env:ProgramFiles -Python
 $cmake = $executables.CMake
 $pythonExe = $executables.Python
 $tar = Join-Path $env:SystemRoot 'System32/tar.exe'
-$cmakeVersion = (& $cmake --version | Select-Object -First 1)
-if ($cmakeVersion -ne ('cmake version ' + $pin.host.cmake_version) -or
-    [Diagnostics.FileVersionInfo]::GetVersionInfo($compiler).FileVersion.Trim() -ne $pin.host.compiler_version) {
+$observedTools = Get-NumericToolObservation -CMakePath $cmake -CompilerPath $compiler
+if ($observedTools.cmake.version -ne $pin.host.cmake_version -or
+    $observedTools.cl.file_version -ne $pin.host.compiler_version) {
+    # This failure-only path creates a fresh quarantine and immediately exits;
+    # it never pre-creates a successful build's source-preparation destination.
+    $PSNativeCommandUseErrorActionPreference = $false
+    $observedTools | ConvertTo-Json -Depth 4 | & $pythonExe -I -B (Join-Path $PSScriptRoot 'replay-game-codec.py') `
+        preflight-failure --output $OutputRoot > $null 2> $null
+    if ($LASTEXITCODE -ne 0) { throw 'Numeric preflight failure receipt could not be recorded.' }
     throw 'Actual compiler or CMake differs from the reviewed build-host tuple.'
 }
 # Build processes get an allowlisted environment rather than arbitrary MSBuild

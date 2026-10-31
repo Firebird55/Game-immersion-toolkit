@@ -139,6 +139,65 @@ def write_json(path, value):
     path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 
 
+def preflight_failure(output, observed):
+    """Failure-only numeric resource observation, with no native output text."""
+    output = Path(output).absolute(); no_links(output)
+    if output.exists(): raise ValueError('Preflight failure output must be fresh.')
+    fields = {'cmake': {'version', 'bytes', 'sha256'},
+              'cl': {'file_version', 'product_version', 'bytes', 'sha256'}}
+    if type(observed) is not dict or set(observed) != set(fields):
+        raise ValueError('Unexpected numeric preflight observation fields.')
+    for name, names in fields.items():
+        value = observed[name]
+        if type(value) is not dict or set(value) != names:
+            raise ValueError('Unexpected numeric tool observation fields.')
+        if (type(value['bytes']) is not int or not 0 < value['bytes'] < 256*1024*1024
+                or type(value['sha256']) is not str or not re.fullmatch(r'[a-f0-9]{64}', value['sha256'])):
+            raise ValueError('Invalid tool byte identity.')
+        for field in names - {'bytes', 'sha256'}:
+            pattern = r'[0-9]{1,6}(?:\.[0-9]{1,6}){2}' if name == 'cmake' else r'[0-9]{1,6}(?:\.[0-9]{1,6}){3}'
+            if type(value[field]) is not str or not re.fullmatch(pattern, value[field]):
+                raise ValueError('Tool resource versions must be strictly numeric.')
+    manifest_bytes = PIN.read_bytes(); pin = json.loads(manifest_bytes)
+    expected = {'cmake': pin['host']['cmake_version'], 'compiler': pin['host']['compiler_version']}
+    if (not re.fullmatch(r'[0-9]{1,6}(?:\.[0-9]{1,6}){2}', expected['cmake'])
+            or not re.fullmatch(r'[0-9]{1,6}(?:\.[0-9]{1,6}){3}', expected['compiler'])):
+        raise ValueError('Expected tool versions must be strictly numeric.')
+    mismatches = []
+    if observed['cmake']['version'] != expected['cmake']: mismatches.append('cmake-version')
+    if observed['cl']['file_version'] != expected['compiler']: mismatches.append('cl-file-resource-version')
+    if not mismatches: raise ValueError('No checked tool version mismatch was observed.')
+    commit = os.environ.get('GITHUB_SHA', '')
+    if not re.fullmatch(r'[a-f0-9]{40}', commit): raise ValueError('A source-bound preflight observation is required.')
+    report = {'schema': 'proxy-r19-game-codec-replay-preflight-failure-v1', 'status': 'failed',
+        'phase': 'preflight-tool-version', 'source_commit': commit,
+        'input_manifest': {'path': 'packaging/codecs/ffmpeg-opus-replay.json',
+                           'bytes': len(manifest_bytes), 'sha256': digest(manifest_bytes)},
+        'expected_versions': expected, 'observed_tools': observed, 'mismatch_fields': mismatches,
+        'cl_product_resource_role': 'observation-only; compiler identification is not inferred from resource versions',
+        'raw_log_published': False, 'native_codec_built': False, 'native_codec_executed': False,
+        'runtime_collection_allowed': False, 'production_execution_allowed': False,
+        'source_delivery_approved': False, 'native_windows_11_acceptance': 'unavailable',
+        'installer': 'not-built', 'r19_complete': False}
+    # Only a diagnosed mismatch creates this directory, and the caller exits.
+    # A matching preflight leaves prepare() its required fresh destination.
+    output.mkdir(parents=True)
+    write_json(output / 'FAILED-STAGE.json', report)
+    return report
+
+
+def read_preflight_observation(stream):
+    raw = stream.read(8193)
+    if len(raw) > 8192: raise ValueError('Numeric preflight observation exceeds its bound.')
+    def unique(items):
+        value = {}
+        for key, item in items:
+            if key in value: raise ValueError('Duplicate preflight observation field.')
+            value[key] = item
+        return value
+    return json.loads(raw, object_pairs_hook=unique)
+
+
 def failure(output, phase, exit_code, log, offset):
     """Emit categories only, never log text/path/arguments or a passing receipt.
 
@@ -396,7 +455,7 @@ def finish(root):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['acquire', 'prepare', 'finish', 'failure'])
+    parser.add_argument('command', choices=['acquire', 'prepare', 'finish', 'failure', 'preflight-failure'])
     parser.add_argument('--input-root', type=Path); parser.add_argument('--output', type=Path)
     parser.add_argument('--phase', choices=BUILD_PHASES)
     parser.add_argument('--exit-code', type=int); parser.add_argument('--log', type=Path)
@@ -405,4 +464,5 @@ if __name__ == '__main__':
     if args.command == 'acquire': acquire(args.input_root)
     elif args.command == 'prepare': prepare(args.input_root, args.output)
     elif args.command == 'failure': failure(args.output, args.phase, args.exit_code, args.log, args.log_offset)
+    elif args.command == 'preflight-failure': preflight_failure(args.output, read_preflight_observation(sys.stdin.buffer))
     else: finish(args.output)

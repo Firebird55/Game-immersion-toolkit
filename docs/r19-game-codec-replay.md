@@ -79,6 +79,16 @@ bounded private log tail. Unknown diagnostics become a fixed unclassified
 category. Earlier commands, error text, paths, arguments and raw logs are not
 published; this receipt cannot establish a passing replay or change any gate.
 
+A version-gate mismatch uses a separate preflight-failure schema at the same
+failed-receipt filename. It binds the source commit and input-manifest hash to
+strictly numeric expected CMake/compiler versions, observed CMake version,
+CL FileVersion/ProductVersion resource numbers and each executable's byte count
+and SHA-256. Resource versions are observations, not inferred compiler identity.
+The current gate still compares CMake and the CL file-resource version with the
+unchanged pins. Native version output is bounded and omitted. Only a mismatch
+creates its fresh failure directory; matching preflight leaves the source
+preparation's fresh-output requirement intact.
+
 The source review kit is not approved corresponding-source delivery or a durable
 source service. Original upstream inputs retain their own terms. New project
 orchestration remains under the existing project LICENSE; the scoped Xiph FLAC
