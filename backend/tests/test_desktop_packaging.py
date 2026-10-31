@@ -122,11 +122,12 @@ def test_native_links_must_be_inventoried_and_contained(tmp_path):
     root, provenance, receipt = payload(tmp_path, 'macos-arm64')
     link = root / '_internal/native-link'
     try:
-        link.symlink_to('../LICENSE')
+        link.symlink_to(Path('..') / 'LICENSE')
     except OSError:
         pytest.skip('Host does not permit creating symbolic links.')
-    # Windows stores native separators even when symlink_to receives POSIX
-    # syntax. Inventory the actual link bytes, as the production builder does.
+    # Create a native relative target: Windows can store a literal slash in a
+    # reparse point without resolving it as a path separator. Inventory the
+    # actual link bytes, as the production builder does.
     link_text = os.readlink(link)
     entry = dict(path='_internal/native-link', link=link_text, bytes=len(link_text.encode()),
         sha256=hashlib.sha256(link_text.encode()).hexdigest())
@@ -141,7 +142,7 @@ def test_native_links_must_be_inventoried_and_contained(tmp_path):
     link.unlink()
     outside = tmp_path / 'outside'
     outside.write_text('must never enter package')
-    link.symlink_to('../../outside')
+    link.symlink_to(Path('..') / '..' / 'outside')
     link_text = os.readlink(link)
     entry.update(link=link_text, bytes=len(link_text.encode()), sha256=hashlib.sha256(link_text.encode()).hexdigest())
     with pytest.raises(packaging.PackageError, match='symbolic link'):
