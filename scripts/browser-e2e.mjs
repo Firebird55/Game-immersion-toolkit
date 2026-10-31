@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';import {startPreview} from './e2e-preview.mjs';import {chromium,firefox,webkit} from 'playwright';
 // Exercise the actual built Windows distribution, not the dev dependency optimizer.
 const preview=await startPreview('browser');
-let browser;
+let browser, scenarioFailure;
 const region={left:.1,top:.6,width:.8,height:.25},settings={beyond_region:{left:.10,top:.70,width:.80,height:.28},nte_region:{left:.10,top:.70,width:.80,height:.28},nte_picture_area:'window',nte_player_voice:'unconfigured',honkai3_picture_area:'window',honkai3_region:{left:.04,top:.72,width:.96,height:.24},preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,pragmata_region:region,cyberpunk_region:{left:.12,top:.59,width:.76,height:.37},cyberpunk_tip_region:{left:.10,top:.12,width:.70,height:.62},cyberpunk_capture_chatter:true,cyberpunk_v_voice:'unconfigured',wuwa_region:{left:.1,top:.64,width:.8,height:.32},wuwa_tip_region:{left:.58,top:.05,width:.40,height:.32},wuwa_capture_chatter:false,wuwa_cinematic_region:{left:.12,top:.2,width:.76,height:.43},wuwa_capture_cinematic:true,wuwa_rover_voice:'unconfigured',witcher3_region:{left:.08,top:.63,width:.84,height:.34},witcher3_tip_region:{left:.08,top:0,width:.76,height:.74},witcher3_capture_chatter:true,hito_auto_regions:true,process_names:[],window_title_contains:[],scan_interval_ms:250,stable_frames:2,fuzzy_threshold:82,auto_start:false,save_unmatched:false};
 const line={id:1,created_at:new Date().toISOString(),session_id:'fixture',game:'zzz',source_ocr:'Hello',english:'Hello',chinese:'你好',text_id:'fixture',score:100,match_kind:'exact',channel:'dialogue',voiced:true,has_audio:false,favorite:false};
 const comicLine={...line,id:6,text_id:'Comic_'+'a'.repeat(32),channel:'cinematic',voiced:false,english:'Keep the gate closed until tomorrow.',chinese:'请把门关到明天。'};
@@ -347,6 +347,14 @@ try{
  assert.equal(writes.length,0,'ZZZ study and Proxy choices do not change account settings');
  console.log(name+': toolkit '+width+'x'+height+' zoom/DPR '+zoom+' and text-only comic passed');await context.close();
  }await browser.close();browser=null;}
+}catch(error){
+ scenarioFailure=error;
+ console.error('Browser scenario failed:',error);
+ console.error('Owned preview diagnostics:',preview.diagnostics());
+ throw error;
 }finally{
- await preview.stop();
+ try{await preview.stop();}catch(cleanupError){
+  if(scenarioFailure)throw new AggregateError([scenarioFailure,cleanupError],'Browser scenario and owned cleanup failed');
+  throw cleanupError;
+ }
 }
