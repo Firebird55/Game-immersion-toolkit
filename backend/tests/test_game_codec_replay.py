@@ -864,6 +864,67 @@ $value | ConvertTo-Json -Compress
             str(selected_python), str(canonical)], check=True, capture_output=True, text=True, timeout=20)
         self.assertEqual(json.loads(result.stdout), {'CMake': str(canonical), 'Python': str(selected_python)})
 
+    @unittest.skipUnless(shutil.which('pwsh'), 'Actual process environment deletion contract requires pwsh')
+    def test_process_environment_deletion_removes_empty_and_nonempty_keys_before_inputs(self):
+        contract = self.root / 'process-environment-contract.ps1'
+        contract.write_text(r'''param($SourcePath)
+$ErrorActionPreference = 'Stop'
+try {
+    $tokens=$null; $errors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseFile($SourcePath,[ref]$tokens,[ref]$errors)
+    if ($errors) { throw 'parse' }
+    $definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Remove-ReplayProcessEnvironment'},$true)
+    if (-not $definition) { throw 'missing function' }
+    . ([scriptblock]::Create($definition.Extent.Text))
+    $empty='R19_AUTHORED_EMPTY'; $nonempty='R19_AUTHORED_NONEMPTY'; $absent='R19_AUTHORED_ABSENT'
+    [Environment]::SetEnvironmentVariable($empty,'','Process')
+    [Environment]::SetEnvironmentVariable($nonempty,'private-value-never-publish','Process')
+    [Environment]::SetEnvironmentVariable($absent,[NullString]::Value,'Process')
+    $before=[Environment]::GetEnvironmentVariables('Process')
+    if (-not $before.Contains($empty) -or $before[$empty] -ne '' -or
+        -not $before.Contains($nonempty) -or $before.Contains($absent)) { throw 'authored precondition' }
+    Remove-ReplayProcessEnvironment -Names @($empty,$nonempty,$absent)
+    $after=[Environment]::GetEnvironmentVariables('Process')
+    foreach ($name in @($empty,$nonempty,$absent)) {
+        if ($after.Contains($name) -or $null -ne [Environment]::GetEnvironmentVariable($name,'Process')) { throw 'key retained' }
+    }
+    Remove-ReplayProcessEnvironment -Names @($empty,$nonempty,$absent)
+    $rejected=$false
+    try { Remove-ReplayProcessEnvironment -Names @('private=profile-secret') }
+    catch { if ($_.Exception.Message -eq 'Build process environment deletion failed.') { $rejected=$true } }
+    if (-not $rejected) { throw 'failure projection' }
+    @{removed_empty=$true;removed_nonempty=$true;absent_idempotent=$true;failure_is_fixed=$true} | ConvertTo-Json -Compress
+} catch { [Console]::Error.WriteLine('Authored process environment deletion contract failed.'); exit 1 }
+''', encoding='utf-8')
+        result = subprocess.run([shutil.which('pwsh'), '-NoProfile', '-NonInteractive', '-File', str(contract),
+            str(ROOT / 'scripts/build-game-codec-replay.ps1')], capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, 'Authored process environment deletion contract failed.')
+        self.assertEqual(json.loads(result.stdout), {'removed_empty': True, 'removed_nonempty': True,
+                         'absent_idempotent': True, 'failure_is_fixed': True})
+        self.assertNotIn('private-value', result.stdout); self.assertNotIn('profile-secret', result.stdout)
+
+    @unittest.skipUnless(shutil.which('make') and shutil.which('sh'), 'Authored stdin export regression requires local GNU make and sh')
+    def test_authored_makefile_exports_initially_empty_ar_but_keeps_unset_ar_absent(self):
+        make = shutil.which('make')
+        version = subprocess.run([make, '--version'], capture_output=True, timeout=5)
+        if version.returncode or not version.stdout.startswith(b'GNU Make'):
+            self.skipTest('Local make is not GNU make; no tool substitution or installation')
+        recipe = (b'.PHONY: probe\nAR = authored-make-value\nprobe:\n'
+                  b'\t@if test "$${AR+x}" != x; then printf "absent\\n"; '
+                  b'elif test "$$AR" = authored-make-value; then printf "present-nonempty\\n"; '
+                  b'else printf "unexpected-present-value\\n"; fi\n')
+        for state, expected in (('unset', b'absent\n'), ('empty', b'present-nonempty\n')):
+            with self.subTest(initial_state=state):
+                env = dict(os.environ)
+                for key in ('AR', 'MAKEFLAGS', 'MFLAGS', 'GNUMAKEFLAGS', 'MAKEFILES', 'ENV', 'BASH_ENV'):
+                    env.pop(key, None)
+                if state == 'empty': env['AR'] = ''
+                result = subprocess.run([make, '--no-print-directory', '-f', '-',
+                    'SHELL=' + shutil.which('sh'), 'probe'], input=recipe, env=env,
+                    capture_output=True, timeout=5)
+                self.assertEqual(result.returncode, 0, 'Authored make export regression failed.')
+                self.assertEqual(result.stdout.replace(b'\r\n', b'\n'), expected)
+
     @unittest.skipUnless(shutil.which('pwsh'), 'Host-image policy contract requires pwsh')
     def test_host_image_policy_requires_explicit_versions_without_rolling_or_wildcard_fallback(self):
         contract = self.root / 'host-image-contract.ps1'

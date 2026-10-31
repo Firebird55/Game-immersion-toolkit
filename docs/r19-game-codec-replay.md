@@ -101,6 +101,21 @@ describes this delimiter behavior. The corrected contract still requires the
 exact SDK/toolset arguments and a failed activation without partial export.
 Contract failures expose only fixed phase labels and an optional numeric exit.
 
+Both existing environment wipes remove process keys using a genuine .NET null
+(`[NullString]::Value`), then verify key absence in the process dictionary. In
+[PowerShell 7.5 and newer](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables),
+calling `SetEnvironmentVariable` with PowerShell `$null` creates or retains an
+empty value instead. Empty and absent differ for
+[GNU make's environment export](https://www.gnu.org/software/make/manual/html_node/Variables_002fRecursion.html):
+an initially present `AR`, even empty, can be exported after a makefile overrides
+it. The hosted diagnostic observed a nonempty AR and refused it; the actual
+private value remains unknown, and an end-to-end LIB cause is not established.
+The fourth early authored Windows contract proves that actual empty/nonempty
+process keys become absent before input preparation. A separate local GNU make
+regression uses only an authored stdin Makefile, without a compiler or generated
+targets. The diagnostic AR guard, variant bytes, compiler/tool roots and all
+original codec options stay unchanged; these tests establish no native codec pass.
+
 ## Evidence and publication boundary
 
 DLLs, the authored probe executable, static/import libraries, generated headers,

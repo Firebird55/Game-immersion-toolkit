@@ -3,6 +3,18 @@ param([Parameter(Mandatory=$true)][string]$InputRoot,
       [string]$CMakeRoot = 'C:\r19-build-tools\cmake-4.4.5',
       [Parameter(Mandatory=$true)][string]$Python)
 $ErrorActionPreference = 'Stop'
+function Remove-ReplayProcessEnvironment([string[]]$Names) {
+    try {
+        foreach ($name in $Names) {
+            # $null binds to String.Empty in PowerShell; .NET 9+ retains that key.
+            [Environment]::SetEnvironmentVariable($name, [NullString]::Value, 'Process')
+        }
+        $remaining = [Environment]::GetEnvironmentVariables('Process')
+        foreach ($name in $Names) {
+            if (@($remaining.Keys) -contains $name) { throw 'presence' }
+        }
+    } catch { throw 'Build process environment deletion failed.' }
+}
 function Get-ReplayExecutables([string]$PinnedCMakeRoot, [string]$PythonPath) {
     if (-not [IO.Path]::IsPathFullyQualified($PinnedCMakeRoot) -or
         -not [IO.Path]::IsPathFullyQualified($PythonPath)) {
@@ -280,9 +292,7 @@ foreach ($name in @('SystemRoot','WINDIR','ComSpec','ProgramFiles','ProgramFiles
     $value = [Environment]::GetEnvironmentVariable($name, 'Process')
     if ($null -ne $value) { $retained[$name] = $value }
 }
-foreach ($name in @([Environment]::GetEnvironmentVariables('Process').Keys)) {
-    [Environment]::SetEnvironmentVariable($name, $null, 'Process')
-}
+Remove-ReplayProcessEnvironment -Names @([Environment]::GetEnvironmentVariables('Process').Keys)
 foreach ($name in $retained.Keys) { [Environment]::SetEnvironmentVariable($name, $retained[$name], 'Process') }
 $profileRoot = 'C:\r19-game-codec-empty-profile'
 if (Test-Path -LiteralPath $profileRoot) { throw 'Isolated build profile must be fresh.' }
@@ -375,11 +385,9 @@ foreach ($package in @($pin.build_tools | Select-Object -Skip 1)) {
 }
 $env:PATH = @((Join-Path $toolset 'bin/Hostx64/x64'), (Join-Path $sdk ('bin/' + $pin.host.sdk_version + '/x64')),
     (Split-Path $cmake), (Join-Path $msys 'usr/bin'), (Join-Path $env:SystemRoot 'System32'), $env:SystemRoot) -join ';'
-foreach ($name in @('CL','_CL_','LINK','_LINK_','CC','CXX','AR','CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS',
+Remove-ReplayProcessEnvironment -Names @('CL','_CL_','LINK','_LINK_','CC','CXX','AR','CFLAGS','CXXFLAGS','CPPFLAGS','LDFLAGS',
     'LIBPATH','MAKEFLAGS','MFLAGS','CMAKE_PREFIX_PATH','CMAKE_TOOLCHAIN_FILE','PKG_CONFIG_PATH','PKG_CONFIG_SYSROOT_DIR',
-    'MSYS2_ARG_CONV_EXCL')) {
-    [Environment]::SetEnvironmentVariable($name, $null, 'Process')
-}
+    'MSYS2_ARG_CONV_EXCL')
 $env:MSYSTEM = 'MSYS'
 $env:MSYS2_PATH_TYPE = 'strict'
 $opusPrefix = Join-Path $OutputRoot 'out/opus-vs-64'
