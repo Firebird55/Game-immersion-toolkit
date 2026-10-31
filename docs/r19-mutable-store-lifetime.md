@@ -128,11 +128,11 @@ boundary must stop producers and reader creation, drain pools/callbacks before
 closing SQL admission, and reopen SQL before admitting resumed producers.
 This slice adds no aggregate control path or Runtime/API caller.
 
-Runtime's default and dynamically cached readers still need a separately
-reviewed creation/retention boundary. Concurrent same-key reader construction
-can replace a cached entry; the current reader dictionary does not establish a
-complete live-owner inventory. That prerequisite and settings/file resources
-remain outside this implementation.
+Runtime's default and dynamically cached readers use the separate
+[reading creation and pool owner](#runtime-reading-creation-and-pool-ownership)
+described below. Its retained records replace the earlier cache-only inventory
+and coalesce concurrent same-key construction. SQL admission is still separate:
+the registry does not freeze these SQL owners or cover settings/file resources.
 
 ## Timeout and failure handling
 
