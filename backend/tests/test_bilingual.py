@@ -10,6 +10,18 @@ def test_chinese_normalization_keeps_dialogue_and_latin_names():
     assert normalize_chinese("你好") != normalize_chinese("再见")
 
 
+def test_mixed_chinese_scripts_keep_particles_and_real_yao_distinct():
+    from backend.bilingual import simplify_chinese
+    from backend.languages import normalize_text
+    simplified, traditional = "你为什么这么问？", "你為什麼這麼問？"
+    assert normalize_chinese(simplified) == normalize_chinese(traditional) == "你为什么这么问"
+    assert normalize_text(simplified, 'zh-Hans') == normalize_text(traditional, 'zh-Hant')
+    for text in (simplified, traditional, "幺妹拿着幺鸡。", "裡面的燈籠。"):
+        assert simplify_chinese(simplify_chinese(text)) == simplify_chinese(text)
+    assert normalize_chinese("一幺三") == "一幺三"
+    assert normalize_chinese("么") != normalize_chinese("幺")
+
+
 def test_traditional_chinese_matches_without_changing_official_text(tmp_path):
     assert normalize_chinese("裡面的燈籠，ＩＤＵＳ！") == normalize_chinese("里面的灯笼，IDUS！")
     index = make_index(tmp_path)
