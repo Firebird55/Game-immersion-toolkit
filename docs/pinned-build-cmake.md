@@ -40,6 +40,22 @@ reserved names, symlinks/reparse points, oversized entries and extra empty
 directories fail. Existing output is preserved. Receipt changes cannot approve
 different bytes: verification derives the expected tree from the pinned ZIP.
 
+Filesystem ancestry is checked from the raw absolute root toward the leaf using
+one `lstat` per existing component. Symlink/reparse attributes are rejected
+before any descendant stat, lstat, open, archive read or directory enumeration.
+A missing ancestor ends that check without probing its descendants, preserving
+fresh nested acquire/prepare outputs. Existing ancestors must be directories;
+existing leaves must be regular files or directories. Parent traversal is
+refused rather than normalized across an uninspected missing component.
+The guard does not resolve a link before checking its original ancestry.
+
+Authored regressions exercise the actual parent-directory link (with a Windows
+junction fallback), a Windows reparse-attribute fixture, missing ancestors,
+nonregular leaves and metadata failures. Stat/lstat/open/iteration sentinels
+prove refusal occurs before descendant access, while the existing exact-tree
+and fresh acquire/prepare fixtures retain their ordinary behavior. These are
+source guard tests, not new Windows payload extraction or native execution.
+
 ZIP path checks use the original decoded central-directory name, before
 [Python 3.12.10's ZipInfo normalization](https://github.com/python/cpython/blob/v3.12.10/Lib/zipfile/__init__.py).
 That constructor preserves `orig_filename` before truncating NUL or replacing

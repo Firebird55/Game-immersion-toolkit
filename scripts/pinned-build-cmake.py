@@ -61,10 +61,21 @@ def policy():
 
 
 def no_links(path):
-    for item in (path, *path.parents):
-        if (item.is_symlink() or getattr(item, 'is_junction', lambda: False)()
-                or item.exists() and getattr(item.lstat(), 'st_file_attributes', 0) & 0x400):
+    path = Path(path).absolute()
+    if '..' in path.parts:
+        raise ValueError('Build-tool paths cannot contain parent traversal.')
+    for item in reversed((path, *path.parents)):
+        try:
+            attributes = item.lstat()
+        except FileNotFoundError:
+            return  # Fresh nested outputs are allowed; do not probe below a missing ancestor.
+        except OSError:
+            raise ValueError('Build-tool path metadata is unavailable.') from None
+        if (stat.S_ISLNK(attributes.st_mode) or getattr(attributes, 'st_file_attributes', 0)
+                & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400)):
             raise ValueError('Links and reparse points are not build-tool inputs.')
+        if not stat.S_ISDIR(attributes.st_mode) and (item != path or not stat.S_ISREG(attributes.st_mode)):
+            raise ValueError('Build-tool paths require regular files and directory ancestors.')
 
 
 def canonical(name):

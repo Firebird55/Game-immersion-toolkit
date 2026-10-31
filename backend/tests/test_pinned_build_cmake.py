@@ -1,11 +1,17 @@
 """Authored ZIP fixtures; no real Windows executable is extracted or run."""
+import builtins
+from contextlib import ExitStack
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import shutil
 import stat
 import struct
+import subprocess
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import warnings
@@ -48,7 +54,7 @@ class PinnedCMakeTests(unittest.TestCase):
 
     def test_exact_original_zip_notice_and_closed_tree_are_retained(self):
         archive, pin = self.fixture(extra=[(UPSTREAM + '/empty/', b'', stat.S_IFDIR, 0)])
-        output = self.root / 'prepared'
+        output = self.root / 'fresh-parent/prepared'
         with patch.object(cmake, 'policy', return_value=pin):
             prepared = cmake.prepare(archive, output); verified = cmake.verify(output)
             self.assertEqual(cmake.payload_root(output), output / UPSTREAM)
@@ -121,7 +127,7 @@ class PinnedCMakeTests(unittest.TestCase):
         pin['publisher_checksums'] = {'filename': 'checksums.txt', 'bytes': len(checksum),
             'sha256': cmake.digest(checksum),
             'url': 'https://github.com/Kitware/CMake/releases/download/v4.4.5/checksums.txt'}
-        destination = self.root / 'inputs'
+        destination = self.root / 'fresh-parent/inputs'
         with patch.object(cmake, 'policy', return_value=pin), patch.object(cmake.urllib.request, 'urlopen',
                 side_effect=[io.BytesIO(raw), io.BytesIO(checksum)]):
             cmake.acquire(destination)
@@ -174,6 +180,116 @@ class PinnedCMakeTests(unittest.TestCase):
             outside = self.root / 'same-authored-bytes'; outside.write_bytes(executable.read_bytes())
             executable.unlink(); executable.symlink_to(outside)
             with self.assertRaises(ValueError): cmake.verify(output)
+
+    def test_parent_directory_link_refuses_before_descendant_metadata_open_or_enumeration(self):
+        archive, pin = self.fixture()
+        outside = self.root / 'owned-outside'; (outside / 'nested').mkdir(parents=True)
+        copied = outside / 'nested/fixture.zip'; shutil.copyfile(archive, copied)
+        preserved = copied.read_bytes()
+        link = self.root / 'linked-parent'
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError:
+            # Junctions provide the real Windows reparse fixture without the
+            # optional symbolic-link privilege. No native tool payload is run.
+            command = shutil.which('cmd.exe') if os.name == 'nt' else None
+            if not command or any(c in str(link) + str(outside) for c in '&|<>^%!"\r\n'):
+                self.skipTest('This host cannot create the owned directory-link fixture.')
+            created = subprocess.run([command, '/d', '/c', f'mklink /J "{link}" "{outside}"'],
+                capture_output=True, timeout=10)
+            if created.returncode:
+                self.skipTest('This host cannot create owned directory links or junctions.')
+        blocked = [link / 'nested', link / 'fresh-output', link / 'fresh-input', outside / 'nested']
+        accesses = []
+        def selected(path):
+            try: value = Path(os.fsdecode(os.fspath(path)))
+            except TypeError: return False
+            return any(value == parent or parent in value.parents for parent in blocked)
+        def guard(label, original):
+            def call(path, *args, **kwargs):
+                if selected(path):
+                    accesses.append(label)
+                    raise AssertionError('Descendant access preceded parent-link refusal')
+                return original(path, *args, **kwargs)
+            return call
+        operations = [lambda: cmake.no_links(link / 'nested/fixture.zip'),
+            lambda: cmake.checked_file(link / 'nested/fixture.zip', pin['archive'], cmake.MAX_ARCHIVE),
+            lambda: cmake.inspect_archive(link / 'nested/fixture.zip', pin),
+            lambda: cmake.tree(link / 'nested'), lambda: cmake.verify(link / 'nested'),
+            lambda: cmake.prepare(archive, link / 'fresh-output'), lambda: cmake.acquire(link / 'fresh-input')]
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(cmake, 'policy', return_value=pin))
+            network = stack.enter_context(patch.object(cmake.urllib.request, 'urlopen', side_effect=AssertionError('Unexpected network')))
+            for target, name in [(os, 'stat'), (os, 'lstat'), (builtins, 'open'), (io, 'open'), (Path, 'iterdir')]:
+                stack.enter_context(patch.object(target, name, guard(name, getattr(target, name))))
+            for index, operation in enumerate(operations):
+                with self.subTest(operation=index), self.assertRaises(ValueError) as failure:
+                    operation()
+                self.assertNotIn(str(self.root), str(failure.exception))
+            network.assert_not_called()
+        self.assertEqual(accesses, [], 'The ancestor guard must refuse before any descendant observer')
+        self.assertEqual(copied.read_bytes(), preserved)
+        self.assertTrue(set(outside.iterdir()) == {outside / 'nested'}, 'The unrelated owned tree changed')
+
+    def test_windows_reparse_attribute_refuses_before_leaf_metadata_or_open(self):
+        archive, pin = self.fixture()
+        parent = self.root / 'owned-reparse-parent'; parent.mkdir()
+        leaf = parent / 'fixture.zip'; shutil.copyfile(archive, leaf)
+        accesses = []; original_lstat = os.lstat
+        def is_leaf(path):
+            try: return Path(os.fsdecode(os.fspath(path))) == leaf
+            except TypeError: return False
+        def guarded(label, original):
+            def call(path, *args, **kwargs):
+                if is_leaf(path):
+                    accesses.append(label); raise AssertionError('Leaf accessed before reparse refusal')
+                result = original(path, *args, **kwargs)
+                # pathlib.lstat delegates to os.stat(follow_symlinks=False)
+                # on CPython 3.12; cover both native wrapper spellings.
+                if label in ('stat', 'lstat') and Path(path) == parent:
+                    return SimpleNamespace(st_mode=result.st_mode, st_file_attributes=0x400)
+                return result
+            return call
+        with ExitStack() as stack:
+            for target, name in [(os, 'stat'), (os, 'lstat'), (builtins, 'open'), (io, 'open')]:
+                original = original_lstat if name == 'lstat' else getattr(target, name)
+                stack.enter_context(patch.object(target, name, guarded(name, original)))
+            with self.assertRaises(ValueError): cmake.checked_file(leaf, pin['archive'], cmake.MAX_ARCHIVE)
+        self.assertEqual(accesses, [])
+
+    def test_missing_ancestors_stop_metadata_walk_and_regular_file_ancestors_refuse(self):
+        missing = self.root / 'missing-parent'
+        deeper = missing / 'nested/leaf'
+        observed = []; original = Path.lstat; forbidden = {deeper}
+        def lstat(path):
+            path = Path(path)
+            if path in forbidden or missing in path.parents:
+                observed.append('below-missing'); raise AssertionError('Missing ancestor was traversed')
+            return original(path)
+        with patch.object(Path, 'lstat', lstat): cmake.no_links(deeper)
+        self.assertEqual(observed, [])
+        ordinary = self.root / 'ordinary-file'; ordinary.write_bytes(b'owned regular file')
+        forbidden.add(ordinary / 'child')
+        with patch.object(Path, 'lstat', lstat):
+            with self.assertRaises(ValueError): cmake.no_links(ordinary / 'child')
+        self.assertEqual(observed, [])
+        with self.assertRaises(ValueError): cmake.no_links(missing / '..' / 'ordinary-file')
+
+    def test_nonregular_leaf_is_not_opened_and_metadata_errors_are_fixed(self):
+        leaf = self.root / 'authored-leaf'; leaf.write_bytes(b'owned bytes')
+        original = Path.lstat
+        def lstat(path):
+            if path == leaf: return SimpleNamespace(st_mode=stat.S_IFIFO, st_file_attributes=0)
+            return original(path)
+        with patch.object(Path, 'lstat', lstat), patch.object(io, 'open', side_effect=AssertionError('Unexpected open')):
+            with self.assertRaises(ValueError): cmake.no_links(leaf)
+        def unavailable(path):
+            if path == leaf: raise PermissionError('PRIVATE metadata ' + str(path))
+            return original(path)
+        with patch.object(Path, 'lstat', unavailable), self.assertRaises(ValueError) as failure:
+            cmake.no_links(leaf)
+        self.assertNotIn('PRIVATE', str(failure.exception))
+        self.assertNotIn(str(self.root), str(failure.exception))
 
 
 if __name__ == '__main__': unittest.main()
