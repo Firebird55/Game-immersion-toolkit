@@ -137,8 +137,9 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
     before = source_inputs()
     python_supplier = None
     if python_archive:
-        pin = json.loads((ROOT / 'packaging/runtime-bundle/python-supplier.json').read_text())
-        if platform.python_version() != pin['version'] or sys.platform != 'win32':
+        from python_supplier import host_target, load_pin
+        pin = load_pin(host_target())
+        if platform.python_version() != pin['version'] or sys.platform != pin['sys_platform']:
             raise ValueError('Python supplier pin does not match this native build target.')
         installed_python = verify_python(python_archive, Path(sys.base_prefix), pin)
         python_supplier = {**pin, 'installed_files': installed_python}
@@ -226,9 +227,12 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
                 if path.is_file():
                     suffix = hashlib.sha256(str(file).encode()).hexdigest()[:10]
                     shutil.copyfile(path, destination / (suffix + '-' + path.name))
-    python_license = Path(sys.base_prefix) / ('LICENSE.txt' if sys.platform == 'win32' else 'LICENSE')
-    if python_license.is_file():
-        shutil.copyfile(python_license, notices / 'CPython-LICENSE.txt')
+    python_licenses = [Path(sys.base_prefix) / name for name in
+        ('LICENSE.txt', 'LICENSE', f'lib/python{sys.version_info.major}.{sys.version_info.minor}/LICENSE.txt')]
+    python_license = next((path for path in python_licenses if path.is_file()), None)
+    if python_license is None:
+        raise ValueError('The native Python supplier is missing its full license.')
+    shutil.copyfile(python_license, notices / 'CPython-LICENSE.txt')
     files = tree(runtime)
     proof = {'schema': 'proxy-runtime-candidate-v1', **identity, 'repository': 'Firebird55/Game-immersion-toolkit',
         'r19_complete': False, 'redistribution_review': 'pending-exact-output', 'native_acceptance': 'unavailable',
@@ -251,7 +255,7 @@ def main():
     parser.add_argument('--resources-root', type=Path, action='append', default=[])
     parser.add_argument('--profile', choices=['runtime', 'runtime-experiment'], default='runtime')
     parser.add_argument('--python-archive', type=Path,
-        help='Verify the provisioned Windows interpreter byte-for-byte against its pinned supplier archive.')
+        help='Verify the provisioned native interpreter and internal links against its exact Windows/Linux/macOS supplier archive.')
     args = parser.parse_args()
     try:
         build(args.frontend_root.absolute(), args.output.absolute(), args.wheelhouse, args.resources_root,

@@ -108,31 +108,11 @@ def collect_codec(codec_root, evidence, commit, source):
 
 
 def verify_python(archive, prefix, pin):
-    if digest(archive) != pin['sha256']:
-        raise ClosureError('Python supplier archive differs from the exact observed pin.')
-    files, seen = [], set()
-    with tarfile.open(archive) as package:
-        for member in package:
-            from backend.runtime_bundle import relative_resource
-            name = relative_resource(member.name.rstrip('/'))
-            if name == 'python' and member.isdir():
-                continue
-            if name.casefold() in seen or not (member.isfile() or member.isdir()) or not name.startswith('python/'):
-                raise ClosureError('Python archive contains aliases, links or unexpected roots.')
-            seen.add(name.casefold())
-            relative = name[len('python/'):]
-            # pip is build-only and is changed when preparing the wheelhouse.
-            if not member.isfile() or relative.endswith('.pyc') or relative.startswith('Lib/site-packages/') or relative.startswith('Scripts/'):
-                continue
-            path = prefix / relative
-            import hashlib
-            expected = hashlib.file_digest(package.extractfile(member), 'sha256').hexdigest()
-            if not path.is_file() or path.is_symlink() or digest(path) != expected:
-                raise ClosureError('Provisioned Python differs from the supplier archive: ' + relative)
-            files.append({'path': relative, 'sha256': expected})
-    if not files or not any(item['path'] == 'python312.dll' for item in files):
-        raise ClosureError('Windows Python shared runtime is missing.')
-    return files
+    from python_supplier import verify_installed
+    try:
+        return verify_installed(archive, prefix, pin)
+    except (ValueError, OSError, tarfile.TarError) as error:
+        raise ClosureError(str(error)) from error
 
 
 def verified_recompiled_cache(package, name, installed, distribution):
