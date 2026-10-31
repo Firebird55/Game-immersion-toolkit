@@ -14,6 +14,14 @@ runtime = inputs['profile'] == 'runtime-experiment'
 if inputs['profile'] == 'runtime':
     raise SystemExit('Full runtime profile is disabled until helper/host artifacts and exact collected-file closure are implemented and reviewed.')
 resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT'])
+native_observer = None
+if runtime:
+    # Read the actual existing Analysis TOCs; no second DLL collector or upload.
+    sys.path.insert(0, str(Path(SPECPATH)))
+    from PyInstaller.config import CONF
+    from record_runtime import NativeCollectionObservation
+    native_observer = NativeCollectionObservation(inputs, resource_root, Path(DISTPATH),
+        Path(CONF['workpath']), Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']))
 # This standalone subprocess owns its sibling DLL closure. Analysis reclassifies
 # PE data as binaries and flattens dependencies outside site-packages, which
 # otherwise adds an unintended root FLAC.dll. Deliver only these verified files
@@ -63,10 +71,20 @@ main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
 # data or relax the private-tree gate to accept arbitrary `data/` directories.
 main.datas = [entry for entry in main.datas if not entry[0].replace('\\', '/').startswith('cv2/data/')]
 main.datas += isolated_codec_data
+if native_observer:
+    native_observer.observe_analysis('main', main.binaries,
+        [row for row in main.datas if row[0].replace('\\', '/').startswith(('helpers/nte/', 'codecs/xiph-flac/'))])
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
     name='ProxyTranscriptRuntime', console=True, contents_directory='_internal')
-main_collection = COLLECT(main_exe, main.binaries, main.datas, name='ProxyTranscriptRuntime')
+if native_observer:
+    native_observer.observe_generated('main', main_exe.name)
+try:
+    main_collection = COLLECT(main_exe, main.binaries, main.datas, name='ProxyTranscriptRuntime')
+except Exception as error:
+    if native_observer:
+        native_observer.refuse_collection(error)
+    raise
 
 if runtime:
     # Separate Analysis, executable, directory and native library tree. Putting
@@ -78,7 +96,13 @@ if runtime:
     asr = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
         binaries=asr_binaries, datas=asr_data, hiddenimports=['backend.agent_transcribe', 'backend.asr_probe', *asr_hidden],
         excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture', 'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
+    native_observer.observe_analysis('asr', asr.binaries)
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,
         name='ProxyTranscriptAsr', console=True, contents_directory='_internal')
-    asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name='ProxyTranscriptAsr')
+    native_observer.observe_generated('asr', asr_exe.name)
+    try:
+        asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name='ProxyTranscriptAsr')
+    except Exception as error:
+        native_observer.refuse_collection(error)
+    native_observer.finish()

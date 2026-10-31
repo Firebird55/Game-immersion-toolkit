@@ -252,7 +252,100 @@ def validate_codec_output(value, source, evidence, output):
         raise ClosureError('Codec output is missing its exact isolated native files.')
 
 
-def write_candidate(value, source, evidence, output):
+def validate_native_collection(value, evidence, output, files, input_manifest):
+    """Bind observed real TOC inputs to the existing output inventory, not rights."""
+    from record_runtime import (NativeCollectionError, NATIVE_SOURCE_INPUTS, NATIVE_GENERATED,
+        native_headers, native_pending, native_path, native_file_identity, native_supplier_index,
+        native_system_directory, native_source_record, native_sorted_owners)
+    from native_ownership import _relative, _sha
+    try:
+        headers = native_headers(value)
+        path = native_path(output / NATIVE_SOURCE_INPUTS)
+        if path.stat().st_size > 16 * 1024 * 1024:
+            raise NativeCollectionError('invalid-snapshot')
+        raw = path.read_bytes()
+        def unique(items):
+            result = {}
+            for key, item in items:
+                if key in result:
+                    raise NativeCollectionError('invalid-snapshot')
+                result[key] = item
+            return result
+        snapshot = json.loads(raw, object_pairs_hook=unique)
+        expected = {'schema': 'proxy-r19-native-collection-inputs-v1', **headers, **native_pending(),
+            'raw_paths_published': False, 'raw_toc_published': False}
+        if (set(snapshot) != set(expected) | {'build_inputs', 'records'}
+                or any(type(snapshot[key]) is not type(item) or snapshot[key] != item for key, item in expected.items())
+                or not isinstance(snapshot['records'], list) or not 2 <= len(snapshot['records']) <= 20000
+                or input_manifest is None):
+            raise NativeCollectionError('invalid-snapshot')
+        manifest = native_path(input_manifest)
+        if (native_file_identity(manifest) != snapshot['build_inputs']
+                or json.loads(manifest.read_bytes()) != value):
+            raise NativeCollectionError('source-changed')
+        index = native_supplier_index(value, evidence)
+        system = native_system_directory()
+        observed, folded = {}, set()
+        for record in snapshot['records']:
+            if not isinstance(record, dict) or set(record) != {'path', 'process', 'processing', 'bytes', 'sha256', 'source'}:
+                raise NativeCollectionError('invalid-snapshot')
+            name = _relative(record['path']); checksum = _sha(record['sha256'])
+            if (name.casefold() in folded or record['process'] not in NATIVE_GENERATED
+                    or type(record['bytes']) is not int or record['bytes'] < 0
+                    or Path(name).suffix.lower() not in {'.exe', '.dll', '.pyd'}):
+                raise NativeCollectionError('invalid-snapshot')
+            folded.add(name.casefold())
+            identity = {'bytes': record['bytes'], 'sha256': checksum}
+            source_record = record['source']
+            if not isinstance(source_record, dict):
+                raise NativeCollectionError('invalid-snapshot')
+            if record['processing'] == 'pyinstaller-generated-executable':
+                if (name != NATIVE_GENERATED[record['process']] or
+                        source_record != {'role': 'generated-processing-observed', 'internals_provenance': 'unverified'}):
+                    raise NativeCollectionError('invalid-snapshot')
+            else:
+                prefix = ('asr/' if record['process'] == 'asr' else '') + '_internal/'
+                if (not name.startswith(prefix) or record['processing'] not in {'analysis-native', 'explicit-native-resource'}):
+                    raise NativeCollectionError('invalid-snapshot')
+                if source_record.get('role') == 'declared-supplier-observed':
+                    candidates = [entry for entry in index.values()
+                        if native_sorted_owners(entry['owners']) == source_record.get('resolved_inputs')]
+                    if len(candidates) != 1:
+                        raise NativeCollectionError('unbound-supplier-member')
+                    origin = candidates[0]['path']
+                elif source_record.get('role') == 'windows-system-observed':
+                    origin = system / _relative(source_record.get('system_member', ''))
+                else:
+                    raise NativeCollectionError('other-host-unresolved')
+                _origin, current, rebuilt = native_source_record(origin, index, system)
+                if current != identity or rebuilt != source_record:
+                    raise NativeCollectionError('source-changed')
+                if (record['processing'] == 'explicit-native-resource' and
+                        (source_record['role'] != 'declared-supplier-observed' or
+                         not any(item['kind'] == 'resource' for item in source_record['resolved_inputs']))):
+                    raise NativeCollectionError('unbound-supplier-member')
+            observed[name] = record
+        native = {entry['path']: entry for entry in files if Path(entry['path']).suffix.lower() in {'.dll', '.exe', '.pyd'}}
+        if set(native) != set(observed) or not set(NATIVE_GENERATED.values()) <= set(observed):
+            raise NativeCollectionError('missing-source')
+        for name, entry in native.items():
+            expected_identity = {key: observed[name][key] for key in ('bytes', 'sha256')}
+            if {key: entry[key] for key in expected_identity} != expected_identity:
+                raise NativeCollectionError('unexpected-transformation')
+            if native_file_identity(output / 'ProxyTranscriptRuntime' / name) != expected_identity:
+                raise NativeCollectionError('output-mismatch')
+        return {'schema': 'proxy-r19-native-collection-v1', **headers, **native_pending(),
+            'input_snapshot': {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()},
+            'build_inputs': snapshot['build_inputs'], 'records': [observed[name] for name in sorted(observed)],
+            'scope': 'Observed TOC/source/output bytes only; generated internals, incorporated code, rights and native acceptance remain unverified',
+            'raw_paths_published': False, 'raw_toc_published': False}
+    except Exception as error:
+        from record_runtime import native_failure
+        native_failure(value, output, 'finalize', error)
+        raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'invalid-snapshot') from None
+
+
+def write_candidate(value, source, evidence, output, *, input_manifest=None):
     resources = {entry['path']: entry['sha256'] for entry in value.get('resources', [])}
     package = json.loads((source / 'package.json').read_text())
     runtime = value['profile'] in {'runtime', 'runtime-experiment'}
@@ -285,6 +378,9 @@ def write_candidate(value, source, evidence, output):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
     files = inventory_output(output / 'ProxyTranscriptRuntime')
+    native_collection = None
+    if value['profile'] == 'runtime-experiment':
+        native_collection = validate_native_collection(value, evidence, output, files, input_manifest)
     ownership = None
     if value['profile'] == 'runtime-experiment':
         from native_ownership import native_input_ownership
@@ -315,6 +411,14 @@ def write_candidate(value, source, evidence, output):
             'gates': {name: 'pending' for name in GATES}, 'r19_complete': False,
             'native_windows_11_acceptance': 'unavailable', 'installer': 'not-built'}
         (output / 'RUNTIME-INVENTORY.json').write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8')
+        from record_runtime import NATIVE_SOURCE_FINAL, write_native_json
+        native_collection['inventory_sha256'] = digest(output / 'RUNTIME-INVENTORY.json')
+        try:
+            write_native_json(output, NATIVE_SOURCE_FINAL, native_collection)
+        except Exception as error:
+            from record_runtime import native_failure, NativeCollectionError
+            native_failure(value, output, 'finalize', error)
+            raise NativeCollectionError('observation-failed') from None
 
 
 def main():
@@ -330,7 +434,8 @@ def main():
         if args.action == 'finalize':
             if args.output is None:
                 raise ClosureError('Finalization requires an output directory.')
-            write_candidate(value, args.source.resolve(), args.evidence.resolve(), args.output.resolve())
+            write_candidate(value, args.source.resolve(), args.evidence.resolve(), args.output.resolve(),
+                input_manifest=args.inputs.absolute())
         print('Reviewed input gate passed; candidate remains quarantined and R19 acceptance incomplete.')
     except (ClosureError, OSError, ValueError, metadata.PackageNotFoundError) as error:
         print('Runtime build blocked: ' + str(error), file=sys.stderr)

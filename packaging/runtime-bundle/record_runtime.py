@@ -4,9 +4,13 @@ The supplier archive and every installed wheel payload are compared byte for
 byte before PyInstaller runs. No installer, account, game or user profile is read.
 """
 import argparse
+import hashlib
 from importlib import metadata
 import json
+import os
 from pathlib import Path
+import re
+import stat
 import sys
 import tarfile
 import zipfile
@@ -122,6 +126,8 @@ def verify_python(archive, prefix, pin):
             if not member.isfile() or relative.endswith('.pyc') or relative.startswith('Lib/site-packages/') or relative.startswith('Scripts/'):
                 continue
             path = prefix / relative
+            if path.suffix.lower() in {'.dll', '.exe', '.pyd'}:
+                native_path(path)  # Raw ancestors must reject before leaf stat/read.
             import hashlib
             expected = hashlib.file_digest(package.extractfile(member), 'sha256').hexdigest()
             if not path.is_file() or path.is_symlink() or digest(path) != expected:
@@ -133,6 +139,7 @@ def verify_python(archive, prefix, pin):
 
 
 def verify_wheel(wheel):
+    native = []
     with zipfile.ZipFile(wheel) as package:
         info = wheel_metadata(package)
         distribution = metadata.distribution(info['Name'])
@@ -140,6 +147,7 @@ def verify_wheel(wheel):
         for member in package.infolist():
             from backend.runtime_bundle import relative_resource
             name = relative_resource(member.filename.rstrip('/'))
+            archive_member = name
             if name.casefold() in seen:
                 raise ClosureError('Wheel contains aliased or duplicated files.')
             seen.add(name.casefold())
@@ -166,9 +174,340 @@ def verify_wheel(wheel):
                 elif category not in {'purelib', 'platlib'}:
                     raise ClosureError('Unreviewed wheel installation scheme: ' + group)
                 name = tail
-            path = (data_path or Path(distribution.locate_file(name))).resolve()
-            if Path(sys.prefix).resolve() not in path.parents or not path.is_file() or path.is_symlink() or path.read_bytes() != package.read(member):
+            original_path = data_path or Path(distribution.locate_file(name))
+            if original_path.suffix.lower() in {'.dll', '.pyd', '.exe'}:
+                native_path(original_path)  # Do not resolve across a raw ancestor first.
+            path = original_path.resolve()
+            original_bytes = package.read(member)
+            if Path(sys.prefix).resolve() not in path.parents or not path.is_file() or path.is_symlink() or path.read_bytes() != original_bytes:
                 raise ClosureError('Installed wheel payload differs from archive: ' + info['Name'])
+            if path.suffix.lower() in {'.dll', '.pyd', '.exe'}:
+                native.append({'path': path.relative_to(Path(sys.prefix).resolve()).as_posix(),
+                    'archive_member': archive_member, 'bytes': member.file_size,
+                    'sha256': hashlib.sha256(original_bytes).hexdigest()})
+    return native
+
+
+NATIVE_SOURCE_INPUTS = 'NATIVE-COLLECTION-INPUTS.json'
+NATIVE_SOURCE_FINAL = 'NATIVE-COLLECTION.json'
+NATIVE_SOURCE_FAILED = 'NATIVE-COLLECTION-FAILED.json'
+NATIVE_GENERATED = {'main': 'ProxyTranscriptRuntime.exe', 'asr': 'asr/ProxyTranscriptAsr.exe'}
+NATIVE_FAILURES = {'invalid-identity', 'unsafe-source', 'source-unavailable', 'source-changed',
+    'unbound-supplier-member', 'other-host-unresolved', 'invalid-toc', 'missing-source',
+    'unexpected-transformation', 'invalid-snapshot', 'output-mismatch', 'observation-failed'}
+
+
+class NativeCollectionError(ClosureError):
+    def __init__(self, code):
+        self.code = code if code in NATIVE_FAILURES else 'observation-failed'
+        super().__init__('Native collection provenance refused: ' + self.code + '.')
+
+
+def native_path(path, *, directory=False, missing=False):
+    """Canonical local identity; never expose an underlying filesystem error."""
+    try:
+        path = Path(path)
+        if not path.is_absolute() or '..' in path.parts or any(ord(c) < 32 for c in str(path)):
+            raise NativeCollectionError('unsafe-source')
+        # Walk top-down: a leaf-first lstat/is_symlink itself traverses any
+        # linked parent before that parent can be rejected.
+        for item in reversed((path, *path.parents)):
+            try:
+                attributes = item.lstat()
+            except FileNotFoundError:
+                if missing and item == path:
+                    return path
+                raise NativeCollectionError('unsafe-source') from None
+            if (stat.S_ISLNK(attributes.st_mode) or getattr(attributes, 'st_file_attributes', 0)
+                    & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400)):
+                raise NativeCollectionError('unsafe-source')
+        if not (stat.S_ISDIR(attributes.st_mode) if directory else stat.S_ISREG(attributes.st_mode)):
+            raise NativeCollectionError('unsafe-source')
+        if os.path.normcase(str(path.resolve())) != os.path.normcase(str(path)):
+            raise NativeCollectionError('unsafe-source')
+        return path
+    except NativeCollectionError:
+        raise
+    except Exception:
+        raise NativeCollectionError('unsafe-source') from None
+
+
+def native_file_identity(path):
+    path = native_path(path)
+    try:
+        with path.open('rb') as stream:
+            before = os.fstat(stream.fileno())
+            checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+            after = os.fstat(stream.fileno())
+        current = native_path(path).stat()
+        identity = lambda value: (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns)
+        if identity(before) != identity(after) or identity(before) != identity(current):
+            raise NativeCollectionError('source-changed')
+        return {'bytes': before.st_size, 'sha256': checksum}
+    except NativeCollectionError:
+        raise
+    except Exception:
+        raise NativeCollectionError('source-unavailable') from None
+
+
+def native_system_directory():
+    """Use the authoritative Win32 API, never WINDIR/SystemRoot/PATH."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        if sys.platform != 'win32':
+            raise NativeCollectionError('source-unavailable')
+        function = ctypes.WinDLL('kernel32.dll', use_last_error=True).GetSystemDirectoryW
+        function.argtypes = (wintypes.LPWSTR, wintypes.UINT)
+        function.restype = wintypes.UINT
+        buffer = ctypes.create_unicode_buffer(32768)
+        count = function(buffer, len(buffer))
+        if not 0 < count < len(buffer):
+            raise NativeCollectionError('source-unavailable')
+        return native_path(buffer.value, directory=True)
+    except NativeCollectionError:
+        raise
+    except Exception:
+        raise NativeCollectionError('source-unavailable') from None
+
+
+def native_headers(value):
+    if (not isinstance(value, dict) or value.get('profile') != 'runtime-experiment'
+            or not re.fullmatch(r'[a-f0-9]{40}', value.get('source_commit', ''))
+            or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,79}', value.get('build_id', ''))):
+        raise NativeCollectionError('invalid-identity')
+    return {'source_commit': value['source_commit'], 'build_id': value['build_id'], 'profile': value['profile']}
+
+
+def native_pending():
+    return {'status': 'observed-not-approved', 'native_closure': 'unverified',
+        'rights_review': 'pending-exact-output', 'source_delivery_approved': False,
+        'production_execution_allowed': False, 'native_windows_11_acceptance': 'unavailable',
+        'r19_complete': False, 'installer': 'not-built'}
+
+
+def write_native_json(root, name, value):
+    root = native_path(root, directory=True, missing=True)
+    try:
+        root.mkdir(exist_ok=True)
+        destination = root / name
+        native_path(destination, missing=True)
+        with destination.open('x', encoding='utf-8', newline='\n') as stream:
+            stream.write(json.dumps(value, indent=2) + '\n')
+    except Exception:
+        raise NativeCollectionError('observation-failed') from None
+
+
+def native_failure(value, output, phase, error, count=0):
+    """Best-effort fixed metadata; neither raw exceptions nor arbitrary fields."""
+    try:
+        try:
+            headers = native_headers(value)
+        except Exception:
+            headers = {'source_commit': None, 'build_id': None, 'profile': 'runtime-experiment'}
+        if phase not in {'analysis', 'generated', 'collection', 'input-snapshot', 'finalize'}:
+            phase = 'finalize'
+        report = {'schema': 'proxy-r19-native-collection-failure-v1', **headers, **native_pending(),
+            'status': 'failed', 'phase': phase,
+            'failure_code': error.code if isinstance(error, NativeCollectionError) and error.code in NATIVE_FAILURES else 'observation-failed',
+            'observed_records': min(max(count, 0), 20000) if type(count) is int else 0,
+            'raw_paths_published': False, 'raw_toc_published': False}
+        write_native_json(output, NATIVE_SOURCE_FAILED, report)
+    except Exception:
+        pass
+
+
+def native_supplier_index(value, evidence):
+    """Reuse archive→installed verification; input metadata cannot invent a member."""
+    from native_ownership import _label, _version, _relative, _sha, _public_source
+    evidence = native_path(evidence, directory=True)
+    python_prefix = native_path(sys.base_prefix, directory=True)
+    environment_prefix = native_path(sys.prefix, directory=True)
+    index = {}
+    def add(root, relative, owner, expected):
+        relative = _relative(relative)
+        path = root / relative
+        key = os.path.normcase(str(path))
+        entry = index.setdefault(key, {'path': path, 'owners': [], 'identity': expected})
+        if entry['identity'] != expected:
+            raise NativeCollectionError('unbound-supplier-member')
+        if owner not in entry['owners']:
+            entry['owners'].append(owner)
+    for component in value['components']:
+        name, version = _label(component['name']), _version(component['version'])
+        archive = native_path(evidence / _relative(component['artifact']['path']))
+        checked_file(evidence, component['artifact'])
+        artifact_hash = _sha(component['artifact']['sha256'])
+        artifact_identity = native_file_identity(archive)
+        if artifact_identity['sha256'] != artifact_hash:
+            raise NativeCollectionError('source-changed')
+        installed = {_relative(item['path']).casefold(): _sha(item['sha256']) for item in component['installed_files']}
+        if normalized(name) == 'cpython':
+            entries = verify_python(archive, python_prefix, {'sha256': artifact_hash})
+            native = []
+            for item in entries:
+                if Path(item['path']).suffix.lower() not in {'.dll', '.exe', '.pyd'}:
+                    continue
+                identity = native_file_identity(python_prefix / item['path'])
+                if identity['sha256'] != item['sha256']:
+                    raise NativeCollectionError('source-changed')
+                native.append({**item, 'archive_member': 'python/' + item['path'], 'bytes': identity['bytes']})
+            entries = native
+            prefix = python_prefix
+        else:
+            with zipfile.ZipFile(archive) as package:
+                info = wheel_metadata(package)
+            if normalized(info['Name']) != normalized(name) or info['Version'] != version:
+                raise NativeCollectionError('unbound-supplier-member')
+            entries = verify_wheel(archive)
+            prefix = environment_prefix
+        if native_file_identity(archive) != artifact_identity:
+            raise NativeCollectionError('source-changed')
+        for item in entries:
+            if installed.get(item['path'].casefold()) != item['sha256']:
+                raise NativeCollectionError('unbound-supplier-member')
+            owner = {'kind': 'component', 'component': name, 'version': version,
+                'artifact_sha256': artifact_hash, 'input_path': _relative(item['path']),
+                'archive_member': _relative(item['archive_member']), 'input_sha256': item['sha256']}
+            add(prefix, item['path'], owner, {key: item[key] for key in ('bytes', 'sha256')})
+    for resource in value.get('resources', []):
+        name = _relative(resource['path'])
+        if Path(name).suffix.lower() not in {'.dll', '.exe', '.pyd'}:
+            continue
+        if not name.startswith(('helpers/nte/', 'codecs/xiph-flac/')):
+            raise NativeCollectionError('unbound-supplier-member')
+        path = native_path(evidence / name)
+        checked_file(evidence, resource)
+        owner = {'kind': 'resource', 'input_path': name, 'version': _version(resource['version']),
+            'input_sha256': _sha(resource['sha256']), 'source': _public_source(resource['source'])}
+        identity = native_file_identity(path)
+        if identity['sha256'] != resource['sha256']:
+            raise NativeCollectionError('source-changed')
+        add(evidence, name, owner, identity)
+    return index
+
+
+def native_source_record(path, index, system):
+    path = native_path(path)
+    entry = index.get(os.path.normcase(str(path)))
+    if entry is not None:
+        identity = native_file_identity(path)
+        if identity != entry['identity']:
+            raise NativeCollectionError('source-changed')
+        candidates = [owner for item in index.values() if item['identity'] == identity for owner in item['owners']]
+        source = {'role': 'declared-supplier-observed',
+            'resolved_inputs': native_sorted_owners(entry['owners']),
+            'byte_identical_inputs': native_sorted_owners(candidates)}
+    elif system in path.parents:
+        from native_ownership import _relative
+        source = {'role': 'windows-system-observed', 'system_member': _relative(path.relative_to(system).as_posix()),
+            'provider': 'GetSystemDirectoryW'}
+        identity = native_file_identity(path)
+    else:
+        raise NativeCollectionError('other-host-unresolved')
+    return path, identity, source
+
+
+def native_sorted_owners(rows):
+    return [json.loads(row) for row in sorted({json.dumps(row, sort_keys=True) for row in rows})]
+
+
+class NativeCollectionObservation:
+    """Consume real existing TOCs; never discover, copy or omit a DLL."""
+    def __init__(self, value, evidence, output, build_root, input_manifest, *, system_directory_provider=None):
+        self.value, self.output, self.records, self.private = value, output, {}, {}
+        try:
+            self.headers = native_headers(value)
+            self.output = native_path(output, directory=True, missing=True)
+            self.build_root = native_path(build_root, directory=True)
+            self.input_manifest = native_path(input_manifest)
+            self.input_identity = native_file_identity(self.input_manifest)
+            if json.loads(self.input_manifest.read_bytes()) != value:
+                raise NativeCollectionError('invalid-identity')
+            self.index = native_supplier_index(value, evidence)
+            self.system = (system_directory_provider or native_system_directory)()
+            self.system = native_path(self.system, directory=True)
+        except Exception as error:
+            native_failure(value, self.output, 'analysis', error)
+            raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'observation-failed') from None
+
+    def _source(self, path):
+        return native_source_record(path, self.index, self.system)
+
+    def _add(self, name, record, path):
+        if len(self.records) >= 20000 and name not in self.records:
+            raise NativeCollectionError('invalid-toc')
+        if any(prior.casefold() == name.casefold() and prior != name for prior in self.records):
+            raise NativeCollectionError('invalid-toc')
+        if name in self.records and self.records[name] != record:
+            raise NativeCollectionError('invalid-toc')
+        self.records[name] = record; self.private[name] = path
+
+    def refuse_collection(self, error):
+        native_failure(self.value, self.output, 'collection', error, len(self.records))
+        raise NativeCollectionError('observation-failed') from None
+
+    def observe_analysis(self, process, binaries, explicit=()):
+        try:
+            if process not in NATIVE_GENERATED:
+                raise NativeCollectionError('invalid-toc')
+            for rows, processing in ((binaries, 'analysis-native'), (explicit, 'explicit-native-resource')):
+                for row in rows:
+                    if not isinstance(row, (tuple, list)) or len(row) != 3:
+                        raise NativeCollectionError('invalid-toc')
+                    destination, origin, kind = row
+                    from native_ownership import _relative
+                    destination = _relative(destination.replace('\\', '/'))
+                    if Path(destination).suffix.lower() not in {'.dll', '.exe', '.pyd'}:
+                        continue
+                    if kind not in {'BINARY', 'EXTENSION', 'DATA'}:
+                        raise NativeCollectionError('invalid-toc')
+                    path, identity, source = self._source(origin)
+                    if processing == 'explicit-native-resource' and (source['role'] != 'declared-supplier-observed'
+                            or not any(item['kind'] == 'resource' for item in source['resolved_inputs'])):
+                        raise NativeCollectionError('unbound-supplier-member')
+                    name = ('asr/' if process == 'asr' else '') + '_internal/' + destination
+                    record = {'path': name, 'process': process, 'processing': processing, **identity, 'source': source}
+                    self._add(name, record, path)
+        except Exception as error:
+            native_failure(self.value, self.output, 'analysis', error, len(self.records))
+            raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'observation-failed') from None
+
+    def observe_generated(self, process, path):
+        try:
+            if process not in NATIVE_GENERATED:
+                raise NativeCollectionError('invalid-toc')
+            path = native_path(path)
+            if self.build_root not in path.parents:
+                raise NativeCollectionError('unsafe-source')
+            name = NATIVE_GENERATED[process]
+            if name in self.records:
+                raise NativeCollectionError('invalid-toc')
+            self.records[name] = {'path': name, 'process': process, 'processing': 'pyinstaller-generated-executable',
+                **native_file_identity(path), 'source': {'role': 'generated-processing-observed',
+                'internals_provenance': 'unverified'}}
+            self.private[name] = path
+        except Exception as error:
+            native_failure(self.value, self.output, 'generated', error, len(self.records))
+            raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'observation-failed') from None
+
+    def finish(self):
+        try:
+            if not set(NATIVE_GENERATED.values()) <= set(self.records):
+                raise NativeCollectionError('missing-source')
+            if native_file_identity(self.input_manifest) != self.input_identity:
+                raise NativeCollectionError('source-changed')
+            for name, path in self.private.items():
+                if native_file_identity(path) != {key: self.records[name][key] for key in ('bytes', 'sha256')}:
+                    raise NativeCollectionError('source-changed')
+            report = {'schema': 'proxy-r19-native-collection-inputs-v1', **self.headers, **native_pending(),
+                'build_inputs': self.input_identity, 'records': [self.records[name] for name in sorted(self.records)],
+                'raw_paths_published': False, 'raw_toc_published': False}
+            write_native_json(self.output, NATIVE_SOURCE_INPUTS, report)
+            return report
+        except Exception as error:
+            native_failure(self.value, self.output, 'input-snapshot', error, len(self.records))
+            raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'observation-failed') from None
 
 
 def python_supplier_notice_files(source, pin):

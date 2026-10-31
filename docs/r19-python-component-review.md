@@ -199,6 +199,13 @@ entries keep exactly path, SHA-256 and bytes; existing inventory readers retain
 their schema. Raw host paths, object representations and unused diagnostic
 fields are excluded; invalid private path spellings reject the report.
 
+The separate [native collection observation](r19-native-collection-provenance.md)
+now consumes actual Analysis TOCs and verifies source-to-final-output byte
+bindings without changing this inventory or ownership report. Its authored
+contracts are implemented; actual frozen Windows execution remains pending.
+Unknown host sources and unexplained transformations block the new observation.
+Its build-host JSON is not part of the runtime or artifact upload allowlist.
+
 An exact byte match identifies a supplying input, not its incorporated code's
 copyright owners, licenses or runtime load origin. Generated executable contents
 and transformed binaries still need a sanitized build-input/TOC provenance

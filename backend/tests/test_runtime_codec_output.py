@@ -76,14 +76,23 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
     hooks = SimpleNamespace(collect_data_files=lambda *_a, **_k: [], collect_dynamic_libs=lambda *_a, **_k: [],
         collect_submodules=lambda *_a, **_k: [], copy_metadata=lambda *_a, **_k: [])
     monkeypatch.setitem(sys.modules, 'PyInstaller.utils.hooks', hooks)
+    # This contract owns codec DATA placement. Real provenance source/refusal
+    # behavior is covered with authored archives in test_native_collection_provenance.
+    class Observer:
+        def __init__(self, *_args): pass
+        def observe_analysis(self, *_args): pass
+        def observe_generated(self, *_args): pass
+        def finish(self): pass
+    monkeypatch.setitem(sys.modules, 'record_runtime', SimpleNamespace(NativeCollectionObservation=Observer))
+    monkeypatch.setitem(sys.modules, 'PyInstaller.config', SimpleNamespace(CONF={'workpath': str(tmp_path)}))
     analyses = []
     def analysis(_scripts, *, datas, binaries, **_kwargs):
         analyses.append([*datas, *binaries])
         return SimpleNamespace(pure=[], scripts=[], binaries=list(binaries),
             datas=[(str(Path(destination) / Path(origin).name), origin, 'DATA') for origin, destination in datas])
     result = runpy.run_path(str(repository / 'packaging/runtime-bundle/runtime.spec'), init_globals={
-        'SPECPATH': str(repository / 'packaging/runtime-bundle'), 'Analysis': analysis,
-        'PYZ': lambda *_a, **_k: None, 'EXE': lambda *_a, **_k: None, 'COLLECT': lambda *_a, **_k: None})
+        'SPECPATH': str(repository / 'packaging/runtime-bundle'), 'DISTPATH': str(tmp_path/'dist'), 'Analysis': analysis,
+        'PYZ': lambda *_a, **_k: None, 'EXE': lambda *_a, **_k: SimpleNamespace(name='authored.exe'), 'COLLECT': lambda *_a, **_k: None})
     assert len(analyses) == 2
     assert not any(Path(origin).name.casefold() in {'flac.exe', 'flac.dll'} for rows in analyses for origin, _ in rows)
     actual = {name.replace('\\', '/'): (origin, kind) for name, origin, kind in result['main'].datas}
