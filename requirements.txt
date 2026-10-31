@@ -1,6 +1,6 @@
-fastapi==0.161.1
+fastapi==0.162.0
 httpx==0.28.1
-imageio-ffmpeg==0.6.0
+imageio-ffmpeg==0.7.0
 mss==10.2.0
 windows-capture==2.0.1; sys_platform == 'win32'
 opencv-python==4.11.0.86; sys_platform == 'win32'
@@ -15,7 +15,7 @@ onnxruntime>=1.24.3,<1.25.0
 kaldi-native-fbank>=1.22.4
 PyAudioWPatch==0.2.12.9
 webrtcvad-wheels==2.0.14.post1
-pytest==9.1.1
+pytest==9.2.0
 rapidfuzz==3.14.6
 pycryptodome==3.24.1
 uvicorn[standard]==0.54.0
