@@ -596,6 +596,31 @@ observations. Its inventory is 1,537 files, 642 directories and 624,746,487 byte
 All production/rights/Windows 11/R19 gates remain unchanged. The later immutable
 frontend snapshot adapter and suspended-writer work are outside this checkpoint.
 
+The subsequent `4046147` [run 41153315339](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41153315339)
+passed **664 Windows contracts** and the same frozen/source/guarded probes.
+Its frontend snapshot cases use authored manifests in source Python; this does
+not establish frozen warm routing or native chunk continuity. Downloaded metadata
+13024576600 (1,232,310 bytes; SHA-256
+b9c965422b5eb7a83461bba8e92c601e8d0b37398121fef199aa19226547cf61)
+and source/rebuild 13023941191 (1,095,193 bytes; SHA-256
+d97c28a97ddc0a7f8c48967e870d977308057d5e417ca1d6839eb6d946740d4f)
+passed the independent source/notice/inventory/module/host checks. The inventory
+contains 1,537 files, 642 directories and 624,749,411 bytes. Subsequent suspended
+creation and tool-diagnostic changes require new matching native evidence.
+
+The later full source [run 41152537471 at `0b76427`](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41152537471)
+passed 2,006 Python tests, one skip and 27 subtests, plus four browser groups.
+Setup failed in Firefox while waiting for the React fixture's `NEW VERSION`;
+the aggregate failed and packaging was skipped. An unchanged local four-case
+run passed. A controlled mock connection/message ordering reproduced the same
+failure: an initial HTTP result could enable controls before WebSocket open
+reset state and requested a newer synthetic snapshot. The fixture now gates
+that exact HTTP-before-open order, then waits for the post-open snapshot to
+render before publishing versioned events. Its original assertions/timeouts
+remain, and the local four-case matrix plus controlled reproduction pass.
+The observed CI failure remains recorded; no current full-source pass is
+inferred from that local correction.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
