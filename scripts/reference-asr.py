@@ -63,11 +63,13 @@ _BUILD_ENVIRONMENT_OBSERVATION = None
 _BUILD_VS_VERSION = None
 _BUILD_TOOL_ROOTS = None  # Private paths; never serialized.
 _BUILD_PROPERTIES = None  # Actual configure properties; never serialized.
+_BUILD_INSTANCE = None  # Actual generator argument/root and observed version, private.
 LOG_TAIL_BYTES = 2 * 1024 * 1024
 NESTED_LOG_TOTAL_BYTES = 4 * 1024 * 1024
 COMPILER_CONTEXT_FILE_BYTES = 256 * 1024
 KNOWN_COMPILER_IDS = frozenset({'MSVC', 'Clang', 'GNU', 'Intel', 'IntelLLVM'})
 IMPORT_CONTEXT_LIMIT = 16
+COMPILER_ID_IMPORT_LIMIT = 16
 PRIMARY_IMPORT_LEAVES = {'microsoft.cpp.default.props': 'microsoft-cpp-default-props',
     'microsoft.cpp.props': 'microsoft-cpp-props', 'microsoft.cpp.targets': 'microsoft-cpp-targets'}
 PRIMARY_IMPORT_CALLERS = {**PRIMARY_IMPORT_LEAVES, 'compileridc.vcxproj': 'compiler-id-c-project',
@@ -949,15 +951,52 @@ def known_log_diagnostics(output, phase):
     return fixed_log_diagnostics(data.decode('utf-8', errors='replace'))
 
 
-def import_target_context(value, roots, properties):
-    result = {'import_label': 'unknown-import', 'root_role': 'not-inspected', 'existence': 'not-inspected'}
+def reviewed_toolset_version():
+    value = pin()['toolchain']['vc_tools_version']
+    return value if isinstance(value, str) and re.fullmatch(r'[0-9]{1,6}(?:\.[0-9]{1,6}){2}', value) else None
+
+
+def verified_instance_field(value, version, instance):
+    if not isinstance(instance, dict):
+        return None
+    argument, root, observed = (instance.get(key) for key in ('argument', 'root', 'observed_version'))
+    if (not all(isinstance(item, str) and len(item) <= 32767
+            and not any(ord(c) < 32 or ord(c) == 127 for c in item) for item in (argument, root, observed))
+            or vs_instance_version(observed) != observed or not Path(root).is_absolute()):
+        return None
+    normalized = lambda item: re.sub(r'/+', '/', item.replace('\\', '/')).rstrip('/').casefold()
+    if normalized(argument) != normalized(root) + ',version=' + observed:
+        return None
+    suffix = '/Microsoft.VCToolsVersion.' + version + '.props'
+    return normalized(value) in {normalized(argument + '/VC/Auxiliary/Build/' + version + suffix),
+        normalized(argument + '/VC/Auxiliary/Build.' + version + suffix)}
+
+
+def import_target_context(value, roots, properties, *, instance=None, allow_vctargets_prefix=False):
+    result = {'import_label': 'unknown-import', 'reviewed_version': None,
+        'contains_verified_instance_version_field': None, 'root_role': 'not-inspected', 'existence': 'not-inspected'}
     if (not isinstance(value, str) or len(value) > 32767
             or any(ord(c) < 32 or ord(c) == 127 for c in value)):
         return result
     leaf = re.split(r'[/\\]', value)[-1].casefold()
-    if leaf not in PRIMARY_IMPORT_LEAVES:
+    version = reviewed_toolset_version()
+    if leaf in PRIMARY_IMPORT_LEAVES:
+        result['import_label'] = PRIMARY_IMPORT_LEAVES[leaf]
+    elif version and leaf == ('Microsoft.VCToolsVersion.' + version + '.props').casefold():
+        result.update(import_label='microsoft-vctools-version-props', reviewed_version=version,
+            contains_verified_instance_version_field=verified_instance_field(value, version, instance))
+    else:
         return result
-    result['import_label'] = PRIMARY_IMPORT_LEAVES[leaf]
+    if '$' in value or '%(' in value or '@(' in value:
+        result['existence'] = 'unexpanded-template'
+        match = re.fullmatch(r'\$\(VCTargetsPath\)[\\/](Microsoft\.Cpp\.(?:Default\.props|props|targets))', value)
+        base = properties.get('VCTargetsPath') if isinstance(properties, dict) else None
+        if (not allow_vctargets_prefix or not match or not isinstance(base, str) or len(base) > 32767
+                or any(ord(c) < 32 or ord(c) == 127 for c in base)
+                or not Path(base).is_absolute() or '..' in Path(base).parts):
+            return result
+        value = str(Path(base) / match[1])
+        result['existence'] = 'not-inspected'
     path = Path(value)
     if not path.is_absolute() or '..' in path.parts or not isinstance(roots, dict):
         return result
@@ -1007,7 +1046,8 @@ def msb4019_import_context(content, roots, properties, limit):
         if index >= limit:
             truncated = True
             break
-        record = import_target_context(match[1], roots, properties)
+        record = import_target_context(match[1], roots, properties, instance=_BUILD_INSTANCE)
+        record['literal_match_state'] = 'matched-import-template' if match[1] is not None else 'unrecognized-template'
         start = max(content.rfind('\n', 0, match.start()) + 1, match.start() - 32767)
         record['caller'] = import_caller_context(content[start:match.start()])
         records.append(record)
@@ -1118,13 +1158,13 @@ def compiler_detection_context(output, roots):
     return {'evidence_scope': 'compiler-file-observation-not-native-approval', 'languages': rows}
 
 
-def compiler_id_globals_context(output, properties):
+def compiler_id_globals_context(output, properties, roots=None, instance=None):
     namespace = '{http://schemas.microsoft.com/developer/msbuild/2003}'
-    rows = []
+    rows, imports_remaining = [], COMPILER_ID_IMPORT_LIMIT
     for language in ('C', 'CXX'):
         path = output / 'build/CMakeFiles/4.4.5' / ('CompilerId' + language) / ('CompilerId' + language + '.vcxproj')
         state, data = diagnostic_file(path, COMPILER_CONTEXT_FILE_BYTES)
-        row = {'language': language, 'state': state, 'properties': [
+        row = {'language': language, 'state': state, 'imports': [], 'imports_truncated': False, 'properties': [
             {'property': name, 'state': 'unavailable'} for name in COMPILER_ID_PROPERTIES]}
         if state == 'observed':
             try:
@@ -1152,6 +1192,17 @@ def compiler_id_globals_context(output, properties):
                             entry['state'] = 'expected-unavailable'
                         else:
                             entry['state'] = 'exact-match' if found[0].text == properties[name] else 'different'
+                vctargets_matched = any(entry['property'] == 'VCTargetsPath' and entry['state'] == 'exact-match'
+                    for entry in row['properties'])
+                for item in tree.iter(namespace + 'Import'):
+                    if imports_remaining <= 0:
+                        row['imports_truncated'] = True
+                        break
+                    record = import_target_context(item.get('Project'), roots, properties,
+                        instance=instance, allow_vctargets_prefix=vctargets_matched)
+                    record['conditional'] = 'Condition' in item.attrib
+                    row['imports'].append(record)
+                    imports_remaining -= 1
             except (UnicodeError, ET.ParseError, ValueError):
                 row['state'] = 'unsupported-xml'
         rows.append(row)
@@ -1188,7 +1239,8 @@ def failed_build_receipt(output, phase, error):
         'visual_studio_instance_version': vs_instance_version(_BUILD_VS_VERSION),
         'compiler_detection_context': compiler_detection_context(output, _BUILD_TOOL_ROOTS)
             if phase == 'cmake-configure' else None,
-        'compiler_id_globals_context': compiler_id_globals_context(output, _BUILD_PROPERTIES)
+        'compiler_id_globals_context': compiler_id_globals_context(output, _BUILD_PROPERTIES,
+            _BUILD_TOOL_ROOTS, _BUILD_INSTANCE)
             if phase == 'cmake-configure' else None,
         'nested_configure_log_context': nested_configure_log_context(output)
             if phase == 'cmake-configure' else None,
@@ -1234,7 +1286,7 @@ def reject_parent_imports(output):
 
 
 def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None, vswhere=None):
-    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
@@ -1242,6 +1294,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
     _BUILD_VS_VERSION = None
     _BUILD_TOOL_ROOTS = None
     _BUILD_PROPERTIES = None
+    _BUILD_INSTANCE = None
     try:
         return _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     except Exception as error:
@@ -1256,7 +1309,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
 
 
 def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere):
-    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES
+    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE
     output, vs_root = Path(output).absolute(), Path(vs_root).absolute()
     build_phase('source-validation')
     receipt, policy = verify_sources(output), pin()
@@ -1325,10 +1378,12 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     env['MSBUILDDISABLENODEREUSE'] = '1'
     build_phase('parent-import-review')
     reject_parent_imports(output)
+    _BUILD_INSTANCE = {'argument': cmake_instance_spec(vs_root, vs_version), 'root': str(vs_root),
+        'observed_version': _BUILD_VS_VERSION}
     configure = [cmake, '-S', output / 'sources/sherpa-onnx', '-B', build_root,
         '-G', policy['toolchain']['generator'], '-A', 'x64',
         '-T', 'host=x64,version=' + policy['toolchain']['vc_tools_version'],
-        '-DCMAKE_GENERATOR_INSTANCE=' + cmake_instance_spec(vs_root, vs_version),
+        '-DCMAKE_GENERATOR_INSTANCE=' + _BUILD_INSTANCE['argument'],
         '-DCMAKE_SYSTEM_VERSION=' + policy['toolchain']['windows_sdk_version'],
         '--trace-expand', '--trace-format=json-v1', '--trace-redirect=' + str(output / 'PRIVATE-CMAKE-TRACE.jsonl')]
     build_phase('configure-argument-review')

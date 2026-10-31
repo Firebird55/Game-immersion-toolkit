@@ -158,7 +158,12 @@ as an unresolved project import. Its nested-log projection retains at most 16
 records across both logs. Only the three direct imports in CMake's pinned
 [CompilerId project](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/CompilerId/VS-10.vcxproj.in)
 receive fixed file labels: `Microsoft.Cpp.Default.props`, `Microsoft.Cpp.props`
-and `Microsoft.Cpp.targets`. Unknown import names/templates remain unknown.
+and `Microsoft.Cpp.targets`. The only numeric filename additionally recognized
+is `Microsoft.VCToolsVersion.<version>.props`, with `<version>` exactly equal
+to the reviewed manifest's VC toolset version; other numeric names stay unknown.
+Its public version field contains that reviewed pin, never an extracted version.
+`literal_match_state` distinguishes a recognized MSB4019 import sentence with an
+unknown file from an unrecognized message template. Unknown text stays private.
 The projection exposes only a fixed declared-root role and existence state;
 unknown or outside-root paths are never inspected. The selected-targets role
 also requires membership in the declared MSBuild root. No import path or hash
@@ -175,8 +180,22 @@ and refuses DTDs, entity declarations/references, conditional/ambiguous Globals,
 and linked paths; it never executes XML or accesses external files. Only the
 fixed five property names and exact-match/missing/duplicate/unsupported states
 are emitted. Expected values come from the actual private configure properties;
-their values, raw XML and unknown property names remain private. These are
-literal observations, not MSBuild property evaluation or causal proof.
+their values, raw XML and unknown property names remain private. The same two
+already-bounded XML reads project at most 16 actual Import entries total, with
+explicit truncation flags. Only the author-known `$(VCTargetsPath)` prefix on
+those three exact CPP filenames can use the actual private configure property,
+and only when the XML's literal `VCTargetsPath` matches that property exactly;
+other expressions receive a fixed unexpanded state. All resulting paths still
+require declared-root containment before metadata access. Import conditions
+are observed only as presence booleans and are never evaluated.
+For the reviewed numeric template, `contains_verified_instance_version_field`
+is a boolean only when the stored actual generator argument, selected root and
+observed four-part VS version agree. It identifies the two pinned CMake
+`VC/Auxiliary/Build[/.]<version>/...props` constructions using that full instance
+argument. An unavailable/mismatched private tuple yields an unavailable value.
+No tuple, raw expression, arbitrary numeric filename or outside-root metadata
+is published or inspected. These are literal observations, not MSBuild
+property evaluation or causal proof.
 The wrapper passes the actual selected `vswhere` instance's numeric four-part
 VS18 installation version together with its directory. Python queries the same
 explicit machine `vswhere.exe` again before and after the experiment, requires
@@ -243,6 +262,21 @@ configuration files were absent. Its observed configure-event log contains
 target and proves no fatal cause. The import/Globals projection above still
 requires a new native result; all exact tool/source and refusal gates remain
 in force.
+The next [observed run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171353894)
+matched all ten C/CXX property observations and reported eight MSB4019 entries
+at `CompilerIdC`/`CompilerIdCXX:37:3`, with every target still unknown. Static
+substitution of the pinned template with the 15 authored Globals places its
+optional toolset-version import on line 37. The
+[module](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/CMakeDetermineCompilerId.cmake)
+constructs that import from `CMAKE_GENERATOR_INSTANCE`; the
+[generator](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalVisualStudioVersionedGenerator.cxx)
+preserves the explicit instance specification, including its version field.
+This branch is conditional: CMake can clear an explicit toolset version when
+it matches the default. Its
+[configure-log emitter](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmConfigureLog.cxx)
+keeps ASCII quotes literal and doubles backslashes in text blocks. These
+source expectations do not identify that run's unknown target or prove its
+fatal cause; the generated-import projection still requires native evidence.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

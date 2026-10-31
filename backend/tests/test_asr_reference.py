@@ -1080,11 +1080,14 @@ def test_compiler_id_xml_byte_and_element_caps_reject_without_parsing_other_proj
     assert module.compiler_id_globals_context(tmp_path,{})['projects'][0]['state']=='size-limit'
 
 
-@pytest.mark.parametrize('operation',['import-context','compiler-id-xml'])
+@pytest.mark.parametrize('operation',['import-context','numeric-import-context','compiler-id-xml'])
 @pytest.mark.parametrize('kind',['symlink','windows-reparse'])
 def test_import_and_xml_context_reject_linked_ancestors_before_descendant_metadata(module,tmp_path,monkeypatch,operation,kind):
     directory=tmp_path/'declared-root/linked-parent';directory.mkdir(parents=True)
     target=directory/'Microsoft.Cpp.props';target.write_bytes(b'private import fixture')
+    if operation=='numeric-import-context':
+        target=directory/('Microsoft.VCToolsVersion.'+module.pin()['toolchain']['vc_tools_version']+'.props')
+        target.write_bytes(b'private numeric import fixture')
     if operation=='compiler-id-xml':
         target=compiler_id_project(tmp_path,'C',b'<Project/>');directory=target.parent
     real_stat,real_lstat,real_open=Path.stat,Path.lstat,Path.open
@@ -1101,13 +1104,135 @@ def test_import_and_xml_context_reject_linked_ancestors_before_descendant_metada
         reject_descendant(path);return real_open(path,*args,**kwargs)
     monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(Path,'stat',stat_guard)
     monkeypatch.setattr(Path,'open',open_guard)
-    if operation=='import-context':
+    if operation in {'import-context','numeric-import-context'}:
         result=module.import_target_context(str(target),{'msbuild':str(directory.parent)},{})
         assert result['existence']=='inspection-error'
     else:
         result=module.compiler_id_globals_context(tmp_path,{})
         assert result['projects'][0]['state']=='inspection-error'
     assert str(tmp_path) not in json.dumps(result) and 'private' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('separator',['/','.'])
+def test_generated_numeric_toolset_import_exposes_only_exact_verified_instance_suffix_branch(module,tmp_path,monkeypatch,separator):
+    version=module.pin()['toolchain']['vc_tools_version'];observed='18.11.12315.225'
+    vs=tmp_path/'private-vs';msbuild=vs/'MSBuild';selected=msbuild/'Microsoft/VC/v180'
+    auxiliary=vs/'VC/Auxiliary';selected.mkdir(parents=True);auxiliary.mkdir(parents=True)
+    roots={'msbuild':str(msbuild),'vc-auxiliary':str(auxiliary)}
+    properties={'VCTargetsPath':str(selected)}
+    for filename in ('Microsoft.Cpp.Default.props','Microsoft.Cpp.props','Microsoft.Cpp.targets'):
+        (selected/filename).write_bytes(b'owned CPP property fixture')
+    leaf='Microsoft.VCToolsVersion.'+version+'.props'
+    good=auxiliary/('Build/'+version if separator=='/' else 'Build.'+version)/leaf
+    good.parent.mkdir(parents=True);good.write_bytes(b'owned toolset property fixture')
+    instance={'argument':vs.as_posix()+',version='+observed,'root':str(vs),'observed_version':observed}
+    # Exactly the conditional construction in pinned CMakeDetermineCompilerId:
+    # use the full instance string as a path before adding Build[/.]<version>.
+    malformed=instance['argument']+'/VC/Auxiliary/Build'+separator+version+'/'+leaf
+    prefix='<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup Label="Globals">'
+    prefix+='<VCTargetsPath>'+str(selected)+'</VCTargetsPath></PropertyGroup>'
+    cpp='<Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Default.props"/>'
+    compiler_id_project(tmp_path,'C',(prefix+cpp+'<Import Project="'+malformed+'"/></Project>').encode())
+    compiler_id_project(tmp_path,'CXX',(prefix+cpp+'<Import Project="'+good.as_posix()+'"/></Project>').encode())
+    real_stat,real_lstat,real_open=Path.stat,Path.lstat,Path.open
+    def guard(original):
+        def call(path,*args,**kwargs):
+            if ',version=' in str(path):pytest.fail('The malformed outside-root import cannot receive metadata or content access.')
+            return original(path,*args,**kwargs)
+        return call
+    monkeypatch.setattr(Path,'stat',guard(real_stat));monkeypatch.setattr(Path,'lstat',guard(real_lstat))
+    monkeypatch.setattr(Path,'open',guard(real_open))
+    result=module.compiler_id_globals_context(tmp_path,properties,roots,instance)
+    c,cxx=result['projects']
+    assert c['imports'][0]['import_label']=='microsoft-cpp-default-props'
+    assert c['imports'][0]['existence']=='regular-file-present' and c['imports'][0]['root_role']=='selected-vc-targets'
+    bad=c['imports'][1];assert bad['import_label']=='microsoft-vctools-version-props'
+    assert bad['reviewed_version']==version and bad['contains_verified_instance_version_field'] is True
+    assert bad['root_role']=='outside-declared-roots' and bad['existence']=='not-inspected'
+    actual=cxx['imports'][1]
+    assert actual['import_label']=='microsoft-vctools-version-props' and actual['reviewed_version']==version
+    assert actual['contains_verified_instance_version_field'] is False
+    assert actual['root_role']=='declared-vc-auxiliary' and actual['existence']=='regular-file-present'
+    delivered=json.dumps(result)
+    for private in (str(tmp_path),'private-vs',instance['argument'],observed,'owned toolset property fixture'):
+        assert private not in delivered
+
+
+def test_msb4019_literal_extraction_and_exact_reviewed_toolset_version_are_separate_states(module,tmp_path,monkeypatch):
+    version=module.pin()['toolchain']['vc_tools_version']
+    root=tmp_path/'private-vs';root.mkdir()
+    instance={'argument':root.as_posix()+',version=18.11.12315.225','root':str(root),'observed_version':'18.11.12315.225'}
+    monkeypatch.setattr(module,'_BUILD_INSTANCE',instance)
+    target=instance['argument']+'/VC/Auxiliary/Build/'+version+'/Microsoft.VCToolsVersion.'+version+'.props'
+    content='error MSB4019: The imported project "'+target+'" was not found.\n'
+    content+='error MSB4019: The imported project "private/Microsoft.VCToolsVersion.14.51.999999.props" was not found.\n'
+    content+='error MSB4019: private new template with unrecognized quotes\n'
+    result=module.msb4019_import_context(content,{},None,16)
+    known,unknown,unrecognized=result['records']
+    assert known['literal_match_state']==unknown['literal_match_state']=='matched-import-template'
+    assert known['import_label']=='microsoft-vctools-version-props' and known['reviewed_version']==version
+    assert known['contains_verified_instance_version_field'] is True
+    assert unknown['import_label']=='unknown-import' and unknown['reviewed_version'] is None
+    assert unknown['contains_verified_instance_version_field'] is None
+    assert unrecognized['literal_match_state']=='unrecognized-template' and unrecognized['import_label']=='unknown-import'
+    delivered=json.dumps(result)
+    for private in ('private',str(tmp_path),'999999','18.11.12315.225',target):assert private not in delivered
+
+
+@pytest.mark.parametrize('change',['argument','observed-version','root','missing-observation'])
+def test_numeric_toolset_import_never_claims_verified_suffix_from_mismatched_private_instance(module,tmp_path,change):
+    version=module.pin()['toolchain']['vc_tools_version'];root=tmp_path/'private-vs';root.mkdir()
+    instance={'argument':root.as_posix()+',version=18.11.12315.225','root':str(root),'observed_version':'18.11.12315.225'}
+    target=instance['argument']+'/VC/Auxiliary/Build/'+version+'/Microsoft.VCToolsVersion.'+version+'.props'
+    if change=='argument':instance['argument']=root.as_posix()+',version=18.11.12315.226'
+    elif change=='observed-version':instance['observed_version']='18.11.12315.226'
+    elif change=='root':instance['root']=str(tmp_path/'private-other-vs')
+    else:instance['observed_version']=None
+    result=module.import_target_context(target,{},None,instance=instance)
+    assert result['import_label']=='microsoft-vctools-version-props'
+    assert result['contains_verified_instance_version_field'] is None and result['existence']=='not-inspected'
+    assert 'private' not in json.dumps(result)
+
+
+def test_generated_imports_are_bounded_and_unknown_macros_never_evaluated_or_inspected(module,tmp_path,monkeypatch):
+    version=module.pin()['toolchain']['vc_tools_version'];msbuild=tmp_path/'private-msbuild';msbuild.mkdir()
+    unknown=msbuild/'Microsoft.VCToolsVersion.14.51.999999.props';unknown.write_bytes(b'private unknown fixture')
+    xml='<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup Label="Globals"/>'
+    xml+='<Import Project="$(privateMacro)/Microsoft.Cpp.props" Condition="private-condition"/>'
+    xml+='<Import Project="'+unknown.as_posix()+'"/>'
+    xml+='<Import Project="private/unknown-'+version+'.props"/></Project>'
+    compiler_id_project(tmp_path,'C',xml.encode());compiler_id_project(tmp_path,'CXX',xml.encode())
+    real_lstat=Path.lstat
+    def lstat_guard(path,*args,**kwargs):
+        if path==unknown:pytest.fail('Unreviewed numeric-version inputs remain unknown and uninspected.')
+        return real_lstat(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(module,'COMPILER_ID_IMPORT_LIMIT',4)
+    result=module.compiler_id_globals_context(tmp_path,{'VCTargetsPath':str(msbuild)},{'msbuild':str(msbuild)})
+    c,cxx=result['projects'];assert len(c['imports'])==3 and len(cxx['imports'])==1
+    assert c['imports_truncated'] is False and cxx['imports_truncated'] is True
+    assert c['imports'][0]['existence']=='unexpanded-template' and c['imports'][0]['conditional'] is True
+    assert c['imports'][1]['import_label']=='unknown-import' and c['imports'][1]['reviewed_version'] is None
+    assert 'private' not in json.dumps(result) and '999999' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('state',['missing','different','duplicate'])
+def test_generated_cpp_prefix_is_not_substituted_without_actual_literal_vctargets_match(module,tmp_path,monkeypatch,state):
+    desired=tmp_path/'private-configured-targets';desired.mkdir()
+    target=desired/'Microsoft.Cpp.props';target.write_bytes(b'private target fixture')
+    property_xml='' if state=='missing' else '<VCTargetsPath>private-different-root</VCTargetsPath>'
+    if state=='duplicate':property_xml=('<VCTargetsPath>'+str(desired)+'</VCTargetsPath>')*2
+    xml='<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup Label="Globals">'
+    xml+=property_xml+'</PropertyGroup><Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props"/></Project>'
+    compiler_id_project(tmp_path,'C',xml.encode())
+    real_lstat=Path.lstat
+    def guard(path,*args,**kwargs):
+        if path==desired or desired in path.parents:pytest.fail('Unmatched actual Globals cannot select a target for inspection.')
+        return real_lstat(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',guard)
+    result=module.compiler_id_globals_context(tmp_path,{'VCTargetsPath':str(desired)},{'msbuild':str(desired)})
+    record=result['projects'][0]['imports'][0]
+    assert record['import_label']=='microsoft-cpp-props' and record['existence']=='unexpanded-template'
+    assert record['root_role']=='not-inspected' and 'private' not in json.dumps(result)
 
 
 @pytest.mark.parametrize('kind,expected', [('command', 'private-command-failed'),
