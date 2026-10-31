@@ -568,6 +568,22 @@ def test_legacy_conversion_refusal_still_runs_owned_finally_once(monkeypatch, tm
     assert calls == ['close'] and holder == [payload]
 
 
+def authored_engine_failure_context(code, stderr):
+    labels = {0: 'zero-exit', 31: 'no-finally-or-caught', 32: 'record-identity', 33: 'exception-identity'}
+    return {'exit': labels.get(code, 'unknown') if type(code) is int else 'unknown',
+        'stderr_present': bool(stderr)}
+
+
+@pytest.mark.parametrize(('code', 'label'), [(0, 'zero-exit'), (31, 'no-finally-or-caught'),
+    (32, 'record-identity'), (33, 'exception-identity'), (-1, 'unknown'), (123456, 'unknown'),
+    (None, 'unknown'), (False, 'unknown'), ('private-exit-value', 'unknown')])
+def test_authored_engine_failure_context_never_echoes_private_or_unknown_process_data(code, label):
+    for stderr, present in ((b'', False), (b'private-stderr-path-message-trace', True)):
+        value = authored_engine_failure_context(code, stderr)
+        assert value == {'exit': label, 'stderr_present': present}
+        assert 'private-' not in json.dumps(value)
+
+
 @pytest.mark.skipif(sys.platform != 'win32', reason='Authored Windows PowerShell engine semantics unavailable locally')
 @pytest.mark.parametrize('writer_fails', [False, True])
 def test_authored_powershell_rethrows_original_record_and_exception_when_diagnostic_writer_fails(writer_fails):
@@ -637,7 +653,8 @@ if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
     if failed or any(reader.is_alive() for reader in readers) or any(len(v) > 8192 for v in captured.values()):
         pytest.fail('Authored engine output boundary failed')
     if code != 0 or captured.get('err'):
-        pytest.fail('Authored engine original-error/finally contract failed')
+        pytest.fail('Authored engine original-error/finally contract failed: ' + json.dumps(
+            authored_engine_failure_context(code, captured.get('err', b'')), sort_keys=True, separators=(',', ':')))
     lines = captured.get('out', b'').splitlines()
     if not lines or lines[0] != b'owned-catch-ok' or len(lines) != (1 if writer_fails else 2):
         pytest.fail('Authored engine acknowledgement differs')
