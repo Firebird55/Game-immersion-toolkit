@@ -30,6 +30,7 @@ from backend.runtime_bundle import relative_resource
 from backend.runtime_payload import digest, no_links, validate
 from backend.desktop_frontend import FrontendBuild, FrontendError
 from python_supplier import archive_plan, mutable_build_file, PIN_FILES
+from macos_replay import MACHO_MAGICS, MAX_BINARY, replay as replay_macho, verify_toolchain
 
 CHECKS = ('python_supplier', 'exact_wheels', 'native_inputs', 'complete_notices',
           'corresponding_sources', 'frontend_licenses')
@@ -105,7 +106,7 @@ def notice_member(name):
 def wheel_evidence(path):
     """Verify RECORD against each actual member, including full native notices."""
     no_links(path)
-    hashes, notices = {}, {}
+    hashes, notices, macho = {}, {}, {}
     with zipfile.ZipFile(path) as archive:
         members = archive.infolist()
         if len(members) > MEMBER_LIMIT or sum(m.file_size for m in members) > 2 * 1024**3:
@@ -136,6 +137,8 @@ def wheel_evidence(path):
             data = archive.read(member)
             name = member.filename
             hashes[name] = sha(data)
+            if data[:4] in MACHO_MAGICS:
+                macho[name] = hashes[name]
             if name != record_names[0] and name in records:
                 encoded, size = records[name]
                 if '=' not in encoded or int(size) != len(data):
@@ -147,7 +150,7 @@ def wheel_evidence(path):
             if notice_member(name):
                 notices[name] = hashes[name]
     return {'name': metadata['Name'], 'version': metadata['Version'], 'sha256': digest(path),
-            'files': hashes, 'notices': notices}
+            'files': hashes, 'notices': notices, 'macho': macho}
 
 
 def normalized(name):
@@ -162,6 +165,8 @@ class Review:
         self.origins = {}
         self.wheels = {}
         self.native_files = []
+        self.macho_suppliers = {}
+        self.python_libraries = None
 
     def block(self, check, code, detail, paths=()):
         item = {'code': code, 'detail': detail}
@@ -174,6 +179,10 @@ class Review:
 
     def origin(self, file_sha, supplier):
         self.origins.setdefault(file_sha, set()).add(supplier)
+
+    def macho_supplier(self, archive, member, value_sha, supplier):
+        self.macho_suppliers.setdefault(PurePosixPath(member).name, []).append(
+            {'archive': archive, 'member': member, 'sha256': value_sha, 'supplier': supplier})
 
     def has_hash(self, value, prefix=''):
         return any(item['sha256'] == value and not item.get('link') and name.startswith(prefix)
@@ -193,9 +202,14 @@ class Review:
                 if member.issym():
                     item = {'path': relative, 'link': member.linkname, 'sha256': sha(member.linkname.encode())}
                 else:
-                    value = hashlib.file_digest(source.extractfile(member), 'sha256').hexdigest()
+                    stream = source.extractfile(member)
+                    magic = stream.read(4)
+                    stream.seek(0)
+                    value = hashlib.file_digest(stream, 'sha256').hexdigest()
                     item = {'path': relative, 'sha256': value}
                     self.origin(value, 'CPython supplier: ' + relative)
+                    if magic in MACHO_MAGICS:
+                        self.macho_supplier(archive, member.name, value, 'CPython supplier: ' + relative)
                 if not mutable_build_file(relative):
                     expected.append(item)
         recorded = actual.get('installed_files')
@@ -205,9 +219,7 @@ class Review:
         expected_exe = next((x['sha256'] for x in expected if x['path'] == executable), None)
         if expected_exe != self.receipt.get('python_executable_sha256'):
             self.block('python_supplier', 'python-build-executable', 'The build interpreter hash does not match the actual supplier executable.')
-        libraries = [name for name in self.inventory if re.search(r'(?:python312\.dll|libpython3\.12[^/]*|Python)$', name)]
-        if not libraries or any(self.inventory[name]['sha256'] not in self.origins for name in libraries):
-            self.block('python_supplier', 'python-frozen-library', 'Frozen Python library bytes need supplier or recorded native post-processing verification.', libraries)
+        libraries = self.python_libraries = [name for name in self.inventory if re.search(r'(?:python312\.dll|libpython3\.12[^/]*|Python)$', name)]
         license_hashes = [x['sha256'] for x in expected if x['path'] in {'LICENSE', 'LICENSE.txt', 'lib/python3.12/LICENSE.txt'}]
         if not license_hashes or not any(self.has_hash(h, 'THIRD_PARTY/') for h in license_hashes):
             self.block('complete_notices', 'python-license', 'The full exact Python supplier license is not retained.')
@@ -230,6 +242,8 @@ class Review:
             if normalized(value['name']) != normalized(name) or value['version'] != component['version']:
                 raise ValueError('Wheel metadata differs from the recorded input: ' + name)
             self.wheels[normalized(name)] = value
+            for member, value_sha in value['macho'].items():
+                self.macho_supplier(path, member, value_sha, name + '==' + value['version'] + ': ' + member)
             for member, value_sha in value['files'].items():
                 self.origin(value_sha, name + '==' + value['version'] + ': ' + member)
             missing = [member for member, value_sha in value['notices'].items()
@@ -284,7 +298,12 @@ class Review:
                         size += member.file_size
                         if count > MEMBER_LIMIT or size > 2*1024**3 or member.file_size > 512*1024**2:
                             raise ValueError('Native archive exceeds review limits.')
-                        self.origin(sha(source.read(member)), 'Supplier archive ' + value_sha + ': ' + member.filename)
+                        data = source.read(member)
+                        member_sha = sha(data)
+                        supplier = 'Supplier archive ' + value_sha + ': ' + member.filename
+                        self.origin(member_sha, supplier)
+                        if data[:4] in MACHO_MAGICS:
+                            self.macho_supplier(path, member.filename, member_sha, supplier)
             else:
                 with tarfile.open(path) as source:
                     for count, member in enumerate(source, 1):
@@ -294,8 +313,57 @@ class Review:
                         size += member.size
                         if count > MEMBER_LIMIT or size > 2*1024**3 or member.size > 512*1024**2:
                             raise ValueError('Native archive exceeds review limits.')
-                        self.origin(hashlib.file_digest(source.extractfile(member), 'sha256').hexdigest(), 'Supplier archive ' + value_sha + ': ' + member.name)
+                        stream = source.extractfile(member)
+                        magic = stream.read(4)
+                        stream.seek(0)
+                        member_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
+                        supplier = 'Supplier archive ' + value_sha + ': ' + member.name
+                        self.origin(member_sha, supplier)
+                        if magic in MACHO_MAGICS:
+                            self.macho_supplier(path, member.name, member_sha, supplier)
             self.evidence('native_inputs', supplier_archive_sha256=value_sha, inspected_bytes=size)
+
+    def macos_postprocessing(self):
+        if not self.target.startswith('macos-'):
+            return
+        pending = []
+        for name, item in self.inventory.items():
+            if item.get('link') or item['sha256'] in self.origins:
+                continue
+            if not (name.startswith('_internal/') or name.startswith('asr/_internal/')):
+                continue
+            with (self.root / name).open('rb') as stream:
+                if stream.read(4) in MACHO_MAGICS:
+                    pending.append(name)
+        if not pending:
+            return
+        tools = verify_toolchain(self.wheels)
+        matched = []
+        for name in pending:
+            for supplier in self.macho_suppliers.get(PurePosixPath(name).name, []):
+                try:
+                    data = supplier_member(supplier)
+                    if replay_macho(data, name, self.target) == self.inventory[name]['sha256']:
+                        self.origin(self.inventory[name]['sha256'], supplier['supplier'] + '; exact pinned PyInstaller macOS replay')
+                        matched.append({'path': name, 'supplier_sha256': supplier['sha256'],
+                                        'output_sha256': self.inventory[name]['sha256']})
+                        break
+                except (OSError, ValueError, RuntimeError, SystemError):
+                    # One same-named supplier can target another architecture.
+                    # It cannot certify output; try the remaining exact members.
+                    continue
+            else:
+                self.block('native_inputs', 'macos-replay-mismatch',
+                    'No exact supplier member reproduced the delivered Mach-O bytes; no normalization or signature removal is accepted.', [name])
+        self.evidence('native_inputs', macos_postprocessing='exact-byte-replay',
+                      build_tools=tools, matched=matched)
+
+    def frozen_python(self):
+        if self.python_libraries is None:
+            return  # The earlier supplier stage failed and already reports why.
+        if not self.python_libraries or any(self.inventory[name]['sha256'] not in self.origins for name in self.python_libraries):
+            self.block('python_supplier', 'python-frozen-library',
+                'Frozen Python library bytes need supplier or exact native post-processing verification.', self.python_libraries)
 
     def helpers(self, snapshot):
         """Verify the actual owned reader and pinned unmodified managed supplier."""
@@ -392,7 +460,7 @@ class Review:
             path = self.root / name
             with path.open('rb') as stream:
                 magic = stream.read(4)
-            if not (magic[:2] == b'MZ' or magic in {b'\x7fELF', b'\xcf\xfa\xed\xfe', b'\xce\xfa\xed\xfe', b'\xca\xfe\xba\xbe'}):
+            if not (magic[:2] == b'MZ' or magic == b'\x7fELF' or magic in MACHO_MAGICS):
                 continue
             suppliers = sorted(self.origins.get(entry['sha256'], []))
             if name in owned:
@@ -502,6 +570,27 @@ def load_script(name):
     return module
 
 
+def supplier_member(supplier):
+    """Read a single verified member again, without extracting archive paths."""
+    path, name = supplier['archive'], relative_resource(supplier['member'])
+    no_links(path)
+    if zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as archive:
+            member = archive.getinfo(name)
+            if member.is_dir() or member.file_size > MAX_BINARY or (member.external_attr >> 16) & 0o170000 == 0o120000:
+                raise ValueError('Invalid macOS supplier archive member.')
+            data = archive.read(member)
+    else:
+        with tarfile.open(path) as archive:
+            member = archive.getmember(name)
+            if not member.isfile() or member.size > MAX_BINARY:
+                raise ValueError('Invalid macOS supplier archive member.')
+            data = archive.extractfile(member).read()
+    if sha(data) != supplier['sha256'] or data[:4] not in MACHO_MAGICS:
+        raise ValueError('macOS supplier member changed after its archive was verified.')
+    return data
+
+
 def verify_observation(receipt, observed, snapshot):
     if observed.get('schema') != 'proxy-desktop-observed-build-v1':
         raise ValueError('Expected the actual desktop input observation.')
@@ -541,6 +630,8 @@ def review(args):
               ('native_inputs', lambda: result.native_archives(args.native_archive, trusted_archives))]
     stages += [('native_inputs', lambda: result.resources(snapshot)),
                ('native_inputs', lambda: result.helpers(snapshot)),
+               ('native_inputs', result.macos_postprocessing),
+               ('python_supplier', result.frozen_python),
                ('corresponding_sources', lambda: result.sources(args.source_root)),
                ('frontend_licenses', lambda: result.frontend(args.source_root, args.node))]
     for check, action in stages:
@@ -568,6 +659,7 @@ def review(args):
         'capabilities': capabilities, 'details': result.checks, 'native_inventory': result.native_files,
         'reviewer_sha256': digest(Path(__file__)), 'observed_inputs_sha256': digest(args.observed_inputs),
         'policy_inputs': {name: digest(args.source_root / name) for name in (
+            'packaging/runtime-bundle/macos_replay.py',
             'packaging/desktop/native-notices.json', 'packaging/desktop/qt-sources.json',
             'packaging/frontend-notices/sources.json', 'scripts/dependency-notices.mjs')},
         'scope': 'Exact supplied artifacts, delivered notices and known source adapters. Not independent reproduction of compiled outputs, native execution acceptance or legal certification.'}

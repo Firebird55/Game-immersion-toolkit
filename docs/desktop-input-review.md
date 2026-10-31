@@ -55,11 +55,21 @@ The checks verify:
   retained in the delivered frontend.
 
 These checks establish the stated evidence, not a legal certification or an
-independent reproduction of compiled outputs. Changed Mach-O load commands or
-other native post-processing need an explicit verification adapter if the output
-does not match an inspected supplier member. An unmapped native file remains a
-named blocker. New toolchain correspondence adapters must inspect their actual
-source/notice bytes; they cannot inherit another toolchain's approval.
+independent reproduction of compiled outputs. On macOS the reviewer reproduces
+PyInstaller's architecture selection, library-path rewrite and ad-hoc signing
+from actual inspected supplier members in a fresh temporary cache. It first
+checks the executing build-tool source against the inspected pinned wheels,
+then requires exact equality of all resulting bytes, including signatures.
+It does not strip signatures or normalize arbitrary executable changes. The
+report binds each successful replay to its supplier hash and delivered hash.
+This replay requires the macOS build host and its Apple packaging tools; those
+are never prerequisites on the user's machine. The separate native test uses
+an authored compiled library and runs only on macOS.
+
+Other native post-processing still needs an explicit verification adapter if
+the output does not match an inspected supplier member. An unmapped native
+file remains a named blocker. New toolchain correspondence adapters must inspect
+their actual source/notice bytes; they cannot inherit another toolchain's approval.
 
 Windows MSVC selection is explicit in `packaging/runtime-bundle/windows_runtime.py`.
 PyInstaller's host-discovered `msvcp140.dll` is replaced in both process trees by
