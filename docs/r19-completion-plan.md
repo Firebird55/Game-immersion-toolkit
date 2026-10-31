@@ -42,8 +42,8 @@ shortcut transaction or live migration is authorized by this plan.
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
-| Source candidate | Full Windows source/browser/package run at `1958866`: 1,933 Python tests, one skip and five subtests; all five browser groups and extracted source-ZIP validation passed after one same-head failed capture-job retry; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime |
-| Extracted runtime | At `12d0d0e`, 640 Windows contracts and actual native imports, all 25 registry readers, VAD silence, authored Half-Life/Portal workers, isolated ASR imports, bounded Xiph decode and owned frontend/API/WS/Setup passed; source/metadata downloaded and checked | API external side effects were mocked; real OCR/capture, general game voices, ASR inference, full export and later output changes remain unverified |
+| Source candidate | Full Windows source/browser/package run at `f11e96d`: 2,058 Python tests, one skip and 36 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the later `a079232` source run failed one raw ZIP-name case before browser/package jobs |
+| Extracted runtime | At `a079232`, 689 Windows contracts and actual native imports, all 25 registry readers, VAD silence, authored Half-Life/Portal workers, isolated ASR imports, bounded Xiph decode and owned frontend/API/WS/Setup passed; source/metadata downloaded and checked | API external side effects were mocked; the new frozen keeper, real OCR/capture, general game voices, ASR inference, full export and later output changes remain unverified |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -78,15 +78,23 @@ binds the exact checkpoint. It is not a production launcher or update transactio
 The [guarded cold-slot checkpoint](r19-guarded-slot-probe.md) establishes continuous
 lease exclusion while its outer guardian remains alive, including host crash and
 rollback. Guardian death, warm routing and actual store/credential continuity stay
-open. The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
+open. The separate [living frozen keeper probe](r19-frozen-keeper-probe.md)
+adds two fixed guardian-loss cases using retained suspended creation objects;
+its first native execution is pending. Keeper loss and general writer lifetime
+remain open even if those fixed cases pass.
+The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source
 experiment](r19-asr-source-experiment.md) is a distinct private binding variant,
 with an authored native-format graph rather than accepted pretrained model
 weights. Neither experiment is a runtime replacement or a corresponding-source
-approval. Their first hosted attempts at `0b76427` failed before compilation:
-FFmpeg/Opus selected two CMake executables as one command, and ASR failed its
-toolchain validation. These failures establish no decode or inference result;
-fixed tool selection and successful native execution remain required.
+approval. Hosted attempts initially failed ambiguous tool discovery and then
+the installed CMake 4.4.4 versus required 4.4.5 check. The exact official
+[isolated CMake input](pinned-build-cmake.md) preserves the 4.4.5 requirement.
+At `a079232`, its acquisition and verification passed; FFmpeg/Opus then failed
+compiler activation quoting and ASR failed before configure. The corrected
+private activation batch and bounded ASR target/import diagnostics require
+new native execution. These failures establish no decode or inference result;
+the strict toolchain, source and configuration guards remain in force.
 The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
 binds a fixed current/retired frontend snapshot to independently trusted slot
 manifest hashes. Its authored loopback tests cover old Vite/Next chunks and

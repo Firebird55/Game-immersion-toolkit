@@ -636,6 +636,37 @@ source-style package evidence; the later pinned CMake input and autonomous
 keeper work need their own matching checks. The earlier setup failure remains
 in the ledger and no ordinary-user/native Windows 11 gate is closed.
 
+The subsequent `a079232` [integrated run 41157097572](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41157097572)
+passed 689 Windows contracts, all existing frozen/cold-slot cases and Xiph
+source/rebuild. Downloaded metadata 13025298596 matched 1,232,316 bytes and
+SHA-256 a98a30b6e0e834e93ff140c7590c125e7b0570a9724c425b14b2f35051b86cef;
+source/rebuild 13025661915 matched 1,095,193 bytes and
+82d48e7e6d5294738b84e5fb64619b60901cce8c1c90b5f658532d8156f67e88.
+The independent review retained every preceding source/notice/module/host
+assertion. Its 1,537 files, 642 directories and 624,765,091 bytes are bound in
+the [checkpoint ledger](r19-frozen-checkpoint-20261031.json). This historical
+output contains no receipt for the new living-keeper experiment.
+
+The same head's [full source run 41157232246](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41157232246)
+passed 2,070 Python tests with one skip and 58 subtests, but failed one Windows
+raw ZIP-name refusal case. Browser and packaging jobs did not run. Python had
+normalized the name before the parser inspected it; the fixture also needed to
+preserve its authored raw header bytes on Windows. The parser now checks
+`ZipInfo.orig_filename` before separator/NUL normalization, and the fixtures
+verify actual local and central header bytes. The failed result remains in the
+ledger; this source correction requires a new matching hosted result.
+
+The first `c18d07a` keeper attempt, [run 41160402137](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160402137),
+stopped before freezing: 721 affected contracts passed and one logging test
+failed. Uvicorn successfully initialized with the owned NUL streams, but the
+test incorrectly required automatic colors to be disabled. Windows CRT's
+[`_isatty`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/isatty)
+detects character devices, so that POSIX-specific expectation was invalid.
+The corrected test requires actual Unicode log formatting and non-inheritable
+owned stream descriptors, retaining NUL read/write and existing-pipe behavior.
+No production implementation was changed for this failure. The original result
+is retained; neither a frozen build nor a keeper receipt was produced.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
