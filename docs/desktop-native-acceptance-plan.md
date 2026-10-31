@@ -101,6 +101,23 @@ the verified Inno Setup 7.1.1 compiler compiled the fixture Setup executable.
 These prove package rejection/structure and compiler compatibility. The fixture
 is intentionally not an executable application and was never installed.
 
+The 2026-10-31 macOS hosted capture probe discovered its authored window but
+found a full-display layer-20 surface and a layer-8 panel in front of it. Raising
+a normal window cannot override higher window levels; this is consistent with
+[Apple's window-level ordering](https://developer.apple.com/documentation/appkit/nswindow/level-swift.struct).
+The geometry alone does not identify a lock screen or a permission dialog.
+The capture guard continues rejecting all overlapping foreground windows.
+
+The probe now records only bounded geometry and an allowlisted system-owner
+category. A category requires the actual resolved process image under the macOS
+system library, not merely a window's claimed owner name. Only an independently
+observed, nonowned, effectively opaque system surface covering the full display
+and the entire authored window can classify that exact occlusion failure as
+`native-desktop-system-obstructed` (unavailable, exit 2). Unknown owners, partial
+panels, identity lookup failures, and unrelated capture errors still fail.
+Unavailable capture permits independent build/lifecycle checks to continue; it
+does not pass native capture or close the corresponding R19 acceptance row.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),

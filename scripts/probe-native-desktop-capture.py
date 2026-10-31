@@ -5,7 +5,7 @@ import argparse
 import json
 import os
 import platform
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import sys
 import time
 import uuid
@@ -15,29 +15,85 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.platform_windows import CaptureUnavailable, require_x11
 
 
-def mac_overlap_diagnostics(title):
-    """Geometry only: never include other applications' titles or identities."""
-    import Quartz
-    from backend.platform_windows import intersection
-    values = Quartz.CGWindowListCopyWindowInfo(
-        Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
-        Quartz.kCGNullWindowID)
+SYSTEM_OWNERS = {
+    'Dock': 'dock', 'loginwindow': 'login-session', 'SecurityAgent': 'system-security',
+    'WindowServer': 'window-server', 'SystemUIServer': 'system-ui',
+    'UserNotificationCenter': 'system-notification', 'NotificationCenter': 'notification-center',
+    'CoreServicesUIAgent': 'system-dialog', 'ScreenCaptureKitPicker': 'screen-capture-picker',
+}
+OCCLUDED_MESSAGE = 'The game is covered by another window. Uncover or restore it to resume capture.'
+
+
+def system_owner_category(value, executable_for_pid):
+    """Return a bounded category only after checking the real system image.
+
+    A window owner label is not process identity. The resolver uses psutil's
+    kernel process lookup and resolves links before this comparison; neither
+    its PID nor its executable path is included in public diagnostics.
+    """
+    name = value.get('kCGWindowOwnerName')
+    pid = value.get('kCGWindowOwnerPID')
+    if name not in SYSTEM_OWNERS or type(pid) is not int or pid <= 0:
+        return 'other'
+    try:
+        path = PurePosixPath(executable_for_pid(pid))
+        if path.name != name or PurePosixPath('/System/Library') not in path.parents or '..' in path.parts:
+            return 'other'
+    except Exception:
+        return 'unverified'
+    return SYSTEM_OWNERS[name]
+
+
+def mac_overlap_records(values, title, owner_pid, monitors, executable_for_pid):
+    """Correlate capture failure with independent native window geometry."""
+    from backend.platform_windows import choose_monitor, intersection
+    values = list(values or [])[:4096]
     def bounds(value):
         raw = value.get('kCGWindowBounds', {})
         return tuple(round(raw.get(key, 0)) for key in ('X', 'Y', 'Width', 'Height'))
-    target = next((value for value in values or []
-        if value.get('kCGWindowOwnerPID') == os.getpid() and value.get('kCGWindowName') == title), None)
+    target = next((value for value in values
+        if value.get('kCGWindowOwnerPID') == owner_pid and value.get('kCGWindowName') == title), None)
     if target is None:
-        return {'target_found': False}
+        return {'target_found': False, 'full_display_system_obstruction': False}
+    rectangle = bounds(target)
+    monitor = choose_monitor(rectangle, monitors)
     blockers = []
     for value in values:
         if value.get('kCGWindowNumber') == target.get('kCGWindowNumber'):
             break
         if (value.get('kCGWindowIsOnscreen') and float(value.get('kCGWindowAlpha', 0)) > 0
-                and intersection(bounds(value), bounds(target))):
+                and intersection(bounds(value), rectangle)):
+            category = system_owner_category(value, executable_for_pid)
+            owned = value.get('kCGWindowOwnerPID') == owner_pid
+            full_display = bool(monitor and intersection(bounds(value), monitor.bounds)
+                == monitor.bounds[2] * monitor.bounds[3] and intersection(bounds(value), rectangle)
+                == rectangle[2] * rectangle[3])
             blockers.append({'layer': value.get('kCGWindowLayer'), 'bounds': bounds(value),
-                'alpha': value.get('kCGWindowAlpha'), 'owned': value.get('kCGWindowOwnerPID') == os.getpid()})
-    return {'target_found': True, 'target_bounds': bounds(target), 'overlaps': blockers[:12]}
+                'alpha': value.get('kCGWindowAlpha'), 'owned': owned, 'system_owner': category,
+                'full_display': full_display})
+            if len(blockers) == 12:
+                break
+    obstruction = any(not value['owned'] and value['full_display'] and value['alpha'] >= .99
+        and value['system_owner'] in SYSTEM_OWNERS.values() for value in blockers)
+    return {'target_found': True, 'target_bounds': rectangle, 'overlaps': blockers,
+            'full_display_system_obstruction': obstruction}
+
+
+def unavailable_system_obstruction(error, diagnostics):
+    return (isinstance(error, OSError) and str(error) == OCCLUDED_MESSAGE
+            and diagnostics.get('full_display_system_obstruction') is True)
+
+
+def mac_overlap_diagnostics(title):
+    """Geometry only: never include other applications' titles or identities."""
+    import Quartz
+    import psutil
+    from backend.platform_windows import _monitors
+    values = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
+        Quartz.kCGNullWindowID)
+    return mac_overlap_records(values, title, os.getpid(), _monitors(),
+        lambda pid: str(Path(psutil.Process(pid).exe()).resolve(strict=True)))
 
 
 def main():
@@ -117,6 +173,8 @@ def main():
                 if sys.platform == 'darwin':
                     try:
                         result['window_diagnostics'] = mac_overlap_diagnostics(title)
+                        if unavailable_system_obstruction(error, result['window_diagnostics']):
+                            result.update(status='unavailable', reason='native-desktop-system-obstructed')
                     except Exception as diagnostic_error:
                         result['window_diagnostics'] = {'error': type(diagnostic_error).__name__}
             finally:
