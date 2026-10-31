@@ -368,7 +368,7 @@ try {
     $tokens = $null; $parseErrors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseFile($SourcePath, [ref]$tokens, [ref]$parseErrors)
     if ($parseErrors.Count) { throw 'parse' }
-    foreach ($name in @('Get-CompilerSearchObservation','Write-CompilerSearchFailure')) {
+    foreach ($name in @('Get-CompilerSearchObservation','Write-CompilerSearchFailure','Write-ToolIdentity')) {
         $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
         if (-not $definition) { throw 'missing function' }
         . ([ScriptBlock]::Create($definition.Extent.Text))
@@ -376,11 +376,15 @@ try {
     $contractPhase = 'observations'
     $include = Join-Path $FixtureRoot 'private-personal-marker/include'
     $library = Join-Path $FixtureRoot 'private-personal-marker/library'
-    $auxiliary = Join-Path $FixtureRoot 'private-personal-marker/auxiliary/include'
+    $auxiliary = Join-Path $FixtureRoot 'private-personal-marker/auxiliary/VS/include'
     $unknown = Join-Path $FixtureRoot 'private-personal-marker/arbitrary-account'
+    $netfxParent = Join-Path $FixtureRoot 'private-personal-marker/NETFXSDK'
+    $netfxInclude = Join-Path $netfxParent '4.8.1/Include/um'
+    $netfxLib = Join-Path $netfxParent '4.8.1/Lib/um/x64'
     New-Item -ItemType Directory -Path $include, $library, $auxiliary, $unknown | Out-Null
+    New-Item -ItemType Directory -Path $netfxInclude, $netfxLib -Force | Out-Null
     $roots = [ordered]@{'msvc-include'=$include; 'msvc-lib-x64'=$library; 'vc-auxiliary-include'=$auxiliary;
-        'private-role-marker'=$unknown}
+        'netfx-other'=$netfxParent; 'private-role-marker'=$unknown}
     $goodInclude = Get-CompilerSearchObservation 'INCLUDE' ($include + ';') @($include) $roots
     $goodLib = Get-CompilerSearchObservation 'LIB' $library @($library) $roots
     if ($goodInclude.entries[0].disposition -ne 'accepted' -or $goodInclude.entry_count -ne 1 -or
@@ -404,11 +408,58 @@ try {
     try { $fault = Get-CompilerSearchObservation 'INCLUDE' $include @($include) $roots }
     finally { Remove-Item Function:Test-Path }
     if ($fault.entries[0].disposition -ne 'inspection-error' -or $null -ne $fault.entries[0].exists) { throw 'exception exposed or admitted' }
+    $contractPhase = 'numeric-netfx'
+    $numericInclude = Get-CompilerSearchObservation 'INCLUDE' $netfxInclude @($include) $roots
+    $numericLib = Get-CompilerSearchObservation 'LIB' $netfxLib @($library) $roots
+    if ($numericInclude.entries[0].netfx_sdk_version -ne '4.8.1' -or
+        $numericInclude.entries[0].netfx_search_role -ne 'include-um' -or
+        $numericLib.entries[0].netfx_sdk_version -ne '4.8.1' -or
+        $numericLib.entries[0].netfx_search_role -ne 'lib-um-x64' -or
+        $numericInclude.entries[0].disposition -ne 'outside-declared-roots' -or
+        $numericLib.entries[0].disposition -ne 'outside-declared-roots') { throw 'numeric observation bypassed admission' }
+    foreach ($version in @('4.8','4.8.1.2')) {
+        $value = Get-CompilerSearchObservation 'INCLUDE' (Join-Path $netfxParent ($version + '/Include/um')) @($include) $roots
+        if ($value.entries[0].netfx_sdk_version -ne $version -or $value.entries[0].netfx_search_role -ne 'include-um') { throw 'numeric version inferred or pinned' }
+    }
+    foreach ($relative in @('4.8-private/Include/um','4/Include/um','4.8.1.2.3/Include/um',
+        '1234567.8/Include/um','4.8.1/Include/um/private-suffix','private-child/4.8.1/Include/um',
+        '../NETFXSDK-sibling/4.8.1/Include/um')) {
+        $value = Get-CompilerSearchObservation 'INCLUDE' (Join-Path $netfxParent $relative) @($include) $roots
+        if ($null -ne $value.entries[0].netfx_sdk_version -or $null -ne $value.entries[0].netfx_search_role -or
+            $value.entries[0].disposition -eq 'accepted') { throw 'arbitrary path exposed or admitted' }
+    }
+    $contractPhase = 'vc-auxiliary-seal'
+    $admitted = Get-CompilerSearchObservation 'INCLUDE' $auxiliary @($include, $auxiliary) $roots
+    if ($admitted.entries[0].disposition -ne 'accepted') { throw 'explicit observed header root rejected' }
+    $header = Join-Path $auxiliary 'authored-header.h'
+    [IO.File]::WriteAllText($header, 'authored before')
+    $toolRoots = [ordered]@{'vc-auxiliary'=[IO.Path]::GetFullPath((Join-Path $auxiliary '../..'))}
+    $tar = $vswhere = $pythonExe = Join-Path $FixtureRoot 'authored-nonexecuted-tool.exe'
+    [IO.File]::WriteAllText($tar, 'authored non-executable bytes; hash only')
+    $pin = [pscustomobject]@{host=[pscustomobject]@{compiler_version='19.51.36260.0';toolset_directory='14.51.36231';sdk_version='10.0.26100.0';cmake_version='4.4.5'}}
+    $instance = [pscustomobject]@{installationVersion='18.0.0.0'}
+    $before = Join-Path $FixtureRoot 'authored-tool-seal-before.json'
+    $after = Join-Path $FixtureRoot 'authored-tool-seal-after.json'
+    $savedComSpec = $env:ComSpec
+    try {
+        $env:ComSpec = $tar
+        Write-ToolIdentity $before
+        [IO.File]::WriteAllText($header, 'authored changed after')
+        Write-ToolIdentity $after
+    } finally { $env:ComSpec = $savedComSpec }
+    $beforeTree = (Get-Content -LiteralPath $before -Raw | ConvertFrom-Json).trees.'vc-auxiliary'
+    $afterTree = (Get-Content -LiteralPath $after -Raw | ConvertFrom-Json).trees.'vc-auxiliary'
+    $beforeHash = $beforeTree.'VS/include/authored-header.h'.sha256
+    $afterHash = $afterTree.'VS/include/authored-header.h'.sha256
+    if ($beforeHash -cnotmatch '^[a-f0-9]{64}$' -or $afterHash -eq $beforeHash -or
+        $afterHash -ne (Get-FileHash -LiteralPath $header -Algorithm SHA256).Hash.ToLowerInvariant()) { throw 'observed auxiliary header omitted from seal' }
     $contractPhase = 'projection'
+    $badInclude = Get-CompilerSearchObservation 'INCLUDE' ($include + ';' + $auxiliary + ';' + $unknown + ';' + $netfxInclude) @($include, $auxiliary) $roots
+    $badLib = Get-CompilerSearchObservation 'LIB' ($library + ';' + $netfxLib) @($library) $roots
     $badInclude['private_object_field'] = 'private-extra-marker'
     $badInclude.entries[0]['raw_path'] = $include
     $destination = Join-Path $FixtureRoot 'failed-receipt'
-    Write-CompilerSearchFailure $destination $ManifestPath ('a' * 40) @($badInclude, $goodLib)
+    Write-CompilerSearchFailure $destination $ManifestPath ('a' * 40) @($badInclude, $badLib)
     $report = Get-Content -LiteralPath (Join-Path $destination 'FAILED-STAGE.json') -Raw | ConvertFrom-Json
     if (@(Get-ChildItem -LiteralPath $destination).Count -ne 1) { throw 'unexpected publication' }
     $contractPhase = 'fail-closed'
@@ -416,7 +467,7 @@ try {
     try { Write-CompilerSearchFailure $destination $ManifestPath ('a' * 40) @($badInclude, $goodLib) }
     catch { if ($_.Exception.Message -eq 'Safe compiler search-path failure receipt could not be recorded.') { $rejected = $true } }
     if (-not $rejected) { throw 'existing receipt overwritten' }
-    foreach ($case in @('matching','source','role','exception','bound')) {
+    foreach ($case in @('matching','source','role','exception','bound','numeric','suffix','missing-pair')) {
         $out = Join-Path $FixtureRoot ('invalid-' + $case)
         $source = 'a' * 40; $manifest = $ManifestPath; $item = $badInclude
         if ($case -eq 'matching') { $item = $goodInclude }
@@ -424,6 +475,12 @@ try {
         if ($case -eq 'role') { $item = Get-CompilerSearchObservation 'INCLUDE' $auxiliary @($include) $roots; $item.entries[0].component_role = 'private-role-marker' }
         if ($case -eq 'exception') { $manifest = Join-Path $FixtureRoot 'private-missing-manifest-marker' }
         if ($case -eq 'bound') { $item = Get-CompilerSearchObservation 'INCLUDE' $auxiliary @($include) $roots; $item.entry_count = 65 }
+        if ($case -in @('numeric','suffix','missing-pair')) {
+            $item = Get-CompilerSearchObservation 'INCLUDE' $netfxInclude @($include) $roots
+            if ($case -eq 'numeric') { $item.entries[0].netfx_sdk_version = '4.8.1 private-version-marker' }
+            if ($case -eq 'suffix') { $item.entries[0].netfx_search_role = 'private-suffix-marker' }
+            if ($case -eq 'missing-pair') { $item.entries[0].netfx_search_role = $null }
+        }
         $rejected = $false
         try { Write-CompilerSearchFailure $out $manifest $source @($item, $goodLib) }
         catch { if ($_.Exception.Message -eq 'Safe compiler search-path failure receipt could not be recorded.') { $rejected = $true } }
@@ -443,24 +500,28 @@ try {
             except (ValueError, TypeError): self.fail('Authored search-path contract failed without safe diagnostics.')
             self.assertEqual(set(diagnosis), {'schema', 'phase'})
             self.assertEqual(diagnosis['schema'], 'authored-search-contract-failure-v1')
-            self.assertIn(diagnosis['phase'], {'parse', 'observations', 'projection', 'fail-closed'})
+            self.assertIn(diagnosis['phase'], {'parse', 'observations', 'numeric-netfx', 'vc-auxiliary-seal', 'projection', 'fail-closed'})
             self.fail('Authored search-path contract failed: ' + json.dumps(diagnosis, sort_keys=True))
         report = json.loads(result.stdout)
-        self.assertEqual(report['schema'], 'proxy-r19-game-codec-replay-toolchain-preflight-failure-v1')
+        self.assertEqual(report['schema'], 'proxy-r19-game-codec-replay-toolchain-preflight-failure-v2')
         self.assertEqual(report['phase'], 'preflight-compiler-search-path'); self.assertEqual(report['status'], 'failed')
         self.assertEqual(report['source_commit'], 'a'*40)
         self.assertEqual(report['input_manifest'], {'path': 'packaging/codecs/ffmpeg-opus-replay.json',
             'bytes': len(replay.PIN.read_bytes()), 'sha256': replay.digest(replay.PIN.read_bytes())})
-        self.assertEqual(report['search_paths'][0], {'kind': 'INCLUDE', 'state': 'checked', 'entry_count': 3, 'entries': [
-            {'component_role': 'msvc-include', 'exists': True, 'disposition': 'accepted'},
-            {'component_role': 'vc-auxiliary-include', 'exists': True, 'disposition': 'outside-declared-roots'},
-            {'component_role': 'unclassified', 'exists': True, 'disposition': 'outside-declared-roots'}]})
+        self.assertEqual(report['search_paths'][0], {'kind': 'INCLUDE', 'state': 'checked', 'entry_count': 4, 'entries': [
+            {'component_role': 'msvc-include', 'exists': True, 'disposition': 'accepted', 'netfx_sdk_version': None, 'netfx_search_role': None},
+            {'component_role': 'vc-auxiliary-include', 'exists': True, 'disposition': 'accepted', 'netfx_sdk_version': None, 'netfx_search_role': None},
+            {'component_role': 'unclassified', 'exists': True, 'disposition': 'outside-declared-roots', 'netfx_sdk_version': None, 'netfx_search_role': None},
+            {'component_role': 'netfx-other', 'exists': True, 'disposition': 'outside-declared-roots', 'netfx_sdk_version': '4.8.1', 'netfx_search_role': 'include-um'}]})
+        self.assertEqual(report['search_paths'][1]['entries'][1], {'component_role': 'netfx-other', 'exists': True,
+            'disposition': 'outside-declared-roots', 'netfx_sdk_version': '4.8.1', 'netfx_search_role': 'lib-um-x64'})
         for gate in ('raw_log_published', 'native_codec_built', 'native_codec_executed', 'runtime_collection_allowed',
                      'production_execution_allowed', 'source_delivery_approved', 'r19_complete'):
             self.assertIs(report[gate], False)
         serialized = result.stdout + result.stderr
         for private in (str(self.root), 'private-personal-marker', 'private-extra-marker', 'raw_path',
-                        'private_object_field', 'private-relative-marker', 'private-exception-marker', 'private-role-marker'):
+                        'private_object_field', 'private-relative-marker', 'private-exception-marker', 'private-role-marker',
+                        'private-version-marker', 'private-suffix-marker'):
             self.assertNotIn(private, serialized)
 
 

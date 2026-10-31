@@ -120,6 +120,7 @@ function Get-CompilerSearchObservation(
         if ($parts.Count -gt 64) { $state = 'entry-limit' }
         foreach ($entry in ($parts | Select-Object -First 64)) {
             $role = 'unclassified'; $exists = $null; $disposition = 'invalid-entry'
+            $netfxVersion = $null; $netfxRole = $null
             if (-not $entry) { $disposition = 'empty-entry' }
             else {
                 try {
@@ -131,6 +132,17 @@ function Get-CompilerSearchObservation(
                             if ($full.Equals($base, [StringComparison]::OrdinalIgnoreCase) -or
                                 $full.StartsWith($base + '\', [StringComparison]::OrdinalIgnoreCase)) {
                                 $role = $name; break
+                            }
+                        }
+                        if ($ComponentRoots.Contains('netfx-other')) {
+                            $parent = [IO.Path]::GetFullPath($ComponentRoots['netfx-other']).TrimEnd('\')
+                            if ($full.StartsWith($parent + '\', [StringComparison]::OrdinalIgnoreCase)) {
+                                $relative = [IO.Path]::GetRelativePath($parent, $full)
+                                if ($relative -imatch '^([0-9]{1,6}(?:\.[0-9]{1,6}){1,3})\\(Include\\um|Lib\\um\\x64)$') {
+                                    # Only a numeric direct child and exact known suffix are public.
+                                    $netfxVersion = $Matches[1]
+                                    $netfxRole = if ($Matches[2] -ieq 'Include\um') { 'include-um' } else { 'lib-um-x64' }
+                                }
                             }
                         }
                         $allowed = $false
@@ -146,9 +158,11 @@ function Get-CompilerSearchObservation(
                 } catch {
                     # No exception message, supplied path or path fingerprint is public.
                     $role = 'unclassified'; $exists = $null; $disposition = 'inspection-error'
+                    $netfxVersion = $null; $netfxRole = $null
                 }
             }
-            $entries.Add([ordered]@{component_role=$role; exists=$exists; disposition=$disposition})
+            $entries.Add([ordered]@{component_role=$role; exists=$exists; disposition=$disposition
+                netfx_sdk_version=$netfxVersion; netfx_search_role=$netfxRole})
         }
     }
     return [ordered]@{kind=$Kind; state=$state; entry_count=$entries.Count; entries=@($entries.ToArray())}
@@ -180,8 +194,16 @@ function Write-CompilerSearchFailure([string]$Destination, [string]$InputManifes
                         'empty-entry','invalid-entry','inspection-error') -or
                     ($entry.disposition -eq 'accepted' -and $entry.exists -ne $true) -or
                     ($entry.disposition -eq 'missing-directory' -and $entry.exists -ne $false)) { throw 'entry' }
+                if (($null -eq $entry.netfx_sdk_version) -ne ($null -eq $entry.netfx_search_role) -or
+                    ($null -ne $entry.netfx_sdk_version -and
+                        ($entry.component_role -cnotin @('netfx-include','netfx-lib-x64','netfx-other') -or
+                         $entry.netfx_sdk_version -isnot [string] -or
+                         $entry.netfx_sdk_version -cnotmatch '^[0-9]{1,6}(?:\.[0-9]{1,6}){1,3}$' -or
+                         $entry.netfx_search_role -isnot [string] -or
+                         $entry.netfx_search_role -cnotin @('include-um','lib-um-x64')))) { throw 'numeric-netfx' }
                 if ($entry.disposition -ne 'accepted') { $failed = $true }
-                $entries += [ordered]@{component_role=$entry.component_role; exists=$entry.exists; disposition=$entry.disposition}
+                $entries += [ordered]@{component_role=$entry.component_role; exists=$entry.exists; disposition=$entry.disposition
+                    netfx_sdk_version=$entry.netfx_sdk_version; netfx_search_role=$entry.netfx_search_role}
             }
             # Rebuild a fixed projection; arbitrary object fields are never serialized.
             $paths += [ordered]@{kind=$item.kind; state=$item.state; entry_count=$item.entry_count; entries=@($entries)}
@@ -191,7 +213,7 @@ function Write-CompilerSearchFailure([string]$Destination, [string]$InputManifes
         if ($manifest.PSIsContainer -or $manifest.Length -le 0 -or $manifest.Length -gt 1048576 -or
             ($manifest.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'manifest' }
         $report = [ordered]@{
-            schema='proxy-r19-game-codec-replay-toolchain-preflight-failure-v1'; status='failed'
+            schema='proxy-r19-game-codec-replay-toolchain-preflight-failure-v2'; status='failed'
             phase='preflight-compiler-search-path'; source_commit=$SourceCommit
             input_manifest=@{path='packaging/codecs/ffmpeg-opus-replay.json'; bytes=$manifest.Length
                 sha256=(Get-FileHash -LiteralPath $InputManifest -Algorithm SHA256).Hash.ToLowerInvariant()}
@@ -285,7 +307,9 @@ if ($env:WindowsSDKVersion.TrimEnd('\') -ne $pin.host.sdk_version -or
     $env:VCToolsInstallDir.TrimEnd('\') -ne $toolset.TrimEnd('\')) { throw 'Activated toolchain identity differs.' }
 $netfx = Join-Path ${env:ProgramFiles(x86)} ('Windows Kits/NETFXSDK/' + $pin.host.netfx_sdk_headers)
 $headerRoots = @((Join-Path $toolset 'include'), (Join-Path $toolset 'atlmfc/include'),
-    (Join-Path $sdk ('Include/' + $pin.host.sdk_version)), (Join-Path $netfx 'Include/um'))
+    (Join-Path $sdk ('Include/' + $pin.host.sdk_version)), (Join-Path $netfx 'Include/um'),
+    # Observed in run 41161558418 and already covered by the full VC/Auxiliary seal.
+    (Join-Path $instance.installationPath 'VC/Auxiliary/VS/include'))
 $libraryRoots = @((Join-Path $toolset 'lib/x64'), (Join-Path $toolset 'atlmfc/lib/x64'),
     (Join-Path $sdk ('Lib/' + $pin.host.sdk_version + '/ucrt/x64')),
     (Join-Path $sdk ('Lib/' + $pin.host.sdk_version + '/um/x64')), (Join-Path $netfx 'Lib/um/x64'))
@@ -294,8 +318,8 @@ $componentRoots = [ordered]@{
     'sdk-include'=$headerRoots[2]; 'netfx-include'=$headerRoots[3]
     'msvc-lib-x64'=$libraryRoots[0]; 'msvc-atlmfc-lib-x64'=$libraryRoots[1]
     'sdk-ucrt-lib-x64'=$libraryRoots[2]; 'sdk-um-lib-x64'=$libraryRoots[3]; 'netfx-lib-x64'=$libraryRoots[4]
-    # Additional classification roots are diagnostic only; they remain rejected.
-    'vc-auxiliary-include'=(Join-Path $instance.installationPath 'VC/Auxiliary/VS/include')
+    'vc-auxiliary-include'=$headerRoots[4]
+    # Broader classification roots are diagnostic only; they remain rejected.
     'netfx-other'=(Split-Path $netfx); 'sdk-other'=$sdk
     'msvc-other'=(Join-Path $instance.installationPath 'VC/Tools/MSVC')
 }

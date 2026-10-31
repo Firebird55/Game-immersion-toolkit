@@ -118,14 +118,28 @@ uses a separate toolchain-preflight failure schema at `FAILED-STAGE.json`.
 It binds the source commit and manifest bytes/SHA-256 to at most 64 entries per
 search variable: fixed component roles, directory-existence flags and fixed
 rejection reasons. Missing values, oversized values, too many entries and
-inspection errors fail closed. Additional known component roles classify a
-rejected path; they do not admit a new compiler input root. Paths, path hashes,
-environment contents, arbitrary object fields and exception text are omitted.
+inspection errors fail closed. Broader NETFX/SDK/MSVC component roles classify a
+rejected path; they do not admit a new compiler input root. Schema v2 also records
+a NETFX SDK version only for a strictly numeric direct child of the declared
+NETFXSDK parent with an exact `Include/um` or `Lib/um/x64` suffix. The public
+fields contain that numeric version and a fixed include/lib role; other paths
+retain null fields and remain rejected. No NETFX version is inferred or newly
+admitted. Paths, path hashes, environment contents, arbitrary object fields and
+exception text are omitted.
 Passing search checks leave source preparation's destination absent; only a
 failure creates the fresh receipt directory. All build/runtime/rights gates stay
-false in this diagnostic receipt. The first activation/search attempt reached
-the path guard but did not build or execute a codec; a later exact Windows run
-must identify the rejected component before any root change is considered.
+false in this diagnostic receipt.
+
+[Run 41161558418](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161558418)
+executed both early authored Windows contracts successfully with zero skips.
+Its verified failure receipt identifies the exact `VC/Auxiliary/VS/include`
+header root and two other NETFX SDK search entries. The auxiliary header root is
+now explicitly declared and was already inside the complete `VC/Auxiliary` tree
+sealed before configure/compilation and again after probe compilation. An
+authored header regression verifies that both seals include its bytes and detect
+a change. The NETFX entries remain blocked pending their exact numeric/suffix
+observation; this run built or executed no codec. Existing compiler/CMake/SDK
+pins and runtime, rights, source-delivery and Windows 11 gates are unchanged.
 
 The source review kit is not approved corresponding-source delivery or a durable
 source service. Original upstream inputs retain their own terms. New project
