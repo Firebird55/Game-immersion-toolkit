@@ -174,8 +174,10 @@ class WindowsPreparationProcess:
 
     def close(self):
         if self.handle:
-            handle, self.handle = self.handle, None
-            _check(self.kernel.CloseHandle(handle))
+            # A failed native close leaves ownership unconfirmed. Keep the
+            # exact handle available for an explicit retry by the caller.
+            _check(self.kernel.CloseHandle(self.handle))
+            self.handle = None
 
 
 def _bootstrap(name, command):

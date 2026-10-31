@@ -109,6 +109,35 @@ def test_failed_job_drain_retains_ownership_and_private_logs(owned, monkeypatch)
     assert 'job-close' not in calls
 
 
+def test_failed_native_job_close_keeps_host_unclosed_until_same_handle_retry(owned, monkeypatch):
+    import ctypes
+    from backend.windows_preparation_process import WindowsPreparationProcess
+    host, calls = owned
+    host.start()
+    original = host.tree
+    owner = WindowsPreparationProcess.__new__(WindowsPreparationProcess)
+    owner.handle = object()
+    exact_handle = owner.handle
+    attempts = []
+    def close(handle):
+        attempts.append(handle)
+        return len(attempts) > 1
+    owner.kernel = SimpleNamespace(CloseHandle=close)
+    owner.terminate = original.terminate
+    host.tree = owner
+    scratch = host.scratch
+    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 6, raising=False)
+    monkeypatch.setattr(ctypes, 'WinError', lambda error: OSError(error, 'authored close failure'), raising=False)
+    with pytest.raises(runtime_host.HostProbeFailure, match='owned-cleanup-unconfirmed'):
+        host.close()
+    assert host.tree is owner and owner.handle is exact_handle
+    assert not host.closed and scratch.exists() and attempts == [exact_handle]
+    host.close()
+    assert host.closed and host.tree is None and owner.handle is None
+    assert not scratch.exists() and attempts == [exact_handle, exact_handle]
+    assert calls.count('job-drain') == 2
+
+
 def test_exit_frontend_uses_retained_handle_and_monitor_stops_slot(owned):
     host, calls = owned
     host.start()

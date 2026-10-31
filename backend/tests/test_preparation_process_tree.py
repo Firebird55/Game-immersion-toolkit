@@ -20,16 +20,20 @@ def wait_for(predicate, timeout=5):
     assert predicate()
 
 
-def test_failed_tree_cleanup_remains_a_quiesce_failure_after_worker_exit_and_restart(tmp_path, monkeypatch):
+@pytest.mark.parametrize('failure_stage', ['drain', 'close'])
+def test_failed_tree_cleanup_remains_a_quiesce_failure_after_worker_exit_and_restart(tmp_path, monkeypatch, failure_stage):
     marker = tmp_path / 'started'
     closed = []
     class UnconfirmedTree:
         def command(self, command):
             return command
         def terminate(self):
-            raise TimeoutError('Synthetic Windows job drain failure')
+            if failure_stage == 'drain':
+                raise TimeoutError('Synthetic Windows job drain failure')
         def close(self):
             closed.append(True)
+            if failure_stage == 'close':
+                raise OSError('Synthetic Windows job close failure')
     monkeypatch.setattr(worker, 'os', SimpleNamespace(name='nt'))
     monkeypatch.setattr(worker, 'WindowsPreparationProcess', UnconfirmedTree)
     def build(*_, job):

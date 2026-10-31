@@ -98,6 +98,26 @@ def test_job_accounting_zero_is_not_process_completion():
     assert sorted(kernel.opened) == sorted(kernel.closed) == [10, 20]
 
 
+def test_failed_job_close_retains_exact_handle_until_explicit_retry(monkeypatch):
+    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 6, raising=False)
+    monkeypatch.setattr(ctypes, 'WinError', lambda error: OSError(error, 'authored close failure'), raising=False)
+    kernel = Kernel()
+    attempts = []
+    def close(handle):
+        attempts.append(handle)
+        return len(attempts) > 1
+    monkeypatch.setattr(kernel, 'CloseHandle', close)
+    owner = tree(kernel)
+    exact_handle = owner.handle
+    with pytest.raises(OSError, match='authored close failure'):
+        owner.close()
+    assert owner.handle is exact_handle and attempts == [exact_handle]
+    owner.close()
+    assert owner.handle is None and attempts == [exact_handle, exact_handle]
+    owner.close()
+    assert attempts == [exact_handle, exact_handle]
+
+
 def test_drain_reenumerates_child_spawned_before_parent_termination():
     kernel = Kernel(late_child=True)
     tree(kernel).terminate()
