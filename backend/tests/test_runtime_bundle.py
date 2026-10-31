@@ -246,6 +246,7 @@ def test_frozen_windows_command_uses_real_image_and_never_py_file(monkeypatch):
         output.value = image
         return len(image)
     tree = preparation.WindowsPreparationProcess.__new__(preparation.WindowsPreparationProcess)
+    tree._handle = 123
     tree.kernel, tree.name = SimpleNamespace(GetModuleFileNameW=get_image), 'owned-job'
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
     assert tree.command(['extractor.exe', 'arg']) == [image, '--runtime-child', 'windows-bootstrap', '--', 'owned-job', 'extractor.exe', 'arg']

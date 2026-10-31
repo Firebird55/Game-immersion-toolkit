@@ -109,29 +109,47 @@ def test_failed_job_drain_retains_ownership_and_private_logs(owned, monkeypatch)
     assert 'job-close' not in calls
 
 
-def test_failed_native_job_close_keeps_host_unclosed_until_same_handle_retry(owned, monkeypatch):
+@pytest.mark.parametrize('invalid_handle', [False, True])
+def test_failed_native_job_close_keeps_host_unclosed_until_owned_retry(owned, monkeypatch, invalid_handle):
     import ctypes
     from backend.windows_preparation_process import WindowsPreparationProcess
     host, calls = owned
     host.start()
     original = host.tree
     owner = WindowsPreparationProcess.__new__(WindowsPreparationProcess)
-    owner.handle = object()
+    owner._handle = object()
     exact_handle = owner.handle
     attempts = []
+    protection = {'enabled': True}
     def close(handle):
         attempts.append(handle)
-        return len(attempts) > 1
-    owner.kernel = SimpleNamespace(CloseHandle=close)
+        return not protection['enabled']
+    def protected(_handle, flags):
+        flags._obj.value = 2 if protection['enabled'] else 0
+        return 1
+    owner.kernel = SimpleNamespace(CloseHandle=close, GetHandleInformation=protected)
     owner.terminate = original.terminate
     host.tree = owner
     scratch = host.scratch
-    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 6, raising=False)
+    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 6 if invalid_handle else 5, raising=False)
     monkeypatch.setattr(ctypes, 'WinError', lambda error: OSError(error, 'authored close failure'), raising=False)
     with pytest.raises(runtime_host.HostProbeFailure, match='owned-cleanup-unconfirmed'):
         host.close()
-    assert host.tree is owner and owner.handle is exact_handle
+    assert host.tree is owner
     assert not host.closed and scratch.exists() and attempts == [exact_handle]
+    if invalid_handle:
+        with pytest.raises(OSError, match='ownership is unconfirmed'):
+            _ = owner.handle
+        # Retry the actual owner drain. Its poisoned guard must stop before
+        # invoking any kernel method with the potentially recycled value.
+        owner.terminate = WindowsPreparationProcess.terminate.__get__(owner)
+        with pytest.raises(runtime_host.HostProbeFailure, match='owned-cleanup-unconfirmed'):
+            host.close()
+        assert not host.closed and host.tree is owner and scratch.exists()
+        assert attempts == [exact_handle] and calls.count('job-drain') == 1
+        return
+    assert owner.handle is exact_handle
+    protection['enabled'] = False
     host.close()
     assert host.closed and host.tree is None and owner.handle is None
     assert not scratch.exists() and attempts == [exact_handle, exact_handle]

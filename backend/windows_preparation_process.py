@@ -55,6 +55,7 @@ def _kernel():
         'GetCurrentProcess': ([], wintypes.HANDLE),
         'GetModuleFileNameW': ([wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD], wintypes.DWORD),
         'SetDllDirectoryW': ([wintypes.LPCWSTR], wintypes.BOOL),
+        'GetHandleInformation': ([wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)], wintypes.BOOL),
         'CloseHandle': ([wintypes.HANDLE], wintypes.BOOL),
     }
     for name, (arguments, result) in functions.items():
@@ -73,7 +74,8 @@ class WindowsPreparationProcess:
     def __init__(self):
         self.kernel = _kernel()
         self.name = 'ProxyTranscriptPreparation-' + uuid.uuid4().hex
-        self.handle = _check(self.kernel.CreateJobObjectW(None, self.name))
+        self._ownership_unconfirmed = False
+        self._handle = _check(self.kernel.CreateJobObjectW(None, self.name))
         try:
             limits = _ExtendedLimits()
             limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE; no breakaway.
@@ -82,7 +84,22 @@ class WindowsPreparationProcess:
             self.close()
             raise
 
+    @property
+    def handle(self):
+        # A stale raw value could have been recycled for an unrelated object.
+        # Do not expose it to external membership queries or cleanup callers.
+        if getattr(self, '_ownership_unconfirmed', False):
+            raise OSError('Windows preparation job ownership is unconfirmed; restart the companion.')
+        return self._handle
+
+    def _require_owned(self):
+        handle = self.handle
+        if not handle:
+            raise OSError('Windows preparation job is already closed.')
+        return handle
+
     def command(self, command):
+        self._require_owned()
         # venv python.exe can be a redirector that launches another interpreter.
         # The stdlib-only bootstrap must be the retained Popen process itself;
         # use this process's real executable image, retaining the venv command
@@ -99,6 +116,7 @@ class WindowsPreparationProcess:
         return [image.value, str(Path(__file__).resolve()), self.name, *command]
 
     def _process_ids(self, deadline):
+        self._require_owned()
         capacity = 64
         while True:
             if time.monotonic() >= deadline:
@@ -116,6 +134,7 @@ class WindowsPreparationProcess:
             capacity = max(capacity * 2, processes.assigned)
 
     def _wait(self, handle, deadline):
+        self._require_owned()
         remaining_ms = max(0, math.ceil((deadline - time.monotonic()) * 1000))
         result = self.kernel.WaitForSingleObject(handle, remaining_ms)
         if result == 0:  # WAIT_OBJECT_0: the process object is signaled.
@@ -127,6 +146,7 @@ class WindowsPreparationProcess:
         raise OSError('Unexpected Windows preparation process wait result.')
 
     def terminate(self, timeout=3):
+        self._require_owned()
         # The caller has already reaped the bootstrap, so it cannot join/spawn
         # after an empty-job observation. Do not mass-terminate first: job
         # accounting may reach zero before the process objects are signaled.
@@ -173,11 +193,39 @@ class WindowsPreparationProcess:
             # termination. Its descendants remain in the job for the next pass.
 
     def close(self):
-        if self.handle:
-            # A failed native close leaves ownership unconfirmed. Keep the
-            # exact handle available for an explicit retry by the caller.
-            _check(self.kernel.CloseHandle(self.handle))
-            self.handle = None
+        handle = self.handle
+        if not handle:
+            return
+        try:
+            closed = self.kernel.CloseHandle(handle)
+        except Exception as error:
+            self._ownership_unconfirmed = True
+            raise OSError('Windows preparation job close outcome is unconfirmed.') from error
+        except BaseException:
+            self._ownership_unconfirmed = True
+            raise
+        if closed:
+            self._handle = None
+            return
+        error = ctypes.get_last_error()
+        # Only an evidenced protected handle remains eligible for retry. In
+        # particular ERROR_INVALID_HANDLE must never be probed or closed again:
+        # its numeric value might already identify an unrelated object.
+        retryable = False
+        if error == 5:  # ERROR_ACCESS_DENIED
+            flags = wintypes.DWORD()
+            try:
+                retryable = bool(self.kernel.GetHandleInformation(handle, ctypes.byref(flags))
+                    and flags.value & 2)  # HANDLE_FLAG_PROTECT_FROM_CLOSE
+            except Exception as failure:
+                self._ownership_unconfirmed = True
+                raise OSError('Windows preparation job close outcome is unconfirmed.') from failure
+            except BaseException:
+                self._ownership_unconfirmed = True
+                raise
+        if not retryable:
+            self._ownership_unconfirmed = True
+        raise ctypes.WinError(error)
 
 
 def _bootstrap(name, command):

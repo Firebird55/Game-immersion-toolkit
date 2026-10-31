@@ -66,7 +66,7 @@ class Kernel:
 
 def tree(kernel):
     instance = WindowsPreparationProcess.__new__(WindowsPreparationProcess)
-    instance.kernel, instance.handle = kernel, 100
+    instance.kernel, instance._handle = kernel, 100
     return instance
 
 
@@ -99,23 +99,79 @@ def test_job_accounting_zero_is_not_process_completion():
 
 
 def test_failed_job_close_retains_exact_handle_until_explicit_retry(monkeypatch):
-    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 6, raising=False)
+    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 5, raising=False)
     monkeypatch.setattr(ctypes, 'WinError', lambda error: OSError(error, 'authored close failure'), raising=False)
     kernel = Kernel()
     attempts = []
+    protection = {'enabled': True}
     def close(handle):
         attempts.append(handle)
-        return len(attempts) > 1
+        return not protection['enabled']
+    def protected(handle, flags):
+        assert handle == 100
+        flags._obj.value = 2 if protection['enabled'] else 0
+        return 1
     monkeypatch.setattr(kernel, 'CloseHandle', close)
+    monkeypatch.setattr(kernel, 'GetHandleInformation', protected, raising=False)
     owner = tree(kernel)
     exact_handle = owner.handle
     with pytest.raises(OSError, match='authored close failure'):
         owner.close()
     assert owner.handle is exact_handle and attempts == [exact_handle]
+    protection['enabled'] = False  # Explicitly repair protection before retry.
     owner.close()
     assert owner.handle is None and attempts == [exact_handle, exact_handle]
     owner.close()
     assert attempts == [exact_handle, exact_handle]
+
+
+@pytest.mark.parametrize('error', [6, 87, 0, 5])
+def test_unconfirmed_close_quarantines_reused_value_without_second_native_operation(monkeypatch, error):
+    monkeypatch.setattr(ctypes, 'get_last_error', lambda: error, raising=False)
+    monkeypatch.setattr(ctypes, 'WinError', lambda code: OSError(code, 'authored unconfirmed close'), raising=False)
+    kernel = Kernel()
+    calls = []
+    def close(handle):
+        calls.append(('close', handle))
+        # The same integer can now refer to a foreign object. No later native
+        # call may query, wait, terminate or close that value.
+        return 0
+    def unprotected(handle, flags):
+        calls.append(('flags', handle))
+        flags._obj.value = 0
+        return 1
+    monkeypatch.setattr(kernel, 'CloseHandle', close)
+    monkeypatch.setattr(kernel, 'GetHandleInformation', unprotected, raising=False)
+    owner = tree(kernel)
+    with pytest.raises(OSError, match='authored unconfirmed close'):
+        owner.close()
+    expected = [('close', 100)] + ([('flags', 100)] if error == 5 else [])
+    assert calls == expected
+    for operation in (lambda: owner.handle, owner.close, owner.terminate,
+                      lambda: owner.command(['forbidden.exe']),
+                      lambda: owner._process_ids(float('inf')),
+                      lambda: owner._wait(100, float('inf'))):
+        with pytest.raises(OSError, match='ownership is unconfirmed'):
+            operation()
+    with pytest.raises(AttributeError):
+        owner.handle = None
+    assert calls == expected
+    assert not kernel.opened and not kernel.terminated and not kernel.waited
+
+
+def test_unclassified_native_close_exception_is_sticky_cleanup_failure(monkeypatch):
+    kernel = Kernel()
+    attempts = []
+    def close(handle):
+        attempts.append(handle)
+        raise ValueError('authored native wrapper failure')
+    monkeypatch.setattr(kernel, 'CloseHandle', close)
+    owner = tree(kernel)
+    with pytest.raises(OSError, match='close outcome is unconfirmed'):
+        owner.close()
+    with pytest.raises(OSError, match='ownership is unconfirmed'):
+        owner.close()
+    assert attempts == [100]
 
 
 def test_drain_reenumerates_child_spawned_before_parent_termination():
