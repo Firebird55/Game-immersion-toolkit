@@ -67,8 +67,8 @@ def verify(archive, root, specification):
     if zipfile.is_zipfile(archive):
         with zipfile.ZipFile(archive) as bundle:
             for entry in bundle.infolist():
-                if stat.S_ISLNK(entry.external_attr >> 16):
-                    raise ValueError('SDK archive links are not accepted')
+                if entry.orig_filename != entry.filename or stat.S_ISLNK(entry.external_attr >> 16):
+                    raise ValueError('SDK archive aliases and links are not accepted')
                 member(entry.filename, entry.file_size, entry.is_dir(), lambda e=entry: bundle.open(e))
     else:
         with tarfile.open(archive, 'r:gz') as bundle:

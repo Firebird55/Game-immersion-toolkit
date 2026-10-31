@@ -60,6 +60,32 @@ restore lock and every runtime package member. Runtime loading validates that
 receipt, the outer package inventory, the apphost architecture and OS-specific
 CoreCLR files. POSIX packages must preserve executable permission on the apphost.
 
+## Authored native provider probe
+
+After committing the sources and building both inputs from that clean commit:
+
+```text
+python scripts/probe-native-unreal.py --helper-root output/helper-resources/nte --resources output/reader-resources --output output/unreal-native-probe.json
+```
+
+The probe validates the helper and dependency receipts against the clean current
+commit, then copies their closed inventories into a temporary Unicode path. It
+starts the actual self-contained apphost with the production isolated environment
+and checks its app-local runtime identity. Both real CUE4Parse providers mount
+small authored Pak archives and extract zlib-compressed payloads. Coverage includes
+the four Chinese, English, Japanese and Korean voice-path identifiers, Wuthering's
+bounded configuration-file extraction, rejected unbounded selections, and unchanged
+runtime/input files. The NTE fixture applies its evidenced index-offset adjustment
+from the [pinned parser schema](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/Pak/Objects/FPakInfo.cs).
+
+Its path-free JSON report binds the source commit, probe source, helper manifest,
+resource collection manifest and managed-component inventory by SHA-256. A failed
+check exits nonzero. This proves the native loader and managed archive operations
+without a game installation, SDK, external runtime or account. It does not prove
+encrypted archives, Oodle decompression, SQLite parsing, original-voice playback,
+authored dialogue binding or game executable compatibility. Those retain their
+separate installed-file and package acceptance evidence.
+
 ## Evidence and remaining limits
 
 Synthetic regression tests cover each native image format and its exact runtime

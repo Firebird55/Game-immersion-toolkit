@@ -94,3 +94,16 @@ def test_sdk_apphost_must_remain_executable(tmp_path):
     (root / 'dotnet').chmod(0o644)
     with pytest.raises(ValueError, match='executable'):
         verifier().verify(archive, root, specification)
+
+
+def test_zip_original_name_cannot_differ_from_normalized_filename(tmp_path, monkeypatch):
+    archive, root, specification = fixture(tmp_path, 'zip')
+    module = verifier()
+    original = module.zipfile.ZipFile.infolist
+    def changed(container):
+        entries = original(container)
+        entries[0].orig_filename = entries[0].filename + '\0hidden'
+        return entries
+    monkeypatch.setattr(module.zipfile.ZipFile, 'infolist', changed)
+    with pytest.raises(ValueError, match='aliases'):
+        module.verify(archive, root, specification)
