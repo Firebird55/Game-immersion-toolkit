@@ -48,12 +48,23 @@ def test_valid_unreal_chain_uses_same_ready_flow_and_never_source_sdk(tmp_path, 
     assert len(resolved) == 2
 
 
+def test_verified_cyberpunk_runtime_uses_same_packaged_preparation(tmp_path, monkeypatch):
+    from backend import cyberpunk_toolchain
+    layout = included_runtime(tmp_path, monkeypatch)
+    checked = []
+    monkeypatch.setattr(cyberpunk_toolchain, 'resolve', lambda: checked.append(True))
+    assert game_tools.missing_tools(layout.application_root, 'cyberpunk') == []
+    game_tools.prepare_tools(layout.application_root, 'cyberpunk')
+    assert checked == [True, True]
+
+
 def test_missing_reader_does_not_disable_other_games_or_start_executable_downloads(tmp_path, monkeypatch):
-    from backend import prebuilt_node_reader, nte_toolchain
+    from backend import prebuilt_node_reader, nte_toolchain, cyberpunk_toolchain
     layout = included_runtime(tmp_path, monkeypatch)
     def absent():
         raise PreparationFailure('bundle_toolchain_unavailable', 'Missing reader resources')
     monkeypatch.setattr(nte_toolchain, 'resolve', absent)
+    monkeypatch.setattr(cyberpunk_toolchain, 'resolve', absent)
     monkeypatch.setattr(prebuilt_node_reader, 'require_zzz_reader', absent)
     for game in ('nte', 'zzz', 'wuwa', 'cyberpunk'):
         missing = game_tools.missing_tools(layout.application_root, game)
@@ -82,15 +93,16 @@ def test_private_format_metadata_is_separate_from_missing_native_runtime(tmp_pat
 
 @pytest.mark.parametrize('operation', ['wuwa-prepare', 'wuwa-run', 'cyberpunk-prepare', 'cyberpunk-run'])
 def test_unbundled_external_extractors_refuse_before_any_acquisition_or_run(tmp_path, monkeypatch, operation):
-    from backend import bundle_tools, cyberpunk_assets, wuthering_assets
+    from backend import bundle_tools, cyberpunk_assets, cyberpunk_toolchain, wuthering_assets
     layout = included_runtime(tmp_path, monkeypatch)
     monkeypatch.setattr(bundle_tools, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(cyberpunk_toolchain, 'discover_layout', lambda: layout)
     def forbidden(*_a, **_k):
         pytest.fail('Unbundled extractor attempted download, process launch or private metadata lookup')
     monkeypatch.setattr(wuthering_assets, '_download', forbidden)
     monkeypatch.setattr(wuthering_assets, '_archive_metadata', forbidden)
-    monkeypatch.setattr(cyberpunk_assets.urllib.request, 'urlopen', forbidden)
-    monkeypatch.setattr(cyberpunk_assets.subprocess, 'run', forbidden)
+    monkeypatch.setattr(cyberpunk_toolchain.urllib.request, 'urlopen', forbidden)
+    monkeypatch.setattr(cyberpunk_toolchain, 'OwnedProcess', forbidden)
     calls = {'wuwa-prepare': lambda: wuthering_assets.ensure_extractor(tmp_path / 'tools', None),
         'wuwa-run': lambda: wuthering_assets.run_extractor(tmp_path / 'game', tmp_path / 'tool', None, 'text'),
         'cyberpunk-prepare': lambda: cyberpunk_assets.ensure_wolvenkit(tmp_path / 'tools'),

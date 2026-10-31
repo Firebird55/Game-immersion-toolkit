@@ -4,17 +4,15 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
-import urllib.request
-import zipfile
 from pathlib import Path, PureWindowsPath
 
 from .textmaps import display_text
 from .preparation_errors import PreparationFailure
 
-WOLVENKIT_VERSION = "9.0.1"
-WOLVENKIT_SHA256 = "364427384c0f4ebb6b157fa9abd01595258af1b7993c7b3a7edd2920f2016e92"
-WOLVENKIT_URL = f"https://github.com/WolvenKit/WolvenKit/releases/download/{WOLVENKIT_VERSION}/WolvenKit.Console-{WOLVENKIT_VERSION}.zip"
+from .cyberpunk_toolchain import VERSION as WOLVENKIT_VERSION, SUPPLIERS
+
+WOLVENKIT_SHA256 = SUPPLIERS['wolvenkit']['sha256']
+WOLVENKIT_URL = SUPPLIERS['wolvenkit']['url']
 LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = ('en', 'fr', 'it', 'de', 'es-ES', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'zh-Hans')
 TEXT_LOCALES = {'en': 'en', 'fr': 'fr', 'it': 'it', 'de': 'de', 'es-ES': 'es-es', 'es-419': 'es-mx',
@@ -43,40 +41,13 @@ def unsupported_format():
 
 
 def ensure_wolvenkit(directory: Path) -> Path:
-    from .bundle_tools import require_source_toolchain
-    require_source_toolchain('REDengine archive extractor')
-    executable = directory / "WolvenKit.CLI.exe"
-    marker = directory / "verified-version.json"
-    if executable.is_file() and marker.is_file():
-        if json.loads(marker.read_text())["sha256"] == WOLVENKIT_SHA256:
-            return executable
-    directory.mkdir(parents=True, exist_ok=True)
-    archive = directory / "download.zip.part"
-    try:
-        with urllib.request.urlopen(WOLVENKIT_URL, timeout=120) as response, archive.open("wb") as output:
-            while chunk := response.read(1024 * 1024):
-                output.write(chunk)
-        with archive.open("rb") as downloaded:
-            if hashlib.file_digest(downloaded, "sha256").hexdigest() != WOLVENKIT_SHA256:
-                raise ValueError("WolvenKit download checksum mismatch")
-        with zipfile.ZipFile(archive) as bundle:
-            for name in bundle.namelist():
-                if not (directory / name).resolve().is_relative_to(directory.resolve()):
-                    raise ValueError("Unsafe extractor archive path")
-            bundle.extractall(directory)
-        marker.write_text(json.dumps({"version": WOLVENKIT_VERSION, "sha256": WOLVENKIT_SHA256}))
-        return executable
-    finally:
-        archive.unlink(missing_ok=True)
+    from .cyberpunk_toolchain import ensure
+    return ensure(directory).executable
 
 
 def run_wolvenkit(executable: Path, *arguments: str) -> None:
-    from .bundle_tools import require_source_toolchain
-    require_source_toolchain('REDengine archive extractor')
-    result = subprocess.run([str(executable), *map(str, arguments)], capture_output=True,
-                            timeout=600, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    if result.returncode or b"[ 0: Error" in result.stdout:
-        raise RuntimeError("WolvenKit extraction failed; check installed archives and extractor dependencies")
+    from .cyberpunk_toolchain import run
+    run(executable, *arguments)
 
 
 def archive_sources(install: Path) -> list[Path]:

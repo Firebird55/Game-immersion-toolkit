@@ -133,7 +133,12 @@ def missing_tools(root: Path, game: str) -> list[str]:
         required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
         required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "cyberpunk":
-        required += [("Cyberpunk extractor", runtime_data_root(root) / "cyberpunk/tools/WolvenKit.CLI.exe")]
+        from .cyberpunk_toolchain import resolve
+        from .preparation_errors import PreparationFailure
+        try:
+            resolve(runtime_data_root(root) / 'cyberpunk/tools')
+        except PreparationFailure:
+            missing.append('REDengine archive extractor and app-local runtime')
     if game in {"nte", "wuwa"}:
         from .nte_assets import dotnet_sdk
         if dotnet_sdk() is None:
@@ -170,9 +175,8 @@ def _bundle_runtime_missing(root: Path, game: str) -> list[str]:
         from .prebuilt_node_reader import require_zzz_reader
         reader, label = require_zzz_reader, 'Scene and voice graph reader'
     elif game == 'cyberpunk':
-        # Its exact immutable runtime closure is prepared separately.
-        label = 'REDengine archive extractor'
-        missing.append(label)
+        from .cyberpunk_toolchain import resolve
+        reader, label = resolve, 'REDengine archive extractor and app-local runtime'
     if reader:
         try:
             reader()

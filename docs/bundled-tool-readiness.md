@@ -23,11 +23,13 @@ Both indexing and original playback resolve the actual bundled apphost;
 private data/cache filenames do not select a separate runtime. See the
 [Wuthering production evidence](wuthering-runtime.md).
 
-Cyberpunk still needs its exact WolvenKit and app-local .NET inventory wired
-into shared preparation. A filename alone cannot establish that capability.
-Packaged calls report the missing archive operation before executable acquisition
-or process launch. This implementation gap is not a permanent game-specific
-installation policy.
+Cyberpunk readiness resolves its exact WolvenKit and app-local .NET inventory,
+in both source and packaged installations. A filename alone cannot establish
+that capability. Packaged calls report the precise missing archive operation
+before executable acquisition, metadata requests or process launch. A missing
+reader does not create a permanent game-specific installation policy.
+The [Cyberpunk runtime report](cyberpunk-runtime-delivery.md) describes its owned
+entry, retained source, authored native probe and remaining platform/review gaps.
 
 ZZZ still needs its real scene/voice graph reader closure. A synthetic Node
 probe does not satisfy that operation. NTE's Windows native chain and supplier
