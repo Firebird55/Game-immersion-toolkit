@@ -375,37 +375,93 @@ def test_partial_static_parent_links_refuse_before_outside_descendant_metadata(f
 
 
 @pytest.mark.parametrize('which', ['source', 'target'])
-def test_authority_root_link_is_guarded_before_barrier_marker_and_failure_journal_reads(fixture, monkeypatch, which):
+@pytest.mark.parametrize('kind', ['parent-link', 'windows-reparse'])
+def test_authority_root_link_is_guarded_before_barrier_marker_and_failure_journal_reads(fixture, monkeypatch, which, kind):
     value = fixture.make(probe.RESUME_CASE)
     observe = value.observe
     originals = {'lstat': Path.lstat, 'stat': Path.stat, 'open': Path.open}
-    touched, restored = [], []
+    copied = probe.migration.copy_and_verify_synthetic
+    touched, restored, plans, leases, denials, installed, held = [], [], [], [], [], [], []
+    def copy(plan, barrier, **options):
+        plans.append(plan)
+        return copied(plan, barrier, **options)
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', copy)
+    def root_state():
+        return tuple((root.path, originals['stat'](root.path).st_dev,
+                      originals['stat'](root.path).st_ino,
+                      (root.path/'.r19-synthetic-fixture.json').read_bytes())
+                     for root in (value.source, value.target))
+    def lease_state():
+        return tuple((lease, lease._handle) for lease in
+                     (value.coordinator._legacy_lease, value.coordinator._target_lease))
+    def same_leases(actual):
+        assert len(actual) == len(leases) == 2
+        assert all(lease is before and handle is original and handle is not None
+                   for (lease, handle), (before, original) in zip(actual, leases))
     def checkpoint(phase):
         observe(phase)
         if phase != 'copy-interrupted': return
         link = getattr(value, which).path
         outside = value.fixture/('authored-outside-'+which)
-        link.rename(outside);link.symlink_to(outside, target_is_directory=True)
-        restored.append((link, outside))
+        leases.extend(lease_state())
+        before_roots = root_state()
+        before_source = probe.migration._source_inventory(plans[0])
+        if kind == 'parent-link':
+            try:
+                link.rename(outside)
+            except OSError as error:
+                # Windows may deny renaming a tree containing our share-mode-0
+                # lease. This is an unmet fault-injection precondition, not a
+                # successful root-link test. Inspect this branch explicitly.
+                denials.append((getattr(error, 'winerror', None), before_roots, root_state(),
+                    before_source, probe.migration._source_inventory(plans[0]),
+                    lease_state(), link.is_symlink(), outside.exists(), value.coordinator._leases_held()))
+                raise
+            restored.append((link, outside))
+            link.symlink_to(outside, target_is_directory=True)
+        installed.append(kind)
         for name, original in originals.items():
             def guarded(path, *args, original=original, name=name, **options):
                 if link in path.parents:
                     touched.append(name);raise AssertionError('Untrusted root descendant metadata/read is forbidden.')
-                return original(path, *args, **options)
+                info = original(path, *args, **options)
+                if kind == 'windows-reparse' and name == 'lstat' and path == link:
+                    # Behavior injection only: retain the actual original roots
+                    # and native leases while testing the Windows attribute gate.
+                    return SimpleNamespace(st_mode=info.st_mode, st_file_attributes=0x400)
+                return info
             monkeypatch.setattr(Path, name, guarded)
     monkeypatch.setattr(value, 'observe', checkpoint)
     def hold():
         assert value.adapter.poisoned and not value.released and value.coordinator._leases_held()
         assert value.coordinator._recovery_required
+        same_leases(lease_state())
+        held.append(True)
         raise HeldRecovery()
     monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
     try:
-        with pytest.raises(HeldRecovery): value.run()
-        assert not touched
+        try:
+            result = value.run()
+        except HeldRecovery:
+            result = 'held'
+        assert len(plans) == 1 and not value.copy_resumed and not touched
+        if denials:
+            assert kind == 'parent-link' and probe.os.name == 'nt' and len(denials) == 1
+            code, before, after, source_before, source_after, captured_leases, is_link, moved, owned = denials[0]
+            assert code in {5, 32}, 'Only explicit Windows access/sharing denial is this precondition outcome.'
+            assert before == after and source_before == source_after
+            same_leases(captured_leases)
+            assert owned and not is_link and not moved and not installed and not restored
+            assert result == 2 and value.released and not value.adapter.poisoned and not held
+            assert not value.coordinator._leases_held()
+            assert root_state() == before and probe.migration._source_inventory(plans[0]) == source_before
+        else:
+            assert installed == [kind] and result == 'held' and held == [True]
     finally:
         for name, original in originals.items(): monkeypatch.setattr(Path, name, original)
         for link, outside in restored:
-            link.unlink();outside.rename(link)
+            if link.is_symlink(): link.unlink()
+            outside.rename(link)
 
 
 def test_local_tree_guard_bounds_entries_and_bytes_before_content_reads(tmp_path, monkeypatch):

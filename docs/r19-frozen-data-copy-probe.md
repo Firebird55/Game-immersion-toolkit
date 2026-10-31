@@ -238,6 +238,20 @@ recovery-required-before-I/O semantics; guard/journal failure poisons instead
 of being swallowed. Static links/reparse points are refused before outside
 descendant metadata or content. This is not a concurrent replacement proof,
 and these authored-probe bounds are not production migration limits.
+The root-substitution tests distinguish an installed parent link from an
+unmet injection precondition. Windows may reject renaming a root containing
+the still-open exclusive operation lease: only observed access/sharing denial
+(WinError 5 or 32), unchanged original root identities/markers/source bytes and
+the same held lease handles permit that test's ordinary failure cleanup.
+[Windows sharing modes](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew)
+retain their restrictions until close and distinguish delete/rename sharing.
+The earlier failed contract run did not expose its WinError, so this mechanism
+is a test hypothesis rather than its established native cause. A separate
+explicitly mocked Windows reparse-attribute case retains the real fixture
+lease handles and must poison, set recovery-required and hold the live owner
+without descendant metadata/content access. POSIX exercises actual root
+rename/link substitution; the mock does not establish native Windows root
+replacement or adversarial concurrent replacement coverage.
 No lease release/reacquisition, new cohort, activation or copied-owner adoption
 occurs between attempts. The resumed helper performs its ordinary byte and
 SQLite checks, followed by the probe's current-schema and semantic checks.
