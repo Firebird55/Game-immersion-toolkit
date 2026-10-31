@@ -60,3 +60,16 @@ def test_bad_existing_cache_is_never_silently_replaced(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match='checksum'):
         builder.acquire(pin(), tmp_path)
     assert existing.read_bytes() == b'corrupt cached source'
+
+
+def test_failed_build_emits_bounded_compiler_reason_without_workspace_prefix(tmp_path, monkeypatch, capsys):
+    log = tmp_path / 'codec-build.log'
+    def failed(_args, **options):
+        options['stdout'].write((('old build output\n' * 4000) + str(tmp_path) + '/source/file.c:7: error: missing symbol\n').encode())
+        raise builder.subprocess.CalledProcessError(2, ['compiler'])
+    monkeypatch.setattr(builder.subprocess, 'run', failed)
+    with pytest.raises(RuntimeError, match='sanitized compiler'):
+        builder.run(['compiler'], tmp_path, {}, log)
+    output = capsys.readouterr().err
+    assert 'error: missing symbol' in output and str(tmp_path) not in output
+    assert '<build>/source/file.c' in output and len(output) < 12500

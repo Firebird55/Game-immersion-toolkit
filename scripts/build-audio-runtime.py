@@ -14,6 +14,7 @@ import http.client
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import ssl
 import subprocess
@@ -69,8 +70,23 @@ def acquire(pin, cache):
 
 
 def run(args, cwd, env, log):
-    with log.open('ab') as output:
-        subprocess.run([str(a) for a in args], cwd=cwd, env=env, stdout=output, stderr=subprocess.STDOUT, check=True)
+    try:
+        with log.open('ab') as output:
+            subprocess.run([str(a) for a in args], cwd=cwd, env=env, stdout=output, stderr=subprocess.STDOUT, check=True)
+    except subprocess.CalledProcessError as error:
+        # Hosted build work directories are ephemeral. Surface the actual compiler
+        # failure while keeping local checkout/profile prefixes out of public logs.
+        with log.open('rb') as stream:
+            stream.seek(max(0, log.stat().st_size - 32768))
+            tail = stream.read().decode('utf-8', errors='replace')
+        prefixes = {str(ROOT), str(log.parent), str(cwd), *[value for name, value in os.environ.items()
+            if name.lower() in {'home', 'userprofile', 'temp', 'tmp', 'runner_workspace', 'github_workspace'} and value]}
+        for prefix in sorted(prefixes, key=len, reverse=True):
+            tail = tail.replace(prefix, '<build>').replace(prefix.replace('\\', '/'), '<build>')
+        tail = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', tail)
+        tail = '\n'.join(tail.splitlines()[-80:])[-12000:]
+        print(f'Codec build failed ({log.name}, exit {error.returncode}):\n{tail}', file=sys.stderr, flush=True)
+        raise RuntimeError(f'Codec build failed in {log.name}; see the sanitized compiler output above') from None
 
 
 def short_windows_path(path):
