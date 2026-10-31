@@ -117,6 +117,18 @@ also pass for status/log windows, tray actions and browser-handler requests.
 These are actual frozen-process results, not synthetic executable fixtures.
 Browser navigation and final installed-app acceptance remain open.
 
+The `76e832e` hosted Windows candidate also passes frozen host and visible-UI
+probes with the retained Qt sources. Its macOS owned-process tests pass (51
+passed, two platform skips), and Linux native discovery, monitor bounds and
+authored-pixel capture pass. macOS capture still failed because the authored
+window was covered; its command-line probe now explicitly activates its own
+application and centers within the available display. Native confirmation is
+pending. Linux construction rejected a PySide wheel payload; verification now
+reports the exact archive-relative file and reason, and runs immediately after
+installation so failures do not wait for codec construction. Byte verification
+remains mandatory. Local payload/capture regressions pass (21 passed, four
+platform skips); these do not establish Linux or macOS native acceptance.
+
 The first native build exposed an incompatible ICU DLL collected from an
 unrelated developer tool on PATH. Restricting build discovery to the verified
 interpreter and operating-system tools fixes startup. The native probe now

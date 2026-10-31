@@ -52,6 +52,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install --no-index --find-links output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify installed wheel bytes before native construction
+        run: |
+          python -c "import sys; from pathlib import Path; sys.path.insert(0, 'packaging/runtime-bundle'); from record_runtime import verify_wheel; [verify_wheel(wheel) for wheel in sorted(Path('output/wheelhouse').glob('*.whl'))]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py backend/tests/test_owned_process.py backend/tests/test_desktop_release.py
       - name: Install Linux build-runner display services
         if: runner.os == 'Linux'

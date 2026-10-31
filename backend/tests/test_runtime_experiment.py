@@ -127,7 +127,11 @@ def test_wheel_payload_tampering_is_not_accepted_by_version_metadata(tmp_path, m
     (prefix / 'owned-1.0.dist-info/RECORD').write_bytes(b'pip rewritten installed inventory')
     module.verify_wheel(wheel)
     (prefix / 'owned.py').write_bytes(b'ALTERED = True\n')
-    with pytest.raises(module.ClosureError, match='differs from archive'):
+    with pytest.raises(module.ClosureError, match=r'owned: owned\.py \(content mismatch\)') as failure:
+        module.verify_wheel(wheel)
+    assert str(prefix) not in str(failure.value)
+    (prefix / 'owned.py').unlink()
+    with pytest.raises(module.ClosureError, match=r'owned: owned\.py \(missing file\)'):
         module.verify_wheel(wheel)
 
 

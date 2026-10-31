@@ -166,9 +166,22 @@ def verify_wheel(wheel):
                 elif category not in {'purelib', 'platlib'}:
                     raise ClosureError('Unreviewed wheel installation scheme: ' + group)
                 name = tail
-            path = (data_path or Path(distribution.locate_file(name))).resolve()
-            if Path(sys.prefix).resolve() not in path.parents or not path.is_file() or path.is_symlink() or path.read_bytes() != package.read(member):
-                raise ClosureError('Installed wheel payload differs from archive: ' + info['Name'])
+            installed = data_path or Path(distribution.locate_file(name))
+            path = installed.resolve()
+            reason = None
+            if Path(sys.prefix).resolve() not in path.parents:
+                reason = 'outside interpreter prefix'
+            elif installed.is_symlink():
+                reason = 'symbolic link'
+            elif not path.is_file():
+                reason = 'missing file'
+            elif path.read_bytes() != package.read(member):
+                reason = 'content mismatch'
+            if reason:
+                # Report only the archive-relative name, never a host profile
+                # path. A distribution name alone cannot diagnose native CI.
+                raise ClosureError('Installed wheel payload differs from archive: '
+                    + info['Name'] + ': ' + member.filename + ' (' + reason + ')')
 
 
 def observe(evidence, frontend, build_id, source=ROOT, *, nte_helper_root, codec_root):

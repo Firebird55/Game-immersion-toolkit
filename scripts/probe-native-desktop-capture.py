@@ -36,6 +36,10 @@ def main():
         import mss
         from PIL import Image
         application = QApplication(sys.argv[:1])
+        if sys.platform == 'darwin':
+            from AppKit import NSApplication, NSApplicationActivationPolicyRegular
+            native_application = NSApplication.sharedApplication()
+            native_application.setActivationPolicy_(NSApplicationActivationPolicyRegular)
         title = 'Toolkit authored capture probe ' + uuid.uuid4().hex
         colors = [(40, 130, 210), (130, 210, 40)]
         class AuthoredWindow(QWidget):
@@ -47,8 +51,16 @@ def main():
         window.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
         window.setWindowTitle(title)
         window.resize(480, 320)
-        window.move(100, 100)
+        # Keep the authored content clear of the desktop's menu bar and Dock.
+        screen = application.primaryScreen()
+        if screen is None:
+            raise CaptureUnavailable('display-unavailable', 'No desktop display is available.')
+        window.move(screen.availableGeometry().center() - window.rect().center())
         window.show()
+        if sys.platform == 'darwin':
+            # A command-line Python process is not activated by Finder. This
+            # explicit probe owns the foreground; normal capture never does so.
+            native_application.activateIgnoringOtherApps_(True)
         window.raise_()
         window.activateWindow()
 
