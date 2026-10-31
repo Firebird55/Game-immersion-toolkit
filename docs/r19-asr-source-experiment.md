@@ -197,8 +197,8 @@ logs; unknown codes, lines, paths and hashes of paths remain private. Expected
 failed compiler probes can appear in nested logs, so their observations are
 explicitly labelled context and do not identify the fatal configure cause.
 Microsoft defines [MSB4019](https://learn.microsoft.com/en-us/visualstudio/msbuild/errors/msb4019)
-as an unresolved project import. Its nested-log projection retains at most 16
-records across both logs. Only the three direct imports in CMake's pinned
+as an unresolved project import. Its nested-log projection shares at most 16
+records with the MSB4018 task projection across both logs. Only the three direct imports in CMake's pinned
 [CompilerId project](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/CompilerId/VS-10.vcxproj.in)
 receive fixed file labels: `Microsoft.Cpp.Default.props`, `Microsoft.Cpp.props`
 and `Microsoft.Cpp.targets`. The only numeric filename additionally recognized
@@ -209,11 +209,16 @@ Its public version field contains that reviewed pin, never an extracted version.
 unknown file from an unrecognized message template. Unknown text stays private.
 The separately labelled `mapped-toolset-version-template` recognizes only the
 pinned auxiliary-import layout rooted in the actual verified full generator
-argument. Its repeated numeric alias must have two to four bounded components
+argument or its canonical selected directory. Its repeated numeric alias must have two to four bounded components
 and satisfy CMake's reviewed two-component prefix search. The alias itself is
 never emitted: the public version remains the reviewed three-component pin.
 This structural label and its instance-version-field boolean permit no access
 to the raw outside-root target and establish no source or rights approval.
+The historical full-argument form retains a true version-field boolean and no
+raw-target inspection. The canonical form has a false boolean only when that
+same verified private root/version/argument tuple agrees. Its existence state
+requires the exact corresponding props/metadata pair in the initial seal;
+a sealed alias in another directory layout cannot authorize that target.
 The projection exposes only a fixed declared-root role and existence state;
 unknown or outside-root paths are never inspected. The selected-targets role
 also requires membership in the declared MSBuild root. No import path or hash
@@ -254,7 +259,7 @@ present in the actual initial in-memory tool inventory are considered. No
 directory discovery, invented inventory or outside-root fallback is allowed.
 The guard bounds the index at 50,000 entries, candidates at 32, each member at
 64 KiB, and member reads for each mapping record at 512 KiB including
-growth-check lookahead bytes. The existing limits of 16 message imports and
+growth-check lookahead bytes. The existing shared limit of 16 message/task records and
 16 generated-project imports bound these reads to 16 MiB per failure receipt.
 Each current regular file passes root-first link checks and must match its
 initial bytes/SHA-256. The metadata's first line must exactly equal the reviewed
@@ -264,6 +269,33 @@ state. Changed, unavailable, incomplete, over-limit and ambiguous inputs stay
 explicit. No alias, relative member path, content or native-member hash is
 published. These observations do not replace the complete tool seal or approve
 Microsoft source delivery, redistribution or native execution.
+Microsoft defines [MSB4018](https://learn.microsoft.com/en-us/visualstudio/msbuild/errors/msb4018)
+as an unexpected task exception. `msb4018_tasks` separates a matched task sentence
+from an unrecognized literal and returns only fixed task/exception/code labels.
+Task names come from Microsoft's [C++ task reference](https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-tasks-specific-to-visual-cpp)
+and [MSBuild task reference](https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-task-reference).
+Exception families are explicit .NET API names, including documented
+[common exceptions](https://learn.microsoft.com/en-us/dotnet/standard/exceptions/),
+[IO exceptions](https://learn.microsoft.com/en-us/dotnet/api/system.io.ioexception),
+[Win32Exception](https://learn.microsoft.com/en-us/dotnet/api/system.componentmodel.win32exception),
+[TypeInitializationException](https://learn.microsoft.com/en-us/dotnet/api/system.typeinitializationexception),
+[BadImageFormatException](https://learn.microsoft.com/en-us/dotnet/api/system.badimageformatexception)
+and [COMException](https://learn.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.comexception).
+Only exception-header HRESULTs or the fixed `Exception from HRESULT:` template,
+and explicit `NativeErrorCode:`/`Win32 error:` numeric fields, can produce
+[reviewed HRESULT](https://learn.microsoft.com/en-us/windows/win32/seccrypto/common-hresult-values)
+or [Win32-code](https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-)
+enums. Unknown task, exception and code tokens become fixed unknown labels;
+empty code/family arrays mean no corresponding observation. A generic HRESULT
+never supplies an inferred native Win32 error. Stack frames, messages, parameter
+names and unknown tokens remain private. Each contiguous task block consumes at
+most 32 KiB of UTF-8 byte span within the existing log tail, including connecting
+LF/CRLF bytes; overflow is explicit. A new task block resets the counter without
+charging preceding gaps. Header extraction scans each line without overlapping
+whitespace/prefix backtracking. For a full tail,
+task extraction conservatively discards the first potentially partial line.
+No YAML/string unescaping, extra log discovery or larger read is added. These
+observations do not establish the exception's cause or permit environment fixes.
 The wrapper passes the actual selected `vswhere` instance's numeric four-part
 VS18 installation version together with its directory. Python queries the same
 explicit machine `vswhere.exe` again before and after the experiment, requires
@@ -363,6 +395,21 @@ three imports per project and all ten Globals matched. Configuration failed
 before the build graph, native binding or inference. This identifies the
 malformed generated import and motivates the separately pinned module variant;
 it is not a native success result for the correction.
+The first [module-variant run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41196924582)
+at `1c2d931c9f6a7be804e5b222b34bc50291c723cf` used Server image
+`20261021.278.1` and observed VS `18.11.12315.225`. Its failure artifact
+`13040999035` is 2,450 bytes, SHA-256
+`855f3168be12f679e045e89ba32aa074489b9c0a865d012cd63de07cacd5f0b1`.
+It records the initial variant's 8,817-file/163-directory tree
+`3084625cac5d54bd47f7983ef56b06305c40718d1a0024d10f8de82632b3c022`,
+all ten matching Globals and the three selected CPP imports per project.
+Configuration failed with nested `MSB4018` and no `MSB4019` import records.
+The prior classifier left both second imports unknown; it supplied no actual
+canonical-layout or task/exception identity. Those are the new projections
+described above, still awaiting native observation. No build graph, binding,
+inference, final variant recheck or complete before/after tool-seal receipt was
+reached. The initial variant summary cannot substitute for those missing checks.
+No environment, ProgramData, SDK or root cause is inferred from `MSB4018` alone.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

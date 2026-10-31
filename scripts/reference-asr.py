@@ -78,6 +78,38 @@ NESTED_LOG_TOTAL_BYTES = 4 * 1024 * 1024
 COMPILER_CONTEXT_FILE_BYTES = 256 * 1024
 KNOWN_COMPILER_IDS = frozenset({'MSVC', 'Clang', 'GNU', 'Intel', 'IntelLLVM'})
 IMPORT_CONTEXT_LIMIT = 16
+MSB4018_BLOCK_BYTES = 32 * 1024
+# Microsoft C++/MSBuild task references and .NET API names; only fixed labels
+# leave the private MSB4018 context. Unknown names/codes are never echoed.
+MSBUILD_TASK_LABELS = {name.casefold(): label for name, label in (
+    ('BscMake', 'bscmake'), ('CL', 'cl'), ('CPPClean', 'cpp-clean'),
+    ('ClangCompile', 'clang-compile'), ('CustomBuild', 'custom-build'), ('FXC', 'fxc'),
+    ('GetOutOfDateItems', 'get-out-of-date-items'), ('GetOutputFileName', 'get-output-file-name'),
+    ('LIB', 'lib'), ('Link', 'link'), ('MIDL', 'midl'), ('MT', 'mt'),
+    ('MultiToolTask', 'multi-tool-task'), ('ParallelCustomBuild', 'parallel-custom-build'),
+    ('RC', 'rc'), ('SetEnv', 'set-env'), ('VCMessage', 'vc-message'),
+    ('Copy', 'copy'), ('Delete', 'delete'), ('Error', 'error'), ('Exec', 'exec'),
+    ('GetFrameworkPath', 'get-framework-path'), ('GetFrameworkSdkPath', 'get-framework-sdk-path'),
+    ('MakeDir', 'make-dir'), ('Message', 'message'), ('MSBuild', 'msbuild'),
+    ('ReadLinesFromFile', 'read-lines-from-file'), ('RemoveDir', 'remove-dir'),
+    ('Warning', 'warning'), ('WriteLinesToFile', 'write-lines-to-file'))}
+DOTNET_EXCEPTION_LABELS = {'System.' + name: label for name, label in (
+    ('Exception', 'exception'), ('ArgumentException', 'argument'),
+    ('ArgumentNullException', 'argument-null'), ('ArgumentOutOfRangeException', 'argument-out-of-range'),
+    ('IndexOutOfRangeException', 'index-out-of-range'), ('InvalidOperationException', 'invalid-operation'),
+    ('NullReferenceException', 'null-reference'), ('TypeInitializationException', 'type-initialization'),
+    ('DllNotFoundException', 'dll-not-found'), ('BadImageFormatException', 'bad-image-format'),
+    ('UnauthorizedAccessException', 'unauthorized-access'), ('IO.IOException', 'io'),
+    ('IO.FileNotFoundException', 'file-not-found'), ('IO.DirectoryNotFoundException', 'directory-not-found'),
+    ('IO.FileLoadException', 'file-load'), ('IO.PathTooLongException', 'path-too-long'),
+    ('ComponentModel.Win32Exception', 'win32'), ('Runtime.InteropServices.COMException', 'com'))}
+HRESULT_LABELS = {'0x80004001': 'e-notimpl', '0x80004002': 'e-nointerface',
+    '0x80004003': 'e-pointer', '0x80004004': 'e-abort', '0x80004005': 'e-fail',
+    '0x8000ffff': 'e-unexpected', '0x80070005': 'e-accessdenied', '0x80070006': 'e-handle',
+    '0x8007000e': 'e-outofmemory', '0x80070057': 'e-invalidarg',
+    '0x8007007e': 'win32-module-not-found-hresult'}
+WIN32_ERROR_LABELS = {'2': 'file-not-found', '3': 'path-not-found', '5': 'access-denied',
+    '11': 'bad-format', '87': 'invalid-parameter', '126': 'module-not-found', '193': 'bad-exe-format'}
 COMPILER_ID_IMPORT_LIMIT = 16
 AUX_SEAL_ENTRY_LIMIT = 50000
 AUX_MAPPING_CANDIDATE_LIMIT = 32
@@ -1183,7 +1215,7 @@ def verified_instance_field(value, version, instance):
         diagnostic_normalized(argument + '/VC/Auxiliary/Build.' + version + suffix)}
 
 
-def sealed_aux_mapping(alias, roots, initial_seal, instance, version):
+def sealed_aux_mapping(alias, roots, initial_seal, instance, version, *, required_member=None):
     result = {'relationship': 'initial-seal-unavailable', 'matched_candidate_count': 0,
         'matches_policy': None, 'member_exists_state': 'not-inspected'}
     parts = private_instance_parts(instance)
@@ -1210,6 +1242,8 @@ def sealed_aux_mapping(alias, roots, initial_seal, instance, version):
             return result
         match = re.fullmatch(pattern, name)
         if not match or match[1] != alias:
+            continue
+        if required_member is not None and diagnostic_normalized(name[:-4] + '.props') != required_member:
             continue
         if len(candidates) >= AUX_MAPPING_CANDIDATE_LIMIT:
             result['relationship'] = 'candidate-limit'
@@ -1256,15 +1290,25 @@ def mapped_aux_import(value, roots, initial_seal, instance, version):
     parts = private_instance_parts(instance)
     if parts is None:
         return None
-    prefix = diagnostic_normalized(parts[0]) + '/vc/auxiliary/'
-    pattern = re.escape(prefix) + r'build(?:/|\.)([0-9]{1,6}(?:\.[0-9]{1,6}){1,3})/microsoft\.vctoolsversion\.\1\.props'
-    match = re.fullmatch(pattern, diagnostic_normalized(value))
-    if not match or not match[1].startswith('.'.join(version.split('.')[:2])):
-        return None
-    return {'import_label': 'mapped-toolset-version-template', 'reviewed_version': version,
-        'contains_verified_instance_version_field': True, 'root_role': 'outside-declared-roots',
-        'existence': 'not-inspected',
-        'toolset_mapping': sealed_aux_mapping(match[1], roots, initial_seal, instance, version)}
+    normalized = diagnostic_normalized(value)
+    for contains_version, base in ((True, parts[0]), (False, parts[1])):
+        prefix = diagnostic_normalized(base) + '/vc/auxiliary/'
+        pattern = re.escape(prefix) + r'build(?:/|\.)([0-9]{1,6}(?:\.[0-9]{1,6}){1,3})/microsoft\.vctoolsversion\.\1\.props'
+        match = re.fullmatch(pattern, normalized)
+        if not match or not match[1].startswith('.'.join(version.split('.')[:2])):
+            continue
+        mapping = sealed_aux_mapping(match[1], roots, initial_seal, instance, version,
+            required_member=None if contains_version else normalized[len(prefix):])
+        role, existence = 'outside-declared-roots', 'not-inspected'
+        if not contains_version:
+            role = ('not-inspected' if mapping['relationship'] == 'initial-seal-unavailable' else
+                'outside-declared-roots' if mapping['relationship'] == 'declared-root-mismatch' else 'declared-vc-auxiliary')
+            existence = {'regular-files-present': 'regular-file-present', 'missing': 'missing',
+                'inspection-error': 'inspection-error', 'not-regular': 'nonregular'}.get(mapping['member_exists_state'], 'not-inspected')
+        return {'import_label': 'mapped-toolset-version-template', 'reviewed_version': version,
+            'contains_verified_instance_version_field': contains_version, 'root_role': role,
+            'existence': existence, 'toolset_mapping': mapping}
+    return None
 
 
 def import_target_context(value, roots, properties, *, instance=None, initial_seal=None, allow_vctargets_prefix=False):
@@ -1354,15 +1398,83 @@ def msb4019_import_context(content, roots, properties, limit):
     return {'records': records, 'truncated': truncated}
 
 
+def msb4018_line_body(line):
+    """Linear header extraction; leading whitespace cannot backtrack as a prefix."""
+    if '\r' in line:
+        return None
+    line = line.lstrip(' \t')
+    node = re.match(r'[0-9]{1,6}>', line)
+    if node is not None:
+        line = line[node.end():].lstrip(' \t')
+    marker = re.search(r'\berror[ \t]+MSB4018:[ \t]*', line, re.I)
+    if marker is None:
+        return None
+    prefix = line[:marker.start()].rstrip(' \t')
+    if prefix and (len(prefix) > 32768 or not prefix.endswith(':')):
+        return None
+    return line[marker.end():]
+
+
+def msb4018_task_context(content, limit, *, discard_first_line=False):
+    """Fixed observations from contiguous MSB4018 lines, never exception text."""
+    if discard_first_line:
+        content = content.partition('\n')[2]
+    records, truncated, current, joining_bytes, block_bytes = [], False, None, 0, 0
+    for raw_line in content.split('\n'):
+        line = raw_line.removesuffix('\r')
+        body = msb4018_line_body(line)
+        if body is None:
+            current, joining_bytes = None, 0
+            continue
+        task = re.fullmatch(r'The "([^"\r\n]{1,256})" task failed unexpectedly\.'
+            r'(?:[ \t]+\[[^\r\n]{0,32767}\])?[ \t]*', body)
+        if current is None or task is not None:
+            if len(records) >= limit:
+                truncated = True
+                break
+            current = {'literal_match_state': 'unrecognized-template', 'task_label': 'unknown-task',
+                'exception_families': [], 'hresult_labels': [], 'win32_labels': [], 'context_truncated': False}
+            records.append(current)
+            block_bytes = 0
+        else:
+            block_bytes += joining_bytes
+        block_bytes += len(line.encode('utf-8'))
+        joining_bytes = 1 + len(raw_line) - len(line)  # Connecting LF or CRLF, not the next block's gap.
+        if block_bytes > MSB4018_BLOCK_BYTES:
+            current['context_truncated'] = True
+            continue
+        if task is not None:
+            current.update(literal_match_state='matched-task-template',
+                task_label=MSBUILD_TASK_LABELS.get(task[1].casefold(), 'unknown-task'))
+        exception = re.match(r'(?:--->[ \t]*)?([A-Za-z_][A-Za-z0-9_.]{0,254})'
+            r'(?:[ \t]+\((0x[0-9a-fA-F]{8})\))?:', body)
+        if exception is None or not exception[1].endswith('Exception'):
+            continue  # Stack frames, messages, parameters and arbitrary lines stay private.
+        family = DOTNET_EXCEPTION_LABELS.get(exception[1], 'unknown-exception')
+        current['exception_families'] = sorted(set(current['exception_families']) | {family})
+        hresults = re.findall(r'\(Exception from HRESULT:[ \t]*(0x[0-9a-fA-F]{8})\)', body)
+        if exception[2] is not None:
+            hresults.append(exception[2])
+        current['hresult_labels'] = sorted(set(current['hresult_labels']) |
+            {HRESULT_LABELS.get(value.casefold(), 'unknown-hresult') for value in hresults})
+        native_codes = re.findall(r'\b(?:NativeErrorCode|Win32 error)[ \t]*:[ \t]*'
+            r'([0-9]{1,10})(?![0-9A-Za-z_.])', body)
+        current['win32_labels'] = sorted(set(current['win32_labels']) |
+            {WIN32_ERROR_LABELS.get(value, 'unknown-win32-error') for value in native_codes})
+    return {'records': records, 'truncated': truncated}
+
+
 def nested_configure_log_context(output):
-    remaining, import_remaining, result = NESTED_LOG_TOTAL_BYTES, IMPORT_CONTEXT_LIMIT, []
+    remaining, record_remaining, result = NESTED_LOG_TOTAL_BYTES, IMPORT_CONTEXT_LIMIT, []
     for origin, filename in (('cmake-configure-events', 'CMakeConfigureLog.yaml'),
             ('cmake-error-log', 'CMakeError.log')):
         row = {'origin': origin, 'state': 'total-byte-limit', 'known_codes': [], 'context_labels': [],
-            'msb4019_imports': {'records': [], 'truncated': False}}
+            'msb4019_imports': {'records': [], 'truncated': False},
+            'msb4018_tasks': {'records': [], 'truncated': False}}
         if remaining > 0:
+            read_limit = min(LOG_TAIL_BYTES, remaining)
             state, data = diagnostic_file(output / 'build/CMakeFiles' / filename,
-                min(LOG_TAIL_BYTES, remaining), tail=True)
+                read_limit, tail=True)
             remaining -= len(data)
             row['state'] = state
             if state == 'observed':
@@ -1375,8 +1487,13 @@ def nested_configure_log_context(output):
                 row['known_codes'] = fixed['known_codes']
                 row['context_labels'] = sorted(labels | set(fixed['categories']))
                 row['msb4019_imports'] = msb4019_import_context(content, _BUILD_TOOL_ROOTS,
-                    _BUILD_PROPERTIES, import_remaining)
-                import_remaining -= len(row['msb4019_imports']['records'])
+                    _BUILD_PROPERTIES, record_remaining)
+                record_remaining -= len(row['msb4019_imports']['records'])
+                # A full tail may start inside a private line. Conservatively
+                # discard its first line for task/exception literal extraction.
+                row['msb4018_tasks'] = msb4018_task_context(content, record_remaining,
+                    discard_first_line=len(data) == read_limit)
+                record_remaining -= len(row['msb4018_tasks']['records'])
         result.append(row)
     return {'evidence_scope': 'observed-context-not-fatal-cause', 'logs': result}
 

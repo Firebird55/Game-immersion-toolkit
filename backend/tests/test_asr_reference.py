@@ -1308,9 +1308,10 @@ def test_generated_numeric_toolset_import_exposes_only_exact_verified_instance_s
     assert bad['reviewed_version']==version and bad['contains_verified_instance_version_field'] is True
     assert bad['root_role']=='outside-declared-roots' and bad['existence']=='not-inspected'
     actual=cxx['imports'][1]
-    assert actual['import_label']=='microsoft-vctools-version-props' and actual['reviewed_version']==version
+    assert actual['import_label']=='mapped-toolset-version-template' and actual['reviewed_version']==version
     assert actual['contains_verified_instance_version_field'] is False
-    assert actual['root_role']=='declared-vc-auxiliary' and actual['existence']=='regular-file-present'
+    assert actual['root_role']=='not-inspected' and actual['existence']=='not-inspected'
+    assert actual['toolset_mapping']['relationship']=='initial-seal-unavailable'
     delivered=json.dumps(result)
     for private in (str(tmp_path),'private-vs',instance['argument'],observed,'owned toolset property fixture'):
         assert private not in delivered
@@ -1519,6 +1520,239 @@ def test_new_unknown_numeric_layouts_cannot_become_mapped_policy_evidence(module
     result=module.import_target_context(value,{},None,instance=instance,initial_seal={})
     assert result['import_label']=='unknown-import' and result['toolset_mapping'] is None
     for private in (str(tmp_path),directory_alias,file_alias):assert private not in json.dumps(result)
+
+
+@pytest.mark.parametrize('layout',['/','.'])
+def test_canonical_generated_auxiliary_import_requires_the_same_initial_sealed_pair(module,tmp_path,layout):
+    version,alias,aux,metadata,props,index,instance,historical=alias_mapping_inputs(module,tmp_path,layout)
+    canonical=props.as_posix()
+    xml='<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup Label="Globals"/>'
+    compiler_id_project(tmp_path,'C',(xml+'<Import Project="'+canonical+'"/></Project>').encode())
+    result=module.compiler_id_globals_context(tmp_path,{}, {'vc-auxiliary':str(aux)},instance,{'vc-auxiliary':index})
+    record=result['projects'][0]['imports'][0]
+    assert record['import_label']=='mapped-toolset-version-template' and record['reviewed_version']==version
+    assert record['contains_verified_instance_version_field'] is False
+    assert record['root_role']=='declared-vc-auxiliary' and record['existence']=='regular-file-present'
+    assert record['toolset_mapping']=={'relationship':'verified-toolset-alias','matched_candidate_count':1,
+        'matches_policy':True,'member_exists_state':'regular-files-present'}
+    old=module.import_target_context(historical,{'vc-auxiliary':str(aux)},{},instance=instance,initial_seal={'vc-auxiliary':index})
+    assert old['contains_verified_instance_version_field'] is True and old['existence']=='not-inspected'
+    delivered=json.dumps(result)
+    for private in (str(tmp_path),alias,canonical,instance['argument'],instance['observed_version'],module.sha(props.read_bytes())):
+        assert private not in delivered
+
+
+@pytest.mark.parametrize('change,relationship',[
+    ('metadata-changed','sealed-member-changed'),('props-changed','sealed-member-changed'),
+    ('foreign-seal-bytes','sealed-member-changed'),('foreign-seal-role','initial-seal-unavailable'),
+    ('other-layout-only','no-sealed-alias-candidate'),('wrong-declared-root','declared-root-mismatch')])
+def test_canonical_auxiliary_context_cannot_inspect_an_unsealed_alternative_or_accept_changed_bytes(module,tmp_path,monkeypatch,change,relationship):
+    version,alias,aux,metadata,props,index,instance,_value=alias_mapping_inputs(module,tmp_path)
+    roots={'vc-auxiliary':str(aux)};initial={'vc-auxiliary':index}
+    if change=='metadata-changed':metadata.write_bytes(b'private changed metadata')
+    elif change=='props-changed':props.write_bytes(b'private changed props')
+    elif change=='foreign-seal-bytes':index[props.relative_to(aux).as_posix()]=module.attributes(b'foreign supplier bytes')
+    elif change=='foreign-seal-role':initial={'foreign-role':index}
+    elif change=='other-layout-only':
+        initial={'vc-auxiliary':{name.replace('Build/','Build.'):record for name,record in index.items()}}
+    else:roots={'vc-auxiliary':str(tmp_path/'private-other-auxiliary')}
+    if change in {'foreign-seal-role','other-layout-only','wrong-declared-root'}:
+        private_root=aux.parents[1]
+        def guard(original):
+            def call(path,*args,**kwargs):
+                if path==private_root or private_root in path.parents or path==Path(roots['vc-auxiliary']):
+                    pytest.fail('Unbound canonical members cannot request metadata or content access.')
+                return original(path,*args,**kwargs)
+            return call
+        monkeypatch.setattr(Path,'stat',guard(Path.stat));monkeypatch.setattr(Path,'lstat',guard(Path.lstat))
+        monkeypatch.setattr(Path,'open',guard(Path.open))
+    record=module.import_target_context(props.as_posix(),roots,{},instance=instance,initial_seal=initial)
+    assert record['contains_verified_instance_version_field'] is False
+    assert record['toolset_mapping']['relationship']==relationship
+    assert record['toolset_mapping']['matched_candidate_count']==0
+    assert record['existence']!='regular-file-present'
+    for private in (str(tmp_path),alias,'foreign supplier bytes','private changed'):
+        assert private not in json.dumps(record)
+
+
+@pytest.mark.parametrize('kind',['symlink','windows-reparse'])
+def test_canonical_auxiliary_context_refuses_parent_links_before_leaf_metadata(module,tmp_path,monkeypatch,kind):
+    _version,_alias,aux,metadata,props,index,instance,_value=alias_mapping_inputs(module,tmp_path)
+    directory=metadata.parent;real_lstat,real_stat,real_open=Path.lstat,Path.stat,Path.open
+    def reject(path):
+        if path!=directory and directory in path.parents:pytest.fail('A linked canonical parent must be refused before leaf access.')
+    def lstat_guard(path,*args,**kwargs):
+        reject(path)
+        if path==directory:return SimpleNamespace(st_mode=module.stat.S_IFLNK if kind=='symlink' else module.stat.S_IFDIR,
+            st_file_attributes=0x400 if kind=='windows-reparse' else 0)
+        return real_lstat(path,*args,**kwargs)
+    def stat_guard(path,*args,**kwargs):reject(path);return real_stat(path,*args,**kwargs)
+    def open_guard(path,*args,**kwargs):reject(path);return real_open(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(Path,'stat',stat_guard);monkeypatch.setattr(Path,'open',open_guard)
+    record=module.import_target_context(props.as_posix(),{'vc-auxiliary':str(aux)},{},instance=instance,initial_seal={'vc-auxiliary':index})
+    assert record['contains_verified_instance_version_field'] is False and record['existence']=='inspection-error'
+    assert record['toolset_mapping']['relationship']=='unavailable-sealed-member'
+
+
+@pytest.mark.parametrize('change',['argument','root','observed-version','missing-observation'])
+def test_canonical_auxiliary_absence_boolean_requires_the_verified_full_instance_tuple(module,tmp_path,monkeypatch,change):
+    _version,_alias,aux,_metadata,props,index,instance,_value=alias_mapping_inputs(module,tmp_path)
+    if change=='argument':instance['argument']+=',private-unknown-field'
+    elif change=='root':instance['root']=str(tmp_path/'private-foreign-vs')
+    elif change=='observed-version':instance['observed_version']='18.11.12315.226'
+    else:instance['observed_version']=None
+    def forbidden(*_args,**_kwargs):pytest.fail('An unverified instance tuple cannot authorize canonical member reads.')
+    monkeypatch.setattr(module,'diagnostic_file',forbidden)
+    record=module.import_target_context(props.as_posix(),{'vc-auxiliary':str(aux)},{},instance=instance,initial_seal={'vc-auxiliary':index})
+    assert record['import_label']=='unknown-import' and record['contains_verified_instance_version_field'] is None
+    assert record['toolset_mapping'] is None and record['existence']=='not-inspected'
+    assert 'private' not in json.dumps(record)
+
+
+def test_msb4018_projects_only_reviewed_task_exception_and_explicit_code_labels(module):
+    prefix='  1>C:/r19-authored-private/targets(22,5): error MSB4018: '
+    content=prefix+'The "SetEnv" task failed unexpectedly. [C:/r19-authored-private/project]\n'
+    content+=prefix+'System.ArgumentNullException: private parameter/model text (Exception from HRESULT: 0x80004003) NativeErrorCode: 5\n'
+    content+=prefix+'   at PrivateStack.PrivateMethod(C:/r19-authored-private/account)\n'
+    result=module.msb4018_task_context(content,16)
+    assert result=={'records':[{'literal_match_state':'matched-task-template','task_label':'set-env',
+        'exception_families':['argument-null'],'hresult_labels':['e-pointer'],'win32_labels':['access-denied'],
+        'context_truncated':False}],'truncated':False}
+    for private in ('r19-authored-private','PrivateStack','parameter/model','targets','22','System.ArgumentNullException','0x80004003'):
+        assert private not in json.dumps(result)
+
+
+def test_msb4018_unknown_literals_and_codes_never_echo_tokens_or_infer_native_error_from_hresult(module):
+    prefix='error MSB4018: '
+    content=prefix+'The "OwnedPrivateTask" task failed unexpectedly.\n'
+    content+=prefix+'Owned.PrivateException (0x81234567): private account NativeErrorCode: 998877\n'
+    content+=prefix+'   at System.ArgumentNullException: (Exception from HRESULT: 0x80004003)\n'
+    content+='\n'+prefix+'unrecognized private task template\n'
+    content+=prefix+'System.ComponentModel.Win32Exception (0x80004005): private message\n'
+    first,second=module.msb4018_task_context(content,16)['records']
+    assert first['literal_match_state']=='matched-task-template' and first['task_label']=='unknown-task'
+    assert first['exception_families']==['unknown-exception'] and first['hresult_labels']==['unknown-hresult']
+    assert first['win32_labels']==['unknown-win32-error']
+    assert second['literal_match_state']=='unrecognized-template' and second['task_label']=='unknown-task'
+    assert second['exception_families']==['win32'] and second['hresult_labels']==['e-fail']
+    assert second['win32_labels']==[]
+    for private in ('Owned','PrivateException','81234567','998877','private account','private message'):
+        assert private not in json.dumps((first,second))
+
+
+def test_msb4018_primary_dll_exception_hresult_and_explicit_win32_code_are_separate_observations(module):
+    prefix='C:/r19-authored-private/task(6,7): error MSB4018: '
+    content=prefix+'The "CL" task failed unexpectedly.\n'
+    content+=prefix+'System.DllNotFoundException: private module (Exception from HRESULT: 0x8007007E)\n'
+    content+=prefix+'---> System.ComponentModel.Win32Exception: private message Win32 error: 126\n'
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['task_label']=='cl' and record['exception_families']==['dll-not-found','win32']
+    assert record['hresult_labels']==['win32-module-not-found-hresult'] and record['win32_labels']==['module-not-found']
+    assert 'private' not in json.dumps(record) and '126' not in json.dumps(record)
+
+
+def test_msb4018_requires_anchored_error_and_literal_quotes_without_unescaping(module):
+    content='private error MSB4018: The "CL" task failed unexpectedly.\n'
+    content+='warning MSB4018: The "CL" task failed unexpectedly.\n'
+    assert module.msb4018_task_context(content,16)=={'records':[],'truncated':False}
+    content+='error MSB4018: The \\"CL\\" task failed unexpectedly.\n'
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['literal_match_state']=='unrecognized-template' and record['task_label']=='unknown-task'
+    assert record['exception_families']==record['hresult_labels']==record['win32_labels']==[]
+
+
+def test_msb4018_and_import_records_share_one_limit_across_both_fixed_logs(module,tmp_path,monkeypatch):
+    directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
+    task='error MSB4018: The "SetEnv" task failed unexpectedly.\n'
+    (directory/'CMakeConfigureLog.yaml').write_text('error MSB4019: private import template\n'+task)
+    (directory/'CMakeError.log').write_text(task+task)
+    monkeypatch.setattr(module,'IMPORT_CONTEXT_LIMIT',3)
+    logs=module.nested_configure_log_context(tmp_path)['logs']
+    assert len(logs[0]['msb4019_imports']['records'])==len(logs[0]['msb4018_tasks']['records'])==1
+    assert len(logs[1]['msb4018_tasks']['records'])==1 and logs[1]['msb4018_tasks']['truncated'] is True
+    assert sum(len(row[key]['records']) for row in logs for key in ('msb4019_imports','msb4018_tasks'))==3
+    assert 'private' not in json.dumps(logs)
+
+
+def test_msb4018_record_byte_cap_prevents_late_exception_labels_even_with_multibyte_text(module,monkeypatch):
+    header='error MSB4018: The "SetEnv" task failed unexpectedly.\n'
+    line='error MSB4018: '+('\u4e2d'*30)+'\n'
+    late='error MSB4018: System.ArgumentNullException: private late (Exception from HRESULT: 0x80004003)\n'
+    monkeypatch.setattr(module,'MSB4018_BLOCK_BYTES',len((header+line).encode())-2)
+    record=module.msb4018_task_context(header+line+late,16)['records'][0]
+    assert record['task_label']=='set-env' and record['context_truncated'] is True
+    assert record['exception_families']==record['hresult_labels']==record['win32_labels']==[]
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+def test_msb4018_many_short_lines_count_connecting_newline_bytes_before_late_exception(module,newline):
+    header='error MSB4018: The "SetEnv" task failed unexpectedly.'
+    short='error MSB4018: x'
+    late='error MSB4018: System.ArgumentNullException: private late (Exception from HRESULT: 0x80004003)'
+    count=(module.MSB4018_BLOCK_BYTES-len((header+late).encode()))//len(short.encode())
+    content=newline.join([header]+[short]*count+[late])
+    assert len(content.encode())>module.MSB4018_BLOCK_BYTES
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['task_label']=='set-env' and record['context_truncated'] is True
+    assert record['exception_families']==record['hresult_labels']==record['win32_labels']==[]
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+@pytest.mark.parametrize('extra_byte',[False,True])
+def test_msb4018_byte_span_boundary_includes_only_connecting_line_endings(module,monkeypatch,newline,extra_byte):
+    header='error MSB4018: The "SetEnv" task failed unexpectedly.'
+    exception='error MSB4018: System.ArgumentNullException: private parameter'
+    content=newline.join((header,exception))
+    monkeypatch.setattr(module,'MSB4018_BLOCK_BYTES',len(content.encode())-int(extra_byte))
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['context_truncated'] is extra_byte
+    assert record['exception_families']==([] if extra_byte else ['argument-null'])
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+def test_msb4018_new_task_block_resets_without_charging_the_previous_block_gap(module,monkeypatch,newline):
+    block=newline.join(('error MSB4018: The "SetEnv" task failed unexpectedly.',
+        'error MSB4018: System.ArgumentNullException: private parameter'))
+    monkeypatch.setattr(module,'MSB4018_BLOCK_BYTES',len(block.encode()))
+    records=module.msb4018_task_context(newline.join((block,block)),16)['records']
+    assert len(records)==2
+    assert all(record['exception_families']==['argument-null'] and record['context_truncated'] is False for record in records)
+
+
+def test_msb4018_long_nonmatching_headers_finish_in_one_bounded_child_within_the_real_log_tail(module,tmp_path):
+    directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
+    noise=((' '*32000+'x\n')+(' '*32000+'x\r\n'))*24
+    content=noise+'error MSB4018: The "SetEnv" task failed unexpectedly.\n'
+    assert len(content.encode())<module.LOG_TAIL_BYTES
+    (directory/'CMakeConfigureLog.yaml').write_bytes(content.encode())
+    script='''import importlib.util, sys
+from pathlib import Path
+spec=importlib.util.spec_from_file_location("owned_asr_parser",sys.argv[1])
+driver=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(driver)
+logs=driver.nested_configure_log_context(Path(sys.argv[2]))["logs"]
+records=logs[0]["msb4018_tasks"]["records"]
+assert len(records)==1 and records[0]["task_label"]=="set-env"
+assert records[0]["context_truncated"] is False
+print("bounded-msb4018-parser-passed")
+'''
+    result=module.subprocess.run([module.sys.executable,'-I','-B','-c',script,
+        str(ROOT/'scripts/reference-asr.py'),str(tmp_path)],capture_output=True,text=True,timeout=10)
+    assert result.returncode==0 and result.stdout=='bounded-msb4018-parser-passed\n' and result.stderr==''
+
+
+def test_msb4018_full_tail_discards_partial_prefix_without_more_reads(module,tmp_path,monkeypatch):
+    directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
+    partial='error MSB4018: The "CL" task failed unexpectedly.\n'
+    complete='error MSB4018: The "SetEnv" task failed unexpectedly.\n'
+    retained=(partial+complete).encode()
+    (directory/'CMakeConfigureLog.yaml').write_bytes(b'private truncated prefix '+retained)
+    monkeypatch.setattr(module,'LOG_TAIL_BYTES',len(retained))
+    monkeypatch.setattr(module,'NESTED_LOG_TOTAL_BYTES',len(retained))
+    logs=module.nested_configure_log_context(tmp_path)['logs']
+    assert [row['task_label'] for row in logs[0]['msb4018_tasks']['records']]==['set-env']
+    assert logs[1]['state']=='total-byte-limit' and logs[1]['msb4018_tasks']['records']==[]
+    assert 'private' not in json.dumps(logs)
 
 
 @pytest.mark.parametrize('kind,expected', [('command', 'private-command-failed'),
