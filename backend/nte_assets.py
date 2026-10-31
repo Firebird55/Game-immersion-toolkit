@@ -66,8 +66,6 @@ def ensure_extractor(directory: Path) -> Path:
         raise ValueError("NTE needs the .NET 10 SDK. Install it from https://dotnet.microsoft.com/download/dotnet/10.0, then prepare tools again.")
     upstream = directory / "upstream"
     install_archive(READER_URL, READER_SHA, upstream, ("UEExtractor.dll", "UEExtractor.runtimeconfig.json"))
-    from .wuthering_assets import ensure_unreal_decompression
-    ensure_unreal_decompression(upstream)
     notice = upstream / "UEEXTRACTOR-LICENSE.txt"
     if not notice.is_file():
         data = download(f"https://raw.githubusercontent.com/SolicenTEAM/UEExtractor/{READER_REVISION}/LICENSE")

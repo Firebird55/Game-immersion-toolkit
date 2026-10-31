@@ -29,24 +29,11 @@ INPUTS = {
         'source': 'https://github.com/SolicenTEAM/UEExtractor/tree/1dff3554320d530efff26a827819f0e011f1b892',
         'embedded_parser_source': 'https://github.com/FabianFG/CUE4Parse/tree/6409f38e09e2a21aa839cd77b4515bca6c66f280',
         'license': 'MIT; embedded parser Apache-2.0; transitive assembly inventory pending'},
-    'oodle-data-shared.dll': {
-        'url': 'https://github.com/WorkingRobot/OodleUE/releases/download/2026-01-25-1223/clang-cl-x64-release.zip',
-        'sha256': '2c7b9350b1a396690ef233fc79f945b62453e7f9b026645e00b75a2d8569f283',
-        'format': 'zip', 'member': 'bin/oodle-data-shared.dll', 'version': '2026-01-25-1223',
-        'source': 'https://github.com/WorkingRobot/OodleUE/tree/9bd4cc1e644f2890785b970cc09b96ea488be4e6',
-        'license': 'Supplier references Unreal Engine EULA; redistribution grant not established'},
-    'zlib-ng2.dll': {
-        'url': 'https://github.com/NotOfficer/Zlib-ng.NET/releases/download/1.0.0/zlib-ng2.dll.gz',
-        'sha256': 'e11f814f64821c482fb81c05fb20d9e5a3be0feb0e2f8fd9480d1f341163e2c1',
-        'format': 'gzip', 'version': '1.0.0',
-        'source': 'https://github.com/NotOfficer/Zlib-ng.NET/tree/52175d749e2a00ddf9b10610197c27b2c1d65658',
-        'license': 'Wrapper MIT; exact zlib-ng native build and notice closure pending'},
+
 }
 NOTICES = {
     'UEEXTRACTOR-LICENSE.txt': ('https://raw.githubusercontent.com/SolicenTEAM/UEExtractor/1dff3554320d530efff26a827819f0e011f1b892/LICENSE', 'fb300b505be778c50066cd4fd897aec164e1bd7eaef31634d810ae2882555811'),
     'CUE4PARSE-LICENSE.txt': ('https://raw.githubusercontent.com/FabianFG/CUE4Parse/6409f38e09e2a21aa839cd77b4515bca6c66f280/LICENSE', 'c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4'),
-    'OODLE-SUPPLIER-README.md': ('https://raw.githubusercontent.com/WorkingRobot/OodleUE/9bd4cc1e644f2890785b970cc09b96ea488be4e6/README.md', '62f115a674411924f6690d0be4fb63e12d6fcf3a4de958ff352e3082f8bc2a42'),
-    'ZLIB-WRAPPER-LICENSE.txt': ('https://raw.githubusercontent.com/NotOfficer/Zlib-ng.NET/52175d749e2a00ddf9b10610197c27b2c1d65658/LICENSE', 'deac1ca63a9ec0afe45533534e85e912bf8083a201f47ee24e0d335f386566d2'),
 }
 NOTICE = '''# NTE archive dependency evidence
 
@@ -55,13 +42,11 @@ UEExtractor incorporates CUE4Parse and other managed libraries. The included
 top-level MIT and Apache notices do not cover every embedded assembly. Its full
 transitive source, version and notice inventory remains required before release.
 
-WorkingRobot/OodleUE says its files are Epic/RAD intellectual property subject
-to the Unreal Engine EULA. Its release archive supplies no license notice. This
-collection does not assert a redistribution grant. Close that grant for the
-exact native bytes, or replace this decoder before public distribution.
-
-The Zlib-ng.NET wrapper's MIT license does not establish the exact native DLL's
-source/build and zlib-ng notice closure. Those remain required before release.
+The owned bridge initializes CUE4Parse directly and retains its embedded
+managed Oodle and Zlib defaults. The supplier wrapper constructor and its
+external native-code downloaders are never invoked. External OodleUE and
+Zlib-ng DLLs are no longer collected or accepted by the runtime inventory.
+The embedded managed dependencies still require full notice/source review.
 
 All source URLs, supplier archive hashes, selected binary hashes and available
 notice hashes are retained in dependencies.json and the outer resource receipt.

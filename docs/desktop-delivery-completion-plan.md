@@ -62,6 +62,28 @@ Raw event paths and machine diagnostics remain local and untracked.
 
 ## Acceptance and delivery
 
+### Checkpoint: 2026-10-31
+
+PR #62 integrates the current branch with main and PR #60. Its first hosted
+publication audit passed; the application job passed 270 JavaScript tests and
+2,097 Python tests, but failed one cross-platform symbolic-link fixture. The
+fixture now records the host's actual link bytes; a new hosted run must confirm
+that correction before merge.
+
+The frozen-host probe covers startup, stable-origin API crash recovery, owned
+shutdown and host-crash cleanup. The separate visible-UI probe observes status,
+logs, tray availability and actual browser-handler requests. A successful handler
+request does not establish browser navigation; that remains separate acceptance.
+
+The NTE bridge now constructs the embedded CUE4Parse provider directly with its
+managed codecs. The external OodleUE and Zlib DLLs are no longer downloaded or
+accepted by the NTE dependency inventory. An installed-file probe reproduced the
+previous Chinese original audio bytes and read all five text locales without
+those DLLs. Full embedded dependency notices and a rebuilt frozen candidate are
+still pending. Wuthering Waves and Cyberpunk packaged helper preparation, POSIX
+codec closure, exact third-party notices and final platform acceptance remain
+open; these are implementation tasks, not permanent game-specific restrictions.
+
 Source validation: the frame/process tests exercise real child exit, hang,
 truncated and oversized IPC, frame reuse, shutdown, resize replacement and
 restart backoff. Windows Job Object descendants are reaped before replacement.

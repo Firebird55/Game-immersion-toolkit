@@ -1,6 +1,6 @@
 """Verified NTE archive operations using a self-contained application helper.
 
-The managed bridge and its separately supplied native/managed dependencies have
+The managed bridge and its separately supplied managed dependencies have
 different inventories. Neither an authored probe nor a review-status string can
 substitute for the actual supplier bytes. Build/distribution provenance is kept
 by the resource collector; this module only resolves an already installed chain.
@@ -18,11 +18,9 @@ from .preparation_errors import PreparationFailure
 from .runtime_bundle import discover_layout, RuntimeBundleError, relative_resource
 
 PREFIX = 'toolchains/nte/'
-SCHEMA = 'toolkit-nte-dependencies-v1'
+SCHEMA = 'toolkit-nte-dependencies-v2'
 DEPENDENCIES = {
     'UEExtractor.dll': '0076582a3edf2a3b0114b2788a8fc4814a49db2d3e6f0995713a72f915a7c1e2',
-    'oodle-data-shared.dll': '8f6c0d487573b5a7ea8548407cbf96f5cd833fe7138769914961b6697d74b3b3',
-    'zlib-ng2.dll': '454be2f3d10f804ace577198401431db5e95d0286b59589bc28a40085388e7c2',
 }
 MODES = frozenset({'inventory', 'index', 'voice', 'voices'})
 
@@ -45,7 +43,7 @@ def dependencies(layout) -> Path:
         files = value.get('files')
         if (value.get('schema') != SCHEMA or value.get('platform') != host_platform()
                 or value.get('platform') != 'win-x64' or not isinstance(files, dict)
-                or not DEPENDENCIES.keys() <= files.keys() or len(files) > 32):
+                or not DEPENDENCIES.keys() <= files.keys() or len(files) > 128):
             raise ValueError()
         # Executables/assemblies must be exactly known. Additional source and
         # license material can only reside in the inert notices directory.

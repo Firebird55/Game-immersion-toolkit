@@ -143,9 +143,7 @@ def missing_tools(root: Path, game: str) -> list[str]:
         if dotnet_sdk() is None:
             required.append((".NET 10 SDK", runtime_data_root(root) / "nte/tools/missing-sdk"))
         required += [("NTE reader", runtime_data_root(root) / "nte/tools/NteReader.dll"),
-                     ("NTE archive reader", runtime_data_root(root) / "nte/tools/upstream/UEExtractor.dll"),
-                     ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/oodle-data-shared.dll"),
-                     ("NTE decompression", runtime_data_root(root) / "nte/tools/upstream/zlib-ng2.dll")]
+                     ("NTE archive reader", runtime_data_root(root) / "nte/tools/upstream/UEExtractor.dll")]
     return list(dict.fromkeys([*missing, *(name for name, path in required if not path.is_file()),
                                *_metadata_missing(root, game)]))
 

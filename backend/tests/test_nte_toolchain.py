@@ -54,9 +54,9 @@ def test_dependency_closure_is_exact_and_cannot_be_forged_by_review_fields(tmp_p
     layout, root = fixture(tmp_path, monkeypatch)
     manifest = json.loads((root / 'dependencies.json').read_text())
     if change == 'missing':
-        (root / 'zlib-ng2.dll').unlink()
+        (root / 'UEExtractor.dll').unlink()
     elif change == 'tampered':
-        (root / 'oodle-data-shared.dll').write_bytes(b'changed')
+        (root / 'UEExtractor.dll').write_bytes(b'changed')
     elif change == 'outer-missing':
         resources = dict(layout.resources); del resources[chain.PREFIX + 'UEExtractor.dll']
         layout = replace(layout, resources=resources)

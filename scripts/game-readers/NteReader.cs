@@ -32,8 +32,8 @@ internal static class NteReader
             if (tools.Equals(install, StringComparison.OrdinalIgnoreCase) ||
                 tools.StartsWith(install.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                 throw new ArgumentException();
-            // CUE4Parse locates its native dependencies in the working folder.
-            // They were independently verified by setup before this process.
+            // The supplier assembly is fixed by the application inventory.
+            // Its embedded managed codecs need no external DLLs or downloads.
             Directory.SetCurrentDirectory(tools);
             if (destination.Equals(install, StringComparison.OrdinalIgnoreCase) ||
                 destination.StartsWith(install.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
@@ -49,15 +49,9 @@ internal static class NteReader
             var assembly = Assembly.LoadFrom(Path.Combine(tools, "UEExtractor.dll"));
             var key = request.RootElement.GetProperty("archive_metadata").GetString();
             if (key == null || key.Length != 66 || !key.StartsWith("0x") || !key[2..].All(Uri.IsHexDigit)) throw new ArgumentException();
-            var readerType = assembly.GetType("UnrealArchiveReader", true)!;
-            readerType.GetField("EngineSpecified")!.SetValue(null, true);
-            var reader = Activator.CreateInstance(readerType, install, "NevernessToEverness", "")!;
+            var provider = CreateProvider(assembly, install, key);
             try
             {
-                // Upstream 1.0.8.7 does not forward its AES argument to the provider.
-                readerType.GetField("AES_KEY")!.SetValue(reader, key);
-                readerType.GetMethod("LoadAesKey", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(reader, [install]);
-                var provider = readerType.GetField("_provider", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(reader)!;
                 provider.GetType().GetMethods().Single(m => m.Name == "Mount" && m.GetParameters().Length == 0).Invoke(provider, null);
                 var save = provider.GetType().GetMethod("SaveAsset", [typeof(string)])!;
                 Directory.CreateDirectory(destination);
@@ -174,11 +168,48 @@ internal static class NteReader
                     File.WriteAllText(Path.Combine(destination, "cinema-subtitles.json"), JsonSerializer.Serialize(subtitles));
                 }
             }
-            finally { (reader as IDisposable)?.Dispose(); }
+            finally { (provider as IDisposable)?.Dispose(); }
             Console.SetOut(output); Console.WriteLine("Game reader completed"); return 0;
         }
         catch (UnsupportedGameFormatException) { Console.SetOut(output); Console.WriteLine("Unsupported NTE localization format; update the toolkit reader"); return 3; }
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
+    }
+    static object CreateProvider(Assembly supplier, string install, string key)
+    {
+        // Initialize only the embedded-assembly resolver. The supplier's
+        // UnrealArchiveReader constructor invokes native-code downloaders;
+        // constructing CUE4Parse directly preserves its managed Oodle/Zlib
+        // defaults and keeps preparation independent of those suppliers.
+        System.Runtime.CompilerServices.RuntimeHelpers.RunModuleConstructor(supplier.ManifestModule.ModuleHandle);
+        var wrapper = supplier.GetType("UnrealArchiveReader", true)!;
+        var providerType = wrapper.GetField("_provider", BindingFlags.NonPublic | BindingFlags.Instance)!.FieldType;
+        var cue = providerType.Assembly;
+        var game = Enum.Parse(cue.GetType("CUE4Parse.UE4.Versions.EGame", true)!, "GAME_NevernessToEverness");
+        var versionType = cue.GetType("CUE4Parse.UE4.Versions.VersionContainer", true)!;
+        var versionCtor = versionType.GetConstructors().Single();
+        var versionArgs = versionCtor.GetParameters().Select(p => p.IsOptional ? Type.Missing : (object?)null).ToArray();
+        versionArgs[0] = game;
+        var version = versionCtor.Invoke(versionArgs);
+        var providerCtor = providerType.GetConstructors().Single(c => {
+            var parameters = c.GetParameters();
+            return parameters.Length == 4 && parameters[0].ParameterType == typeof(string)
+                && parameters[2].ParameterType == versionType;
+        });
+        var provider = providerCtor.Invoke([install, SearchOption.AllDirectories, version, StringComparer.OrdinalIgnoreCase]);
+        try
+        {
+            providerType.GetMethod("Initialize")!.Invoke(provider, null);
+            var submit = providerType.GetMethod("SubmitKey")!;
+            var guid = Activator.CreateInstance(submit.GetParameters()[0].ParameterType)!;
+            var aes = Activator.CreateInstance(submit.GetParameters()[1].ParameterType, key)!;
+            submit.Invoke(provider, [guid, aes]);
+            return provider;
+        }
+        catch
+        {
+            (provider as IDisposable)?.Dispose();
+            throw;
+        }
     }
     static object Property(object value, string name) => value.GetType().GetProperty(name)!.GetValue(value)!;
     static string TextKey(object value) => (string)value.GetType().GetField("Str")!.GetValue(value)!;
