@@ -783,6 +783,16 @@ uninspected. Artifact 13031640010 matched 1,680 bytes and SHA-256
 including independently checked source/gates. This narrows the investigation
 without proving a missing filename, native compile or inference success.
 
+The same head's [FFmpeg run 41171349043](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171349043)
+failed at `build-ffmpeg`, exit 2. Its new fixed categories identify
+`ffmpeg-makedef-temporary-library`, `make-fatal-error` and `make-recipe-error`,
+with no allowlisted numeric code or truncated log tail. Downloaded artifact
+13031800496 matched 492 bytes and SHA-256
+3353975fa4c79dc72117ca32df7619607b3390ca4d5c3b6503772af8ab630edb;
+source and false gates were independently checked. The original makedef discards
+the temporary archiver's stdout. That explains a diagnostic gap, not the
+underlying tool failure. No final decode or after-build tool seal was reached.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

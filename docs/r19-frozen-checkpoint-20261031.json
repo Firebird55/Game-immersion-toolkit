@@ -1414,5 +1414,39 @@
     "production_execution_allowed": false,
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false
+  },
+  "later_ffmpeg_makedef_failure_ab84772": {
+    "source_commit": "ab8477225b2cd5b9a7a3521fedbba98332c6b9d1",
+    "run": 41171349043,
+    "native_job": 124449825885,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13031800496,
+      "bytes": 492,
+      "sha256": "3353975fa4c79dc72117ca32df7619607b3390ca4d5c3b6503772af8ab630edb"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "build-ffmpeg",
+    "exit_code": 2,
+    "diagnostic_codes": [],
+    "diagnostic_categories": [
+      "ffmpeg-makedef-temporary-library",
+      "make-fatal-error",
+      "make-recipe-error"
+    ],
+    "log_truncated": false,
+    "source_observation": "original-makedef-discards-temporary-archiver-stdout",
+    "underlying_library_tool_cause": "not-proved",
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "native_decode": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
   }
 }
