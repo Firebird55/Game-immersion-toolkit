@@ -79,7 +79,19 @@ The [guarded cold-slot checkpoint](r19-guarded-slot-probe.md) establishes contin
 lease exclusion while its outer guardian remains alive, including host crash and
 rollback. Guardian death, warm routing and actual store/credential continuity stay
 open. The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
-a separate manual build-host experiment; native execution and adoption are pending.
+a separate manual build-host experiment. The [TTS-disabled ASR source
+experiment](r19-asr-source-experiment.md) is a distinct private binding variant,
+with an authored native-format graph rather than accepted pretrained model
+weights. Neither experiment is a runtime replacement or a corresponding-source
+approval. Their first hosted attempts at `0b76427` failed before compilation:
+FFmpeg/Opus selected two CMake executables as one command, and ASR failed its
+toolchain validation. These failures establish no decode or inference result;
+fixed tool selection and successful native execution remain required.
+The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
+binds a fixed current/retired frontend snapshot to independently trusted slot
+manifest hashes. Its authored loopback tests cover old Vite/Next chunks and
+refusal cases; production CLI access, route swaps and browser continuity remain
+unavailable.
 
 ## Execution order and ownership
 
@@ -350,10 +362,21 @@ Continue A1/A3 and B1 from the [frozen Xiph integration](r19-frozen-xiph.md),
 retaining its complete source/recipe/notice delivery and exact observed binary
 identity. Review its extracted decode/failure/DLL-origin evidence separately from
 clean Windows 11/ordinary-user CRT acceptance and production source hosting.
-First resolve the build-recipe terms and release-source requirements in the
-[rights/source review](r19-xiph-distribution-review.md); no blanket relicense is
-inferred and no runtime acceptance flag changes.
-The standalone source-build/rebuild pass alone does not establish those gates.
+The limited build-recipe grant in the
+[rights/source review](r19-xiph-distribution-review.md) is approved and delivered
+in the exact retained source kit. Keep that completed scope separate from
+remaining canonical binary/source cohosting, incorporated-component rights and
+clean-host acceptance. No blanket relicense is inferred and no runtime acceptance
+flag changes. The standalone source-build/rebuild pass alone does not establish
+those remaining gates.
+
+Finish the separate FFmpeg/Opus and TTS-disabled ASR native build experiments
+before considering their source/notice disposition or runtime integration. A
+passing authored ASR graph would prove mechanical inference APIs only, not
+speech recognition accuracy, pretrained model rights or complete ONNX source
+reconstruction. In parallel, C can extend verified immutable frontend retention
+and the independently owned lease lifetime using authored private state; neither
+a frontend snapshot nor a cold-slot pass is a warm update transaction.
 
 For each subsequent codec family use one accepted artifact and an independently
 authored real decode, plus missing/corrupt/cancellation cases. Add its exact
