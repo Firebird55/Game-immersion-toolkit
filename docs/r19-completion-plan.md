@@ -1,6 +1,22 @@
 # R19 completion plan
 
 Status: **planned remaining work; no acceptance gate is closed by this plan**.
+
+Current delivery scope (2026-11-01): this document preserves the historical R19
+checkpoint and its unresolved evidence, rather than describing today's product
+restrictions. The owner subsequently authorized native Windows, Linux and macOS
+delivery, installer integration, release and local installation. Follow the
+[desktop delivery plan](desktop-delivery-completion-plan.md),
+[native acceptance plan](desktop-native-acceptance-plan.md) and
+[native handoff procedure](native-installation-handoff.md) for that work.
+The production runtime profile and common reader/helper capability paths replace
+the historical disabled profile and per-game quarantine policy below. Endfield
+and selective RE archives use owned Python readers; all games use the same
+capability, preparation and missing-pack behavior except where their formats or
+capture presentations require an adapter. Historical experimental receipts do
+not establish production package acceptance: each shipped target still requires
+its exact input review and frozen-process checks.
+
 Updated 2026-10-29 against `2e10dff78fb89f48584ff4f3ddb087e12e71c3ec`.
 The acceptance contract remains the [R18 plan](r18-runtime-inventory.md#r19-acceptance-plan),
 [component inventory](r18-runtime-components.md) and
@@ -24,7 +40,7 @@ source installation behavior. Preserve unavailable pack/format states explicitly
 PR #59 remains unchanged. No installer, release/tag, Pages publication, installed
 shortcut transaction or live migration is authorized by this plan.
 
-## Starting point
+## Historical starting point
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
