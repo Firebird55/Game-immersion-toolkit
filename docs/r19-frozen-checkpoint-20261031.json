@@ -1553,5 +1553,45 @@
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false,
     "installer": "not-built"
+  },
+  "later_asr_sealed_alias_import_failure_02c6380": {
+    "source_commit": "02c6380bfbdccc63af311391ede52a1a4020153d",
+    "run": 41181127131,
+    "native_job": 124478593454,
+    "run_conclusion": "failure",
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261030.294.1"
+    },
+    "visual_studio_instance_version": "18.11.12328.437",
+    "failure_artifact": {
+      "id": 13034697875,
+      "bytes": 2049,
+      "sha256": "58d020c5208facffb91d8ec554cf35d3ad63ed25d5e7167bb4c764fec68ba77f"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-crlf-manifest-and-false-gates",
+    "phase": "cmake-configure",
+    "generated_project_second_imports": "both-mapped-template-with-verified-instance-version-field-outside-declared-roots-not-inspected",
+    "toolset_mapping": {
+      "relationship": "verified-toolset-alias",
+      "matched_candidate_count": 1,
+      "matches_policy": true,
+      "member_exists_state": "regular-files-present"
+    },
+    "msb4019_records": 8,
+    "caller_line": 37,
+    "caller_column": 3,
+    "reviewed_globals": "all-ten-exact-match",
+    "known_cpp_imports": "three-per-project-regular-files-present-under-selected-v180",
+    "observed_problem": "full-generator-argument-including-instance-version-used-as-auxiliary-import-directory",
+    "native_compile": "not-reached",
+    "native_inference": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
   }
 }

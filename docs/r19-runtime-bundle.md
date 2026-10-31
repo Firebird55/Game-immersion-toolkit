@@ -829,6 +829,21 @@ The previous raw AR value and final LIB/decode outcome remain unknown; the fix
 requires a new native run and does not change the diagnostic source variant,
 compiler pins, codec options or rights gates.
 
+At `02c6380`, [ASR run 41181127131](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41181127131)
+identified the invalid generated import. Both CompilerId projects and all eight
+MSB4019 records contain the fixed mapped-template label and verified
+instance-version-field boolean. Each relationship matches one unchanged,
+initially sealed auxiliary pair with the exact toolset policy. The actual
+target includes the full generator argument's version field as a directory;
+it stays outside the declared roots and was not inspected. The three known CPP
+imports per project and all ten reviewed Globals still match. Artifact
+13034697875 matched 2,049 bytes and SHA-256
+58d020c5208facffb91d8ec554cf35d3ad63ed25d5e7167bb4c764fec68ba77f;
+independent review checked the exact source, CRLF manifest and false gates.
+This run used image 20261030.294.1 and observed VS 18.11.12328.437. Configure
+failed before native compilation; no inference or complete final tool seal is
+established. The selector fix and its native result remain pending.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
