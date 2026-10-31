@@ -69,6 +69,24 @@ the selected installation contains libcrypto-3-x64/libssl-3-x64. Resolve that
 discrepancy against real PE imports and supplier build inputs before approval;
 do not copy the metadata into an asserted native inventory.
 
+A subsequent download-free static review of the same verified install_only
+archive resolves that specific import-name discrepancy for four supplier input
+members. `python/DLLs/_hashlib.pyd` (54,784 bytes, SHA-256
+71c71022b34ccb680bb51e77de3ce9cf2999e11abca7d969f0f8f7955d53c486)
+imports `libcrypto-3-x64.dll`; `_ssl.pyd` (165,888 bytes, SHA-256
+5322a75da94cc3839355451b574cd5a0e0ab5b8e7da01c9fa6ad1e1aedf2e429)
+imports both `libcrypto-3-x64.dll` and `libssl-3-x64.dll`. The exact supplied
+crypto DLL is 7,856,640 bytes, SHA-256
+b1b422db706bae5429819cfbf77bb860fbb15843e4f812afc444d7345ded7dbf;
+the SSL DLL is 1,571,840 bytes, SHA-256
+c1a0ea16b3fe79b3ef9c6861533ddd8c5661f1b3244f67fcf1b53b2576ab809a,
+and imports that same crypto basename. All four are native AMD64/PE32+ with no
+delay imports. Only archive members were read; no DLL was loaded or executed.
+The obsolete `1_1` link names in PYTHON.json therefore cannot describe these
+four files' static imports. This does not establish their exact OpenSSL source
+version, complete dynamic/provider behavior, final collected identity/load
+origin or Microsoft/redistribution acceptance. Those reviews remain open.
+
 ## Exact-output findings and component dispositions
 
 The available frozen report at source
