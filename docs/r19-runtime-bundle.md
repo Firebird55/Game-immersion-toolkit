@@ -1312,9 +1312,9 @@ R19 acceptance gate is upgraded.
 ## Verified HTTP-worker checkpoint at ac5b767
 
 [Run 41247755052](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41247755052)
-at `ac5b7670da9fd613892f6d054e1b96ff51371d7c` is the latest complete bounded
-frozen checkpoint. It passed 1,337 Windows contracts without skips (one warning,
-197.25 seconds), native/C1/cold-slot, both living-keeper cases and C3–C6.
+at `ac5b7670da9fd613892f6d054e1b96ff51371d7c` was the latest complete bounded
+frozen checkpoint before `a2e1fb6` below. It passed 1,337 Windows contracts
+without skips (one warning, 197.25 seconds), native/C1/cold-slot, both living-keeper cases and C3–C6.
 All Runtime methods and SQL/reading-registry owners retain their d329 ASTs;
 only the two explicit HTTP worker handlers change. Regional preview and manual
 match workers now enter their captured gate/ticket inside the actual thread and
@@ -1350,6 +1350,58 @@ Later parent-labelled controls at local `259dfe4` passed 212 source cases with
 three platform skips; they are outside ac5 and are not a native rerun. Historical
 d329 and earlier C7 negatives remain unchanged. Physical/global/warm, exact-output
 rights, ordinary-user Windows 11 and full R19 acceptance remain open.
+
+## Verified SQL statement checkpoint at a2e1fb6
+
+[Run 41250772466](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41250772466)
+at `a2e1fb6aa2162a843581b7e90135a53c83b65c6f` is the latest complete bounded
+frozen checkpoint: **1,379 Windows contracts, no skips, one warning, 210.91
+seconds**, followed by native/C1/cold-slot, both living-keeper cases and C3–C6.
+SQL Phase A explicitly owns 66 known statement/cursor sites: 45 TranscriptStore,
+15 Lexirise and six Reading sites. Normal SQL, return values and transactions
+retain their normalized ac5 ASTs. Runtime/API and reader-registry bytes remain
+ac5-identical; the earlier two actual HTTP-worker scopes remain in force.
+These are source statement/resource boundaries and extracted authored checks,
+not a universal physical fence or Runtime SQL composition. Later Phase B work
+and C7 environment candidate `89353fa` are outside this published head. That
+candidate has only 214 local source passes and three Windows platform skips;
+no native result is claimed.
+
+Root independently replayed the runtime verification to exit0; root and peer
+bound seven source/metadata archives, 28 entries, 96 exact Git inputs, 473 A2/P1
+records and 113 notice references covering 104 hashes. Inventory: **1,449 files,
+642 directories, 620,164,006 bytes**, SHA256
+`7aec85c7e08fe7162dbfe10bc13bb8ebf6165363171facbabe873c50a22245e1`.
+The main runtime, reference-codec and frontend jobs used image
+`20261021.278.1`; managed, Node, protected-TEST and diagnostic jobs used
+`20261030.294.1`. Per-job identities remain in the
+[ledger](r19-frozen-checkpoint-20261031.json). Reference CMake is 4.4.4/compiler
+19.51.36260.0. All fifteen ASR inputs remain unchanged, without a new prepare or
+source replay. Hosted Windows Server images remain distinct from ordinary-user
+Windows 11 acceptance.
+
+The separate [FFmpeg/BSD replay 41250879041](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41250879041)
+passed its quarantined source build and authored FLAC/Opus decode/fault/origin
+checks on image `20261021.278.1`. Artifact `13061735663` is 24,219,483 bytes,
+SHA256 `d90f82eb0d9c01eee147dc5924ba2b7a1e97aef984bf68d203b665b48e1b09b4`.
+Its twenty-entry source kit binds the six owner-approved original recipe
+portions and their complete BSD notice, preserving the independent ISC and
+other third-party terms. Root's independent verification replay completed with
+exit0. This is not runtime collection, a general MP3/encoder path, complete
+corresponding-source/relinking or dependency/toolchain rights acceptance.
+
+The separate C7 [run 41250877798](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41250877798)
+on image `20261021.278.1` failed its authored paired control: **214 passed, one
+failed, no skips, 14.54 seconds**. The single record is printed twice. Inherited
+reports `parsed`/null context/stderr present, refusal `none` and
+`fixed-clixml-prefix`; Attempt reports `unavailable`/null context/no stderr and
+`wait-deadline`. Both report `child-exit-and-readers-finished` for the direct
+control child and its readers only, with no descendant cleanup proof. These
+finite labels establish no causal environment variable, stderr error, absence
+of operation or actual C7 mechanism outcome. Mechanism and upload were skipped,
+with zero artifacts. All physical/global/warm, keeper-loss, exact-output rights,
+ordinary-user Windows 11 and full R19 gates remain open. No installer is built;
+PR #59 remains unchanged.
 
 ## Continuation and rollback
 

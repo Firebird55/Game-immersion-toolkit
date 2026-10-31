@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `ac5b767`, 1,337 Windows contracts without skips, native/C1/cold-slot, both living-keeper cases and C3–C6 passed, including the two explicit HTTP actual-worker admission fixes; root and peer independently checked seven archives/28 entries and 83 named Git inputs | Latest complete bounded frozen checkpoint; main job image `20261030.294.1` and six auxiliary jobs image `20261021.278.1` are recorded separately. Same-head C7 fails its paired authored contract before mechanism/upload, with no artifacts. Earlier `31ee4c9`, `973db81` and `d329027` negatives remain; later C7 parent labels, SQL resource work and BSD integration are outside ac5. No target activation, keeper loss, global/dynamic writer admission, physical closure, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 acceptance |
+| Extracted runtime | At `a2e1fb6`, 1,379 Windows contracts without skips, native/C1/cold-slot, both living-keeper cases and C3–C6 passed, including SQL Phase A's 66 known statement sites; independent reviews bind seven archives/28 entries and 96 exact Git inputs | Latest complete bounded frozen checkpoint; main/reference/frontend image `20261021.278.1`, other four jobs image `20261030.294.1`. Same-head FFmpeg/BSD source replay is separate and supplies no runtime/MP3/CCS-rights approval. C7 fails its authored paired control before mechanism/upload, with zero artifacts. Historical negatives remain; later Phase B/C7 environment work is excluded. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -208,7 +208,8 @@ Historical failures and every R18, rights and ordinary-user Windows11 gate remai
 
 At `ac5b767`, the two explicit HTTP actual-worker scopes passed 1,337 Windows
 contracts without skips (one warning, 197.25 seconds) and all established
-native/keeper/C3–C6 probes. Root and peer independently checked seven archives,
+native/keeper/C3–C6 probes. It preceded the a2e checkpoint below. Root and peer
+independently checked seven archives,
 28 entries and 83 exact Git inputs. Inventory is 1,449 files, 642 directories and
 620,160,029 bytes. The main runtime job used image `20261030.294.1`; six auxiliary
 jobs used image `20261021.278.1`, with identities recorded individually. Runtime
@@ -225,6 +226,29 @@ stderr error, timeout, causal stage, absence of an operation or cleanup result.
 Later local parent-labelled controls at `259dfe4` (212 passed, three platform
 skips) and later SQL cursor/resource work are outside ac5; no native rerun or
 keeper-loss acceptance follows. Historical C7 failures remain unchanged.
+
+At published `a2e1fb6`, SQL Phase A's 66 explicitly owned statement/cursor sites
+(45 TranscriptStore, 15 Lexirise, six Reading) passed within 1,379 Windows
+contracts without skips, one warning and 210.91 seconds; all established
+native/keeper/C3–C6 probes passed. Runtime/API/registry bytes remain ac5-identical;
+normal SQL/returns/transactions preserve their normalized ac5 ASTs. Seven
+archives/28 entries, 96 exact Git inputs and the 1,449-file/642-directory/
+620,164,006-byte inventory are independently bound. Main, reference and frontend
+jobs used image `20261021.278.1`; the other four jobs used `20261030.294.1`.
+The per-statement boundary is not physical/global admission or Runtime SQL
+composition. Later Phase B work and C7 environment candidate `89353fa` are not
+evidence for this published head; its 214 local source passes and three Windows
+platform skips are not a native result. ASR's fifteen inputs remain unchanged
+without new replay.
+
+The separate a2e C7 paired contract fails before mechanism/upload (214 passed,
+one failed, no skips, 14.54 seconds), with zero artifacts. Inherited reports
+`parsed`/null context/stderr present/refusal `none`/`fixed-clixml-prefix`; Attempt
+reports `unavailable`/null context/no stderr/refusal `wait-deadline`. Both direct
+control children and readers report `child-exit-and-readers-finished`; this
+does not prove descendant or actual-mechanism cleanup. The single duplicate record
+is not two runs. No causal environment/stderr interpretation or absent-operation
+claim follows; keeper-loss/global/physical/warm, rights and Windows 11 gates stay open.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source
@@ -251,6 +275,14 @@ source pair. Complete corresponding-source/relinking delivery, static Opus/CRT
 incorporation, exact enabled-code notices, durable binary/source cohosting and
 servicing review remain open. This later source integration is outside the ac5
 frozen checkpoint; local verification grants no runtime or delivery approval.
+The later, separate published a2e [source-build run 41250879041](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41250879041)
+now verifies the quarantined build and authored FLAC/Opus decode/error/origin
+checks, with a twenty-entry delivered review kit and exact six BSD copy identities.
+Artifact `13061735663` is 24,219,483 bytes, SHA256
+`d90f82eb0d9c01eee147dc5924ba2b7a1e97aef984bf68d203b665b48e1b09b4`;
+root independently replayed verification to exit0. Runtime collection, general
+MP3/encoder integration, complete corresponding-source/relinking, durable
+binary/source cohosting and dependency/toolchain rights approval remain open.
 At `1c2d931`, ASR verified the initial exact CMake module variant
 and selected VS18 `v180` inputs, then failed configure with MSB4018. The isolated
 `ce09ea2` follow-up confirmed canonical imports and a `CL` task

@@ -21,8 +21,8 @@ keeper loss and warm routing remain open. Its separate C7 mechanism failed
 after `grantread` with null conversion context and unconfirmed cleanup; it
 supplies no legacy attribute or copy authority.
 
-The later `ac5b767` HTTP-worker checkpoint passes all four copy cases again and
-is now the latest complete bounded checkpoint: 1,337 Windows contracts, no skips,
+The later `ac5b767` HTTP-worker checkpoint passed all four copy cases again and
+preceded `a2e1fb6` below: 1,337 Windows contracts, no skips,
 one warning, 197.25 seconds, seven archives/28 entries and 83 named Git inputs
 independently verified. Inventory is 1,449 files, 642 directories and 620,160,029
 bytes, SHA256 `43b63fc3dea0fdfe4cca852d00a31262da1dc7d3bd2063ba2d7a8812aeb01a64`.
@@ -36,6 +36,29 @@ context/no stderr. No timeout, causal stage, absence-of-operation or cleanup
 result is inferred. Later local parent-labelled controls and SQL cursor/resource
 work are outside ac5. Hosted Windows Server evidence does not close ordinary
 user Windows 11, rights, keeper-loss, target-activation or full R19 gates.
+
+The published `a2e1fb6` checkpoint now passes all four copy cases again:
+1,379 Windows contracts, no skips, one warning, 210.91 seconds, seven archives/
+28 entries and 96 exact Git inputs independently reviewed. Inventory is 1,449
+files, 642 directories and 620,164,006 bytes, SHA256
+`7aec85c7e08fe7162dbfe10bc13bb8ebf6165363171facbabe873c50a22245e1`.
+Main/reference/frontend jobs used image `20261021.278.1`; the other four jobs
+used `20261030.294.1`. SQL Phase A owns 66 known statement sites while preserving
+normal SQL/return/transaction semantics. Runtime/API and registry bytes are
+ac5-identical; no aggregate SQL fence, physical detach, warm cutover or copied-
+target activation follows. Later Phase B and C7 environment candidate `89353fa`
+remain outside the checkpoint; local source checks do not add a native result.
+
+The separate a2e FFmpeg/BSD source replay and its twenty-entry/six-copy review
+kit supply no general runtime MP3/encoder integration or complete corresponding-
+source/rights approval. The same-head C7 control fails before mechanism/upload (214 passed, one failed,
+no skips), with zero artifacts. The repeated single pair reports inherited
+`parsed`/null context/stderr present/refusal `none`/`fixed-clixml-prefix` and
+Attempt `unavailable`/null context/no stderr/refusal `wait-deadline`. Its reported
+`child-exit-and-readers-finished` cleanup covers the direct control child/readers,
+not descendants or the actual mechanism. No causal environment, stderr-error
+or no-operation conclusion is added. Keeper loss, global/physical/warm authority,
+rights and ordinary-user Windows 11 gates remain open.
 
 The existing [completion plan](r19-completion-plan.md) C2/C3/C4 gates remain
 open. The successful historical owned-host, cold-slot and
