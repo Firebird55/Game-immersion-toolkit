@@ -815,6 +815,20 @@ Independent review checked source/manifest and unchanged gates. Compiler
 selection, native compile/inference and a complete final tool seal are not
 established by these observations.
 
+The same head's [codec run 41174918440](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41174918440)
+failed during FFmpeg's build. The source-bound diagnostic guard reported
+`nonempty-ar` before collecting librarian stdout, with no component records or
+underlying LIB error code. Artifact 13032836679 matched 668 bytes and SHA-256
+7966cf9b4b153d823972994adfef7d85a4eaf31983e5ee0e05f501e93c53a4dd;
+independent review checked the exact source, single entry and false gates.
+PowerShell's empty-string versus null environment semantics exposed a concrete
+orchestration defect: the two existing wipes could retain empty process keys,
+which GNU make can export after a makefile assignment. Both wipes now require
+actual deletion and verify absence, with a separate early Windows contract.
+The previous raw AR value and final LIB/decode outcome remain unknown; the fix
+requires a new native run and does not change the diagnostic source variant,
+compiler pins, codec options or rights gates.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

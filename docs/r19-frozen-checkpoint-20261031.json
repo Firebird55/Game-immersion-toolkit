@@ -1520,5 +1520,38 @@
     "production_execution_allowed": false,
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false
+  },
+  "later_ffmpeg_nonempty_ar_refusal_702d667": {
+    "source_commit": "702d6673c893942c92079c139fa800cd94cb9be7",
+    "run": 41174918440,
+    "native_job": 124460383918,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13032836679,
+      "bytes": 668,
+      "sha256": "7966cf9b4b153d823972994adfef7d85a4eaf31983e5ee0e05f501e93c53a4dd"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "build-ffmpeg",
+    "exit_code": 2,
+    "diagnostic_codes": [],
+    "diagnostic_categories": [
+      "make-fatal-error",
+      "make-recipe-error"
+    ],
+    "makedef_diagnostics": "unavailable-nonempty-ar",
+    "response_files": "yes",
+    "archiver_environment": "nonempty",
+    "components": [],
+    "actual_ar_value": "unknown",
+    "underlying_lib_cause": "not-proved",
+    "native_decode": "not-run",
+    "environment_deletion_fix": "source-orchestration-fixed-native-verification-pending",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
   }
 }
