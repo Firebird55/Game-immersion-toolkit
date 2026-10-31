@@ -116,7 +116,12 @@ The [MSVC metadata census](r19-msvc-redist-observation.md) is a separate
 read-only first step, with no component selection, redistribution permission
 or runtime admission. Its first hosted census at `ed153ab` failed before
 publication, with no artifact or proven Python-contract/census subphase. Fixed
-phase diagnosis is separate work, not permission to alter paths or select CRTs.
+phase diagnosis subsequently identified an observer-startup failure. Direct
+binding to setup-python's exact executable allowed eleven Node and 37 Python
+contracts without skips at `c3639ce`; the first independently verified
+source-bound census remains negative with `unknown-version-entry`. No versions,
+families or files are admitted. Its unknown entry still needs a bounded layout
+review; no path-policy relaxation or CRT selection follows from this result.
 The strict toolchain and source guards remain in force.
 The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
 binds a fixed current/retired frontend snapshot to independently trusted slot

@@ -1,7 +1,7 @@
 # R19 MSVC REDIST metadata census
 
-Status: authored source contracts; hosted wrapper attempts failed before
-publication. An actual source-bound Windows census remains pending.
+Status: a source-bound negative hosted census is verified. The observed
+layout was refused; no complete directory census or CRT approval is available.
 This first observation does not select, collect or approve a CRT component.
 It changes no installer, release, PR #59 or Windows 11 acceptance policy.
 
@@ -154,7 +154,7 @@ exact bytes/SHA-256 and provider run/attempt. Only `MSVC-REDIST-CENSUS.json` and
 test failure text or vendor DLLs. An unavailable census remains a negative
 source-bound observation. Setup/selection/source failures produce no fabricated
 passing census. Provider artifact/head/digest and downloaded-file review are
-still required independently. The new hosted case has not yet run.
+still required independently. The first completed observation is recorded below.
 
 Publication serializes only the validated report as canonically sorted JSON;
 the raw observer envelope and duplicate-discarded values are never published.
@@ -207,6 +207,32 @@ Python `3.12.10` / 64-bit checks remain. This binding change does not by itself
 prove the original lookup's returned value or the underlying cause of ENOENT;
 the changed workflow still requires its own hosted observation. The output
 contract is documented by [setup-python v7](https://github.com/actions/setup-python/blob/v7/docs/advanced-usage.md#outputs).
+
+## First source-bound negative census
+
+Run `41210956581`, job `124565656571`, attempt 1 at `c3639ce` passed all
+eleven Node contracts and 37 Python contracts without skips. Direct interpreter
+binding allowed the real observer to run. The census then refused
+`unknown-version-entry`; the workflow correctly remains failed. The name and
+type of that entry are not delivered, so no rolling-alias or other cause is
+inferred, and the layout policy is not relaxed.
+
+Downloaded artifact `13045883628` is exactly 1,520 bytes with SHA-256
+`0503ca359e59ecc3d53475002642f5de0ec4dcbd2386e5a5bbffd69fc609f34c`.
+Its only members are the 1,200-byte census (SHA-256
+`7b7cac53c62fd830e85f2eb6ea989581fad07bdf5381a297f445df0863127d47`)
+and the 1,292-byte independent binding (SHA-256
+`dc869de33e79c0d0d7c4b13ff83719d28660a4f53dfaa8ee8304a08608ec18db`).
+Two reviewers verified provider identity, exact entries, report-byte binding,
+clean source and equal before/after fingerprint
+`7532be8c9fea9f0165d286d7118bebabede05ed049ad6ce53cd04319c277fc36`.
+
+The selected instance was VS `18.11.12315.225`, enterprise/release, on image
+`20261021.278.1`. The sole query utility was 469,456 bytes with SHA-256
+`c54f3b7c9164ea9a0db8641e81ecdda80c2664ef5a47c4191406f848cc07c662`.
+There are zero published versions, families or files; no partial census or
+vendor-byte observation is admitted. Every redistribution, runtime and
+production permission stays false, with Windows 11 unavailable and no installer.
 
 ## Remaining work
 

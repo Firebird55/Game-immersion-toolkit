@@ -2213,5 +2213,144 @@
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false,
     "installer": "not-built"
+  },
+  "first_source_bound_negative_msvc_census_c3639ce": {
+    "head": "c3639ce1a627a46f6a7794fc905d309cc68b240e",
+    "run": 41210956581,
+    "job": 124565656571,
+    "attempt": 1,
+    "workflow": "failure",
+    "status": "source-bound-unavailable",
+    "reason": "unknown-version-entry",
+    "entry_name_and_type": "not-delivered",
+    "image_version": "20261021.278.1",
+    "node": "24.22.1",
+    "python_observer": "3.12.10",
+    "node_contracts": 11,
+    "node_skipped": 0,
+    "python_contracts": 37,
+    "python_skipped": 0,
+    "selected_instance": {
+      "version": "18.11.12315.225",
+      "edition": "enterprise",
+      "release_state": "release"
+    },
+    "query_utility": {
+      "bytes": 469456,
+      "sha256": "c54f3b7c9164ea9a0db8641e81ecdda80c2664ef5a47c4191406f848cc07c662"
+    },
+    "versions": 0,
+    "families": 0,
+    "files": 0,
+    "artifact": {
+      "id": 13045883628,
+      "bytes": 1520,
+      "sha256": "0503ca359e59ecc3d53475002642f5de0ec4dcbd2386e5a5bbffd69fc609f34c",
+      "entries": [
+        "MSVC-REDIST-CENSUS.json",
+        "MSVC-REDIST-CI-BINDING.json"
+      ]
+    },
+    "census": {
+      "bytes": 1200,
+      "sha256": "7b7cac53c62fd830e85f2eb6ea989581fad07bdf5381a297f445df0863127d47"
+    },
+    "binding": {
+      "bytes": 1292,
+      "sha256": "dc869de33e79c0d0d7c4b13ff83719d28660a4f53dfaa8ee8304a08608ec18db"
+    },
+    "source_before_after_hash": "7532be8c9fea9f0165d286d7118bebabede05ed049ad6ce53cd04319c277fc36",
+    "clean_source": true,
+    "independent_download_review": "root-and-peer-verified",
+    "vendor_file_content_read": false,
+    "vendor_file_hashes_observed": false,
+    "vendor_file_versions_observed": false,
+    "vendor_signatures_observed": false,
+    "source_delivery_approved": false,
+    "redistribution_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "asr_file_tracker_common_data_failure_14babb6": {
+    "head": "14babb685156ddb74254b7a2d16c090073ef6342",
+    "run": 41210502791,
+    "job": 124564316205,
+    "attempt": 1,
+    "status": "failure",
+    "phase": "cmake-configure",
+    "image_version": "20261030.294.1",
+    "node": "24.22.2",
+    "vs_version": "18.11.12328.437",
+    "artifact": {
+      "id": 13045988466,
+      "bytes": 3042,
+      "sha256": "af7ced3c67f5868d9cc5364f4f90c734667a775c03c44e9dd81d597514d2df4b",
+      "entries": [
+        "ASR-FAILURE.json"
+      ]
+    },
+    "failure_json": {
+      "bytes": 25495,
+      "sha256": "94956a939d0f1611162772223167856a90847d2ef37b0864d4c445283bd15cbb"
+    },
+    "independent_download_review": "root-and-peer-verified",
+    "cl_records": 8,
+    "exception_chain": [
+      "type-initialization",
+      "argument"
+    ],
+    "resource_label": "path-illegal",
+    "resource_state": "matched",
+    "initializer_roles": [
+      "file-tracker"
+    ],
+    "inner_framework_frames": [
+      "path-normalization",
+      "path-root",
+      "file-tracker-common-data",
+      "file-tracker-initialization"
+    ],
+    "context_state": "incomplete",
+    "unknown_frame_seen": true,
+    "context_truncated": false,
+    "parameter_state": "not-observed",
+    "actual_common_folder_result": "not-delivered",
+    "underlying_environment_cause": "unproven",
+    "initial_cmake_variant": "verified-8817-files-163-directories",
+    "canonical_second_imports": 2,
+    "matching_globals": 10,
+    "graph_compile_inference": "not-reached",
+    "final_seals_and_source_cohort_receipt": "not-delivered",
+    "source_delivery_approved": false,
+    "redistribution_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "interrupted_copy_contract_failure_c3639ce": {
+    "head": "c3639ce1a627a46f6a7794fc905d309cc68b240e",
+    "run": 41211228454,
+    "job": 124566500738,
+    "attempt": 1,
+    "status": "failed-before-freezing",
+    "failed_step": "Build static frontend and run affected contracts",
+    "contracts_passed": 1043,
+    "contracts_failed": 2,
+    "failures": "source and target authority-root replacement fixture did not raise HeldRecovery",
+    "fixture_precondition_cause": "under-review",
+    "frozen_runtime_receipt": "not-produced",
+    "interrupted_copy_native_receipt": "not-produced",
+    "source_delivery_approved": false,
+    "redistribution_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
   }
 }
