@@ -880,6 +880,21 @@ its private projection is pending. No raw log or native payload was downloaded.
 This is bounded source-experiment evidence, with runtime integration, complete
 corresponding-source/rights approval and ordinary Windows 11 acceptance open.
 
+At `1c2d931`, [ASR run 41196924582](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41196924582)
+verified the initial separate CMake module variant on image 20261021.278.1,
+with all 8,817 files/163 directories and the exact sole-module postimage. The
+original executable/notices and full VS identity remained bound. Configure
+then failed: the bounded event log reports `MSB4018` and no MSB4019 records.
+That identifies an unexpected task exception, not its task, exception or cause.
+All ten Globals and three known CPP imports per project still match; the second
+import remains unknown to the historical full-argument classifier. Artifact
+13040999035 matched 2,450 bytes and SHA-256
+855f3168be12f679e045e89ba32aa074489b9c0a865d012cd63de07cacd5f0b1.
+Independent review verified source/CRLF manifest, initial variant and unchanged
+failure gates. Native compilation, inference, final tool/variant verification
+and the complete source graph were not reached. No environment or compiler
+change is justified by that general task-error code alone.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

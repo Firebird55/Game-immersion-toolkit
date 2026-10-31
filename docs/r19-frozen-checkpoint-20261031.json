@@ -1717,5 +1717,49 @@
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false,
     "installer": "not-built"
+  },
+  "later_asr_initial_module_variant_msb4018_1c2d931": {
+    "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+    "run": 41196924582,
+    "native_job": 124524887038,
+    "run_conclusion": "failure",
+    "actual_runner_image": "20261021.278.1",
+    "visual_studio_instance_version": "18.11.12315.225",
+    "failure_artifact": {
+      "id": 13040999035,
+      "bytes": 2450,
+      "sha256": "855f3168be12f679e045e89ba32aa074489b9c0a865d012cd63de07cacd5f0b1"
+    },
+    "download_review": "independently-verified-provider-digest-head-single-json-crlf-manifest-initial-variant-and-failure-gates",
+    "phase": "cmake-configure",
+    "module_variant": {
+      "identity": "cmake-4.4.5-r19-asr-compilerid-instance.1",
+      "scope": "initial-exact-tree-final-required-for-success",
+      "files": 8817,
+      "directories": 163,
+      "tree_sha256": "3084625cac5d54bd47f7983ef56b06305c40718d1a0024d10f8de82632b3c022",
+      "module_before": "dfcd059e686a773e58004608e655278bd5f4d1993b3540b9392549c9499f544a",
+      "module_after": "4ef0b318b3f80a02091ae44973dfe573f042fdd3bf6a3c25c5bddfbd2c63f0bc",
+      "original_executable_and_notices": "unchanged"
+    },
+    "reviewed_globals": "all-ten-exact-match",
+    "known_cpp_imports": "three-per-project-present-under-selected-v180",
+    "second_generated_imports": "unknown-not-inspected-by-historical-full-instance-classifier",
+    "bounded_nested_log_known_codes": [
+      "MSB4018"
+    ],
+    "bounded_nested_log_msb4019_records": 0,
+    "msbuild_task": "not-identified",
+    "exception_family": "not-identified",
+    "complete_source_graph": "not-reached",
+    "native_compile": "not-reached",
+    "native_inference": "not-run",
+    "final_tool_seals_and_variant_review": "not-reached",
+    "source_files_cohort_delivered": false,
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
   }
 }
