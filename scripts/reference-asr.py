@@ -64,12 +64,17 @@ _BUILD_VS_VERSION = None
 _BUILD_TOOL_ROOTS = None  # Private paths; never serialized.
 _BUILD_PROPERTIES = None  # Actual configure properties; never serialized.
 _BUILD_INSTANCE = None  # Actual generator argument/root and observed version, private.
+_BUILD_TOOLCHAIN_SEAL = None  # Initial exact native tool inventory, never serialized here.
 LOG_TAIL_BYTES = 2 * 1024 * 1024
 NESTED_LOG_TOTAL_BYTES = 4 * 1024 * 1024
 COMPILER_CONTEXT_FILE_BYTES = 256 * 1024
 KNOWN_COMPILER_IDS = frozenset({'MSVC', 'Clang', 'GNU', 'Intel', 'IntelLLVM'})
 IMPORT_CONTEXT_LIMIT = 16
 COMPILER_ID_IMPORT_LIMIT = 16
+AUX_SEAL_ENTRY_LIMIT = 50000
+AUX_MAPPING_CANDIDATE_LIMIT = 32
+AUX_MAPPING_FILE_BYTES = 64 * 1024
+AUX_MAPPING_TOTAL_BYTES = 512 * 1024
 PRIMARY_IMPORT_LEAVES = {'microsoft.cpp.default.props': 'microsoft-cpp-default-props',
     'microsoft.cpp.props': 'microsoft-cpp-props', 'microsoft.cpp.targets': 'microsoft-cpp-targets'}
 PRIMARY_IMPORT_CALLERS = {**PRIMARY_IMPORT_LEAVES, 'compileridc.vcxproj': 'compiler-id-c-project',
@@ -956,30 +961,131 @@ def reviewed_toolset_version():
     return value if isinstance(value, str) and re.fullmatch(r'[0-9]{1,6}(?:\.[0-9]{1,6}){2}', value) else None
 
 
-def verified_instance_field(value, version, instance):
+def private_instance_parts(instance):
     if not isinstance(instance, dict):
         return None
     argument, root, observed = (instance.get(key) for key in ('argument', 'root', 'observed_version'))
     if (not all(isinstance(item, str) and len(item) <= 32767
             and not any(ord(c) < 32 or ord(c) == 127 for c in item) for item in (argument, root, observed))
-            or vs_instance_version(observed) != observed or not Path(root).is_absolute()):
+            or vs_instance_version(observed) != observed or not Path(root).is_absolute()
+            or ',' in root or ';' in root or '..' in Path(root).parts):
         return None
     normalized = lambda item: re.sub(r'/+', '/', item.replace('\\', '/')).rstrip('/').casefold()
     if normalized(argument) != normalized(root) + ',version=' + observed:
         return None
+    return argument, root
+
+
+def diagnostic_normalized(value):
+    return re.sub(r'/+', '/', value.replace('\\', '/')).rstrip('/').casefold()
+
+
+def verified_instance_field(value, version, instance):
+    parts = private_instance_parts(instance)
+    if parts is None:
+        return None
+    argument, _root = parts
     suffix = '/Microsoft.VCToolsVersion.' + version + '.props'
-    return normalized(value) in {normalized(argument + '/VC/Auxiliary/Build/' + version + suffix),
-        normalized(argument + '/VC/Auxiliary/Build.' + version + suffix)}
+    return diagnostic_normalized(value) in {diagnostic_normalized(argument + '/VC/Auxiliary/Build/' + version + suffix),
+        diagnostic_normalized(argument + '/VC/Auxiliary/Build.' + version + suffix)}
 
 
-def import_target_context(value, roots, properties, *, instance=None, allow_vctargets_prefix=False):
+def sealed_aux_mapping(alias, roots, initial_seal, instance, version):
+    result = {'relationship': 'initial-seal-unavailable', 'matched_candidate_count': 0,
+        'matches_policy': None, 'member_exists_state': 'not-inspected'}
+    parts = private_instance_parts(instance)
+    if parts is None or not isinstance(roots, dict):
+        return result
+    root = roots.get('vc-auxiliary')
+    if (not isinstance(root, str) or len(root) > 32767
+            or any(ord(c) < 32 or ord(c) == 127 for c in root)
+            or not Path(root).is_absolute() or '..' in Path(root).parts
+            or Path(os.path.abspath(root)) != Path(os.path.abspath(Path(parts[1]) / 'VC/Auxiliary'))):
+        result['relationship'] = 'declared-root-mismatch'
+        return result
+    files = initial_seal.get('vc-auxiliary') if type(initial_seal) is dict else None
+    if type(files) is not dict:
+        return result
+    if len(files) > AUX_SEAL_ENTRY_LIMIT:
+        result['relationship'] = 'initial-seal-limit'
+        return result
+    candidates, byte_count = [], 0
+    pattern = r'Build(?:/|\.)([0-9]{1,6}(?:\.[0-9]{1,6}){1,3})/Microsoft\.VCToolsVersion\.\1\.txt'
+    for name, expected in files.items():
+        if not isinstance(name, str) or len(name) > 32767:
+            result['relationship'] = 'invalid-initial-seal'
+            return result
+        match = re.fullmatch(pattern, name)
+        if not match or match[1] != alias:
+            continue
+        if len(candidates) >= AUX_MAPPING_CANDIDATE_LIMIT:
+            result['relationship'] = 'candidate-limit'
+            return result
+        props_name = name[:-4] + '.props'
+        pair = ((name, expected), (props_name, files.get(props_name)))
+        for _member, record in pair:
+            if (type(record) is not dict or set(record) != {'bytes', 'sha256'}
+                    or type(record['bytes']) is not int or not 0 < record['bytes'] <= AUX_MAPPING_FILE_BYTES
+                    or not isinstance(record['sha256'], str) or not re.fullmatch('[0-9a-f]{64}', record['sha256'])):
+                result['relationship'] = 'incomplete-or-unbounded-sealed-pair'
+                return result
+            # Include the diagnostic reader's one-byte growth check.
+            byte_count += record['bytes'] + 1
+        if byte_count > AUX_MAPPING_TOTAL_BYTES:
+            result['relationship'] = 'byte-limit'
+            return result
+        candidates.append(pair)
+    if not candidates:
+        result['relationship'] = 'no-sealed-alias-candidate'
+        return result
+    matched = 0
+    for pair in candidates:
+        content = []
+        for member, expected in pair:
+            state, data = diagnostic_file(Path(root) / member, expected['bytes'])
+            if state != 'observed':
+                result.update(relationship='sealed-member-changed' if state == 'size-limit' else 'unavailable-sealed-member',
+                    member_exists_state=state)
+                return result
+            if attributes(data) != expected:
+                result.update(relationship='sealed-member-changed', member_exists_state='regular-member-observed')
+                return result
+            content.append(data)
+        if content[0].split(b'\n', 1)[0].removesuffix(b'\r') == version.encode('ascii'):
+            matched += 1
+    result.update(relationship=('verified-toolset-alias' if matched == 1 else
+        'ambiguous-toolset-alias' if matched > 1 else 'different-policy-version'),
+        matched_candidate_count=matched, matches_policy=matched > 0, member_exists_state='regular-files-present')
+    return result
+
+
+def mapped_aux_import(value, roots, initial_seal, instance, version):
+    parts = private_instance_parts(instance)
+    if parts is None:
+        return None
+    prefix = diagnostic_normalized(parts[0]) + '/vc/auxiliary/'
+    pattern = re.escape(prefix) + r'build(?:/|\.)([0-9]{1,6}(?:\.[0-9]{1,6}){1,3})/microsoft\.vctoolsversion\.\1\.props'
+    match = re.fullmatch(pattern, diagnostic_normalized(value))
+    if not match or not match[1].startswith('.'.join(version.split('.')[:2])):
+        return None
+    return {'import_label': 'mapped-toolset-version-template', 'reviewed_version': version,
+        'contains_verified_instance_version_field': True, 'root_role': 'outside-declared-roots',
+        'existence': 'not-inspected',
+        'toolset_mapping': sealed_aux_mapping(match[1], roots, initial_seal, instance, version)}
+
+
+def import_target_context(value, roots, properties, *, instance=None, initial_seal=None, allow_vctargets_prefix=False):
     result = {'import_label': 'unknown-import', 'reviewed_version': None,
-        'contains_verified_instance_version_field': None, 'root_role': 'not-inspected', 'existence': 'not-inspected'}
+        'contains_verified_instance_version_field': None, 'root_role': 'not-inspected', 'existence': 'not-inspected',
+        'toolset_mapping': None}
     if (not isinstance(value, str) or len(value) > 32767
             or any(ord(c) < 32 or ord(c) == 127 for c in value)):
         return result
     leaf = re.split(r'[/\\]', value)[-1].casefold()
     version = reviewed_toolset_version()
+    mapped = mapped_aux_import(value, roots, initial_seal, instance, version) if version else None
+    if mapped is not None:
+        return mapped
     if leaf in PRIMARY_IMPORT_LEAVES:
         result['import_label'] = PRIMARY_IMPORT_LEAVES[leaf]
     elif version and leaf == ('Microsoft.VCToolsVersion.' + version + '.props').casefold():
@@ -1046,7 +1152,8 @@ def msb4019_import_context(content, roots, properties, limit):
         if index >= limit:
             truncated = True
             break
-        record = import_target_context(match[1], roots, properties, instance=_BUILD_INSTANCE)
+        record = import_target_context(match[1], roots, properties, instance=_BUILD_INSTANCE,
+            initial_seal=_BUILD_TOOLCHAIN_SEAL)
         record['literal_match_state'] = 'matched-import-template' if match[1] is not None else 'unrecognized-template'
         start = max(content.rfind('\n', 0, match.start()) + 1, match.start() - 32767)
         record['caller'] = import_caller_context(content[start:match.start()])
@@ -1158,7 +1265,7 @@ def compiler_detection_context(output, roots):
     return {'evidence_scope': 'compiler-file-observation-not-native-approval', 'languages': rows}
 
 
-def compiler_id_globals_context(output, properties, roots=None, instance=None):
+def compiler_id_globals_context(output, properties, roots=None, instance=None, initial_seal=None):
     namespace = '{http://schemas.microsoft.com/developer/msbuild/2003}'
     rows, imports_remaining = [], COMPILER_ID_IMPORT_LIMIT
     for language in ('C', 'CXX'):
@@ -1199,7 +1306,7 @@ def compiler_id_globals_context(output, properties, roots=None, instance=None):
                         row['imports_truncated'] = True
                         break
                     record = import_target_context(item.get('Project'), roots, properties,
-                        instance=instance, allow_vctargets_prefix=vctargets_matched)
+                        instance=instance, initial_seal=initial_seal, allow_vctargets_prefix=vctargets_matched)
                     record['conditional'] = 'Condition' in item.attrib
                     row['imports'].append(record)
                     imports_remaining -= 1
@@ -1240,7 +1347,7 @@ def failed_build_receipt(output, phase, error):
         'compiler_detection_context': compiler_detection_context(output, _BUILD_TOOL_ROOTS)
             if phase == 'cmake-configure' else None,
         'compiler_id_globals_context': compiler_id_globals_context(output, _BUILD_PROPERTIES,
-            _BUILD_TOOL_ROOTS, _BUILD_INSTANCE)
+            _BUILD_TOOL_ROOTS, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL)
             if phase == 'cmake-configure' else None,
         'nested_configure_log_context': nested_configure_log_context(output)
             if phase == 'cmake-configure' else None,
@@ -1286,7 +1393,7 @@ def reject_parent_imports(output):
 
 
 def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None, vswhere=None):
-    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
@@ -1295,6 +1402,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
     _BUILD_TOOL_ROOTS = None
     _BUILD_PROPERTIES = None
     _BUILD_INSTANCE = None
+    _BUILD_TOOLCHAIN_SEAL = None
     try:
         return _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     except Exception as error:
@@ -1309,7 +1417,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
 
 
 def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere):
-    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE
+    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL
     output, vs_root = Path(output).absolute(), Path(vs_root).absolute()
     build_phase('source-validation')
     receipt, policy = verify_sources(output), pin()
@@ -1348,6 +1456,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     build_phase('toolchain-seal')
     initial = seal_toolchain(roots)
     initial['vswhere-query'] = {'vswhere.exe': vs_initial['vswhere']}
+    _BUILD_TOOLCHAIN_SEAL = initial
     write_json(output / 'PRIVATE-TOOLCHAIN-INVENTORY.json', initial)
     build_phase('probe-dependency-preparation')
     numpy_files = prepare_numpy(inputs, output / 'probe-dependencies')

@@ -164,6 +164,13 @@ to the reviewed manifest's VC toolset version; other numeric names stay unknown.
 Its public version field contains that reviewed pin, never an extracted version.
 `literal_match_state` distinguishes a recognized MSB4019 import sentence with an
 unknown file from an unrecognized message template. Unknown text stays private.
+The separately labelled `mapped-toolset-version-template` recognizes only the
+pinned auxiliary-import layout rooted in the actual verified full generator
+argument. Its repeated numeric alias must have two to four bounded components
+and satisfy CMake's reviewed two-component prefix search. The alias itself is
+never emitted: the public version remains the reviewed three-component pin.
+This structural label and its instance-version-field boolean permit no access
+to the raw outside-root target and establish no source or rights approval.
 The projection exposes only a fixed declared-root role and existence state;
 unknown or outside-root paths are never inspected. The selected-targets role
 also requires membership in the declared MSBuild root. No import path or hash
@@ -196,6 +203,24 @@ argument. An unavailable/mismatched private tuple yields an unavailable value.
 No tuple, raw expression, arbitrary numeric filename or outside-root metadata
 is published or inspected. These are literal observations, not MSBuild
 property evaluation or causal proof.
+For that mapped template, `toolset_mapping` can additionally compare corrected
+metadata members under the already declared and sealed VC/Auxiliary root. The
+root must belong to the same verified selected VS directory. Only matching
+`Build[/.]<alias>/Microsoft.VCToolsVersion.<same-alias>.txt` plus `.props` pairs
+present in the actual initial in-memory tool inventory are considered. No
+directory discovery, invented inventory or outside-root fallback is allowed.
+The guard bounds the index at 50,000 entries, candidates at 32, each member at
+64 KiB, and member reads for each mapping record at 512 KiB including
+growth-check lookahead bytes. The existing limits of 16 message imports and
+16 generated-project imports bound these reads to 16 MiB per failure receipt.
+Each current regular file passes root-first link checks and must match its
+initial bytes/SHA-256. The metadata's first line must exactly equal the reviewed
+toolset pin, allowing its line-ending CR. Public output contains only a fixed
+relationship, matched-candidate count, matches-policy boolean and member-existence
+state. Changed, unavailable, incomplete, over-limit and ambiguous inputs stay
+explicit. No alias, relative member path, content or native-member hash is
+published. These observations do not replace the complete tool seal or approve
+Microsoft source delivery, redistribution or native execution.
 The wrapper passes the actual selected `vswhere` instance's numeric four-part
 VS18 installation version together with its directory. Python queries the same
 explicit machine `vswhere.exe` again before and after the experiment, requires
@@ -277,6 +302,15 @@ it matches the default. Its
 keeps ASCII quotes literal and doubles backslashes in text blocks. These
 source expectations do not identify that run's unknown target or prove its
 fatal cause; the generated-import projection still requires native evidence.
+The later [generated-import run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41174924122)
+confirmed eight matched MSB4019 sentences, all ten Globals, and the three CPP
+imports under the selected target root. The second import in each actual
+project remained unknown; it did not match the exact three-component props
+filename. CMake's [minor-toolset selection](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalVisualStudioVersionedGenerator.cxx#L827-L855)
+can translate that requested version to a metadata filename alias when the
+metadata content matches. That primary source behavior motivates the mapping
+observation above; it does not prove the unknown filename, malformed target or
+fatal cause in that run. The new relationship still requires native evidence.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

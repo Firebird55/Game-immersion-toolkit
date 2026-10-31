@@ -1146,7 +1146,7 @@ def test_generated_numeric_toolset_import_exposes_only_exact_verified_instance_s
     c,cxx=result['projects']
     assert c['imports'][0]['import_label']=='microsoft-cpp-default-props'
     assert c['imports'][0]['existence']=='regular-file-present' and c['imports'][0]['root_role']=='selected-vc-targets'
-    bad=c['imports'][1];assert bad['import_label']=='microsoft-vctools-version-props'
+    bad=c['imports'][1];assert bad['import_label']=='mapped-toolset-version-template'
     assert bad['reviewed_version']==version and bad['contains_verified_instance_version_field'] is True
     assert bad['root_role']=='outside-declared-roots' and bad['existence']=='not-inspected'
     actual=cxx['imports'][1]
@@ -1170,7 +1170,7 @@ def test_msb4019_literal_extraction_and_exact_reviewed_toolset_version_are_separ
     result=module.msb4019_import_context(content,{},None,16)
     known,unknown,unrecognized=result['records']
     assert known['literal_match_state']==unknown['literal_match_state']=='matched-import-template'
-    assert known['import_label']=='microsoft-vctools-version-props' and known['reviewed_version']==version
+    assert known['import_label']=='mapped-toolset-version-template' and known['reviewed_version']==version
     assert known['contains_verified_instance_version_field'] is True
     assert unknown['import_label']=='unknown-import' and unknown['reviewed_version'] is None
     assert unknown['contains_verified_instance_version_field'] is None
@@ -1233,6 +1233,134 @@ def test_generated_cpp_prefix_is_not_substituted_without_actual_literal_vctarget
     record=result['projects'][0]['imports'][0]
     assert record['import_label']=='microsoft-cpp-props' and record['existence']=='unexpanded-template'
     assert record['root_role']=='not-inspected' and 'private' not in json.dumps(result)
+
+
+def alias_mapping_inputs(module,tmp_path,layout='/'):
+    version=module.pin()['toolchain']['vc_tools_version'];alias='14.51.18.0'
+    root=tmp_path/'private-vs';aux=root/'VC/Auxiliary'
+    directory=aux/('Build/'+alias if layout=='/' else 'Build.'+alias);directory.mkdir(parents=True)
+    metadata=directory/('Microsoft.VCToolsVersion.'+alias+'.txt')
+    props=directory/('Microsoft.VCToolsVersion.'+alias+'.props')
+    metadata.write_bytes((version+'\r\n').encode());props.write_bytes(b'owned auxiliary props fixture\n')
+    index={p.relative_to(aux).as_posix():module.attributes(p.read_bytes()) for p in (metadata,props)}
+    instance={'root':str(root),'argument':root.as_posix()+',version=18.11.12315.225',
+        'observed_version':'18.11.12315.225'}
+    value=instance['argument']+'/VC/Auxiliary/Build/'+alias+'/Microsoft.VCToolsVersion.'+alias+'.props'
+    return version,alias,aux,metadata,props,index,instance,value
+
+
+@pytest.mark.parametrize('layout',['/','.'])
+def test_actual_alias_template_is_bound_to_initial_auxiliary_members_and_exact_policy_without_alias_disclosure(module,tmp_path,monkeypatch,layout):
+    version,alias,aux,metadata,props,index,instance,value=alias_mapping_inputs(module,tmp_path,layout)
+    prefix='<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup Label="Globals"/>'
+    compiler_id_project(tmp_path,'C',(prefix+'<Import Project="'+value+'"/></Project>').encode())
+    real_lstat=Path.lstat
+    def guard(path,*args,**kwargs):
+        if ',version=' in str(path):pytest.fail('Only corrected members under the declared Auxiliary root may be inspected.')
+        return real_lstat(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',guard)
+    result=module.compiler_id_globals_context(tmp_path,{}, {'vc-auxiliary':str(aux)},instance,{'vc-auxiliary':index})
+    record=result['projects'][0]['imports'][0]
+    assert record['import_label']=='mapped-toolset-version-template' and record['reviewed_version']==version
+    assert record['contains_verified_instance_version_field'] is True and record['root_role']=='outside-declared-roots'
+    assert record['existence']=='not-inspected'
+    assert record['toolset_mapping']=={'relationship':'verified-toolset-alias','matched_candidate_count':1,
+        'matches_policy':True,'member_exists_state':'regular-files-present'}
+    delivered=json.dumps(result)
+    for private in (alias,str(tmp_path),str(metadata),str(props),instance['argument'],
+            module.sha(metadata.read_bytes()),module.sha(props.read_bytes())):
+        assert private not in delivered
+
+
+@pytest.mark.parametrize('change,relationship,matches',[
+    ('metadata-changed','sealed-member-changed',None),('props-changed','sealed-member-changed',None),
+    ('different-policy','different-policy-version',False),('missing-member','unavailable-sealed-member',None),
+    ('missing-props-seal','incomplete-or-unbounded-sealed-pair',None),
+    ('unknown-layout','no-sealed-alias-candidate',None),('wrong-declared-root','declared-root-mismatch',None),
+    ('missing-initial-seal','initial-seal-unavailable',None)])
+def test_alias_mapping_cannot_replace_initial_source_binding_or_exact_metadata_policy(module,tmp_path,change,relationship,matches):
+    version,alias,aux,metadata,props,index,instance,value=alias_mapping_inputs(module,tmp_path)
+    roots={'vc-auxiliary':str(aux)};initial={'vc-auxiliary':index}
+    if change=='metadata-changed':metadata.write_bytes(b'private changed metadata\n')
+    elif change=='props-changed':props.write_bytes(b'private changed props\n')
+    elif change=='different-policy':
+        metadata.write_bytes(b'14.51.999999\r\n');index[metadata.relative_to(aux).as_posix()]=module.attributes(metadata.read_bytes())
+    elif change=='missing-member':metadata.unlink()
+    elif change=='missing-props-seal':del index[props.relative_to(aux).as_posix()]
+    elif change=='unknown-layout':initial={'vc-auxiliary':{'private/../unknown.txt':module.attributes(b'private')}}
+    elif change=='wrong-declared-root':roots={'vc-auxiliary':str(tmp_path/'private-other-auxiliary')}
+    else:initial=None
+    result=module.import_target_context(value,roots,{},instance=instance,initial_seal=initial)
+    mapping=result['toolset_mapping']
+    assert result['import_label']=='mapped-toolset-version-template' and result['contains_verified_instance_version_field'] is True
+    assert mapping['relationship']==relationship and mapping['matches_policy'] is matches
+    assert mapping['matched_candidate_count']==0
+    if change=='props-changed':assert mapping['member_exists_state']=='regular-member-observed'
+    if change=='metadata-changed':assert mapping['member_exists_state']=='size-limit'
+    for private in (alias,str(tmp_path),'private','999999'):
+        assert private not in json.dumps(result)
+
+
+def test_alias_mapping_candidate_and_byte_limits_are_checked_before_native_member_access(module,tmp_path,monkeypatch):
+    version,alias,aux,metadata,props,index,instance,value=alias_mapping_inputs(module,tmp_path)
+    alternate=aux/('Build.'+alias);alternate.mkdir()
+    for original in (metadata,props):
+        target=alternate/original.name;target.write_bytes(original.read_bytes())
+        index[target.relative_to(aux).as_posix()]=module.attributes(target.read_bytes())
+    roots={'vc-auxiliary':str(aux)};initial={'vc-auxiliary':index}
+    expected=sum(record['bytes']+1 for record in index.values())
+    monkeypatch.setattr(module,'AUX_MAPPING_TOTAL_BYTES',expected)
+    result=module.import_target_context(value,roots,{},instance=instance,initial_seal=initial)
+    assert result['toolset_mapping']['relationship']=='ambiguous-toolset-alias'
+    assert result['toolset_mapping']['matched_candidate_count']==2
+    real_reader=module.diagnostic_file
+    def forbidden(*_args,**_kwargs):pytest.fail('Over-limit mapping must not read a member.')
+    monkeypatch.setattr(module,'diagnostic_file',forbidden)
+    monkeypatch.setattr(module,'AUX_MAPPING_TOTAL_BYTES',expected-1)
+    assert module.import_target_context(value,roots,{},instance=instance,initial_seal=initial)['toolset_mapping']['relationship']=='byte-limit'
+    monkeypatch.setattr(module,'AUX_MAPPING_TOTAL_BYTES',expected)
+    monkeypatch.setattr(module,'AUX_MAPPING_CANDIDATE_LIMIT',1)
+    assert module.import_target_context(value,roots,{},instance=instance,initial_seal=initial)['toolset_mapping']['relationship']=='candidate-limit'
+    monkeypatch.setattr(module,'AUX_MAPPING_CANDIDATE_LIMIT',32)
+    monkeypatch.setattr(module,'AUX_SEAL_ENTRY_LIMIT',1)
+    assert module.import_target_context(value,roots,{},instance=instance,initial_seal=initial)['toolset_mapping']['relationship']=='initial-seal-limit'
+    monkeypatch.setattr(module,'AUX_SEAL_ENTRY_LIMIT',50000)
+    monkeypatch.setattr(module,'AUX_MAPPING_FILE_BYTES',1)
+    assert module.import_target_context(value,roots,{},instance=instance,initial_seal=initial)['toolset_mapping']['relationship']=='incomplete-or-unbounded-sealed-pair'
+    monkeypatch.setattr(module,'diagnostic_file',real_reader)
+
+
+@pytest.mark.parametrize('kind',['symlink','windows-reparse'])
+def test_alias_mapping_rejects_linked_corrected_member_ancestor_before_leaf_metadata_or_read(module,tmp_path,monkeypatch,kind):
+    version,alias,aux,metadata,props,index,instance,value=alias_mapping_inputs(module,tmp_path)
+    directory=metadata.parent;real_lstat,real_stat,real_open=Path.lstat,Path.stat,Path.open
+    def reject(path):
+        if path!=directory and directory in path.parents:pytest.fail('Linked Auxiliary ancestor must precede corrected member metadata/read.')
+    def lstat_guard(path,*args,**kwargs):
+        reject(path)
+        if path==directory:return SimpleNamespace(st_mode=module.stat.S_IFLNK if kind=='symlink' else module.stat.S_IFDIR,
+            st_file_attributes=0x400 if kind=='windows-reparse' else 0)
+        return real_lstat(path,*args,**kwargs)
+    def stat_guard(path,*args,**kwargs):reject(path);return real_stat(path,*args,**kwargs)
+    def open_guard(path,*args,**kwargs):reject(path);return real_open(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(Path,'stat',stat_guard);monkeypatch.setattr(Path,'open',open_guard)
+    result=module.import_target_context(value,{'vc-auxiliary':str(aux)},{},instance=instance,initial_seal={'vc-auxiliary':index})
+    assert result['toolset_mapping']['relationship']=='unavailable-sealed-member'
+    assert result['toolset_mapping']['member_exists_state']=='inspection-error'
+    assert alias not in json.dumps(result) and str(tmp_path) not in json.dumps(result)
+
+
+@pytest.mark.parametrize('directory_alias,file_alias',[
+    ('99.99','99.99'),('14','14'),('14.51.1.2.3','14.51.1.2.3'),('14.51.18.0','14.51.19.0')])
+def test_new_unknown_numeric_layouts_cannot_become_mapped_policy_evidence(module,tmp_path,monkeypatch,directory_alias,file_alias):
+    root=tmp_path/'private-vs';root.mkdir()
+    instance={'argument':root.as_posix()+',version=18.11.12315.225','root':str(root),'observed_version':'18.11.12315.225'}
+    value=instance['argument']+'/VC/Auxiliary/Build/'+directory_alias+'/Microsoft.VCToolsVersion.'+file_alias+'.props'
+    def forbidden(*_args,**_kwargs):pytest.fail('Unknown numeric layouts cannot request corrected-member inspection.')
+    monkeypatch.setattr(module,'diagnostic_file',forbidden)
+    result=module.import_target_context(value,{},None,instance=instance,initial_seal={})
+    assert result['import_label']=='unknown-import' and result['toolset_mapping'] is None
+    for private in (str(tmp_path),directory_alias,file_alias):assert private not in json.dumps(result)
 
 
 @pytest.mark.parametrize('kind,expected', [('command', 'private-command-failed'),
