@@ -12,6 +12,7 @@ from ctypes import wintypes
 from dataclasses import replace
 import hashlib
 import json
+import ntpath
 from pathlib import Path
 import queue
 import shutil
@@ -26,7 +27,7 @@ from urllib.error import HTTPError
 
 from .runtime_bundle import RuntimeBundleError
 from .runtime_probe_common import developer_environment, synthetic_roots
-from .windows_preparation_process import WindowsPreparationProcess
+from .windows_preparation_process import WindowsPreparationProcess, _kernel as preparation_kernel
 
 SCHEMA = 'proxy-r19-owned-host-probe-v1'
 KEEPER_SCHEMA = 'proxy-r19-frozen-keeper-probe-v1'
@@ -141,6 +142,149 @@ def guardian_children(pid):
     finally:
         if not kernel.CloseHandle(snapshot):
             raise HostProbeFailure('guardian-census-close-unconfirmed')
+
+
+def _empty_guardian_observation():
+    return {'schema': 'proxy-r19-guardian-census-observation-v1', 'state': 'not-observed',
+        'reason': 'none', 'candidate_count': 0, 'inspected_count': 0, 'truncated': False,
+        'lineage': 'census-not-authority', 'records': []}
+
+
+def _guardian_observer_kernel():
+    kernel = preparation_kernel()  # Reuse existing observer/wait/close bindings.
+    fields = ctypes.POINTER(wintypes.FILETIME)
+    for name, args, result in (
+        ('GetProcessTimes', [wintypes.HANDLE, fields, fields, fields, fields], wintypes.BOOL),
+        ('QueryFullProcessImageNameW', [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)], wintypes.BOOL),
+        ('GetSystemDirectoryW', [wintypes.LPWSTR, wintypes.UINT], wintypes.UINT),
+        ('GetProcessId', [wintypes.HANDLE], wintypes.DWORD)):
+        function = getattr(kernel, name)
+        function.argtypes, function.restype = args, result
+    return kernel
+
+
+def _guardian_image_role(actual, runtime, system_directory, retained_creation):
+    # Same exact-path principle as C1; a matching basename/prefix grants nothing.
+    if actual.startswith(('\\\\?\\', '\\\\.\\')):
+        return 'unknown'
+    key = lambda value: ntpath.normcase(ntpath.normpath(str(value)))
+    if key(actual) == key(runtime):
+        return 'retained-runtime-creation' if retained_creation else 'runtime-image-only'
+    if key(actual) == key(ntpath.join(system_directory, 'conhost.exe')):
+        return 'windows-console-host'
+    return 'unknown'
+
+
+def observe_guardian_candidates(guardian, runtime, candidates, retained, known_creations=()):
+    """Failure-only read-only observation, never lineage/admission authority.
+
+    Keep genuine observation objects during each query. A stale parent PID or
+    creation ordering cannot promote a census candidate into an owned child.
+    Unknown native outcomes retain the private handles without reuse or retry.
+    """
+    report = _empty_guardian_observation()
+    report.update(state='observed', candidate_count=min(len(candidates), 65536))
+    if retained:
+        report.update(state='unavailable', reason='prior-observation-unconfirmed', truncated=bool(candidates))
+        return report
+    deadline = time.monotonic()+3
+
+    def fail(reason):
+        report.update(state='unavailable', reason=reason)
+        # Any already-created observation handles remain private/inaccessible
+        # after an unconfirmed native call; the surrounding keeper holds alive.
+        for record in retained:
+            record['poisoned'] = True
+
+    def stamp(handle):
+        values = [wintypes.FILETIME() for _ in range(4)]
+        if not kernel.GetProcessTimes(handle, *(ctypes.byref(value) for value in values)):
+            raise OSError('query-unavailable')
+        return values[0].dwHighDateTime << 32 | values[0].dwLowDateTime
+
+    def image(handle):
+        buffer, count = ctypes.create_unicode_buffer(32768), wintypes.DWORD(32768)
+        if not kernel.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(count)) or not 0 < count.value < len(buffer):
+            raise OSError('query-unavailable')
+        return buffer.value
+
+    def open_observer(pid):
+        handle = kernel.OpenProcess(0x101000, False, pid)
+        if handle:
+            record = {'handle': handle, 'poisoned': False}
+            retained.append(record)
+            return record
+
+    try:
+        kernel = _guardian_observer_kernel()
+        root = guardian._handle  # Retained genuine Popen creation handle.
+        if (kernel.GetProcessId(root) != guardian.pid or kernel.WaitForSingleObject(root, 0) != 258):
+            fail('root-unavailable')
+            return report
+        root_stamp = stamp(root)
+        system = ctypes.create_unicode_buffer(32768)
+        length = kernel.GetSystemDirectoryW(system, len(system))
+        if not 0 < length < len(system):
+            fail('query-unavailable')
+            return report
+        for pid in sorted(candidates)[:16]:
+            if time.monotonic() >= deadline:
+                fail('query-budget-exhausted'); break
+            item = {'role': 'unknown', 'state': 'observed', 'creation_order': 'unavailable'}
+            report['records'].append(item)
+            first = open_observer(pid)
+            if first is None:
+                item['state'] = 'open-unavailable'
+                report.update(state='unavailable', reason='query-unavailable')
+                continue
+            held = [first]
+            try:
+                result = kernel.WaitForSingleObject(first['handle'], 0)
+                if result == 0:
+                    item['state'] = 'exit-observed'
+                    report.update(state='unavailable', reason='query-unavailable')
+                elif result != 258 or kernel.GetProcessId(first['handle']) != pid:
+                    item['state'] = 'identity-unavailable'; fail('identity-unavailable'); break
+                else:
+                    started = stamp(first['handle'])
+                    item['creation_order'] = 'before-guardian' if started < root_stamp else 'at-or-after-guardian'
+                    actual = image(first['handle'])
+                    second = open_observer(pid)
+                    if second is None:
+                        item['state'] = 'identity-unavailable'; fail('identity-unavailable'); break
+                    held.append(second)
+                    if not same_process_object(first['handle'], second['handle']):
+                        item['state'] = 'identity-changed'; fail('identity-changed'); break
+                    live = kernel.WaitForSingleObject(first['handle'], 0)
+                    if live not in (0, 258):
+                        item['state'] = 'identity-unavailable'; fail('identity-unavailable'); break
+                    root_live = kernel.WaitForSingleObject(root, 0)
+                    if root_live not in (0, 258):
+                        item['state'] = 'identity-unavailable'; fail('root-unavailable'); break
+                    if live == 0 or root_live == 0:
+                        item['state'] = 'exit-observed'
+                        report.update(state='unavailable', reason='query-unavailable')
+                    else:
+                        created = any(same_process_object(first['handle'], handle) for handle in (root, *known_creations))
+                        item['role'] = _guardian_image_role(actual, runtime, system.value, created)
+                for record in reversed(held):
+                    try:
+                        closed = kernel.CloseHandle(record['handle'])
+                    except BaseException:
+                        closed = False
+                    if not closed:
+                        item.update(role='unknown', state='observer-close-unconfirmed'); fail('observer-close-unconfirmed'); break
+                    retained.remove(record)
+                if report['reason'] == 'observer-close-unconfirmed':
+                    break
+            except BaseException:
+                item['state'] = 'query-unavailable'; fail('query-unavailable'); break
+    except BaseException:
+        fail('query-unavailable')
+    finally:
+        report['inspected_count'] = len(report['records'])
+        report['truncated'] = report['candidate_count'] > report['inspected_count']
+    return report
 
 
 class FrozenProbeHost:
@@ -484,6 +628,8 @@ class _FrozenKeeperProbe:
         self.guardian_port = None
         self.guardian_signaled = False
         self.released = False
+        self.descendant_observation = _empty_guardian_observation()
+        self._guardian_observer_holds = []
         def read():
             try:
                 while True:
@@ -511,6 +657,7 @@ class _FrozenKeeperProbe:
         if failure is not None:
             # Only fixed code categories, never exception/model/log/path text.
             value['failure'] = failure if failure in KEEPER_FAILURES else 'unexpected-keeper-failure'
+            value['guardian_descendants'] = self.descendant_observation
         print(json.dumps(value), flush=True)
 
     def command(self, expected, timeout=60):
@@ -569,16 +716,33 @@ class _FrozenKeeperProbe:
         guardian, port = self.guardian, self.guardian_port
         if guardian.poll() is not None or listener_processes((port,)) != {port: {guardian.pid}}:
             raise HostProbeFailure('keeper-guardian-identity')
-        if guardian_children(guardian.pid):
+        candidates = guardian_children(guardian.pid)
+        if candidates:
+            self.observe_descendants(candidates)
             raise HostProbeFailure('keeper-guardian-descendants')
         with urlopen('http://127.0.0.1:'+str(port)+'/', timeout=1) as response:
             body = response.read(self.guardian_index['bytes']+1)
             if (response.status != 200 or len(body) != self.guardian_index['bytes']
                     or hashlib.sha256(body).hexdigest() != self.guardian_index['sha256']):
                 raise HostProbeFailure('keeper-guardian-identity')
-        if (guardian.poll() is not None or listener_processes((port,)) != {port: {guardian.pid}}
-                or guardian_children(guardian.pid)):
+        if guardian.poll() is not None or listener_processes((port,)) != {port: {guardian.pid}}:
             raise HostProbeFailure('keeper-guardian-identity')
+        candidates = guardian_children(guardian.pid)
+        if candidates:
+            self.observe_descendants(candidates)
+            raise HostProbeFailure('keeper-guardian-identity')
+
+    def observe_descendants(self, candidates):
+        if self.descendant_observation['state'] != 'not-observed':
+            return  # Failure-only one-shot; never retry unconfirmed root/query handles.
+        try:
+            known = tuple(child.process_handle for child in self.host.registered.values())
+            self.descendant_observation = observe_guardian_candidates(self.guardian, self.layout.executable,
+                candidates, self._guardian_observer_holds, known)
+        except BaseException:
+            self.descendant_observation = _empty_guardian_observation()
+            self.descendant_observation.update(state='unavailable', reason='query-unavailable',
+                candidate_count=min(len(candidates), 65536), truncated=bool(candidates))
 
     def wait_guardian_loss(self):
         deadline, next_census = time.monotonic()+60, 0
@@ -599,7 +763,9 @@ class _FrozenKeeperProbe:
             self.guardian.kill()  # Only our retained Popen creation object.
         self.guardian.wait(timeout=3)
         self.guardian_signaled = True
-        if guardian_children(self.guardian.pid):
+        candidates = guardian_children(self.guardian.pid)
+        if candidates:
+            self.observe_descendants(candidates)
             raise HostProbeFailure('keeper-guardian-descendants')
 
     def run(self):

@@ -21,6 +21,43 @@ foreach ($selection in @(
     }
 }
 
+function Get-SafeGuardianObservation($Value) {
+    $fallback=[ordered]@{schema='proxy-r19-guardian-census-observation-v1';state='unavailable';reason='invalid-observation';
+        candidate_count=0;inspected_count=0;truncated=$false;lineage='census-not-authority';records=@()}
+    try {
+        $keys=@('schema','state','reason','candidate_count','inspected_count','truncated','lineage','records')
+        if ($null -eq $Value -or @(Compare-Object $keys @($Value.PSObject.Properties.Name) -CaseSensitive).Count -or
+            $Value.schema -isnot [string] -or $Value.lineage -isnot [string] -or
+            $Value.state -isnot [string] -or $Value.reason -isnot [string] -or $Value.records -isnot [array] -or
+            $Value.schema -cne 'proxy-r19-guardian-census-observation-v1' -or $Value.lineage -cne 'census-not-authority' -or
+            $Value.state -cnotin @('not-observed','observed','unavailable') -or
+            $Value.reason -cnotin @('none','root-unavailable','query-unavailable','identity-unavailable','identity-changed',
+                'observer-close-unconfirmed','prior-observation-unconfirmed','query-budget-exhausted') -or
+            ($Value.candidate_count -isnot [int] -and $Value.candidate_count -isnot [long]) -or
+            ($Value.inspected_count -isnot [int] -and $Value.inspected_count -isnot [long]) -or
+            $Value.candidate_count -lt 0 -or $Value.candidate_count -gt 65536 -or
+            $Value.inspected_count -lt 0 -or $Value.inspected_count -gt 16 -or
+            $Value.inspected_count -gt $Value.candidate_count -or @($Value.records).Count -ne $Value.inspected_count -or
+            $Value.truncated -isnot [bool] -or $Value.truncated -ne ($Value.candidate_count -gt $Value.inspected_count) -or
+            ($Value.state -eq 'not-observed' -and ($Value.candidate_count -ne 0 -or $Value.reason -ne 'none')) -or
+            ($Value.state -eq 'observed' -and $Value.reason -ne 'none') -or
+            ($Value.state -eq 'unavailable' -and $Value.reason -eq 'none')) { throw 'invalid-observation' }
+        $records=@()
+        foreach ($record in $Value.records) {
+            if (@(Compare-Object @('role','state','creation_order') @($record.PSObject.Properties.Name) -CaseSensitive).Count -or
+                $record.role -isnot [string] -or $record.state -isnot [string] -or $record.creation_order -isnot [string] -or
+                $record.role -cnotin @('retained-runtime-creation','runtime-image-only','windows-console-host','unknown') -or
+                $record.state -cnotin @('observed','open-unavailable','exit-observed','query-unavailable',
+                    'identity-unavailable','identity-changed','observer-close-unconfirmed') -or
+                $record.creation_order -cnotin @('before-guardian','at-or-after-guardian','unavailable') -or
+                ($record.state -ne 'observed' -and $record.role -ne 'unknown')) { throw 'invalid-observation' }
+            $records += [ordered]@{role=$record.role;state=$record.state;creation_order=$record.creation_order}
+        }
+        return [ordered]@{schema='proxy-r19-guardian-census-observation-v1';state=$Value.state;reason=$Value.reason;
+            candidate_count=$Value.candidate_count;inspected_count=$Value.inspected_count;truncated=$Value.truncated;
+            lineage='census-not-authority';records=@($records)}
+    } catch { return $fallback }
+}
 function Read-KeeperEvent([string]$Phase, [int]$Resumed, [int]$Timeout=120000) {
     if (-not $script:nextLine.Wait($Timeout)) { throw 'Fixed keeper phase timed out.' }
     $line=$script:nextLine.GetAwaiter().GetResult()
@@ -38,6 +75,7 @@ function Read-KeeperEvent([string]$Phase, [int]$Resumed, [int]$Timeout=120000) {
     if ($value.schema -eq 'proxy-r19-frozen-keeper-probe-v1' -and $value.phase -eq 'recovery-required' -and
         $value.status -eq 'failed' -and $value.failure -cin $knownFailures) {
         $script:failureCategory=$value.failure
+        $script:guardianDescendants=Get-SafeGuardianObservation $value.guardian_descendants
     }
     if ($value.schema -ne 'proxy-r19-frozen-keeper-probe-v1' -or $value.kind -ne 'keeper' -or
         $value.phase -ne $Phase -or $value.case -ne $case -or $value.build_id -ne $proof.build_id -or
@@ -87,6 +125,7 @@ function Write-KeeperReceipt([string]$Status) {
         cleanup=$(if ($Status -eq 'passed') {'retained-writers-signaled-leases-explicitly-released-private-tree-removed'} else {'unconfirmed-recovery-required'});
         failure_stage=$(if ($Status -eq 'failed') {$stage} else {'none'}); keeper_loss='unavailable';
         failure_category=$(if ($Status -eq 'failed') {$failureCategory} else {'none'});
+        guardian_descendants=$guardianDescendants;
         dynamic_writer_admission='unavailable'; warm_routing='unavailable'; migration=$false; store_copy=$false;
         production_activation=$false; credentials='not-accessed'; installer='not-built'; r19_complete=$false}
     New-Item -ItemType Directory -Path (Split-Path $Output) -Force | Out-Null
@@ -130,6 +169,8 @@ Assert-SlotInventory $RuntimeRoot $proof
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('R19 frozen keeper space 漢字 '+[guid]::NewGuid().ToString('N'))
 $owned=[Collections.Generic.List[Diagnostics.Process]]::new(); $tasks=@{}
 $results=[Collections.Generic.List[object]]::new(); $sourceBlocks=0; $stage='prepare'; $failed=$false; $failureCategory='harness-unconfirmed'
+$guardianDescendants=[ordered]@{schema='proxy-r19-guardian-census-observation-v1';state='not-observed';reason='none';
+    candidate_count=0;inspected_count=0;truncated=$false;lineage='census-not-authority';records=@()}
 New-Item -ItemType Directory -Path (Join-Path $temporary 'empty-host') -Force | Out-Null
 try {
     foreach ($case in @('keeper-before-resume','keeper-after-ready')) {

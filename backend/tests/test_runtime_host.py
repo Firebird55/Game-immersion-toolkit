@@ -597,6 +597,170 @@ def test_guardian_census_is_bounded_observation_with_checked_snapshot_close(monk
     assert calls == [('snapshot-close', 7)]
 
 
+@pytest.fixture
+def guardian_observers(monkeypatch):
+    """Fake read-only native calls; never process admission or Windows proof."""
+    calls, held = [], []
+    runtime = r'C:\authored-runtime\ProxyTranscriptRuntime.exe'
+    class Kernel:
+        mode = None
+        queried = False
+        root = 11
+        opens = 0
+        values = {11: (100, 1000, object())}
+        tokens = {}
+        paths = {}
+        stamps = {}
+        def GetProcessId(self, handle):
+            calls.append(('id', handle))
+            return 999 if self.mode == 'wrong-id' and handle != self.root else self.values[handle][0]
+        def WaitForSingleObject(self, handle, _timeout):
+            calls.append(('wait', handle))
+            if self.mode == 'post-query-wait-failure' and self.queried and handle != self.root: return 0xffffffff
+            return 0 if self.mode == 'exited' and handle != self.root else 258
+        def OpenProcess(self, access, inherit, pid):
+            assert access == 0x101000 and inherit is False
+            calls.append(('open', pid))
+            if self.mode == 'open-failure': return 0
+            self.opens += 1
+            handle = 1000+self.opens
+            token = self.tokens.setdefault(pid, object())
+            if self.mode == 'reused-object' and self.opens == 2: token = object()
+            self.values[handle] = (pid, self.stamps.get(pid, 1100), token)
+            return handle
+        def GetProcessTimes(self, handle, creation, *_rest):
+            calls.append(('time', handle))
+            if self.mode == 'root-query-failure' and handle == self.root: return False
+            creation._obj.dwLowDateTime = self.values[handle][1]
+            return True
+        def GetSystemDirectoryW(self, buffer, _limit):
+            calls.append('system-directory'); buffer.value = r'C:\Windows\System32'
+            return len(buffer.value)
+        def QueryFullProcessImageNameW(self, handle, flags, buffer, count):
+            assert flags == 0
+            calls.append(('image', handle))
+            if self.mode == 'query-failure': return False
+            self.queried = True
+            buffer.value = self.paths.get(self.values[handle][0], runtime)
+            count._obj.value = len(buffer.value)
+            return True
+        def CloseHandle(self, handle):
+            calls.append(('close', handle))
+            if self.mode == 'close-failure': return False
+            if self.mode == 'close-exception': raise OSError('private exception marker')
+            return True
+    kernel = Kernel()
+    monkeypatch.setattr(runtime_host, '_guardian_observer_kernel', lambda: kernel)
+    monkeypatch.setattr(runtime_host, 'same_process_object', lambda first, second: kernel.values[first][2] is kernel.values[second][2])
+    return kernel, SimpleNamespace(pid=100, _handle=11), runtime, held, calls
+
+
+def test_guardian_diagnostics_classify_only_exact_images_and_keep_lineage_unproved(guardian_observers):
+    kernel, guardian, runtime, held, calls = guardian_observers
+    kernel.tokens[101] = object(); kernel.values[901] = (101, 1100, kernel.tokens[101])
+    kernel.paths.update({103: r'C:\Windows\System32\conhost.exe', 104: r'C:\authored-cwd\conhost.exe',
+        105: r'C:\Windows\System32\other.exe', 106: r'\\?\C:\Windows\System32\conhost.exe',
+        107: r'C:\other-runtime\ProxyTranscriptRuntime.exe'})
+    kernel.stamps[103] = 900  # A stale parent-ID relation remains only an observation.
+    value = runtime_host.observe_guardian_candidates(guardian, runtime, set(range(101, 108)), held, (901,))
+    assert value['state'] == 'observed' and value['lineage'] == 'census-not-authority'
+    assert value['candidate_count'] == value['inspected_count'] == 7 and not held
+    assert [row['role'] for row in value['records']] == ['retained-runtime-creation', 'runtime-image-only',
+        'windows-console-host', 'unknown', 'unknown', 'unknown', 'unknown']
+    assert value['records'][2]['creation_order'] == 'before-guardian'
+    serialized = json.dumps(value)
+    assert 'C:' not in serialized and '101' not in serialized and '1100' not in serialized
+    assert len([call for call in calls if isinstance(call, tuple) and call[0] == 'close']) == 14
+
+
+@pytest.mark.parametrize('mode,reason', [('wrong-id','identity-unavailable'), ('reused-object','identity-changed'),
+    ('post-query-wait-failure','identity-unavailable'),
+    ('query-failure','query-unavailable'), ('close-failure','observer-close-unconfirmed'),
+    ('close-exception','observer-close-unconfirmed')])
+def test_guardian_unconfirmed_observers_are_poisoned_and_never_reused(guardian_observers, mode, reason):
+    kernel, guardian, runtime, held, calls = guardian_observers
+    kernel.mode = mode
+    value = runtime_host.observe_guardian_candidates(guardian, runtime, {101}, held)
+    assert value['state'] == 'unavailable' and value['reason'] == reason
+    assert held and all(record['poisoned'] for record in held)
+    before = list(calls)
+    retry = runtime_host.observe_guardian_candidates(guardian, runtime, {101}, held)
+    assert retry['state'] == 'unavailable' and retry['reason'] == 'prior-observation-unconfirmed'
+    assert calls == before
+    assert 'private exception marker' not in json.dumps(value)
+
+
+@pytest.mark.parametrize('mode,state', [('open-failure','open-unavailable'), ('exited','exit-observed')])
+def test_guardian_transient_objects_are_unavailable_and_never_adopted(guardian_observers, mode, state):
+    kernel, guardian, runtime, held, _ = guardian_observers
+    kernel.mode = mode
+    value = runtime_host.observe_guardian_candidates(guardian, runtime, {101}, held)
+    assert value['state'] == 'unavailable' and value['records'][0]['state'] == state
+    assert value['records'][0]['role'] == 'unknown' and not held
+
+
+def test_guardian_diagnostics_limit_candidate_queries_without_inventing_membership(guardian_observers):
+    _kernel, guardian, runtime, held, calls = guardian_observers
+    value = runtime_host.observe_guardian_candidates(guardian, runtime, set(range(101, 121)), held)
+    assert value['candidate_count'] == 20 and value['inspected_count'] == 16 and value['truncated']
+    assert len([call for call in calls if isinstance(call, tuple) and call[0] == 'open']) == 32
+    assert value['lineage'] == 'census-not-authority' and not held
+
+
+def test_known_diagnostic_role_cannot_change_guardian_descendant_refusal(layout, monkeypatch):
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    keeper.guardian = SimpleNamespace(pid=301, poll=lambda: None)
+    keeper.guardian_port = 49301
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda _: {49301: {301}})
+    monkeypatch.setattr(runtime_host, 'guardian_children', lambda _: {401})
+    def observe(candidates):
+        assert candidates == {401}
+        keeper.descendant_observation = {'role': 'windows-console-host'}
+    monkeypatch.setattr(keeper, 'observe_descendants', observe)
+    with pytest.raises(runtime_host.HostProbeFailure, match='keeper-guardian-descendants'): keeper.check_guardian()
+
+
+def test_failed_guardian_observer_close_reaches_live_keeper_hold(guardian_observers, layout, monkeypatch, capsys):
+    kernel, guardian, _runtime, held, _calls = guardian_observers
+    kernel.mode = 'close-failure'; guardian.poll = lambda: None
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    keeper.guardian, keeper.guardian_port, keeper._guardian_observer_holds = guardian, 49301, held
+    calls = []
+    class Held(BaseException): pass
+    class Lease:
+        def acquire(self): calls.append('lease-acquired')
+        def close(self): pytest.fail('Unconfirmed observation cannot release the keeper lease')
+    def prepare():
+        keeper.host = SimpleNamespace(registered={}, recovery_required=False)
+        keeper.leases = [Lease(), Lease()]
+    def hold(): calls.append('live-holder'); raise Held()
+    monkeypatch.setattr(keeper, 'prepare', prepare)
+    monkeypatch.setattr(keeper, 'command', lambda *_: None)
+    monkeypatch.setattr(keeper, 'start_guardian', keeper.check_guardian)
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda _: {49301: {guardian.pid}})
+    monkeypatch.setattr(runtime_host, 'guardian_children', lambda _: {101})
+    monkeypatch.setattr(runtime_host, 'hold_keeper_recovery', hold)
+    with pytest.raises(Held): keeper.run()
+    assert calls == ['lease-acquired', 'lease-acquired', 'live-holder']
+    value = json.loads(capsys.readouterr().out)
+    assert value['failure'] == 'keeper-guardian-descendants'
+    assert value['guardian_descendants']['reason'] == 'observer-close-unconfirmed'
+    assert held and all(item['poisoned'] for item in held) and not keeper.released
+
+
+def test_keeper_diagnostic_root_query_failure_is_one_shot_even_without_observer_handles(guardian_observers, layout):
+    kernel, guardian, _runtime, _held, calls = guardian_observers
+    kernel.mode = 'root-query-failure'
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    keeper.guardian, keeper.host = guardian, SimpleNamespace(registered={})
+    keeper.observe_descendants({101})
+    assert keeper.descendant_observation['state'] == 'unavailable'
+    assert keeper.descendant_observation['reason'] == 'query-unavailable'
+    before = list(calls)
+    keeper.observe_descendants({102})
+    assert calls == before and keeper.descendant_observation['candidate_count'] == 1
+
+
 def test_native_listener_table_uses_fixed_windows_rows_and_only_canonical_addresses(monkeypatch):
     import ctypes
     import socket
@@ -736,7 +900,7 @@ $ErrorActionPreference='Stop'
 $tokens=$null; $parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($ProbeScript,[ref]$tokens,[ref]$parseErrors)
 if ($parseErrors) { throw 'Keeper harness parsing failed.' }
-foreach ($name in @('Get-KeeperCaseRoots','Complete-KeeperHarness')) {
+foreach ($name in @('Get-KeeperCaseRoots','Complete-KeeperHarness','Get-SafeGuardianObservation')) {
     $definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
     if (-not $definition) { throw 'Missing named keeper contract.' }
     . ([scriptblock]::Create($definition.Extent.Text))
@@ -772,6 +936,21 @@ foreach ($case in @('keeper-before-resume','keeper-after-ready')) {
         if (-not [IO.Path]::GetFullPath($path).StartsWith($selectedTemp,[StringComparison]::OrdinalIgnoreCase)) { throw 'Keeper root escapes selected TEMP.' }
     }
     if ($roots.PROXY_TRANSCRIPT_SETTINGS_ROOT -cne (Join-Path (Join-Path $Fixture 'empty-host') $case)) { throw 'Keeper cases are not nested below selected TEMP.' }
+}
+$valid='{"schema":"proxy-r19-guardian-census-observation-v1","state":"observed","reason":"none","candidate_count":1,"inspected_count":1,"truncated":false,"lineage":"census-not-authority","records":[{"role":"windows-console-host","state":"observed","creation_order":"before-guardian"}]}'
+$projected=Get-SafeGuardianObservation ($valid | ConvertFrom-Json)
+if ($projected.state -cne 'observed' -or $projected.records[0].role -cne 'windows-console-host' -or
+    $projected.records[0].creation_order -cne 'before-guardian' -or $projected.lineage -cne 'census-not-authority') { throw 'Safe guardian projection differs.' }
+foreach ($case in @('extra','role','count','state','null')) {
+    $bad=$valid | ConvertFrom-Json
+    if ($case -eq 'extra') { $bad | Add-Member -NotePropertyName raw_path -NotePropertyValue 'PRIVATE guardian path' }
+    if ($case -eq 'role') { $bad.records[0].role='PRIVATE guardian image' }
+    if ($case -eq 'count') { $bad.inspected_count=17 }
+    if ($case -eq 'state') { $bad.records[0].state='query-unavailable' }
+    if ($case -eq 'null') { $bad=$null }
+    $safe=Get-SafeGuardianObservation $bad
+    if ($safe.state -cne 'unavailable' -or $safe.reason -cne 'invalid-observation' -or
+        $safe.records.Count -ne 0 -or ($safe | ConvertTo-Json -Depth 7 -Compress) -match 'PRIVATE|raw_path') { throw 'Malformed guardian projection escaped.' }
 }
 [Console]::Out.WriteLine('keeper-harness-contracts-passed')
 ''', encoding='utf-8')

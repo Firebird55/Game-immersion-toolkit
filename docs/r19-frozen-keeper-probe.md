@@ -88,6 +88,30 @@ unchanged. References:
 [CompareObjectHandles](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-compareobjecthandles),
 [process snapshot API](https://learn.microsoft.com/en-us/windows/win32/api/tlhelp32/nf-tlhelp32-createtoolhelp32snapshot).
 
+On a guardian census refusal, failure-only diagnostics inspect at most sixteen
+candidates (at most two read-only observation handles each) within a three-second
+query-loop budget. Existing observer/wait/close bindings are reused; the extra
+queries read process IDs/times/images and the authoritative Windows system
+directory. The first and second observations must identify the same retained
+kernel object. The fixed roles are `retained-runtime-creation`,
+`runtime-image-only`, `windows-console-host` and `unknown`. The console role
+requires the exact `GetSystemDirectoryW()` plus `conhost.exe` path. A copied
+basename, other system executable, forged prefix or private path gains no role.
+No image path, PID, timestamp, file hash or exception text is published.
+
+The separate `guardian_descendants` receipt field carries fixed enums, bounded
+counts, truncation and creation ordering only. Lineage always remains
+`census-not-authority`: a snapshot parent PID may be stale/reused, and a
+candidate predating the guardian is not promoted into a verified relationship.
+Query/exit/identity races and close refusal are explicitly unavailable. An
+unconfirmed native outcome poisons the private observation handles; no retry,
+reuse, adoption or kill follows. A failed close retains the live recovery hold.
+The PowerShell harness validates and rebuilds the exact projection, replacing
+malformed or unexpected fields with a fixed unavailable observation. Known
+diagnostic roles do not relax the original descendant refusal or any admission
+gate. No native result for these additional diagnostics is inferred from source
+fixtures.
+
 The PowerShell harness imports only named existing harness functions through
 their parsed AST, without executing their script bodies. It verifies the exact
 quarantined candidate's complete inventory before and after the experiment,
