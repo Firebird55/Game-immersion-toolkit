@@ -271,17 +271,18 @@ class LexiriseService:
         db.commit()
 
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
-             audio: Path | None, audio_source: str = "original") -> dict:
+             audio: Path | None, audio_source: str = "original", audio_scope: str = "line") -> dict:
         if game not in GAME_TITLES or not chinese.strip():
             raise LexiriseError("This line has no supported game or study sentence.")
         if not self._lock.acquire(blocking=False):
             raise LexiriseError("Another sentence is being sent. Please try again in a moment.")
         try:
-            return self._send(ref, game, chinese.strip(), english, speaker, audio, audio_source)
+            return self._send(ref, game, chinese.strip(), english, speaker,
+                              None if audio_scope == 'paragraph' else audio, audio_source, audio_scope)
         finally:
             self._lock.release()
 
-    def _send(self, ref, game, chinese, english, speaker, audio, audio_source):
+    def _send(self, ref, game, chinese, english, speaker, audio, audio_source, audio_scope):
         decks = self._decks()
         if game not in decks:
             raise LexiriseError("This game's Lexirise deck has not been configured yet.")
@@ -336,7 +337,9 @@ class LexiriseService:
                     else:
                         payload = {"language": self.source_language, "text": chinese, "mode": "sentence",
                                    "notes": f"{game_title}{' — ' + speaker if speaker else ''}\n" +
-                                            (f"Audio: {audio_source}" if audio is not None else "Unvoiced game dialogue"),
+                                            (f"Audio: {audio_source}" if audio is not None else
+                                             "Voiced dialogue; full-paragraph recording omitted (individual subtitle timing unavailable)."
+                                             if audio_scope == 'paragraph' else "Unvoiced game dialogue"),
                                    "tags": [game], "audioUrls": [state["audio_url"]] if audio is not None else []}
                         if english:
                             payload["translation"] = english

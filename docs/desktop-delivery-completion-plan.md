@@ -169,8 +169,13 @@ browser outside cleanup authority.
 
 The frozen-host probe covers startup, stable-origin API crash recovery, owned
 shutdown and host-crash cleanup. The separate visible-UI probe observes status,
-logs, tray availability and actual browser-handler requests. A successful handler
-request does not establish browser navigation; that remains separate acceptance.
+logs and tray availability. Browser navigation requires an acknowledgement from
+the mounted transcript after both startup and the tray's Open action. Merely
+requesting the browser handler does not pass. Final hosted results remain pending.
+
+The [live-session follow-up](live-session-follow-up.md) tracks the newly reported
+subtitle-page, mixed-script matching and annotation-layout regressions alongside
+these delivery gates.
 
 NTE and Wuthering Waves now share the owned self-contained CUE4Parse bridge and
 managed codecs. Neither requires external OodleUE/Zlib DLLs or a user-installed

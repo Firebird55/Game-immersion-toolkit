@@ -86,6 +86,23 @@ def test_repeat_and_restart_deduplicate_even_if_history_id_changes(tmp_path):
     assert b'test-key' not in restarted.db_path.read_bytes()
 
 
+def test_paragraph_recording_is_not_uploaded_as_a_sentence_clip(tmp_path):
+    api, service, kwargs = fixture(tmp_path)
+    payloads = []
+
+    def respond(request):
+        if request.method == 'POST' and request.url.path == '/v1/vocabulary':
+            payloads.append(json.loads(request.content))
+        return api(request)
+
+    service.transport = httpx.MockTransport(respond)
+    service.send(**kwargs, audio_scope='paragraph')
+    assert ('POST', '/v1/vocabulary/audio') not in api.calls
+    assert payloads[0]['audioUrls'] == []
+    assert 'full-paragraph recording omitted' in payloads[0]['notes']
+    assert 'Unvoiced' not in payloads[0]['notes']
+
+
 def test_lost_deck_response_resumes_without_duplicate_upload_or_card(tmp_path):
     api, service, kwargs = fixture(tmp_path)
     api.fail_after_add = True
@@ -188,9 +205,15 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
                        json={'game': 'zzz', 'audio': 'C:/private/file'}).status_code == 200
     assert sent[0]['game'] == 'pragmata'
     assert sent[0]['audio'] == (tmp_path / 'audio/voice.mp3').resolve()
+    line.audio_scope = 'paragraph'
+    response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
+    assert response.status_code == 200 and response.json()['audio_included'] is False
+    assert sent[-1]['audio'] is None
+    assert line.voiced is True  # Whole recording is not confirmed unvoiced dialogue.
+    line.audio_scope = 'line'
     line.voiced = False
     assert client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'}).status_code == 409
-    assert len(sent) == 1
+    assert len(sent) == 2
     line.voice_status = 'unvoiced'
     response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
     assert response.status_code == 200 and response.json()['audio_included'] is False

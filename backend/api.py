@@ -1577,10 +1577,14 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         raise HTTPException(404, "Voice file unavailable.")
     try:
         line = presented(line)
+        # A subtitle page can be bound to a whole authored performance without
+        # verified page timings. Keep manual playback, but do not export that
+        # recording as though it were a clip of this sentence alone.
+        include_audio = line.voice_status != 'unvoiced' and line.audio_scope != 'paragraph'
         result = runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
             english=line.translation_text, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
-            audio=None if line.voice_status == 'unvoiced' else path, audio_source=line.audio_source)
-        return {**result, 'audio_included': line.voice_status != 'unvoiced'}
+            audio=path if include_audio else None, audio_source=line.audio_source, audio_scope=line.audio_scope)
+        return {**result, 'audio_included': include_audio}
     except LexiriseError as error:
         raise HTTPException(409, str(error)) from None
     except OSError:

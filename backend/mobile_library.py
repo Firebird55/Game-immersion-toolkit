@@ -86,7 +86,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     for number, original in enumerate(records):
         guard()
         row = {key: original[key] for key in ("textId", "english", "chinese", "speakerEnglish", "speakerChinese",
-               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice", "sourceLanguage", "sourceLocale", "sourceText", "translationLocale", "translationText", "audioLocale", "anchorsSource", "anchorsTranslation", "memberTextIds") if key in original}
+               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice", "sourceLanguage", "sourceLocale", "sourceText", "translationLocale", "translationText", "audioLocale", "audioScope", "anchorsSource", "anchorsTranslation", "memberTextIds") if key in original}
         source = original.get("sourceVoice")
         row["id"] = digest([game, row["textId"], row["english"], row["chinese"], row.get("playerVoice")])
         if row["id"] in identities:
@@ -454,6 +454,7 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
                 row.update(sourceLanguage=study_language(payload['source_locale']), sourceLocale=payload['source_locale'],
                            sourceText=item['source_text'], translationLocale=locale or target,
                            translationText=item['texts'].get(locale, '') if locale else '', audioLocale=item['audio_locale'],
+                           audioScope=item.get('audio_scope', 'line'),
                            anchorsSource=item.get('ocr_texts', {}).get(payload['source_locale'], []),
                            anchorsTranslation=item.get('ocr_texts', {}).get(locale, []))
                 if item.get('member_text_ids') and ':context-' in text_id:

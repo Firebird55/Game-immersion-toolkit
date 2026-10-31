@@ -12,7 +12,7 @@ from backend.mobile_library import export_library, digest, ExportCancelled, FORM
 
 def rows(game="zzz"):
     return [{"textId": game+":dialogue1", "english": "The lantern is bright.", "chinese": "灯笼很亮。",
-             "sourceVoice": digest("voice1"), "channels": ["dialogue"],
+             "sourceVoice": digest("voice1"), "channels": ["dialogue"], "audioScope": "paragraph",
              "anchorsEnglish": ["The lantern"], "playerVoice": "female", "speakerEnglish": "Guide"},
             {"textId": game+":dialogue2", "english": "We can keep walking.", "chinese": "我们可以继续走。",
              "sourceVoice": digest("voice1"), "channels": ["dialogue"], "install": "private-path", "api_key": "private-key"}]
@@ -40,6 +40,8 @@ def test_export_roundtrip_and_private_allowlist(tmp_path, game):
         assert manifest["coverage"]["exportedVoices"] == 2
         assert "install" not in catalog[1] and "api_key" not in catalog[1]
         assert catalog[0]["anchorsEnglish"] == ["The lantern"]
+        assert catalog[0]["audioScope"] == "paragraph"
+        assert "audioScope" not in catalog[1]  # Legacy sentence clips remain compatible.
         assert catalog[0]["audio"] == catalog[1]["audio"]
         assert all(info.compress_type == zipfile.ZIP_STORED for info in pack.infolist())
     assert len(calls) == 1
