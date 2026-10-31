@@ -74,13 +74,14 @@ def child_environment(base):
 
 
 class FrozenHost:
-    def __init__(self, executable, user, environment):
+    def __init__(self, executable, user, environment, *, ui=False):
         self.executable, self.user, self.environment = executable, user, environment
         self.port = None
         self.observed = {}
         self.service_processes = {}
         self.stdout_closed = threading.Event()
-        self.process = subprocess.Popen([str(executable), '--headless', '--no-browser', '--data-root', str(user),
+        mode = ['--ui-probe'] if ui else ['--headless', '--no-browser']
+        self.process = subprocess.Popen([str(executable), *mode, '--data-root', str(user),
             '--port', '0', '--api-port', '0'], cwd=user.parent, env=environment,
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, encoding='utf-8', errors='replace',
@@ -212,11 +213,36 @@ class FrozenHost:
             self.process.stdout.close()
 
 
-def probe(runtime, provenance, output, timeout):
+def check_ui(host, timeout):
+    host.wait(lambda: host.process.poll() is not None, timeout + 60, 'frozen-ui-timeout', require_running=False)
+    host.verify_stopped(30)
+    value = json.loads((host.user / 'state/native-ui-probe.json').read_text(encoding='utf-8'))
+    if (value.get('schema') != 'toolkit-desktop-ui-observation-v1' or value.get('mode') != 'bundle'
+            or value.get('status') not in {'passed', 'failed', 'unavailable'}
+            or type(value.get('passed')) is not bool or not isinstance(value.get('checks'), dict)
+            or any(type(item) is not bool for item in value['checks'].values())):
+        raise ProbeFailure('invalid-frozen-ui-observation')
+    expected_code = {'passed': 0, 'failed': 1, 'unavailable': 2}[value['status']]
+    if host.process.returncode != expected_code or value['passed'] != (value['status'] == 'passed'):
+        raise ProbeFailure('inconsistent-frozen-ui-result')
+    allowed = {'status_window', 'log_window', 'tray_icon', 'default_browser_request',
+               'tray_unavailable_window_fallback', 'show_logs_action', 'open_transcript_action',
+               'quit_action', 'owned_shutdown'}
+    return {'status': value['status'], 'passed': value['passed'],
+        'checks': {key: item for key, item in value['checks'].items() if key in allowed},
+        'native_tray': 'available' if value.get('native_tray') == 'available' else 'unavailable',
+        'browser_navigation': 'not-run', 'ordinary_browser_profile': 'not-run', 'native_game_capture': 'not-run'}
+
+
+def probe(runtime, provenance, output, timeout, *, ui=False):
     report = {'schema': 'toolkit-desktop-native-probe-v1', 'status': 'failed', 'passed': False, 'checks': {},
         'execution': 'actual-frozen-process',
         'r19_complete': False, 'native_acceptance': 'partial-headless-lifecycle',
-        'browser_tray_capture': 'not-run', 'frozen_update_transaction': 'not-run'}
+        'frozen_update_transaction': 'not-run'}
+    if ui:
+        report.update(schema='toolkit-desktop-ui-probe-v1', native_acceptance='partial-native-ui')
+    else:
+        report['browser_tray_capture'] = 'not-run'
     active = None
     try:
         runtime = runtime.absolute()
@@ -244,37 +270,46 @@ def probe(runtime, provenance, output, timeout):
         if check.returncode or json.loads(check.stdout).get('mode') != 'bundle':
             raise ProbeFailure('frozen-host-check-failed')
         report['checks']['host_check'] = True
-        active = FrozenHost(executable, user, environment)
-        active.wait(lambda: active.port is not None, timeout, 'frozen-startup-timeout')
-        if json.loads(active.get('/api/health'))['status'] != 'ok' or b'<html' not in active.get('/').lower():
-            raise ProbeFailure('frozen-reader-not-ready')
-        report['checks']['frontend_gateway'] = True
-        initial_port, old_route = active.port, active.route()
-        active.crash_api()
-        active.wait(lambda: active.route()['apiPort'] != old_route['apiPort']
-            and json.loads(active.get('/api/health'))['status'] == 'ok', timeout, 'frozen-recovery-timeout')
-        if active.port != initial_port or active.route()['frontendPort'] != old_route['frontendPort']:
-            raise ProbeFailure('frozen-recovery-changed-origin')
-        report['checks']['api_crash_recovery'] = True
-        active.observe()
-        active.quit(55)
-        active.verify_stopped(20)
-        report['checks']['owned_shutdown'] = True
-        active = FrozenHost(executable, user, environment)
-        active.wait(lambda: active.port is not None, timeout, 'frozen-restart-timeout')
-        if json.loads(active.get('/api/health'))['status'] != 'ok':
-            raise ProbeFailure('frozen-restart-not-ready')
-        report['checks']['same_state_restart'] = True
-        active.observe()
-        active.identity.kill()
-        active.process.wait(timeout=10)
-        active.verify_stopped(30)
-        report['checks']['host_crash_cleanup'] = True
+        if ui:
+            environment.pop('QT_QPA_PLATFORM', None)
+            if os.environ.get('QT_QPA_PLATFORM'):
+                environment['QT_QPA_PLATFORM'] = os.environ['QT_QPA_PLATFORM']
+            active = FrozenHost(executable, user, environment, ui=True)
+            result = check_ui(active, timeout)
+            report['checks'].update(result.pop('checks'))
+            report.update(result)
+        else:
+            active = FrozenHost(executable, user, environment)
+            active.wait(lambda: active.port is not None, timeout, 'frozen-startup-timeout')
+            if json.loads(active.get('/api/health'))['status'] != 'ok' or b'<html' not in active.get('/').lower():
+                raise ProbeFailure('frozen-reader-not-ready')
+            report['checks']['frontend_gateway'] = True
+            initial_port, old_route = active.port, active.route()
+            active.crash_api()
+            active.wait(lambda: active.route()['apiPort'] != old_route['apiPort']
+                and json.loads(active.get('/api/health'))['status'] == 'ok', timeout, 'frozen-recovery-timeout')
+            if active.port != initial_port or active.route()['frontendPort'] != old_route['frontendPort']:
+                raise ProbeFailure('frozen-recovery-changed-origin')
+            report['checks']['api_crash_recovery'] = True
+            active.observe()
+            active.quit(55)
+            active.verify_stopped(20)
+            report['checks']['owned_shutdown'] = True
+            active = FrozenHost(executable, user, environment)
+            active.wait(lambda: active.port is not None, timeout, 'frozen-restart-timeout')
+            if json.loads(active.get('/api/health'))['status'] != 'ok':
+                raise ProbeFailure('frozen-restart-not-ready')
+            report['checks']['same_state_restart'] = True
+            active.observe()
+            active.identity.kill()
+            active.process.wait(timeout=10)
+            active.verify_stopped(30)
+            report['checks']['host_crash_cleanup'] = True
+            report.update(status='passed', passed=True)
         validate(runtime, receipt, target, candidate=True)
         report['checks']['immutable_payload'] = True
-        report['status'] = 'passed'
-        report['passed'] = True
     except Exception as error:
+        report.update(status='failed', passed=False)
         report['error'] = str(error) if isinstance(error, ProbeFailure) else type(error).__name__
     finally:
         if active is not None:
@@ -285,7 +320,7 @@ def probe(runtime, provenance, output, timeout):
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(report))
-    return 0 if report['status'] == 'passed' else 1
+    return {'passed': 0, 'unavailable': 2}.get(report['status'], 1)
 
 
 def main():
@@ -294,11 +329,12 @@ def main():
     parser.add_argument('--provenance', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--timeout', type=int, default=180)
+    parser.add_argument('--ui', action='store_true', help='Run the real visible Qt host and browser-handler requests instead of headless crash checks.')
     args = parser.parse_args()
     if not 15 <= args.timeout <= 600:
         parser.error('Timeout must be between 15 and 600 seconds.')
     provenance = args.provenance or args.runtime_root.parent.parent / 'CANDIDATE-PROVENANCE.json'
-    return probe(args.runtime_root, provenance, args.output, args.timeout)
+    return probe(args.runtime_root, provenance, args.output, args.timeout, ui=args.ui)
 
 
 if __name__ == '__main__':

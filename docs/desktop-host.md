@@ -68,6 +68,23 @@ does not establish visible window/tray behavior, ordinary browser navigation,
 native capture or the frozen update transaction. Those need separate native
 acceptance evidence for the same candidate.
 
+Add `--ui` to that native probe command for a separate visible host run. It opens
+the real Qt status/log window, observes native tray registration when a system
+tray is available, and invokes the real Show logs, Open transcript and Quit
+actions. It opens the transcript through the default browser handler on startup
+and once through the menu. A missing tray records the supported visible-window
+fallback; an offscreen/minimal Qt backend never counts as native window or tray
+acceptance. A missing native display or browser handler returns exit 2 with
+`status: unavailable`, which is not a full pass.
+
+The underlying `--ui-probe` executable option writes a small, path-free result
+to `state/native-ui-probe.json` and quits through the normal writer drain. The
+outer runner binds it to the same exact artifact receipt. Browser-handler
+acknowledgement is named `default_browser_request`; it does not set
+`browser_open` or establish browser navigation/profile continuity. Final native
+browser checks remain required. The GUI diagnostic does not inspect game pixels
+or personal account data.
+
 ## Evidence and remaining work
 
 Windows source checks cover actual API/frontend/gateway startup in disposable

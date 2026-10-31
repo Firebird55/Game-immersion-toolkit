@@ -33,7 +33,7 @@ def show_startup_error(message):
             ctypes.windll.user32.MessageBoxW(None, message, 'Game immersion toolkit could not start', 0x10)
 
 
-def run_ui(host):
+def run_ui(host, *, probe=False):
     from PySide6.QtCore import Qt, QTimer
     from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
     from PySide6.QtWidgets import (QApplication, QLabel, QMenu, QPlainTextEdit,
@@ -125,11 +125,17 @@ def run_ui(host):
     menu.addAction(quit_action)
     tray.setContextMenu(menu)
     tray.activated.connect(lambda reason: show_logs() if reason == QSystemTrayIcon.ActivationReason.DoubleClick else None)
-    if QSystemTrayIcon.isSystemTrayAvailable():
+    tray_available = QSystemTrayIcon.isSystemTrayAvailable()
+    if tray_available:
         tray.show()
     else:
         host.log.write('This desktop has no tray service. Keep this status window open to manage the toolkit.')
     window.show()
+    observer = None
+    if probe:
+        from .desktop_ui_probe import DesktopUiProbe
+        observer = DesktopUiProbe(host, application, window, status, logs, tray,
+            {'open': open_action, 'logs': logs_action, 'quit': quit_action}, tray_available=tray_available)
     worker = threading.Thread(target=host.run, name='desktop-supervisor', daemon=False)
     worker.start()
     timer = QTimer()
@@ -153,6 +159,11 @@ def run_ui(host):
                 quit_button.setText('Close')
         elif host.stop_requested.is_set():
             status.setText('Stopping and saving…')
+        if observer is not None:
+            try:
+                observer.tick()
+            except Exception:
+                observer.stop('native-ui-observation-failed')
 
     timer.timeout.connect(refresh)
     timer.start(200)
@@ -163,5 +174,6 @@ def run_ui(host):
         host.log.write('Shutdown is still waiting for owned processes; the application will remain open.')
         worker.join()
     tray.hide()
+    probe_result = observer.finish() if observer is not None else 0
     host.log.close()
-    return host.exit_code or result
+    return host.exit_code or result or probe_result

@@ -676,7 +676,10 @@ def main(arguments=None):
     parser.add_argument('--no-browser', action='store_true')
     parser.add_argument('--host-check', action='store_true')
     parser.add_argument('--request-quit', action='store_true')
+    parser.add_argument('--ui-probe', action='store_true', help='Observe the actual native UI, then quit; saves a path-free diagnostic under state.')
     args = parser.parse_args(arguments)
+    if args.ui_probe and any((args.headless, args.no_browser, args.host_check, args.request_quit)):
+        parser.error('--ui-probe requires the normal visible host and browser launch.')
     if not args.headless and not args.host_check and not args.request_quit:
         from .desktop_host_ui import ensure_console
         ensure_console()
@@ -721,7 +724,7 @@ def main(arguments=None):
         host.run()
         return host.exit_code
     from .desktop_host_ui import run_ui
-    return run_ui(host)
+    return run_ui(host, probe=args.ui_probe)
 
 
 def launch(arguments=None):
