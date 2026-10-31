@@ -978,8 +978,7 @@ def run_real_conversion_control(executable, script, environment, *, diagnostic=N
 def real_conversion_pair(parent_environment, run):
     # Collect both fresh children before the caller may assert a joint outcome.
     inherited_environment = dict(parent_environment)
-    attempt_environment = {k: v for k, v in inherited_environment.items()
-        if k.casefold() in {'systemroot', 'windir', 'temp', 'tmp'}}
+    attempt_environment = module.legacy_environment(inherited_environment)
     result = {}
     for variant, environment in (('inherited', inherited_environment), ('attempt', attempt_environment)):
         try: observed = run(environment)
@@ -990,7 +989,8 @@ def real_conversion_pair(parent_environment, run):
 
 def test_real_conversion_pair_measures_both_sets_before_joint_refusal_without_mutating_parent():
     parent = {'SystemRoot': 'authored-root', 'WINDIR': 'authored-windows', 'TEMP': 'authored-temp',
-        'tMp': 'authored-tmp', 'PRIVATE_PROFILE': 'private-path'}
+        'tMp': 'authored-tmp', 'LOCALAPPDATA': 'authored-cache', 'ProgramFiles': 'authored-programs',
+        'PRIVATE_PROFILE': 'private-path'}
     original = dict(parent); calls = []
     def run(environment):
         calls.append(environment)
@@ -998,7 +998,7 @@ def test_real_conversion_pair_measures_both_sets_before_joint_refusal_without_mu
         return {'state': 'parsed', 'context': None, 'stderr_present': False}
     result = real_conversion_pair(parent, run)
     assert len(calls) == 2 and calls[0] == original and calls[0] is not parent
-    assert calls[1] == {k: original[k] for k in ('SystemRoot', 'WINDIR', 'TEMP', 'tMp')}
+    assert calls[1] == {k: original[k] for k in ('SystemRoot', 'WINDIR', 'TEMP', 'tMp', 'LOCALAPPDATA', 'ProgramFiles')}
     assert parent == original
     assert result['inherited'] == {'state': 'unavailable', 'context': None, 'stderr_present': False}
     assert result['attempt']['state'] == 'parsed' and 'private-' not in json.dumps(result)
@@ -1051,6 +1051,45 @@ def test_real_conversion_pair_reprojects_runner_failures_before_any_public_diagn
         'stderr_present': True, 'raw': 'private-error'})
     assert set(result) == {'inherited', 'attempt'}
     assert all(value == {'state': 'unavailable', 'context': None, 'stderr_present': True} for value in result.values())
+
+
+def test_legacy_environment_keeps_only_standard_windows_runtime_values_without_mutating_parent():
+    parent = {name.upper(): 'authored-'+name for name in module.LEGACY_ENV_NAMES}
+    rejected = {'PATH', 'PSModulePath', 'PSMODULEANALYSISCACHEPATH', 'NODE_PATH', 'NODE_OPTIONS',
+        'PYTHONHOME', 'PYTHONPATH', 'DOTNET_ROOT', 'VSINSTALLDIR', 'VCINSTALLDIR', 'PRIVATE_PROFILE'}
+    parent.update({name: 'private-developer-value' for name in rejected})
+    before = dict(parent)
+    observed = module.legacy_environment(parent)
+    assert set(observed) == {name.upper() for name in module.LEGACY_ENV_NAMES}
+    assert all(observed[name] == before[name] for name in observed)
+    assert parent == before and not set(observed) & rejected
+    assert 'private-' not in json.dumps(observed)
+
+
+def test_actual_owned_attempt_passes_the_filtered_windows_runtime_snapshot_before_resume(monkeypatch):
+    from types import SimpleNamespace
+    parent = {'SystemRoot': 'authored-system', 'LOCALAPPDATA': 'authored-cache',
+        'ProgramFiles': 'authored-programs', 'PSModulePath': 'private-modules',
+        'PATH': 'private-tools', 'PYTHONHOME': 'private-python'}
+    before, calls = dict(parent), []
+    child = SimpleNamespace(resume_once=lambda: calls.append('resume'))
+    class Owner:
+        def create_suspended(self, command, *, cwd, env):
+            calls.append(('create', command, cwd, dict(env)))
+            return child
+    class Pipe:
+        def __init__(self, _api): self.name = 'authored-pipe'
+        def bind(self, owned, _deadline):
+            assert owned is child
+            calls.append('bind')
+    monkeypatch.setattr(module.os, 'environ', parent)
+    monkeypatch.setattr(module, 'Pipe', Pipe)
+    monkeypatch.setattr(module, 'process_module', lambda: SimpleNamespace(WindowsPreparationProcess=Owner))
+    attempt = module.Attempt(object(), lambda name: ['authored-program', name], 'authored-cwd')
+    assert attempt.child is child and parent == before
+    assert calls == [('create', ['authored-program', 'authored-pipe'], 'authored-cwd',
+        {'SystemRoot': 'authored-system', 'LOCALAPPDATA': 'authored-cache', 'ProgramFiles': 'authored-programs'}),
+        'resume', 'bind']
 
 
 @pytest.mark.parametrize('fault', ['start-first', 'start-second', 'stream-close', 'timeout',
@@ -1175,6 +1214,7 @@ def test_authored_real_conversion_under_inherited_and_attempt_environment():
     except Exception: executable = None
     script = r'''
 $ErrorActionPreference='Stop'
+$ProgressPreference='SilentlyContinue'
 class C7LiteralWriter {
     [string]$Frame=''
     [void]WriteLine([string]$value) { $this.Frame=$value }

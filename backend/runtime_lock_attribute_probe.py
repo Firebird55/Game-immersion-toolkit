@@ -58,6 +58,16 @@ CONVERSION_CATEGORIES = ('NotSpecified', 'OpenError', 'CloseError', 'DeviceError
     'FromStdErr', 'SecurityError', 'ProtocolError', 'ConnectionError', 'AuthenticationError',
     'LimitsExceeded', 'QuotaExceeded', 'NotEnabled', 'unknown')
 
+# Windows PowerShell constructs standard module/cache paths from these OS/user
+# runtime variables. Do not inherit developer or caller-supplied module paths.
+LEGACY_ENV_NAMES = frozenset({'systemroot', 'windir', 'temp', 'tmp', 'systemdrive',
+    'programdata', 'allusersprofile', 'localappdata', 'appdata', 'userprofile',
+    'homedrive', 'homepath', 'programfiles', 'programfiles(x86)', 'programw6432'})
+
+
+def legacy_environment(parent):
+    return {key: value for key, value in parent.items() if key.casefold() in LEGACY_ENV_NAMES}
+
 
 def conversion_failure(value):
     if (type(value) is not dict or set(value) != {'line', 'exceptions', 'chain_end', 'category'}
@@ -588,7 +598,7 @@ class Attempt:
             self.pipe = Pipe(api)
             self.step('create-owned-process')
             self.owner = process_module().WindowsPreparationProcess()
-            env = {k: v for k, v in os.environ.items() if k.casefold() in {'systemroot', 'windir', 'temp', 'tmp'}}
+            env = legacy_environment(os.environ)
             self.child = self.owner.create_suspended(command(self.pipe.name), cwd=cwd, env=env)
             self.step('resume-owned-process')
             self.child.resume_once()

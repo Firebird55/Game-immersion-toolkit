@@ -315,6 +315,47 @@ cause remains unknown. Earlier eaa/37/973 and f43 negatives keep their meaning.
 
 ### Separate paired real-cmdlet control and bounded parent observation
 
+#### Later Windows-runtime environment candidate, native pending
+
+At `a2e1fb6`, run `41250877798` passed 214 contracts and failed the paired case
+on image 20261021.278.1 (14.54 seconds, zero skips). Its closed parent labels
+locate the four-name control refusal at the ten-second wait deadline; the owned
+test child and reader threads then finished. The inherited control parsed and
+its stderr began with the literal CLIXML marker. The marker does not classify
+its records. Mechanism/upload were skipped with no artifact. This remains a
+control observation, not proof of the earlier named-pipe failure's cause or
+Job/descendant cleanup.
+
+The later candidate replaces the artificial four-name filter with one explicit
+allowlist of fifteen parent-provided Windows runtime folder/profile variables.
+It preserves their original values without publishing them. PATH, inherited
+PSModulePath/analysis-cache overrides, Python/Node/.NET/SDK/developer variables
+remain excluded. The protected PowerShell executable, legacy script, actual
+grant conversion, wire/schema, process limits and cleanup remain unchanged.
+The paired test uses the exact same environment builder as the actual Attempt.
+
+This is a prospective compatibility policy, not a finding that any particular
+missing variable caused the timeout. Microsoft's
+[module-path construction](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath)
+documents default system/current-user locations and the separate problem of
+inheriting PowerShell 7 module paths through an intermediate Python process.
+Those documented inputs motivate preserving ordinary Windows runtime values
+while excluding explicit caller module-path overrides; they do not prove the
+candidate works or grant ordinary-user Windows acceptance.
+
+Only the authored literal-control script also sets
+`$ProgressPreference='SilentlyContinue'`, whose
+[documented scope](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-5.1#progresspreference)
+is progress presentation. ErrorAction remains Stop; errors/warnings/raw stderr
+are not filtered, decoded or discarded. The existing parsed/no-context/no-stderr
+joint success predicate and all capture/cleanup limits remain hard requirements.
+The actual C7 legacy script does not receive that progress preference. Both
+changes are explicit control differences; native results are pending. Historical
+four-name refusals retain their exact source/environment interpretation, and no
+cause, mechanism, keeper-loss, rights or R19 gate is closed by this candidate.
+
+#### Historical paired controls and parent observations
+
 At exact `ac5b7670da9fd613892f6d054e1b96ff51371d7c`, separate
 [run 41247805821](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41247805821)
 on image 20261030.294.1 passed 203 contracts and failed only the new paired case
