@@ -69,6 +69,14 @@ Only the existing compiler/SDK variable allowlist is imported. Generated batch,
 activation logs and raw environment output remain private and outside the
 source-review ZIP; authored Windows contracts cover paths with spaces and
 failed activation without partial or foreign variable export.
+The authored batch checks both the exact raw `%*` invocation and the separate
+`%3`/`%4` parameters produced by the unquoted `=` in the
+[documented vcvars switch](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line).
+The previous fixture incorrectly expected the whole switch in `%3`;
+[Microsoft's archived batch-parameter example](https://jeffpar.github.io/kbarchive/kb/071/Q71247/)
+describes this delimiter behavior. The corrected contract still requires the
+exact SDK/toolset arguments and a failed activation without partial export.
+Contract failures expose only fixed phase labels and an optional numeric exit.
 
 ## Evidence and publication boundary
 
@@ -104,6 +112,20 @@ The current gate still compares CMake and the CL file-resource version with the
 unchanged pins. Native version output is bounded and omitted. Only a mismatch
 creates its fresh failure directory; matching preflight leaves the source
 preparation's fresh-output requirement intact.
+
+After successful compiler activation, a rejected `INCLUDE` or `LIB` search path
+uses a separate toolchain-preflight failure schema at `FAILED-STAGE.json`.
+It binds the source commit and manifest bytes/SHA-256 to at most 64 entries per
+search variable: fixed component roles, directory-existence flags and fixed
+rejection reasons. Missing values, oversized values, too many entries and
+inspection errors fail closed. Additional known component roles classify a
+rejected path; they do not admit a new compiler input root. Paths, path hashes,
+environment contents, arbitrary object fields and exception text are omitted.
+Passing search checks leave source preparation's destination absent; only a
+failure creates the fresh receipt directory. All build/runtime/rights gates stay
+false in this diagnostic receipt. The first activation/search attempt reached
+the path guard but did not build or execute a codec; a later exact Windows run
+must identify the rejected component before any root change is considered.
 
 The source review kit is not approved corresponding-source delivery or a durable
 source service. Original upstream inputs retain their own terms. New project

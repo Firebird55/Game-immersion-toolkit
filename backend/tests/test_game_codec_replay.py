@@ -283,7 +283,11 @@ $value | ConvertTo-Json -Compress
         success.write_text('''@echo off
 if not "%~1"=="x64" exit /b 61
 if not "%~2"=="10.0.26100.0" exit /b 62
-if not "%~3"=="-vcvars_ver=14.51.36231" exit /b 63
+rem Unquoted equals is a batch-parameter delimiter; preserve the exact raw call too.
+if not "%~3"=="-vcvars_ver" exit /b 63
+if not "%~4"=="14.51.36231" exit /b 64
+if not "%~5"=="" exit /b 65
+if not "%*"=="x64 10.0.26100.0 -vcvars_ver=14.51.36231" exit /b 66
 set "INCLUDE=authored include"
 set "LIB=authored lib"
 set "VCToolsInstallDir=authored toolset"
@@ -297,6 +301,8 @@ exit /b 0
         contract = self.root / 'activation-contract.ps1'
         contract.write_text('''param($SourcePath, $SuccessBatch, $FailedBatch, $ProfileParent)
 $ErrorActionPreference = 'Stop'
+$contractPhase = 'parse'; $activationExit = $null
+try {
 $tokens = $null; $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($SourcePath, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Build script has parse errors.' }
@@ -304,25 +310,158 @@ $definition = $ast.Find({param($node) $node -is [System.Management.Automation.La
 if (-not $definition) { throw 'Compiler environment activation function unavailable.' }
 . ([ScriptBlock]::Create($definition.Extent.Text))
 $beforeInclude = $env:INCLUDE
-$profile = Join-Path $ProfileParent 'profile with spaces'
+$fixtureProfile = Join-Path $ProfileParent 'profile with spaces'
 $failedProfile = Join-Path $ProfileParent 'failed profile with spaces'
-New-Item -ItemType Directory -Path $profile, $failedProfile | Out-Null
-$value = Get-CompilerEnvironment -ActivationRoot $profile -VcvarsPath $SuccessBatch -SdkVersion '10.0.26100.0' -ToolsetVersion '14.51.36231'
+New-Item -ItemType Directory -Path $fixtureProfile, $failedProfile | Out-Null
+$contractPhase = 'successful-activation'
+$value = Get-CompilerEnvironment -ActivationRoot $fixtureProfile -VcvarsPath $SuccessBatch -SdkVersion '10.0.26100.0' -ToolsetVersion '14.51.36231'
+$contractPhase = 'successful-projection'
 if ($value.Count -ne 5 -or $value.INCLUDE -ne 'authored include' -or $value.LIB -ne 'authored lib' -or
     $value.VCToolsInstallDir -ne 'authored toolset' -or $value.WindowsSdkDir -ne 'authored SDK' -or
     $value.WindowsSDKVersion -ne '10.0.26100.0') { throw 'Authored activation arguments or allowlist differed.' }
 $failedAsExpected = $false
+$contractPhase = 'failed-activation'
 try { Get-CompilerEnvironment -ActivationRoot $failedProfile -VcvarsPath $FailedBatch -SdkVersion '10.0.26100.0' -ToolsetVersion '14.51.36231' | Out-Null }
-catch { if ($_.Exception.Message -eq 'Exact compiler/SDK activation failed; exit code 7.') { $failedAsExpected = $true } }
+catch {
+    if ($_.Exception.Message -match '^Exact compiler/SDK activation failed; exit code (-?[0-9]{1,10})\\.$') {
+        $activationExit = [long]$Matches[1]
+        if ($activationExit -eq 7) { $failedAsExpected = $true }
+    }
+}
+$contractPhase = 'failed-projection'
 if (-not $failedAsExpected -or $env:INCLUDE -ne $beforeInclude) { throw 'Failed activation exported partial environment.' }
 $value | ConvertTo-Json -Compress
+} catch {
+    if ($_.Exception.Message -match '^Exact compiler/SDK activation failed; exit code (-?[0-9]{1,10})\\.$') {
+        $activationExit = [long]$Matches[1]
+    }
+    [Console]::Error.WriteLine((@{schema='authored-activation-contract-failure-v1'; phase=$contractPhase;
+        activation_exit=$activationExit} | ConvertTo-Json -Compress))
+    exit 1
+}
 ''', encoding='utf-8')
         result = subprocess.run([shutil.which('pwsh'), '-NoProfile', '-NonInteractive', '-File', str(contract),
             str(ROOT / 'scripts/build-game-codec-replay.ps1'), str(success), str(failed), str(self.root)],
-            check=True, capture_output=True, text=True, timeout=20)
+            check=False, capture_output=True, text=True, timeout=20)
+        if result.returncode:
+            # The wrapper emits only fixed phase labels and an optional numeric exit.
+            try: diagnosis = json.loads(result.stderr)
+            except (ValueError, TypeError): self.fail('Authored activation contract failed without safe diagnostics.')
+            self.assertEqual(set(diagnosis), {'schema', 'phase', 'activation_exit'})
+            self.assertEqual(diagnosis['schema'], 'authored-activation-contract-failure-v1')
+            self.assertIn(diagnosis['phase'], {'parse', 'successful-activation', 'successful-projection',
+                                             'failed-activation', 'failed-projection'})
+            self.assertTrue(diagnosis['activation_exit'] is None or type(diagnosis['activation_exit']) is int)
+            self.fail('Authored activation contract failed: ' + json.dumps(diagnosis, sort_keys=True))
         self.assertEqual(json.loads(result.stdout), {'INCLUDE': 'authored include', 'LIB': 'authored lib',
             'VCToolsInstallDir': 'authored toolset', 'WindowsSdkDir': 'authored SDK', 'WindowsSDKVersion': '10.0.26100.0'})
         self.assertNotIn('private-stdout-marker', result.stdout + result.stderr)
+
+    @unittest.skipUnless(shutil.which('pwsh') and shutil.which('cmd.exe'),
+                         'Compiler search-path behavior contract requires Windows pwsh/cmd')
+    def test_search_path_failure_is_bounded_source_bound_and_strips_arbitrary_paths_and_exceptions(self):
+        contract = self.root / 'search-contract.ps1'
+        contract.write_text('''param($SourcePath, $FixtureRoot, $ManifestPath)
+$ErrorActionPreference = 'Stop'
+$contractPhase = 'parse'
+try {
+    $tokens = $null; $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($SourcePath, [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'parse' }
+    foreach ($name in @('Get-CompilerSearchObservation','Write-CompilerSearchFailure')) {
+        $definition = $ast.Find({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name}, $true)
+        if (-not $definition) { throw 'missing function' }
+        . ([ScriptBlock]::Create($definition.Extent.Text))
+    }
+    $contractPhase = 'observations'
+    $include = Join-Path $FixtureRoot 'private-personal-marker/include'
+    $library = Join-Path $FixtureRoot 'private-personal-marker/library'
+    $auxiliary = Join-Path $FixtureRoot 'private-personal-marker/auxiliary/include'
+    $unknown = Join-Path $FixtureRoot 'private-personal-marker/arbitrary-account'
+    New-Item -ItemType Directory -Path $include, $library, $auxiliary, $unknown | Out-Null
+    $roots = [ordered]@{'msvc-include'=$include; 'msvc-lib-x64'=$library; 'vc-auxiliary-include'=$auxiliary;
+        'private-role-marker'=$unknown}
+    $goodInclude = Get-CompilerSearchObservation 'INCLUDE' ($include + ';') @($include) $roots
+    $goodLib = Get-CompilerSearchObservation 'LIB' $library @($library) $roots
+    if ($goodInclude.entries[0].disposition -ne 'accepted' -or $goodInclude.entry_count -ne 1 -or
+        $goodLib.entries[0].disposition -ne 'accepted') { throw 'valid roots rejected' }
+    $badInclude = Get-CompilerSearchObservation 'INCLUDE' ($include + ';' + $auxiliary + ';' + $unknown) @($include) $roots
+    if ($badInclude.entries[1].component_role -ne 'vc-auxiliary-include' -or
+        $badInclude.entries[1].disposition -ne 'outside-declared-roots' -or
+        $badInclude.entries[2].component_role -ne 'unclassified' -or
+        $badInclude.entries[2].disposition -ne 'outside-declared-roots') { throw 'diagnostic role bypassed admission' }
+    $missing = Get-CompilerSearchObservation 'INCLUDE' (Join-Path $include 'missing') @($include) $roots
+    if ($missing.entries[0].exists -ne $false -or $missing.entries[0].disposition -ne 'missing-directory') { throw 'missing path accepted' }
+    $empty = Get-CompilerSearchObservation 'INCLUDE' ($include + ';;' + $include) @($include) $roots
+    $relative = Get-CompilerSearchObservation 'LIB' 'private-relative-marker' @($library) $roots
+    if ($empty.entries[1].disposition -ne 'empty-entry' -or $relative.entries[0].disposition -ne 'invalid-entry') { throw 'ambient path accepted' }
+    $unavailable = Get-CompilerSearchObservation 'INCLUDE' '' @($include) $roots
+    $oversized = Get-CompilerSearchObservation 'INCLUDE' ('p' * 32768) @($include) $roots
+    $many = Get-CompilerSearchObservation 'INCLUDE' ((1..65 | ForEach-Object { $include }) -join ';') @($include) $roots
+    if ($unavailable.state -ne 'unavailable' -or $oversized.state -ne 'value-limit' -or
+        $oversized.entry_count -ne 0 -or $many.state -ne 'entry-limit' -or $many.entry_count -ne 64) { throw 'observation bound failed' }
+    function Test-Path { throw 'private-exception-marker from arbitrary account path' }
+    try { $fault = Get-CompilerSearchObservation 'INCLUDE' $include @($include) $roots }
+    finally { Remove-Item Function:Test-Path }
+    if ($fault.entries[0].disposition -ne 'inspection-error' -or $null -ne $fault.entries[0].exists) { throw 'exception exposed or admitted' }
+    $contractPhase = 'projection'
+    $badInclude['private_object_field'] = 'private-extra-marker'
+    $badInclude.entries[0]['raw_path'] = $include
+    $destination = Join-Path $FixtureRoot 'failed-receipt'
+    Write-CompilerSearchFailure $destination $ManifestPath ('a' * 40) @($badInclude, $goodLib)
+    $report = Get-Content -LiteralPath (Join-Path $destination 'FAILED-STAGE.json') -Raw | ConvertFrom-Json
+    if (@(Get-ChildItem -LiteralPath $destination).Count -ne 1) { throw 'unexpected publication' }
+    $contractPhase = 'fail-closed'
+    $rejected = $false
+    try { Write-CompilerSearchFailure $destination $ManifestPath ('a' * 40) @($badInclude, $goodLib) }
+    catch { if ($_.Exception.Message -eq 'Safe compiler search-path failure receipt could not be recorded.') { $rejected = $true } }
+    if (-not $rejected) { throw 'existing receipt overwritten' }
+    foreach ($case in @('matching','source','role','exception','bound')) {
+        $out = Join-Path $FixtureRoot ('invalid-' + $case)
+        $source = 'a' * 40; $manifest = $ManifestPath; $item = $badInclude
+        if ($case -eq 'matching') { $item = $goodInclude }
+        if ($case -eq 'source') { $source = 'private-source-marker' }
+        if ($case -eq 'role') { $item = Get-CompilerSearchObservation 'INCLUDE' $auxiliary @($include) $roots; $item.entries[0].component_role = 'private-role-marker' }
+        if ($case -eq 'exception') { $manifest = Join-Path $FixtureRoot 'private-missing-manifest-marker' }
+        if ($case -eq 'bound') { $item = Get-CompilerSearchObservation 'INCLUDE' $auxiliary @($include) $roots; $item.entry_count = 65 }
+        $rejected = $false
+        try { Write-CompilerSearchFailure $out $manifest $source @($item, $goodLib) }
+        catch { if ($_.Exception.Message -eq 'Safe compiler search-path failure receipt could not be recorded.') { $rejected = $true } }
+        if (-not $rejected -or (Test-Path -LiteralPath $out)) { throw 'invalid receipt published' }
+    }
+    $report | ConvertTo-Json -Depth 7 -Compress
+} catch {
+    [Console]::Error.WriteLine((@{schema='authored-search-contract-failure-v1'; phase=$contractPhase} | ConvertTo-Json -Compress))
+    exit 1
+}
+''', encoding='utf-8')
+        result = subprocess.run([shutil.which('pwsh'), '-NoProfile', '-NonInteractive', '-File', str(contract),
+            str(ROOT / 'scripts/build-game-codec-replay.ps1'), str(self.root), str(replay.PIN)],
+            check=False, capture_output=True, text=True, timeout=20)
+        if result.returncode:
+            try: diagnosis = json.loads(result.stderr)
+            except (ValueError, TypeError): self.fail('Authored search-path contract failed without safe diagnostics.')
+            self.assertEqual(set(diagnosis), {'schema', 'phase'})
+            self.assertEqual(diagnosis['schema'], 'authored-search-contract-failure-v1')
+            self.assertIn(diagnosis['phase'], {'parse', 'observations', 'projection', 'fail-closed'})
+            self.fail('Authored search-path contract failed: ' + json.dumps(diagnosis, sort_keys=True))
+        report = json.loads(result.stdout)
+        self.assertEqual(report['schema'], 'proxy-r19-game-codec-replay-toolchain-preflight-failure-v1')
+        self.assertEqual(report['phase'], 'preflight-compiler-search-path'); self.assertEqual(report['status'], 'failed')
+        self.assertEqual(report['source_commit'], 'a'*40)
+        self.assertEqual(report['input_manifest'], {'path': 'packaging/codecs/ffmpeg-opus-replay.json',
+            'bytes': len(replay.PIN.read_bytes()), 'sha256': replay.digest(replay.PIN.read_bytes())})
+        self.assertEqual(report['search_paths'][0], {'kind': 'INCLUDE', 'state': 'checked', 'entry_count': 3, 'entries': [
+            {'component_role': 'msvc-include', 'exists': True, 'disposition': 'accepted'},
+            {'component_role': 'vc-auxiliary-include', 'exists': True, 'disposition': 'outside-declared-roots'},
+            {'component_role': 'unclassified', 'exists': True, 'disposition': 'outside-declared-roots'}]})
+        for gate in ('raw_log_published', 'native_codec_built', 'native_codec_executed', 'runtime_collection_allowed',
+                     'production_execution_allowed', 'source_delivery_approved', 'r19_complete'):
+            self.assertIs(report[gate], False)
+        serialized = result.stdout + result.stderr
+        for private in (str(self.root), 'private-personal-marker', 'private-extra-marker', 'raw_path',
+                        'private_object_field', 'private-relative-marker', 'private-exception-marker', 'private-role-marker'):
+            self.assertNotIn(private, serialized)
 
 
 if __name__ == '__main__': unittest.main()

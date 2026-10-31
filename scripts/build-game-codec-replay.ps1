@@ -104,6 +104,108 @@ function Get-CompilerEnvironment([string]$ActivationRoot, [string]$VcvarsPath,
     }
     return $selected
 }
+function Get-CompilerSearchObservation(
+    [ValidateSet('INCLUDE','LIB')][string]$Kind, [string]$Value,
+    [string[]]$AllowedRoots, [System.Collections.IDictionary]$ComponentRoots) {
+    # These are diagnostic roles, not an additional search-root allowlist.
+    $roles = @('msvc-include','msvc-atlmfc-include','sdk-include','netfx-include',
+        'msvc-lib-x64','msvc-atlmfc-lib-x64','sdk-ucrt-lib-x64','sdk-um-lib-x64',
+        'netfx-lib-x64','vc-auxiliary-include','netfx-other','sdk-other','msvc-other')
+    $entries = [Collections.Generic.List[object]]::new()
+    $state = 'checked'
+    if (-not $Value) { $state = 'unavailable' }
+    elseif ($Value.Length -gt 32767) { $state = 'value-limit' }
+    else {
+        $parts = $Value.TrimEnd(';').Split(';')
+        if ($parts.Count -gt 64) { $state = 'entry-limit' }
+        foreach ($entry in ($parts | Select-Object -First 64)) {
+            $role = 'unclassified'; $exists = $null; $disposition = 'invalid-entry'
+            if (-not $entry) { $disposition = 'empty-entry' }
+            else {
+                try {
+                    if ([IO.Path]::IsPathFullyQualified($entry)) {
+                        $full = [IO.Path]::GetFullPath($entry).TrimEnd('\')
+                        foreach ($name in $roles) {
+                            if (-not $ComponentRoots.Contains($name)) { continue }
+                            $base = [IO.Path]::GetFullPath($ComponentRoots[$name]).TrimEnd('\')
+                            if ($full.Equals($base, [StringComparison]::OrdinalIgnoreCase) -or
+                                $full.StartsWith($base + '\', [StringComparison]::OrdinalIgnoreCase)) {
+                                $role = $name; break
+                            }
+                        }
+                        $allowed = $false
+                        foreach ($base in $AllowedRoots) {
+                            $canonical = [IO.Path]::GetFullPath($base).TrimEnd('\')
+                            if ($full.Equals($canonical, [StringComparison]::OrdinalIgnoreCase) -or
+                                $full.StartsWith($canonical + '\', [StringComparison]::OrdinalIgnoreCase)) { $allowed = $true }
+                        }
+                        $exists = [bool](Test-Path -LiteralPath $full -PathType Container -ErrorAction Stop)
+                        $disposition = if (-not $allowed) { 'outside-declared-roots' }
+                            elseif (-not $exists) { 'missing-directory' } else { 'accepted' }
+                    }
+                } catch {
+                    # No exception message, supplied path or path fingerprint is public.
+                    $role = 'unclassified'; $exists = $null; $disposition = 'inspection-error'
+                }
+            }
+            $entries.Add([ordered]@{component_role=$role; exists=$exists; disposition=$disposition})
+        }
+    }
+    return [ordered]@{kind=$Kind; state=$state; entry_count=$entries.Count; entries=@($entries.ToArray())}
+}
+function Write-CompilerSearchFailure([string]$Destination, [string]$InputManifest,
+    [string]$SourceCommit, [object[]]$Observations) {
+    try {
+        if (Test-Path -LiteralPath $Destination) { throw 'fresh-output' }
+        if ($SourceCommit -cnotmatch '^[a-f0-9]{40}$' -or $Observations.Count -ne 2) { throw 'identity' }
+        $roles = @('unclassified','msvc-include','msvc-atlmfc-include','sdk-include','netfx-include',
+            'msvc-lib-x64','msvc-atlmfc-lib-x64','sdk-ucrt-lib-x64','sdk-um-lib-x64',
+            'netfx-lib-x64','vc-auxiliary-include','netfx-other','sdk-other','msvc-other')
+        $paths = @(); $failed = $false; $seen = @{}
+        foreach ($item in $Observations) {
+            if ($item.kind -isnot [string] -or $item.kind -cnotin @('INCLUDE','LIB') -or $seen.ContainsKey($item.kind) -or
+                $item.state -isnot [string] -or $item.state -cnotin @('checked','unavailable','value-limit','entry-limit') -or
+                $item.entry_count -isnot [int] -or $item.entry_count -lt 0 -or $item.entry_count -gt 64 -or
+                @($item.entries).Count -ne $item.entry_count -or
+                ($item.state -eq 'checked' -and $item.entry_count -eq 0) -or
+                ($item.state -in @('unavailable','value-limit') -and $item.entry_count -ne 0) -or
+                ($item.state -eq 'entry-limit' -and $item.entry_count -ne 64)) { throw 'observation' }
+            $seen[$item.kind] = $true
+            if ($item.state -ne 'checked') { $failed = $true }
+            $entries = @()
+            foreach ($entry in $item.entries) {
+                if ($entry.component_role -isnot [string] -or $entry.component_role -cnotin $roles -or
+                    ($null -ne $entry.exists -and $entry.exists -isnot [bool]) -or
+                    $entry.disposition -isnot [string] -or $entry.disposition -cnotin @('accepted','outside-declared-roots','missing-directory',
+                        'empty-entry','invalid-entry','inspection-error') -or
+                    ($entry.disposition -eq 'accepted' -and $entry.exists -ne $true) -or
+                    ($entry.disposition -eq 'missing-directory' -and $entry.exists -ne $false)) { throw 'entry' }
+                if ($entry.disposition -ne 'accepted') { $failed = $true }
+                $entries += [ordered]@{component_role=$entry.component_role; exists=$entry.exists; disposition=$entry.disposition}
+            }
+            # Rebuild a fixed projection; arbitrary object fields are never serialized.
+            $paths += [ordered]@{kind=$item.kind; state=$item.state; entry_count=$item.entry_count; entries=@($entries)}
+        }
+        if (-not $failed) { throw 'no-failure' }
+        $manifest = Get-Item -LiteralPath $InputManifest -ErrorAction Stop
+        if ($manifest.PSIsContainer -or $manifest.Length -le 0 -or $manifest.Length -gt 1048576 -or
+            ($manifest.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'manifest' }
+        $report = [ordered]@{
+            schema='proxy-r19-game-codec-replay-toolchain-preflight-failure-v1'; status='failed'
+            phase='preflight-compiler-search-path'; source_commit=$SourceCommit
+            input_manifest=@{path='packaging/codecs/ffmpeg-opus-replay.json'; bytes=$manifest.Length
+                sha256=(Get-FileHash -LiteralPath $InputManifest -Algorithm SHA256).Hash.ToLowerInvariant()}
+            search_paths=@($paths); raw_log_published=$false; native_codec_built=$false; native_codec_executed=$false
+            runtime_collection_allowed=$false; production_execution_allowed=$false; source_delivery_approved=$false
+            native_windows_11_acceptance='unavailable'; installer='not-built'; r19_complete=$false
+        }
+        $json = $report | ConvertTo-Json -Depth 7
+        New-Item -ItemType Directory -Path $Destination -ErrorAction Stop | Out-Null
+        [IO.File]::WriteAllText((Join-Path $Destination 'FAILED-STAGE.json'), $json + "`n", [Text.UTF8Encoding]::new($false))
+    } catch {
+        throw 'Safe compiler search-path failure receipt could not be recorded.'
+    }
+}
 $root = Split-Path $PSScriptRoot
 $pin = Get-Content (Join-Path $root 'packaging/codecs/ffmpeg-opus-replay.json') -Raw | ConvertFrom-Json
 # This is build-host orchestration under the project LICENSE, not one of the
@@ -187,23 +289,26 @@ $headerRoots = @((Join-Path $toolset 'include'), (Join-Path $toolset 'atlmfc/inc
 $libraryRoots = @((Join-Path $toolset 'lib/x64'), (Join-Path $toolset 'atlmfc/lib/x64'),
     (Join-Path $sdk ('Lib/' + $pin.host.sdk_version + '/ucrt/x64')),
     (Join-Path $sdk ('Lib/' + $pin.host.sdk_version + '/um/x64')), (Join-Path $netfx 'Lib/um/x64'))
-function Assert-SearchPath([string]$Value, [string[]]$AllowedRoots) {
-    if (-not $Value) { throw 'Compiler header/library search path is unavailable.' }
-    foreach ($entry in $Value.TrimEnd(';').Split(';')) {
-        if (-not $entry) { throw 'An empty compiler search entry would permit ambient input.' }
-        $full = [IO.Path]::GetFullPath($entry).TrimEnd('\')
-        $allowed = $false
-        foreach ($base in $AllowedRoots) {
-            $canonical = [IO.Path]::GetFullPath($base).TrimEnd('\')
-            if ($full -eq $canonical -or $full.StartsWith($canonical + '\', [StringComparison]::OrdinalIgnoreCase)) { $allowed = $true }
-        }
-        if (-not $allowed -or -not (Test-Path -LiteralPath $full -PathType Container)) {
-            throw 'Activated compiler search path escapes selected and recorded input roots.'
-        }
-    }
+$componentRoots = [ordered]@{
+    'msvc-include'=$headerRoots[0]; 'msvc-atlmfc-include'=$headerRoots[1]
+    'sdk-include'=$headerRoots[2]; 'netfx-include'=$headerRoots[3]
+    'msvc-lib-x64'=$libraryRoots[0]; 'msvc-atlmfc-lib-x64'=$libraryRoots[1]
+    'sdk-ucrt-lib-x64'=$libraryRoots[2]; 'sdk-um-lib-x64'=$libraryRoots[3]; 'netfx-lib-x64'=$libraryRoots[4]
+    # Additional classification roots are diagnostic only; they remain rejected.
+    'vc-auxiliary-include'=(Join-Path $instance.installationPath 'VC/Auxiliary/VS/include')
+    'netfx-other'=(Split-Path $netfx); 'sdk-other'=$sdk
+    'msvc-other'=(Join-Path $instance.installationPath 'VC/Tools/MSVC')
 }
-Assert-SearchPath $env:INCLUDE $headerRoots
-Assert-SearchPath $env:LIB $libraryRoots
+$searchObservations = @(
+    (Get-CompilerSearchObservation 'INCLUDE' $env:INCLUDE $headerRoots $componentRoots)
+    (Get-CompilerSearchObservation 'LIB' $env:LIB $libraryRoots $componentRoots)
+)
+if (@($searchObservations | Where-Object { $_.state -ne 'checked' -or
+    @($_.entries | Where-Object { $_.disposition -ne 'accepted' }).Count -gt 0 }).Count -gt 0) {
+    Write-CompilerSearchFailure -Destination $OutputRoot -InputManifest (Join-Path $root 'packaging/codecs/ffmpeg-opus-replay.json') `
+        -SourceCommit $env:GITHUB_SHA -Observations $searchObservations
+    throw 'Activated compiler search path escapes selected and recorded input roots.'
+}
 & $pythonExe -I -B (Join-Path $PSScriptRoot 'replay-game-codec.py') prepare --input-root $InputRoot --output $OutputRoot
 if ($LASTEXITCODE -ne 0) { throw 'Exact source/tool hash and source-only preparation failed.' }
 $privateLog = Join-Path $OutputRoot 'PRIVATE-BUILD.log'
