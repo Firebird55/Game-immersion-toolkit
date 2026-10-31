@@ -1303,5 +1303,116 @@
     "production_execution_allowed": false,
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false
+  },
+  "later_collection_census_ab84772": {
+    "source_commit": "ab8477225b2cd5b9a7a3521fedbba98332c6b9d1",
+    "run": 41171329086,
+    "native_job": 124449730913,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 886,
+    "native_contract_skips": 0,
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "failure_artifact": {
+      "id": 13031377564,
+      "bytes": 747,
+      "sha256": "3916c89595831595c3e773948883870134f23dc732152bcbf113f9f858af37e8"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-census-and-false-gates",
+    "phase": "analysis",
+    "failure_code": "other-host-unresolved",
+    "observed_records": 426,
+    "analysis_scope": "complete-current-main-call",
+    "asr_analysis": "not-run",
+    "rows_examined": 495,
+    "native_rows_examined": 474,
+    "unresolved_rows": 48,
+    "windows_root_query": "observed",
+    "unresolved_buckets": [
+      {
+        "family": "api-core",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 29
+      },
+      {
+        "family": "api-crt",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 14
+      },
+      {
+        "family": "ucrt",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 1
+      },
+      {
+        "family": "vc-runtime",
+        "root": "other",
+        "processing": "analysis-native",
+        "count": 4
+      }
+    ],
+    "supplier_identity": "not-attributed",
+    "ambient_path_hypothesis": "not-proved",
+    "p1_final_images": "not-run",
+    "frozen_host_probes": "not-run",
+    "detached_keeper": "not-run",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "later_asr_import_observation_ab84772": {
+    "source_commit": "ab8477225b2cd5b9a7a3521fedbba98332c6b9d1",
+    "run": 41171353894,
+    "native_job": 124449813702,
+    "run_conclusion": "failure",
+    "failure_artifact": {
+      "id": 13031640010,
+      "bytes": 1680,
+      "sha256": "2b8a6b4f379a3d6c77d5f400d2e8a2fbfe1e48b99dc33af0079b42569cefba2b"
+    },
+    "download_review": "independently-verified-provider-digest-source-single-entry-and-false-gates",
+    "phase": "cmake-configure",
+    "compiler_id_projects": {
+      "C": "all-five-reviewed-properties-exact-match",
+      "CXX": "all-five-reviewed-properties-exact-match"
+    },
+    "nested_import_context": {
+      "known_code": "MSB4019",
+      "record_count": 8,
+      "truncated": false,
+      "callers": [
+        {
+          "file_label": "compiler-id-c-project",
+          "line": 37,
+          "column": 3,
+          "records": 4
+        },
+        {
+          "file_label": "compiler-id-cxx-project",
+          "line": 37,
+          "column": 3,
+          "records": 4
+        }
+      ],
+      "import_target": "unknown-not-inspected",
+      "fatal_cause": "not-proved"
+    },
+    "complete_tool_seal_not_delivered": true,
+    "source_files_cohort_not_delivered": true,
+    "native_compile": "not-proved",
+    "native_inference": "not-run",
+    "rights_approval": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
   }
 }

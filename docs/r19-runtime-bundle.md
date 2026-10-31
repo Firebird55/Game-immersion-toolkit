@@ -761,6 +761,28 @@ Its log tail was not truncated. The compile cause remains unknown, and the
 final decode and after-build tool verification did not run. The retry used
 the older `20261021.278.1` image; it is not evidence about another job's image.
 
+At `ab84772`, [run 41171329086](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171329086)
+passed 886 affected Windows contracts with zero skips. The main analysis still
+refused unknown inputs: 495 current-call rows, 474 native rows, 426 admitted
+records and 48 unresolved sources. Its complete bounded census reports 29
+api-core, 14 api-crt, one ucrt and four vc-runtime spellings, all in root category
+`other`; ASR analysis did not run. These categories do not identify a supplier.
+Downloaded artifact 13031377564 matched 747 bytes and SHA-256
+3916c89595831595c3e773948883870134f23dc732152bcbf113f9f858af37e8.
+Source binding, census and false gates were independently checked. P1, freezing,
+host/cold-slot and detached-keeper probes were not reached. A bounded freezer
+lookup experiment may test ambient PATH selection; the census alone does not
+prove that hypothesis or authorize those sources.
+
+The same head's [ASR run 41171353894](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171353894)
+again failed at configure. Both generated CompilerId projects contain all five
+reviewed properties exactly. Eight untruncated nested MSB4019 observations point
+to line 37, column 3 in those projects; their import targets remain unknown and
+uninspected. Artifact 13031640010 matched 1,680 bytes and SHA-256
+2b8a6b4f379a3d6c77d5f400d2e8a2fbfe1e48b99dc33af0079b42569cefba2b,
+including independently checked source/gates. This narrows the investigation
+without proving a missing filename, native compile or inference success.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
