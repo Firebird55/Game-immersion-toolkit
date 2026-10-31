@@ -36,7 +36,7 @@ jobs:
       - name: Check compiler activation and search-path evidence with authored inputs
         shell: pwsh
         run: |
-          python -I -B backend/tests/test_game_codec_replay.py ReplayTrustTests.test_compiler_activation_handles_spaced_batch_paths_and_never_exports_failed_or_foreign_values ReplayTrustTests.test_search_path_failure_is_bounded_source_bound_and_strips_arbitrary_paths_and_exceptions
+          python -I -B backend/tests/test_game_codec_replay.py ReplayTrustTests.test_host_image_policy_requires_explicit_versions_without_rolling_or_wildcard_fallback ReplayTrustTests.test_compiler_activation_handles_spaced_batch_paths_and_never_exports_failed_or_foreign_values ReplayTrustTests.test_search_path_failure_is_bounded_source_bound_and_strips_arbitrary_paths_and_exceptions
           if ($LASTEXITCODE -ne 0) { throw 'Authored compiler/search-path contract failed before input preparation.' }
       - name: Acquire exact source, original recipe and isolated tool inputs
         shell: pwsh

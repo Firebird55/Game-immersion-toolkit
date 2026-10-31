@@ -228,13 +228,21 @@ function Write-CompilerSearchFailure([string]$Destination, [string]$InputManifes
         throw 'Safe compiler search-path failure receipt could not be recorded.'
     }
 }
+function Assert-ReviewedHostImage([bool]$Windows, [string]$ImageOS,
+    [string]$ObservedVersion, [string[]]$ReviewedVersions) {
+    if (-not $Windows -or $ImageOS -cnotmatch '\A[a-z0-9-]+\z' -or
+        $ReviewedVersions.Count -lt 1 -or $ReviewedVersions.Count -gt 2 -or
+        @($ReviewedVersions | Sort-Object -Unique).Count -ne $ReviewedVersions.Count -or
+        @($ReviewedVersions | Where-Object { $_ -cnotmatch '\A[0-9]{8}\.[0-9]{1,6}\.[0-9]{1,6}\z' }).Count -gt 0 -or
+        $ObservedVersion -cnotin $ReviewedVersions) {
+        throw 'Exact reviewed hosted image unavailable; no moving-image substitution.'
+    }
+}
 $root = Split-Path $PSScriptRoot
 $pin = Get-Content (Join-Path $root 'packaging/codecs/ffmpeg-opus-replay.json') -Raw | ConvertFrom-Json
 # This is build-host orchestration under the project LICENSE, not one of the
 # three additionally GPL-licensed Xiph FLAC recipe files. No runtime collection.
-if (-not $IsWindows -or $env:ImageVersion -ne $pin.host.image_version -or $env:ImageOS -notmatch '^[a-z0-9-]+$') {
-    throw 'Exact reviewed hosted image unavailable; no moving-image substitution.'
-}
+Assert-ReviewedHostImage $IsWindows $env:ImageOS $env:ImageVersion @($pin.host.image_versions)
 if ([IO.Path]::GetFullPath($OutputRoot) -ne 'C:\r19-game-codec-replay') {
     throw 'The experimental configure prefix is fixed; use the isolated hosted job.'
 }

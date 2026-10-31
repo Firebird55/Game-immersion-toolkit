@@ -275,6 +275,44 @@ $value | ConvertTo-Json -Compress
             str(selected_python), str(canonical)], check=True, capture_output=True, text=True, timeout=20)
         self.assertEqual(json.loads(result.stdout), {'CMake': str(canonical), 'Python': str(selected_python)})
 
+    @unittest.skipUnless(shutil.which('pwsh'), 'Host-image policy contract requires pwsh')
+    def test_host_image_policy_requires_explicit_versions_without_rolling_or_wildcard_fallback(self):
+        contract = self.root / 'host-image-contract.ps1'
+        contract.write_text(r'''param($SourcePath)
+$ErrorActionPreference = 'Stop'
+try {
+    $tokens=$null; $errors=$null
+    $ast=[Management.Automation.Language.Parser]::ParseFile($SourcePath,[ref]$tokens,[ref]$errors)
+    if ($errors) { throw 'parse' }
+    $definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Assert-ReviewedHostImage'},$true)
+    if (-not $definition) { throw 'missing function' }
+    . ([scriptblock]::Create($definition.Extent.Text))
+    $reviewed=@('20261021.278.1','20261030.294.1')
+    foreach ($version in $reviewed) { Assert-ReviewedHostImage $true 'win25-vs2026' $version $reviewed }
+    $cases=@(
+        @{windows=$false;os='win25-vs2026';actual=$reviewed[0];versions=$reviewed},
+        @{windows=$true;os='private path';actual=$reviewed[0];versions=$reviewed},
+        @{windows=$true;os='win25-vs2026';actual='20261101.1.1';versions=$reviewed},
+        @{windows=$true;os='win25-vs2026';actual=($reviewed[0]+"`n");versions=$reviewed},
+        @{windows=$true;os='win25-vs2026';actual=$reviewed[0];versions=@()},
+        @{windows=$true;os='win25-vs2026';actual=$reviewed[0];versions=@($reviewed[0],$reviewed[0])},
+        @{windows=$true;os='win25-vs2026';actual=$reviewed[0];versions=@($reviewed[0],'202610*.1.1')},
+        @{windows=$true;os='win25-vs2026';actual=$reviewed[0];versions=@($reviewed[0],($reviewed[1]+"`n"))},
+        @{windows=$true;os='win25-vs2026';actual=$reviewed[0];versions=@($reviewed[0],$reviewed[1],'20261101.1.1')})
+    foreach ($case in $cases) {
+        $rejected=$false
+        try { Assert-ReviewedHostImage $case.windows $case.os $case.actual $case.versions }
+        catch { if ($_.Exception.Message -eq 'Exact reviewed hosted image unavailable; no moving-image substitution.') { $rejected=$true } }
+        if (-not $rejected) { throw 'policy boundary' }
+    }
+    @{accepted=2;rejected=$cases.Count} | ConvertTo-Json -Compress
+} catch { [Console]::Error.WriteLine('Authored host-image boundary failed.'); exit 1 }
+''', encoding='utf-8')
+        result = subprocess.run([shutil.which('pwsh'), '-NoProfile', '-NonInteractive', '-File', str(contract),
+            str(ROOT / 'scripts/build-game-codec-replay.ps1')], check=False, capture_output=True, text=True, timeout=20)
+        self.assertEqual(result.returncode, 0, 'Authored host-image boundary failed; no native input is prepared.')
+        self.assertEqual(json.loads(result.stdout), {'accepted': 2, 'rejected': 9})
+
     @unittest.skipUnless(shutil.which('pwsh') and shutil.which('cmd.exe'),
                          'Compiler activation quoting contract requires Windows pwsh/cmd')
     def test_compiler_activation_handles_spaced_batch_paths_and_never_exports_failed_or_foreign_values(self):

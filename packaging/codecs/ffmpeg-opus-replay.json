@@ -132,7 +132,6 @@
   ],
   "host": {
     "image": "windows-2025-vs2026",
-    "image_version": "20261021.278.1",
     "generator": "Visual Studio 18 2026",
     "toolset_directory": "14.51.36231",
     "compiler_version": "19.51.36260.0",
@@ -150,7 +149,29 @@
       "Host .NET runtime/framework/GAC used by MSBuild",
       "Hosted image/service infrastructure and independent complete toolchain source/rights recovery"
     ],
-    "cmake_supplier_policy": "packaging/build-tools/cmake-4.4.5-windows-x64.json"
+    "cmake_supplier_policy": "packaging/build-tools/cmake-4.4.5-windows-x64.json",
+    "image_versions": [
+      "20261021.278.1",
+      "20261030.294.1"
+    ],
+    "image_rollout_review": {
+      "review_date": "2026-10-31",
+      "observed_new_image_run": 41163848164,
+      "observed_new_image_job": 124427062503,
+      "observed_old_image_run": 41163849991,
+      "observed_old_image_job": 124427065645,
+      "release_id": 429218209,
+      "release_tag": "win25-vs2026/20261030.294",
+      "source_commit": "0dfe95c53f998c186f26977422790b191450df29",
+      "software_readme": "https://github.com/actions/runner-images/blob/0dfe95c53f998c186f26977422790b191450df29/images/windows/Windows2025-VS2026-Readme.md",
+      "manifest_asset": {
+        "id": 692604610,
+        "name": "internal.win25-vs2026.json",
+        "bytes": 49285,
+        "sha256": "7770133c6cbdf6e2e189b7a346d23749996886fed07f7fcafe52d291617c310b"
+      },
+      "scope": "Two exact contemporaneous GitHub image versions are admitted to preflight. Compiler/toolset/SDK/CMake checks and complete per-run tool seals remain unchanged. Public catalog metadata is not proof of actual compiler bytes, reproducible host source, runtime rights or Windows 11 acceptance."
+    }
   },
   "adaptations": [
     "Original VS2019 generator replaced by explicitly selected VS2026 instance/toolset/SDK; original upstream instructions retained unmodified.",

@@ -41,10 +41,18 @@ Record the actual run/head SHA before treating any result as evidence. The
 workflow observes prerequisites and audits public source before acquiring
 exact pinned inputs. It invokes
 [build-game-codec-replay.ps1](../scripts/build-game-codec-replay.ps1), which
-requires hosted image version 20261021.278.1, Visual Studio 18 2026, toolset
+requires one of the two explicitly reviewed hosted image versions
+20261021.278.1 or 20261030.294.1, Visual Studio 18 2026, toolset
 14.51.36231, compiler 19.51.36260.0, CMake 4.4.5 and SDK 10.0.26100.0. A changed
-or unavailable host tuple fails; there is no substitute image or rolling
-package installation. CMake comes only from the
+or unavailable host tuple fails; there is no wildcard, automatic new-image
+acceptance or rolling package installation. These two versions were observed
+in simultaneous jobs during GitHub's rollout: FFmpeg run 41163848164 received
+the new image and ASR run 41163849991 still received the old one. The
+[new image's pinned software catalog](https://github.com/actions/runner-images/blob/0dfe95c53f998c186f26977422790b191450df29/images/windows/Windows2025-VS2026-Readme.md)
+and release manifest are identified in the input policy. They admit the host
+to preflight; they do not prove compiler bytes. All concrete compiler, toolset,
+SDK and CMake checks and complete per-run tool seals remain unchanged. Each
+result retains its actual image version. CMake comes only from the
 [shared pinned ZIP helper](pinned-build-cmake.md), prepared at the caller's
 fixed isolated tool root and verified before native execution and after the
 build. The workflow passes the absolute python.exe selected by setup-python
