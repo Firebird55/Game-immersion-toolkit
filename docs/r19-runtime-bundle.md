@@ -895,6 +895,46 @@ failure gates. Native compilation, inference, final tool/variant verification
 and the complete source graph were not reached. No environment or compiler
 change is justified by that general task-error code alone.
 
+The same head's [integrated run 41196908591](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41196908591)
+passed 971 Windows contracts without skips and completed the extracted runtime,
+five host cases, nine cold-slot stages and both detached guardian-loss cases.
+Independent artifact review binds 1,449 inventory files, 473 identical A2
+input/final records and all 473 P1 image records. P1 observes 392 x64 and 81
+AnyCPU images, including 173 CLR images. Its 2,708 normal and six delay module
+identity occurrences are not descriptor counts or proof of complete loading.
+All 113 notice hashes for 57 components and the selected loaded application
+hashes match the inventory; this is not an incorporated-rights approval.
+
+Both keeper cases retain actual process-object signals, continuous legacy
+exclusion through writer exit, detached console modes and confirmed cleanup.
+The cold-slot and keeper receipts contain 29 and four actual source-operation
+blocks respectively. The outer keeper remains alive in these cases: keeper
+loss, general dynamic writer admission, warm routing and store copy stay open.
+Metadata artifact 13041353581 matched 1,333,511 bytes and SHA-256
+1b162244abd6f9c13a25210b6b9c0982854549320dea4c4f3082ec4b56d69ceb.
+Reference source/rebuild artifact 13041157227 matched 1,095,191 bytes and SHA-256
+226d683295d73c9fa77e6078b76d9a763fb21a53523b2e189e8379d0d3285989.
+The unchanged approved Xiph source kit is identical in both artifacts, and the
+original/delivered rebuild's nine outputs match frozen resources. These are
+bounded Server observations. Doctor exit 2, missing old-file retention proof,
+complete import closure, rights and ordinary-user Windows 11 acceptance remain
+explicitly unavailable or pending; production and R19-complete flags stay false.
+
+The same head's [codec run 41196918141](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41196918141)
+also passed, including the four early Windows contracts and the bounded native
+decode/fault/DLL-origin probes. Independent review confirms exactly four public
+generated configuration records, no private log size/hash or private-inventory
+digest, and a candidate identity recomputed solely from public correspondence.
+All 18 source-kit files match the receipt. The raw Windows nine-input cohort is
+4bd3fb2a7a4f536c571d3786c89c34127ce546c878325cf61d9a83cf9672acd4;
+eight CRLF-only transformations map exactly to reviewed LF cohort
+a736ba26ad7f6d04bd7f26212bbaeca5d8829c94e1c99b0342c56bbb15085df3,
+while the patch remains raw-identical. The official CMake module is unchanged
+in this separate FFmpeg route. Artifact 13040643659 matched 24,211,130 bytes and
+SHA-256 efe36ef86dd853f5ecefff74a6946a6419f3db3df9bb2c9c3f835f8883e8d6ed.
+Source delivery, recipe/component rights, runtime integration and ordinary
+Windows 11 acceptance remain open.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

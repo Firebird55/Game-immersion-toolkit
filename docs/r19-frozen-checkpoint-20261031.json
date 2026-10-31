@@ -1761,5 +1761,246 @@
     "production_execution_allowed": false,
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false
+  },
+  "later_verified_frozen_checkpoint_1c2d931": {
+    "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+    "scope": "bounded-extracted-runtime-and-living-keeper-observation-not-final-acceptance",
+    "run_id": 41196908591,
+    "run_attempt": 1,
+    "native_job_id": 124524833303,
+    "inventory_files": 1449,
+    "native_files": 473,
+    "a2_snapshot_and_final_record_equality": true,
+    "a2_inventory_and_snapshot_sha_bindings": true,
+    "a2_process_counts": {
+      "main": 431,
+      "asr": 42
+    },
+    "a2_processing_counts": {
+      "pyinstaller-generated-executable": 2,
+      "analysis-native": 469,
+      "explicit-native-resource": 2
+    },
+    "a2_source_roles": {
+      "generated-processing-observed": 2,
+      "declared-supplier-observed": 469,
+      "windows-system-observed": 2
+    },
+    "p1_static_header_observation": "passed-observed-not-approved",
+    "p1_architectures": {
+      "x64": 392,
+      "anycpu": 81
+    },
+    "p1_implementations": {
+      "native": 300,
+      "managed-native": 91,
+      "managed-il": 82
+    },
+    "p1_clr_images": 173,
+    "p1_normal_module_identity_occurrences": 2708,
+    "p1_delay_module_identity_occurrences": 6,
+    "component_count": 57,
+    "component_notice_bindings": 113,
+    "loaded_native_origin_counts": {
+      "native": {
+        "application": 155,
+        "windows-system": 60
+      },
+      "asr": {
+        "application": 29,
+        "windows-system": 29
+      },
+      "codec": {
+        "application": 2,
+        "windows-system": 6
+      }
+    },
+    "host_cases": 5,
+    "cold_slot_stages": 9,
+    "cold_slot_source_blocks": 29,
+    "keeper_cases": [
+      {
+        "writers_resumed": 0,
+        "writers_created": 2,
+        "case": "keeper-before-resume",
+        "guardian_exit": "signaled",
+        "legacy_exclusion": "held-through-writer-exit",
+        "status": "passed",
+        "strict_writer_protocol": "writers-never-resumed",
+        "writer_exit": "retained-objects-signaled"
+      },
+      {
+        "writers_resumed": 2,
+        "writers_created": 2,
+        "case": "keeper-after-ready",
+        "guardian_exit": "signaled",
+        "legacy_exclusion": "held-through-writer-exit",
+        "status": "passed",
+        "strict_writer_protocol": "existing-c2-paused-api",
+        "writer_exit": "retained-objects-signaled"
+      }
+    ],
+    "keeper_source_blocks": 4,
+    "keeper_detached_modes": true,
+    "keeper_cleanup": "retained-writers-signaled-leases-explicitly-released-private-tree-removed",
+    "keeper_loss": "unavailable",
+    "dynamic_writer_admission": "unavailable",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_kit_exact_six_file_allowlist_and_upstream_source_hash": true,
+    "source_kit_head_text_binding_with_ordinary_crlf_checkout": true,
+    "reference_probes": [
+      {
+        "kind": "reference-codec",
+        "status": "passed",
+        "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+        "source_kit_bound": true,
+        "all_nine_outputs_match_frozen_resource_inventory": true
+      },
+      {
+        "kind": "reference-codec-rebuild",
+        "status": "passed",
+        "source_commit": "source-kit-rebuild",
+        "source_kit_bound": true,
+        "all_nine_outputs_match_frozen_resource_inventory": true
+      }
+    ],
+    "doctor_exit": 2,
+    "old44_or48_exact_retention": "not-established",
+    "complete_import_loading": "not-established",
+    "ordinary_user_windows11_acceptance": "unavailable",
+    "rights_review": "pending-exact-output",
+    "native_closure": "unverified",
+    "production_activation": false,
+    "r19_complete": false,
+    "installer": "not-built",
+    "artifacts": [
+      {
+        "id": 13041353581,
+        "bytes": 1333511,
+        "sha256": "1b162244abd6f9c13a25210b6b9c0982854549320dea4c4f3082ec4b56d69ceb"
+      },
+      {
+        "id": 13041157227,
+        "bytes": 1095191,
+        "sha256": "226d683295d73c9fa77e6078b76d9a763fb21a53523b2e189e8379d0d3285989"
+      }
+    ],
+    "download_review": "independently-verified-provider-digests-exact-allowlists-source-build-raw-inventory-snapshots-all-p1-files-notices-module-origins-keeper-cases-and-false-gates",
+    "native_contracts_passed": 971,
+    "native_contracts_skipped": 0,
+    "actual_runner_image": "20261021.278.1",
+    "native_windows_11_acceptance": "unavailable"
+  },
+  "later_verified_codec_private_log_projection_1c2d931": {
+    "source_commit": "1c2d931c9f6a7be804e5b222b34bc50291c723cf",
+    "scope": "bounded-separate-source-experiment-not-runtime-integration-or-CCS-approval",
+    "run": 41196918141,
+    "job": 124524864925,
+    "image_version": "20261021.278.1",
+    "artifact_id": 13040643659,
+    "artifact_bytes": 24211130,
+    "artifact_sha256": "efe36ef86dd853f5ecefff74a6946a6419f3db3df9bb2c9c3f835f8883e8d6ed",
+    "receipt_bytes": 6485884,
+    "receipt_sha256": "f3007c0e32cbade949f82e76fbfc73f555e751ad462bbaeff68ec726abce146d",
+    "source_review_zip_bytes": 22575945,
+    "source_review_zip_sha256": "9a540d7c1836a54022a30d2ad77c785006d1f77ce80a89cda7d24f32b90895bf",
+    "candidate_identity": "quarantined-source-replay-ef405984459d640d259df9b4cef3f0fe7d65556e81b89ca14477f01f6cc6275b",
+    "diagnostic_variant": "diagnostic-makedef-ab6a5b88e842da528f2a34c7b39b9fd269a424df23772b68d00526b049dd6a34",
+    "project_inputs": 9,
+    "raw_windows_project_cohort": "4bd3fb2a7a4f536c571d3786c89c34127ce546c878325cf61d9a83cf9672acd4",
+    "lf_equivalent_reviewed_cohort": "a736ba26ad7f6d04bd7f26212bbaeca5d8829c94e1c99b0342c56bbb15085df3",
+    "crlf_only_input_differences": 8,
+    "original_source_inventory": {
+      "files": 10881,
+      "sha256": "bbc268df6a8c447172cc13dc88ea71dd2247e4331a0dec43515db057446807a4"
+    },
+    "modified_source_inventory": {
+      "files": 10881,
+      "sha256": "14df3b93e3a4c2330e5bb706be16711a979ab6225a8629280fbc783814284a7e"
+    },
+    "source_review_files": 18,
+    "original_options": 36,
+    "makedef_roles_empty_ar": 4,
+    "known_lib_errors": 0,
+    "public_generated_configurations": [
+      ".config",
+      "config.fate",
+      "config.mak",
+      "config.sh"
+    ],
+    "private_log_or_inventory_metadata_in_correspondence": false,
+    "candidate_identity_recomputed_from_public_correspondence": true,
+    "authored_flac_pcm_bytes": 1024,
+    "authored_flac_pcm_sha256": "e153774c8d06b094341ec9eb1e1f53571d3398a01cfd6526df97bc073f7ef379",
+    "flac_faults_and_prior_output": "passed by bounded hosted harness",
+    "opus_roundtrip_and_invalid_packet": "passed by bounded hosted harness",
+    "loaded_dlls": {
+      "avcodec-vgmstream-63.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "b82833b792059a63575ab96d107dbbd488e4454e2eb52a326971048adaa6e750"
+      },
+      "avformat-vgmstream-63.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "d4229b9b1ea1375df33b8ab6d80bef87e49bd9cf5e3219916b2f453846631862"
+      },
+      "avutil-vgmstream-61.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "65836ec11e040876abdb67cad3132ed1b7ab9aa7ef2cd722b02883de62bba4e1"
+      },
+      "swresample-vgmstream-7.dll": {
+        "origin": "quarantined-candidate",
+        "sha256": "a4e17cfbbe1220ad8e3bcd321d37d51a5153f46c954fdc55c1eb84b52980b9f0"
+      }
+    },
+    "native_imports": {
+      "avcodec-vgmstream-63.dll": {
+        "imports": [
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "avformat-vgmstream-63.dll": {
+        "imports": [
+          "avcodec-vgmstream-63.dll",
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "avutil-vgmstream-61.dll": {
+        "imports": [
+          "bcrypt.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "swresample-vgmstream-7.dll": {
+        "imports": [
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll"
+        ],
+        "delay_imports": []
+      },
+      "game-codec-probe.exe": {
+        "imports": [
+          "avcodec-vgmstream-63.dll",
+          "avformat-vgmstream-63.dll",
+          "avutil-vgmstream-61.dll",
+          "KERNEL32.dll",
+          "swresample-vgmstream-7.dll"
+        ],
+        "delay_imports": []
+      }
+    },
+    "official_cmake_module_unchanged": true,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "download_review": "independently-verified-provider-digest-head-source-kit-members-CRLF-mapping-public-only-candidate-identity-probes-and-false-gates",
+    "four_early_windows_contracts": "passed-without-skips",
+    "installer": "not-built"
   }
 }
