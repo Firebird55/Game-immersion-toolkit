@@ -583,6 +583,19 @@ The [review ledger](r19-frozen-checkpoint-20261031.json) retains both checkpoint
 and the source-package evidence, including their exact different source heads.
 It grants no acceptance to subsequent changes without new matching evidence.
 
+At `0b76427`, [run 41152516394](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41152516394)
+passed **649 Windows contracts**, source build/rebuild and the same actual
+frozen/guarded cold-slot protocol after Job/observer handle-cleanup hardening.
+Downloaded metadata artifact 13023663874 matched 1,232,252 bytes and SHA-256
+f6dd602407e463074c7783ec42f4a5ed420053a653bf195a5f3ebf62b880af03;
+source/rebuild artifact 13023871979 matched 1,095,191 bytes and SHA-256
+12030a0576098fc9c231bd3f7d892da7411feb51a3a570cc0b1552fdd724d1f9.
+The independent review rechecked exact source inputs, notices, native bindings,
+all host outcomes, all nine cold-slot phases and the 29 blocked real-source
+observations. Its inventory is 1,537 files, 642 directories and 624,746,487 bytes.
+All production/rights/Windows 11/R19 gates remain unchanged. The later immutable
+frontend snapshot adapter and suspended-writer work are outside this checkpoint.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

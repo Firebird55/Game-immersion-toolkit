@@ -301,5 +301,67 @@
     "package": "passed; includes font-lifecycle correction",
     "publish": "skipped",
     "r19_complete": false
+  },
+  "subsequent_handle_cleanup_checkpoint": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "0b7642794c54eefc3c7d0dbe848a83356d417ea0",
+    "run": 41152516394,
+    "build_id": "runtime-experiment-41152516394-1",
+    "artifacts": [
+      {
+        "name": "r19-frozen-0b76427.zip",
+        "bytes": 1232252,
+        "sha256": "f6dd602407e463074c7783ec42f4a5ed420053a653bf195a5f3ebf62b880af03",
+        "artifact_id": 13023663874,
+        "github_name": "r19-integrated-runtime-metadata"
+      },
+      {
+        "name": "r19-gpl-source-0b76427.zip",
+        "bytes": 1095191,
+        "sha256": "12030a0576098fc9c231bd3f7d892da7411feb51a3a570cc0b1552fdd724d1f9",
+        "artifact_id": 13023871979,
+        "github_name": "r19-reference-codec-source-and-metadata"
+      }
+    ],
+    "inventory_sha256": "d526db6533cf6f2aae27a059e7a50e7be27d55ccaa6b2597ed7c7ab2690b8e67",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624746487,
+    "main_executable_sha256": "69b9eca974e1bd61f4f6510f0eaf9cbb7c7d5abf8ca0fa70b33e2af6b230983a",
+    "asr_executable_sha256": "2a68ff4429c0fbf7adfb83849e5ae65f2db9861ac349d00a33ee0b669d77fe99",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "scope": "Bounded frozen/guarded cold-slot protocol after handle cleanup hardening; subsequent frontend/suspended-writer changes require new matching evidence.",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41152516394",
+    "windows_contracts": {
+      "passed": 649,
+      "skipped": 0
+    },
+    "exact_notices_source_and_module_bindings": "independently verified against downloaded metadata and exact supplier/source inputs",
+    "guarded_cold_slots": {
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "source_commit": "0b7642794c54eefc3c7d0dbe848a83356d417ea0",
+      "build_id": "runtime-experiment-41152516394-1",
+      "status": "passed",
+      "source_operation_blocked_observations": 29,
+      "guardian_crash": "unavailable",
+      "early_unregistered_host_crash": "recovery-required",
+      "warm_candidate_before_drain": "not-proved",
+      "router_takeover": "not-tested",
+      "store_copy": false,
+      "migration": false,
+      "production_activation": false,
+      "r19_complete": false
+    }
   }
 }

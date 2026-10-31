@@ -153,6 +153,13 @@ The complete inventory contains 1,537 files and 642 directories; native binaries
 remained runner-local. No new production, data-copy or guardian-crash authority
 is inferred from that success.
 
+The later `0b76427` [run 41152516394](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41152516394)
+passed 649 Windows contracts and repeated the actual frozen/guarded protocol
+after handle-cleanup hardening. Its downloaded metadata/source artifacts,
+inventory, exact notices/native bindings, all nine phases and 29 source-operation
+blocks were independently verified in the same review ledger. The guardian,
+warm-routing and production gates below remain open.
+
 ## Separate C3/C4 gates
 
 B is verified while A serves, but is started only after A exits: the existing
@@ -160,6 +167,9 @@ C1 probe uses canonical ports. Warming the selected candidate/index/OCR before
 draining A remains unproved. Stable routing, old Vite `assets/*` retention,
 frozen retained-root handling, browser reconnect/profile continuity, real
 capture ownership, protected credentials and schema-aware data rollback remain
-separate requirements. The source router's `/_next/static/*` retention alone
+separate requirements. The [frontend snapshot adapter](r19-frontend-slot-retention.md)
+now verifies pinned current/retired frontend subsets and serves old immutable
+Vite/Next resources on a private listener. Its authored HTTP tests do not
+establish chunk continuity through a real slot/route update. The source router's `/_next/static/*` retention alone
 cannot supply frozen Vite chunk continuity. No R19 gate, rights approval,
 release, installer or automatic frozen update is enabled by this experiment.
