@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `f43cec7`, 1,234 Windows contracts without skips, freezing, native/C1/cold-slot, both living-keeper cases and authored SQLite plain/interrupted-resumed/retained-WAL/populated-grammar cases passed; root and peer independently checked seven provider-bound source/metadata archives and exact named Git inputs | This is the latest complete bounded frozen checkpoint. The earlier explicit-close `31ee4c9` keeper failure remains negative evidence with C3–C6 skipped and cleanup unconfirmed. No target activation, keeper loss, global/dynamic writer admission, physical handle closure, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation is accepted |
+| Extracted runtime | At `eaa42b2`, 1,249 Windows contracts without skips, freezing, native/C1/cold-slot, both living-keeper cases and authored SQLite plain/interrupted-resumed/retained-WAL/populated-grammar cases passed, including the shared SQL-operation helper and Lexirise root/pin owner; root and peer independently checked seven provider-bound source/metadata archives and 57 named Git inputs | This is the latest complete bounded frozen checkpoint. The earlier `31ee4c9` keeper failure remains negative evidence; separate C7 v4 fails its authored engine tests before the mechanism. No target activation, keeper loss, global/dynamic writer admission, physical handle closure, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation is accepted |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -146,8 +146,9 @@ historical negatives, approve model weights or establish speech recognition.
 At `f43cec7`, the complete frozen run passed 1,234 contracts without skips and
 both keeper cases plus C3–C6. Root and peer verified seven exact provider-bound
 archives, 52 named Git blobs, 473 A2/P1 records and Xiph source/rebuild/decode
-bindings. This supersedes `a1c5e92` as the latest complete bounded checkpoint,
-without changing the earlier negative evidence. Its per-store scope fence is
+bindings. This superseded `a1c5e92` as the latest complete bounded checkpoint
+at that point, without changing the earlier negative evidence. Its per-store
+scope fence is
 not physical detach; registered startup progress is separate from unchanged
 ready HTTP ownership checks; WebSocket admission follows actual worker lifetime
 and retires old queued epoch tickets, without establishing global admission.
@@ -156,6 +157,21 @@ checkpoint, before any delivered parsed-grant or legacy-open/attribute result.
 Its cause and cleanup remain unconfirmed. The successful separate ASR source-build
 evidence is distinct from the frozen smoke and reviewed under its own exact
 artifacts; native/source/CRT, model, rights and Windows11 gates remain open.
+
+The later `eaa42b2` run passed 1,249 contracts without skips and all the same
+keeper/C3–C6 cases with the shared SQL-operation helper and Lexirise root/pins.
+It is now the latest complete bounded checkpoint. Root and peer checked seven
+archives, seven actual job images and 57 exact named Git inputs. The separate
+C7 v4 run `41238897590` passed 138 tests but failed both authored Windows engine
+cases before the actual mechanism; no artifact or mechanism receipt was produced.
+The original fixed failure did not identify its process exit or stderr cause.
+Neither this separate negative nor any rights/physical/global/warm/Windows gate
+is closed by the complete runtime pass. ASR's fifteen recipe inputs are unchanged;
+no new prepare or source-ASR native pass is inferred.
+The later test-only `37b4dd5` run `41240037303` isolates the two authored failures
+to the fixed `record-identity` exit32 with no stderr. Exception identity and later
+acknowledgement/frame checks were not reached, and no mechanism artifact exists.
+The producer remains unchanged; no error-loss or environment cause is inferred.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source

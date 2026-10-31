@@ -1159,8 +1159,8 @@ historical negative receipts or any rights/Windows/R19 gate.
 [Run 41235227244](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41235227244)
 at `f43cec7704c74ebd6f4af6c33638a50ba6b09ace` passed 1,234 Windows contracts
 without skips (one warning, 104.36 seconds), all five C1 host cases, the guarded
-cold slots, both living-keeper cases and C3/C4/C5/C6. This is the latest complete
-**bounded frozen checkpoint**, not final R19 acceptance. The earlier `31ee4c9`
+cold slots, both living-keeper cases and C3/C4/C5/C6. This was the complete
+bounded checkpoint before `eaa42b2` below, not final R19 acceptance. The earlier `31ee4c9`
 failure and its unconfirmed cleanup remain negative evidence.
 
 Root and peer independently checked all seven provider-bound source/metadata
@@ -1199,6 +1199,50 @@ routing/OCR, complete data/browser/settings/export continuity, general codecs,
 actual game helpers, rights/source delivery and ordinary-user Windows 11 25H2
 remain open. The production profile stays disabled, `r19_complete=false` and
 `installer=not-built`.
+
+## Verified shared SQL-owner checkpoint at eaa42b2
+
+[Run 41238837233](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41238837233)
+at `eaa42b233694d4bbd2cae7e0127a8223725f6995` is now the latest complete bounded
+frozen checkpoint. It passed 1,249 Windows contracts without skips (one warning,
+148.76 seconds), the native/C1/cold-slot cases, both living-keeper cases and
+C3–C6. This includes the shared SQLite-operation helper and Lexirise root/pin
+owner. Existing factory shapes and the three-store C5 interception remain intact;
+SQL operation completion still grants no physical detach or aggregate data fence.
+
+Root and peer independently verified seven provider-bound source/metadata ZIPs,
+seven job images/logs, 57 named exact Git blobs, 473 A2/P1 records and all
+113 component notice references covering 104 hashes. The inventory contains
+1,449 files, 642 directories and 620,149,774 bytes. All seven jobs used image
+`20261021.278.1`; the reference receipt records CMake 4.4.4 and compiler
+19.51.36260.0. Xiph candidate/rebuild outputs and PE data match again, with the
+unchanged six-input source kit and passing decode/fault/origin checks. C5 again
+observed the real WAL/SHM contrast; C6 again observed local grammar four versus
+mocked remote zero. The [ledger](r19-frozen-checkpoint-20261031.json) retains
+the exact archives, receipts and historical `f43cec7` checkpoint.
+
+The fifteen ASR recipe inputs are unchanged from the separately verified `f43`
+source experiment. No additional prepare, native ASR replay, trained-model
+acceptance or runtime replacement is inferred.
+
+The separate C7 v4 [run 41238897590](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41238897590)
+failed its authored Windows engine tests: 138 passed and both original-error
+cases failed before the mechanism/publisher steps. No artifact or source-bound
+mechanism receipt exists for that run. Its original fixed failure did not
+distinguish nonzero exit from stderr, so no exception-identity or C7-cause claim
+follows. The full runtime pass does not erase this independent failure.
+
+The test-only `37b4dd5` [run 41240037303](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41240037303)
+then passed 147 tests and failed the same two cases with fixed
+`exit=record-identity` and `stderr_present=false`. This identifies the existing
+exit32 wrapper-reference assertion. Exception identity, acknowledgement and frame
+checks were not reached; the mechanism again did not run or produce an artifact.
+No ordinary bare-rethrow baseline or historical C7 cause follows from that fact.
+
+Physical resource release, global/dynamic writers, keeper death, detach/reopen,
+usable warm OCR/routing, complete populated data/settings/browser/credential
+continuity, general codecs/helpers, rights/source delivery and ordinary-user
+Windows11 remain open. PR #59 stays intact; no installer is built.
 
 ## Continuation and rollback
 

@@ -262,6 +262,19 @@ Its outer deadline records a failed, unverified attempt rather than cleanup
 containment. Native acceptance still requires the actual job and independently
 downloaded provider/artifact/receipt review.
 
+The separate `eaa42b2` Windows [run 41238897590](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41238897590)
+passed 138 authored tests and failed both enginecatch cases before the actual
+mechanism. Its generic failure did not distinguish nonzero exit from stderr.
+The test-only `37b4dd5` [run 41240037303](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41240037303)
+passed 147 tests and failed the same two cases with `exit=record-identity` and
+`stderr_present=false`. That is the existing exit32 assertion: outer and inner
+ErrorRecord wrappers were not ReferenceEquals. The exception-identity, later
+acknowledgement and frame checks were not reached. Neither run invoked the
+mechanism/publisher or produced an artifact. This does not identify the ordinary
+bare-rethrow baseline, historical grant-conversion cause or any cleanup result.
+The [checkpoint ledger](r19-frozen-checkpoint-20261031.json) preserves both
+receipt-free negatives separately from the successful main runtime checkpoint.
+
 The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)
 cover frame/type/overflow refusal, exact transition preservation, ABI widths,
 sticky cleanup, creation-handle/client comparison, zero-writer ordering and

@@ -11,7 +11,8 @@ fixture through actual frozen HTTP/SQLite; its distinct C6 scope is recorded
 below. The earlier plain, interrupted and retained-WAL observations remain intact.
 The later explicit-close `31ee4c9` run failed its keeper step before C3/C4/C5/C6.
 It supplies no new copy pass. The later `f43cec7` run passed keeper and all four
-copy cases again and is the latest complete bounded frozen checkpoint; its exact
+copy cases again. The subsequent `eaa42b2` shared SQL-owner run also passed them
+and is the latest complete bounded frozen checkpoint; its exact
 source/metadata artifacts were independently reviewed by root and peer.
 
 The existing [completion plan](r19-completion-plan.md) C2/C3/C4 gates remain
