@@ -254,8 +254,25 @@ remain evidence only for their historical source/shape. The independent binding
 schema is unchanged because it binds the exact canonical report bytes.
 
 Source contracts pass 37 Python methods with 138 subtests and eleven Node
-tests, without skips. This projection still needs its own source-bound hosted
-observation; the actual entry refused by the earlier v1 run remains unknown.
+tests, without skips. Its first source-bound hosted observation is now verified:
+run `41215460473`, job `124578963405`, attempt 1 at `2a169bd` remains failed
+with `unknown-version-entry` and **`other-noncanonical-name`**. That bucket is
+neither an exact-v14-token observation nor a directory/type/alias assertion.
+The earlier v1 entry remains unidentified; a different image/instance is not
+proof that both attempts saw the same spelling.
+
+Artifact `13048385190` is exactly 1,552 bytes, SHA-256
+`fd3c1ba8643f7eaafd17c91a234f45ab0d0d1c868d98a1bb2a2704328cdf85eb`,
+with the two exact metadata entries. The 1,250-byte v2 census has SHA-256
+`4f06194c247f68b68deb61e4143909da8d81900cb2c9d6f9b2710844c67d895f`.
+Root and peer checked provider identity, canonical fields, exact written-byte
+binding and equal clean-source fingerprint
+`efdcf6254f7f9c5fbfc548b46137eaf42640b7ba93547bc57796d93e727eba2d`.
+Node contracts passed 11/0 skips; the binding records 37 Python methods/0 skips,
+but the hosted subtest count was not published. The image was `20261030.294.1`,
+with selected VS `18.11.12328.437`. Zero versions, families or files were
+admitted. Further work needs a separately reviewed bounded layout question;
+no speculative additional name buckets or policy relaxation follows.
 No outcome admits a CRT member, relaxes the layout policy or closes rights,
 source-delivery, ordinary-user Windows 11 or R19 acceptance.
 

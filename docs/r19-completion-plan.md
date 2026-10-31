@@ -126,6 +126,8 @@ contracts without skips at `c3639ce`; the first independently verified
 source-bound census remains negative with `unknown-version-entry`. No versions,
 families or files are admitted. Its unknown entry still needs a bounded layout
 review; no path-policy relaxation or CRT selection follows from this result.
+The first v2 observation at `2a169bd` narrows only its name bucket to
+`other-noncanonical-name`; the actual spelling/type remains unknown.
 The strict toolchain and source guards remain in force.
 The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
 binds a fixed current/retired frontend snapshot to independently trusted slot

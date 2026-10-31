@@ -2461,5 +2461,90 @@
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false,
     "installer": "not-built"
+  },
+  "msvc_v2_noncanonical_name_refusal_2a169bd": {
+    "head": "2a169bd745a577f89368fad5335c8394cb137362",
+    "run": 41215460473,
+    "job": 124578963405,
+    "attempt": 1,
+    "workflow": "failure",
+    "schema": "proxy-r19-msvc-redist-census-v2",
+    "status": "source-bound-unavailable",
+    "reason": "unknown-version-entry",
+    "version_entry_refusal": "other-noncanonical-name",
+    "entry_name_and_type": "not-delivered",
+    "image_version": "20261030.294.1",
+    "selected_vs_version": "18.11.12328.437",
+    "node_contracts_passed": 11,
+    "node_skipped": 0,
+    "python_contracts": 37,
+    "python_skipped": 0,
+    "native_subtest_count": "not-published",
+    "versions": 0,
+    "families": 0,
+    "files": 0,
+    "artifact": {
+      "id": 13048385190,
+      "bytes": 1552,
+      "sha256": "fd3c1ba8643f7eaafd17c91a234f45ab0d0d1c868d98a1bb2a2704328cdf85eb",
+      "entries": [
+        "MSVC-REDIST-CENSUS.json",
+        "MSVC-REDIST-CI-BINDING.json"
+      ]
+    },
+    "census": {
+      "bytes": 1250,
+      "sha256": "4f06194c247f68b68deb61e4143909da8d81900cb2c9d6f9b2710844c67d895f"
+    },
+    "binding_sha256": "79d36c4405fb2a14ff177e576ce7d550f2b07968ae165b3f6832a7cfefb7132d",
+    "clean_source": true,
+    "source_before_after_sha256": "efdcf6254f7f9c5fbfc548b46137eaf42640b7ba93547bc57796d93e727eba2d",
+    "independent_download_review": "root-and-peer-verified",
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_approval": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "asr_common_data_invalid_markers_2a169bd": {
+    "head": "2a169bd745a577f89368fad5335c8394cb137362",
+    "run": 41215443407,
+    "job": 124578937025,
+    "attempt": 1,
+    "workflow": "failure",
+    "phase": "common-data-bound",
+    "image_version": "20261021.278.1",
+    "selected_vs_version": "18.11.12315.225",
+    "artifact": {
+      "id": 13048610435,
+      "bytes": 1963,
+      "sha256": "80ac92a53a6f9c30f8f4c83ea3f4870caacd52d47ea0c15d96dafd08ba613338",
+      "entries": [
+        "ASR-FAILURE.json"
+      ]
+    },
+    "failure_json": {
+      "bytes": 4749,
+      "sha256": "d9fa8f13a62bcfb35998775a1cf2b6890f502fc936cbd2c61a026b8e2eda71d9"
+    },
+    "origin_stable": "verified",
+    "baseline": "rejected-invalid-markers",
+    "bound": "rejected-invalid-markers",
+    "folder_CLR_root_alias_values": "not-delivered",
+    "child_exit_MSB_code_and_marker_spelling": "not-delivered",
+    "configure_compile_probes": "not-reached",
+    "final_native_tool_seals_and_cohort": "not-delivered",
+    "local_prepare_scope": "separate fifteen Git-exact inputs at2a; prepared-not-built; cohort20e4e753ac095beac408af71efda7a28f5a5ea7e76e2f545070155babcea7fe9",
+    "independent_download_review": "root-and-peer-verified",
+    "native_cause": "unproven; subsequent source review found unqualified enum literals",
+    "production_execution_allowed": false,
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_approval": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
   }
 }
