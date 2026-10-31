@@ -40,10 +40,15 @@ jobs:
           python -I -B scripts/replay-game-codec.py acquire --input-root $inputs
           if ($LASTEXITCODE -ne 0) { throw 'Pinned input acquisition failed.' }
           "R19_GAME_CODEC_INPUTS=$inputs" >> $env:GITHUB_ENV
+          $cmakeInputs = Join-Path $env:RUNNER_TEMP 'r19-cmake-inputs'
+          python -I -B scripts/pinned-build-cmake.py acquire --input-root $cmakeInputs
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned original CMake acquisition failed.' }
+          python -I -B scripts/pinned-build-cmake.py prepare --archive (Join-Path $cmakeInputs 'cmake-4.4.5-windows-x86_64.zip') --output 'C:/r19-build-tools/cmake-4.4.5'
+          if ($LASTEXITCODE -ne 0) { throw 'Closed isolated CMake preparation failed.' }
       - name: Build and probe the distinct quarantined dependency identity
         shell: pwsh
         run: |
-          ./scripts/build-game-codec-replay.ps1 -InputRoot $env:R19_GAME_CODEC_INPUTS -Python (Join-Path $env:pythonLocation 'python.exe')
+          ./scripts/build-game-codec-replay.ps1 -InputRoot $env:R19_GAME_CODEC_INPUTS -CMakeRoot 'C:/r19-build-tools/cmake-4.4.5' -Python (Join-Path $env:pythonLocation 'python.exe')
           'Quarantined FFmpeg9.0.2/Opus1.6.1 source replay only; no upstream binary equivalence, rights/source-delivery approval, runtime integration, full game acceptance or Windows11 native acceptance.' >> $env:GITHUB_STEP_SUMMARY
       - name: Upload only sanitized receipt and explicitly unapproved source review kit
         uses: actions/upload-artifact@v7

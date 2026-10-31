@@ -44,9 +44,12 @@ exact pinned inputs. It invokes
 requires hosted image version 20261021.278.1, Visual Studio 18 2026, toolset
 14.51.36231, compiler 19.51.36260.0, CMake 4.4.5 and SDK 10.0.26100.0. A changed
 or unavailable host tuple fails; there is no substitute image or rolling
-package installation. CMake comes only from ProgramFiles/CMake/bin/cmake.exe;
-the workflow passes the absolute python.exe selected by setup-python 3.12.10.
-Other PATH matches are not candidates. Optional Git discovery is disabled:
+package installation. CMake comes only from the
+[shared pinned ZIP helper](pinned-build-cmake.md), prepared at the caller's
+fixed isolated tool root and verified before native execution and after the
+build. The workflow passes the absolute python.exe selected by setup-python
+3.12.10. Installed ProgramFiles/Strawberry/PATH matches are not candidates.
+Optional Git discovery is disabled:
 the original Opus cmake/OpusPackageVersion.cmake selects its unchanged
 package_version file when Git is unavailable. The declared NETFX 4.8
 headers/libraries are bound when
@@ -71,6 +74,11 @@ ephemeral build host. The workflow uploads only:
   recipes/notices and project orchestration with its existing LICENSE and an
   explicit unapproved-source boundary. A passing receipt is written only after
   this archive has closed successfully.
+
+The helper and shared CMake policy are included as project recipe inputs; the
+complete original CMake ZIP and its native tree stay in the separate isolated
+build-tool container. The replay receipt binds the verified CMake supplier
+summary, and source-review.zip contains no CMake executable or tool archive.
 
 On a failed build command, `FAILED-STAGE.json` is a separate failed receipt.
 It preserves the fixed command phase and numeric exit code, with only selected

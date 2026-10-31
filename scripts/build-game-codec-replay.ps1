@@ -1,13 +1,14 @@
 param([Parameter(Mandatory=$true)][string]$InputRoot,
       [string]$OutputRoot = 'C:\r19-game-codec-replay',
+      [string]$CMakeRoot = 'C:\r19-build-tools\cmake-4.4.5',
       [Parameter(Mandatory=$true)][string]$Python)
 $ErrorActionPreference = 'Stop'
-function Get-ReplayExecutables([string]$ProgramFilesRoot, [string]$PythonPath) {
-    if (-not [IO.Path]::IsPathFullyQualified($ProgramFilesRoot) -or
+function Get-ReplayExecutables([string]$PinnedCMakeRoot, [string]$PythonPath) {
+    if (-not [IO.Path]::IsPathFullyQualified($PinnedCMakeRoot) -or
         -not [IO.Path]::IsPathFullyQualified($PythonPath)) {
         throw 'Explicit absolute build-tool paths are required; ambient lookup is disabled.'
     }
-    $selected = [ordered]@{CMake=(Join-Path $ProgramFilesRoot 'CMake/bin/cmake.exe'); Python=$PythonPath}
+    $selected = [ordered]@{CMake=(Join-Path $PinnedCMakeRoot 'cmake-4.4.5-windows-x86_64/bin/cmake.exe'); Python=$PythonPath}
     foreach ($name in @('CMake','Python')) {
         $item = Get-Item -LiteralPath ($selected[$name]) -ErrorAction Stop
         if ($item.PSIsContainer -or $item.Extension -ne '.exe' -or
@@ -88,10 +89,12 @@ $instance = $instances[0]
 $toolset = Join-Path $instance.installationPath ('VC/Tools/MSVC/' + $pin.host.toolset_directory)
 $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
 $compiler = Join-Path $toolset 'bin/Hostx64/x64/cl.exe'
-$executables = Get-ReplayExecutables -ProgramFilesRoot $env:ProgramFiles -PythonPath $Python
+$executables = Get-ReplayExecutables -PinnedCMakeRoot $CMakeRoot -PythonPath $Python
 $cmake = $executables.CMake
 $pythonExe = $executables.Python
 $tar = Join-Path $env:SystemRoot 'System32/tar.exe'
+& $pythonExe -I -B (Join-Path $PSScriptRoot 'pinned-build-cmake.py') verify --root $CMakeRoot | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Pinned isolated CMake input verification failed before native execution.' }
 $observedTools = Get-NumericToolObservation -CMakePath $cmake -CompilerPath $compiler
 if ($observedTools.cmake.version -ne $pin.host.cmake_version -or
     $observedTools.cl.file_version -ne $pin.host.compiler_version) {
@@ -316,4 +319,5 @@ try {
     Remove-Item -LiteralPath 'game-codec-replay.obj'
 } finally { Pop-Location }
 Write-ToolIdentity (Join-Path $OutputRoot 'BUILD-TOOLS-AFTER.json')
-Invoke-Build 'observe-and-package' $pythonExe @('-I', '-B', (Join-Path $PSScriptRoot 'replay-game-codec.py'), 'finish', '--output', $OutputRoot)
+Invoke-Build 'observe-and-package' $pythonExe @('-I', '-B', (Join-Path $PSScriptRoot 'replay-game-codec.py'),
+    'finish', '--output', $OutputRoot, '--cmake-root', $CMakeRoot)

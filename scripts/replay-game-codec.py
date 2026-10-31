@@ -6,6 +6,7 @@ notices are retained separately, without a source-delivery approval claim.
 """
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -25,7 +26,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PIN = ROOT / 'packaging/codecs/ffmpeg-opus-replay.json'
 PROJECT_INPUTS = ('packaging/codecs/ffmpeg-opus-replay.json',
     'scripts/replay-game-codec.py', 'scripts/build-game-codec-replay.ps1',
-    'scripts/fixtures/game-codec-replay.c', 'backend/codec_fixture.py', 'LICENSE')
+    'scripts/fixtures/game-codec-replay.c', 'backend/codec_fixture.py', 'LICENSE',
+    'scripts/pinned-build-cmake.py', 'packaging/build-tools/cmake-4.4.5-windows-x64.json')
 DLLS = ('avcodec-vgmstream-63.dll', 'avformat-vgmstream-63.dll',
         'avutil-vgmstream-61.dll', 'swresample-vgmstream-7.dll')
 BUILD_PHASES = ('extract-msys-base', 'extract-make', 'extract-nasm', 'extract-pkgconf',
@@ -355,9 +357,12 @@ def publish_attempt(run, work, previous, expected):
         return result
 
 
-def finish(root):
+def finish(root, cmake_root):
     if sys.platform != 'win32': raise ValueError('Actual Windows source build/probe required.')
     pin = policy(); root = Path(root).absolute(); no_links(root); verify_sources(root)
+    spec = importlib.util.spec_from_file_location('pinned_build_cmake', ROOT / 'scripts/pinned-build-cmake.py')
+    cmake_helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(cmake_helper)
+    cmake_supplier = cmake_helper.verify(cmake_root)
     for name in PROJECT_INPUTS:
         if (ROOT / name).read_bytes() != (root / 'source-review/project-orchestration' / name).read_bytes():
             raise ValueError('Project orchestration changed after source preparation.')
@@ -421,6 +426,7 @@ def finish(root):
     # and notice in runner-local quarantine. Only their inventory is public.
     correspondence = {'sources': pin['sources'], 'original_recipes': pin['original_recipes'],
         'notices': pin['notices'], 'upstream_files': inventory(root / 'upstream'),
+        'cmake_supplier': cmake_supplier,
         'source_review_files': inventory(root / 'source-review'),
         'installed_files': inventory(root / 'out'), 'build_tools': tools,
         'ffmpeg_generated': inventory(root / 'ffmpeg-build/ffbuild'),
@@ -457,6 +463,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('command', choices=['acquire', 'prepare', 'finish', 'failure', 'preflight-failure'])
     parser.add_argument('--input-root', type=Path); parser.add_argument('--output', type=Path)
+    parser.add_argument('--cmake-root', type=Path)
     parser.add_argument('--phase', choices=BUILD_PHASES)
     parser.add_argument('--exit-code', type=int); parser.add_argument('--log', type=Path)
     parser.add_argument('--log-offset', type=int)
@@ -465,4 +472,4 @@ if __name__ == '__main__':
     elif args.command == 'prepare': prepare(args.input_root, args.output)
     elif args.command == 'failure': failure(args.output, args.phase, args.exit_code, args.log, args.log_offset)
     elif args.command == 'preflight-failure': preflight_failure(args.output, read_preflight_observation(sys.stdin.buffer))
-    else: finish(args.output)
+    else: finish(args.output, args.cmake_root)

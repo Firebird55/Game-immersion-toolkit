@@ -149,7 +149,8 @@
       "Windows OS/loader/system DLL implementation and registry",
       "Host .NET runtime/framework/GAC used by MSBuild",
       "Hosted image/service infrastructure and independent complete toolchain source/rights recovery"
-    ]
+    ],
+    "cmake_supplier_policy": "packaging/build-tools/cmake-4.4.5-windows-x64.json"
   },
   "adaptations": [
     "Original VS2019 generator replaced by explicitly selected VS2026 instance/toolset/SDK; original upstream instructions retained unmodified.",
@@ -157,7 +158,8 @@
     "Out-of-source builds preserve original source bytes.",
     "No rolling pacman install: exact original tool archives extracted into an isolated build-host directory.",
     "An authored non-shipping C harness uses custom AVIO because the original configuration disables file protocol and CLI programs.",
-    "Allowlisted process environment; fresh empty user/AppData/MSBuild profile; selected VC/SDK/header/lib roots only; user and Directory.Build imports disabled."
+    "Allowlisted process environment; fresh empty user/AppData/MSBuild profile; selected VC/SDK/header/lib roots only; user and Directory.Build imports disabled.",
+    "CMake 4.4.5 is supplied only by the shared exact original build-host ZIP policy; no installed CMake discovery and no native tool payload in source-review.zip."
   ],
   "licensing_boundary": {
     "original_upstream_recipes": "Retained byte-for-byte with vgmstream COPYING; dependency original recipes/notices remain in exact source archives.",

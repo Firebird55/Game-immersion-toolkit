@@ -243,14 +243,14 @@ class ReplayTrustTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell path-selection contract requires pwsh')
     def test_explicit_tool_selection_ignores_competing_path_matches_and_rejects_ambient_python(self):
-        program_files = self.root / 'Program Files'
-        canonical = program_files / 'CMake/bin/cmake.exe'
+        pinned_root = self.root / 'pinned-cmake'
+        canonical = pinned_root / 'cmake-4.4.5-windows-x86_64/bin/cmake.exe'
         selected_python = self.root / 'selected-python/python.exe'
         for path in (canonical, selected_python, self.root / 'competing/cmake.exe',
                      self.root / 'competing/python.exe'):
             path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'authored non-executed tool fixture')
         contract = self.root / 'selection-contract.ps1'
-        contract.write_text('''param($SourcePath, $ProgramFilesRoot, $SelectedPython, $ExpectedCMake)
+        contract.write_text('''param($SourcePath, $PinnedCMakeRoot, $SelectedPython, $ExpectedCMake)
 $ErrorActionPreference = 'Stop'
 $tokens = $null; $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile($SourcePath, [ref]$tokens, [ref]$parseErrors)
@@ -259,19 +259,19 @@ $definition = $ast.Find({param($node) $node -is [System.Management.Automation.La
 if (-not $definition) { throw 'Explicit executable selector is unavailable.' }
 . ([ScriptBlock]::Create($definition.Extent.Text))
 function Get-Command { throw 'Ambient tool discovery must never execute.' }
-$value = Get-ReplayExecutables -ProgramFilesRoot $ProgramFilesRoot -PythonPath $SelectedPython
+$value = Get-ReplayExecutables -PinnedCMakeRoot $PinnedCMakeRoot -PythonPath $SelectedPython
 if ($value.CMake -ne $ExpectedCMake -or $value.Python -ne $SelectedPython -or
     $value.CMake -isnot [string] -or $value.Python -isnot [string]) { throw 'Explicit tool selection differed.' }
-foreach ($bad in @('python', 'relative/python.exe', (Join-Path $ProgramFilesRoot 'missing.exe'), $ProgramFilesRoot)) {
+foreach ($bad in @('python', 'relative/python.exe', (Join-Path $PinnedCMakeRoot 'missing.exe'), $PinnedCMakeRoot)) {
     $rejected = $false
-    try { Get-ReplayExecutables -ProgramFilesRoot $ProgramFilesRoot -PythonPath $bad | Out-Null }
+    try { Get-ReplayExecutables -PinnedCMakeRoot $PinnedCMakeRoot -PythonPath $bad | Out-Null }
     catch { $rejected = $true }
     if (-not $rejected) { throw 'Invalid explicit Python path was accepted.' }
 }
 $value | ConvertTo-Json -Compress
 ''', encoding='utf-8')
         result = subprocess.run([shutil.which('pwsh'), '-NoProfile', '-NonInteractive', '-File', str(contract),
-            str(ROOT / 'scripts/build-game-codec-replay.ps1'), str(program_files),
+            str(ROOT / 'scripts/build-game-codec-replay.ps1'), str(pinned_root),
             str(selected_python), str(canonical)], check=True, capture_output=True, text=True, timeout=20)
         self.assertEqual(json.loads(result.stdout), {'CMake': str(canonical), 'Python': str(selected_python)})
 
