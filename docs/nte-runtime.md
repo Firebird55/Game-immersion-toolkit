@@ -65,9 +65,11 @@ exact supplier package and embedded assembly hashes.
 The resource receipt binds this lock and collector source to its output. Rights
 review and native acceptance remain pending for the final assembled application;
 those fields alone never authorize execution or replace the exact inventories.
-The helper/apphost contract currently targets Windows x64. The parser and codecs
-are managed, but Linux/macOS still require native apphosts, .NET runtime resources
-and platform acceptance. The Windows apphost must not be relabeled as portable.
+The [native helper build contract](managed-reader-platforms.md) includes Windows
+x64, Linux x64 and macOS arm64, each with its own pinned SDK, apphost and bundled
+.NET runtime. All use the same managed parser and dependency inventory. Linux
+and macOS native execution remains pending hosted acceptance; a Windows apphost
+is never relabeled as portable.
 
 ## Validation
 

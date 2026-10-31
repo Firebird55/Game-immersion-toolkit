@@ -86,3 +86,23 @@ def test_reviewed_inventory_covers_every_embedded_assembly_and_incorporated_noti
     assert any(n.get('url', '').endswith('/NOTICE') for n in rows['Fmod5Sharp']['notices'])
     assert all('/' + row['notice_revision'] + '/' in notice['url']
                for row in rows.values() for notice in row['notices'] if notice['kind'] == 'url')
+
+
+@pytest.mark.parametrize('platform', ['win-x64', 'linux-x64', 'darwin-arm64'])
+def test_collector_binds_same_managed_bytes_to_selected_platform_without_claiming_native_acceptance(tmp_path, monkeypatch, platform):
+    module = builder()
+    data = b'authored shared managed assembly'
+    monkeypatch.setattr(module, 'DEPENDENCIES', {'UEExtractor.dll': digest(data)})
+    monkeypatch.setattr(module, 'verified', lambda *a, **kw: b'authored full notice')
+    monkeypatch.setattr(module, 'extract', lambda *a, **kw: data)
+    monkeypatch.setattr(module, 'managed_notices', lambda: {'notices/MANAGED-COMPONENTS.json': b'{}'})
+    monkeypatch.setattr(module.subprocess, 'check_output', lambda args, **kw: 'a' * 40 if args[1] == 'rev-parse' else '')
+    output = tmp_path / 'new-resources'
+    receipt = module.build(output, platform=platform)
+    manifest = json.loads((output / module.PREFIX / 'dependencies.json').read_text())
+    assert receipt['platform'] == manifest['platform'] == platform
+    assert (output / module.PREFIX / 'UEExtractor.dll').read_bytes() == data
+    assert receipt['native_acceptance'] == manifest['native_acceptance'] == 'pending'
+    assert receipt['rights_review'] == manifest['rights_review'] == 'pending'
+    for row in receipt['files']:
+        assert digest((output / row['path']).read_bytes()) == row['sha256']

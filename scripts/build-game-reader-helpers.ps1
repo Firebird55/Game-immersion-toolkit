@@ -4,23 +4,34 @@ param(
     [Parameter(Mandatory=$true)][string]$EvidenceRoot,
     [Parameter(Mandatory=$true)][string]$Dotnet,
     [string]$ExpectedSdkVersion='10.0.403',
+    [ValidateSet('win-x64','linux-x64','osx-arm64')][string]$RuntimeIdentifier='win-x64',
+    [string]$Python='python',
     [switch]$BlockedQuarantine,
     [string]$PreparedRoot,
     [string]$BaseRef
 )
 $ErrorActionPreference='Stop'
 if (($Kind -eq 'endfield') -ne [bool]$BlockedQuarantine) { throw 'Endfield can only be prebuilt in explicit unpublished quarantine; other owned helpers cannot use that profile.' }
-if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Environment]::Is64BitProcess) { throw 'Publish this helper on a Windows x64 build host.' }
+$hostArchitecture=[Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant()
+$hostOS=if($IsWindows){'win'}elseif($IsMacOS){'osx'}elseif($IsLinux){'linux'}else{'unsupported'}
+if ($RuntimeIdentifier -ne ($hostOS+'-'+$hostArchitecture)) { throw 'Publish each helper on its matching native OS/architecture build host.' }
+$platform=if($RuntimeIdentifier -eq 'osx-arm64'){'darwin-arm64'}else{$RuntimeIdentifier}
+$extension=if($IsWindows){'.exe'}else{''}
+$nativeFiles=if($IsWindows){@('hostfxr.dll','hostpolicy.dll','coreclr.dll')}elseif($IsMacOS){@('libhostfxr.dylib','libhostpolicy.dylib','libcoreclr.dylib')}else{@('libhostfxr.so','libhostpolicy.so','libcoreclr.so')}
+if($Kind -eq 'endfield' -and $RuntimeIdentifier -ne 'win-x64'){throw 'The retired compiled Endfield experiment has no non-Windows resource contract; normal Endfield uses its Python reader.'}
 $SourceRoot=Split-Path -Parent $PSScriptRoot
 $PolicyRoot=Join-Path $SourceRoot 'packaging/game-readers'
 $Pins=Get-Content -LiteralPath (Join-Path $PolicyRoot 'inputs.json') -Raw | ConvertFrom-Json
-$runtimePackages=@($Pins.packages)
+$selection=$Pins.targets.$RuntimeIdentifier
+if(-not $selection){throw 'Missing exact native helper build inputs.'}
+$sdkPin=$selection.sdk
+$runtimePackages=@($selection.packages)
 $upstreamInputs=$null
 if($Kind -eq 'endfield') {
     $blocked=Get-Content -LiteralPath (Join-Path $PolicyRoot 'blocked-inputs.json') -Raw | ConvertFrom-Json
     $runtimePackages+=@($blocked.endfield.package)
 }
-if ($ExpectedSdkVersion -ne '10.0.403' -or $Pins.sdk.version -ne '10.0.403' -or $Pins.runtime_version -ne '10.0.14' -or $Pins.rid -ne 'win-x64') { throw 'The exact reviewed SDK/runtime/RID selection changed.' }
+if ($ExpectedSdkVersion -ne '10.0.403' -or $sdkPin.version -ne '10.0.403' -or $Pins.runtime_version -ne '10.0.14') { throw 'The exact reviewed SDK/runtime/RID selection changed.' }
 function Assert-NoLinks([string]$Path) {
     $current=[IO.Path]::GetFullPath($Path)
     while ($current) {
@@ -58,8 +69,8 @@ else { & npm --prefix $SourceRoot run dev:doctor }
 $doctorExit=$LASTEXITCODE
 if ($doctorExit -notin @(0,2)) { throw 'Development preflight is invalid. No helper build was started.' }
 Write-Host 'Verifying the exact SDK archive and expanded files...'
-$archive=Join-Path $EvidenceRoot $Pins.sdk.artifact
-if (-not (Test-Path -LiteralPath $archive) -or (Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $Pins.sdk.sha512) { throw 'The exact official SDK archive is missing or has the wrong SHA-512.' }
+$archive=Join-Path $EvidenceRoot $sdkPin.artifact
+if (-not (Test-Path -LiteralPath $archive) -or (Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $sdkPin.sha512) { throw 'The exact official SDK archive is missing or has the wrong SHA-512.' }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 function Stream-Sha256($Stream) {
     $algorithm=[Security.Cryptography.SHA256]::Create()
@@ -80,40 +91,13 @@ function Assert-PortableLock($Value) {
     } elseif($null -ne $Value -and $Value -isnot [ValueType]) { throw 'The restore lock contains an unsupported value.' }
 }
 $sdkRoot=Split-Path -Parent $Dotnet
-# Each helper kind requires a fresh expansion of the same verified archive.
-# The build-host CLI can mutate its SDK tree; a previous invocation's extra
-# state must never be accepted as part of the supplier input inventory.
-$sdkFiles=[ordered]@{}
-$sdkDirectories=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-# Check the tree once before reading supplier bytes. Rewalking every parent of
-# every file makes a cloud-synced SDK take minutes without improving this check.
-# The root ancestry was checked above; child links are rejected, not followed.
-foreach($installed in @(Get-ChildItem -LiteralPath $sdkRoot -Recurse -Force)) {
-    if($installed.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'The SDK expansion contains a link or reparse point.' }
-}
-$sdkArchive=[IO.Compression.ZipFile]::OpenRead($archive)
-try {
-    foreach($member in $sdkArchive.Entries) {
-        if($member.FullName.Contains('..') -or $member.FullName.Contains('\') -or [IO.Path]::IsPathRooted($member.FullName)) { throw 'Unsafe SDK archive path.' }
-        $relative=$member.FullName.TrimEnd('/')
-        if($member.FullName.EndsWith('/')) { [void]$sdkDirectories.Add($relative); continue }
-        if($sdkFiles.Contains($relative)) { throw 'The SDK archive contains duplicate or case-aliased files.' }
-        $parent=[IO.Path]::GetDirectoryName($relative).Replace('\','/')
-        while($parent) { [void]$sdkDirectories.Add($parent); $parent=[IO.Path]::GetDirectoryName($parent).Replace('\','/') }
-        $installed=Join-Path $sdkRoot $member.FullName
-        if(-not (Test-Path -LiteralPath $installed)) { throw 'The expanded SDK does not contain every pinned archive file.' }
-        $stream=$member.Open(); try {$expected=Stream-Sha256 $stream} finally {$stream.Dispose()}
-        if((Get-FileHash -LiteralPath $installed -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Expanded SDK bytes differ from the verified supplier archive.' }
-        $sdkFiles[$member.FullName]=$expected
-    }
-} finally {$sdkArchive.Dispose()}
-foreach($installed in @(Get-ChildItem -LiteralPath $sdkRoot -Recurse -Force)) {
-    if($installed.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'The SDK expansion contains a link or reparse point.' }
-    $relative=[IO.Path]::GetRelativePath($sdkRoot,$installed.FullName).Replace('\','/')
-    if($installed.PSIsContainer) { if(-not $sdkDirectories.Contains($relative)) { throw 'The expanded SDK contains an unlisted directory.' } }
-    elseif(-not $sdkFiles.Contains($relative)) { throw 'The expanded SDK contains an unlisted supplier file.' }
-}
-if(-not $sdkFiles.Contains('dotnet.exe') -or (Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sdkFiles['dotnet.exe']) { throw 'The selected dotnet executable is not the verified SDK archive executable.' }
+$sdkInventory=Join-Path $EvidenceRoot ('verified-sdk-'+[guid]::NewGuid().ToString('N')+'.json')
+& $Python (Join-Path $PSScriptRoot 'verify-dotnet-sdk.py') --archive $archive --sdk-root $sdkRoot --pins (Join-Path $PolicyRoot 'inputs.json') --rid $RuntimeIdentifier --output $sdkInventory
+if($LASTEXITCODE -ne 0){throw 'The expanded SDK differs from its exact archive; no build was started.'}
+$verifiedSdk=Get-Content -LiteralPath $sdkInventory -Raw | ConvertFrom-Json -AsHashtable
+$sdkFiles=$verifiedSdk.files
+$sdkEntry=$verifiedSdk.dotnet
+if((Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sdkFiles[$sdkEntry]){throw 'The selected dotnet executable is not the verified SDK archive executable.'}
 $actualSource=(& git -C $SourceRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualSource -notmatch '^[0-9a-f]{40}$') { throw 'An exact source commit is required.' }
 $sourceDirty=-not [string]::IsNullOrWhiteSpace((& git -C $SourceRoot status --porcelain | Out-String))
@@ -126,7 +110,7 @@ $target=Join-Path $OutputRoot $Kind
 $entry=if($Kind -eq 'probe'){'ToolkitReaderProbe'}elseif($Kind -eq 'nte'){'NteReader'}else{'EndfieldReader'}
 $project=Join-Path $SourceRoot ('scripts/game-readers/'+$entry+'.csproj')
 $ownedSource=Join-Path $SourceRoot ('scripts/game-readers/'+$entry+'.cs')
-$sourcePaths=@($project,$ownedSource,(Join-Path $PolicyRoot 'inputs.json'),(Join-Path $PolicyRoot 'global.json'),$PSCommandPath)
+$sourcePaths=@($project,$ownedSource,(Join-Path $PolicyRoot 'inputs.json'),(Join-Path $PolicyRoot 'global.json'),(Join-Path $PSScriptRoot 'verify-dotnet-sdk.py'),$PSCommandPath)
 if($Kind -eq 'endfield'){$sourcePaths+=@((Join-Path $PolicyRoot 'blocked-inputs.json'),(Join-Path $SourceRoot 'scripts/endfield-reader-sources.json'))}
 $sourceInputs=[ordered]@{}
 foreach($path in $sourcePaths) { $sourceInputs[[IO.Path]::GetRelativePath($SourceRoot,$path).Replace('\','/')]=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
@@ -168,15 +152,15 @@ try {
     if($Kind -eq 'endfield'){$properties+=('-p:EndfieldSource='+(Join-Path $PreparedRoot 'source'))}
     Push-Location -LiteralPath $PolicyRoot
     try {
-        & $Dotnet restore $project --runtime win-x64 --configfile $config @properties --nologo > (Join-Path $intermediate 'restore.log') 2>&1
+        & $Dotnet restore $project --runtime $RuntimeIdentifier --configfile $config @properties --nologo > (Join-Path $intermediate 'restore.log') 2>&1
         if ($LASTEXITCODE -ne 0) { Build-DiagnosticCodes (Join-Path $intermediate 'restore.log'); throw 'Offline pinned helper restore failed; no implicit source feed is allowed.' }
-        & $Dotnet restore $project --runtime win-x64 --configfile $config @properties --locked-mode --nologo > (Join-Path $intermediate 'locked-restore.log') 2>&1
+        & $Dotnet restore $project --runtime $RuntimeIdentifier --configfile $config @properties --locked-mode --nologo > (Join-Path $intermediate 'locked-restore.log') 2>&1
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $lock)) { throw 'The exact helper restore lock could not be replayed.' }
-        & $Dotnet publish $project --no-restore --runtime win-x64 --self-contained true -c Release -o $target @properties '-p:PublishSingleFile=false' '-p:PublishTrimmed=false' '-p:DebugType=None' '-p:DebugSymbols=false' '-p:ContinuousIntegrationBuild=true' --nologo > (Join-Path $intermediate 'publish.log') 2>&1
+        & $Dotnet publish $project --no-restore --runtime $RuntimeIdentifier --self-contained true -c Release -o $target @properties '-p:PublishSingleFile=false' '-p:PublishTrimmed=false' '-p:DebugType=None' '-p:DebugSymbols=false' '-p:ContinuousIntegrationBuild=true' --nologo > (Join-Path $intermediate 'publish.log') 2>&1
         if ($LASTEXITCODE -ne 0) { Build-DiagnosticCodes (Join-Path $intermediate 'publish.log'); throw 'Self-contained helper publication failed; quarantined output is retained.' }
     } finally { Pop-Location }
-    $ownedFiles=@('.exe','.dll','.runtimeconfig.json','.deps.json') | ForEach-Object {$entry+$_}
-    foreach($required in (@($ownedFiles)+@('System.Private.CoreLib.dll','hostfxr.dll','hostpolicy.dll','coreclr.dll'))) {
+    $ownedFiles=@($extension,'.dll','.runtimeconfig.json','.deps.json') | ForEach-Object {$entry+$_}
+    foreach($required in (@($ownedFiles)+@('System.Private.CoreLib.dll')+$nativeFiles)) {
         if(-not (Test-Path -LiteralPath (Join-Path $target $required))) { throw 'A required self-contained runtime file is missing.' }
     }
     $runtime=Get-Content -LiteralPath (Join-Path $target ($entry+'.runtimeconfig.json')) -Raw | ConvertFrom-Json
@@ -222,7 +206,7 @@ try {
     if($Kind -eq 'endfield') {
         foreach($item in $selected.files.PSObject.Properties){if((Get-FileHash -LiteralPath (Join-Path $PreparedRoot ('source/'+$item.Name.Replace('AnimeStudio.Endfield/',''))) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $item.Value){throw 'A selected upstream source changed during private publication.'}}
     }
-    $receipt=[ordered]@{schema='proxy-dotnet-helper-build-receipt-v1';source_commit=$actualSource;source_dirty=$sourceDirty;source_inputs=$sourceInputs;sdk=$Pins.sdk;sdk_version=$version;runtime_version='10.0.14';sdk_installed_files=$sdkFiles;runtime_packages=$runtimePackages;runtime_package_files=$packageFiles;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant()}
+    $receipt=[ordered]@{schema='proxy-dotnet-helper-build-receipt-v1';source_commit=$actualSource;source_dirty=$sourceDirty;source_inputs=$sourceInputs;sdk=$sdkPin;sdk_version=$version;runtime_version='10.0.14';sdk_installed_files=$sdkFiles;runtime_packages=$runtimePackages;runtime_package_files=$packageFiles;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant()}
     if($Kind -eq 'endfield'){$receipt.upstream_source_inputs=$upstreamInputs}
     [IO.File]::WriteAllText((Join-Path $target 'build-receipt.json'),(ConvertTo-Json -InputObject $receipt -Depth 20)+"`n",[Text.UTF8Encoding]::new($false))
     # Every shipped framework/native file must match an exact pinned package
@@ -245,7 +229,7 @@ try {
     $json=ConvertTo-Json -InputObject $canonicalFiles -Depth 8 -Compress
     $algorithm=[Security.Cryptography.SHA256]::Create()
     try {$buildId=([BitConverter]::ToString($algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($json)))).Replace('-','').ToLowerInvariant()} finally {$algorithm.Dispose()}
-    $manifest=[ordered]@{schema='proxy-prebuilt-dotnet-reader-v1';kind=$Kind;entry=($entry+'.exe');platform='win-x64';sdk_version=$version;runtime_version='10.0.14';source_commit=$actualSource;source_dirty=$sourceDirty;purpose=$(if($Kind -eq 'probe'){'authored-probe-only'}else{'owned-bridge-only'});source_inputs=$sourceInputs;build_id=$buildId;files=$canonicalFiles;sdk_archive=$Pins.sdk;runtime_packages=$runtimePackages;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant();redistribution_review='pending-exact-output';game_reader_acceptance='not-established';r19_complete=$false;doctor_exit=$doctorExit}
+    $manifest=[ordered]@{schema='proxy-prebuilt-dotnet-reader-v1';kind=$Kind;entry=($entry+$extension);platform=$platform;sdk_version=$version;runtime_version='10.0.14';source_commit=$actualSource;source_dirty=$sourceDirty;purpose=$(if($Kind -eq 'probe'){'authored-probe-only'}else{'owned-bridge-only'});source_inputs=$sourceInputs;build_id=$buildId;files=$canonicalFiles;sdk_archive=$sdkPin;runtime_packages=$runtimePackages;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant();redistribution_review='pending-exact-output';game_reader_acceptance='not-established';r19_complete=$false;doctor_exit=$doctorExit}
     $manifestName='helper-manifest.json'
     if($Kind -eq 'endfield') {
         $manifest.schema='proxy-blocked-game-helper-v1';$manifest.purpose='blocked-private-game-reader'
@@ -254,7 +238,7 @@ try {
         $manifestName='blocked-manifest.json'
     }
     [IO.File]::WriteAllText((Join-Path $target $manifestName),(ConvertTo-Json -InputObject $manifest -Depth 20)+"`n",[Text.UTF8Encoding]::new($false))
-    Write-Host 'Quarantined self-contained owned helper created; game toolchains, exact-output redistribution and native Windows 11 acceptance remain incomplete.'
+    Write-Host ('Self-contained owned helper created for '+$platform+'; final resource review and native candidate acceptance remain pending.')
 } finally {
     foreach($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name,$saved[$name]) }
 }

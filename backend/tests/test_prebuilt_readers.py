@@ -30,7 +30,27 @@ def x64_image():
     return bytes(data)
 
 
-def helper_fixture(tmp_path, kind='probe'):
+
+@pytest.fixture(autouse=True)
+def windows_helper_host(monkeypatch):
+    # Historical receipt mutation fixtures deliberately describe Windows.
+    monkeypatch.setattr(readers, 'host_platform', lambda: 'win-x64')
+
+
+def native_image(platform):
+    if platform == 'win-x64':
+        return x64_image()
+    data = bytearray(128)
+    if platform == 'linux-x64':
+        data[:6] = b'\x7fELF\x02\x01'
+        struct.pack_into('<H', data, 18, 62)
+    else:
+        data[:4] = b'\xcf\xfa\xed\xfe'
+        struct.pack_into('<I', data, 4, 0x100000c)
+    return bytes(data)
+
+
+def helper_fixture(tmp_path, kind='probe', platform='win-x64'):
     temporary = tmp_path.resolve()
     app, private = temporary / 'Application 中文', temporary / 'private'
     resource = app / '_internal'
@@ -38,33 +58,38 @@ def helper_fixture(tmp_path, kind='probe'):
     home.mkdir(parents=True)
     stem = 'ToolkitReaderProbe' if kind == 'probe' else 'NteReader'
     sources = {name: 'c' * 64 for name in readers._source_names(kind)}
-    content = {stem + '.exe': x64_image(), stem + '.dll': b'authored IL fixture',
+    target = readers.TARGETS[platform]
+    native_files = target['native_files']
+    executable = stem + target['extension']
+    content = {executable: native_image(platform), stem + '.dll': b'authored IL fixture',
         stem + '.runtimeconfig.json': json.dumps({'runtimeOptions': {'includedFrameworks': [{'name': 'Microsoft.NETCore.App', 'version': readers.RUNTIME}]}}).encode(),
-        stem + '.deps.json': json.dumps({'runtimeTarget': {'name': '.NETCoreApp,Version=v10.0/win-x64'}}).encode(),
-        'hostfxr.dll': x64_image(), 'hostpolicy.dll': x64_image(), 'coreclr.dll': x64_image(),
+        stem + '.deps.json': json.dumps({'runtimeTarget': {'name': '.NETCoreApp,Version=v10.0/' + target['rid']}}).encode(),
+        **{name: native_image(platform) for name in native_files},
         'System.Private.CoreLib.dll': b'authored runtime fixture', 'probe-resource.txt': b'authored probe fixture',
         'notices/PROJECT-LICENSE.txt': b'Authored fixture notice', 'notices/sdk-LICENSE.txt': b'Authored SDK fixture notice',
         'notices/sdk-ThirdPartyNotices.txt': b'Authored complete third-party fixture notice'}
     if kind != 'probe':
         del content['probe-resource.txt']
     content['restore-lock.json'] = b'{"version":1,"dependencies":{"net10.0":{}}}'
-    for name in readers.PACKAGES:
+    for name in target['packages']:
         content['notices/' + name + '/LICENSE.TXT'] = b'Authored pinned package fixture notice'
     receipt = {'schema': 'proxy-dotnet-helper-build-receipt-v1', 'source_commit': 'a' * 40,
         'source_dirty': False,
         'source_inputs': sources, 'sdk_version': readers.SDK, 'runtime_version': readers.RUNTIME,
-        'sdk': {'sha512': readers.SDK_SHA512}, 'sdk_installed_files': {'dotnet.exe': 'd' * 64},
+        'sdk': {'sha512': target['sdk_sha512']}, 'sdk_installed_files': {'dotnet' + target['extension']: 'd' * 64},
         'dotnet_executable_sha256': 'd' * 64, 'restore_lock_sha256': digest(content['restore-lock.json']),
-        'runtime_packages': [{'name': name, 'version': readers.RUNTIME, 'sha512_base64': value} for name, value in readers.PACKAGES.items()],
-        'runtime_package_files': {'runtime/' + name: digest(content[name]) for name in ('hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll', 'System.Private.CoreLib.dll')}}
+        'runtime_packages': [{'name': name, 'version': readers.RUNTIME, 'sha512_base64': value} for name, value in target['packages'].items()],
+        'runtime_package_files': {'runtime/' + name: digest(content[name]) for name in (*native_files, 'System.Private.CoreLib.dll')}}
     content['build-receipt.json'] = json.dumps(receipt).encode()
     files = {}
     for name, data in content.items():
         path = home / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
+        if name == executable:
+            path.chmod(0o755)
         files[name] = {'bytes': len(data), 'sha256': digest(data)}
-    manifest = {'schema': readers.SCHEMA, 'kind': kind, 'entry': stem + '.exe', 'platform': 'win-x64',
+    manifest = {'schema': readers.SCHEMA, 'kind': kind, 'entry': executable, 'platform': platform,
         'sdk_version': readers.SDK, 'runtime_version': readers.RUNTIME, 'source_commit': 'a' * 40, 'source_dirty': False,
         'source_inputs': sources, 'purpose': 'authored-probe-only' if kind == 'probe' else 'owned-bridge-only',
         'files': files, 'build_id': readers._identity(files), 'sdk_archive': receipt['sdk'],
@@ -233,3 +258,45 @@ def test_receipt_identity_is_exact_and_bound_to_manifest(tmp_path, change):
     layout = save(layout, home, manifest)
     with pytest.raises(PreparationFailure, match='incompatible'):
         readers.prebuilt_reader('probe', layout=layout)
+
+
+@pytest.mark.parametrize('platform', readers.TARGETS)
+def test_each_native_platform_requires_its_own_complete_runtime(tmp_path, monkeypatch, platform):
+    monkeypatch.setattr(readers, 'host_platform', lambda: platform)
+    layout, home, manifest = helper_fixture(tmp_path, 'nte', platform)
+    helper = readers.prebuilt_reader('nte', layout=layout)
+    assert helper.runtime_identity_command() == [str(home / manifest['entry']), '--runtime-identity']
+    # The same managed contract cannot make a foreign apphost executable here.
+    monkeypatch.setattr(readers, 'host_platform', lambda: next(p for p in readers.TARGETS if p != platform))
+    with pytest.raises(PreparationFailure):
+        readers.prebuilt_reader('nte', layout=layout)
+
+
+@pytest.mark.parametrize('platform', ['linux-x64', 'darwin-arm64'])
+def test_unix_apphost_machine_is_checked_after_outer_inventory_verification(tmp_path, monkeypatch, platform):
+    monkeypatch.setattr(readers, 'host_platform', lambda: platform)
+    layout, home, manifest = helper_fixture(tmp_path, 'nte', platform)
+    raw = native_image('darwin-arm64' if platform == 'linux-x64' else 'linux-x64')
+    (home / manifest['entry']).write_bytes(raw)
+    manifest['files'][manifest['entry']] = {'bytes': len(raw), 'sha256': digest(raw)}
+    layout = save(layout, home, manifest)
+    with pytest.raises(PreparationFailure):
+        readers.prebuilt_reader('nte', layout=layout)
+
+
+def test_helper_target_pins_match_exact_build_inputs():
+    pins = json.loads(Path('packaging/game-readers/inputs.json').read_text())
+    for target in readers.TARGETS.values():
+        specification = pins['targets'][target['rid']]
+        assert target['sdk_sha512'] == specification['sdk']['sha512']
+        assert target['packages'] == {p['name']: p['sha512_base64'] for p in specification['packages']}
+        assert all(p['version'] == readers.RUNTIME for p in specification['packages'])
+
+
+@pytest.mark.parametrize('platform', ['linux-x64', 'darwin-arm64'])
+def test_unix_helper_environment_excludes_system_runtime_and_loader_injection(platform):
+    result = readers.reader_environment({'HOME': '/synthetic/user', 'TMPDIR': '/synthetic/tmp',
+        'PATH': '/developer/sdk', 'DOTNET_ROOT': '/developer/runtime', 'DOTNET_STARTUP_HOOKS': 'injected',
+        'LD_PRELOAD': 'injected.so', 'DYLD_LIBRARY_PATH': '/injected', 'ACCOUNT_TOKEN': 'secret'}, platform=platform)
+    assert result == {'HOME': '/synthetic/user', 'TMPDIR': '/synthetic/tmp',
+                      'PATH': '/usr/bin:/bin', 'DOTNET_MULTILEVEL_LOOKUP': '0'}

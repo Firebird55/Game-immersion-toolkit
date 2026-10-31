@@ -128,7 +128,9 @@ def extract(data, specification):
     return result
 
 
-def build(output: Path):
+def build(output: Path, *, platform="win-x64"):
+    if platform not in {"win-x64", "linux-x64", "darwin-arm64"}:
+        raise ValueError("Unsupported managed reader target platform")
     if output.exists():
         raise ValueError('Choose a fresh dependency resource output folder')
     files = {}
@@ -142,10 +144,10 @@ def build(output: Path):
     files.update(managed_notices())
     files['notices/DEPENDENCIES.md'] = NOTICE.encode()
     identities = {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
-    manifest = {'schema': SCHEMA, 'platform': 'win-x64', 'files': identities,
+    manifest = {'schema': SCHEMA, 'platform': platform, 'files': identities,
                 'components': INPUTS, 'rights_review': 'pending', 'native_acceptance': 'pending'}
     files['dependencies.json'] = (json.dumps(manifest, indent=2) + '\n').encode()
-    receipt = {'schema': 'toolkit-native-resources-v1', 'platform': 'win-x64',
+    receipt = {'schema': 'toolkit-native-resources-v1', 'platform': platform,
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'source_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()),
         'source_inputs': {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
@@ -166,7 +168,8 @@ def build(output: Path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--platform', choices=('win-x64', 'linux-x64', 'darwin-arm64'), default='win-x64')
     args = parser.parse_args()
-    result = build(args.output)
+    result = build(args.output, platform=args.platform)
     print(json.dumps({'platform': result['platform'], 'files': len(result['files']),
                       'rights_review': result['rights_review'], 'native_acceptance': result['native_acceptance']}))

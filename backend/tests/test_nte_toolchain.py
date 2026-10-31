@@ -9,21 +9,23 @@ import zipfile
 
 import pytest
 
-from backend import nte_assets, nte_toolchain as chain, runtime_bundle
+from backend import nte_assets, nte_toolchain as chain, runtime_bundle, prebuilt_readers
 from backend.preparation_errors import PreparationFailure
 from backend.tests.test_prebuilt_readers import helper_fixture, digest
 
 
-def fixture(tmp_path, monkeypatch):
-    layout, _, _ = helper_fixture(tmp_path, 'nte')
+def fixture(tmp_path, monkeypatch, platform='win-x64'):
+    layout, _, _ = helper_fixture(tmp_path, 'nte', platform)
     root = layout.resource_root / chain.PREFIX
     files = {name: ('authored ' + name).encode() for name in chain.DEPENDENCIES}
     pins = {name: digest(data) for name, data in files.items()}
     monkeypatch.setattr(chain, 'DEPENDENCIES', pins)
-    monkeypatch.setattr(chain, 'host_platform', lambda: 'win-x64')
+    monkeypatch.setattr(chain, 'host_platform', lambda: platform)
+    monkeypatch.setattr(prebuilt_readers, 'host_platform', lambda: platform)
+    monkeypatch.setenv('SystemRoot', 'C:/Windows')
     files.update({'notices/UEEXTRACTOR-LICENSE.txt': b'authored notice',
                   'notices/DEPENDENCIES.md': b'authored dependency evidence'})
-    manifest = {'schema': chain.SCHEMA, 'platform': 'win-x64',
+    manifest = {'schema': chain.SCHEMA, 'platform': platform,
                 'files': {name: digest(data) for name, data in files.items()}}
     files['dependencies.json'] = json.dumps(manifest).encode()
     resources = dict(layout.resources)
@@ -131,3 +133,12 @@ def test_build_collector_rejects_duplicate_or_oversized_selected_members():
             container.writestr('runtime.dll', b'second')
     with pytest.raises(ValueError):
         builder.extract(archive.getvalue(), {'format': 'zip', 'member': 'runtime.dll'})
+
+
+@pytest.mark.parametrize('platform', ['linux-x64', 'darwin-arm64'])
+def test_same_managed_dependency_inventory_resolves_with_native_unix_apphost(tmp_path, monkeypatch, platform):
+    layout, tools = fixture(tmp_path, monkeypatch, platform)
+    install = tmp_path / 'authored-game'; install.mkdir()
+    command, env, cwd = chain.command(install, layout.work_root / 'output', 'wuwa-list', layout=layout)
+    assert command[0].endswith('NteReader') and command[1] == 'wuwa-list'
+    assert cwd == tools and env['PATH'] == '/usr/bin:/bin'

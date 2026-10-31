@@ -74,9 +74,10 @@ claim native execution for absent packs or untested platforms.
 
 ## Remaining delivery work
 
-The helper build currently targets Windows x64. Linux and macOS need native
-apphosts, maintained .NET runtime resources and their own execution acceptance;
-managed parser code alone is not proof of platform support. Final resources
+The [shared helper build](managed-reader-platforms.md) now selects native Windows
+x64, Linux x64 or macOS arm64 apphosts and pinned self-contained .NET runtimes.
+Linux/macOS execution still needs hosted native acceptance; managed parser code
+alone is not proof of platform support. Final resources
 must be rebuilt from the committed clean source and tested inside the assembled
 desktop candidate. The private development probe's modified helper and dirty
 source receipt are not release artifacts. Supplier review and native acceptance

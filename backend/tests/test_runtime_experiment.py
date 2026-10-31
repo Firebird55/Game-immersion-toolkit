@@ -189,6 +189,8 @@ def test_runtime_collection_binds_owned_bridge_to_current_sources_not_only_recei
     # Reader dispatch tests bind nested/outer files, but did not bind the
     # packaging collector to the actual source files of this runtime commit.
     from backend.tests.test_prebuilt_readers import helper_fixture, save, digest
+    from backend import prebuilt_readers
+    monkeypatch.setattr(prebuilt_readers, 'host_platform', lambda: 'win-x64')
     module = recorder(monkeypatch)
     layout, home, manifest = helper_fixture(tmp_path, 'nte')
     source = tmp_path / 'source'

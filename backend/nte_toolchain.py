@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 from .node_tools import host_platform
-from .prebuilt_readers import _no_links, prebuilt_reader, reader_environment
+from .prebuilt_readers import TARGETS, _no_links, prebuilt_reader, reader_environment
 from .preparation_errors import PreparationFailure
 from .runtime_bundle import discover_layout, RuntimeBundleError, relative_resource
 
@@ -42,7 +42,7 @@ def dependencies(layout) -> Path:
         value = json.loads(manifest.read_text(encoding='utf-8'))
         files = value.get('files')
         if (value.get('schema') != SCHEMA or value.get('platform') != host_platform()
-                or value.get('platform') != 'win-x64' or not isinstance(files, dict)
+                or value.get('platform') not in TARGETS or not isinstance(files, dict)
                 or not DEPENDENCIES.keys() <= files.keys() or len(files) > 128):
             raise ValueError()
         # Executables/assemblies must be exactly known. Additional source and
