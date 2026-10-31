@@ -195,6 +195,15 @@ NATIVE_GENERATED = {'main': 'ProxyTranscriptRuntime.exe', 'asr': 'asr/ProxyTrans
 NATIVE_FAILURES = {'invalid-identity', 'unsafe-source', 'source-unavailable', 'source-changed',
     'unbound-supplier-member', 'other-host-unresolved', 'invalid-toc', 'missing-source',
     'unexpected-transformation', 'invalid-snapshot', 'output-mismatch', 'observation-failed'}
+NATIVE_ANALYSIS_ROW_LIMIT = 50000
+NATIVE_ANALYSIS_NATIVE_LIMIT = 20000
+NATIVE_DIAGNOSTIC_SCHEMA = 'proxy-r19-native-analysis-census-v1'
+NATIVE_DIAGNOSTIC_FAMILIES = {'api-core', 'api-crt', 'ucrt', 'vc-runtime', 'not-allowlisted'}
+NATIVE_DIAGNOSTIC_ROOTS = {'current-environment', 'base-interpreter', 'declared-evidence',
+    'build-root', 'system-directory-descendant', 'windows-outside-system', 'other', 'unavailable'}
+NATIVE_DIAGNOSTIC_PROCESSING = {'analysis-native', 'explicit-native-resource'}
+NATIVE_DIAGNOSTIC_BUCKET_LIMIT = (len(NATIVE_DIAGNOSTIC_FAMILIES)
+    * len(NATIVE_DIAGNOSTIC_ROOTS) * len(NATIVE_DIAGNOSTIC_PROCESSING))
 
 
 class NativeCollectionError(ClosureError):
@@ -271,6 +280,105 @@ def native_system_directory():
         raise NativeCollectionError('source-unavailable') from None
 
 
+def native_windows_directory():
+    """Diagnostic root only: shared Windows directory, never an admission rule."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        if sys.platform != 'win32':
+            raise NativeCollectionError('source-unavailable')
+        function = ctypes.WinDLL('kernel32.dll', use_last_error=True).GetSystemWindowsDirectoryW
+        function.argtypes = (wintypes.LPWSTR, wintypes.UINT)
+        function.restype = wintypes.UINT
+        buffer = ctypes.create_unicode_buffer(32768)
+        count = function(buffer, len(buffer))
+        if not 0 < count < len(buffer):
+            raise NativeCollectionError('source-unavailable')
+        return native_path(buffer.value, directory=True)
+    except NativeCollectionError:
+        raise
+    except Exception:
+        raise NativeCollectionError('source-unavailable') from None
+
+
+def native_diagnostic_family(path):
+    """A finite spelling category; never supplier identity or source authority."""
+    name = path.name.casefold()
+    if re.fullmatch(r'api-ms-win-core-(?:[a-z0-9]+-)+l[0-9]+-[0-9]+-[0-9]+\.dll', name):
+        return 'api-core'
+    if re.fullmatch(r'api-ms-win-crt-(?:[a-z0-9]+-)+l[0-9]+-[0-9]+-[0-9]+\.dll', name):
+        return 'api-crt'
+    if name == 'ucrtbase.dll':
+        return 'ucrt'
+    if name in {'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'msvcp140_1.dll',
+            'msvcp140_2.dll', 'msvcp140_atomic_wait.dll', 'msvcp140_codecvt_ids.dll',
+            'concrt140.dll', 'vcomp140.dll'}:
+        return 'vc-runtime'
+    return 'not-allowlisted'
+
+
+def native_project_analysis_diagnostic(value):
+    """Rebuild every public field; malformed/private diagnostic input is unavailable."""
+    unavailable = {'schema': NATIVE_DIAGNOSTIC_SCHEMA, 'status': 'unavailable'}
+    keys = {'schema', 'status', 'scope', 'process', 'analyses', 'rows_examined',
+        'native_rows_examined', 'unresolved_rows', 'row_limit', 'native_row_limit',
+        'windows_root_query', 'buckets'}
+    if type(value) is not dict or set(value) != keys:
+        return unavailable
+    if (type(value['schema']) is not str or value['schema'] != NATIVE_DIAGNOSTIC_SCHEMA
+            or type(value['scope']) is not str or value['scope'] != 'current-observe-analysis-call'
+            or type(value['process']) is not str or value['process'] not in NATIVE_GENERATED
+            or type(value['status']) is not str or value['status'] not in {
+                'complete-current-call', 'incomplete-current-call', 'truncated-row-limit', 'truncated-native-limit'}
+            or type(value['windows_root_query']) is not str
+            or value['windows_root_query'] not in {'not-needed', 'observed', 'unavailable'}):
+        return unavailable
+    analyses = value['analyses']
+    if (type(analyses) is not dict or set(analyses) != set(NATIVE_GENERATED)
+            or any(type(state) is not str or state not in {'current-call', 'previous-call', 'not-run'}
+                for state in analyses.values())
+            or {name for name, state in analyses.items() if state == 'current-call'} != {value['process']}):
+        return unavailable
+    for name, limit in (('row_limit', NATIVE_ANALYSIS_ROW_LIMIT), ('native_row_limit', NATIVE_ANALYSIS_NATIVE_LIMIT)):
+        if type(value[name]) is not int or value[name] != limit:
+            return unavailable
+    for name, limit in (('rows_examined', NATIVE_ANALYSIS_ROW_LIMIT),
+            ('native_rows_examined', NATIVE_ANALYSIS_NATIVE_LIMIT), ('unresolved_rows', NATIVE_ANALYSIS_NATIVE_LIMIT)):
+        if type(value[name]) is not int or not 0 <= value[name] <= limit:
+            return unavailable
+    if (not value['unresolved_rows'] <= value['native_rows_examined'] <= value['rows_examined']
+            or (value['status'] == 'truncated-row-limit' and value['rows_examined'] != NATIVE_ANALYSIS_ROW_LIMIT)
+            or (value['status'] == 'truncated-native-limit' and value['native_rows_examined'] != NATIVE_ANALYSIS_NATIVE_LIMIT)):
+        return unavailable
+    rows = value['buckets']
+    if type(rows) is not list or len(rows) > NATIVE_DIAGNOSTIC_BUCKET_LIMIT:
+        return unavailable
+    projected, seen = [], set()
+    for row in rows:
+        if (type(row) is not dict or set(row) != {'processing', 'family', 'root', 'count'}
+                or any(type(row[name]) is not str for name in ('processing', 'family', 'root'))
+                or row['processing'] not in NATIVE_DIAGNOSTIC_PROCESSING
+                or row['family'] not in NATIVE_DIAGNOSTIC_FAMILIES or row['root'] not in NATIVE_DIAGNOSTIC_ROOTS
+                or type(row['count']) is not int or not 0 < row['count'] <= NATIVE_ANALYSIS_NATIVE_LIMIT):
+            return unavailable
+        key = row['processing'], row['family'], row['root']
+        if (key in seen or (row['root'] in {'other', 'windows-outside-system'} and value['windows_root_query'] != 'observed')
+                or (row['root'] == 'unavailable' and value['windows_root_query'] != 'unavailable')):
+            return unavailable
+        seen.add(key)
+        projected.append({'processing': key[0], 'family': key[1], 'root': key[2], 'count': row['count']})
+    if sum(row['count'] for row in projected) != value['unresolved_rows']:
+        return unavailable
+    projected.sort(key=lambda row: (row['processing'], row['family'], row['root']))
+    return {'schema': NATIVE_DIAGNOSTIC_SCHEMA, 'status': value['status'],
+        'scope': 'current-observe-analysis-call', 'process': value['process'],
+        'analyses': {name: analyses[name] for name in NATIVE_GENERATED},
+        'rows_examined': value['rows_examined'], 'native_rows_examined': value['native_rows_examined'],
+        'unresolved_rows': value['unresolved_rows'], 'row_limit': NATIVE_ANALYSIS_ROW_LIMIT,
+        'native_row_limit': NATIVE_ANALYSIS_NATIVE_LIMIT, 'windows_root_query': value['windows_root_query'],
+        'buckets': projected}
+
+
 def native_headers(value):
     if (not isinstance(value, dict) or value.get('profile') != 'runtime-experiment'
             or not re.fullmatch(r'[a-f0-9]{40}', value.get('source_commit', ''))
@@ -298,20 +406,24 @@ def write_native_json(root, name, value):
         raise NativeCollectionError('observation-failed') from None
 
 
-def native_failure(value, output, phase, error, count=0):
+def native_failure(value, output, phase, error, count=0, *, analysis_diagnostic=None):
     """Best-effort fixed metadata; neither raw exceptions nor arbitrary fields."""
     try:
         try:
             headers = native_headers(value)
         except Exception:
             headers = {'source_commit': None, 'build_id': None, 'profile': 'runtime-experiment'}
-        if phase not in {'analysis', 'generated', 'collection', 'input-snapshot', 'finalize'}:
+        if type(phase) is not str or phase not in {'analysis', 'generated', 'collection', 'input-snapshot', 'finalize'}:
             phase = 'finalize'
+        code = error.code if isinstance(error, NativeCollectionError) else None
         report = {'schema': 'proxy-r19-native-collection-failure-v1', **headers, **native_pending(),
             'status': 'failed', 'phase': phase,
-            'failure_code': error.code if isinstance(error, NativeCollectionError) and error.code in NATIVE_FAILURES else 'observation-failed',
+            'failure_code': code if type(code) is str and code in NATIVE_FAILURES else 'observation-failed',
             'observed_records': min(max(count, 0), 20000) if type(count) is int else 0,
             'raw_paths_published': False, 'raw_toc_published': False}
+        if analysis_diagnostic is not None:
+            report['analysis_diagnostic'] = native_project_analysis_diagnostic(
+                analysis_diagnostic if phase == 'analysis' else None)
         write_native_json(output, NATIVE_SOURCE_FAILED, report)
     except Exception:
         pass
@@ -414,8 +526,12 @@ def native_sorted_owners(rows):
 
 class NativeCollectionObservation:
     """Consume real existing TOCs; never discover, copy or omit a DLL."""
-    def __init__(self, value, evidence, output, build_root, input_manifest, *, system_directory_provider=None):
+    def __init__(self, value, evidence, output, build_root, input_manifest, *, system_directory_provider=None,
+            windows_directory_provider=None):
         self.value, self.output, self.records, self.private = value, output, {}, {}
+        self.analysis_started = set()
+        self.windows_directory_provider = windows_directory_provider or native_windows_directory
+        self.windows_root_query, self.windows_root = 'not-needed', None
         try:
             self.headers = native_headers(value)
             self.output = native_path(output, directory=True, missing=True)
@@ -427,12 +543,34 @@ class NativeCollectionObservation:
             self.index = native_supplier_index(value, evidence)
             self.system = (system_directory_provider or native_system_directory)()
             self.system = native_path(self.system, directory=True)
+            # These roots have already passed supplier/build identity checks.
+            # Retain only canonical roots, never environment/PATH guesses.
+            self.diagnostic_roots = tuple((role, native_path(path, directory=True)) for role, path in (
+                ('system-directory-descendant', self.system), ('current-environment', sys.prefix),
+                ('base-interpreter', sys.base_prefix), ('declared-evidence', evidence), ('build-root', self.build_root)))
         except Exception as error:
             native_failure(value, self.output, 'analysis', error)
             raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'observation-failed') from None
 
     def _source(self, path):
         return native_source_record(path, self.index, self.system)
+
+    def _diagnostic_root(self, path):
+        matches = [(len(root.parts), -order, role) for order, (role, root) in enumerate(self.diagnostic_roots)
+            if path == root or root in path.parents]
+        if matches:
+            return max(matches)[2]
+        if self.windows_root_query == 'not-needed':
+            try:
+                self.windows_root = native_path(self.windows_directory_provider(), directory=True)
+                self.windows_root_query = 'observed'
+            except Exception:
+                # This root is diagnostic only. Unavailability never selects a
+                # fallback root or changes the existing source refusal.
+                self.windows_root_query = 'unavailable'
+        if self.windows_root_query == 'unavailable':
+            return 'unavailable'
+        return 'windows-outside-system' if self.windows_root in path.parents else 'other'
 
     def _add(self, name, record, path):
         if len(self.records) >= 20000 and name not in self.records:
@@ -448,11 +586,25 @@ class NativeCollectionObservation:
         raise NativeCollectionError('observation-failed') from None
 
     def observe_analysis(self, process, binaries, explicit=()):
+        diagnostic = None
         try:
             if process not in NATIVE_GENERATED:
                 raise NativeCollectionError('invalid-toc')
+            diagnostic = {'schema': NATIVE_DIAGNOSTIC_SCHEMA, 'status': 'incomplete-current-call',
+                'scope': 'current-observe-analysis-call', 'process': process,
+                'analyses': {name: ('current-call' if name == process else
+                    'previous-call' if name in self.analysis_started else 'not-run') for name in NATIVE_GENERATED},
+                'rows_examined': 0, 'native_rows_examined': 0, 'unresolved_rows': 0,
+                'row_limit': NATIVE_ANALYSIS_ROW_LIMIT, 'native_row_limit': NATIVE_ANALYSIS_NATIVE_LIMIT,
+                'windows_root_query': 'not-needed', 'buckets': []}
+            self.analysis_started.add(process)
+            buckets = {}
             for rows, processing in ((binaries, 'analysis-native'), (explicit, 'explicit-native-resource')):
                 for row in rows:
+                    if diagnostic['rows_examined'] >= NATIVE_ANALYSIS_ROW_LIMIT:
+                        diagnostic['status'] = 'truncated-row-limit'
+                        raise NativeCollectionError('invalid-toc')
+                    diagnostic['rows_examined'] += 1
                     if not isinstance(row, (tuple, list)) or len(row) != 3:
                         raise NativeCollectionError('invalid-toc')
                     destination, origin, kind = row
@@ -460,17 +612,40 @@ class NativeCollectionObservation:
                     destination = _relative(destination.replace('\\', '/'))
                     if Path(destination).suffix.lower() not in {'.dll', '.exe', '.pyd'}:
                         continue
+                    if diagnostic['native_rows_examined'] >= NATIVE_ANALYSIS_NATIVE_LIMIT:
+                        diagnostic['status'] = 'truncated-native-limit'
+                        raise NativeCollectionError('invalid-toc')
+                    diagnostic['native_rows_examined'] += 1
                     if kind not in {'BINARY', 'EXTENSION', 'DATA'}:
                         raise NativeCollectionError('invalid-toc')
-                    path, identity, source = self._source(origin)
+                    try:
+                        path, identity, source = self._source(origin)
+                    except NativeCollectionError as error:
+                        if error.code != 'other-host-unresolved':
+                            raise
+                        # Canonical path metadata only. Never open/hash the
+                        # unknown source or add a source/output record for it.
+                        path = native_path(origin)
+                        key = processing, native_diagnostic_family(path), self._diagnostic_root(path)
+                        diagnostic['windows_root_query'] = self.windows_root_query
+                        if key not in buckets:
+                            bucket = {'processing': key[0], 'family': key[1], 'root': key[2], 'count': 0}
+                            buckets[key] = bucket
+                            diagnostic['buckets'].append(bucket)
+                        buckets[key]['count'] += 1
+                        diagnostic['unresolved_rows'] += 1
+                        continue
                     if processing == 'explicit-native-resource' and (source['role'] != 'declared-supplier-observed'
                             or not any(item['kind'] == 'resource' for item in source['resolved_inputs'])):
                         raise NativeCollectionError('unbound-supplier-member')
                     name = ('asr/' if process == 'asr' else '') + '_internal/' + destination
                     record = {'path': name, 'process': process, 'processing': processing, **identity, 'source': source}
                     self._add(name, record, path)
+            diagnostic['status'] = 'complete-current-call'
+            if diagnostic['unresolved_rows']:
+                raise NativeCollectionError('other-host-unresolved')
         except Exception as error:
-            native_failure(self.value, self.output, 'analysis', error, len(self.records))
+            native_failure(self.value, self.output, 'analysis', error, len(self.records), analysis_diagnostic=diagnostic)
             raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'observation-failed') from None
 
     def observe_generated(self, process, path):

@@ -24,7 +24,7 @@ under its private `quarantine` directory:
 | --- | --- |
 | `NATIVE-COLLECTION-INPUTS.json` | Actual observed TOC/native source hashes, fixed processing categories, source/member records and current build-input identity. Written after both existing COLLECT steps and unchanged-source checks. |
 | `NATIVE-COLLECTION.json` | The input snapshot revalidated against original supplying members, current source bytes and the existing final inventory's native output bytes. Bound to the exact inventory SHA-256. |
-| `NATIVE-COLLECTION-FAILED.json` | Fixed failure phase/code, bounded record count and source/build identity only. No raw exception, source path, environment, TOC text or arguments. |
+| `NATIVE-COLLECTION-FAILED.json` | Fixed failure phase/code, bounded record count, source/build identity and optional fixed-category current-analysis census. No raw exception, source path, environment, TOC text or arguments. |
 
 The successful observation status is `observed-not-approved`. Native closure,
 incorporated code, generated executable internals and rights remain unverified
@@ -72,6 +72,80 @@ approval or automatic Windows-component exclusion. A real future build must
 observe its own supplying bytes; the historical unknown-payload count and hosted
 image are not hardcoded inputs.
 
+## Refused current-analysis census
+
+An `other-host-unresolved` row remains refused. Within the same existing
+`observe_analysis` call, the observer can continue examining that call's remaining
+main or ASR native rows to count unresolved sources. It does not open, hash or
+copy their contents, add a source/output record for them, discover additional
+files or change PyInstaller's collection. A later invalid row, unsafe source,
+changed supplier byte or other error stops immediately with its original fixed
+failure code. A completed census with any unresolved source raises the same
+`other-host-unresolved` exception before the next PYZ, EXE or COLLECT stage.
+The existing main-first ordering is unchanged: a refused main call prevents ASR
+Analysis from running.
+
+The optional `analysis_diagnostic` in the failed JSON uses schema
+`proxy-r19-native-analysis-census-v1`. Its scope is only the current
+`observe_analysis` call, including that call's existing explicit helper/codec
+rows. It records these fixed fields:
+
+- `process` and `analyses`: main/ASR with `current-call`, `previous-call` or
+  `not-run`. `previous-call` describes an earlier call; it does not prove a
+  generated executable, successful finalization or complete process closure.
+- `status`: `complete-current-call`, `incomplete-current-call`,
+  `truncated-row-limit` or `truncated-native-limit`. Counts cover at most 50,000
+  examined TOC rows and 20,000 examined native rows per call. Reaching a limit
+  refuses with `invalid-toc`; it never silently omits a source. The triggering
+  row for the native limit is included in the total examined row count but is
+  not admitted or resolved as a native source.
+- `rows_examined`, `native_rows_examined` and `unresolved_rows`, plus the two
+  fixed limits. `observed_records` remains the separate count of valid records
+  already admitted by the observer; it is not the unknown-source count.
+- Up to 80 unique count buckets combining the existing
+  `analysis-native`/`explicit-native-resource` categories with a fixed family
+  and root category. No bucket contains a source/destination filename, path,
+  path hash, unknown-file content hash or environment value.
+
+The five family categories are `api-core`, `api-crt`, `ucrt`, `vc-runtime` and
+`not-allowlisted`. They classify limited case-insensitive filename spellings;
+none establishes a supplier, loader mapping, copyright owner, license, source
+delivery, Windows origin or permission to admit that source. In particular,
+[Windows API-set names](https://learn.microsoft.com/en-us/windows/win32/apiindex/windows-apisets)
+describe loader contracts and do not by themselves identify physical DLL bytes.
+
+Root categories describe containment against canonical roots already checked by
+the current observation: `current-environment` (`sys.prefix`),
+`base-interpreter` (`sys.base_prefix`), `declared-evidence`, `build-root` and
+`system-directory-descendant`. The most specific containing root wins; equal
+current/base interpreter roots use `current-environment`. Existing native
+sources inside SystemDirectory subdirectories remain
+`windows-system-observed`; the census does not create a new admission rule for
+them. Canonical directory checks still reject links and reparse points.
+
+For an unresolved source outside those known roots, the observer makes at most
+one bounded, read-only
+[`GetSystemWindowsDirectoryW`](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemwindowsdirectoryw)
+query per observer. This shared Windows-root observation can distinguish
+`windows-outside-system` from `other`. An unavailable, malformed or unsafe
+query result yields `unavailable`, with no WINDIR, SystemRoot, PATH, registry or
+other fallback. `windows_root_query` is `not-needed`, `observed` or
+`unavailable`. This extra root is diagnostic only: it cannot replace the
+existing authoritative
+[`GetSystemDirectoryW`](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemdirectoryw)
+source boundary. No Windows directory or family category grants source
+authority or changes the refusal.
+
+The failure writer independently revalidates every census field, enum, integer
+bound, bucket uniqueness and count sum. Malformed diagnostic input is replaced
+by a fixed `unavailable` census; arbitrary exception attributes are never read
+as diagnostic evidence. The failed receipt retains the exact source/build
+identity and every pending/false gate. A complete current-call census is not a
+complete native inventory, source approval or native execution result. The
+first real A2 Analysis refused `other-host-unresolved`; the diagnostic extension
+still needs its own actual frozen Windows observation and independent artifact
+review before any origin conclusion can be drawn.
+
 ## Finalization and refusal
 
 [closure.py](../packaging/runtime-bundle/closure.py) uses the existing native
@@ -98,6 +172,17 @@ directory API contract, source-order refusal, source/output/manifest tampering,
 aliases, links, malformed snapshots, safe failure projection and unchanged
 inventory/ownership fields. No native supplier DLL or executable is run by
 these tests.
+Additional authored contracts cover multiple unknown rows in one real spec
+call, unopened/unhashed unknown sentinels, family spelling and forged prefixes,
+known-root specificity, existing SystemDirectory subdirectories, bounded
+Windows-root query failure, immediate other-error refusal, truncated/incomplete
+counts, main/ASR scope and independent rejection of malformed census fields.
+The A2 finalizer fixtures replace only the independent mandatory PE-review
+helper with an explicit `authored-byte-only-native-images-not-tested` stub. It
+accepts only their fixed non-PE payloads and matching inventory bytes/hashes,
+keeps production/R19 gates false and writes no PE-success sidecar. These
+fixtures provide no PE-parser or executable-review evidence; that boundary has
+separate parser/finalizer integration contracts.
 CPython and wheel ancestor-link fixtures separately guard native leaf stat,
 open and digest operations: the supplier index must reject the raw ancestor
 without any of those operations reaching the linked native file. Windows uses
