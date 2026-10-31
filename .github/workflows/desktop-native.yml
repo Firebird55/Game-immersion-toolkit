@@ -59,7 +59,7 @@ jobs:
         run: |
           python -c "import sys; from pathlib import Path; sys.path.insert(0, 'packaging/runtime-bundle'); from record_runtime import verify_wheel; [verify_wheel(wheel) for wheel in sorted(Path('output/wheelhouse').glob('*.whl'))]"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py backend/tests/test_owned_process.py backend/tests/test_desktop_release.py
+      - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py backend/tests/test_owned_process.py backend/tests/test_desktop_release.py backend/tests/test_native_capture_probe.py
       - name: Install Linux build-runner display services
         if: runner.os == 'Linux'
         run: |

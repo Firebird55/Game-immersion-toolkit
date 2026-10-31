@@ -68,6 +68,12 @@ main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
 # image conversion/thresholding, never those models; do not relabel them as user
 # data or relax the private-tree gate to accept arbitrary `data/` directories.
 main.datas = [entry for entry in main.datas if not entry[0].replace('\\', '/').startswith('cv2/data/')]
+# The desktop uses raster QWidget painting, never a QOpenGLWidget/context.
+# Qt's generic GUI hook includes an optional Mesa/LLVM OpenGL fallback even
+# though none of the selected images imports it. Keep that unused renderer out
+# of this payload instead of shipping an unrelated native dependency family.
+main.binaries = [entry for entry in main.binaries
+                 if Path(entry[0]).name.casefold() != 'opengl32sw.dll']
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
     name='GameImmersionToolkit', console=True, contents_directory='_internal')

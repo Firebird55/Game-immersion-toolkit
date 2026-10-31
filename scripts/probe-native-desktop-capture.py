@@ -33,10 +33,11 @@ def system_owner_category(value, executable_for_pid):
     """
     name = value.get('kCGWindowOwnerName')
     pid = value.get('kCGWindowOwnerPID')
-    if name not in SYSTEM_OWNERS or type(pid) is not int or pid <= 0:
+    # Quartz bridges NSNumber to an int subclass, not an exact builtin int.
+    if name not in SYSTEM_OWNERS or not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
         return 'other'
     try:
-        path = PurePosixPath(executable_for_pid(pid))
+        path = PurePosixPath(executable_for_pid(int(pid)))
         if path.name != name or PurePosixPath('/System/Library') not in path.parents or '..' in path.parts:
             return 'other'
     except Exception:
@@ -51,10 +52,10 @@ def owner_verification_diagnostics(value, executable_for_pid):
               'executable_lookup_succeeded': False,
               'executable_in_system_library': False,
               'executable_basename_matches_label': False}
-    if type(pid) is not int or pid <= 0:
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
         return result
     try:
-        path = PurePosixPath(executable_for_pid(pid))
+        path = PurePosixPath(executable_for_pid(int(pid)))
         result.update(executable_lookup_succeeded=True,
             executable_in_system_library=PurePosixPath('/System/Library') in path.parents and '..' not in path.parts,
             executable_basename_matches_label=path.name == name)

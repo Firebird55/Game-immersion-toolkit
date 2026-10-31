@@ -2,6 +2,7 @@
 from importlib.util import module_from_spec, spec_from_file_location
 import json
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -82,3 +83,20 @@ def test_unknown_system_owner_diagnostics_explain_failure_without_disclosing_ide
         'executable_in_system_library': True, 'executable_basename_matches_label': True}
     assert not value['full_display_system_obstruction']
     assert 'Private process label' not in json.dumps(value)
+
+
+def test_native_integer_subclass_still_requires_real_process_identity():
+    class NativeInteger(int):
+        pass
+    value = diagnose(window(20, 'Dock', NativeInteger(99), (0, 0, 1024, 768)))
+    assert value['full_display_system_obstruction']
+    assert value['overlaps'][0]['owner_verification']['executable_lookup_succeeded']
+    for invalid in (True, False, 0, -1, '99', 99.0):
+        assert not diagnose(window(20, 'Dock', invalid, (0, 0, 1024, 768)))['full_display_system_obstruction']
+
+
+@pytest.mark.skipif(sys.platform != 'darwin', reason='Native NSNumber bridge is macOS-only')
+def test_actual_quartz_number_bridge_can_verify_system_owner():
+    from Foundation import NSNumber, NSDictionary
+    value = NSDictionary.dictionaryWithDictionary_({'pid': NSNumber.numberWithInt_(99)})['pid']
+    assert diagnose(window(20, 'Dock', value, (0, 0, 1024, 768)))['full_display_system_obstruction']

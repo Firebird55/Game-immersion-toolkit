@@ -133,6 +133,20 @@ The combined host/capture-probe local suite passes 23 cases. Native reruns remai
 required. Windows construction in this run stopped on an audio-source network
 timeout before freezing; it is not a frozen-runtime regression result.
 
+Run 41209734392 narrows the macOS owner-verification problem to its integer
+bridge: the owner label is recognized, but the strict builtin-type test prevents
+process lookup. [PyObjC documents NSNumber's integer subclasses](https://pyobjc.readthedocs.io/en/latest/changelog.html).
+The probe now accepts positive integer subclasses, still rejects booleans and
+invalid PIDs, and still verifies the actual system executable. An authored
+subclass case passes locally; a real Foundation number case runs only on macOS.
+
+The selected desktop UI uses raster Qt Widgets without OpenGL contexts. The
+freeze specification now excludes the optional `opengl32sw.dll` Mesa/LLVM
+fallback. A PE import and delay-import scan of every executable, DLL and Python
+extension in the prior Windows candidate found no importer of that file.
+The next frozen status/tray probe must verify the reduced selection before
+claiming native acceptance; source scans alone do not prove runtime behavior.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),
