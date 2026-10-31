@@ -79,3 +79,39 @@ package, along with all four existing popup cases and the Firefox isolated-world
 settings checks. The active game companion, accounts and storage were untouched.
 Remaining acceptance evidence stays in the
 [reader completion plan](reader-lan-completion-plan.md#remaining-acceptance-evidence).
+
+## Deployment refresh at 22:09 UTC
+
+The watch at `2026-10-31T21:40:12.157Z` reported unchanged documentation and
+changed UI hashes. A fresh unauthenticated fetch at 22:09 UTC compared all 42
+current homepage JavaScript chunks with the earlier source receipt. Forty are
+byte-identical after replacing only their two PostHog build-ID annotations.
+This includes the settings, reading/popup, lookup and language/capability modules
+reviewed above. Their accepted settings, lookup behavior and language arrays
+therefore remain covered by the previous contract review.
+
+The other two chunks correspond to earlier files under new names. After the
+same instrumentation normalization, their complete sources differ only in one
+opaque `dismissPromo` server-action identifier and the public website's
+`X-Lexirise-Version` value changing from `0.15.24` to `0.15.25`. Neither is a
+consumer API contract change: the toolkit does not invoke the website's promo
+server action or impersonate its client version. The normalized API-reference
+hash remains `4c6d3e5f84efaf1f0c953151bf564fadc5b552e14ec28dcaf5cbc6a3289a0b77`;
+the AI-readable index is byte-identical to the prior receipt.
+
+The current raw contract-module SHA-256 identities are:
+
+| Source | SHA-256 |
+| --- | --- |
+| [Language/capability module](https://lexirise.app/_next/static/chunks/2-_nw52iokrxo.js) | `489818903844eec7224a5c9cdffdfcc85595e3b4e5b777da146942434483bd71` |
+| [Reading/popup settings module](https://lexirise.app/_next/static/chunks/3s-cfl8tdgtmm.js) | `2d41ed938af103e5aa1e58beb83963e885737abf969c86bcd3c8948a9659bf8e` |
+| [Lookup/floating UI module](https://lexirise.app/_next/static/chunks/2nzxjj_v_r-x8.js) | `814728eb7b9fd8c288375caa59d091049268d497fd45d2fb8d168df88f0aa8b9` |
+| [Global settings module](https://lexirise.app/_next/static/chunks/1i0u8jpv5kylz.js) | `fdb542bd9ec4e6818fdde3cde18ab8b8a19ec6316aa078279fa17d62e5b5a91d` |
+
+The full fetch and exact replacement comparisons remain in ignored
+`output/lexirise-review-20261031-refresh`. This refresh required no functional
+adaptation to shared **1.0.14** and no account operation. The shared baseline was
+left unchanged; a repeated hash alert for this reviewed deployment does not
+imply an unreviewed behavior change. Later public deployments still require a
+new comparison. The [shared typography report](shared-reader-typography-2026-10-31.md)
+records 1.0.14's separate release and consumer validation.
