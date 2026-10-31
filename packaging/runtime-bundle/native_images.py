@@ -149,13 +149,13 @@ class _Image:
                 return []
             phase, reason = 'descriptor', 'directory-too-short'
             _require(size >= stride, 'invalid-import')
-            result, folded = [], set()
+            result, folded = [], {}
             for i in range(min(size // stride, MAX_IMPORTS + 1)):
                 phase, reason = 'descriptor', 'descriptor-range'
                 position, _end = self.locate(address + i * stride, stride)
                 fields = self.numbers('<' + 'I' * (stride // 4), position)
                 if not any(fields):
-                    return sorted(result, key=lambda name: (name.casefold(), name))
+                    return sorted(folded.values(), key=lambda name: (name.casefold(), name))
                 reason = 'entry-limit'
                 _require(len(result) < MAX_IMPORTS, 'invalid-import')
                 if delayed:
@@ -182,9 +182,9 @@ class _Image:
                         self.locate(names, self.width)
                 phase, reason = 'name', 'name-range'
                 text = self.module_name(name)
-                phase, reason = 'duplicate', 'duplicate-module-name'
-                _require(text.casefold() not in folded, 'invalid-import')
-                folded.add(text.casefold()); result.append(text)
+                # Count every validated descriptor; fold only reported module
+                # identities, preserving the first spelling deterministically.
+                folded.setdefault(text.casefold(), text); result.append(text)
             phase, reason = 'termination', 'missing-terminator'
             raise NativeImageError('invalid-import')
         except NativeImageError as error:

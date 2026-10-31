@@ -40,25 +40,50 @@ existing case-sensitive inventory-path sort; it can be correlated with that
 exact inventory without adding a path or import spelling to the failure JSON.
 `helper` describes the existing packaged helpers subtree, not supplier or
 execution approval. For import failures it also records `normal/delay`, a
-finite subphase (`directory`, `descriptor`, `pointer`, `name`, `duplicate` or
+finite subphase (`directory`, `descriptor`, `pointer`, `name` or
 `termination`) and the exact existing predicate's finite reason where available:
 directory layout/length, descriptor range/limit/delay attributes, required
-pointer/range, name range/empty-or-unterminated/non-ASCII/format, duplicate name,
+pointer/range, name range/empty-or-unterminated/non-ASCII/format,
 or missing terminator. RVA mapping errors retain their original refusal code.
+The historical `duplicate/duplicate-module-name` labels remain readable by the
+unchanged wrapper; repeated module identity is no longer a new refusal below.
 Non-import failures have no import context. Errors before selection, malformed
 diagnostic data, extra keys, unknown labels, invalid phase/reason combinations
 and out-of-range or noninteger ordinals become `diagnostic.status=unavailable`.
 The wrapper revalidates every field and copies only those labels. It never
 serializes exception attributes, paths, import names, native bytes or RVAs.
-These diagnostics change no parser predicate, count limit or architecture policy.
+The diagnostic projection changes no count limit or architecture policy.
 
 On source `702d6673c893942c92079c139fa800cd94cb9be7`, integrated run
 `41174915697` stopped at mandatory P1 finalization with the fixed
 `invalid-import` receipt. That earlier receipt contains no subphase or selected
 ordinal. It does not identify which image/predicate failed, prove A2 sidecar
-contents or establish complete native closure. The new diagnostic and retention
-path require another actual collected run and independent artifact review; the
-source fixtures below cannot provide that evidence.
+contents or establish complete native closure. Source fixtures cannot provide
+the missing collected-output evidence.
+
+The later integrated run `41181114221`, source
+`02c6380bfbdccc63af311391ede52a1a4020153d`, retained that diagnostic and all
+three preceding metadata files. Provider-digest-verified ZIPs contained exactly
+the refusal and inventory/A2 JSON allowlists. The inventory has 1,449 files;
+the A2 input/final sidecars bind the same 473 selected native records (431 main,
+42 ASR) to the exact inventory and snapshot hashes. This is a metadata review,
+not independent reexecution of the source/output checks. It does not establish
+retention of the old 48 unresolved identities: those were published only as
+family buckets, and the current selected inventory has no API-core, API-CRT or
+UCRT basenames from those categories. Complete native closure remains open.
+
+That run refused `invalid-import/normal/duplicate/duplicate-module-name` at
+selected ordinal 430 of 473. The exact retained inventory maps it to
+`_internal/windows_capture/windows_capture.pyd`, 534,016 bytes, SHA-256
+9464e5a6a05e980418eeab6b3a774441b4c737ba6bd596ff0d1eead3e48bf7aa.
+A2 binds it to windows-capture 2.0.1 wheel SHA-256
+209c2318e2168802b9afd1005e99499639e8835e71a1e188a3ddc77c7ccc3f04.
+The already cached exact wheel member was read directly with `ZipFile.read`,
+without another download, extraction or DLL execution. Its bounded raw table
+has 18 normal descriptors, 17 case-folded module identities (one appears twice),
+an empty terminator and no delay descriptors. Every existing pointer/name check
+passes. This identifies our extra uniqueness predicate as the refusal trigger;
+it does not prove that Windows resolves or loads every import.
 
 Selection is deliberately limited to inventory names ending in `.exe`, `.dll`
 or `.pyd`, matching A2. It does not content-scan all emitted files, detect PE
@@ -94,16 +119,29 @@ only the Python standard library plus the existing project guard modules.
 Primary format references, read on 2026-10-31:
 
 - [Microsoft PE/COFF format](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format): DOS/COFF/optional headers, section mapping, import and delay-import directories.
+- [Microsoft LoadLibraryW remarks](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryw#remarks): reuse of an already loaded module basename and per-process module reference counts; not a complete static-import loader specification.
 - [Microsoft CorFlags tool](https://learn.microsoft.com/en-us/dotnet/framework/tools/corflags-exe-corflags-conversion-tool): IL-only, required/preferred 32-bit behavior and DLL limitations.
 - [Microsoft .NET 10.0.0 CLR header definitions](https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/inc/corhdr.h): CLR directory/header layout, native entrypoint interpretation and the paired required/preferred flags.
 
 The parser distinguishes PE32/PE32+, I386/AMD64/ARM64, DLL/executable,
 native/managed IL/managed-native, and separate normal/delay module imports.
 Overlapping virtual/raw sections, truncated tables, unbacked name RVAs,
-unterminated/aliased module names, reserved delay attributes and malformed CLR
+unterminated/nonportable module names, reserved delay attributes and malformed CLR
 headers are refused with fixed safe codes. Old delay descriptors use VAs; modern
 ones use RVAs. Writable IAT/module-handle storage may be virtual, while names,
 lookup metadata and parsed header payloads must be file-backed.
+
+The PE specification describes a descriptor array and its empty terminator; our
+additional basename-uniqueness refusal was not a declared format-field check.
+Normal and delay descriptors now all undergo the same complete pointer/name
+validation even when their module identity repeats. The 512-entry limit counts
+every nonempty descriptor, including repeats. Only the returned module identity
+list is folded case-insensitively, retaining the first observed spelling and
+sorting the result deterministically. A repeated descriptor cannot bypass an
+invalid pointer/name, missing terminator or entry limit. No descriptor, DLL,
+inventory entry or source record is removed from collection. This narrow static
+observation change establishes no import-symbol, loader, supplier or rights
+compatibility; actual collected execution still needs its independent probes.
 
 CLR classification requires the bounded directory, supported 72-byte header,
 metadata range/signature/version-string bounds and interpreted entry token/RVA.

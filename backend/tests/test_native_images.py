@@ -153,9 +153,45 @@ def test_imports_never_publish_paths_controls_or_windows_aliases(images, name):
     assert 'PRIVATE' not in str(failure.value) and name not in str(failure.value)
 
 
-def test_duplicate_import_descriptors_and_case_aliases_refuse(images):
-    with pytest.raises(images.NativeImageError, match='invalid-import'):
-        images.inspect_pe(authored_pe(imports=('KERNEL32.dll', 'kernel32.DLL'), delayed=()))
+@pytest.mark.parametrize('delayed', [False, True])
+@pytest.mark.parametrize('repeated', ['KERNEL32.dll', 'kernel32.DLL'])
+def test_repeated_descriptors_report_one_module_after_validating_each_descriptor(images, delayed, repeated):
+    names = ('KERNEL32.dll', repeated)
+    result = images.inspect_pe(authored_pe(imports=() if delayed else names, delayed=names if delayed else ()))
+    assert result['delay_imports' if delayed else 'imports'] == ['KERNEL32.dll']
+    assert result['imports' if delayed else 'delay_imports'] == []
+
+
+@pytest.mark.parametrize('delayed', [False, True])
+@pytest.mark.parametrize('fault', ['missing-pointer', 'pointer-range', 'name-range', 'name-format'])
+def test_repeated_descriptor_identity_never_short_circuits_its_pointer_or_name_checks(images, delayed, fault):
+    names = ('KERNEL32.dll', 'kernel32.DLL')
+    raw = authored_pe(imports=() if delayed else names, delayed=names if delayed else ())
+    second = 0x580 + 32 if delayed else 0x500 + 20
+    if fault in {'missing-pointer', 'pointer-range'}:
+        raw = change(raw, '<I', second + (12 if delayed else 16), 0 if fault == 'missing-pointer' else 0x3000)
+    elif fault == 'name-range': raw = change(raw, '<I', second + (4 if delayed else 12), 0x3000)
+    else:
+        raw = bytearray(raw); start = 0x7c0 if delayed else 0x740
+        raw[start:start + 17] = b'PRIVATE name.dll\0'; raw = bytes(raw)
+    with pytest.raises(images.NativeImageError) as failure:
+        images.inspect_pe(raw)
+    assert failure.value.context == {'import_table': 'delay' if delayed else 'normal',
+        'import_phase': 'pointer' if 'pointer' in fault else 'name',
+        'import_reason': {'missing-pointer': 'required-pointer-missing', 'pointer-range': 'pointer-range',
+            'name-range': 'name-range', 'name-format': 'name-format'}[fault]}
+    assert 'PRIVATE' not in str(failure.value)
+
+
+@pytest.mark.parametrize('delayed', [False, True])
+def test_repeated_descriptors_still_require_a_zero_terminator(images, delayed):
+    names = ('KERNEL32.dll', 'kernel32.DLL')
+    raw = authored_pe(imports=() if delayed else names, delayed=names if delayed else ())
+    raw = change(raw, '<I', 0x98 + 112 + (13 if delayed else 1) * 8 + 4, 2 * (32 if delayed else 20))
+    with pytest.raises(images.NativeImageError, match='invalid-import') as failure:
+        images.inspect_pe(raw)
+    assert failure.value.context == {'import_table': 'delay' if delayed else 'normal',
+        'import_phase': 'termination', 'import_reason': 'missing-terminator'}
 
 
 @pytest.mark.parametrize('table,phase,reason,code', [
@@ -168,7 +204,6 @@ def test_duplicate_import_descriptors_and_case_aliases_refuse(images):
     ('normal', 'name', 'name-empty-or-unterminated', 'invalid-import'),
     ('delay', 'name', 'name-non-ascii', 'invalid-import'),
     ('normal', 'name', 'name-format', 'invalid-import'),
-    ('delay', 'duplicate', 'duplicate-module-name', 'invalid-import'),
     ('normal', 'termination', 'missing-terminator', 'invalid-import'),
 ])
 def test_actual_import_refusals_add_only_finite_stage_and_predicate_labels(images, table, phase, reason, code):
@@ -184,7 +219,6 @@ def test_actual_import_refusals_add_only_finite_stage_and_predicate_labels(image
     elif reason == 'name-non-ascii':
         raw = bytearray(raw); raw[0x780] = 0xff; raw = bytes(raw)
     elif reason == 'name-format': raw = authored_pe(imports=('PRIVATE name.dll',))
-    elif reason == 'duplicate-module-name': raw = authored_pe(delayed=('optional.dll', 'OPTIONAL.DLL'))
     else: raw = change(raw, '<I', 0x98 + 112 + 8 + 4, 20)
     with pytest.raises(images.NativeImageError, match=code) as failure:
         images.inspect_pe(raw)
@@ -209,6 +243,29 @@ def test_actual_import_entry_limit_retains_original_bound_and_reports_only_fixed
         images.inspect_pe(bytes(raw))
     assert images.MAX_IMPORTS == 512
     assert failure.value.context == {'import_table': 'normal', 'import_phase': 'descriptor', 'import_reason': 'entry-limit'}
+
+
+@pytest.mark.parametrize('delayed', [False, True])
+@pytest.mark.parametrize('count', [512, 513])
+def test_import_limit_counts_every_repeated_descriptor_not_unique_module_identities(images, delayed, count):
+    raw = bytearray(authored_pe(imports=(), delayed=())) + bytearray(0x5000)
+    struct.pack_into('<I', raw, 0x98 + 56, 0x7000)
+    struct.pack_into('<IIII', raw, 0x188 + 8, 0x6000, 0x1000, 0x6000, 0x400)
+    stride = 32 if delayed else 20
+    struct.pack_into('<II', raw, 0x98 + 112 + (13 if delayed else 1) * 8, 0x1100, (count + 1) * stride)
+    raw[0x5400:0x540d] = b'KERNEL32.dll\0'
+    for i in range(count):
+        fields = (1, 0x6000, 0x67f0, 0x6600, 0x6500, 0, 0, 0) if delayed else (0x6500, 0, 0, 0x6000, 0x6600)
+        struct.pack_into('<' + 'I' * len(fields), raw, 0x500 + i * stride, *fields)
+    if count == 512:
+        result = images.inspect_pe(bytes(raw))
+        assert result['delay_imports' if delayed else 'imports'] == ['KERNEL32.dll']
+    else:
+        with pytest.raises(images.NativeImageError, match='invalid-import') as failure:
+            images.inspect_pe(bytes(raw))
+        assert failure.value.context == {'import_table': 'delay' if delayed else 'normal',
+            'import_phase': 'descriptor', 'import_reason': 'entry-limit'}
+    assert images.MAX_IMPORTS == 512
 
 
 @pytest.mark.parametrize('flags,entry,native_header', [(0x20001, None, False), (0x20003, None, True),
