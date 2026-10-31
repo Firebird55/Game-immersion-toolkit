@@ -74,6 +74,8 @@ jobs:
       - run: npm run desktop:build -- --output-root output/desktop-frontend
       - name: Collect the pinned app-local grammar runtime
         run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources
+      - name: Retain pinned Qt sources and full notices
+        run: python scripts/build-qt-resources.py --output output/qt-resources --cache output/qt-source-cache
       - name: Acquire the verified Windows codec build compiler
         if: runner.os == 'Windows'
         run: ./scripts/prepare-codec-compiler.ps1 -OutputRoot output/codec-compiler
@@ -89,7 +91,7 @@ jobs:
           python scripts/probe-native-audio.py --resources output/audio-resources --output output/native-audio-probe.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Freeze the native runtime and isolated ASR child
-        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources --resources-root output/node-resources
+        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources --resources-root output/node-resources --resources-root output/qt-resources
       - name: Exercise frozen startup, API crash recovery and owned shutdown
         run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
       - name: Observe native window, tray and browser handler requests

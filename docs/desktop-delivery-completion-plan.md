@@ -75,8 +75,27 @@ bodyless requests and still streams actual request bodies. The targeted gateway
 tests and all five update scenarios pass; the earlier local run remains a failure.
 
 Native executable and helper names now use `GameImmersionToolkit` throughout
-packaging, shortcuts, updates and CI. Packaging/runtime checks passed (83 tests,
-three host-dependent skips); the renamed artifact needs rebuilding.
+packaging, shortcuts, updates and CI. The renamed Windows artifact from
+`c583359` passes frozen host lifecycle and visible-UI probes. Its actual isolated
+`GameImmersionToolkitAsr.exe` also imports the speech native API successfully;
+the loaded-image check observes 59 application/Windows images without loading
+the main runtime's ONNX family. Speech model inference remains untested by that
+import probe. The Windows ZIP and Setup executable compile successfully, but
+remain private candidates, not installed or published releases.
+
+The naming fix passes the PR's hosted required checks. Native construction on
+the preceding `4605d3f` passes on Windows. macOS exposed a missing Python 3.12
+`waitid` API, and Linux exposed absent Qt xcb runner libraries. Commit `6c32c50`
+adds a non-reaping macOS child-state observer and the Linux display dependencies
+with an explicit missing-library diagnostic. Its comprehensive local checks,
+including browser/LAN, recovery, installer/update fixtures and publication audit,
+pass. Hosted native validation of those platform fixes is pending.
+
+Qt/PySide 6.12.0 source collection now retains the exact unmodified upstream
+archives for PySide/Shiboken, Qt Base, SVG and image formats, alongside full
+license and attribution files. Hashes bind these inputs to the resource inventory.
+This closes the missing Qt source-file collection step; final selected native
+dependency review and the other components' source/notice gaps remain open.
 
 The exact Windows candidate from `984cb51` now passes frozen host startup,
 frontend/API access, API crash recovery, same-state restart, owned shutdown,

@@ -220,7 +220,8 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
         # metadata label is not promoted to an approval by this observer.
         for file in distribution.files or []:
             name = Path(str(file)).name.casefold()
-            if name.startswith(('license', 'copying', 'notice')) or name == 'metadata':
+            if (name.startswith(('license', 'copying', 'notice'))
+                    or name in {'metadata', 'thirdpartynotices.txt', 'third_party_notices.txt'}):
                 path = Path(distribution.locate_file(file))
                 if path.is_file():
                     suffix = hashlib.sha256(str(file).encode()).hexdigest()[:10]

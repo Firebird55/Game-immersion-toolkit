@@ -1,6 +1,6 @@
 # Native desktop delivery acceptance
 
-Updated 2026-10-30. This is remaining implementation and acceptance work under
+Updated 2026-10-31. This is remaining implementation and acceptance work under
 [R19](r19-completion-plan.md) and the
 [desktop delivery plan](desktop-delivery-completion-plan.md). The owner's current
 request authorizes installer development and local replacement. It does not turn
@@ -25,6 +25,12 @@ missing native results or redistribution evidence into a pass.
   using the R19 spec. Build-host Python, Node, PyInstaller and Inno are not user
   installation prerequisites. Missing game helper/codec capabilities still need
   closure before a dependency-free release can be claimed.
+- Qt/PySide sources are collected by `scripts/build-qt-resources.py` from the
+  exact hashes in `packaging/desktop/qt-sources.json`. The build checks installed
+  PySide/Shiboken versions, retains unmodified source archives and complete
+  license/attribution files, and includes them through `--resources-root`.
+  Missing or changed inputs fail; this collection is not final approval of the
+  frozen native dependency inventory or unrelated bundled components.
 - The release workflow invokes native construction on Windows x64, Ubuntu 24.04
   x64 and macOS 15 arm64. It checks the frozen host with a reduced
   PATH and uploads construction metadata only. Unreviewed binary candidates are
