@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -18,7 +19,10 @@ import ssl
 import subprocess
 import sys
 import tarfile
+import time
+import urllib.error
 import urllib.request
+import uuid
 import zipfile
 import certifi
 
@@ -26,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from backend.native_codecs import PREFIX, SCHEMA, host_target
 from backend.runtime_bundle import relative_resource
+from scripts.audio_runtime_posix import prepare_dependencies, build_vgmstream, verify_ffmpeg_features
 
 PIN_FILE = ROOT / 'packaging/codecs/audio-runtime.json'
 
@@ -37,13 +42,30 @@ def digest(path):
 
 def acquire(pin, cache):
     path = cache / pin['archive']
-    if not path.exists():
+    if path.exists():
+        if digest(path) != pin['sha256']:
+            raise ValueError('Source archive checksum differs: ' + pin['archive'])
+        return path
+    for attempt in range(3):
+        temporary = cache / (pin['archive'] + '.partial-' + uuid.uuid4().hex)
         request = urllib.request.Request(pin['url'], headers={'User-Agent': 'GameImmersionToolkit-build/1', 'Accept': 'application/octet-stream'})
-        with urllib.request.urlopen(request, context=ssl.create_default_context(cafile=certifi.where()), timeout=90) as response, path.open('xb') as target:
-            shutil.copyfileobj(response, target)
-    if digest(path) != pin['sha256']:
-        raise ValueError('Source archive checksum differs: ' + pin['archive'])
-    return path
+        try:
+            print(f"Downloading {pin['archive']} (attempt {attempt + 1}/3)", flush=True)
+            with urllib.request.urlopen(request, context=ssl.create_default_context(cafile=certifi.where()), timeout=60) as response, temporary.open('xb') as target:
+                shutil.copyfileobj(response, target)
+            if digest(temporary) != pin['sha256']:
+                raise ValueError('Source archive checksum differs: ' + pin['archive'])
+            temporary.replace(path)
+            return path
+        except urllib.error.HTTPError as error:
+            if error.code not in {408, 429, 500, 502, 503, 504} or attempt == 2:
+                raise
+        except (urllib.error.URLError, OSError, http.client.IncompleteRead):
+            if attempt == 2:
+                raise
+        finally:
+            temporary.unlink(missing_ok=True)
+        time.sleep(2 ** attempt)
 
 
 def run(args, cwd, env, log):
@@ -78,7 +100,7 @@ def build(work, output, cache, shell, toolchain=None, windows_vgmstream=False, j
     env = dict(os.environ)
     if toolchain:
         env['PATH'] = str(shell.parent) + os.pathsep + str(toolchain / 'bin') + os.pathsep + env.get('PATH', '')
-    for variable in ('CFLAGS', 'CPPFLAGS', 'CXXFLAGS', 'LDFLAGS', 'CPATH', 'LIBRARY_PATH', 'PKG_CONFIG_LIBDIR', 'PKG_CONFIG_PATH', 'PATH_SEPARATOR'):
+    for variable in ('CFLAGS', 'CPPFLAGS', 'CXXFLAGS', 'LDFLAGS', 'CPATH', 'LIBRARY_PATH', 'PKG_CONFIG_LIBDIR', 'PKG_CONFIG_PATH', 'PATH_SEPARATOR', 'CMAKE_PREFIX_PATH', 'CMAKE_MODULE_PATH'):
         env.pop(variable, None)
     env['CONFIG_SHELL'] = '/usr/bin/sh' if sys.platform == 'win32' else str(shell)
     make = str(toolchain / 'bin/make.exe') if toolchain else 'make'
@@ -96,6 +118,10 @@ def build(work, output, cache, shell, toolchain=None, windows_vgmstream=False, j
     prefix = work / 'prefix'
     (prefix / 'include/lame').mkdir(parents=True)
     (prefix / 'lib').mkdir()
+    posix = sys.platform in {'linux', 'darwin'}
+    if posix:
+        vgmstream, dependency_paths = prepare_dependencies(pins, work, prefix, cache, sources,
+            env, shell, jobs, acquire, run)
     lame_options = ['--prefix=/toolkit-codecs', '--disable-shared', '--enable-static', '--disable-decoder',
                     '--disable-frontend', '--disable-gtktest', '--disable-nasm', 'CFLAGS=-O2 -fPIC']
     if sys.platform == 'win32': lame_options += ['--host=x86_64-w64-mingw32']
@@ -113,8 +139,18 @@ def build(work, output, cache, shell, toolchain=None, windows_vgmstream=False, j
         '--enable-filter=aformat,anull,aresample,atrim,asetpts,concat,amix,volume,adelay,afade,atempo,apad',
         '--extra-cflags=-I../prefix/include', '--extra-ldflags=-L../prefix/lib' + (' -static-libgcc' if sys.platform == 'win32' else '')]
     if sys.platform == 'win32': flags += ['--target-os=mingw32', '--arch=x86_64']
+    if posix:
+        # All vgmstream upstream audio formats remain enabled, including its
+        # libopus implementation. Prefix discovery is restricted to our pins.
+        flags += ['--prefix=' + str(prefix), '--enable-pic', '--pkg-config-flags=--static',
+                  '--enable-libopus', '--enable-decoder=libopus', '--enable-encoder=libopus',
+                  '--enable-muxer=ogg', '--enable-demuxer=spdif,xmv']
     run([shell, './configure', *flags], ffmpeg, env, work / 'ffmpeg-build.log')
+    if posix:
+        ffmpeg_capabilities = verify_ffmpeg_features(vgmstream, ffmpeg)
     run([make, f'-j{jobs}', 'SHELL=' + make_shell], ffmpeg, env, work / 'ffmpeg-build.log')
+    if posix:
+        run([make, 'install'], ffmpeg, env, work / 'ffmpeg-build.log')
     binary = 'ffmpeg.exe' if sys.platform == 'win32' else 'ffmpeg'
     shutil.copy2(ffmpeg / binary, root / binary)
     tools = {'ffmpeg': binary}
@@ -124,9 +160,14 @@ def build(work, output, cache, shell, toolchain=None, windows_vgmstream=False, j
     shutil.copyfile(ffmpeg / 'LICENSE.md', root / 'FFmpeg-LICENSE.md')
     if toolchain:
         shutil.copyfile(toolchain / 'COPYING.MinGW-w64-runtime.txt', root / 'MinGW-runtime-COPYING.txt')
-    # The currently published macOS binary depends on Homebrew absolute paths;
-    # Linux's static binary has an additional GPL closure. Neither is mislabeled
-    # as a portable BSD-only package. Supply a native reviewed build later.
+    if posix:
+        native_configuration = build_vgmstream(vgmstream, dependency_paths, prefix, work, root,
+            sources, env, jobs, run)
+        native_configuration['ffmpeg_capabilities'] = ffmpeg_capabilities
+        (sources / 'vgmstream-native-configuration.json').write_text(json.dumps(native_configuration, indent=2) + '\n')
+        components.append({'name': 'vgmstream', **pins['vgmstream'],
+                           'build_method': 'native-pinned-sources', 'codec_linkage': 'static'})
+        tools['vgmstream'] = 'vgmstream-cli'
     if windows_vgmstream:
         if host_target() != 'windows-x64': raise ValueError('This upstream artifact is Windows x64 only')
         pin = pins['vgmstream']
@@ -168,14 +209,17 @@ def build(work, output, cache, shell, toolchain=None, windows_vgmstream=False, j
         components.append({'name': 'vgmstream', **pin})
         tools['vgmstream'] = 'vgmstream-cli.exe'
     shutil.copyfile(__file__, sources / 'build-audio-runtime.py')
+    shutil.copyfile(ROOT / 'scripts/audio_runtime_posix.py', sources / 'audio_runtime_posix.py')
     shutil.copyfile(PIN_FILE, sources / 'audio-runtime.json')
     (root / 'NOTICE.txt').write_text('Maintained audio tools for Game Immersion Toolkit.\n'
         'FFmpeg 9.0.2: LGPL-2.1-or-later; LAME 4.0: LGPL-2.0-or-later.\n'
         'Unmodified source archives, exact source hashes and build recipe are in sources/.\n'
         'Audio-only FFmpeg disables network, autodetection and GPL/nonfree options.\n'
         'The application communicates with separate codec processes.\n'
-        'Optional vgmstream carries exact dependency sources, notices and upstream rebuild instructions.\n'
-        'Replaceable LGPL DLLs are kept beside the CLI; reverse engineering for debugging modifications is permitted.\n', encoding='utf-8')
+        'vgmstream carries exact dependency sources, notices and rebuild instructions.\n'
+        'Windows keeps replaceable LGPL DLLs beside the CLI. POSIX statically links the retained\n'
+        'codec sources; all CLI/library sources and the adapter are provided for rebuilding/relinking.\n'
+        'Reverse engineering for debugging modifications is permitted.\n', encoding='utf-8')
     files = {p.relative_to(root).as_posix(): digest(p) for p in sorted(root.rglob('*')) if p.is_file()}
     manifest = {'schema': SCHEMA, 'target': host_target(), 'tools': tools, 'files': files, 'components': components,
                 'build_recipe_sha256': digest(__file__), 'native_decode_acceptance': 'not-run', 'redistribution_review': 'pending-exact-output'}

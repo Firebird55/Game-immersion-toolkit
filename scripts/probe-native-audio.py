@@ -27,6 +27,8 @@ def probe(resources, output):
     root = resources / PREFIX
     manifest = json.loads((root / 'runtime.json').read_text())
     if manifest['schema'] != SCHEMA or manifest['target'] != host_target(): raise ValueError('Wrong codec target')
+    if set(manifest['tools']) != {'ffmpeg', 'vgmstream'}:
+        raise ValueError('The desktop audio bundle must include both codec tools')
     expected = manifest['files']
     actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
     if actual != set(expected) | {'runtime.json'}: raise ValueError('Codec inventory is not closed')
@@ -65,6 +67,21 @@ def probe(resources, output):
             run('vgmstream', ['-o', work / 'vgm-decoded.wav', original])
             with wave.open(str(work / 'vgm-decoded.wav'), 'rb') as stream:
                 checks['vgmstream_authored_riff'] = stream.getframerate() == 16000 and stream.readframes(stream.getnframes()) == pcm
+            run('vgmstream', ['-o', work / 'vgm-flac.wav', work / 'authored.flac'])
+            with wave.open(str(work / 'vgm-flac.wav'), 'rb') as stream:
+                checks['vgmstream_authored_flac'] = stream.getframerate() == 16000 and stream.readframes(stream.getnframes()) == pcm
+            run('vgmstream', ['-o', work / 'vgm-mp3.wav', work / 'authored.mp3'])
+            with wave.open(str(work / 'vgm-mp3.wav'), 'rb') as stream:
+                checks['vgmstream_authored_mpeg'] = stream.getframerate() == 16000 and 15000 <= stream.getnframes() <= 19000
+            if sys.platform in {'linux', 'darwin'}:
+                from scripts.audio_runtime_posix import inspect_dynamic_dependencies
+                dependencies = {tool: inspect_dynamic_dependencies(root / manifest['tools'][tool]) for tool in manifest['tools']}
+                checks['system_runtime_libraries_only'] = bool(dependencies)
+                run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-i', original,
+                              '-c:a', 'libopus', work / 'authored.ogg'])
+                run('vgmstream', ['-o', work / 'vgm-opus.wav', work / 'authored.ogg'])
+                with wave.open(str(work / 'vgm-opus.wav'), 'rb') as stream:
+                    checks['vgmstream_authored_opus'] = stream.getframerate() == 48000 and 47000 <= stream.getnframes() <= 50000
     report = {'schema': 'toolkit-native-audio-probe-v1', 'target': host_target(), 'fixture': 'generated-sine-pcm-no-game-assets',
         'runtime_manifest_sha256': sha(root / 'runtime.json'), 'developer_path_removed': True, 'checks': checks,
         'passed': bool(checks) and all(checks.values()), 'game_audio_acceptance': 'not-tested', 'r19_complete': False}
