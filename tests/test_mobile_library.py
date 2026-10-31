@@ -59,7 +59,7 @@ def test_catalog_only_never_decodes(tmp_path):
     assert len(list(Path(result["folder"]).glob("*.zip"))) == 1
 
 
-@pytest.mark.parametrize('stage', ['transfer', 'pointer'])
+@pytest.mark.parametrize('stage', ['private_pack', 'transfer', 'pointer'])
 @pytest.mark.parametrize('cancel_retry', [False, True])
 def test_windows_publication_sharing_retry_preserves_cancellation(tmp_path, monkeypatch, stage, cancel_retry):
     from backend import atomic_files, mobile_library
@@ -68,7 +68,8 @@ def test_windows_publication_sharing_retry_preserves_cancellation(tmp_path, monk
     original = mobile_library.os.replace
     def transient_lock(source, target):
         source = Path(source)
-        selected = (source.name.endswith('.transfer.pending') if stage == 'transfer'
+        selected = (source.parent.name.endswith('.pending') and source.suffix == '.zip'
+                    if stage == 'private_pack' else source.name.endswith('.transfer.pending') if stage == 'transfer'
                     else source.name == 'latest.pending')
         if selected:
             attempts.append(source)

@@ -17,6 +17,8 @@ def test_prepared_sources_enable_verified_batching_for_every_voiced_game(tmp_pat
     text_id = 'GalGame_fixture' if game == 'zzz' else f'{game}:fixture'
     payload = {'install': str(install), 'fingerprint': 'fixture', 'archive_hash': file_digest(archive),
                'records': [{'text_id': text_id, 'english': 'A synthetic performance.', 'chinese': '合成对白。', 'audio': None if game == 'hito' else {'depot': 'fixture'}}]}
+    if game == 'cyberpunk':
+        payload['records'][0]['audio']['playback_scope'] = 'full_track'
     if game == 'zzz':
         maps = data/'textmaps'; maps.mkdir()
         for name, value in [('en_base', {text_id: 'A synthetic performance.', 'GalGame_text_only': 'A quiet unvoiced sentence.'}), ('zh_base', {text_id: '合成对白。', 'GalGame_text_only': '无声的句子。'}),
@@ -60,6 +62,8 @@ def test_prepared_sources_enable_verified_batching_for_every_voiced_game(tmp_pat
     monkeypatch.setattr(game_paths, 'discover_install', lambda _: install)
     output = tmp_path/'export'
     records, voice, check, service = prepare_source(tmp_path, game, output/'decoded')
+    if game == 'cyberpunk':
+        assert records[0]['audioScope'] == 'paragraph', 'Legacy full recordings must not become sentence clips'
     events = []
     result = export_library(game, records, output, voice=voice, check=check, workers=2, progress=events.append)
     assert result['coverage']['dialogue'] == (2 if game in {'zzz', 'hito'} else 1)
@@ -82,6 +86,7 @@ def test_selected_multilingual_exports_use_the_selected_decoder_and_official_tar
            'source_locale': 'ja', 'audio_locale': 'ja', 'texts': {'ja': '合成の字幕です。', 'zh-Hans': '合成字幕。'},
            'audio': {'locale': 'ja', 'fixture': 1}, 'channels': ['cinematic'], 'player_voice': 'female'}
     if game == 'zzz': row['member_text_ids'] = ['GalGame_fixture']
+    if game == 'beyond': row['audio_scope'] = 'paragraph'
     path = directory / 'textmap.json'
     path.write_text(json.dumps({'format': 2, 'game': game, 'source_locale': 'ja', 'targets_requested': ['zh-hans'],
         'install': str(tmp_path / 'game'), 'fingerprint': 'fixture', 'records': [row]}), encoding='utf-8')
@@ -112,6 +117,7 @@ def test_selected_multilingual_exports_use_the_selected_decoder_and_official_tar
     assert records[0]['sourceLocale'] == records[0]['audioLocale'] == 'ja'
     assert records[0]['translationLocale'] == 'zh-Hans' and records[0]['translationText'] == row['texts']['zh-Hans']
     assert records[0]['channels'] == ['cinematic'] and records[0]['playerVoice'] == 'female'
+    assert records[0]['audioScope'] == ('paragraph' if game == 'beyond' else 'line')
     assert 'memberTextIds' not in records[0], 'A historical ZZZ alias is not a two-caption context'
     check.force()
     result = export_library(game, records, tmp_path / 'export', voice=voice, check=check)

@@ -17,6 +17,7 @@ from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
 from .mobile_bundle import write_bundle
 from .atomic_files import sharing_retry
+from .local_game import dialogue_audio_scope
 from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions, archive_previous_exports, hide_work_metadata
 
 FORMAT = "proxy-mobile-library-v1"
@@ -271,7 +272,11 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         raise ValueError("Unsafe private pack location")
     parts.mkdir(exist_ok=True)
     for path in staging.iterdir():
-        path.replace(parts / path.name)
+        def publish_part():
+            guard()
+            getattr(check, "force", check)()
+            path.replace(parts / path.name)
+        sharing_retry(publish_part)
     staging.rmdir()
     transfer = work / (revision + ".transfer.pending")
     if destination.exists() and (destination.resolve().parent != output.resolve()
@@ -447,6 +452,7 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
             if game == "pragmata" and not text_id.startswith("pragmata:"):
                 text_id = "pragmata:" + text_id
             row = {"textId": text_id, "english": display_text(item["english"]), "chinese": display_text(item["chinese"]),
+                   "audioScope": dialogue_audio_scope(item.get('audio'), item.get('audio_scope')),
                    "channels": item.get('channels') or ["dialogue", "cinematic", "gameplay"],
                    "sourceVoice": digest([payload.get("fingerprint"), item["audio"]]) if item.get("audio") else None}
             if payload.get('format') == 2:
@@ -454,7 +460,6 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
                 row.update(sourceLanguage=study_language(payload['source_locale']), sourceLocale=payload['source_locale'],
                            sourceText=item['source_text'], translationLocale=locale or target,
                            translationText=item['texts'].get(locale, '') if locale else '', audioLocale=item['audio_locale'],
-                           audioScope=item.get('audio_scope', 'line'),
                            anchorsSource=item.get('ocr_texts', {}).get(payload['source_locale'], []),
                            anchorsTranslation=item.get('ocr_texts', {}).get(locale, []))
                 if item.get('member_text_ids') and ':context-' in text_id:
