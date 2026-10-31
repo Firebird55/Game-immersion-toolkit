@@ -91,7 +91,7 @@ ChangeTime changes can be observed as false. They are not hidden or presented
 as exact timestamp preservation. No private path, file ID, raw time, private
 content hash, exception, environment, command or stack is serialized.
 
-The public schema is `proxy-r19-legacy-lock-attribute-mechanism-v3`, scope
+The public schema is `proxy-r19-legacy-lock-attribute-mechanism-v4`, scope
 `authored-local-ntfs-no-writers-mechanism`. It revalidates exact keys, fixed
 ordered observations, enum values, booleans and the known public legacy-source
 hash. Its only successful status is `mechanism-observed`. The final gates stay
@@ -129,6 +129,56 @@ or trailing records refuse the attempt; only the last complete admitted stage
 is retained. Terminal completion requires the peer to close without trailing
 bytes within that deadline. There is no new runtime, process, raw output,
 environment variable, source-function change, pipe-mode change or fallback.
+
+### Version 4: failure-only conversion context
+
+Version 4 retains those checkpoints and adds only the nullable top-level
+`grant_conversion_failure` field. Its default is null. A catch surrounds the
+same existing string pipeline to ConvertFrom-Json. It may send one closed
+failure frame, then rethrows the original error even when its diagnostic writer
+fails. The projector definition is before connected; there is no new function
+definition between grantread and the conversion call. The existing ReadLine,
+parser, legacy operation body, environment, native calls and cleanup stay intact.
+
+```json
+{"kind":"grant-conversion-failure","line":"nonempty","exceptions":["cmdlet-invocation","argument"],"chain_end":"complete","category":"InvalidArgument"}
+```
+
+The parent recognizes this alternate frame only while expecting grantparsed,
+after connected and grantread. It validates exact keys and enums, then requires
+the existing EOF/no-trailing boundary under the same deadline before retaining
+the candidate. Even then it refuses the attempt. Duplicate, unknown, malformed,
+partial, trailing, over-cap or late input leaves the public field null. Neither
+the frame nor cleanup advances the last complete grantread checkpoint. Later
+contenders have no baseline result holder and cannot populate this field.
+
+A non-null public value contains exactly line, exceptions, chain_end and category.
+The line is only null/empty/nonempty, never its contents, length or hash. The
+ordered exception families are limited to command-not-found, parameter-binding,
+cmdlet-invocation, type-initialization, argument-null, argument and unknown.
+At most eight existing exception nodes and eight InnerException references are
+read, with no ninth node, GetBaseException or type-name output. Chain end is
+complete, truncated or unknown; empty chains require unknown and truncated
+chains require eight entries. The
+[ErrorCategory mapping](https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.errorcategory?view=powershellsdk-7.4.0)
+is the fixed documented 0–31 list plus unknown. Future or unavailable categories
+remain unknown; there is no automatic catalog growth.
+
+Non-null context requires failed status at legacy-baseline, parent
+receive-script-progress, script grantread, empty observations/timestamp equalities,
+a known source hash, protocol-refused or owned-cleanup-unconfirmed, and
+unconfirmed-fixture-retained. Every positive mechanism receipt requires null.
+The independent publisher must recheck those same relations. Null does not prove
+that conversion never ran or threw. Families/categories are caught context,
+without a private target, inferred cause or authorization to repair the runtime.
+
+Only fixed ASCII labels are written: the largest authored frame is 302 bytes
+including LF, and connected + grantread + failure total at most 386 received
+bytes. The unchanged normal sequence is at most 394 bytes. The actual cumulative
+receive cap remains 4,096 bytes; the grant retains its existing separate send
+bound. Grant, progress, failure and EOF share the original 10-second exchange.
+No message, parameter name, target, invocation, raw code, stack or private path
+is published. Owner/handle cleanup and sticky uncertainty remain mandatory.
 
 Every owned cleanup stage is attempted independently. A failed handle close is
 sticky and its numeric value is never retried as a possibly reused handle.
@@ -172,6 +222,18 @@ native execution remains pending. The v1/v2 negatives retain their original
 schemas and meaning. No environment, timeout, source-function or pipe repair is
 inferred from them.
 
+The historical version 3 attempt at `f43cec7`,
+[run41235281328](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41235281328),
+passed 100 Windows contracts without skips on image `20261021.278.1`. Its
+independently verified failure receipt delivered grantread with parent
+receive-script-progress and pre-close child not-signaled, then no complete
+grantparsed. ReadLine returned before that acknowledgement; its result and the
+underlying conversion boundary remain unknown. It still failed at
+legacy-baseline/protocol-refused with empty observations/timestamp equalities
+and unconfirmed cleanup. No legacy open, attribute or owner-loss result follows.
+Version 4 and its separate publisher require a fresh exact-source Windows
+attempt and independent receipt review. The v3 negative is not reinterpreted.
+
 On the selected Windows build host, run the selected 64-bit source
 interpreter directly:
 
@@ -200,11 +262,19 @@ Its outer deadline records a failed, unverified attempt rather than cleanup
 containment. Native acceptance still requires the actual job and independently
 downloaded provider/artifact/receipt review.
 
-The cheap [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)
+The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)
 cover frame/type/overflow refusal, exact transition preservation, ABI widths,
 sticky cleanup, creation-handle/client comparison, zero-writer ordering and
-retention on failure. They do not exercise real Windows READONLY, PowerShell,
-file sharing, pipe or process behavior. Run them with
+retention on failure, plus closed conversion-frame admission and rejection.
+They do not exercise real Windows READONLY, PowerShell, file sharing, pipe or
+process behavior. Two separate Windows-only authored engine tests use the exact
+projector/catch fragments with synthetic ErrorRecords and a successful or
+throwing writer. Their bounded child checks original ErrorRecord/exception
+identity, finally execution and private-message exclusion; host errors, excess
+output or timeouts fail. They perform no C7 fixture, legacy operation, Win32
+API or shared-helper call. They are explicitly skipped on other hosts and
+establish no lock-attribute, cleanup/recovery or ordinary-user acceptance.
+Run the selected tests with
 `python -B -m pytest --noconftest -q backend/tests/test_runtime_lock_attribute_probe.py`
 and run documentation checks. Existing shared process-helper tests remain their
 own evidence. No installer, old ZIP edit, global writer admission, real data

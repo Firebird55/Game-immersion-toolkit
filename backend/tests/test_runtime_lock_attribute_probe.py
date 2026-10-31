@@ -2,7 +2,11 @@
 import copy
 import ctypes
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -246,7 +250,7 @@ def authored(monkeypatch, tmp_path):
         def close(self):
             if not self.closed:
                 api.lease, self.closed = False, True; api.events.append('owned-lease-stop')
-    def legacy(_api, root, source, expected, *, checkpoint_value=None):
+    def legacy(_api, root, source, expected, *, checkpoint_value=None, conversion_failure_value=None):
         api.events.append(expected)
         if expected == 'open': assert not api.lease and not api.read_handles and not api.armed
         elif expected == 'readonly-refused': assert not api.lease and not api.read_handles and api.armed
@@ -272,9 +276,10 @@ def test_authored_state_sequence_never_releases_old_open_during_normal_clear_or_
 
 def test_post_loss_refusal_mismatch_retains_readonly_and_never_clears_for_convenience(authored, monkeypatch, tmp_path):
     previous = module.legacy
-    def refuse(api, root, source, expected, *, checkpoint_value=None):
+    def refuse(api, root, source, expected, *, checkpoint_value=None, conversion_failure_value=None):
         if expected == 'readonly-refused': raise module.Refused('legacy-outcome-differed')
-        return previous(api, root, source, expected, checkpoint_value=checkpoint_value)
+        return previous(api, root, source, expected, checkpoint_value=checkpoint_value,
+            conversion_failure_value=conversion_failure_value)
     monkeypatch.setattr(module, 'legacy', refuse)
     result = module.experiment()
     assert result['status'] == 'failed' and result['failure'] == 'legacy-outcome-differed'
@@ -332,6 +337,7 @@ def progress_attempt(frames=None):
             if self.frames: raise module.Refused('protocol-refused')
     attempt = module.Attempt.__new__(module.Attempt)
     attempt.pipe, attempt.checkpoint, attempt.checkpoint_locked = Wire(), module.checkpoint(), False
+    attempt.conversion_failure_value = [None]
     return attempt
 
 
@@ -384,6 +390,262 @@ def test_grant_return_checkpoints_never_imply_shape_validation_or_operation(stag
     assert public['status'] == 'failed' and public['observed'] == []
     assert public['baseline_checkpoint']['script_step'] == last
     assert 'private-grant' not in json.dumps(public)
+
+
+def conversion_frame(**changes):
+    value = {'kind': 'grant-conversion-failure', 'line': 'nonempty',
+        'exceptions': ['cmdlet-invocation', 'argument'], 'chain_end': 'complete',
+        'category': 'InvalidArgument'}
+    value.update(changes)
+    return value
+
+
+def conversion_attempt(frame=None, trailing=()):
+    return progress_attempt([{'kind': 'checkpoint', 'stage': 'connected'},
+        {'kind': 'checkpoint', 'stage': 'grantread'}, frame if frame is not None else conversion_frame(), *trailing])
+
+
+def conversion_receipt(payload=None):
+    value = module.receipt()
+    value.update(phase='legacy-baseline', failure='protocol-refused',
+        legacy_source_sha256=next(iter(module.SOURCE_HASHES)),
+        baseline_checkpoint={'parent_step': 'receive-script-progress', 'script_step': 'grantread',
+            'child_state': 'unavailable'},
+        grant_conversion_failure=payload or {k: v for k, v in conversion_frame().items() if k != 'kind'})
+    return value
+
+
+def test_conversion_failure_is_committed_only_after_eof_and_still_refuses_under_one_deadline(monkeypatch):
+    monkeypatch.setattr(module.time, 'monotonic', lambda: 100.)
+    attempt = conversion_attempt()
+    finish = attempt.pipe.finish
+    def complete(deadline):
+        assert attempt.conversion_failure_value == [None]
+        finish(deadline)
+    attempt.pipe.finish = complete
+    with pytest.raises(module.Refused, match='protocol-refused'): attempt.script_exchange({})
+    expected = {k: v for k, v in conversion_frame().items() if k != 'kind'}
+    assert attempt.conversion_failure_value == [expected]
+    assert set(attempt.pipe.deadlines) == {110.}
+    assert attempt.checkpoint_locked and attempt.checkpoint['script_step'] == 'grantread'
+    assert attempt.checkpoint['parent_step'] == 'receive-script-progress'
+    assert module.public_receipt(conversion_receipt(expected))['grant_conversion_failure'] == expected
+
+
+@pytest.mark.parametrize('fault', ['duplicate', 'trailing-progress', 'trailing-terminal', 'unconfirmed-eof'])
+def test_conversion_failure_incomplete_termination_keeps_public_default_null(fault, monkeypatch):
+    trailing = [conversion_frame()] if fault == 'duplicate' else [
+        {'kind': 'checkpoint', 'stage': 'grantparsed'}] if fault == 'trailing-progress' else [
+        {'state': 'open'}] if fault == 'trailing-terminal' else []
+    attempt = conversion_attempt(trailing=trailing)
+    if fault == 'unconfirmed-eof':
+        def refuse(deadline): raise module.Refused('protocol-refused')
+        monkeypatch.setattr(attempt.pipe, 'finish', refuse)
+    with pytest.raises(module.Refused): attempt.script_exchange({})
+    assert attempt.conversion_failure_value == [None]
+    assert attempt.checkpoint_locked and attempt.checkpoint['script_step'] == 'grantread'
+
+
+def test_conversion_failure_eof_uses_actual_pipe_deadline_without_extending_exchange(monkeypatch):
+    clock = [0.]
+    monkeypatch.setattr(module.time, 'monotonic', lambda: clock[0])
+    monkeypatch.setattr(module.time, 'sleep', lambda value: clock.__setitem__(0, clock[0]+value))
+    attempt = conversion_attempt()
+    attempt.pipe.buffer = bytearray()
+    attempt.pipe.handle = SimpleNamespace(value=1)
+    attempt.pipe.api = SimpleNamespace(k=SimpleNamespace(PeekNamedPipe=lambda *_: True))
+    monkeypatch.setattr(attempt.pipe, 'finish', lambda deadline: module.Pipe.finish(attempt.pipe, deadline))
+    with pytest.raises(module.Refused): attempt.script_exchange({})
+    assert 10 <= clock[0] < 10.02 and set(attempt.pipe.deadlines) == {10.}
+    assert attempt.conversion_failure_value == [None] and attempt.checkpoint_locked
+    assert attempt.checkpoint['script_step'] == 'grantread'
+
+
+@pytest.mark.parametrize('before', [[], ['connected'], ['connected', 'grantread', 'grantparsed'],
+    ['connected', 'grantread', 'grantparsed', 'grantvalidated', 'sourceopened']])
+def test_conversion_failure_is_not_admitted_at_other_progress_boundaries(before):
+    attempt = progress_attempt([*({'kind': 'checkpoint', 'stage': name} for name in before), conversion_frame()])
+    with pytest.raises(module.Refused): attempt.script_exchange({})
+    assert attempt.conversion_failure_value == [None]
+    assert attempt.checkpoint['script_step'] == (before[-1] if before else 'not-started')
+
+
+def test_later_contender_without_baseline_holder_cannot_publish_conversion_context():
+    attempt = conversion_attempt(); attempt.conversion_failure_value = None
+    with pytest.raises(module.Refused): attempt.script_exchange({})
+    assert attempt.conversion_failure_value is None
+
+
+@pytest.mark.parametrize('changes', [
+    {'line': None}, {'line': 'private-line'}, {'exceptions': None}, {'exceptions': ()},
+    {'exceptions': [True]}, {'exceptions': ['private-type']}, {'exceptions': ['argument'] * 9},
+    {'exceptions': []}, {'exceptions': ['argument'] * 7, 'chain_end': 'truncated'},
+    {'chain_end': None}, {'chain_end': 'private-end'}, {'category': 5}, {'category': 'private-category'},
+    {'raw': 'private-path'},
+])
+def test_conversion_payload_refuses_unknown_or_inconsistent_data_before_eof(changes):
+    attempt = conversion_attempt(conversion_frame(**changes))
+    attempt.pipe.finish = lambda *_: pytest.fail('Invalid context cannot reach EOF admission')
+    with pytest.raises(module.Refused): attempt.script_exchange({})
+    assert attempt.conversion_failure_value == [None]
+    assert 'private-' not in json.dumps(attempt.checkpoint)
+
+
+def test_conversion_unknown_complete_and_truncated_are_bounded_distinct_states():
+    for line in ('null', 'empty', 'nonempty'):
+        for category in module.CONVERSION_CATEGORIES:
+            value = {k: v for k, v in conversion_frame(line=line, category=category).items() if k != 'kind'}
+            assert module.conversion_failure(value) == value
+    for families, ending in (([], 'unknown'), (list(module.CONVERSION_FAMILIES), 'complete'),
+            (['unknown'] * 8, 'truncated'), (['unknown'] * 8, 'unknown')):
+        value = {k: v for k, v in conversion_frame(exceptions=families, chain_end=ending).items() if k != 'kind'}
+        assert module.conversion_failure(value) == value
+    maximum = conversion_frame(exceptions=['type-initialization'] * 8,
+        chain_end='truncated', category='ResourceUnavailable')
+    wire = lambda value: (json.dumps(value, separators=(',', ':')) + '\n').encode('ascii')
+    assert len(wire(maximum)) == 302
+    assert sum(len(wire(frame)) for frame in ({'kind': 'checkpoint', 'stage': 'connected'},
+        {'kind': 'checkpoint', 'stage': 'grantread'}, maximum)) == 386 < module.LIMIT
+
+
+@pytest.mark.parametrize(('key', 'value'), [('phase', 'post-loss'),
+    ('observed', ['writable-open']), ('timestamp_equalities', {'arm': dict.fromkeys(
+        ('creation_equal', 'access_equal', 'write_equal', 'change_equal'), True)}),
+    ('legacy_source_sha256', None), ('failure', 'unexpected-failure'),
+    ('cleanup', 'owned-handles-closed-fixture-retained'),
+    ('baseline_checkpoint', {'parent_step': 'receive-result', 'script_step': 'grantread', 'child_state': 'unavailable'}),
+    ('baseline_checkpoint', {'parent_step': 'receive-script-progress', 'script_step': 'grantparsed', 'child_state': 'unavailable'})])
+def test_public_conversion_context_requires_failed_baseline_grantread_relation(key, value):
+    result = conversion_receipt(); result[key] = value
+    with pytest.raises(module.Refused): module.public_receipt(result)
+
+
+def test_otherwise_complete_positive_mechanism_requires_no_conversion_failure():
+    value = successful_receipt()
+    assert module.public_receipt(value)['grant_conversion_failure'] is None
+    value['grant_conversion_failure'] = conversion_receipt()['grant_conversion_failure']
+    with pytest.raises(module.Refused): module.public_receipt(value)
+
+
+def test_confirmed_conversion_context_does_not_override_cleanup_uncertainty(authored, monkeypatch):
+    calls = []
+    payload = {k: v for k, v in conversion_frame().items() if k != 'kind'}
+    def baseline(_api, _root, _source, _expected, *, checkpoint_value=None, conversion_failure_value=None):
+        checkpoint_value.update(parent_step='receive-script-progress', script_step='grantread', child_state='unavailable')
+        conversion_failure_value[0] = payload
+        calls.append('baseline-refused')
+        raise module.Refused('owned-cleanup-unconfirmed')
+    monkeypatch.setattr(module, 'legacy', baseline)
+    result = module.experiment()
+    assert calls == ['baseline-refused'] and 'owned-lease-start' not in authored.events
+    assert result['failure'] == 'owned-cleanup-unconfirmed' and result['status'] == 'failed'
+    assert result['grant_conversion_failure'] == payload
+    assert result['cleanup'] == 'unconfirmed-fixture-retained' and result['observed'] == []
+
+
+@pytest.mark.parametrize('cleanup_fails', [False, True])
+def test_legacy_conversion_refusal_still_runs_owned_finally_once(monkeypatch, tmp_path, cleanup_fails):
+    primary, cleanup = module.Refused('protocol-refused'), module.Refused('owned-cleanup-unconfirmed')
+    calls, holder = [], [None]
+    payload = {k: v for k, v in conversion_frame().items() if k != 'kind'}
+    class Attempt:
+        def __init__(self, *args, checkpoint_value=None, conversion_failure_value=None):
+            assert conversion_failure_value is holder
+            self.checkpoint_locked = False
+        def script_exchange(self, value):
+            holder[0] = payload
+            raise primary
+        def close(self):
+            calls.append('close')
+            if cleanup_fails: raise cleanup
+    monkeypatch.setattr(module, 'Attempt', Attempt)
+    monkeypatch.setattr(module, 'source_bytes', lambda *_: next(iter(module.SOURCE_HASHES)))
+    api = SimpleNamespace(powershell=lambda: 'authored-program')
+    with pytest.raises(module.Refused) as caught:
+        module.legacy(api, tmp_path, 'authored-digest', 'open',
+            checkpoint_value=module.checkpoint(), conversion_failure_value=holder)
+    assert caught.value is (cleanup if cleanup_fails else primary)
+    assert calls == ['close'] and holder == [payload]
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Authored Windows PowerShell engine semantics unavailable locally')
+@pytest.mark.parametrize('writer_fails', [False, True])
+def test_authored_powershell_rethrows_original_record_and_exception_when_diagnostic_writer_fails(writer_fails):
+    # Exact producer fragments; no C7 fixture, legacy source, OS APIs or process helper.
+    root = os.environ.get('SystemRoot')
+    if not root or not Path(root).is_absolute(): pytest.fail('Authored engine host unavailable')
+    executable = Path(root) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    if not executable.is_file(): pytest.fail('Authored engine host unavailable')
+    prefix = r'''
+$ErrorActionPreference='Stop'
+class C7AuthoredWriter {
+    [bool]$Fail
+    [string]$Frame=''
+    [void]WriteLine([string]$value) {
+        if ($this.Fail) { throw [InvalidOperationException]::new('authored-private-writer') }
+        $this.Frame=$value
+    }
+}
+$writer=[C7AuthoredWriter]::new()
+$writer.Fail=__FAIL__
+$line='authored-private-line'
+$script:original=[Management.Automation.ErrorRecord]::new(
+    [ArgumentException]::new('authored-private-error'),'authored-private-id',
+    [Management.Automation.ErrorCategory]::InvalidArgument,$null)
+function ConvertFrom-Json { throw $script:original }
+$caught=$null; $finallyObserved=$false
+'''.replace('__FAIL__', '$true' if writer_fails else '$false')
+    script = prefix + module.CONVERSION_PROJECTOR + '\ntry {\n' + module.CONVERSION_CALL + r'''
+} catch { $caught=$_ } finally { $finallyObserved=$true }
+if (-not $finallyObserved -or $null -eq $caught) { exit 31 }
+if (-not [Object]::ReferenceEquals($caught,$conversionError)) { exit 32 }
+if (-not [Object]::ReferenceEquals($caught.Exception,$conversionError.Exception)) { exit 33 }
+[Console]::Out.WriteLine('owned-catch-ok')
+if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
+'''
+    import base64
+    unavailable = False
+    try:
+        process = subprocess.Popen([str(executable), '-NoLogo', '-NoProfile', '-NonInteractive',
+            '-EncodedCommand', base64.b64encode(script.encode('utf-16le')).decode('ascii')],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+    except OSError:
+        unavailable = True
+    if unavailable: pytest.fail('Authored engine process could not start')
+    captured, failed = {}, []
+    def read(name, stream):
+        try:
+            captured[name] = stream.read(8193)
+            if len(captured[name]) > 8192: process.kill()
+        except BaseException: failed.append(True)
+        finally:
+            try: stream.close()
+            except BaseException: failed.append(True)
+    readers = [threading.Thread(target=read, args=(name, stream), daemon=True)
+        for name, stream in (('out', process.stdout), ('err', process.stderr))]
+    for reader in readers: reader.start()
+    try:
+        code = process.wait(timeout=10)
+    except BaseException:
+        failed.append(True); code = None
+        for operation in (process.kill, lambda: process.wait(timeout=5)):
+            try: operation()
+            except BaseException: failed.append(True)
+    finally:
+        for reader in readers: reader.join(timeout=1)
+    if failed or any(reader.is_alive() for reader in readers) or any(len(v) > 8192 for v in captured.values()):
+        pytest.fail('Authored engine output boundary failed')
+    if code != 0 or captured.get('err'):
+        pytest.fail('Authored engine original-error/finally contract failed')
+    lines = captured.get('out', b'').splitlines()
+    if not lines or lines[0] != b'owned-catch-ok' or len(lines) != (1 if writer_fails else 2):
+        pytest.fail('Authored engine acknowledgement differs')
+    if not writer_fails:
+        try: value = json.loads(lines[1])
+        except ValueError: pytest.fail('Authored engine context is malformed')
+        assert value == conversion_frame(exceptions=['argument'])
+    if b'authored-private-' in captured.get('out', b''): pytest.fail('Authored context exposed private data')
 
 
 def test_changed_wire_does_not_relabel_historical_v2_receipts():

@@ -202,8 +202,8 @@ jobs:
             const after = captureSourceSnapshot();
             if (after.sourceStatus !== 'available' || before.head !== after.head || before.sourceHash !== after.sourceHash || !clean() || child.error || child.signal || ![0,2].includes(child.status)) refuse();
             let value; try {value=JSON.parse(child.stdout);} catch {refuse();}
-            const fixed={schema:'proxy-r19-legacy-lock-attribute-mechanism-v3',scope:'authored-local-ntfs-no-writers-mechanism',candidate_data_writers:0,production_allowed:false,keeper_loss_acceptance:false,rights_approval:false,native_windows_11_acceptance:'unavailable',r19_complete:false};
-            const keys=[...Object.keys(fixed),'status','phase','failure','legacy_source_sha256','observed','timestamp_equalities','cleanup','baseline_checkpoint'].sort();
+            const fixed={schema:'proxy-r19-legacy-lock-attribute-mechanism-v4',scope:'authored-local-ntfs-no-writers-mechanism',candidate_data_writers:0,production_allowed:false,keeper_loss_acceptance:false,rights_approval:false,native_windows_11_acceptance:'unavailable',r19_complete:false};
+            const keys=[...Object.keys(fixed),'status','phase','failure','legacy_source_sha256','observed','timestamp_equalities','cleanup','baseline_checkpoint','grant_conversion_failure'].sort();
             if (!value || typeof value !== 'object' || Array.isArray(value) || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys)) refuse();
             for (const [key,expected] of Object.entries(fixed)) if (value[key] !== expected) refuse();
             const phases=['fixture','legacy-baseline','lease-start','arm','live-clear','rearm','owner-loss','post-loss','test-restore','restored','cleanup','complete'];
@@ -223,6 +223,17 @@ jobs:
             for (const [key,allowed] of Object.entries(checkpointValues)) if (typeof checkpoint[key] !== 'string' || !allowed.includes(checkpoint[key])) refuse();
             const passed=value.status === 'mechanism-observed';
             if (child.status !== (passed ? 0 : 2)) refuse();
+            const conversion=value.grant_conversion_failure;
+            if (conversion !== null) {
+              const conversionKeys=['category','chain_end','exceptions','line'];
+              const families=['command-not-found','parameter-binding','cmdlet-invocation','type-initialization','argument-null','argument','unknown'];
+              const categories=['NotSpecified','OpenError','CloseError','DeviceError','DeadlockDetected','InvalidArgument','InvalidData','InvalidOperation','InvalidResult','InvalidType','MetadataError','NotImplemented','NotInstalled','ObjectNotFound','OperationStopped','OperationTimeout','SyntaxError','ParserError','PermissionDenied','ResourceBusy','ResourceExists','ResourceUnavailable','ReadError','WriteError','FromStdErr','SecurityError','ProtocolError','ConnectionError','AuthenticationError','LimitsExceeded','QuotaExceeded','NotEnabled','unknown'];
+              if (!conversion || typeof conversion !== 'object' || Array.isArray(conversion) || JSON.stringify(Object.keys(conversion).sort()) !== JSON.stringify(conversionKeys)) refuse();
+              if (!['null','empty','nonempty'].includes(conversion.line) || !['complete','truncated','unknown'].includes(conversion.chain_end) || !categories.includes(conversion.category)) refuse();
+              if (!Array.isArray(conversion.exceptions) || conversion.exceptions.length > 8 || conversion.exceptions.some(item=>typeof item !== 'string' || !families.includes(item))) refuse();
+              if ((conversion.chain_end === 'complete' && conversion.exceptions.length === 0) || (conversion.chain_end === 'truncated' && conversion.exceptions.length !== 8)) refuse();
+              if (passed || value.phase !== 'legacy-baseline' || checkpoint.parent_step !== 'receive-script-progress' || checkpoint.script_step !== 'grantread' || value.observed.length !== 0 || Object.keys(equalities).length !== 0 || !hashes.includes(value.legacy_source_sha256) || !['protocol-refused','owned-cleanup-unconfirmed'].includes(value.failure) || value.cleanup !== 'unconfirmed-fixture-retained') refuse();
+            }
             if (passed && (value.phase !== 'complete' || value.failure !== 'none' || value.cleanup !== 'owned-handles-closed-fixture-retained' || !hashes.includes(value.legacy_source_sha256) || value.observed.length !== observations.length || Object.keys(equalities).length !== times.length || Object.values(equalities).some(item=>!item.creation_equal || !item.write_equal))) refuse();
             const binding={schema:'proxy-r19-legacy-lock-attribute-ci-binding-v1',source_commit:before.head,source_before_sha256:before.sourceHash,source_after_sha256:after.sourceHash,source_clean:true,build_host_python:'3.12.10',mechanism:value};
             for (const directory of ['output','output/checks']) {
@@ -393,7 +404,8 @@ jobs:
             'runtime_codec_output', 'native_input_ownership', 'source_pcm_probe', 'source_formats',
             'portal_assets', 'portal2_assets', 'halflife2_assets', 'window_capture', 'runtime_host',
             'diagnostic_notice_delivery', 'flatbuffers_notices', 'guarded_slot_probe',
-            'bundle_host', 'bundle_migration', 'runtime_data_copy_probe', 'storage'
+            'bundle_host', 'bundle_migration', 'runtime_data_copy_probe', 'storage',
+            'hito_storage', 'lexirise_lifetime'
           ) | ForEach-Object { "backend/tests/test_$_.py" }
           & $env:PYTHON -B -m pytest -q @contracts
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }

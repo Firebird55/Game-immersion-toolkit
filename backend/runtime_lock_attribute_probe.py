@@ -20,7 +20,7 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = 'proxy-r19-legacy-lock-attribute-mechanism-v3'
+SCHEMA = 'proxy-r19-legacy-lock-attribute-mechanism-v4'
 CONTENT = b'owned R19 legacy lock attribute fixture\n'
 MARKER = '.r19-lock-attribute-fixture.json'
 SOURCE = ROOT / 'scripts/companion-runtime.ps1'
@@ -46,6 +46,31 @@ PARENT_STEPS = ('not-started', 'create-pipe', 'create-owned-process', 'resume-ow
 SCRIPT_STEPS = ('not-started', 'connected', 'grantread', 'grantparsed', 'grantvalidated',
     'sourceopened', 'hashbound', 'definitionbound', 'operationentered', 'operationresult')
 CHILD_STATES = ('not-created', 'signaled', 'not-signaled', 'unavailable')
+CONVERSION_LINES = ('null', 'empty', 'nonempty')
+CONVERSION_FAMILIES = ('command-not-found', 'parameter-binding', 'cmdlet-invocation',
+    'type-initialization', 'argument-null', 'argument', 'unknown')
+CONVERSION_ENDS = ('complete', 'truncated', 'unknown')
+CONVERSION_CATEGORIES = ('NotSpecified', 'OpenError', 'CloseError', 'DeviceError',
+    'DeadlockDetected', 'InvalidArgument', 'InvalidData', 'InvalidOperation', 'InvalidResult',
+    'InvalidType', 'MetadataError', 'NotImplemented', 'NotInstalled', 'ObjectNotFound',
+    'OperationStopped', 'OperationTimeout', 'SyntaxError', 'ParserError', 'PermissionDenied',
+    'ResourceBusy', 'ResourceExists', 'ResourceUnavailable', 'ReadError', 'WriteError',
+    'FromStdErr', 'SecurityError', 'ProtocolError', 'ConnectionError', 'AuthenticationError',
+    'LimitsExceeded', 'QuotaExceeded', 'NotEnabled', 'unknown')
+
+
+def conversion_failure(value):
+    if (type(value) is not dict or set(value) != {'line', 'exceptions', 'chain_end', 'category'}
+            or type(value['line']) is not str or value['line'] not in CONVERSION_LINES
+            or type(value['chain_end']) is not str or value['chain_end'] not in CONVERSION_ENDS
+            or type(value['category']) is not str or value['category'] not in CONVERSION_CATEGORIES
+            or type(value['exceptions']) is not list or len(value['exceptions']) > 8
+            or any(type(item) is not str or item not in CONVERSION_FAMILIES for item in value['exceptions'])
+            or (not value['exceptions'] and value['chain_end'] != 'unknown')
+            or (value['chain_end'] == 'truncated' and len(value['exceptions']) != 8)):
+        raise Refused('protocol-refused')
+    return {'line': value['line'], 'exceptions': list(value['exceptions']),
+        'chain_end': value['chain_end'], 'category': value['category']}
 
 
 def checkpoint():
@@ -437,6 +462,60 @@ def child_main(name):
     return 2
 
 
+CONVERSION_PROJECTOR = r'''
+    function Write-C7ConversionFailure($Record,$Line) {
+        $lineState='nonempty'
+        if ($null -eq $Line) { $lineState='null' }
+        elseif ($Line -isnot [string]) { throw 'Conversion context differs.' }
+        elseif ($Line -ceq '') { $lineState='empty' }
+        $families=@(); $chainEnd='unknown'
+        try {
+            $node=$Record.Exception
+            for ($index=0; $index -lt 8 -and $null -ne $node; $index++) {
+                if ($node -isnot [Exception]) { break }
+                $family='unknown'
+                if ($node -is [Management.Automation.CommandNotFoundException]) { $family='command-not-found' }
+                elseif ($node -is [Management.Automation.ParameterBindingException]) { $family='parameter-binding' }
+                elseif ($node -is [Management.Automation.CmdletInvocationException]) { $family='cmdlet-invocation' }
+                elseif ($node -is [TypeInitializationException]) { $family='type-initialization' }
+                elseif ($node -is [ArgumentNullException]) { $family='argument-null' }
+                elseif ($node -is [ArgumentException]) { $family='argument' }
+                $families+=('"'+$family+'"')
+                $next=$node.InnerException
+                if ($null -eq $next) { $chainEnd='complete'; break }
+                if ($index -eq 7) { $chainEnd='truncated'; break }
+                $node=$next
+            }
+        } catch { }
+        $category='unknown'
+        try {
+            $names=@('NotSpecified','OpenError','CloseError','DeviceError','DeadlockDetected',
+                'InvalidArgument','InvalidData','InvalidOperation','InvalidResult','InvalidType',
+                'MetadataError','NotImplemented','NotInstalled','ObjectNotFound','OperationStopped',
+                'OperationTimeout','SyntaxError','ParserError','PermissionDenied','ResourceBusy',
+                'ResourceExists','ResourceUnavailable','ReadError','WriteError','FromStdErr',
+                'SecurityError','ProtocolError','ConnectionError','AuthenticationError',
+                'LimitsExceeded','QuotaExceeded','NotEnabled')
+            $observedCategory=$Record.CategoryInfo.Category
+            if ($observedCategory -is [Management.Automation.ErrorCategory]) {
+                $number=[int]$observedCategory
+                if ($number -ge 0 -and $number -lt 32) { $category=$names[$number] }
+            }
+        } catch { }
+        $writer.WriteLine('{"kind":"grant-conversion-failure","line":"'+$lineState+'","exceptions":['+
+            ($families -join ',')+'],"chain_end":"'+$chainEnd+'","category":"'+$category+'"}')
+    }
+'''
+CONVERSION_CALL = r'''
+    try { $grant=$line|ConvertFrom-Json }
+    catch {
+        $conversionError=$_
+        try { Write-C7ConversionFailure $conversionError $line } catch { }
+        throw
+    }
+'''
+
+
 LEGACY_SCRIPT = r'''
 $ErrorActionPreference='Stop'
 $pipe=[IO.Pipes.NamedPipeClientStream]::new('.', '__PIPE__', [IO.Pipes.PipeDirection]::InOut)
@@ -448,10 +527,11 @@ try {
     function Write-C7Checkpoint([string]$Stage) {
         $writer.WriteLine('{"kind":"checkpoint","stage":"'+$Stage+'"}')
     }
+''' + CONVERSION_PROJECTOR + r'''
     Write-C7Checkpoint 'connected'
     $line=$reader.ReadLine()
     Write-C7Checkpoint 'grantread'
-    $grant=$line|ConvertFrom-Json
+''' + CONVERSION_CALL + r'''
     Write-C7Checkpoint 'grantparsed'
     $names=@($grant.PSObject.Properties.Name)
     if ($names.Count -ne 3 -or $names -cnotcontains 'root' -or $names -cnotcontains 'sha256' -or $names -cnotcontains 'source' -or
@@ -498,10 +578,11 @@ try {
 
 
 class Attempt:
-    def __init__(self, api, command, cwd, *, checkpoint_value=None):
+    def __init__(self, api, command, cwd, *, checkpoint_value=None, conversion_failure_value=None):
         self.api, self.pipe, self.owner, self.child = api, None, None, None
         self.closed = self.poisoned = False
         self.checkpoint, self.checkpoint_locked = checkpoint_value, False
+        self.conversion_failure_value = conversion_failure_value
         try:
             self.step('create-pipe')
             self.pipe = Pipe(api)
@@ -551,7 +632,16 @@ class Attempt:
             self.pipe.send(value, deadline)
             for name in SCRIPT_STEPS[1:-1]:
                 self.step('receive-script-progress')
-                if self.pipe.receive(deadline) != {'kind': 'checkpoint', 'stage': name}:
+                frame = self.pipe.receive(deadline)
+                if name == 'grantparsed' and type(frame) is dict and frame.get('kind') == 'grant-conversion-failure':
+                    if set(frame) != {'kind', 'line', 'exceptions', 'chain_end', 'category'}:
+                        raise Refused('protocol-refused')
+                    candidate = conversion_failure({k: v for k, v in frame.items() if k != 'kind'})
+                    self.pipe.finish(deadline)
+                    if self.conversion_failure_value is not None:
+                        self.conversion_failure_value[0] = candidate
+                    raise Refused('protocol-refused')
+                if frame != {'kind': 'checkpoint', 'stage': name}:
                     raise Refused('protocol-refused')
                 if self.checkpoint is not None:
                     self.checkpoint['script_step'] = name
@@ -593,13 +683,14 @@ class Attempt:
         self.closed, self.poisoned = True, False
 
 
-def legacy(api, root, expected_source, expected, *, checkpoint_value=None):
+def legacy(api, root, expected_source, expected, *, checkpoint_value=None, conversion_failure_value=None):
     source_bytes(SOURCE, SOURCE_HASHES)
     executable = api.powershell()
     def command(name):
         script = LEGACY_SCRIPT.replace('__PIPE__', name)
         return [executable, '-NoProfile', '-NonInteractive', '-EncodedCommand', base64.b64encode(script.encode('utf-16le')).decode('ascii')]
-    attempt = Attempt(api, command, root, checkpoint_value=checkpoint_value)
+    attempt = Attempt(api, command, root, checkpoint_value=checkpoint_value,
+        conversion_failure_value=conversion_failure_value)
     try:
         observed = attempt.script_exchange({'root': str(root), 'source': str(SOURCE), 'sha256': expected_source})
         if observed != {'state': expected}:
@@ -617,6 +708,7 @@ def receipt():
         'status': 'failed', 'phase': 'fixture', 'failure': 'unexpected-failure',
         'legacy_source_sha256': None,
         'baseline_checkpoint': checkpoint(),
+        'grant_conversion_failure': None,
         'candidate_data_writers': 0, 'observed': [], 'timestamp_equalities': {},
         'cleanup': 'unconfirmed-fixture-retained', 'production_allowed': False,
         'keeper_loss_acceptance': False, 'rights_approval': False,
@@ -628,7 +720,7 @@ def public_receipt(value):
     if type(value) is not dict or set(value) != set(template):
         raise Refused('protocol-refused')
     flexible = {'status', 'phase', 'failure', 'observed', 'timestamp_equalities', 'cleanup',
-        'legacy_source_sha256', 'baseline_checkpoint'}
+        'legacy_source_sha256', 'baseline_checkpoint', 'grant_conversion_failure'}
     for key in set(template) - flexible:
         if type(value[key]) is not type(template[key]) or value[key] != template[key]:
             raise Refused('protocol-refused')
@@ -653,6 +745,14 @@ def public_receipt(value):
             or any(type(progress[key]) is not str or progress[key] not in allowed for key, allowed in
                 (('parent_step', PARENT_STEPS), ('script_step', SCRIPT_STEPS), ('child_state', CHILD_STATES)))):
         raise Refused('protocol-refused')
+    if value['grant_conversion_failure'] is not None:
+        conversion_failure(value['grant_conversion_failure'])
+        if (value['status'] != 'failed' or value['phase'] != 'legacy-baseline'
+                or progress['parent_step'] != 'receive-script-progress' or progress['script_step'] != 'grantread'
+                or value['observed'] or value['timestamp_equalities'] or value['legacy_source_sha256'] is None
+                or value['failure'] not in {'protocol-refused', 'owned-cleanup-unconfirmed'}
+                or value['cleanup'] != 'unconfirmed-fixture-retained'):
+            raise Refused('protocol-refused')
     if value['status'] == 'mechanism-observed' and (value['phase'] != 'complete' or value['failure'] != 'none'
             or tuple(value['observed']) != OBSERVATIONS or set(value['timestamp_equalities']) != set(TIME_STATES)
             or value['cleanup'] != 'owned-handles-closed-fixture-retained' or value['legacy_source_sha256'] is None
@@ -663,6 +763,7 @@ def public_receipt(value):
 
 def experiment():
     result, attempt, restore, api = receipt(), None, None, None
+    baseline_failure = [None]  # Private baseline-only result, never an admission callback.
     try:
         api = Windows()
         digest = source_bytes(SOURCE, SOURCE_HASHES)
@@ -679,7 +780,8 @@ def experiment():
         path.write_bytes(CONTENT)
         fixture(root, nonce); api.ntfs(root)
         result['phase'] = 'legacy-baseline'
-        legacy(api, root, digest, 'open', checkpoint_value=result['baseline_checkpoint'])
+        legacy(api, root, digest, 'open', checkpoint_value=result['baseline_checkpoint'],
+            conversion_failure_value=baseline_failure)
         result['observed'].append('writable-open')
         result['phase'] = 'lease-start'
         attempt = Attempt(api, lambda name: [api.image(), '-I', '-B', str(Path(__file__).resolve()), '--owned-lease', name], root)
@@ -738,6 +840,7 @@ def experiment():
                 uncertain = True
         if uncertain:
             result.update(status='failed', failure='owned-cleanup-unconfirmed', cleanup='unconfirmed-fixture-retained')
+    result['grant_conversion_failure'] = baseline_failure[0]
     return public_receipt(result)
 
 
