@@ -260,8 +260,14 @@ class DesktopGateway:
         target = httpx.URL(f'http://127.0.0.1:{upstream_port}').copy_with(
             raw_path=request.scope['raw_path'] + (b'?' + request.scope['query_string'] if request.scope['query_string'] else b''))
         try:
+            # An empty async stream makes httpx send a chunked body even for a
+            # bodyless GET. HTTP/1.0 services may close with those unread chunk
+            # bytes still queued, resetting an otherwise successful response.
+            has_body = bool(request.headers.get('transfer-encoding') or
+                            request.headers.get('content-length', '0') != '0')
             upstream = await self.client.send(self.client.build_request(request.method, target,
-                headers=self.upstream_headers(request.headers), content=request.stream()), stream=True)
+                headers=self.upstream_headers(request.headers),
+                content=request.stream() if has_body else None), stream=True)
         except httpx.HTTPError:
             return JSONResponse({'detail': 'Desktop is starting or reconnecting.'}, status_code=503, headers={'Retry-After': '1'})
         headers = {key: value for key, value in upstream.headers.items()

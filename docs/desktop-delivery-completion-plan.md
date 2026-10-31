@@ -69,8 +69,14 @@ confirmed the symbolic-link, Windows recovery-fixture and Python provisioning
 corrections. The hosted rerun passed all required application, browser and source
 audit jobs. A later comprehensive local run passed core/browser/recovery checks
 but reproduced the update scenario connection reset while streaming an upstream
-response. That failure remains under investigation; the local run is not a full
-pass.
+response. The gateway had synthesized chunked bodies for bodyless requests;
+those unread bytes can reset responses from HTTP/1.0 services. It now preserves
+bodyless requests and still streams actual request bodies. The targeted gateway
+tests and all five update scenarios pass; the earlier local run remains a failure.
+
+Native executable and helper names now use `GameImmersionToolkit` throughout
+packaging, shortcuts, updates and CI. Packaging/runtime checks passed (83 tests,
+three host-dependent skips); the renamed artifact needs rebuilding.
 
 The exact Windows candidate from `984cb51` now passes frozen host startup,
 frontend/API access, API crash recovery, same-state restart, owned shutdown,

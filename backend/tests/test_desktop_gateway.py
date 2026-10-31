@@ -86,6 +86,23 @@ def test_installed_localhost_reader_keeps_cors_access(gateway):
         assert client.get('/api/lines', headers={'Origin': 'https://evil.example'}).status_code == 403
 
 
+@pytest.mark.parametrize('method', ['GET', 'HEAD', 'POST'])
+def test_bodyless_requests_do_not_create_chunked_upstream_bodies(gateway, method):
+    instance, calls = gateway
+    with client_for(instance, local=True) as client:
+        assert client.request(method, '/api/status').status_code == 206
+    assert calls[-1].content == b''
+    assert 'transfer-encoding' not in calls[-1].headers
+
+
+def test_chunked_request_body_is_preserved(gateway):
+    instance, calls = gateway
+    with client_for(instance, local=True) as client:
+        response = client.post('/api/settings', content=iter([b'{"game":', b'"zzz"}']))
+        assert response.status_code == 206
+    assert calls[-1].content == b'{"game":"zzz"}'
+
+
 @pytest.mark.parametrize('path', ['/api/lines', '/api/capture/preview.jpg', '/api/setup', '/api/lexirise/accounts'])
 def test_unpaired_requests_and_forged_cookies_never_reach_backend(gateway, path):
     instance, calls = gateway
