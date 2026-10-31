@@ -1261,5 +1261,47 @@
     "production_execution_allowed": false,
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false
+  },
+  "later_ffmpeg_compile_failure_423e843": {
+    "source_commit": "423e843bb4758acef35d0fbe217250bb2c7b3daf",
+    "run": 41169075509,
+    "run_attempt": 2,
+    "native_job": 124443482342,
+    "run_conclusion": "failure",
+    "first_attempt": {
+      "native_job": 124442923291,
+      "outcome": "input-acquisition-connection-reset",
+      "error": "WinError-10054",
+      "native_build": "not-run",
+      "artifact": "none",
+      "retry_reason": "one-justified-same-head-job-retry-after-transport-failure"
+    },
+    "actual_runner_image": {
+      "image": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "early_windows_contracts_passed": 3,
+    "early_windows_contract_skips": 0,
+    "failure_artifact": {
+      "id": 13030628980,
+      "bytes": 467,
+      "sha256": "af2cdd2a0ed337fbfb1594bf3637a32b8cdc81bca50366a0689e528e9741d38a"
+    },
+    "download_review": "independently-verified-source-provider-digest-single-entry-and-false-gates",
+    "phase": "build-ffmpeg",
+    "exit_code": 2,
+    "diagnostic_codes": [],
+    "diagnostic_categories": [
+      "unclassified-command-failure"
+    ],
+    "log_truncated": false,
+    "earlier_strict_build_commands": "returned-zero; not-a-final-native-output-or-tool-seal-proof",
+    "final_native_decode": "not-run",
+    "complete_tool_seal_not_delivered": true,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false
   }
 }

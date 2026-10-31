@@ -749,6 +749,18 @@ including exact source/manifest and unchanged gates. This supplies no native
 compile, inference, full tool seal or source-input-cohort receipt. Both failures
 remain in the checkpoint ledger; earlier narrow passes are not transferred.
 
+The same head's [FFmpeg run 41169075509](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41169075509)
+first stopped on a connection reset during input acquisition. One justified
+same-head job retry passed three early Windows contracts with zero skips and
+reached `build-ffmpeg`, which returned 2. The earlier strict build commands
+returned zero; that is not final codec/output or tool-seal evidence. Downloaded
+failure artifact 13030628980 matched 467 bytes and SHA-256
+af2cdd2a0ed337fbfb1594bf3637a32b8cdc81bca50366a0689e528e9741d38a,
+with exact source, no known error code and `unclassified-command-failure`.
+Its log tail was not truncated. The compile cause remains unknown, and the
+final decode and after-build tool verification did not run. The retry used
+the older `20261021.278.1` image; it is not evidence about another job's image.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
