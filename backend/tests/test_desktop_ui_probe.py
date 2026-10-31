@@ -45,22 +45,32 @@ def test_offscreen_never_counts_as_native_window_or_tray(tmp_path):
     assert opened == []
 
 
-def test_ui_actions_use_actual_bound_handlers_without_claiming_browser_navigation(tmp_path):
+def test_ui_actions_require_each_mounted_reader_acknowledgement(tmp_path):
     probe, host, opened = fixture(tmp_path)
     host.open_browser('http://127.0.0.1:12345')
     for _ in range(3):
         probe.tick()
+    assert len(opened) == 1 and not host.stop_requested.is_set()
+    assert 'browser_open' not in probe.checks
+    probe.browser_result.write_text('{"stages":[1]}')
+    probe.tick()
+    probe.tick()
+    assert len(opened) == 2 and not host.stop_requested.is_set()
+    probe.browser_result.write_text('{"stages":[1,2]}')
+    probe.tick()
     code, value = finish(probe, host, tmp_path)
     assert code == 0 and value['passed']
     assert value['checks']['tray_icon'] and value['checks']['show_logs_action']
     assert value['checks']['open_transcript_action'] and value['checks']['quit_action']
-    assert opened == ['http://127.0.0.1:12345'] * 2
-    assert value['browser_navigation'] == 'not-run'
-    assert 'browser_open' not in value['checks']
+    assert all(url.startswith('http://127.0.0.1:12345/#toolkit-native-probe=') for url in opened)
+    assert opened[0].endswith('&stage=1') and opened[1].endswith('&stage=2')
+    assert value['browser_navigation'] == 'mounted-reader-observed'
+    assert value['checks']['browser_open'] and value['checks']['open_transcript_navigation']
 
 
 def test_absent_tray_records_supported_visible_window_fallback(tmp_path):
     probe, host, _opened = fixture(tmp_path, tray=False)
+    probe.browser_result.write_text('{"stages":[1,2]}')
     host.open_browser('http://127.0.0.1:12345')
     for _ in range(3):
         probe.tick()
@@ -78,3 +88,15 @@ def test_missing_browser_handler_is_unavailable_and_does_not_hide_native_window_
     assert code == 2 and not value['passed']
     assert value['checks']['status_window'] and value['checks']['tray_icon']
     assert not value['checks']['default_browser_request']
+
+
+def test_stale_browser_result_is_removed_and_handler_alone_cannot_pass(tmp_path):
+    (tmp_path / 'native-browser-probe.json').write_text('{"stages":[1,2]}')
+    probe, host, _opened = fixture(tmp_path)
+    assert not probe.browser_result.exists()
+    host.open_browser('http://127.0.0.1:12345')
+    for _ in range(3):
+        probe.tick()
+    code, value = finish(probe, host, tmp_path)
+    assert code == 1 and not value['passed']
+    assert value['browser_navigation'] == 'unverified'

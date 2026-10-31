@@ -1,11 +1,13 @@
 """Opt-in observations of the real desktop UI, never offscreen acceptance.
 
 The native runner binds this small, path-free result to the closed artifact.
-Browser-handler success is explicitly a request acknowledgement, not proof that
-the user's browser navigated, rendered or retained its ordinary profile.
+Browser-handler success remains separate from the mounted reader's ephemeral
+challenge acknowledgement. Neither check inspects the user's browser profile.
 """
 from __future__ import annotations
 
+import json
+import secrets
 import time
 
 from .bundle_host import _atomic_json
@@ -22,6 +24,9 @@ class DesktopUiProbe:
         self.requests = []
         self.error = None
         self.checks = {}
+        host.browser_probe_token = secrets.token_hex(32)
+        self.browser_result = host.layout.state_root / 'native-browser-probe.json'
+        self.browser_result.unlink(missing_ok=True)
         self.platform = str(application.platformName()).casefold()
         self.non_native = self.platform in {'offscreen', 'minimal', 'minimalegl', 'vnc'}
         if self.non_native:
@@ -30,13 +35,20 @@ class DesktopUiProbe:
 
         def observe_open(url):
             try:
-                accepted = bool(original_open(url))
+                stage = len(self.requests) + 1
+                accepted = bool(original_open(url + '/#toolkit-native-probe=' + host.browser_probe_token + '&stage=' + str(stage)))
             except Exception:
                 self.requests.append(False)
                 raise
             self.requests.append(accepted)
             return accepted
         host.open_browser = observe_open
+
+    def browser_observed(self, stage):
+        try:
+            return stage in json.loads(self.browser_result.read_text(encoding='utf-8')).get('stages', [])
+        except (OSError, ValueError, TypeError, AttributeError):
+            return False
 
     def visible(self):
         handle = self.window.windowHandle()
@@ -78,19 +90,28 @@ class DesktopUiProbe:
             if not self.visible():
                 return
             self.checks['show_logs_action'] = True
+            if not self.requests[0]:
+                self.stop('default-browser-handler-unavailable')
+                return
+            if not self.browser_observed(1):
+                return
+            self.checks['browser_open'] = True
             if not self.actions['open'].isEnabled():
                 return
             self.actions['open'].trigger()
             self.phase = 'browser'
         elif self.phase == 'browser' and len(self.requests) >= 2:
             self.checks['open_transcript_action'] = self.requests[-1]
+            if self.requests[-1] and not self.browser_observed(2):
+                return
+            self.checks['open_transcript_navigation'] = self.browser_observed(2)
             self.stop(None if all(self.requests) else 'default-browser-handler-unavailable')
 
     def finish(self):
         self.checks['owned_shutdown'] = self.host.finished.is_set() and not self.host.lease.held
         unavailable = self.error in {'native-display-unavailable', 'default-browser-handler-unavailable'}
         required = ('status_window', 'log_window', 'show_logs_action', 'default_browser_request',
-                    'open_transcript_action', 'quit_action', 'owned_shutdown')
+                    'browser_open', 'open_transcript_action', 'open_transcript_navigation', 'quit_action', 'owned_shutdown')
         passed = self.error is None and all(self.checks.get(key) is True for key in required)
         if self.tray_available and not self.checks.get('tray_icon'):
             passed = False
@@ -98,7 +119,8 @@ class DesktopUiProbe:
             'passed': passed, 'status': 'passed' if passed else 'unavailable' if unavailable else 'failed',
             'checks': self.checks, 'native_tray': 'available' if self.tray_available else 'unavailable',
             'native_display': 'observed' if self.checks.get('status_window') else 'unavailable' if self.non_native else 'unverified',
-            'browser_navigation': 'not-run', 'ordinary_browser_profile': 'not-run',
+            'browser_navigation': 'mounted-reader-observed' if self.checks.get('browser_open') else 'unverified',
+            'ordinary_browser_profile': 'not-run',
             'native_game_capture': 'not-run', 'r19_complete': False}
         if self.error:
             value['error'] = self.error

@@ -303,6 +303,7 @@ class DesktopHost:
         self.route_path = layout.state_root / 'desktop-host-route.json'
         self.control_path = layout.state_root / 'desktop-host-control.json'
         self.browser_opened = False
+        self.browser_probe_token = None
         self.capture_running = False
         self.failures = {name: deque() for name in ('API', 'Frontend', 'Gateway')}
         self.retained_frontends = []
@@ -346,7 +347,11 @@ class DesktopHost:
         if kind == 'frontend':
             for root in self.retained_frontends if retained_roots is None else retained_roots:
                 arguments += ['--retained-root', str(root)]
+        if kind == 'gateway' and self.browser_probe_token:
+            arguments += ['--browser-probe-result', str(self.layout.state_root / 'native-browser-probe.json')]
         env = layout.child_environment(kind)
+        if kind == 'gateway' and self.browser_probe_token:
+            env['TOOLKIT_NATIVE_BROWSER_PROBE'] = self.browser_probe_token
         env.update(PYTHONUNBUFFERED='1', PYTHONIOENCODING='utf-8', PROXY_TRANSCRIPT_HOST_MANAGED='1')
         env.pop('PROXY_TRANSCRIPT_STANDBY', None)
         if standby:

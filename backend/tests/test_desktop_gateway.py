@@ -33,6 +33,29 @@ def client_for(instance, local=False, **kwargs):
                       client=('127.0.0.1' if local else '192.168.1.30', 23456), **kwargs)
 
 
+def test_native_browser_evidence_requires_opt_in_local_origin_and_challenge(gateway, tmp_path):
+    instance, calls = gateway
+    path = '/api/native-browser-probe'
+    body = {'token': 'a' * 64, 'stage': 1, 'reader_ready': True}
+    origin = {'Origin': 'http://127.0.0.1:3000'}
+    with client_for(instance, local=True) as client:
+        assert client.post(path, json=body, headers=origin).status_code == 404
+        instance.browser_probe_token = 'a' * 64
+        instance.browser_probe_result = tmp_path / 'browser-result.json'
+        assert client.post(path, json=body).status_code == 403
+        assert client.post(path, json={**body, 'token': 'b' * 64}, headers=origin).status_code == 403
+        assert client.post(path, json={**body, 'reader_ready': False}, headers=origin).status_code == 403
+        assert client.post(path, json={**body, 'stage': True}, headers=origin).status_code == 403
+        assert client.post(path, content=b'x' * 257, headers=origin).status_code == 413
+        assert not instance.browser_probe_result.exists()
+        assert client.post(path, json=body, headers=origin).status_code == 204
+        assert client.post(path, json={**body, 'stage': 2}, headers=origin).status_code == 204
+        assert json.loads(instance.browser_probe_result.read_text()) == {'stages': [1, 2]}
+    with client_for(instance) as remote:
+        assert remote.post(path, json=body, headers={'Origin': BASE}).status_code == 404
+    assert calls == []
+
+
 def test_phone_pairing_shares_reader_audio_and_favorites_without_revealing_code(gateway):
     instance, calls = gateway
     with client_for(instance, local=True) as client:

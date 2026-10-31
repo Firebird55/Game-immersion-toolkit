@@ -237,12 +237,14 @@ def check_ui(host, timeout):
     if host.process.returncode != expected_code or value['passed'] != (value['status'] == 'passed'):
         raise ProbeFailure('inconsistent-frozen-ui-result')
     allowed = {'status_window', 'log_window', 'tray_icon', 'default_browser_request',
+               'browser_open', 'open_transcript_navigation',
                'tray_unavailable_window_fallback', 'show_logs_action', 'open_transcript_action',
                'quit_action', 'owned_shutdown'}
     return {'status': value['status'], 'passed': value['passed'],
         'checks': {key: item for key, item in value['checks'].items() if key in allowed},
         'native_tray': 'available' if value.get('native_tray') == 'available' else 'unavailable',
-        'browser_navigation': 'not-run', 'ordinary_browser_profile': 'not-run', 'native_game_capture': 'not-run'}
+        'browser_navigation': 'mounted-reader-observed' if value['checks'].get('browser_open') is True else 'unverified',
+        'ordinary_browser_profile': 'not-run', 'native_game_capture': 'not-run'}
 
 
 def probe(runtime, provenance, output, timeout, *, ui=False):

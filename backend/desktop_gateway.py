@@ -14,6 +14,7 @@ from http.cookies import SimpleCookie, CookieError
 import ipaddress
 import json
 import logging
+import os
 from pathlib import Path
 import re
 import secrets
@@ -173,12 +174,15 @@ PAGE_HEADERS = {'Content-Security-Policy': "default-src 'none'; script-src 'self
 
 class DesktopGateway:
     def __init__(self, routes, *, assets=None, frontend_port=3000, api_port=8766, addresses=network_addresses,
-                 transport=None):
+                 transport=None, browser_probe_token=None, browser_probe_result=None):
         self.routes, self.assets = routes, Path(assets).resolve() if assets else None
         self.frontend_port, self.api_port = frontend_port, api_port
         self.addresses, self.pairing = addresses, Pairing()
         self.transport = transport
         self.client = None
+        self.browser_probe_token = browser_probe_token
+        self.browser_probe_result = browser_probe_result
+        self.browser_probe_stages = set()
         application = Starlette(routes=[Route('/{path:path}', self.http, methods=['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS']),
                                         WebSocketRoute('/{path:path}', self.websocket)], lifespan=self.lifespan)
         # Installed readers retain their original localhost origins. LAN readers
@@ -221,6 +225,32 @@ class DesktopGateway:
         if not allowed_request(request.scope, self.addresses()):
             return JSONResponse({'detail': 'Open the desktop address directly.'}, status_code=403)
         local, path = is_local(request.scope), request.url.path
+        if path == '/api/native-browser-probe':
+            # This endpoint exists only in an explicitly requested native probe.
+            # A normal/LAN reader cannot create acceptance evidence.
+            if not local or not self.browser_probe_token or not self.browser_probe_result:
+                return Response(status_code=404)
+            if request.method != 'POST' or request.headers.get('origin') != str(request.base_url).rstrip('/'):
+                return Response(status_code=403)
+            body = bytearray()
+            async for chunk in request.stream():
+                body.extend(chunk)
+                if len(body) > 256:
+                    return Response(status_code=413)
+            try:
+                value = json.loads(body)
+                valid = (isinstance(value, dict) and isinstance(value.get('token'), str)
+                    and secrets.compare_digest(value['token'], self.browser_probe_token)
+                    and type(value.get('stage')) is int and value['stage'] in {1, 2}
+                    and value.get('reader_ready') is True)
+            except ValueError:
+                valid = False
+            if not valid:
+                return Response(status_code=403)
+            from .bundle_host import _atomic_json
+            self.browser_probe_stages.add(value['stage'])
+            _atomic_json(Path(self.browser_probe_result), {'stages': sorted(self.browser_probe_stages)})
+            return Response(status_code=204, headers={'Cache-Control': 'no-store'})
         if path == '/api/connection':
             if request.method != 'GET':
                 return Response(status_code=405)
@@ -338,10 +368,15 @@ def main():
     parser.add_argument('--api-port', type=int, default=8766)
     parser.add_argument('--frontend-port', type=int, default=3000)
     parser.add_argument('--shutdown-stdin', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--browser-probe-result', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     routes = RuntimeRoutes(args.state, api_port=args.api_port, frontend_port=args.frontend_port)
     routes.refresh()
-    gateway = DesktopGateway(routes, assets=args.assets, api_port=args.api_port, frontend_port=args.frontend_port)
+    probe_token = os.environ.pop('TOOLKIT_NATIVE_BROWSER_PROBE', '')
+    if args.browser_probe_result and not re.fullmatch(r'[a-f0-9]{64}', probe_token):
+        parser.error('Native browser probe requires an ephemeral challenge.')
+    gateway = DesktopGateway(routes, assets=args.assets, api_port=args.api_port, frontend_port=args.frontend_port,
+        browser_probe_token=probe_token, browser_probe_result=args.browser_probe_result)
     sockets = []
     try:
         for host, port in [('127.0.0.1', args.api_port), ('0.0.0.0', args.frontend_port)]:

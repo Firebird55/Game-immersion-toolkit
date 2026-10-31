@@ -147,6 +147,24 @@ extension in the prior Windows candidate found no importer of that file.
 The next frozen status/tray probe must verify the reduced selection before
 claiming native acceptance; source scans alone do not prove runtime behavior.
 
+Run [41209734392](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41209734392)
+completed all five browser groups, supplied screenshot regressions, source audit,
+extracted source-package checks and Windows native installer construction.
+Linux stopped in vgmstream compilation; bounded compiler output is now retained
+in the failing command's diagnostic. The macOS process-ID fix and Linux diagnostic
+are being tested in run 41213898794.
+
+The visible native probe now distinguishes handler acknowledgement from actual
+reader navigation. Only an explicitly enabled probe opens an ephemeral fragment
+challenge. After the production transcript mounts and has layout, its JavaScript
+acknowledges that challenge to the same-origin loopback gateway. Startup and the
+tray's Open transcript action require separate acknowledgements; the probe does
+not inspect or close the user's browser. Normal launches have no challenge or
+enabled evidence endpoint. Unit checks reject stale results, remote requests,
+wrong/missing origin, wrong challenge and incomplete rendering evidence. Native
+execution of this revised probe remains pending; ordinary-profile persistence
+and physical-device capture remain separate checks.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),
