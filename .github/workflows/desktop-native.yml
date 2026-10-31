@@ -55,7 +55,16 @@ jobs:
       - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py backend/tests/test_owned_process.py backend/tests/test_desktop_release.py
       - name: Install Linux build-runner display services
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libxkbcommon-x11-0 libxcb-cursor0
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Fail with the actual missing library before Qt aborts without a
+          # useful Python traceback. These are build-runner dependencies;
+          # PyInstaller collects the runtime's native dependency closure.
+          $plugin = python -c "from PySide6.QtCore import QLibraryInfo; print(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath) + '/platforms/libqxcb.so')"
+          $dependencies = ldd $plugin
+          $dependencies | Write-Output
+          if ($LASTEXITCODE -ne 0 -or ($dependencies -match 'not found')) { exit 1 }
       - name: Probe native desktop discovery and capture
         run: |
           if ($IsLinux) { xvfb-run -a python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json }

@@ -12,6 +12,19 @@ import pytest
 from backend.owned_process import OwnedProcess
 
 
+def test_child_exit_observer_without_waitid_never_reaps_identity(monkeypatch):
+    from backend import owned_process
+    monkeypatch.delattr(owned_process.os, 'waitid', raising=False)
+    statuses = iter([psutil.STATUS_RUNNING, psutil.STATUS_ZOMBIE])
+    class RetainedChild:
+        def status(self):
+            return next(statuses)
+    monkeypatch.setattr(psutil, 'Process', lambda pid: RetainedChild())
+    monkeypatch.setattr(subprocess.Popen, 'poll', lambda *_: pytest.fail('Reaping permits process-group reuse'))
+    assert owned_process._posix_child_exited(123) is False
+    assert owned_process._posix_child_exited(123) is True
+
+
 def gone(pid, created):
     try:
         process = psutil.Process(pid)

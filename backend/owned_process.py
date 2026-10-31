@@ -179,8 +179,19 @@ def _posix_session_groups(session):
     return groups
 
 
+def _posix_child_exited(pid):
+    """Observe exit without reaping the process-group identity we still own."""
+    if hasattr(os, 'waitid') and hasattr(os, 'WNOWAIT'):
+        return bool(os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT))
+    # CPython 3.12 does not expose waitid on macOS. Reading the retained
+    # child's kernel status leaves its zombie/PID in place, unlike Popen.poll
+    # or waitpid, so descendant cleanup cannot target a reused process group.
+    import psutil
+    return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+
+
 def _posix_bootstrap(parent_fd, command, retained_fds=()):
-    if os.name == 'nt' or not hasattr(os, 'waitid') or not hasattr(os, 'WNOWAIT'):
+    if os.name == 'nt':
         return 125
     # Neither this pipe nor the watchdog's ownership may leak into descendants.
     os.set_inheritable(parent_fd, False)
@@ -196,7 +207,7 @@ def _posix_bootstrap(parent_fd, command, retained_fds=()):
         signal.signal(signum, lambda *_: interrupted.set())
     try:
         while not interrupted.is_set():
-            if os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT):
+            if _posix_child_exited(child.pid):
                 break  # Retain the zombie PID until its group has been drained.
             readable, _, _ = select.select([parent_fd], [], [], .1)
             if readable and not os.read(parent_fd, 1):
