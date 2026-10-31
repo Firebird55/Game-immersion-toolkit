@@ -88,7 +88,8 @@ keys to the current token's authoritative `FOLDERID_ProgramData` answer. It also
 replaces case aliases of `SystemDrive` with one key derived from the shared OS
 Windows directory. It never inherits these values from the parent, changes
 `os.environ`, derives a drive from ProgramData or tries another combination.
-This intervention is source implemented and **native pending**.
+This intervention was source-only at `3b3a282`; the separate bounded native
+result at `f43cec7` is recorded below.
 
 The typed [GetSystemWindowsDirectoryW call](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getsystemwindowsdirectoryw)
 uses LPWSTR/UINT arguments, a UINT return and one fixed 32768-wide-character
@@ -156,12 +157,13 @@ attempted even when an earlier cleanup step fails. A later successful step
 cannot clear that uncertainty.
 Configuration requires the bound child to report Full CLR/x64, nonempty folder
 and root, rootedness, and equality with both aliases. It then receives that same
-bound map. The new OS-derived SystemDrive intervention remains **native pending**;
-local authored fixtures do not establish Windows behavior. Comparable fresh
+bound map. Local authored fixtures alone did not establish Windows behavior;
+the separate `f43cec7` run subsequently observed this bound state. Comparable fresh
 MSBuild children are not the later CL task's live process. Even repaired
-configuration would not prove framework binary/source correspondence, native
+configuration does not prove framework binary/source correspondence, native
 closure, redistribution rights, trained recognition, Windows11 or R19 completion.
-The same 15 source inputs require a new exact prepare/verify after review.
+The reviewed prepare retained all fifteen exact source inputs; the subsequent
+Windows checkout variants and final verification are recorded below.
 
 At `2a169bd`, run `41215443407` stopped in `common-data-bound`: both states
 reported `invalid-markers` and the OS origin remained stable. No child exit,
@@ -795,6 +797,42 @@ payload, wheel, input archive, model/audio fixture, raw log/trace/link map, priv
 file inventory or absolute build/tool path is uploaded. An incomplete native
 build/probe produces no passing final receipt.
 
+## Verified separate native source checkpoint at f43cec7
+
+[Run 41235280115](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41235280115)
+at `f43cec7704c74ebd6f4af6c33638a50ba6b09ace` completed the separate TTS-disabled
+build and all three authored native-format/API cases. Its only uploaded archive
+is 11,728 bytes, SHA-256
+`e226faff0cd86509c78a1dce9e3f86916189ac9448708dbd2c40e86d6c5e6be5`,
+containing `PREPARED.json` and `ASR-RECEIPT.json`. Exact identities and the full
+sanitized receipt are in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
+
+The baseline still returned an empty common-data folder on Full CLR/x64 with
+MSB4184 and the fixed `absolute-path-required` resource. In this run the bound
+`PROGRAMDATA+ALLUSERSPROFILE+SystemDrive` state observed a nonempty rooted default
+and root, both aliases equal, and the DoNotVerify call returned the four expected
+booleans. The OS-derived origin remained stable. This is a successful bound-state
+observation; it does not retrospectively identify the private cause of earlier
+failures or establish exact source correspondence for the OS binary.
+
+All fifteen recipe inputs match exact Git blobs or explicit Windows CRLF
+checkout variants (six and nine respectively). The native recipe cohort is
+`a58859e1c2cce2d1ebd229c688ea1355844dea62c079e31882bca5e25fcf7827`,
+distinct from the local LF cohort. Selected source inventory remains 5,665 files
+with hash `09dfae305b8dc09587c58a7f3a105c1b50478bca4ef4af04cee6b54fd295aeab`.
+The final receipt was emitted after source, candidate and twelve toolchain
+tree/byte seals were rechecked. The actual runner used image `20261030.294.1`
+and VS installation `18.11.12328.437`; this does not pin future runner contents.
+
+The three bounded probes returned `decoded-owned-format`,
+`native-shape-error-empty-result` and `rejected-invalid-model`. Each used the
+same rebuilt binding and exact input ONNX DLL from the candidate directory.
+The independently authored graph deliberately emits `AUTHORED` regardless of
+sound. No trained speech recognition, model accuracy, runtime replacement,
+private-wheel reinspection, ONNX/source/CRT closure or distribution approval
+follows. All historical negative receipts and production, rights and Windows11
+gates remain unchanged.
+
 ## Open decisions
 
 All production execution and runtime collection permissions remain false;
@@ -810,7 +848,7 @@ declares separate model terms; a later exact weight/token selection and intended
 use need their own review. An authored graph cannot close that gate.
 
 Local preparation and regression tests do not establish a successful Windows
-build. A successful hosted Server run would establish only its bounded source
+build. The verified hosted Server run establishes only its bounded source
 build and native format/API observations. Clean ordinary-user Windows11 x64
 25H2, capture/DPI, trained recognition quality, full R19 and merge readiness
 remain separate gates. No such Windows11 environment is currently available.

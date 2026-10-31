@@ -43,12 +43,12 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `a1c5e92`, 1,150 Windows contracts without skips, freezing, native/C1/cold-slot, living-keeper and authored SQLite plain/interrupted-resumed/retained-WAL/populated-grammar cases passed; root and peer checked downloaded metadata/source artifacts | This remains the last complete frozen checkpoint. The later explicit-close `31ee4c9` run passed 1,191 contracts and pre-failure probes, then failed the keeper step; C3–C6 were skipped. No target activation, keeper loss, global/dynamic writer admission, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation is accepted |
+| Extracted runtime | At `f43cec7`, 1,234 Windows contracts without skips, freezing, native/C1/cold-slot, both living-keeper cases and authored SQLite plain/interrupted-resumed/retained-WAL/populated-grammar cases passed; root and peer independently checked seven provider-bound source/metadata archives and exact named Git inputs | This is the latest complete bounded frozen checkpoint. The earlier explicit-close `31ee4c9` keeper failure remains negative evidence with C3–C6 skipped and cleanup unconfirmed. No target activation, keeper loss, global/dynamic writer admission, physical handle closure, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation is accepted |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
 | ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
-| Host/data recovery | Guarded cold slots, living-keeper and `a1c5e92` plain/interrupted-resumed/retained-WAL/one populated local grammar receipts verify bounded retained-process/continuous-lease behavior with actual source-entry contenders; protected-TEST probes also exist | No production global writer barrier, keeper-loss lifetime, interrupted-WAL, warm supervising updater or full populated-data/settings/browser/credential/schema continuity proof. C7 v1/v2 provide no bounded legacy-open/attribute result; `31ee4c9` keeper cleanup is unconfirmed |
+| Host/data recovery | Guarded cold slots, living-keeper and `f43cec7` plain/interrupted-resumed/retained-WAL/one populated local grammar receipts verify bounded retained-process/continuous-lease behavior with actual source-entry contenders; protected-TEST probes also exist | No production global writer barrier, keeper-loss lifetime, interrupted-WAL, warm supervising updater or full populated-data/settings/browser/credential/schema continuity proof. C7 v1/v2/v3 provide no bounded legacy-open/attribute result; `31ee4c9` keeper cleanup remains unconfirmed |
 | Unvoiced export | Actual source and `acc68be` frozen authored Half-Life index/language/mobile-export workers and the portable mobile parser pass for English and Simplified Chinese, with missing-pack rejection and previous-export preservation | Ordinary-user/installed-pack acceptance remains pending; no original speech binding is added |
 | Source original PCM | Source and bounded frozen authored Portal VPK/VCCD/event and selected English/French pack bindings pass actual index/language workers and in-process extraction/PCM validation; truncated PCM preserves prior output | Voiced mobile export still requires the unavailable general MP3 conversion path: bundle FFmpeg is disabled, the voice service requires decoder readiness and the transfer format requires MP3. Xiph FLAC and the quarantined FFmpeg DLL replay do not provide that encoder. MP3/composite/Bink decoding and installed-game/native coverage also remain pending |
 
@@ -140,8 +140,23 @@ The later [per-store operation fence](r19-mutable-store-lifetime.md) at
 it drains admitted connection scopes, not physical SQLite/OS resources or every
 outer method. It grants no detach, global writer or warm OCR authority.
 The [OS-derived ASR SystemDrive binding](r19-asr-source-experiment.md#common-data-preflight-and-pending-os-derived-systemdrive-binding)
-at `3b3a282` also remains native pending; it does not repair the historical
-negative by assertion.
+at `3b3a282` was source-only. The separate `f43cec7` ASR run subsequently passed
+the bound state, native build and authored format/API cases; it does not change
+historical negatives, approve model weights or establish speech recognition.
+At `f43cec7`, the complete frozen run passed 1,234 contracts without skips and
+both keeper cases plus C3–C6. Root and peer verified seven exact provider-bound
+archives, 52 named Git blobs, 473 A2/P1 records and Xiph source/rebuild/decode
+bindings. This supersedes `a1c5e92` as the latest complete bounded checkpoint,
+without changing the earlier negative evidence. Its per-store scope fence is
+not physical detach; registered startup progress is separate from unchanged
+ready HTTP ownership checks; WebSocket admission follows actual worker lifetime
+and retires old queued epoch tickets, without establishing global admission.
+The separate C7 v3 run `41235281328` failed at the last complete `grantread`
+checkpoint, before any delivered parsed-grant or legacy-open/attribute result.
+Its cause and cleanup remain unconfirmed. The successful separate ASR source-build
+evidence is distinct from the frozen smoke and reviewed under its own exact
+artifacts; native/source/CRT, model, rights and Windows11 gates remain open.
+
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source
 experiment](r19-asr-source-experiment.md) is a distinct private binding variant,

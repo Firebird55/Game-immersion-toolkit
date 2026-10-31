@@ -1095,7 +1095,8 @@ Only `keeper-before-resume` completed: two writers created, none resumed,
 retained signals and two source-entry blocks. There is no completed second-case
 result. Missing metadata does not prove that no intermediate physical activity
 occurred. All four downstream C3/C4/C5/C6 steps were skipped and their receipts
-are absent. **`a1c5e92` remains the last complete frozen checkpoint.**
+are absent. `a1c5e92` remained the last complete frozen checkpoint until the
+separately verified `f43cec7` run below.
 
 Root and peer verified partial archive `13053797653`, 1,333,529 bytes, SHA-256
 `2081ae84727f87b44778c79fdd6ff2d85d103759a22ee808ef354ccd3a9dd5dd`.
@@ -1149,8 +1150,55 @@ The [operation fence](r19-mutable-store-lifetime.md) at `1d933dd` builds on
 explicit connection close but proves only a programmatic per-store scope drain.
 It does not prove physical handle release, detach/reopen, global admission or a
 usable warm OCR session. The [OS-derived SystemDrive source change](r19-asr-source-experiment.md#common-data-preflight-and-pending-os-derived-systemdrive-binding)
-at `3b3a282` is separately native pending. Neither change upgrades these
+at `3b3a282` was source-only; its separate bounded native `f43cec7` result is
+recorded in the ASR evidence. Neither change upgrades these
 historical negative receipts or any rights/Windows/R19 gate.
+
+## Verified complete frozen checkpoint at f43cec7
+
+[Run 41235227244](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41235227244)
+at `f43cec7704c74ebd6f4af6c33638a50ba6b09ace` passed 1,234 Windows contracts
+without skips (one warning, 104.36 seconds), all five C1 host cases, the guarded
+cold slots, both living-keeper cases and C3/C4/C5/C6. This is the latest complete
+**bounded frozen checkpoint**, not final R19 acceptance. The earlier `31ee4c9`
+failure and its unconfirmed cleanup remain negative evidence.
+
+Root and peer independently checked all seven provider-bound source/metadata
+archives, exact named Git inputs, 473 A2/P1 records, 57 components and 113 notice
+references covering 104 distinct hashes. The inventory contains 1,449 files,
+642 directories and 620,144,144 bytes. The unchanged Xiph kit again reproduced
+byte-identical candidate/rebuild outputs; decode, faults and DLL-origin checks
+pass. Main/reference jobs used image `20261021.278.1`; the reference receipt
+records CMake 4.4.4 and compiler 19.51.36260.0. Managed/frontend jobs used the
+newer image `20261030.294.1`. See the exact identities
+in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
+
+C5 again observed a real 16,512-byte WAL and 32,768-byte SHM, with main-only
+`favorite=false` versus full-set `favorite=true`. C6 again observed one scoped
+local grammar choice at four through actual local HTTP/SQLite, with mocked remote
+grammar at zero and fresh-source readback at four. These cases do not activate
+the copied target or establish other populated-ledger continuity.
+
+The source now includes the per-store connection-operation fence, a registered
+startup progress preflight and actual-thread WebSocket admission with gate-epoch
+retirement. Established ready HTTP ownership checks remain unchanged. A drained
+operation scope and returned `Connection.close` do not certify physical SQLite/OS
+resource release, all stores, global admission, detach/reopen or usable warm OCR.
+
+The separate C7 v3 [run 41235281328](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41235281328)
+failed with last complete `grantread`, parent `receive-script-progress` and child
+`not-signaled` before close. It delivered no complete `grantparsed`, validated
+grant, legacy-open, attribute or owner-loss result; cleanup remains unconfirmed.
+Missing acknowledgement is not proof that a subsequent action never occurred.
+The [separate source-ASR run](r19-asr-source-experiment.md#verified-separate-native-source-checkpoint-at-f43cec7)
+passed its own build and authored native-format/API probes. The frozen ASR smoke
+alone does not establish that build, general inference or accepted model terms.
+
+Keeper loss, global/dynamic writer admission, physical resource fencing, warm
+routing/OCR, complete data/browser/settings/export continuity, general codecs,
+actual game helpers, rights/source delivery and ordinary-user Windows 11 25H2
+remain open. The production profile stays disabled, `r19_complete=false` and
+`installer=not-built`.
 
 ## Continuation and rollback
 

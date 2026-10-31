@@ -10,7 +10,9 @@ The later `a1c5e92` checkpoint also passed the separate populated local grammar
 fixture through actual frozen HTTP/SQLite; its distinct C6 scope is recorded
 below. The earlier plain, interrupted and retained-WAL observations remain intact.
 The later explicit-close `31ee4c9` run failed its keeper step before C3/C4/C5/C6.
-It supplies no new copy pass; `a1c5e92` remains the last complete frozen checkpoint.
+It supplies no new copy pass. The later `f43cec7` run passed keeper and all four
+copy cases again and is the latest complete bounded frozen checkpoint; its exact
+source/metadata artifacts were independently reviewed by root and peer.
 
 The existing [completion plan](r19-completion-plan.md) C2/C3/C4 gates remain
 open. The successful historical owned-host, cold-slot and
@@ -645,9 +647,10 @@ the exact setup failure and poisons its living adapter before recovery handling.
 Actual authored SQLite operations on the local development build close before
 return or error. With the unchanged NO_CKPT_ON_CLOSE policy, three real operation
 connections all close while a real WAL/SHM set still distinguishes main-only
-favorite0 from full-set favorite1. This is local source evidence, not a new
-Windows supplier result; the frozen SQLite variant requires its own exact-source
-C3/C4/C5/C6 attempt. Earlier downloaded receipts retain their original meaning.
+favorite0 from full-set favorite1. That local observation alone did not provide
+a Windows supplier result. The later `f43cec7` attempt passed the bounded
+C3/C4/C5/C6 cases, without physical-resource acceptance. Earlier downloaded
+receipts retain their original meaning.
 
 That explicit-close slice added no data-admission fence, active-operation drain,
 detach/reopen API, cache/settings rebinding or owner transition. A successful
@@ -664,7 +667,8 @@ receipts are absent. Root and peer verified the nine-entry partial archive
 `13053797653` and separate failure-only archive `13053678109`, alongside six
 other source/metadata archives. Their exact identities and the negative scope
 remain in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
-No storage cause, successful cleanup or current frozen copy pass is inferred.
+No storage cause, successful cleanup or new frozen copy pass is inferred from
+`31ee4c9`.
 
 ## Separate per-store operation fence, source only
 
