@@ -12,11 +12,11 @@ import struct
 import subprocess
 import tempfile
 import threading
-from .runtime_workers import ResumableExecutor
 from typing import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .runtime_writers import QuiesceableExecutor
 from .textmaps import normalize_english
 from .media_tools import ffmpeg_executable
 from .voice_decoder import VoiceDecoder
@@ -201,7 +201,7 @@ class VoiceAssetService(VoiceDecoder):
         self._entries: dict[str, dict] = {}
         self._learned_entries: dict[str, dict] = {}
         self._manifest_lock = threading.RLock()
-        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
+        self._executor = QuiesceableExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
         try:

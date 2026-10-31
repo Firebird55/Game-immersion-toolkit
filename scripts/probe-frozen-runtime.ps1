@@ -17,10 +17,11 @@ $roots = @{
 }
 $owned = [Collections.Generic.List[Diagnostics.Process]]::new()
 $tasks = @{}
-function Start-Owned([string]$image, [string]$arguments) {
+function Start-Owned([string]$image, [string]$arguments, [string]$HostCase='') {
     $info = [Diagnostics.ProcessStartInfo]::new()
     $info.FileName = $image; $info.Arguments = $arguments
     $info.UseShellExecute = $false; $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
+    $info.RedirectStandardInput = [bool]$HostCase
     $info.WorkingDirectory = $temporary
     $info.Environment.Clear()
     foreach ($name in @('WINDIR', 'SystemRoot', 'COMSPEC', 'PATHEXT')) { if ([Environment]::GetEnvironmentVariable($name)) { $info.Environment[$name] = [Environment]::GetEnvironmentVariable($name) } }
@@ -32,8 +33,198 @@ function Start-Owned([string]$image, [string]$arguments) {
     $process = [Diagnostics.Process]::new(); $process.StartInfo = $info
     if (-not $process.Start()) { throw 'Owned runtime process did not start.' }
     $owned.Add($process)
-    $tasks[$process.Id] = @($process.StandardOutput.ReadToEndAsync(), $process.StandardError.ReadToEndAsync())
+    if ($HostCase) {
+        # This one private control line includes transient Job Object members.
+        # It is consumed locally and never copied into public metadata.
+        $tasks[$process.Id] = @($process.StandardOutput.ReadLineAsync(), $process.StandardError.ReadToEndAsync())
+        $process.StandardInput.WriteLine($HostCase)
+        $process.StandardInput.Flush()
+    } else {
+        $tasks[$process.Id] = @($process.StandardOutput.ReadToEndAsync(), $process.StandardError.ReadToEndAsync())
+    }
     return $process
+}
+function Get-HostObserverIdentityCategory($Observer, $Owner, [string]$ExpectedImage) {
+    # Return only fixed diagnostic categories. Image strings, IDs and times
+    # remain private; none of these failure categories permit adoption or kill.
+    try {
+        # PowerShell dot access can suppress a getter exception into $null.
+        # Only an actual Boolean observation can establish live/exited state.
+        $exited = $Observer.HasExited
+        if ($exited -isnot [bool]) { return 'process-state-unavailable' }
+        if ($exited) { return 'process-exited' }
+    }
+    catch { return 'process-state-unavailable' }
+    try {
+        $started = $Observer.StartTime.ToUniversalTime()
+        $ownerStarted = $Owner.StartTime.ToUniversalTime()
+    } catch { return 'creation-time-unavailable' }
+    if ($started -lt $ownerStarted) { return 'process-predates-owner' }
+    try {
+        $actual = $Observer.MainModule.FileName
+        if ([string]::IsNullOrWhiteSpace($actual)) { return 'image-unavailable' }
+        $actual = [IO.Path]::GetFullPath($actual)
+        $expected = [IO.Path]::GetFullPath($ExpectedImage)
+    } catch { return 'image-unavailable' }
+    try {
+        $exited = $Observer.HasExited
+        if ($exited -isnot [bool]) { return 'process-state-unavailable' }
+        if ($exited) { return 'process-exited-during-identity' }
+    }
+    catch { return 'process-state-unavailable' }
+    if ([string]::Equals($actual, $expected, [StringComparison]::OrdinalIgnoreCase)) { return 'verified-runtime' }
+    if (($actual.StartsWith('\\?\') -and [string]::Equals($actual.Substring(4), $expected, [StringComparison]::OrdinalIgnoreCase)) -or
+        ($expected.StartsWith('\\?\') -and [string]::Equals($actual, $expected.Substring(4), [StringComparison]::OrdinalIgnoreCase))) {
+        return 'runtime-image-prefix-spelling-mismatch'
+    }
+    if ([string]::Equals([IO.Path]::GetFileName($actual), [IO.Path]::GetFileName($expected), [StringComparison]::OrdinalIgnoreCase)) {
+        return 'runtime-image-other-path'
+    }
+    if ([string]::Equals([IO.Path]::GetFileName($actual), 'conhost.exe', [StringComparison]::OrdinalIgnoreCase)) {
+        return 'windows-console-host-image'
+    }
+    return 'unexpected-image'
+}
+function Get-HostObserverRole($Observer, $Owner, [string]$RuntimeImage, [string]$SystemConsoleImage) {
+    $identity = Get-HostObserverIdentityCategory $Observer $Owner $RuntimeImage
+    if ($identity -eq 'verified-runtime') { return 'runtime' }
+    if ($identity -eq 'windows-console-host-image') {
+        # A Job may also own its OS console helper. The name alone is never
+        # sufficient: repeat every identity check against the exact OS image.
+        $systemIdentity = Get-HostObserverIdentityCategory $Observer $Owner $SystemConsoleImage
+        if ($systemIdentity -eq 'verified-runtime') { return 'windows-console-host' }
+        return 'system-console-image-unverified'
+    }
+    return $identity
+}
+function Start-HostProbe([string]$Case='normal') {
+    $image = Join-Path $RuntimeRoot 'GameImmersionToolkit.exe'
+    $process = Start-Owned $image '--runtime-probe host' $Case
+    $held = [Collections.Generic.List[Diagnostics.Process]]::new()
+    try {
+        # Environment.SystemDirectory queries the OS; do not accept a helper
+        # through a caller-selected WINDIR, CWD or basename allowlist.
+        $systemDirectory = [Environment]::SystemDirectory
+        if ([string]::IsNullOrWhiteSpace($systemDirectory) -or -not [IO.Path]::IsPathRooted($systemDirectory)) {
+            throw 'Authoritative Windows system directory is unavailable.'
+        }
+        $systemConsoleImage = [IO.Path]::Combine($systemDirectory, 'conhost.exe')
+        if (-not $tasks[$process.Id][0].Wait(70000)) { throw 'Owned host startup deadline expired.' }
+        $control = $tasks[$process.Id][0].GetAwaiter().GetResult() | ConvertFrom-Json
+        if ($control.schema -ne 'proxy-r19-owned-host-probe-v1' -or $control.status -ne 'services-ready' -or
+            $control.build_id -ne $manifest.build_id -or $control.source_commit -ne $env:GITHUB_SHA -or
+            $control.native_owned_process_tree -ne 'real' -or $control.api_external_side_effects -ne 'mocked' -or
+            $control.r19_complete -ne $false) { throw 'Owned host service/control identity is invalid.' }
+        $members = @($control.job_members)
+        if ($members.Count -lt 4 -or $members.Count -gt 16 -or @($members | Select-Object -Unique).Count -ne $members.Count) {
+            throw 'Owned host did not retain its bootstraps and service processes.'
+        }
+        $runtimeImages = 0; $consoleHelpers = 0
+        foreach ($member in $members) {
+            if (($member -isnot [long] -and $member -isnot [int]) -or $member -lt 1) { throw 'Invalid private job member identity.' }
+            try {
+                $observer = [Diagnostics.Process]::GetProcessById([int]$member)
+                $held.Add($observer)
+                $null = $observer.Handle
+            } catch { throw 'Owned host observation handle identity failed: handle-open-unavailable.' }
+            # These handles are for exit observation only. No PID/control
+            # message authorizes a process termination or ownership adoption.
+            $role = Get-HostObserverRole $observer $process $image $systemConsoleImage
+            if ($role -eq 'runtime') { $runtimeImages++ }
+            elseif ($role -eq 'windows-console-host') { $consoleHelpers++ }
+            else { throw ('Owned host observation handle identity failed: ' + $role + '.') }
+        }
+        if ($runtimeImages -lt 4 -or $runtimeImages + $consoleHelpers -ne $held.Count) {
+            throw 'Owned host runtime image observations are incomplete.'
+        }
+        return [pscustomobject]@{process=$process; held=$held; case=$Case; runtimeImages=$runtimeImages; consoleHelpers=$consoleHelpers}
+    } catch {
+        foreach ($observer in $held) { $observer.Dispose() }
+        throw
+    }
+}
+function Complete-HostProbe($Context, [ValidateSet('stop','exit-frontend','parent-crash','unprepared-index')][string]$Action) {
+    $process = $Context.process
+    try {
+        if ($Action -eq 'parent-crash') {
+            $process.Kill() # Only the already retained host handle; Job close owns child cleanup.
+        } elseif ($Action -ne 'unprepared-index') {
+            $process.StandardInput.WriteLine($Action)
+            $process.StandardInput.Flush()
+        }
+        if (-not $process.WaitForExit(15000)) { throw 'Owned host stop/failure deadline expired.' }
+        $remaining = $process.StandardOutput.ReadToEndAsync().GetAwaiter().GetResult()
+        $null = $tasks[$process.Id][1].GetAwaiter().GetResult()
+        foreach ($observer in $Context.held) {
+            if (-not $observer.WaitForExit(10000) -or -not $observer.HasExited) { throw 'A retained native child handle is not signaled.' }
+        }
+        if ($Action -ne 'parent-crash') {
+            $result = $remaining | ConvertFrom-Json
+            $expectedFailure = if ($Action -eq 'exit-frontend') {'child-exited'} elseif ($Action -eq 'unprepared-index') {'unprepared-index-deadline'} else {''}
+            if ($result.schema -ne 'proxy-r19-owned-host-probe-v1' -or $result.build_id -ne $manifest.build_id -or
+                $result.source_commit -ne $env:GITHUB_SHA -or $result.owned_cleanup -ne 'confirmed' -or
+                $result.api_external_side_effects -ne 'mocked' -or $result.native_owned_process_tree -ne 'real' -or
+                $result.r19_complete -ne $false -or
+                ($expectedFailure -and ($process.ExitCode -ne 2 -or $result.status -ne 'failed' -or $result.failure -ne $expectedFailure)) -or
+                (-not $expectedFailure -and ($process.ExitCode -ne 0 -or $result.status -ne 'passed'))) {
+                throw 'Owned host failure/recovery outcome is unexpected.'
+            }
+        } elseif ($process.ExitCode -eq 0) { throw 'Parent crash fixture did not terminate the actual host.' }
+        foreach ($port in @(3000, 8766)) {
+            $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
+            try { $listener.Start() } finally { $listener.Stop() }
+        }
+        # No raw control records, Job members, native handles or logs escape.
+        return @{case=$Action; status='passed'; retained_children=$Context.held.Count;
+            retained_runtime_images=$Context.runtimeImages; retained_windows_console_helpers=$Context.consoleHelpers;
+            child_exit='retained-handles-signaled'; canonical_ports='released'; native_owned_process_tree='real'; api_external_side_effects='mocked'}
+    } finally {
+        foreach ($observer in $Context.held) { $observer.Dispose() }
+    }
+}
+function Test-ForeignHostListeners {
+    # Authored fixture services have retained outer handles but are outside the
+    # new host's Job. This is never a probe of an installed/source companion.
+    $image = Join-Path $RuntimeRoot 'GameImmersionToolkit.exe'
+    $foreignFrontend = Start-Owned $image '--runtime-child frontend -- --port 3000'
+    $foreignApi = Start-Owned $image '--runtime-probe api'
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(60); $fixtureReady = $false
+        do {
+            if ($foreignFrontend.HasExited -or $foreignApi.HasExited) { throw 'Foreign-listener authored fixture exited.' }
+            try {
+                $fixtureReady = (Invoke-RestMethod 'http://127.0.0.1:8766/api/runtime/ready' -TimeoutSec 2).ready -and
+                    (Invoke-WebRequest 'http://127.0.0.1:3000/' -TimeoutSec 2).StatusCode -eq 200
+            } catch { $fixtureReady = $false }
+            if (-not $fixtureReady) { Start-Sleep -Milliseconds 100 }
+        } until ($fixtureReady -or [DateTime]::UtcNow -ge $deadline)
+        if (-not $fixtureReady) { throw 'Foreign-listener authored fixture readiness expired.' }
+        $candidate = Start-Owned $image '--runtime-probe host' 'normal'
+        if (-not $tasks[$candidate.Id][0].Wait(70000)) { throw 'Foreign-listener refusal deadline expired.' }
+        $control = $tasks[$candidate.Id][0].GetAwaiter().GetResult() | ConvertFrom-Json
+        if (-not $candidate.WaitForExit(15000)) { throw 'Refused host did not stop its owned processes.' }
+        $null = $candidate.StandardOutput.ReadToEndAsync().GetAwaiter().GetResult()
+        $null = $tasks[$candidate.Id][1].GetAwaiter().GetResult()
+        # An early owned-child bind failure is also a correct refusal. A ready
+        # response from these foreign services must never produce services-ready.
+        if ($candidate.ExitCode -ne 2 -or $control.schema -ne 'proxy-r19-owned-host-probe-v1' -or
+            $control.status -ne 'failed' -or $control.failure -notin @('foreign-canonical-listener','child-exited') -or
+            $control.owned_cleanup -ne 'confirmed' -or $control.build_id -ne $manifest.build_id -or
+            $control.source_commit -ne $env:GITHUB_SHA -or $control.r19_complete -ne $false) {
+            throw 'Existing ready listeners were mistaken for the new host-owned services.'
+        }
+        if ($foreignFrontend.HasExited -or $foreignApi.HasExited -or
+            -not (Invoke-RestMethod 'http://127.0.0.1:8766/api/runtime/ready' -TimeoutSec 2).ready -or
+            (Invoke-WebRequest 'http://127.0.0.1:3000/' -TimeoutSec 2).StatusCode -ne 200) {
+            throw 'The refused host disturbed a listener outside its owned Job.'
+        }
+        return @{case='foreign-ready-listeners'; status='passed'; readiness='refused'; outside_job_services='retained-fixture-still-live'}
+    } finally {
+        foreach ($fixture in @($foreignFrontend, $foreignApi)) {
+            if (-not $fixture.HasExited) { $fixture.Kill($true) } # Retained outer fixture handle only.
+            if (-not $fixture.WaitForExit(10000)) { throw 'An outer authored listener fixture did not stop.' }
+        }
+    }
 }
 function Finish-Probe($process, [string]$kind) {
     if (-not $process.WaitForExit(300000)) { throw 'Runtime probe deadline expired.' }
@@ -53,7 +244,7 @@ function Finish-Probe($process, [string]$kind) {
     if ($result.status -ne 'passed' -or $result.kind -ne $kind -or $result.build_id -ne $manifest.build_id -or $result.source_commit -ne $env:GITHUB_SHA -or $result.r19_complete -ne $false) { throw 'Frozen runtime probe identity or scope mismatch.' }
     return $result
 }
-$native = $null; $asr = $null; $api = $null; $websocket = $null
+$native = $null; $asr = $null; $hostChecks = @(); $websocket = $null
 New-Item -ItemType Directory -Path (Join-Path $temporary 'empty-host'), $roots.PROXY_TRANSCRIPT_STATE_ROOT -Force | Out-Null
 @{build_id=$manifest.build_id; synthetic=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $roots.PROXY_TRANSCRIPT_STATE_ROOT 'synthetic-probe.json') -Encoding utf8NoBOM
 try {
@@ -71,19 +262,8 @@ try {
         $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, $port)
         try { $listener.Start() } finally { $listener.Stop() }
     }
-    $frontend = Start-Owned (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') '--runtime-child frontend -- --port 3000'
-    $api = Start-Owned (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') '--runtime-probe api'
-    $deadline = [DateTime]::UtcNow.AddSeconds(60); $ready = $false
-    do {
-        if ($api.HasExited -or $frontend.HasExited) { throw 'Integrated frozen service exited before readiness.' }
-        try {
-            $health = Invoke-RestMethod 'http://127.0.0.1:8766/api/health' -TimeoutSec 2
-            $page = Invoke-WebRequest 'http://127.0.0.1:3000/' -TimeoutSec 2
-            $ready = $health.status -eq 'ok' -and $page.StatusCode -eq 200
-        } catch { $ready = $false }
-        if (-not $ready) { Start-Sleep -Milliseconds 200 }
-    } until ($ready -or [DateTime]::UtcNow -ge $deadline)
-    if (-not $ready) { throw 'Integrated frozen service startup deadline expired.' }
+    $hostProbe = Start-HostProbe
+    $ready = $true
     $status = Invoke-RestMethod 'http://127.0.0.1:8766/api/status' -TimeoutSec 10
     if ($status.capture.running -or @($status.game_textmaps.PSObject.Properties).Count -lt 25) { throw 'Synthetic API capture/registry state is unexpected.' }
     $setup = Invoke-RestMethod 'http://127.0.0.1:8766/api/setup' -TimeoutSec 10
@@ -108,6 +288,12 @@ try {
             if ($event.type -ne 'snapshot' -or $event.snapshot.capture.running -or @($event.snapshot.game_textmaps.PSObject.Properties).Count -lt 25) { throw 'Actual frozen WebSocket snapshot lost capture or registry state.' }
         } finally { $message.Dispose() }
     } finally { $cancel.Dispose() }
+    $websocket.Abort(); $websocket.Dispose(); $websocket = $null
+    $hostChecks += Complete-HostProbe $hostProbe 'stop'
+    $hostChecks += Complete-HostProbe (Start-HostProbe) 'exit-frontend'
+    $hostChecks += Complete-HostProbe (Start-HostProbe) 'parent-crash'
+    $hostChecks += Complete-HostProbe (Start-HostProbe 'unprepared-index') 'unprepared-index'
+    $hostChecks += Test-ForeignHostListeners
     $after = @(Get-R19RuntimeInventory $RuntimeRoot)
     if (@(Compare-Object $before $after -CaseSensitive).Count) { throw 'Frozen runtime wrote into its application tree.' }
     $forbidden = @(Get-ChildItem -LiteralPath $temporary -File -Recurse -Force | Where-Object { $_.Extension -eq '.dpapi' })
@@ -130,7 +316,7 @@ New-Item -ItemType Directory -Path (Split-Path $output) -Force | Out-Null
     executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
     asr_executable_sha256=(Get-FileHash -LiteralPath (Join-Path $RuntimeRoot 'asr/GameImmersionToolkitAsr.exe') -Algorithm SHA256).Hash.ToLowerInvariant();
     inventory_sha256=(Get-FileHash -LiteralPath (Join-Path (Split-Path $Provenance) 'RUNTIME-INVENTORY.json') -Algorithm SHA256).Hash.ToLowerInvariant();
-    native=$native; asr=$asr; frontend_api_http_ws='passed'; api_external_side_effects='mocked';
+    native=$native; asr=$asr; host=$hostChecks; frontend_api_http_ws='passed'; api_external_side_effects='mocked';
     developer_environment='cleared; only OS essentials and synthetic roots'; application_writes_observed=$false;
     hidden_system_inventory_fixture='passed';
     owned_cleanup='passed'; r19_complete=$false; rights_review='pending-exact-output'; native_windows_11_acceptance='unavailable';

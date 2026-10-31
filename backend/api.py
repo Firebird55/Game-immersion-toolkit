@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import threading
 import logging
+import time
 from contextlib import asynccontextmanager, contextmanager, nullcontext
 from pathlib import Path
 from subprocess import TimeoutExpired
@@ -37,8 +38,10 @@ from .updates import BackgroundUpdateManager
 from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
+from .runtime_readers import RuntimeReadingRegistry
 from .runtime_handoff import CaptureHandoff
 from .runtime_workers import RequestBarrier, WriterBarrierMiddleware
+from .runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
 from .state_version import StateVersion
 from .lexirise_settings import account_settings, STUDY_LANGUAGES
 from .accounts import AccountStore
@@ -137,6 +140,12 @@ class Runtime:
         self.request_barrier = RequestBarrier(paused=self.standby)
         self._quiesce_task = None
         self._handoff_state = None
+        self.request_writers = RuntimeWriterGate()
+        self._handoff_lock = asyncio.Lock()
+        self._handoff_drains = []
+        self._writer_handoff = False
+        if self.standby:
+            self.request_writers.stop_admission()
         self._updates_started = False
         self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
@@ -150,8 +159,9 @@ class Runtime:
         self.transcript = TranscriptStore(DATA_DIR / "transcript-v2.db")
         self.accounts = AccountStore()
         self.lexirise = LexiriseService(DATA_DIR / "lexirise", accounts=self.accounts)
-        self.reading = LexiriseReadingService(DATA_DIR / "lexirise", self.lexirise)
-        self._readers = {}
+        self._reading_registry = RuntimeReadingRegistry(DATA_DIR / "lexirise")
+        self.reading = self._reading_registry.create_default(self.lexirise)
+        self._readers = self._reading_registry.cached
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
@@ -476,15 +486,14 @@ class Runtime:
         return self.activate_language(game, locale, account)
 
     def reading_for(self, line: TranscriptLine):
-        session = self.lexirise.pin(line.source_language)
-        if not hasattr(session, '_settings_payload'):
-            account_settings(session)
-        target = translation_language(session._settings_payload, line.source_language)
-        key = (session._scope(), line.source_language, target, session._settings_scope)
-        if key not in self._readers:
-            self._readers[key] = LexiriseReadingService(DATA_DIR / 'lexirise', session,
+        with self._reading_registry.lookup() as lookup:
+            session = self.lexirise.pin(line.source_language)
+            if not hasattr(session, '_settings_payload'):
+                account_settings(session)
+            target = translation_language(session._settings_payload, line.source_language)
+            key = (session._scope(), line.source_language, target, session._settings_scope)
+            return self._reading_registry.get_or_create(lookup, key, session,
                 source_language=line.source_language, translation_language=target)
-        return self._readers[key]
 
     def present_line(self, line: TranscriptLine) -> TranscriptLine:
         try:
@@ -606,7 +615,7 @@ class Runtime:
                 except asyncio.TimeoutError:
                     return
 
-    async def stop_updates(self) -> None:
+    async def stop_updates(self, *, drain=False) -> None:
         self._updates_started = False
         if hasattr(self, 'toolkit_updater'):
             await asyncio.to_thread(self.toolkit_updater.close)
@@ -645,32 +654,151 @@ class Runtime:
 
     async def _drain_workers(self):
         log = logging.getLogger('toolkit.lifecycle')
-        log.info('Update: waiting for active reader requests to finish')
+        log.info('Update: waiting for requests, setup, capture and dictionary workers to finish')
         await self.request_barrier.pause()
-        self.standby = True
-        log.info('Update: stopping game refresh and export workers')
-        await asyncio.to_thread(self.installation.pause)
-        await self.stop_updates()
-        await asyncio.to_thread(self.mobile_exports.drain)
-        log.info('Update: finishing capture, original voice and dictionary work')
-        await self.capture.stop()
-        await asyncio.to_thread(self.hito.close)
-        await asyncio.gather(*(asyncio.to_thread(pool.drain) for pool in self.worker_pools()))
+        await self.quiesce_writers(timeout=threading.TIMEOUT_MAX)
         log.info('Update: all runtime writers stopped; ready to transfer capture')
 
-    def activate_workers(self):
-        if self._quiesce_task is not None:
-            if not self._quiesce_task.done() or self._quiesce_task.cancelled():
+    def _check_owned_drain(self):
+        task = getattr(self, '_quiesce_task', None)
+        if task is not None:
+            if not task.done() or task.cancelled():
                 raise RuntimeError('Previous runtime work is still stopping.')
-            if self._quiesce_task.exception() is not None:
-                raise RuntimeError('A worker could not be stopped; restart the owned runtime before activation.')
-        for pool in self.worker_pools():
-            pool.resume()
+            if task.exception() is not None:
+                raise RuntimeError('A worker could not be stopped; retry quiesce before activation.')
+
+    def activate_workers(self):
+        self._check_owned_drain()
+        self.resume_writers()
+        self.admit_requests()
+        self._quiesce_task = self._handoff_state = None
+
+    async def _handoff_step(self, operation, deadline, *, blocking=False):
+        remaining = deadline-time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Runtime writer quiesce deadline expired.')
+        task = asyncio.create_task(asyncio.to_thread(operation) if blocking else operation())
+        self._handoff_drains.append(task)
+        # Keep the actual step owned after a timeout/client disconnect. A
+        # cancelled executor future would not prove its thread stopped.
+        done, _ = await asyncio.wait({task}, timeout=remaining)
+        if not done:
+            raise TimeoutError('Runtime writers have not finished; handoff is unavailable.')
+        return task.result()
+
+    def _verify_background_stopped(self):
+        for producer in [self.toolkit_updater, self.automatic_exports, self.update_manager,
+                         self.pragmata_updater, *self.game_updaters.values()]:
+            thread = getattr(producer, '_thread', getattr(producer, 'thread', None))
+            process = getattr(producer, '_process', getattr(producer, 'process', None))
+            if (thread and thread.is_alive()) or (process and process.poll() is None):
+                raise TimeoutError('A background writer still owns work; runtime handoff is unavailable.')
+
+    def _voice_pools(self):
+        voices = set([self._legacy_zzz_voice, self._legacy_pragmata_voice, *self._legacy_game_voices,
+                      *self.game_voice_assets.values(), *self._locale_voices.values(), *self._retired_voices])
+        return [voice._executor for voice in voices]
+
+    async def _drain_map(self):
+        if self.map_task:
+            await asyncio.shield(self.map_task)
+
+    async def quiesce_capture_handoff(self):
+        # Preserve the source updater's existing capture-only protocol. It is
+        # explicitly not a settings/database writer-stop or store-copy proof.
+        async with self._handoff_lock:
+            if self._writer_handoff:
+                raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
+            running = self.capture.snapshot().running
+            await self.stop_updates()
+            await self.capture.stop()
+            self.standby = True
+            return self.capture.export_handoff(running)
+
+    async def quiesce_writers(self, timeout=30):
+        async with self._handoff_lock:
+            self._writer_handoff = True
+            self.request_writers.stop_admission()
+            if any(not task.done() for task in self._handoff_drains):
+                raise TimeoutError('A previous runtime writer drain is still running.')
+            self._clear_handoff_drains()
+            deadline = time.monotonic()+timeout
+            running = self.capture.snapshot().running
+            await self._handoff_step(lambda: self._reading_registry.stop_creation(deadline), deadline, blocking=True)
+            await self._handoff_step(lambda: self.request_writers.wait_drained(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            # Do not manufacture native cleanup by cancelling a Future or
+            # terminating a native setup/export process by a stored PID.
+            # These production adapters own the native process tree; their drain
+            # joins monitor/finalizer threads before the bounded verification.
+            await self._handoff_step(self.mobile_exports.drain, deadline, blocking=True)
+            await self._handoff_step(self.automatic_exports.picker.drain, deadline, blocking=True)
+            await self._handoff_step(self.installation.pause, deadline, blocking=True)
+            await self._handoff_step(lambda: self.installation.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            await self._handoff_step(lambda: self.stop_updates(drain=True), deadline)
+            self._verify_background_stopped()
+            await self._handoff_step(self._drain_map, deadline)
+            await self._handoff_step(lambda: self._reading_registry.quiesce_owned(deadline), deadline, blocking=True)
+            await self._handoff_step(lambda: self.capture.quiesce(max(0, deadline-time.monotonic())), deadline)
+            for pool in self._voice_pools():
+                await self._handoff_step(lambda pool=pool: pool.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            await self._handoff_step(self.capture.drain_publications, deadline)
+            await self._handoff_step(self.hito.close, deadline, blocking=True)
+            self.standby = True
+            return self.capture.export_handoff(running)
+
+    def _clear_handoff_drains(self):
+        for task in self._handoff_drains:
+            if task.done() and not task.cancelled():
+                task.exception()  # Observe an error that finished after its bounded waiter.
+        self._handoff_drains.clear()
+
+    async def activate_handoff(self, payload, *, writers=False):
+        # A recovery call cannot reopen admission between two quiesce steps.
+        async with self._handoff_lock:
+            self._check_owned_drain()
+            if self._writer_handoff and not writers:
+                raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
+            if writers:
+                if any(not task.done() for task in self._handoff_drains):
+                    raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
+                if self.capture.native_stop_pending:
+                    await self._handoff_step(self.capture.finish_native_stop, time.monotonic()+30)
+                self.resume_writers()
+            if self.capture.snapshot().running:
+                self.standby = False
+                self.start_updates()
+            else:
+                self.capture.import_handoff(payload)
+                self.standby = False
+                if payload.running:
+                    self.capture.start()
+                self.start_updates()
+            if writers:
+                self.admit_requests()
+                self._writer_handoff = False
+            self._quiesce_task = self._handoff_state = None
+            return {'active': True}
+
+    def resume_writers(self):
+        if any(not task.done() for task in self._handoff_drains):
+            raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
+        if self._handoff_drains and not self._updates_started:
+            self.languages.close(timeout=0)
+            self._verify_background_stopped()
+        self.capture.resume_workers()
         self.hito.resume()
+        for pool in self._voice_pools():
+            pool.resume()
+        self._reading_registry.resume_pools()
         self.installation.resume()
         self.mobile_exports.resume()
+        self.automatic_exports.picker.resume()
+        self._clear_handoff_drains()
+
+    def admit_requests(self):
+        self._reading_registry.reopen_creation()
+        self.request_writers.resume()
         self.request_barrier.resume()
-        self._quiesce_task = self._handoff_state = None
 
     async def on_line(self, line: TranscriptLine) -> None:
         # Capture/audio threads can queue this coroutine before a favorite,
@@ -787,6 +915,8 @@ async def lifespan(_app: FastAPI):
                 pass
         await runtime.quiesce()
         await runtime.capture.close()
+        await runtime._handoff_step(lambda: runtime._reading_registry.shutdown(time.monotonic()+30),
+            time.monotonic()+30, blocking=True)
         for pool in runtime.worker_pools():
             pool.shutdown(wait=True)
 
@@ -817,6 +947,7 @@ async def pin_account_request(request: Request, call_next):
         REQUEST_KEY.reset(token)
 
 
+app.add_middleware(RuntimeWriterMiddleware, current_runtime=lambda: globals().get('runtime'))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(COMPANION_ORIGINS),
@@ -868,7 +999,7 @@ def runtime_ready(game: str | None = None) -> dict:
 
 
 @app.post('/api/runtime/quiesce')
-async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default='')) -> dict:
+async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default=''), writers: bool = False) -> dict:
     runtime_access(request, x_proxy_transcript)
     try:
         state = await asyncio.wait_for(runtime.quiesce(), timeout=HANDOFF_TIMEOUT_SECONDS)
@@ -882,26 +1013,14 @@ async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(def
 
 @app.post('/api/runtime/activate')
 async def runtime_activate(payload: CaptureHandoff, request: Request,
-                           x_proxy_transcript: str = Header(default='')) -> dict:
+                           x_proxy_transcript: str = Header(default=''), writers: bool = False) -> dict:
     runtime_access(request, x_proxy_transcript)
     if not runtime_ready()['ready']:
         raise HTTPException(409, 'Replacement OCR is still warming up')
     try:
-        runtime.activate_workers()
-    except RuntimeError as error:
-        raise HTTPException(409, str(error))
-    if runtime.capture.snapshot().running:
-        # A failed quiesce may stop updates while leaving capture serving.
-        # Rollback resumes that work without replacing its live session.
-        runtime.standby = False
-        runtime.start_updates()
-        return {'active': True}
-    runtime.capture.import_handoff(payload)
-    runtime.standby = False
-    if payload.running:
-        runtime.capture.start()
-    runtime.start_updates()
-    return {'active': True}
+        return await runtime.activate_handoff(payload, writers=True)
+    except (TimeoutError, RuntimeError) as error:
+        raise HTTPException(409, str(error)) from None
 
 
 @app.get("/api/status")
@@ -1686,19 +1805,43 @@ def windows() -> list[dict[str, object]]:
 
 @app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
-    await runtime.hub.connect(websocket)
+    current = runtime
+    hub, gate, status = current.hub, current.request_writers, current.status
     try:
-        snapshot = await asyncio.to_thread(runtime.status)
-        event = {"type": "snapshot", "snapshot": snapshot}
-        if 'context' in snapshot:
-            event['context'] = snapshot['context']
-        await websocket.send_json(event)
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        await runtime.hub.disconnect(websocket)
-    except Exception:
-        await runtime.hub.disconnect(websocket)
+        try:
+            ticket = gate.capture_ticket()
+        except WritersQuiescing:
+            # Accept first: an ASGI close before acceptance is HTTP denial,
+            # rather than the retryable WebSocket close code promised here.
+            await websocket.accept()
+            await websocket.close(code=1013)
+            return
+
+        def snapshot_status():
+            gate.enter(ticket)
+            try:
+                return status()
+            finally:
+                # A cancelled async waiter cannot end the actual worker scope.
+                gate.leave()
+
+        await hub.connect(websocket)
+        try:
+            snapshot = await asyncio.to_thread(snapshot_status)
+            event = {"type": "snapshot", "snapshot": snapshot}
+            if 'context' in snapshot:
+                event['context'] = snapshot['context']
+            await websocket.send_json(event)
+            while True:
+                await websocket.receive_text()
+        except WritersQuiescing:
+            await websocket.close(code=1013)
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
+    finally:
+        await hub.disconnect(websocket)
 
 
 class ToolkitUpdatePreferences(BaseModel):

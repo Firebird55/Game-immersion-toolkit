@@ -8,6 +8,44 @@ param(
     [switch]$RuntimeExperiment
 )
 $ErrorActionPreference = 'Stop'
+
+function Invoke-RuntimeExperimentFreezer {
+    param(
+        [Parameter(Mandatory = $true)][string]$SelectedPython,
+        [Parameter(Mandatory = $true)][string]$EnvironmentHelper,
+        [Parameter(Mandatory = $true)][string[]]$FreezerArguments
+    )
+    # Private pipe only. Do not print selected roots or put them in a receipt.
+    $query = @(& $SelectedPython -B $EnvironmentHelper --selected-python $SelectedPython)
+    if ($LASTEXITCODE -ne 0 -or $query.Count -ne 1 -or $query[0].Length -gt 200000) {
+        throw 'Experimental freezer PATH query failed.'
+    }
+    try { $environment = $query[0] | ConvertFrom-Json -AsHashtable } catch {
+        throw 'Experimental freezer PATH query failed.'
+    }
+    if ($environment -isnot [System.Collections.IDictionary] -or $environment.Count -ne 2 -or
+        -not $environment.Contains('schema') -or -not $environment.Contains('path') -or
+        $environment.schema -isnot [string] -or $environment.schema -cne 'proxy-r19-runtime-build-environment-v1' -or
+        $environment.path -isnot [string] -or [string]::IsNullOrEmpty($environment.path) -or
+        $environment.path.Length -gt 32766 -or $environment.path -match '[\x00-\x1f\x7f"]' -or
+        $environment.path.Split(';').Count -gt 5 -or
+        @($environment.path.Split(';') | Where-Object { [string]::IsNullOrEmpty($_) }).Count -ne 0) {
+        throw 'Experimental freezer PATH query failed.'
+    }
+    $hadPath = Test-Path Env:PATH
+    $previousPath = $env:PATH
+    try {
+        $env:PATH = $environment.path
+        & $SelectedPython -B -m PyInstaller @FreezerArguments
+        if ($LASTEXITCODE -ne 0) { throw 'PyInstaller failed; retain quarantined output for inspection.' }
+    } finally {
+        if ($hadPath) { $env:PATH = $previousPath } else { Remove-Item Env:PATH -ErrorAction Stop }
+        if ((Test-Path Env:PATH) -ne $hadPath -or $env:PATH -cne $previousPath) {
+            throw 'Experimental freezer parent PATH restoration failed.'
+        }
+    }
+}
+
 $SourceRoot = Split-Path -Parent $PSScriptRoot
 if (-not $OutputRoot) { $OutputRoot = Join-Path $SourceRoot 'output/runtime-bundle' }
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Environment]::Is64BitProcess) {
@@ -39,8 +77,14 @@ $PreviousEvidence = $env:PROXY_RUNTIME_EVIDENCE_ROOT
 try {
     $env:PROXY_RUNTIME_BUILD_INPUTS = $InputManifest
     $env:PROXY_RUNTIME_EVIDENCE_ROOT = $EvidenceRoot
-    & $Python -B -m PyInstaller --noconfirm --clean --distpath (Join-Path $OutputRoot 'quarantine') --workpath (Join-Path $OutputRoot 'build') (Join-Path $SourceRoot 'packaging/runtime-bundle/runtime.spec')
-    if ($LASTEXITCODE -ne 0) { throw 'PyInstaller failed; retain quarantined output for inspection.' }
+    $freezerArguments = @('--noconfirm', '--clean', '--distpath', (Join-Path $OutputRoot 'quarantine'),
+        '--workpath', (Join-Path $OutputRoot 'build'), (Join-Path $SourceRoot 'packaging/runtime-bundle/runtime.spec'))
+    if ($RuntimeExperiment) {
+        Invoke-RuntimeExperimentFreezer -SelectedPython $Python -EnvironmentHelper (Join-Path $SourceRoot 'packaging/runtime-bundle/build_environment.py') -FreezerArguments $freezerArguments
+    } else {
+        & $Python -B -m PyInstaller @freezerArguments
+        if ($LASTEXITCODE -ne 0) { throw 'PyInstaller failed; retain quarantined output for inspection.' }
+    }
     & $Python -B $Policy finalize --inputs $InputManifest --evidence $EvidenceRoot --source $SourceRoot --output (Join-Path $OutputRoot 'quarantine')
     if ($LASTEXITCODE -ne 0) { throw 'Collected candidate failed the private/proprietary artifact gate.' }
     @{ schema = 'proxy-runtime-build-check-v1'; doctor_exit = $DoctorExit; diagnostic_only = [bool]$DiagnosticOnly; r19_complete = $false } |

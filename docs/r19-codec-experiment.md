@@ -10,6 +10,9 @@ original supplier and FFmpeg source pointer but **rejects this exact artifact fo
 production**: full source/notice delivery remains incomplete and later security
 servicing is absent. Historical experimental receipts retain their pending/open
 fields; they are not approvals. Select a maintained replacement before promotion.
+The [replacement selection](r19-codec-replacement.md) now verifies a source-built
+Xiph FLAC candidate and its independently rebuilt source kit. Frozen adapter
+integration is still separate; the historical FFmpeg receipt below is unchanged.
 
 ## Exact artifact and remaining rights
 

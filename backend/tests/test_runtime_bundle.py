@@ -10,6 +10,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import zipfile
 
 import pytest
@@ -151,6 +152,50 @@ def test_durable_settings_cannot_be_equal_to_or_below_disposable_roots(tmp_path)
     assert layout.settings_root in layout.cache_root.parents, 'The intended settings parent may contain disposable sibling groups'
 
 
+@pytest.mark.parametrize('kind', ['api', 'api-wal', 'api-grammar'])
+def test_fixed_api_probe_dispatch_keeps_experimental_main_image_gate(tmp_path, monkeypatch, kind):
+    layout = frozen_layout(tmp_path, profile='runtime-experiment')
+    calls = []
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(bundle_entry, 'import_module', lambda name: SimpleNamespace(
+        main=lambda probe_kind, current: calls.append((name, probe_kind, current)) or 17))
+    assert bundle_entry.main(['--runtime-probe', kind]) == 17
+    assert calls == [('backend.runtime_probe', kind, layout)]
+    if kind == 'api':
+        current = replace(layout, profile='runtime')
+        monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: current)
+        assert bundle_entry.main(['--runtime-probe', kind]) == 17
+    forbidden_profiles = ['diagnostic'] if kind == 'api' else ['diagnostic', 'runtime']
+    for forbidden in [*(replace(layout, profile=profile) for profile in forbidden_profiles),
+                      replace(layout, executable=layout.application_root/'GameImmersionToolkitAsr.exe')]:
+        monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: forbidden)
+        with pytest.raises(bundle.RuntimeBundleError): bundle_entry.main(['--runtime-probe', kind])
+    assert len(calls) == (2 if kind == 'api' else 1) and 'api-wal' not in bundle_entry.CHILD_TARGETS and 'api-grammar' not in bundle_entry.CHILD_TARGETS
+    for arguments in (['--runtime-probe', 'api-wal-extra'], ['--runtime-probe', kind, 'extra']):
+        with pytest.raises(bundle.RuntimeBundleError): bundle_entry.main(arguments)
+
+
+def test_fixed_wal_probe_requires_exact_supplier_before_api_start(tmp_path, monkeypatch):
+    from backend import runtime_probe
+    layout = frozen_layout(tmp_path, profile='runtime-experiment')
+    layout.state_root.mkdir(parents=True)
+    (layout.state_root/'synthetic-probe.json').write_text(json.dumps({'build_id': layout.build_id, 'synthetic': True}))
+    calls = []
+    monkeypatch.setattr(runtime_probe, 'sys', SimpleNamespace(platform='win32', version_info=(3,12,16),
+        addaudithook=lambda hook: calls.append('audit')))
+    monkeypatch.setattr(runtime_probe, 'developer_environment', lambda: None)
+    monkeypatch.setattr(runtime_probe, 'api', lambda current, **options: calls.append((current, options)) or 23)
+    assert runtime_probe.main('api-wal', layout) == 23
+    assert calls[-1] == (layout, {'wal_probe': True})
+    monkeypatch.setattr(runtime_probe.sys, 'version_info', (3,12,15))
+    with pytest.raises(bundle.RuntimeBundleError, match='exact reviewed Python supplier'):
+        runtime_probe.main('api-wal', layout)
+    assert runtime_probe.main('api', layout) == 23 and calls[-1] == (layout, {'wal_probe': False})
+    assert runtime_probe.main('api-grammar', layout) == 23 and calls[-1] == (layout, {'grammar_probe': True})
+    supplier = json.loads((Path(__file__).parents[2]/'packaging/runtime-bundle/python-supplier.json').read_text())
+    assert supplier['version'] == '3.12.16'
+
+
 def test_children_use_fixed_dispatch_and_keep_arguments_opaque(tmp_path):
     layout = frozen_layout(tmp_path, children=('language', 'asr'), profile='runtime')
     args = ['--output', str(tmp_path / 'private 中文/out.json'), '--value=$(untouched)']
@@ -245,6 +290,54 @@ def test_frozen_discovery_requires_manifest_identity_roots_and_child_profile(tmp
         bundle.discover_layout(env)
 
 
+def test_frozen_missing_streams_allow_actual_uvicorn_formatter_without_inheriting_parent_handles(monkeypatch):
+    import logging
+    from uvicorn.logging import DefaultFormatter
+    created = ()
+    try:
+        with monkeypatch.context() as context:
+            context.setattr(sys, 'frozen', True, raising=False)
+            for name in ('stdin', 'stdout', 'stderr'):
+                context.setattr(sys, name, None)
+            created = bundle_entry._prepare_frozen_standard_streams()
+            assert len(created) == 3
+            # Windows CRT treats NUL as a character device, so automatic color
+            # detection may be true. The required contract is usable logging,
+            # not a POSIX-specific isatty result.
+            formatter = DefaultFormatter()
+            record = logging.LogRecord('authored', logging.INFO, '', 0,
+                'owned no-console message %s', ('漢字',), None)
+            assert formatter.format(record) == 'owned no-console message 漢字'
+            assert all(not bundle_entry.os.get_inheritable(stream.fileno()) for stream in created)
+            assert sys.stdin.read() == ''
+            assert sys.stdout.write('authored no-console output') > 0
+            assert sys.stderr.write('authored no-console diagnostic') > 0
+    finally:
+        for stream in created:
+            stream.close()
+
+
+def test_frozen_entry_preserves_explicit_streams_and_source_callers(monkeypatch):
+    import io
+    explicit = io.StringIO()
+    created = ()
+    try:
+        with monkeypatch.context() as context:
+            context.setattr(sys, 'frozen', True, raising=False)
+            context.setattr(sys, 'stdin', explicit)
+            context.setattr(sys, 'stdout', explicit)
+            context.setattr(sys, 'stderr', None)
+            created = bundle_entry._prepare_frozen_standard_streams()
+            assert len(created) == 1 and sys.stdin is explicit and sys.stdout is explicit
+            assert bundle_entry._prepare_frozen_standard_streams() == ()
+            context.setattr(sys, 'frozen', False)
+            context.setattr(sys, 'stderr', None)
+            assert bundle_entry._prepare_frozen_standard_streams() == () and sys.stderr is None
+    finally:
+        for stream in created:
+            stream.close()
+
+
 def test_diagnostic_dispatch_refuses_bootstrap_and_api_before_any_worker(tmp_path, monkeypatch, capsys):
     layout = frozen_layout(tmp_path)
     monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
@@ -287,7 +380,7 @@ def test_bootstrap_joins_job_before_spawn_and_failed_join_never_spawns(monkeypat
     events = []
     kernel = SimpleNamespace(OpenJobObjectW=lambda *_: events.append('open') or 1,
         GetCurrentProcess=lambda: 2, AssignProcessToJobObject=lambda *_: events.append('join') or 1,
-        CloseHandle=lambda *_: events.append('close') or 1)
+        CloseHandle=lambda *_: events.append('close') or 1, SetDllDirectoryW=lambda *_: 1)
     monkeypatch.setattr(preparation, '_kernel', lambda: kernel)
     monkeypatch.setattr(preparation.subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
     monkeypatch.setattr(preparation.subprocess, 'call', lambda *_a, **_k: events.append('spawn') or 0)
@@ -308,6 +401,7 @@ def test_frozen_windows_command_uses_real_image_and_never_py_file(monkeypatch):
         output.value = image
         return len(image)
     tree = preparation.WindowsPreparationProcess.__new__(preparation.WindowsPreparationProcess)
+    tree._handle = 123
     tree.kernel, tree.name = SimpleNamespace(GetModuleFileNameW=get_image), 'owned-job'
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
     assert tree.command(['extractor.exe', 'arg']) == [image, '--runtime-child', 'windows-bootstrap', '--', 'owned-job', 'extractor.exe', 'arg']

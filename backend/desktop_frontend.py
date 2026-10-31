@@ -19,7 +19,7 @@ import sys
 from urllib.parse import unquote, urlsplit
 
 from .local_access import local_access_allowed
-from .runtime_bundle import RuntimeBundleError, discover_layout, relative_resource
+from .runtime_bundle import MANIFEST_SCHEMA, RuntimeBundleError, RuntimeLayout, discover_layout, relative_resource
 
 SCHEMA = 'proxy-desktop-frontend-v1'
 MANIFEST = 'desktop-manifest.json'
@@ -76,6 +76,15 @@ def build_identity(files: dict) -> str:
                                      separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('Duplicate frontend manifest key.')
+        result[key] = value
+    return result
+
+
 class FrontendBuild:
     def __init__(self, root: Path):
         raw = Path(root).absolute()
@@ -87,7 +96,13 @@ class FrontendBuild:
             identity = manifest.stat()
             if not stat.S_ISREG(identity.st_mode) or identity.st_size > 4 * 1024 * 1024:
                 raise FrontendError('Frontend manifest exceeds its limit.')
-            value = json.loads(manifest.read_text(encoding='utf-8'))
+            with manifest.open('rb') as stream:
+                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                    raise FrontendError('Frontend manifest must be a regular file.')
+                manifest_bytes = stream.read(4 * 1024 * 1024 + 1)
+            if len(manifest_bytes) > 4 * 1024 * 1024:
+                raise FrontendError('Frontend manifest exceeds its limit.')
+            value = json.loads(manifest_bytes, object_pairs_hook=_unique_object)
         except (OSError, ValueError) as error:
             raise FrontendError('Frontend manifest is missing or invalid; rebuild or re-extract the candidate.') from error
         if (not isinstance(value, dict) or value.get('schema') != SCHEMA or value.get('entry') != 'index.html'
@@ -117,6 +132,7 @@ class FrontendBuild:
         if total > 512 * 1024 * 1024 or value.get('build_id') != build_identity(files):
             raise FrontendError('Frontend build identity or total size is invalid.')
         self.value, self.files, self.build_id = value, files, value['build_id']
+        self.manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
         actual, actual_directories = set(), set()
         for directory, children, names in os.walk(self.root, followlinks=False):
             for child in children:
@@ -152,23 +168,83 @@ class FrontendBuild:
         return data
 
 
+def _experimental_slot_frontend(layout: RuntimeLayout, trusted_manifest_sha256: str) -> FrontendBuild:
+    """Verify only the frontend subset of an owner-verified immutable slot.
+
+    The pin must come from independently verified full-slot provenance. No
+    manifest/route JSON is allowed to select a root or grant its own trust.
+    """
+    if (type(layout) is not RuntimeLayout or layout.mode != 'bundle'
+            or layout.profile not in {'frontend-experiment', 'runtime-experiment'}
+            or not isinstance(trusted_manifest_sha256, str) or not SHA.fullmatch(trusted_manifest_sha256)):
+        raise FrontendError('Retained slot frontend requires an experimental layout and a trusted manifest pin.')
+    manifest = layout.resource_root / 'runtime-manifest.json'
+    _no_links(manifest)
+    try:
+        with manifest.open('rb') as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                raise FrontendError('Slot runtime manifest must be a regular file.')
+            raw = stream.read(8 * 1024 * 1024 + 1)
+        if len(raw) > 8 * 1024 * 1024 or hashlib.sha256(raw).hexdigest() != trusted_manifest_sha256:
+            raise FrontendError('Slot runtime manifest differs from its trusted pin.')
+        value = json.loads(raw, object_pairs_hook=_unique_object)
+    except (OSError, ValueError) as error:
+        raise FrontendError('Slot runtime manifest is unavailable or invalid.') from error
+    if (not isinstance(value, dict) or value.get('schema') != MANIFEST_SCHEMA
+            or any(value.get(name) != getattr(layout, name) for name in ('profile', 'version', 'source_commit', 'build_id'))
+            or value.get('resources') != dict(layout.resources)
+            or value.get('children') != list(layout.children)):
+        raise FrontendError('Slot runtime manifest and selected layout differ.')
+    root = layout.resource_root / 'desktop'
+    build = FrontendBuild(root)
+    resources = value['resources']
+    desktop_files = {'desktop/' + name for name in (*build.files, MANIFEST)}
+    if ({name for name in resources if name.startswith('desktop/')} != desktop_files
+            or resources.get('desktop/' + MANIFEST) != build.manifest_sha256
+            or any(resources.get('desktop/' + name) != entry['sha256'] for name, entry in build.files.items())
+            or build.value['source_commit'] != layout.source_commit or build.value['version'] != layout.version):
+        raise FrontendError('Slot frontend differs from its pinned runtime resource inventory.')
+    return build
+
+
 class DesktopFrontendServer(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(self, root: Path, port=3000, *, retained_roots=()):
-        self.current = FrontendBuild(root)
-        self.retained = tuple(FrontendBuild(path) for path in retained_roots)
-        if len(self.retained) > 16:
+        retained_roots = tuple(retained_roots)
+        if len(retained_roots) > 16:
             raise FrontendError('Too many retained frontend builds.')
+        self._initialize_frontends(FrontendBuild(root), tuple(FrontendBuild(path) for path in retained_roots), port)
+
+    @classmethod
+    def from_experimental_slots(cls, current_layout: RuntimeLayout, trusted_manifest_sha256: str, *, retired_slots=()):
+        """Bind a fixed frontend snapshot on an OS-selected private port only.
+
+        Each retired item is (RuntimeLayout, independently trusted manifest
+        SHA-256). This in-process adapter is not a CLI or update authority.
+        """
+        retired_slots = tuple(retired_slots)
+        if len(retired_slots) > 16:
+            raise FrontendError('Too many retained frontend builds.')
+        current = _experimental_slot_frontend(current_layout, trusted_manifest_sha256)
+        retired = tuple(_experimental_slot_frontend(layout, pin) for layout, pin in retired_slots)
+        server = cls.__new__(cls)
+        server._initialize_frontends(current, retired, 0)
+        return server
+
+    def _initialize_frontends(self, current, retained, port):
+        self.current, self.retained = current, retained
         # Identical URLs may never resolve to different immutable bytes. Mutable
         # mobile URLs intentionally select the current build, as the source host.
         immutable = {}
         for build in (self.current, *self.retained):
             for name, entry in build.files.items():
                 if IMMUTABLE.fullmatch(name):
-                    if name in immutable and immutable[name] != entry['sha256']:
+                    key = name.casefold()
+                    identity = (name, entry['sha256'], entry['bytes'], entry['mime'])
+                    if key in immutable and immutable[key] != identity:
                         raise FrontendError('Retained immutable frontend URLs collide.')
-                    immutable[name] = entry['sha256']
+                    immutable[key] = identity
         super().__init__(('127.0.0.1', port), DesktopFrontendHandler)
 
     def handle_error(self, request, client_address):

@@ -16,7 +16,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUTS = ('packaging/codecs/flac-reference.json', 'scripts/build-reference-codec.ps1',
-          'scripts/reference-codec.py', 'LICENSE')
+          'scripts/reference-codec.py', 'LICENSE', 'packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt')
 
 
 def digest(data):
@@ -179,6 +179,7 @@ def finish(output, compiler, cmake):
     result = {'schema': 'proxy-r19-reference-codec-v1', 'source_commit': commit,
         'upstream_source_sha256': pin['source']['sha256'], 'upstream_commit': pin['source']['commit'],
         'version': pin['version'], 'platform': pin['platform'], 'configuration': pin['cmake'],
+        'generator': cache.get('CMAKE_GENERATOR'), 'compiler_family': 'MSVC',
         'files': files, 'pe': imports, 'source_files': source_files,
         'source_archive_sha256': digest((output / 'codec-sources.zip').read_bytes()),
         'compiler_version': compiler, 'cmake_version': cmake, 'source_patches': [],

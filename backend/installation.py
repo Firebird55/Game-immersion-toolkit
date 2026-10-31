@@ -13,6 +13,7 @@ import subprocess
 import sys
 import threading
 from .owned_process import OwnedProcess
+import time
 
 from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install, load_paths
 from .game_tools import missing_tools, prepare_tools
@@ -101,7 +102,7 @@ class InstallationService:
         self._tool_thread: threading.Thread | None = None
         self._native: dict[str, subprocess.Popen] = {}
         self._native_owners = {}
-        self._native_threads = []
+        self._native_threads = set()
         self._paused = False
         self.completed = existing_user
         try:
@@ -240,7 +241,7 @@ class InstallationService:
             self._native_owners[kind] = owner
             self._native[kind] = process
             monitor = threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True)
-            self._native_threads.append(monitor)
+            self._native_threads.add(monitor)
             monitor.start()
             return True
 
@@ -266,15 +267,32 @@ class InstallationService:
             self._paused = False
 
     def _native_finished(self, kind, process, before):
-        process.wait()
-        owner = self._native_owners[kind]
-        owner.stop()
-        owner.close_streams()
-        if kind == "folders":
-            after = load_paths()
-            for game in GAMES:
-                if before.get(game) != after.get(game):
-                    self.refresh_game(game)
+        try:
+            process.wait()
+            owner = self._native_owners[kind]
+            owner.stop()
+            owner.close_streams()
+            if kind == "folders":
+                after = load_paths()
+                for game in GAMES:
+                    if before.get(game) != after.get(game):
+                        self.refresh_game(game)
+        finally:
+            with self._lock:
+                self._native_threads.discard(threading.current_thread())
+
+    def quiesce(self, timeout=5):
+        """Bounded wait for setup writers and their actual completion callbacks."""
+        deadline = time.monotonic() + max(0, timeout)
+        with self._lock:
+            self._paused = True
+            workers = [*self._native_threads, *([self._tool_thread] if self._tool_thread else [])]
+        for worker in workers:
+            if worker is not threading.current_thread():
+                worker.join(timeout=max(0, deadline-time.monotonic()))
+        with self._lock:
+            if any(worker.is_alive() for worker in workers) or any(p.poll() is None for p in self._native.values()):
+                raise TimeoutError('Setup tools or a native dialog have not finished; runtime handoff is unavailable.')
 
     def report(self) -> dict:
         value = self.status()

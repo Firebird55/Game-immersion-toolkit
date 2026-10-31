@@ -30,7 +30,7 @@ def block_remote_access(event, arguments):
             raise RuntimeBundleError('Synthetic runtime probes cannot contact remote services.')
 
 
-def loaded_native(layout):
+def loaded_native(layout, *, process=None):
     """Observe actual loaded images; never return host paths in public metadata."""
     import ctypes
     from ctypes import wintypes
@@ -40,7 +40,7 @@ def loaded_native(layout):
     kernel.K32GetModuleFileNameExW.argtypes = [wintypes.HANDLE, wintypes.HMODULE, wintypes.LPWSTR, wintypes.DWORD]
     modules = (wintypes.HMODULE * 4096)()
     required = wintypes.DWORD()
-    process = kernel.GetCurrentProcess()
+    process = kernel.GetCurrentProcess() if process is None else process
     if not kernel.K32EnumProcessModules(process, modules, ctypes.sizeof(modules), ctypes.byref(required)) or required.value > ctypes.sizeof(modules):
         raise RuntimeBundleError('Loaded-module inventory is unavailable or truncated.')
     result = []

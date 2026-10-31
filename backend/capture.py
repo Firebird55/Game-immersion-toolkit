@@ -6,7 +6,6 @@ import io
 import re
 import threading
 import time
-from .runtime_workers import ResumableExecutor
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Awaitable, Callable
@@ -16,6 +15,7 @@ import mss
 from .ocr_engine import OcrEngine
 from PIL import Image
 
+from .runtime_writers import QuiesceableExecutor
 from .config import SettingsStore
 from .games import GAME_PROFILES
 from .steam_games import STEAM_GAMES
@@ -112,14 +112,17 @@ class CaptureService:
         self._preview_lock = threading.RLock()
         self._window_frame = threading.local()
         self._background_capture = BackgroundCapture()
+        self._native_stop_pending = False
         self._task: asyncio.Task[None] | None = None
         self._engine: OcrEngine | None = None
         self._tracker = StableMatchTracker()
         self._tip_tracker = StableMatchTracker()
         self._cinematic_tracker = StableMatchTracker()
         self._event_loop: asyncio.AbstractEventLoop | None = None
-        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+        self._executor = QuiesceableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
         self._retired_executors = []
+        self._publications = set()
+        self._publication_lock = threading.Lock()
         self._stop_task = None
         self._scan_epoch = 0
         self._scan_index = 0
@@ -240,6 +243,23 @@ class CaptureService:
         self._cinematic_seen_ids = set(state.cinematic_seen_ids)
         self._cinematic_panel_text = state.cinematic_panel_text
 
+    @property
+    def native_stop_pending(self):
+        return self._native_stop_pending
+
+    async def _close_native_capture(self):
+        self._native_stop_pending = True
+        await asyncio.to_thread(self._background_capture.close)
+        self._native_stop_pending = False
+
+    async def finish_native_stop(self):
+        if self._native_stop_pending:
+            try:
+                await self._close_native_capture()
+                self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
+            except Exception as error:
+                raise TimeoutError('Native capture cleanup is incomplete; retry recovery after it stops.') from error
+
     async def stop(self) -> bool:
         if self._stop_task is None or self._stop_task.done():
             self._stop_task = asyncio.create_task(self._stop_workers(), name='drain-capture-workers')
@@ -256,7 +276,8 @@ class CaptureService:
             except asyncio.CancelledError:
                 pass
         self._task = None
-        await asyncio.to_thread(self._background_capture.close)
+        self._update_snapshot(running=False, phase="stopping", message="Stopping native capture work")
+        await self._close_native_capture()
         # Timed-out native workers remain owned until their actual thread exits.
         # A sentinel in a replacement pool proves nothing about those old scans.
         await asyncio.to_thread(self._executor.drain)
@@ -271,6 +292,46 @@ class CaptureService:
     async def close(self) -> None:
         await self.stop()
         await asyncio.to_thread(self._executor.shutdown, wait=True)
+
+    def quiesce_workers(self, timeout):
+        deadline = time.monotonic()+max(0, timeout)
+        for pool in [self._executor, *self._retired_executors]:
+            pool.quiesce(max(0, deadline-time.monotonic()))
+
+    async def quiesce(self, timeout=30):
+        deadline = time.monotonic()+max(0, timeout)
+        # stop() shields the actual owner task. A bounded waiter may expire,
+        # but no worker pool can resume until that complete stop returns.
+        result = await asyncio.wait_for(self.stop(), max(0, deadline-time.monotonic()))
+        await asyncio.to_thread(self.quiesce_workers, max(0, deadline-time.monotonic()))
+        return result
+
+    def _queue_publication(self, operation):
+        future = asyncio.run_coroutine_threadsafe(operation, self._event_loop)
+        with self._publication_lock:
+            self._publications.add(future)
+        def finished(_):
+            with self._publication_lock:
+                self._publications.discard(future)
+        future.add_done_callback(finished)
+
+    async def drain_publications(self):
+        # Call only after capture and all audio producers stop. Their queued
+        # on_line coroutines can persist speaker enrichment before broadcasting.
+        with self._publication_lock:
+            pending = list(self._publications)
+        if pending:
+            await asyncio.gather(*(asyncio.wrap_future(future) for future in pending))
+
+    def resume_workers(self):
+        if self._stop_task is not None and not self._stop_task.done():
+            raise TimeoutError('Capture workers are still stopping; retry recovery.')
+        if self._native_stop_pending:
+            raise TimeoutError('Native capture cleanup is incomplete; retry recovery after it stops.')
+        for pool in self._retired_executors:
+            pool.quiesce(0)
+        self._executor.resume()
+        self._retired_executors.clear()
 
     async def _run(self) -> None:
         loop = asyncio.get_running_loop()
@@ -301,7 +362,7 @@ class CaptureService:
                     self._scan_epoch += 1
                     self._executor.shutdown(wait=False, cancel_futures=True)
                     self._retired_executors.append(self._executor)
-                    self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+                    self._executor = QuiesceableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
                     self._engine = None
                     self._excluded_screen = None
                     self._tracker.observe(None)
@@ -1523,7 +1584,7 @@ class CaptureService:
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
         if line.voice_status == 'unvoiced':
             if self._event_loop is not None:
-                asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+                self._queue_publication(self.on_line(line))
                 self._prune_history()
             return
         assets = self._assets_for(line.game)
@@ -1535,7 +1596,7 @@ class CaptureService:
         if confirmed is None or self._event_loop is None:
             return
         pending = confirmed.model_copy(update={"audio_pending": True, "audio_source": "original"})
-        asyncio.run_coroutine_threadsafe(self.on_line(pending), self._event_loop)
+        self._queue_publication(self.on_line(pending))
 
         def publish(line_id: int, filename: str | None, voiced: bool) -> None:
             current = self.transcript.get(line_id)
@@ -1556,13 +1617,13 @@ class CaptureService:
         if line is None:
             self._remove_audio_file(audio_path)
             return
-        asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+        self._queue_publication(self.on_line(line))
         self._prune_history()
 
     def _prune_history(self) -> None:
         for removed_id, removed_audio in self.transcript.prune(keep_nonfavorite=50):
             self._remove_audio_file(removed_audio)
-            asyncio.run_coroutine_threadsafe(self.on_delete(removed_id), self._event_loop)
+            self._queue_publication(self.on_delete(removed_id))
 
     def _story_original_ready(self, line_id: int, text_id: str, audio_path: str) -> None:
         if self._event_loop is None:
@@ -1579,7 +1640,7 @@ class CaptureService:
             return
         if previous and previous != audio_path:
             self._remove_audio_file(previous)
-        asyncio.run_coroutine_threadsafe(self.on_line(line), self._event_loop)
+        self._queue_publication(self.on_line(line))
 
     def repair_recorded_line(self, line: TranscriptLine, *, completed: Callable[[], None] | None = None) -> bool:
         assets = self.recorded_voice_assets(line) if self.recorded_voice_assets else self._assets_for(line.game)

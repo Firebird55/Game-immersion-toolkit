@@ -82,13 +82,17 @@ not change the acceptance contract or approve production activation.
 The continued [compiler-free helper experiment](r19-compiler-free-helpers.md)
 separates authored packaging probes, the owned NTE bridge and blocked game chains.
 It does not convert unresolved helper rights or native evidence into approval.
-The [first codec step](r19-codec-experiment.md) adds one pinned experimental
+The [first codec step](r19-codec-experiment.md) added one pinned experimental
 FFmpeg artifact, fixed FLAC-to-PCM dispatch and an independently authored decode
 case. General game FFmpeg, redistribution and Windows 11 gates remain open.
 The [codec artifact review](r19-codec-artifact-review.md) now resolves the original
 Gyan supplier/top-level FFmpeg source identity and rejects that snapshot for
-production. Complete dependency source/notices and a maintained replacement are
-required; the successful experimental decode does not override that disposition.
+production. Its dependency source/notice and maintenance gaps remain recorded;
+the successful experimental decode does not override that disposition.
+The [Xiph replacement selection](r19-codec-replacement.md) now has complete-source
+kit/rebuild evidence on Server 2025. The [frozen integration](r19-frozen-xiph.md)
+collects its exact CLI/DLL, notices and source kit into the experiment. It does
+not close native Windows 11 or general game-codec acceptance.
 
 All [R18 component gates](r18-runtime-components.md) remain binding for the
 actual shipped bytes. Exact maintained CPython supplier, Windows wheels and
@@ -528,6 +532,747 @@ and shared **1.0.12** revision `2e84f74cf77ea4773463331c7ecde0b05faf31f8`.
 This remains the existing source-style distribution, separate from the quarantined
 extracted runtime and its narrower native/rights evidence. No installer, tag,
 release, merge or Pages publication occurred.
+
+## Downloaded acc68be checkpoint
+
+[Integrated run 41144087092](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41144087092)
+passed at `acc68be0f6f47cb9a0cd928c9394743483c40c24` on hosted Server 2025,
+image `windows-2025-vs2026/20261021.278.1`, with **628 Windows contracts** and
+actual relocated frozen probes. The [download review](r19-frozen-checkpoint-20261031.json)
+binds both artifacts, build identity and inventory SHA-256
+491f4277802249fa7cee42cffcd5cae642ed0f390d926be7e31ca45513d9bf5b:
+1,535 files, 641 directories and 624,729,673 bytes. Native binaries stayed
+runner-local; the downloaded evidence contains source and sanitized metadata.
+
+The grant-bearing Xiph kit, all six source inputs, pinned codec/notice bytes,
+actual decode/fault/DLL-origin receipts, real authored Half-Life unvoiced export
+and Portal original-PCM paths matched. All twenty retained Python supplier
+texts plus the Windows-checkout provenance bytes reached central delivery;
+the exact ONNX incorporated notice and windows-capture LICENCE also matched.
+Later Flatbuffers source-notice collection is outside this checkpoint and needs
+its own frozen output. Native output attribution reports 461 exact, seven
+ambiguous, two generated and 91 unmatched files; no hash match grants rights.
+
+The actual frozen host passed normal stop, child failure, host crash and absent
+index readiness with all retained runtime/Windows-console handles signaled and
+ports released. A foreign-ready-listener case refused adoption without stopping
+the outer fixture services. API external effects remained mocked. No account,
+installed game, actual OCR/capture or trained-model inference was exercised.
+Every rights/production/Windows 11/R19 gate remains open.
+
+The separate full source run 41143154298 at `1958866` passed 1,933 Python tests,
+one skip and five subtests, all five browser groups, the aggregate and extracted
+source-package validation; publish was skipped. The initial capture attempt
+timed out on Firefox's bare loopback document before VDO code. A bounded
+unchanged local reproduction passed, followed by one successful same-head
+failed-job retry. The original failure remains recorded; no assertion was waived.
+Downloaded tested-source artifact
+13020538696 matched 33,409,219 bytes and SHA-256
+98fa6332557452e4678cf848f99c2c27f057ef082e08ca272fcf1cfe2576db0a.
+All twelve SHA256SUMS entries and outer/nested provenance matched source
+`1958866` and shared 1.0.12 revision `2e84f74cf77ea4773463331c7ecde0b05faf31f8`.
+The matching required-checks artifact 13020952307 passed identity/full/scope
+validation, with manual-event base freshness explicitly not applicable. This
+source-style ZIP remains distinct from frozen and native Windows 11 acceptance.
+
+The later `12d0d0e` frozen checkpoint passed **640 Windows contracts**, the new
+Flatbuffers central source notices and the [guarded cold-slot experiment](r19-guarded-slot-probe.md).
+Downloaded metadata artifact 13021800802 matched SHA-256
+823d4a7e995d0cb6f6ba89ac0d6c97923cf96266c15102f09ec1bcf7e0f42f9b.
+The [review ledger](r19-frozen-checkpoint-20261031.json) retains both checkpoints
+and the source-package evidence, including their exact different source heads.
+It grants no acceptance to subsequent changes without new matching evidence.
+
+At `0b76427`, [run 41152516394](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41152516394)
+passed **649 Windows contracts**, source build/rebuild and the same actual
+frozen/guarded cold-slot protocol after Job/observer handle-cleanup hardening.
+Downloaded metadata artifact 13023663874 matched 1,232,252 bytes and SHA-256
+f6dd602407e463074c7783ec42f4a5ed420053a653bf195a5f3ebf62b880af03;
+source/rebuild artifact 13023871979 matched 1,095,191 bytes and SHA-256
+12030a0576098fc9c231bd3f7d892da7411feb51a3a570cc0b1552fdd724d1f9.
+The independent review rechecked exact source inputs, notices, native bindings,
+all host outcomes, all nine cold-slot phases and the 29 blocked real-source
+observations. Its inventory is 1,537 files, 642 directories and 624,746,487 bytes.
+All production/rights/Windows 11/R19 gates remain unchanged. The later immutable
+frontend snapshot adapter and suspended-writer work are outside this checkpoint.
+
+The subsequent `4046147` [run 41153315339](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41153315339)
+passed **664 Windows contracts** and the same frozen/source/guarded probes.
+Its frontend snapshot cases use authored manifests in source Python; this does
+not establish frozen warm routing or native chunk continuity. Downloaded metadata
+13024576600 (1,232,310 bytes; SHA-256
+b9c965422b5eb7a83461bba8e92c601e8d0b37398121fef199aa19226547cf61)
+and source/rebuild 13023941191 (1,095,193 bytes; SHA-256
+d97c28a97ddc0a7f8c48967e870d977308057d5e417ca1d6839eb6d946740d4f)
+passed the independent source/notice/inventory/module/host checks. The inventory
+contains 1,537 files, 642 directories and 624,749,411 bytes. Subsequent suspended
+creation and tool-diagnostic changes require new matching native evidence.
+
+The later full source [run 41152537471 at `0b76427`](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41152537471)
+passed 2,006 Python tests, one skip and 27 subtests, plus four browser groups.
+Setup failed in Firefox while waiting for the React fixture's `NEW VERSION`;
+the aggregate failed and packaging was skipped. An unchanged local four-case
+run passed. A controlled mock connection/message ordering reproduced the same
+failure: an initial HTTP result could enable controls before WebSocket open
+reset state and requested a newer synthetic snapshot. The fixture now gates
+that exact HTTP-before-open order, then waits for the post-open snapshot to
+render before publishing versioned events. Its original assertions/timeouts
+remain, and the local four-case matrix plus controlled reproduction pass.
+The observed CI failure remains recorded; no current full-source pass is
+inferred from that local correction.
+
+The corrected `f11e96d` [full source run 41155289055](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41155289055)
+then passed 2,058 Python tests, one skip and 36 subtests, all five browser groups,
+the aggregate and extracted source-package validation on its first attempt.
+Publishing was skipped. Downloaded tested-source artifact 13025361570 matched
+33,555,951 bytes and SHA-256
+4a28fc447c33555a2d24bf632c74821cc90225835ffd26d05d88b001d10ecd9c.
+All twelve sums and outer/source/shared provenance were verified, including
+the unchanged scoped Xiph source kit. The source ZIP SHA-256 is
+fba8da886351c36d1158e591208ce422c732da945541c00491a06a94a6c97574.
+The matching required-checks artifact 13025580858 passed full/scope/identity
+validation, with manual-event base freshness not applicable. This is exact
+source-style package evidence; the later pinned CMake input and autonomous
+keeper work need their own matching checks. The earlier setup failure remains
+in the ledger and no ordinary-user/native Windows 11 gate is closed.
+
+The subsequent `a079232` [integrated run 41157097572](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41157097572)
+passed 689 Windows contracts, all existing frozen/cold-slot cases and Xiph
+source/rebuild. Downloaded metadata 13025298596 matched 1,232,316 bytes and
+SHA-256 a98a30b6e0e834e93ff140c7590c125e7b0570a9724c425b14b2f35051b86cef;
+source/rebuild 13025661915 matched 1,095,193 bytes and
+82d48e7e6d5294738b84e5fb64619b60901cce8c1c90b5f658532d8156f67e88.
+The independent review retained every preceding source/notice/module/host
+assertion. Its 1,537 files, 642 directories and 624,765,091 bytes are bound in
+the [checkpoint ledger](r19-frozen-checkpoint-20261031.json). This historical
+output contains no receipt for the new living-keeper experiment.
+
+The same head's [full source run 41157232246](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41157232246)
+passed 2,070 Python tests with one skip and 58 subtests, but failed one Windows
+raw ZIP-name refusal case. Browser and packaging jobs did not run. Python had
+normalized the name before the parser inspected it; the fixture also needed to
+preserve its authored raw header bytes on Windows. The parser now checks
+`ZipInfo.orig_filename` before separator/NUL normalization, and the fixtures
+verify actual local and central header bytes. The failed result remains in the
+ledger; this source correction requires a new matching hosted result.
+
+The first `c18d07a` keeper attempt, [run 41160402137](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160402137),
+stopped before freezing: 721 affected contracts passed and one logging test
+failed. Uvicorn successfully initialized with the owned NUL streams, but the
+test incorrectly required automatic colors to be disabled. Windows CRT's
+[`_isatty`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/isatty)
+detects character devices, so that POSIX-specific expectation was invalid.
+The corrected test requires actual Unicode log formatting and non-inheritable
+owned stream descriptors, retaining NUL read/write and existing-pipe behavior.
+No production implementation was changed for this failure. The original result
+is retained; neither a frozen build nor a keeper receipt was produced.
+
+The `e8a76d4` [full source run 41161762483](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161762483)
+passed 2,138 Python tests, one skip and 62 subtests, all five browser groups,
+the aggregate and extracted source-ZIP validation on its first attempt.
+Publishing was skipped. Tested-assets 13027753225 matched 33,601,963 bytes /
+SHA-256 cad8928450899e9e9203178782f6d0f6cb388e1ad98aa4211942d756848cefab;
+all twelve checksums matched, including source ZIP
+c112e279fa9b7104f45178912aa4c0dd20808a79883ccf744ffb2eb11e7d2101.
+Outer and nested root provenance were byte-identical for exact source
+`e8a76d408ee8ddd79f75bbbbbcd08681749c06e0` and shared 1.0.12 revision
+`2e84f74cf77ea4773463331c7ecde0b05faf31f8`. The two retained Xiph source kits
+matched Git bytes. Five supplier/vendor provenance JSON files were semantically
+and LF-normalized text equivalent to Git, with ordinary Windows CRLF bytes;
+they are not described as raw Git-byte matches. Required-gate 13027198460 and
+package-evidence 13027653466 passed exact identity, full/scope and stable-source
+checks. Manual-event base freshness remains not applicable. This is source-style
+package evidence, with no frozen or ordinary-user Windows 11 acceptance.
+
+The same head's [integrated run 41161553165](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161553165)
+passed 722 Windows contracts with zero skips, freezing and the existing
+relocated native/C1/cold-slot steps. The new keeper then refused a guardian
+descendant before creating its writer cohort. Its failure-only artifact
+13027876505 matched 813 bytes /
+5712699b524eafcff0129483be91e6505dc335e255fed56d02af57da0c5f807c.
+Both cases are empty, independent blocked-source observations are zero and
+cleanup remains unconfirmed/recovery-required. The external five-minute
+deadline ended a failed live hold; it proves no keeper-loss containment.
+The descendant's identity is unknown. The later failure prevented the original
+combined metadata upload, so the earlier job-step results are not a new complete
+downloaded frozen checkpoint. The collector now preserves those earlier
+sanitized observations independently of a later keeper failure; receipt and
+workflow status must still be checked separately.
+
+At `dc62a46`, [run 41163848906](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41163848906)
+passed 735 Windows contracts with zero skips, freezing and the earlier
+native/C1/cold-slot steps. The preserved metadata artifact 13028966469 matched
+1,233,308 bytes / SHA-256
+b0f5efeb723fbdcd4a8603cd52db602e2784099ddf5190435b893387d9b9c4d0;
+source/rebuild 13028875035 matched 1,095,193 bytes /
+cb08a16c7bfc138e0216d22d11d68b203d735b003357b299129611234f6858c5.
+The independent review retained every preceding source/notice/module/host/slot
+assertion. Its inventory has 1,537 files, 642 directories and 624,783,815 bytes,
+bound by digest 637c2febfb13428e5b15530ca5c0453dcee14c5ba3b7caa81aa3b4050d08dcc0.
+
+The workflow still failed at the keeper step. Separate failure artifact
+13029071295 matched 967 bytes /
+a61f1d81119c7e8bd31f25da501b0be05ddafa393d588af0906caa32464c69dc;
+its receipt is byte-identical to the copy inside the preserved metadata.
+The one inspected descendant matched authoritative SystemDirectory `conhost.exe`
+through retained read-only observations and was created at or after the guardian.
+This remains census evidence, with no admission or termination authority.
+The guard refused it before writer creation: both cases remain empty, blocked
+source observations are zero and cleanup is unconfirmed/recovery-required.
+The later detached-console variant needs fresh native evidence.
+
+Image identity is per job: extracted runtime used 20261021.278.1 while the
+separate Xiph source/rebuild job used 20261030.294.1. Actual observed system-DLL
+names/hashes matched the historical comparison across the five probe scopes;
+this does not transfer rights or Windows acceptance from another checkpoint.
+The [ledger](r19-frozen-checkpoint-20261031.json) preserves the failed workflow
+alongside the narrower verified observations. Native source provenance, complete
+rights, keeper loss and ordinary-user Windows 11 remain open.
+
+At `423e843`, [run 41169070412](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41169070412)
+passed 769 affected Windows contracts with zero skips, including all four
+default/detached leaf-process cases. The new collection guard then refused an
+`other-host-unresolved` input after 239 observed records. Downloaded refusal
+artifact 13030418382 matched 520 bytes and SHA-256
+25f3fdfe867e369facb851233639dd9de72b78cace721a19aa9ec87831580d16;
+its sole fixed-schema entry, source identity and pending/false gates were checked
+independently. Collection/freezing did not finish; frozen host/cold-slot and
+detached-keeper probes did not run. Source contracts do not supply their proof.
+
+The same head's [ASR run 41169084584](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41169084584)
+failed at configure with missing compiler registration. Its bounded nested log
+context records `MSB4019` during compiler identification; the exact missing import
+and fatal cause remain unknown. Downloaded artifact 13030152316 matched 1,387
+bytes and SHA-256
+79d8bc8184c6a319669bcea76e1b3d15b86c188d78f2cf68f070f78976257b87,
+including exact source/manifest and unchanged gates. This supplies no native
+compile, inference, full tool seal or source-input-cohort receipt. Both failures
+remain in the checkpoint ledger; earlier narrow passes are not transferred.
+
+The same head's [FFmpeg run 41169075509](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41169075509)
+first stopped on a connection reset during input acquisition. One justified
+same-head job retry passed three early Windows contracts with zero skips and
+reached `build-ffmpeg`, which returned 2. The earlier strict build commands
+returned zero; that is not final codec/output or tool-seal evidence. Downloaded
+failure artifact 13030628980 matched 467 bytes and SHA-256
+af2cdd2a0ed337fbfb1594bf3637a32b8cdc81bca50366a0689e528e9741d38a,
+with exact source, no known error code and `unclassified-command-failure`.
+Its log tail was not truncated. The compile cause remains unknown, and the
+final decode and after-build tool verification did not run. The retry used
+the older `20261021.278.1` image; it is not evidence about another job's image.
+
+At `ab84772`, [run 41171329086](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171329086)
+passed 886 affected Windows contracts with zero skips. The main analysis still
+refused unknown inputs: 495 current-call rows, 474 native rows, 426 admitted
+records and 48 unresolved sources. Its complete bounded census reports 29
+api-core, 14 api-crt, one ucrt and four vc-runtime spellings, all in root category
+`other`; ASR analysis did not run. These categories do not identify a supplier.
+Downloaded artifact 13031377564 matched 747 bytes and SHA-256
+3916c89595831595c3e773948883870134f23dc732152bcbf113f9f858af37e8.
+Source binding, census and false gates were independently checked. P1, freezing,
+host/cold-slot and detached-keeper probes were not reached. A bounded freezer
+lookup experiment may test ambient PATH selection; the census alone does not
+prove that hypothesis or authorize those sources.
+
+The same head's [ASR run 41171353894](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171353894)
+again failed at configure. Both generated CompilerId projects contain all five
+reviewed properties exactly. Eight untruncated nested MSB4019 observations point
+to line 37, column 3 in those projects; their import targets remain unknown and
+uninspected. Artifact 13031640010 matched 1,680 bytes and SHA-256
+2b8a6b4f379a3d6c77d5f400d2e8a2fbfe1e48b99dc33af0079b42569cefba2b,
+including independently checked source/gates. This narrows the investigation
+without proving a missing filename, native compile or inference success.
+
+The same head's [FFmpeg run 41171349043](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41171349043)
+failed at `build-ffmpeg`, exit 2. Its new fixed categories identify
+`ffmpeg-makedef-temporary-library`, `make-fatal-error` and `make-recipe-error`,
+with no allowlisted numeric code or truncated log tail. Downloaded artifact
+13031800496 matched 492 bytes and SHA-256
+3353975fa4c79dc72117ca32df7619607b3390ca4d5c3b6503772af8ab630edb;
+source and false gates were independently checked. The original makedef discards
+the temporary archiver's stdout. That explains a diagnostic gap, not the
+underlying tool failure. No final decode or after-build tool seal was reached.
+
+At `702d667`, [run 41174915697](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41174915697)
+passed 909 Windows contracts with zero skips, including all seven real PATH
+contracts. Both EXE/COLLECT pairs completed, then mandatory P1 refused
+`invalid-import`. Artifact 13031904081 matched 498 bytes and SHA-256
+ae73fe5c1c26ec9d69f9d2e0d361444a1f1ca2ce8b4b89bf6a8868640a4f2a49;
+source and false gates were independently checked. The final inventory and A2
+sidecars were not uploaded, so their counts and retention of the earlier 48
+unknown bytes remain unproved. Public missing-library warnings stayed at zero;
+PyInstaller can suppress unresolved imports, so this is not import closure.
+No host/cold-slot or detached-keeper probe ran after the P1 refusal.
+
+The same head's [ASR run 41174924122](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41174924122)
+again failed at configure. All ten property comparisons matched, and each
+generated project has three present known CPP imports plus an unknown second
+import. All eight MSB4019 messages matched the literal template at line 37,
+column 3; the actual toolset alias and instance-version suffix remain unproved.
+Artifact 13033155032 matched 1,889 bytes and SHA-256
+b18022bbfd24c84e924152a004d0418f831facd5d995b8eefd8ea53af48ca434.
+Independent review checked source/manifest and unchanged gates. Compiler
+selection, native compile/inference and a complete final tool seal are not
+established by these observations.
+
+The same head's [codec run 41174918440](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41174918440)
+failed during FFmpeg's build. The source-bound diagnostic guard reported
+`nonempty-ar` before collecting librarian stdout, with no component records or
+underlying LIB error code. Artifact 13032836679 matched 668 bytes and SHA-256
+7966cf9b4b153d823972994adfef7d85a4eaf31983e5ee0e05f501e93c53a4dd;
+independent review checked the exact source, single entry and false gates.
+PowerShell's empty-string versus null environment semantics exposed a concrete
+orchestration defect: the two existing wipes could retain empty process keys,
+which GNU make can export after a makefile assignment. Both wipes now require
+actual deletion and verify absence, with a separate early Windows contract.
+The previous raw AR value and final LIB/decode outcome remain unknown; the fix
+requires a new native run and does not change the diagnostic source variant,
+compiler pins, codec options or rights gates.
+
+At `02c6380`, [ASR run 41181127131](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41181127131)
+identified the invalid generated import. Both CompilerId projects and all eight
+MSB4019 records contain the fixed mapped-template label and verified
+instance-version-field boolean. Each relationship matches one unchanged,
+initially sealed auxiliary pair with the exact toolset policy. The actual
+target includes the full generator argument's version field as a directory;
+it stays outside the declared roots and was not inspected. The three known CPP
+imports per project and all ten reviewed Globals still match. Artifact
+13034697875 matched 2,049 bytes and SHA-256
+58d020c5208facffb91d8ec554cf35d3ad63ed25d5e7167bb4c764fec68ba77f;
+independent review checked the exact source, CRLF manifest and false gates.
+This run used image 20261030.294.1 and observed VS 18.11.12328.437. Configure
+failed before native compilation; no inference or complete final tool seal is
+established. The selector fix and its native result remain pending.
+
+The same head's [runtime run 41181114221](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41181114221)
+passed 955 Windows contracts without skips, then P1 refused a repeated normal
+import name at selected image 430 of 473. The retained inventory identifies
+`_internal/windows_capture/windows_capture.pyd`; A2 binds it to the exact
+windows-capture 2.0.1 wheel member. Independent static reading of that cached
+member reproduces 18 descriptors for 17 case-independent module names,
+including both `kernel32.dll` and `KERNEL32.dll`; no DLL was loaded. Refusal
+artifact 13035391503 matched 614 bytes and SHA-256
+7b23530cb9b10a25a27e3924dde62aaa5658bdc2bb7f67cdcae77810b66bb2ca.
+The three completed JSON observations in artifact 13035177079 matched 196,875
+bytes and SHA-256
+1a997798baf2e7d4c190e9576d94564851a82aa1bb6decaae8760fdb8342e541.
+Independent review verified the raw inventory/snapshot bindings, 473 identical
+A2 input/final records (431 main, 42 ASR) and unchanged gates. These observations
+are from a failed run, with no host or keeper probe. Current output contains no
+api-core, api-crt or ucrt basenames: the earlier 44 bucketed files are not proved
+retained, and zero missing-library warnings cannot establish import closure.
+
+The same head's [codec run 41181125810](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41181125810)
+passed all four early Windows contracts, then hit a download timeout before
+building on image 20261030.294.1. One justified retry of only the failed job used
+image 20261021.278.1, passed the same contracts and completed build/probes.
+The four diagnostic roles now observe empty AR with no error codes. Authored
+FLAC decode (1,024 PCM bytes), truncation/CRC refusal, prior-output preservation,
+Opus roundtrip/invalid-packet refusal and four candidate DLL origins passed.
+Artifact 13035402527 matched 24,210,834 bytes and SHA-256
+fb6167d101e1cb31894d1c223d5ed833a43c04d679962739b854f6d6be0e9cbf.
+Independent review verified the receipt, all 18 source-kit members, unchanged
+source/variant bindings and false gates. The eight regular project text inputs
+have CRLF Windows bytes that normalize exactly to the reviewed LF inputs; the
+patch is raw-byte identical. The two raw cohorts are not identical. Review also
+found an existing `config.log` hash in the public generated-file inventory;
+its private projection is pending. No raw log or native payload was downloaded.
+This is bounded source-experiment evidence, with runtime integration, complete
+corresponding-source/rights approval and ordinary Windows 11 acceptance open.
+
+At `1c2d931`, [ASR run 41196924582](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41196924582)
+verified the initial separate CMake module variant on image 20261021.278.1,
+with all 8,817 files/163 directories and the exact sole-module postimage. The
+original executable/notices and full VS identity remained bound. Configure
+then failed: the bounded event log reports `MSB4018` and no MSB4019 records.
+That identifies an unexpected task exception, not its task, exception or cause.
+All ten Globals and three known CPP imports per project still match; the second
+import remains unknown to the historical full-argument classifier. Artifact
+13040999035 matched 2,450 bytes and SHA-256
+855f3168be12f679e045e89ba32aa074489b9c0a865d012cd63de07cacd5f0b1.
+Independent review verified source/CRLF manifest, initial variant and unchanged
+failure gates. Native compilation, inference, final tool/variant verification
+and the complete source graph were not reached. No environment or compiler
+change is justified by that general task-error code alone.
+
+The same head's [integrated run 41196908591](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41196908591)
+passed 971 Windows contracts without skips and completed the extracted runtime,
+five host cases, nine cold-slot stages and both detached guardian-loss cases.
+Independent artifact review binds 1,449 inventory files, 473 identical A2
+input/final records and all 473 P1 image records. P1 observes 392 x64 and 81
+AnyCPU images, including 173 CLR images. Its 2,708 normal and six delay module
+identity occurrences are not descriptor counts or proof of complete loading.
+All 113 notice hashes for 57 components and the selected loaded application
+hashes match the inventory; this is not an incorporated-rights approval.
+
+Both keeper cases retain actual process-object signals, continuous legacy
+exclusion through writer exit, detached console modes and confirmed cleanup.
+The cold-slot and keeper receipts contain 29 and four actual source-operation
+blocks respectively. The outer keeper remains alive in these cases: keeper
+loss, general dynamic writer admission, warm routing and store copy stay open.
+Metadata artifact 13041353581 matched 1,333,511 bytes and SHA-256
+1b162244abd6f9c13a25210b6b9c0982854549320dea4c4f3082ec4b56d69ceb.
+Reference source/rebuild artifact 13041157227 matched 1,095,191 bytes and SHA-256
+226d683295d73c9fa77e6078b76d9a763fb21a53523b2e189e8379d0d3285989.
+The unchanged approved Xiph source kit is identical in both artifacts, and the
+original/delivered rebuild's nine outputs match frozen resources. These are
+bounded Server observations. Doctor exit 2, missing old-file retention proof,
+complete import closure, rights and ordinary-user Windows 11 acceptance remain
+explicitly unavailable or pending; production and R19-complete flags stay false.
+
+The same head's [codec run 41196918141](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41196918141)
+also passed, including the four early Windows contracts and the bounded native
+decode/fault/DLL-origin probes. Independent review confirms exactly four public
+generated configuration records, no private log size/hash or private-inventory
+digest, and a candidate identity recomputed solely from public correspondence.
+All 18 source-kit files match the receipt. The raw Windows nine-input cohort is
+4bd3fb2a7a4f536c571d3786c89c34127ce546c878325cf61d9a83cf9672acd4;
+eight CRLF-only transformations map exactly to reviewed LF cohort
+a736ba26ad7f6d04bd7f26212bbaeca5d8829c94e1c99b0342c56bbb15085df3,
+while the patch remains raw-identical. The official CMake module is unchanged
+in this separate FFmpeg route. Artifact 13040643659 matched 24,211,130 bytes and
+SHA-256 efe36ef86dd853f5ecefff74a6946a6419f3db3df9bb2c9c3f835f8883e8d6ed.
+Source delivery, recipe/component rights, runtime integration and ordinary
+Windows 11 acceptance remain open.
+
+## Verified authored-copy checkpoint at ed153ab
+
+[Integrated run 41204305394](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41204305394)
+at `ed153abbbf29ab9c7cb5a71c8be58158513cf519` passed 1,018 Windows contracts
+without skips on image `20261030.294.1`, then freezing, native/C1/cold-slot,
+living-keeper and the new [authored SQLite-copy](r19-frozen-data-copy-probe.md)
+cases. All downloaded metadata was independently reviewed. Artifact
+`13044112368` has ten exact entries, 1,334,433 bytes and SHA-256
+`89e3f21dd887c60a72958612f7765562e812018cd065161b2db989d9160988e6`.
+Its 1,449-file inventory matches 473 unchanged A2 input/final records and all
+473 P1 identities. The 113 component notice occurrences represent 104 distinct
+hashes for 57 components; every hash is present. Application load hashes and
+the retained original/delivered-source Xiph rebuild outputs match the inventory.
+Native closure and incorporated rights remain unverified.
+
+The authored copy confirms strict drains, four retained writer signals across
+two source cohorts, Chinese/context/favorite preservation, source bytes before
+restart, logical state after restart, unchanged pointer, stale-barrier refusal
+and explicit cleanup. Its nine actual source-entry blocks supplement 29 cold
+and four keeper blocks. All three legacy-operation receipt hashes match the
+same commit's actual Windows-CRLF source bytes. The copy fixture had zero
+WAL/SHM files. It proves no interrupted copy, target activation, global/dynamic
+writer lifetime, keeper loss, warm route, user credential/browser/schema
+continuity or Windows 11 acceptance.
+
+Reference source/rebuild artifact `13043907363` is 1,095,193 bytes, SHA-256
+`ad32e13b8ad2230d914e65c128884a5fb1d31bcd255c387a1654e06ad8a0a626`.
+The unchanged approved `7dd55f62…ab7b9` kit retains six inputs and 907 upstream
+tar entries; original/rebuild nine outputs, authored PCM, faults and origins
+pass. The separate diagnostic and authored-helper workflows also passed on
+this head, with their allowlisted metadata independently checked.
+
+The same head's ASR source run failed during configure. Its eight untruncated
+records identify `CL` with `TypeInitializationException → ArgumentException`;
+the underlying cause, compilation, inference and final tool seals remain
+unproved. The separate read-only MSVC census failed before publishing any
+artifact. Neither failure is a runtime/source/rights acceptance result.
+Doctor exit 2 and all production/R19-complete gates remain unchanged. Exact
+download identities and limits are in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
+
+## Verified living-owner interrupted copy at 5640d6b
+
+Run `41212338528` at `5640d6b5aa6365402f0872bd097dc6020d596bbf`
+passed 1,047 Windows contracts without skips, then the extracted runtime,
+native/C1/cold-slot/living-keeper probes and both authored copy cases. Two
+reviewers verified the eleven-entry metadata artifact and its exact
+inventory/A2/P1/native/notice bindings: 1,449 files, 642 directories, 473 native
+records, 57 components and 113 notice occurrences (104 distinct hashes).
+The source/rebuild kit remains byte-identical with nine identical rebuilt
+outputs. Exact provider/byte identities are retained in the checkpoint ledger.
+
+The separate [interruption/resume receipt](r19-frozen-data-copy-probe.md)
+verifies one authored post-file exception, two actual copy-helper attempts,
+two partial revalidations, ten actual source-entry blocks, the same living
+owner/plan/barrier/generation/leases and explicit cleanup after a fresh source
+cohort. WAL and SHM counts remain zero. This is no process-crash/keeper-death,
+global/dynamic admission, target activation, warm routing, rights or ordinary-user
+Windows 11 proof. Image `20261021.278.1` is hosted Server evidence.
+
+## Verified retained-WAL copy at 5c9db76
+
+Run `41217533269` at `5c9db765d86b2fa7787788dadc1f742dfd478c5b`
+passed 1,090 Windows contracts without skips and all selected extracted-runtime
+observations on its first attempt. Root and peer verified the twelve-entry
+metadata artifact, 1,449 files/642 directories/620,104,421 bytes, all 473 A2/P1
+native bindings and delivery of all 113 component-notice references (104 distinct
+hashes). The unchanged six-input Xiph source kit reproduced nine identical
+outputs; decode, error, cancellation and DLL-origin probes passed. Its actual
+build-host tools were CMake `4.4.4` and compiler `19.51.36260.0`.
+
+The separate [C5 receipt](r19-frozen-data-copy-probe.md) verifies an actual
+16,512-byte transcript WAL and 32,768-byte SHM, a main-only/full-set semantic
+contrast, ten actual source-entry blocks and preserved source/pointer through
+fresh-source restart and cleanup. C3/C4 passed again with zero WAL/SHM. The
+diagnostic, static frontend, protected TEST and authored-helper artifacts were
+also checked at this head; their existing scope limits remain.
+
+The same head's ASR source run `41217577067` stopped before configure: both
+Full CLR/x64 children reported an empty default common-data folder. Binding
+`PROGRAMDATA` and `ALLUSERSPROFILE` did not repair it. The underlying Shell cause,
+compile/probe results and final native tool/source seals remain unproved. This
+negative result grants no runtime or rights acceptance. Main image
+`20261021.278.1` is hosted Server evidence; doctor exit 2, rights, ordinary-user
+Windows 11, keeper-death, global admission and warm-routing gates remain open.
+The [checkpoint ledger](r19-frozen-checkpoint-20261031.json) retains exact bytes.
+
+The subsequent `fbcb943dd05ea2b60fe40a15277b1143fa849aa0` checkpoint,
+run `41219911357`, passed the same 1,090 Windows contracts and all selected
+runtime/C3/C4/C5 observations. Root and peer verified all seven metadata/source
+archives and the same inventory/A2/P1/notice/source-rebuild bindings. Its actual
+main/reference image was `20261030.294.1`; reference CMake was `4.4.5`.
+The separate ASR run `41219931905` again failed before configure. Both default
+folders were empty, but all four new DoNotVerify fields were null: no complete
+contrast marker was delivered. Null is not an empty-folder observation, and
+the failure does not distinguish that call from its marker-expression evaluation.
+All existing rights, native, host and activation limits remain.
+
+## Verified populated local grammar copy at a1c5e92
+
+[Run 41225646234](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41225646234)
+at `a1c5e9261d1115ba80c73b0fb4d7dcea1c32ff89` passed 1,150 Windows
+contracts without skips (one warning, 128.30 seconds), freezing and all selected
+runtime/C1/cold-slot/living-keeper/C3/C4/C5/C6 observations. Root and peer checked
+the thirteen-entry metadata archive `13051759650`: 1,337,539 bytes, SHA-256
+`a57651dea4c9e2fdded92e3cdab91167ab84ddd28ad53a69595eed8525722333`.
+Its inventory binds 1,449 files, 642 directories and 620,135,324 bytes; all
+473 native A2/P1 records and 113 component-notice references (104 distinct hashes)
+were checked. Native payloads remained runner-local. Named immutable source pins
+and original supplier notices were checked; no global local source-fingerprint
+recomputation is claimed.
+
+The distinct [C6 receipt](r19-frozen-data-copy-probe.md#verified-c6-checkpoint-at-a1c5e92)
+adds actual local HTTP/SQLite preservation of one populated grammar override.
+Fixed mocked external analysis continues to report proficiency0 while the real
+local setter writes4; the separate semantic copy contains exactly one scoped4
+row, and a fresh original-source cohort reads4 with localOverride=true. Two
+source cohorts, four retained writer signals, ten actual source-operation blocks,
+unchanged source/pointer and explicit cleanup passed. C3/C4 passed again with
+zero WAL/SHM; C5 again retained the 16,512-byte transcript WAL and 32,768-byte SHM.
+These are authored fixture observations, not real account, general populated-data,
+export-ledger, settings/browser, target-activation or global writer acceptance.
+
+Reference source/rebuild archive `13050998049` is 1,095,193 bytes, SHA-256
+`1552446a8d266f53fe76f75f7b46be318ac2bc9a0ddc9686a490e5091d24d2f3`.
+The unchanged six-input source kit reproduced nine identical outputs and passed
+PCM, fault, cleanup and DLL-origin probes. Actual reference tools were CMake
+`4.4.5` and compiler `19.51.36260.0`. Five same-head diagnostic/frontend,
+protected-TEST and authored-helper metadata archives were also independently
+checked within their existing limits. Main/reference image `20261030.294.1`
+and the separately recorded auxiliary image versions are hosted Server evidence.
+
+Two separate same-head experiments failed. ASR run `41225667278` observed empty
+default common-data folders, an unobserved after-call constant and owned MSB4184
+in both states; DoNotVerify return/properties and the native cause remain unknown.
+No configure, compilation, inference or final source/tool seals passed. C7 v1 run
+`41225668722` refused its `legacy-baseline` protocol with `observed=[]` and
+unconfirmed retained-fixture cleanup. That empty list proves no recorded bounded
+legacy-open/attribute observation; it does not prove physical operations never
+occurred. Neither result closes R18 lock behavior, keeper loss, rights or native
+Windows 11 gates. Exact artifact identities and earlier checkpoints remain in
+the [checkpoint ledger](r19-frozen-checkpoint-20261031.json); R19 stays incomplete.
+
+## Negative explicit-close checkpoint at 31ee4c9
+
+[Run 41230110931](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41230110931)
+at `31ee4c9d14594b34ef8bfbfbe583543f6261c296` includes the deterministic
+TranscriptStore close change and its explicit hosted contract selection.
+It passed 1,191 contracts without skips (one warning, 131.00 seconds), freezing
+and the native/C1/cold-slot probes. The keeper step then reported
+`registered-start` / `registered-listener-changed`, with
+`cleanup=unconfirmed-recovery-required`, and hit its external five-minute
+deadline. That deadline records a failed attempt with unconfirmed cleanup;
+it does not establish that every owned process or lease closed. The native cause
+remains unknown; this is not a
+demonstrated storage regression or permission to weaken listener identity.
+
+Only `keeper-before-resume` completed: two writers created, none resumed,
+retained signals and two source-entry blocks. There is no completed second-case
+result. Missing metadata does not prove that no intermediate physical activity
+occurred. All four downstream C3/C4/C5/C6 steps were skipped and their receipts
+are absent. `a1c5e92` remained the last complete frozen checkpoint until the
+separately verified `f43cec7` run below.
+
+Root and peer verified partial archive `13053797653`, 1,333,529 bytes, SHA-256
+`2081ae84727f87b44778c79fdd6ff2d85d103759a22ee808ef354ccd3a9dd5dd`.
+Its nine exact entries retain pre-failure observations, the failed keeper receipt,
+source kit and inventory/A2/P1 metadata. Failure-only archive `13053678109`,
+1,052 bytes, SHA-256
+`2411187b394117ea47691e43f1a26e3dfb3805a5a88df057a4dcb08acedea6ce`,
+contains the identical 2,038-byte keeper JSON, SHA-256
+`dfd759fd78cff5e46f920c6bad8e30b562749265d070c8be586e1325a16159a9`.
+The six other source/metadata archives were separately verified, for eight in
+total. Their success does not promote the failed runtime run.
+
+The partial inventory binds 1,449 files, 642 directories and 620,139,242 bytes;
+all 473 A2/P1 records and 113 notice references (104 distinct hashes) matched.
+Reference artifact `13052663910`, 1,095,192 bytes, SHA-256
+`cb362a43a315ffb51467adade3c8a461383cb027bf4b8286602a9ae256b9e502`,
+again reproduced nine identical outputs from the six-input Xiph kit and passed
+decode/fault/origin checks. Its actual CMake was `4.4.4`, compiler
+`19.51.36260.0`, on image `20261021.278.1`; the main image was
+`20261030.294.1`. This reference-recipe observation changes no isolated
+FFmpeg/ASR CMake4.4.5 pin. Exact Git31 source pins were checked without using
+mutable local runtime files or claiming a locally recomputed global fingerprint.
+Generated compiled internals remain unverified without binary inspection.
+
+The independent source repro also shows that a not-ready listener snapshot can
+change to ordinary startup listeners before any HTTP attempt and trigger the
+same refusal. That identifies a bounded readiness-review boundary, not this
+run's native cause. Complete ready-listener/process ownership checks remain
+required. Rights, Windows 11, keeper loss, global writers, warm routing and
+R19 completion remain open; no installer was built.
+
+## Separate e8416e9 negatives and source-only follow-ups
+
+[ASR run 41229142323](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41229142323)
+at `e8416e9ed20bf0595d7559fa8430609ca0a74803` still failed before configure.
+Its independently verified single-entry artifact `13052702817`, 2,058 bytes,
+SHA-256 `2db0bb18a79576042bfc89a48952d2a3f009311af77386345621901880deb2f2`,
+reports the fixed `absolute-path-required` resource in both rejected states,
+empty default folders and no after-call constant or DoNotVerify properties.
+The resource does not identify a private path/variable or prove a repair.
+
+[C7 v2 run 41229013616](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41229013616)
+on the same head passed 89 contracts without skips, then failed its baseline
+protocol. Artifact `13052329447`, 750 bytes, SHA-256
+`bbb2f106c32f1fc107e3dbacc9ab775338d94e2ba418294506bda759529bb894`,
+delivered `connected` / `receive-script-progress` / `not-signaled` only.
+The child signal is pre-close context; cleanup is unconfirmed and native cause
+unknown. No bounded legacy-open or READONLY observation was delivered.
+
+The [operation fence](r19-mutable-store-lifetime.md) at `1d933dd` builds on
+explicit connection close but proves only a programmatic per-store scope drain.
+It does not prove physical handle release, detach/reopen, global admission or a
+usable warm OCR session. The [OS-derived SystemDrive source change](r19-asr-source-experiment.md#common-data-preflight-and-pending-os-derived-systemdrive-binding)
+at `3b3a282` was source-only; its separate bounded native `f43cec7` result is
+recorded in the ASR evidence. Neither change upgrades these
+historical negative receipts or any rights/Windows/R19 gate.
+
+## Verified complete frozen checkpoint at f43cec7
+
+[Run 41235227244](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41235227244)
+at `f43cec7704c74ebd6f4af6c33638a50ba6b09ace` passed 1,234 Windows contracts
+without skips (one warning, 104.36 seconds), all five C1 host cases, the guarded
+cold slots, both living-keeper cases and C3/C4/C5/C6. This was the complete
+bounded checkpoint before `eaa42b2` below, not final R19 acceptance. The earlier `31ee4c9`
+failure and its unconfirmed cleanup remain negative evidence.
+
+Root and peer independently checked all seven provider-bound source/metadata
+archives, exact named Git inputs, 473 A2/P1 records, 57 components and 113 notice
+references covering 104 distinct hashes. The inventory contains 1,449 files,
+642 directories and 620,144,144 bytes. The unchanged Xiph kit again reproduced
+byte-identical candidate/rebuild outputs; decode, faults and DLL-origin checks
+pass. Main/reference jobs used image `20261021.278.1`; the reference receipt
+records CMake 4.4.4 and compiler 19.51.36260.0. Managed/frontend jobs used the
+newer image `20261030.294.1`. See the exact identities
+in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
+
+C5 again observed a real 16,512-byte WAL and 32,768-byte SHM, with main-only
+`favorite=false` versus full-set `favorite=true`. C6 again observed one scoped
+local grammar choice at four through actual local HTTP/SQLite, with mocked remote
+grammar at zero and fresh-source readback at four. These cases do not activate
+the copied target or establish other populated-ledger continuity.
+
+The source now includes the per-store connection-operation fence, a registered
+startup progress preflight and actual-thread WebSocket admission with gate-epoch
+retirement. Established ready HTTP ownership checks remain unchanged. A drained
+operation scope and returned `Connection.close` do not certify physical SQLite/OS
+resource release, all stores, global admission, detach/reopen or usable warm OCR.
+
+The separate C7 v3 [run 41235281328](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41235281328)
+failed with last complete `grantread`, parent `receive-script-progress` and child
+`not-signaled` before close. It delivered no complete `grantparsed`, validated
+grant, legacy-open, attribute or owner-loss result; cleanup remains unconfirmed.
+Missing acknowledgement is not proof that a subsequent action never occurred.
+The [separate source-ASR run](r19-asr-source-experiment.md#verified-separate-native-source-checkpoint-at-f43cec7)
+passed its own build and authored native-format/API probes. The frozen ASR smoke
+alone does not establish that build, general inference or accepted model terms.
+
+Keeper loss, global/dynamic writer admission, physical resource fencing, warm
+routing/OCR, complete data/browser/settings/export continuity, general codecs,
+actual game helpers, rights/source delivery and ordinary-user Windows 11 25H2
+remain open. The production profile stays disabled, `r19_complete=false` and
+`installer=not-built`.
+
+## Verified shared SQL-owner checkpoint at eaa42b2
+
+[Run 41238837233](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41238837233)
+at `eaa42b233694d4bbd2cae7e0127a8223725f6995` was the complete bounded
+frozen checkpoint before `973db81` below. It passed 1,249 Windows contracts without skips (one warning,
+148.76 seconds), the native/C1/cold-slot cases, both living-keeper cases and
+C3–C6. This includes the shared SQLite-operation helper and Lexirise root/pin
+owner. Existing factory shapes and the three-store C5 interception remain intact;
+SQL operation completion still grants no physical detach or aggregate data fence.
+
+Root and peer independently verified seven provider-bound source/metadata ZIPs,
+seven job images/logs, 57 named exact Git blobs, 473 A2/P1 records and all
+113 component notice references covering 104 hashes. The inventory contains
+1,449 files, 642 directories and 620,149,774 bytes. All seven jobs used image
+`20261021.278.1`; the reference receipt records CMake 4.4.4 and compiler
+19.51.36260.0. Xiph candidate/rebuild outputs and PE data match again, with the
+unchanged six-input source kit and passing decode/fault/origin checks. C5 again
+observed the real WAL/SHM contrast; C6 again observed local grammar four versus
+mocked remote zero. The [ledger](r19-frozen-checkpoint-20261031.json) retains
+the exact archives, receipts and historical `f43cec7` checkpoint.
+
+The fifteen ASR recipe inputs are unchanged from the separately verified `f43`
+source experiment. No additional prepare, native ASR replay, trained-model
+acceptance or runtime replacement is inferred.
+
+The separate C7 v4 [run 41238897590](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41238897590)
+failed its authored Windows engine tests: 138 passed and both original-error
+cases failed before the mechanism/publisher steps. No artifact or source-bound
+mechanism receipt exists for that run. Its original fixed failure did not
+distinguish nonzero exit from stderr, so no exception-identity or C7-cause claim
+follows. The full runtime pass does not erase this independent failure.
+
+The test-only `37b4dd5` [run 41240037303](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41240037303)
+then passed 147 tests and failed the same two cases with fixed
+`exit=record-identity` and `stderr_present=false`. This identifies the existing
+exit32 wrapper-reference assertion. Exception identity, acknowledgement and frame
+checks were not reached; the mechanism again did not run or produce an artifact.
+No ordinary bare-rethrow baseline or historical C7 cause follows from that fact.
+
+Physical resource release, global/dynamic writers, keeper death, detach/reopen,
+usable warm OCR/routing, complete populated data/settings/browser/credential
+continuity, general codecs/helpers, rights/source delivery and ordinary-user
+Windows11 remain open. PR #59 stays intact; no installer is built.
+
+## Verified reading SQL-owner checkpoint at 973db81
+
+[Run 41242293732](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41242293732)
+at `973db810f4a7c9add384133647f96b1674543cde` is now the latest complete bounded
+frozen checkpoint. It passed 1,284 contracts without skips (one warning,
+329.21 seconds), the native/C1/cold-slot probes, both keeper cases and C3–C6.
+The new per-reader SQL owner preserves five existing connection boundaries,
+nontransactional reads, original transaction/close failures and the earlier
+Transcript/Lexirise owners. Pool callbacks and reader creation are separate
+lifetimes; this supplies no reader-retention or global data fence.
+
+Root and peer checked seven provider-bound archives and job logs/images,
+59 exact named Git inputs, 473 A2/P1 records and all 113 notice references
+covering 104 hashes. Inventory: 1,449 files, 642 directories, 620,151,522 bytes.
+Every job used image `20261021.278.1`; the reference receipt records CMake 4.4.4
+and compiler 19.51.36260.0. Xiph source/rebuild/PE/decode/fault/origin checks and
+the separate WAL and grammar contrasts pass again. Exact receipts are in the
+[ledger](r19-frozen-checkpoint-20261031.json). The fifteen ASR recipe inputs
+remain unchanged, without another prepare or source-ASR native replay.
+
+The separate C7 [run 41242358974](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41242358974)
+passed 161 tests and failed both authored Windows engine cases before the
+mechanism. Its closed observation shows wrapper-reference inequality in both
+ordinary bare rethrow and the instrumented variant, with original exception
+reference, category, identifier and finally preserved inside each variant.
+This justified a later internal test-predicate correction; the producer is
+unchanged. No mechanism artifact, actual grant-conversion cause or recovery
+acceptance follows. Physical resources, reader retention, global writers,
+keeper death, warm OCR/routing, rights and ordinary-user Windows11 remain open.
 
 ## Continuation and rollback
 
