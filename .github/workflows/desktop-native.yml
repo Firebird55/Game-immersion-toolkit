@@ -60,7 +60,7 @@ jobs:
       - name: Install Linux build-runner display services
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update && sudo apt-get install -y xvfb libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-shape0
+          sudo apt-get update && sudo apt-get install -y xvfb trayer dbus-x11 libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-shape0
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Fail with the actual missing library before Qt aborts without a
           # useful Python traceback. These are build-runner dependencies;
@@ -99,9 +99,10 @@ jobs:
       - name: Exercise frozen startup, API crash recovery and owned shutdown
         run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
       - name: Observe native window, tray and browser handler requests
-        if: runner.os != 'Linux'
         run: |
-          python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --ui --output output/native-ui-probe.json
+          $options = @('--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--output', 'output/native-ui-probe.json')
+          if ($IsLinux) { xvfb-run -a dbus-run-session -- python scripts/probe-linux-desktop-ui.py @options }
+          else { python scripts/probe-desktop-host.py --ui @options }
           if ($LASTEXITCODE -eq 2) { Write-Output 'Native UI unavailable on this runner; acceptance remains incomplete.'; exit 0 }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Acquire verified Windows installer compiler

@@ -41,10 +41,12 @@ def test_observation_owns_service_workers_but_never_the_default_browser(monkeypa
 def test_child_environment_drops_credentials_and_developer_runtime(monkeypatch, tmp_path):
     for name in ('PYTHONPATH', 'PYTHONHOME', 'API_KEY', 'PROXY_TRANSCRIPT_ACCOUNT_KEY', 'BROWSER'):
         monkeypatch.setenv(name, 'private-value')
+    monkeypatch.setenv('XAUTHORITY', str(tmp_path / 'owned-display-cookie'))
     env = probe.child_environment(tmp_path)
     assert not any(value == 'private-value' for value in env.values())
     assert Path(env['HOME']) == tmp_path / 'home'
     assert Path(env['LOCALAPPDATA']) == tmp_path / 'local'
+    assert Path(env['XAUTHORITY']) == tmp_path / 'owned-display-cookie'
 
 
 def test_inventory_hash_binds_exact_file_and_directory_lists():

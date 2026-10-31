@@ -139,6 +139,12 @@ macOS activation alone did not resolve the reported overlap; the authored probe
 now records bounded layer/geometry diagnostics without other window titles or
 process identities. Both native follow-up results remain pending.
 
+Linux native UI construction now runs the same frozen status/log/tray probe in
+an isolated X11 session with a real XEmbed tray service. Display authentication
+is passed to the frozen child; its user data and profile remain isolated. The
+probe stops only the tray process it started. Hosted X11 UI evidence is separate
+from physical desktop/Wayland acceptance and browser-navigation evidence.
+
 The first native build exposed an incompatible ICU DLL collected from an
 unrelated developer tool on PATH. Restricting build discovery to the verified
 interpreter and operating-system tools fixes startup. The native probe now

@@ -59,7 +59,7 @@ def alive(process):
 
 def child_environment(base):
     keep = {'systemroot', 'windir', 'temp', 'tmp', 'tmpdir', 'lang', 'lc_all', 'display',
-            'wayland_display', 'xdg_runtime_dir', 'dbus_session_bus_address'}
+            'wayland_display', 'xdg_runtime_dir', 'dbus_session_bus_address', 'xauthority'}
     environment = {name: value for name, value in os.environ.items() if name.lower() in keep}
     # HOME and Windows profile folders are isolated even if a native dependency
     # consults them outside the application's explicit layout contract.
