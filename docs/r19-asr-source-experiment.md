@@ -153,6 +153,30 @@ Only existing known compiler/MSBuild codes and fixed context labels leave these
 logs; unknown codes, lines, paths and hashes of paths remain private. Expected
 failed compiler probes can appear in nested logs, so their observations are
 explicitly labelled context and do not identify the fatal configure cause.
+Microsoft defines [MSB4019](https://learn.microsoft.com/en-us/visualstudio/msbuild/errors/msb4019)
+as an unresolved project import. Its nested-log projection retains at most 16
+records across both logs. Only the three direct imports in CMake's pinned
+[CompilerId project](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/CompilerId/VS-10.vcxproj.in)
+receive fixed file labels: `Microsoft.Cpp.Default.props`, `Microsoft.Cpp.props`
+and `Microsoft.Cpp.targets`. Unknown import names/templates remain unknown.
+The projection exposes only a fixed declared-root role and existence state;
+unknown or outside-root paths are never inspected. The selected-targets role
+also requires membership in the declared MSBuild root. No import path or hash
+of a path is retained. Caller context recognizes only these three file labels
+and `CompilerIdC.vcxproj`/`CompilerIdCXX.vcxproj`, with positive line/column
+numbers of at most seven digits. Other callers remain unknown; their paths,
+names and positions are omitted. No caller file is inspected.
+CMake's [compiler identification](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/CMakeDetermineCompilerId.cmake)
+copies `CMAKE_VS_GLOBALS` into that project's Globals before its first import.
+`compiler_id_globals_context` inspects only the two fixed 4.4.5
+`CompilerId{C,CXX}/CompilerId{C,CXX}.vcxproj` paths, at most 256 KiB each and
+4,096 XML elements per project. It accepts the generated MSBuild XML namespace
+and refuses DTDs, entity declarations/references, conditional/ambiguous Globals,
+and linked paths; it never executes XML or accesses external files. Only the
+fixed five property names and exact-match/missing/duplicate/unsupported states
+are emitted. Expected values come from the actual private configure properties;
+their values, raw XML and unknown property names remain private. These are
+literal observations, not MSBuild property evaluation or causal proof.
 The wrapper passes the actual selected `vswhere` instance's numeric four-part
 VS18 installation version together with its directory. Python queries the same
 explicit machine `vswhere.exe` again before and after the experiment, requires
@@ -211,9 +235,14 @@ why installer lookup failed. The later
 [explicit-tuple run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41167088124)
 observed VS version `18.11.12315.225` and reached configuration, then failed with
 only `cmake-error`/`cmake-configure-incomplete` and `project:26`. It provides no
-specific cause, build-graph, compile or inference evidence. The additional
-context above still requires a new native result; all exact tool/source and
-refusal gates remain in force.
+specific cause, build-graph, compile or inference evidence. The subsequent
+[bounded-context run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41169084584)
+identified `cmake-compiler-not-recorded`; all three compiler cache entries and
+configuration files were absent. Its observed configure-event log contains
+`MSB4019` and a compiler-identification failure, but delivers no exact import
+target and proves no fatal cause. The import/Globals projection above still
+requires a new native result; all exact tool/source and refusal gates remain
+in force.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

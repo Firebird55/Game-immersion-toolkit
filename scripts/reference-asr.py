@@ -20,6 +20,7 @@ import struct
 import subprocess
 import sys
 import tarfile
+import xml.etree.ElementTree as ET
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,10 +62,18 @@ _BUILD_CMAKE_OBSERVATION = None
 _BUILD_ENVIRONMENT_OBSERVATION = None
 _BUILD_VS_VERSION = None
 _BUILD_TOOL_ROOTS = None  # Private paths; never serialized.
+_BUILD_PROPERTIES = None  # Actual configure properties; never serialized.
 LOG_TAIL_BYTES = 2 * 1024 * 1024
 NESTED_LOG_TOTAL_BYTES = 4 * 1024 * 1024
 COMPILER_CONTEXT_FILE_BYTES = 256 * 1024
 KNOWN_COMPILER_IDS = frozenset({'MSVC', 'Clang', 'GNU', 'Intel', 'IntelLLVM'})
+IMPORT_CONTEXT_LIMIT = 16
+PRIMARY_IMPORT_LEAVES = {'microsoft.cpp.default.props': 'microsoft-cpp-default-props',
+    'microsoft.cpp.props': 'microsoft-cpp-props', 'microsoft.cpp.targets': 'microsoft-cpp-targets'}
+PRIMARY_IMPORT_CALLERS = {**PRIMARY_IMPORT_LEAVES, 'compileridc.vcxproj': 'compiler-id-c-project',
+    'compileridcxx.vcxproj': 'compiler-id-cxx-project'}
+COMPILER_ID_PROPERTIES = ('VCTargetsPath', 'UserRootDir', 'MSBuildUserExtensionsPath',
+    'ImportDirectoryBuildProps', 'ImportDirectoryBuildTargets')
 PARENT_IMPORT_NAMES = frozenset({'Directory.Build.props', 'Directory.Build.targets',
     'Directory.Build.rsp', 'MSBuild.rsp'})
 # Fixed error-template fragments reviewed in CMake 4.4.5 commit aa4fae824a02a175c4a11653d7a851a948f0c004.
@@ -940,11 +949,77 @@ def known_log_diagnostics(output, phase):
     return fixed_log_diagnostics(data.decode('utf-8', errors='replace'))
 
 
+def import_target_context(value, roots, properties):
+    result = {'import_label': 'unknown-import', 'root_role': 'not-inspected', 'existence': 'not-inspected'}
+    if (not isinstance(value, str) or len(value) > 32767
+            or any(ord(c) < 32 or ord(c) == 127 for c in value)):
+        return result
+    leaf = re.split(r'[/\\]', value)[-1].casefold()
+    if leaf not in PRIMARY_IMPORT_LEAVES:
+        return result
+    result['import_label'] = PRIMARY_IMPORT_LEAVES[leaf]
+    path = Path(value)
+    if not path.is_absolute() or '..' in path.parts or not isinstance(roots, dict):
+        return result
+    path = Path(os.path.abspath(path))
+    candidates = [('declared-' + role, roots.get(role)) for role in
+        ('msbuild', 'vc-auxiliary', 'vc', 'sdk-include', 'sdk-lib', 'sdk-bin',
+         'netfx-include', 'netfx-lib', 'cmake', 'python')]
+    for role, base in candidates:
+        if (isinstance(base, str) and len(base) <= 32767
+                and not any(ord(c) < 32 or ord(c) == 127 for c in base)
+                and Path(base).is_absolute() and path.is_relative_to(Path(os.path.abspath(base)))):
+            result['root_role'] = role
+            selected = properties.get('VCTargetsPath') if isinstance(properties, dict) else None
+            if (role == 'declared-msbuild' and isinstance(selected, str) and len(selected) <= 32767
+                    and not any(ord(c) < 32 or ord(c) == 127 for c in selected)
+                    and Path(selected).is_absolute()):
+                selected = Path(os.path.abspath(selected))
+                if selected.is_relative_to(Path(os.path.abspath(base))) and path.is_relative_to(selected):
+                    result['root_role'] = 'selected-vc-targets'
+            try:
+                info = diagnostic_file_info(path)
+                result['existence'] = 'regular-file-present' if stat.S_ISREG(info.st_mode) else 'nonregular'
+            except FileNotFoundError:
+                result['existence'] = 'missing'
+            except (OSError, ValueError):
+                result['existence'] = 'inspection-error'
+            return result
+    result['root_role'] = 'outside-declared-roots'
+    return result
+
+
+def import_caller_context(prefix):
+    result = {'file_label': 'unknown-caller', 'line': None, 'column': None}
+    match = re.fullmatch(r'([^\r\n]{1,32767})\(([1-9][0-9]{0,6})(?:,([1-9][0-9]{0,6}))?\):\s*', prefix)
+    if match:
+        leaf = re.split(r'[/\\]', match[1])[-1].strip().casefold()
+        if leaf in PRIMARY_IMPORT_CALLERS:
+            result = {'file_label': PRIMARY_IMPORT_CALLERS[leaf], 'line': int(match[2]),
+                'column': int(match[3]) if match[3] else None}
+    return result
+
+
+def msb4019_import_context(content, roots, properties, limit):
+    records, truncated = [], False
+    pattern = r'\berror\s+MSB4019:\s*(?:The imported project "([^"\r\n]{1,32767})" was not found\.)?'
+    for index, match in enumerate(re.finditer(pattern, content, re.I)):
+        if index >= limit:
+            truncated = True
+            break
+        record = import_target_context(match[1], roots, properties)
+        start = max(content.rfind('\n', 0, match.start()) + 1, match.start() - 32767)
+        record['caller'] = import_caller_context(content[start:match.start()])
+        records.append(record)
+    return {'records': records, 'truncated': truncated}
+
+
 def nested_configure_log_context(output):
-    remaining, result = NESTED_LOG_TOTAL_BYTES, []
+    remaining, import_remaining, result = NESTED_LOG_TOTAL_BYTES, IMPORT_CONTEXT_LIMIT, []
     for origin, filename in (('cmake-configure-events', 'CMakeConfigureLog.yaml'),
             ('cmake-error-log', 'CMakeError.log')):
-        row = {'origin': origin, 'state': 'total-byte-limit', 'known_codes': [], 'context_labels': []}
+        row = {'origin': origin, 'state': 'total-byte-limit', 'known_codes': [], 'context_labels': [],
+            'msb4019_imports': {'records': [], 'truncated': False}}
         if remaining > 0:
             state, data = diagnostic_file(output / 'build/CMakeFiles' / filename,
                 min(LOG_TAIL_BYTES, remaining), tail=True)
@@ -959,6 +1034,9 @@ def nested_configure_log_context(output):
                 labels = {label for label, pattern in CMAKE_EARLY_ERRORS if re.search(pattern, folded, re.I)}
                 row['known_codes'] = fixed['known_codes']
                 row['context_labels'] = sorted(labels | set(fixed['categories']))
+                row['msb4019_imports'] = msb4019_import_context(content, _BUILD_TOOL_ROOTS,
+                    _BUILD_PROPERTIES, import_remaining)
+                import_remaining -= len(row['msb4019_imports']['records'])
         result.append(row)
     return {'evidence_scope': 'observed-context-not-fatal-cause', 'logs': result}
 
@@ -1040,6 +1118,46 @@ def compiler_detection_context(output, roots):
     return {'evidence_scope': 'compiler-file-observation-not-native-approval', 'languages': rows}
 
 
+def compiler_id_globals_context(output, properties):
+    namespace = '{http://schemas.microsoft.com/developer/msbuild/2003}'
+    rows = []
+    for language in ('C', 'CXX'):
+        path = output / 'build/CMakeFiles/4.4.5' / ('CompilerId' + language) / ('CompilerId' + language + '.vcxproj')
+        state, data = diagnostic_file(path, COMPILER_CONTEXT_FILE_BYTES)
+        row = {'language': language, 'state': state, 'properties': [
+            {'property': name, 'state': 'unavailable'} for name in COMPILER_ID_PROPERTIES]}
+        if state == 'observed':
+            try:
+                text = data.decode('utf-8-sig')
+                if '<!' in text or '&' in text or '\0' in text:
+                    raise ValueError('Diagnostic XML declarations/entities are not accepted.')
+                tree = ET.fromstring(text)
+                if tree.tag != namespace + 'Project' or sum(1 for _ in tree.iter()) > 4096:
+                    raise ValueError('Diagnostic XML has an unsupported shape.')
+                groups = [item for item in tree if item.tag == namespace + 'PropertyGroup'
+                    and item.get('Label') == 'Globals']
+                if len(groups) != 1 or 'Condition' in groups[0].attrib:
+                    row['state'] = 'missing-globals' if not groups else 'ambiguous-globals'
+                else:
+                    for entry in row['properties']:
+                        name = entry['property']
+                        found = [item for item in groups[0] if item.tag == namespace + name]
+                        if not found:
+                            entry['state'] = 'missing'
+                        elif len(found) != 1:
+                            entry['state'] = 'duplicate-property'
+                        elif len(found[0]) or found[0].attrib:
+                            entry['state'] = 'structured-or-conditional-property'
+                        elif not isinstance(properties, dict) or not isinstance(properties.get(name), str):
+                            entry['state'] = 'expected-unavailable'
+                        else:
+                            entry['state'] = 'exact-match' if found[0].text == properties[name] else 'different'
+            except (UnicodeError, ET.ParseError, ValueError):
+                row['state'] = 'unsupported-xml'
+        rows.append(row)
+    return {'evidence_scope': 'observed-context-not-fatal-cause', 'projects': rows}
+
+
 def failed_build_receipt(output, phase, error):
     """Write only to this prepared attempt; a failure is never an ASR success."""
     output = Path(output).absolute()
@@ -1069,6 +1187,8 @@ def failed_build_receipt(output, phase, error):
         'cmake_observation': safe_cmake_observation(),
         'visual_studio_instance_version': vs_instance_version(_BUILD_VS_VERSION),
         'compiler_detection_context': compiler_detection_context(output, _BUILD_TOOL_ROOTS)
+            if phase == 'cmake-configure' else None,
+        'compiler_id_globals_context': compiler_id_globals_context(output, _BUILD_PROPERTIES)
             if phase == 'cmake-configure' else None,
         'nested_configure_log_context': nested_configure_log_context(output)
             if phase == 'cmake-configure' else None,
@@ -1114,13 +1234,14 @@ def reject_parent_imports(output):
 
 
 def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None, vswhere=None):
-    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
     _BUILD_ENVIRONMENT_OBSERVATION = None
     _BUILD_VS_VERSION = None
     _BUILD_TOOL_ROOTS = None
+    _BUILD_PROPERTIES = None
     try:
         return _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     except Exception as error:
@@ -1135,7 +1256,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
 
 
 def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere):
-    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS
+    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES
     output, vs_root = Path(output).absolute(), Path(vs_root).absolute()
     build_phase('source-validation')
     receipt, policy = verify_sources(output), pin()
@@ -1199,6 +1320,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     for when in ('Before', 'After'):
         for kind in ('CommonProps', 'CommonTargets', 'CppDefaultProps', 'CppProps', 'CppTargets'):
             build_properties['ImportUserLocationsByWildcard' + when + 'Microsoft' + kind] = 'false'
+    _BUILD_PROPERTIES = dict(build_properties)
     env.update(build_properties)
     env['MSBUILDDISABLENODEREUSE'] = '1'
     build_phase('parent-import-review')

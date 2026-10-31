@@ -932,6 +932,184 @@ def test_compiler_linked_parent_is_rejected_before_descendant_metadata_or_open(m
     assert module.compiler_path_state(str(compiler),'C',{'vc':str(vc)})=='inspection-error'
 
 
+def test_msb4019_context_labels_known_imports_without_inspecting_unknown_or_outside_targets(module,tmp_path,monkeypatch):
+    msbuild=tmp_path/'sealed-msbuild';selected=msbuild/'Microsoft/VC/v180';selected.mkdir(parents=True)
+    present=selected/'Microsoft.Cpp.Default.props';present.write_bytes(b'owned props fixture')
+    missing=selected/'Microsoft.Cpp.props';nonregular=selected/'Microsoft.Cpp.targets';nonregular.mkdir()
+    outside=tmp_path/'private-outside/Microsoft.Cpp.props';outside.parent.mkdir();outside.write_bytes(b'private import fixture')
+    unknown=selected/'private-unknown.props';unknown.write_bytes(b'private unknown fixture')
+    real_stat,real_lstat,real_open=Path.stat,Path.lstat,Path.open
+    def guard(original):
+        def call(path,*args,**kwargs):
+            if path==unknown or path.is_relative_to(outside.parent):pytest.fail('Outside and unknown imports must not be inspected.')
+            return original(path,*args,**kwargs)
+        return call
+    monkeypatch.setattr(Path,'stat',guard(real_stat));monkeypatch.setattr(Path,'lstat',guard(real_lstat))
+    monkeypatch.setattr(Path,'open',guard(real_open))
+    content='\n'.join('error MSB4019: The imported project "'+str(p)+'" was not found.'
+        for p in (present,missing,nonregular,outside,unknown))
+    content+='\nerror MSB4019: private new diagnostic template\nerror MSB4999: private unknown tool code\n'
+    context=module.msb4019_import_context(content,{'msbuild':str(msbuild)},
+        {'VCTargetsPath':str(selected)},16)
+    assert context['truncated'] is False and len(context['records'])==6
+    targets=[{key:row[key] for key in ('import_label','root_role','existence')} for row in context['records']]
+    assert targets[:3]==[
+        {'import_label':'microsoft-cpp-default-props','root_role':'selected-vc-targets','existence':'regular-file-present'},
+        {'import_label':'microsoft-cpp-props','root_role':'selected-vc-targets','existence':'missing'},
+        {'import_label':'microsoft-cpp-targets','root_role':'selected-vc-targets','existence':'nonregular'}]
+    assert targets[3]=={'import_label':'microsoft-cpp-props','root_role':'outside-declared-roots','existence':'not-inspected'}
+    assert targets[4:]==[{'import_label':'unknown-import','root_role':'not-inspected','existence':'not-inspected'}]*2
+    # An expected property value cannot authorize reads outside declared roots.
+    assert module.import_target_context(str(outside),{'msbuild':str(msbuild)},
+        {'VCTargetsPath':str(outside.parent)})['root_role']=='outside-declared-roots'
+    assert module.import_target_context(str(selected/'private-parent/../Microsoft.Cpp.props'),
+        {'msbuild':str(msbuild)},{})['root_role']=='not-inspected'
+    delivered=json.dumps(context)
+    for value in (str(tmp_path),'private','MSB4999','owned props fixture'):
+        assert value not in delivered
+
+
+@pytest.mark.parametrize('caller,label,line,column',[
+    (r'C:\private-root\CompilerIdC.vcxproj(21,7)','compiler-id-c-project',21,7),
+    (r'C:\private-root\CompilerIdCXX.vcxproj(32)','compiler-id-cxx-project',32,None),
+    (r'C:\private-root\Microsoft.Cpp.Default.props(42,3)','microsoft-cpp-default-props',42,3),
+    (r'C:\private-root\private-caller.vcxproj(21,7)','unknown-caller',None,None),
+    ('CompilerIdC.vcxproj(0,7)','unknown-caller',None,None),
+    ('CompilerIdC.vcxproj(99999999,7)','unknown-caller',None,None),
+    ('CompilerIdC.vcxproj(21,0)','unknown-caller',None,None)])
+def test_msb4019_callers_are_only_primary_labels_and_bounded_positive_positions(module,caller,label,line,column):
+    content='  '+caller+': error MSB4019: The imported project "private-target/Microsoft.Cpp.props" was not found.'
+    result=module.msb4019_import_context(content,{},None,16)
+    assert result['records'][0]['caller']=={'file_label':label,'line':line,'column':column}
+    delivered=json.dumps(result)
+    assert 'private-' not in delivered and caller not in delivered
+
+
+def test_msb4019_context_limits_records_across_both_fixed_logs(module,tmp_path,monkeypatch):
+    directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
+    message='error MSB4019: The imported project "private-root/Microsoft.Cpp.props" was not found.\n'
+    for filename in ('CMakeConfigureLog.yaml','CMakeError.log'):(directory/filename).write_text(message*2)
+    monkeypatch.setattr(module,'IMPORT_CONTEXT_LIMIT',3)
+    result=module.nested_configure_log_context(tmp_path)
+    contexts=[row['msb4019_imports'] for row in result['logs']]
+    assert [len(row['records']) for row in contexts]==[2,1]
+    assert [row['truncated'] for row in contexts]==[False,True]
+    assert 'private-root' not in json.dumps(result)
+
+
+def compiler_id_project(output,language,body):
+    path=output/'build/CMakeFiles/4.4.5'/('CompilerId'+language)/('CompilerId'+language+'.vcxproj')
+    path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_bytes(body)
+    return path
+
+
+def test_compiler_id_globals_deliver_only_literal_match_states_from_actual_private_properties(module,tmp_path,monkeypatch):
+    _source,_inputs,output=prepared(module,tmp_path,monkeypatch)
+    properties={'VCTargetsPath':(tmp_path/'private-v180').as_posix()+'/',
+        'UserRootDir':(tmp_path/'private-user').as_posix()+'/',
+        'MSBuildUserExtensionsPath':(tmp_path/'private-extensions').as_posix()+'/',
+        'ImportDirectoryBuildProps':'false','ImportDirectoryBuildTargets':'false'}
+    prefix='<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><PropertyGroup Label="Globals">'
+    suffix='</PropertyGroup></Project>'
+    body=''.join('<'+key+'>'+value+'</'+key+'>' for key,value in properties.items())
+    compiler_id_project(output,'CXX',(prefix+body+suffix).encode())
+    changed=body.replace('<UserRootDir>','<UserRootDir>private-duplicate</UserRootDir><UserRootDir>',1)
+    changed=changed.replace(properties['MSBuildUserExtensionsPath'],'private-different-value')
+    changed=changed.replace('<ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>',
+        '<ImportDirectoryBuildProps Condition="private-condition">false</ImportDirectoryBuildProps>')
+    changed=changed.replace('<ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>','')
+    changed+='<private-new-property>private-new-value</private-new-property>'
+    compiler_id_project(output,'C',(prefix+changed+suffix).encode())
+    monkeypatch.setattr(module,'_BUILD_PROPERTIES',properties)
+    receipt=module.failed_build_receipt(output,'cmake-configure',ValueError('private exception'))
+    context=receipt['compiler_id_globals_context']
+    assert context['evidence_scope']=='observed-context-not-fatal-cause'
+    c,cxx=context['projects']
+    assert c['state']==cxx['state']=='observed'
+    assert {p['property']:p['state'] for p in c['properties']}=={
+        'VCTargetsPath':'exact-match','UserRootDir':'duplicate-property',
+        'MSBuildUserExtensionsPath':'different','ImportDirectoryBuildProps':'structured-or-conditional-property',
+        'ImportDirectoryBuildTargets':'missing'}
+    assert all(p['state']=='exact-match' for p in cxx['properties'])
+    delivered=(output/'ASR-FAILURE.json').read_text()
+    assert str(tmp_path) not in delivered
+    for value in ('private-v180','private-user','private-extensions','private-duplicate',
+            'private-different-value','private-condition','private-new-property','private-new-value','private exception'):
+        assert value not in delivered
+    assert receipt['rights_approval'] is False and not (output/'ASR-RECEIPT.json').exists()
+    unavailable=module.compiler_id_globals_context(output,None)
+    assert all(p['state']=='expected-unavailable' for p in unavailable['projects'][1]['properties'])
+
+
+@pytest.mark.parametrize('body',[
+    b'<!DOCTYPE Project [<!ENTITY private "private value">]><Project>&private;</Project>',
+    b'<!DOCTYPE Project SYSTEM "file:///private-authored-fixture"><Project/>',
+    b'<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">&#97;</Project>',
+    b'<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">&amp;</Project>',
+    b'<Project>\xff</Project>',b'<Project>',b'<Project xmlns="private-unknown-namespace"/>'])
+def test_compiler_id_globals_reject_entities_external_declarations_and_unsupported_xml(module,tmp_path,body):
+    compiler_id_project(tmp_path,'C',body)
+    result=module.compiler_id_globals_context(tmp_path,{})
+    assert result['projects'][0]['state']=='unsupported-xml'
+    assert all(p['state']=='unavailable' for p in result['projects'][0]['properties'])
+    assert 'private' not in json.dumps(result) and str(tmp_path) not in json.dumps(result)
+
+
+@pytest.mark.parametrize('groups,state',[
+    ('','missing-globals'),
+    ('<PropertyGroup Label="Globals"/><PropertyGroup Label="Globals"/>','ambiguous-globals'),
+    ('<PropertyGroup Label="Globals" Condition="private-value"/>','ambiguous-globals')])
+def test_compiler_id_globals_refuse_ambiguous_or_conditional_property_groups(module,tmp_path,groups,state):
+    compiler_id_project(tmp_path,'C',('<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">'+groups+'</Project>').encode())
+    result=module.compiler_id_globals_context(tmp_path,{})
+    assert result['projects'][0]['state']==state
+    assert 'private-value' not in json.dumps(result)
+
+
+def test_compiler_id_xml_byte_and_element_caps_reject_without_parsing_other_projects(module,tmp_path,monkeypatch):
+    path=compiler_id_project(tmp_path,'C',b'<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">'+b'<X/>'*4096+b'</Project>')
+    forbidden=path.parent/'private-other.vcxproj';forbidden.write_bytes(b'private external fixture')
+    real_open=Path.open
+    def open_guard(path,*args,**kwargs):
+        if path==forbidden:pytest.fail('No arbitrary XML project discovery.')
+        return real_open(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'open',open_guard)
+    assert module.compiler_id_globals_context(tmp_path,{})['projects'][0]['state']=='unsupported-xml'
+    monkeypatch.setattr(module,'COMPILER_CONTEXT_FILE_BYTES',32)
+    assert module.compiler_id_globals_context(tmp_path,{})['projects'][0]['state']=='size-limit'
+
+
+@pytest.mark.parametrize('operation',['import-context','compiler-id-xml'])
+@pytest.mark.parametrize('kind',['symlink','windows-reparse'])
+def test_import_and_xml_context_reject_linked_ancestors_before_descendant_metadata(module,tmp_path,monkeypatch,operation,kind):
+    directory=tmp_path/'declared-root/linked-parent';directory.mkdir(parents=True)
+    target=directory/'Microsoft.Cpp.props';target.write_bytes(b'private import fixture')
+    if operation=='compiler-id-xml':
+        target=compiler_id_project(tmp_path,'C',b'<Project/>');directory=target.parent
+    real_stat,real_lstat,real_open=Path.stat,Path.lstat,Path.open
+    def reject_descendant(path):
+        if path!=directory and path.is_relative_to(directory):pytest.fail('Linked ancestors must precede all descendant metadata/read.')
+    def lstat_guard(path,*args,**kwargs):
+        reject_descendant(path)
+        if path==directory:return SimpleNamespace(st_mode=module.stat.S_IFLNK if kind=='symlink' else module.stat.S_IFDIR,
+            st_file_attributes=0x400 if kind=='windows-reparse' else 0)
+        return real_lstat(path,*args,**kwargs)
+    def stat_guard(path,*args,**kwargs):
+        reject_descendant(path);return real_stat(path,*args,**kwargs)
+    def open_guard(path,*args,**kwargs):
+        reject_descendant(path);return real_open(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(Path,'stat',stat_guard)
+    monkeypatch.setattr(Path,'open',open_guard)
+    if operation=='import-context':
+        result=module.import_target_context(str(target),{'msbuild':str(directory.parent)},{})
+        assert result['existence']=='inspection-error'
+    else:
+        result=module.compiler_id_globals_context(tmp_path,{})
+        assert result['projects'][0]['state']=='inspection-error'
+    assert str(tmp_path) not in json.dumps(result) and 'private' not in json.dumps(result)
+
+
 @pytest.mark.parametrize('kind,expected', [('command', 'private-command-failed'),
     ('timeout', 'owned-process-timeout'), ('cleanup', 'io-or-cleanup-unconfirmed')])
 def test_build_failure_wrapper_never_issues_a_success_receipt(module, tmp_path, monkeypatch, capsys, kind, expected):
