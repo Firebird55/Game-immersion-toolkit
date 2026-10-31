@@ -89,7 +89,9 @@ def replay(data, payload_name, target):
     # No shared PyInstaller cache is trusted or modified. In particular, cached
     # pickle index files from an earlier build are never deserialized here.
     with tempfile.TemporaryDirectory(prefix='toolkit-macho-review-') as temporary:
-        root = Path(temporary)
+        # macOS exposes /var through /private/var. Compare canonical paths on
+        # both sides while still rejecting linked or escaped output files.
+        root = Path(temporary).resolve()
         source = root / 'supplier' / PurePosixPath(destination).name
         source.parent.mkdir()
         source.write_bytes(data)

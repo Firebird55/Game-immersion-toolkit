@@ -1,5 +1,6 @@
 """Supplier replay accepts only exact, bounded native packaging transformations."""
 import hashlib
+from contextlib import nullcontext
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -35,6 +36,35 @@ def test_foreign_host_cannot_claim_native_replay(monkeypatch):
     monkeypatch.setattr(replay.sys, 'platform', 'win32')
     with pytest.raises(ValueError, match='native build host'):
         replay.replay(b'\xcf\xfa\xed\xfe', '_internal/libfixture.dylib', 'macos-arm64')
+
+
+@pytest.mark.parametrize('escaped', [False, True])
+def test_replay_canonicalizes_workspace_without_accepting_escaped_output(tmp_path, monkeypatch, escaped):
+    from PyInstaller.building import utils
+    from PyInstaller.config import CONF
+
+    (tmp_path / 'alias').mkdir()
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    # A non-canonical spelling exercises the same resolved-parent comparison
+    # as macOS /var -> /private/var, without requiring symlink privileges.
+    temporary = tmp_path / 'alias' / '..' / 'workspace'
+    data = b'\xcf\xfa\xed\xfeauthored supplier fixture'
+    outside = tmp_path / 'outside.dylib'
+    outside.write_bytes(data)
+    before = dict(CONF)
+    def process(source, destination, **kwargs):
+        assert Path(source).parent.parent == workspace.resolve()
+        return str(outside if escaped else Path(source).resolve())
+    monkeypatch.setattr(utils, 'process_collected_binary', process)
+    monkeypatch.setattr(replay.tempfile, 'TemporaryDirectory', lambda **kwargs: nullcontext(str(temporary)))
+    monkeypatch.setattr(replay.sys, 'platform', 'darwin')
+    if escaped:
+        with pytest.raises(ValueError, match='escaped'):
+            replay.replay(data, '_internal/libfixture.dylib', 'macos-arm64')
+    else:
+        assert replay.replay(data, '_internal/libfixture.dylib', 'macos-arm64') == review.sha(data)
+    assert CONF == before
 
 
 def test_replay_tool_source_and_version_are_bound(tmp_path, monkeypatch):
