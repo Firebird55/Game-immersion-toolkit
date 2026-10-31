@@ -158,11 +158,11 @@ jobs:
       - name: Verify the browser integration commit
         run: node scripts/check-ci-gate.mjs checkout browser
       - uses: actions/setup-python@v7
-        if: matrix.suite == 'setup'
+        if: matrix.suite == 'setup' || matrix.suite == 'desktop'
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.lock.txt
-        if: matrix.suite == 'setup'
+        if: matrix.suite == 'setup' || matrix.suite == 'desktop'
       - run: npm ci --ignore-scripts
       - uses: actions/cache@v6
         with:
