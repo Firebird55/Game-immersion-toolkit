@@ -51,6 +51,23 @@ starting services, opening a window or preparing user data. It explicitly report
 native acceptance as not run. A private `runtime-experiment` candidate may test
 this host; that does not enable the production distribution gate or close R19.
 
+Run `python scripts/probe-desktop-host.py --runtime-root <candidate>/runtime/ProxyTranscriptRuntime
+--provenance <candidate>/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json`
+on each candidate's native platform. This starts the actual frozen executable,
+API, frontend and gateway from an unrelated working directory with reduced PATH
+and fresh synthetic user storage. It checks API crash recovery at the same
+public origin, graceful shutdown, host death, retained process/lease cleanup and
+an unchanged closed payload inventory. Automatic release installation is disabled
+in the synthetic preferences. The script never loads the user's toolkit settings
+or account credentials. Temporary synthetic state stays private on the test host.
+
+The public result binds the exact receipt, source commit, build ID and file
+inventory. Only booleans, bounded artifact identifiers and fixed failure codes
+are emitted; local logs and paths remain private. A successful headless result
+does not establish visible window/tray behavior, ordinary browser navigation,
+native capture or the frozen update transaction. Those need separate native
+acceptance evidence for the same candidate.
+
 ## Evidence and remaining work
 
 Windows source checks cover actual API/frontend/gateway startup in disposable
