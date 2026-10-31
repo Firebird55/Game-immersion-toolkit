@@ -92,23 +92,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/probe-native-unreal.py --helper-root output/reader-helper/nte --resources output/managed-reader-resources --output output/native-unreal-probe.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Acquire the verified Windows codec build compiler
+        if: runner.os == 'Windows'
+        run: ./scripts/prepare-codec-compiler.ps1 -OutputRoot output/codec-compiler
       - name: Build and exercise the app-local Cyberpunk reader
         if: runner.os == 'Windows'
         run: |
-          python scripts/build-cyberpunk-toolchain.py --platform win-x64 --cache output/cyberpunk-source-cache --output output/cyberpunk-resources --sdk-root '${{ steps.reader_sdk.outputs.sdk_root }}'
+          python scripts/build-cyberpunk-toolchain.py --platform win-x64 --cache output/cyberpunk-source-cache --output output/cyberpunk-resources --sdk-root '${{ steps.reader_sdk.outputs.sdk_root }}' --native-toolchain output/codec-compiler/w64devkit
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/probe-native-cyberpunk.py --resources output/cyberpunk-resources --output output/native-cyberpunk-probe.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run desktop:build -- --output-root output/desktop-frontend
       - name: Collect the pinned app-local grammar runtime
-        run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources
+        run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources --retain-node-archive output/native-archives/node-supplier.archive
       - name: Retain pinned Qt sources and full notices
         run: python scripts/build-qt-resources.py --output output/qt-resources --cache output/qt-source-cache
       - name: Retain exact OCR, ASR and native library sources and notices
         run: python scripts/build-native-notices.py --output output/native-notices --cache output/native-source-cache
-      - name: Acquire the verified Windows codec build compiler
-        if: runner.os == 'Windows'
-        run: ./scripts/prepare-codec-compiler.ps1 -OutputRoot output/codec-compiler
       - name: Build maintained audio tools from retained sources
         run: |
           $options = @('--work', (Join-Path $env:RUNNER_TEMP 'toolkit-codec-build'), '--output', 'output/audio-resources', '--cache', 'output/audio-source-cache', '--jobs', '4')
@@ -139,11 +139,32 @@ jobs:
       - name: Acquire verified Windows installer compiler
         if: runner.os == 'Windows'
         run: ./scripts/prepare-installer-compiler.ps1 -OutputRoot output/installer-compiler
+      - name: Review the exact delivered dependency inputs
+        id: review
+        run: |
+          $options = @('-I', 'scripts/review-desktop-inputs.py', '--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--observed-inputs', 'output/native-candidate/OBSERVED-INPUTS.json', '--python-archive', '${{ steps.python_supplier.outputs.python_archive }}', '--wheelhouse', 'output/wheelhouse', '--target', '${{ matrix.target }}', '--output', 'output/native-input-review.json', '--native-archive', 'output/native-archives/node-supplier.archive')
+          foreach ($archive in Get-ChildItem '${{ steps.reader_sdk.outputs.evidence_root }}/nuget-feed' -Filter '*.nupkg' -File) { $options += @('--native-archive', $archive.FullName) }
+          if ($IsWindows) {
+            $codecs = Get-Content packaging/codecs/audio-runtime.json -Raw | ConvertFrom-Json
+            $options += @('--native-archive', (Join-Path 'output/audio-source-cache' $codecs.vgmstream.windows_artifact.archive))
+            foreach ($archive in Get-ChildItem output/cyberpunk-source-cache -Filter '*.archive' -File) { $options += @('--native-archive', $archive.FullName) }
+            foreach ($archive in Get-ChildItem output/cyberpunk-source-cache/nuget -Filter '*.nupkg' -File) { $options += @('--native-archive', $archive.FullName) }
+          }
+          python @options
+          if ($LASTEXITCODE -notin @(0, 2)) { exit $LASTEXITCODE }
+          $review = Get-Content output/native-input-review.json -Raw | ConvertFrom-Json
+          "approved=$($review.approved.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          if (-not $review.approved) { Write-Output 'Exact input review is incomplete; installer remains an unpublished candidate.' }
+          exit 0
+      - name: Accept the exact native target
+        if: steps.review.outputs.approved == 'true'
+        run: python scripts/accept-desktop-runtime.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --target '${{ matrix.target }}' --input-review output/native-input-review.json --native-report output/native-host-probe.json --native-report output/native-ui-probe.json --output output/ACCEPTED-PROVENANCE.json
       - name: Construct the platform installer
         id: package
         run: |
-          $receipt = Get-Content output/native-candidate/CANDIDATE-PROVENANCE.json -Raw | ConvertFrom-Json
-          $options = @('--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--target', '${{ matrix.target }}', '--output', 'output/native-distribution')
+          $provenance = if (Test-Path output/ACCEPTED-PROVENANCE.json) { 'output/ACCEPTED-PROVENANCE.json' } else { 'output/native-candidate/CANDIDATE-PROVENANCE.json' }
+          $receipt = Get-Content $provenance -Raw | ConvertFrom-Json
+          $options = @('--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', $provenance, '--target', '${{ matrix.target }}', '--output', 'output/native-distribution')
           if ($receipt.profile -ne 'runtime' -or $receipt.redistribution_review -ne 'approved' -or $receipt.native_acceptance -ne 'approved') { $options += '--candidate' }
           if ($IsWindows) { $options += @('--iscc', 'output/installer-compiler/compiler/ISCC.exe') }
           if ($IsMacOS) { $options += '--dmg' }
@@ -167,6 +188,7 @@ jobs:
             output/native-ui-probe.json
             output/native-cyberpunk-probe.json
             output/native-unreal-probe.json
+            output/native-input-review.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload verified desktop release assets

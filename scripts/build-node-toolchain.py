@@ -47,7 +47,7 @@ def selected_members(data: bytes, names: set[str], *, zipped=False) -> dict[str,
     return result
 
 
-def build(output: Path, target: str, *, archive_cache: Path | None = None) -> dict:
+def build(output: Path, target: str, *, archive_cache: Path | None = None, retain_archive: Path | None = None) -> dict:
     if target not in ARCHIVES or output.exists():
         raise ValueError('Choose a supported platform and a fresh resource output folder')
     suffix, archive_sha = ARCHIVES[target]
@@ -56,6 +56,10 @@ def build(output: Path, target: str, *, archive_cache: Path | None = None) -> di
     archive = archive_cache.read_bytes() if archive_cache else download(url, limit=100 * 1024 * 1024)
     if hashlib.sha256(archive).hexdigest() != archive_sha:
         raise ValueError('Node archive checksum mismatch')
+    if retain_archive:
+        retain_archive.parent.mkdir(parents=True, exist_ok=True)
+        with retain_archive.open('xb') as retained:
+            retained.write(archive)
     executable = 'node.exe' if target.startswith('win-') else 'node'
     source_binary = prefix + ('/node.exe' if target.startswith('win-') else '/bin/node')
     source_license = prefix + '/LICENSE'
@@ -101,6 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--platform', choices=tuple(ARCHIVES), required=True)
     parser.add_argument('--node-archive', type=Path)
+    parser.add_argument('--retain-node-archive', type=Path, help='New build evidence file for the checksum-verified supplier archive.')
     options = parser.parse_args()
-    result = build(options.output, options.platform, archive_cache=options.node_archive)
+    result = build(options.output, options.platform, archive_cache=options.node_archive, retain_archive=options.retain_node_archive)
     print(json.dumps({'platform': result['platform'], 'files': len(result['files']), 'native_acceptance': 'pending'}))

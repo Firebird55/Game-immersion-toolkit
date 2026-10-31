@@ -172,14 +172,22 @@ shutdown and host-crash cleanup. The separate visible-UI probe observes status,
 logs, tray availability and actual browser-handler requests. A successful handler
 request does not establish browser navigation; that remains separate acceptance.
 
-The NTE bridge now constructs the embedded CUE4Parse provider directly with its
-managed codecs. The external OodleUE and Zlib DLLs are no longer downloaded or
-accepted by the NTE dependency inventory. An installed-file probe reproduced the
-previous Chinese original audio bytes and read all five text locales without
-those DLLs. Full embedded dependency notices and a rebuilt frozen candidate are
-still pending. Wuthering Waves and Cyberpunk packaged helper preparation, POSIX
-codec closure, exact third-party notices and final platform acceptance remain
-open; these are implementation tasks, not permanent game-specific restrictions.
+NTE and Wuthering Waves now share the owned self-contained CUE4Parse bridge and
+managed codecs. Neither requires external OodleUE/Zlib DLLs or a user-installed
+SDK. Full embedded dependency notices are retained. Windows installed-file probes
+read their supported text locales and original installed audio; authored native
+archive probes exercise both providers. The [platform build report](managed-reader-platforms.md)
+separates implemented Windows/Linux/macOS construction from pending final native
+acceptance. Cyberpunk's [delivery report](cyberpunk-runtime-delivery.md) tracks
+its independently bundled fixed-operation reader. These are shared packaging
+contracts with format-specific readers, not permanent per-game release exclusions.
+
+The [exact input reviewer](desktop-input-review.md) now checks actual delivered
+Python/wheel/native bytes, full notices, corresponding sources and frontend
+licenses. Hosted packaging consumes its report and the actual frozen-process
+reports before issuing an accepted target receipt. Missing evidence leaves an
+unpublished candidate. The current installation can remain active during this
+work; new launchers select the compatible router from its installed source slot.
 
 Source validation: the frame/process tests exercise real child exit, hang,
 truncated and oversized IPC, frame reuse, shutdown, resize replacement and

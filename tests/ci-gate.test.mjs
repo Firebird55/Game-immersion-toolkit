@@ -126,6 +126,9 @@ test('publication waits for native construction and rechecks all downloaded arti
   }
   assert.match(nativeWorkflow, /\$options \+= @\('--resources-root', \$root\)/);
   assert.match(nativeWorkflow, /--nte-helper-root', 'output\/reader-helper\/nte'/);
+  assert.match(nativeWorkflow, /if: steps\.review\.outputs\.approved == 'true'/);
+  assert.match(nativeWorkflow, /scripts\/accept-desktop-runtime\.py .*--input-review output\/native-input-review\.json .*--native-report output\/native-host-probe\.json --native-report output\/native-ui-probe\.json/);
+  assert.match(nativeWorkflow, /if \(Test-Path output\/ACCEPTED-PROVENANCE\.json\)/);
   assert.match(nativeWorkflow, /prepare-desktop-python\.py.*--github-path \$env:GITHUB_PATH/);
   assert.match(nativeWorkflow, /--python-archive', '\$\{\{ steps\.python_supplier\.outputs\.python_archive \}\}'/);
 });
