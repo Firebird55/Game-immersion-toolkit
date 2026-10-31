@@ -9,10 +9,12 @@ import os
 import sqlite3
 import threading
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
 from .steam_games import STEAM_GAMES
+from .sqlite_operation_lifetime import SqliteOperationLifetime
 
 
 GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
@@ -27,6 +29,37 @@ REQUEST_KEY = ContextVar('lexirise_request_key', default=None)
 
 class LexiriseError(Exception):
     """Safe user-facing error; never includes requests, credentials or responses."""
+
+
+class LexiriseConnectionCloseError(RuntimeError):
+    """Private failed ledger ownership; not a remote retry instruction."""
+    def __init__(self, service, connection, body_error, transaction_error, close_error):
+        super().__init__('Lexirise ledger connection cleanup is unconfirmed.')
+        self.service, self.owner, self.connection = service, service._sql_lifetime, connection
+        self.body_error, self.transaction_error, self.close_error = body_error, transaction_error, close_error
+
+
+class LexiriseLedgerPoisonedError(RuntimeError):
+    def __init__(self, failure):
+        super().__init__('Lexirise ledger cleanup remains unconfirmed.')
+        self.failure = failure
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class LexiriseConnectionFence:
+    """One root/pin owner group's operation scopes, not physical resources."""
+    _service: LexiriseService
+    _epoch: int
+
+    @property
+    def _lifetime_subject(self):
+        return self._service
+
+    def check(self, service):
+        if (not isinstance(service, LexiriseService) or not isinstance(self._service, LexiriseService)
+                or service._sql_lifetime is not self._service._sql_lifetime):
+            raise ValueError('The Lexirise connection fence belongs to another owner.')
+        service._sql_lifetime.check(self)
 
 
 def _protect(value: bytes, decrypt: bool = False) -> bytes:
@@ -70,6 +103,9 @@ class LexiriseService:
         self.transport = transport
         self._api_key = api_key
         self._lock = threading.Lock()
+        self._sql_lifetime = SqliteOperationLifetime(self, close_error=LexiriseConnectionCloseError,
+            poisoned_error=LexiriseLedgerPoisonedError, fence_type=LexiriseConnectionFence,
+            label='Lexirise ledger connection')
         with self._connect() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("CREATE TABLE IF NOT EXISTS exports (key TEXT PRIMARY KEY, state TEXT NOT NULL)")
@@ -80,12 +116,16 @@ class LexiriseService:
 
     @contextmanager
     def _connect(self):
-        db = sqlite3.connect(self.db_path, timeout=10)
-        try:
-            with db:
+        with self._sql_lifetime.operation():
+            db = sqlite3.connect(self.db_path, timeout=10)
+            with self._sql_lifetime.transaction(db):
                 yield db
-        finally:
-            db.close()
+
+    def freeze_connections(self, timeout):
+        return self._sql_lifetime.freeze(timeout)
+
+    def resume_connections(self, fence):
+        self._sql_lifetime.resume(fence)
 
     def _key(self) -> str:
         key = self._api_key or REQUEST_KEY.get() or (self.accounts.active_key() if self.accounts else None) or os.environ.get("LEXIRISE_API_KEY")
@@ -119,6 +159,9 @@ class LexiriseService:
         """Pin credentials and language before network work or background jobs."""
         from .lexirise_settings import STUDY_LANGUAGES
         session = copy.copy(self)
+        # Gate, failures and canonical fence belong to the root/pin group;
+        # no copied scalar epoch or independently accepting pin lifetime.
+        session._sql_lifetime = self._sql_lifetime
         session._api_key = self._key()
         session.accounts = None
         session.source_language = source_language or self.source_language

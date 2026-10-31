@@ -207,11 +207,11 @@ def _thread_call(operation):
 
 def _observe_admission_stop(store, monkeypatch):
     stopped = threading.Event()
-    original = store._connections_gate.stop_admission
+    original = store._sql_lifetime.gate.stop_admission
     def stop():
         original()
         stopped.set()
-    monkeypatch.setattr(store._connections_gate, 'stop_admission', stop)
+    monkeypatch.setattr(store._sql_lifetime.gate, 'stop_admission', stop)
     return stopped
 
 
@@ -249,14 +249,14 @@ def test_connection_fence_waits_for_real_transaction_and_close_before_resuming(o
         with pytest.raises(sqlite3.ProgrammingError, match='closed'):
             state.opened[-1].execute('SELECT 1')
         with pytest.raises(WritersQuiescing): store.get(line.id)
-        original_resume = store._connections_gate.resume
+        original_resume = store._sql_lifetime.gate.resume
         def resume():
             # Actual new operation is still refused at the point the old token
             # is invalidated, before the underlying admission gate opens.
-            with pytest.raises(ValueError): store._check_connection_fence(fence)
+            with pytest.raises(ValueError): store._sql_lifetime.check_locked(fence)
             with pytest.raises(WritersQuiescing): store.count()
             original_resume()
-        monkeypatch.setattr(store._connections_gate, 'resume', resume)
+        monkeypatch.setattr(store._sql_lifetime.gate, 'resume', resume)
         store.resume_connections(fence)
         with pytest.raises(ValueError): fence.check(store)
         assert store.get(line.id).favorite is True and store.get(line.id).chinese == '合成记录'
@@ -281,7 +281,7 @@ def test_freeze_timeout_retains_closed_admission_until_actual_scope_completion(o
     try:
         assert entered.wait(2)
         with pytest.raises(TimeoutError): store.freeze_connections(.02)
-        assert store._connections_fence is None and not operation.done.is_set()
+        assert store._sql_lifetime.fence is None and not operation.done.is_set()
         opened = len(state.opened)
         with pytest.raises(WritersQuiescing): store.count()
         with pytest.raises(ValueError): store.resume_connections(None)
@@ -330,11 +330,11 @@ def test_concurrent_short_freezer_is_bounded_while_another_waits_on_real_close(o
 def test_serialization_time_consumes_the_same_freeze_drain_budget(operation_connections, monkeypatch):
     # Deterministic clock advancement at an actual lock boundary, without a
     # timing sleep or replacing the gate's real closed-admission behavior.
-    from backend import storage
+    from backend import sqlite_operation_lifetime as lifetime
     state = operation_connections
     store = TranscriptStore(state.path)
     clock = SimpleNamespace(now=100.0)
-    lock = store._connections_lock
+    lock = store._sql_lifetime.serialization
     class ObservedLock:
         def acquire(self, *, timeout):
             assert timeout == pytest.approx(1.0)
@@ -343,17 +343,17 @@ def test_serialization_time_consumes_the_same_freeze_drain_budget(operation_conn
             return acquired
         def release(self): lock.release()
     observed = []
-    original = store._connections_gate._condition.acquire
+    original = store._sql_lifetime.gate._condition.acquire
     def acquire(*, timeout):
         observed.append(timeout)
         acquired = original(timeout=timeout)
         if len(observed) == 2: clock.now += .3
         return acquired
-    monkeypatch.setattr(storage, 'time', SimpleNamespace(monotonic=lambda: clock.now))
-    monkeypatch.setattr(store, '_connections_lock', ObservedLock())
-    monkeypatch.setattr(store._connections_gate._condition, 'acquire', acquire)
+    monkeypatch.setattr(lifetime, 'time', SimpleNamespace(monotonic=lambda: clock.now))
+    monkeypatch.setattr(store._sql_lifetime, 'serialization', ObservedLock())
+    monkeypatch.setattr(store._sql_lifetime.gate._condition, 'acquire', acquire)
     with pytest.raises(TimeoutError): store.freeze_connections(1)
-    assert observed == [pytest.approx(.25), pytest.approx(.25)] and store._connections_fence is None
+    assert observed == [pytest.approx(.25), pytest.approx(.25)] and store._sql_lifetime.fence is None
     with pytest.raises(WritersQuiescing): store.count()
 
 
@@ -368,7 +368,7 @@ def test_freeze_timeout_bounds_gate_contention_after_admission_and_drain_begin(o
     holder = freezer = None
     def hold_after_stop():
         assert stopped.wait(2)
-        with store._connections_gate._condition:
+        with store._sql_lifetime.gate._condition:
             held.set()
             assert release.wait(5)
     try:
@@ -379,7 +379,7 @@ def test_freeze_timeout_bounds_gate_contention_after_admission_and_drain_begin(o
         assert freezer.done.wait(.5), 'Late condition reacquisition must still respect the total freeze budget.'
         assert isinstance(freezer.error, TimeoutError)
         assert not holder.done.is_set() and not operation.done.is_set()
-        assert store._connections_fence is None and not store._connections_gate._accepting
+        assert store._sql_lifetime.fence is None and not store._sql_lifetime.gate._accepting
     finally:
         release.set(); state.close_release.set()
         operation.thread.join(5)
@@ -397,7 +397,7 @@ def test_freeze_timeout_bounds_gate_contention_after_admission_and_drain_begin(o
 @pytest.mark.parametrize('held_lock', ['failure', 'gate'])
 def test_freeze_budget_also_bounds_failure_and_gate_lock_entry(tmp_path, held_lock):
     store = TranscriptStore(tmp_path/'owned.db')
-    lock = store._failure_lock if held_lock == 'failure' else store._connections_gate._condition
+    lock = store._sql_lifetime.failure_lock if held_lock == 'failure' else store._sql_lifetime.gate._condition
     held, release = threading.Event(), threading.Event()
     def hold():
         with lock:
@@ -410,7 +410,7 @@ def test_freeze_budget_also_bounds_failure_and_gate_lock_entry(tmp_path, held_lo
         freezer = _thread_call(lambda: store.freeze_connections(.02))
         assert freezer.done.wait(2), 'The same freeze budget must cover each lock acquisition.'
         assert isinstance(freezer.error, TimeoutError) and not holder.done.is_set()
-        assert store._connections_fence is None
+        assert store._sql_lifetime.fence is None
     finally:
         release.set(); holder.thread.join(5)
         if freezer is not None: freezer.thread.join(5)
@@ -440,7 +440,7 @@ def test_failed_real_close_cannot_mint_or_resume_a_connection_fence(operation_co
         assert isinstance(failure, TranscriptConnectionCloseError)
         assert isinstance(freezer.error, TranscriptStorePoisonedError) and freezer.error.failure is failure
         assert failure.connection is state.opened[-1] and failure.close_error is state.close_error
-        assert store._connections_fence is None and store._connection_failures == [failure]
+        assert store._sql_lifetime.fence is None and store._connection_failures == [failure]
         opened, traceback = len(state.opened), failure.__traceback__
         for _ in range(3):
             with pytest.raises(TranscriptStorePoisonedError) as refused: store.freeze_connections(0)
@@ -480,7 +480,7 @@ def test_connection_fence_tokens_are_store_epoch_and_issued_object_bound(tmp_pat
 def test_invalid_connection_freeze_timeout_does_not_close_admission(tmp_path, timeout):
     store = TranscriptStore(tmp_path/'owned.db')
     with pytest.raises(ValueError): store.freeze_connections(timeout)
-    assert store._connections_fence is None and store.count() == 0
+    assert store._sql_lifetime.fence is None and store.count() == 0
 
 
 def test_connection_freeze_accepts_zero_poll_and_native_wait_limit(tmp_path):
