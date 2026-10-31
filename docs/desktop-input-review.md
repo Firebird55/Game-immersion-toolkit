@@ -66,6 +66,21 @@ The checks verify:
   text in a build folder does not count unless
   retained in the delivered frontend.
 
+The exact locked `@img/sharp-libvips-*` native image-optimizer packages are a
+separate build-input case: their npm archives omit full native-library notices,
+and the supplier's Apache license covers its scripts rather than its linked
+libraries. They are not approved by substituting that script license. The
+canonical client, desktop reader and mobile companion builds reject these
+packages in their observed module graphs and reject native binary assets. The
+delivered `notices/FRONTEND-BUILD-INPUTS.json` binds each build's output hashes,
+observed modules, exact package pins, lock and guard source. The input reviewer
+independently checks those identities and every shipped output from all three
+paths, including copied assets. Only then may the notice audit exclude these
+unshipped native packages. Missing, stale or partial evidence retains the
+ordinary notice failure; adding a native module or renamed binary asset fails
+the build. This is evidence of absence from this browser payload, not permission
+to redistribute the image libraries in another package.
+
 These checks establish the stated evidence, not a legal certification or an
 independent reproduction of compiled outputs. On macOS the reviewer reproduces
 PyInstaller's architecture selection, library-path rewrite and ad-hoc signing

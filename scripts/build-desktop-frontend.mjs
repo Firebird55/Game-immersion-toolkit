@@ -8,6 +8,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/postcss';
 import {sourceCommit} from './build-identity.mjs';
 import {dependencyNotices, dependencyNoticeAudit, requireCompleteNotices} from './dependency-notices.mjs';
+import {browserNativeGuard, sealBrowserNativeEvidence, verifyBrowserNativeEvidence, POLICY, GUARD, EVIDENCE} from './frontend-native-exclusions.mjs';
 import {ocrAssets} from './mobile-assets.mjs';
 import {previewSources} from './mobile-publication.mjs';
 
@@ -17,7 +18,7 @@ export const MANIFEST_NAME = 'desktop-manifest.json';
 const contract = Object.freeze({frontend_origin: 'http://127.0.0.1:3000', api_base: 'http://127.0.0.1:8766', websocket_url: 'ws://127.0.0.1:8766/api/ws'});
 const sourceTrees = ['app', 'components', 'desktop', 'hooks', 'lib', 'mobile', 'styles', 'vendor/lexirise-components'];
 const sourceFiles = ['package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts', '.openai/hosting.json',
-  'LICENSE', 'THIRD_PARTY_NOTICES.md', 'scripts/build-desktop-frontend.mjs', 'scripts/build-identity.mjs', 'scripts/prepare-mobile-assets.mjs',
+  'LICENSE', 'THIRD_PARTY_NOTICES.md', POLICY, GUARD, 'scripts/build-desktop-frontend.mjs', 'scripts/build-identity.mjs', 'scripts/prepare-mobile-assets.mjs',
   'scripts/build-browser-reader.mjs', 'scripts/dependency-notices.mjs', 'scripts/mobile-assets.mjs',
   'scripts/mobile-publication.mjs', 'scripts/mobile-ocr-integrity.json', 'scripts/ocr-worker-compat.js'];
 const mimeTypes = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -93,7 +94,10 @@ function inputState(publicFiles) {
   // consumed by the collector. A root-only scan misses vendored libraries and
   // would let changed attribution reuse an old desktop build fingerprint.
   const noticeAudit = dependencyNoticeAudit({root: repository});
-  requireCompleteNotices(noticeAudit);
+  // Exact native-only omissions are deferred until all three emitted browser
+  // build paths have supplied output-bound absence evidence. Final notices and
+  // the independent input reviewer require that evidence, never this deferral.
+  requireCompleteNotices(noticeAudit, {deferNativeBuildEvidence: true});
   for (const path of noticeAudit.inputs) {
     rejectLinks(path);
     const name = relative(repository, path).split(sep).join('/');
@@ -204,16 +208,17 @@ function ensureCompatibility(state, force) {
     try {
       const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
       const files = compatibilityFiles();
-      if (receipt.input_key === key && stable(receipt.files) === stable(Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)])))) return files;
+      if (receipt.input_key === key && receipt.native_evidence && stable(receipt.files) === stable(Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)])))) return {files,evidence:receipt.native_evidence};
     } catch { /* A stale/missing canonical output is rebuilt, never accepted. */ }
   }
   runSourceBuild('node_modules/vinext/dist/cli.js', ['build']);
   const after = inputState(selectedPublic());
   if (stable(after) !== stable(state)) throw Error('Desktop source changed during the canonical compatibility build.');
   const files = compatibilityFiles();
+  const evidence=JSON.parse(readFileSync(join(repository,'output/build-cache/canonical-native-inputs.json'),'utf8'));
   mkdirSync(dirname(receiptPath), {recursive: true});
-  writeFileSync(receiptPath, stable({input_key: key, files: Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)]))}) + '\n');
-  return files;
+  writeFileSync(receiptPath, stable({input_key: key, native_evidence:evidence, files: Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)]))}) + '\n');
+  return {files,evidence};
 }
 
 function dependencyInputsUnchanged(inputs) {
@@ -251,7 +256,7 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
   rejectLinks(outputDirectory);
   runSourceBuild('scripts/prepare-mobile-assets.mjs');
   const fonts = validateFonts(), publicFiles = selectedPublic(), state = inputState(publicFiles);
-  const compatibility = ensureCompatibility(state, force);
+  const compatibilityResult = ensureCompatibility(state, force), compatibility=compatibilityResult.files;
   const inputKey = sha256(stable(state));
   const receiptPath = join(outputParent, 'build-cache/desktop-frontend-' + sha256(Buffer.from(local)).slice(0, 16) + '.json');
   let prior = null;
@@ -294,9 +299,10 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
       return null;
     },
   };
+  let desktopEvidence;
   try {
     await build({root: join(repository, 'desktop'), configFile: false, publicDir: false,
-      plugins: [observeModules, react()], resolve: {alias: {'@': repository}},
+      plugins: [observeModules, react(), browserNativeGuard({root:repository,kind:'desktop',onEvidence:value=>{desktopEvidence=value;}})], resolve: {alias: {'@': repository}},
       css: {postcss: {plugins: [tailwindcss({base: repository})]}},
       define: {'process.env.NODE_ENV': '"production"'}, logLevel: 'warn',
       build: {target: 'es2022', outDir: staging, emptyOutDir: false, assetsInlineLimit: 0, sourcemap: false,
@@ -305,7 +311,14 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
     for (const [name, source] of [['PROJECT-LICENSE.txt', 'LICENSE'], ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'],
       ['GEIST-OFL.txt', 'desktop/fonts/LICENSE.txt'], ['FONT-PROVENANCE.json', 'desktop/fonts/PROVENANCE.json'],
       ['SHADCN-LICENSE.md', 'styles/SHADCN-LICENSE.md']]) writePayload(staging, 'notices/' + name, readInput(source));
-    writePayload(staging, 'notices/THIRD_PARTY_LICENSES.txt', Buffer.from(sourceCwd(dependencyNotices)));
+    const proofs={canonical:compatibilityResult.evidence,desktop:desktopEvidence,
+      mobile:JSON.parse(readFileSync(join(repository,'output/build-cache/browser-reader.json'),'utf8')).native_evidence};
+    const payloads=new Map(walkFiles(staging).map(name=>[name,readFileSync(join(staging,name))]));
+    for(const kind of ['canonical','desktop','mobile'])proofs[kind]=sealBrowserNativeEvidence(proofs[kind],
+      new Map([...payloads].filter(([name])=>kind==='canonical'?name.startsWith('_next/static/'):kind==='desktop'?name.startsWith('assets/'): /^mobile-capture\/companion\.(?:js|css)$/.test(name))));
+    const exclusionEvidence=verifyBrowserNativeEvidence({root:repository,payloads,proofs});
+    writePayload(staging,EVIDENCE,Buffer.from(JSON.stringify(exclusionEvidence)+'\n'));
+    writePayload(staging, 'notices/THIRD_PARTY_LICENSES.txt', Buffer.from(dependencyNotices({root:repository,frontendRoot:staging})));
     if (stable(inputState(selectedPublic())) !== stable(state) || !dependencyInputsUnchanged(moduleInputs)) throw Error('Desktop build inputs changed during compilation.');
     // Windows shell / sync clients can decorate newly created build folders.
     // Remove only that exact metadata filename from our owned staging tree;

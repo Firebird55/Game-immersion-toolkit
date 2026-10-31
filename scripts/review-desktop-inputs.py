@@ -554,8 +554,8 @@ class Review:
         frontend = FrontendBuild(self.root / '_internal/desktop')
         platform, arch = {'windows-x64': ('win32', 'x64'), 'linux-x64': ('linux', 'x64'),
                           'macos-arm64': ('darwin', 'arm64'), 'macos-x64': ('darwin', 'x64')}[self.target]
-        code = "import {dependencyNoticeAudit} from './scripts/dependency-notices.mjs'; console.log(JSON.stringify(dependencyNoticeAudit({root:process.argv[1],platform:process.argv[2],arch:process.argv[3]})));"
-        result = subprocess.run([node, '--input-type=module', '-e', code, str(source_root), platform, arch],
+        code = "import {dependencyNoticeAudit} from './scripts/dependency-notices.mjs'; console.log(JSON.stringify(dependencyNoticeAudit({root:process.argv[1],platform:process.argv[2],arch:process.argv[3],frontendRoot:process.argv[4]})));"
+        result = subprocess.run([node, '--input-type=module', '-e', code, str(source_root), platform, arch, str(frontend.root)],
             cwd=source_root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         audit = json.loads(result.stdout)
         if audit['lock_sha256'] != frontend.value['lock_sha256']:
@@ -674,7 +674,8 @@ def review(args):
             'packaging/runtime-bundle/macos_replay.py',
             'packaging/runtime-bundle/cyberpunk_review.py',
             'packaging/desktop/native-notices.json', 'packaging/desktop/qt-sources.json',
-            'packaging/frontend-notices/sources.json', 'scripts/dependency-notices.mjs')},
+            'packaging/frontend-notices/sources.json', 'packaging/frontend-notices/native-build-inputs.json',
+            'scripts/frontend-native-exclusions.mjs', 'scripts/dependency-notices.mjs')},
         'scope': 'Exact supplied artifacts, delivered notices and known source adapters. Not independent reproduction of compiled outputs, native execution acceptance or legal certification.'}
 
 

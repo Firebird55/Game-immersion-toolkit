@@ -1,6 +1,7 @@
 import {readFileSync,readdirSync,existsSync,lstatSync} from 'node:fs';
 import {resolve,join,relative,sep} from 'node:path';
 import {createHash} from 'node:crypto';
+import {nativeBuildPolicy, readBrowserNativeExclusions, POLICY, GUARD} from './frontend-native-exclusions.mjs';
 
 const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
 const noticeName=name=>/^(?:licen[cs]e|notice|copying|copyright)(?:[._-].*)?$/i.test(name)
@@ -78,13 +79,16 @@ function absentExclusions(root,packages,platform,arch){
  return excluded;
 }
 
-export function dependencyNoticeAudit({root=process.cwd(),platform=process.platform,arch=process.arch}={}){
+export function dependencyNoticeAudit({root=process.cwd(),platform=process.platform,arch=process.arch,frontendRoot}={}){
  root=resolve(root);
  const lock=JSON.parse(readFileSync(join(root,'package-lock.json'),'utf8'));
  const supplementPath=join(root,'packaging/frontend-notices/sources.json');
  const supplements=existsSync(supplementPath)?JSON.parse(readFileSync(supplementPath,'utf8')):{sources:[],packages:[]};
  if(supplements.schema&&supplements.schema!=='toolkit-frontend-notice-supplements-v1')throw Error('Unknown frontend notice supplements');
  const sourceMap=new Map(),inputs=new Set(existsSync(supplementPath)?[supplementPath]:[]),records=[],omissions=[],excluded=[];
+ const nativePolicy=nativeBuildPolicy(root);
+ const nativeExclusions=frontendRoot?readBrowserNativeExclusions(root,frontendRoot):null;
+ if(nativePolicy){inputs.add(join(root,POLICY));inputs.add(join(root,GUARD));}
  const absent=absentExclusions(root,lock.packages??{},platform,arch);
  for(const source of supplements.sources){
   const path=checked(root,'packaging/frontend-notices/'+source.path),bytes=readFileSync(path);
@@ -125,17 +129,22 @@ export function dependencyNoticeAudit({root=process.cwd(),platform=process.platf
    }
    primary=true;
   }
-  if(!primary&&!entry.dev)omissions.push({package:packagePath,version:entry.version,reason:'No full primary license notice or exact supplier supplement'});
+  if(!primary&&!entry.dev){
+   const candidate=nativePolicy?.packages.some(item=>item.package===packagePath);
+   if(candidate&&nativeExclusions)excluded.push({package:packagePath,version:entry.version,reason:'Native build input absent from every shipped browser build',coverage:nativeExclusions.coverage});
+   else omissions.push({package:packagePath,version:entry.version,reason:'No full primary license notice or exact supplier supplement',...(candidate?{pending_native_build_evidence:true}:{})});
+  }
  }
  return {schema:'toolkit-frontend-notice-audit-v1',lock_sha256:sha256(readFileSync(join(root,'package-lock.json'))),
   records,omissions,excluded,inputs:[...inputs].sort()};
 }
 
-export function requireCompleteNotices(audit){
- if(!audit.omissions.length)return;
+export function requireCompleteNotices(audit,{deferNativeBuildEvidence=false}={}){
+ const omissions=audit.omissions.filter(item=>!deferNativeBuildEvidence||!item.pending_native_build_evidence);
+ if(!omissions.length)return;
  const safe=value=>String(value??'unknown').replace(/[^\x20-\x7e]/g,'?').slice(0,180);
- const details=audit.omissions.slice(0,12).map(item=>safe(item.package)+' ('+safe(item.reason)+')');
- const remaining=audit.omissions.length-details.length;
+ const details=omissions.slice(0,12).map(item=>safe(item.package)+' ('+safe(item.reason)+')');
+ const remaining=omissions.length-details.length;
  throw Error('Production dependency notices incomplete: '+details.join(', ')+(remaining?' ; '+remaining+' additional omissions':''));
 }
 
