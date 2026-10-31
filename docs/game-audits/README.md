@@ -5,6 +5,11 @@ sources in October 2026. Reports distinguish authored text, verified original
 voices, confirmed unvoiced content, missing voices and unresolved formats.
 Counts refer to the audited installation and locale, not every game chapter.
 
+The [subtitle boundary audit](../subtitle-boundary-audit.md) reviews all supported
+readers for page concatenation, translation alignment and full-recording playback.
+It distinguishes authored display boundaries from remaining format and native
+gameplay acceptance gaps.
+
 | Game | Implemented improvements | Evidence and limits |
 | --- | --- | --- |
 | Zenless Zone Zero | Unity-wrapped catalogs; typed stories, bubbles, cinematics, messages and gameplay tips | [ZZZ](zzz.md) |

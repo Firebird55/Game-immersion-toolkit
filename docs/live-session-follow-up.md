@@ -12,8 +12,9 @@ regressions use authored examples.
 - [x] Preserve BEYOND subtitle-page identity when localized text and
   voice cue counts differ. Do not invent page-to-audio timestamps or label missing
   voice evidence as unvoiced. Check paragraph fallback and repeat suppression.
-- [ ] Audit equivalent paragraph/full-track handling in every supported reader,
-  retaining the game's subtitle boundaries and documenting unresolved formats.
+- [x] Audit equivalent paragraph/full-track handling in every supported reader
+  at the source and synthetic-fixture level. The [reader boundary audit](subtitle-boundary-audit.md)
+  records authored boundaries, implemented fixes and unresolved formats.
 - [ ] Replay ordered observations to verify that a new page is captured once and
   an earlier page cannot displace it through stale or ambiguous matches.
 - [ ] Compare the supplied missed-line examples with installed authored resources,
@@ -26,6 +27,16 @@ synthetic page capture passes. This does not replace installed capture validatio
 The actual built React reader also passed Chromium/Firefox at 1280px and 390px:
 delayed visibility reports and audio-ready events for an older subtitle do not
 rewind a newer confirmed line. Real OCR replay remains a separate acceptance step.
+
+Boundary fixes in `4cbefbd` and `5ef141b` passed 152 focused tests for the page
+helper, Heavy Rain, Detroit, Rise, Spyro and ZZZ. The retained Honkai reader's
+explicit per-page TextMap hashes are preserved in `b9c7e36`. Source captions,
+Ground Zeroes, Deus Ex and shared matching/storage checks passed 154 targeted
+tests for `be96a96`. The all-reader audit
+does not guarantee every translation boundary: anonymous multi-page translations
+remain unavailable where alignment is unproven, and Genshin's readable-book
+paragraph pairing still has only equal-count positional evidence. Representative
+gameplay replay for each supported game remains unchecked.
 
 ## Reading layout
 
