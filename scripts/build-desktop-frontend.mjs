@@ -7,7 +7,7 @@ import {build} from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/postcss';
 import {sourceCommit} from './build-identity.mjs';
-import {dependencyNotices, dependencyNoticeAudit} from './dependency-notices.mjs';
+import {dependencyNotices, dependencyNoticeAudit, requireCompleteNotices} from './dependency-notices.mjs';
 import {ocrAssets} from './mobile-assets.mjs';
 import {previewSources} from './mobile-publication.mjs';
 
@@ -93,7 +93,7 @@ function inputState(publicFiles) {
   // consumed by the collector. A root-only scan misses vendored libraries and
   // would let changed attribution reuse an old desktop build fingerprint.
   const noticeAudit = dependencyNoticeAudit({root: repository});
-  if (noticeAudit.omissions.length) throw Error('Production dependency notices are incomplete.');
+  requireCompleteNotices(noticeAudit);
   for (const path of noticeAudit.inputs) {
     rejectLinks(path);
     const name = relative(repository, path).split(sep).join('/');

@@ -4,7 +4,7 @@ import {mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createHash} from 'node:crypto';
-import {dependencyNoticeAudit,dependencyNotices} from '../scripts/dependency-notices.mjs';
+import {dependencyNoticeAudit,dependencyNotices,requireCompleteNotices} from '../scripts/dependency-notices.mjs';
 
 function fixture(t,packages){
  const root=mkdtempSync(join(tmpdir(),'toolkit-notices-'));
@@ -44,6 +44,23 @@ test('only explicitly incompatible optional and absent dev packages are excluded
  const audit=dependencyNoticeAudit({root,platform:'win32',arch:'x64'});
  assert.equal(audit.excluded.length,2);assert.equal(audit.omissions.length,2);
  assert.ok(audit.omissions.some(x=>x.package==='node_modules/current'));
+});
+
+test('optional descendants inherit exclusion only from every resolved parent',t=>{
+ const {root,put}=fixture(t,{
+  '':{dependencies:{active:'1.0.0'},optionalDependencies:{'other-os':'1.0.0'}},
+  'node_modules/active':{...entry,dependencies:{shared:'1.0.0'}},
+  'node_modules/other-os':{...entry,optional:true,os:['freebsd'],dependencies:{bridge:'1.0.0',shared:'1.0.0'}},
+  'node_modules/bridge':{...entry,optional:true,dependencies:{leaf:'1.0.0'}},
+  'node_modules/leaf':{...entry,optional:true},
+  'node_modules/shared':{...entry,optional:true},
+  'node_modules/unexplained':{...entry,optional:true}});
+ put('node_modules/active/package.json',{name:'active',version:'1.0.0'});
+ put('node_modules/active/LICENSE','Authored primary terms');
+ const audit=dependencyNoticeAudit({root,platform:'win32',arch:'x64'});
+ assert.deepEqual(audit.excluded.map(x=>x.package),['node_modules/bridge','node_modules/leaf','node_modules/other-os']);
+ assert.deepEqual(audit.excluded.find(x=>x.package.endsWith('/leaf')).parents,['node_modules/bridge']);
+ assert.deepEqual(audit.omissions.map(x=>x.package),['node_modules/shared','node_modules/unexplained']);
 });
 
 test('rejects drift between installed metadata and the lock',t=>{
@@ -86,4 +103,14 @@ test('a different installed author declaration cannot inherit a pinned resolutio
 test('rejects package traversal before opening a notice',t=>{
  const {root}=fixture(t,{'node_modules/../../outside':entry});
  assert.throws(()=>dependencyNoticeAudit({root}),/Unsafe dependency notice path/);
+});
+
+test('omission diagnostics identify packages and reasons with bounded output',()=>{
+ const omissions=Array.from({length:20},(_,i)=>({package:'node_modules/fixture-'+i,reason:'Absent production dependency'}));
+ assert.throws(()=>requireCompleteNotices({omissions}),error=>{
+  assert.match(error.message,/node_modules\/fixture-0 \(Absent production dependency\)/);
+  assert.match(error.message,/8 additional omissions/);
+  assert.doesNotMatch(error.message,/fixture-12/);
+  assert.ok(error.message.length<5000);return true;
+ });
 });

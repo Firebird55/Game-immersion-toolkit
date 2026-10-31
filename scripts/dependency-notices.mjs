@@ -37,6 +37,47 @@ function permits(values,value){
  return !values.includes('!'+value)&&(!values.some(v=>!v.startsWith('!'))||values.includes(value)||values.includes('any'));
 }
 
+function absentExclusions(root,packages,platform,arch){
+ const excluded=new Map(),incoming=new Map();
+ const resolveDependency=(parent,name)=>{
+  let directory=parent;
+  for(;;){
+   const candidate=(directory?directory+'/':'')+'node_modules/'+name;
+   if(Object.hasOwn(packages,candidate))return candidate;
+   if(!directory)return null;
+   const index=directory.lastIndexOf('/node_modules/');
+   directory=index<0?'':directory.slice(0,index);
+  }
+ };
+ for(const [path,entry] of Object.entries(packages)){
+  if(path.startsWith('node_modules/')&&!existsSync(checked(root,path))){
+   if(entry.dev)excluded.set(path,{reason:'development-only absent'});
+   else if(entry.optional&&(!permits(entry.os,platform)||!permits(entry.cpu,arch)||!permits(entry.libc,'glibc')))
+    excluded.set(path,{reason:'optional incompatible platform'});
+  }
+  for(const name of new Set(['dependencies','optionalDependencies','devDependencies','peerDependencies']
+    .flatMap(field=>Object.keys(entry[field]??{})))){
+   const target=resolveDependency(path,name);
+   if(target){if(!incoming.has(target))incoming.set(target,new Set());incoming.get(target).add(path);}
+  }
+ }
+ // Recent npm versions prune descendants of incompatible optional packages.
+ // A child need not repeat its parent's os/cpu restriction. Exclude it only
+ // when every resolved incoming edge is already excluded, never just because
+ // its own metadata says "optional" or because installation omitted it.
+ for(let changed=true;changed;){
+  changed=false;
+  for(const [path,entry] of Object.entries(packages)){
+   if(!path.startsWith('node_modules/')||!entry.optional||excluded.has(path)||existsSync(checked(root,path)))continue;
+   const parents=[...(incoming.get(path)??[])];
+   if(parents.length&&parents.every(parent=>excluded.has(parent))){
+    excluded.set(path,{reason:'optional dependency of excluded packages',parents:parents.sort()});changed=true;
+   }
+  }
+ }
+ return excluded;
+}
+
 export function dependencyNoticeAudit({root=process.cwd(),platform=process.platform,arch=process.arch}={}){
  root=resolve(root);
  const lock=JSON.parse(readFileSync(join(root,'package-lock.json'),'utf8'));
@@ -44,6 +85,7 @@ export function dependencyNoticeAudit({root=process.cwd(),platform=process.platf
  const supplements=existsSync(supplementPath)?JSON.parse(readFileSync(supplementPath,'utf8')):{sources:[],packages:[]};
  if(supplements.schema&&supplements.schema!=='toolkit-frontend-notice-supplements-v1')throw Error('Unknown frontend notice supplements');
  const sourceMap=new Map(),inputs=new Set(existsSync(supplementPath)?[supplementPath]:[]),records=[],omissions=[],excluded=[];
+ const absent=absentExclusions(root,lock.packages??{},platform,arch);
  for(const source of supplements.sources){
   const path=checked(root,'packaging/frontend-notices/'+source.path),bytes=readFileSync(path);
   if(sha256(bytes)!==source.sha256||bytes.length!==source.bytes)throw Error('Pinned frontend notice changed: '+source.path);
@@ -54,8 +96,8 @@ export function dependencyNoticeAudit({root=process.cwd(),platform=process.platf
   if(!packagePath.startsWith('node_modules/'))continue;
   const directory=checked(root,packagePath),name=packagePath.split('node_modules/').at(-1);
   if(!existsSync(directory)){
-   if(entry.dev||entry.optional&&(!permits(entry.os,platform)||!permits(entry.cpu,arch)||!permits(entry.libc,'glibc'))){
-    excluded.push({package:packagePath,version:entry.version,reason:entry.dev?'development-only absent':'optional incompatible platform'});continue;
+   if(absent.has(packagePath)){
+    excluded.push({package:packagePath,version:entry.version,...absent.get(packagePath)});continue;
    }
    omissions.push({package:packagePath,version:entry.version,reason:'Production dependency is absent from the locked installation'});continue;
   }
@@ -89,9 +131,17 @@ export function dependencyNoticeAudit({root=process.cwd(),platform=process.platf
   records,omissions,excluded,inputs:[...inputs].sort()};
 }
 
+export function requireCompleteNotices(audit){
+ if(!audit.omissions.length)return;
+ const safe=value=>String(value??'unknown').replace(/[^\x20-\x7e]/g,'?').slice(0,180);
+ const details=audit.omissions.slice(0,12).map(item=>safe(item.package)+' ('+safe(item.reason)+')');
+ const remaining=audit.omissions.length-details.length;
+ throw Error('Production dependency notices incomplete: '+details.join(', ')+(remaining?' ; '+remaining+' additional omissions':''));
+}
+
 export function dependencyNotices(options){
  const root=resolve(options?.root??process.cwd()),audit=dependencyNoticeAudit(options),blocks=[];
- if(audit.omissions.length)throw Error('Production dependency notices incomplete: '+audit.omissions.map(x=>x.package+' ('+x.reason+')').join(', '));
+ requireCompleteNotices(audit);
  for(const entry of audit.records){
   let heading=entry.package+' @ '+entry.version+' — '+entry.file;
   if(entry.source)heading+='\nSource: '+entry.source+'\nSHA-256: '+entry.sha256;
