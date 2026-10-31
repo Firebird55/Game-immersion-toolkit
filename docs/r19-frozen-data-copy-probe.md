@@ -187,7 +187,27 @@ schema-safe rollback, general native closure, rights and clean Windows 11.
 Synthetic path guards are not an adversarial concurrent link-substitution
 proof. PR #59 stays intact; no installer is built.
 
-## Fixed interruption/resume case: native evidence pending
+## Verified fixed interruption/resume case
+
+At `5640d6b5aa6365402f0872bd097dc6020d596bbf`,
+[run 41212338528](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41212338528)
+passed 1,047 Windows contracts without skips and both real frozen copy cases.
+Two reviewers checked downloaded metadata artifact `13047476386`, 1,335,531
+bytes, SHA-256 `9a974836bd6c9cbb12f4b7ab4f56d4ebf6e25f771e056567cba9d114f8ab9ad6`,
+with eleven exact entries. The resume receipt binds build
+`runtime-experiment-41212338528-1`, one authored interruption after one completed
+file, two actual helper attempts, two partial revalidations and ten actual
+source-entry blocks. It retains the same live owner/plan/barrier/generation/
+leases, then verifies two original-source cohorts, four retained writer signals,
+Chinese/context/favorite state, unchanged pointer, stale-barrier refusal and
+explicit cleanup. Image `20261021.278.1` is hosted Server evidence.
+
+The source/rebuild artifact `13046324690`, 1,095,194 bytes, SHA-256
+`2cfe11fecdd02787cc42c652b6fe75425dd1927e5148d04ebc72d99d51305193`,
+also verifies the unchanged six-input Xiph source kit and identical rebuilt
+outputs. The C4 receipt still records **zero WAL/SHM files**. It proves this
+living-owner post-file-exception case, not native WAL, coordinator/keeper death,
+global writer admission, target activation or ordinary-user Windows 11.
 
 The additional fixed stdin case `authored-data-copy-resume` uses the same real
 store setup, owned detached writers, strict C2 and retained-process-signaled
@@ -280,5 +300,6 @@ pwsh -NoProfile -File scripts/probe-frozen-data-copy.ps1 `
 
 Its default output also has that distinct basename when ProbeCase selects
 resume. The bounded stdout/stderr and explicit living-owner failure policy are
-unchanged. A new exact-source Windows execution and independently downloaded
-receipt are required; local ordering/SQLite fixtures are not that proof.
+unchanged. Each changed candidate still requires its own exact-source Windows
+execution and independently downloaded receipt; local fixtures are not that
+proof. The first verified execution is recorded above.

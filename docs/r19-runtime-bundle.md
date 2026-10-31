@@ -975,6 +975,25 @@ artifact. Neither failure is a runtime/source/rights acceptance result.
 Doctor exit 2 and all production/R19-complete gates remain unchanged. Exact
 download identities and limits are in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
 
+## Verified living-owner interrupted copy at 5640d6b
+
+Run `41212338528` at `5640d6b5aa6365402f0872bd097dc6020d596bbf`
+passed 1,047 Windows contracts without skips, then the extracted runtime,
+native/C1/cold-slot/living-keeper probes and both authored copy cases. Two
+reviewers verified the eleven-entry metadata artifact and its exact
+inventory/A2/P1/native/notice bindings: 1,449 files, 642 directories, 473 native
+records, 57 components and 113 notice occurrences (104 distinct hashes).
+The source/rebuild kit remains byte-identical with nine identical rebuilt
+outputs. Exact provider/byte identities are retained in the checkpoint ledger.
+
+The separate [interruption/resume receipt](r19-frozen-data-copy-probe.md)
+verifies one authored post-file exception, two actual copy-helper attempts,
+two partial revalidations, ten actual source-entry blocks, the same living
+owner/plan/barrier/generation/leases and explicit cleanup after a fresh source
+cohort. WAL and SHM counts remain zero. This is no process-crash/keeper-death,
+global/dynamic admission, target activation, warm routing, rights or ordinary-user
+Windows 11 proof. Image `20261021.278.1` is hosted Server evidence.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
