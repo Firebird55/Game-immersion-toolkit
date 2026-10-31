@@ -1593,5 +1593,74 @@
     "production_execution_allowed": false,
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false
+  },
+  "later_static_duplicate_import_refusal_02c6380": {
+    "source_commit": "02c6380bfbdccc63af311391ede52a1a4020153d",
+    "run": 41181114221,
+    "native_job": 124478547076,
+    "run_conclusion": "failure",
+    "native_contracts_passed": 955,
+    "native_contracts_skipped": 0,
+    "failure_artifact": {
+      "id": 13035391503,
+      "bytes": 614,
+      "sha256": "7b23530cb9b10a25a27e3924dde62aaa5658bdc2bb7f67cdcae77810b66bb2ca"
+    },
+    "completed_metadata_artifact": {
+      "id": 13035177079,
+      "bytes": 196875,
+      "sha256": "1a997798baf2e7d4c190e9576d94564851a82aa1bb6decaae8760fdb8342e541"
+    },
+    "download_review": "independently-verified-provider-digests-exact-head-build-single-refusal-three-completed-json-raw-inventory-snapshot-bindings-and-false-gates",
+    "inventory_files": 1449,
+    "a2_records": 473,
+    "a2_process_counts": {
+      "main": 431,
+      "asr": 42
+    },
+    "a2_inputs_and_final_records_identical": true,
+    "p1_diagnostic": {
+      "ordinal": 430,
+      "count": 473,
+      "tree": "main",
+      "role": "other-native",
+      "import_table": "normal",
+      "import_phase": "duplicate",
+      "import_reason": "duplicate-module-name"
+    },
+    "selected_image": {
+      "path": "_internal/windows_capture/windows_capture.pyd",
+      "bytes": 534016,
+      "sha256": "9464e5a6a05e980418eeab6b3a774441b4c737ba6bd596ff0d1eead3e48bf7aa"
+    },
+    "selected_supplier": {
+      "component": "windows-capture",
+      "version": "2.0.1",
+      "artifact_sha256": "209c2318e2168802b9afd1005e99499639e8835e71a1e188a3ddc77c7ccc3f04",
+      "member": "windows_capture/windows_capture.pyd"
+    },
+    "independent_static_cached_wheel_reproduction": {
+      "normal_descriptors": 18,
+      "casefolded_module_names": 17,
+      "repeated_basename": "kernel32.dll",
+      "occurrences": 2,
+      "loaded_or_executed": false
+    },
+    "current_api_core_basename_count": 0,
+    "current_api_crt_basename_count": 0,
+    "current_ucrt_basename_count": 0,
+    "old_48_exact_identity_retention": "not-established-old-refusal-buckets-only",
+    "public_missing_library_warning_count": 0,
+    "complete_import_closure": "not-proved",
+    "p1": "refused",
+    "frozen_host_probes": "not-run",
+    "detached_keeper": "not-run",
+    "native_closure": "unverified",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
   }
 }

@@ -844,6 +844,24 @@ This run used image 20261030.294.1 and observed VS 18.11.12328.437. Configure
 failed before native compilation; no inference or complete final tool seal is
 established. The selector fix and its native result remain pending.
 
+The same head's [runtime run 41181114221](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41181114221)
+passed 955 Windows contracts without skips, then P1 refused a repeated normal
+import name at selected image 430 of 473. The retained inventory identifies
+`_internal/windows_capture/windows_capture.pyd`; A2 binds it to the exact
+windows-capture 2.0.1 wheel member. Independent static reading of that cached
+member reproduces 18 descriptors for 17 case-independent module names,
+including both `kernel32.dll` and `KERNEL32.dll`; no DLL was loaded. Refusal
+artifact 13035391503 matched 614 bytes and SHA-256
+7b23530cb9b10a25a27e3924dde62aaa5658bdc2bb7f67cdcae77810b66bb2ca.
+The three completed JSON observations in artifact 13035177079 matched 196,875
+bytes and SHA-256
+1a997798baf2e7d4c190e9576d94564851a82aa1bb6decaae8760fdb8342e541.
+Independent review verified the raw inventory/snapshot bindings, 473 identical
+A2 input/final records (431 main, 42 ASR) and unchanged gates. These observations
+are from a failed run, with no host or keeper probe. Current output contains no
+api-core, api-crt or ucrt basenames: the earlier 44 bucketed files are not proved
+retained, and zero missing-library warnings cannot establish import closure.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
