@@ -369,6 +369,9 @@ def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_cap
     runtime.installation = SimpleNamespace(quiesce=lambda _: None, resume=lambda: None)
     runtime.repair_task = runtime.index_task = runtime.map_task = None
     runtime.reading = type('Reader', (), {'quiesce': lambda *args: None, 'resume': lambda *args: None})()
+    runtime._reading_registry = SimpleNamespace(stop_creation=lambda _deadline: None,
+        quiesce_owned=lambda _deadline: runtime.reading.quiesce(),
+        resume_pools=lambda: runtime.reading.resume(), reopen_creation=lambda: None)
     runtime._readers, runtime._locale_voices, runtime.game_voice_assets = {}, {}, {}
     runtime._legacy_zzz_voice = runtime._legacy_pragmata_voice = None
     runtime._legacy_game_voices = []

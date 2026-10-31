@@ -187,9 +187,10 @@ reading scopes.
 This is not a RuntimeDataFence, all-store/global writer proof, process signal,
 `WriterStopProof`, immutable-slot eligibility or safe copy/directory-swap token.
 Other independent service/store instances and raw SQLite clients are not
-covered. Settings/file access, dynamic reader creation/retention, indexes/voice
+covered. Settings/file access, escaped reader references, indexes/voice
 references and other registered workers still need their own resource-lifetime
-connections. The initial WebSocket status thread has a separate epoch/admission
+connections. The reading registry below separately owns Runtime's known reader
+creation and pools. The initial WebSocket status thread has a separate epoch/admission
 boundary; it does not aggregate these owners into a RuntimeDataFence. Producer
 drains which write final bookkeeping must complete before underlying SQL
 admission closes.
@@ -202,6 +203,57 @@ boundary needs explicit same-engine operation evidence and must remain distinct
 from whole registered-cohort process-signaled ownership. Global/dynamic writers,
 keeper death, warm routing, copied-data activation, rights and Windows 11
 acceptance remain open.
+
+## Runtime reading creation and pool ownership
+
+`RuntimeReadingRegistry` is the Runtime's reading-specific creation owner.
+`Runtime.reading_for` reserves an admitted lookup before pinning the account,
+resolving settings or computing the existing exact account/language/translation/
+settings key. The registry lock protects only short metadata transitions; no
+credential, HTTP, SQL, constructor or pool operation executes under it. A single
+record owns the actual fixed `LexiriseReadingService` object before its
+constructor starts. Concurrent same-key callers share the eventual instance;
+independent keys can construct concurrently. Default, cached, in-flight and
+failed constructor objects remain retained. The `_readers` view is read-only
+and is no longer the lifecycle authority.
+
+Strict C2 closes lookup/creation admission before awaiting HTTP requests. Its
+existing one monotonic deadline includes registry metadata acquisition, in-flight
+lookup/constructor drain and every owned reading pool. Actual blocking work
+remains in `_handoff_drains` after waiter timeout or disconnect. A stopped lookup
+cannot return a reader, even if its constructor later succeeds; the completed
+object stays owned for pool drain. Resume refuses live creation or a failed
+record, resumes pools while creation stays closed, then reopens creation only
+at the existing final request-admission step. Registry metadata acquisition at
+these synchronous recovery calls is nonblocking. A partial recovery or concurrent
+stop cannot authorize reopening. Ordinary capture-only source handoff keeps its
+existing behavior and does not opt into this strict creation boundary.
+If the final metadata acquire exhausts its budget after a control body has
+finished, its exact terminal control record remains observable and can be
+retired by the next bounded drain/recovery. That does not reset a constructor
+failure or bypass a pool's own still-running drain. Recovery also handles a
+stop which timed out before changing admission: it first closes/retires creation,
+then refuses any live lookup before resuming pools. It never assumes that a
+failed stop had already closed admission.
+
+Constructor failure permanently closes this registry's creation admission. A
+fresh `ReadingRegistryPoisonedError` keeps the actual partial object and original
+constructor exception/traceback, including a retained failed SQL connection if
+present; later refusals do not grow that original traceback. Shutdown closes
+creation, waits for real lookups/constructors and drains default and cached pools
+under one declared reader-shutdown budget. It also joins any known initialized
+pool on a failed partial reader, then still refuses cleanup success. It does not
+retry failed SQL close, replace the failed key or reset the registry. Retention
+depends on the living Runtime/raised failure; this supplies no external startup-
+failure or process-death lifetime guarantee.
+
+This owner covers creation/return through Runtime and those readers' actual
+worker/callback pools. It does not count an escaped reader's arbitrary direct
+SQL/HTTP work, freeze its SQL owner, close every physical SQLite cursor/resource,
+or mint a `RuntimeDataFence` or `WriterStopProof`. Independent readers, global
+dynamic writers, keeper death, mutable-root detach and warm routing remain
+separate requirements. Existing C5 constructor interception retains exactly its
+three actual store opens, with no successful-connection registry or new SQL.
 
 ## Validation
 
@@ -236,4 +288,13 @@ keep their separate boundaries visible. Exact three-store C5 constructor
 interception, a same-path independent reader and an unfinished private cursor
 are tested without inventing global or physical-detach authority. Fake keys and
 strict MockTransport prohibit real account or credential fallback.
+The [Runtime reader tests](../backend/tests/test_runtime_readers.py) retain actual
+objects before constructor entry, hold real SQLite close and mock settings HTTP
+on Events, check same-key single construction, exact scoped cache keys, permanent
+constructor failure/original traceback retention and no SQL close retry. They
+exercise bounded initial/late metadata contention, partial recovery and default/
+cached worker/callback shutdown. Existing handoff, cancellation and update-startup
+fixtures explicitly provide this producer; production has no missing-registry
+fallback. A cancelled handoff test keeps the actual creation thread and drain
+task owned. Source tests also preserve the exact three-store C5 factory boundary.
 These are local source regressions, not native Windows or full R19 acceptance.

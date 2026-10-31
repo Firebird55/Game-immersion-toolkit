@@ -36,6 +36,7 @@ from .updates import BackgroundUpdateManager
 from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
+from .runtime_readers import RuntimeReadingRegistry
 from .runtime_handoff import CaptureHandoff
 from .runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
 from .state_version import StateVersion
@@ -149,8 +150,9 @@ class Runtime:
         self.transcript = TranscriptStore(DATA_DIR / "transcript-v2.db")
         self.accounts = AccountStore()
         self.lexirise = LexiriseService(DATA_DIR / "lexirise", accounts=self.accounts)
-        self.reading = LexiriseReadingService(DATA_DIR / "lexirise", self.lexirise)
-        self._readers = {}
+        self._reading_registry = RuntimeReadingRegistry(DATA_DIR / "lexirise")
+        self.reading = self._reading_registry.create_default(self.lexirise)
+        self._readers = self._reading_registry.cached
         self.textmaps = TextMapIndex(DATA_DIR / "textmaps")
         self.pragmata = PragmataTextIndex(DATA_DIR / "pragmata")
         self.pragmata.load()
@@ -470,15 +472,14 @@ class Runtime:
         return self.activate_language(game, locale, account)
 
     def reading_for(self, line: TranscriptLine):
-        session = self.lexirise.pin(line.source_language)
-        if not hasattr(session, '_settings_payload'):
-            account_settings(session)
-        target = translation_language(session._settings_payload, line.source_language)
-        key = (session._scope(), line.source_language, target, session._settings_scope)
-        if key not in self._readers:
-            self._readers[key] = LexiriseReadingService(DATA_DIR / 'lexirise', session,
+        with self._reading_registry.lookup() as lookup:
+            session = self.lexirise.pin(line.source_language)
+            if not hasattr(session, '_settings_payload'):
+                account_settings(session)
+            target = translation_language(session._settings_payload, line.source_language)
+            key = (session._scope(), line.source_language, target, session._settings_scope)
+            return self._reading_registry.get_or_create(lookup, key, session,
                 source_language=line.source_language, translation_language=target)
-        return self._readers[key]
 
     def present_line(self, line: TranscriptLine) -> TranscriptLine:
         try:
@@ -678,6 +679,7 @@ class Runtime:
             self._clear_handoff_drains()
             deadline = time.monotonic()+timeout
             running = self.capture.snapshot().running
+            await self._handoff_step(lambda: self._reading_registry.stop_creation(deadline), deadline, blocking=True)
             await self._handoff_step(lambda: self.request_writers.wait_drained(max(0, deadline-time.monotonic())), deadline, blocking=True)
             # Do not manufacture native cleanup by cancelling a Future or
             # terminating a native setup/export process by a stored PID.
@@ -687,8 +689,7 @@ class Runtime:
             await self._handoff_step(lambda: self.stop_updates(drain=True), deadline)
             self._verify_background_stopped()
             await self._handoff_step(self._drain_map, deadline)
-            for reader in set([self.reading, *self._readers.values()]):
-                await self._handoff_step(lambda reader=reader: reader.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            await self._handoff_step(lambda: self._reading_registry.quiesce_owned(deadline), deadline, blocking=True)
             await self._handoff_step(lambda: self.capture.quiesce(max(0, deadline-time.monotonic())), deadline)
             for pool in self._voice_pools():
                 await self._handoff_step(lambda pool=pool: pool.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
@@ -744,14 +745,14 @@ class Runtime:
         self.capture.resume_workers()
         for pool in self._voice_pools():
             pool.resume()
-        for reader in set([self.reading, *self._readers.values()]):
-            reader.resume()
+        self._reading_registry.resume_pools()
         self.installation.resume()
         self.mobile_exports.resume()
         self.automatic_exports.picker.resume()
         self._clear_handoff_drains()
 
     def admit_requests(self):
+        self._reading_registry.reopen_creation()
         self.request_writers.resume()
 
     async def on_line(self, line: TranscriptLine) -> None:
@@ -874,8 +875,9 @@ async def lifespan(_app: FastAPI):
         await asyncio.to_thread(runtime.hito.close)
         runtime._legacy_zzz_voice.close()
         runtime._legacy_pragmata_voice.close()
-        for reader in runtime._readers.values():
-            reader.pool.shutdown(wait=False, cancel_futures=True)
+        reader_deadline = time.monotonic()+30
+        await runtime._handoff_step(lambda: runtime._reading_registry.shutdown(reader_deadline),
+                                    reader_deadline, blocking=True)
         for voices in set([*runtime._legacy_game_voices, *runtime.game_voice_assets.values(), *runtime._locale_voices.values()]):
             voices.close()
         if runtime.map_task and not runtime.map_task.done():

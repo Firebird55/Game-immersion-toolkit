@@ -306,3 +306,54 @@ def test_index_drain_is_explicit_without_changing_source_cancellation(strict):
             await stopping
         assert runtime.index_task is None
     asyncio.run(run())
+
+
+def test_cancelled_reading_drain_retains_actual_creation_thread_and_requires_final_admission(tmp_path):
+    from backend.api import Runtime
+    from backend.runtime_readers import RuntimeReadingRegistry
+    import time
+    async def run():
+        registry = RuntimeReadingRegistry(tmp_path/'owned-readers')
+        runtime = Runtime.__new__(Runtime)
+        runtime._handoff_drains = []
+        entered, release, stopped = threading.Event(), threading.Event(), threading.Event()
+        errors = []
+        def lookup():
+            try:
+                with registry.lookup():
+                    entered.set()
+                    assert release.wait(5)
+            except BaseException as error:
+                errors.append(error)
+        worker = threading.Thread(target=lookup)
+        worker.start()
+        assert await asyncio.to_thread(entered.wait, 1)
+        original = registry.stop_creation
+        def stop(deadline):
+            original(deadline); stopped.set()
+        registry.stop_creation = stop
+        waiter = asyncio.create_task(runtime._handoff_step(
+            lambda: registry.quiesce_owned(time.monotonic()+3), time.monotonic()+3, blocking=True))
+        try:
+            assert await asyncio.to_thread(stopped.wait, 1)
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError): await waiter
+            drain, = runtime._handoff_drains
+            assert not drain.done() and worker.is_alive() and registry._lookups
+            with pytest.raises(TimeoutError): runtime.resume_writers()
+            with pytest.raises(TimeoutError): registry.resume_pools()
+            release.set()
+            await drain
+            await asyncio.to_thread(worker.join, 1)
+            assert not worker.is_alive() and len(errors) == 1 and isinstance(errors[0], WritersQuiescing)
+            registry.resume_pools()
+            with pytest.raises(WritersQuiescing):
+                with registry.lookup(): pass
+            registry.reopen_creation()
+            with registry.lookup(): pass
+        finally:
+            release.set()
+            await asyncio.to_thread(worker.join, 5)
+            for task in runtime._handoff_drains:
+                if not task.done(): await task
+    asyncio.run(run())

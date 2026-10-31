@@ -24,6 +24,7 @@ def test_real_runtime_initializes_standby_without_starting_capture_or_updates(tm
             assert not runtime.capture.snapshot().running
         finally:
             await runtime.capture.close()
+            runtime._reading_registry.shutdown(time.monotonic()+2)
             runtime.voice_assets.close()
             runtime.pragmata_voice_assets.close()
             for voices in runtime.game_voice_assets.values():
@@ -153,6 +154,8 @@ def test_old_capture_remains_active_until_background_work_has_quiesced(monkeypat
     fake.mobile_exports = SimpleNamespace(quiesce=lambda: calls.append('manual-exports'))
     fake.installation = SimpleNamespace(quiesce=lambda _timeout: calls.append('setup'))
     fake.reading = type('Reader', (), {'quiesce': lambda _self, _timeout: calls.append('reading')})()
+    fake._reading_registry = SimpleNamespace(stop_creation=lambda _deadline: None,
+        quiesce_owned=lambda deadline: fake.reading.quiesce(max(0, deadline-time.monotonic())))
     fake.automatic_exports = SimpleNamespace(picker=SimpleNamespace(quiesce=lambda: calls.append('automatic-picker')))
     fake.capture.drain_publications = lambda: asyncio.sleep(0)
     fake._readers, fake.map_task = {}, None
