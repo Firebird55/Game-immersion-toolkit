@@ -117,6 +117,21 @@ interpreter-origin, supplier-byte and CMake-version subphases. A failed receipt
 may include only bounded numeric expected/observed CMake versions and the
 executable's byte count/SHA-256; raw version lines, paths, arguments and exception
 text remain private. An observed mismatch does not relax the 4.4.5 constraint.
+Failed command diagnostics inspect at most the final 2 MiB of the private log.
+The fixed CMake error IDs are derived from the pinned 4.4.5
+[command parser](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmake.cxx),
+the generator sources linked below, and its
+[policy implementation](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmPolicies.cxx).
+They distinguish unavailable or malformed VS instances and installer lookup,
+toolset/flag-table/platform/SDK selection, missing build tools or compilers,
+CLI/source/cache/project input errors, and minimum-version/compatibility/policy
+failures. Matching tolerates diagnostic line wrapping and excludes warning
+blocks. It returns fixed IDs rather than matched text or variable values.
+An optional `cmake_error_sites` field contains at most 32 unique pairs of an
+allowlisted CMake command and a positive line number of at most seven digits.
+Paths, unknown command names, arguments, source text, environment values and raw
+logs cannot enter this projection. An unclassified error remains a failed
+attempt; neither a diagnostic label nor a known call site proves its cause.
 VC-target selection, parent-import review and configure-argument/source
 validation have distinct fixed subphases. The hosted
 [review run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160408338)
@@ -140,8 +155,15 @@ Before refusal, diagnostics collect every candidate's bounded numeric `v...`
 label and props byte count/SHA-256, selected-family count/pin-match state, and
 fixed parent-import categories. Unrecognized labels and raw paths/props contents
 cannot enter the receipt. Registry fallback and parent imports remain refused.
-The review run did not reach configuration, compilation or inference; the new
-selection still requires a fresh native build/probe result.
+The review run did not reach configuration. A subsequent
+[native run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161560168)
+matched the selected `v180` props pin and reached `cmake-configure`, which failed
+before compilation/inference. Its failure-only artifact contains the source
+commit, manifest, selected props and CMake observations, but no separate
+SOURCE_FILES-cohort or complete tool-seal receipt. The existing generic CMake
+labels do not identify its concrete error; the template classifier requires a
+new native observation. Exact tool/source pins and all refusal gates remain in
+force while this boundary is diagnosed.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

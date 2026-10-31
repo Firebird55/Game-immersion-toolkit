@@ -61,6 +61,52 @@ _BUILD_CMAKE_OBSERVATION = None
 _BUILD_ENVIRONMENT_OBSERVATION = None
 PARENT_IMPORT_NAMES = frozenset({'Directory.Build.props', 'Directory.Build.targets',
     'Directory.Build.rsp', 'MSBuild.rsp'})
+# Fixed error-template fragments reviewed in CMake 4.4.5 commit aa4fae824a02a175c4a11653d7a851a948f0c004.
+# Matching private values are never captured or returned. Whitespace folding
+# accommodates CMake's diagnostic wrapping; warnings are excluded separately.
+CMAKE_EARLY_ERRORS = (
+    ('cmake-generator-unavailable', r'(?:Could not create named generator|could not find any instance of Visual Studio)'),
+    ('cmake-vs-instance-not-found', r'could not find specified instance of Visual Studio:'),
+    ('cmake-vs-installation-not-found', r'could not find any instance of Visual Studio\.'),
+    ('cmake-vs-installer-instance-unknown', r'instance is not known to the Visual Studio Installer'),
+    ('cmake-vs-instance-version-invalid', r'but the version field is not 4 integer components starting in'),
+    ('cmake-vs-instance-fields-invalid', r'given instance specification .{0,32768}? that contains (?:a field after|duplicate field key|invalid field)'),
+    ('cmake-msbuild-vctargets-query-failed', r'Failed to run MSBuild command:'),
+    ('cmake-toolset-version-invalid', r'given toolset and version specification .{0,32768}? contains an invalid version specification\.'),
+    ('cmake-toolset-not-installed', r'given toolset and version specification .{0,32768}? does not seem to be installed at'),
+    ('cmake-toolset-selection-ambiguous', r'The toolset and version specification must resolve to a single installed toolset'),
+    ('cmake-toolset-fields-invalid', r'given toolset specification .{0,32768}? that contains (?:a field after|duplicate field key|invalid field)'),
+    ('cmake-flagtable-not-found', r'JSON flag table for .{0,32768}? not found for toolset'),
+    ('cmake-flagtable-load-failed', r'JSON flag table could not be loaded:'),
+    ('cmake-platform-fields-invalid', r'given platform specification .{0,32768}? that contains (?:a field after|duplicate field key|invalid field)'),
+    ('cmake-generator-specification-unsupported', r'does not support (?:instance|platform|toolset) specification'),
+    ('cmake-platform-version-invalid', r'given platform specification (?:with empty version= field|containing a version=.{0,32768}? field with unsupported value\.)'),
+    ('cmake-windows-sdk-not-found', r'(?:field, but no Windows SDK with that version was found\.|Could not find an appropriate version of the Windows 10 SDK installed on this machine|field, but the Windows 8\.1 SDK is not installed\.)'),
+    ('cmake-build-program-not-found', r'CMake was unable to find a build program corresponding to'),
+    ('cmake-compiler-not-found', r'(?:is not a full path and was not found in the PATH\.|is not a full path to an existing compiler tool\.)'),
+    ('cmake-compiler-test-failed', r'is not able to compile a simple test program'),
+    ('cmake-cli-argument-invalid', r'(?:Unknown argument |Parse error in command line argument:|Multiple -(?:A|T) options not allowed|No (?:source|build) directory specified for -(?:S|H|B)|No (?:platform|toolset) specified for -(?:A|T)|-D must be followed with VAR=VALUE\.|Invalid format specified for --trace-format)'),
+    ('cmake-source-directory-invalid', r'The source directory ".{0,32768}?" (?:does not exist\.|is a file, not a directory\.|does not appear to contain CMakeLists\.txt\.)'),
+    ('cmake-cache-source-mismatch', r'used to generate cache\. Re-run cmake with a different source directory\.'),
+    ('cmake-cache-generator-mismatch', r'Does not match the generator used previously:'),
+    ('cmake-cache-instance-mismatch', r'Does not match the instance used previously:'),
+    ('cmake-cache-platform-mismatch', r'Does not match the platform used previously:'),
+    ('cmake-cache-toolset-mismatch', r'Does not match the toolset used previously:'),
+    ('cmake-project-arguments-invalid', r'(?:PROJECT called with incorrect number of arguments|project with VERSION, DESCRIPTION or HOMEPAGE_URL must use LANGUAGES before language names\.|project with COMPAT_VERSION must also provide VERSION\.|COMPAT_VERSION must be less than or equal to VERSION)'),
+    ('cmake-project-include-unavailable', r'(?:could not find requested module:|could not find requested file:|could not load requested file:|requested file is a directory:)'),
+    ('cmake-minimum-version-required', r'CMake [0-9]+\.[0-9]+(?:\.[0-9]+){0,2} or higher is required\. You are running version'),
+    ('cmake-compatibility-removed', r'Compatibility with CMake < 3\.5 has been removed from CMake\.'),
+    ('cmake-policy-minimum-invalid', r'Invalid CMAKE_POLICY_VERSION_MINIMUM value '),
+    ('cmake-policy-unknown', r'(?:Policy "CMP[0-9]{4}" is not known to this version of CMake\.|GET(?:_WARNING)? given policy "CMP[0-9]{4}" which is not known to this version of CMake\.)'),
+    ('cmake-policy-old-unsupported', r'(?:Policy CMP[0-9]{4} may not be set to OLD behavior because this version of CMake no longer supports it\.|this version of CMake no longer supports the OLD behavior for these policies\.)'),
+    ('cmake-policy-arguments-invalid', r'cmake_policy (?:requires at least one argument\.|SET must be given exactly 2 additional arguments\.|SET given unrecognized policy status|SET failed to set policy\.|VERSION not given an argument|VERSION given too many arguments)'),
+    ('cmake-command-unknown', r'Unknown CMake command "'),
+)
+CMAKE_ERROR_COMMANDS = frozenset({'project', 'cmake_minimum_required', 'cmake_policy',
+    'message', 'find_package', 'enable_language', 'include', 'add_subdirectory',
+    'add_library', 'target_link_libraries', 'set_property', 'set_target_properties',
+    'fetchcontent_declare', 'fetchcontent_populate', 'fetchcontent_makeavailable',
+    'find_package_handle_standard_args'})
 
 
 def build_phase(value):
@@ -741,6 +787,23 @@ def run_private(command, log, env, cwd, timeout):
         raise ValueError('A private ASR build/probe command failed.')
 
 
+def cmake_failure_details(content):
+    """Only fixed CMake error IDs and bounded known-command/line pairs leave logs."""
+    headers = list(re.finditer(r'(?m)^CMake (Error|Warning|Deprecation Warning)\b', content))
+    categories, sites = set(), set()
+    for index, header in enumerate(headers):
+        if header[1] != 'Error':
+            continue
+        block = content[header.start():headers[index + 1].start() if index + 1 < len(headers) else len(content)]
+        folded = ' '.join(block.split())
+        categories.update(label for label, pattern in CMAKE_EARLY_ERRORS if re.search(pattern, folded, re.I))
+        site = re.match(r'^CMake Error(?: \((?:dev|deprecated)\))? at [^\r\n]{1,32768}:'
+            r'([1-9][0-9]{0,6}) \(([^()\r\n]{1,64})\):', block)
+        if site and site[2].casefold() in CMAKE_ERROR_COMMANDS:
+            sites.add((site[2].casefold(), int(site[1])))
+    return sorted(categories), [{'command': command, 'line': line} for command, line in sorted(sites)[:32]]
+
+
 def known_log_diagnostics(output, phase):
     """Return fixed labels only; never serialize a line, match text or raw log."""
     if phase not in PHASE_LOGS:
@@ -765,12 +828,14 @@ def known_log_diagnostics(output, phase):
     if re.search(r'(?im)^CMake Error(?:\s|:)', content): categories.add('cmake-error')
     if re.search(r'Configuring incomplete, errors occurred', content, re.I): categories.add('cmake-configure-incomplete')
     if re.search(r'CMake Generate step failed', content, re.I): categories.add('cmake-generate-failed')
-    if re.search(r'could not (?:create named generator|find any instance of Visual Studio)', content, re.I):
-        categories.add('cmake-generator-unavailable')
-    if re.search(r'is not able to compile a simple test program', content, re.I): categories.add('cmake-compiler-test-failed')
     if 'Native ASR reference probe failed;' in content: categories.add('native-probe-failed')
     if '[ONNXRuntimeError]' in content: categories.add('onnx-native-error')
-    return {'known_codes': sorted(tokens & KNOWN_BUILD_CODES), 'categories': sorted(categories)}
+    cmake_categories, cmake_sites = cmake_failure_details(content)
+    categories.update(cmake_categories)
+    result = {'known_codes': sorted(tokens & KNOWN_BUILD_CODES), 'categories': sorted(categories)}
+    if cmake_sites:
+        result['cmake_error_sites'] = cmake_sites
+    return result
 
 
 def failed_build_receipt(output, phase, error):

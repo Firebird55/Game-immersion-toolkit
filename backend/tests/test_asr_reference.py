@@ -581,6 +581,97 @@ def test_failed_receipt_contains_only_fixed_phase_known_codes_and_categories(mod
     assert not (output / 'ASR-RECEIPT.json').exists()
 
 
+@pytest.mark.parametrize('label,body', [
+    ('cmake-generator-unavailable', 'Could not create named generator private-generator'),
+    ('cmake-vs-instance-not-found', 'Generator Visual Studio 18 2026 could not find specified instance of Visual Studio:\n  {private}'),
+    ('cmake-vs-installation-not-found', 'Generator Visual Studio 18 2026 could not find any instance of Visual Studio.'),
+    ('cmake-vs-installer-instance-unknown', "The directory exists, but the instance is not known to the Visual Studio Installer, and no 'version=' field was given."),
+    ('cmake-vs-instance-version-invalid', 'given instance specification {private} but the version field is not 4 integer components starting in 18.'),
+    ('cmake-vs-instance-fields-invalid', "given instance specification {private} that contains invalid field 'private-model'."),
+    ('cmake-msbuild-vctargets-query-failed', 'Failed to run MSBuild command:\n  {private}\nto get the value of VCTargetsPath:'),
+    ('cmake-toolset-version-invalid', 'given toolset and version specification v145,version=14.51.36231 contains an invalid version specification.'),
+    ('cmake-toolset-not-installed', 'given toolset and version specification v145,version=14.51.36231 does not seem to be installed at\n  {private}'),
+    ('cmake-toolset-selection-ambiguous', 'given toolset and version specification {private} has multiple matches installed at {private}\nThe toolset and version specification must resolve\nto a single installed toolset'),
+    ('cmake-toolset-fields-invalid', "given toolset specification {private} that contains duplicate field key 'private-model'."),
+    ('cmake-flagtable-not-found', 'JSON flag table for private-table not found for toolset private-toolset'),
+    ('cmake-flagtable-load-failed', 'JSON flag table could not be loaded:\n  {private}'),
+    ('cmake-platform-fields-invalid', "given platform specification {private} that contains a field after the first ',' with no '='."),
+    ('cmake-generator-specification-unsupported', 'Generator private-generator does not support platform specification, but platform private-platform was specified.'),
+    ('cmake-platform-version-invalid', 'given platform specification containing a version=private-version field with unsupported value.'),
+    ('cmake-windows-sdk-not-found', 'given platform specification with version=10.0.26100.0 field, but no Windows SDK with that version was found.'),
+    ('cmake-build-program-not-found', 'CMake was unable to find a build program corresponding to "private-generator". CMAKE_MAKE_PROGRAM is not set.'),
+    ('cmake-compiler-not-found', 'The CMAKE_CXX_COMPILER:\n  {private}\nis not a full path to an existing compiler tool.'),
+    ('cmake-compiler-test-failed', 'The C compiler "{private}"\nis not able to compile a simple test program.'),
+    ('cmake-cli-argument-invalid', 'Unknown argument {private}'),
+    ('cmake-cli-argument-invalid', 'Parse error in command line argument: {private}\n Should be: VAR:type=value'),
+    ('cmake-source-directory-invalid', 'The source directory "{private}" does not appear to contain CMakeLists.txt.'),
+    ('cmake-cache-source-mismatch', 'The source "{private}" does not match the source "{private}" used to generate cache. Re-run cmake with a different source directory.'),
+    ('cmake-cache-generator-mismatch', 'Error: generator : private-value\nDoes not match the generator used previously: private-value'),
+    ('cmake-cache-instance-mismatch', 'Error: generator instance: {private}\nDoes not match the instance used previously: {private}'),
+    ('cmake-cache-platform-mismatch', 'Error: generator platform: private-value\nDoes not match the platform used previously: private-value'),
+    ('cmake-cache-toolset-mismatch', 'Error: generator toolset: private-value\nDoes not match the toolset used previously: private-value'),
+    ('cmake-project-arguments-invalid', 'project with VERSION, DESCRIPTION or HOMEPAGE_URL must\nuse LANGUAGES before language names.'),
+    ('cmake-project-include-unavailable', 'could not load requested file:\n  {private}'),
+    ('cmake-minimum-version-required', 'CMake 4.5 or higher is required. You are running version 4.4.5'),
+    ('cmake-compatibility-removed', 'Compatibility with CMake < 3.5 has been removed\nfrom CMake.'),
+    ('cmake-policy-minimum-invalid', 'Invalid CMAKE_POLICY_VERSION_MINIMUM value "private-version". A numeric major.minor[.patch[.tweak]] must be given.'),
+    ('cmake-policy-unknown', 'Policy "CMP1234" is not known to this version of CMake.'),
+    ('cmake-policy-old-unsupported', 'Policy CMP0001 may not be set to OLD behavior because this version of CMake no longer supports it.'),
+    ('cmake-policy-arguments-invalid', 'cmake_policy SET given unrecognized policy status "private-status"'),
+    ('cmake-command-unknown', 'Unknown CMake command "private-command".'),
+])
+def test_cmake445_error_templates_yield_fixed_ids_without_private_values(module, tmp_path, label, body):
+    content = 'CMake Error at ' + str(tmp_path / 'private-project.cmake') + ':26 (project):\n  '
+    content += body.replace('{private}', str(tmp_path / 'private-owner/model-secret')) + '\n'
+    categories, sites = module.cmake_failure_details(content)
+    assert label in categories
+    assert sites == [{'command': 'project', 'line': 26}]
+    delivered = json.dumps({'categories': categories, 'cmake_error_sites': sites})
+    for private in (str(tmp_path), 'private-', 'model-secret'):
+        assert private not in delivered
+
+
+def test_cmake_error_sites_are_bounded_known_commands_and_warnings_do_not_become_causes(module, tmp_path):
+    warning = ('CMake Warning at ' + str(tmp_path / 'private.cmake') + ':12 (message):\n'
+        '  could not find specified instance of Visual Studio: private-model\n')
+    assert module.cmake_failure_details(warning) == ([], [])
+    content = (warning + 'CMake Error at private.cmake:0 (project):\n  private-model\n'
+        'CMake Error at private.cmake:10000000 (project):\n  private-model\n'
+        'CMake Error at private.cmake:25 (private-command):\n  private-model\n')
+    content += ''.join('CMake Error at ' + str(tmp_path / 'private.cmake') + ':' + str(line)
+        + ' (project):\n  private-model\n' for line in range(1, 40))
+    categories, sites = module.cmake_failure_details(content)
+    assert categories == [] and len(sites) == 32
+    assert sites == [{'command': 'project', 'line': line} for line in range(1, 33)]
+    assert str(tmp_path) not in json.dumps(sites) and 'private' not in json.dumps(sites)
+
+
+def test_cmake_failure_receipt_delivers_known_sites_and_tail_only_without_native_success(module, tmp_path, monkeypatch):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    logs = output / 'private-logs'; logs.mkdir()
+    prefix = b'CMake Error: Unknown CMake command "private-early-command".\n'
+    tail = ('CMake Error at ' + str(tmp_path / 'private-project.cmake') + ':26 (project):\n'
+        '  Generator Visual Studio 18 2026\n'
+        '  could not find specified instance of Visual Studio:\n  private-instance\n'
+        'CMake Warning at private-warning.cmake:7 (message):\n'
+        '  Unknown argument private-warning\n'
+        'Configuring incomplete, errors occurred!\n')
+    (logs / 'configure.log').write_bytes(prefix + b'x' * (2 * 1024 * 1024) + b'\n' + tail.encode())
+    report = module.failed_build_receipt(output, 'cmake-configure', ValueError('private exception'))
+    diagnostics = report['diagnostics']
+    assert 'cmake-vs-instance-not-found' in diagnostics['categories']
+    assert 'cmake-command-unknown' not in diagnostics['categories']
+    assert 'cmake-cli-argument-invalid' not in diagnostics['categories']
+    assert diagnostics['cmake_error_sites'] == [{'command': 'project', 'line': 26}]
+    assert report['status'] == 'failed' and report['native_reference_probes_passed'] is False
+    assert report['rights_approval'] is False and report['gates']['production_execution_allowed'] is False
+    assert not (output / 'ASR-RECEIPT.json').exists()
+    delivered = (output / 'ASR-FAILURE.json').read_text()
+    for private in (str(tmp_path), 'private-early-command', 'private-project',
+                    'private-instance', 'private-warning', 'private exception'):
+        assert private not in delivered
+
+
 @pytest.mark.parametrize('kind,expected', [('command', 'private-command-failed'),
     ('timeout', 'owned-process-timeout'), ('cleanup', 'io-or-cleanup-unconfirmed')])
 def test_build_failure_wrapper_never_issues_a_success_receipt(module, tmp_path, monkeypatch, capsys, kind, expected):
