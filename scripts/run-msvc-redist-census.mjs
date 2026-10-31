@@ -110,8 +110,9 @@ const observerPhases = new Set(['observer-identity','authored-contracts','machin
 const testLabels = new Set(['unavailable',...Array.from({length:28},(_,i)=>`core-${String(i+1).padStart(2,'0')}`),
   ...Array.from({length:9},(_,i)=>`publisher-${String(i+1).padStart(2,'0')}`)]);
 export function projectObserverDiagnostic(input) {
-  if (!(typeof input === 'string' || Buffer.isBuffer(input)) || Buffer.byteLength(input)>4096) failure();
-  const value=JSON.parse(input.toString());
+  if (!(typeof input === 'string' || binaryData(input))
+      || (typeof input==='string'?Buffer.byteLength(input):nativeByteLength.call(input))>4096) failure();
+  const value=JSON.parse(typeof input==='string'?input:new TextDecoder('utf-8',{fatal:true}).decode(binaryTail(input)));
   if (!exactKeys(value,['schema','phase','code','contracts','failures','errors','skipped','tests'])
       || value.schema!=='proxy-r19-msvc-observer-diagnostic-v1' || !observerPhases.has(value.phase)
       || !(value.code==='unexpected' || value.code!=='none' && reasons.has(value.code))
@@ -124,12 +125,70 @@ export function projectObserverDiagnostic(input) {
   return {schema:value.schema,phase:value.phase,code:value.code,contracts:value.contracts,
     failures:value.failures,errors:value.errors,skipped:value.skipped,tests:[...value.tests]};
 }
-export function projectFailure(phase, error) {
-  let observer=null;
-  if (phase==='observer-child') {
-    try { observer=projectObserverDiagnostic(Object.getOwnPropertyDescriptor(error,'stdout')?.value); } catch {}
+const spawnCodes=new Set(['ENOENT','EACCES','EINVAL','E2BIG','ENOBUFS','ETIMEDOUT']);
+const signals=new Set(['SIGABRT','SIGALRM','SIGBREAK','SIGBUS','SIGFPE','SIGHUP','SIGILL','SIGINT',
+  'SIGKILL','SIGPIPE','SIGQUIT','SIGSEGV','SIGTERM','SIGTRAP']);
+const typedArrayPrototype=Object.getPrototypeOf(Uint8Array.prototype);
+const nativeByteLength=Object.getOwnPropertyDescriptor(typedArrayPrototype,'byteLength').get;
+const nativeByteOffset=Object.getOwnPropertyDescriptor(typedArrayPrototype,'byteOffset').get;
+const nativeBuffer=Object.getOwnPropertyDescriptor(typedArrayPrototype,'buffer').get;
+function binaryData(value) {return Buffer.isBuffer(value) && ArrayBuffer.isView(value);}
+function binaryTail(value) {
+  const length=nativeByteLength.call(value),offset=nativeByteOffset.call(value);
+  return new Uint8Array(nativeBuffer.call(value),offset+Math.max(0,length-4096),Math.min(length,4096));
+}
+function ownData(value,key) {
+  try { const property=Object.getOwnPropertyDescriptor(value,key);return property && Object.hasOwn(property,'value')?property.value:undefined; }
+  catch { return undefined; }
+}
+function stderrCategory(value) {
+  let bytes,truncated=false;
+  if (binaryData(value)) {truncated=nativeByteLength.call(value)>4096;bytes=binaryTail(value);}
+  else if (typeof value==='string') {
+    // Select the suffix by UTF8 bytes before encoding it, including surrogate
+    // pairs; a 4096-character slice could retain more than 4096 bytes.
+    let start=value.length,size=0;
+    while(start>0) {
+      let index=start-1,code=value.charCodeAt(index),width=code<128?1:code<2048?2:3;
+      if(code>=0xdc00 && code<=0xdfff && index>0) {
+        const previous=value.charCodeAt(index-1);
+        if(previous>=0xd800 && previous<=0xdbff) {index--;width=4;}
+      }
+      if(size+width>4096) break;
+      size+=width;start=index;
+    }
+    truncated=start>0;bytes=Buffer.from(value.slice(start),'utf8');
+  } else return {python_category:'unavailable',program_line:null};
+  // A cut first line cannot establish an anchored standard prefix. Never
+  // decode or retain more than the bounded tail, or publish message bytes.
+  if (truncated) {const lf=bytes.indexOf(10);bytes=lf<0?Buffer.alloc(0):bytes.subarray(lf+1);}
+  let text;try {text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);} catch {text='';}
+  const rows=text.split(/\r?\n/),last=rows.filter(row=>row.length).at(-1)??'';
+  // Python 3.12 standard final exception categories; associated values stay
+  // private: https://docs.python.org/3.12/tutorial/errors.html
+  const exception=last.match(/^(SyntaxError|IndentationError|TabError|ModuleNotFoundError|ImportError|IndexError|NameError|UnboundLocalError|AttributeError|TypeError|ValueError|KeyError|OSError|FileNotFoundError|PermissionError|RuntimeError|MemoryError|RecursionError|UnicodeError|UnicodeDecodeError|UnicodeEncodeError|AssertionError|SystemError|OverflowError|EOFError)(?::(?: .*)?)?$/);
+  // CPython v3.12.10 Python/pylifecycle.c emits this fixed fatal prefix.
+  const category=rows.some(row=>/^Fatal Python error: /.test(row))?'fatal-python-error':exception?.[1]??'unavailable';
+  let line=null,invalidLine=false;
+  for(const row of rows) {
+    const frame=row.match(/^  File "<string>", line ([0-9]+)(?:, in (?:<module>|[A-Za-z_][A-Za-z0-9_]*))?$/);
+    if(frame) {const number=Number(frame[1]);if(Number.isSafeInteger(number) && String(number)===frame[1] && number>=1 && number<=observerProgramLineCount) line=number;else invalidLine=true;}
   }
-  return {schema:'proxy-r19-msvc-census-diagnostic-v1',phase:nodePhases.has(phase)?phase:'unavailable',observer,
+  return {python_category:category,program_line:category==='unavailable' || invalidLine?null:line};
+}
+export function projectFailure(phase, error) {
+  let observer=null,execution=null;
+  if (phase==='observer-child') {
+    const fields=Object.fromEntries(['stdout','stderr','status','signal','code'].map(key=>[key,ownData(error,key)]));
+    try { observer=projectObserverDiagnostic(fields.stdout); } catch {}
+    const hasStdout=typeof fields.stdout==='string' || binaryData(fields.stdout);
+    const emptyStdout=hasStdout && (typeof fields.stdout==='string'?fields.stdout.length:nativeByteLength.call(fields.stdout))===0;
+    execution={status:integer(fields.status) && fields.status<=255?fields.status:null,
+      signal:signals.has(fields.signal)?fields.signal:null,code:spawnCodes.has(fields.code)?fields.code:'UNKNOWN',
+      stdout_state:!hasStdout?'no-data':emptyStdout?'empty':observer?'valid-diagnostic':'unrecognized',
+      ...stderrCategory(fields.stderr)};
+  }
+  return {schema:'proxy-r19-msvc-census-diagnostic-v1',phase:nodePhases.has(phase)?phase:'unavailable',observer,execution,
     scope:'fatal-diagnostic-not-source-bound',raw_context_published:false,source_binding_established:false,
     census_receipt_published:false,redistribution_approved:false,runtime_collection_allowed:false,
     production_execution_allowed:false,native_windows_11_acceptance:'unavailable',r19_complete:false,installer:'not-built'};
@@ -259,6 +318,7 @@ except BaseException as error:
  code=code if type(code) is str and code in probe.REASONS and code!='none' else 'unexpected'
  print(json.dumps(safe_diagnostic(phase,code,result))); sys.exit(2)
 `;
+export const observerProgramLineCount=program.split('\n').length;
 
 // Reuse the census's raw root-first Windows/reparse guards for every sink.
 // Preflight BOTH fixed leaves before either write; never delete old files.

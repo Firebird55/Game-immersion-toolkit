@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validSource, validateReport, projectReport, projectObserverDiagnostic, projectFailure} from '../scripts/run-msvc-redist-census.mjs';
+import {execFileSync} from 'node:child_process';
+import {existsSync} from 'node:fs';
+import {resolve,isAbsolute} from 'node:path';
+import {validSource, validateReport, projectReport, projectObserverDiagnostic, projectFailure, observerProgramLineCount} from '../scripts/run-msvc-redist-census.mjs';
 
 const head = 'a'.repeat(40), id = 'msvc-redist-1-1';
 function report() {
@@ -101,6 +104,7 @@ test('fatal diagnostics publish only finite child fields and keep every admissio
   assert.equal(JSON.stringify(projected).includes('PRIVATE'),false);
   for(const phase of ['env','source-before','source-after','project','publish','source-final']) {
     assert.equal(projectFailure(phase,error).observer,null);
+    assert.equal(projectFailure(phase,error).execution,null);
   }
   for(const phase of ['observer-identity','machine-utility','select-query','select-identity','public-root','census','utility-final']) {
     const v={...value,phase,failures:0,tests:[]};
@@ -131,4 +135,75 @@ test('unknown diagnostic metadata, overbounds, raw output and accessors cannot b
   assert.equal(projectFailure('observer-child',{stdout:raw}).observer,null);
   const duplicate=JSON.stringify(diagnostic()).replace('{','{"code":"PRIVATE discarded duplicate",');
   assert.equal(JSON.stringify(projectFailure('observer-child',{stdout:duplicate})).includes('PRIVATE'),false);
+});
+
+test('exec failure projection accepts only own finite transport data and never invokes getters or prototype fields', () => {
+  const valid=projectFailure('observer-child',{status:1,signal:'SIGTERM',code:'ETIMEDOUT',stdout:''}).execution;
+  assert.deepEqual(valid,{status:1,signal:'SIGTERM',code:'ETIMEDOUT',stdout_state:'empty',python_category:'unavailable',program_line:null});
+  assert.equal(projectFailure('observer-child',{stdout:JSON.stringify(diagnostic())}).execution.stdout_state,'valid-diagnostic');
+  assert.equal(projectFailure('observer-child',{stdout:'PRIVATE output'}).execution.stdout_state,'unrecognized');
+  const inherited=Object.create({status:7,signal:'SIGKILL',code:'ENOENT',stdout:'PRIVATE',stderr:'SyntaxError: PRIVATE'});
+  assert.deepEqual(projectFailure('observer-child',inherited).execution,
+    {status:null,signal:null,code:'UNKNOWN',stdout_state:'no-data',python_category:'unavailable',program_line:null});
+  let read=0;const accessors={};
+  for(const key of ['stdout','stderr','status','signal','code','message','stack']) Object.defineProperty(accessors,key,{get(){read++;throw new Error('PRIVATE');}});
+  assert.equal(projectFailure('observer-child',accessors).execution.stdout_state,'no-data');assert.equal(read,0);
+  const fakeBuffer=Object.create(Buffer.prototype);
+  assert.equal(projectFailure('observer-child',{stdout:fakeBuffer,stderr:fakeBuffer}).execution.stdout_state,'no-data');
+  const realBuffer=Buffer.from('SyntaxError: PRIVATE\n');
+  for(const key of ['length','byteLength','byteOffset','buffer','subarray','toString']) {
+    Object.defineProperty(realBuffer,key,{get(){read++;throw new Error('PRIVATE');}});
+  }
+  assert.equal(projectFailure('observer-child',{stdout:realBuffer,stderr:realBuffer}).execution.python_category,'SyntaxError');
+  assert.equal(read,0);
+  for(const status of [0,255,null,true,-1,256,1.5,'1']) {
+    assert.equal(projectFailure('observer-child',{status}).execution.status,[0,255].includes(status)?status:null);
+  }
+  for(const code of ['ENOENT','EACCES','EINVAL','E2BIG','ENOBUFS','ETIMEDOUT','UNKNOWN','PRIVATE',{}]) {
+    const value=projectFailure('observer-child',{code,signal:'PRIVATE',message:'PRIVATE'});
+    assert.equal(value.execution.code,typeof code==='string' && code!=='PRIVATE'?code:'UNKNOWN');
+    assert.equal(value.execution.signal,null);assert.equal(JSON.stringify(value).includes('PRIVATE'),false);
+  }
+});
+
+test('bounded stderr recognizes only standard categories and in-range frames of the own inline program', () => {
+  const observe=stderr=>projectFailure('observer-child',{stderr:Buffer.from(stderr)}).execution;
+  for(const category of ['SyntaxError','IndentationError','TabError','ModuleNotFoundError','ImportError','IndexError','ValueError']) {
+    const value=observe(`  File "<string>", line 7\n${category}: PRIVATE message and path\n`);
+    assert.equal(value.python_category,category);assert.equal(value.program_line,7);
+    assert.equal(JSON.stringify(value).includes('PRIVATE'),false);
+  }
+  assert.equal(observe('IndexError\n').python_category,'IndexError');
+  for(const filename of ['PRIVATE/path.py','<stdin>','<string>PRIVATE','<string>/PRIVATE']) {
+    assert.equal(observe(`  File "${filename}", line 7\nSyntaxError: PRIVATE\n`).program_line,null);
+  }
+  for(const line of [0,'01',observerProgramLineCount+1,'9'.repeat(200)]) {
+    assert.equal(observe(`  File "<string>", line ${line}\nSyntaxError: PRIVATE\n`).program_line,null);
+  }
+  assert.equal(observe(`  File "<string>", line ${observerProgramLineCount}\nSyntaxError: PRIVATE\n`).program_line,observerProgramLineCount);
+  for(const text of ['PRIVATE SyntaxError: value\n','PrivateError: PRIVATE\n','  SyntaxError: PRIVATE\n',
+    'SyntaxError: PRIVATE\nPrivateError: PRIVATE\n','  File "<string>", line 7\nPRIVATE\n']) {
+    const value=observe(text);assert.equal(value.python_category,'unavailable');assert.equal(value.program_line,null);
+  }
+  assert.equal(observe('Fatal Python error: PRIVATE\nPython runtime state: preinitialized\n').python_category,'fatal-python-error');
+  assert.equal(observe('PRIVATE Fatal Python error: value\n').python_category,'unavailable');
+  assert.equal(observe('SyntaxError: PRIVATE\n'+'x'.repeat(5000)).python_category,'unavailable');
+  assert.equal(observe('x'.repeat(5000)+'SyntaxError: '+'x'.repeat(4083)).python_category,'unavailable');
+  const value=projectFailure('observer-child',{stderr:'漢'.repeat(2000)+'\n  File "<string>", line 2\nIndexError: PRIVATE\n'}).execution;
+  assert.equal(value.python_category,'IndexError');assert.equal(value.program_line,2);
+  assert.equal(JSON.stringify(value).includes('PRIVATE'),false);
+  assert.equal(projectFailure('observer-child',{stderr:{toString(){throw new Error('PRIVATE');}}}).execution.python_category,'unavailable');
+});
+
+test('a genuine local owned Python SyntaxError survives real execFileSync error projection without its raw context', t => {
+  const python=process.env.R19_CENSUS_PYTHON || resolve(process.platform==='win32'?'.venv/Scripts/python.exe':'.venv/bin/python');
+  if(!isAbsolute(python) || !existsSync(python)) {t.skip('Explicit owned Python test interpreter unavailable.');return;}
+  let error;
+  try {execFileSync(python,['-I','-B','-c','def PRIVATE_owned_fixture(:\n    pass\n'],
+    {stdio:['ignore','pipe','pipe'],timeout:10000,maxBuffer:8192});} catch(value) {error=value;}
+  assert.ok(error,'The owned syntax fixture must refuse.');
+  const value=projectFailure('observer-child',error);
+  assert.equal(value.execution.status,1);assert.equal(value.execution.stdout_state,'empty');
+  assert.equal(value.execution.python_category,'SyntaxError');assert.equal(value.execution.program_line,1);
+  assert.equal(JSON.stringify(value).includes('PRIVATE'),false);assert.equal(value.raw_context_published,false);
 });
