@@ -104,7 +104,7 @@ function Test-LauncherRecovery {
     $recoveryRecordFile = Join-Path $recoveryData 'processes.json'
     $recoveryStateFile = Join-Path $recoveryData 'companion-runtime.json'
     $node = (Get-Command node -ErrorAction Stop).Source
-    $gatewayPython = (& $node --input-type=module -e "import {resolvePython} from './scripts/python-runtime.mjs'; console.log(resolvePython().command)").Trim()
+    $gatewayPython = (& $node --input-type=module -e "import {execFileSync} from 'node:child_process'; import {resolvePython} from './scripts/python-runtime.mjs'; console.log(execFileSync(resolvePython().command, ['-c', 'import sys; print(sys.executable)'], {encoding:'utf8'}).trim())").Trim()
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $gatewayPython)) { throw 'Recovery fixtures require the prepared project Python environment.' }
     $launchers = @()
     New-Item -ItemType Directory -Path $recoveryScripts,$recoveryData,(Join-Path $recoveryRoot 'dist\server') -Force | Out-Null
