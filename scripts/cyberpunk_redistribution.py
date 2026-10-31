@@ -22,7 +22,7 @@ PINS = ROOT / 'packaging/cyberpunk/redistribution.json'
 BINARY_SUFFIXES = frozenset({'.dll', '.exe', '.so', '.dylib'})
 RECIPES = ('backend/cyberpunk_toolchain.py', 'backend/cyberpunk_build.py',
            'scripts/build-cyberpunk-toolchain.py', 'scripts/cyberpunk_redistribution.py',
-           'packaging/cyberpunk/redistribution.json', 'packaging/codecs/audio-runtime.json')
+           'packaging/cyberpunk/redistribution.json', 'packaging/codecs/audio-runtime.json', 'LICENSE')
 
 
 def checked_member(archive: zipfile.ZipFile, name: str, expected: str):
