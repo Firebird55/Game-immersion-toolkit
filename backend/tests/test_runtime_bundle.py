@@ -184,6 +184,7 @@ def test_frozen_discovery_requires_manifest_identity_roots_and_child_profile(tmp
 
 
 def test_frozen_missing_streams_allow_actual_uvicorn_formatter_without_inheriting_parent_handles(monkeypatch):
+    import logging
     from uvicorn.logging import DefaultFormatter
     created = ()
     try:
@@ -193,7 +194,14 @@ def test_frozen_missing_streams_allow_actual_uvicorn_formatter_without_inheritin
                 context.setattr(sys, name, None)
             created = bundle_entry._prepare_frozen_standard_streams()
             assert len(created) == 3
-            assert not DefaultFormatter().use_colors
+            # Windows CRT treats NUL as a character device, so automatic color
+            # detection may be true. The required contract is usable logging,
+            # not a POSIX-specific isatty result.
+            formatter = DefaultFormatter()
+            record = logging.LogRecord('authored', logging.INFO, '', 0,
+                'owned no-console message %s', ('漢字',), None)
+            assert formatter.format(record) == 'owned no-console message 漢字'
+            assert all(not bundle_entry.os.get_inheritable(stream.fileno()) for stream in created)
             assert sys.stdin.read() == ''
             assert sys.stdout.write('authored no-console output') > 0
             assert sys.stderr.write('authored no-console diagnostic') > 0
