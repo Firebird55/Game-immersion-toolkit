@@ -3,13 +3,27 @@ from __future__ import annotations
 
 import json
 from importlib import import_module
+import os
 import runpy
 import sys
 
 from backend.runtime_bundle import CHILD_TARGETS, RuntimeBundleError, discover_layout
 
 
+def _prepare_frozen_standard_streams():
+    """A no-console child owns its NUL streams; no parent handle is inherited."""
+    created = []
+    if getattr(sys, 'frozen', False):
+        for name, mode in (('stdin', 'r'), ('stdout', 'w'), ('stderr', 'w')):
+            if getattr(sys, name) is None:
+                stream = open(os.devnull, mode, encoding='utf-8')
+                setattr(sys, name, stream)
+                created.append(stream)
+    return tuple(created)
+
+
 def main(arguments=None):
+    _prepare_frozen_standard_streams()
     args = list(sys.argv[1:] if arguments is None else arguments)
     if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api', 'host'}:
         layout = discover_layout()

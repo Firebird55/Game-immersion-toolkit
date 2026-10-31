@@ -183,6 +183,46 @@ def test_frozen_discovery_requires_manifest_identity_roots_and_child_profile(tmp
         bundle.discover_layout(env)
 
 
+def test_frozen_missing_streams_allow_actual_uvicorn_formatter_without_inheriting_parent_handles(monkeypatch):
+    from uvicorn.logging import DefaultFormatter
+    created = ()
+    try:
+        with monkeypatch.context() as context:
+            context.setattr(sys, 'frozen', True, raising=False)
+            for name in ('stdin', 'stdout', 'stderr'):
+                context.setattr(sys, name, None)
+            created = bundle_entry._prepare_frozen_standard_streams()
+            assert len(created) == 3
+            assert not DefaultFormatter().use_colors
+            assert sys.stdin.read() == ''
+            assert sys.stdout.write('authored no-console output') > 0
+            assert sys.stderr.write('authored no-console diagnostic') > 0
+    finally:
+        for stream in created:
+            stream.close()
+
+
+def test_frozen_entry_preserves_explicit_streams_and_source_callers(monkeypatch):
+    import io
+    explicit = io.StringIO()
+    created = ()
+    try:
+        with monkeypatch.context() as context:
+            context.setattr(sys, 'frozen', True, raising=False)
+            context.setattr(sys, 'stdin', explicit)
+            context.setattr(sys, 'stdout', explicit)
+            context.setattr(sys, 'stderr', None)
+            created = bundle_entry._prepare_frozen_standard_streams()
+            assert len(created) == 1 and sys.stdin is explicit and sys.stdout is explicit
+            assert bundle_entry._prepare_frozen_standard_streams() == ()
+            context.setattr(sys, 'frozen', False)
+            context.setattr(sys, 'stderr', None)
+            assert bundle_entry._prepare_frozen_standard_streams() == () and sys.stderr is None
+    finally:
+        for stream in created:
+            stream.close()
+
+
 def test_diagnostic_dispatch_refuses_bootstrap_and_api_before_any_worker(tmp_path, monkeypatch, capsys):
     layout = frozen_layout(tmp_path)
     monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
