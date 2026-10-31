@@ -88,6 +88,12 @@ separate installed-file and package acceptance evidence.
 
 ## Evidence and remaining limits
 
+On 2026-10-31, the [hosted Windows x64 helper job](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41222246605/job/124599147878)
+at source commit `a5c706a` passed all seven probe groups and 13 actual app-local
+provider operations. Linux/macOS did not reach their probes in that run because
+of SDK archive-root validation; the preparer correction and subsequent hosted
+execution are separate evidence, not a pass inferred from Windows.
+
 Synthetic regression tests cover each native image format and its exact runtime
 closure, wrong-platform rejection, SDK archive tampering and isolated process
 environments. The installed-file NTE and Wuthering index/voice probes described

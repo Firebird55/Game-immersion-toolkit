@@ -70,6 +70,24 @@ popover caused exactly zero current-caption displacement. Screenshots and the
 measurement receipt remain in ignored local output. Native Firefox/200% zoom and
 physical phone/tablet acceptance remain separate from viewport emulation.
 
+## Shared integration follow-up
+
+- [x] Review upstream public settings, popup UI, AI/API references and language
+  capabilities. Identify Shift-hover support and stale grammar explanatory copy.
+- [x] Implement the fixes in canonical shared source; preserve local grammar
+  choices and storage keys and keep all account-write tests mocked.
+- [x] Verify hosted shared 1.0.13, synchronize both consumers using
+  `shared:update -- --version 1.0.13 --all`, run their checks and commit both pins.
+  Both isolated consumer checks and generated pin commits passed; the live game
+  session was not interrupted and no consumer vendor source was patched.
+
+The [2026-10-31 public compatibility review](lexirise-compatibility-review-2026-10-31.md)
+records the accepted-value gap even though the watch found no changed endpoint
+strings. Its browser fixture passed against both canonical sources and the imported
+package. Physical-device and real-account acceptance remain separate.
+
+## Remaining acceptance evidence
+
 LAN validation: the actual Python gateway serves paired Chromium, Firefox and
 WebKit clients over a private interface. The same assertions exercise the built
 source frontend and verified R19 static frontend: shared favorites, original
