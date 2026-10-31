@@ -70,3 +70,34 @@ def test_dependency_source_change_requires_review_before_any_build(tmp_path):
         build.prepare_dependencies(pins, tmp_path, tmp_path, tmp_path, tmp_path,
             {}, '/bin/sh', 1, lambda *args: calls.append(args), lambda *args: calls.append(args))
     assert not calls
+
+
+def test_celt_adapter_preserves_upstream_namespaces_and_rejects_source_drift(tmp_path):
+    path = tmp_path / 'celt.cmake'
+    original = ('\t\tset(CELT_CFLAGS\n\t\t\tcelt_encoder_create\n\t\t\tcelt_decode\n\t\t)\n'
+                'foreach(ver 0061 0110)\nforeach(source ${CELT_CFLAGS})\n'
+                'list(APPEND CELT_${ver}_CFLAGS "-D${source}=${source}_${ver}")\nendforeach()\nendforeach()\n')
+    path.write_text(original)
+    build.adapt_celt_symbols(path)
+    adapted = path.read_text()
+    # Existing decode/encode namespaces and both historical ABIs remain intact.
+    additions = '\t\t\tcelt_encoder_get_size\n\t\t\tcelt_encoder_init\n'
+    assert adapted.replace(additions, '') == original
+    with pytest.raises(ValueError, match='namespace structure changed'):
+        build.adapt_celt_symbols(path)
+    assert path.read_text() == adapted
+    path.write_text(original.replace('set(CELT_CFLAGS', 'set(NEW_CELT_FLAGS'))
+    with pytest.raises(ValueError, match='namespace structure changed'):
+        build.adapt_celt_symbols(path)
+
+
+@pytest.mark.parametrize('prefix', ['', '_'])
+def test_actual_celt_defined_exports_must_not_collide_with_opus(prefix):
+    text = ('\ncelt.o:\n000000001 T ' + prefix + 'celt_encoder_get_size_0110\n'
+            '000000002 T ' + prefix + 'celt_encoder_init_0110\n')
+    assert build.validate_celt_symbols(text) == ['celt_encoder_get_size_0110', 'celt_encoder_init_0110']
+    for name in ('celt_encoder_get_size', 'celt_encoder_init'):
+        with pytest.raises(ValueError, match='collide with Opus'):
+            build.validate_celt_symbols(text + '000000003 T ' + prefix + name + '\n')
+        with pytest.raises(ValueError, match='missing'):
+            build.validate_celt_symbols(text.replace(name + '_0110', 'different_export'))

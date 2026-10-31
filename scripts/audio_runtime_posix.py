@@ -16,6 +16,7 @@ import tarfile
 FEATURES = ('MPEG', 'VORBIS', 'FFMPEG', 'G7221', 'G719', 'ATRAC9', 'CELT', 'SPEEX')
 DEPENDENCIES = ('libogg-1.3.5', 'libvorbis-1.3.7', 'opus-1.6.1', 'mpg123-1.33.7',
                 'speex-1.2.1', 'celt-0.6.1', 'celt-0.11.0')
+CELT_OPUS_COLLISIONS = ('celt_encoder_get_size', 'celt_encoder_init')
 OS_ELF_LIBRARIES = frozenset({'libc.so.6', 'libm.so.6', 'libpthread.so.0', 'libdl.so.2',
     'librt.so.1', 'libgcc_s.so.1', 'ld-linux-x86-64.so.2', 'ld-linux-aarch64.so.1'})
 
@@ -122,8 +123,42 @@ def adapt_vgmstream(source):
         for name in ('ffmpeg', 'mpg123', 'ogg', 'vorbis', 'libao', 'celt', 'speex', 'audacious'))
     if text.count(old) != 1:
         raise ValueError('Pinned vgmstream build structure changed; review the dependency adapter')
+    adapt_celt_symbols(source / 'cmake/dependencies/celt.cmake')
     path.write_text(text.replace(old, 'include(toolkit-pinned-codecs)'), encoding='utf-8')
     (source / 'cmake/toolkit-pinned-codecs.cmake').write_text(pinned_dependency_cmake(), encoding='utf-8')
+
+
+def adapt_celt_symbols(path):
+    """Keep historical CELT exports separate from the modern Opus implementation.
+
+    Both native linkers reported these two real duplicate exports. Extend the
+    existing upstream per-ABI renaming, rather than changing link order or codecs.
+    """
+    text = path.read_text(encoding='utf-8')
+    anchor = '\t\t\tcelt_encoder_create\n'
+    lists = re.findall(r'set\(CELT_CFLAGS\s+(.*?)\n\s*\)', text, re.DOTALL)
+    if (len(lists) != 1 or text.count(anchor) != 1 or
+            any(name in lists[0].split() for name in CELT_OPUS_COLLISIONS)):
+        raise ValueError('Pinned CELT namespace structure changed; review the symbol adapter')
+    text = text.replace(anchor, anchor + ''.join('\t\t\t' + name + '\n' for name in CELT_OPUS_COLLISIONS))
+    path.write_text(text, encoding='utf-8')
+
+
+def validate_celt_symbols(text):
+    # Mach-O nm adds a leading underscore; ELF does not. Inspect defined global
+    # exports, not compiler flags, to prove the colliding symbols were renamed.
+    symbols = [line.split()[-1].removeprefix('_') for line in text.splitlines() if line.split()]
+    expected = [name + '_0110' for name in CELT_OPUS_COLLISIONS]
+    if any(name in symbols for name in CELT_OPUS_COLLISIONS) or any(symbols.count(name) != 1 for name in expected):
+        raise ValueError('Historical CELT exports still collide with Opus or are missing')
+    return expected
+
+
+def inspect_celt_symbols(destination):
+    archive = destination / 'dependencies/celt-0110/libcelt/.libs/libcelt0.a'
+    flags = ['-gU'] if sys.platform == 'darwin' else ['-g', '--defined-only']
+    result = subprocess.run(['nm', *flags, str(archive)], capture_output=True, text=True, check=True, timeout=30)
+    return validate_celt_symbols(result.stdout)
 
 
 def verify_features(commands):
@@ -186,15 +221,19 @@ def build_vgmstream(source, paths, prefix, work, root, sources, env, jobs, run):
     options += ['-DUSE_' + name + '=ON' for name in FEATURES]
     log = work / 'vgmstream-build.log'
     run(['cmake', '-S', source, '-B', destination, *options], work, env, log)
+    run(['cmake', '--build', destination, '--target', 'CELT_0110_MAKE', '--parallel', jobs], work, env, log)
+    celt_symbols = inspect_celt_symbols(destination)
     run(['cmake', '--build', destination, '--target', 'vgmstream_cli', '--parallel', jobs], work, env, log)
     features = verify_features(json.loads((destination / 'compile_commands.json').read_text()))
     binary = root / 'vgmstream-cli'
     shutil.copy2(destination / 'cli/vgmstream-cli', binary)
     dependencies = {name: inspect_dynamic_dependencies(root / name) for name in ('ffmpeg', 'vgmstream-cli')}
     retained = {'schema': 'toolkit-posix-codec-build-v1', 'features': features,
+                'celt_opus_separate_exports': celt_symbols,
                 'linkage': 'static-codec-libraries-system-runtime-only', 'system_libraries': dependencies}
     (sources / 'vgmstream-native-configuration.json').write_text(json.dumps(retained, indent=2) + '\n', encoding='utf-8')
     shutil.copyfile(source / 'cmake/toolkit-pinned-codecs.cmake', sources / 'toolkit-pinned-codecs.cmake')
+    shutil.copyfile(source / 'cmake/dependencies/celt.cmake', sources / 'toolkit-celt.cmake')
     shutil.copyfile(__file__, sources / 'audio_runtime_posix.py')
     (sources / 'POSIX-REBUILD.txt').write_text(
         'The complete unmodified source archives for the CLI and every codec are retained here.\n'
@@ -203,10 +242,12 @@ def build_vgmstream(source, paths, prefix, work, root, sources, env, jobs, run):
         '--work <fresh-directory-without-spaces> --output <fresh-directory> --cache <cache> --shell /bin/sh.\n'
         'The build host needs a C/C++ compiler, make, CMake and pkg-config; users of the output do not.\n'
         'build-audio-runtime.py and audio_runtime_posix.py here are the exact build recipes.\n'
-        'The adapter changes only dependency acquisition/linking; both historical CELT ABIs and all\n'
+        'The adapter changes dependency acquisition/linking and adds two missing CELT encoder symbol\n'
+        'namespaces to avoid collisions with Opus. Both historical CELT ABIs and all\n'
         'upstream vgmstream audio features are retained. It copies the upstream config.guess/config.sub\n'
         'into the two CELT sources for current host detection. CELT symbol namespacing and ecintrin.h\n'
         'replacement are performed by the retained upstream cmake/dependencies/celt.cmake recipe.\n'
+        'toolkit-celt.cmake is the exact patched recipe; the built CELT exports are checked with nm.\n'
         'All codec libraries link statically into the separate CLI, with only base OS libraries dynamic.\n'
         'To rebuild/relink with modified libraries, modify their sources and update the source hash pins\n'
         'in your source checkout. A modified local build is not the original verified distribution.\n', encoding='utf-8')
