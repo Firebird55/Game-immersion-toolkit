@@ -22,14 +22,17 @@ CODES = frozenset({'invalid-inventory', 'inventory-changed', 'unsafe-image-path'
 
 
 class NativeImageError(ValueError):
-    def __init__(self, code):
+    def __init__(self, code, *, import_reason=None):
         self.code = code if code in CODES else 'malformed-pe'
+        self.import_reason = import_reason
+        self.context = None
+        self.selected = None
         super().__init__('Native image review refused: ' + self.code + '.')
 
 
-def _require(condition, code='malformed-pe'):
+def _require(condition, code='malformed-pe', *, import_reason=None):
     if not condition:
-        raise NativeImageError(code)
+        raise NativeImageError(code, import_reason=import_reason)
 
 
 class _Image:
@@ -126,50 +129,69 @@ class _Image:
     def module_name(self, rva):
         start, end = self.locate(rva, 1)
         end = self.data.find(b'\0', start, min(end, start + 256))
-        _require(end > start, 'invalid-import')
+        _require(end > start, 'invalid-import', import_reason='name-empty-or-unterminated')
         try:
             name = self.take(start, end - start).decode('ascii', errors='strict')
         except UnicodeDecodeError:
-            raise NativeImageError('invalid-import') from None
+            raise NativeImageError('invalid-import', import_reason='name-non-ascii') from None
         _require(re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.+@-]{0,254}', name)
             and not name.endswith('.') and name.casefold().split('.')[0] not in
-            {'con', 'prn', 'aux', 'nul', *(f'com{i}' for i in range(1, 10)), *(f'lpt{i}' for i in range(1, 10))}, 'invalid-import')
+            {'con', 'prn', 'aux', 'nul', *(f'com{i}' for i in range(1, 10)), *(f'lpt{i}' for i in range(1, 10))},
+            'invalid-import', import_reason='name-format')
         return name
 
     def imports(self, *, delayed=False):
         stride = 32 if delayed else 20
-        address, size = self.directory(13 if delayed else 1, 4 * 1024 * 1024)
-        if not address:
-            return []
-        _require(size >= stride, 'invalid-import')
-        result, folded = [], set()
-        for i in range(min(size // stride, MAX_IMPORTS + 1)):
-            position, _end = self.locate(address + i * stride, stride)
-            fields = self.numbers('<' + 'I' * (stride // 4), position)
-            if not any(fields):
-                return sorted(result, key=lambda name: (name.casefold(), name))
-            _require(len(result) < MAX_IMPORTS, 'invalid-import')
-            if delayed:
-                _require(fields[0] in (0, 1), 'invalid-import')
-                pointers = [value - (0 if fields[0] else self.base) if value else 0 for value in fields[1:7]]
-                name, handle, iat, names, bound, unload = pointers
-                _require(name > 0 and iat > 0 and names > 0, 'invalid-import')
-                for pointer in (handle, iat):
-                    if pointer:
-                        self.locate(pointer, self.width, backed=False)
-                for pointer in (names, bound, unload):
-                    if pointer:
-                        self.locate(pointer, self.width)
-            else:
-                names, _stamp, _forwarder, name, iat = fields
-                _require(name > 0 and iat > 0, 'invalid-import')
-                self.locate(iat, self.width, backed=False)
-                if names:
-                    self.locate(names, self.width)
-            text = self.module_name(name)
-            _require(text.casefold() not in folded, 'invalid-import')
-            folded.add(text.casefold()); result.append(text)
-        raise NativeImageError('invalid-import')
+        phase, reason = 'directory', 'directory-layout'
+        try:
+            address, size = self.directory(13 if delayed else 1, 4 * 1024 * 1024)
+            if not address:
+                return []
+            phase, reason = 'descriptor', 'directory-too-short'
+            _require(size >= stride, 'invalid-import')
+            result, folded = [], set()
+            for i in range(min(size // stride, MAX_IMPORTS + 1)):
+                phase, reason = 'descriptor', 'descriptor-range'
+                position, _end = self.locate(address + i * stride, stride)
+                fields = self.numbers('<' + 'I' * (stride // 4), position)
+                if not any(fields):
+                    return sorted(result, key=lambda name: (name.casefold(), name))
+                reason = 'entry-limit'
+                _require(len(result) < MAX_IMPORTS, 'invalid-import')
+                if delayed:
+                    reason = 'delay-attributes'
+                    _require(fields[0] in (0, 1), 'invalid-import')
+                    phase, reason = 'pointer', 'required-pointer-missing'
+                    pointers = [value - (0 if fields[0] else self.base) if value else 0 for value in fields[1:7]]
+                    name, handle, iat, names, bound, unload = pointers
+                    _require(name > 0 and iat > 0 and names > 0, 'invalid-import')
+                    reason = 'pointer-range'
+                    for pointer in (handle, iat):
+                        if pointer:
+                            self.locate(pointer, self.width, backed=False)
+                    for pointer in (names, bound, unload):
+                        if pointer:
+                            self.locate(pointer, self.width)
+                else:
+                    phase, reason = 'pointer', 'required-pointer-missing'
+                    names, _stamp, _forwarder, name, iat = fields
+                    _require(name > 0 and iat > 0, 'invalid-import')
+                    reason = 'pointer-range'
+                    self.locate(iat, self.width, backed=False)
+                    if names:
+                        self.locate(names, self.width)
+                phase, reason = 'name', 'name-range'
+                text = self.module_name(name)
+                phase, reason = 'duplicate', 'duplicate-module-name'
+                _require(text.casefold() not in folded, 'invalid-import')
+                folded.add(text.casefold()); result.append(text)
+            phase, reason = 'termination', 'missing-terminator'
+            raise NativeImageError('invalid-import')
+        except NativeImageError as error:
+            # Fixed labels only. Preserve the original refusal code/predicate.
+            error.context = {'import_table': 'delay' if delayed else 'normal', 'import_phase': phase,
+                'import_reason': error.import_reason or reason}
+            raise
 
     def clr(self):
         address, size = self.directory(14, 4096)
@@ -302,25 +324,32 @@ def review_native_images(inventory: dict, inventory_path: Path, application_root
         _require(sum(item['bytes'] for item in selected) <= MAX_TOTAL_NATIVE_BYTES, 'image-limit')
         _require({'ProxyTranscriptRuntime.exe', 'asr/ProxyTranscriptAsr.exe'} <= {item['path'] for item in selected}, 'invalid-inventory')
         records = []
-        for entry in sorted(selected, key=lambda item: item['path']):
-            _require(64 <= entry['bytes'] <= MAX_IMAGE_BYTES, 'image-limit')
+        for ordinal, entry in enumerate(sorted(selected, key=lambda item: item['path']), 1):
             try:
-                path = native_path(root / entry['path'])
-            except Exception:
-                raise NativeImageError('unsafe-image-path') from None
-            expected = {key: entry[key] for key in ('bytes', 'sha256')}
-            _require(native_file_identity(path) == expected, 'image-changed')
-            with path.open('rb') as stream:
-                data = stream.read(entry['bytes'] + 1)
-            _require(len(data) == entry['bytes'] and hashlib.sha256(data).hexdigest() == entry['sha256'], 'image-changed')
-            image = inspect_pe(data)
-            _require(image['architecture'] in {'x64', 'anycpu'}, 'unsupported-architecture')
-            if entry['path'] in {'ProxyTranscriptRuntime.exe', 'asr/ProxyTranscriptAsr.exe'}:
-                _require(image['implementation'] == 'native' and image['architecture'] == 'x64'
-                    and image['image_kind'] == 'executable', 'unsupported-architecture')
-            _require(native_file_identity(path) == expected, 'image-changed')
-            records.append({**entry, 'tree': 'asr' if entry['path'].startswith('asr/') else 'main', **image})
-            del data
+                _require(64 <= entry['bytes'] <= MAX_IMAGE_BYTES, 'image-limit')
+                try:
+                    path = native_path(root / entry['path'])
+                except Exception:
+                    raise NativeImageError('unsafe-image-path') from None
+                expected = {key: entry[key] for key in ('bytes', 'sha256')}
+                _require(native_file_identity(path) == expected, 'image-changed')
+                with path.open('rb') as stream:
+                    data = stream.read(entry['bytes'] + 1)
+                _require(len(data) == entry['bytes'] and hashlib.sha256(data).hexdigest() == entry['sha256'], 'image-changed')
+                image = inspect_pe(data)
+                _require(image['architecture'] in {'x64', 'anycpu'}, 'unsupported-architecture')
+                if entry['path'] in {'ProxyTranscriptRuntime.exe', 'asr/ProxyTranscriptAsr.exe'}:
+                    _require(image['implementation'] == 'native' and image['architecture'] == 'x64'
+                        and image['image_kind'] == 'executable', 'unsupported-architecture')
+                _require(native_file_identity(path) == expected, 'image-changed')
+                records.append({**entry, 'tree': 'asr' if entry['path'].startswith('asr/') else 'main', **image})
+                del data
+            except NativeImageError as error:
+                name = entry['path']
+                role = 'runtime-primary' if name == 'ProxyTranscriptRuntime.exe' else 'asr-primary' if name == 'asr/ProxyTranscriptAsr.exe' else 'helper' if name.startswith(('_internal/helpers/', 'asr/_internal/helpers/')) else 'other-native'
+                error.selected = {'ordinal': ordinal, 'count': len(selected),
+                    'tree': 'asr' if name.startswith('asr/') else 'main', 'role': role}
+                raise
         _require(native_file_identity(inventory_path) == identity, 'inventory-changed')
         return {'schema': 'proxy-r19-native-images-v1', 'status': 'observed-not-approved',
             **{key: observed[key] for key in ('source_commit', 'build_id', 'profile')},

@@ -2,6 +2,7 @@
 import hashlib
 import importlib
 import json
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -36,7 +37,7 @@ def failure(collection):
     assert set(result) == {'schema', 'source_commit', 'build_id', 'profile', 'status', 'phase', 'failure_code',
         'native_closure', 'rights_review', 'source_delivery_approved', 'production_execution_allowed',
         'native_windows_11_acceptance', 'r19_complete', 'installer', 'raw_paths_published',
-        'raw_exceptions_published', 'raw_imports_published'}
+        'raw_exceptions_published', 'raw_imports_published', 'diagnostic'}
     assert result['schema'] == 'proxy-r19-native-images-failure-v1' and result['status'] == 'failed'
     assert result['phase'] == 'finalize' and result['rights_review'] == 'pending-exact-output'
     assert result['native_closure'] == 'unverified' and result['native_windows_11_acceptance'] == 'unavailable'
@@ -106,6 +107,95 @@ def test_bad_image_refuses_with_fixed_metadata_and_no_success_sidecar(collection
     assert failure(case)['failure_code'] == code
 
 
+@pytest.mark.parametrize('target,tree,role,ordinal,count', [
+    ('ProxyTranscriptRuntime.exe', 'main', 'runtime-primary', 1, 4),
+    ('asr/ProxyTranscriptAsr.exe', 'asr', 'asr-primary', 3, 4),
+    ('asr/_internal/engine.pyd', 'asr', 'other-native', 4, 4),
+    ('_internal/helpers/nte/ToolkitReader.dll', 'main', 'helper', 3, 5),
+])
+def test_real_import_refusal_locates_selected_native_without_publishing_names_or_bytes(collection, target, tree, role, ordinal, count):
+    case = collection; raw = authored_pe(dll=target.endswith(('.dll', '.pyd')), delayed=('PRIVATE name.dll',))
+    path = case.root / target; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw)
+    row = {'path': target, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+    old = next((item for item in case.inventory['files'] if item['path'] == target), None)
+    if old is not None: old.update(row)
+    else:
+        case.inventory['files'].append(row); case.inventory['file_count'] += 1
+        case.inventory['directories'] = sorted(set(case.inventory['directories']) |
+            {parent.as_posix() for parent in Path(target).parents if parent != Path('.')})
+    save(case)
+    with pytest.raises(case.closure.ClosureError, match='invalid-import'):
+        case.closure.validate_native_images(case.value, case.output, case.inventory)
+    report = failure(case)
+    assert report['diagnostic'] == {'status': 'available',
+        'selected_native': {'ordinal': ordinal, 'count': count, 'tree': tree, 'role': role},
+        'imports': {'import_table': 'delay', 'import_phase': 'name', 'import_reason': 'name-format'}}
+    encoded = json.dumps(report)
+    assert target not in encoded and 'ToolkitReader' not in encoded and 'optional.dll' not in encoded
+    assert len(encoded.encode('utf-8')) < 2048
+
+
+@pytest.mark.parametrize('section,key,value', [
+    ('selected', 'ordinal', True), ('selected', 'ordinal', 0), ('selected', 'ordinal', 5),
+    ('selected', 'count', 20001), ('selected', 'count', 1), ('selected', 'count', False), ('selected', 'count', '4'),
+    ('selected', 'tree', 'PRIVATE'), ('selected', 'tree', []), ('selected', 'role', 'PRIVATE'),
+    ('selected', 'role', 'asr-primary'), ('selected', 'PRIVATE', 'PRIVATE'),
+    ('context', 'import_table', 'PRIVATE'), ('context', 'import_phase', 'PRIVATE'),
+    ('context', 'import_reason', 'PRIVATE'), ('context', 'import_reason', ['PRIVATE']),
+    ('context', 'import_reason', 'missing-terminator'), ('context', 'PRIVATE', 'PRIVATE'),
+    ('context', 'import_table', None), ('context', 'import_phase', []),
+])
+def test_failure_projector_refuses_mutated_unknown_or_mismatched_diagnostic_fields(collection, monkeypatch, section, key, value):
+    case = collection
+    def refuse(*_args):
+        error = case.images.NativeImageError('invalid-import')
+        error.selected = {'ordinal': 1, 'count': 4, 'tree': 'main', 'role': 'runtime-primary'}
+        error.context = {'import_table': 'normal', 'import_phase': 'name', 'import_reason': 'name-format'}
+        getattr(error, section)[key] = deepcopy(value)
+        error.private_path = str(case.root)
+        raise error
+    monkeypatch.setattr(case.images, 'review_native_images', refuse)
+    with pytest.raises(case.closure.ClosureError, match='invalid-import'):
+        case.closure.validate_native_images(case.value, case.output, case.inventory)
+    assert failure(case)['diagnostic'] == {'status': 'unavailable'}
+
+
+@pytest.mark.parametrize('change', ['missing-selected', 'missing-context', 'selected-list', 'context-list',
+    'normal-delay-attributes', 'asr-runtime-primary', 'selected-missing-key', 'context-missing-key', 'wrong-reason-code'])
+def test_partial_diagnostic_and_cross_field_conflicts_are_unavailable(collection, monkeypatch, change):
+    case = collection
+    def refuse(*_args):
+        error = case.images.NativeImageError('invalid-import')
+        error.selected = {'ordinal': 1, 'count': 4, 'tree': 'main', 'role': 'runtime-primary'}
+        error.context = {'import_table': 'normal', 'import_phase': 'name', 'import_reason': 'name-format'}
+        if change == 'missing-selected': error.selected = None
+        elif change == 'missing-context': error.context = None
+        elif change == 'selected-list': error.selected = ['PRIVATE']
+        elif change == 'context-list': error.context = ['PRIVATE']
+        elif change == 'normal-delay-attributes': error.context.update(import_phase='descriptor', import_reason='delay-attributes')
+        elif change == 'asr-runtime-primary': error.selected['tree'] = 'asr'
+        elif change == 'selected-missing-key': del error.selected['ordinal']
+        elif change == 'wrong-reason-code': error.code = 'malformed-pe'
+        else: del error.context['import_phase']
+        raise error
+    monkeypatch.setattr(case.images, 'review_native_images', refuse)
+    with pytest.raises(case.closure.ClosureError, match='malformed-pe' if change == 'wrong-reason-code' else 'invalid-import'):
+        case.closure.validate_native_images(case.value, case.output, case.inventory)
+    assert failure(case)['diagnostic'] == {'status': 'unavailable'}
+
+
+def test_diagnostic_projection_failure_preserves_fixed_refusal_and_sanitized_metadata(collection, monkeypatch):
+    case = collection
+    def refuse(*_args): raise case.images.NativeImageError('invalid-import')
+    def broken(*_args): raise OSError('PRIVATE diagnostic ' + str(case.root))
+    monkeypatch.setattr(case.images, 'review_native_images', refuse)
+    monkeypatch.setattr(case.closure, '_native_image_diagnostic', broken)
+    with pytest.raises(case.closure.ClosureError, match='invalid-import') as error:
+        case.closure.validate_native_images(case.value, case.output, case.inventory)
+    assert 'PRIVATE' not in str(error.value)
+    assert failure(case)['diagnostic'] == {'status': 'unavailable'}
+
+
 def test_build_identity_mismatch_refuses_without_copying_arbitrary_inventory_fields(collection):
     case = collection
     case.inventory['build_id'] = 'another-build'
@@ -160,6 +250,14 @@ def test_workflow_admits_only_fixed_image_metadata_names_and_runs_both_contract_
     assert 'if: ${{ failure() }}' in refusal
     paths = [line.strip()[6:] for line in refusal.splitlines() if line.strip().startswith('path: ')]
     assert paths == ['output/runtime-bundle/quarantine/NATIVE-IMAGES-FAILED.json']
+    earlier = source.split('- name: Retain completed observations before native image refusal', 1)[1].split('- name:', 1)[0]
+    assert "if: ${{ failure() && hashFiles('output/runtime-bundle/quarantine/NATIVE-IMAGES-FAILED.json') != '' }}" in earlier
+    assert 'name: r19-failed-run-observed-not-approved-native-metadata' in earlier
+    paths = [line.strip() for line in earlier.split('path: |', 1)[1].split('if-no-files-found:', 1)[0].splitlines() if line.strip()]
+    assert paths == ['output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json',
+        'output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json',
+        'output/runtime-bundle/quarantine/NATIVE-COLLECTION.json']
+    assert '*' not in earlier and '.zip' not in earlier and '.log' not in earlier
     metadata = source.split('name: r19-integrated-runtime-metadata', 1)[1].split('if-no-files-found:', 1)[0]
     assert 'output/runtime-bundle/quarantine/NATIVE-IMAGES.json' in metadata
     assert '*.' not in metadata and '**' not in metadata

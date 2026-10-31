@@ -345,6 +345,48 @@ def validate_native_collection(value, evidence, output, files, input_manifest):
         raise NativeCollectionError(error.code if isinstance(error, NativeCollectionError) else 'invalid-snapshot') from None
 
 
+def _native_image_diagnostic(error):
+    """Revalidate finite parser labels; never serialize exception attributes."""
+    from native_images import NativeImageError
+    unavailable = {'status': 'unavailable'}
+    if type(error) is not NativeImageError:
+        return unavailable
+    selected = error.__dict__.get('selected')
+    context = error.__dict__.get('context')
+    if (type(selected) is not dict or len(selected) != 4 or set(selected) != {'ordinal', 'count', 'tree', 'role'}
+            or type(selected['ordinal']) is not int or type(selected['count']) is not int
+            or not 2 <= selected['count'] <= 20000 or not 1 <= selected['ordinal'] <= selected['count']
+            or type(selected['tree']) is not str or len(selected['tree']) > 4 or selected['tree'] not in {'main', 'asr'}
+            or type(selected['role']) is not str or len(selected['role']) > 15
+            or selected['role'] not in {'runtime-primary', 'asr-primary', 'helper', 'other-native'}
+            or selected['role'] == 'runtime-primary' and selected['tree'] != 'main'
+            or selected['role'] == 'asr-primary' and selected['tree'] != 'asr'):
+        return unavailable
+    imports = None
+    if context is not None:
+        phases = {'directory': {'directory-layout'},
+            'descriptor': {'directory-too-short', 'descriptor-range', 'entry-limit', 'delay-attributes'},
+            'pointer': {'required-pointer-missing', 'pointer-range'},
+            'name': {'name-range', 'name-empty-or-unterminated', 'name-non-ascii', 'name-format'},
+            'duplicate': {'duplicate-module-name'}, 'termination': {'missing-terminator'}}
+        if (type(context) is not dict or len(context) != 3 or set(context) != {'import_table', 'import_phase', 'import_reason'}
+                or any(type(context[key]) is not str or len(context[key]) > 32 for key in context)
+                or context['import_table'] not in {'normal', 'delay'}
+                or context['import_phase'] not in phases
+                or context['import_reason'] not in phases[context['import_phase']]
+                or context['import_reason'] == 'delay-attributes' and context['import_table'] != 'delay'):
+            return unavailable
+        mapping_reasons = {'directory-layout', 'descriptor-range', 'pointer-range', 'name-range'}
+        allowed_codes = {'malformed-pe', 'ambiguous-rva'} if context['import_reason'] in mapping_reasons else {'invalid-import'}
+        if error.__dict__.get('code') not in allowed_codes:
+            return unavailable
+        imports = {key: context[key] for key in ('import_table', 'import_phase', 'import_reason')}
+    elif error.__dict__.get('code') == 'invalid-import':
+        return unavailable
+    return {'status': 'available', 'selected_native': {key: selected[key] for key in ('ordinal', 'count', 'tree', 'role')},
+        'imports': imports}
+
+
 def validate_native_images(value, output, inventory):
     """Mandatory static image review, independent of native-source attribution.
 
@@ -368,8 +410,15 @@ def validate_native_images(value, output, inventory):
     except Exception as error:
         code = error.__dict__.get('code') if type(error) is NativeImageError else None
         code = code if isinstance(code, str) and code in CODES else 'observation-failed'
+        diagnostic = {'status': 'unavailable'}
+        if code != 'observation-failed':
+            try:
+                diagnostic = _native_image_diagnostic(error)
+            except Exception:
+                pass  # An unusable diagnostic cannot bypass or expose refusal.
         failure = {'schema': 'proxy-r19-native-images-failure-v1', **headers, **native_pending(),
             'status': 'failed', 'phase': 'finalize', 'failure_code': code,
+            'diagnostic': diagnostic,
             'raw_paths_published': False, 'raw_exceptions_published': False, 'raw_imports_published': False}
         try:
             write_native_json(output, 'NATIVE-IMAGES-FAILED.json', failure)

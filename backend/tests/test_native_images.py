@@ -158,6 +158,59 @@ def test_duplicate_import_descriptors_and_case_aliases_refuse(images):
         images.inspect_pe(authored_pe(imports=('KERNEL32.dll', 'kernel32.DLL'), delayed=()))
 
 
+@pytest.mark.parametrize('table,phase,reason,code', [
+    ('normal', 'directory', 'directory-layout', 'malformed-pe'),
+    ('normal', 'descriptor', 'directory-too-short', 'invalid-import'),
+    ('delay', 'descriptor', 'delay-attributes', 'invalid-import'),
+    ('normal', 'pointer', 'required-pointer-missing', 'invalid-import'),
+    ('delay', 'pointer', 'pointer-range', 'malformed-pe'),
+    ('normal', 'name', 'name-range', 'malformed-pe'),
+    ('normal', 'name', 'name-empty-or-unterminated', 'invalid-import'),
+    ('delay', 'name', 'name-non-ascii', 'invalid-import'),
+    ('normal', 'name', 'name-format', 'invalid-import'),
+    ('delay', 'duplicate', 'duplicate-module-name', 'invalid-import'),
+    ('normal', 'termination', 'missing-terminator', 'invalid-import'),
+])
+def test_actual_import_refusals_add_only_finite_stage_and_predicate_labels(images, table, phase, reason, code):
+    raw = authored_pe()
+    if reason == 'directory-layout': raw = change(raw, '<II', 0x98 + 112 + 8, 0x1100, 0)
+    elif reason == 'directory-too-short': raw = change(raw, '<I', 0x98 + 112 + 8 + 4, 19)
+    elif reason == 'delay-attributes': raw = change(raw, '<I', 0x580, 2)
+    elif reason == 'required-pointer-missing': raw = change(raw, '<I', 0x500 + 16, 0)
+    elif reason == 'pointer-range': raw = change(raw, '<I', 0x580 + 16, 0x3000)
+    elif reason == 'name-range': raw = change(raw, '<I', 0x500 + 12, 0x3000)
+    elif reason == 'name-empty-or-unterminated':
+        raw = bytearray(change(raw, '<I', 0x500 + 12, 0x1ff0)); raw[-16:] = b'P' * 16; raw = bytes(raw)
+    elif reason == 'name-non-ascii':
+        raw = bytearray(raw); raw[0x780] = 0xff; raw = bytes(raw)
+    elif reason == 'name-format': raw = authored_pe(imports=('PRIVATE name.dll',))
+    elif reason == 'duplicate-module-name': raw = authored_pe(delayed=('optional.dll', 'OPTIONAL.DLL'))
+    else: raw = change(raw, '<I', 0x98 + 112 + 8 + 4, 20)
+    with pytest.raises(images.NativeImageError, match=code) as failure:
+        images.inspect_pe(raw)
+    assert failure.value.code == code
+    assert failure.value.context == {'import_table': table, 'import_phase': phase, 'import_reason': reason}
+    assert failure.value.selected is None
+    assert 'PRIVATE' not in str(failure.value) and str(failure.value) == 'Native image review refused: ' + code + '.'
+
+
+def test_actual_import_entry_limit_retains_original_bound_and_reports_only_fixed_reason(images):
+    # 513 distinct descriptors fit in a larger authored section. No limit mock
+    # or parser-success stub substitutes for the real descriptor traversal.
+    raw = bytearray(authored_pe(imports=(), delayed=())) + bytearray(0x5000)
+    struct.pack_into('<I', raw, 0x98 + 56, 0x7000)
+    struct.pack_into('<IIII', raw, 0x188 + 8, 0x6000, 0x1000, 0x6000, 0x400)
+    struct.pack_into('<II', raw, 0x98 + 112 + 8, 0x1100, 514 * 20)
+    for i in range(513):
+        struct.pack_into('<IIIII', raw, 0x500 + i * 20, 0x6500, 0, 0, 0x4000 + i * 16, 0x6600)
+        name = ('owned' + str(i) + '.dll').encode('ascii') + b'\0'
+        start = 0x3400 + i * 16; raw[start:start + len(name)] = name
+    with pytest.raises(images.NativeImageError, match='invalid-import') as failure:
+        images.inspect_pe(bytes(raw))
+    assert images.MAX_IMPORTS == 512
+    assert failure.value.context == {'import_table': 'normal', 'import_phase': 'descriptor', 'import_reason': 'entry-limit'}
+
+
 @pytest.mark.parametrize('flags,entry,native_header', [(0x20001, None, False), (0x20003, None, True),
     (0x11, 0x1f00, False), (0x10, 0, False), (1, 0x01000001, False), (0x80, None, False)])
 def test_contradictory_or_unknown_clr_flags_and_entry_tokens_refuse(images, flags, entry, native_header):

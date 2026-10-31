@@ -267,6 +267,20 @@ jobs:
           path: output/runtime-bundle/quarantine/NATIVE-IMAGES-FAILED.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Retain completed observations before native image refusal
+        # Failed-run observations only. A P1 refusal cannot approve earlier A2
+        # output, native execution, source delivery or the complete workflow.
+        if: ${{ failure() && hashFiles('output/runtime-bundle/quarantine/NATIVE-IMAGES-FAILED.json') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-failed-run-observed-not-approved-native-metadata
+          # Exact completed metadata only: no globs, image bytes or raw logs.
+          path: |
+            output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
+            output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json
+            output/runtime-bundle/quarantine/NATIVE-COLLECTION.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Upload public source kit and sanitized metadata only
         # Preserve completed earlier observations if the separate keeper fails.
         # Artifact presence never upgrades the workflow or a failed receipt.

@@ -1,7 +1,8 @@
 # R19 static PE/CLR image review
 
 Status: implemented authored-byte contracts and mandatory experimental collector
-integration; actual frozen Windows execution remains pending. This adds no runtime capability,
+integration. The first collected Windows review refused `invalid-import`; a
+complete collected-image observation remains pending. This adds no runtime capability,
 installer, supplier approval or change to PR #59.
 
 ## Boundary and API
@@ -16,15 +17,48 @@ report. [closure.py](../packaging/runtime-bundle/closure.py) now calls its
 `runtime-experiment`, after writing the existing runtime inventory and independent
 A2 source sidecar. Only a complete review writes `NATIVE-IMAGES.json` outside the
 application tree. Refusal writes best-effort `NATIVE-IMAGES-FAILED.json` with
-fixed build headers/failure codes and pending gates, then raises a sanitized
+fixed build headers/failure codes, bounded diagnostic labels and pending gates, then raises a sanitized
 build error. No environment switch or production bypass is introduced.
 
 The [integrated workflow](../.github/workflows/r19-runtime-experiment.yml) adds
 the parser and collection contracts. Its existing successful metadata allowlist
-includes only the new sanitized success JSON; a separate failure-only upload
-accepts only the fixed failure JSON. It uploads no image bytes, private source,
-raw logs or exception text. A failed finalize stops before native product probes.
+includes the sanitized success JSON; a separate failure-only upload accepts only
+the fixed failure JSON. When that P1 failure marker exists, another failure-only
+allowlist retains exactly `RUNTIME-INVENTORY.json`,
+`NATIVE-COLLECTION-INPUTS.json` and `NATIVE-COLLECTION.json` from the preceding
+completed stages. The artifact is explicitly named failed-run/observed-not-approved;
+retention does not approve their contents or make the workflow pass. There are
+no globs, image bytes, private source, raw logs or exception text in these
+uploads. A failed finalize stops before native product probes.
 The existing Analysis/COLLECT and final inventory remain the only collectors.
+
+The refusal diagnostic is separate from the unchanged failure code/status and
+pending gates. It identifies only the one-based ordinal and total count of the
+selected native files (at most 20,000), `main/asr` tree, and a fixed
+`runtime-primary/asr-primary/helper/other-native` role. The ordinal follows the
+existing case-sensitive inventory-path sort; it can be correlated with that
+exact inventory without adding a path or import spelling to the failure JSON.
+`helper` describes the existing packaged helpers subtree, not supplier or
+execution approval. For import failures it also records `normal/delay`, a
+finite subphase (`directory`, `descriptor`, `pointer`, `name`, `duplicate` or
+`termination`) and the exact existing predicate's finite reason where available:
+directory layout/length, descriptor range/limit/delay attributes, required
+pointer/range, name range/empty-or-unterminated/non-ASCII/format, duplicate name,
+or missing terminator. RVA mapping errors retain their original refusal code.
+Non-import failures have no import context. Errors before selection, malformed
+diagnostic data, extra keys, unknown labels, invalid phase/reason combinations
+and out-of-range or noninteger ordinals become `diagnostic.status=unavailable`.
+The wrapper revalidates every field and copies only those labels. It never
+serializes exception attributes, paths, import names, native bytes or RVAs.
+These diagnostics change no parser predicate, count limit or architecture policy.
+
+On source `702d6673c893942c92079c139fa800cd94cb9be7`, integrated run
+`41174915697` stopped at mandatory P1 finalization with the fixed
+`invalid-import` receipt. That earlier receipt contains no subphase or selected
+ordinal. It does not identify which image/predicate failed, prove A2 sidecar
+contents or establish complete native closure. The new diagnostic and retention
+path require another actual collected run and independent artifact review; the
+source fixtures below cannot provide that evidence.
 
 Selection is deliberately limited to inventory names ending in `.exe`, `.dll`
 or `.pyd`, matching A2. It does not content-scan all emitted files, detect PE
