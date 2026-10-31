@@ -60,6 +60,11 @@ _BUILD_SOURCE_COMMIT = None
 _BUILD_CMAKE_OBSERVATION = None
 _BUILD_ENVIRONMENT_OBSERVATION = None
 _BUILD_VS_VERSION = None
+_BUILD_TOOL_ROOTS = None  # Private paths; never serialized.
+LOG_TAIL_BYTES = 2 * 1024 * 1024
+NESTED_LOG_TOTAL_BYTES = 4 * 1024 * 1024
+COMPILER_CONTEXT_FILE_BYTES = 256 * 1024
+KNOWN_COMPILER_IDS = frozenset({'MSVC', 'Clang', 'GNU', 'Intel', 'IntelLLVM'})
 PARENT_IMPORT_NAMES = frozenset({'Directory.Build.props', 'Directory.Build.targets',
     'Directory.Build.rsp', 'MSBuild.rsp'})
 # Fixed error-template fragments reviewed in CMake 4.4.5 commit aa4fae824a02a175c4a11653d7a851a948f0c004.
@@ -85,6 +90,12 @@ CMAKE_EARLY_ERRORS = (
     ('cmake-windows-sdk-not-found', r'(?:field, but no Windows SDK with that version was found\.|Could not find an appropriate version of the Windows 10 SDK installed on this machine|field, but the Windows 8\.1 SDK is not installed\.)'),
     ('cmake-build-program-not-found', r'CMake was unable to find a build program corresponding to'),
     ('cmake-compiler-not-found', r'(?:is not a full path and was not found in the PATH\.|is not a full path to an existing compiler tool\.)'),
+    ('cmake-compiler-not-recorded', r'No CMAKE_(?:C|CXX|RC)_COMPILER could be found\.'),
+    ('cmake-compiler-not-set', r'CMAKE_(?:C|CXX|RC)_COMPILER not set, after EnableLanguage'),
+    ('cmake-environment-compiler-not-found', r'Could not find the compiler specified in the environment variable (?:CC|CXX|RC):'),
+    ('cmake-compiler-identification-build-failed', r'Compiling the (?:C|CXX|RC) compiler identification source file ".{0,32768}?" failed\.'),
+    ('cmake-msvc-version-not-detected', r'MSVC compiler version not detected properly:'),
+    ('cmake-msvc-clui-not-found', r'Could not find clui\.dll !'),
     ('cmake-compiler-test-failed', r'is not able to compile a simple test program'),
     ('cmake-cli-argument-invalid', r'(?:Unknown argument |Parse error in command line argument:|Multiple -(?:A|T) options not allowed|No (?:source|build) directory specified for -(?:S|H|B)|No (?:platform|toolset) specified for -(?:A|T)|-D must be followed with VAR=VALUE\.|Invalid format specified for --trace-format)'),
     ('cmake-source-directory-invalid', r'The source directory ".{0,32768}?" (?:does not exist\.|is a file, not a directory\.|does not appear to contain CMakeLists\.txt\.)'),
@@ -865,21 +876,41 @@ def cmake_failure_details(content):
     return sorted(categories), [{'command': command, 'line': line} for command, line in sorted(sites)[:32]]
 
 
-def known_log_diagnostics(output, phase):
-    """Return fixed labels only; never serialize a line, match text or raw log."""
-    if phase not in PHASE_LOGS:
-        return {'known_codes': [], 'categories': []}
-    path = output / 'private-logs' / PHASE_LOGS[phase]
+def diagnostic_file_info(path):
+    """Reject linked ancestors before requesting metadata from descendants."""
+    path = Path(path).absolute()
+    for item in (*reversed(path.parents), path):
+        info = item.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+            raise ValueError('Linked diagnostic inputs are not inspected.')
+        if item != path and not stat.S_ISDIR(info.st_mode):
+            raise ValueError('Diagnostic ancestors must be ordinary directories.')
+    return info
+
+
+def diagnostic_file(path, limit, *, tail=False):
+    """Read a fixed private regular file only, with explicit byte limits."""
     try:
-        no_links(path)
-        # The bounded tail covers final tool summaries without copying a raw
-        # log into memory/output as an artifact. Missing logs are explicit.
+        info = diagnostic_file_info(path)
+        if not stat.S_ISREG(info.st_mode):
+            return 'not-regular', b''
+        if not tail and info.st_size > limit:
+            return 'size-limit', b''
         with path.open('rb') as handle:
-            handle.seek(0, os.SEEK_END)
-            handle.seek(max(0, handle.tell() - 2 * 1024 * 1024))
-            content = handle.read(2 * 1024 * 1024).decode('utf-8', errors='replace')
+            if tail:
+                handle.seek(0, os.SEEK_END)
+                handle.seek(max(0, handle.tell() - limit))
+            data = handle.read(limit if tail else limit + 1)
+        if not tail and len(data) > limit:
+            return 'size-limit', b''
+        return 'observed', data
+    except FileNotFoundError:
+        return 'missing', b''
     except (OSError, ValueError):
-        return {'known_codes': [], 'categories': ['private-log-unavailable']}
+        return 'inspection-error', b''
+
+
+def fixed_log_diagnostics(content):
     tokens = set(re.findall(r'\b(?:fatal\s+)?error\s+((?:C|D|LNK|MSB)[0-9]{4})\b', content, re.I))
     tokens = {token.upper() for token in tokens}
     categories = set()
@@ -897,6 +928,116 @@ def known_log_diagnostics(output, phase):
     if cmake_sites:
         result['cmake_error_sites'] = cmake_sites
     return result
+
+
+def known_log_diagnostics(output, phase):
+    """Return fixed labels only; never serialize a line, match text or raw log."""
+    if phase not in PHASE_LOGS:
+        return {'known_codes': [], 'categories': []}
+    state, data = diagnostic_file(output / 'private-logs' / PHASE_LOGS[phase], LOG_TAIL_BYTES, tail=True)
+    if state != 'observed':
+        return {'known_codes': [], 'categories': ['private-log-unavailable']}
+    return fixed_log_diagnostics(data.decode('utf-8', errors='replace'))
+
+
+def nested_configure_log_context(output):
+    remaining, result = NESTED_LOG_TOTAL_BYTES, []
+    for origin, filename in (('cmake-configure-events', 'CMakeConfigureLog.yaml'),
+            ('cmake-error-log', 'CMakeError.log')):
+        row = {'origin': origin, 'state': 'total-byte-limit', 'known_codes': [], 'context_labels': []}
+        if remaining > 0:
+            state, data = diagnostic_file(output / 'build/CMakeFiles' / filename,
+                min(LOG_TAIL_BYTES, remaining), tail=True)
+            remaining -= len(data)
+            row['state'] = state
+            if state == 'observed':
+                content = data.decode('utf-8', errors='replace')
+                fixed = fixed_log_diagnostics(content)
+                # Expected failed compiler probes may appear in these logs.
+                # Their literal observations are context, never a fatal cause.
+                folded = ' '.join(content.split())
+                labels = {label for label, pattern in CMAKE_EARLY_ERRORS if re.search(pattern, folded, re.I)}
+                row['known_codes'] = fixed['known_codes']
+                row['context_labels'] = sorted(labels | set(fixed['categories']))
+        result.append(row)
+    return {'evidence_scope': 'observed-context-not-fatal-cause', 'logs': result}
+
+
+def compiler_path_state(value, language, roots):
+    if value is None:
+        return 'missing-entry'
+    if not isinstance(value, str):
+        return 'invalid-value'
+    if value in {'NOTFOUND', 'CMAKE_' + language + '_COMPILER-NOTFOUND'}:
+        return 'not-found'
+    if value == '':
+        return 'empty'
+    if len(value) > 32767 or any(ord(c) < 32 or ord(c) == 127 for c in value):
+        return 'invalid-value'
+    path = Path(value)
+    if not path.is_absolute():
+        return 'not-absolute'
+    if not isinstance(roots, dict):
+        return 'roots-unavailable'
+    # Normalize lexically before checking scope. Outside paths are never read,
+    # statted or hashed, including paths containing parent traversals.
+    path = Path(os.path.abspath(path))
+    origin = None
+    for role, label in (('vc', 'sealed-vc-toolset'), ('sdk-bin', 'sealed-sdk-bin')):
+        base = roots.get(role)
+        if isinstance(base, str) and Path(base).is_absolute() and path.is_relative_to(Path(os.path.abspath(base))):
+            origin = label
+            break
+    if origin is None:
+        return 'outside-declared-roots'
+    try:
+        return origin if stat.S_ISREG(diagnostic_file_info(path).st_mode) else 'not-regular'
+    except FileNotFoundError:
+        return 'missing-file'
+    except (OSError, ValueError):
+        return 'inspection-error'
+
+
+def compiler_variables(data, language, *, cache=False):
+    keys = {'CMAKE_' + language + '_COMPILER' + suffix for suffix in ('', '_ID', '_VERSION')}
+    values = {}
+    pattern = r'([^#/:][^:]*):[^=]+=(.*)' if cache else r'set\((CMAKE_[A-Z_]+) "([^"\r\n]*)"\)'
+    for line in data.decode('utf-8', errors='replace').splitlines():
+        match = re.fullmatch(pattern, line)
+        if match and match[1] in keys:
+            if match[1] in values:
+                return None
+            values[match[1]] = match[2]
+    return values
+
+
+def compiler_detection_context(output, roots):
+    cache_state, cache_data = diagnostic_file(output / 'build/CMakeCache.txt', COMPILER_CONTEXT_FILE_BYTES)
+    version = numeric_version(pin()['toolchain']['cmake_version'])
+    rows = []
+    for language in ('C', 'CXX', 'RC'):
+        row = {'language': language}
+        configuration_state, configuration_data = ('unavailable', b'')
+        if version is not None:
+            configuration_state, configuration_data = diagnostic_file(
+                output / 'build/CMakeFiles' / version / ('CMake' + language + 'Compiler.cmake'),
+                COMPILER_CONTEXT_FILE_BYTES)
+        for source, state, data in (('cache', cache_state, cache_data),
+                ('configuration', configuration_state, configuration_data)):
+            values = compiler_variables(data, language, cache=source == 'cache') if state == 'observed' else {}
+            entry = {'state': 'duplicate-entry' if values is None else state,
+                'compiler_state': 'unavailable', 'compiler_id': None, 'compiler_version': None}
+            if state == 'observed' and values is not None:
+                key = 'CMAKE_' + language + '_COMPILER'
+                entry['compiler_state'] = compiler_path_state(values.get(key), language, roots)
+                identity, observed_version = values.get(key + '_ID'), values.get(key + '_VERSION')
+                if identity in KNOWN_COMPILER_IDS:
+                    entry['compiler_id'] = identity
+                if isinstance(observed_version, str) and re.fullmatch(r'[0-9]{1,6}(?:\.[0-9]{1,6}){1,3}', observed_version):
+                    entry['compiler_version'] = observed_version
+            row[source] = entry
+        rows.append(row)
+    return {'evidence_scope': 'compiler-file-observation-not-native-approval', 'languages': rows}
 
 
 def failed_build_receipt(output, phase, error):
@@ -927,6 +1068,10 @@ def failed_build_receipt(output, phase, error):
         'diagnostics': known_log_diagnostics(output, phase),
         'cmake_observation': safe_cmake_observation(),
         'visual_studio_instance_version': vs_instance_version(_BUILD_VS_VERSION),
+        'compiler_detection_context': compiler_detection_context(output, _BUILD_TOOL_ROOTS)
+            if phase == 'cmake-configure' else None,
+        'nested_configure_log_context': nested_configure_log_context(output)
+            if phase == 'cmake-configure' else None,
         'build_environment_observation': safe_build_environment_observation(),
         'source_commit': _BUILD_SOURCE_COMMIT if isinstance(_BUILD_SOURCE_COMMIT, str)
             and re.fullmatch('[0-9a-f]{40}', _BUILD_SOURCE_COMMIT) else None,
@@ -969,12 +1114,13 @@ def reject_parent_imports(output):
 
 
 def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None, vswhere=None):
-    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
     _BUILD_ENVIRONMENT_OBSERVATION = None
     _BUILD_VS_VERSION = None
+    _BUILD_TOOL_ROOTS = None
     try:
         return _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     except Exception as error:
@@ -989,7 +1135,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
 
 
 def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere):
-    global _BUILD_SOURCE_COMMIT
+    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS
     output, vs_root = Path(output).absolute(), Path(vs_root).absolute()
     build_phase('source-validation')
     receipt, policy = verify_sources(output), pin()
@@ -1010,6 +1156,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     validate_tool_root_schema(roots)
     build_phase('tool-root-filesystem')
     validate_tool_roots(roots)
+    _BUILD_TOOL_ROOTS = dict(roots)
     build_phase('python-interpreter-origin')
     if Path(roots['python']).resolve() != Path(sys.prefix).resolve():
         raise ValueError('The sealed Python root is not this interpreter.')

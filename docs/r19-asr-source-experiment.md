@@ -117,7 +117,7 @@ interpreter-origin, supplier-byte and CMake-version subphases. A failed receipt
 may include only bounded numeric expected/observed CMake versions and the
 executable's byte count/SHA-256; raw version lines, paths, arguments and exception
 text remain private. An observed mismatch does not relax the 4.4.5 constraint.
-Failed command diagnostics inspect at most the final 2 MiB of the private log.
+Failed command diagnostics inspect at most the final 2 MiB of the phase's private log.
 The fixed CMake error IDs are derived from the pinned 4.4.5
 [command parser](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmake.cxx),
 the generator sources linked below, and its
@@ -132,6 +132,27 @@ allowlisted CMake command and a positive line number of at most seven digits.
 Paths, unknown command names, arguments, source text, environment values and raw
 logs cannot enter this projection. An unclassified error remains a failed
 attempt; neither a diagnostic label nor a known call site proves its cause.
+For configure failures, additional compiler labels come from CMake's pinned
+[language initialization](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalGenerator.cxx),
+[compiler identification](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/CMakeDetermineCompilerId.cmake)
+and [MSVC setup](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Modules/Platform/Windows-MSVC.cmake).
+`compiler_detection_context` reads only `CMakeCache.txt` and the three fixed
+4.4.5 `CMake{C,CXX,RC}Compiler.cmake` files, with a 256 KiB limit per file.
+It reports fixed missing/empty/literal-`NOTFOUND`/origin states, allowlisted
+compiler IDs and bounded numeric versions. Duplicate assignments are refused;
+these files are never evaluated. Compiler paths outside the declared VC toolset
+or SDK-bin roots are neither read, statted nor hashed. All path values remain
+private; a recorded compiler state is no native-input approval.
+`nested_configure_log_context` reads only the fixed
+`build/CMakeFiles/CMakeConfigureLog.yaml` and `CMakeError.log`: at most the final
+2 MiB each and 4 MiB total. The diagnostic guard checks each component with
+`lstat` from root to leaf, refusing symlinks/reparse points before any descendant
+metadata or file read. Inputs must be regular files. No YAML parser or arbitrary
+log discovery is used.
+Only existing known compiler/MSBuild codes and fixed context labels leave these
+logs; unknown codes, lines, paths and hashes of paths remain private. Expected
+failed compiler probes can appear in nested logs, so their observations are
+explicitly labelled context and do not identify the fatal configure cause.
 The wrapper passes the actual selected `vswhere` instance's numeric four-part
 VS18 installation version together with its directory. Python queries the same
 explicit machine `vswhere.exe` again before and after the experiment, requires
@@ -186,9 +207,13 @@ on the same `20261021.278.1` Server image identified
 `cmake-vs-installer-instance-unknown` and `cmake-vs-instance-not-found` at
 `project:26`. The existing directory was not recognized by CMake's installer
 lookup, and no `version=` field was supplied. These templates do not establish
-why installer lookup failed. The explicit selected tuple still needs a new
-native configure/build/probe result; all exact tool/source and refusal gates
-remain in force.
+why installer lookup failed. The later
+[explicit-tuple run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41167088124)
+observed VS version `18.11.12315.225` and reached configuration, then failed with
+only `cmake-error`/`cmake-configure-incomplete` and `project:26`. It provides no
+specific cause, build-graph, compile or inference evidence. The additional
+context above still requires a new native result; all exact tool/source and
+refusal gates remain in force.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

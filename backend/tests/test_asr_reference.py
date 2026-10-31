@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import tarfile
+from types import SimpleNamespace
 import zipfile
 
 import pytest
@@ -700,6 +701,12 @@ def test_failed_receipt_contains_only_fixed_phase_known_codes_and_categories(mod
     ('cmake-windows-sdk-not-found', 'given platform specification with version=10.0.26100.0 field, but no Windows SDK with that version was found.'),
     ('cmake-build-program-not-found', 'CMake was unable to find a build program corresponding to "private-generator". CMAKE_MAKE_PROGRAM is not set.'),
     ('cmake-compiler-not-found', 'The CMAKE_CXX_COMPILER:\n  {private}\nis not a full path to an existing compiler tool.'),
+    ('cmake-compiler-not-recorded', 'No CMAKE_C_COMPILER could be found.'),
+    ('cmake-compiler-not-set', 'CMAKE_RC_COMPILER not set, after EnableLanguage'),
+    ('cmake-environment-compiler-not-found', 'Could not find the compiler specified in the environment variable CXX:\n{private}.'),
+    ('cmake-compiler-identification-build-failed', 'Compiling the CXX compiler identification source file "private-id.cxx" failed.'),
+    ('cmake-msvc-version-not-detected', 'MSVC compiler version not detected properly: private-version'),
+    ('cmake-msvc-clui-not-found', 'Could not find clui.dll !'),
     ('cmake-compiler-test-failed', 'The C compiler "{private}"\nis not able to compile a simple test program.'),
     ('cmake-cli-argument-invalid', 'Unknown argument {private}'),
     ('cmake-cli-argument-invalid', 'Parse error in command line argument: {private}\n Should be: VAR:type=value'),
@@ -769,6 +776,160 @@ def test_cmake_failure_receipt_delivers_known_sites_and_tail_only_without_native
     for private in (str(tmp_path), 'private-early-command', 'private-project',
                     'private-instance', 'private-warning', 'private exception'):
         assert private not in delivered
+
+
+def test_compiler_context_observes_known_fields_without_reading_outside_compiler_paths(module, tmp_path, monkeypatch):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    vc, sdk = tmp_path/'sealed-vc', tmp_path/'sealed-sdk-bin'
+    vc.mkdir(); sdk.mkdir(); (vc/'cl.exe').write_bytes(b'owned compiler fixture'); (sdk/'rc.exe').write_bytes(b'owned resource tool fixture')
+    roots={'vc':str(vc),'sdk-bin':str(sdk)}
+    build=output/'build'; config=build/'CMakeFiles/4.4.5'; config.mkdir(parents=True)
+    (build/'CMakeCache.txt').write_text('CMAKE_C_COMPILER:FILEPATH='+str(vc/'cl.exe')+'\n'
+        'CMAKE_C_COMPILER_ID:STRING=MSVC\nCMAKE_C_COMPILER_VERSION:STRING=19.51.36260.0\n'
+        'CMAKE_CXX_COMPILER:FILEPATH=CMAKE_CXX_COMPILER-NOTFOUND\n'
+        'CMAKE_CXX_COMPILER_ID:STRING=private-compiler-id\nCMAKE_CXX_COMPILER_VERSION:STRING=private-version\n'
+        'CMAKE_RC_COMPILER:FILEPATH='+str(sdk/'rc.exe')+'\n')
+    (config/'CMakeCCompiler.cmake').write_text('set(CMAKE_C_COMPILER "'+(vc/'cl.exe').as_posix()+'")\n'
+        'set(CMAKE_C_COMPILER_ID "MSVC")\nset(CMAKE_C_COMPILER_VERSION "19.51.36260.0")\n')
+    outside=tmp_path/'private-account/compiler.exe'; outside.parent.mkdir(); outside.write_bytes(b'private compiler text')
+    (config/'CMakeRCCompiler.cmake').write_text('set(CMAKE_RC_COMPILER "'+outside.as_posix()+'")\n')
+    real_stat,real_open=Path.stat,Path.open
+    def stat_guard(path,*a,**k):
+        if path==outside: pytest.fail('Outside compiler paths must not be statted.')
+        return real_stat(path,*a,**k)
+    def open_guard(path,*a,**k):
+        if path==outside: pytest.fail('Outside compiler paths must not be read.')
+        return real_open(path,*a,**k)
+    monkeypatch.setattr(Path,'stat',stat_guard); monkeypatch.setattr(Path,'open',open_guard)
+    monkeypatch.setattr(module,'_BUILD_TOOL_ROOTS',roots)
+    report=module.failed_build_receipt(output,'cmake-configure',ValueError('private failure text'))
+    context=report['compiler_detection_context']; c,cxx,rc=context['languages']
+    assert context['evidence_scope']=='compiler-file-observation-not-native-approval'
+    assert c['cache']==c['configuration']=={'state':'observed','compiler_state':'sealed-vc-toolset','compiler_id':'MSVC','compiler_version':'19.51.36260.0'}
+    assert cxx['cache']['compiler_state']=='not-found' and cxx['cache']['compiler_id'] is None
+    assert cxx['cache']['compiler_version'] is None and cxx['configuration']['state']=='missing'
+    assert rc['cache']['compiler_state']=='sealed-sdk-bin' and rc['configuration']['compiler_state']=='outside-declared-roots'
+    delivered=(output/'ASR-FAILURE.json').read_text()
+    for private in (str(tmp_path),'private-account','private-compiler-id','private-version','private compiler text','private failure text'):
+        assert private not in delivered
+    assert report['status']=='failed' and report['rights_approval'] is False and not (output/'ASR-RECEIPT.json').exists()
+
+
+@pytest.mark.parametrize('value,state', [(None,'missing-entry'),('','empty'),('NOTFOUND','not-found'),
+    ('CMAKE_C_COMPILER-NOTFOUND','not-found'),('private-NOTFOUND','not-absolute'),
+    ('private-relative','not-absolute'),('private\nvalue','invalid-value'),([], 'invalid-value')])
+def test_compiler_context_distinguishes_only_evidenced_missing_notfound_and_invalid_values(module, value, state):
+    assert module.compiler_path_state(value,'C',None)==state
+
+
+def test_compiler_context_parent_traversal_duplicate_values_and_file_caps_fail_closed(module, tmp_path, monkeypatch):
+    _source,_inputs,output=prepared(module,tmp_path,monkeypatch)
+    vc=tmp_path/'sealed-vc'; vc.mkdir()
+    assert module.compiler_path_state(str(vc/'..'/'private-account'/'compiler.exe'),'C',{'vc':str(vc)})=='outside-declared-roots'
+    build=output/'build'; config=build/'CMakeFiles/4.4.5'; config.mkdir(parents=True)
+    (build/'CMakeCache.txt').write_text('CMAKE_C_COMPILER:FILEPATH=private-a\nCMAKE_C_COMPILER:FILEPATH=private-b\n')
+    context=module.compiler_detection_context(output,{'vc':str(vc)})
+    assert context['languages'][0]['cache']['state']=='duplicate-entry'
+    monkeypatch.setattr(module,'COMPILER_CONTEXT_FILE_BYTES',32)
+    (config/'CMakeCCompiler.cmake').write_bytes(b'private compiler text'*10)
+    context=module.compiler_detection_context(output,{'vc':str(vc)})
+    assert context['languages'][0]['cache']['state']==context['languages'][0]['configuration']['state']=='size-limit'
+    assert 'private' not in json.dumps(context)
+
+
+def test_compiler_context_link_and_nonregular_inputs_are_not_read(module, tmp_path, monkeypatch):
+    _source,_inputs,output=prepared(module,tmp_path,monkeypatch)
+    build=output/'build'; config=build/'CMakeFiles/4.4.5'; config.mkdir(parents=True)
+    cache=build/'CMakeCache.txt'; cache.write_text('private linked input')
+    (config/'CMakeCCompiler.cmake').mkdir()
+    real_lstat=Path.lstat
+    monkeypatch.setattr(Path,'lstat',lambda p,*a,**k:
+        SimpleNamespace(st_mode=module.stat.S_IFLNK) if p==cache else real_lstat(p,*a,**k))
+    context=module.compiler_detection_context(output,None)
+    assert context['languages'][0]['cache']['state']=='inspection-error'
+    assert context['languages'][0]['configuration']['state']=='not-regular'
+    assert 'private' not in json.dumps(context)
+
+
+def test_nested_logs_are_fixed_context_only_with_perfile_and_total_caps(module, tmp_path, monkeypatch):
+    directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
+    first=directory/'CMakeConfigureLog.yaml'; second=directory/'CMakeError.log'
+    first.write_bytes(b'error C1083: private early\n'+b'x'*80+b'\nerror C2065: private late\n')
+    second.write_bytes(b'private prefix '*10+b'\nerror MSB8020\n')
+    forbidden=directory/'CMakeOutput.log';forbidden.write_bytes(b'error LNK2019: private unknown log')
+    monkeypatch.setattr(module,'LOG_TAIL_BYTES',64);monkeypatch.setattr(module,'NESTED_LOG_TOTAL_BYTES',80)
+    real_reader=module.diagnostic_file;calls=[]
+    def reader(path,limit,**options):
+        assert path in (first,second)
+        result=real_reader(path,limit,**options);calls.append((limit,len(result[1])));return result
+    monkeypatch.setattr(module,'diagnostic_file',reader)
+    context=module.nested_configure_log_context(tmp_path)
+    assert context['evidence_scope']=='observed-context-not-fatal-cause'
+    assert context['logs'][0]['known_codes']==['C2065'] and context['logs'][1]['known_codes']==['MSB8020']
+    assert calls==[(64,64),(16,16)] and sum(n for _,n in calls)==80
+    assert 'private' not in json.dumps(context) and str(tmp_path) not in json.dumps(context)
+    monkeypatch.setattr(module,'NESTED_LOG_TOTAL_BYTES',1);calls.clear()
+    context=module.nested_configure_log_context(tmp_path)
+    assert calls==[(1,1)] and context['logs'][1]['state']=='total-byte-limit'
+
+
+def test_nested_log_nonregular_and_unknown_codes_remain_private_context(module,tmp_path):
+    directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
+    (directory/'CMakeConfigureLog.yaml').mkdir()
+    (directory/'CMakeError.log').write_text('error C9999: private secret model text\n')
+    context=module.nested_configure_log_context(tmp_path)
+    assert context['logs'][0]['state']=='not-regular'
+    assert context['logs'][1]['known_codes']==[] and context['logs'][1]['context_labels']==['compiler-or-linker-error','unclassified-tool-error']
+    assert 'C9999' not in json.dumps(context) and 'private' not in json.dumps(context)
+
+
+@pytest.mark.parametrize('kind',['symlink','windows-reparse'])
+def test_nested_log_linked_parent_is_rejected_before_descendant_metadata_or_open(module,tmp_path,monkeypatch,kind):
+    directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
+    for filename in ('CMakeConfigureLog.yaml','CMakeError.log'):
+        (directory/filename).write_text('error C1083: private linked content\n')
+    real_lstat,real_stat,real_open=Path.lstat,Path.stat,Path.open
+    def reject_descendant(path):
+        if path != directory and path.is_relative_to(directory):
+            pytest.fail('Linked log parents must be rejected before descendant stat/lstat/open.')
+    def lstat_guard(path,*a,**k):
+        reject_descendant(path)
+        if path==directory:
+            return SimpleNamespace(st_mode=module.stat.S_IFLNK if kind=='symlink' else module.stat.S_IFDIR,
+                st_file_attributes=0x400 if kind=='windows-reparse' else 0)
+        return real_lstat(path,*a,**k)
+    def stat_guard(path,*a,**k):
+        reject_descendant(path);return real_stat(path,*a,**k)
+    def open_guard(path,*a,**k):
+        reject_descendant(path);return real_open(path,*a,**k)
+    monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(Path,'stat',stat_guard)
+    monkeypatch.setattr(Path,'open',open_guard)
+    context=module.nested_configure_log_context(tmp_path)
+    assert all(row['state']=='inspection-error' and row['known_codes']==[] for row in context['logs'])
+    assert 'private' not in json.dumps(context)
+
+
+@pytest.mark.parametrize('kind',['symlink','windows-reparse'])
+def test_compiler_linked_parent_is_rejected_before_descendant_metadata_or_open(module,tmp_path,monkeypatch,kind):
+    vc=tmp_path/'sealed-vc';directory=vc/'bin';directory.mkdir(parents=True)
+    compiler=directory/'cl.exe';compiler.write_bytes(b'private compiler fixture')
+    real_lstat,real_stat,real_open=Path.lstat,Path.stat,Path.open
+    def reject_descendant(path):
+        if path != directory and path.is_relative_to(directory):
+            pytest.fail('Linked compiler parents must be rejected before descendant stat/lstat/open.')
+    def lstat_guard(path,*a,**k):
+        reject_descendant(path)
+        if path==directory:
+            return SimpleNamespace(st_mode=module.stat.S_IFLNK if kind=='symlink' else module.stat.S_IFDIR,
+                st_file_attributes=0x400 if kind=='windows-reparse' else 0)
+        return real_lstat(path,*a,**k)
+    def stat_guard(path,*a,**k):
+        reject_descendant(path);return real_stat(path,*a,**k)
+    def open_guard(path,*a,**k):
+        reject_descendant(path);return real_open(path,*a,**k)
+    monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(Path,'stat',stat_guard)
+    monkeypatch.setattr(Path,'open',open_guard)
+    assert module.compiler_path_state(str(compiler),'C',{'vc':str(vc)})=='inspection-error'
 
 
 @pytest.mark.parametrize('kind,expected', [('command', 'private-command-failed'),
