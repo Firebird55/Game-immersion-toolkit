@@ -154,6 +154,8 @@ def _posix_group_members(group):
     import psutil
     result = []
     for process in psutil.process_iter(['pid', 'status']):
+        if process.pid <= 0:
+            continue
         try:
             if os.getpgid(process.pid) == group and process.info['status'] != psutil.STATUS_ZOMBIE:
                 result.append(process.pid)
@@ -167,6 +169,11 @@ def _posix_session_groups(session):
     import psutil
     groups = set()
     for process in psutil.process_iter(['pid', 'status']):
+        # macOS includes kernel_task (PID 0). POSIX getsid(0)/getpgid(0)
+        # refer to the caller, not that enumerated kernel process; including
+        # it falsely reports a child in the watchdog's own process group.
+        if process.pid <= 0:
+            continue
         try:
             if (process.pid != os.getpid() and os.getsid(process.pid) == session
                     and process.info['status'] != psutil.STATUS_ZOMBIE):
@@ -214,6 +221,7 @@ def _posix_bootstrap(parent_fd, command, retained_fds=()):
                 break
         deadline = time.monotonic() + 1
         notice = time.monotonic() + 5
+        pending_error = None
         while True:
             try:
                 groups = (_posix_session_groups(session) if owns_session else
@@ -225,13 +233,14 @@ def _posix_bootstrap(parent_fd, command, retained_fds=()):
                         os.killpg(group, signal.SIGTERM if time.monotonic() < deadline else signal.SIGKILL)
                     except ProcessLookupError:
                         pass
-            except (OSError, RuntimeError):
+            except (OSError, RuntimeError) as error:
                 # Retain the session and inherited installation lock if any
                 # descendant's lifetime is unknown. Never authorize replacement
                 # by exiting the watchdog while that uncertainty remains.
-                pass
+                pending_error = type(error).__name__ + ':' + str(getattr(error, 'errno', None))
             if time.monotonic() >= notice:
-                print('Owned helper cleanup is still pending; installation ownership is retained.', file=sys.stderr, flush=True)
+                print('Owned helper cleanup is still pending; installation ownership is retained.'
+                      + (' Inspection error: ' + pending_error if pending_error else ''), file=sys.stderr, flush=True)
                 notice = time.monotonic() + 30
             time.sleep(.05)
     finally:

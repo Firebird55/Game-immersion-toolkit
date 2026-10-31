@@ -89,13 +89,26 @@ the preceding `4605d3f` passes on Windows. macOS exposed a missing Python 3.12
 adds a non-reaping macOS child-state observer and the Linux display dependencies
 with an explicit missing-library diagnostic. Its comprehensive local checks,
 including browser/LAN, recovery, installer/update fixtures and publication audit,
-pass. Hosted native validation of those platform fixes is pending.
+pass. Hosted application checks also pass, but native macOS tests still failed
+and Linux identified one further xcb dependency (`libxcb-shape0`). The next fix
+excludes macOS's kernel PID 0 from ownership enumeration: POSIX `getsid(0)` and
+`getpgid(0)` query the caller, so treating PID 0 as a child falsely blocks cleanup.
+Its regression and the other focused desktop tests pass on Windows (52 passed,
+one platform skip); native macOS/Linux verification is pending. Native builds
+now run alongside application checks after publication audit; release publication
+still waits for every required check and native target.
 
 Qt/PySide 6.12.0 source collection now retains the exact unmodified upstream
 archives for PySide/Shiboken, Qt Base, SVG and image formats, alongside full
 license and attribution files. Hashes bind these inputs to the resource inventory.
 This closes the missing Qt source-file collection step; final selected native
 dependency review and the other components' source/notice gaps remain open.
+The resource collector and mobile export regressions pass together (76 tests).
+The broad local run reproduced a Windows sharing error at final export publication;
+bounded retries now preserve cancellation/source checks. A repeat passed Python
+and the completed browser scenarios before being intentionally interrupted for
+the platform fixes. That interrupted run is not full validation; hosted CI owns
+the final combined gate.
 
 The exact Windows candidate from `984cb51` now passes frozen host startup,
 frontend/API access, API crash recovery, same-state restart, owned shutdown,

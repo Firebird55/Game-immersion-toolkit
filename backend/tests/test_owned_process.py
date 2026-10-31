@@ -12,6 +12,27 @@ import pytest
 from backend.owned_process import OwnedProcess
 
 
+def test_posix_ownership_ignores_kernel_pid_zero(monkeypatch):
+    from types import SimpleNamespace
+    from backend import owned_process
+    processes = [SimpleNamespace(pid=pid, info={'status': status}) for pid, status in
+                 [(0, psutil.STATUS_RUNNING), (100, psutil.STATUS_RUNNING),
+                  (101, psutil.STATUS_RUNNING), (102, psutil.STATUS_ZOMBIE),
+                  (200, psutil.STATUS_RUNNING)]]
+    monkeypatch.setattr(psutil, 'process_iter', lambda *_: iter(processes))
+    monkeypatch.setattr(os, 'getpid', lambda: 100)
+    def session(pid):
+        assert pid > 0, 'PID 0 aliases the caller rather than kernel_task'
+        return 100 if pid < 200 else 200
+    def group(pid):
+        assert pid > 0
+        return 101 if pid in (101, 102) else pid
+    monkeypatch.setattr(os, 'getsid', session, raising=False)
+    monkeypatch.setattr(os, 'getpgid', group, raising=False)
+    assert owned_process._posix_session_groups(100) == {101}
+    assert owned_process._posix_group_members(101) == [101]
+
+
 def test_child_exit_observer_without_waitid_never_reaps_identity(monkeypatch):
     from backend import owned_process
     monkeypatch.delattr(owned_process.os, 'waitid', raising=False)
