@@ -44,6 +44,25 @@ def system_owner_category(value, executable_for_pid):
     return SYSTEM_OWNERS[name]
 
 
+def owner_verification_diagnostics(value, executable_for_pid):
+    """Explain failed identity checks without publishing process identities."""
+    name, pid = value.get('kCGWindowOwnerName'), value.get('kCGWindowOwnerPID')
+    result = {'owner_label_allowlisted': name in SYSTEM_OWNERS,
+              'executable_lookup_succeeded': False,
+              'executable_in_system_library': False,
+              'executable_basename_matches_label': False}
+    if type(pid) is not int or pid <= 0:
+        return result
+    try:
+        path = PurePosixPath(executable_for_pid(pid))
+        result.update(executable_lookup_succeeded=True,
+            executable_in_system_library=PurePosixPath('/System/Library') in path.parents and '..' not in path.parts,
+            executable_basename_matches_label=path.name == name)
+    except Exception:
+        pass
+    return result
+
+
 def mac_overlap_records(values, title, owner_pid, monitors, executable_for_pid):
     """Correlate capture failure with independent native window geometry."""
     from backend.platform_windows import choose_monitor, intersection
@@ -70,7 +89,8 @@ def mac_overlap_records(values, title, owner_pid, monitors, executable_for_pid):
                 == rectangle[2] * rectangle[3])
             blockers.append({'layer': value.get('kCGWindowLayer'), 'bounds': bounds(value),
                 'alpha': value.get('kCGWindowAlpha'), 'owned': owned, 'system_owner': category,
-                'full_display': full_display})
+                'full_display': full_display,
+                'owner_verification': owner_verification_diagnostics(value, executable_for_pid)})
             if len(blockers) == 12:
                 break
     obstruction = any(not value['owned'] and value['full_display'] and value['alpha'] >= .99

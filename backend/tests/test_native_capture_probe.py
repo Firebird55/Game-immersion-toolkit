@@ -72,3 +72,13 @@ def test_system_window_behind_authored_target_is_not_an_obstruction():
     value = probe.mac_overlap_records([target, blocker], 'Authored probe', 42,
         [MonitorInfo('Authored display', (0, 0, 1024, 768))], lambda _pid: '/System/Library/CoreServices/Dock')
     assert value['overlaps'] == [] and not value['full_display_system_obstruction']
+
+
+def test_unknown_system_owner_diagnostics_explain_failure_without_disclosing_identity():
+    value = diagnose(window(20, 'Private process label', 99, (0, 0, 1024, 768)),
+        executable='/System/Library/Private process label')
+    assert value['overlaps'][0]['owner_verification'] == {
+        'owner_label_allowlisted': False, 'executable_lookup_succeeded': True,
+        'executable_in_system_library': True, 'executable_basename_matches_label': True}
+    assert not value['full_display_system_obstruction']
+    assert 'Private process label' not in json.dumps(value)

@@ -18,7 +18,9 @@ from pathlib import Path
 import queue
 import re
 import secrets
+import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -33,6 +35,28 @@ from .runtime_bundle import RuntimeBundleError, discover_layout
 
 class HostError(RuntimeError):
     pass
+
+
+def open_desktop_browser(url):
+    """Ask the desktop to open a URL without lending it the host's log pipes."""
+    if sys.platform == 'win32':
+        return webbrowser.open(url)
+    opener = '/usr/bin/open' if sys.platform == 'darwin' else shutil.which('xdg-open')
+    if not opener:
+        return False
+    try:
+        process = subprocess.Popen([opener, url], stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            close_fds=True, start_new_session=True)
+        try:
+            return process.wait(timeout=3) == 0
+        except subprocess.TimeoutExpired:
+            # Some desktop openers remain attached to the browser. It belongs to
+            # the user and must survive toolkit shutdown; this is request evidence
+            # only, not proof that navigation completed.
+            return True
+    except OSError:
+        return False
 
 
 def selected_environment(data_root=None):
@@ -259,7 +283,7 @@ def contact_instance(path, action='open'):
 
 class DesktopHost:
     def __init__(self, layout, *, frontend_root=None, port=3000, api_port=8766, browser=True,
-                 service_factory=Service, open_browser=webbrowser.open):
+                 service_factory=Service, open_browser=open_desktop_browser):
         self.layout, self.frontend_root = layout, frontend_root
         self.port, self.api_port = port, api_port
         self.browser, self.open_browser = browser, open_browser

@@ -21,6 +21,40 @@ def layout(tmp_path):
                             'LOCALAPPDATA': str(tmp_path)})
 
 
+@pytest.mark.parametrize('platform,opener', [('linux', '/usr/bin/xdg-open'), ('darwin', '/usr/bin/open')])
+@pytest.mark.parametrize('result', [0, 1, 'running'])
+def test_desktop_browser_releases_host_pipes_and_keeps_user_browser(monkeypatch, platform, opener, result):
+    monkeypatch.setattr(host_module.sys, 'platform', platform)
+    monkeypatch.setattr(host_module.shutil, 'which', lambda name: '/usr/bin/xdg-open')
+    calls = []
+    class Opener:
+        def wait(self, timeout):
+            assert timeout == 3
+            if result == 'running':
+                raise host_module.subprocess.TimeoutExpired(opener, timeout)
+            return result
+    def spawn(command, **options):
+        calls.append((command, options))
+        return Opener()
+    monkeypatch.setattr(host_module.subprocess, 'Popen', spawn)
+    url = 'http://127.0.0.1:3000'
+    assert host_module.open_desktop_browser(url) is (result != 1)
+    assert calls == [([opener, url], dict(stdin=host_module.subprocess.DEVNULL,
+        stdout=host_module.subprocess.DEVNULL, stderr=host_module.subprocess.DEVNULL,
+        close_fds=True, start_new_session=True))]
+
+
+def test_desktop_browser_reports_missing_or_failed_opener(monkeypatch):
+    monkeypatch.setattr(host_module.sys, 'platform', 'linux')
+    monkeypatch.setattr(host_module.shutil, 'which', lambda name: None)
+    assert not host_module.open_desktop_browser('http://127.0.0.1:3000')
+    monkeypatch.setattr(host_module.shutil, 'which', lambda name: '/usr/bin/xdg-open')
+    def fail(*args, **kwargs):
+        raise OSError('Desktop unavailable')
+    monkeypatch.setattr(host_module.subprocess, 'Popen', fail)
+    assert not host_module.open_desktop_browser('http://127.0.0.1:3000')
+
+
 def test_host_selection_keeps_frozen_app_tree_readonly_and_ignores_cwd(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, 'frozen', True, raising=False)
     monkeypatch.chdir(tmp_path)

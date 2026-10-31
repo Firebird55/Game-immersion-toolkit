@@ -118,6 +118,21 @@ panels, identity lookup failures, and unrelated capture errors still fail.
 Unavailable capture permits independent build/lifecycle checks to continue; it
 does not pass native capture or close the corresponding R19 acceptance row.
 
+The subsequent [hosted run 41205179217](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41205179217)
+passed application checks, supplied screenshot replay, all five browser groups,
+and extracted source-package checks. Linux frozen startup and crash recovery
+passed, but the visible-UI run retained a log pipe after shutdown. The POSIX
+browser opener now detaches its standard streams as well as its session, so a
+user browser cannot retain toolkit log pipes; seven new cases cover both desktop
+openers, failures and a long-running browser. Navigation remains separate from
+a successful opener request. macOS still reports unknown covering surfaces;
+bounded identity-verification booleans now distinguish lookup, system-location
+and owner-label mismatches without exposing process names or paths. This does
+not change capture rejection or convert unknown surfaces to accepted evidence.
+The combined host/capture-probe local suite passes 23 cases. Native reruns remain
+required. Windows construction in this run stopped on an audio-source network
+timeout before freezing; it is not a frozen-runtime regression result.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),
