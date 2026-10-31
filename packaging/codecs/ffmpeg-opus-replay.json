@@ -1,0 +1,174 @@
+{
+  "schema": "proxy-r19-ffmpeg-opus-replay-inputs-v1",
+  "reviewed_on": "2026-10-31",
+  "scope": "isolated-build-host-only; no runtime integration or binary publication",
+  "sources": [
+    {
+      "component": "ffmpeg",
+      "version": "9.0.2",
+      "filename": "ffmpeg-9.0.2.tar.xz",
+      "source": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+      "bytes": 12040788,
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+      "root": "ffmpeg-9.0.2"
+    },
+    {
+      "component": "opus",
+      "version": "1.6.1",
+      "filename": "opus-1.6.1.tar.gz",
+      "source": "https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz",
+      "bytes": 10472813,
+      "sha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1",
+      "root": "opus-1.6.1"
+    }
+  ],
+  "original_recipes": [
+    {
+      "path": "COPYING",
+      "bytes": 1314,
+      "sha256": "fcc26d35c4c4365e31f21734f846e4ee362ff0b57ba696085605a7b4768d8763",
+      "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/COPYING",
+      "filename": "vgmstream-COPYING",
+      "download": "https://raw.githubusercontent.com/vgmstream/vgmstream/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/COPYING"
+    },
+    {
+      "path": "doc/BUILD-LIB.md",
+      "bytes": 33923,
+      "sha256": "05e5fe5707eb6301c1c57815479621d432f1aaf16ebdb4eca0a28af5509a3f4c",
+      "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/doc/BUILD-LIB.md",
+      "filename": "vgmstream-BUILD-LIB.md",
+      "download": "https://raw.githubusercontent.com/vgmstream/vgmstream/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/doc/BUILD-LIB.md"
+    },
+    {
+      "path": "ext_libs/extra/ffmpeg_options.txt",
+      "bytes": 5530,
+      "sha256": "ebf1a9897af02234c27ae4cc4b3d50e728f8ed6d772f047ac468c13c195f525e",
+      "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/extra/ffmpeg_options.txt",
+      "filename": "vgmstream-ffmpeg_options.txt",
+      "download": "https://raw.githubusercontent.com/vgmstream/vgmstream/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/extra/ffmpeg_options.txt"
+    }
+  ],
+  "notices": [
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.LGPLv2.1",
+      "bytes": 26517,
+      "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.GPLv2",
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.LGPLv3",
+      "bytes": 7651,
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.GPLv3",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "LICENSE.md",
+      "bytes": 4346,
+      "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "README.md",
+      "bytes": 1798,
+      "sha256": "7e30f809d40454ebc467cf473a063d7306f5eb836dca6b80668c4427d8845914"
+    },
+    {
+      "component": "opus",
+      "path": "COPYING",
+      "bytes": 1945,
+      "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+    },
+    {
+      "component": "opus",
+      "path": "AUTHORS",
+      "bytes": 239,
+      "sha256": "f9fd849e652219ce98e008303370b352d37663d0ffb27b8dc514ad93c9c7438b"
+    },
+    {
+      "component": "opus",
+      "path": "README",
+      "bytes": 7198,
+      "sha256": "9bdf02594da8c33af8b7bdb7a2ac98f6fdc6abc71d5fb198e7b186286a681dca"
+    }
+  ],
+  "build_tools": [
+    {
+      "filename": "msys2-base-x86_64-20260927.tar.xz",
+      "source": "https://github.com/msys2/msys2-installer/releases/download/2026-09-27/msys2-base-x86_64-20260927.tar.xz",
+      "sha256": "ea2f31a0b6ade63914ce441ffb022f0f6aa96982bfefa2326460a26d5fb01322",
+      "digest_authority": "GitHub official release asset digest; not a source/signature verification"
+    },
+    {
+      "filename": "make-4.4.1-3-x86_64.pkg.tar.zst",
+      "source": "https://mirror.msys2.org/msys/x86_64/make-4.4.1-3-x86_64.pkg.tar.zst",
+      "sha256": "af0bdba17f06fe037f0194069adaa31a8fe45f1a11381501896aea1fae37bd5d",
+      "digest_authority": "https://packages.msys2.org/packages/make?repo=msys&variant=x86_64"
+    },
+    {
+      "filename": "nasm-3.02-1-x86_64.pkg.tar.zst",
+      "source": "https://mirror.msys2.org/msys/x86_64/nasm-3.02-1-x86_64.pkg.tar.zst",
+      "sha256": "1ab3d9d7f86f57a66cc506799648527b9215c3eb1b7bd404d886d59b503a05b7",
+      "digest_authority": "https://packages.msys2.org/packages/nasm?repo=msys&variant=x86_64"
+    },
+    {
+      "filename": "pkgconf-3.0.9-1-x86_64.pkg.tar.zst",
+      "source": "https://mirror.msys2.org/msys/x86_64/pkgconf-3.0.9-1-x86_64.pkg.tar.zst",
+      "sha256": "4a19d76ae6104ca0ec3876036dab2986caf516eb8fb9261e46cbee9f08934f01",
+      "digest_authority": "https://packages.msys2.org/packages/pkgconf?repo=msys&variant=x86_64"
+    }
+  ],
+  "host": {
+    "image": "windows-2025-vs2026",
+    "image_version": "20261021.278.1",
+    "generator": "Visual Studio 18 2026",
+    "toolset_directory": "14.51.36231",
+    "compiler_version": "19.51.36260.0",
+    "cmake_version": "4.4.5",
+    "sdk_version": "10.0.26100.0",
+    "evidence_run": 41144087092,
+    "evidence_jobs": [
+      124364966367,
+      124364965922
+    ],
+    "policy": "Exact observed host tuple required; changed/unavailable tools fail before building. Hash selected tool/header/library trees before and after. The hosted image is not an independently recoverable toolchain source kit. This is observed experiment input binding, not complete immutable compiler supplier/source closure.",
+    "netfx_sdk_headers": "4.8",
+    "unbound_prerequisites": [
+      "Windows OS/loader/system DLL implementation and registry",
+      "Host .NET runtime/framework/GAC used by MSBuild",
+      "Hosted image/service infrastructure and independent complete toolchain source/rights recovery"
+    ]
+  },
+  "adaptations": [
+    "Original VS2019 generator replaced by explicitly selected VS2026 instance/toolset/SDK; original upstream instructions retained unmodified.",
+    "Fixed isolated C:/r19-game-codec-replay prefixes instead of upstream C:/vgmstream-dlls; no changes to original FFmpeg options.",
+    "Out-of-source builds preserve original source bytes.",
+    "No rolling pacman install: exact original tool archives extracted into an isolated build-host directory.",
+    "An authored non-shipping C harness uses custom AVIO because the original configuration disables file protocol and CLI programs.",
+    "Allowlisted process environment; fresh empty user/AppData/MSBuild profile; selected VC/SDK/header/lib roots only; user and Directory.Build imports disabled."
+  ],
+  "licensing_boundary": {
+    "original_upstream_recipes": "Retained byte-for-byte with vgmstream COPYING; dependency original recipes/notices remain in exact source archives.",
+    "project_orchestration": "New original project code remains under LICENSE. It has no additional GPL grant and is not declared compatible corresponding source for future binary distribution.",
+    "xiph_flac_scoped_grant_applies": false,
+    "rights_review": "unresolved; includes actual enabled-code/file notices, static Opus and MSVC CRT incorporation, build-recipe compatibility, durable complete source delivery and servicing."
+  },
+  "production_execution_allowed": false,
+  "runtime_collection_allowed": false,
+  "source_delivery_approved": false,
+  "native_windows_11_acceptance": "unavailable",
+  "installer": "not-built",
+  "r19_complete": false
+}
