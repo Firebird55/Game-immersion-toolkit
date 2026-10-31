@@ -20,10 +20,12 @@ runtime-package license/third-party notices, plus the reader dependency notices.
 
 ## Native builder interface
 
-Download the selected pinned SDK archive into a private evidence directory and
-expand it into a fresh sibling SDK directory. Do not run that SDK before the
-verification step. Its first invocation may create files, so each independently
-invoked helper build needs a fresh expansion of the retained archive.
+Use `scripts/prepare-game-reader-sdk.py --rid <RID> --output <fresh-directory>
+--cache <evidence-directory>` to download, safely expand and verify the selected
+pinned SDK archive before execution. Hosted construction passes its verified
+paths directly to the helper builder. Its first invocation may create files, so
+each independently invoked helper build needs a fresh expansion of the retained
+archive.
 
 ```powershell
 pwsh scripts/build-game-reader-helpers.ps1 `

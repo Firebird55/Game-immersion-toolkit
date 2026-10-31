@@ -83,7 +83,7 @@ def source_inputs():
     roots = ['backend', 'scripts', 'packaging', 'assets/fireredvad']
     paths = [ROOT / name for name in ['requirements.txt', 'requirements.lock.txt', 'package.json', 'package-lock.json']]
     for name in roots:
-        paths += [p for p in (ROOT / name).rglob('*') if p.is_file() and p.suffix in {'.py', '.ps1', '.mjs', '.json', '.spec', '.txt', '.onnx', '.ark'}
+        paths += [p for p in (ROOT / name).rglob('*') if p.is_file() and p.suffix in {'.py', '.ps1', '.mjs', '.json', '.spec', '.txt', '.onnx', '.ark', '.cs', '.csproj'}
             and not any(part in {'__pycache__', 'node_modules', 'bin', 'obj'} for part in p.relative_to(ROOT).parts)]
     return {p.relative_to(ROOT).as_posix(): digest(p) for p in sorted(paths)}
 
@@ -117,7 +117,7 @@ def extra_resources(root, destination):
     return manifest
 
 
-def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profile='runtime', python_archive=None):
+def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profile='runtime', python_archive=None, nte_helper_root=None):
     if sys.version_info[:2] != (3, 12):
         raise ValueError('Desktop candidates require Python 3.12.')
     if profile not in {'runtime', 'runtime-experiment'}:
@@ -179,6 +179,10 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / name, destination)
     native_resources = []
+    helpers = {}
+    if nte_helper_root:
+        from record_runtime import collect_nte
+        _helper_resources, helpers = collect_nte(nte_helper_root, evidence, commit, ROOT)
     for resource_input in resources_root or []:
         native_resources.append(extra_resources(resource_input, evidence))
     resources = [{'path': p.relative_to(evidence).as_posix(), 'sha256': digest(p)}
@@ -191,6 +195,7 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
         'python_executable_sha256': digest(sys.executable), 'components': components,
         'python_supplier': python_supplier,
         'native_resources': native_resources,
+        'helpers': helpers,
         'r19_complete': False, 'redistribution_review': 'pending-exact-output'}
     inputs_path = output / 'OBSERVED-INPUTS.json'
     inputs_path.write_text(json.dumps(inputs, indent=2) + '\n')
@@ -217,12 +222,16 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
         distribution = metadata.distribution(component['name'])
         destination = notices / component['name']
         destination.mkdir(parents=True)
+        declared_notices = {str(name).casefold() for name in distribution.metadata.get_all('License-File', [])}
         # Retain complete actual files, including vendored native notices. A
         # metadata label is not promoted to an approval by this observer.
         for file in distribution.files or []:
             name = Path(str(file)).name.casefold()
-            if (name.startswith(('license', 'copying', 'notice'))
-                    or name in {'metadata', 'thirdpartynotices.txt', 'third_party_notices.txt'}):
+            if (name.startswith(('license', 'licence', 'copying', 'notice', 'copyright'))
+                    or name in {'metadata', 'thirdpartynotices.txt', 'third_party_notices.txt'}
+                    or any(str(file).replace('\\', '/').casefold().endswith('/' + notice)
+                           for notice in declared_notices)
+                    or ('licenses' in Path(str(file)).parts and Path(str(file)).suffix.lower() in {'', '.txt', '.md', '.rst', '.html'})):
                 path = Path(distribution.locate_file(file))
                 if path.is_file():
                     suffix = hashlib.sha256(str(file).encode()).hexdigest()[:10]
@@ -237,7 +246,7 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
     proof = {'schema': 'proxy-runtime-candidate-v1', **identity, 'repository': 'Firebird55/Game-immersion-toolkit',
         'r19_complete': False, 'redistribution_review': 'pending-exact-output', 'native_acceptance': 'unavailable',
         'signing': 'not-established', 'source_inputs_sha256': source_hash, 'components': components,
-        'native_resources': native_resources, 'python_supplier': python_supplier,
+        'native_resources': native_resources, 'helpers': helpers, 'python_supplier': python_supplier,
         'python_version': platform.python_version(), 'python_executable_sha256': digest(sys.executable),
         'release_eligible': False, 'storage_epoch': 1, 'host_protocol': 1,
         'files': files, 'directories': sorted(p.relative_to(runtime).as_posix() for p in runtime.rglob('*') if p.is_dir() and not p.is_symlink())}
@@ -253,13 +262,14 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--wheelhouse', type=Path)
     parser.add_argument('--resources-root', type=Path, action='append', default=[])
+    parser.add_argument('--nte-helper-root', type=Path, help='Verified owned NTE/Wuthering Waves native apphost root.')
     parser.add_argument('--profile', choices=['runtime', 'runtime-experiment'], default='runtime')
     parser.add_argument('--python-archive', type=Path,
         help='Verify the provisioned native interpreter and internal links against its exact Windows/Linux/macOS supplier archive.')
     args = parser.parse_args()
     try:
         build(args.frontend_root.absolute(), args.output.absolute(), args.wheelhouse, args.resources_root,
-            profile=args.profile, python_archive=args.python_archive)
+            profile=args.profile, python_archive=args.python_archive, nte_helper_root=args.nte_helper_root)
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print('Observed desktop build failed: ' + str(error), file=sys.stderr)
         return 2

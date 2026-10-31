@@ -121,10 +121,13 @@ test('publication waits for native construction and rechecks all downloaded arti
   assert.match(job('publish'), /gh release upload "\$RELEASE_TAG" published-release\/\*/);
   assert.match(nativeWorkflow, /if: steps\.package\.outputs\.release_eligible == 'true'/);
   assert.match(nativeWorkflow, /DESKTOP-PROVENANCE-\$\{\{ matrix\.target \}\}\.json/);
-  assert.match(nativeWorkflow, /--resources-root output\/node-resources/);
-  assert.match(nativeWorkflow, /--resources-root output\/native-notices/);
+  for (const resource of ['node-resources', 'native-notices', 'managed-reader-resources']) {
+    assert.ok(nativeWorkflow.includes(`'output/${resource}'`));
+  }
+  assert.match(nativeWorkflow, /\$options \+= @\('--resources-root', \$root\)/);
+  assert.match(nativeWorkflow, /--nte-helper-root', 'output\/reader-helper\/nte'/);
   assert.match(nativeWorkflow, /prepare-desktop-python\.py.*--github-path \$env:GITHUB_PATH/);
-  assert.match(nativeWorkflow, /--python-archive '\$\{\{ steps\.python_supplier\.outputs\.python_archive \}\}'/);
+  assert.match(nativeWorkflow, /--python-archive', '\$\{\{ steps\.python_supplier\.outputs\.python_archive \}\}'/);
 });
 
 test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {

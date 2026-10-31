@@ -14,12 +14,15 @@ jobs:
           - runner: windows-2025
             target: windows-x64
             node_target: win-x64
+            dotnet_rid: win-x64
           - runner: ubuntu-24.04
             target: linux-x64
             node_target: linux-x64
+            dotnet_rid: linux-x64
           - runner: macos-15
             target: macos-arm64
             node_target: darwin-arm64
+            dotnet_rid: osx-arm64
           # ONNX Runtime 1.24.4 publishes macOS arm64 wheels only. Intel
           # requires a separately verified native build before joining CI.
     runs-on: ${{ matrix.runner }}
@@ -78,6 +81,22 @@ jobs:
           else { python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json }
           if ($LASTEXITCODE -eq 2) { Write-Output 'Native capture is unavailable on this runner; this is not native acceptance.'; exit 0 }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the exact build-host managed-reader SDK
+        id: reader_sdk
+        run: python scripts/prepare-game-reader-sdk.py --rid '${{ matrix.dotnet_rid }}' --output output/reader-sdk --cache output/reader-sdk-inputs --github-output $env:GITHUB_OUTPUT
+      - name: Build the shared self-contained archive reader
+        run: |
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -RuntimeIdentifier '${{ matrix.dotnet_rid }}' -OutputRoot output/reader-helper -EvidenceRoot '${{ steps.reader_sdk.outputs.evidence_root }}' -Dotnet '${{ steps.reader_sdk.outputs.dotnet }}' -ExpectedSdkVersion 10.0.403 -Python (Get-Command python).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/build-nte-toolchain.py --platform '${{ matrix.node_target }}' --output output/managed-reader-resources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and exercise the app-local Cyberpunk reader
+        if: runner.os == 'Windows'
+        run: |
+          python scripts/build-cyberpunk-toolchain.py --platform win-x64 --cache output/cyberpunk-source-cache --output output/cyberpunk-resources --sdk-root '${{ steps.reader_sdk.outputs.sdk_root }}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/probe-native-cyberpunk.py --resources output/cyberpunk-resources --output output/native-cyberpunk-probe.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: npm run desktop:build -- --output-root output/desktop-frontend
       - name: Collect the pinned app-local grammar runtime
         run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources
@@ -100,7 +119,12 @@ jobs:
           python scripts/probe-native-audio.py --resources output/audio-resources --output output/native-audio-probe.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Freeze the native runtime and isolated ASR child
-        run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --python-archive '${{ steps.python_supplier.outputs.python_archive }}' --resources-root output/audio-resources --resources-root output/node-resources --resources-root output/qt-resources --resources-root output/native-notices
+        run: |
+          $options = @('--frontend-root', 'output/desktop-frontend', '--output', 'output/native-candidate', '--wheelhouse', 'output/wheelhouse', '--python-archive', '${{ steps.python_supplier.outputs.python_archive }}', '--nte-helper-root', 'output/reader-helper/nte')
+          foreach ($root in @('output/audio-resources', 'output/node-resources', 'output/qt-resources', 'output/native-notices', 'output/managed-reader-resources')) { $options += @('--resources-root', $root) }
+          if ($IsWindows) { $options += @('--resources-root', 'output/cyberpunk-resources') }
+          python scripts/build-desktop-runtime.py @options
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Exercise frozen startup, API crash recovery and owned shutdown
         run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
       - name: Observe native window, tray and browser handler requests
@@ -139,6 +163,7 @@ jobs:
             output/native-audio-probe.json
             output/native-host-probe.json
             output/native-ui-probe.json
+            output/native-cyberpunk-probe.json
           if-no-files-found: warn
           retention-days: 7
       - name: Upload verified desktop release assets
