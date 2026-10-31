@@ -363,5 +363,58 @@
       "production_activation": false,
       "r19_complete": false
     }
+  },
+  "subsequent_suspended_source_checkpoint": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "f11e96d70a548978017b441f67379209190ab62a",
+    "run": 41155245089,
+    "build_id": "runtime-experiment-41155245089-1",
+    "artifacts": [
+      {
+        "name": "r19-frozen-f11e96d.zip",
+        "bytes": 1232351,
+        "sha256": "8807fdee70483950c3f03348997e30741ee233b4e5516b8d919731eaadaf7834",
+        "artifact_id": 13024079240
+      },
+      {
+        "name": "r19-gpl-source-f11e96d.zip",
+        "bytes": 1095190,
+        "sha256": "87c8ffd60e03b502dc5b9a5573cb6ee4c574de2737fd942e1004f6fd0e9ea212",
+        "artifact_id": 13024474177
+      }
+    ],
+    "inventory_sha256": "a4b44e352c929efdb9be8b4ced8e1bd09e8ca110b1f7a5cec03a81ee67f0241f",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624765091,
+    "main_executable_sha256": "35cabdae1a9b78d035a5ca0c852f3fa78a53044eed40c38105e3838bd58313fb",
+    "asr_executable_sha256": "4fac8f7cf9bd4af6d7f78377de22e68e2cf813eb1fc75740d2129c682d4bf7ae",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "windows_contracts": {
+      "passed": 689,
+      "skipped": 0
+    },
+    "scope": "Existing frozen protocol after direct-suspended primitive; two native source contracts use a living pytest keeper, not an autonomous/frozen keeper.",
+    "suspended_source_contracts": {
+      "selected": 2,
+      "skipped": 0,
+      "guardian_loss": "before and after writer admission with living pytest keeper",
+      "autonomous_keeper": "not-implemented",
+      "frozen_direct_creation": "not-tested",
+      "dynamic_writer_registration": "not-proved"
+    },
+    "exact_source_notices_native_origins_host_and_guarded_slots": "independently verified downloaded metadata; all existing disabled gates retained",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41155245089"
   }
 }

@@ -89,6 +89,22 @@ interleavings using a real reentrant lock; no timing sleeps establish their
 ordering. Those tests do not establish native execution. The real Windows cases
 must run on the exact checked-out source before native results are recorded.
 
+## Verified source-native checkpoint
+
+At `f11e96d70a548978017b441f67379209190ab62a`,
+[run 41155245089](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41155245089)
+passed all 689 selected Windows contracts with zero skips, including both
+guardian-loss source cases above. The same head passed the actual frozen
+imports/workers/host/guarded cold-slot protocol and independent Xiph source
+build/rebuild. Downloaded metadata/source artifacts were independently checked
+against their provider checksums, source identities, exact notices, native
+bindings, inventory and retained-child/lease outcomes.
+
+This runs the new creation primitive in source/build-host Python. The frozen
+protocol still uses its established bootstrap route; its success does not show
+that a frozen keeper uses the new direct-suspended entry. The source fixture's
+living pytest keeper remains present throughout guardian loss and lease release.
+
 ## Remaining gates
 
 This primitive provides no autonomous keeper, guardian IPC or lease handoff.
