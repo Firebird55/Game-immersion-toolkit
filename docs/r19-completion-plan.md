@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `dc62a46`, 735 Windows contracts, freezing and earlier native/C1/cold-slot steps passed; their preserved source/metadata, exact notices and module bindings were downloaded and checked despite the later keeper failure | The workflow failed: a Windows console host was observed before writer creation, so both keeper cases remain unproved. Detached mode, new provenance, real OCR/capture, general voices, ASR inference and full export require new evidence |
+| Extracted runtime | At `1c2d931`, 971 Windows contracts, freezing, native/C1/cold-slot and both detached living-keeper cases passed; downloaded metadata and source/rebuild artifacts were independently checked | This bounded Server checkpoint does not prove keeper loss, dynamic writer admission, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -81,26 +81,36 @@ rollback. Guardian death, warm routing and actual store/credential continuity st
 open. The separate [living frozen keeper probe](r19-frozen-keeper-probe.md)
 adds two fixed guardian-loss cases using retained suspended creation objects.
 Its first actual frozen attempt at `e8a76d4` refused a guardian descendant
-before writer creation; both cases remain unproved. Bounded read-only process
-observations are the next input, without changing that refusal. Keeper loss
-and general writer lifetime remain open even if those fixed cases later pass.
+before writer creation; that failure remains recorded. At `1c2d931`, both
+detached cases passed with actual source-entry exclusion held through retained
+writer signals and explicit cleanup. The outer keeper remained alive: keeper
+loss and general writer lifetime remain open.
+The [authored frozen data-copy adapter](r19-frozen-data-copy-probe.md) now
+connects that fixed writer cohort to the existing typed migration barrier.
+Its local SQLite/ordering contracts pass, but its new frozen Windows case is
+pending. It restarts the original source with a fresh cohort; it does not
+activate a copied target, warm a candidate or publish a route.
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source
 experiment](r19-asr-source-experiment.md) is a distinct private binding variant,
 with an authored native-format graph rather than accepted pretrained model
 weights. Neither experiment is a runtime replacement or a corresponding-source
-approval. Hosted attempts initially failed ambiguous tool discovery and then
-the installed CMake 4.4.4 versus required 4.4.5 check. The exact official
-[isolated CMake input](pinned-build-cmake.md) preserves the 4.4.5 requirement.
-At `a079232`, its acquisition and verification passed; FFmpeg/Opus then failed
-compiler activation quoting and ASR failed before configure. At `c18d07a`, the
-corrected private batch activated the compiler, then the search-root guard
-refused a path; bounded component-role diagnostics are the next required input
-before considering any root change. ASR diagnostics identified three installed
-VC-target families. The reviewed policy now selects only the exact observed
-VS18 `v180` props, with no fallback to another family. That selection requires
-new native execution. These failures establish no decode or inference result;
-the strict toolchain, source and configuration guards remain in force.
+approval. Earlier ambiguous discovery, wrong installed CMake, compiler quoting,
+search-root and missing-import failures remain in their dated evidence ledgers.
+The exact official [isolated CMake input](pinned-build-cmake.md) preserves the
+4.4.5 requirement. At `1c2d931`, FFmpeg/Opus source build and native
+decode/error/origin probes passed; its independently reviewed public source kit
+also excludes private configure-log metadata. Complete corresponding-source
+review and the separately proposed six-file recipe license remain pending.
+At that same checkpoint, ASR verified the initial exact CMake module variant
+and selected VS18 `v180` inputs, then failed configure with MSB4018. The isolated
+`ce09ea2` follow-up confirmed canonical imports and a `CL` task
+type-initialization exception; its underlying cause remains unknown. Neither
+run proves compilation or inference. The follow-up changed no tool pins,
+compiler flags or full selected-instance identity.
+The [MSVC metadata census](r19-msvc-redist-observation.md) is a separate
+read-only first step, with no component selection, redistribution permission
+or runtime admission. The strict toolchain and source guards remain in force.
 The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
 binds a fixed current/retired frontend snapshot to independently trusted slot
 manifest hashes. Its authored loopback tests cover old Vite/Next chunks and

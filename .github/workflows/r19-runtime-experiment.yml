@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       source_replay:
-        description: Run one separate quarantined source experiment only
+        description: Run one separate quarantined R19 experiment only
         type: choice
-        options: [none, ffmpeg-opus, sherpa-asr]
+        options: [none, ffmpeg-opus, sherpa-asr, msvc-redist-census]
         default: none
       observer_contract_only:
         description: Run only PowerShell observer and guardian contracts (no runtime build)
@@ -41,7 +41,7 @@ jobs:
           R19_CODEC_ONLY: ${{ inputs.codec_source_only && 'true' || 'false' }}
         run: |
           set -euo pipefail
-          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|sherpa-asr) ;; *) exit 1 ;; esac
+          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|sherpa-asr|msvc-redist-census) ;; *) exit 1 ;; esac
           selected=0
           if [[ "$R19_SOURCE_REPLAY" != none ]]; then selected=$((selected+1)); fi
           if [[ "$R19_OBSERVER_ONLY" == true ]]; then selected=$((selected+1)); fi
@@ -58,6 +58,55 @@ jobs:
     needs: validate-selection
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'sherpa-asr' }}
     uses: ./.github/workflows/r19-asr-source-experiment.yml
+  msvc-redist-census:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'msvc-redist-census' }}
+    # Metadata-only build-host observation; no CRT selection or runtime build.
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before preparing the observer interpreter
+        shell: pwsh
+        run: |
+          npm run dev:doctor
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid census preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public census source audit failed.' }
+      - uses: actions/setup-python@v7
+        with:
+          # Named build-host observer only. No application or pip dependencies.
+          python-version: '3.12.10'
+      - name: Run authored contracts and a source-bound read-only census
+        id: census
+        shell: pwsh
+        run: |
+          $env:R19_CENSUS_PYTHON = (Get-Command python -CommandType Application).Source
+          node --test tests/msvc-redist-census-ci.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Census binding contracts failed.' }
+          $result = @(node scripts/run-msvc-redist-census.mjs)
+          $censusExit = $LASTEXITCODE
+          if ($censusExit -in @(0, 2) -and $result.Count -eq 1 -and $result[0] -ceq 'MSVC_METADATA_PAIR_VALIDATED') {
+            'validated_pair=true' >> $env:GITHUB_OUTPUT
+          }
+          if ($censusExit -ne 0) { throw 'Census unavailable; no source admitted.' }
+          if ($result.Count -ne 1 -or $result[0] -cne 'MSVC_METADATA_PAIR_VALIDATED') { throw 'Census pair validation unavailable.' }
+      - name: Upload only validated census metadata and its independent source binding
+        if: ${{ !cancelled() && steps.census.outputs.validated_pair == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-msvc-redist-census-metadata
+          path: |
+            output/checks/MSVC-REDIST-CENSUS.json
+            output/checks/MSVC-REDIST-CI-BINDING.json
+          if-no-files-found: ignore
+          retention-days: 7
   observer-contract:
     needs: validate-selection
     # Authored classifier/lease fixtures, not frozen process ownership evidence.
@@ -196,7 +245,8 @@ jobs:
             'scoped_mobile_exports', 'automatic_mobile_exports', 'installation', 'local_access',
             'runtime_codec_output', 'native_input_ownership', 'source_pcm_probe', 'source_formats',
             'portal_assets', 'portal2_assets', 'halflife2_assets', 'window_capture', 'runtime_host',
-            'diagnostic_notice_delivery', 'flatbuffers_notices', 'guarded_slot_probe'
+            'diagnostic_notice_delivery', 'flatbuffers_notices', 'guarded_slot_probe',
+            'bundle_host', 'bundle_migration', 'runtime_data_copy_probe'
           ) | ForEach-Object { "backend/tests/test_$_.py" }
           & $env:PYTHON -B -m pytest -q @contracts
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
@@ -251,6 +301,22 @@ jobs:
           path: output/checks/r19-frozen-keeper.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Copy authored stores under retained frozen writer exclusion
+        # A living coordinator retains exclusion on unknown cleanup. The outer
+        # deadline records a failed experiment, never keeper-loss containment.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-data-copy.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-data-copy.json')
+      - name: Retain only sanitized authored-copy failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-data-copy-failure-observations
+          path: output/checks/r19-frozen-data-copy.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Retain only sanitized native collection refusal
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -282,7 +348,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - name: Upload public source kit and sanitized metadata only
-        # Preserve completed earlier observations if the separate keeper fails.
+        # Preserve completed earlier observations if keeper or copy fails.
         # Artifact presence never upgrades the workflow or a failed receipt.
         if: ${{ !cancelled() && steps.extracted_runtime_probes.outcome == 'success' }}
         uses: actions/upload-artifact@v7
@@ -293,6 +359,7 @@ jobs:
             output/checks/r19-frozen-runtime.json
             output/checks/r19-guarded-slots.json
             output/checks/r19-frozen-keeper.json
+            output/checks/r19-frozen-data-copy.json
             output/runtime-bundle/build-check.json
             output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
             output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json
