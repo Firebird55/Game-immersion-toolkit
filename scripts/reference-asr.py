@@ -79,6 +79,7 @@ COMPILER_CONTEXT_FILE_BYTES = 256 * 1024
 KNOWN_COMPILER_IDS = frozenset({'MSVC', 'Clang', 'GNU', 'Intel', 'IntelLLVM'})
 IMPORT_CONTEXT_LIMIT = 16
 MSB4018_BLOCK_BYTES = 32 * 1024
+MSB4018_CHAIN_DEPTH = 8
 # Microsoft C++/MSBuild task references and .NET API names; only fixed labels
 # leave the private MSB4018 context. Unknown names/codes are never echoed.
 MSBUILD_TASK_LABELS = {name.casefold(): label for name, label in (
@@ -1415,16 +1416,69 @@ def msb4018_line_body(line):
     return line[marker.end():]
 
 
+def msb4018_exception_header(body):
+    match = re.match(r'([A-Za-z_][A-Za-z0-9_.]{0,254})'
+        r'(?:[ \t]+\((0x[0-9a-fA-F]{8})\))?:', body)
+    return match if match is not None and match[1].endswith('Exception') else None
+
+
+def msb4018_inner_chain(body, chain, pending):
+    """Recognize the standard TypeInitializationException wrapper, not message prose."""
+    if pending == 'marker':
+        if not body.startswith('---> '):
+            return None
+        body = body[5:]
+    elif pending != 'header':
+        if chain['state'] != 'not-observed':
+            return None
+        first = msb4018_exception_header(body)
+        if first is None or first[1] != 'System.TypeInitializationException':
+            return None
+    while True:
+        header = msb4018_exception_header(body)
+        if header is None:
+            chain['state'] = 'malformed-inner-header'
+            return None
+        if len(chain['families']) >= MSB4018_CHAIN_DEPTH:
+            chain.update(state='depth-limit', truncated=True)
+            return None
+        family = DOTNET_EXCEPTION_LABELS.get(header[1], 'unknown-exception')
+        chain['families'].append(family)
+        chain['state'] = 'outer-only' if len(chain['families']) == 1 else 'observed-inner'
+        if family == 'unknown-exception':
+            chain['state'] = 'unknown-inner'
+            return None
+        if header[1] != 'System.TypeInitializationException':
+            return None  # Arbitrary leaf messages cannot introduce a causal link.
+        wrapper_body = body[header.end():].lstrip(' \t')
+        wrapper = re.match(r"The type initializer for '[^'\r\n\x00-\x1f\x7f]{1,512}' threw an exception\.", wrapper_body)
+        if wrapper is None:
+            chain['state'] = 'unrecognized-wrapper'
+            return None
+        remainder = wrapper_body[wrapper.end():]
+        # MSBuild can append its private project decoration to each output line.
+        if not remainder.strip() or re.fullmatch(r'[ \t]+\[[^\r\n]{0,32767}\][ \t]*', remainder):
+            chain['state'] = 'inner-not-observed'
+            return 'marker'
+        if not remainder.startswith(' ---> '):
+            chain['state'] = 'malformed-inner-marker'
+            return None
+        body = remainder[6:]
+        if not body.strip() or re.fullmatch(r'\[[^\r\n]{0,32767}\][ \t]*', body):
+            chain['state'] = 'malformed-inner-header'
+            return 'header'
+
+
 def msb4018_task_context(content, limit, *, discard_first_line=False):
     """Fixed observations from contiguous MSB4018 lines, never exception text."""
     if discard_first_line:
         content = content.partition('\n')[2]
-    records, truncated, current, joining_bytes, block_bytes = [], False, None, 0, 0
+    records, truncated, current, joining_bytes, block_bytes, chain_pending = [], False, None, 0, 0, None
     for raw_line in content.split('\n'):
         line = raw_line.removesuffix('\r')
         body = msb4018_line_body(line)
         if body is None:
-            current, joining_bytes = None, 0
+            current, joining_bytes, chain_pending = None, 0, None
             continue
         task = re.fullmatch(r'The "([^"\r\n]{1,256})" task failed unexpectedly\.'
             r'(?:[ \t]+\[[^\r\n]{0,32767}\])?[ \t]*', body)
@@ -1433,22 +1487,26 @@ def msb4018_task_context(content, limit, *, discard_first_line=False):
                 truncated = True
                 break
             current = {'literal_match_state': 'unrecognized-template', 'task_label': 'unknown-task',
-                'exception_families': [], 'hresult_labels': [], 'win32_labels': [], 'context_truncated': False}
+                'exception_families': [], 'hresult_labels': [], 'win32_labels': [], 'context_truncated': False,
+                'exception_chain': {'state': 'not-observed', 'families': [], 'truncated': False}}
             records.append(current)
-            block_bytes = 0
+            block_bytes, chain_pending = 0, None
         else:
             block_bytes += joining_bytes
         block_bytes += len(line.encode('utf-8'))
         joining_bytes = 1 + len(raw_line) - len(line)  # Connecting LF or CRLF, not the next block's gap.
         if block_bytes > MSB4018_BLOCK_BYTES:
             current['context_truncated'] = True
+            current['exception_chain'].update(state='byte-limit', truncated=True)
+            chain_pending = None
             continue
         if task is not None:
             current.update(literal_match_state='matched-task-template',
                 task_label=MSBUILD_TASK_LABELS.get(task[1].casefold(), 'unknown-task'))
-        exception = re.match(r'(?:--->[ \t]*)?([A-Za-z_][A-Za-z0-9_.]{0,254})'
-            r'(?:[ \t]+\((0x[0-9a-fA-F]{8})\))?:', body)
-        if exception is None or not exception[1].endswith('Exception'):
+        chain_pending = msb4018_inner_chain(body, current['exception_chain'], chain_pending)
+        current['exception_families'] = sorted(set(current['exception_families']) | set(current['exception_chain']['families']))
+        exception = msb4018_exception_header(body[5:] if body.startswith('---> ') else body)
+        if exception is None:
             continue  # Stack frames, messages, parameters and arbitrary lines stay private.
         family = DOTNET_EXCEPTION_LABELS.get(exception[1], 'unknown-exception')
         current['exception_families'] = sorted(set(current['exception_families']) | {family})

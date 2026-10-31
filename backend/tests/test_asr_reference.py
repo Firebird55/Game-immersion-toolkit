@@ -1617,7 +1617,8 @@ def test_msb4018_projects_only_reviewed_task_exception_and_explicit_code_labels(
     result=module.msb4018_task_context(content,16)
     assert result=={'records':[{'literal_match_state':'matched-task-template','task_label':'set-env',
         'exception_families':['argument-null'],'hresult_labels':['e-pointer'],'win32_labels':['access-denied'],
-        'context_truncated':False}],'truncated':False}
+        'context_truncated':False,'exception_chain':{'state':'not-observed','families':[],'truncated':False}}],
+        'truncated':False}
     for private in ('r19-authored-private','PrivateStack','parameter/model','targets','22','System.ArgumentNullException','0x80004003'):
         assert private not in json.dumps(result)
 
@@ -1649,6 +1650,93 @@ def test_msb4018_primary_dll_exception_hresult_and_explicit_win32_code_are_separ
     assert record['task_label']=='cl' and record['exception_families']==['dll-not-found','win32']
     assert record['hresult_labels']==['win32-module-not-found-hresult'] and record['win32_labels']==['module-not-found']
     assert 'private' not in json.dumps(record) and '126' not in json.dumps(record)
+
+
+def owned_type_initializer(name='Owned.PrivateInitializer'):
+    return "System.TypeInitializationException: The type initializer for '"+name+"' threw an exception."
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+@pytest.mark.parametrize('form',['inline','continuation','header-continuation'])
+def test_msb4018_standard_type_initializer_chain_retains_order_without_private_types_or_messages(module,newline,form):
+    prefix='C:/r19-authored-private/task(5,7): error MSB4018: '
+    outer=owned_type_initializer();inner='System.ArgumentNullException: private parameter (Exception from HRESULT: 0x80004003)'
+    if form=='inline':bodies=[outer+' ---> '+inner]
+    elif form=='continuation':bodies=[outer+' [C:/r19-authored-private/project]','---> '+inner]
+    else:bodies=[outer+' ---> [C:/r19-authored-private/project]',inner]
+    content=newline.join([prefix+'The "CL" task failed unexpectedly.']+[prefix+body for body in bodies])
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['exception_chain']=={'state':'observed-inner','families':['type-initialization','argument-null'],'truncated':False}
+    assert record['exception_families']==['argument-null','type-initialization']
+    assert record['hresult_labels']==['e-pointer'] and record['context_truncated'] is False
+    for private in ('Owned.PrivateInitializer','r19-authored-private','private parameter','System.ArgumentNullException','0x80004003'):
+        assert private not in json.dumps(record)
+
+
+@pytest.mark.parametrize('inner,state,families',[
+    ('Owned.PrivateException: private message','unknown-inner',['type-initialization','unknown-exception']),
+    ('not an exception header','malformed-inner-header',['type-initialization']),
+    ('','malformed-inner-header',['type-initialization'])])
+def test_msb4018_inner_chain_unknown_and_malformed_headers_have_only_finite_states(module,inner,state,families):
+    content='error MSB4018: The "CL" task failed unexpectedly.\nerror MSB4018: '+owned_type_initializer()+' ---> '+inner
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['exception_chain']=={'state':state,'families':families,'truncated':False}
+    assert 'Owned' not in json.dumps(record) and 'private message' not in json.dumps(record)
+
+
+@pytest.mark.parametrize('body,state,families',[
+    ('System.TypeInitializationException: private message ---> System.ArgumentNullException: private detail',
+        'unrecognized-wrapper',['type-initialization']),
+    ('at '+owned_type_initializer()+' ---> System.ArgumentNullException: private detail','not-observed',[]),
+    ('System.ArgumentNullException: '+owned_type_initializer()+' ---> System.DllNotFoundException: private detail',
+        'not-observed',[]),
+    (owned_type_initializer('Owned ---> System.ArgumentNullException: private detail'),'inner-not-observed',['type-initialization']),
+    (owned_type_initializer()+' private prose ---> System.ArgumentNullException: private detail','malformed-inner-marker',['type-initialization']),
+    (owned_type_initializer()+' -- > System.ArgumentNullException: private detail','malformed-inner-marker',['type-initialization'])])
+def test_msb4018_message_stack_and_malformed_marker_mentions_cannot_invent_an_inner_chain(module,body,state,families):
+    content='error MSB4018: The "CL" task failed unexpectedly.\nerror MSB4018: '+body
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['exception_chain']=={'state':state,'families':families,'truncated':False}
+    assert 'private detail' not in json.dumps(record) and 'Owned' not in json.dumps(record)
+
+
+def test_msb4018_inner_chain_does_not_continue_after_intervening_stack_or_a_non_wrapper_leaf(module):
+    prefix='error MSB4018: '
+    bodies=[owned_type_initializer(),'at Owned.PrivateFrame: private detail','---> System.ArgumentNullException: private detail']
+    record=module.msb4018_task_context('\n'.join(prefix+body for body in bodies),16)['records'][0]
+    assert record['exception_chain']=={'state':'inner-not-observed','families':['type-initialization'],'truncated':False}
+    body=owned_type_initializer()+' ---> System.ArgumentNullException: private text ---> System.DllNotFoundException: private detail'
+    record=module.msb4018_task_context(prefix+body,16)['records'][0]
+    assert record['exception_chain']=={'state':'observed-inner','families':['type-initialization','argument-null'],'truncated':False}
+    assert 'dll-not-found' not in record['exception_families']
+
+
+@pytest.mark.parametrize('wrappers,truncated',[(7,False),(8,True)])
+def test_msb4018_nested_type_initializer_depth_is_eight_including_the_outer_wrapper(module,wrappers,truncated):
+    body=' ---> '.join([owned_type_initializer('Owned.Private'+str(i)) for i in range(wrappers)]+
+        ['System.ArgumentNullException: private final cause'])
+    record=module.msb4018_task_context('error MSB4018: '+body,16)['records'][0]
+    chain=record['exception_chain']
+    assert chain['state']==('depth-limit' if truncated else 'observed-inner') and chain['truncated'] is truncated
+    assert len(chain['families'])==8
+    assert chain['families']==(['type-initialization']*8 if truncated else ['type-initialization']*7+['argument-null'])
+    assert record['context_truncated'] is False
+    assert 'Owned' not in json.dumps(record) and 'private final cause' not in json.dumps(record)
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+@pytest.mark.parametrize('extra_byte',[False,True])
+def test_msb4018_type_initializer_chain_obeys_exact_utf8_block_boundary(module,monkeypatch,newline,extra_byte):
+    prefix='error MSB4018: '
+    outer=prefix+owned_type_initializer('Owned.\u4e2d')
+    inner=prefix+'---> System.ArgumentNullException: private parameter'
+    content=newline.join((outer,inner))
+    monkeypatch.setattr(module,'MSB4018_BLOCK_BYTES',len(content.encode())-int(extra_byte))
+    record=module.msb4018_task_context(content,16)['records'][0]
+    assert record['exception_chain']=={'state':'byte-limit' if extra_byte else 'observed-inner',
+        'families':['type-initialization'] if extra_byte else ['type-initialization','argument-null'],
+        'truncated':extra_byte}
+    assert record['context_truncated'] is extra_byte
 
 
 def test_msb4018_requires_anchored_error_and_literal_quotes_without_unescaping(module):
@@ -1723,6 +1811,8 @@ def test_msb4018_long_nonmatching_headers_finish_in_one_bounded_child_within_the
     directory=tmp_path/'build/CMakeFiles';directory.mkdir(parents=True)
     noise=((' '*32000+'x\n')+(' '*32000+'x\r\n'))*24
     content=noise+'error MSB4018: The "SetEnv" task failed unexpectedly.\n'
+    content+=('error MSB4018: The "CL" task failed unexpectedly.\nerror MSB4018: '
+        'System.TypeInitializationException: '+' '*16000+'private non-wrapper\n')*8
     assert len(content.encode())<module.LOG_TAIL_BYTES
     (directory/'CMakeConfigureLog.yaml').write_bytes(content.encode())
     script='''import importlib.util, sys
@@ -1732,8 +1822,9 @@ driver=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(driver)
 logs=driver.nested_configure_log_context(Path(sys.argv[2]))["logs"]
 records=logs[0]["msb4018_tasks"]["records"]
-assert len(records)==1 and records[0]["task_label"]=="set-env"
+assert len(records)==9 and records[0]["task_label"]=="set-env"
 assert records[0]["context_truncated"] is False
+assert all(item["exception_chain"]["state"]=="unrecognized-wrapper" for item in records[1:])
 print("bounded-msb4018-parser-passed")
 '''
     result=module.subprocess.run([module.sys.executable,'-I','-B','-c',script,

@@ -296,6 +296,27 @@ whitespace/prefix backtracking. For a full tail,
 task extraction conservatively discards the first potentially partial line.
 No YAML/string unescaping, extra log discovery or larger read is added. These
 observations do not establish the exception's cause or permit environment fixes.
+The additive `exception_chain` retains at most eight ordered exception-family
+enums, including the outer wrapper. It recognizes only the documented standard
+TypeInitializationException sentence followed by the fixed ` ---> ` separator,
+inline or on an immediately continuing error line. The
+[.NET Framework formatter](https://github.com/microsoft/referencesource/blob/ec9fa9ae770d522a5b5f0607898044b7478574a3/mscorlib/system/exception.cs#L438-L451)
+places an inner exception inline; an earlier start-of-line classifier omitted
+that relation in an authored format fixture. Microsoft's
+[MSBuild logging implementation](https://github.com/dotnet/msbuild/blob/86743d0545fba3d043d4e7aaa12891edb3fd56e6/src/Build/BackEnd/Components/Logging/LoggingServiceLogMethods.cs#L210-L240)
+includes `exception.ToString()` in the task error without a verbosity guard.
+These public sources explain format behavior; they do not establish source
+correspondence for the runner's exact Microsoft task/runtime binaries.
+Unknown families, unrecognized wrappers, malformed markers/headers, missing inner
+observations and byte/depth truncation have fixed explicit states. The parser
+stops at a non-wrapper leaf; arbitrary message or stack mentions cannot add
+causal links. Existing flat families/code labels remain context and do not
+assign codes to a particular chain layer. Type names, initializer names,
+messages and parameter values stay private. This uses the same block/tail/record
+bounds and linear header parsing, with no reflection, extra verbosity or new
+native execution. An ordered formatted chain is not a live exception object or
+proof of a complete underlying cause; the actual CL inner exception remains
+unknown until a subsequent native receipt observes it.
 The wrapper passes the actual selected `vswhere` instance's numeric four-part
 VS18 installation version together with its directory. Python queries the same
 explicit machine `vswhere.exe` again before and after the experiment, requires
