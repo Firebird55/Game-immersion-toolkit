@@ -80,6 +80,45 @@ KNOWN_COMPILER_IDS = frozenset({'MSVC', 'Clang', 'GNU', 'Intel', 'IntelLLVM'})
 IMPORT_CONTEXT_LIMIT = 16
 MSB4018_BLOCK_BYTES = 32 * 1024
 MSB4018_CHAIN_DEPTH = 8
+MSB4018_FRAME_LIMIT = 16
+# English .NET Framework resources in microsoft/referencesource ec9fa9ae,
+# plus fixed public members in that source and dotnet/msbuild 86743d05.
+ARGUMENT_MESSAGES = {
+    'Value does not fall within the expected range.': 'generic-argument',
+    'The path is not of a legal form.': 'path-illegal',
+    'Illegal characters in path.': 'path-invalid-characters',
+    'Path cannot be the empty string or all whitespace.': 'path-empty',
+    'Empty path name is not legal.': 'path-empty',
+    "The given path's format is not supported.": 'path-format-unsupported',
+    'URI formats are not supported.': 'path-uri-unsupported',
+    'Absolute path information is required.': 'absolute-path-required',
+    'String cannot be of zero length.': 'string-empty', 'String may not be empty or null.': 'string-empty',
+    'An item with the same key has already been added.': 'dictionary-duplicate',
+    'Environment variable name cannot contain equal character.': 'env-name-invalid',
+    'The first char in the string is the null character.': 'env-name-invalid',
+    'Environment variable name cannot contain 1024 or more characters.': 'env-name-too-long',
+    'Environment variable name or value is too long.': 'env-name-or-value-too-long'}
+ARGUMENT_PARAMETERS = {'path': 'path-input', 'path1': 'path-first', 'path2': 'path-second',
+    'path3': 'path-third', 'path4': 'path-fourth', 'paths': 'path-array',
+    'sourceDirName': 'source-directory', 'destDirName': 'destination-directory',
+    'variable': 'environment-name', 'target': 'environment-target',
+    'folder': 'special-folder-selector', 'option': 'special-folder-option', 'key': 'dictionary-key'}
+ARGUMENT_FRAME_ROLES = {
+    **{'System.IO.Path.' + name: role for name, role in (
+        ('GetPathRoot', 'path-root'), ('GetTempPath', 'temp-path'), ('GetFullPath', 'full-path'),
+        ('GetFullPathInternal', 'full-path'), ('NormalizePath', 'path-normalization'),
+        ('NewNormalizePath', 'path-normalization'), ('NewNormalizePathLimitedChecks', 'path-normalization'),
+        ('LegacyNormalizePath', 'path-normalization'), ('CheckInvalidPathChars', 'path-character-check'),
+        ('Combine', 'path-combination'), ('InternalCombine', 'path-combination'))},
+    **{'System.Environment.' + name: role for name, role in (
+        ('GetFolderPath', 'special-folder'), ('InternalGetFolderPath', 'special-folder'),
+        ('GetEnvironmentVariable', 'environment-read'), ('SetEnvironmentVariable', 'environment-write'))},
+    'System.IO.Directory.CreateDirectory': 'directory-create',
+    'System.IO.DirectoryInfo..ctor': 'directory-constructor',
+    'System.Collections.Generic.Dictionary`2.Insert': 'dictionary-insert',
+    'Microsoft.Build.Utilities.FileTracker..cctor': 'file-tracker-initialization',
+    'Microsoft.Build.Utilities.FileTracker.InitializeCommonApplicationDataPaths': 'file-tracker-common-data',
+    'Microsoft.Build.Utilities.FileTracker.FormatRootingMarker': 'file-tracker-caller'}
 # Microsoft C++/MSBuild task references and .NET API names; only fixed labels
 # leave the private MSB4018 context. Unknown names/codes are never echoed.
 MSBUILD_TASK_LABELS = {name.casefold(): label for name, label in (
@@ -1422,7 +1461,84 @@ def msb4018_exception_header(body):
     return match if match is not None and match[1].endswith('Exception') else None
 
 
-def msb4018_inner_chain(body, chain, pending):
+def msb4018_undecorated(value):
+    index = value.rfind(' [')
+    if (index >= 0 and value.endswith(']') and len(value) - index <= 2050
+            and not any(ord(c) < 32 or ord(c) == 127 for c in value[index:])):
+        value = value[:index]
+    return value
+
+
+def msb4018_argument_message(value):
+    if not value.startswith(' '):
+        return None  # Exception.ToString adds exactly this separator before Message.
+    value = msb4018_undecorated(value[1:])
+    if any(ord(c) < 32 or ord(c) == 127 for c in value):
+        return None
+    if value in ARGUMENT_MESSAGES:
+        return ARGUMENT_MESSAGES[value]
+    opaque = r"[^'\x00-\x1f\x7f]{0,256}"
+    if re.fullmatch(r"Item has already been added\. Key in dictionary: '" + opaque +
+            r"'  Key being added: '" + opaque + "'", value):
+        return 'dictionary-duplicate'
+    if re.fullmatch(r'Illegal enum value: -?[0-9]{1,10}\.', value):
+        return 'enum-invalid'
+    return None
+
+
+def msb4018_argument_close(public, private):
+    """Do not resume a resource/stack observation across an unknown continuation."""
+    if not private['active']:
+        return
+    public['state'] = 'incomplete'
+    if not private['stack_started']:
+        public.update(resource_state='unknown', resource_label=None)
+    private.update(active=False, parameter_open=False)
+
+
+def msb4018_argument_line(body, public, private):
+    if not private['active']:
+        return
+    if private['parameter_open'] and body.startswith('Parameter name'):
+        private['parameter_count'] += 1
+        value = msb4018_undecorated(body[len('Parameter name: '):]) if body.startswith('Parameter name: ') else ''
+        role = ARGUMENT_PARAMETERS.get(value)
+        state = 'known-role' if role else ('unknown' if re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}', value) else 'malformed')
+        if private['parameter_count'] > 1:
+            state, role = 'ambiguous', None
+        public.update(parameter_state=state, parameter_role=role)
+        if state in {'malformed', 'ambiguous'}:
+            msb4018_argument_close(public, private)
+        return
+    private['parameter_open'] = False
+    if msb4018_undecorated(body) == '--- End of inner exception stack trace ---':
+        private.update(section='wrapper-context', stack_started=True)
+        return
+    if not body.startswith('at '):
+        msb4018_argument_close(public, private)
+        return
+    if private['frame_count'] >= MSB4018_FRAME_LIMIT:
+        public['frames_truncated'] = True
+        return
+    private['frame_count'] += 1
+    name, separator, rest = body[3:].partition('(')
+    signature, closing, trailer = rest.partition(')')
+    role = ARGUMENT_FRAME_ROLES.get(name)
+    if (not separator or not closing or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.`+]{0,255}', name)
+            or len(signature) > 1024 or len(trailer) > 2048
+            or any(ord(c) < 32 or ord(c) == 127 for c in name + signature + trailer)
+            or (trailer and not trailer.startswith(' in ') and msb4018_undecorated('frame' + trailer) != 'frame')):
+        public['unknown_frame_seen'] = True
+        msb4018_argument_close(public, private)
+        return
+    private['stack_started'] = True
+    if role is None:
+        public['unknown_frame_seen'] = True
+    else:
+        public['framework_frames'].append({'section': private['section'], 'role': role})
+
+
+def msb4018_inner_chain(body, chain, pending, argument=None, private=None):
     """Recognize the standard TypeInitializationException wrapper, not message prose."""
     if pending == 'marker':
         if not body.startswith('---> '):
@@ -1448,13 +1564,24 @@ def msb4018_inner_chain(body, chain, pending):
         if family == 'unknown-exception':
             chain['state'] = 'unknown-inner'
             return None
+        if header[1] == 'System.ArgumentException' and argument is not None:
+            label = msb4018_argument_message(body[header.end():])
+            argument.update(state='observed', resource_state='matched' if label else 'unknown',
+                resource_label=label, initializer_roles=list(private['initializers']),
+                unknown_initializer_seen=private['unknown_initializer'])
+            private.update(active=True, parameter_open=True)
         if header[1] != 'System.TypeInitializationException':
             return None  # Arbitrary leaf messages cannot introduce a causal link.
         wrapper_body = body[header.end():].lstrip(' \t')
-        wrapper = re.match(r"The type initializer for '[^'\r\n\x00-\x1f\x7f]{1,512}' threw an exception\.", wrapper_body)
+        wrapper = re.match(r"The type initializer for '([^'\r\n\x00-\x1f\x7f]{1,512})' threw an exception\.", wrapper_body)
         if wrapper is None:
             chain['state'] = 'unrecognized-wrapper'
             return None
+        if private is not None:
+            if wrapper[1] == 'Microsoft.Build.Utilities.FileTracker':
+                private['initializers'].append('file-tracker')
+            else:
+                private['unknown_initializer'] = True
         remainder = wrapper_body[wrapper.end():]
         # MSBuild can append its private project decoration to each output line.
         if not remainder.strip() or re.fullmatch(r'[ \t]+\[[^\r\n]{0,32767}\][ \t]*', remainder):
@@ -1473,11 +1600,16 @@ def msb4018_task_context(content, limit, *, discard_first_line=False):
     """Fixed observations from contiguous MSB4018 lines, never exception text."""
     if discard_first_line:
         content = content.partition('\n')[2]
-    records, truncated, current, joining_bytes, block_bytes, chain_pending = [], False, None, 0, 0, None
-    for raw_line in content.split('\n'):
+    records, truncated, current, joining_bytes, block_bytes, chain_pending, argument_private = [], False, None, 0, 0, None, None
+    lines = content.split('\n')
+    for index, raw_line in enumerate(lines):
+        if index == len(lines) - 1 and raw_line == '':
+            break  # A terminal line ending is not a new, empty message body.
         line = raw_line.removesuffix('\r')
         body = msb4018_line_body(line)
         if body is None:
+            if current is not None:
+                msb4018_argument_close(current['argument_context'], argument_private)
             current, joining_bytes, chain_pending = None, 0, None
             continue
         task = re.fullmatch(r'The "([^"\r\n]{1,256})" task failed unexpectedly\.'
@@ -1488,9 +1620,16 @@ def msb4018_task_context(content, limit, *, discard_first_line=False):
                 break
             current = {'literal_match_state': 'unrecognized-template', 'task_label': 'unknown-task',
                 'exception_families': [], 'hresult_labels': [], 'win32_labels': [], 'context_truncated': False,
-                'exception_chain': {'state': 'not-observed', 'families': [], 'truncated': False}}
+                'exception_chain': {'state': 'not-observed', 'families': [], 'truncated': False},
+                'argument_context': {'state': 'not-observed', 'resource_state': 'not-observed', 'resource_label': None,
+                    'parameter_state': 'not-observed', 'parameter_role': None, 'initializer_roles': [],
+                    'unknown_initializer_seen': False, 'framework_frames': [], 'unknown_frame_seen': False,
+                    'frames_truncated': False}}
             records.append(current)
             block_bytes, chain_pending = 0, None
+            argument_private = {'initializers': [], 'unknown_initializer': False, 'active': False,
+                'parameter_open': False, 'parameter_count': 0, 'section': 'argument-inner', 'frame_count': 0,
+                'stack_started': False}
         else:
             block_bytes += joining_bytes
         block_bytes += len(line.encode('utf-8'))
@@ -1498,12 +1637,15 @@ def msb4018_task_context(content, limit, *, discard_first_line=False):
         if block_bytes > MSB4018_BLOCK_BYTES:
             current['context_truncated'] = True
             current['exception_chain'].update(state='byte-limit', truncated=True)
+            current['argument_context']['state'] = 'byte-limit'
             chain_pending = None
             continue
         if task is not None:
             current.update(literal_match_state='matched-task-template',
                 task_label=MSBUILD_TASK_LABELS.get(task[1].casefold(), 'unknown-task'))
-        chain_pending = msb4018_inner_chain(body, current['exception_chain'], chain_pending)
+        msb4018_argument_line(body, current['argument_context'], argument_private)
+        chain_pending = msb4018_inner_chain(body, current['exception_chain'], chain_pending,
+            current['argument_context'], argument_private)
         current['exception_families'] = sorted(set(current['exception_families']) | set(current['exception_chain']['families']))
         exception = msb4018_exception_header(body[5:] if body.startswith('---> ') else body)
         if exception is None:

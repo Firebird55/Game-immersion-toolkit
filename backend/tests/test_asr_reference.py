@@ -1617,7 +1617,10 @@ def test_msb4018_projects_only_reviewed_task_exception_and_explicit_code_labels(
     result=module.msb4018_task_context(content,16)
     assert result=={'records':[{'literal_match_state':'matched-task-template','task_label':'set-env',
         'exception_families':['argument-null'],'hresult_labels':['e-pointer'],'win32_labels':['access-denied'],
-        'context_truncated':False,'exception_chain':{'state':'not-observed','families':[],'truncated':False}}],
+        'context_truncated':False,'exception_chain':{'state':'not-observed','families':[],'truncated':False},
+        'argument_context':{'state':'not-observed','resource_state':'not-observed','resource_label':None,
+            'parameter_state':'not-observed','parameter_role':None,'initializer_roles':[],
+            'unknown_initializer_seen':False,'framework_frames':[],'unknown_frame_seen':False,'frames_truncated':False}}],
         'truncated':False}
     for private in ('r19-authored-private','PrivateStack','parameter/model','targets','22','System.ArgumentNullException','0x80004003'):
         assert private not in json.dumps(result)
@@ -1654,6 +1657,191 @@ def test_msb4018_primary_dll_exception_hresult_and_explicit_win32_code_are_separ
 
 def owned_type_initializer(name='Owned.PrivateInitializer'):
     return "System.TypeInitializationException: The type initializer for '"+name+"' threw an exception."
+
+
+def owned_argument_record(module,message,lines=(),*,initializer='Microsoft.Build.Utilities.FileTracker',newline='\n'):
+    bodies=['The "CL" task failed unexpectedly.',owned_type_initializer(initializer)+' ---> System.ArgumentException: '+message,*lines]
+    return module.msb4018_task_context(newline.join('error MSB4018: '+body for body in bodies),16)['records'][0]
+
+
+@pytest.mark.parametrize('message,label',[
+    ('Value does not fall within the expected range.','generic-argument'),
+    ('The path is not of a legal form.','path-illegal'),('Illegal characters in path.','path-invalid-characters'),
+    ('Path cannot be the empty string or all whitespace.','path-empty'),('Empty path name is not legal.','path-empty'),
+    ("The given path's format is not supported.",'path-format-unsupported'),('URI formats are not supported.','path-uri-unsupported'),
+    ('Absolute path information is required.','absolute-path-required'),('String cannot be of zero length.','string-empty'),
+    ('String may not be empty or null.','string-empty'),('An item with the same key has already been added.','dictionary-duplicate'),
+    ('Environment variable name cannot contain equal character.','env-name-invalid'),
+    ('The first char in the string is the null character.','env-name-invalid'),
+    ('Environment variable name cannot contain 1024 or more characters.','env-name-too-long'),
+    ('Environment variable name or value is too long.','env-name-or-value-too-long')])
+def test_argument_resources_match_only_the_complete_admitted_leaf_and_hide_project_decoration(module,message,label):
+    record=owned_argument_record(module,message+' [C:/r19-authored-private/project]')
+    context=record['argument_context']
+    assert context['state']=='observed' and context['resource_state']=='matched' and context['resource_label']==label
+    assert context['initializer_roles']==['file-tracker'] and context['unknown_initializer_seen'] is False
+    assert record['exception_chain']['families']==['type-initialization','argument']
+    assert 'r19-authored-private' not in json.dumps(context) and message not in json.dumps(context)
+
+
+@pytest.mark.parametrize('message,label',[
+    ("Item has already been added. Key in dictionary: 'private-key'  Key being added: 'PRIVATE-KEY'",'dictionary-duplicate'),
+    ('Illegal enum value: -1234567890.','enum-invalid'),
+    ('Illegal enum value: 12345678901.',None),
+    ("Item has already been added. Key in dictionary: '"+'x'*257+"'  Key being added: 'private-key'",None),
+    ("Item has already been added. Key in dictionary: 'private'quote'  Key being added: 'private-key'",None),
+    ('Illegal characters in path. private extra message',None),('Onjuiste tekens in pad.',None),
+    ('The path is not of a legal form.\x00',None),
+    ('The path is not of a legal form. [private\x00project]',None),
+    (' The path is not of a legal form.',None),('The path is not of a legal form. ',None)])
+def test_argument_formatted_resources_bound_opaque_values_and_leave_custom_or_localized_text_unknown(module,message,label):
+    context=owned_argument_record(module,message)['argument_context']
+    assert context['resource_label']==label and context['resource_state']==('matched' if label else 'unknown')
+    for private in ('private-key','PRIVATE-KEY','1234567890','private extra','Onjuiste','private\'quote'):
+        assert private not in json.dumps(context)
+
+
+@pytest.mark.parametrize('parameter,state,role',[
+    ('path','known-role','path-input'),('path2','known-role','path-second'),('paths','known-role','path-array'),
+    ('sourceDirName','known-role','source-directory'),('variable','known-role','environment-name'),
+    ('folder','known-role','special-folder-selector'),('key','known-role','dictionary-key'),
+    ('OwnedPrivateParameter','unknown',None),('PATH','unknown',None),('private/value','malformed',None),
+    ('x'*65,'malformed',None),('','malformed',None),('path ','malformed',None),
+    ('path [private\x00project]','malformed',None)])
+def test_argument_parameter_line_has_only_exact_public_roles_without_token_or_value_disclosure(module,parameter,state,role):
+    context=owned_argument_record(module,'The path is not of a legal form.',
+        ['Parameter name: '+parameter+' [C:/r19-authored-private/project]'])['argument_context']
+    assert context['parameter_state']==state and context['parameter_role']==role
+    assert 'OwnedPrivateParameter' not in json.dumps(context) and 'private/value' not in json.dumps(context)
+    assert 'r19-authored-private' not in json.dumps(context)
+
+
+def test_argument_duplicate_malformed_or_late_parameter_lines_do_not_invent_a_role(module):
+    message='The path is not of a legal form.'
+    duplicate=owned_argument_record(module,message,['Parameter name: path','Parameter name: private-key'])['argument_context']
+    assert duplicate['parameter_state']=='ambiguous' and duplicate['parameter_role'] is None
+    malformed=owned_argument_record(module,message,['Parameter name=path'])['argument_context']
+    assert malformed['parameter_state']=='malformed' and malformed['parameter_role'] is None
+    late=owned_argument_record(module,message,['at Owned.PrivateFrame()','Parameter name: path'])['argument_context']
+    assert late['parameter_state']=='not-observed' and late['parameter_role'] is None
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+@pytest.mark.parametrize('continuation',[
+    'Additional opaque message text.', 'System.IO.IOException: An unrelated opaque failure.', '',
+    'Parameter name=path', 'at System.IO.Path.GetPathRoot(String path) non-frame opaque trailer'])
+def test_argument_inadmissible_continuation_revokes_resource_and_cannot_jump_to_a_later_frame(module,newline,continuation):
+    frame='at System.IO.Path.GetPathRoot(String opaqueValue)'
+    valid=owned_argument_record(module,'The path is not of a legal form.',[frame],newline=newline)
+    value=owned_argument_record(module,'The path is not of a legal form.',[continuation,frame],newline=newline)
+    context=value['argument_context']
+    assert context['state']=='incomplete' and context['resource_state']=='unknown' and context['resource_label'] is None
+    assert context['framework_frames']==[] and context!=valid['argument_context'] and value!=valid
+    assert 'opaque' not in json.dumps(context) and 'System.IO.IOException' not in json.dumps(context)
+
+
+def test_argument_unknown_continuation_after_stack_keeps_prior_observation_but_closes_later_roles(module):
+    context=owned_argument_record(module,'The path is not of a legal form.',[
+        'at System.IO.Path.NormalizePath(String path)', 'unrelated opaque continuation',
+        'at System.IO.Path.GetPathRoot(String path)'])['argument_context']
+    assert context['state']=='incomplete' and context['resource_label']=='path-illegal'
+    assert context['framework_frames']==[{'section':'argument-inner','role':'path-normalization'}]
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+def test_argument_real_blank_boundary_closes_context_while_terminal_newline_does_not(module,newline):
+    prefix='error MSB4018: '
+    initial=newline.join(prefix+body for body in ('The "CL" task failed unexpectedly.',
+        owned_type_initializer()+' ---> System.ArgumentException: The path is not of a legal form.'))
+    terminal=module.msb4018_task_context(initial+newline,16)['records'][0]['argument_context']
+    assert terminal['state']=='observed' and terminal['resource_label']=='path-illegal'
+    records=module.msb4018_task_context(initial+newline+newline+prefix+'at System.IO.Path.GetPathRoot(String path)',16)['records']
+    assert len(records)==2 and records[0]['argument_context']['state']=='incomplete'
+    assert records[0]['argument_context']['resource_state']=='unknown' and records[0]['argument_context']['framework_frames']==[]
+    assert records[1]['argument_context']['state']=='not-observed' and records[1]['argument_context']['framework_frames']==[]
+
+
+def test_argument_known_parameter_and_end_marker_allow_only_coherent_wrapper_flow(module):
+    context=owned_argument_record(module,'The path is not of a legal form.',[
+        'Parameter name: path','--- End of inner exception stack trace ---',
+        'at Microsoft.Build.Utilities.FileTracker.FormatRootingMarker(ITaskItem[] sources)'])['argument_context']
+    assert context['state']=='observed' and context['resource_label']=='path-illegal' and context['parameter_role']=='path-input'
+    assert context['framework_frames']==[{'section':'wrapper-context','role':'file-tracker-caller'}]
+    duplicate=owned_argument_record(module,'The path is not of a legal form.',[
+        'Parameter name: path','Parameter name: path','at System.IO.Path.GetPathRoot(String path)'])['argument_context']
+    assert duplicate['state']=='incomplete' and duplicate['parameter_state']=='ambiguous'
+    assert duplicate['resource_state']=='unknown' and duplicate['framework_frames']==[]
+
+
+def test_argument_framework_frames_separate_inner_throw_operations_from_wrapper_callers(module):
+    context=owned_argument_record(module,'The path is not of a legal form.',[
+        'Parameter name: path',
+        'at System.IO.Path.NormalizePath(String privateValue, Boolean fullCheck) in C:/r19-authored-private/source:line 42',
+        'at System.IO.Path.GetPathRoot(String path) [C:/r19-authored-private/project]',
+        'at Microsoft.Build.Utilities.FileTracker.InitializeCommonApplicationDataPaths()',
+        'at Microsoft.Build.Utilities.FileTracker..cctor()',
+        '--- End of inner exception stack trace --- [C:/r19-authored-private/project]',
+        'at Microsoft.Build.Utilities.FileTracker.FormatRootingMarker(ITaskItem[] privateItems)',
+        'at Owned.PrivateCaller()'])['argument_context']
+    assert context['framework_frames']==[{'section':'argument-inner','role':role} for role in
+        ('path-normalization','path-root','file-tracker-common-data','file-tracker-initialization')]+[
+        {'section':'wrapper-context','role':'file-tracker-caller'}]
+    assert context['unknown_frame_seen'] is True and context['frames_truncated'] is False
+    for private in ('privateValue','privateItems','PrivateCaller','r19-authored-private','42','System.IO.Path'):
+        assert private not in json.dumps(context)
+
+
+@pytest.mark.parametrize('frame',[
+    'at System.IO.Path.GetPathRootInjected(String privateValue)',
+    'at System.IO.Path.GetPathRoot('+('x'*1025)+')',
+    'at System.IO.Path.GetPathRoot(String path) in '+('x'*2049),
+    'at System.IO.Path.GetPathRoot(String path) private non-frame trailer',
+    'at System.IO.Path.GetPathRoot(String\x00 path)'])
+def test_argument_frame_method_boundaries_signatures_and_trailers_cannot_expand_the_allowlist(module,frame):
+    context=owned_argument_record(module,'private custom message',[frame],initializer='Owned.PrivateInitializer')['argument_context']
+    assert context['framework_frames']==[] and context['unknown_frame_seen'] is True
+    assert context['initializer_roles']==[] and context['unknown_initializer_seen'] is True
+    assert context['resource_state']=='unknown'
+    assert 'Owned' not in json.dumps(context) and 'private custom' not in json.dumps(context)
+
+
+def test_argument_unknown_stack_lines_consume_the_shared_frame_limit_and_new_task_resets_it(module):
+    frames=['at Owned.PrivateFrame()']*10+['at System.IO.Path.GetPathRoot(String path)']*7
+    context=owned_argument_record(module,'The path is not of a legal form.',frames)['argument_context']
+    assert len(context['framework_frames'])==6 and context['frames_truncated'] is True and context['unknown_frame_seen'] is True
+    block='\n'.join('error MSB4018: '+body for body in ('The "CL" task failed unexpectedly.',
+        owned_type_initializer()+' ---> System.ArgumentException: The path is not of a legal form.',*frames))
+    result=module.msb4018_task_context('\n'.join((block,block,block)),2)
+    assert len(result['records'])==2 and result['truncated'] is True
+    assert all(len(row['argument_context']['framework_frames'])==6 for row in result['records'])
+
+
+def test_argument_context_requires_the_admitted_argument_leaf_and_never_inspects_private_paths(module,monkeypatch):
+    bodies=['The "CL" task failed unexpectedly.',owned_type_initializer()+' ---> System.ArgumentException: private message at System.IO.Path.GetPathRoot(String path)',
+        'at Owned.PrivateCaller(C:/r19-authored-private/value)']
+    def forbidden(*_args,**_kwargs):pytest.fail('Argument context must not inspect files or call native APIs.')
+    with monkeypatch.context() as patch:
+        patch.setattr(Path,'stat',forbidden);patch.setattr(Path,'lstat',forbidden);patch.setattr(Path,'open',forbidden)
+        context=module.msb4018_task_context('\n'.join('error MSB4018: '+body for body in bodies),16)['records'][0]['argument_context']
+    assert context['resource_state']=='unknown' and context['framework_frames']==[]
+    assert context['unknown_frame_seen'] is True and 'r19-authored-private' not in json.dumps(context)
+    for body in ('System.ArgumentException: The path is not of a legal form.',
+            'System.TypeInitializationException: private prose ---> System.ArgumentException: The path is not of a legal form.'):
+        record=module.msb4018_task_context('error MSB4018: '+body,16)['records'][0]
+        assert record['argument_context']['state']=='not-observed'
+
+
+@pytest.mark.parametrize('newline',['\n','\r\n'])
+@pytest.mark.parametrize('extra_byte',[False,True])
+def test_argument_context_keeps_exact_utf8_block_cap_for_resource_parameter_and_frame(module,monkeypatch,newline,extra_byte):
+    bodies=[owned_type_initializer('Owned.\u4e2d')+' ---> System.ArgumentException: The path is not of a legal form.',
+        'Parameter name: path','at System.IO.Path.GetPathRoot(String path)']
+    content=newline.join('error MSB4018: '+body for body in bodies)
+    monkeypatch.setattr(module,'MSB4018_BLOCK_BYTES',len(content.encode())-int(extra_byte))
+    record=module.msb4018_task_context(content,16)['records'][0];context=record['argument_context']
+    assert context['state']==('byte-limit' if extra_byte else 'observed')
+    assert context['resource_label']=='path-illegal' and context['parameter_role']=='path-input'
+    assert context['framework_frames']==([] if extra_byte else [{'section':'argument-inner','role':'path-root'}])
 
 
 @pytest.mark.parametrize('newline',['\n','\r\n'])
@@ -1813,6 +2001,9 @@ def test_msb4018_long_nonmatching_headers_finish_in_one_bounded_child_within_the
     content=noise+'error MSB4018: The "SetEnv" task failed unexpectedly.\n'
     content+=('error MSB4018: The "CL" task failed unexpectedly.\nerror MSB4018: '
         'System.TypeInitializationException: '+' '*16000+'private non-wrapper\n')*8
+    content+=('error MSB4018: The "CL" task failed unexpectedly.\nerror MSB4018: '+
+        owned_type_initializer()+' ---> System.ArgumentException: '+'x'*28000+'\n'+
+        'error MSB4018: at System.IO.Path.GetPathRoot('+('x'*1025)+')\n')*3
     assert len(content.encode())<module.LOG_TAIL_BYTES
     (directory/'CMakeConfigureLog.yaml').write_bytes(content.encode())
     script='''import importlib.util, sys
@@ -1822,9 +2013,10 @@ driver=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(driver)
 logs=driver.nested_configure_log_context(Path(sys.argv[2]))["logs"]
 records=logs[0]["msb4018_tasks"]["records"]
-assert len(records)==9 and records[0]["task_label"]=="set-env"
+assert len(records)==12 and records[0]["task_label"]=="set-env"
 assert records[0]["context_truncated"] is False
-assert all(item["exception_chain"]["state"]=="unrecognized-wrapper" for item in records[1:])
+assert all(item["exception_chain"]["state"]=="unrecognized-wrapper" for item in records[1:9])
+assert all(item["argument_context"]["resource_state"]=="unknown" and item["argument_context"]["unknown_frame_seen"] for item in records[9:])
 print("bounded-msb4018-parser-passed")
 '''
     result=module.subprocess.run([module.sys.executable,'-I','-B','-c',script,

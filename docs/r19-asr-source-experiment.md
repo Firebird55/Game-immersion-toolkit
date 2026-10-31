@@ -315,8 +315,45 @@ assign codes to a particular chain layer. Type names, initializer names,
 messages and parameter values stay private. This uses the same block/tail/record
 bounds and linear header parsing, with no reflection, extra verbosity or new
 native execution. An ordered formatted chain is not a live exception object or
-proof of a complete underlying cause; the actual CL inner exception remains
-unknown until a subsequent native receipt observes it.
+proof of a complete underlying cause. The observed CL inner argument family
+does not yet identify its message, parameter, initializer owner or throw site.
+The additive `argument_context` collects those three context axes together only
+for an admitted `System.ArgumentException` leaf of that standard wrapper chain.
+It compares the complete leaf message against 13 fixed English resource groups
+from the pinned [.NET Framework resource catalog](https://github.com/microsoft/referencesource/blob/ec9fa9ae770d522a5b5f0607898044b7478574a3/mscorlib/mscorlib.txt):
+generic argument, illegal/invalid/empty/unsupported/URI/absolute paths, empty
+strings, duplicate dictionary keys, environment-name syntax/length, environment
+name-or-value length and invalid enum. The two formatted cases permit only
+bounded opaque quoted keys (256 characters) or numeric fields (ten digits);
+values, lengths and hashes are omitted. Custom/localized text, control characters
+and altered resource whitespace remain unknown. A match is resource-format
+context, not proof of binary source correspondence or a functional cause.
+[ArgumentException.Message](https://github.com/microsoft/referencesource/blob/ec9fa9ae770d522a5b5f0607898044b7478574a3/mscorlib/system/argumentexception.cs#L70-L84)
+puts a nonempty parameter on a following line. Only that immediately continuing
+fixed prefix can supply exact public path/directory/environment/folder/key roles;
+unknown, malformed, missing and duplicate parameter lines stay explicit. No
+arbitrary parameter token is emitted.
+The first inadmissible continuation, unrelated exception header, real blank
+boundary or malformed frame closes this argument observation with an explicit
+`incomplete` state. Unknown message continuation before the first stack frame
+also revokes the resource match. Later frame-looking lines cannot resume the
+closed context. Earlier admitted frames remain partial observations; a terminal
+line ending alone is not a new blank message. Valid parameter/end-marker/wrapper
+flow and syntactically valid unknown frames retain their explicit roles/states.
+The known initializer role is limited to the public
+[FileTracker class](https://github.com/dotnet/msbuild/blob/86743d0545fba3d043d4e7aaa12891edb3fd56e6/src/Utilities/TrackedDependencies/FileTracker.cs#L73-L148).
+Unknown initializer names remain a boolean. At most 16 anchored stack-frame
+lines per task, including unknown frames, can supply ordered fixed FileTracker,
+Path, Environment, Directory/DirectoryInfo or Dictionary operation roles.
+Inner argument frames are separated from later wrapper context by the fixed
+.NET inner-stack end marker. Signatures/trailers are bounded at 1,024/2,048
+characters and never emitted or inspected. Raw names, signatures, paths and line
+numbers remain private. Unknown frames and frame overflow are explicit; stack
+mentions inside message prose cannot create frames. This shares the existing
+2 MiB tail, 32 KiB UTF-8/LF/CRLF task cap, 16 records and eight-layer chain limit,
+without further reads or native/CLR probes. Parent-environment map context is
+omitted. The exact runner CPPTasks/MSBuild/Framework source correspondence and
+the actual argument context remain unverified until native evidence supplies them.
 The wrapper passes the actual selected `vswhere` instance's numeric four-part
 VS18 installation version together with its directory. Python queries the same
 explicit machine `vswhere.exe` again before and after the experiment, requires
