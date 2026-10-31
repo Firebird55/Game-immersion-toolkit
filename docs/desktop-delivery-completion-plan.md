@@ -64,11 +64,26 @@ Raw event paths and machine diagnostics remain local and untracked.
 
 ### Checkpoint: 2026-10-31
 
-PR #62 integrates the current branch with main and PR #60. Its first hosted
-publication audit passed; the application job passed 270 JavaScript tests and
-2,097 Python tests, but failed one cross-platform symbolic-link fixture. The
-fixture now records the host's actual link bytes; a new hosted run must confirm
-that correction before merge.
+PR #62 integrates the current branch with main and PR #60. Hosted validation
+confirmed the symbolic-link, Windows recovery-fixture and Python provisioning
+corrections. The hosted rerun passed all required application, browser and source
+audit jobs. A later comprehensive local run passed core/browser/recovery checks
+but reproduced the update scenario connection reset while streaming an upstream
+response. That failure remains under investigation; the local run is not a full
+pass.
+
+The exact Windows candidate from `984cb51` now passes frozen host startup,
+frontend/API access, API crash recovery, same-state restart, owned shutdown,
+host-crash cleanup and immutable-inventory checks. Native visible-UI observations
+also pass for status/log windows, tray actions and browser-handler requests.
+These are actual frozen-process results, not synthetic executable fixtures.
+Browser navigation and final installed-app acceptance remain open.
+
+The first native build exposed an incompatible ICU DLL collected from an
+unrelated developer tool on PATH. Restricting build discovery to the verified
+interpreter and operating-system tools fixes startup. The native probe now
+tracks fixed service entrypoints and their descendants, leaving the user's
+browser outside cleanup authority.
 
 The frozen-host probe covers startup, stable-origin API crash recovery, owned
 shutdown and host-crash cleanup. The separate visible-UI probe observes status,

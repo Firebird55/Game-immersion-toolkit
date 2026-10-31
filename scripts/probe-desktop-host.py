@@ -104,14 +104,25 @@ class FrozenHost:
         if not alive(self.identity):
             return []
         descendants = self.identity.children(recursive=True)
+        owned = {}
+        # Opening the default browser may create a direct child which belongs
+        # to the user's desktop session, not to the toolkit service tree. Never
+        # wait for or terminate it during probe cleanup. Start authority at our
+        # fixed frozen service entrypoints, then retain their descendants.
         for process in descendants:
             try:
-                self.observed[(process.pid, process.create_time())] = process
-                if child_kind(process.cmdline()) in {'api', 'frontend', 'gateway'}:
-                    self.service_processes[(process.pid, process.create_time())] = process
+                kind = child_kind(process.cmdline())
+                if kind and Path(process.exe()).resolve() == self.executable.resolve():
+                    identity = (process.pid, process.create_time())
+                    owned[identity] = process
+                    if kind in {'api', 'frontend', 'gateway'}:
+                        self.service_processes[identity] = process
+                    for child in process.children(recursive=True):
+                        owned[(child.pid, child.create_time())] = child
             except psutil.NoSuchProcess:
                 pass
-        return descendants
+        self.observed.update(owned)
+        return list(owned.values())
 
     def wait(self, predicate, timeout, code, *, require_running=True):
         deadline = time.monotonic() + timeout

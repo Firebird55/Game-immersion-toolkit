@@ -17,6 +17,27 @@ def test_runtime_roles_do_not_confuse_guardian_embedded_command_with_api():
     assert probe.child_kind(['app', '--runtime-child', 'api']) is None
 
 
+def test_observation_owns_service_workers_but_never_the_default_browser(monkeypatch, tmp_path):
+    class Process:
+        def __init__(self, pid, executable, arguments, children=()):
+            self.pid, self.executable, self.arguments, self.descendants = pid, executable, arguments, children
+        def create_time(self): return 1
+        def exe(self): return str(self.executable)
+        def cmdline(self): return self.arguments
+        def children(self, recursive=False): return self.descendants
+    executable = tmp_path / 'runtime.exe'
+    codec = Process(4, tmp_path / 'codec.exe', [])
+    service = Process(2, executable, ['runtime', '--runtime-child', 'api', '--'], [codec])
+    browser = Process(3, tmp_path / 'browser.exe', ['browser', 'http://localhost'])
+    host = probe.FrozenHost.__new__(probe.FrozenHost)
+    host.executable, host.identity = executable, Process(1, executable, [], [service, browser, codec])
+    host.observed, host.service_processes = {}, {}
+    monkeypatch.setattr(probe, 'alive', lambda _p: True)
+    assert {process.pid for process in host.observe()} == {2, 4}
+    assert {process.pid for process in host.service_processes.values()} == {2}
+    assert browser not in host.observed.values()
+
+
 def test_child_environment_drops_credentials_and_developer_runtime(monkeypatch, tmp_path):
     for name in ('PYTHONPATH', 'PYTHONHOME', 'API_KEY', 'PROXY_TRANSCRIPT_ACCOUNT_KEY', 'BROWSER'):
         monkeypatch.setenv(name, 'private-value')
