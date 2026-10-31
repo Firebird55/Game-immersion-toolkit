@@ -200,9 +200,9 @@
   ],
   "licensing_boundary": {
     "original_upstream_recipes": "Retained byte-for-byte with vgmstream COPYING; dependency original recipes/notices remain in exact source archives.",
-    "project_orchestration": "New original project code remains under LICENSE. It has no additional GPL grant and is not declared compatible corresponding source for future binary distribution.",
+    "project_orchestration": "The six identified authorized original project portions have the additional owner-approved BSD-3-Clause option delivered with PROJECT-BSD-COPIES.json; other project inputs remain under LICENSE. No additional GPL grant or complete corresponding-source/relinking approval is inferred.",
     "xiph_flac_scoped_grant_applies": false,
-    "rights_review": "unresolved; includes actual enabled-code/file notices, static Opus and MSVC CRT incorporation, build-recipe compatibility, durable complete source delivery and servicing."
+    "rights_review": "Remaining exact enabled-code/file notices, static Opus and MSVC CRT incorporation, usable complete source/relinking delivery, durable binary/source cohosting and servicing remain unresolved; the scoped project recipe BSD decision is approved separately."
   },
   "production_execution_allowed": false,
   "runtime_collection_allowed": false,
@@ -242,5 +242,17 @@
       "swresample"
     ],
     "original_notice": "Original Derek Buitenhuis ISC-style header remains unchanged in original and modified makedef. Project diagnostic orchestration remains under LICENSE; compatibility and durable corresponding-source delivery remain unapproved."
+  },
+  "project_recipe_license": {
+    "schema": "proxy-r19-ffmpeg-recipe-additional-license-v1",
+    "identifier": "BSD-3-Clause",
+    "scope": "six-authorized-original-project-portions-and-bounded-notice-source-delivery-integration",
+    "approved_on": "2026-10-31",
+    "approval_proposal_sha256": "cd2233ca8a99ee0f98a972011363a666b9a3104d89df03c618609faabce60d5d",
+    "grant": {
+      "path": "packaging/codecs/FFMPEG-BUILD-RECIPES-LICENSE.txt",
+      "bytes": 5993,
+      "sha256": "eb89bd307353f5e14b392e7b3b1307e31681d7258bba8b8777965a4362e5bd07"
+    }
   }
 }

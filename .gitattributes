@@ -19,3 +19,5 @@ packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch -text
 packaging/asr/cmake-compilerid-instance-location.patch -text whitespace=cr-at-eol
 packaging/asr/CMAKE-LICENSE.rst -text whitespace=cr-at-eol
 packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt -text
+# Keep the owner-approved scoped additional BSD notice byte-exact.
+packaging/codecs/FFMPEG-BUILD-RECIPES-LICENSE.txt -text
