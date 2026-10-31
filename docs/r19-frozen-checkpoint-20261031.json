@@ -645,5 +645,30 @@
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false,
     "installer": "not-built"
+  },
+  "subsequent_source_failure_c18d07a": {
+    "source_commit": "c18d07a8138234df64c5b86dc21c99cac46931a1",
+    "run": 41160409828,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160409828",
+    "check_job": 124416510233,
+    "source_audit": "passed",
+    "status": "failed",
+    "python": {
+      "passed": 2127,
+      "failed": 2,
+      "skipped": 1,
+      "subtests_passed": 62
+    },
+    "failed_cases": [
+      "Windows NUL automatic-color expectation",
+      "authored compiler activation contract"
+    ],
+    "raw_zip_refusal": "previous Windows case passed",
+    "browser_groups": "skipped",
+    "package": "skipped",
+    "publish": "skipped",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
   }
 }

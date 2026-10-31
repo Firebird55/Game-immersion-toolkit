@@ -91,8 +91,12 @@ approval. Hosted attempts initially failed ambiguous tool discovery and then
 the installed CMake 4.4.4 versus required 4.4.5 check. The exact official
 [isolated CMake input](pinned-build-cmake.md) preserves the 4.4.5 requirement.
 At `a079232`, its acquisition and verification passed; FFmpeg/Opus then failed
-compiler activation quoting and ASR failed before configure. The corrected
-private activation batch and bounded ASR target/import diagnostics require
+compiler activation quoting and ASR failed before configure. At `c18d07a`, the
+corrected private batch activated the compiler, then the search-root guard
+refused a path; bounded component-role diagnostics are the next required input
+before considering any root change. ASR diagnostics identified three installed
+VC-target families. The reviewed policy now selects only the exact observed
+VS18 `v180` props, with no fallback to another family. That selection requires
 new native execution. These failures establish no decode or inference result;
 the strict toolchain, source and configuration guards remain in force.
 The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
