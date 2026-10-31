@@ -201,3 +201,42 @@ def test_gpu_frame_excludes_titlebar_and_keeps_client_pixels(monkeypatch):
 
 
 
+
+def test_failed_native_stop_keeps_control_and_session_until_retry_succeeds():
+    source = window_capture.BackgroundCapture()
+    failing, calls = [True], []
+    def stop():
+        calls.append('stop')
+        if failing[0]:
+            raise OSError('Synthetic native stop failed')
+    worker, target = SimpleNamespace(close=stop), (123, (0, 0, 10, 10))
+    source._worker, source._target = worker, target
+    with pytest.raises(OSError, match='native stop failed'):
+        source.close()
+    assert source._worker is worker and source._target is target
+    failing[0] = False
+    source.close()
+    assert source._worker is source._target is None
+    source.close()
+    assert calls == ['stop', 'stop']
+
+
+def test_frame_process_retains_native_owner_after_failed_termination():
+    import threading
+    from io import BytesIO
+    worker = object.__new__(window_capture.FrameProcess)
+    worker.stopping = threading.Event()
+    process = SimpleNamespace(stdin=BytesIO(), stdout=BytesIO(), wait=lambda **_: 0)
+    failing = [True]
+    def terminate():
+        if failing[0]:
+            raise TimeoutError('Native job is still owned')
+    tree = SimpleNamespace(terminate=terminate, close=lambda: None)
+    worker.process, worker.tree, worker.reader = process, tree, None
+    with pytest.raises(TimeoutError):
+        worker.close()
+    assert worker.process is process and worker.tree is tree
+    assert not process.stdout.closed
+    failing[0] = False
+    worker.close()
+    assert worker.process is worker.tree is None and process.stdout.closed

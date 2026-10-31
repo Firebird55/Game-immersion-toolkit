@@ -362,9 +362,18 @@ def test_failed_quiesce_blocks_rollback_until_every_worker_is_joined(tmp_path, m
     runtime._updates_started = True
     runtime._quiesce_task = runtime._handoff_state = None
     runtime.request_barrier = RequestBarrier()
+    from backend.runtime_writers import RuntimeWriterGate
+    runtime.request_writers = RuntimeWriterGate()
+    runtime._handoff_lock, runtime._handoff_drains, runtime._writer_handoff = asyncio.Lock(), [], False
+    runtime._reading_registry = SimpleNamespace(stop_creation=lambda _: None, quiesce_owned=lambda _: None,
+        resume_pools=lambda: None, reopen_creation=lambda: None)
+    runtime._voice_pools = lambda: []
+    runtime.automatic_exports = SimpleNamespace(close=lambda: None, start=lambda: None,
+        picker=SimpleNamespace(drain=lambda: None, resume=lambda: None))
+    runtime.toolkit_updater = SimpleNamespace(close=lambda: None, start=lambda: None)
     runtime.textmaps = runtime.pragmata = None
     runtime.hito = SimpleNamespace(close=lambda: None, resume=lambda: None)
-    runtime.installation = SimpleNamespace(pause=lambda: None, resume=lambda: None)
+    runtime.installation = SimpleNamespace(pause=lambda: None, quiesce=lambda _: None, resume=lambda: None)
     runtime.mobile_exports = SimpleNamespace(drain=lambda: None, resume=lambda: None)
     runtime.worker_pools = lambda: []
     runtime.repair_task = runtime.index_task = runtime.map_task = None
@@ -380,7 +389,8 @@ def test_failed_quiesce_blocks_rollback_until_every_worker_is_joined(tmp_path, m
         running[0] = True
         capture_events.append('start')
     runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=running[0]),
-        stop=stop_capture, start=start_capture,
+        stop=stop_capture, quiesce=lambda _: stop_capture(), start=start_capture,
+        resume_workers=lambda: None, native_stop_pending=False, drain_publications=lambda: asyncio.sleep(0),
         import_handoff=lambda state: capture_events.append(state.session_id),
         export_handoff=lambda active: CaptureHandoff(running=active, session_id='preserved'))
     def build(*_, job):
@@ -396,7 +406,7 @@ def test_failed_quiesce_blocks_rollback_until_every_worker_is_joined(tmp_path, m
     manager.start()
     old_token = manager.stop_event
     close = manager.close
-    monkeypatch.setattr(manager, 'close', lambda: close(timeout=.05))
+    monkeypatch.setattr(manager, 'close', lambda timeout=.05: close(timeout=timeout))
     monkeypatch.setattr(api, 'runtime', runtime, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767', raise_server_exceptions=False)
     headers = {'X-Proxy-Transcript': 'update'}
@@ -425,13 +435,14 @@ def test_failed_quiesce_blocks_rollback_until_every_worker_is_joined(tmp_path, m
         monitor = manager.monitor
         assert monitor.is_alive() and resumed.wait(1)
         assert not manager.request('cyberpunk', 'zh-Hans', 'en', 'second')
+        assert len(manager._workers) == 1
         assert not activated and manager.selected('cyberpunk', 'first') is None
         resume_release.set()
         wait_for(lambda: not manager._workers)
         assert manager.selected('cyberpunk', 'first') == 'zh-Hans'
         assert manager.selected('cyberpunk', 'second') == 'zh-Hans'
         assert activated == [('cyberpunk', 'zh-Hans', 'first'), ('cyberpunk', 'zh-Hans', 'second')]
-        assert client.post('/api/runtime/activate', headers=headers, json=payload).status_code == 200
+        assert client.post('/api/runtime/activate?writers=true', headers=headers, json=payload).status_code == 200
         assert manager.monitor is monitor and audio_restarts == [True]
     finally:
         release.set()

@@ -4,19 +4,22 @@ Authored public bytes only. These prove manifest/HTTP isolation and old-chunk
 availability, not a real profile, native capture or all frontend equivalence.
 """
 from contextlib import contextmanager
+from dataclasses import replace
 import hashlib
 import http.client
 import json
 from pathlib import Path
 import threading
+from types import SimpleNamespace
 
 import pytest
 
 from backend.desktop_frontend import (API_BASE, FRONTEND_ORIGIN, WEBSOCKET_URL, DesktopFrontendServer,
                                       FrontendBuild, FrontendError, build_identity)
+from backend.runtime_bundle import EXPERIMENT_CHILDREN, RuntimeLayout
 
 
-def build(root: Path, extra=None):
+def build(root: Path, extra=None, *, omit=()):
     root.mkdir()
     content = {'index.html': (b'<!doctype html><title>owned fixture</title>', 'text/html; charset=utf-8'),
                'assets/entry-12345678.js': (b'export const fixture=true;', 'text/javascript; charset=utf-8'),
@@ -24,6 +27,8 @@ def build(root: Path, extra=None):
                'mobile-capture/index.html': (b'<!doctype html><title>mobile fixture</title>', 'text/html; charset=utf-8'),
                'mobile-capture/core.wasm': (b'\0asm\1\0\0\0', 'application/wasm')}
     content.update(extra or {})
+    for name in omit:
+        content.pop(name)
     files = {}
     for name, (data, mime) in content.items():
         path = root / name
@@ -166,3 +171,154 @@ def test_linked_frontend_or_private_native_resource_is_rejected(tmp_path):
     build(forbidden, {'assets/oneocr.onemodel': (b'owned negative fixture', 'application/octet-stream')})
     with pytest.raises(FrontendError, match='nonpublic'):
         FrontendBuild(forbidden)
+
+
+def immutable_slot(tmp_path, name, extra=None, *, omit=()):
+    """Authored frontend subset, with an independently retained runtime pin.
+
+    No native executable/provenance eligibility or real slot migration is
+    supplied by this fixture.
+    """
+    application = tmp_path / ('slot-' + name)
+    resources = application / '_internal'
+    resources.mkdir(parents=True)
+    frontend = resources / 'desktop'
+    build(frontend, extra, omit=omit)
+    hashes = {path.relative_to(resources).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in frontend.rglob('*') if path.is_file()}
+    manifest = {'schema': 'proxy-runtime-bundle-v1', 'profile': 'runtime-experiment',
+        'version': '0.22.0', 'source_commit': 'a' * 40, 'build_id': 'authored-' + name,
+        'resources': hashes, 'children': list(EXPERIMENT_CHILDREN)}
+    raw = json.dumps(manifest).encode()
+    (resources / 'runtime-manifest.json').write_bytes(raw)
+    private = tmp_path / ('private-' + name)
+    layout = RuntimeLayout(mode='bundle', application_root=application, resource_root=resources,
+        executable=application / 'ProxyTranscriptRuntime.exe',
+        settings_root=private, data_root=private / 'data-v1', cache_root=private / 'cache-v1',
+        work_root=private / 'cache-v1/work', tool_root=private / 'tools-v1',
+        state_root=private / 'host-v1', default_export_root=private / 'exports',
+        version=manifest['version'], source_commit=manifest['source_commit'],
+        build_id=manifest['build_id'], resources=hashes, children=EXPERIMENT_CHILDREN,
+        profile=manifest['profile'])
+    return layout, hashlib.sha256(raw).hexdigest()
+
+
+@contextmanager
+def slot_host(current, retired=()):
+    server = DesktopFrontendServer.from_experimental_slots(*current, retired_slots=retired)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+        assert not thread.is_alive()
+
+
+def test_pinned_slots_retain_vite_next_get_head_etag_and_reject_mutable_or_unknown_old_paths(tmp_path):
+    retired = immutable_slot(tmp_path, 'old', {
+        'index.html': (b'old authored index', 'text/html; charset=utf-8'),
+        'assets/lazy-abcdefgh.js': (b'owned lazy Vite chunk', 'text/javascript; charset=utf-8'),
+        '_next/static/chunks/OldChunk.js': (b'owned Next chunk', 'text/javascript; charset=utf-8'),
+        'mobile-capture/old.mjs': (b'old mutable module', 'text/javascript; charset=utf-8')})
+    current = immutable_slot(tmp_path, 'current')
+    with slot_host(current, (retired,)) as server:
+        port = server.server_port
+        assert port not in (0, 3000, 8766)
+        assert b'owned fixture' in request(port)[2]
+        path = '/assets/lazy-abcdefgh.js'
+        status, headers, body = request(port, path + '?cache=old')
+        assert status == 200 and body == b'owned lazy Vite chunk'
+        assert headers['Content-Type'] == 'text/javascript; charset=utf-8'
+        assert 'immutable' in headers['Cache-Control']
+        status, head, body = request(port, path, method='HEAD')
+        assert status == 200 and not body and head['Content-Length'] == str(len(b'owned lazy Vite chunk'))
+        assert request(port, path, headers=[('Host', '127.0.0.1'), ('If-None-Match', headers['ETag'])])[0] == 304
+        assert request(port, '/_next/static/chunks/OldChunk.js')[2] == b'owned Next chunk'
+        for path in ('/mobile-capture/old.mjs', '/assets/unknown-abcdefgh.js', '/desktop-manifest.json',
+                     '/../private.db', '/assets/%2e%2e/private.db', '/assets/lazy-abcdefgh.js:stream'):
+            assert request(port, path)[0] == 404
+        assert request(port, '/assets/lazy-abcdefgh.js', method='POST')[0] == 405
+        # Manifest pins are construction checks, not a live root selector. New
+        # manifest contents cannot amend the server's captured resource map.
+        root = retired[0].resource_root
+        unbound = root / 'desktop/assets/unbound-abcdefgh.js'
+        unbound.write_bytes(b'unbound post-start bytes')
+        (root / 'runtime-manifest.json').write_text('{"retained_root":"untrusted replacement"}')
+        (root / 'desktop/desktop-manifest.json').write_text(json.dumps({'files': {
+            'assets/unbound-abcdefgh.js': {'bytes': unbound.stat().st_size,
+                'sha256': hashlib.sha256(unbound.read_bytes()).hexdigest(), 'mime': 'text/javascript; charset=utf-8'}}}))
+        assert request(port, '/assets/unbound-abcdefgh.js')[0] == 404
+        assert request(port, '/assets/lazy-abcdefgh.js')[2] == b'owned lazy Vite chunk'
+        (retired[0].resource_root / 'desktop/assets/lazy-abcdefgh.js').write_bytes(b'changed retired bytes')
+        assert request(port, '/assets/lazy-abcdefgh.js')[0] == 503
+
+
+@pytest.mark.parametrize('change', ['pin', 'layout', 'production', 'source', 'desktop-pin',
+    'resource-pin', 'missing-resource', 'extra-file', 'extra-directory', 'duplicate-runtime-key'])
+def test_slot_binding_refuses_untrusted_or_changed_subset_before_listener(tmp_path, monkeypatch, change):
+    current = immutable_slot(tmp_path, 'current')
+    layout, trusted_pin = immutable_slot(tmp_path, 'old')
+    manifest_path = layout.resource_root / 'runtime-manifest.json'
+    if change == 'pin': trusted_pin = '0' * 64
+    elif change == 'layout': layout = replace(layout, build_id='unbound-owner-value')
+    elif change == 'production': layout = replace(layout, profile='runtime')
+    elif change == 'source': layout = {'resource_root': str(layout.resource_root)}
+    elif change in ('desktop-pin', 'resource-pin', 'missing-resource'):
+        resources = dict(layout.resources)
+        name = 'desktop/desktop-manifest.json' if change == 'desktop-pin' else 'desktop/assets/entry-12345678.js'
+        if change == 'missing-resource': del resources[name]
+        else: resources[name] = '0' * 64
+        manifest = json.loads(manifest_path.read_bytes()); manifest['resources'] = resources
+        raw = json.dumps(manifest).encode(); manifest_path.write_bytes(raw)
+        trusted_pin = hashlib.sha256(raw).hexdigest()
+        layout = replace(layout, resources=resources)
+    elif change == 'extra-file': (layout.resource_root / 'desktop/unlisted.txt').write_bytes(b'unlisted')
+    elif change == 'extra-directory': (layout.resource_root / 'desktop/private-data').mkdir()
+    else:
+        raw = manifest_path.read_bytes().replace(b'{', b'{"profile":"runtime",', 1)
+        manifest_path.write_bytes(raw); trusted_pin = hashlib.sha256(raw).hexdigest()
+    def forbidden_listener(*_args, **_kwargs):
+        pytest.fail('Rejected slot must not open a listener')
+    monkeypatch.setattr('backend.desktop_frontend.ThreadingHTTPServer.__init__', forbidden_listener)
+    with pytest.raises(FrontendError):
+        DesktopFrontendServer.from_experimental_slots(*current, retired_slots=((layout, trusted_pin),))
+
+
+@pytest.mark.parametrize('case_alias', [False, True])
+def test_cross_slot_immutable_conflict_is_refused_before_listener(tmp_path, monkeypatch, case_alias):
+    current = immutable_slot(tmp_path, 'current')
+    name = 'assets/ENTRY-12345678.js' if case_alias else 'assets/entry-12345678.js'
+    retired = immutable_slot(tmp_path, 'conflict', {name: (b'conflicting old chunk', 'text/javascript; charset=utf-8')},
+        omit=('assets/entry-12345678.js',) if case_alias else ())
+    monkeypatch.setattr('backend.desktop_frontend.ThreadingHTTPServer.__init__',
+        lambda *_a, **_k: pytest.fail('Conflicting slots must not open a listener'))
+    with pytest.raises(FrontendError, match='collide'):
+        DesktopFrontendServer.from_experimental_slots(*current, retired_slots=(retired,))
+
+
+def test_slot_adapter_bound_retention_limit_and_frozen_cli_gate_remain_closed(tmp_path, monkeypatch):
+    from backend.desktop_frontend import frontend_root
+    current = immutable_slot(tmp_path, 'current')
+    with pytest.raises(FrontendError, match='Too many'):
+        DesktopFrontendServer.from_experimental_slots(*current, retired_slots=(current,) * 17)
+    args = SimpleNamespace(root=None, retained_root=[current[0].resource_root / 'desktop'])
+    with pytest.raises(FrontendError, match='reviewed update supervisor'):
+        frontend_root(args, current[0])
+
+
+def test_retired_slot_link_and_post_start_reparse_refuse_original_bytes(tmp_path):
+    current = immutable_slot(tmp_path, 'current')
+    retired = immutable_slot(tmp_path, 'old', {'assets/lazy-abcdefgh.js': (b'owned prior chunk', 'text/javascript; charset=utf-8')})
+    target = retired[0].resource_root / 'desktop/assets/lazy-abcdefgh.js'
+    outside = tmp_path / 'outside.js'; outside.write_bytes(b'owned prior chunk')
+    with slot_host(current, (retired,)) as server:
+        try:
+            target.unlink(); target.symlink_to(outside)
+        except OSError:
+            pytest.skip('Host cannot create a symbolic-link fixture')
+        assert request(server.server_port, '/assets/lazy-abcdefgh.js')[0] == 503
+    with pytest.raises(FrontendError, match='links'):
+        DesktopFrontendServer.from_experimental_slots(*current, retired_slots=(retired,))

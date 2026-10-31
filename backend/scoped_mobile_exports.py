@@ -92,6 +92,8 @@ class ScopedMobileExports:
 
     def start(self, game, include_audio=True, destination_folder=None):
         with self.accounts.lock, self.lock:
+            if self._paused:
+                return False
             manager, _, locale = self._manager(game)
             if locale == 'unconfigured':
                 raise ValueError('Select and prepare a learning language before exporting.')
@@ -102,8 +104,17 @@ class ScopedMobileExports:
             return manager.start(game, include_audio, destination_folder)
 
     def browse(self, folder=None, *, game=None):
-        manager, _, _ = self._manager(game)
-        return manager.browse(folder)
+        with self.accounts.lock, self.lock:
+            if self._paused:
+                return False
+            manager, _, _ = self._manager(game)
+            return manager.browse(folder)
+
+    def quiesce(self):
+        with self.accounts.lock, self.lock:
+            self._paused = True
+            for manager in self.managers.values():
+                manager.quiesce()
 
     def close_picker(self, game=None):
         return self._manager(game)[0].close_picker()
@@ -130,4 +141,6 @@ class ScopedMobileExports:
             for manager in self.managers.values():
                 if manager._thread and manager._thread.is_alive():
                     raise RuntimeError('A mobile export is still stopping.')
+            for manager in self.managers.values():
+                manager.resume()
             self._paused = False

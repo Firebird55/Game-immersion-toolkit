@@ -34,6 +34,12 @@ def probe(root):
     if version.stdout.decode().strip() != 'flac 1.5.0':
         raise ValueError('Unexpected actual codec version.')
     data, expected = authored_flac()
+    from backend.codec_module_probe import observe
+    from backend.prebuilt_codecs import FlacDecoder
+    module_work = root / 'module-observation'; module_work.mkdir()
+    source_layout = SimpleNamespace(application_root=candidate, executable=Path(sys.executable),
+        work_root=module_work, child_environment=lambda _kind, environment: environment)
+    modules = observe(source_layout, FlacDecoder(source_layout, value, exe), data, expected)
     with tempfile.TemporaryDirectory(prefix='Codec source probe 漢字 ', dir=root) as tmp:
         work = Path(tmp); source = work / 'owned.flac'; output = work / 'complete.pcm'
         source.write_bytes(data); output.write_bytes(b'previous')
@@ -73,6 +79,7 @@ def probe(root):
         'truncated_input': 'previous-output-retained', 'owned_cleanup': 'passed',
         'developer_environment': 'OS essentials only; absolute binary; source Python owns Job Object',
         'source_archive_sha256': value['source_archive_sha256'], 'files': before,
+        'dll_origins': modules,
         'frozen_runtime_integration': 'not-run', 'native_windows_11_acceptance': 'unavailable',
         'production_execution_allowed': False, 'installer': 'not-built', 'r19_complete': False}
     (root / 'CODEC-PROBE.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')

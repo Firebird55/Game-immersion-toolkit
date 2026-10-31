@@ -1,0 +1,577 @@
+{
+  "schema": "proxy-r19-xiph-distribution-review-v1",
+  "reviewed_on": "2026-10-30",
+  "selection_ledger": "docs/r19-codec-replacement.json",
+  "integration_evidence": "docs/r19-frozen-xiph.md",
+  "scope": "Unmodified source-built Xiph FLAC 1.5.0 Windows x64; fixed native FLAC to mono 16 kHz s16le PCM, <=1 second, <=1 MiB; experimental only",
+  "rights_review": {
+    "status": "scoped-owner-grant-applied;source-kit-build-rebuild-and-bounded-frozen-checkpoint-verified;production-not-approved",
+    "cli": "GPL-2.0-or-later",
+    "reference_library": "BSD-3-Clause",
+    "static_support": [
+      "LGPL-2.0-or-later getopt (later-version choice 2.1)",
+      "LGPL-2.1-or-later ReplayGain",
+      "GPL-2.0-or-later UTF-8 support",
+      "BSD support notices"
+    ],
+    "documentation": "Preserve full unmodified upstream tar and COPYING.FDL 1.3; no manual excerpts are republished",
+    "build_recipes": "Additional GPL-2.0-or-later on exactly the two codec build scripts and input policy; original Firebird55 Attribution License 1.0 remains an alternative",
+    "build_recipe_license_sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca",
+    "resolution": "Copyright holder explicitly approved the limited additional grant on 2026-10-30, without extra visible-credit/link terms on the GPL route; general project license unchanged.",
+    "changed_licenses": true,
+    "source_patches": [],
+    "no_toolkit_wide_copyleft_or_license_clearance_claim": true,
+    "historical_blocker": "The visible attribution/link condition on the required build recipes has not been established compatible with GPLv2 source-delivery/no-further-restrictions terms. No relicensing or compatibility approval is inferred.",
+    "general_project_license_changed": false,
+    "additional_grant": {
+      "path": "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt",
+      "bytes": 1161,
+      "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070",
+      "approved_on": "2026-10-30",
+      "license": "GPL-2.0-or-later",
+      "scope": [
+        "packaging/codecs/flac-reference.json",
+        "scripts/build-reference-codec.ps1",
+        "scripts/reference-codec.py"
+      ],
+      "extra_visible_credit_link_condition_on_gpl_route": false
+    }
+  },
+  "durable_source": {
+    "path": "third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip",
+    "commit": "b73573a89a7a2a81dae12b8734f646dbae68013b",
+    "permalink": "https://raw.githubusercontent.com/matthias-van-der-galien/Game-immersion-toolkit/b73573a89a7a2a81dae12b8734f646dbae68013b/third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip",
+    "bytes": 1087821,
+    "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "coverage": "Exact six-input source kit; original unmodified 907-entry upstream tar, complete current build inputs, original alternative license and scoped additional GPL grant",
+    "state": "Git-and-anonymous-copy-byte-verified;Windows-build-rebuild-and-bounded-frozen-checkpoint-verified;canonical-production-cohosting-open",
+    "publication_guard": "Only the exact current and historical path/size/hash tuples are exempt; all content/profile/credential scanning remains active",
+    "release_policy": "After rights resolution, embed the matching complete source kit beside the codec and cohost a named source asset beside each future binary; bind both in checksums/provenance and download-verify before publication. No production release in this review.",
+    "retention": "Retain all source snapshots indefinitely; never remove matching source while any covered binary remains available. Preserve historical source if withdrawing a binary.",
+    "expiry": "Actions artifacts are review evidence only; not the retention service",
+    "repository_protection_or_release_settings_changed": false,
+    "source_files": {
+      "inputs/flac-1.5.0.tar.xz": {
+        "bytes": 1078872,
+        "sha256": "f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920"
+      },
+      "packaging/codecs/flac-reference.json": {
+        "bytes": 2362,
+        "sha256": "2329d272b2dec03b31baa05c093819b25db8dbd14dff609f2d207abb6ccec685"
+      },
+      "scripts/build-reference-codec.ps1": {
+        "bytes": 2494,
+        "sha256": "b90da52ea75fb2f042cfd86f8aeabbd67ffc21efe95235c21dff908c9bcd5fa9"
+      },
+      "scripts/reference-codec.py": {
+        "bytes": 10790,
+        "sha256": "f864bdadf181993b5660a58d96b8b24903a6e215692a46f3d80a892504af0850"
+      },
+      "LICENSE": {
+        "bytes": 1520,
+        "sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca"
+      },
+      "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt": {
+        "bytes": 1161,
+        "sha256": "2725323b963852b42cbfd73f99ccd1068e42f2031742e055e50b4cb1fef5d070"
+      }
+    }
+  },
+  "maintenance": {
+    "status": "policy-defined;bounded-scope-source-triage-complete;production-not-approved",
+    "owner": "Repository maintainer responsible for R19 codec adoption and releases",
+    "deputy_rule": "If no maintainer can perform a required review, block new binary publication; no assumed coverage",
+    "baseline": {
+      "stable": "1.5.0",
+      "release_date": "2025-02-11",
+      "upstream_head": "59fa3402cb19b6b7c85b916f138cfb03c7b27504",
+      "post_release_commits": 35,
+      "security_policy": "No SECURITY.md/published advisories visible on the inspected upstream security page; not proof of no vulnerabilities"
+    },
+    "review_interval_days": 30,
+    "next_review_due": "2026-11-29",
+    "triggers": [
+      "Before every binary publication",
+      "New upstream release, advisory, relevant bug/fuzzer report or license change",
+      "Any format/CLI/limit/metadata/architecture/CRT/compiler/SDK/image change",
+      "Source retrieval failure, missing ownership or stale review"
+    ],
+    "security_response": {
+      "initial_triage_hours": 24,
+      "stop_new_publication": "Immediately for a credible in-scope memory-safety/integrity issue, unavailable source or unresolved scope",
+      "target_resolution_days": 7,
+      "unresolved": "Keep publication blocked; patch/rebase with full source and new pins or withdraw affected binary downloads. Retain sources."
+    },
+    "routine_bug_review_days": 30,
+    "source_availability_review_interval_days": 30,
+    "update_policy": "No latest/download/PATH fallback. Prefer a reviewed stable release; otherwise exact reviewed patches with modification notices and source. Rebuild/relink from delivered kit, refresh all hashes and repeat affected Windows/frozen probes.",
+    "backports_applied": [],
+    "evidence_limits": "Source-diff/control-flow triage plus existing fixture evidence; no exploit reproduction, complete fuzzing, predictive-format or clean Windows 11 acceptance",
+    "automation_created": false
+  },
+  "post_release_review": [
+    {
+      "commit": "018b4aca635ac50ec6566dbe17eb360e85e5f759",
+      "url": "https://github.com/xiph/flac/commit/018b4aca635ac50ec6566dbe17eb360e85e5f759",
+      "files": [
+        "src/metaflac/operations.c"
+      ],
+      "classification": "excluded-tool",
+      "rationale": "metaflac is neither collected nor invoked.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "4c5782937aa8a4f51709529813b131261b4d9402",
+      "url": "https://github.com/xiph/flac/commit/4c5782937aa8a4f51709529813b131261b4d9402",
+      "files": [
+        "configure.ac"
+      ],
+      "classification": "different-build-system",
+      "rationale": "The selected recipe uses CMake/MSVC, not configure.ac.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "8d648456a2d7444d54a579e365bab4c815ac6873",
+      "url": "https://github.com/xiph/flac/commit/8d648456a2d7444d54a579e365bab4c815ac6873",
+      "files": [
+        "test/test_metaflac.sh",
+        "test/test_replaygain.sh"
+      ],
+      "classification": "tests-only",
+      "rationale": "Changes upstream shell test isolation; BUILD_TESTING is OFF.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "6d444f394504de31fc20d9e39487802f0012375c",
+      "url": "https://github.com/xiph/flac/commit/6d444f394504de31fc20d9e39487802f0012375c",
+      "files": [
+        "src/test_libFLAC/decoders.c"
+      ],
+      "classification": "tests-only",
+      "rationale": "Changes src/test_libFLAC/decoders.c, not the collected decoder.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "f47f100dcf9a654963ca304aa96ee5f726f5d9dd",
+      "url": "https://github.com/xiph/flac/commit/f47f100dcf9a654963ca304aa96ee5f726f5d9dd",
+      "files": [
+        "CMakeLists.txt"
+      ],
+      "classification": "different-platform",
+      "rationale": "Android/NDK configuration does not affect this Windows/MSVC build.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "53c873b722cbf03e72d1602aa49ce40ec7a1b21a",
+      "url": "https://github.com/xiph/flac/commit/53c873b722cbf03e72d1602aa49ce40ec7a1b21a",
+      "files": [
+        "include/share/Makefile.am",
+        "include/share/compat_threads.h",
+        "src/libFLAC/stream_encoder.c"
+      ],
+      "classification": "disabled-encoder-feature",
+      "rationale": "Multithreaded encoding is disabled; fixed dispatch performs decoding only.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "2c06c33ac6e12d25e74479c0306406837d43e132",
+      "url": "https://github.com/xiph/flac/commit/2c06c33ac6e12d25e74479c0306406837d43e132",
+      "files": [
+        "configure.ac"
+      ],
+      "classification": "different-build-system",
+      "rationale": "Autotools C11-thread setup is outside the CMake recipe.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "d23db3f4054cd7e8b5c694636296377267f50d95",
+      "url": "https://github.com/xiph/flac/commit/d23db3f4054cd7e8b5c694636296377267f50d95",
+      "files": [
+        ".github/workflows/action.yml",
+        "CMakeLists.txt",
+        "config.cmake.h.in"
+      ],
+      "classification": "disabled-encoder-feature",
+      "rationale": "C11-thread selection/CI changes; ENABLE_MULTITHREADING is OFF.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "52aa1498319f7be08778baee90737acc3e4ad993",
+      "url": "https://github.com/xiph/flac/commit/52aa1498319f7be08778baee90737acc3e4ad993",
+      "files": [
+        "configure.ac"
+      ],
+      "classification": "different-build-system",
+      "rationale": "configure thread selection is not used by the selected recipe.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "f943aa17ec07228c6197213d0a385e68c52a9d85",
+      "url": "https://github.com/xiph/flac/commit/f943aa17ec07228c6197213d0a385e68c52a9d85",
+      "files": [
+        "configure.ac",
+        "include/FLAC/all.h"
+      ],
+      "classification": "documentation",
+      "rationale": "Doxygen topic links and configure documentation; no decoder algorithm change.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "901195b168d4dca0d25afb5bf9a1708fecdc9007",
+      "url": "https://github.com/xiph/flac/commit/901195b168d4dca0d25afb5bf9a1708fecdc9007",
+      "files": [
+        "man/flac.md"
+      ],
+      "classification": "documentation",
+      "rationale": "CLI manual corrections; no decoder implementation change.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "530d765d861f6ebc33e3c9c8407ab1d123b0bd5f",
+      "url": "https://github.com/xiph/flac/commit/530d765d861f6ebc33e3c9c8407ab1d123b0bd5f",
+      "files": [
+        "src/flac/decode.c"
+      ],
+      "classification": "unselected-cue-option",
+      "rationale": "The changed CUESHEET callback is requested only for --cue; fixed command has no --cue or --skip. Source: decode.c DecoderSession_init_decoder and metadata_callback.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "1a0dd03778d61439a4eb99f3ea03248a95bf20e1",
+      "url": "https://github.com/xiph/flac/commit/1a0dd03778d61439a4eb99f3ea03248a95bf20e1",
+      "files": [
+        "src/flac/decode.c"
+      ],
+      "classification": "compiled-out-ogg-chain",
+      "rationale": "The changed finish-link loop is inside #if FLAC__HAS_OGG; WITH_OGG is OFF.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "e06780737729c081c00d25de62bf82379d16e4c8",
+      "url": "https://github.com/xiph/flac/commit/e06780737729c081c00d25de62bf82379d16e4c8",
+      "files": [
+        "src/flac/encode.c"
+      ],
+      "classification": "unselected-encoder",
+      "rationale": "Fuzzing timeout fix in encode.c; fixed command always supplies --decode.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "9dbb051846530629b3c3d9ff0862807c9727b179",
+      "url": "https://github.com/xiph/flac/commit/9dbb051846530629b3c3d9ff0862807c9727b179",
+      "files": [
+        "src/flac/decode.c"
+      ],
+      "classification": "unselected-cue-option",
+      "rationale": "The changed signed cuepoint checks are in the opt-in CUESHEET callback; no --cue is accepted and --until is fixed to 1..16000.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "2225e35c4fc3c771cfa26569da9a14b1ce94511d",
+      "url": "https://github.com/xiph/flac/commit/2225e35c4fc3c771cfa26569da9a14b1ce94511d",
+      "files": [
+        "src/flac/encode.c"
+      ],
+      "classification": "unselected-encoder",
+      "rationale": "The leak fix is parse_cuesheet in encode.c, not native FLAC stream decoding.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "e26a435f355407daf64a255b45cba2271062d427",
+      "url": "https://github.com/xiph/flac/commit/e26a435f355407daf64a255b45cba2271062d427",
+      "files": [
+        "src/flac/decode.c"
+      ],
+      "classification": "compiled-out-ogg-chain",
+      "rationale": "The additional finish-link abort check changes the Ogg chain loop compiled out by WITH_OGG=OFF.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "9a2be86ca211668af07be0153dc52b89917dc8ca",
+      "url": "https://github.com/xiph/flac/commit/9a2be86ca211668af07be0153dc52b89917dc8ca",
+      "files": [
+        "src/flac/encode.c"
+      ],
+      "classification": "unselected-encoder",
+      "rationale": "Skip-underflow checks are in encode.c; encoding and caller-provided skip arguments are unavailable.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "b2c46b5c470c3e54c7bf80df1de1b3f09af688c9",
+      "url": "https://github.com/xiph/flac/commit/b2c46b5c470c3e54c7bf80df1de1b3f09af688c9",
+      "files": [
+        "src/libFLAC/stream_decoder.c"
+      ],
+      "classification": "fuzzing-configuration-only",
+      "rationale": "The 32-to-8 rewind change is in the FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION branch; the selected ordinary build uses the unchanged CRC branch.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "9547dbc2ddfca06a70ea937dbb605bbe78ea5f90",
+      "url": "https://github.com/xiph/flac/commit/9547dbc2ddfca06a70ea937dbb605bbe78ea5f90",
+      "files": [
+        "src/flac/decode.c"
+      ],
+      "classification": "bounded-input-contract",
+      "rationale": "Enables unknown-length streams and an early-end warning. The adapter rejects total_samples=0 and requires the exact output byte count; no new capability is adopted.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "afb801b2cf7a8f54bebeb8bbf4d217935021f656",
+      "url": "https://github.com/xiph/flac/commit/afb801b2cf7a8f54bebeb8bbf4d217935021f656",
+      "files": [
+        "src/libFLAC/bitwriter.c"
+      ],
+      "classification": "unselected-writer",
+      "rationale": "Changes bitwriter capacity calculation used by encoding/metadata writing; fixed operation decodes to raw PCM.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "d1189379bc64557b382db9a18d249c0bf070f000",
+      "url": "https://github.com/xiph/flac/commit/d1189379bc64557b382db9a18d249c0bf070f000",
+      "files": [
+        "src/metaflac/options.c"
+      ],
+      "classification": "excluded-tool",
+      "rationale": "metaflac options are outside collection and dispatch.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "9d2388468e4565585b9756b04374394d68fb761d",
+      "url": "https://github.com/xiph/flac/commit/9d2388468e4565585b9756b04374394d68fb761d",
+      "files": [
+        "src/flac/decode.c",
+        "src/test_streams/main.c",
+        "test/test_flac.sh"
+      ],
+      "classification": "unselected-foreign-metadata",
+      "rationale": "Changes --keep-foreign-metadata/header restoration. Fixed raw PCM output does not preserve foreign metadata.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "c39d5552acb99fd523792a6b3f94d1aab9c4f045",
+      "url": "https://github.com/xiph/flac/commit/c39d5552acb99fd523792a6b3f94d1aab9c4f045",
+      "files": [
+        "oss-fuzz/common.h",
+        "oss-fuzz/tool_metaflac.c",
+        "src/metaflac/options.c"
+      ],
+      "classification": "excluded-tool-and-fuzzer",
+      "rationale": "metaflac and its fuzzing harness are not collected or invoked.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "d17f0d2f0dedc495acbed2f547b0cee32cda79a5",
+      "url": "https://github.com/xiph/flac/commit/d17f0d2f0dedc495acbed2f547b0cee32cda79a5",
+      "files": [
+        "src/flac/foreign_metadata.c"
+      ],
+      "classification": "unselected-foreign-metadata",
+      "rationale": "RF64 foreign-metadata overflow-check change; native FLAC to raw PCM neither encodes RF64 nor requests foreign-metadata preservation.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "380001b324db1581cc9a3e369c2c0cc972a0421c",
+      "url": "https://github.com/xiph/flac/commit/380001b324db1581cc9a3e369c2c0cc972a0421c",
+      "files": [
+        "src/flac/decode.c"
+      ],
+      "classification": "unselected-replaygain",
+      "rationale": "Changes gain handling inside replaygain.spec.apply; fixed CLI has no ReplayGain option and default apply is false.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "3f1ecff843dd1b8c07fbb5f59425a4ec71fe4f6c",
+      "url": "https://github.com/xiph/flac/commit/3f1ecff843dd1b8c07fbb5f59425a4ec71fe4f6c",
+      "files": [
+        "src/metaflac/operations_shorthand_vorbiscomment.c",
+        "test/test_metaflac.sh"
+      ],
+      "classification": "excluded-tool",
+      "rationale": "metaflac tag import and its tests are outside this candidate.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "343f3481562213cdc4f196af87da0d26bf2530ad",
+      "url": "https://github.com/xiph/flac/commit/343f3481562213cdc4f196af87da0d26bf2530ad",
+      "files": [
+        "CMakeLists.txt"
+      ],
+      "classification": "disabled-thread-package-config",
+      "rationale": "Adds pthread flags to pkg-config metadata; threads are OFF and no pkg-config consumers are collected.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "fab99678a454c23be0d780398f082a759aff34e7",
+      "url": "https://github.com/xiph/flac/commit/fab99678a454c23be0d780398f082a759aff34e7",
+      "files": [
+        "src/libFLAC/metadata_iterators.c",
+        "src/libFLAC/stream_encoder.c"
+      ],
+      "classification": "unselected-api-calls",
+      "rationale": "Moves null assertions in metadata-simple-iterator editing and encoder APIs. No changed API call was identified in the fixed decode path; this is source triage, not a general null-safety proof.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "b0d55d3a2c3b43b7a777013b2ec1b8d95a86386b",
+      "url": "https://github.com/xiph/flac/commit/b0d55d3a2c3b43b7a777013b2ec1b8d95a86386b",
+      "files": [
+        "src/share/grabbag/seektable.c"
+      ],
+      "classification": "nonfunctional-cleanup",
+      "rationale": "Removes an unused seektable-loop variable without changing its loop body or condition.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "b430c3a58b64b70642ab5c72c36084dd4083d165",
+      "url": "https://github.com/xiph/flac/commit/b430c3a58b64b70642ab5c72c36084dd4083d165",
+      "files": [
+        "src/flac/main.c",
+        "src/flac/utils.c",
+        "src/share/getopt/getopt.c"
+      ],
+      "classification": "qualifier-correction",
+      "rationale": "Adds const to local pointer declarations in CLI/utils/getopt; no algorithm or accepted arguments change.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "100792e9289b4557690f16eb6a40a220977c2e33",
+      "url": "https://github.com/xiph/flac/commit/100792e9289b4557690f16eb6a40a220977c2e33",
+      "files": [
+        "flac-config.cmake.in"
+      ],
+      "classification": "different-consumer-config",
+      "rationale": "Fixes downstream flac-config Threads discovery; no installed SDK or downstream library consumer is collected.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "bba8f29014ebb994f2357f54046d6494ca2d3122",
+      "url": "https://github.com/xiph/flac/commit/bba8f29014ebb994f2357f54046d6494ca2d3122",
+      "files": [
+        "src/libFLAC/bitreader.c",
+        "src/libFLAC/bitwriter.c"
+      ],
+      "classification": "compiler-linkage-refactor",
+      "rationale": "Changes inline/external linkage in bitreader/bitwriter without function-body changes. Keep the exact MSVC build evidence; re-review compiler/image changes rather than claiming broad compiler portability.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "e94ff9f68b8e7dbd3e9f8b1ac18a8eca1914f181",
+      "url": "https://github.com/xiph/flac/commit/e94ff9f68b8e7dbd3e9f8b1ac18a8eca1914f181",
+      "files": [
+        ".github/workflows/action.yml",
+        ".github/workflows/cifuzz.yml",
+        ".github/workflows/distcheck.yml",
+        ".github/workflows/msys2.yml",
+        ".github/workflows/options.yml"
+      ],
+      "classification": "upstream-ci-only",
+      "rationale": "Changes upstream GitHub token permissions, not codec source or the toolkit's build recipe.",
+      "action": "recorded; no backport or scope expansion in this review"
+    },
+    {
+      "commit": "59fa3402cb19b6b7c85b916f138cfb03c7b27504",
+      "url": "https://github.com/xiph/flac/commit/59fa3402cb19b6b7c85b916f138cfb03c7b27504",
+      "files": [
+        "src/libFLAC/lpc_intrin_fma.c"
+      ],
+      "classification": "disabled-encoder-optimization",
+      "rationale": "Adds restrict to FMA LPC encoder functions; assembly/AVX optimization and encoding are outside the selected surface.",
+      "action": "recorded; no backport or scope expansion in this review"
+    }
+  ],
+  "retained_source_verification": {
+    "source_commit": "0c7941585066d1815cdc57eb71152c8565055f5c",
+    "workflow_run": 41128774508,
+    "url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41128774508",
+    "status": "passed",
+    "scope": "Windows Server 2025 source-publication boundary, source trust, selected build and independent rebuild from retained Git kit; not frozen/Windows 11 acceptance",
+    "publication_cli_regressions": "passed on Node 24; exact/changed/appended/truncated/unknown/case-varied/current/history archive cases",
+    "source_trust_tests": 4,
+    "artifact": {
+      "id": 13012097837,
+      "bytes": 1094227,
+      "sha256": "17a0af9b36663a06d39c0bb2ab948aa5cb63870eb067d62f5a6dc2b2fade0200"
+    },
+    "independent_download_review": "Exact outer five-entry allowlist, source-kit/anonymous/Git bytes, original custom recipe license, both receipts, binary/notice/PCM/failure/native-origin hashes and disabled gates verified",
+    "retained_kit_rebuild": "passed; retained Git kit expanded with its own recipes, no live repository build-script fallback",
+    "binary_hashes_unchanged": true,
+    "source_kit_hash_unchanged": true,
+    "recipe_license_granted": false,
+    "production_execution_allowed": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
+  },
+  "gates": {
+    "recipe_license_resolution": "owner-approved-limited-additional-GPL-2.0-or-later-grant-applied-2026-10-30",
+    "canonical_source_retention": "pending-merge-and-retained-canonical-lineage",
+    "source_asset_beside_production_binary": "not-published",
+    "source_retrieval_public_check": "historical-kit-passed;new-kit-pending-publication",
+    "ordinary_user_vcruntime_ucrt": "unavailable",
+    "clean_windows_11_25h2": "unavailable",
+    "capture_ocr_dpi_and_framework_wow64": "not-run",
+    "installed_game_formats_and_full_export": "not-run",
+    "production_execution_allowed": false,
+    "runtime_profile": "hard-disabled",
+    "r19_complete": false,
+    "installer": "not-built",
+    "new_source_kit_build_rebuild": "pending",
+    "new_source_kit_frozen_verification": "pending"
+  },
+  "historical_durable_source": {
+    "path": "third_party/codecs/xiph-flac-1.5.0/codec-sources.zip",
+    "commit": "0b2ae0e4d4890225b2551c98d52ee9d4fea1412e",
+    "permalink": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/blob/0b2ae0e4d4890225b2551c98d52ee9d4fea1412e/third_party/codecs/xiph-flac-1.5.0/codec-sources.zip",
+    "bytes": 1086902,
+    "sha256": "7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b",
+    "coverage": "Exact five-file source kit; original unmodified 907-entry upstream source tar plus complete build inputs and original license",
+    "state": "versioned-source-only-copy;canonical-retention-and-binary-cohosting-pending",
+    "publication_guard": "Only this exact path/size/hash is exempt from the tracked-archive ban; credential/profile scanning remains active",
+    "release_policy": "After rights resolution, embed the matching complete source kit beside the codec and cohost a named source asset beside each future binary; bind both in checksums/provenance and download-verify before publication. No production release in this review.",
+    "retention": "Retain all source snapshots indefinitely; never remove matching source while any covered binary remains available. Preserve historical source if withdrawing a binary.",
+    "expiry": "Actions artifacts are review evidence only; not the retention service",
+    "repository_protection_or_release_settings_changed": false
+  },
+  "post_grant_source_verification": {
+    "source_commit": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+    "run": 41137727454,
+    "artifact": 13017103947,
+    "bytes": 1095190,
+    "sha256": "38f0bfe2f0f909e702f5ebc9376eb4e12346e01b2edbd75e47c4129fcfab5dfd",
+    "kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "builds": [
+      {
+        "build": "reference-codec",
+        "source_identity": "8f38e6debddecacba9197946a2ff70ee3fc24e59",
+        "pcm": "verified",
+        "faults_cleanup_native_origins": "verified",
+        "scoped_grant_source_inputs": "verified"
+      },
+      {
+        "build": "reference-codec-rebuild",
+        "source_identity": "source-kit-rebuild",
+        "pcm": "verified",
+        "faults_cleanup_native_origins": "verified",
+        "scoped_grant_source_inputs": "verified"
+      }
+    ],
+    "historical_binary_hashes_unchanged": true,
+    "new_kit_anonymous_git_ci_bytes": "identical",
+    "frozen_runtime": "not-run-failed-before-build",
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41137727454",
+    "scope": "Standalone selected Windows build and independent delivered-source-kit rebuild; no integrated frozen or Windows 11 acceptance"
+  },
+  "post_grant_frozen_verification": {
+    "reference": "docs/r19-frozen-checkpoint-20261031.json",
+    "source_commit": "acc68be0f6f47cb9a0cd928c9394743483c40c24",
+    "run": 41144087092,
+    "artifact": 13019929500,
+    "sha256": "cb129c1d431a3e74909e2e973b6f01772d4e7a05af8faf1fa19f03d8f2df529f",
+    "scope": "Source kit and sanitized metadata downloaded; actual bounded decode/fault/DLL-origin and host receipts; native binaries remain runner-local",
+    "production_execution_allowed": false,
+    "r19_complete": false
+  }
+}

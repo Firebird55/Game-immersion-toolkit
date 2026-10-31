@@ -80,7 +80,7 @@ def record(evidence, python_artifact, python_source, build_id, source, frontend_
                 raise ClosureError('Installed packaging file escapes the build environment: ' + name)
             relative = path.relative_to(Path(sys.prefix)).as_posix()
             files.append({'path': relative, 'sha256': digest(path)})
-            if path.name.lower().startswith(('license', 'copying', 'notice')):
+            if path.name.lower().startswith(('license', 'licence', 'copying', 'notice')):
                 licenses.append(notice(path, normalized(name), relative))
         if not licenses:
             if not metadata_notices:

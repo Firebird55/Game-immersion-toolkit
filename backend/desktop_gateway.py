@@ -367,9 +367,12 @@ def main():
     parser.add_argument('--assets', type=Path)
     parser.add_argument('--api-port', type=int, default=8766)
     parser.add_argument('--frontend-port', type=int, default=3000)
+    parser.add_argument('--shutdown-timeout', type=float, default=5, help=argparse.SUPPRESS)
     parser.add_argument('--shutdown-stdin', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--browser-probe-result', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if not 0 < args.shutdown_timeout <= 30:
+        parser.error('Router shutdown deadline must be between zero and 30 seconds.')
     routes = RuntimeRoutes(args.state, api_port=args.api_port, frontend_port=args.frontend_port)
     routes.refresh()
     probe_token = os.environ.pop('TOOLKIT_NATIVE_BROWSER_PROBE', '')
@@ -388,8 +391,20 @@ def main():
             listener.listen(128)
         gateway.api_port, gateway.frontend_port = [listener.getsockname()[1] for listener in sockets]
         routes.public_ports = {gateway.api_port, gateway.frontend_port}
-        server = uvicorn.Server(uvicorn.Config(gateway.app, proxy_headers=False, access_log=False,
-                                              timeout_graceful_shutdown=5, log_level='info'))
+        class DrainingServer(uvicorn.Server):
+            shutdown_expired = False
+
+            async def _wait_tasks_to_complete(self):
+                try:
+                    await super()._wait_tasks_to_complete()
+                except asyncio.CancelledError:
+                    # Uvicorn cancels this wait when its graceful deadline expires.
+                    # Preserve that failure after it cleans up owned HTTP tasks.
+                    self.shutdown_expired = True
+                    raise
+
+        server = DrainingServer(uvicorn.Config(gateway.app, proxy_headers=False, access_log=False,
+                                              timeout_graceful_shutdown=args.shutdown_timeout, log_level='info'))
         async def run():
             if args.shutdown_stdin:
                 loop = asyncio.get_running_loop()
@@ -404,6 +419,8 @@ def main():
                 print(json.dumps({'ready': True, 'apiPort': gateway.api_port, 'frontendPort': gateway.frontend_port}), flush=True)
                 LOG.info('Transcript ready at http://127.0.0.1:%s; open Share to connect another device.', gateway.frontend_port)
             await serving
+            if server.shutdown_expired:
+                raise RuntimeError('Companion router shutdown deadline expired; active requests were stopped.')
         asyncio.run(run())
     finally:
         for listener in sockets:

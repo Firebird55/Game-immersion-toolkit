@@ -27,6 +27,7 @@ def test_real_runtime_initializes_standby_without_starting_capture_or_updates(tm
             assert not runtime.capture.snapshot().running
         finally:
             await runtime.capture.close()
+            runtime._reading_registry.shutdown(time.monotonic()+2)
             runtime.voice_assets.close()
             runtime.pragmata_voice_assets.close()
             for voices in runtime.game_voice_assets.values():
@@ -78,14 +79,20 @@ def test_quiescing_capture_drains_native_work_before_exporting_state(tmp_path):
 def test_runtime_activation_requires_local_action_and_ready_candidate(monkeypatch):
     from backend import api
     calls = []
-    capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=False),
+    capture = SimpleNamespace(native_stop_pending=False, snapshot=lambda: SimpleNamespace(running=False),
         import_handoff=lambda state: calls.append(('import', state.session_id)), start=lambda: calls.append('capture'))
     fake = SimpleNamespace(textmaps=SimpleNamespace(ready=True), pragmata=None, hito=None,
         game_indexes={}, warm_task=SimpleNamespace(done=lambda: False), standby=True,
         accounts=SimpleNamespace(status=lambda: {'active': 'account-one'}),
         languages=SimpleNamespace(selected=lambda *_: 'zh-Hans', prepared=lambda *_: {'targets': ['en']}),
         language_state=lambda *_: {'ready': True},
-        capture=capture, start_updates=lambda: calls.append('updates'), activate_workers=lambda: None)
+        capture=capture, start_updates=lambda: calls.append('updates'))
+    fake._handoff_lock, fake._writer_handoff, fake._handoff_drains = asyncio.Lock(), False, []
+    fake.request_barrier = RequestBarrier()
+    fake._check_owned_drain = lambda: None
+    fake.resume_writers = lambda: None
+    fake.admit_requests = lambda: None
+    fake.activate_handoff = lambda payload, **options: api.Runtime.activate_handoff(fake, payload, **options)
     monkeypatch.setattr(api, 'runtime', fake, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767')
     assert not client.get('/api/runtime/ready?game=zzz').json()['ready']
@@ -135,29 +142,75 @@ def test_standby_readiness_uses_only_the_active_accounts_prepared_language(monke
     assert not client.get('/api/runtime/ready?game=unknown').json()['ready']
 
 
-def test_old_capture_remains_active_until_background_work_has_quiesced(monkeypatch):
+@pytest.mark.parametrize('query', ['', '?writers=true'])
+def test_public_handoff_drains_all_writers_before_capture_transfer(monkeypatch, query):
     from backend import api
-    calls = []
-    async def stop_updates():
+    from backend.runtime_writers import RuntimeWriterGate, WritersQuiescing
+    calls, running = [], [True]
+    async def stop_updates(**_options):
+        assert running[0]
         calls.append('updates')
-    async def stop_capture():
+    async def stop_capture(_timeout):
         calls.append('capture')
-    fake = object.__new__(api.Runtime)
-    fake.standby, fake._quiesce_task = False, None
-    fake._handoff_state = None
-    fake.request_barrier = RequestBarrier()
+        running[0] = False
+    fake = api.Runtime.__new__(api.Runtime)
+    fake.standby, fake._quiesce_task, fake._handoff_state = False, None, None
+    fake._writer_handoff, fake._handoff_lock, fake._handoff_drains = False, asyncio.Lock(), []
+    fake.request_barrier, fake.request_writers = RequestBarrier(), RuntimeWriterGate()
     fake.stop_updates = stop_updates
-    fake.installation = SimpleNamespace(pause=lambda: None)
-    fake.mobile_exports = SimpleNamespace(drain=lambda: None)
-    fake.hito = SimpleNamespace(close=lambda: None)
-    fake.worker_pools = lambda: []
-    fake.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), stop=stop_capture,
-        export_handoff=lambda running: CaptureHandoff(running=running, session_id='continued'))
+    fake.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=running[0]), quiesce=stop_capture,
+        export_handoff=lambda active: CaptureHandoff(running=active, session_id='continued'))
+    fake.mobile_exports = SimpleNamespace(drain=lambda: calls.append('manual-exports'))
+    fake.automatic_exports = SimpleNamespace(picker=SimpleNamespace(drain=lambda: calls.append('automatic-picker')))
+    fake.installation = SimpleNamespace(pause=lambda: calls.append('setup-pause'),
+        quiesce=lambda _timeout: calls.append('setup'))
+    fake._reading_registry = SimpleNamespace(stop_creation=lambda _deadline: calls.append('reader-admission'),
+        quiesce_owned=lambda _deadline: calls.append('reading'))
+    fake.capture.drain_publications = lambda: asyncio.sleep(0)
+    fake.map_task = None
+    fake.hito = SimpleNamespace(close=lambda: calls.append('hito'))
+    fake._voice_pools = lambda: []
+    fake._verify_background_stopped = lambda: None
     monkeypatch.setattr(api, 'runtime', fake, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767')
-    response = client.post('/api/runtime/quiesce', headers={'X-Proxy-Transcript': 'update'})
-    assert response.status_code == 200 and response.json()['running']
-    assert calls == ['updates', 'capture']
+    response = client.post('/api/runtime/quiesce'+query, headers={'X-Proxy-Transcript': 'update'})
+    assert response.status_code == 200, response.text
+    assert response.json()['running'] and response.json()['session_id'] == 'continued'
+    assert fake.standby and not running[0]
+    with pytest.raises(WritersQuiescing):
+        fake.request_writers.enter()
+    assert calls == ['reader-admission', 'manual-exports', 'automatic-picker', 'setup-pause',
+                     'setup', 'updates', 'reading', 'capture', 'hito']
+
+
+def test_explicit_capture_only_experiment_does_not_claim_writer_drain():
+    from backend import api
+    from backend.runtime_writers import RuntimeWriterGate
+    calls = []
+    old = api.Runtime.__new__(api.Runtime)
+    old._handoff_lock, old._writer_handoff = asyncio.Lock(), False
+    old.request_writers, old.standby = RuntimeWriterGate(), False
+    async def stop_updates(): calls.append('updates')
+    async def stop_capture(): calls.append('capture')
+    old.stop_updates = stop_updates
+    old.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), stop=stop_capture,
+        export_handoff=lambda active: CaptureHandoff(running=active, session_id='experiment'))
+    state = asyncio.run(old.quiesce_capture_handoff())
+    assert state.running and state.session_id == 'experiment'
+    old.request_writers.enter(); old.request_writers.leave()
+    assert calls == ['updates', 'capture'] and not old._writer_handoff
+
+
+def test_legacy_activation_cannot_bypass_explicit_strict_handoff():
+    from backend.api import Runtime
+    async def run():
+        old = Runtime.__new__(Runtime)
+        old._handoff_lock, old._writer_handoff = asyncio.Lock(), True
+        with pytest.raises(TimeoutError, match='explicit writers protocol'):
+            await old.activate_handoff(CaptureHandoff(running=True))
+        with pytest.raises(TimeoutError, match='explicit writers protocol'):
+            await old.quiesce_capture_handoff()
+    asyncio.run(run())
 
 
 def test_pool_drain_waits_for_pending_work_and_cache_completion_callback():

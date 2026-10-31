@@ -87,3 +87,23 @@ Their older strict gates and historical results are documented in
 [compiler-free helper experiments](../../docs/r19-compiler-free-helpers.md).
 The diagnostic profile exposes no API, account, extraction or updater children;
 it cannot substitute for an accepted desktop runtime.
+
+## Retained Windows experiment evidence
+
+The separate `record_runtime.py` / `build-runtime-bundle.ps1` workflow retains
+PR #60's Windows-only supplier notices, observed Analysis native-input mapping,
+PE/CLR image inventory and bounded Xiph FLAC source-build probes. Those inputs
+use `proxy-runtime-build-inputs-v1`. All newly built profiles use the current
+`GameImmersionToolkit` and `GameImmersionToolkitAsr` executable names; historical
+receipts retain the names actually tested. Their gates and private probe
+limitations remain intact; see
+[the Python component review](../../docs/r19-python-component-review.md),
+the native-input ownership sidecar and
+[the frozen Xiph experiment](../../docs/r19-frozen-xiph.md).
+
+The current cross-platform desktop builder uses the separate
+`proxy-desktop-observed-build-v1` contract and `GameImmersionToolkit` image names.
+It validates selected resources through its exact input reviewer and target
+acceptance reports. Historical helper quarantine or one-second codec probes do
+not override current resource-backed game capabilities, and their evidence is
+not interchangeable with current target acceptance.

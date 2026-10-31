@@ -15,7 +15,27 @@ from windows_runtime import select_msvc
 inputs = json.loads(Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']).read_text(encoding='utf-8'))
 runtime = inputs['profile'] in {'runtime', 'runtime-experiment'}
 resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT'])
-data = [(str(resource_root / item['path']), str(Path(item['path']).parent)) for item in inputs['resources']]
+# Legacy experiment provenance has a distinct Windows-only input contract.
+legacy = inputs.get('schema', 'proxy-runtime-build-inputs-v1') == 'proxy-runtime-build-inputs-v1'
+main_name = 'GameImmersionToolkit'
+asr_name = 'GameImmersionToolkitAsr'
+native_observer = None
+if runtime and legacy:
+    # Read the actual existing Analysis TOCs; no second DLL collector or upload.
+    sys.path.insert(0, str(Path(SPECPATH)))
+    from PyInstaller.config import CONF
+    from record_runtime import NativeCollectionObservation
+    native_observer = NativeCollectionObservation(inputs, resource_root, Path(DISTPATH),
+        Path(CONF['workpath']), Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']))
+# This standalone subprocess owns its sibling DLL closure. Analysis reclassifies
+# PE data as binaries and flattens dependencies outside site-packages, which
+# otherwise adds an unintended root FLAC.dll. Deliver only these verified files
+# as explicit DATA after Analysis; never scan them as Python-host dependencies.
+codec_native = {'codecs/xiph-flac/flac.exe', 'codecs/xiph-flac/FLAC.dll'} if runtime and legacy else set()
+isolated_codec_data = [(item['path'], str(resource_root / item['path']), 'DATA')
+    for item in inputs['resources'] if item['path'] in codec_native]
+data = [(str(resource_root / item['path']), str(Path(item['path']).parent))
+    for item in inputs['resources'] if item['path'] not in codec_native]
 hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experiment' else []
 binaries = []
 
@@ -78,10 +98,21 @@ main.binaries = [entry for entry in main.binaries
                  if Path(entry[0]).name.casefold() != 'opengl32sw.dll']
 if sys.platform == 'win32' and runtime:
     main.binaries = select_msvc(main.binaries)
+main.datas += isolated_codec_data
+if native_observer:
+    native_observer.observe_analysis('main', main.binaries,
+        [row for row in main.datas if row[0].replace('\\', '/').startswith(('helpers/nte/', 'codecs/xiph-flac/'))])
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
-    name='GameImmersionToolkit', console=True, contents_directory='_internal')
-main_collection = COLLECT(main_exe, main.binaries, main.datas, name='GameImmersionToolkit')
+    name=main_name, console=True, contents_directory='_internal')
+if native_observer:
+    native_observer.observe_generated('main', main_exe.name)
+try:
+    main_collection = COLLECT(main_exe, main.binaries, main.datas, name=main_name)
+except Exception as error:
+    if native_observer:
+        native_observer.refuse_collection(error)
+    raise
 
 if runtime:
     # Separate Analysis, executable, directory and native library tree. Putting
@@ -97,7 +128,18 @@ if runtime:
                   'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
     if sys.platform == 'win32':
         asr.binaries = select_msvc(asr.binaries)
+    if native_observer:
+        native_observer.observe_analysis('asr', asr.binaries)
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,
-        name='GameImmersionToolkitAsr', console=True, contents_directory='_internal')
-    asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name='GameImmersionToolkitAsr')
+        name=asr_name, console=True, contents_directory='_internal')
+    if native_observer:
+        native_observer.observe_generated('asr', asr_exe.name)
+    try:
+        asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name=asr_name)
+    except Exception as error:
+        if native_observer:
+            native_observer.refuse_collection(error)
+        raise
+    if native_observer:
+        native_observer.finish()

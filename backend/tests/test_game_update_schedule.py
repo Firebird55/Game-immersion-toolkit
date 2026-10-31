@@ -72,6 +72,11 @@ def test_startup_with_prepared_zzz_uses_multilingual_index_without_legacy_reload
         hito=SimpleNamespace(close=lambda: None), _legacy_zzz_voice=SimpleNamespace(close=lambda: None),
         _legacy_pragmata_voice=SimpleNamespace(close=lambda: None), _readers={},
         _legacy_game_voices=[], game_voice_assets={}, _locale_voices={}, map_task=None)
+    reader_shutdowns = []
+    runtime._reading_registry = SimpleNamespace(shutdown=lambda deadline: reader_shutdowns.append(deadline))
+    runtime._handoff_drains = []
+    runtime._handoff_step = lambda operation, deadline, **options: Runtime._handoff_step(
+        runtime, operation, deadline, **options)
     monkeypatch.setattr(api, 'runtime', runtime, raising=False)
     monkeypatch.setattr(api, 'Runtime', lambda: runtime)
     async def lifecycle():
@@ -80,6 +85,7 @@ def test_startup_with_prepared_zzz_uses_multilingual_index_without_legacy_reload
                 await runtime.warm_task
     asyncio.run(lifecycle())
     assert calls == ['warm' if standby else 'updates']
+    assert len(reader_shutdowns) == 1 and all(task.done() for task in runtime._handoff_drains)
 
 
 def test_legacy_refresh_keeps_its_index_after_a_language_switch(tmp_path):

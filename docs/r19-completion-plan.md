@@ -17,19 +17,33 @@ capture presentations require an adapter. Historical experimental receipts do
 not establish production package acceptance: each shipped target still requires
 its exact input review and frozen-process checks.
 
-Updated 2026-10-29 against `2e10dff78fb89f48584ff4f3ddb087e12e71c3ec`.
+Plan baseline: 2026-10-29 at `2e10dff78fb89f48584ff4f3ddb087e12e71c3ec`;
+codec integration checkpoint updated 2026-10-30.
 The acceptance contract remains the [R18 plan](r18-runtime-inventory.md#r19-acceptance-plan),
 [component inventory](r18-runtime-components.md) and
 [storage/host contract](r18-storage-host-contract.md). Current implementation and
 exact test/artifact identities are in the [runtime evidence](r19-runtime-bundle.md)
 and [helper evidence](r19-compiler-free-helpers.md).
-The [first codec slice](r19-codec-experiment.md) now implements experimental fixed
-FFmpeg/FLAC dispatch and its decode/failure probe; broader codecs and rights remain
-open. Its execution evidence is separate from the earlier checkpoint below.
+The [first codec slice](r19-codec-experiment.md) used experimental fixed
+FFmpeg/FLAC dispatch and its decode/failure probe. That historical execution
+evidence remains separate from the Xiph integration and earlier checkpoint below.
 The [codec artifact review](r19-codec-artifact-review.md) identifies the exact
-Gyan supplier/FFmpeg source and rejects the current 7.1 snapshot for production.
-Full dependency source/notice delivery and a maintained replacement remain
-required. This is a completed negative artifact disposition, not acceptance.
+Gyan supplier/FFmpeg source and rejects that 7.1 snapshot for production.
+It does not establish complete dependency source/notice delivery or acceptable
+maintenance for that artifact. This is a completed negative disposition.
+The subsequent [Xiph FLAC replacement selection](r19-codec-replacement.md) verifies
+the maintained source candidate, complete source kit and independent Windows
+rebuild. Its new CLI/DLL is now [integrated in the frozen experiment](r19-frozen-xiph.md);
+source/rebuild, extracted-runtime and clean Windows acceptance remain distinct.
+The [rights/source/maintenance review](r19-xiph-distribution-review.md) now retains
+the exact source kit in Git and records all 35 post-release changes. It also
+corrects the earlier MIT description. The owner approved a limited additional
+GPL-2.0-or-later route for the two codec build scripts and input policy on
+2026-10-30. The new source kit contains that grant; its independent Windows
+build/rebuild and downloaded source artifact are verified. The bounded frozen
+checkpoint at `acc68be` also passed with downloaded source/metadata verification;
+this is not final-candidate acceptance. Canonical binary/source
+cohosting, other component rights and native gates remain open.
 
 The deliverable is an extracted Windows x64 runtime that an ordinary user can
 operate without separately installed Python/Node/npm, a Wrangler service, an
@@ -44,19 +58,187 @@ shortcut transaction or live migration is authorized by this plan.
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
-| Source candidate | Full Windows source/browser/package run at `06eeb97`: 1,759 Python tests passed, one skipped; all five browser groups and extracted source-ZIP validation passed; downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime |
-| Extracted runtime | At `3837b6d`, 114 affected contracts plus native imports, all 25 registry readers, VAD silence, authored index/language workers, catalog export, isolated ASR imports and frontend/API/WS/Setup passed | API external side effects were mocked; real OCR/capture, game voices, ASR inference and full export remain unverified |
+| Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
+| Extracted runtime | At `973db81`, 1,284 Windows contracts without skips, freezing, native/C1/cold-slot, both living-keeper cases and authored SQLite plain/interrupted-resumed/retained-WAL/populated-grammar cases passed, including Transcript/Lexirise/Reading SQL owners; root and peer independently checked seven provider-bound archives and 59 named Git inputs | This is the latest complete bounded frozen checkpoint. The earlier `31ee4c9` keeper failure remains negative evidence; separate C7 authored engine failures and their later test-only correction supply no mechanism result. No target activation, keeper loss, global/dynamic writer admission, physical handle closure, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation is accepted |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
 | ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
-| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+| Host/data recovery | Guarded cold slots, living-keeper and `f43cec7` plain/interrupted-resumed/retained-WAL/one populated local grammar receipts verify bounded retained-process/continuous-lease behavior with actual source-entry contenders; protected-TEST probes also exist | No production global writer barrier, keeper-loss lifetime, interrupted-WAL, warm supervising updater or full populated-data/settings/browser/credential/schema continuity proof. C7 v1/v2/v3 provide no bounded legacy-open/attribute result; `31ee4c9` keeper cleanup remains unconfirmed |
+| Unvoiced export | Actual source and `acc68be` frozen authored Half-Life index/language/mobile-export workers and the portable mobile parser pass for English and Simplified Chinese, with missing-pack rejection and previous-export preservation | Ordinary-user/installed-pack acceptance remains pending; no original speech binding is added |
+| Source original PCM | Source and bounded frozen authored Portal VPK/VCCD/event and selected English/French pack bindings pass actual index/language workers and in-process extraction/PCM validation; truncated PCM preserves prior output | Voiced mobile export still requires the unavailable general MP3 conversion path: bundle FFmpeg is disabled, the voice service requires decoder readiness and the transfer format requires MP3. Xiph FLAC and the quarantined FFmpeg DLL replay do not provide that encoder. MP3/composite/Bink decoding and installed-game/native coverage also remain pending |
 
-The `runtime` profile stays hard-disabled and `r19_complete` stays false. The dated
-`packaging/runtime-bundle/toolchains.json` is an inventory baseline; its old
-`blocked` labels must be reconciled with later scoped evidence before becoming a
-current acceptance ledger. A successful helper build must not erase a remaining
-rights, format or Windows gate.
+The [Python component review](r19-python-component-review.md) retains twenty
+exact supplier notice texts and provenance. Runtime collection/finalization
+requires their delivery, now confirmed in the bounded frozen checkpoints along
+with ONNX/windows-capture/Flatbuffers notice additions. Native ownership, complete
+incorporated notices and rights remain pending. The [native acceptance protocol](r19-native-acceptance.md) validates
+candidate-bound receipts without granting acceptance. The user confirmed on
+2026-10-30 that Windows 11 25H2 x64 test hardware is not yet available.
+
+The `runtime` profile stays hard-disabled and `r19_complete` stays false. The
+dated `packaging/runtime-bundle/toolchains.json` now distinguishes later bounded
+helper evidence from remaining rights, format and Windows blockers for all 25
+games. A successful helper build does not erase those remaining gates.
+The [strict writer protocol](r19-writer-quiesce.md) accounts for admitted HTTP
+work and registered background producers, while default source updates retain
+their capture-only protocol. Neither returns production store-copy authority.
+The [owned frozen host probe](r19-owned-host-probe.md) now uses actual Windows
+Job Objects and retained process/listener handles for one disposable frontend/API
+slot. Its API external side effects remain mocked. Local ordering/refusal tests
+pass; actual extracted Windows stop, child-exit, parent-crash, readiness and
+foreign-listener cases passed at `acc68be`, with retained runtime/OS-helper
+handles signaled and ports released. The [download review](r19-frozen-checkpoint-20261031.json)
+binds the exact checkpoint. It is not a production launcher or update transaction.
+
+The [guarded cold-slot checkpoint](r19-guarded-slot-probe.md) establishes continuous
+lease exclusion while its outer guardian remains alive, including host crash and
+rollback. Guardian death, warm routing and actual store/credential continuity stay
+open. The separate [living frozen keeper probe](r19-frozen-keeper-probe.md)
+adds two fixed guardian-loss cases using retained suspended creation objects.
+Its first actual frozen attempt at `e8a76d4` refused a guardian descendant
+before writer creation; that failure remains recorded. At `1c2d931`, both
+detached cases passed with actual source-entry exclusion held through retained
+writer signals and explicit cleanup. The outer keeper remained alive: keeper
+loss and general writer lifetime remain open.
+The [authored frozen data-copy adapter](r19-frozen-data-copy-probe.md) now
+connects that fixed writer cohort to the existing typed migration barrier.
+Its local SQLite/ordering contracts and first frozen Windows case at `ed153ab`
+pass. The downloaded receipt verifies two source cohorts, four retained writer
+signals and nine actual source-operation blocks. No WAL/SHM file was present.
+It restarts the original source with a fresh cohort; it does not activate a
+copied target, warm a candidate or publish a route. At `5640d6b`, the separate
+fixed post-file-exception case also passed with the same live owner, two helper
+attempts, two partial revalidations and ten actual source blocks. Two reviewers
+verified its downloaded receipt, but WAL/SHM remained zero and keeper/global
+writer/target-activation gates stay open.
+At `5c9db76`, the distinct plain-copy C5 case passed with a real stopped
+16,512-byte transcript WAL and 32,768-byte SHM, main-only `favorite=false`
+versus full-set `favorite=true`, ten source-entry blocks and the same two-cohort
+preservation/cleanup protocol. C3/C4 again observed zero WAL/SHM. This closes
+only that retained-WAL fixture observation; other populated data/export ledgers,
+settings continuity, keeper death, global admission and warm routing remain
+code/integration work. The same head's ASR source attempt still failed before
+configure: both Full CLR/x64 default-folder results were empty despite the
+two-alias binding. No specific Shell cause or native ASR success is inferred.
+At `a1c5e92`, run `41225646234` added the separate C6 observation: actual local
+HTTP/SQLite0→4, exactly one scoped4 copied row and fresh source-cohort4 readback
+while mocked external grammar state remains0. Ten source-entry blocks, two source
+cohorts, four retained writer signals and cleanup passed; C3/C4/C5 passed again.
+Root and peer verified the exact downloaded metadata and reference source/rebuild
+artifacts. This narrows one E1 fixture field; it does not close E1 or the global
+writer, settings/browser, real credential or other populated-ledger gates.
+The same head's ASR run `41225667278` still failed at common-data binding:
+after-call markers were unobserved with MSB4184 in both states, so the return and
+cause remain unknown. The separate C7 v1 run `41225668722` failed at
+`legacy-baseline`/`protocol-refused`, with no bounded operation observation and
+unconfirmed cleanup. Its empty observation list does not establish that physical
+opens/attribute changes never occurred. R18 lock and keeper-loss gates stay open.
+The explicit transcript-close source and selected storage contracts were then
+tested at `31ee4c9`, run `41230110931`: 1,191 contracts passed without skips
+(one warning, 131.00 seconds), but the keeper step failed at
+`registered-start` / `registered-listener-changed` and reached its external
+five-minute deadline. Only the first before-resume case completed; cleanup is
+unconfirmed. Root and peer verified the nine-entry partial metadata archive,
+separate failure JSON and six other source/metadata archives. C3/C4/C5/C6 were
+skipped and their receipts are absent. This is a negative partial checkpoint;
+the complete `a1c5e92` evidence is preserved. No storage cause or successful
+cleanup is inferred from the timeout.
+
+At `e8416e9`, separate ASR run `41229142323` observed the fixed
+`absolute-path-required` resource in both rejected common-data states. Both
+defaults remained empty; configure, compilation and inference were not reached.
+C7 v2 run `41229013616` delivered only the connected checkpoint, with parent
+`receive-script-progress` and child `not-signaled` before close. Its refusal and
+unconfirmed cleanup establish no native cause or lock-attribute result.
+The later [per-store operation fence](r19-mutable-store-lifetime.md) at
+`1d933dd` is source implemented, distinct from the explicit-close prerequisite:
+it drains admitted connection scopes, not physical SQLite/OS resources or every
+outer method. It grants no detach, global writer or warm OCR authority.
+The [OS-derived ASR SystemDrive binding](r19-asr-source-experiment.md#common-data-preflight-and-pending-os-derived-systemdrive-binding)
+at `3b3a282` was source-only. The separate `f43cec7` ASR run subsequently passed
+the bound state, native build and authored format/API cases; it does not change
+historical negatives, approve model weights or establish speech recognition.
+At `f43cec7`, the complete frozen run passed 1,234 contracts without skips and
+both keeper cases plus C3–C6. Root and peer verified seven exact provider-bound
+archives, 52 named Git blobs, 473 A2/P1 records and Xiph source/rebuild/decode
+bindings. This superseded `a1c5e92` as the latest complete bounded checkpoint
+at that point, without changing the earlier negative evidence. Its per-store
+scope fence is
+not physical detach; registered startup progress is separate from unchanged
+ready HTTP ownership checks; WebSocket admission follows actual worker lifetime
+and retires old queued epoch tickets, without establishing global admission.
+The separate C7 v3 run `41235281328` failed at the last complete `grantread`
+checkpoint, before any delivered parsed-grant or legacy-open/attribute result.
+Its cause and cleanup remain unconfirmed. The successful separate ASR source-build
+evidence is distinct from the frozen smoke and reviewed under its own exact
+artifacts; native/source/CRT, model, rights and Windows11 gates remain open.
+
+The later `eaa42b2` run passed 1,249 contracts without skips and all the same
+keeper/C3–C6 cases with the shared SQL-operation helper and Lexirise root/pins.
+It was the complete bounded checkpoint before `973db81`. Root and peer checked seven
+archives, seven actual job images and 57 exact named Git inputs. The separate
+C7 v4 run `41238897590` passed 138 tests but failed both authored Windows engine
+cases before the actual mechanism; no artifact or mechanism receipt was produced.
+The original fixed failure did not identify its process exit or stderr cause.
+Neither this separate negative nor any rights/physical/global/warm/Windows gate
+is closed by the complete runtime pass. ASR's fifteen recipe inputs are unchanged;
+no new prepare or source-ASR native pass is inferred.
+The later test-only `37b4dd5` run `41240037303` isolates the two authored failures
+to the fixed `record-identity` exit32 with no stderr. Exception identity and later
+acknowledgement/frame checks were not reached, and no mechanism artifact exists.
+The producer remains unchanged; no error-loss or environment cause is inferred.
+
+At `973db81`, the new per-reader SQL scope implementation passed 1,284 Windows
+contracts without skips and all keeper/C3–C6 cases again. Root and peer checked
+seven archives/logs and 59 exact named Git inputs. It is now the latest complete
+bounded checkpoint. Reading's five SQL sites retain their read/transaction
+semantics and the shared close factor retains the earlier two owners. Dynamic
+reader creation/retention and aggregate physical resource fencing remain separate.
+The same head's separate authored C7 run supplied a bare-rethrow comparison:
+both wrappers differ by reference, but all four underlying preservation booleans
+are true within both variants in both test cases. The later test-only predicate
+correction keeps those four hard requirements. No actual mechanism, historical
+grant-conversion cause, new source-ASR replay or rights/Windows gate is accepted.
+
+The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
+a separate manual build-host experiment. The [TTS-disabled ASR source
+experiment](r19-asr-source-experiment.md) is a distinct private binding variant,
+with an authored native-format graph rather than accepted pretrained model
+weights. Neither experiment is a runtime replacement or a corresponding-source
+approval. Earlier ambiguous discovery, wrong installed CMake, compiler quoting,
+search-root and missing-import failures remain in their dated evidence ledgers.
+The exact official [isolated CMake input](pinned-build-cmake.md) preserves the
+4.4.5 requirement. At `1c2d931`, FFmpeg/Opus source build and native
+decode/error/origin probes passed; its independently reviewed public source kit
+also excludes private configure-log metadata. Complete corresponding-source
+review and the separately proposed six-file recipe license remain pending.
+At that same checkpoint, ASR verified the initial exact CMake module variant
+and selected VS18 `v180` inputs, then failed configure with MSB4018. The isolated
+`ce09ea2` follow-up confirmed canonical imports and a `CL` task
+type-initialization exception. At `ed153ab`, eight bounded records additionally
+identify an inner `ArgumentException`; message, parameter, initializer and
+underlying cause remain unknown. These runs prove no compilation or inference.
+The diagnostic changes altered no tool pins,
+compiler flags or full selected-instance identity.
+The [MSVC metadata census](r19-msvc-redist-observation.md) is a separate
+read-only first step, with no component selection, redistribution permission
+or runtime admission. Its first hosted census at `ed153ab` failed before
+publication, with no artifact or proven Python-contract/census subphase. Fixed
+phase diagnosis subsequently identified an observer-startup failure. Direct
+binding to setup-python's exact executable allowed eleven Node and 37 Python
+contracts without skips at `c3639ce`; the first independently verified
+source-bound census remains negative with `unknown-version-entry`. No versions,
+families or files are admitted. Its unknown entry still needs a bounded layout
+review; no path-policy relaxation or CRT selection follows from this result.
+The first v2 observation at `2a169bd` narrows only its name bucket to
+`other-noncanonical-name`; the actual spelling/type remains unknown.
+The strict toolchain and source guards remain in force.
+The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
+binds a fixed current/retired frontend snapshot to independently trusted slot
+manifest hashes. Its authored loopback tests cover old Vite/Next chunks and
+refusal cases; production CLI access, route swaps and browser continuity remain
+unavailable.
 
 ## Execution order and ownership
 
@@ -104,6 +286,16 @@ instead of treating retained METADATA as approval. Review emitted frontend,
 fonts, WASM, dictionaries and model bytes; build-only npm/SDK/test packages do
 not become user dependencies. Record the chosen x64/x86 VC runtime requirements
 and official repair path without copying arbitrary System32 files.
+
+The [native collection observation](r19-native-collection-provenance.md) now
+binds existing PyInstaller sources to final output bytes. Its first actual
+`423e843` run refused an unresolved source before freezing; the bounded
+current-call census adds diagnostic categories without admitting that source.
+The [static image review](r19-native-image-review.md) adds a mandatory final
+inventory check for selected EXE/DLL/PYD architecture, CLR flags and import
+tables. Its authored contracts are distinct from actual frozen output evidence.
+Other extensions, embedded images, dynamic loads, incorporated rights and full
+P1/A1 closure remain open.
 
 **A3 — Resolve the shared audio and blocked reader inputs.** For FFmpeg and
 vgmstream, select exact artifacts/configuration, codec/native dependencies,
@@ -249,6 +441,10 @@ export-volume work and previous complete libraries. Validate SQLite/WAL/schema
 sets, aliases and inventories. Cover interrupted/resumed copy, no space, locks,
 unknown schema and malformed/changed manifests; retain originals and failed
 targets. Do not perform an actual existing-installation migration in this phase.
+The `a1c5e92` C6 checkpoint verifies one authored populated local grammar override
+through actual HTTP/SQLite and fresh-source readback with mocked remote state0.
+It does not replace the remaining account/locale, export-ledger, outstanding-work,
+previous-library or general populated-data cases, nor create a global stop proof.
 
 **E2 — Verify protected TEST credentials on the candidate.** Preserve host
 locators and encrypted legacy fallback under the same Windows user. Use newly
@@ -323,11 +519,25 @@ game media, raw compiler logs or recordings as failure artifacts.
 
 ## Immediate next implementation slice
 
-Continue A1/A3 and B1 by selecting a maintained replacement for the rejected
-experimental FFmpeg 7.1 snapshot. Close exact source/patch/build-recipe/notice
-delivery for that replacement, then update its fixed resolver and repeat the
-actual frozen decode/failure/lifecycle cases. The existing fixture proves a
-baseline only; it does not qualify the replacement.
+Continue A1/A3 and B1 from the [frozen Xiph integration](r19-frozen-xiph.md),
+retaining its complete source/recipe/notice delivery and exact observed binary
+identity. Review its extracted decode/failure/DLL-origin evidence separately from
+clean Windows 11/ordinary-user CRT acceptance and production source hosting.
+The limited build-recipe grant in the
+[rights/source review](r19-xiph-distribution-review.md) is approved and delivered
+in the exact retained source kit. Keep that completed scope separate from
+remaining canonical binary/source cohosting, incorporated-component rights and
+clean-host acceptance. No blanket relicense is inferred and no runtime acceptance
+flag changes. The standalone source-build/rebuild pass alone does not establish
+those remaining gates.
+
+Finish the separate FFmpeg/Opus and TTS-disabled ASR native build experiments
+before considering their source/notice disposition or runtime integration. A
+passing authored ASR graph would prove mechanical inference APIs only, not
+speech recognition accuracy, pretrained model rights or complete ONNX source
+reconstruction. In parallel, C can extend verified immutable frontend retention
+and the independently owned lease lifetime using authored private state; neither
+a frontend snapshot nor a cold-slot pass is a warm update transaction.
 
 For each subsequent codec family use one accepted artifact and an independently
 authored real decode, plus missing/corrupt/cancellation cases. Add its exact

@@ -32,11 +32,12 @@ class MobileExportManager:
         self._thread = self._process = self._picker = self._picker_result = None
         self._owned_process = None
         self._picker_owner = None
-        self._stop_threads = []
         self._picker_started = 0.0
         self._picker_message = ''
         self._status = {'state': 'idle', 'progress': 0, 'message': 'Ready to export a mobile library'}
         self._estimates = {}
+        self._quiescing = False
+        self._stop_threads = set()
 
     @property
     def preferences_path(self):
@@ -159,6 +160,8 @@ class MobileExportManager:
         if sys.platform != 'win32':
             raise ValueError('The folder picker requires Windows. You can paste a folder path instead.')
         with self._lock:
+            if self._quiescing:
+                return False
             self._finish_picker()
             if self._picker or self._status['state'] in ACTIVE:
                 return False
@@ -239,11 +242,13 @@ class MobileExportManager:
         if process:
             stopper = threading.Thread(target=self._stop, args=(process,), daemon=True)
             with self._lock:
-                self._stop_threads.append(stopper)
+                self._stop_threads.add(stopper)
                 stopper.start()
         return True
 
     def drain(self):
+        with self._lock:
+            self._quiescing = True
         self.cancel()
         self.close_picker()
         with self._lock:
@@ -252,7 +257,7 @@ class MobileExportManager:
             worker.join(timeout=30)
             if worker.is_alive():
                 raise RuntimeError('Mobile export is still stopping; handoff is blocked.')
-        for stopper in self._stop_threads:
+        for stopper in list(self._stop_threads):
             stopper.join(timeout=20)
             if stopper.is_alive():
                 raise RuntimeError('Export cancellation is still stopping; handoff is blocked.')
@@ -265,6 +270,25 @@ class MobileExportManager:
                 self._owned_process = None
         if self._process and self._process.poll() is None:
             raise RuntimeError('Export process ownership is incomplete; handoff is blocked.')
+        with self._lock:
+            self._stop_threads = {thread for thread in self._stop_threads if thread.is_alive()}
+
+    def quiesce(self):
+        """Refuse a live export/picker; a cancel request is not a drain proof.
+
+        Existing export cancellation still has its own native ownership gate.
+        Handoff does not start taskkill from a copied PID or pretend that the
+        monitor's cancelled status proves all native descendants exited.
+        """
+        with self._lock:
+            self._quiescing = True
+            if ((self._thread and self._thread.is_alive()) or self._picker
+                    or self._stop_threads or (self._process and self._process.poll() is None)):
+                raise TimeoutError('Finish or cancel the active mobile export/folder picker before runtime handoff.')
+
+    def resume(self):
+        with self._lock:
+            self._quiescing = False
 
     def _stop(self, process):
         try:
@@ -284,6 +308,8 @@ class MobileExportManager:
 
     def start(self, game, include_audio=True, destination_folder=None):
         with self._lock:
+            if self._quiescing:
+                return False
             self._finish_picker()
             if self._thread and self._thread.is_alive() or self._picker or self._status['state'] in ACTIVE:
                 return False

@@ -130,6 +130,8 @@ __pycache__/
 *.dpapi
 *.db
 *.sqlite*
+# Public supplier license text, not a SQLite database or private store.
+!/packaging/runtime-bundle/python-notices/LICENSE.sqlite.txt
 *.key
 *.pem
 

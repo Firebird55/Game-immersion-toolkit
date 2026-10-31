@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import sqlite3
 import json
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .models import TextMatch, TranscriptLine, is_comic_text_id
+from .sqlite_operation_lifetime import SqliteOperationLifetime
 
 
 SCHEMA = """
@@ -31,9 +34,43 @@ CREATE TABLE IF NOT EXISTS transcript_lines (
 """
 
 
+class TranscriptConnectionCloseError(RuntimeError):
+    """Private failed-close ownership; never a store-detach or retry token."""
+    def __init__(self, store, connection, body_error, transaction_error, close_error):
+        super().__init__('Transcript connection cleanup is unconfirmed.')
+        self.store, self.connection = store, connection
+        self.body_error, self.transaction_error, self.close_error = body_error, transaction_error, close_error
+
+
+class TranscriptStorePoisonedError(RuntimeError):
+    def __init__(self, failure):
+        super().__init__('Transcript store cleanup remains unconfirmed.')
+        self.failure = failure
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class TranscriptConnectionFence:
+    """One store's closed operation scopes; no copy or process authority."""
+    _store: TranscriptStore
+    _epoch: int
+
+    @property
+    def _lifetime_subject(self):
+        return self._store
+
+    def check(self, store):
+        if not isinstance(store, TranscriptStore) or store is not self._store:
+            raise ValueError('The transcript connection fence belongs to another store.')
+        store._sql_lifetime.check(self)
+
+
 class TranscriptStore:
     def __init__(self, path: Path):
         self.path = path
+        self._sql_lifetime = SqliteOperationLifetime(self, close_error=TranscriptConnectionCloseError,
+            poisoned_error=TranscriptStorePoisonedError, fence_type=TranscriptConnectionFence,
+            label='Transcript connection')
+        self._connection_failures = self._sql_lifetime.failures  # Existing failed-owner observation hook.
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -42,8 +79,23 @@ class TranscriptStore:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @contextmanager
+    def _connection_scope(self):
+        with self._sql_lifetime.operation():
+            connection = self._connect()  # Keep the existing raw/configurable factory hook.
+            with self._sql_lifetime.transaction(connection):
+                yield connection
+
+    def freeze_connections(self, timeout):
+        """Close this store's admitted operation scopes, not physical handles."""
+        return self._sql_lifetime.freeze(timeout)
+
+    def resume_connections(self, fence):
+        """Invalidate the exact local token before admitting another operation."""
+        self._sql_lifetime.resume(fence)
+
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute(SCHEMA)
             columns = {row[1] for row in connection.execute("PRAGMA table_info(transcript_lines)")}
@@ -128,7 +180,7 @@ class TranscriptStore:
         channel: str = "dialogue",
     ) -> TranscriptLine:
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO transcript_lines (
@@ -179,7 +231,7 @@ class TranscriptStore:
         if match.game != "hito":
             raise ValueError("Hito identity handling requires a Hito match")
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             connection.execute(
                 """
                 INSERT INTO transcript_lines (
@@ -224,7 +276,7 @@ class TranscriptStore:
         """
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
         if match.source_locale != 'zh-Hans' or match.audio_scope == 'paragraph':
-            with self._connect() as connection:
+            with self._connection_scope() as connection:
                 duplicate = connection.execute("""SELECT 1 FROM transcript_lines
                     WHERE game=? AND text_id=? AND json_extract(language_context, '$.source_locale')=?
                     AND json_extract(language_context, '$.source_text')=? AND datetime(created_at)>=datetime(?) LIMIT 1""",
@@ -235,7 +287,7 @@ class TranscriptStore:
             return self.add(match, session_id, created_at=timestamp, channel=channel), False
         cutoff = timestamp - timedelta(seconds=max(0.0, cooldown_seconds))
         is_comic = match.game == "zzz" and channel == "cinematic" and is_comic_text_id(match.text_id)
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             adjacent_cutoff = timestamp - timedelta(seconds=max(0.0, adjacent_seconds))
             adjacent = connection.execute(
                 """
@@ -342,14 +394,14 @@ class TranscriptStore:
         return self.add(match, session_id, created_at=timestamp, channel=channel), False
 
     def get(self, line_id: int) -> TranscriptLine | None:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             row = connection.execute(
                 "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
             ).fetchone()
         return self._row_to_line(row) if row else None
 
     def update_audio(self, line_id: int, audio_path: str | None, voiced: bool) -> TranscriptLine | None:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             connection.execute(
                 "UPDATE transcript_lines SET audio_path = ?, voiced = ? WHERE id = ?",
                 (audio_path, int(voiced), line_id),
@@ -360,7 +412,7 @@ class TranscriptStore:
         return self._row_to_line(row) if row else None
 
     def set_favorite(self, line_id: int, favorite: bool) -> TranscriptLine | None:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             connection.execute(
                 "UPDATE transcript_lines SET favorite = ? WHERE id = ?",
                 (int(favorite), line_id),
@@ -376,7 +428,7 @@ class TranscriptStore:
         speaker_english: str | None,
         speaker_chinese: str | None,
     ) -> TranscriptLine | None:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             connection.execute(
                 "UPDATE transcript_lines SET speaker_english = ?, speaker_chinese = ? WHERE id = ?",
                 (speaker_english, speaker_chinese, line_id),
@@ -387,7 +439,7 @@ class TranscriptStore:
         return self._row_to_line(row) if row else None
 
     def delete(self, line_id: int) -> str | None:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             row = connection.execute(
                 "SELECT audio_path FROM transcript_lines WHERE id = ?", (line_id,)
             ).fetchone()
@@ -397,7 +449,7 @@ class TranscriptStore:
     def prune(self, keep_nonfavorite: int = 50) -> list[tuple[int, str | None]]:
         """Keep favorites plus the newest non-favorites for each supported game."""
         keep_nonfavorite = max(0, keep_nonfavorite)
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             rows = []
             games = [row[0] for row in connection.execute("SELECT DISTINCT game FROM transcript_lines")]
             for game in games:
@@ -423,7 +475,7 @@ class TranscriptStore:
 
     def purge_unvoiced(self) -> list[tuple[int, str | None]]:
         """Keep favorites, confirmed voices and certified unvoiced dialogue."""
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             rows = connection.execute(
                 """
                 SELECT * FROM transcript_lines
@@ -443,7 +495,7 @@ class TranscriptStore:
         ]
 
     def audio_path(self, line_id: int) -> str | None:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             row = connection.execute(
                 "SELECT audio_path FROM transcript_lines WHERE id = ?", (line_id,)
             ).fetchone()
@@ -466,13 +518,13 @@ class TranscriptStore:
             query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY julianday(created_at) DESC, id DESC LIMIT ?"
         parameters.append(limit)
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             rows = connection.execute(query, parameters).fetchall()
         return [self._row_to_line(row) for row in rows]
 
     def list_favorites(self, game: str | None = None) -> list[TranscriptLine]:
         """Return every saved favorite, newest first."""
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             query = "SELECT * FROM transcript_lines WHERE favorite = 1"
             parameters: list[object] = []
             if game is not None:
@@ -483,7 +535,7 @@ class TranscriptStore:
         return [self._row_to_line(row) for row in rows]
 
     def count(self, session_id: str | None = None, game: str | None = None) -> int:
-        with self._connect() as connection:
+        with self._connection_scope() as connection:
             query = "SELECT COUNT(*) AS total FROM transcript_lines"
             conditions: list[str] = []
             parameters: list[object] = []

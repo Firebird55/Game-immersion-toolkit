@@ -96,29 +96,30 @@ class FrameProcess:
 
     def close(self):
         self.stopping.set()
-        process, self.process = self.process, None
-        tree, self.tree = self.tree, None
-        try:
-            if process is not None:
-                try:
-                    process.stdin.close()
-                except OSError:
-                    pass
-                try:
-                    process.wait(timeout=.5)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=3)
-            # Kill/reap the bootstrap first, then stop its owned descendants.
-            if tree is not None:
-                tree.terminate()
-        finally:
-            if tree is not None:
-                tree.close()
-            if self.reader is not None:
-                self.reader.join(timeout=3)
-            if process is not None:
-                process.stdout.close()
+        process, tree = self.process, self.tree
+        # Keep actual handles reachable until every native join succeeds. A
+        # failed terminate/CloseHandle is retryable and cannot release ownership.
+        if process is not None:
+            try:
+                process.stdin.close()
+            except OSError:
+                pass
+            try:
+                process.wait(timeout=.5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+        if tree is not None:
+            tree.terminate()
+        if self.reader is not None:
+            self.reader.join(timeout=3)
+            if self.reader.is_alive():
+                raise TimeoutError('Background frame reader has not stopped.')
+        if process is not None:
+            process.stdout.close()
+        if tree is not None:
+            tree.close()
+        self.process = self.tree = None
 
 
 class BackgroundCapture:
@@ -133,10 +134,12 @@ class BackgroundCapture:
 
     def close(self):
         with self._lock:
-            worker, self._worker = self._worker, None
+            # Retain the actual worker after failed cleanup so recovery cannot
+            # start a replacement while its process tree is still alive.
+            if self._worker is not None:
+                self._worker.close()
+            self._worker = None
             self._target = None
-            if worker is not None:
-                worker.close()
 
     def frame(self, window: WindowInfo) -> Image.Image | None:
         if sys.platform != 'win32':
