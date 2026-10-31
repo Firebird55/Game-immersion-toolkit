@@ -59,6 +59,7 @@ _BUILD_PHASE = 'build-preflight'
 _BUILD_SOURCE_COMMIT = None
 _BUILD_CMAKE_OBSERVATION = None
 _BUILD_ENVIRONMENT_OBSERVATION = None
+_BUILD_VS_VERSION = None
 PARENT_IMPORT_NAMES = frozenset({'Directory.Build.props', 'Directory.Build.targets',
     'Directory.Build.rsp', 'MSBuild.rsp'})
 # Fixed error-template fragments reviewed in CMake 4.4.5 commit aa4fae824a02a175c4a11653d7a851a948f0c004.
@@ -395,7 +396,7 @@ def verify_trace(path, output):
             'no_undeclared_fetch_observed': True, 'network_sandbox': False}
 
 
-def verify_cache(path, output):
+def verify_cache(path, output, vs_instance=None):
     values = {}
     for line in Path(path).read_text(encoding='utf-8').splitlines():
         match = re.fullmatch(r'([^#/:][^:]*):[^=]+=(.*)', line)
@@ -404,6 +405,8 @@ def verify_cache(path, output):
             values[match[1]] = match[2]
     if any(values.get(key) != expected for key, expected in pin()['cmake'].items()):
         raise ValueError('The observed ASR configuration differs from the fixed recipe.')
+    if vs_instance is not None and values.get('CMAKE_GENERATOR_INSTANCE') != vs_instance:
+        raise ValueError('The configured VS instance differs from the exact selected path/version tuple.')
     for item in pin()['inputs']:
         name = item['fetchcontent_name']
         if name and Path(values.get('FETCHCONTENT_SOURCE_DIR_' + name.upper(), '')).resolve() != (output / 'sources' / item['name']).resolve():
@@ -433,6 +436,64 @@ def validate_tool_roots(roots):
 
 def numeric_version(value):
     return value if isinstance(value, str) and re.fullmatch(r'[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,4}', value) else None
+
+
+def vs_instance_version(value):
+    return value if isinstance(value, str) and re.fullmatch(r'18(?:\.[0-9]{1,6}){3}', value) else None
+
+
+def cmake_instance_spec(root, version):
+    if vs_instance_version(version) is None or not isinstance(root, (str, Path)):
+        raise ValueError('One exact numeric four-component VS18 instance is required.')
+    root = Path(root)
+    if (not root.is_absolute() or any(ord(c) < 32 or ord(c) == 127 or c in ',;' for c in str(root))):
+        raise ValueError('The VS instance root must be one explicit unambiguous absolute directory.')
+    no_links(root)
+    if not root.is_dir():
+        raise ValueError('The selected VS instance directory is unavailable.')
+    return root.resolve().as_posix() + ',version=' + version
+
+
+def verify_vs_selection(root, version, vswhere, roots, expected_selection=None):
+    """Re-query the wrapper's exact instance; never choose another installation."""
+    global _BUILD_VS_VERSION
+    cmake_instance_spec(root, version)
+    validate_tool_roots(roots)
+    root = Path(root).resolve()
+    for name, relative in {'vc': 'VC/Tools/MSVC/' + pin()['toolchain']['vc_tools_version'],
+            'vc-auxiliary': 'VC/Auxiliary', 'msbuild': 'MSBuild'}.items():
+        if Path(roots[name]).resolve() != (root / relative).resolve():
+            raise ValueError('The selected VS instance and sealed tool roots differ.')
+    base = os.environ.get('ProgramFiles(x86)', '')
+    if (not base or not Path(base).is_absolute() or not isinstance(vswhere, (str, Path))
+            or not Path(vswhere).is_absolute()):
+        raise ValueError('The explicit machine installer query tool is unavailable.')
+    expected = Path(base) / 'Microsoft Visual Studio/Installer/vswhere.exe'
+    path = Path(vswhere)
+    no_links(path); no_links(expected)
+    if path.resolve() != expected.resolve() or not path.is_file() or not 0 < path.stat().st_size <= 16 * 1024 * 1024:
+        raise ValueError('The selected VS discovery executable has a different origin.')
+    before = attributes(path.read_bytes())
+    data = subprocess.check_output([str(path), '-latest', '-products', '*', '-requires',
+        'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-format', 'json', '-utf8'],
+        stderr=subprocess.STDOUT, timeout=30)
+    if attributes(path.read_bytes()) != before or len(data) > 1024 * 1024:
+        raise ValueError('The VS discovery input changed or returned unbounded metadata.')
+    values = json.loads(data.decode('utf-8-sig'), object_pairs_hook=unique_json)
+    if not isinstance(values, list) or len(values) != 1 or not isinstance(values[0], dict):
+        raise ValueError('The exact selected VS discovery result differs.')
+    actual = values[0]
+    _BUILD_VS_VERSION = vs_instance_version(actual.get('installationVersion'))
+    if _BUILD_VS_VERSION != version:
+        raise ValueError('The observed selected VS version differs from the supplied identity.')
+    observed_root = actual.get('installationPath')
+    if (not isinstance(observed_root, str)
+            or cmake_instance_spec(observed_root, version) != cmake_instance_spec(root, version)):
+        raise ValueError('The observed selected VS root differs from the sealed instance.')
+    result = {'installation_version': version, 'vswhere': before}
+    if expected_selection is not None and result != expected_selection:
+        raise ValueError('The selected VS discovery bytes or instance version changed during the experiment.')
+    return result
 
 
 def safe_cmake_observation():
@@ -865,6 +926,7 @@ def failed_build_receipt(output, phase, error):
         'status': 'failed', 'phase': phase, 'failure_category': category,
         'diagnostics': known_log_diagnostics(output, phase),
         'cmake_observation': safe_cmake_observation(),
+        'visual_studio_instance_version': vs_instance_version(_BUILD_VS_VERSION),
         'build_environment_observation': safe_build_environment_observation(),
         'source_commit': _BUILD_SOURCE_COMMIT if isinstance(_BUILD_SOURCE_COMMIT, str)
             and re.fullmatch('[0-9a-f]{40}', _BUILD_SOURCE_COMMIT) else None,
@@ -906,14 +968,15 @@ def reject_parent_imports(output):
         raise ValueError('An ambient parent MSBuild import/response file would affect the experiment.')
 
 
-def build(output, tool_roots, vs_root, inputs, cmake_root=None):
-    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION
+def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None, vswhere=None):
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
     _BUILD_ENVIRONMENT_OBSERVATION = None
+    _BUILD_VS_VERSION = None
     try:
-        return _build(output, tool_roots, vs_root, inputs, cmake_root)
+        return _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     except Exception as error:
         try:
             failure = failed_build_receipt(output, _BUILD_PHASE, error)
@@ -925,7 +988,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None):
         raise
 
 
-def _build(output, tool_roots, vs_root, inputs, cmake_root):
+def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere):
     global _BUILD_SOURCE_COMMIT
     output, vs_root = Path(output).absolute(), Path(vs_root).absolute()
     build_phase('source-validation')
@@ -954,6 +1017,8 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
     verify_python(inputs, roots['python'])
     build_phase('tool-root-filesystem')
     for path in roots.values(): no_links(Path(path))
+    build_phase('vs-installation-origin')
+    vs_initial = verify_vs_selection(vs_root, vs_version, vswhere, roots)
     cmake = Path(roots['cmake']) / 'bin/cmake.exe'
     build_phase('cmake-pinned-input')
     cmake_supplier = verify_pinned_cmake(cmake_root, roots['cmake'])
@@ -961,6 +1026,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
     observe_cmake_version(cmake, policy['toolchain']['cmake_version'])
     build_phase('toolchain-seal')
     initial = seal_toolchain(roots)
+    initial['vswhere-query'] = {'vswhere.exe': vs_initial['vswhere']}
     write_json(output / 'PRIVATE-TOOLCHAIN-INVENTORY.json', initial)
     build_phase('probe-dependency-preparation')
     numpy_files = prepare_numpy(inputs, output / 'probe-dependencies')
@@ -993,7 +1059,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
     configure = [cmake, '-S', output / 'sources/sherpa-onnx', '-B', build_root,
         '-G', policy['toolchain']['generator'], '-A', 'x64',
         '-T', 'host=x64,version=' + policy['toolchain']['vc_tools_version'],
-        '-DCMAKE_GENERATOR_INSTANCE=' + str(vs_root),
+        '-DCMAKE_GENERATOR_INSTANCE=' + cmake_instance_spec(vs_root, vs_version),
         '-DCMAKE_SYSTEM_VERSION=' + policy['toolchain']['windows_sdk_version'],
         '--trace-expand', '--trace-format=json-v1', '--trace-redirect=' + str(output / 'PRIVATE-CMAKE-TRACE.jsonl')]
     build_phase('configure-argument-review')
@@ -1007,7 +1073,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
     run_private(configure, logs / 'configure.log', env, output, 600)
     build_phase('build-graph-review')
     graph = verify_trace(output / 'PRIVATE-CMAKE-TRACE.jsonl', output)
-    verify_cache(build_root / 'CMakeCache.txt', output)
+    verify_cache(build_root / 'CMakeCache.txt', output, cmake_instance_spec(vs_root, vs_version))
     for language in ('C', 'CXX'):
         compilers = list(build_root.glob('CMakeFiles/**/CMake' + language + 'Compiler.cmake'))
         if len(compilers) != 1:
@@ -1074,7 +1140,10 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
             or attributes(wheel.read_bytes()) != wheel_bytes):
         raise ValueError('An actual candidate/native/probe input changed during execution.')
     build_phase('final-toolchain-review')
-    if seal_toolchain(roots) != initial:
+    vs_final = verify_vs_selection(vs_root, vs_version, vswhere, roots, vs_initial)
+    final_tools = seal_toolchain(roots)
+    final_tools['vswhere-query'] = {'vswhere.exe': vs_final['vswhere']}
+    if final_tools != initial or vs_final != vs_initial:
         raise ValueError('Compiler, SDK, CMake, MSBuild or Python bytes changed during the experiment.')
     build_phase('final-cmake-pinned-input')
     if verify_pinned_cmake(cmake_root, roots['cmake']) != cmake_supplier:
@@ -1086,6 +1155,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
         raise ValueError('A clean candidate source commit is required for the final receipt.')
     receipt.update({'status': 'native-reference-probes-passed', 'source_commit': commit,
         'toolchain_constraints': policy['toolchain'], 'toolchain_observed_bytes': toolchain_summary(initial),
+        'visual_studio_selection': vs_initial,
         'pinned_cmake': cmake_supplier,
         'build_environment_observation': safe_build_environment_observation(),
         'source_graph': graph, 'native_binding': native_binding,
@@ -1117,6 +1187,8 @@ def main():
     native.add_argument('--inputs', type=Path, required=True)
     native.add_argument('--tool-roots', type=Path, required=True)
     native.add_argument('--vs-root', type=Path, required=True)
+    native.add_argument('--vs-version', required=True)
+    native.add_argument('--vswhere', type=Path, required=True)
     native.add_argument('--cmake-root', type=Path, required=True)
     args = parser.parse_args()
     if args.command == 'prepare':
@@ -1129,7 +1201,7 @@ def main():
         prepare_python(args.archive, args.output)
         print('Exact separate Python supplier prepared; supplier rights review remains open.')
     else:
-        build(args.output, args.tool_roots, args.vs_root, args.inputs, args.cmake_root)
+        build(args.output, args.tool_roots, args.vs_root, args.inputs, args.cmake_root, args.vs_version, args.vswhere)
 
 
 if __name__ == '__main__':

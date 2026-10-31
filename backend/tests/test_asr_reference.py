@@ -314,6 +314,105 @@ def test_tool_roots_reject_ambiguous_or_unavailable_selection_before_inventory(m
     with pytest.raises(ValueError): module.seal_toolchain(roots)
 
 
+def selected_vs_fixture(module, tmp_path, monkeypatch):
+    instance = tmp_path / 'authored VS18'
+    roots = {}
+    for name, relative in {'vc': 'VC/Tools/MSVC/' + module.pin()['toolchain']['vc_tools_version'],
+            'vc-auxiliary': 'VC/Auxiliary', 'msbuild': 'MSBuild'}.items():
+        path = instance / relative; path.mkdir(parents=True)
+        roots[name] = str(path)
+    for name in ('sdk-include', 'sdk-lib', 'sdk-bin', 'cmake', 'python'):
+        path = tmp_path / name; path.mkdir(); roots[name] = str(path)
+    machine = tmp_path / 'authored Program Files x86'
+    tool = machine / 'Microsoft Visual Studio/Installer/vswhere.exe'
+    tool.parent.mkdir(parents=True); tool.write_bytes(b'owned non-executable query fixture')
+    monkeypatch.setenv('ProgramFiles(x86)', str(machine))
+    version = '18.11.12315.225'
+    observed = [{'installationPath': str(instance), 'installationVersion': version,
+        'displayName': 'private ignored instance metadata'}]
+    def query(command, **kwargs):
+        assert command == [str(tool), '-latest', '-products', '*', '-requires',
+            'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-format', 'json', '-utf8']
+        assert kwargs['stderr'] == module.subprocess.STDOUT and kwargs['timeout'] == 30
+        return json.dumps(observed).encode()
+    monkeypatch.setattr(module.subprocess, 'check_output', query)
+    return instance, version, tool, roots, observed
+
+
+def test_vs_instance_argument_uses_requeried_real_selection_and_sealed_root_binding(module, tmp_path, monkeypatch):
+    instance, version, tool, roots, _ = selected_vs_fixture(module, tmp_path, monkeypatch)
+    result = module.verify_vs_selection(instance, version, tool, roots)
+    assert result == {'installation_version': version, 'vswhere': module.attributes(tool.read_bytes())}
+    assert module.verify_vs_selection(instance, version, tool, roots, result) == result
+    assert module.cmake_instance_spec(instance, version) == instance.resolve().as_posix() + ',version=' + version
+    assert str(tmp_path) not in json.dumps(result) and 'private' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('version', [None, 18, ['18.11.12315.225'], '17.11.12315.225',
+    '18.11.12315', '18.11.12315.225.1', '18.11.12315.225\n', '18.11.private.225',
+    '18.11.12315.225,version=18.0.0.0'])
+def test_vs_instance_argument_refuses_noncanonical_or_wrong_major_version_before_query(module, tmp_path, monkeypatch, version):
+    instance, _, tool, roots, _ = selected_vs_fixture(module, tmp_path, monkeypatch)
+    monkeypatch.setattr(module.subprocess, 'check_output', lambda *_a, **_k: pytest.fail('Malformed selection must not execute a query.'))
+    with pytest.raises(ValueError): module.verify_vs_selection(instance, version, tool, roots)
+
+
+@pytest.mark.parametrize('role', ['vc', 'vc-auxiliary', 'msbuild', 'instance-root', 'query-origin'])
+def test_vs_instance_cannot_choose_foreign_root_or_query_executable(module, tmp_path, monkeypatch, role):
+    instance, version, tool, roots, _ = selected_vs_fixture(module, tmp_path, monkeypatch)
+    other = tmp_path / 'foreign instance'; other.mkdir()
+    if role in roots: roots[role] = str(other)
+    if role == 'instance-root': instance = other
+    if role == 'query-origin':
+        tool = other / 'vswhere.exe'; tool.write_bytes(b'owned foreign query fixture')
+    monkeypatch.setattr(module.subprocess, 'check_output', lambda *_a, **_k: pytest.fail('Foreign origin must not execute a query.'))
+    with pytest.raises(ValueError): module.verify_vs_selection(instance, version, tool, roots)
+
+
+@pytest.mark.parametrize('change', ['version', 'root', 'multiple', 'query-bytes-during-query', 'query-bytes-before-final-query'])
+def test_vs_selection_refuses_different_actual_identity_or_changed_query_bytes(module, tmp_path, monkeypatch, change):
+    instance, version, tool, roots, observed = selected_vs_fixture(module, tmp_path, monkeypatch)
+    initial = module.verify_vs_selection(instance, version, tool, roots)
+    if change == 'version': observed[0]['installationVersion'] = '18.11.12316.225'
+    if change == 'root':
+        other = tmp_path / 'foreign actual instance'; other.mkdir(); observed[0]['installationPath'] = str(other)
+    if change == 'multiple': observed.append(dict(observed[0]))
+    if change == 'query-bytes-before-final-query': tool.write_bytes(b'changed owned query fixture')
+    if change == 'query-bytes-during-query':
+        def query(*_a, **_k):
+            tool.write_bytes(b'changed owned query fixture'); return json.dumps(observed).encode()
+        monkeypatch.setattr(module.subprocess, 'check_output', query)
+    with pytest.raises(ValueError): module.verify_vs_selection(instance, version, tool, roots, initial)
+
+
+@pytest.mark.parametrize('change', ['root', 'version'])
+def test_configured_instance_must_retain_exact_selected_path_and_version(module, tmp_path, change):
+    instance = tmp_path / 'authored VS18'; instance.mkdir()
+    spec = module.cmake_instance_spec(instance, '18.11.12315.225')
+    lines = [f'{k}:STRING={v}' for k, v in module.pin()['cmake'].items()]
+    lines += ['FETCHCONTENT_SOURCE_DIR_' + i['fetchcontent_name'].upper() + ':PATH=' +
+        str(tmp_path / 'sources' / i['name']) for i in module.pin()['inputs'] if i['fetchcontent_name']]
+    lines.append('CMAKE_GENERATOR_INSTANCE:INTERNAL=' + spec)
+    cache = tmp_path / 'CMakeCache.txt'; cache.write_text('\n'.join(lines))
+    module.verify_cache(cache, tmp_path, spec)
+    wrong = spec.replace('authored VS18', 'foreign VS18') if change == 'root' else spec.replace('12315', '12316')
+    cache.write_text('\n'.join(lines).replace(spec, wrong))
+    with pytest.raises(ValueError): module.verify_cache(cache, tmp_path, spec)
+
+
+@pytest.mark.parametrize('observed,expected', [('18.11.12315.225', '18.11.12315.225'),
+    ('C:/r19-authored-private/instance-version', None), ('18.11.12315.225\n', None)])
+def test_failed_vs_metadata_keeps_only_strict_numeric_label(module, tmp_path, monkeypatch, observed, expected):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    monkeypatch.setattr(module, '_BUILD_VS_VERSION', observed)
+    report = module.failed_build_receipt(output, 'vs-installation-origin', ValueError('private root/version data'))
+    assert report['visual_studio_instance_version'] == expected
+    assert report['status'] == 'failed' and report['native_reference_probes_passed'] is False
+    delivered = (output / 'ASR-FAILURE.json').read_text()
+    assert str(tmp_path) not in delivered and 'r19-authored-private' not in delivered
+    assert 'private root/version' not in delivered and not (output / 'ASR-RECEIPT.json').exists()
+
+
 @pytest.mark.parametrize('observed,valid', [('4.4.5', True), ('4.4.4', False)])
 def test_cmake_numeric_observation_preserves_exact_constraint_without_private_text(module, tmp_path, monkeypatch, observed, valid):
     _source, _inputs, output = prepared(module, tmp_path, monkeypatch)

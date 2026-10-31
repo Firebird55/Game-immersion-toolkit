@@ -14,10 +14,13 @@ $cmakePin = Get-Content (Join-Path $root $pin.cmake_build_tool_policy) -Raw | Co
 & $Python -I -B (Join-Path $PSScriptRoot 'pinned-build-cmake.py') verify --root $CMakeRoot
 if ($LASTEXITCODE -ne 0) { throw 'The explicit isolated CMake archive/tree verification failed.' }
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
-$instances = @((& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json) | ConvertFrom-Json)
+$instances = @((& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json -utf8) | ConvertFrom-Json)
 if ($LASTEXITCODE -ne 0 -or $instances.Count -ne 1) { throw 'An explicit VS2026 build-host toolchain is required.' }
 $vsRoot = $instances[0].installationPath
-if (([version]$instances[0].installationVersion).Major -ne 18) { throw 'The required VS major version is unavailable.' }
+$vsVersion = $instances[0].installationVersion
+if ($vsVersion -isnot [string] -or $vsVersion -cnotmatch '\A18(?:\.[0-9]{1,6}){3}\z') {
+  throw 'The selected instance must report one numeric four-component VS18 version.'
+}
 $cmakePayload = Join-Path $CMakeRoot $cmakePin.archive.root
 $cmakeExecutable = Join-Path $cmakePayload 'bin/cmake.exe'
 if (-not (Test-Path -LiteralPath $cmakeExecutable -PathType Leaf)) {
@@ -59,5 +62,5 @@ if ($LASTEXITCODE -ne 0) { throw 'Exact source/dependency/notice preparation fai
 $OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
 $rootsFile = Join-Path $OutputRoot 'PRIVATE-TOOL-ROOTS.json'
 $toolRoots | ConvertTo-Json | Set-Content -LiteralPath $rootsFile -Encoding utf8NoBOM
-& $Python -I -B (Join-Path $PSScriptRoot 'reference-asr.py') build --output $OutputRoot --inputs $InputRoot --tool-roots $rootsFile --vs-root $vsRoot --cmake-root $CMakeRoot
+& $Python -I -B (Join-Path $PSScriptRoot 'reference-asr.py') build --output $OutputRoot --inputs $InputRoot --tool-roots $rootsFile --vs-root $vsRoot --vs-version $vsVersion --vswhere $vswhere --cmake-root $CMakeRoot
 if ($LASTEXITCODE -ne 0) { throw 'The private ASR source build/probe failed; inspect only its owned private output.' }

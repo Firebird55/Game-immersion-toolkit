@@ -132,6 +132,26 @@ allowlisted CMake command and a positive line number of at most seven digits.
 Paths, unknown command names, arguments, source text, environment values and raw
 logs cannot enter this projection. An unclassified error remains a failed
 attempt; neither a diagnostic label nor a known call site proves its cause.
+The wrapper passes the actual selected `vswhere` instance's numeric four-part
+VS18 installation version together with its directory. Python queries the same
+explicit machine `vswhere.exe` again before and after the experiment, requires
+the same single path/version result, and requires the VC toolset, complete
+MSBuild and VC/Auxiliary roots to belong to that directory. Query-executable
+bytes are included in both tool seals; paths and full installer JSON remain
+private. The configured `CMAKE_GENERATOR_INSTANCE` cache value must retain that
+exact tuple. A failed receipt may expose only the bounded observed VS version;
+the successful metadata also records the query executable's bytes/SHA-256.
+CMake's documented
+[explicit instance form](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Help/variable/CMAKE_GENERATOR_INSTANCE.rst)
+allows `location,version=...` when installer discovery does not recognize the
+directory. Its
+[disk loader](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmVSSetupHelper.cxx)
+assumes that supplied version and Windows SDK availability, while still requiring
+the instance's default VC toolset metadata and directory. The independent
+selection, file-origin, exact SDK/compiler/v180, cache and before/after byte
+guards remain required. This removes installer registration as a CMake discovery
+prerequisite; it grants no supplier or native-input approval and chooses no
+other instance or compiler.
 VC-target selection, parent-import review and configure-argument/source
 validation have distinct fixed subphases. The hosted
 [review run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160408338)
@@ -160,10 +180,15 @@ The review run did not reach configuration. A subsequent
 matched the selected `v180` props pin and reached `cmake-configure`, which failed
 before compilation/inference. Its failure-only artifact contains the source
 commit, manifest, selected props and CMake observations, but no separate
-SOURCE_FILES-cohort or complete tool-seal receipt. The existing generic CMake
-labels do not identify its concrete error; the template classifier requires a
-new native observation. Exact tool/source pins and all refusal gates remain in
-force while this boundary is diagnosed.
+SOURCE_FILES-cohort or complete tool-seal receipt. The later
+[diagnostic run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41163849991)
+on the same `20261021.278.1` Server image identified
+`cmake-vs-installer-instance-unknown` and `cmake-vs-instance-not-found` at
+`project:26`. The existing directory was not recognized by CMake's installer
+lookup, and no `version=` field was supplied. These templates do not establish
+why installer lookup failed. The explicit selected tuple still needs a new
+native configure/build/probe result; all exact tool/source and refusal gates
+remain in force.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC
