@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 from importlib import metadata
 import json
 from pathlib import Path, PurePosixPath
@@ -14,6 +15,9 @@ import shutil
 import ssl
 import sys
 import tarfile
+import time
+import urllib.error
+import urllib.parse
 import urllib.request
 
 import certifi
@@ -26,28 +30,58 @@ PINS = ROOT / 'packaging/desktop/qt-sources.json'
 PREFIX = 'third-party/qt'
 ARCHIVE_LIMIT = 100 * 1024 * 1024
 NOTICE_LIMIT = 4 * 1024 * 1024
+DOWNLOAD_ATTEMPTS = 3
+
+
+def transient_download_error(error):
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in (408, 429, 500, 502, 503, 504)
+    return isinstance(error, (urllib.error.URLError, TimeoutError, ConnectionError,
+                              http.client.IncompleteRead))
 
 
 def acquire(pin, cache):
     path = cache / pin['archive']
     no_links(path)
     if not path.exists():
+        pending = path.with_name(path.name + '.part')
+        no_links(pending)
         request = urllib.request.Request(pin['url'], headers={'User-Agent': 'GameImmersionToolkit-build/1'})
-        with urllib.request.urlopen(request, timeout=90,
-                context=ssl.create_default_context(cafile=certifi.where())) as response, path.open('xb') as stream:
-            count = 0
-            while chunk := response.read(1024 * 1024):
-                count += len(chunk)
-                if count > ARCHIVE_LIMIT:
-                    raise ValueError('Qt source archive exceeds its size limit.')
-                stream.write(chunk)
+        for attempt in range(DOWNLOAD_ATTEMPTS):
+            created = False
+            try:
+                with urllib.request.urlopen(request, timeout=90,
+                        context=ssl.create_default_context(cafile=certifi.where())) as response:
+                    if urllib.parse.urlsplit(response.url).scheme != 'https':
+                        raise ValueError('Qt source redirect requires HTTPS.')
+                    with pending.open('xb') as stream:
+                        created = True
+                        count = 0
+                        while chunk := response.read(1024 * 1024):
+                            count += len(chunk)
+                            if count > ARCHIVE_LIMIT:
+                                raise ValueError('Qt source archive exceeds its size limit.')
+                            stream.write(chunk)
+                if digest(pending) != pin['sha256']:
+                    raise ValueError('Qt source archive checksum differs: ' + pin['archive'])
+                pending.replace(path)
+                break
+            except BaseException as error:
+                if created and pending.exists() and not pending.is_symlink():
+                    pending.unlink()
+                if attempt + 1 == DOWNLOAD_ATTEMPTS or not transient_download_error(error):
+                    raise
+                print(f'Qt source download interrupted; retry {attempt + 2}/{DOWNLOAD_ATTEMPTS}: '
+                      + pin['archive'], flush=True)
+                time.sleep(2 ** (attempt + 1))
     if path.stat().st_size > ARCHIVE_LIMIT or digest(path) != pin['sha256']:
         raise ValueError('Qt source archive checksum differs: ' + pin['archive'])
     return path
 
 
-def notices(archive, prefix):
+def notices(archive, prefix, required_notices=None):
     """Read only regular, bounded text members; never extract archive paths."""
+    required_notices = required_notices or ['LICENSES/LGPL-3.0-only.txt']
     result = {}
     with tarfile.open(archive) as source:
         for member in source:
@@ -59,7 +93,8 @@ def notices(archive, prefix):
                 raise ValueError('Unsafe Qt source path.')
             selected = (relative.parts and relative.parts[0] == 'LICENSES'
                 or relative.name == 'qt_attribution.json'
-                or relative.name.casefold().startswith(('license', 'copying', 'notice')))
+                or relative.name.casefold().startswith(('license', 'copying', 'notice'))
+                or relative.as_posix() in required_notices)
             if not selected or member.isdir():
                 continue
             key = relative.as_posix()
@@ -67,8 +102,8 @@ def notices(archive, prefix):
                 raise ValueError('Unsafe or duplicate Qt notice.')
             data = source.extractfile(member).read()
             result[key.casefold()] = (key, data)
-    if 'licenses/lgpl-3.0-only.txt' not in result:
-        raise ValueError('Qt source is missing its full LGPL license.')
+    if any(name.casefold() not in result for name in required_notices):
+        raise ValueError('Qt source is missing a required full license or attribution.')
     return [result[key] for key in sorted(result)]
 
 
@@ -83,7 +118,8 @@ def build(output, cache, pins):
     prepared = []
     for pin in pins['components']:
         archive = acquire(pin, cache)
-        prepared.append((pin, archive, notices(archive, pin['archive'].removesuffix('.tar.xz'))))
+        prepared.append((pin, archive, notices(archive, pin['archive'].removesuffix('.tar.xz'),
+            pin.get('required_notices'))))
     root = output / PREFIX
     for pin, archive, records in prepared:
         folder = root / pin['name']
