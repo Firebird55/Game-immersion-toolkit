@@ -118,13 +118,30 @@ may include only bounded numeric expected/observed CMake versions and the
 executable's byte count/SHA-256; raw version lines, paths, arguments and exception
 text remain private. An observed mismatch does not relax the 4.4.5 constraint.
 VC-target selection, parent-import review and configure-argument/source
-validation have distinct fixed subphases. Before the target uniqueness check,
-diagnostics collect every candidate's bounded numeric `v...` label and props
-byte count/SHA-256, plus fixed parent-import categories. Unrecognized labels and
-raw paths/props contents cannot enter the receipt. No candidate is selected
-when the count differs from one; registry fallback and parent imports remain
-refused. These observations identify a failed early boundary without changing
-the target selection or configuration policy.
+validation have distinct fixed subphases. The hosted
+[review run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41160408338)
+observed all three installed families, `v160`, `v170` and `v180`, before configuration.
+The manifest selects only `v180` and pins its actual `Microsoft.Cpp.Default.props`
+at 25,028 bytes / SHA-256
+`a2676be54dd09fc6b05903be07e28a3ae83c182de3d9ae91214db1ce029dd4ef`.
+CMake 4.4.5's
+[generator factory](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalVisualStudioVersionedGenerator.cxx)
+binds the requested generator to VS18, its
+[MSBuild invocation](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalVisualStudio10Generator.cxx)
+uses `VisualStudioVersion=18.0`, and Microsoft's
+[build-tool example](https://github.com/microsoft/cpp-language-server/blob/933ac0f10446009d972421329918b1d73bc2e0ff/AUTHORING_EXTRACTOR_SKILL.md)
+documents the VS18 `v180` target family. The props pin's provenance identifies
+the exact observed run, job, source commit and checksum-verified failure artifact.
+Only one canonically spelled selected props file with those exact bytes is
+accepted. Missing, changed or aliased selected inputs are refused; a later or
+older installed family cannot become a fallback. Every installed family remains
+in the complete MSBuild before/after seal and bounded diagnostics.
+Before refusal, diagnostics collect every candidate's bounded numeric `v...`
+label and props byte count/SHA-256, selected-family count/pin-match state, and
+fixed parent-import categories. Unrecognized labels and raw paths/props contents
+cannot enter the receipt. Registry fallback and parent imports remain refused.
+The review run did not reach configuration, compilation or inference; the new
+selection still requires a fresh native build/probe result.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC

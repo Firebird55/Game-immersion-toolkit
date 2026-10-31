@@ -46,7 +46,7 @@ def item(module, path, *, prefixes=None):
         'notices': {'LICENSE': module.attributes(b'Owned source fixture notice\n')}}
 
 
-def prepared(module, tmp_path, monkeypatch, *, with_cmake=False):
+def prepared(module, tmp_path, monkeypatch, *, with_cmake=False, vc_props=None):
     source, inputs, output = tmp_path / 'repo', tmp_path / 'inputs', tmp_path / 'private-run'
     source.mkdir(); inputs.mkdir()
     upstream = (b'  /* Define "empty" TTS symbols */\n'
@@ -55,6 +55,8 @@ def prepared(module, tmp_path, monkeypatch, *, with_cmake=False):
     archive(path, {'LICENSE': b'Owned source fixture notice\n', 'owned.c': b'// owned\n',
         'sherpa-onnx/python/csrc/sherpa-onnx.cc': upstream})
     production = module.pin()
+    if vc_props is not None:
+        production['toolchain']['vc_targets']['default_props'] = module.attributes(vc_props)
     patch = {'file': 'patch.diff', 'sha256': module.sha(b'owned patch identity'),
         'target': 'sherpa-onnx/python/csrc/sherpa-onnx.cc', 'before_sha256': module.sha(upstream),
         'after_sha256': module.sha(upstream.replace(b'  /* Define "empty" TTS symbols */\n',
@@ -353,8 +355,8 @@ def test_cmake_observation_never_serializes_raw_version_output_or_unbounded_priv
     assert str(tmp_path) not in delivered and 'private' not in delivered and 'raw_output' not in delivered
 
 
-@pytest.mark.parametrize('labels', [[], ['v170', 'v180']])
-def test_vc_target_diagnostics_keep_uniqueness_guard_and_collect_parent_categories_before_refusal(module, tmp_path, monkeypatch, labels):
+@pytest.mark.parametrize('labels', [[], ['v170'], ['v170', 'v180']])
+def test_vc_target_diagnostics_keep_selected_pin_guard_and_collect_parent_categories_before_refusal(module, tmp_path, monkeypatch, labels):
     _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
     msbuild = tmp_path / 'msbuild'; msbuild.mkdir()
     for label in labels:
@@ -367,6 +369,8 @@ def test_vc_target_diagnostics_keep_uniqueness_guard_and_collect_parent_categori
     observation = report['build_environment_observation']
     assert observation['vc_targets']['candidate_count'] == len(labels)
     assert [v['label'] for v in observation['vc_targets']['candidates']] == labels
+    assert observation['vc_targets']['selected_family'] == 'v180'
+    assert observation['vc_targets']['selected_props_pin_matched'] is False
     assert observation['parent_import_categories'] == ['Directory.Build.targets']
     for candidate in observation['vc_targets']['candidates']:
         props = msbuild / 'Microsoft/VC' / candidate['label'] / 'Microsoft.Cpp.Default.props'
@@ -376,7 +380,7 @@ def test_vc_target_diagnostics_keep_uniqueness_guard_and_collect_parent_categori
 
 
 def test_single_vc_target_does_not_bypass_parent_import_gate(module, tmp_path, monkeypatch):
-    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch, vc_props=b'owned props fixture')
     msbuild = tmp_path / 'msbuild'
     props = msbuild / 'Microsoft/VC/v180/Microsoft.Cpp.Default.props'
     props.parent.mkdir(parents=True); props.write_bytes(b'owned props fixture')
@@ -389,10 +393,64 @@ def test_single_vc_target_does_not_bypass_parent_import_gate(module, tmp_path, m
     assert report['build_environment_observation']['parent_import_categories'] == ['MSBuild.rsp']
 
 
+def test_explicit_pinned_vc_family_is_selected_among_other_sealed_families_without_latest_fallback(module, tmp_path, monkeypatch):
+    data = b'owned selected props fixture'
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch, vc_props=data)
+    msbuild = tmp_path / 'msbuild'
+    for label in ('v160', 'v170', 'v180', 'v999'):
+        props = msbuild / 'Microsoft/VC' / label / 'Microsoft.Cpp.Default.props'
+        props.parent.mkdir(parents=True)
+        props.write_bytes(data if label == 'v180' else b'owned unselected props fixture')
+    selected = msbuild / 'Microsoft/VC/v180/Microsoft.Cpp.Default.props'
+    assert module.review_vc_targets(output, msbuild) == [selected]
+    observation = module.safe_build_environment_observation()['vc_targets']
+    assert observation['candidate_count'] == 4
+    assert [v['label'] for v in observation['candidates']] == ['v160', 'v170', 'v180', 'v999']
+    assert observation['selected_family'] == 'v180' and observation['selected_candidate_count'] == 1
+    assert observation['selected_props_pin_matched'] is True
+    assert str(tmp_path) not in json.dumps(observation)
+
+
+@pytest.mark.parametrize('changed', ['missing', 'props-bytes', 'props-size', 'family-case-alias', 'props-case-alias'])
+def test_selected_vc_family_refuses_missing_changed_or_aliased_props(module, tmp_path, monkeypatch, changed):
+    data = b'owned selected props fixture'
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch, vc_props=data)
+    msbuild = tmp_path / 'msbuild'
+    props = msbuild / 'Microsoft/VC/v180/Microsoft.Cpp.Default.props'
+    if changed == 'family-case-alias': props = props.parent.with_name('V180') / props.name
+    if changed == 'props-case-alias': props = props.with_name('microsoft.cpp.default.props')
+    props.parent.mkdir(parents=True)
+    props.write_bytes(data)
+    if changed == 'missing': props.unlink()
+    if changed == 'props-bytes': props.write_bytes(data.replace(b'owned', b'other'))
+    if changed == 'props-size': props.write_bytes(data + b' changed')
+    with pytest.raises(ValueError): module.review_vc_targets(output, msbuild)
+    assert module.safe_build_environment_observation()['vc_targets']['selected_props_pin_matched'] is False
+
+
+def test_duplicate_selected_vc_discovery_records_are_refused_even_with_matching_fixture_bytes(module, tmp_path, monkeypatch):
+    data = b'owned selected props fixture'
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch, vc_props=data)
+    msbuild = tmp_path / 'msbuild'
+    props = msbuild / 'Microsoft/VC/v180/Microsoft.Cpp.Default.props'
+    props.parent.mkdir(parents=True); props.write_bytes(data)
+    glob = Path.glob
+    def duplicate_selected(base, pattern):
+        found = list(glob(base, pattern))
+        return found + found if base == msbuild / 'Microsoft/VC' else found
+    monkeypatch.setattr(Path, 'glob', duplicate_selected)
+    with pytest.raises(ValueError): module.review_vc_targets(output, msbuild)
+    observation = module.safe_build_environment_observation()['vc_targets']
+    assert observation['selected_candidate_count'] == 2
+    assert observation['selected_props_pin_matched'] is False
+
+
 def test_build_environment_projection_cannot_publish_unknown_labels_paths_or_raw_props(module, tmp_path, monkeypatch):
     _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
     monkeypatch.setattr(module, '_BUILD_ENVIRONMENT_OBSERVATION', {'vc_targets': {
-        'candidate_count': 1, 'candidates': [{'label': 'v-private-tenant',
+        'candidate_count': 1, 'selected_family': str(tmp_path / 'private-target'),
+        'selected_candidate_count': 'private count', 'selected_props_pin_matched': 'private result',
+        'candidates': [{'label': 'v-private-tenant',
             'props': {**module.attributes(b'owned props'), 'contents': 'private model text'},
             'path': str(tmp_path / 'private-props')}]},
         'parent_import_categories': ['Directory.Build.props', str(tmp_path / 'private-import'),
@@ -400,6 +458,9 @@ def test_build_environment_projection_cannot_publish_unknown_labels_paths_or_raw
     report = module.failed_build_receipt(output, 'vc-target-selection', ValueError('private error'))
     observation = report['build_environment_observation']
     assert observation['vc_targets']['candidates'] == [{'label': None, 'props': module.attributes(b'owned props')}]
+    assert observation['vc_targets']['selected_family'] is None
+    assert observation['vc_targets']['selected_candidate_count'] is None
+    assert observation['vc_targets']['selected_props_pin_matched'] is False
     assert observation['parent_import_categories'] == ['Directory.Build.props']
     delivered = (output / 'ASR-FAILURE.json').read_text()
     assert str(tmp_path) not in delivered and 'private' not in delivered and 'contents' not in delivered

@@ -326,6 +326,25 @@
     "generator": "Visual Studio 18 2026",
     "compiler_version": "19.51.36260.0",
     "vc_tools_version": "14.51.36231",
+    "vc_targets": {
+      "family": "v180",
+      "default_props": {
+        "bytes": 25028,
+        "sha256": "a2676be54dd09fc6b05903be07e28a3ae83c182de3d9ae91214db1ce029dd4ef"
+      },
+      "observation": {
+        "source_commit": "c18d07a8138234df64c5b86dc21c99cac46931a1",
+        "workflow_run": 41160408338,
+        "workflow_job": 124416528833,
+        "failure_artifact": 13026863180,
+        "failure_artifact_sha256": "35aa261f72a53bfb1a7b6c1677a4962ed8951a6f50c472b3e0e7dac8929d8dfb"
+      },
+      "review_sources": [
+        "https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalVisualStudioVersionedGenerator.cxx",
+        "https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalVisualStudio10Generator.cxx",
+        "https://github.com/microsoft/cpp-language-server/blob/933ac0f10446009d972421329918b1d73bc2e0ff/AUTHORING_EXTRACTOR_SKILL.md"
+      ]
+    },
     "cmake_version": "4.4.5",
     "windows_sdk_version": "10.0.26100.0",
     "review": "pending-exact-inputs",

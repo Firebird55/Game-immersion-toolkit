@@ -414,7 +414,13 @@ def safe_build_environment_observation():
     if isinstance(targets, dict):
         count = targets.get('candidate_count')
         observed = {'candidate_count': count if type(count) is int and 0 <= count <= 4096 else None,
-            'candidates': []}
+            'candidates': [], 'selected_family': None, 'selected_candidate_count': None,
+            'selected_props_pin_matched': targets.get('selected_props_pin_matched') is True}
+        family, selected_count = targets.get('selected_family'), targets.get('selected_candidate_count')
+        if isinstance(family, str) and re.fullmatch(r'v[0-9]{1,4}', family):
+            observed['selected_family'] = family
+        if type(selected_count) is int and 0 <= selected_count <= 4096:
+            observed['selected_candidate_count'] = selected_count
         candidates = targets.get('candidates')
         for candidate in candidates[:4096] if isinstance(candidates, list) else []:
             if not isinstance(candidate, dict):
@@ -440,10 +446,15 @@ def parent_import_categories(output):
 
 
 def review_vc_targets(output, msbuild):
-    """Observe every matching target and parent-import category before refusal."""
+    """Select only the pinned family/props; retain every family's observation."""
     global _BUILD_ENVIRONMENT_OBSERVATION
     build_phase('vc-target-selection')
-    targets = sorted(Path(msbuild).glob('Microsoft/VC/v*/Microsoft.Cpp.Default.props'))
+    # Inspect actual spelling before choosing a directory. A case/trailing-dot
+    # alias must not become a second selected props input or a silent fallback.
+    props_name = 'Microsoft.Cpp.Default.props'
+    targets = sorted(path for path in (Path(msbuild) / 'Microsoft/VC').glob('*/*')
+        if path.parent.name.casefold().startswith('v')
+        and path.name.rstrip(' .').casefold() == props_name.casefold())
     candidates = []
     for path in targets[:4096]:
         label, props = path.parent.name.lower(), None
@@ -456,9 +467,25 @@ def review_vc_targets(output, msbuild):
         candidates.append({'label': label, 'props': props})
     _BUILD_ENVIRONMENT_OBSERVATION = {'vc_targets': {'candidate_count': len(targets), 'candidates': candidates},
         'parent_import_categories': parent_import_categories(output)}
-    if len(targets) != 1:
-        raise ValueError('A unique sealed VC target directory is required; do not fall back to registry paths.')
-    return targets
+    selected_pin = pin()['toolchain']['vc_targets']
+    family, expected = selected_pin.get('family'), selected_pin.get('default_props')
+    if (not isinstance(family, str) or not re.fullmatch(r'v[0-9]{1,4}', family)
+            or not isinstance(expected, dict) or set(expected) != {'bytes', 'sha256'}
+            or type(expected.get('bytes')) is not int or not 0 < expected['bytes'] <= 16 * 1024 * 1024
+            or not isinstance(expected.get('sha256'), str) or not re.fullmatch('[0-9a-f]{64}', expected['sha256'])):
+        raise ValueError('The explicit VC target family/props pin is invalid.')
+    selected = [path for path in targets if path.parent.name.rstrip(' .').casefold() == family]
+    observation = _BUILD_ENVIRONMENT_OBSERVATION['vc_targets']
+    observation.update(selected_family=family, selected_candidate_count=len(selected), selected_props_pin_matched=False)
+    if (len(selected) != 1 or selected[0].parent.name != family or selected[0].name != props_name):
+        raise ValueError('One exact pinned VC target input is required; aliases and registry fallback are refused.')
+    path = selected[0]
+    no_links(path)
+    if (not path.is_file() or path.stat().st_size != expected['bytes']
+            or attributes(path.read_bytes()) != expected):
+        raise ValueError('The selected VC target props bytes differ from the observed exact pin.')
+    observation['selected_props_pin_matched'] = True
+    return selected
 
 
 def observe_cmake_version(executable, expected):
