@@ -621,6 +621,21 @@ remain, and the local four-case matrix plus controlled reproduction pass.
 The observed CI failure remains recorded; no current full-source pass is
 inferred from that local correction.
 
+The corrected `f11e96d` [full source run 41155289055](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41155289055)
+then passed 2,058 Python tests, one skip and 36 subtests, all five browser groups,
+the aggregate and extracted source-package validation on its first attempt.
+Publishing was skipped. Downloaded tested-source artifact 13025361570 matched
+33,555,951 bytes and SHA-256
+4a28fc447c33555a2d24bf632c74821cc90225835ffd26d05d88b001d10ecd9c.
+All twelve sums and outer/source/shared provenance were verified, including
+the unchanged scoped Xiph source kit. The source ZIP SHA-256 is
+fba8da886351c36d1158e591208ce422c732da945541c00491a06a94a6c97574.
+The matching required-checks artifact 13025580858 passed full/scope/identity
+validation, with manual-event base freshness not applicable. This is exact
+source-style package evidence; the later pinned CMake input and autonomous
+keeper work need their own matching checks. The earlier setup failure remains
+in the ledger and no ordinary-user/native Windows 11 gate is closed.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

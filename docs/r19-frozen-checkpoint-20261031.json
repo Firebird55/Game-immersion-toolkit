@@ -416,5 +416,59 @@
     },
     "exact_source_notices_native_origins_host_and_guarded_slots": "independently verified downloaded metadata; all existing disabled gates retained",
     "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41155245089"
+  },
+  "subsequent_source_style_package_checkpoint": {
+    "schema": "proxy-r19-source-package-download-review-v1",
+    "run": 41155289055,
+    "source_commit": "f11e96d70a548978017b441f67379209190ab62a",
+    "artifact": 13025361570,
+    "bytes": 33555951,
+    "sha256": "4a28fc447c33555a2d24bf632c74821cc90225835ffd26d05d88b001d10ecd9c",
+    "checksums_verified": 12,
+    "inner_outer_provenance": {
+      "version": "0.22.0",
+      "sourceCommit": "f11e96d70a548978017b441f67379209190ab62a",
+      "repository": "matthias-van-der-galien/Game-immersion-toolkit",
+      "shared": {
+        "version": "1.0.12",
+        "sourceCommit": "2e84f74cf77ea4773463331c7ecde0b05faf31f8",
+        "repository": "Firebird55/Lexirise-shared-components",
+        "shared": null
+      }
+    },
+    "source_distribution_sha256": "fba8da886351c36d1158e591208ce422c732da945541c00491a06a94a6c97574",
+    "required_gate_artifact": 13025580858,
+    "required_gate_bytes": 410,
+    "required_gate_sha256": "b25ac0a7e23a8a0a5880d5031f24483883724b4cda52012853a4adcdb393a6c4",
+    "required_gate": {
+      "schemaVersion": 1,
+      "kind": "required-checks",
+      "event": "workflow_dispatch",
+      "status": "success",
+      "testedSha": "f11e96d70a548978017b441f67379209190ab62a",
+      "workflowSha": "f11e96d70a548978017b441f67379209190ab62a",
+      "source": "workflow-commit",
+      "baseFreshness": "not-applicable",
+      "scopeValid": true,
+      "full": true,
+      "jobs": {
+        "audit": "success",
+        "check": "success",
+        "browsers": "success"
+      },
+      "errors": [],
+      "identityStatus": "verified"
+    },
+    "scope": "Existing source-style ZIP; not frozen runtime or native Win11 acceptance",
+    "source_python": {
+      "passed": 2058,
+      "skipped": 1,
+      "subtests": 36
+    },
+    "browser_groups": 5,
+    "package": "passed",
+    "publish": "skipped",
+    "source_retry": "none at this head; prior 0b76427 setup failure retained",
+    "r19_complete": false
   }
 }
