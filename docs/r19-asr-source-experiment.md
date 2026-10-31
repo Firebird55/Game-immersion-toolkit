@@ -136,6 +136,17 @@ configuration would not prove framework binary/source correspondence, native
 closure, redistribution rights, trained recognition, Windows11 or R19 completion.
 The same 15 source inputs require a new exact prepare/verify after review.
 
+At `2a169bd`, run `41215443407` stopped in `common-data-bound`: both states
+reported `invalid-markers` and the OS origin remained stable. No child exit,
+MSBuild error code or actual folder/CLR value was delivered. That failure does
+not establish a missing-variable cause. A subsequent source review found that
+the primary [MSBuild enum coercion](https://github.com/dotnet/msbuild/blob/86743d0545fba3d043d4e7aaa12891edb3fd56e6/src/Build/Evaluation/Expander.Function.cs#L1024-L1041)
+requires a qualified enum string in this late-binding route. The fixed template
+now supplies `SpecialFolder.CommonApplicationData` and, twice,
+`StringComparison.OrdinalIgnoreCase`. No marker, environment, tool pin, flag or
+permission changes accompany those three tokens. Exact runner binary/source
+correspondence and the changed template's native outcome remain unproven.
+
 ### Manual source build
 
 Use the manual **R19 separate ASR-only source experiment** workflow on a clean

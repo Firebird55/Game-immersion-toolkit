@@ -54,7 +54,8 @@ def test_common_data_fixed_project_uses_only_builtin_property_functions_and_two_
     messages = [element.attrib['Text'] for element in tree.iter() if element.tag.endswith('}Message')]
     assert len(messages) == 2
     assert all(message.startswith('R19-ASR-COMMON-V1 ') for message in messages)
-    assert 'GetFolderPath(\'CommonApplicationData\')' in module.COMMON_DATA_PROJECT
+    assert 'GetFolderPath(\'SpecialFolder.CommonApplicationData\')' in module.COMMON_DATA_PROJECT
+    assert module.COMMON_DATA_PROJECT.count("'StringComparison.OrdinalIgnoreCase'") == 2
     assert '$(MSBuildRuntimeType)' in module.COMMON_DATA_PROJECT and 'Is64BitProcess' in module.COMMON_DATA_PROJECT
     assert 'GetPathRoot' in module.COMMON_DATA_PROJECT and 'IsPathRooted' in module.COMMON_DATA_PROJECT
     assert 'SystemDrive' not in module.COMMON_DATA_PROJECT

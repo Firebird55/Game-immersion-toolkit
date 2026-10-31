@@ -79,11 +79,11 @@ COMMON_DATA_REASONS = frozenset({'none', 'not-run', 'process-rejected', 'invalid
 COMMON_DATA_PROJECT = r'''<Project DefaultTargets="R19Root" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Target Name="R19Folder">
     <PropertyGroup>
-      <_R19Folder>$([System.Environment]::GetFolderPath('CommonApplicationData'))</_R19Folder>
+      <_R19Folder>$([System.Environment]::GetFolderPath('SpecialFolder.CommonApplicationData'))</_R19Folder>
       <_R19ProgramData>$([System.Environment]::GetEnvironmentVariable('PROGRAMDATA'))</_R19ProgramData>
       <_R19AllUsers>$([System.Environment]::GetEnvironmentVariable('ALLUSERSPROFILE'))</_R19AllUsers>
     </PropertyGroup>
-    <Message Importance="High" Text="R19-ASR-COMMON-V1 folder;runtime=$(MSBuildRuntimeType);x64=$([System.Environment]::Is64BitProcess);empty=$([System.String]::IsNullOrWhiteSpace('$(_R19Folder)'));programdata=$([System.String]::Equals('$(_R19Folder)', '$(_R19ProgramData)', 'OrdinalIgnoreCase'));allusers=$([System.String]::Equals('$(_R19Folder)', '$(_R19AllUsers)', 'OrdinalIgnoreCase'))" />
+    <Message Importance="High" Text="R19-ASR-COMMON-V1 folder;runtime=$(MSBuildRuntimeType);x64=$([System.Environment]::Is64BitProcess);empty=$([System.String]::IsNullOrWhiteSpace('$(_R19Folder)'));programdata=$([System.String]::Equals('$(_R19Folder)', '$(_R19ProgramData)', 'StringComparison.OrdinalIgnoreCase'));allusers=$([System.String]::Equals('$(_R19Folder)', '$(_R19AllUsers)', 'StringComparison.OrdinalIgnoreCase'))" />
   </Target>
   <Target Name="R19Root" DependsOnTargets="R19Folder">
     <PropertyGroup><_R19Root>$([System.IO.Path]::GetPathRoot('$(_R19Folder)'))</_R19Root></PropertyGroup>
