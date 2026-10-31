@@ -118,6 +118,26 @@ def test_partial_download_retries_and_bad_hash_never_publishes(tmp_path, monkeyp
     assert list(tmp_path.iterdir()) == [target]
 
 
+def test_verified_slot_publish_retries_lock_but_never_overwrites_an_existing_slot(tmp_path, monkeypatch):
+    stage, destination = tmp_path / 'stage', tmp_path / 'published'
+    stage.mkdir()
+    (stage / 'payload').write_bytes(b'authored verified payload')
+    rename, calls = tools.os.rename, []
+    def locked_once(source, target):
+        calls.append(True)
+        if len(calls) == 1:
+            raise PermissionError('authored transient scanner lock')
+        rename(source, target)
+    monkeypatch.setattr(tools.os, 'rename', locked_once)
+    monkeypatch.setattr(tools.time, 'sleep', lambda _: None)
+    tools.publish_verified(stage, destination)
+    assert len(calls) == 2 and (destination / 'payload').read_bytes() == b'authored verified payload'
+    stage.mkdir()
+    with pytest.raises(FileExistsError):
+        tools.publish_verified(stage, destination)
+    assert stage.is_dir() and len(calls) == 2
+
+
 def test_commands_pin_host_and_wrapper_and_strip_loader_variables(tmp_path, monkeypatch):
     root, layout = runtime(tmp_path, monkeypatch, bundled=True)
     source = tmp_path / 'game/input.archive'

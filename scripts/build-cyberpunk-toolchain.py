@@ -17,7 +17,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from backend.cyberpunk_toolchain import (PREFIX, SUPPLIERS, TARGET, INVENTORY_SHA256,
-    VERSION, RUNTIME, SDK, OWNED_FILES, acquire, materialize, _sha)
+    VERSION, RUNTIME, SDK, OWNED_FILES, acquire, materialize, publish_verified, _sha)
 from backend.prebuilt_readers import _no_links
 from cyberpunk_redistribution import collect
 
@@ -60,7 +60,7 @@ def build(output: Path, target: str, cache: Path, *, sdk_root: Path | None = Non
             'files': [{'path': path.relative_to(stage).as_posix(), 'bytes': path.stat().st_size, 'sha256': _sha(path)}
                       for path in sorted(stage.rglob('*')) if path.is_file()]}
         (stage / 'resource-manifest.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n', encoding='utf-8')
-        os.rename(stage, output)
+        publish_verified(stage, output)
         return result
     finally:
         if stage.exists():

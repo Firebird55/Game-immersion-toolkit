@@ -79,6 +79,24 @@ def _sha(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+def publish_verified(stage: Path, destination: Path):
+    """Publish an already verified slot without replacing an existing directory.
+
+Windows scanners/sync providers may briefly retain handles on newly built DLLs.
+Retry only a denied rename; never copy around atomic publication or merge slots.
+    """
+    for attempt in range(6):
+        if destination.exists():
+            raise FileExistsError('Runtime destination already exists')
+        try:
+            os.rename(stage, destination)
+            return
+        except PermissionError:
+            if attempt == 5:
+                raise
+            time.sleep(0.15 * 2 ** attempt)
+
+
 def verify_archive(path: Path, supplier: dict):
     _no_links(path)
     if path.stat().st_size > 160 * 1024 * 1024 or _sha(path) != supplier['sha256']:
@@ -347,7 +365,7 @@ def ensure(directory: Path, *, layout=None):
         materialize(stage, archives)
         _verify(stage)
         try:
-            os.rename(stage, slot)
+            publish_verified(stage, slot)
         except FileExistsError:
             pass  # Another preparer won; independently verify its complete slot.
         return resolve(directory, layout=layout)
