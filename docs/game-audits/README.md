@@ -8,7 +8,7 @@ Counts refer to the audited installation and locale, not every game chapter.
 | Game | Implemented improvements | Evidence and limits |
 | --- | --- | --- |
 | Zenless Zone Zero | Unity-wrapped catalogs; typed stories, bubbles, cinematics, messages and gameplay tips | [ZZZ](zzz.md) |
-| Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions | [Wuthering](wuwa.md) |
+| Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions; shared compiler-free archive helper | [Wuthering](wuwa.md), [runtime evidence](../wuthering-runtime.md) |
 | Neverness to Everness | Typed subtitles; mail, summaries and messages; original voice provenance | [NTE](nte.md) |
 | PRAGMATA | Owned compiler-free selected PAK reader; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md), [reader evidence](../re-pak-runtime.md) |
 | Cyberpunk 2077 | Base game and Phantom Liberty; exact hashed voices; journal messages and readables | [Cyberpunk](cyberpunk.md) |

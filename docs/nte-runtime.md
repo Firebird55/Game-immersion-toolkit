@@ -14,7 +14,8 @@ every file against the outer application inventory, rejects extra libraries,
 links and incompatible platforms, and retains supplier evidence as inert notices.
 An approval-like manifest field cannot replace the required binary identities.
 
-Only `inventory`, `index`, `voice` and `voices` are available. Inputs must be an
+NTE uses `inventory`, `index`, `voice` and `voices`. The same helper also provides
+the bounded [Wuthering operations](wuthering-runtime.md). Inputs must be an
 explicit installed-game folder; output must be inside private data/work/cache
 storage and outside the game, application and dependency folders. Archive
 metadata travels on stdin. The child receives a restricted loader environment

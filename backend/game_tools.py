@@ -134,16 +134,12 @@ def missing_tools(root: Path, game: str) -> list[str]:
         required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "cyberpunk":
         required += [("Cyberpunk extractor", runtime_data_root(root) / "cyberpunk/tools/WolvenKit.CLI.exe")]
-    if game == "wuwa":
-        required += [("Wuthering Waves extractor", runtime_data_root(root) / "wuwa/tools/FModelCLI.exe"),
-                     ("Wuthering Waves decompression", runtime_data_root(root) / "wuwa/tools/.data/oodle-data-shared.dll"),
-                     ("Wuthering Waves decompression", runtime_data_root(root) / "wuwa/tools/.data/zlib-ng2.dll")]
-    if game == "nte":
+    if game in {"nte", "wuwa"}:
         from .nte_assets import dotnet_sdk
         if dotnet_sdk() is None:
-            required.append((".NET 10 SDK", runtime_data_root(root) / "nte/tools/missing-sdk"))
-        required += [("NTE reader", runtime_data_root(root) / "nte/tools/NteReader.dll"),
-                     ("NTE archive reader", runtime_data_root(root) / "nte/tools/upstream/UEExtractor.dll")]
+            required.append((".NET 10 SDK", runtime_data_root(root) / game / "tools/missing-sdk"))
+        required += [("Unreal archive reader", runtime_data_root(root) / game / "tools/NteReader.dll"),
+                     ("Unreal archive dependencies", runtime_data_root(root) / game / "tools/upstream/UEExtractor.dll")]
     return list(dict.fromkeys([*missing, *(name for name, path in required if not path.is_file()),
                                *_metadata_missing(root, game)]))
 
@@ -167,17 +163,15 @@ def _bundle_runtime_missing(root: Path, game: str) -> list[str]:
     if game not in {'beyond', 'heavyrain'} and not vgmstream_executable(root):
         missing.append('Voice decoder')
     reader, label = None, None
-    if game == 'nte':
+    if game in {'nte', 'wuwa'}:
         from .nte_toolchain import resolve
-        reader, label = resolve, 'Unreal archive reader and native dependencies'
+        reader, label = resolve, 'Unreal archive reader and managed dependencies'
     elif game == 'zzz':
         from .prebuilt_node_reader import require_zzz_reader
         reader, label = require_zzz_reader, 'Scene and voice graph reader'
-    elif game in {'wuwa', 'cyberpunk'}:
-        # These adapters currently have source-only executable acquisition.
-        # Their actual immutable apphost/native closures must be implemented;
-        # a common codec or another game's .NET helper is not that capability.
-        label = 'Unreal archive extractor' if game == 'wuwa' else 'REDengine archive extractor'
+    elif game == 'cyberpunk':
+        # Its exact immutable runtime closure is prepared separately.
+        label = 'REDengine archive extractor'
         missing.append(label)
     if reader:
         try:

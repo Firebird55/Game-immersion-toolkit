@@ -22,12 +22,12 @@ SCHEMA = 'toolkit-nte-dependencies-v2'
 DEPENDENCIES = {
     'UEExtractor.dll': '0076582a3edf2a3b0114b2788a8fc4814a49db2d3e6f0995713a72f915a7c1e2',
 }
-MODES = frozenset({'inventory', 'index', 'voice', 'voices'})
+MODES = frozenset({'inventory', 'index', 'voice', 'voices', 'wuwa-list', 'wuwa-extract'})
 
 
 def _failure():
     return PreparationFailure('bundle_toolchain_unavailable',
-        'The bundled NTE archive reader or its dependencies are missing or incompatible. '
+        'The bundled Unreal archive reader or its dependencies are missing or incompatible. '
         'Repair the application; no system SDK, compiler or executable download was started.')
 
 
@@ -129,3 +129,13 @@ def command(install, destination, mode, *, layout=None):
         raise ValueError('Archive reader output must stay inside private application storage')
     chain = NteToolchain(chain.executable, chain.dependencies, allowed, chain.application_root)
     return chain.command(mode, install, destination), reader_environment(), chain.dependencies
+
+
+def voice_executable(source_path):
+    """Resolve playback's source-cache placeholder through the installed chain.
+
+    The shared voice service keeps per-game tool cache names for source installs.
+    A frozen app must use the same immutable apphost as preparation/indexing.
+    """
+    layout = discover_layout()
+    return resolve(layout=layout).executable if layout.mode == 'bundle' else Path(source_path)

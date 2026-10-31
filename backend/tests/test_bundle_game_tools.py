@@ -36,14 +36,15 @@ def test_common_packaged_audio_and_owned_readers_do_not_need_developer_tools(tmp
     assert not layout.application_root.exists()
 
 
-def test_valid_nte_chain_uses_same_ready_flow_and_never_source_sdk(tmp_path, monkeypatch):
+@pytest.mark.parametrize('game', ['nte', 'wuwa'])
+def test_valid_unreal_chain_uses_same_ready_flow_and_never_source_sdk(tmp_path, monkeypatch, game):
     from backend import nte_assets, nte_toolchain
     layout = included_runtime(tmp_path, monkeypatch)
     resolved = []
     monkeypatch.setattr(nte_toolchain, 'resolve', lambda: resolved.append(True))
     monkeypatch.setattr(nte_assets, 'dotnet_sdk', lambda: pytest.fail('No source SDK discovery'))
-    assert game_tools.missing_tools(layout.application_root, 'nte') == []
-    game_tools.prepare_tools(layout.application_root, 'nte')
+    assert game_tools.missing_tools(layout.application_root, game) == []
+    game_tools.prepare_tools(layout.application_root, game)
     assert len(resolved) == 2
 
 

@@ -25,7 +25,7 @@ internal static class NteReader
                     game_execution_approved = false }));
                 return local ? 0 : 2;
             }
-            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory")) throw new ArgumentException();
+            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory" or "wuwa-list" or "wuwa-extract")) throw new ArgumentException();
             var install = Path.GetFullPath(args[1]);
             var tools = Path.GetFullPath(args[2]);
             var destination = Path.GetFullPath(args[3]);
@@ -43,19 +43,28 @@ internal static class NteReader
                     destination.StartsWith(immutable.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
                     immutable.StartsWith(destination.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                     throw new ArgumentException("Choose a separate private output folder");
-            using var request = JsonDocument.Parse(Console.In.ReadToEnd());
+            var input = new char[64 * 1024 + 1];
+            var count = Console.In.ReadBlock(input, 0, input.Length);
+            if (count > 64 * 1024) throw new ArgumentException();
+            using var request = JsonDocument.Parse(new string(input, 0, count));
             var voiceLanguage = request.RootElement.TryGetProperty("voice_language", out var requestedVoice) ? requestedVoice.GetString()! : "Chinese";
             if (voiceLanguage is not ("Chinese" or "English" or "Japanese" or "Korean")) throw new ArgumentException();
             var assembly = Assembly.LoadFrom(Path.Combine(tools, "UEExtractor.dll"));
-            var key = request.RootElement.GetProperty("archive_metadata").GetString();
-            if (key == null || key.Length != 66 || !key.StartsWith("0x") || !key[2..].All(Uri.IsHexDigit)) throw new ArgumentException();
-            var provider = CreateProvider(assembly, install, key);
+            var wuwa = args[0].StartsWith("wuwa-", StringComparison.Ordinal);
+            var metadata = request.RootElement.GetProperty("archive_metadata");
+            var archiveKeys = wuwa ? metadata.EnumerateArray().Select(v => v.GetString()).ToArray() : [metadata.GetString()];
+            if (archiveKeys.Length is < 1 or > 512 || archiveKeys.Any(key => key == null || key.Length != 66 ||
+                !key.StartsWith("0x") || !key[2..].All(Uri.IsHexDigit))) throw new ArgumentException();
+            var filter = wuwa ? WuwaFilter(request.RootElement.GetProperty("filter").GetString()!, args[0] == "wuwa-list") : null;
+            var provider = CreateProvider(assembly, install, wuwa ? "GAME_WutheringWaves" : "GAME_NevernessToEverness", archiveKeys!);
             try
             {
                 provider.GetType().GetMethods().Single(m => m.Name == "Mount" && m.GetParameters().Length == 0).Invoke(provider, null);
                 var save = provider.GetType().GetMethod("SaveAsset", [typeof(string)])!;
                 Directory.CreateDirectory(destination);
-                if (args[0] == "inventory")
+                if (wuwa)
+                    ReadWuwa(provider, save, destination, filter!, args[0] == "wuwa-list");
+                else if (args[0] == "inventory")
                 {
                     var files = (IEnumerable)provider.GetType().GetProperty("Files")!.GetValue(provider)!;
                     var names = new List<string>();
@@ -174,7 +183,7 @@ internal static class NteReader
         catch (UnsupportedGameFormatException) { Console.SetOut(output); Console.WriteLine("Unsupported NTE localization format; update the toolkit reader"); return 3; }
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
     }
-    static object CreateProvider(Assembly supplier, string install, string key)
+    static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys)
     {
         // Initialize only the embedded-assembly resolver. The supplier's
         // UnrealArchiveReader constructor invokes native-code downloaders;
@@ -184,7 +193,7 @@ internal static class NteReader
         var wrapper = supplier.GetType("UnrealArchiveReader", true)!;
         var providerType = wrapper.GetField("_provider", BindingFlags.NonPublic | BindingFlags.Instance)!.FieldType;
         var cue = providerType.Assembly;
-        var game = Enum.Parse(cue.GetType("CUE4Parse.UE4.Versions.EGame", true)!, "GAME_NevernessToEverness");
+        var game = Enum.Parse(cue.GetType("CUE4Parse.UE4.Versions.EGame", true)!, gameName);
         var versionType = cue.GetType("CUE4Parse.UE4.Versions.VersionContainer", true)!;
         var versionCtor = versionType.GetConstructors().Single();
         var versionArgs = versionCtor.GetParameters().Select(p => p.IsOptional ? Type.Missing : (object?)null).ToArray();
@@ -201,8 +210,20 @@ internal static class NteReader
             providerType.GetMethod("Initialize")!.Invoke(provider, null);
             var submit = providerType.GetMethod("SubmitKey")!;
             var guid = Activator.CreateInstance(submit.GetParameters()[0].ParameterType)!;
-            var aes = Activator.CreateInstance(submit.GetParameters()[1].ParameterType, key)!;
-            submit.Invoke(provider, [guid, aes]);
+            foreach (var key in keys)
+            {
+                var aes = Activator.CreateInstance(submit.GetParameters()[1].ParameterType, key)!;
+                submit.Invoke(provider, [guid, aes]);
+            }
+            // Downloaded patches can declare a nonzero archive identifier.
+            // Snapshot the remaining identifiers before submission mutates the
+            // unloaded collection; each still needs its installed-version key.
+            var remaining = ((IEnumerable)Property(provider, "UnloadedVfs")).Cast<object>()
+                .Select(archive => Property(archive, "EncryptionKeyGuid")).Distinct().ToArray();
+            foreach (var archiveGuid in remaining)
+                foreach (var key in keys)
+                    submit.Invoke(provider, [archiveGuid,
+                        Activator.CreateInstance(submit.GetParameters()[1].ParameterType, key)!]);
             return provider;
         }
         catch
@@ -210,6 +231,69 @@ internal static class NteReader
             (provider as IDisposable)?.Dispose();
             throw;
         }
+    }
+    const string WuwaRoot = "Client/Content/Aki/";
+    const string WuwaVoices = WuwaRoot + "WwiseAudio_Generated/WwiseExternalSource/";
+    static string WuwaFilter(string filter, bool list)
+    {
+        if (list && filter == "WwiseExternalSource/") return WuwaVoices;
+        if (filter == null || filter.Length > 512 || filter.Contains("..") ||
+            !filter.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.' or '/')) throw new ArgumentException();
+        if (filter.StartsWith(WuwaVoices, StringComparison.Ordinal))
+        {
+            var clip = filter[WuwaVoices.Length..];
+            if (clip.Length <= 3 || clip.Contains('/') ||
+                !(clip.StartsWith("en_") || clip.StartsWith("zh_") || clip.StartsWith("ja_") || clip.StartsWith("ko_"))) throw new ArgumentException();
+            return filter;
+        }
+        if (list) throw new ArgumentException();
+        if (new[] {"db_plot_audio.db", "db_flowState.db", "db_cgVedio.db", "db_infodisplay.db"}
+            .Any(name => filter == "ConfigDB/" + name)) return WuwaRoot + filter;
+        var parts = filter.Split('/');
+        if (parts.Length == 3 && parts[0] == "ConfigDB" && parts[2] == "lang_multi_text" &&
+            new[] {"en", "zh-Hans", "zh-Hant", "ja", "ko", "fr", "de", "ru", "th", "vi", "id", "es", "pt"}.Contains(parts[1]))
+            return WuwaRoot + filter;
+        throw new ArgumentException();
+    }
+    static void ReadWuwa(object provider, MethodInfo save, string destination, string filter, bool list)
+    {
+        var selected = new SortedDictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        var files = Property(provider, "Files");
+        foreach (var pair in (IEnumerable)files)
+        {
+            var name = (string)Property(pair, "Key");
+            if (!name.StartsWith(filter, StringComparison.OrdinalIgnoreCase)) continue;
+            if ((filter.EndsWith(".wem", StringComparison.OrdinalIgnoreCase) || filter.EndsWith(".db", StringComparison.OrdinalIgnoreCase)) &&
+                !name.Equals(filter, StringComparison.OrdinalIgnoreCase)) continue;
+            // Restrict prefix selection to the same authored DB/WEM surfaces
+            // used by the Python binding reader. No arbitrary asset export.
+            if (name.StartsWith(WuwaVoices, StringComparison.OrdinalIgnoreCase) ? !name.EndsWith(".wem", StringComparison.OrdinalIgnoreCase)
+                : !name.EndsWith(".db", StringComparison.OrdinalIgnoreCase)) continue;
+            if (name.StartsWith(WuwaVoices, StringComparison.OrdinalIgnoreCase) && name[WuwaVoices.Length..].Contains('/')) throw new InvalidDataException();
+            if (name.Contains('\\') || name.Contains(':') || name.Split('/').Any(p => p is "" or "." or "..")) throw new InvalidDataException();
+            // Enumeration can include multiple patch versions. Resolve through
+            // the provider's indexer, exactly as SaveAsset does, so size checks
+            // and extraction use the same winning archive entry.
+            var current = files.GetType().GetProperty("Item")!.GetValue(files, [name])!;
+            selected[name] = Convert.ToInt64(Property(current, "Size"));
+            if (selected.Count > (list ? 2_000_000 : 256)) throw new InvalidDataException();
+        }
+        long total = 0;
+        if (!list)
+            foreach (var (name, size) in selected)
+            {
+                if (size < 0 || size > (name.StartsWith(WuwaVoices, StringComparison.OrdinalIgnoreCase) ? 64L : 256L) * 1024 * 1024 ||
+                    (total += size) > 1024L * 1024 * 1024) throw new InvalidDataException();
+                var target = Path.GetFullPath(Path.Combine(destination, name));
+                if (!target.StartsWith(destination.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException();
+                for (var path = target; path != null; path = Path.GetDirectoryName(path))
+                    if ((File.Exists(path) || Directory.Exists(path)) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException();
+                var bytes = (byte[])save.Invoke(provider, [name])!;
+                if (bytes.LongLength != size) throw new InvalidDataException();
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.WriteAllBytes(target, bytes);
+            }
+        File.WriteAllText(Path.Combine(destination, "files.json"), JsonSerializer.Serialize(selected.Keys));
     }
     static object Property(object value, string name) => value.GetType().GetProperty(name)!.GetValue(value)!;
     static string TextKey(object value) => (string)value.GetType().GetField("Str")!.GetValue(value)!;

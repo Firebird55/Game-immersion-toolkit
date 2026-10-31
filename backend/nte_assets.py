@@ -487,6 +487,8 @@ def _voice_language(audio):
 
 def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
     language = _voice_language(audio)
+    from .nte_toolchain import voice_executable
+    executable = voice_executable(executable)
     options = {'voice_language': language} if audio.get('locale') else {}
     run_reader(install, executable, destination, "voice", audio["depot"], **options)
     data = (destination / "voice.wem").read_bytes()
@@ -500,6 +502,8 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
     languages = {_voice_language(audio) for audio in audios}
     if not 1 <= len(depots) <= 8 or len(languages) != 1:
         raise ValueError('NTE batches require one selected original voice language')
+    from .nte_toolchain import voice_executable
+    executable = voice_executable(executable)
     options = {'voice_language': next(iter(languages))} if any(audio.get('locale') for audio in audios) else {}
     run_reader(install, executable, destination, 'voices', depots=depots, **options)
     result = [(destination / f'{i}.wem').read_bytes() for i in range(len(depots))]
