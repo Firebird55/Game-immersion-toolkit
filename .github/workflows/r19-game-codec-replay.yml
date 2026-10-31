@@ -33,6 +33,11 @@ jobs:
         with:
           # Build/probe interpreter, no runtime supplier identity.
           python-version: '3.12.10'
+      - name: Check compiler activation with authored batches
+        shell: pwsh
+        run: |
+          python -I -B backend/tests/test_game_codec_replay.py ReplayTrustTests.test_compiler_activation_handles_spaced_batch_paths_and_never_exports_failed_or_foreign_values
+          if ($LASTEXITCODE -ne 0) { throw 'Authored compiler activation contract failed before input preparation.' }
       - name: Acquire exact source, original recipe and isolated tool inputs
         shell: pwsh
         run: |
