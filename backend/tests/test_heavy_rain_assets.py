@@ -174,8 +174,33 @@ def test_unknown_patch_and_unsafe_voice_references_fail_explicitly(tmp_path):
         assets.extract_voice(tmp_path, {'locale': 'nl', 'identity': 42, 'index': '../voice.idx'}, None, tmp_path)
 
 
-def test_authored_pages_are_anchors_for_one_complete_paragraph(tmp_path):
+def test_authored_page_parser_preserves_display_boundaries():
     assert assets.pages('{S}Eerste pagina.{B}Tweede pagina.') == ['Eerste pagina.', 'Tweede pagina.']
+
+
+@pytest.mark.parametrize('missing_audio', [False, True])
+def test_authored_pages_never_emit_the_complete_paragraph(tmp_path, monkeypatch, missing_audio):
+    installation(tmp_path)
+    if missing_audio:
+        (tmp_path / assets.VOICE_INDEXES[0]).unlink()
+    original = legacy.localization
+    def localized(body, locales=None):
+        tables = original(body, locales)
+        tables['HOL']['texts'][101] = '{S}Eerste pagina.{B}Tweede pagina.{B}Eerste pagina.'
+        tables['SCH']['texts'][101] = '第一段。{B}第二段。{B}第三段。'
+        return tables
+    monkeypatch.setattr(legacy, 'localization', localized)
+    rows = assets.index_language(tmp_path, tmp_path / 'cache', 'nl', ['zh-hans'])['records']
+    assert [row['source_text'] for row in rows] == ['Eerste pagina.', 'Tweede pagina.', 'Eerste pagina.']
+    assert len({row['text_id'] for row in rows}) == 3
+    assert all('ocr_texts' not in row and set(row['texts']) == {'nl'} for row in rows)
+    if missing_audio:
+        assert all(row['voice_status'] == 'unavailable' and row['audio'] is None for row in rows)
+    else:
+        from backend.local_game import LocalDialogue
+        assert all(LocalDialogue(**row).audio_scope == 'paragraph' for row in rows)
+        assert all(row['audio']['identity'] == 42 for row in rows)
+        assert all((row['audio']['start_ms'], row['audio']['end_ms']) == (100, 400) for row in rows)
 
 
 @pytest.mark.parametrize('single,silent', [(False, False), (True, False), (False, True), (True, True)])

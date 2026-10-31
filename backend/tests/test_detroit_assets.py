@@ -112,14 +112,15 @@ def test_absent_locale_is_actionable_and_stays_supported(tmp_path):
     assert assets.probe_voice_pack(root, 'ar') == 'unknown'
 
 
-@pytest.mark.parametrize('text', ['{*1}First.{*1}Second.', 'Complete synthetic performance.'])
-def test_ambiguous_cue_uses_complete_original_performance(tmp_path, text):
+@pytest.mark.parametrize('text,expected', [('{*1}First.{*1}Second.', ['First.', 'Second.']),
+                                        ('Complete synthetic performance.', ['Complete synthetic performance.'])])
+def test_untimed_cues_keep_pages_with_complete_original_audio(tmp_path, text, expected):
     root = install(tmp_path, source_text=text)
     payload = assets.index_language(root, tmp_path, 'en', [])
-    row = next(row for row in payload['records'] if row['audio'])
-    assert 'start_ms' not in row['audio']
-    assert row['source_text'] == assets.clean_text(text)
-    assert row['ocr_texts']['en'] == assets.ocr_pages(text)
+    rows = [row for row in payload['records'] if row['audio']]
+    assert [row['source_text'] for row in rows] == expected
+    assert all('start_ms' not in row['audio'] and row['audio_scope'] == 'paragraph' for row in rows)
+    assert all('ocr_texts' not in row for row in rows)
 
 
 def test_authored_cue_range_and_timecode():
@@ -132,8 +133,25 @@ def test_authored_cue_range_and_timecode():
 def test_subtitle_hold_beyond_recording_never_invents_a_cut(tmp_path):
     root = install(tmp_path, times=((0, 1.05), (.5, .9)))
     payload = assets.index_language(root, tmp_path, 'en', [])
-    row = next(row for row in payload['records'] if row['audio'])
-    assert 'start_ms' not in row['audio'] and row['text_id'].endswith(':complete')
+    first, second = [row for row in payload['records'] if row['audio']]
+    assert first['source_text'] == 'Synthetic first.' and first['text_id'].endswith(':1')
+    assert 'start_ms' not in first['audio'] and first['audio_scope'] == 'paragraph'
+    assert second['source_text'] == 'Synthetic second.' and second['audio_scope'] == 'line'
+    assert (second['audio']['start_ms'], second['audio']['end_ms']) == (500, 900)
+
+
+def test_missing_audio_still_preserves_authored_pages(tmp_path):
+    root = install(tmp_path, missing=True)
+    rows = [row for row in assets.index_language(root, tmp_path, 'en', ['zh-Hans'])['records'] if KEY in row['text_id']]
+    assert [row['source_text'] for row in rows] == ['Synthetic first.', 'Synthetic second.']
+    assert all(row['voice_status'] == 'unavailable' and row['audio'] is None for row in rows)
+
+
+def test_repeated_cue_marker_never_pairs_translations_by_position(tmp_path):
+    root = install(tmp_path, source_text='{*1}First.{*1}Second.')
+    rows = [row for row in assets.index_language(root, tmp_path, 'en', ['zh-Hans'])['records'] if row['audio']]
+    assert [row['text_id'].rsplit(':page:', 1)[1] for row in rows] == ['1', '2']
+    assert [row['texts'] for row in rows] == [{'en': 'First.'}, {'en': 'Second.'}]
 
 
 def test_wrong_locale_fails_safely(tmp_path):
