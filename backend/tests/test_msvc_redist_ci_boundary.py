@@ -129,6 +129,65 @@ def write_report(path, value, **kwargs):
                 self.refused(self.invoke(payload))
                 self.assertEqual(list(self.output.iterdir()), [])
 
+    def diagnostic_helpers(self):
+        source = (ROOT/'scripts/run-msvc-redist-census.mjs').read_text(encoding='utf-8')
+        program = source.split('const observerDiagnostics = String.raw`\n', 1)[1].split('\n`;', 1)[0]
+        observer = source.split('const program = String.raw`\n', 1)[1].split('\n`;', 1)[0]
+        observer = observer.replace('${observerDiagnostics}', program)
+        compile(observer, '<authored-observer-program>', 'exec')
+        namespace = {}
+        exec(compile(program, '<authored-observer-diagnostic>', 'exec'), namespace)
+        namespace['observer_program'] = observer
+        return namespace
+
+    def test_observer_failure_diagnostic_uses_fixed_parent_labels_without_exception_or_subtest_text(self):
+        helpers = self.diagnostic_helpers(); names = helpers['METHODS']['CensusTests']
+        marker = 'PRIVATE synthetic exception, account parameter and source path'
+        class PrivateParameter:
+            def __repr__(self): raise AssertionError('Subtest values must not be formatted.')
+        def inline(case): case.fail(marker)
+        def subtest(case):
+            with case.subTest(account=PrivateParameter()): case.fail(marker)
+        def skip(case): case.skipTest(marker)
+        def forbidden_id(_case): raise AssertionError('Unittest ids must not be read.')
+        owned = type('CensusTests', (unittest.TestCase,), {names[12]:inline, names[4]:subtest,
+            names[0]:skip, 'id':forbidden_id, '__str__':forbidden_id})
+        result = helpers['SafeResult']()
+        unittest.TestSuite([owned(names[12]),owned(names[4]),owned(names[0])]).run(result)
+        value = helpers['safe_diagnostic']('authored-contracts','unexpected',result)
+        self.assertEqual((value['contracts'],value['failures'],value['errors'],value['skipped']), (3,2,0,1))
+        self.assertEqual(value['tests'], ['core-01','core-05','core-13']); self.assertFalse(result.wasSuccessful())
+        self.assertEqual((result.failures,result.errors,result.skipped), ([],[],[]))
+        self.assertFalse(marker in json.dumps(value), 'Fixed diagnostic included fixture text.')
+        # Execute the actual handler with an absent owned root. It either
+        # refuses observer identity or import before loading any census/test
+        # module; this cannot recursively run this suite or query installed VS.
+        refused = subprocess.run([sys.executable,'-I','-B','-c',helpers['observer_program'],
+            str(self.base/'PRIVATE absent observer root'),'a'*40,'owned-diagnostic'],
+            capture_output=True,timeout=15)
+        self.assertEqual(refused.returncode,2); self.assertEqual(refused.stderr,b'')
+        self.assertLessEqual(len(refused.stdout),4096)
+        value = json.loads(refused.stdout)
+        self.assertEqual((value['phase'],value['code'],value['contracts'],value['tests']),
+            ('observer-identity','unexpected',None,[]))
+        self.assertFalse(b'PRIVATE' in refused.stdout, 'Handled child failure included fixture arguments.')
+
+    def test_observer_failure_diagnostic_caps_labels_counts_and_unknown_methods(self):
+        helpers = self.diagnostic_helpers(); names = helpers['METHODS']['CensusTests']
+        result = helpers['SafeResult']()
+        for name in names:
+            result.record('errors', type('CensusTests', (), {'_testMethodName':name})())
+        value = helpers['safe_diagnostic']('authored-contracts','unexpected',result)
+        self.assertEqual(len(value['tests']),8); self.assertEqual(value['errors'],28)
+        result = helpers['SafeResult']()
+        result.record('errors', type('PRIVATE unknown class', (), {'_testMethodName':'PRIVATE unknown parameter'})())
+        self.assertEqual(helpers['safe_diagnostic']('authored-contracts','unexpected',result)['tests'], ['unavailable'])
+        result.counts['errors'] = 1001
+        value = helpers['safe_diagnostic']('authored-contracts','unexpected',result)
+        self.assertEqual([value[key] for key in ('contracts','failures','errors','skipped')], [None]*4)
+        self.assertEqual(value['tests'],[])
+        self.assertFalse('PRIVATE' in json.dumps(value), 'Unknown method details must not be published.')
+
 
 if __name__ == '__main__':
     unittest.main()

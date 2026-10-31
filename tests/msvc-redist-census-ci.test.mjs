@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validSource, validateReport, projectReport} from '../scripts/run-msvc-redist-census.mjs';
+import {validSource, validateReport, projectReport, projectObserverDiagnostic, projectFailure} from '../scripts/run-msvc-redist-census.mjs';
 
 const head = 'a'.repeat(40), id = 'msvc-redist-1-1';
 function report() {
@@ -83,4 +83,52 @@ test('discarded duplicate-key text cannot leak through the published JSON bytes'
   const lastUnknown=Buffer.from(JSON.stringify(report()).replace(/}$/,',"selected_instance":{"PRIVATE":"forbidden"}}'));
   assert.throws(()=>projectReport(lastUnknown,head,id));
   assert.throws(()=>projectReport(Buffer.alloc(65537),head,id));
+});
+
+function diagnostic() {
+  return {schema:'proxy-r19-msvc-observer-diagnostic-v1',phase:'authored-contracts',code:'unexpected',
+    contracts:37,failures:1,errors:0,skipped:0,tests:['core-13']};
+}
+
+test('fatal diagnostics publish only finite child fields and keep every admission gate closed', () => {
+  const value=diagnostic();
+  const error=Object.assign(new Error('PRIVATE raw exception'), {stdout:JSON.stringify(value),stderr:'PRIVATE raw stderr'});
+  const projected=projectFailure('observer-child',error);
+  assert.deepEqual(projected.observer,value);
+  assert.equal(projected.scope,'fatal-diagnostic-not-source-bound');
+  for(const key of ['raw_context_published','source_binding_established','census_receipt_published',
+    'redistribution_approved','runtime_collection_allowed','production_execution_allowed','r19_complete']) assert.equal(projected[key],false);
+  assert.equal(JSON.stringify(projected).includes('PRIVATE'),false);
+  for(const phase of ['env','source-before','source-after','project','publish','source-final']) {
+    assert.equal(projectFailure(phase,error).observer,null);
+  }
+  for(const phase of ['observer-identity','machine-utility','select-query','select-identity','public-root','census','utility-final']) {
+    const v={...value,phase,failures:0,tests:[]};
+    assert.deepEqual(projectObserverDiagnostic(Buffer.from(JSON.stringify(v))),v);
+  }
+});
+
+test('unknown diagnostic metadata, overbounds, raw output and accessors cannot become public context', () => {
+  const changes=[v=>v.private_path='PRIVATE',v=>v.phase='PRIVATE',v=>v.code='PRIVATE',v=>v.code='none',
+    v=>v.contracts=true,v=>v.failures=1001,v=>v.skipped=-1,v=>v.errors='0',v=>v.contracts=null,
+    v=>v.tests=['PRIVATE subtest id'],v=>v.tests=['core-29'],v=>v.tests=['publisher-10'],
+    v=>v.tests=['core-13','core-13'],v=>v.tests=Array.from({length:9},(_,i)=>`core-0${i+1}`)];
+  for(const change of changes) {
+    const value=diagnostic();change(value);
+    assert.throws(()=>projectObserverDiagnostic(JSON.stringify(value)));
+    const projected=projectFailure('observer-child',{stdout:JSON.stringify(value),stderr:'PRIVATE'});
+    assert.equal(projected.observer,null);assert.equal(JSON.stringify(projected).includes('PRIVATE'),false);
+  }
+  for(const raw of ['PRIVATE raw output','{',Buffer.alloc(4097),null]) {
+    assert.throws(()=>projectObserverDiagnostic(raw));
+    assert.equal(projectFailure('observer-child',{stdout:raw}).observer,null);
+  }
+  let accessed=false;
+  const error={get stdout(){accessed=true;throw new Error('PRIVATE');},get stderr(){accessed=true;throw new Error('PRIVATE');}};
+  assert.equal(projectFailure('observer-child',error).observer,null);assert.equal(accessed,false);
+  assert.equal(projectFailure('PRIVATE unknown phase',error).phase,'unavailable');
+  const raw=JSON.stringify(diagnostic()).replace('{','{"discarded":"PRIVATE",');
+  assert.equal(projectFailure('observer-child',{stdout:raw}).observer,null);
+  const duplicate=JSON.stringify(diagnostic()).replace('{','{"code":"PRIVATE discarded duplicate",');
+  assert.equal(JSON.stringify(projectFailure('observer-child',{stdout:duplicate})).includes('PRIVATE'),false);
 });
