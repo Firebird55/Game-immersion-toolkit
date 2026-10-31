@@ -313,7 +313,30 @@ that a diagnostic candidate was invalid or its EOF was unconfirmed; it does not
 prove no caught error or no subsequent physical activity. The underlying C7
 cause remains unknown. Earlier eaa/37/973 and f43 negatives keep their meaning.
 
-### Separate paired real-cmdlet control, native pending
+### Separate paired real-cmdlet control and bounded parent observation
+
+At exact `ac5b7670da9fd613892f6d054e1b96ff51371d7c`, separate
+[run 41247805821](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41247805821)
+on image 20261030.294.1 passed 203 contracts and failed only the new paired case
+(zero skips, 13.69 seconds). Both prior Windows preservation cases passed.
+The inherited control delivered parsed/null-context/stderr-present; the exact
+four-name map delivered unavailable/null-context/no-stderr. The two identical
+pytest diagnostic lines repeat one pair, not two independent observations.
+Mechanism and upload were skipped; no artifact or mechanism receipt exists.
+Root and peer independently checked the provider, fixed projection and exact
+Git inputs. This image differs from d329's 20261021.278.1.
+
+Parsed with stderr bytes does not classify those bytes as errors. Unavailable
+does not distinguish timeout, startup, capture, protocol or cleanup failure.
+Neither result identifies a variable/module/environment repair or the C7 cause.
+The later test-only parent observation therefore adds fixed refusal-boundary,
+stderr-prefix and child/reader-finish labels. Unknown fields/types/values are
+reprojected to unavailable; no raw output, code, path, environment value or
+exception text is published. The prefix label only compares the literal
+`#< CLIXML` bytes: it does not parse XML, classify records as progress/errors,
+or change the existing stderr refusal. Child/reader completion is limited to
+this authored Popen harness, with no descendant or Job/pipe cleanup claim.
+Native results for these added parent labels are pending.
 
 The two preservation cases deliberately shadow ConvertFrom-Json with a synthetic
 throwing function. They do not prove the real utility cmdlet works under the
@@ -356,7 +379,7 @@ environment fix. Shared-host state and the fixed run order also limit that
 comparison. Both controls passing proves only this literal/control operation,
 not actual ReadLine content, true grant conversion, pipe EOF or mechanism success.
 The producer, public mechanism schema/publisher, environment policy and deadlines
-remain unchanged. Native results for this added control are pending; rights,
+remain unchanged. The initial native refusal above remains intact; rights,
 ordinary-user Windows 11, keeper-loss and R19 gates remain open.
 
 The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)

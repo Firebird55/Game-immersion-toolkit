@@ -809,6 +809,21 @@ if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
 _UNCONFIRMED_REAL_CONTROLS = []  # Private process/pipe/thread records, never PID adoption/retry.
 
 
+def closed_real_control_boundary(value):
+    fallback = {'refusal': 'unavailable', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
+    if (type(value) is not dict or set(value) != set(fallback)
+            or type(value['refusal']) is not str
+            or value['refusal'] not in {'none', 'spawn-refused', 'reader-setup-refused',
+                'wait-deadline', 'wait-refused', 'capture-refused', 'protocol-refused',
+                'cleanup-unconfirmed', 'unavailable'}
+            or type(value['stderr_prefix']) is not str
+            or value['stderr_prefix'] not in {'empty', 'fixed-clixml-prefix', 'other', 'unavailable'}
+            or type(value['cleanup']) is not str
+            or value['cleanup'] not in {'child-exit-and-readers-finished', 'unconfirmed'}):
+        return fallback
+    return dict(value)
+
+
 def closed_real_conversion_observation(value):
     fallback = {'state': 'unavailable', 'context': None, 'stderr_present': False}
     if type(value) is not dict:
@@ -862,15 +877,22 @@ def real_conversion_observation(code, output, stderr):
         return fallback
 
 
-def run_real_conversion_control(executable, script, environment):
+def run_real_conversion_control(executable, script, environment, *, diagnostic=None):
     import base64
     unavailable = {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    boundary = {'refusal': 'none', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
+    def publish_boundary():
+        if diagnostic is not None:
+            diagnostic.clear()
+            diagnostic.update(closed_real_control_boundary(boundary))
     try:
         process = subprocess.Popen([executable, '-NoProfile', '-NonInteractive', '-EncodedCommand',
             base64.b64encode(script.encode('utf-16le')).decode('ascii')],
             env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NO_WINDOW)
     except OSError:
+        boundary['refusal'] = 'spawn-refused'
+        publish_boundary()
         return unavailable
     captured, failed, uncertain = {}, [], []
     def read(name, stream):
@@ -878,14 +900,18 @@ def run_real_conversion_control(executable, script, environment):
             captured[name] = stream.read(8193)
             if len(captured[name]) > 8192:
                 failed.append(True)
+                if boundary['refusal'] == 'none': boundary['refusal'] = 'capture-refused'
                 try: process.kill()
                 except BaseException: uncertain.append(True)
-        except BaseException: failed.append(True)
+        except BaseException:
+            failed.append(True)
+            if boundary['refusal'] == 'none': boundary['refusal'] = 'capture-refused'
         finally:
             try: stream.close()
             except BaseException: uncertain.append(True)
     readers, exited, code = [], False, None
     try:
+        boundary['refusal'] = 'reader-setup-refused'
         readers = [{'thread': threading.Thread(target=read, args=(name, stream), daemon=True),
                     'stream': stream, 'attempted': False, 'started': False}
             for name, stream in (('out', process.stdout), ('err', process.stderr))]
@@ -896,7 +922,15 @@ def run_real_conversion_control(executable, script, environment):
                 uncertain.append(True)
                 raise
             record['started'] = True
-        code = process.wait(timeout=10); exited = True
+        boundary['refusal'] = 'none'
+        try:
+            code = process.wait(timeout=10); exited = True
+        except subprocess.TimeoutExpired:
+            boundary['refusal'] = 'wait-deadline'
+            raise
+        except BaseException:
+            boundary['refusal'] = 'wait-refused'
+            raise
     except BaseException:
         failed.append(True)
     finally:
@@ -923,10 +957,22 @@ def run_real_conversion_control(executable, script, environment):
             # An unconfirmed start may already be running. Never race or retry its close.
     if not exited or uncertain:
         _UNCONFIRMED_REAL_CONTROLS.append({'process': process, 'readers': readers})
+        boundary['refusal'] = 'cleanup-unconfirmed'
+    else:
+        boundary['cleanup'] = 'child-exit-and-readers-finished'
+    if 'err' in captured:
+        raw = captured['err']
+        boundary['stderr_prefix'] = ('empty' if not raw else
+            'fixed-clixml-prefix' if raw.startswith(b'#< CLIXML') else 'other')
     if failed or uncertain or not exited or any(len(value) > 8192 for value in captured.values()):
+        if boundary['refusal'] == 'none': boundary['refusal'] = 'capture-refused'
+        publish_boundary()
         unavailable['stderr_present'] = bool(captured.get('err'))
         return unavailable
-    return real_conversion_observation(code, captured.get('out', b''), captured.get('err', b''))
+    observed = real_conversion_observation(code, captured.get('out', b''), captured.get('err', b''))
+    if observed['state'] == 'unavailable': boundary['refusal'] = 'protocol-refused'
+    publish_boundary()
+    return observed
 
 
 def real_conversion_pair(parent_environment, run):
@@ -1049,7 +1095,8 @@ def test_real_conversion_runner_bounds_faults_and_retains_uncertain_ownership(mo
                 value.start = refuse
             return value
         monkeypatch.setattr(threading, 'Thread', thread)
-    result = run_real_conversion_control('authored-program', 'authored-source', {})
+    diagnostic = {}
+    result = run_real_conversion_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
     assert result == {'state': 'unavailable', 'context': None, 'stderr_present': False}
     assert len(processes) == 1
     if fault in {'start-first', 'start-second', 'stream-close', 'kill', 'cleanup-wait'}:
@@ -1057,12 +1104,68 @@ def test_real_conversion_runner_bounds_faults_and_retains_uncertain_ownership(mo
         assert retained[0]['readers']
     else:
         assert not retained
+    expected_refusal = ('cleanup-unconfirmed' if retained else
+        'wait-deadline' if fault == 'timeout' else 'capture-refused')
+    assert diagnostic['refusal'] == expected_refusal
+    assert diagnostic['cleanup'] == ('unconfirmed' if retained else 'child-exit-and-readers-finished')
+    assert closed_real_control_boundary(diagnostic) == diagnostic
     if fault == 'stream-close': assert processes[0].stdout.close_attempts == 1
     if fault in {'start-first', 'start-second', 'timeout', 'kill', 'cleanup-wait'}:
         assert ('kill',) in calls and ('wait', 5) in calls
     assert 'private-' not in json.dumps(result)
     # Release only the authored in-memory streams after the ownership assertions.
     for stream in (processes[0].stdout, processes[0].stderr): io.BytesIO.close(stream)
+
+
+@pytest.mark.parametrize('mutation', ['extra-key', 'private-refusal', 'private-prefix',
+    'private-cleanup', 'numeric-refusal', 'wrong-type', 'absent'])
+def test_real_control_boundary_refuses_private_or_malformed_metadata(mutation):
+    value = {'refusal': 'none', 'stderr_prefix': 'empty', 'cleanup': 'child-exit-and-readers-finished'}
+    if mutation == 'extra-key': value['raw'] = 'private-path'
+    if mutation == 'private-refusal': value['refusal'] = 'private-error'
+    if mutation == 'private-prefix': value['stderr_prefix'] = 'private-message'
+    if mutation == 'private-cleanup': value['cleanup'] = 'private-process'
+    if mutation == 'numeric-refusal': value['refusal'] = 42
+    if mutation == 'wrong-type': value = 'private-value'
+    if mutation == 'absent': value = None
+    result = closed_real_control_boundary(value)
+    assert result == {'refusal': 'unavailable', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
+    assert 'private-' not in json.dumps(result)
+
+
+@pytest.mark.parametrize(('stderr', 'prefix'), [(b'', 'empty'),
+    (b'#< CLIXML\r\nprivate-error-or-progress', 'fixed-clixml-prefix'),
+    (b'private-stderr', 'other')])
+def test_real_control_parent_boundary_observes_prefix_without_classifying_or_accepting_stderr(monkeypatch, stderr, prefix):
+    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
+    class Process:
+        def __init__(self, *_args, **_kwargs):
+            self.stdout = io.BytesIO(b'{"kind":"authored-real-conversion-control","state":"parsed"}')
+            self.stderr = io.BytesIO(stderr)
+        def wait(self, timeout):
+            assert timeout == 10
+            return 0
+        def kill(self): pytest.fail('A completed authored child must not be killed.')
+    monkeypatch.setattr(subprocess, 'Popen', Process)
+    diagnostic = {}
+    result = run_real_conversion_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
+    assert diagnostic == {'refusal': 'none', 'stderr_prefix': prefix, 'cleanup': 'child-exit-and-readers-finished'}
+    assert result == {'state': 'parsed', 'context': None, 'stderr_present': bool(stderr)}
+    # The unchanged paired acceptance still refuses any stderr bytes. A prefix
+    # observation cannot classify messages or change that predicate.
+    assert (result == {'state': 'parsed', 'context': None, 'stderr_present': False}) == (not stderr)
+    assert 'private-' not in json.dumps(diagnostic)
+
+
+def test_real_control_spawn_refusal_has_only_fixed_parent_metadata(monkeypatch):
+    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
+    def refuse(*_args, **_kwargs): raise OSError('private-program-and-path')
+    monkeypatch.setattr(subprocess, 'Popen', refuse)
+    diagnostic = {}
+    result = run_real_conversion_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
+    assert result == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    assert diagnostic == {'refusal': 'spawn-refused', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
+    assert 'private-' not in json.dumps(diagnostic)
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Authored real Windows PowerShell cmdlet control unavailable locally')
@@ -1089,13 +1192,20 @@ $state='conversion-refused'
 if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
 if ($state -ceq 'parsed') { exit 0 } else { exit 2 }
 '''
+    boundaries = {}
     def run(environment):
-        if executable is None: return None
-        return run_real_conversion_control(executable, script, environment)
+        variant = ('inherited', 'attempt')[len(boundaries)]
+        diagnostic = boundaries[variant] = {}
+        if executable is None:
+            diagnostic.update(closed_real_control_boundary(None))
+            return None
+        return run_real_conversion_control(executable, script, environment, diagnostic=diagnostic)
     observed = real_conversion_pair(dict(os.environ), run)
     expected = {'state': 'parsed', 'context': None, 'stderr_present': False}
     if any(value != expected for value in observed.values()):
-        pytest.fail('Authored real conversion controls refused: ' + json.dumps(observed, sort_keys=True, separators=(',', ':')))
+        closed = {key: closed_real_control_boundary(boundaries.get(key)) for key in ('inherited', 'attempt')}
+        pytest.fail('Authored real conversion controls refused: ' + json.dumps(observed, sort_keys=True, separators=(',', ':'))
+            + '; parent boundaries: ' + json.dumps(closed, sort_keys=True, separators=(',', ':')))
 
 
 def test_changed_wire_does_not_relabel_historical_v2_receipts():
