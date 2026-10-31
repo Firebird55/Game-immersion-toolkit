@@ -667,6 +667,38 @@ owned stream descriptors, retaining NUL read/write and existing-pipe behavior.
 No production implementation was changed for this failure. The original result
 is retained; neither a frozen build nor a keeper receipt was produced.
 
+The `e8a76d4` [full source run 41161762483](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161762483)
+passed 2,138 Python tests, one skip and 62 subtests, all five browser groups,
+the aggregate and extracted source-ZIP validation on its first attempt.
+Publishing was skipped. Tested-assets 13027753225 matched 33,601,963 bytes /
+SHA-256 cad8928450899e9e9203178782f6d0f6cb388e1ad98aa4211942d756848cefab;
+all twelve checksums matched, including source ZIP
+c112e279fa9b7104f45178912aa4c0dd20808a79883ccf744ffb2eb11e7d2101.
+Outer and nested root provenance were byte-identical for exact source
+`e8a76d408ee8ddd79f75bbbbbcd08681749c06e0` and shared 1.0.12 revision
+`2e84f74cf77ea4773463331c7ecde0b05faf31f8`. The two retained Xiph source kits
+matched Git bytes. Five supplier/vendor provenance JSON files were semantically
+and LF-normalized text equivalent to Git, with ordinary Windows CRLF bytes;
+they are not described as raw Git-byte matches. Required-gate 13027198460 and
+package-evidence 13027653466 passed exact identity, full/scope and stable-source
+checks. Manual-event base freshness remains not applicable. This is source-style
+package evidence, with no frozen or ordinary-user Windows 11 acceptance.
+
+The same head's [integrated run 41161553165](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161553165)
+passed 722 Windows contracts with zero skips, freezing and the existing
+relocated native/C1/cold-slot steps. The new keeper then refused a guardian
+descendant before creating its writer cohort. Its failure-only artifact
+13027876505 matched 813 bytes /
+5712699b524eafcff0129483be91e6505dc335e255fed56d02af57da0c5f807c.
+Both cases are empty, independent blocked-source observations are zero and
+cleanup remains unconfirmed/recovery-required. The external five-minute
+deadline ended a failed live hold; it proves no keeper-loss containment.
+The descendant's identity is unknown. The later failure prevented the original
+combined metadata upload, so the earlier job-step results are not a new complete
+downloaded frozen checkpoint. The collector now preserves those earlier
+sanitized observations independently of a later keeper failure; receipt and
+workflow status must still be checked separately.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

@@ -42,7 +42,7 @@ shortcut transaction or live migration is authorized by this plan.
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
-| Source candidate | Full Windows source/browser/package run at `f11e96d`: 2,058 Python tests, one skip and 36 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the later `a079232` source run failed one raw ZIP-name case before browser/package jobs |
+| Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
 | Extracted runtime | At `a079232`, 689 Windows contracts and actual native imports, all 25 registry readers, VAD silence, authored Half-Life/Portal workers, isolated ASR imports, bounded Xiph decode and owned frontend/API/WS/Setup passed; source/metadata downloaded and checked | API external side effects were mocked; the new frozen keeper, real OCR/capture, general game voices, ASR inference, full export and later output changes remain unverified |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
@@ -79,9 +79,11 @@ The [guarded cold-slot checkpoint](r19-guarded-slot-probe.md) establishes contin
 lease exclusion while its outer guardian remains alive, including host crash and
 rollback. Guardian death, warm routing and actual store/credential continuity stay
 open. The separate [living frozen keeper probe](r19-frozen-keeper-probe.md)
-adds two fixed guardian-loss cases using retained suspended creation objects;
-its first native execution is pending. Keeper loss and general writer lifetime
-remain open even if those fixed cases pass.
+adds two fixed guardian-loss cases using retained suspended creation objects.
+Its first actual frozen attempt at `e8a76d4` refused a guardian descendant
+before writer creation; both cases remain unproved. Bounded read-only process
+observations are the next input, without changing that refusal. Keeper loss
+and general writer lifetime remain open even if those fixed cases later pass.
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source
 experiment](r19-asr-source-experiment.md) is a distinct private binding variant,

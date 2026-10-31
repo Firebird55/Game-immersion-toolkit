@@ -670,5 +670,309 @@
     "native_windows_11_acceptance": "unavailable",
     "r19_complete": false,
     "installer": "not-built"
+  },
+  "subsequent_complete_source_package_e8a76d4": {
+    "schema": "proxy-r19-source-package-download-review-v1",
+    "source_commit": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+    "run": 41161762483,
+    "scope": "Existing source-style ZIP; not frozen runtime or native Windows 11 acceptance; manual gate does not replace PR required context",
+    "artifact": 13027753225,
+    "bytes": 33601963,
+    "sha256": "cad8928450899e9e9203178782f6d0f6cb388e1ad98aa4211942d756848cefab",
+    "checksums_verified": 12,
+    "checksums": {
+      "AGENTS.md": {
+        "bytes": 4876,
+        "sha256": "77f559b49fbb8f455c80827e8397116a8197fceb305860b154626c86c52a6890"
+      },
+      "CONTRIBUTING.md": {
+        "bytes": 3730,
+        "sha256": "bf57691ee83c36b733957d89e7349aef1e7fa813200d9610024e9717eb2c4c55"
+      },
+      "Game-immersion-toolkit-0.22.0.zip": {
+        "bytes": 33656923,
+        "sha256": "c112e279fa9b7104f45178912aa4c0dd20808a79883ccf744ffb2eb11e7d2101"
+      },
+      "INSTALL.html": {
+        "bytes": 12668,
+        "sha256": "28a72da73a5853f923036a1ec7b3b56bbe18f7aeed8f3ba44e7f814dfd8008b2"
+      },
+      "INSTALL.md": {
+        "bytes": 13300,
+        "sha256": "ae9e1aff53807428aeca285f6af4e8160df17cbaa49b96c61317dc128cd6ff74"
+      },
+      "LICENSE": {
+        "bytes": 1520,
+        "sha256": "5d5a24d0add2859aeddb063697a9beae02d9517f5814d8d08ea299087eea4bca"
+      },
+      "NOTICE.md": {
+        "bytes": 884,
+        "sha256": "80761ded402abf0af3d2de976ad4fd39c5cb5447733a2fbf5609eaa03075de05"
+      },
+      "PROVENANCE.json": {
+        "bytes": 340,
+        "sha256": "5e74e5a068f457cb56f3f4a75d941c3442380be91ffe59bcc7bf6b59b18a13fb"
+      },
+      "RELEASE_NOTES.md": {
+        "bytes": 4681,
+        "sha256": "55b5201aed790cbceb52391350c0076f999c4dca87d81676fbf582fed1aedd42"
+      },
+      "SECURITY.md": {
+        "bytes": 4273,
+        "sha256": "7b01bb155818550103e4d66b76c51eee82bece7d2b2a9da505a8f0f6f6b8d433"
+      },
+      "THIRD_PARTY_LICENSES.txt": {
+        "bytes": 738099,
+        "sha256": "629d430ffa4f5387338be36288d84fa1044fba73da8263d95e598213f80659e2"
+      },
+      "THIRD_PARTY_NOTICES.md": {
+        "bytes": 10590,
+        "sha256": "63738dccf9419d1e8c3ac68282ef01816c706fa261b31f169672ab176fd6ec97"
+      }
+    },
+    "inner_outer_provenance": {
+      "repository": "matthias-van-der-galien/Game-immersion-toolkit",
+      "shared": {
+        "repository": "Firebird55/Lexirise-shared-components",
+        "shared": null,
+        "sourceCommit": "2e84f74cf77ea4773463331c7ecde0b05faf31f8",
+        "version": "1.0.12"
+      },
+      "sourceCommit": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+      "version": "0.22.0"
+    },
+    "required_gate_artifact": 13027198460,
+    "required_gate_bytes": 406,
+    "required_gate_sha256": "14fc46fc955b7c1dacde4aa502745d8c28e7237ef5062cc35237b1078efbdf16",
+    "required_gate": {
+      "baseFreshness": "not-applicable",
+      "errors": [],
+      "event": "workflow_dispatch",
+      "full": true,
+      "identityStatus": "verified",
+      "jobs": {
+        "audit": "success",
+        "browsers": "success",
+        "check": "success"
+      },
+      "kind": "required-checks",
+      "schemaVersion": 1,
+      "scopeValid": true,
+      "source": "workflow-commit",
+      "status": "success",
+      "testedSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+      "workflowSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0"
+    },
+    "package_evidence_artifact": 13027653466,
+    "package_evidence_bytes": 1226,
+    "package_evidence_sha256": "d0e4c8225bc052d02c7b6e38b09685a818d9ce1ca677ff92528e66b49860dcee",
+    "package_identity": {
+      "baseFreshness": "not-applicable",
+      "event": "workflow_dispatch",
+      "kind": "package",
+      "schemaVersion": 1,
+      "source": "workflow-commit",
+      "status": "verified",
+      "testedSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+      "workflowSha": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0"
+    },
+    "candidate": {
+      "command": {
+        "durationMs": 26360,
+        "exitCode": 0,
+        "finishedAt": "2026-10-31T03:08:25.890Z",
+        "id": "release:candidate",
+        "reason": null,
+        "startedAt": "2026-10-31T03:07:59.530Z",
+        "status": "passed"
+      },
+      "id": "3592a385-97f0-4c40-b89b-be3f9f087801",
+      "scope": "candidate",
+      "sourceAfter": {
+        "base": {
+          "sha": null,
+          "status": "not-requested"
+        },
+        "head": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+        "sourceHash": "c74acd05e029a4797624a2111a98f375d8f738d8b6ba2943d2919d6b0d3cdb21",
+        "sourceIssue": null,
+        "sourceStatus": "available"
+      },
+      "sourceBefore": {
+        "base": {
+          "sha": null,
+          "status": "not-requested"
+        },
+        "head": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+        "sourceHash": "c74acd05e029a4797624a2111a98f375d8f738d8b6ba2943d2919d6b0d3cdb21",
+        "sourceIssue": null,
+        "sourceStatus": "available"
+      },
+      "status": "passed"
+    },
+    "retained_supplier_provenance": {
+      "assets/fireredvad/PROVENANCE.json": {
+        "bytes": 761,
+        "git_blob_bytes": 744,
+        "git_blob_sha256": "4d850211fd11f38672221648faeac3fcb4a992acf6e87b06e75ab753b1a6d79b",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "57cd5fc5ad579bb28ee2083c02100fcf683891005e8ef3555ea14743bafee0a1"
+      },
+      "desktop/fonts/PROVENANCE.json": {
+        "bytes": 1574,
+        "git_blob_bytes": 1538,
+        "git_blob_sha256": "5acfca253d7a95ae33be00e245bdade35abcefccef4629f0f0e194b8d2806700",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "f152fd1e87db120650b8c51d1cf68dbe20cfdb5560d0e67c67e675f44ec8f4c8"
+      },
+      "packaging/runtime-bundle/flatbuffers-notices/PROVENANCE.json": {
+        "bytes": 3664,
+        "git_blob_bytes": 3571,
+        "git_blob_sha256": "a28fbe0f4241379beb26a3be491f2c674c34f4192d14cb2faa8870e91c684b1f",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "ce769f16e66540c16409029afa561ce819ab2939dbad72761c52893775ca5759"
+      },
+      "packaging/runtime-bundle/python-notices/PROVENANCE.json": {
+        "bytes": 5571,
+        "git_blob_bytes": 5426,
+        "git_blob_sha256": "59401d66a5426663bda4c9698855c0a8ceb0a5041858a2e2069df0d88d476854",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "f073414776435fbdb9770136416771e0432f65d4ea24b0184d308a97ffbdf867"
+      },
+      "vendor/lexirise-components/PROVENANCE.json": {
+        "bytes": 169,
+        "git_blob_bytes": 163,
+        "git_blob_sha256": "c760cab731c7139a6c15d6476293df45e8e3fc5417e9f1198d8092e56783b9b2",
+        "git_byte_identical": false,
+        "git_text_equivalent": true,
+        "json_equivalent": true,
+        "observed_line_endings": "CRLF",
+        "sha256": "0e34725faf0776861139ff56d03820d936c7744898f439b8c4fb82b952dd9d12"
+      }
+    },
+    "source_distribution_bytes": 33656923,
+    "source_distribution_sha256": "c112e279fa9b7104f45178912aa4c0dd20808a79883ccf744ffb2eb11e7d2101",
+    "source_distribution_entries": 1143,
+    "source_distribution_expanded_bytes": 75584990,
+    "source_python": {
+      "evidence": "completed-job-log-numeric-summary",
+      "job": 124420636883,
+      "passed": 2138,
+      "skipped": 1,
+      "subtests": 62
+    },
+    "source_kits": {
+      "third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip": {
+        "bytes": 1087821,
+        "entries": [
+          "LICENSE",
+          "inputs/flac-1.5.0.tar.xz",
+          "packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt",
+          "packaging/codecs/flac-reference.json",
+          "scripts/build-reference-codec.ps1",
+          "scripts/reference-codec.py"
+        ],
+        "git_byte_identical": true,
+        "original_tar_entries": 907,
+        "sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+        "working_copy_byte_identical": true
+      },
+      "third_party/codecs/xiph-flac-1.5.0/codec-sources.zip": {
+        "bytes": 1086902,
+        "entries": [
+          "LICENSE",
+          "inputs/flac-1.5.0.tar.xz",
+          "packaging/codecs/flac-reference.json",
+          "scripts/build-reference-codec.ps1",
+          "scripts/reference-codec.py"
+        ],
+        "git_byte_identical": true,
+        "original_tar_entries": 907,
+        "sha256": "7dc11c7fc0c87c6304b0d09af81d76a4d6229c15ce8590681a74e14ca85d2f6b",
+        "working_copy_byte_identical": true
+      }
+    },
+    "browser_groups": 5,
+    "job_results": {
+      "browser-checks (capture)": {
+        "conclusion": "success",
+        "id": 124422092449
+      },
+      "browser-checks (desktop)": {
+        "conclusion": "success",
+        "id": 124422092406
+      },
+      "browser-checks (ocr)": {
+        "conclusion": "success",
+        "id": 124422092380
+      },
+      "browser-checks (offline)": {
+        "conclusion": "success",
+        "id": 124422092441
+      },
+      "browser-checks (setup)": {
+        "conclusion": "success",
+        "id": 124422092404
+      },
+      "check": {
+        "conclusion": "success",
+        "id": 124420636883
+      },
+      "package": {
+        "conclusion": "success",
+        "id": 124424041263
+      },
+      "required-checks": {
+        "conclusion": "success",
+        "id": 124424007156
+      },
+      "source-audit": {
+        "conclusion": "success",
+        "id": 124420637168
+      }
+    },
+    "package": "passed",
+    "publish": "skipped",
+    "r19_complete": false,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161762483"
+  },
+  "first_frozen_keeper_execution": {
+    "source_commit": "e8a76d408ee8ddd79f75bbbbbcd08681749c06e0",
+    "run": 41161553165,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41161553165",
+    "affected_contracts": {
+      "passed": 722,
+      "skipped": 0
+    },
+    "earlier_native_c1_cold_steps": "passed; combined runtime metadata upload skipped after later keeper failure",
+    "status": "failed",
+    "failure_artifact": 13027876505,
+    "failure_artifact_bytes": 813,
+    "failure_artifact_sha256": "5712699b524eafcff0129483be91e6505dc335e255fed56d02af57da0c5f807c",
+    "failure_stage": "registered-start",
+    "failure_category": "keeper-guardian-descendants",
+    "descendant_identity": "unknown",
+    "writer_cohort": "not-created",
+    "cases": [],
+    "source_operation_blocked_observations": 0,
+    "cleanup": "unconfirmed-recovery-required",
+    "external_deadline_minutes": 5,
+    "keeper_loss": "unavailable",
+    "production_activation": false,
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built"
   }
 }
