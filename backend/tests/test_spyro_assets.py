@@ -133,9 +133,9 @@ def bank(language, events, embedded=(), multi=False):
     return b''.join(kind + u('I', len(value)) + value for kind, value in chunks)
 
 
-def synthetic_install(root, missing_locale=None):
+def synthetic_install(root, missing_locale=None, caption='First page{N}Second page'):
     files, voices = {}, {}
-    texts = {'caption': 'First page{N}Second page', 'silent': 'Read this instruction', 'speaker': 'Example speaker', 'missing': 'Missing recording'}
+    texts = {'caption': caption, 'silent': 'Read this instruction', 'speaker': 'Example speaker', 'missing': 'Missing recording'}
     for game in (1, 2, 3):
         rows = {}
         for prefix, key in [('vo', 'caption'), ('tx', 'silent')]:
@@ -222,15 +222,16 @@ def test_every_official_locale_joins_all_three_games_and_original_audio(tmp_path
     synthetic_install(tmp_path)
     payload = spyro.index_language(tmp_path, tmp_path, locale, ['en', 'no'])
     records = payload['records']
-    assert len(records) == 7
-    assert sum(row['voice_status'] == 'voiced' for row in records) == 3
+    assert len(records) == 10
+    assert sum(row['voice_status'] == 'voiced' for row in records) == 6
     assert sum(row['voice_status'] == 'unvoiced' for row in records) == 3
     assert sum(row['voice_status'] == 'unknown' for row in records) == 1
     assert payload['narrative_inventory']['unresolved_cinematic_row_references'] == 0
     for row in records:
         if row['audio']:
-            assert row['ocr_texts'][locale] == ['First page', 'Second page']
-            assert row['source_text'] == 'First page Second page'
+            assert 'ocr_texts' not in row and row['audio_scope'] == 'paragraph'
+            assert row['source_text'] in {'First page', 'Second page'}
+            assert row['texts'] == {locale: row['source_text']}
             assert spyro.extract_voice(tmp_path, row['audio'], Path(), Path()).startswith(b'RIFF')
 
 
@@ -238,9 +239,25 @@ def test_missing_pack_is_unavailable_while_explicit_text_only_rows_remain_unvoic
     synthetic_install(tmp_path, missing_locale='ar')
     result = spyro.index_language(tmp_path, tmp_path, 'ar', [])
     assert spyro.probe_voice_pack(tmp_path, 'ar') == 'missing'
-    assert sum(row['voice_status'] == 'unavailable' for row in result['records']) == 3
+    assert sum(row['voice_status'] == 'unavailable' for row in result['records']) == 6
     assert sum(row['voice_status'] == 'unvoiced' for row in result['records']) == 3
     assert any('Steam Properties' in warning for warning in result['coverage_warnings'])
+
+
+def test_repeated_pages_keep_their_separate_authored_positions(tmp_path):
+    synthetic_install(tmp_path, caption='Repeat.{N}Next.{N}Repeat.')
+    rows = [row for row in spyro.index_language(tmp_path, tmp_path, 'en', ['fr'])['records'] if row['audio']]
+    assert len(rows) == 9 and len({row['text_id'] for row in rows}) == 9
+    assert [row['source_text'] for row in rows[:3]] == ['Repeat.', 'Next.', 'Repeat.']
+    assert all(row['texts'] == {'en': row['source_text']} for row in rows)
+
+
+def test_one_page_translations_keep_their_exact_localization_key(tmp_path):
+    synthetic_install(tmp_path, caption='One authored page.')
+    rows = [row for row in spyro.index_language(tmp_path, tmp_path, 'en', ['fr'])['records'] if row['audio']]
+    assert len(rows) == 3
+    assert all(row['texts'] == {'en': 'One authored page.', 'fr': 'One authored page.'} for row in rows)
+    assert all(row['audio_scope'] == 'line' and ':page:' not in row['text_id'] for row in rows)
 
 
 def test_extraction_revalidates_event_media_locale_and_embedded_binding(tmp_path):
