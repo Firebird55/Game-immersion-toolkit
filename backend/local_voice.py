@@ -70,6 +70,7 @@ class LocalVoiceAssetService(VoiceDecoder):
         self.ready = False
         self.last_error = None
         self._entries = {}
+        self._paragraph_ids = set()
         self._install = None
         self._fingerprint = ""
         self._loaded_signature = None
@@ -95,12 +96,15 @@ class LocalVoiceAssetService(VoiceDecoder):
                 payload = json.loads(path.read_text(encoding="utf-8"))
             locale = payload.get('source_locale', 'zh-Hans')
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
+            paragraphs = {r['text_id'] for r in payload['records'] if r.get('audio') and (
+                r.get('audio_scope') == 'paragraph' or self.game == 'beyond' and r['text_id'].endswith(':complete'))}
             install = Path(payload["install"])
             stamp = payload["fingerprint"]
             ready = bool(entries and install.is_dir() and (self.game in {'beyond', 'heavyrain'} or self.decoder_available()) and ffmpeg_executable())
             with self._lock:
                 self.locale = locale
                 self._entries, self._install, self._fingerprint = entries, install, stamp
+                self._paragraph_ids = paragraphs
                 self.ready = ready
                 self._loaded_signature = signature
                 self.last_error = None
@@ -129,10 +133,11 @@ class LocalVoiceAssetService(VoiceDecoder):
     def extract(self, text_id: str, line_id: int, _english=None) -> str:
         with self._lock:
             audio, install, stamp = dict(self._entries[text_id]), self._install, self._fingerprint
+            whole_paragraph = text_id in self._paragraph_ids
         extract_voice = self._adapter.extract_voice
         self._validate_sources(install, stamp, [audio])
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        full_track = audio.get('playback_scope') == 'full_track'
+        full_track = whole_paragraph or audio.get('playback_scope') == 'full_track'
         binding = json.dumps(audio, sort_keys=True, separators=(',', ':')) if full_track else text_id
         identity = hashlib.sha256(f"{stamp}\0{self.locale}\0{binding}".encode()).hexdigest()[:16]
         filename = f"official-{self.game}-{line_id}-{identity}.mp3"
@@ -201,7 +206,8 @@ class LocalVoiceAssetService(VoiceDecoder):
         with self._lock:
             audios = [dict(self._entries[text_id]) for text_id, number, english in requests]
             install, stamp = self._install, self._fingerprint
-        if any(audio.get('playback_scope') == 'full_track' for audio in audios):
+            whole_paragraph = any(text_id in self._paragraph_ids for text_id, _, _ in requests)
+        if whole_paragraph or any(audio.get('playback_scope') == 'full_track' for audio in audios):
             return [self.extract(text_id, number, english) for text_id, number, english in requests]
         self._validate_sources(install, stamp, audios)
         self.output_dir.mkdir(parents=True, exist_ok=True)

@@ -58,6 +58,7 @@ class LocalDialogue:
     source_text: str | None = None
     texts: dict[str, str] | None = None
     audio_locale: str | None = None
+    audio_scope: str = 'line'
     channels: list[str] | None = None
     ocr_texts: dict[str, list[str]] | None = None
     member_text_ids: list[str] | None = None
@@ -70,6 +71,8 @@ class LocalDialogue:
     def __post_init__(self):
         status = dialogue_voice_status(self.audio, self.voice_status)
         dialogue_capture_channels(self.channels)
+        if self.audio_scope not in {'line', 'paragraph'}:
+            raise ValueError('Invalid original voice scope')
         if self.dialogue_kind is not None and (not isinstance(self.dialogue_kind, str) or not self.dialogue_kind.strip()):
             raise ValueError('Invalid dialogue category')
         object.__setattr__(self, 'voice_status', status)
@@ -199,7 +202,8 @@ class LocalGameTextIndex:
                     english=display_text(record.english), chinese=display_text(record.chinese),
                     source_ocr=source, score=float(score), kind="exact" if score == 100 else "fuzzy",
                     speaker_english=record.speaker_english, speaker_chinese=record.speaker_chinese,
-                    voice_status=record.voice_status, dialogue_kind=record.dialogue_kind))
+                    voice_status=record.voice_status, dialogue_kind=record.dialogue_kind,
+                    audio_scope=record.audio_scope))
         if not matches:
             return None
         best = max(matches, key=lambda m: (m.score, len(normalize_subtitle(m.source_ocr))))

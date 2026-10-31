@@ -244,14 +244,14 @@ def write_archive(path, entries):
     path.with_suffix('.dat').write_bytes(content)
 
 
-@pytest.mark.parametrize('locale', beyond.SUPPORTED_LOCALES)
-def test_selected_locale_uses_authored_voice_and_official_translation_only(tmp_path, locale):
+def write_localized_performance(tmp_path, locale, text_by_tag=None):
     code = beyond.TEXT_LOCALES[locale]
     language = beyond.LANGUAGE_IDS[code]
     raw, offsets, _ = partition()
     loc = b'COM_CONT' + integers(4, 1, 4091, 42) + b'\1'
-    loc += b'LOADCONT' + integers(2) + b'LOCALIZ_' + integers(5) + b'\0' + integers(2)
-    for tag, text in [(code, '{*1}Synthetic study text.'), ('CHS', '{*1}Synthetic official translation.')]:
+    text_by_tag = text_by_tag or {code: '{*1}Synthetic study text.', 'CHS': '{*1}Synthetic official translation.'}
+    loc += b'LOADCONT' + integers(2) + b'LOCALIZ_' + integers(5) + b'\0' + integers(len(text_by_tag))
+    for tag, text in text_by_tag.items():
         loc += b'\1' + string(tag) + integers(1) + string('LINE') + string(text, True) + integers(1)
         loc += integers(1) + string('LINE') + b'\1\1' + integers(4091, 42)
     references = integers(1016, 100, 4091, 42) + bytes([language]) + integers(4092, 7)
@@ -263,6 +263,12 @@ def test_selected_locale_uses_authored_voice_and_official_translation_only(tmp_p
     metadata = b'QZIP\0' + info + b'DC_DATA ' + integers(20, len(components)) + components
     write_archive(tmp_path/'BigFile_PC.idx', [(29, 9, metadata)])
     write_archive(tmp_path/f'BigFile_PC_{code}.idx', [(4091, 42, raw)])
+
+
+@pytest.mark.parametrize('locale', beyond.SUPPORTED_LOCALES)
+def test_selected_locale_uses_authored_voice_and_official_translation_only(tmp_path, locale):
+    code = beyond.TEXT_LOCALES[locale]
+    write_localized_performance(tmp_path, locale)
     result = beyond.index_language(tmp_path, tmp_path/'cache', locale, ['zh-hans', 'ar'])
     assert len(result['records']) == 1
     row = result['records'][0]
@@ -276,3 +282,41 @@ def test_selected_locale_uses_authored_voice_and_official_translation_only(tmp_p
     assert missing['records'][0]['voice_status'] == 'unavailable'
     assert missing['records'][0]['audio'] is None
     assert any('voice pack' in warning for warning in missing['coverage_warnings'])
+
+
+def test_mismatched_audio_timing_keeps_authored_pages_and_exact_translation_cue_ids(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    from backend.local_game import LocalDialogue
+    write_localized_performance(tmp_path, 'nl', {
+        'DUT': '{*4}Blijf bij de blauwe deur.{*5}Het vliegtuig vertrekt morgen.{*6}Wie heeft de lamp aangezet?',
+        'CHS': '{*4}请待在蓝色门旁边。{*6}谁打开了这盏灯？',
+        'CHI': '{*4}請待在藍色門旁邊。{*5}飛機明天出發。{*6}誰打開了這盞燈？'})
+    result = beyond.index_language(tmp_path, tmp_path/'cache', 'nl', ['zh-Hans', 'zh-Hant'])
+    rows = result['records']
+    assert [row['text_id'] for row in rows] == [f'beyond:LINE:page-{cue}' for cue in (4, 5, 6)]
+    assert result['reader_revision'] == 4
+    assert all(LocalDialogue(**row).audio_scope == 'paragraph' for row in rows)
+    assert all(row['audio'] == rows[0]['audio'] for row in rows)
+    assert rows[0]['audio']['identity'] == 42
+    assert 'start_ms' not in rows[0]['audio'] and 'end_ms' not in rows[0]['audio']
+    assert 'zh-Hans' not in rows[1]['texts']
+    assert rows[2]['texts']['zh-Hans'] == '谁打开了这盏灯？'
+    (tmp_path/'textmap.json').write_text(json.dumps(result), encoding='utf-8')
+    index = MultilingualTextIndex('beyond', tmp_path)
+    index.target_locale = 'zh-Hans'
+    hit = index.match_lines(['誰打開了這盞燈？'])
+    assert hit.text_id == rows[2]['text_id'] and hit.audio_scope == 'paragraph'
+    assert hit.source_text == 'Wie heeft de lamp aangezet?'
+    assert hit.translation_text == '谁打开了这盏灯？'
+    assert index.match_lines(['Het vliegtuig vertrekt morgen.']).translation_text == ''
+
+
+def test_whole_paragraph_without_authored_pages_is_explicitly_scoped(tmp_path):
+    write_localized_performance(tmp_path, 'nl', {'DUT': 'Een volledige opname zonder paginamarkering.',
+                                               'CHS': '没有分页标记的完整录音。'})
+    result = beyond.index_language(tmp_path, tmp_path/'cache', 'nl', ['zh-Hans'])
+    assert len(result['records']) == 1
+    row = result['records'][0]
+    assert row['text_id'] == 'beyond:LINE:complete' and row['audio_scope'] == 'paragraph'
+    assert row['source_text'] == 'Een volledige opname zonder paginamarkering.'
+    assert 'start_ms' not in row['audio']

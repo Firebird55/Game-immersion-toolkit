@@ -95,6 +95,10 @@ class MultilingualTextIndex:
                 if row.get('audio_locale') != audio_locale(locale, self.game):
                     raise ValueError('Original voice locale does not match study text')
                 row['voice_status'] = dialogue_voice_status(row.get('audio'), row.get('voice_status'))
+                row.setdefault('audio_scope', 'paragraph' if self.game == 'beyond'
+                               and row['text_id'].endswith(':complete') and row.get('audio') else 'line')
+                if row['audio_scope'] not in {'line', 'paragraph'}:
+                    raise ValueError('Invalid original voice scope')
                 voice_counts[row['voice_status']] += 1
                 category = row.get('dialogue_kind') or 'uncategorized'
                 if not isinstance(category, str):
@@ -219,7 +223,8 @@ class MultilingualTextIndex:
                     # official translations. Audio=None is not one shared identity.
                     def identity(row):
                         return (json.dumps(row.get('audio'), sort_keys=True), row['source_text'],
-                                json.dumps(row['texts'], sort_keys=True) if row['voice_status'] == 'unvoiced' else '')
+                                json.dumps(row['texts'], sort_keys=True)
+                                if row['voice_status'] == 'unvoiced' or row['audio_scope'] == 'paragraph' else '')
                     identities = {identity(r) for r in rows}
                     if self.game == 'heavyrain' and len(identities) > 1 and score == 100 and context_groups:
                         rows = [row for row in rows if self.authored_scene(row['text_id']) in context_groups]
@@ -236,7 +241,8 @@ class MultilingualTextIndex:
                         source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
                         translation_locale=target or self.target_locale, translation_text=row['texts'].get(target, '') if target else '',
                         speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
-                        voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind')))
+                        voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind'),
+                        audio_scope=row['audio_scope']))
         if multiple:
             # Retain independent visible speakers, but never turn a wrapped
             # caption's fragment into another performance. The same ambiguity
