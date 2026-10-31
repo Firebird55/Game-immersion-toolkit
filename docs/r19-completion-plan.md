@@ -42,20 +42,21 @@ shortcut transaction or live migration is authorized by this plan.
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
-| Source candidate | Full Windows source/browser/package run at `06eeb97`: 1,759 Python tests passed, one skipped; all five browser groups and extracted source-ZIP validation passed; downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime |
-| Extracted runtime | At `acc68be`, 628 Windows contracts and actual native imports, all 25 registry readers, VAD silence, authored Half-Life/Portal workers, isolated ASR imports, bounded Xiph decode and owned frontend/API/WS/Setup passed; source/metadata downloaded and checked | API external side effects were mocked; real OCR/capture, general game voices, ASR inference, full export and later output changes remain unverified |
+| Source candidate | Full Windows source/browser/package run at `1958866`: 1,933 Python tests, one skip and five subtests; all five browser groups and extracted source-ZIP validation passed after one same-head failed capture-job retry; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime |
+| Extracted runtime | At `12d0d0e`, 640 Windows contracts and actual native imports, all 25 registry readers, VAD silence, authored Half-Life/Portal workers, isolated ASR imports, bounded Xiph decode and owned frontend/API/WS/Setup passed; source/metadata downloaded and checked | API external side effects were mocked; real OCR/capture, general game voices, ASR inference, full export and later output changes remain unverified |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
 | ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
-| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist; owned router shutdown and selected frozen settings/export-lock roots are corrected; strict writer handoff is explicitly opt-in | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist; owned router shutdown and selected frozen settings/export-lock roots are corrected; strict writer handoff is explicitly opt-in; guarded cold A/B/rollback and host-crash exclusion passed at `12d0d0e` with the actual source operation blocked throughout | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
 | Unvoiced export | Actual source and `acc68be` frozen authored Half-Life index/language/mobile-export workers and the portable mobile parser pass for English and Simplified Chinese, with missing-pack rejection and previous-export preservation | Ordinary-user/installed-pack acceptance remains pending; no original speech binding is added |
 | Source original PCM | Source and `acc68be` frozen authored Portal VPK/VCCD/event and selected English/French pack bindings pass actual index/language workers and in-process extraction/PCM validation; truncated PCM preserves prior output | MP3/composite/Bink decoding, voiced mobile export and installed-game/native coverage remain pending |
 
 The [Python component review](r19-python-component-review.md) retains twenty
 exact supplier notice texts and provenance. Runtime collection/finalization
-requires their delivery; native ownership, incorporated notices and rights are
-still pending. The [native acceptance protocol](r19-native-acceptance.md) validates
+requires their delivery, now confirmed in the bounded frozen checkpoints along
+with ONNX/windows-capture/Flatbuffers notice additions. Native ownership, complete
+incorporated notices and rights remain pending. The [native acceptance protocol](r19-native-acceptance.md) validates
 candidate-bound receipts without granting acceptance. The user confirmed on
 2026-10-30 that Windows 11 25H2 x64 test hardware is not yet available.
 
@@ -73,6 +74,12 @@ pass; actual extracted Windows stop, child-exit, parent-crash, readiness and
 foreign-listener cases passed at `acc68be`, with retained runtime/OS-helper
 handles signaled and ports released. The [download review](r19-frozen-checkpoint-20261031.json)
 binds the exact checkpoint. It is not a production launcher or update transaction.
+
+The [guarded cold-slot checkpoint](r19-guarded-slot-probe.md) establishes continuous
+lease exclusion while its outer guardian remains alive, including host crash and
+rollback. Guardian death, warm routing and actual store/credential continuity stay
+open. The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
+a separate manual build-host experiment; native execution and adoption are pending.
 
 ## Execution order and ownership
 

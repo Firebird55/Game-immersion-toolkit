@@ -132,6 +132,27 @@ stay private. The successful attempt removes its private trees. A failed attempt
 preserves private evidence. Neither receipt nor successful cold replacement is
 a production writer-stop/store-copy capability.
 
+## Verified hosted checkpoint
+
+The exact `12d0d0e9ddf926b07ed8da61da144ce331ade48a` checkpoint passed in
+[run 41146850040](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41146850040),
+build `runtime-experiment-41146850040-1`. All **640 Windows contracts** passed,
+then the real frozen C1 and guarded cold-slot probes completed. The separate
+observer-only job also passed all four selected contracts with zero skips; it
+did not build or start a frozen runtime.
+
+Downloaded metadata artifact **13021800802**, **1,232,301 bytes**, matched SHA-256
+823d4a7e995d0cb6f6ba89ac0d6c97923cf96266c15102f09ec1bcf7e0f42f9b.
+The [download review](r19-frozen-checkpoint-20261031.json) independently checks
+source/build/inventory binding, all nine expected slot phases, 29 blocked
+observations of the actual source operation, strict paused handoff and the
+separate 30-second runtime/35-second transport budgets. Normal cold replacement,
+rollback, absent-index failure and host-crash cleanup retained the guardian
+leases through observed child exit. Private cleanup preceded the passing receipt.
+The complete inventory contains 1,537 files and 642 directories; native binaries
+remained runner-local. No new production, data-copy or guardian-crash authority
+is inferred from that success.
+
 ## Separate C3/C4 gates
 
 B is verified while A serves, but is started only after A exits: the existing

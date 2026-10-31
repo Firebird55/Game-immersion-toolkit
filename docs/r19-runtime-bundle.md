@@ -561,10 +561,27 @@ installed game, actual OCR/capture or trained-model inference was exercised.
 Every rights/production/Windows 11/R19 gate remains open.
 
 The separate full source run 41143154298 at `1958866` passed 1,933 Python tests,
-one skip and five subtests plus four browser groups. Its capture group failed
-on Firefox's initial authored loopback navigation; the package job was skipped.
-That run is incomplete and does not replace the earlier complete source-ZIP
-evidence. The failure is retained for diagnosis; no assertion is waived.
+one skip and five subtests, all five browser groups, the aggregate and extracted
+source-package validation; publish was skipped. The initial capture attempt
+timed out on Firefox's bare loopback document before VDO code. A bounded
+unchanged local reproduction passed, followed by one successful same-head
+failed-job retry. The original failure remains recorded; no assertion was waived.
+Downloaded tested-source artifact
+13020538696 matched 33,409,219 bytes and SHA-256
+98fa6332557452e4678cf848f99c2c27f057ef082e08ca272fcf1cfe2576db0a.
+All twelve SHA256SUMS entries and outer/nested provenance matched source
+`1958866` and shared 1.0.12 revision `2e84f74cf77ea4773463331c7ecde0b05faf31f8`.
+The matching required-checks artifact 13020952307 passed identity/full/scope
+validation, with manual-event base freshness explicitly not applicable. This
+source-style ZIP remains distinct from frozen and native Windows 11 acceptance.
+
+The later `12d0d0e` frozen checkpoint passed **640 Windows contracts**, the new
+Flatbuffers central source notices and the [guarded cold-slot experiment](r19-guarded-slot-probe.md).
+Downloaded metadata artifact 13021800802 matched SHA-256
+823d4a7e995d0cb6f6ba89ac0d6c97923cf96266c15102f09ec1bcf7e0f42f9b.
+The [review ledger](r19-frozen-checkpoint-20261031.json) retains both checkpoints
+and the source-package evidence, including their exact different source heads.
+It grants no acceptance to subsequent changes without new matching evidence.
 
 ## Continuation and rollback
 

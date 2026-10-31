@@ -107,5 +107,199 @@
   "windows_contracts": {
     "passed": 628,
     "skipped": 0
+  },
+  "subsequent_guarded_slot_checkpoint": {
+    "schema": "proxy-r19-frozen-checkpoint-review-v1",
+    "source_commit": "12d0d0e9ddf926b07ed8da61da144ce331ade48a",
+    "run": 41146850040,
+    "build_id": "runtime-experiment-41146850040-1",
+    "scope": "Downloaded source and sanitized metadata checked; native binaries remain runner-local; not final candidate or rights acceptance",
+    "artifacts": [
+      {
+        "name": "r19-frozen-12d0d0e.zip",
+        "bytes": 1232301,
+        "sha256": "823d4a7e995d0cb6f6ba89ac0d6c97923cf96266c15102f09ec1bcf7e0f42f9b",
+        "artifact_id": 13021800802,
+        "github_name": "r19-integrated-runtime-metadata"
+      },
+      {
+        "name": "r19-gpl-source-12d0d0e.zip",
+        "bytes": 1095189,
+        "sha256": "531feca2cb59c14c212197bc29de5eabf3013bb338880cbf8c69bc17c396f7ca",
+        "artifact_id": 13021177717,
+        "github_name": "r19-reference-codec-source-and-metadata"
+      }
+    ],
+    "inventory_sha256": "28f79748c209450640d755a5403757e26ac1f42ad61575739636dd750d368cd6",
+    "file_count": 1537,
+    "directory_count": 642,
+    "bytes": 624744695,
+    "main_executable_sha256": "dd585117d8fc4153fdab56a97ea417e76952fb0be0397fa76298d8fe8689739f",
+    "asr_executable_sha256": "ed0cbbb76b096d535f5810b17ffab08035dec24e2b0b373414325e8b97829cd2",
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_inputs": 6,
+    "retained_python_supplier_texts": 20,
+    "python_supplier_provenance": "Windows CRLF checkout bytes matched",
+    "onnx_incorporated_notices": "exact wheel to central output matched",
+    "windows_capture_LICENCE": "exact wheel to central output matched",
+    "native_input_ownership_counts": {
+      "exact": 461,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 91
+    },
+    "authored_half_life_unvoiced_worker": "passed en/zh-Hans both directions; previous export preserved",
+    "authored_portal_original_pcm": "passed en/fr both directions; CRC/binding/truncation refusal; no voiced mobile export",
+    "host": [
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "stop",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "exit-frontend",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "parent-crash",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "canonical_ports": "released",
+        "child_exit": "retained-handles-signaled",
+        "retained_children": 6,
+        "native_owned_process_tree": "real",
+        "retained_runtime_images": 4,
+        "status": "passed",
+        "retained_windows_console_helpers": 2,
+        "case": "unprepared-index",
+        "api_external_side_effects": "mocked"
+      },
+      {
+        "status": "passed",
+        "case": "foreign-ready-listeners",
+        "readiness": "refused",
+        "outside_job_services": "retained-fixture-still-live"
+      }
+    ],
+    "guarded_slots": {
+      "credentials": "not-accessed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "r19_complete": false,
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "source_commit": "12d0d0e9ddf926b07ed8da61da144ce331ade48a",
+      "build_id": "runtime-experiment-41146850040-1",
+      "status": "passed",
+      "source_operation_blocked_observations": 29,
+      "stages": [
+        "leases-held",
+        "slot-a-ready",
+        "slot-a-drained",
+        "slot-a-reaped",
+        "slot-b-paused-active",
+        "cold-rollback-a",
+        "candidate-readiness-failure-reaped",
+        "rollback-after-readiness-failure",
+        "host-crash-children-signaled-leases-held"
+      ],
+      "installer": "not-built",
+      "strict_writer_protocol": "actual-api-paused-capture",
+      "legacy_exclusion": "guardian-exclusive-open-through-retained-child-exit",
+      "legacy_source_operation": "existing-enter-operation-blocked",
+      "warm_candidate_before_drain": "not-proved",
+      "production_activation": false,
+      "store_copy": false,
+      "migration": false,
+      "scope": "authored-cold-slot-lifecycle",
+      "candidate_versions": "two-identical-verified-copies",
+      "http_transport_timeout_ms": 35000,
+      "guardian_crash": "unavailable",
+      "early_unregistered_host_crash": "recovery-required",
+      "target_lease": "separate-private-guardian-root",
+      "source_updater_invoked": false,
+      "api_external_side_effects": "mocked",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "native_owned_process_tree": "observed-existing-c1",
+      "router_takeover": "not-tested"
+    },
+    "production_execution_allowed": false,
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "r19_complete": false,
+    "installer": "not-built",
+    "flatbuffers_source_notice_delivery": "verified exact LICENSE and Windows-checkout provenance",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41146850040",
+    "windows_contracts": {
+      "passed": 640,
+      "skipped": 0
+    }
+  },
+  "source_style_package_checkpoint": {
+    "schema": "proxy-r19-source-package-download-review-v1",
+    "run": 41143154298,
+    "source_commit": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+    "artifact": 13020538696,
+    "bytes": 33409219,
+    "sha256": "98fa6332557452e4678cf848f99c2c27f057ef082e08ca272fcf1cfe2576db0a",
+    "checksums_verified": 12,
+    "inner_outer_provenance": {
+      "version": "0.22.0",
+      "sourceCommit": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+      "repository": "matthias-van-der-galien/Game-immersion-toolkit",
+      "shared": {
+        "version": "1.0.12",
+        "sourceCommit": "2e84f74cf77ea4773463331c7ecde0b05faf31f8",
+        "repository": "Firebird55/Lexirise-shared-components",
+        "shared": null
+      }
+    },
+    "source_distribution_sha256": "46fb70be14896910ee5615afa5b10afc8a9ef79e5245bae4d719de3751ed25a1",
+    "required_gate_artifact": 13020952307,
+    "required_gate_sha256": "09017fcedb052eca96e47b4ae98b4d2db09ec91d0faef6a0fa38c81c6508673a",
+    "required_gate": {
+      "schemaVersion": 1,
+      "kind": "required-checks",
+      "event": "workflow_dispatch",
+      "status": "success",
+      "testedSha": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+      "workflowSha": "1958866d57923946acbba6ac6b1c5d316b83abb4",
+      "source": "workflow-commit",
+      "baseFreshness": "not-applicable",
+      "scopeValid": true,
+      "full": true,
+      "jobs": {
+        "audit": "success",
+        "check": "success",
+        "browsers": "success"
+      },
+      "errors": [],
+      "identityStatus": "verified"
+    },
+    "scope": "Existing source-style ZIP; not frozen runtime or native Win11 acceptance",
+    "first_capture_attempt": "Firefox bare-loopback navigation timeout; retained failure",
+    "capture_retry": "One same-head failed-job retry passed, no source/harness change",
+    "package": "passed; includes font-lifecycle correction",
+    "publish": "skipped",
+    "r19_complete": false
   }
 }
