@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Game immersion toolkit contributors.
+// This standalone reader is licensed under GPL version 3 or (at your option)
+// any later version. See CyberpunkReader.LICENSE for the full terms. This
+// component-specific license does not change the enclosing toolkit's license.
 // Owned, deliberately small entry point for the pinned WolvenKit dependency set.
 // Do not call supplier Program.Main: it discovers/copies Oodle from the user's
 // registry/KnownFolder. Reading uses only the bundled Kraken implementation.

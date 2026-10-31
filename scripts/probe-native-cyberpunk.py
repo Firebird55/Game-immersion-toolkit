@@ -103,7 +103,9 @@ def probe(resources: Path):
     chain = _verify(resources / PREFIX)
     checks = {}
     with tempfile.TemporaryDirectory(prefix='toolkit-cyberpunk-probe-') as temporary:
-        root = Path(temporary)
+        # Hosted Windows TEMP may use a short-name/junction spelling. Match the
+        # production guard's canonical output paths without relaxing ownership.
+        root = Path(temporary).resolve()
         work, game, output = root / 'work', root / 'authored', root / 'extracted'
         for path in (work, game, output):
             path.mkdir()

@@ -33,7 +33,7 @@ SDK = '10.0.403'
 TARGET = 'win-x64'
 PREFIX = 'toolchains/cyberpunk/'
 SCHEMA = 'toolkit-cyberpunk-runtime-v1'
-SLOT = f'wolvenkit-{VERSION}-net{RUNTIME}-{TARGET}'
+SLOT = f'wolvenkit-{VERSION}-net{RUNTIME}-{TARGET}-reader2'
 SUPPLIERS = {
     'wolvenkit': {'url': f'https://github.com/WolvenKit/WolvenKit/releases/download/{VERSION}/WolvenKit.Console-{VERSION}.zip',
         'sha256': '364427384c0f4ebb6b157fa9abd01595258af1b7993c7b3a7edd2920f2016e92', 'prefix': 'reader/'},
@@ -43,13 +43,27 @@ SUPPLIERS = {
     'source': {'url': f'https://codeload.github.com/WolvenKit/WolvenKit/tar.gz/refs/tags/{VERSION}',
         'sha256': 'c1cd3d8bf7355a1c9e8332c029aaafc3bb7eb3753eac16555fb17ecc7e904db2'},
 }
+# The fixed archive/serialization operations never enter scripting, database,
+# audio or texture conversions. Keep the managed runtime dependencies used by
+# these operations; do not redistribute the editor's unrelated native tools.
+EXCLUDED_READER_FILES = frozenset({
+    'WolvenKit.CLI.exe', 'DirectXTexNet.dll', 'kraken.dll', 'libkraken.so', 'libkraken.dylib',
+    'wwtools.dll', 'libwwtools.so', 'libmp3lame.32.dll', 'libmp3lame.64.dll',
+    'ClearScriptV8.win-x64.dll', 'e_sqlite3.dll',
+    'lib/DirectXTexNetImpl.dll', 'lib/Ijwhost.dll', 'lib/texconv.dll', 'lib/COPYING',
+    'opus-tools/opusdec.exe', 'opus-tools/opusenc.exe', 'opus-tools/opusinfo.exe',
+})
+EXCLUDED_READER_PREFIXES = ('NAudio', 'SharpDX', 'Microsoft.ClearScript',
+                           'SQLitePCL', 'Microsoft.Data.Sqlite', 'Microsoft.EntityFrameworkCore')
 # Canonical complete file inventory derived from the pinned supplier archives.
 # A rewritten local manifest cannot authorize substituted executable bytes.
-INVENTORY_SHA256 = '22a1beb26fe81894e88b8cb9b12d0b0c2328aabd541f4733991af00cde4ed5b4'
+INVENTORY_SHA256 = '79b731d0cf8ef6d2fac440e9e8e1b27a87deb8b14e75ee494272532bc6ac45f5'
 OWNED_FILES = {
     'reader/ToolkitCyberpunkReader.dll': 'fc1b0907e03d43da23d867a17aa2e1108a387d26618079ca35eb4ff1a5d7632a',
-    'sources/ToolkitCyberpunkReader.cs': '002a19e8c1e36a630fb4e6d11283d43532ebc96338f59bc8457d69966d2a8e8a',
-    'sources/TOOLKIT-LICENSE': '1d2f36f13b16b401e4bbf81e955ea185d50c6b5de281d89915e240138b7bb396',
+    'sources/ToolkitCyberpunkReader.cs': 'e22884e3316e21909bec2aae6f6f93c49058ea5d2247ed747f9a207a1683bd2d',
+    'sources/COPYING': '589ed823e9a84c56feb95ac58e7cf384626b9cbf4fda2a907bc36e103de1bad2',
+    'reader/kraken.dll': '9ca2e225205285e1e7ae2dfb7e06ff710b8ecc22bc7d584240690bbdec11bb52',
+    'sources/kraken-source.tar.gz': '1d115035aa1254e57ab69e2d057240c616bed07c03b0702ec1b271494557bd17',
 }
 
 
@@ -149,8 +163,8 @@ def compile_entry(destination: Path, *, sdk_root: Path | None = None):
         raise PreparationFailure('source_sdk_missing', f'Source development needs .NET SDK {SDK}. Use the desktop installer for a prepared runtime.')
     project = Path(__file__).resolve().parents[1]
     source = (project / 'scripts/game-readers/CyberpunkReader.cs').read_bytes().replace(b'\r\n', b'\n')
-    license_data = (project / 'LICENSE').read_bytes().replace(b'\r\n', b'\n')
-    for name, data in [('sources/ToolkitCyberpunkReader.cs', source), ('sources/TOOLKIT-LICENSE', license_data)]:
+    license_data = (project / 'scripts/game-readers/CyberpunkReader.LICENSE').read_bytes().replace(b'\r\n', b'\n')
+    for name, data in [('sources/ToolkitCyberpunkReader.cs', source), ('sources/COPYING', license_data)]:
         if hashlib.sha256(data).hexdigest() != OWNED_FILES[name]:
             raise ValueError('Owned archive reader input differs from its pin')
         (destination / name).write_bytes(data)
@@ -180,7 +194,8 @@ def compile_entry(destination: Path, *, sdk_root: Path | None = None):
             child.close_streams()
 
 
-def materialize(destination: Path, archives: dict[str, Path], *, sdk_root: Path | None = None):
+def materialize(destination: Path, archives: dict[str, Path], *, sdk_root: Path | None = None,
+                native_toolchain: Path | None = None):
     """Build an unpublished directory from verified bytes, then seal its inventory."""
     if destination.exists():
         raise ValueError('A fresh runtime destination is required')
@@ -190,13 +205,22 @@ def materialize(destination: Path, archives: dict[str, Path], *, sdk_root: Path 
     destination.mkdir(parents=True)
     for name in ('wolvenkit', 'dotnet'):
         _extract(archives[name], destination, SUPPLIERS[name]['prefix'])
+    for path in sorted((destination / 'reader').rglob('*'), reverse=True):
+        relative = path.relative_to(destination / 'reader').as_posix()
+        if path.is_file() and (relative in EXCLUDED_READER_FILES or relative.startswith(EXCLUDED_READER_PREFIXES)):
+            path.unlink()
+        elif path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
     sources = destination / 'sources'
     sources.mkdir()
-    shutil.copyfile(archives['source'], sources / 'wolvenkit-source.tar.gz')
+    from .cyberpunk_build import corresponding_source, build_kraken, KRAKEN_SOURCE
+    corresponding_source(archives['source'], sources / 'wolvenkit-source.zip')
     files = {p.relative_to(destination).as_posix(): _sha(p) for p in destination.rglob('*') if p.is_file()}
     if _identity(files) != INVENTORY_SHA256:
         raise ValueError('Supplier runtime inventory differs from the reviewed pinned closure')
     compile_entry(destination, sdk_root=sdk_root)
+    kraken = acquire(archives['source'].parent / 'kraken-source.archive', KRAKEN_SOURCE)
+    build_kraken(kraken, destination, toolchain=native_toolchain)
     files.update(OWNED_FILES)
     manifest = {'schema': SCHEMA, 'platform': TARGET, 'version': VERSION, 'runtime': RUNTIME,
                 'files': files, 'inventory_sha256': INVENTORY_SHA256}
