@@ -12,7 +12,7 @@ from backend.runtime_bundle import CHILD_TARGETS, RuntimeBundleError, discover_l
 def main(arguments=None):
     args = list(sys.argv[1:] if arguments is None else arguments)
     if not args or args[0] in {'--data-root', '--frontend-root', '--port', '--api-port',
-                               '--headless', '--no-browser', '--host-check', '--request-quit'}:
+                               '--headless', '--no-browser', '--host-check', '--request-quit', '--ui-probe'}:
         from backend.desktop_host import launch as desktop_main
         return desktop_main(args)
     if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api'}:

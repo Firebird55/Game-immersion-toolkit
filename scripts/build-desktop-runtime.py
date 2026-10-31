@@ -37,6 +37,25 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
+def build_environment(inputs_path, evidence):
+    env = dict(os.environ, PYTHONNOUSERSITE='1', PROXY_RUNTIME_BUILD_INPUTS=str(inputs_path),
+               PROXY_RUNTIME_EVIDENCE_ROOT=str(evidence))
+    for name in ('PYTHONPATH', 'PYTHONHOME', 'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH',
+                 'DYLD_FALLBACK_LIBRARY_PATH', 'QT_PLUGIN_PATH', 'QML2_IMPORT_PATH'):
+        env.pop(name, None)
+    # PyInstaller searches PATH for DLL dependencies. Developer tools can carry
+    # same-named, incompatible libraries (for example Poppler's ICU versus the
+    # Windows ICU used by Qt). Only the verified interpreter and OS tools belong
+    # in this search; package hooks supply the locked wheels' own libraries.
+    if sys.platform == 'win32':
+        windows = Path(os.environ['SystemRoot'])
+        paths = [Path(sys.executable).parent, windows / 'System32', windows]
+    else:
+        paths = [Path(sys.executable).parent, Path('/usr/bin'), Path('/bin'), Path('/usr/sbin')]
+    env['PATH'] = os.pathsep.join(str(path) for path in paths)
+    return env
+
+
 def tree(root):
     result = []
     for path in sorted(root.rglob('*')):
@@ -174,9 +193,7 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
         'r19_complete': False, 'redistribution_review': 'pending-exact-output'}
     inputs_path = output / 'OBSERVED-INPUTS.json'
     inputs_path.write_text(json.dumps(inputs, indent=2) + '\n')
-    env = dict(os.environ, PYTHONNOUSERSITE='1', PROXY_RUNTIME_BUILD_INPUTS=str(inputs_path), PROXY_RUNTIME_EVIDENCE_ROOT=str(evidence))
-    env.pop('PYTHONPATH', None)
-    env.pop('PYTHONHOME', None)
+    env = build_environment(inputs_path, evidence)
     subprocess.run([sys.executable, '-B', '-m', 'PyInstaller', '--noconfirm', '--clean',
         '--distpath', str(output / 'runtime'), '--workpath', str(output / 'build'),
         str(ROOT / 'packaging/runtime-bundle/runtime.spec')], cwd=ROOT, env=env, check=True)

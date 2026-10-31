@@ -18,6 +18,15 @@ from backend import bundle_entry
 from backend import runtime_bundle as bundle
 
 
+def test_frozen_ui_probe_reaches_the_same_host_entrypoint(monkeypatch):
+    from backend import desktop_host
+    calls = []
+    monkeypatch.setattr(desktop_host, 'launch', lambda args: calls.append(args) or 0)
+    args = ['--ui-probe', '--port', '0']
+    assert bundle_entry.main(args) == 0
+    assert calls == [args]
+
+
 def frozen_layout(tmp_path, *, children=(), resources=None, profile='diagnostic'):
     root = tmp_path.resolve()
     app = root / 'Application 空格'
