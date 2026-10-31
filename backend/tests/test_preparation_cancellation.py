@@ -360,6 +360,7 @@ def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_cap
     runtime._updates_started = True
     from backend.runtime_writers import RuntimeWriterGate
     runtime.request_writers, runtime._handoff_lock, runtime._handoff_drains = RuntimeWriterGate(), asyncio.Lock(), []
+    runtime._sql_handoff = None  # This failed producer never reaches SQL reservation.
     idle = SimpleNamespace(close=lambda: None, start=lambda: None)
     runtime.toolkit_updater = runtime.update_manager = runtime.pragmata_updater = idle
     runtime.game_updaters = {}
@@ -371,7 +372,7 @@ def test_failed_quiesce_rollback_restarts_updates_without_restarting_running_cap
     runtime.reading = type('Reader', (), {'quiesce': lambda *args: None, 'resume': lambda *args: None})()
     runtime._reading_registry = SimpleNamespace(stop_creation=lambda _deadline: None,
         quiesce_owned=lambda _deadline: runtime.reading.quiesce(),
-        resume_pools=lambda: runtime.reading.resume(), reopen_creation=lambda: None)
+        resume_pools=lambda _deadline=None: runtime.reading.resume(), reopen_creation=lambda: None)
     runtime._readers, runtime._locale_voices, runtime.game_voice_assets = {}, {}, {}
     runtime._legacy_zzz_voice = runtime._legacy_pragmata_voice = None
     runtime._legacy_game_voices = []

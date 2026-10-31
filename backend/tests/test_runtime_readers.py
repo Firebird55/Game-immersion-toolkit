@@ -446,6 +446,10 @@ def test_real_strict_c2_closes_creation_before_request_drain_with_one_deadline(s
         runtime.lexirise, runtime._reading_registry = state.service, state.registry
         runtime._handoff_drains, runtime._handoff_lock = [], asyncio.Lock()
         runtime._writer_handoff, runtime.standby = False, False
+        runtime._sql_handoff = None
+        # This fixture isolates creation/drain ordering; real SQL composition
+        # is exercised by test_runtime_sql_lifetime's actual full owner cohort.
+        runtime._freeze_sql_handoff = lambda payload, _deadline: payload
         runtime.request_writers = RuntimeWriterGate()
         entered, release = event(state), event(state)
         def transport(request):
@@ -461,11 +465,11 @@ def test_real_strict_c2_closes_creation_before_request_drain_with_one_deadline(s
         caller = spawn(state, request)
         assert await asyncio.to_thread(entered.wait, 1)
         captures, deadlines = [], []
-        wait = runtime.request_writers.wait_drained
-        def wait_requests(timeout):
+        wait = runtime._wait_requests_until
+        def wait_requests(deadline):
             assert not state.registry._accepting
-            wait(timeout)
-        monkeypatch.setattr(runtime.request_writers, 'wait_drained', wait_requests)
+            wait(deadline)
+        monkeypatch.setattr(runtime, '_wait_requests_until', wait_requests)
         for name in ('stop_creation', 'quiesce_owned'):
             original = getattr(state.registry, name)
             def observe(deadline, original=original, name=name):
@@ -486,7 +490,7 @@ def test_real_strict_c2_closes_creation_before_request_drain_with_one_deadline(s
         try:
             with pytest.raises(TimeoutError): await runtime.quiesce_writers(timeout=.04)
             assert caller.thread.is_alive() and not captures and not state.readers
-            assert len(runtime._handoff_drains) == 2
+            assert len(runtime._handoff_drains) == 3
             release.set()
             await asyncio.to_thread(caller.thread.join, 1)
             assert not caller.thread.is_alive() and isinstance(caller.error, WritersQuiescing)

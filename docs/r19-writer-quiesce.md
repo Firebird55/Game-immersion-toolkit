@@ -73,7 +73,9 @@ rewritten or given an all-thread cancellation guarantee. Other default-executor
 lifecycle work remains under its own existing producer/cleanup contracts.
 
 The shared lifecycle lock serializes quiesce and activation. A strict
-quiesce attempt has the existing 30-second budget. A timed-out or disconnected
+quiesce attempt has one existing 30-second budget, beginning before lifecycle
+lock acquisition. Request admission-stop/drain metadata is bounded off-loop by
+that same deadline. A timed-out or disconnected
 waiter retains the real cleanup task. Activation refuses while that task or a
 retired preparation/worker generation still runs. Recovery reopens ordinary
 HTTP admission only after worker recovery and update/capture activation. A failed
@@ -97,6 +99,31 @@ The lifecycle covers these existing producers:
 | Capture/OCR | Stop capture and retain/drain current and timed-out retired OCR executors |
 | Voice decoding and transcript audio publication | Drain every legacy/current/locale voice executor, then await queued capture publication coroutines that can enrich stored speakers |
 | Hito grammar/cache worker | Refuse handoff while its tracked preparation thread or subprocess remains live; a supervising shutdown/restart adapter remains required |
+| Known SQL owners | After all final producer bookkeeping, freeze TranscriptStore, one ledger root/pin owner and the exact retained default/cached Reading owner set; retain canonical tokens/partial progress |
+
+The concrete [SQL composition](r19-mutable-store-lifetime.md#concrete-runtime-sql-composition)
+reserves actual objects before its first SQL freeze, keeps reader creation
+closed and uses private absolute-deadline freeze/check/resume operations.
+Registry locks hold no SQL/HTTP/pool work. A clean pending retry continues its
+same owner set/epoch; failed close remains poisoned and is never retried.
+No missing-owner fallback or pathname-based deduplication can manufacture success.
+Each actual owner binds its retained member as the private controller before
+any freeze. Matching epoch/pending metadata cannot transfer another public
+controller's timed-out stop. Competing public freeze/resume calls refuse until
+final Runtime admission; an entry epoch retires already-queued public calls.
+
+Strict recovery first closes/drains request/creation admission, then completes
+pending freezes and prevalidates every canonical token. SQL resumes before
+producer pools/capture/updates and final HTTP/reader admission. Successful member
+resumes remain recorded through partial or final activation failure, so retry
+does not submit invalidated tokens again. Post-resume checks use the actual old
+issued token and its expected next epoch; unknown/lost results cannot be adopted
+from current metadata. Native-stop, SQL and pool recovery steps share the one
+30-second recovery deadline and retain actual work after waiter cancellation.
+The final request/reader opening holds every owner serialization lock through
+its post-resume checks, metadata opening and deterministic controller retirement.
+All fallible checks/acquires precede opening, using that same deadline; no owner
+lock is recursively acquired and no SQL runs under registry metadata locks.
 
 An export's `cancelled` status, an exited setup process, a done Future, standby,
 health and OCR readiness cannot substitute for those waits. Failed cleanup
@@ -114,6 +141,11 @@ A return from quiesce is capture handoff state, not independent authorization to
 copy settings, databases or credentials. The synthetic migration coordinator
 still requires its own synthetic proof and does not accept this response as a
 production barrier. No live migration or account write is exercised here.
+Concrete SQL composition does not promote the response to a RuntimeDataFence:
+settings/file/account/language/export-volume owners remain incomplete. The
+tests establish no Windows .db/WAL/SHM replacement or physical detach/reopen;
+that native known-scope check remains part of the next populated-copy/adaptor
+unit, alongside the other mutable-resource owners.
 The WebSocket fix covers this one initial status producer, not every future
 message/queued callback, active socket or mutable resource. The two explicit HTTP
 worker scopes likewise do not enumerate every thread or lifecycle task. A ticket does not
@@ -159,6 +191,17 @@ which remains live is still counted by middleware; the test's manual stop/resume
 transition is an epoch negative, not evidence of successful Runtime quiesce.
 Credential/native/network access is forbidden by the fixtures. These source
 regressions establish no physical Windows cleanup or global resource fence.
+`test_runtime_sql_lifetime.py` composes actual temporary SQL stores/root/pins/
+readers with explicit producer/native-cleanup adapters. It covers final
+bookkeeping before freeze, retained tasks and partial token progress, all
+metadata-lock deadlines, request-stop event-loop responsiveness, pending retry,
+lost results, canonical/post-epoch refusal, retired constructors, second cohorts
+and activation failures without stale-token reuse. Existing producer-only
+fixtures explicitly name their SQL adapters; they do not prove that cohort.
+Real SQLite/Event regressions refuse a foreign pending controller, retire a
+public call delayed across the whole handoff, and exclude a competing public
+freeze between the last SQL check and final admission. A final owner-lock
+timeout keeps all controllers and closed admission for a later explicit retry.
 `test_runtime_handoff.py` exercises the existing endpoint ordering and explicit
 Hito refusal, default source compatibility and rejection of a default-protocol
 bypass. `test_preparation_cancellation.py` retains capture/session identity

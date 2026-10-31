@@ -13,8 +13,9 @@ actual `Connection.close()` return, then returns a typed
 `TranscriptConnectionFence`. The existing request admission mechanism is reused
 at this underlying store boundary; capture/publication/speaker callers do not
 need to arrive through an HTTP request to be counted. Ordinary behavior is
-unchanged while the new programmatic API is unused. There is no HTTP/CLI control
-path or production caller for it.
+unchanged outside the explicit strict writer protocol. The existing
+`writers=true` Runtime handoff now composes these programmatic APIs as described
+below; no dedicated per-store HTTP/CLI control or serialized SQL token is added.
 
 The token binds the exact issuing store, issued token object and local admission
 epoch. `fence.check(store)` refuses a different store, a manually constructed
@@ -125,16 +126,17 @@ its pending-word finally block still runs. Pool replacement cannot clear poison.
 Most reading HTTP, settings/key work and intervals between SQL scopes are
 outside SQL admission. A valid SQL token can coexist with unfinished HTTP;
 its later SQL refuses while frozen. Queued outer work has no retirement ticket
-and can seek fresh SQL admission after a valid resume. A future aggregate
-boundary must stop producers and reader creation, drain pools/callbacks before
-closing SQL admission, and reopen SQL before admitting resumed producers.
-This slice adds no aggregate control path or Runtime/API caller.
+and can seek fresh SQL admission after a valid resume. The concrete Runtime
+composition below stops known producers/creation and drains pools/callbacks
+before closing SQL admission. A future all-file aggregate boundary remains
+separate; this adds no copy/activation token or new control route.
 
 Runtime's default and dynamically cached readers use the separate
 [reading creation and pool owner](#runtime-reading-creation-and-pool-ownership)
 described below. Its retained records replace the earlier cache-only inventory
-and coalesce concurrent same-key construction. SQL admission is still separate:
-the registry does not freeze these SQL owners or cover settings/file resources.
+and coalesce concurrent same-key construction. Per-reader SQL admission remains
+distinct from pool lifetime. The strict Runtime sequence now retains/composes
+that exact SQL-owner set; settings/file resources are not covered.
 
 ## Owned statement cursors
 
@@ -301,13 +303,96 @@ retry failed SQL close, replace the failed key or reset the registry. Retention
 depends on the living Runtime/raised failure; this supplies no external startup-
 failure or process-death lifetime guarantee.
 
-This owner covers creation/return through Runtime and those readers' actual
-worker/callback pools. It does not count an escaped reader's arbitrary direct
-SQL/HTTP work, freeze its SQL owner, close every physical SQLite cursor/resource,
-or mint a `RuntimeDataFence` or `WriterStopProof`. Independent readers, global
+This creation/pool boundary alone does not count an escaped reader's arbitrary
+direct SQL/HTTP work, close every physical SQLite resource or mint a
+`RuntimeDataFence` or `WriterStopProof`. The separate SQL composition below
+counts admitted SQL scopes of every retained reader. Independent readers, global
 dynamic writers, keeper death, mutable-root detach and warm routing remain
 separate requirements. Existing C5 constructor interception retains exactly its
 three actual store opens, with no successful-connection registry or new SQL.
+
+## Concrete Runtime SQL composition
+
+The existing strict `quiesce_writers` path first closes request and reader
+creation admission, drains requests and the existing export/setup/update/map/
+reading/capture/voice producers, settles final publication coroutines, and
+preserves the existing live-Hito refusal. Only then does its retained blocking
+SQL step reserve the actual TranscriptStore/lifetime, the single Lexirise
+root/pin owner and all retained default/cached ready Reading owners. A partial
+constructor remains a refusal; the cache view or database pathname cannot
+replace the registry's actual records. Different readers at the same pathname
+remain different SQL owners. Root/pins share one owner.
+
+Runtime installs a private actual-object handoff record before reservation can
+fail. Registry metadata retains its exact record/member set and stopped epoch.
+Each owner's expected epoch is captured before the first freeze, and the owner
+binds its actual retained Runtime/registry member as the private controller under
+its serialization lock. An integer epoch or matching closed/pending metadata
+does not grant control: a different public controller's pending timeout is a
+refusal. Every member is reserved before the first freeze. Each returned
+canonical token is stored immediately, bound to its actual owner/subject and
+reserved epoch. Ordinary strict response data remains the existing CaptureHandoff: these
+private records never become wire data, a RuntimeDataFence or copy permission.
+
+One monotonic deadline starts before Runtime lifecycle-lock acquisition and
+covers request admission/drain metadata, registry/owner locks and the complete
+strict SQL phase. Request metadata stop and bounded polling run in retained
+blocking handoff steps, so a condition-lock holder cannot block the event loop
+or obtain a new budget before the first producer drain. SQL freeze/check/resume
+use private absolute-deadline helper primitives; public per-store timeout and
+zero-poll semantics remain intact outside a retained Runtime controller. During
+that reservation, competing public freeze/resume calls refuse. An opaque public
+entry epoch also retires a public call queued before reservation, even if that
+call acquires serialization after final Runtime admission. No Runtime call uses
+an unbounded token check.
+Registry locks protect only metadata: SQL, HTTP and pool work run outside them.
+
+Failure issues no aggregate success. Partial tokens, actual objects, original
+errors and actual tasks stay owned while request/creation admission is closed.
+A failure before the initial metadata stop can leave admission unchanged; it
+has not performed quiescence, and explicit recovery first closes/drains that
+boundary. A clean pending SQL retry continues the same retained cohort/epoch,
+without rerunning producers or rotating a retained registry SQL epoch. It can
+observe an operation which actually finished; it never retries failed close.
+SQL owners which have not reached freeze, or which partially resumed, need not
+all have closed admission on a failed attempt. No copy/barrier claim follows.
+
+Recovery closes/drains request and creation admission before native-stop/SQL
+recovery. It completes pending freezes, then checks every canonical token before
+resuming any SQL owner. Successful member resumes are recorded immediately and
+never resubmitted after a later member/activation failure. Every resumed owner
+must match its actual old issued token, its expected old epoch plus one, clean
+failures and accepting admission. The helper keeps only the latest actual
+resumed-token identity checkpoint, not a token history or connection registry.
+Neither a matching fabricated token nor a newly observed epoch is adopted.
+If an operation changed the owner and then failed before returning its result,
+that unknown progress remains unavailable here rather than reconstructed from
+the owner's current fence/metadata. This also applies to a lost reservation
+result: its already-bound controller is not silently adopted on retry.
+
+All SQL recovery finishes before producer pools, capture/update activation and
+final reader/HTTP admission. Producer pool recovery also remains an actual
+retained blocking step. A later activation failure keeps the SQL progress record
+so retry checks post-resume ownership instead of submitting stale tokens again.
+The actual controller binding stays retained through final admission. Runtime
+acquires all owner serialization locks with the same deadline before acquiring
+registry/request metadata. It then checks the canonical post-resume state with
+a locked helper which never reacquires the non-reentrant serialization lock.
+All fallible checks and lock acquisition finish before reader/request admission
+opens; controller/record retirement afterward only installs already-prepared
+metadata while those owner locks stay held. This prevents a competing public
+freeze between the last owner check and final admission. No SQL, HTTP or pool
+work runs under the registry lock. A failed final lock acquire preserves every
+controller and closed request/creation admission. Existing capture-only source
+handoff/activation does not opt in.
+
+This composes only the known SQL owners and existing producer ordering. It does
+not settle settings/account/language files, external export-volume work or all
+dynamic/native resources. No actual Windows os.replace/rename of .db/WAL/SHM
+files is proved by these tests. Native known-scope replacement belongs with the
+next coherent populated-copy/adaptor validation unit. Physical Windows detach/
+reopen, complete mutable-root fencing, warm OCR and installed-client acceptance
+remain unverified.
 
 ## Validation
 
@@ -365,4 +450,22 @@ Reading read contexts remain nontransactional. Strict mock HTTP checks that
 ledger cursors close before network work and intermediate commits remain.
 Failed fixture disposal happens only after assertions and is not product
 cleanup/retry evidence. Native Windows physical release remains unverified.
+The [Runtime SQL tests](../backend/tests/test_runtime_sql_lifetime.py) use actual
+temporary stores, root/pins, default/multiple readers and reader/voice pools.
+Event-controlled producers exercise final SQL bookkeeping, a still-owned SQL
+scope, late metadata contention, a retired constructor and cancelled handoff
+waiters. Tests cover partial freeze/resume, lost transition results, final
+activation retry, canonical/foreign tokens, unexpected post-resume epochs,
+omitted members/defaults, poison/no close retry and a fresh second cohort.
+Controller regressions cover a different public timed-out stop, a lost actual
+reservation result, an already-queued public call delayed through Runtime
+activation, and a concurrent public freeze at the final admission boundary.
+Holding a final owner serialization lock through the deadline leaves all
+controllers retained and request/creation admission closed without a lock leak.
+An actual request-gate condition holder keeps its lock through the caller's
+deadline while the event loop stays responsive. The native-cleanup test uses
+an explicit adapter, not a native call, and checks one shared recovery deadline.
+Earlier producer-only fixtures explicitly adapt the new boundary rather than
+giving production a missing-owner fallback. Real credentials/transport/default
+Runtime roots remain forbidden in the actual SQL cohort.
 These are local source regressions, not native Windows or full R19 acceptance.

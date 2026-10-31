@@ -85,6 +85,8 @@ def test_runtime_activation_requires_local_action_and_ready_candidate(monkeypatc
         language_state=lambda *_: {'ready': True},
         capture=capture, start_updates=lambda: calls.append('updates'))
     fake._handoff_lock, fake._writer_handoff = asyncio.Lock(), False
+    fake._sql_handoff = None
+    fake._handoff_until = lambda deadline: api.Runtime._handoff_until(fake, deadline)
     fake.resume_writers = lambda: None
     fake.admit_requests = lambda: None
     fake.activate_handoff = lambda payload, **options: api.Runtime.activate_handoff(fake, payload, **options)
@@ -149,6 +151,9 @@ def test_old_capture_remains_active_until_background_work_has_quiesced(monkeypat
     fake = api.Runtime.__new__(api.Runtime)
     fake.standby, fake.stop_updates = False, stop_updates
     fake.request_writers, fake._handoff_lock, fake._handoff_drains = RuntimeWriterGate(), asyncio.Lock(), []
+    fake._sql_handoff = None
+    # This adapter isolates producer/Hito ordering, not SQL-owner proof.
+    fake._freeze_sql_handoff = lambda payload, _deadline: payload
     fake.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), quiesce=lambda _timeout: stop_capture(),
         export_handoff=lambda running: CaptureHandoff(running=running, session_id='continued'))
     fake.mobile_exports = SimpleNamespace(quiesce=lambda: calls.append('manual-exports'))

@@ -202,12 +202,14 @@ def test_activation_serializes_with_the_complete_quiesce_operation():
     async def run():
         runtime = Runtime.__new__(Runtime)
         runtime._handoff_lock, runtime._writer_handoff = asyncio.Lock(), True
+        runtime._sql_handoff = None
+        runtime._prepare_recovery_requests = lambda _deadline: None  # Serialization-only adapter.
         calls = []
-        runtime.resume_writers = lambda: calls.append('resume')
+        runtime._resume_writer_pools = lambda _deadline: calls.append('resume')
         runtime._handoff_drains = []
         runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), native_stop_pending=False)
         runtime.start_updates = lambda: calls.append('updates')
-        runtime.admit_requests = lambda: calls.append('admit')
+        runtime.admit_requests = lambda _deadline: calls.append('admit')
         await runtime._handoff_lock.acquire()
         activating = asyncio.create_task(runtime.activate_handoff(CaptureHandoff(running=True), writers=True))
         await asyncio.sleep(0)
@@ -263,13 +265,15 @@ def test_failed_native_cleanup_retains_ownership_and_blocks_strict_activation(tm
         with pytest.raises(TimeoutError): capture.resume_workers()
         runtime = api.Runtime.__new__(api.Runtime)
         runtime._handoff_lock, runtime._writer_handoff, runtime._handoff_drains = asyncio.Lock(), True, []
+        runtime._sql_handoff = None
+        runtime._prepare_recovery_requests = lambda _deadline: None  # Native-stop-only adapter.
         runtime.capture = capture
         def resume():
             calls.append('resume')
             capture.resume_workers()
-        runtime.resume_writers = resume
+        runtime._resume_writer_pools = lambda _deadline: resume()
         runtime.start_updates = lambda: calls.append('updates')
-        runtime.admit_requests = lambda: calls.append('admit')
+        runtime.admit_requests = lambda _deadline: calls.append('admit')
         payload = CaptureHandoff(running=True)
         with pytest.raises(TimeoutError): await runtime.activate_handoff(payload, writers=True)
         assert calls == ['native-stop', 'native-stop']
