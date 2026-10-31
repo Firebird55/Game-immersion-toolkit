@@ -7,7 +7,7 @@ The setup flow no longer rejects every voiced game solely because the app is
 packaged. It checks the same immutable audio capabilities used by playback and
 the particular archive operation required by the adapter. Included Python
 readers can prepare as soon as their codec capabilities are present. NTE checks
-its actual app-local bridge and complete native dependency inventory. An unrelated
+its actual app-local bridge and complete managed dependency inventory. An unrelated
 missing reader does not disable another game.
 
 The original-voice decoder and audio converter have separate missing states.

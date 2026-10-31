@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import zipfile
@@ -21,6 +22,8 @@ sys.path.insert(0, str(ROOT))
 from backend.game_tools import download
 from backend.nte_toolchain import DEPENDENCIES, PREFIX, SCHEMA
 
+MANAGED_COMPONENTS = ROOT / 'packaging/game-readers/managed-components.json'
+
 INPUTS = {
     'UEExtractor.dll': {
         'url': 'https://github.com/SolicenTEAM/UEExtractor/releases/download/v.1.0.8.7/UEExtractor.zip',
@@ -28,7 +31,7 @@ INPUTS = {
         'format': 'zip', 'member': 'UEExtractor.dll', 'version': '1.0.8.7',
         'source': 'https://github.com/SolicenTEAM/UEExtractor/tree/1dff3554320d530efff26a827819f0e011f1b892',
         'embedded_parser_source': 'https://github.com/FabianFG/CUE4Parse/tree/6409f38e09e2a21aa839cd77b4515bca6c66f280',
-        'license': 'MIT; embedded parser Apache-2.0; transitive assembly inventory pending'},
+        'license': 'MIT; embedded parser Apache-2.0; see MANAGED-COMPONENTS.json and complete notices'},
 
 }
 NOTICES = {
@@ -37,21 +40,69 @@ NOTICES = {
 }
 NOTICE = '''# NTE archive dependency evidence
 
-These exact supplier binaries are collected for private native evaluation.
-UEExtractor incorporates CUE4Parse and other managed libraries. The included
-top-level MIT and Apache notices do not cover every embedded assembly. Its full
-transitive source, version and notice inventory remains required before release.
+UEExtractor incorporates CUE4Parse and 29 other managed assemblies. The attached
+MANAGED-COMPONENTS.json records each embedded assembly hash, version, supplier
+package hash, exact matching package member, source reference and notice hashes.
+The collector verifies all 29 package members against the observed embedded
+assembly hashes before including their complete license/notice texts. CUE4Parse
+is a custom supplier build; its informational version and supplier submodule
+identify the source revision. Its complete NOTICE also covers incorporated code.
 
 The owned bridge initializes CUE4Parse directly and retains its embedded
 managed Oodle and Zlib defaults. The supplier wrapper constructor and its
 external native-code downloaders are never invoked. External OodleUE and
 Zlib-ng DLLs are no longer collected or accepted by the runtime inventory.
-The embedded managed dependencies still require full notice/source review.
+Managed wrappers with optional native entry points remain embedded supplier
+bytes, but the bounded archive operations do not load their external libraries.
+No native codecs or compiler are acquired by the runtime.
 
 All source URLs, supplier archive hashes, selected binary hashes and available
 notice hashes are retained in dependencies.json and the outer resource receipt.
 No game files, archive keys, recordings, user paths or account state are included.
 '''
+
+
+def managed_notices(specification=None):
+    """Collect inert notices and verify the exact embedded/package identities.
+
+    These packages are evidence inputs, not installed runtime dependencies. No
+    package code is executed, restored, or copied into the application.
+    """
+    specification = specification or json.loads(MANAGED_COMPONENTS.read_text(encoding='utf-8'))
+    components = specification.get('components', [])
+    if (specification.get('schema') != 'toolkit-ue-managed-components-v1'
+            or specification.get('supplier_sha256') != DEPENDENCIES['UEExtractor.dll']
+            or len(components) != 30 or len({item['name'] for item in components}) != 30):
+        raise ValueError('Incomplete embedded managed-assembly inventory')
+    files = {}
+    for item in components:
+        name = item['name']
+        if not re.fullmatch(r'[A-Za-z0-9_.-]+', name) or not item.get('notices'):
+            raise ValueError('A managed assembly lacks its full notices')
+        package = None
+        if item.get('package'):
+            package = verified(item['url'], item['package_sha256'], limit=64 * 1024 * 1024)
+            members = item['matching_members']
+            if len(members) != 1:
+                raise ValueError('A managed assembly must have one exact package identity')
+            assembly = extract(package, {'format': 'zip', 'member': members[0]})
+            if hashlib.sha256(assembly).hexdigest() != item['sha256']:
+                raise ValueError('The package assembly differs from the embedded supplier identity')
+        elif name != 'CUE4Parse':
+            raise ValueError('Unknown custom managed assembly')
+        for number, notice in enumerate(item['notices'], 1):
+            if notice['kind'] == 'package' and package is not None:
+                data = extract(package, {'format': 'zip', 'member': notice['member']})
+            elif notice['kind'] == 'url':
+                data = verified(notice['url'], notice['sha256'], limit=512 * 1024)
+            else:
+                raise ValueError('Unknown managed notice source')
+            if len(data) > 512 * 1024 or hashlib.sha256(data).hexdigest() != notice['sha256']:
+                raise ValueError('A managed notice differs from its pinned identity')
+            data.decode('utf-8-sig')
+            files[f'notices/{name}-{number:02d}.txt'] = data
+    files['notices/MANAGED-COMPONENTS.json'] = (json.dumps(specification, indent=2) + '\n').encode()
+    return files
 
 
 def verified(url, digest, *, limit):
@@ -88,6 +139,7 @@ def build(output: Path):
         files[name] = data
     for name, (url, digest) in NOTICES.items():
         files['notices/' + name] = verified(url, digest, limit=256 * 1024)
+    files.update(managed_notices())
     files['notices/DEPENDENCIES.md'] = NOTICE.encode()
     identities = {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}
     manifest = {'schema': SCHEMA, 'platform': 'win-x64', 'files': identities,
@@ -97,7 +149,8 @@ def build(output: Path):
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'source_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()),
         'source_inputs': {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
-                          for name in ('scripts/build-nte-toolchain.py', 'backend/nte_toolchain.py')},
+                          for name in ('scripts/build-nte-toolchain.py', 'backend/nte_toolchain.py',
+                                       'packaging/game-readers/managed-components.json')},
         'components': INPUTS, 'rights_review': 'pending', 'native_acceptance': 'pending',
         'files': [{'path': PREFIX + name, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
                   for name, data in sorted(files.items())]}

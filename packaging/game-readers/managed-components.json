@@ -1,0 +1,1197 @@
+{
+  "schema": "toolkit-ue-managed-components-v1",
+  "supplier_sha256": "0076582a3edf2a3b0114b2788a8fc4814a49db2d3e6f0995713a72f915a7c1e2",
+  "inspection": "Costura embedded resources were deflate-decoded on the build host. Each selected NuGet assembly is byte-identical to its embedded resource; CUE4Parse is a supplier build pinned by its embedded informational version and source submodule. Source references without a package repository commit are labeled notice references, not claims of reproducible binary provenance.",
+  "components": [
+    {
+      "name": "Blake3",
+      "version": "3.0.0.0",
+      "informational": "3.0.2+bc622edf7faa06d1a63c0f2f165c5f7c567a2e32",
+      "copyright": "Alexandre Mutel",
+      "sha256": "797ef7c1be7cd5c559e6558b47c94db5fe092deb778c878771cba51a3a6d33a3",
+      "package": "Blake3",
+      "package_version": "3.0.2",
+      "url": "https://api.nuget.org/v3-flatcontainer/blake3/3.0.2/blake3.3.0.2.nupkg",
+      "package_sha256": "64382975941d1639a3c9dd7b31474537b5b5c8bfd30a2ba535c8e79fe3d44b86",
+      "metadata": {
+        "authors": "Alexandre Mutel",
+        "copyright": "Alexandre Mutel",
+        "license": "BSD-2-Clause",
+        "licenseUrl": "https://licenses.nuget.org/BSD-2-Clause",
+        "projectUrl": "https://github.com/xoofx/Blake3.NET",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/xoofx/Blake3.NET",
+          "commit": "bc622edf7faa06d1a63c0f2f165c5f7c567a2e32"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net8.0/Blake3.dll"
+      ],
+      "notice_repository": "https://github.com/xoofx/Blake3.NET",
+      "notice_revision": "bc622edf7faa06d1a63c0f2f165c5f7c567a2e32",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/xoofx/Blake3.NET/bc622edf7faa06d1a63c0f2f165c5f7c567a2e32/license.txt",
+          "sha256": "7f7d75677fb85a9a2cb8146e5a96eec2d574654ce54e5c70a820531ece14b073"
+        }
+      ]
+    },
+    {
+      "name": "BouncyCastle.Cryptography",
+      "version": "2.0.0.0",
+      "informational": "2.6.2+b4f2f6ad76",
+      "copyright": "Copyright \u00a9 Legion of the Bouncy Castle Inc. 2000-2025",
+      "sha256": "e5eeaf6d263c493619982fd3638e6135077311d08c961e1fe128f9107d29ebc6",
+      "package": "BouncyCastle.Cryptography",
+      "package_version": "2.6.2",
+      "url": "https://api.nuget.org/v3-flatcontainer/bouncycastle.cryptography/2.6.2/bouncycastle.cryptography.2.6.2.nupkg",
+      "package_sha256": "623936fb1fd171579c706390390711282898cf2c759a5167852e5ab82208f8cb",
+      "metadata": {
+        "authors": "Legion of the Bouncy Castle Inc.",
+        "copyright": "Copyright \u00a9 Legion of the Bouncy Castle Inc. 2000-2025",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://www.bouncycastle.org/stable/nuget/csharp/website",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/bcgit/bc-csharp",
+          "branch": "refs/heads/release/v2.6",
+          "commit": "b4f2f6ad76bcd1f11f365ee50cc7447fbce79077"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [
+        "LICENSE.md"
+      ],
+      "matching_members": [
+        "lib/net6.0/BouncyCastle.Cryptography.dll"
+      ],
+      "notice_repository": "https://github.com/bcgit/bc-csharp",
+      "notice_revision": "b4f2f6ad76bcd1f11f365ee50cc7447fbce79077",
+      "notices": [
+        {
+          "kind": "package",
+          "member": "LICENSE.md",
+          "sha256": "afc1653b666b64a2386b7b9b914406904f45c20b9571765d8c1121b513313179"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/bcgit/bc-csharp/b4f2f6ad76bcd1f11f365ee50cc7447fbce79077/LICENSE.md",
+          "sha256": "eb52875c9b7de8271dd835af14fd598cdaa09e9e061f86e954cda564ef6b06e6"
+        }
+      ]
+    },
+    {
+      "name": "CommunityToolkit.HighPerformance",
+      "version": "8.4.0.0",
+      "informational": "8.4.2.1+35dfe7b12d",
+      "copyright": "(c) .NET Foundation and Contributors. All rights reserved.",
+      "sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+      "package": "CommunityToolkit.HighPerformance",
+      "package_version": "8.4.2",
+      "url": "https://api.nuget.org/v3-flatcontainer/communitytoolkit.highperformance/8.4.2/communitytoolkit.highperformance.8.4.2.nupkg",
+      "package_sha256": "2200df3a2c40f35352ae65da170c7d8c06f88c2390decfa1b02f2aba557f001d",
+      "metadata": {
+        "authors": "Microsoft",
+        "copyright": "(c) .NET Foundation and Contributors. All rights reserved.",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/CommunityToolkit/dotnet",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/CommunityToolkit/dotnet",
+          "branch": "refs/heads/rel/8.4.2",
+          "commit": "35dfe7b12da0e64384bfaec7ebc0883196a89f9f"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [
+        "License.md",
+        "ThirdPartyNotices.txt"
+      ],
+      "matching_members": [
+        "lib/net8.0/CommunityToolkit.HighPerformance.dll"
+      ],
+      "notice_repository": "https://github.com/CommunityToolkit/dotnet",
+      "notice_revision": "35dfe7b12da0e64384bfaec7ebc0883196a89f9f",
+      "notices": [
+        {
+          "kind": "package",
+          "member": "License.md",
+          "sha256": "651997ef19dbb9ecb8dd660dbc86444a65af21f18cfe08daa69bf201cd5cfdfc"
+        },
+        {
+          "kind": "package",
+          "member": "ThirdPartyNotices.txt",
+          "sha256": "7774f8b0ab66bfb47ec154ce24a2d6d574febc44a74d940b8a037d1c56756163"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/CommunityToolkit/dotnet/35dfe7b12da0e64384bfaec7ebc0883196a89f9f/License.md",
+          "sha256": "1e1101b893f295b4526da2c167e4234610f1078e2fe43a0e814c1a883656877b"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/CommunityToolkit/dotnet/35dfe7b12da0e64384bfaec7ebc0883196a89f9f/ThirdPartyNotices.txt",
+          "sha256": "79498b27081bbec29c504798c727761e0898963259fb7421ea587a758e803ed3"
+        }
+      ]
+    },
+    {
+      "name": "Costura",
+      "version": "6.0.0.0",
+      "informational": "6.0.0",
+      "copyright": "Copyright \u00a9 Fody 2015 - 2024",
+      "sha256": "7a9e767ad824afa2c1b0aed513fe1cf2b8dac6d40f24e7c4075af32b1cf23a20",
+      "package": "Costura.Fody",
+      "package_version": "6.0.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/costura.fody/6.0.0/costura.fody.6.0.0.nupkg",
+      "package_sha256": "e7546f21905e9ddb7d282e7d24beb6a0e3b07e71fc2bb8de38892a85fbeba05d",
+      "metadata": {
+        "authors": "geertvanhorrik,simoncropp",
+        "copyright": null,
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/Fody/Costura",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/Fody/Costura"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/netstandard2.0/Costura.dll"
+      ],
+      "notice_revision_basis": "refs/tags/6.0.0^{}",
+      "notice_repository": "https://github.com/Fody/Costura",
+      "notice_revision": "2fb8091807b0152471cb17fe0b98438b5e645f67",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/Fody/Costura/2fb8091807b0152471cb17fe0b98438b5e645f67/LICENSE",
+          "sha256": "37bc8d423b1c36917a9e5a44f55a2e20ec6d4da8cbc4c1b2a8f521c84fe60ba2"
+        }
+      ]
+    },
+    {
+      "name": "FixedMathSharp",
+      "version": "4.0.1.0",
+      "informational": "4.0.1+Branch.main.Sha.f15ca366f8fd1b9db96e54ef38aee7e6d35e1c0e.f15ca366f8fd1b9db96e54ef38aee7e6d35e1c0e",
+      "copyright": "",
+      "sha256": "3c0240d67a3daef47ca007b7920a81edb40ac97f01f64cc5e96b45e4e8ba7fee",
+      "package": "FixedMathSharp",
+      "package_version": "4.0.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/fixedmathsharp/4.0.1/fixedmathsharp.4.0.1.nupkg",
+      "package_sha256": "38612e125233385fafca470db47b402c40efe1f9d0f71499933cf110769d6115",
+      "metadata": {
+        "authors": "mrdav30",
+        "copyright": null,
+        "license": "LICENSE",
+        "licenseUrl": "https://aka.ms/deprecateLicenseUrl",
+        "projectUrl": null,
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/mrdav30/FixedMathSharp",
+          "commit": "f15ca366f8fd1b9db96e54ef38aee7e6d35e1c0e"
+        }
+      },
+      "license_type": "file",
+      "license_members": [
+        "LICENSE",
+        "NOTICE"
+      ],
+      "matching_members": [
+        "lib/net8.0/FixedMathSharp.dll"
+      ],
+      "notice_repository": "https://github.com/mrdav30/FixedMathSharp",
+      "notice_revision": "f15ca366f8fd1b9db96e54ef38aee7e6d35e1c0e",
+      "notices": [
+        {
+          "kind": "package",
+          "member": "LICENSE",
+          "sha256": "c4f594f22c07d4f15790b7f6b32b41e825272cce9a2c45722c3c027d4399b033"
+        },
+        {
+          "kind": "package",
+          "member": "NOTICE",
+          "sha256": "043d4c43c4d8be99bd0cf7099ebdd21e7cbc709f1badd7ca581e29e617e327c1"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/mrdav30/FixedMathSharp/f15ca366f8fd1b9db96e54ef38aee7e6d35e1c0e/LICENSE",
+          "sha256": "c4f594f22c07d4f15790b7f6b32b41e825272cce9a2c45722c3c027d4399b033"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/mrdav30/FixedMathSharp/f15ca366f8fd1b9db96e54ef38aee7e6d35e1c0e/NOTICE",
+          "sha256": "043d4c43c4d8be99bd0cf7099ebdd21e7cbc709f1badd7ca581e29e617e327c1"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/mrdav30/FixedMathSharp/f15ca366f8fd1b9db96e54ef38aee7e6d35e1c0e/COPYRIGHT",
+          "sha256": "299805421832ccf11ea2c8c8a1357c32dd49672af4aeafff1dbdd55d8824a501"
+        }
+      ]
+    },
+    {
+      "name": "Fmod5Sharp",
+      "version": "3.1.0.0",
+      "informational": "3.1.0+d9df2cbcc1aa478d7de9fcb64f83f7ba49f23258",
+      "copyright": "",
+      "sha256": "5fd28433bee00c92c73763ee2ea310142197dabd86f762639e9ac04ed58168ac",
+      "package": "Fmod5Sharp",
+      "package_version": "3.1.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/fmod5sharp/3.1.0/fmod5sharp.3.1.0.nupkg",
+      "package_sha256": "0b8b406b7ad1aa1ff46d48d2a1388c4f61d686e326d8458cbc64eb44fcc40c64",
+      "metadata": {
+        "authors": "Sam Byass (Samboy063)",
+        "copyright": null,
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/SamboyCoding/Fmod5Sharp",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/SamboyCoding/Fmod5Sharp.git",
+          "branch": "refs/heads/master",
+          "commit": "d9df2cbcc1aa478d7de9fcb64f83f7ba49f23258"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net10.0/Fmod5Sharp.dll"
+      ],
+      "notice_repository": "https://github.com/SamboyCoding/Fmod5Sharp",
+      "notice_revision": "d9df2cbcc1aa478d7de9fcb64f83f7ba49f23258",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/SamboyCoding/Fmod5Sharp/d9df2cbcc1aa478d7de9fcb64f83f7ba49f23258/LICENSE",
+          "sha256": "c31ab18d3300b0666925b29071e5c60459ee12d7740b8ecde556fc83d3ea948d"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/SamboyCoding/Fmod5Sharp/d9df2cbcc1aa478d7de9fcb64f83f7ba49f23258/NOTICE",
+          "sha256": "e94bfb333de4f2d11afab8aec4ff1efb8a21f7f58c1701b42965309d4b32c57f"
+        }
+      ]
+    },
+    {
+      "name": "GenericReader",
+      "version": "2.3.0.0",
+      "informational": "2.3.0+225929b6e5455745fd4588c23dcfdad8e12035a4",
+      "copyright": "Copyright (c) 2025 NotOfficer",
+      "sha256": "92810aca50dc68d9e79361aeb96fb72e5f80104a147af39625c2bc5d0ff69d68",
+      "package": "GenericReader",
+      "package_version": "2.3.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/genericreader/2.3.0/genericreader.2.3.0.nupkg",
+      "package_sha256": "f4763812fac5cbe7bcb441b2d9c71abadf24e8c027f30a221f73857bd0f2e557",
+      "metadata": {
+        "authors": "NotOfficer",
+        "copyright": "Copyright (c) 2025 NotOfficer",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": null,
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/NotOfficer/GenericReader",
+          "branch": "refs/heads/master",
+          "commit": "225929b6e5455745fd4588c23dcfdad8e12035a4"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net10.0/GenericReader.dll"
+      ],
+      "notice_repository": "https://github.com/NotOfficer/GenericReader",
+      "notice_revision": "225929b6e5455745fd4588c23dcfdad8e12035a4",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/NotOfficer/GenericReader/225929b6e5455745fd4588c23dcfdad8e12035a4/LICENSE",
+          "sha256": "92b7deb769992d1737239cd5928ebd27e4d768e9671e54096224b46bcdf28bbb"
+        }
+      ]
+    },
+    {
+      "name": "IndexRange",
+      "version": "1.1.0.0",
+      "informational": "1.1.0+0ee6e541467a6d6519af8d8adfe1edad748fc8a2",
+      "copyright": "Copyright 2019\u20132025 Bradley Grainger",
+      "sha256": "13b459a9725bf3ae42b26836613221468458952bf59f848b809c03ed60247fb1",
+      "package": "IndexRange",
+      "package_version": "1.1.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/indexrange/1.1.0/indexrange.1.1.0.nupkg",
+      "package_sha256": "5940435e5ad30dbd8a6e1a0514649a6fab6aafe48beb0bf9c9a999df93d70ff9",
+      "metadata": {
+        "authors": "Bradley Grainger",
+        "copyright": "Copyright 2019\u20132025 Bradley Grainger",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/bgrainger/IndexRange",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/bgrainger/IndexRange.git",
+          "branch": "refs/heads/master",
+          "commit": "0ee6e541467a6d6519af8d8adfe1edad748fc8a2"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/netstandard2.1/IndexRange.dll"
+      ],
+      "notice_repository": "https://github.com/bgrainger/IndexRange",
+      "notice_revision": "0ee6e541467a6d6519af8d8adfe1edad748fc8a2",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/bgrainger/IndexRange/0ee6e541467a6d6519af8d8adfe1edad748fc8a2/LICENSE",
+          "sha256": "1df7d72bc50aba52efbe5fb56ef4bb2cd682494f1c2370823a846fa9083433eb"
+        }
+      ]
+    },
+    {
+      "name": "UE4Config",
+      "version": "0.7.2.97",
+      "informational": "1.0.0",
+      "copyright": "Patrick Michael Hopf (C) 2020",
+      "sha256": "79ef7a5b840cb0b337fe195746c08121dbc5e0c7862596ad44ad3d46137475ce",
+      "package": "Infrablack.UE4Config",
+      "package_version": "0.7.2.97",
+      "url": "https://api.nuget.org/v3-flatcontainer/infrablack.ue4config/0.7.2.97/infrablack.ue4config.0.7.2.97.nupkg",
+      "package_sha256": "2a86895f3985b1a4314d19867c39055b5be8b63726743a2e61900d5cae2492cc",
+      "metadata": {
+        "authors": "Patrick Michael Hopf",
+        "copyright": "Patrick Michael Hopf (C) 2020",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/Wortex17/UE4Config",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/Wortex17/UE4Config"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/netstandard2.0/UE4Config.dll"
+      ],
+      "notice_revision_basis": "HEAD",
+      "notice_repository": "https://github.com/Wortex17/UE4Config",
+      "notice_revision": "5f3709e7474af280e332c2fbe6b8d5a9615cb47e",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/Wortex17/UE4Config/5f3709e7474af280e332c2fbe6b8d5a9615cb47e/LICENSE",
+          "sha256": "97d10a0eb0baf9f3786f1530b659b01be67399be45c19e028e4963c8c66bd65c"
+        }
+      ]
+    },
+    {
+      "name": "K4os.Compression.LZ4",
+      "version": "1.3.8.0",
+      "informational": "1.3.8",
+      "copyright": "Milosz Krajewski",
+      "sha256": "e282aadc2353b864fe95cd5fb525a1a093d99a30a5bf2530b7ab831d56179816",
+      "package": "K4os.Compression.LZ4",
+      "package_version": "1.3.8",
+      "url": "https://api.nuget.org/v3-flatcontainer/k4os.compression.lz4/1.3.8/k4os.compression.lz4.1.3.8.nupkg",
+      "package_sha256": "3a64f72703b8aa99190cbed7aa216a642cb1c928fae2cf6dfa65dc3754fe2320",
+      "metadata": {
+        "authors": "Milosz Krajewski",
+        "copyright": "Milosz Krajewski",
+        "license": null,
+        "licenseUrl": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4/blob/master/LICENSE?raw=true",
+        "projectUrl": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4",
+        "repository": {
+          "url": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4"
+        }
+      },
+      "license_type": null,
+      "license_members": [],
+      "matching_members": [
+        "lib/net6.0/K4os.Compression.LZ4.dll"
+      ],
+      "notice_revision_basis": "refs/tags/1.3.8",
+      "notice_repository": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4",
+      "notice_revision": "f5a25b7d72e2e41550fe20662597169ff11c3b60",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Compression.LZ4/f5a25b7d72e2e41550fe20662597169ff11c3b60/LICENSE",
+          "sha256": "ef5a021fc2ae3658f4ad8d2526c87fb2cf394285f47abfb784cf73a27ffd9522"
+        }
+      ]
+    },
+    {
+      "name": "K4os.Compression.LZ4.Streams",
+      "version": "1.3.8.0",
+      "informational": "1.3.8",
+      "copyright": "Milosz Krajewski",
+      "sha256": "b146cf3c769000cd5e4458cfed5da3c0e838b7b2da6dbe6dad458cd5a0e3ce41",
+      "package": "K4os.Compression.LZ4.Streams",
+      "package_version": "1.3.8",
+      "url": "https://api.nuget.org/v3-flatcontainer/k4os.compression.lz4.streams/1.3.8/k4os.compression.lz4.streams.1.3.8.nupkg",
+      "package_sha256": "bf83f9dd7009ed69ce710d35e2952ffcf8b4950bb45a7903c2206dfd054edf4e",
+      "metadata": {
+        "authors": "Milosz Krajewski",
+        "copyright": "Milosz Krajewski",
+        "license": null,
+        "licenseUrl": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4/blob/master/LICENSE?raw=true",
+        "projectUrl": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4",
+        "repository": {
+          "url": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4"
+        }
+      },
+      "license_type": null,
+      "license_members": [],
+      "matching_members": [
+        "lib/net6.0/K4os.Compression.LZ4.Streams.dll"
+      ],
+      "notice_revision_basis": "refs/tags/1.3.8",
+      "notice_repository": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4",
+      "notice_revision": "f5a25b7d72e2e41550fe20662597169ff11c3b60",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Compression.LZ4/f5a25b7d72e2e41550fe20662597169ff11c3b60/LICENSE",
+          "sha256": "ef5a021fc2ae3658f4ad8d2526c87fb2cf394285f47abfb784cf73a27ffd9522"
+        }
+      ]
+    },
+    {
+      "name": "K4os.Hash.xxHash",
+      "version": "1.0.8.0",
+      "informational": "1.0.8",
+      "copyright": "Milosz Krajewski",
+      "sha256": "19d73fa58c1f6c12c61f30eaad91881bd06f50caf4b462b061bc1b45d0a577cd",
+      "package": "K4os.Hash.xxHash",
+      "package_version": "1.0.8",
+      "url": "https://api.nuget.org/v3-flatcontainer/k4os.hash.xxhash/1.0.8/k4os.hash.xxhash.1.0.8.nupkg",
+      "package_sha256": "20b4d64fc34507b8ad1a90e5a0987ae41e59b961eb37674e510766f20372e16f",
+      "metadata": {
+        "authors": "Milosz Krajewski",
+        "copyright": "Milosz Krajewski",
+        "license": null,
+        "licenseUrl": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Hash.xxHash/master/LICENSE",
+        "projectUrl": "https://github.com/MiloszKrajewski/K4os.Hash.xxHash",
+        "repository": {
+          "url": "https://github.com/MiloszKrajewski/K4os.Hash.xxHash"
+        }
+      },
+      "license_type": null,
+      "license_members": [],
+      "matching_members": [
+        "lib/net6.0/K4os.Hash.xxHash.dll"
+      ],
+      "notice_revision_basis": "refs/tags/1.0.8",
+      "notice_repository": "https://github.com/MiloszKrajewski/K4os.Hash.xxHash",
+      "notice_revision": "c36ef54edbd778c082cab04df7e42cb72a22d887",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Hash.xxHash/c36ef54edbd778c082cab04df7e42cb72a22d887/LICENSE",
+          "sha256": "ef5a021fc2ae3658f4ad8d2526c87fb2cf394285f47abfb784cf73a27ffd9522"
+        }
+      ]
+    },
+    {
+      "name": "SevenZip",
+      "version": "22.1.1.0",
+      "informational": "22.1.1",
+      "copyright": "2023",
+      "sha256": "976dcd9850b04cae4c4980dd47d58758535f00df6b5ab5cb4fb416eb2c93b788",
+      "package": "LZMA-SDK",
+      "package_version": "22.1.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/lzma-sdk/22.1.1/lzma-sdk.22.1.1.nupkg",
+      "package_sha256": "3c8efd74c4ab2d29a827340b485c607e10ea764c8dbdd973161c566ddacc297b",
+      "metadata": {
+        "authors": "Mihir Mone",
+        "copyright": "(c) 2023 Mihir Mone",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/monemihir/LZMA-SDK",
+        "repository": null
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/netstandard2.0/SevenZip.dll"
+      ],
+      "notice_revision_basis": "HEAD",
+      "notice_repository": "https://github.com/monemihir/LZMA-SDK",
+      "notice_revision": "addb9c8758ebdd131050b8f1e90a0a4a511c4d99",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/monemihir/LZMA-SDK/addb9c8758ebdd131050b8f1e90a0a4a511c4d99/LICENSE",
+          "sha256": "cbb9d941b9bf6bdb083bb64ba28e927b5fcbc6b14996b3143cfeff0c437e0ba8"
+        }
+      ]
+    },
+    {
+      "name": "MemoryPack.Core",
+      "version": "1.21.4.0",
+      "informational": "1.21.4+0f2fe0827907940768293b7bb81b9605a7d8cba8",
+      "copyright": "\u00a9 Cysharp, Inc.",
+      "sha256": "6dc7785eea92dc72b9ea4d9d9b08c585ce87c11ec6b8388d00a179af694cf6be",
+      "package": "MemoryPack.Core",
+      "package_version": "1.21.4",
+      "url": "https://api.nuget.org/v3-flatcontainer/memorypack.core/1.21.4/memorypack.core.1.21.4.nupkg",
+      "package_sha256": "1f687cf37048c4a831db5ef04a9a32c8604dcfbd5db289c65a7ad21c108ec558",
+      "metadata": {
+        "authors": "Cysharp",
+        "copyright": "\u00a9 Cysharp, Inc.",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/Cysharp/MemoryPack",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/Cysharp/MemoryPack",
+          "commit": "0f2fe0827907940768293b7bb81b9605a7d8cba8"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net8.0/MemoryPack.Core.dll"
+      ],
+      "notice_repository": "https://github.com/Cysharp/MemoryPack",
+      "notice_revision": "0f2fe0827907940768293b7bb81b9605a7d8cba8",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/Cysharp/MemoryPack/0f2fe0827907940768293b7bb81b9605a7d8cba8/LICENSE.md",
+          "sha256": "49877bf1474e33fda62f80825cd8cde3b9272e645796b6ab8137054f8d9d5d29"
+        }
+      ]
+    },
+    {
+      "name": "Microsoft.Bcl.Memory",
+      "version": "9.0.0.0",
+      "informational": "9.0.0+9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "sha256": "23b6c3d9b202c2a013848d77d204d20e033605bb43ce89a9bf8f37d16951185b",
+      "package": "Microsoft.Bcl.Memory",
+      "package_version": "9.0.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.bcl.memory/9.0.0/microsoft.bcl.memory.9.0.0.nupkg",
+      "package_sha256": "102832679dd7a89a117197b142972d12ad671c55ee5b862a152c7b125b1a7bb5",
+      "metadata": {
+        "authors": "Microsoft",
+        "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://dot.net/",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/dotnet/runtime",
+          "commit": "9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [
+        "LICENSE.TXT",
+        "THIRD-PARTY-NOTICES.TXT"
+      ],
+      "matching_members": [
+        "lib/net9.0/Microsoft.Bcl.Memory.dll"
+      ],
+      "notice_repository": "https://github.com/dotnet/runtime",
+      "notice_revision": "9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3",
+      "notices": [
+        {
+          "kind": "package",
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "kind": "package",
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/dotnet/runtime/9d5a6a9aa463d6d10b0b0ba6d5982cc82f363dc3/LICENSE.TXT",
+          "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310"
+        }
+      ]
+    },
+    {
+      "name": "NAudio.Core",
+      "version": "2.2.1.0",
+      "informational": "2.2.1",
+      "copyright": "\u00a9 Mark Heath 2023",
+      "sha256": "fcf493fc47a2f478a65303886b975fbdbf714cbb1f2d79f7fce97e4bb16b01a8",
+      "package": "NAudio.Core",
+      "package_version": "2.2.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/naudio.core/2.2.1/naudio.core.2.2.1.nupkg",
+      "package_sha256": "794645dbfd30e4880663d52d9d9224d55c301fa54228ff623c95d572c7887347",
+      "metadata": {
+        "authors": "Mark Heath",
+        "copyright": "\u00a9 Mark Heath 2023",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/naudio/NAudio",
+        "repository": {
+          "url": "https://github.com/naudio/NAudio"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/netstandard2.0/NAudio.Core.dll"
+      ],
+      "notice_revision_basis": "refs/tags/v2.2.1",
+      "notice_repository": "https://github.com/naudio/NAudio",
+      "notice_revision": "b5d5ff83fd378f046398891fe5cd99426ce44732",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/naudio/NAudio/b5d5ff83fd378f046398891fe5cd99426ce44732/license.txt",
+          "sha256": "303e01786b271eb464b3f43d18a375f2f17d37bc708a37c2fdf45b289fb5bfaa"
+        }
+      ]
+    },
+    {
+      "name": "Newtonsoft.Json",
+      "version": "13.0.0.0",
+      "informational": "13.0.4+4e13299d4b0ec96bd4df9954ef646bd2d1b5bf2a",
+      "copyright": "Copyright \u00a9 James Newton-King 2008",
+      "sha256": "a28c251dfe36d881e9e2462e171441b8b0ec156fe3f452602c9149b1b9efe05b",
+      "package": "Newtonsoft.Json",
+      "package_version": "13.0.4",
+      "url": "https://api.nuget.org/v3-flatcontainer/newtonsoft.json/13.0.4/newtonsoft.json.13.0.4.nupkg",
+      "package_sha256": "f09081d457405baf35a973fa0c50d6bf272ed683f2568c5a620a49da952f6529",
+      "metadata": {
+        "authors": "James Newton-King",
+        "copyright": "Copyright \u00a9 James Newton-King 2008",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://www.newtonsoft.com/json",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/JamesNK/Newtonsoft.Json",
+          "commit": "4e13299d4b0ec96bd4df9954ef646bd2d1b5bf2a"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [
+        "LICENSE.md"
+      ],
+      "matching_members": [
+        "lib/net6.0/Newtonsoft.Json.dll"
+      ],
+      "notice_repository": "https://github.com/JamesNK/Newtonsoft.Json",
+      "notice_revision": "4e13299d4b0ec96bd4df9954ef646bd2d1b5bf2a",
+      "notices": [
+        {
+          "kind": "package",
+          "member": "LICENSE.md",
+          "sha256": "b98a397897ff55f76cddc380041507a95a896b2946e0188703bf0496793d6516"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/JamesNK/Newtonsoft.Json/4e13299d4b0ec96bd4df9954ef646bd2d1b5bf2a/LICENSE.md",
+          "sha256": "d7f83bbea3264a8e23d7739e44d9db1a4994b357274df6f00876eb2e623827ad"
+        }
+      ]
+    },
+    {
+      "name": "OffiUtils",
+      "version": "3.2.0.0",
+      "informational": "3.2.0+3c6391fac38e2de58eb6bcfa399bba78645bce4f",
+      "copyright": "Copyright (c) 2026 NotOfficer",
+      "sha256": "2b45e1e594855cefbc707f9f4517a09263b6cb17b1062012c56d1666750e3f22",
+      "package": "OffiUtils",
+      "package_version": "3.2.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/offiutils/3.2.0/offiutils.3.2.0.nupkg",
+      "package_sha256": "37d8c3fbaee131b9a38a1c85e1ac08cef1abdbe347f75dfd961ca736cfe2ff40",
+      "metadata": {
+        "authors": "NotOfficer",
+        "copyright": "Copyright (c) 2026 NotOfficer",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": null,
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/NotOfficer/Utils",
+          "branch": "refs/heads/master",
+          "commit": "3c6391fac38e2de58eb6bcfa399bba78645bce4f"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net10.0/OffiUtils.dll"
+      ],
+      "notice_repository": "https://github.com/NotOfficer/Utils",
+      "notice_revision": "3c6391fac38e2de58eb6bcfa399bba78645bce4f",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/NotOfficer/Utils/3c6391fac38e2de58eb6bcfa399bba78645bce4f/LICENSE",
+          "sha256": "92b7deb769992d1737239cd5928ebd27e4d768e9671e54096224b46bcdf28bbb"
+        }
+      ]
+    },
+    {
+      "name": "OggVorbisEncoder",
+      "version": "1.2.2.0",
+      "informational": "1.2.2",
+      "copyright": "",
+      "sha256": "5c3c602bed65fa22915d4d56fe62c3ed584dfaf48fd2c31b49519ed211f77ff1",
+      "package": "OggVorbisEncoder",
+      "package_version": "1.2.2",
+      "url": "https://api.nuget.org/v3-flatcontainer/oggvorbisencoder/1.2.2/oggvorbisencoder.1.2.2.nupkg",
+      "package_sha256": "6d3d4e4c3928b54d5e37f02f345cec3fb8d19b8cb718d1a5ec58d70a1561341f",
+      "metadata": {
+        "authors": "Steve Lillis",
+        "copyright": null,
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/SteveLillis/.NET-Ogg-Vorbis-Encoder",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/SteveLillis/.NET-Ogg-Vorbis-Encoder"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net7.0/OggVorbisEncoder.dll"
+      ],
+      "notice_revision_basis": "HEAD",
+      "notice_repository": "https://github.com/SteveLillis/.NET-Ogg-Vorbis-Encoder",
+      "notice_revision": "9211018f92f09cff58bb0e98e3af322e83c48f3c",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/SteveLillis/.NET-Ogg-Vorbis-Encoder/9211018f92f09cff58bb0e98e3af322e83c48f3c/LICENSE",
+          "sha256": "e7a8f4642a4d68142eed0d5f8bc8d5c21c482d9f081b221d0ef445dae857c4be"
+        }
+      ]
+    },
+    {
+      "name": "Oodle.NET",
+      "version": "2.2.0.0",
+      "informational": "2.2.0+6a6b78bc3c145eddd6a3ae139fd95d6678049e12",
+      "copyright": "Copyright (c) 2025 NotOfficer",
+      "sha256": "0a1eb8b3fd2247f7b958e437585fafaf907514d6041e58ecb58068eaa2e76f7c",
+      "package": "Oodle.NET",
+      "package_version": "2.2.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/oodle.net/2.2.0/oodle.net.2.2.0.nupkg",
+      "package_sha256": "d5890246300144b94bdc9bad41707c0e113ebe7815ce8ca83963304ced917a55",
+      "metadata": {
+        "authors": "NotOfficer",
+        "copyright": "Copyright (c) 2025 NotOfficer",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": null,
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/NotOfficer/Oodle.NET",
+          "branch": "refs/heads/master",
+          "commit": "6a6b78bc3c145eddd6a3ae139fd95d6678049e12"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net10.0/Oodle.NET.dll"
+      ],
+      "notice_repository": "https://github.com/NotOfficer/Oodle.NET",
+      "notice_revision": "6a6b78bc3c145eddd6a3ae139fd95d6678049e12",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/NotOfficer/Oodle.NET/6a6b78bc3c145eddd6a3ae139fd95d6678049e12/LICENSE",
+          "sha256": "92b7deb769992d1737239cd5928ebd27e4d768e9671e54096224b46bcdf28bbb"
+        }
+      ]
+    },
+    {
+      "name": "OodleSharp",
+      "version": "0.0.1.0",
+      "informational": "0.0.1+716d8b9ce3bd74ece37097d2b5e5ef67ef0c48c5",
+      "copyright": "Copyright (c) 2026 NotOfficer",
+      "sha256": "c4885b763cfd4f5dc28ac663346f7efb0cc8d9229ca4c97ea3b76f87ea2d7091",
+      "package": "OodleSharp",
+      "package_version": "0.0.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/oodlesharp/0.0.1/oodlesharp.0.0.1.nupkg",
+      "package_sha256": "20517d5271e7d322fbb07ab9edb88f50610e92eec026443e5f0a272fb7973e7d",
+      "metadata": {
+        "authors": "NotOfficer",
+        "copyright": "Copyright (c) 2026 NotOfficer",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": null,
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/NotOfficer/OodleSharp",
+          "branch": "refs/heads/master",
+          "commit": "716d8b9ce3bd74ece37097d2b5e5ef67ef0c48c5"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net10.0/OodleSharp.dll"
+      ],
+      "notice_repository": "https://github.com/NotOfficer/OodleSharp",
+      "notice_revision": "716d8b9ce3bd74ece37097d2b5e5ef67ef0c48c5",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/NotOfficer/OodleSharp/716d8b9ce3bd74ece37097d2b5e5ef67ef0c48c5/LICENSE",
+          "sha256": "50753d4318c48681638939e5ebcf0a699d229a3bc4e747145dc26c9c1eeb902d"
+        }
+      ]
+    },
+    {
+      "name": "Serilog",
+      "version": "4.3.0.0",
+      "informational": "4.3.1-main-5625030+5625030e8f8fceca2e3180575aba174751ef7add",
+      "copyright": "Copyright \u00a9 Serilog Contributors",
+      "sha256": "e6b551a75ff7fff20dd0024670d5c42dfb74afa16d54aa0201106dea400a9505",
+      "package": "Serilog",
+      "package_version": "4.3.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/serilog/4.3.1/serilog.4.3.1.nupkg",
+      "package_sha256": "4d8f86690627c837ce1a5d208baef10f250c3ae57f9a3cfc054ebafd4b264ad2",
+      "metadata": {
+        "authors": "Serilog Contributors",
+        "copyright": "Copyright \u00a9 Serilog Contributors",
+        "license": "Apache-2.0",
+        "licenseUrl": "https://licenses.nuget.org/Apache-2.0",
+        "projectUrl": "https://serilog.net/",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/serilog/serilog",
+          "branch": "refs/heads/main",
+          "commit": "5625030e8f8fceca2e3180575aba174751ef7add"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net10.0/Serilog.dll"
+      ],
+      "notice_repository": "https://github.com/serilog/serilog",
+      "notice_revision": "5625030e8f8fceca2e3180575aba174751ef7add",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/serilog/serilog/5625030e8f8fceca2e3180575aba174751ef7add/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68"
+        }
+      ]
+    },
+    {
+      "name": "Serilog.Sinks.Console",
+      "version": "6.1.1.0",
+      "informational": "6.1.1-main-b3cb1f0+b3cb1f042f5636161b831fa8816d70d865a5eec4",
+      "copyright": "",
+      "sha256": "dc88002ddd9f5fd0ffec9a6568ef89954671f60f2c9161593ee78932538c1e3e",
+      "package": "Serilog.Sinks.Console",
+      "package_version": "6.1.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/serilog.sinks.console/6.1.1/serilog.sinks.console.6.1.1.nupkg",
+      "package_sha256": "09f220e14b38912310027eab536aec01e136da0e8ca45899761a195b24a965e6",
+      "metadata": {
+        "authors": "Serilog Contributors",
+        "copyright": null,
+        "license": "Apache-2.0",
+        "licenseUrl": "https://licenses.nuget.org/Apache-2.0",
+        "projectUrl": "https://github.com/serilog/serilog-sinks-console",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/serilog/serilog-sinks-console",
+          "branch": "refs/heads/main",
+          "commit": "b3cb1f042f5636161b831fa8816d70d865a5eec4"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net8.0/Serilog.Sinks.Console.dll"
+      ],
+      "notice_repository": "https://github.com/serilog/serilog-sinks-console",
+      "notice_revision": "b3cb1f042f5636161b831fa8816d70d865a5eec4",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/serilog/serilog-sinks-console/b3cb1f042f5636161b831fa8816d70d865a5eec4/LICENSE",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        }
+      ]
+    },
+    {
+      "name": "SubstreamSharp",
+      "version": "1.0.3.0",
+      "informational": "1.0.3",
+      "copyright": "Connor Haigh 2021",
+      "sha256": "2f8928637fdf06b3ce7b6b72ee12a7cb29508c5e0ef4aba8125d046b21be0796",
+      "package": "SubstreamSharp",
+      "package_version": "1.0.3",
+      "url": "https://api.nuget.org/v3-flatcontainer/substreamsharp/1.0.3/substreamsharp.1.0.3.nupkg",
+      "package_sha256": "405eade8b3ac92d1a0657b1e4aa028f31d1c132783cc0d1c9830858274be1888",
+      "metadata": {
+        "authors": "Connor Haigh",
+        "copyright": "Connor Haigh 2021",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": null,
+        "repository": {
+          "url": "https://github.com/connorhaigh/SubstreamSharp"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net6.0/SubstreamSharp.dll"
+      ],
+      "notice_revision_basis": "refs/tags/v1.0.3^{}",
+      "notice_repository": "https://github.com/connorhaigh/SubstreamSharp",
+      "notice_revision": "ab2f97da671a511fe956b06ea25e39992e504b08",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/connorhaigh/SubstreamSharp/ab2f97da671a511fe956b06ea25e39992e504b08/Licence.txt",
+          "sha256": "dbd0c6d4e869c98c3ccf20aee30eb2191d8553a377641fac045b0f9746ca4189"
+        }
+      ]
+    },
+    {
+      "name": "System.IO.Hashing",
+      "version": "10.0.0.8",
+      "informational": "10.0.8+94ea82652cdd4e0f8046b5bd5becbd11461482ca",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "sha256": "1285c15b4719f4e63993db2b5e8662be07645e829bb5fcc926831a2851a94a64",
+      "package": "System.IO.Hashing",
+      "package_version": "10.0.8",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.io.hashing/10.0.8/system.io.hashing.10.0.8.nupkg",
+      "package_sha256": "9ec0ccbc2bc078a0b2a79eba884ca9dc93967d09d33e00d4ddd205320d2250bd",
+      "metadata": {
+        "authors": "Microsoft",
+        "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://dot.net/",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/dotnet/dotnet",
+          "commit": "94ea82652cdd4e0f8046b5bd5becbd11461482ca"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [
+        "THIRD-PARTY-NOTICES.TXT"
+      ],
+      "matching_members": [
+        "lib/net10.0/System.IO.Hashing.dll"
+      ],
+      "notice_repository": "https://github.com/dotnet/dotnet",
+      "notice_revision": "94ea82652cdd4e0f8046b5bd5becbd11461482ca",
+      "notices": [
+        {
+          "kind": "package",
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "6d15e10a101c6bfff2ab4429ed061bf76c456fc4b23ad6b03e0d0f8377148a21"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/dotnet/dotnet/94ea82652cdd4e0f8046b5bd5becbd11461482ca/LICENSE.TXT",
+          "sha256": "ae48df11a335dc1a615f4f938b69cba73bcf4485c4f97af49b38efb0f216353b"
+        }
+      ]
+    },
+    {
+      "name": "System.Numerics.Tensors",
+      "version": "10.0.0.10",
+      "informational": "10.0.10+f7d90799ce4ef09a0bb257852a57248d2a8fb8dd",
+      "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+      "sha256": "2a482195cd58352fc844b3f45628e7c4056187ebe2753e64ec53795abff3b9ea",
+      "package": "System.Numerics.Tensors",
+      "package_version": "10.0.10",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.numerics.tensors/10.0.10/system.numerics.tensors.10.0.10.nupkg",
+      "package_sha256": "e4621f889f2620d363edd4b0ef5ce22ff728fe25684dc652ac7c5412dae68efa",
+      "metadata": {
+        "authors": "Microsoft",
+        "copyright": "\u00a9 Microsoft Corporation. All rights reserved.",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://dot.net/",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/dotnet/dotnet",
+          "commit": "f7d90799ce4ef09a0bb257852a57248d2a8fb8dd"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [
+        "THIRD-PARTY-NOTICES.TXT"
+      ],
+      "matching_members": [
+        "lib/net10.0/System.Numerics.Tensors.dll"
+      ],
+      "notice_repository": "https://github.com/dotnet/dotnet",
+      "notice_revision": "f7d90799ce4ef09a0bb257852a57248d2a8fb8dd",
+      "notices": [
+        {
+          "kind": "package",
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "6d15e10a101c6bfff2ab4429ed061bf76c456fc4b23ad6b03e0d0f8377148a21"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/dotnet/dotnet/f7d90799ce4ef09a0bb257852a57248d2a8fb8dd/LICENSE.TXT",
+          "sha256": "ae48df11a335dc1a615f4f938b69cba73bcf4485c4f97af49b38efb0f216353b"
+        }
+      ]
+    },
+    {
+      "name": "VGAudio",
+      "version": "2.2.1.0",
+      "informational": "2.2.1",
+      "copyright": "Copyright \u00a9 2016 Alex Barney",
+      "sha256": "e32c17ed422f5e6419050fe4bb43f752ed11c8a7796c45f693865237d8a200a3",
+      "package": "VGAudio",
+      "package_version": "2.2.1",
+      "url": "https://api.nuget.org/v3-flatcontainer/vgaudio/2.2.1/vgaudio.2.2.1.nupkg",
+      "package_sha256": "5ba8acb67eb546f4700fcc2e9ac205673284598c1e47e8dbeefb2a656bf9e2f0",
+      "metadata": {
+        "authors": "Alex Barney",
+        "copyright": "Copyright \u00a9 2016 Alex Barney",
+        "license": null,
+        "licenseUrl": "https://raw.githubusercontent.com/Thealexbarney/VGAudio/master/LICENSE",
+        "projectUrl": "https://github.com/Thealexbarney/VGAudio",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/Thealexbarney/VGAudio"
+        }
+      },
+      "license_type": null,
+      "license_members": [],
+      "matching_members": [
+        "lib/netstandard1.1/VGAudio.dll"
+      ],
+      "notice_revision_basis": "refs/tags/v2.2.1",
+      "notice_repository": "https://github.com/Thealexbarney/VGAudio",
+      "notice_revision": "9c40e30baf4b5ab66dac07522adef4192d9a2e19",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/Thealexbarney/VGAudio/9c40e30baf4b5ab66dac07522adef4192d9a2e19/LICENSE",
+          "sha256": "852bcc033a46c62f99fb5ffd43b3241ba2c0c440c6034aa2114505f2c4f03c4a"
+        }
+      ]
+    },
+    {
+      "name": "Zlib-ng.NET",
+      "version": "1.2.0.0",
+      "informational": "1.2.0+1e6ae3cb5ed91f1ec743103039d3ac345babd179",
+      "copyright": "Copyright (c) 2025 NotOfficer",
+      "sha256": "f1746ed5806fe466af60938dfe7543ea524716816575fbb6a22d83cc0fc38673",
+      "package": "Zlib-ng.NET",
+      "package_version": "1.2.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/zlib-ng.net/1.2.0/zlib-ng.net.1.2.0.nupkg",
+      "package_sha256": "13605851f75e317651c64fccc50ab0c0c9236028cd96782c095eb4fb39d15920",
+      "metadata": {
+        "authors": "NotOfficer",
+        "copyright": "Copyright (c) 2025 NotOfficer",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": null,
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/NotOfficer/Zlib-ng.NET",
+          "branch": "refs/heads/master",
+          "commit": "1e6ae3cb5ed91f1ec743103039d3ac345babd179"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net10.0/Zlib-ng.NET.dll"
+      ],
+      "notice_repository": "https://github.com/NotOfficer/Zlib-ng.NET",
+      "notice_revision": "1e6ae3cb5ed91f1ec743103039d3ac345babd179",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/NotOfficer/Zlib-ng.NET/1e6ae3cb5ed91f1ec743103039d3ac345babd179/LICENSE",
+          "sha256": "92b7deb769992d1737239cd5928ebd27e4d768e9671e54096224b46bcdf28bbb"
+        }
+      ]
+    },
+    {
+      "name": "ZstdSharp",
+      "version": "0.8.8.0",
+      "informational": "0.8.8+2cd0c019693bc786a5fe5c3be94e107b24e7267e",
+      "copyright": "Copyright Oleg Stepanischev 2026",
+      "sha256": "b285bb9f59928becb8e048bf2a75e872f6555f8773d7b72386a9f77f447f425c",
+      "package": "ZstdSharp.Port",
+      "package_version": "0.8.8",
+      "url": "https://api.nuget.org/v3-flatcontainer/zstdsharp.port/0.8.8/zstdsharp.port.0.8.8.nupkg",
+      "package_sha256": "f6797192deebf4535f0601c2273e750da0c02062e30a3e4a3c4011b9ac22403a",
+      "metadata": {
+        "authors": "Oleg Stepanischev",
+        "copyright": "Copyright Oleg Stepanischev 2026",
+        "license": "MIT",
+        "licenseUrl": "https://licenses.nuget.org/MIT",
+        "projectUrl": "https://github.com/oleg-st/ZstdSharp",
+        "repository": {
+          "type": "git",
+          "url": "https://github.com/oleg-st/ZstdSharp.git",
+          "branch": "refs/heads/master",
+          "commit": "2cd0c019693bc786a5fe5c3be94e107b24e7267e"
+        }
+      },
+      "license_type": "expression",
+      "license_members": [],
+      "matching_members": [
+        "lib/net9.0/ZstdSharp.dll"
+      ],
+      "notice_repository": "https://github.com/oleg-st/ZstdSharp",
+      "notice_revision": "2cd0c019693bc786a5fe5c3be94e107b24e7267e",
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/oleg-st/ZstdSharp/2cd0c019693bc786a5fe5c3be94e107b24e7267e/LICENSE",
+          "sha256": "9a6a7216e532c4ee4f78881d31fb641c27148eb01b2d0e8e3235ffe9a70a662c"
+        }
+      ]
+    },
+    {
+      "name": "CUE4Parse",
+      "version": "1.2.2.0",
+      "informational": "1.2.2+6409f38e09e2a21aa839cd77b4515bca6c66f280",
+      "copyright": "Copyright (c) 2026 FabianFG",
+      "sha256": "aeacf4d8b69d9eb0fc96bde40c1624b2c612b20beda869fd3351b71291b12c83",
+      "notice_repository": "https://github.com/FabianFG/CUE4Parse",
+      "notice_revision": "6409f38e09e2a21aa839cd77b4515bca6c66f280",
+      "notice_revision_basis": "embedded informational version and supplier submodule",
+      "metadata": {
+        "authors": "FabianFG and contributors",
+        "license": "Apache-2.0"
+      },
+      "notices": [
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/FabianFG/CUE4Parse/6409f38e09e2a21aa839cd77b4515bca6c66f280/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "kind": "url",
+          "url": "https://raw.githubusercontent.com/FabianFG/CUE4Parse/6409f38e09e2a21aa839cd77b4515bca6c66f280/NOTICE",
+          "sha256": "2ba6f27abee88bd99392cddaa72e34693c0460a91394f73029cee2c8889e8af8"
+        }
+      ]
+    }
+  ]
+}

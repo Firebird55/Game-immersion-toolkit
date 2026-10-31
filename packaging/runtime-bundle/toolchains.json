@@ -12,7 +12,7 @@
     "cyberpunk": {"adapter": "cyberpunk_assets", "chains": ["wolvenkit-net10-runtime", "vgmstream", "ffmpeg"], "blocked": ["gpl-source-native-closure", "net10-runtime-native-probe"]},
     "wuwa": {"adapter": "wuthering_assets", "chains": ["fmodel-net8-self-contained", "unreal-decompression", "vgmstream", "ffmpeg"], "blocked": ["gpl-source-closure", "oodle-rights", "exact-external-dll-closure"]},
     "witcher3": {"adapter": "witcher_assets", "chains": ["python-w3strings-speech-narrative", "vgmstream", "ffmpeg"], "blocked": ["codec-native-probe"]},
-    "nte": {"adapter": "nte_assets", "chains": ["nte-net10-dynamic-ueextractor", "unreal-decompression", "vgmstream", "ffmpeg"], "blocked": ["prebuilt-self-contained-helper", "dynamic-assembly-closure", "oodle-rights", "private-metadata-acquisition"]},
+    "nte": {"adapter": "nte_assets", "chains": ["owned-net10-cue4parse-managed", "vgmstream", "ffmpeg"], "blocked": ["final-clean-helper-resource-build", "frozen-native-acceptance", "posix-apphost-runtime-resources"], "dependency_inventory": "packaging/game-readers/managed-components.json"},
     "beyond": {"adapter": "beyond_assets", "chains": ["python-quantic-mp3", "ffmpeg"], "blocked": ["reservoir-preserving-mp3-native-probe"]},
     "heavyrain": {"adapter": "heavy_rain_assets", "chains": ["python-quantic-legacy-mp3", "ffmpeg"], "blocked": ["distinct-resources-gamedata-native-probe"]},
     "starrail": {"adapter": "starrail_assets", "chains": ["python-hoyo-pck", "vgmstream", "ffmpeg"], "blocked": ["private-catalog-acquisition", "original-voice-native-probe"]},
