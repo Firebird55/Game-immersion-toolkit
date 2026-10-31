@@ -92,7 +92,8 @@ def observe(layout, decoder, data, expected):
                                 if {'flac.exe', 'flac.dll', 'vcruntime140.dll', 'ucrtbase.dll'} <= names:
                                     records = checked_modules(layout, decoder, found)
                             finally:
-                                kernel.CloseHandle(handle)
+                                if not kernel.CloseHandle(handle):
+                                    raise RuntimeBundleError('Owned codec observation handle close could not be confirmed.')
                     if records is None: time.sleep(.02)
                 if records is None:
                     raise RuntimeBundleError('Owned codec DLL inventory was not observable before its deadline.')
