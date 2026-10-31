@@ -24,6 +24,9 @@ def test_expanded_input_matches_exact_supplier_and_detects_changed_file(tmp_path
                 bundle.writestr(name, data)
     else:
         with tarfile.open(archive, 'w:gz') as bundle:
+            root = tarfile.TarInfo('.')
+            root.type = tarfile.DIRTYPE
+            bundle.addfile(root)
             for name, data in content.items():
                 entry = tarfile.TarInfo('./' + name)
                 entry.size, entry.mode = len(data), 0o755

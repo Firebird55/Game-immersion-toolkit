@@ -40,7 +40,7 @@ def verify(archive, root, specification):
         if name.startswith('./'):
             name = name[2:]
         name = name.rstrip('/')
-        if not name and directory:
+        if name in {'', '.'} and directory:
             return
         path = PurePosixPath(name)
         if (not name or path.is_absolute() or '\\' in name or ':' in name

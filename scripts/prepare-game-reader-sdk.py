@@ -71,7 +71,7 @@ def expand(archive, output):
         if name.startswith('./'):
             name = name[2:]
         name = name.rstrip('/')
-        if not name and directory:
+        if name in {'', '.'} and directory:
             return
         relative = PurePosixPath(name)
         if (not name or relative.is_absolute() or '\\' in name or ':' in name
