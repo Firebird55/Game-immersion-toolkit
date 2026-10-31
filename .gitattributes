@@ -6,6 +6,8 @@ third_party/codecs/xiph-flac-1.5.0/codec-sources.zip -text
 packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt -text
 third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip -text
 packaging/runtime-bundle/python-notices/*.txt -text whitespace=-blank-at-eol
+# The exact supplier libX11 notice also retains its original final blank line.
+packaging/runtime-bundle/python-notices/LICENSE.libX11.txt whitespace=-blank-at-eol,-blank-at-eof
 packaging/runtime-bundle/flatbuffers-notices/LICENSE -text whitespace=-blank-at-eol
 # The recorded Apache-source compatibility patch is an exact-byte input.
 packaging/asr/tts-off-python-symbols.patch -text
