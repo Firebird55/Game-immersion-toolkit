@@ -699,6 +699,36 @@ downloaded frozen checkpoint. The collector now preserves those earlier
 sanitized observations independently of a later keeper failure; receipt and
 workflow status must still be checked separately.
 
+At `dc62a46`, [run 41163848906](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41163848906)
+passed 735 Windows contracts with zero skips, freezing and the earlier
+native/C1/cold-slot steps. The preserved metadata artifact 13028966469 matched
+1,233,308 bytes / SHA-256
+b0f5efeb723fbdcd4a8603cd52db602e2784099ddf5190435b893387d9b9c4d0;
+source/rebuild 13028875035 matched 1,095,193 bytes /
+cb08a16c7bfc138e0216d22d11d68b203d735b003357b299129611234f6858c5.
+The independent review retained every preceding source/notice/module/host/slot
+assertion. Its inventory has 1,537 files, 642 directories and 624,783,815 bytes,
+bound by digest 637c2febfb13428e5b15530ca5c0453dcee14c5ba3b7caa81aa3b4050d08dcc0.
+
+The workflow still failed at the keeper step. Separate failure artifact
+13029071295 matched 967 bytes /
+a61f1d81119c7e8bd31f25da501b0be05ddafa393d588af0906caa32464c69dc;
+its receipt is byte-identical to the copy inside the preserved metadata.
+The one inspected descendant matched authoritative SystemDirectory `conhost.exe`
+through retained read-only observations and was created at or after the guardian.
+This remains census evidence, with no admission or termination authority.
+The guard refused it before writer creation: both cases remain empty, blocked
+source observations are zero and cleanup is unconfirmed/recovery-required.
+The later detached-console variant needs fresh native evidence.
+
+Image identity is per job: extracted runtime used 20261021.278.1 while the
+separate Xiph source/rebuild job used 20261030.294.1. Actual observed system-DLL
+names/hashes matched the historical comparison across the five probe scopes;
+this does not transfer rights or Windows acceptance from another checkpoint.
+The [ledger](r19-frozen-checkpoint-20261031.json) preserves the failed workflow
+alongside the narrower verified observations. Native source provenance, complete
+rights, keeper loss and ordinary-user Windows 11 remain open.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,
