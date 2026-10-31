@@ -1,7 +1,7 @@
 # R19 MSVC REDIST metadata census
 
-Status: authored source contracts; the first hosted wrapper attempt failed
-before publication. An actual source-bound Windows census remains pending.
+Status: authored source contracts; hosted wrapper attempts failed before
+publication. An actual source-bound Windows census remains pending.
 This first observation does not select, collect or approve a CRT component.
 It changes no installer, release, PR #59 or Windows 11 acceptance policy.
 
@@ -178,6 +178,35 @@ accept. Python 3.12.10 and Node 24.22.1 were the declared/observed build tools.
 The fixed generic failure alone justifies no source, environment or path-policy
 change. Further diagnosis must retain finite phases/codes and privacy; no CRT
 file is admitted by this failure.
+
+## Later wrapper diagnosis and explicit interpreter binding
+
+The isolated `ca95ac1` attempt (run `41205836451`, job `124550647064`)
+passed eight Node contracts, then reported only the finite `observer-child`
+phase without a child diagnostic. It produced no source-bound census pair or
+artifact. The job completed in 34 seconds, including a one-second contract
+step; its failure was not an elapsed 150-second child timeout.
+
+At `14babb6`, run `41210450206` / job `124564189857` ran eleven Node
+contracts: ten passed and the owned Python startup fixture skipped because its
+explicit interpreter was unavailable to its absolute-path/existence guard.
+The subsequent observer reported `observer-child`, `observer: null` and execution
+`status: null`, `signal: null`, `code: ENOENT`, `stdout_state: no-data`.
+Python category and program line were unavailable. This establishes a process
+startup failure, not a failed Python contract or an observed VS/CRT layout.
+The job used image `20261021.278.1`, Node `24.22.1` and setup CPython
+`3.12.10`; it published no artifact. No raw interpreter value, stderr or
+exception message is retained as public diagnostic context.
+
+The observer now receives the exact `python-path` output of its named
+`actions/setup-python@v7` step through the step environment. This removes the
+separate PowerShell application lookup and binds one executable string directly
+to the pinned setup result, including paths with spaces. There is no shell,
+manual quoting, PATH fallback or alternate interpreter. The existing in-child
+Python `3.12.10` / 64-bit checks remain. This binding change does not by itself
+prove the original lookup's returned value or the underlying cause of ENOENT;
+the changed workflow still requires its own hosted observation. The output
+contract is documented by [setup-python v7](https://github.com/actions/setup-python/blob/v7/docs/advanced-usage.md#outputs).
 
 ## Remaining work
 

@@ -80,14 +80,16 @@ jobs:
           npm run audit:public
           if ($LASTEXITCODE -ne 0) { throw 'Public census source audit failed.' }
       - uses: actions/setup-python@v7
+        id: census-python
         with:
           # Named build-host observer only. No application or pip dependencies.
           python-version: '3.12.10'
       - name: Run authored contracts and a source-bound read-only census
         id: census
         shell: pwsh
+        env:
+          R19_CENSUS_PYTHON: ${{ steps.census-python.outputs.python-path }}
         run: |
-          $env:R19_CENSUS_PYTHON = (Get-Command python -CommandType Application).Source
           node --test tests/msvc-redist-census-ci.test.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Census binding contracts failed.' }
           $result = @(node scripts/run-msvc-redist-census.mjs)
