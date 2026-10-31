@@ -4,6 +4,7 @@ These use synthetic roots and subprocess tripwires, never installed games or
 accounts. They prove integration/refusal, not native frozen tool execution.
 """
 from dataclasses import replace
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -42,6 +43,50 @@ def test_export_and_selected_snapshot_share_explicit_data_without_app_writes(tmp
     assert manager.destination() == external
     assert not layout.application_root.exists()
     assert not layout.data_root.exists()
+
+
+@pytest.mark.parametrize('legacy_environment', [True, False])
+def test_frozen_language_selection_and_export_use_only_selected_settings_root(tmp_path, monkeypatch, legacy_environment):
+    from backend import accounts
+    from backend.language_preparation import LanguagePreparation, selected_snapshot
+    layout = fixture_layout(tmp_path, monkeypatch)
+    legacy = tmp_path / 'old-host/Proxy Transcript'
+    legacy.mkdir(parents=True)
+    previous = json.dumps({'prepared': {}, 'selected': {'synthetic': {'beyond': 'zh-Hans'}}})
+    (legacy / 'languages.json').write_text(previous, encoding='utf-8')
+    if legacy_environment:
+        monkeypatch.setenv('LOCALAPPDATA', str(legacy.parent))
+    else:
+        monkeypatch.delenv('LOCALAPPDATA', raising=False)
+    layout.application_root.mkdir(parents=True)
+    monkeypatch.chdir(layout.application_root)
+    layout.settings_root.mkdir(parents=True)
+    (layout.settings_root / 'languages.json').write_text(json.dumps({
+        'prepared': {'beyond': {'nl': {'targets': ['en']}}}, 'selected': {}}), encoding='utf-8')
+    pending = layout.settings_root / 'languages.requests.json'
+    pending.write_text(json.dumps({'synthetic': {'beyond': {'locale': 'nl', 'target': 'en'}}}), encoding='utf-8')
+    activations = []
+    manager = LanguagePreparation(None, lambda *args: activations.append(args), None)
+    manager.select('beyond', 'nl', 'synthetic', target='en')
+    assert activations == [('beyond', 'nl', 'synthetic')]
+    assert not pending.exists()
+    assert LanguagePreparation(None, None, None).selected('beyond', 'synthetic') == 'nl'
+    (layout.data_root / 'languages/beyond/nl').mkdir(parents=True)
+    monkeypatch.setattr(accounts, 'AccountStore', lambda: SimpleNamespace(status=lambda: {'active': 'synthetic'}))
+    snapshot, _, account = selected_snapshot(layout.application_root, 'beyond')
+    assert snapshot == layout.data_root / 'languages/beyond/nl/textmap.json'
+    assert account == 'synthetic'
+    assert (legacy / 'languages.json').read_text(encoding='utf-8') == previous
+    assert list(layout.application_root.iterdir()) == []
+
+
+def test_source_language_preferences_keep_existing_host_location(tmp_path, monkeypatch):
+    from backend.language_preparation import LanguagePreparation
+    monkeypatch.setenv('LOCALAPPDATA', str(tmp_path))
+    path = tmp_path / 'Proxy Transcript/languages.json'
+    path.parent.mkdir()
+    path.write_text(json.dumps({'prepared': {}, 'selected': {'legacy': {'beyond': 'nl'}}}), encoding='utf-8')
+    assert LanguagePreparation(None, None, None).selected('beyond') == 'nl'
 
 
 def test_source_consumer_roots_preserve_caller_installation(tmp_path):
