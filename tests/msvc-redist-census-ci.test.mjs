@@ -7,7 +7,7 @@ import {validSource, validateReport, projectReport, projectObserverDiagnostic, p
 
 const head = 'a'.repeat(40), id = 'msvc-redist-1-1';
 function report() {
-  return {schema:'proxy-r19-msvc-redist-census-v1',status:'observed-not-approved',reason:'none',
+  return {schema:'proxy-r19-msvc-redist-census-v2',status:'observed-not-approved',reason:'none',version_entry_refusal:null,
     source_commit_label:head,source_binding:'unverified-caller-label',observation_id:id,
     observation_id_authority:'binding-only',selected_instance:{version:'18.11.12328.437',edition:'enterprise',release_state:'release'},
     query_utility:{bytes:400000,sha256:'b'.repeat(64)},requested_architecture:'x64',selection:'none',
@@ -36,6 +36,12 @@ test('a complete census stays observed and the caller label stays unverified', (
   const value=report(); assert.equal(validateReport(value,head,id),value);
   assert.equal(value.source_binding,'unverified-caller-label');
   assert.equal(value.redistribution_approved,false);
+  assert.equal(value.version_entry_refusal,null);
+  const historical={...value,schema:'proxy-r19-msvc-redist-census-v1'};
+  delete historical.version_entry_refusal;
+  const raw=Buffer.from(JSON.stringify(historical)), retained=Buffer.from(raw);
+  assert.throws(()=>projectReport(raw,head,id));
+  assert.deepEqual(raw,retained,'Historical v1 bytes must not be upgraded or rewritten.');
 });
 
 test('unknown metadata, origins and approval changes refuse publication', () => {
@@ -45,7 +51,9 @@ test('unknown metadata, origins and approval changes refuse publication', () => 
     v=>v.selected_instance.edition='PRIVATE',v=>v.selected_instance.release_state='PRIVATE',
     v=>v.query_utility.sha256='PRIVATE',v=>v.query_utility.bytes=0,
     v=>v.query_utility.bytes=16777217,v=>v.query_utility.extra='PRIVATE',
-    v=>v.query_utility.sha256=['b'.repeat(64)],v=>v.selected_instance.version=['18.11.12328.437']];
+    v=>v.query_utility.sha256=['b'.repeat(64)],v=>v.selected_instance.version=['18.11.12328.437'],
+    v=>v.version_entry_refusal='exact-v14-token',v=>delete v.version_entry_refusal,
+    v=>v.schema='proxy-r19-msvc-redist-census-v1'];
   for(const key of ['vendor_file_content_read','vendor_file_hashes_observed','vendor_file_versions_observed',
     'vendor_signatures_observed','redistribution_approved','source_delivery_approved','runtime_collection_allowed',
     'production_execution_allowed','production_activation','r19_complete']) changes.push(v=>v[key]=true);
@@ -71,9 +79,29 @@ test('negative observations bind no partial list and accept only finite reasons'
     version_count:0,family_count:0,file_count:0,metadata_snapshot_stable:false});
   assert.equal(validateReport(v,head,id),v);
   for (const change of [x=>x.reason='PRIVATE',x=>x.reason='none',x=>x.file_count=4,
-    x=>x.versions=report().versions,x=>x.metadata_snapshot_stable=true]) {
+    x=>x.versions=report().versions,x=>x.metadata_snapshot_stable=true,x=>x.version_entry_refusal='both']) {
     const copy=structuredClone(v);change(copy);assert.throws(()=>validateReport(copy,head,id));
   }
+  for(const classification of ['exact-v14-token','other-noncanonical-name','both']) {
+    const negative={...v,reason:'unknown-version-entry',version_entry_refusal:classification};
+    assert.equal(validateReport(negative,head,id),negative);
+    const projected=projectReport(Buffer.from(JSON.stringify(negative)),head,id);
+    assert.deepEqual(JSON.parse(projected.bytes),negative);
+    assert.equal(projected.report.status,'unavailable');
+    assert.equal(projected.report.version_count+projected.report.family_count+projected.report.file_count,0);
+    assert.equal(projected.report.metadata_snapshot_stable,false);
+  }
+  for(const value of [null,true,0,['exact-v14-token'],{path:'PRIVATE'},'PRIVATE raw name',
+    'a'.repeat(64),'v14','exact-v14-token\n']) {
+    const negative={...v,reason:'unknown-version-entry',version_entry_refusal:value};
+    assert.throws(()=>validateReport(negative,head,id));
+    assert.throws(()=>projectReport(Buffer.from(JSON.stringify(negative)),head,id));
+  }
+  const raw=JSON.stringify({...v,reason:'unknown-version-entry',version_entry_refusal:'both'})
+    .replace('{','{"version_entry_refusal":{"PRIVATE":"discarded raw name and path"},');
+  const projected=projectReport(Buffer.from(raw),head,id);
+  assert.equal(projected.bytes.includes(Buffer.from('PRIVATE')),false);
+  assert.equal(projected.report.version_entry_refusal,'both');
 });
 
 test('discarded duplicate-key text cannot leak through the published JSON bytes', () => {

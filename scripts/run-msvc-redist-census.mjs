@@ -11,7 +11,7 @@ const integer = value => Number.isSafeInteger(value) && value >= 0;
 const failure = () => { throw new Error('Census evidence unavailable.'); };
 const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
-const reportKeys = ['schema','status','reason','source_commit_label','source_binding','observation_id',
+const reportKeys = ['schema','status','reason','version_entry_refusal','source_commit_label','source_binding','observation_id',
   'observation_id_authority','selected_instance','query_utility','requested_architecture','selection','versions',
   'version_count','family_count','file_count','metadata_snapshot_stable','vendor_file_content_read',
   'vendor_file_hashes_observed','vendor_file_versions_observed','vendor_signatures_observed','entitlement_probe',
@@ -36,7 +36,7 @@ export function validSource(snapshot, head, clean) {
 }
 
 export function validateReport(value, head, id) {
-  if (!exactKeys(value, reportKeys) || value.schema !== 'proxy-r19-msvc-redist-census-v1'
+  if (!exactKeys(value, reportKeys) || value.schema !== 'proxy-r19-msvc-redist-census-v2'
       || value.source_commit_label !== head || value.observation_id !== id
       || value.source_binding !== 'unverified-caller-label' || value.observation_id_authority !== 'binding-only'
       || value.requested_architecture !== 'x64' || value.selection !== 'none'
@@ -54,6 +54,10 @@ export function validateReport(value, head, id) {
       || value.query_utility !== null && (!exactKeys(value.query_utility,['bytes','sha256'])
         || !integer(value.query_utility.bytes) || value.query_utility.bytes < 1 || value.query_utility.bytes > 16777216
         || typeof value.query_utility.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(value.query_utility.sha256))) failure();
+  if (value.reason === 'unknown-version-entry') {
+    if (value.status !== 'unavailable' || typeof value.version_entry_refusal !== 'string'
+        || !['exact-v14-token', 'other-noncanonical-name', 'both'].includes(value.version_entry_refusal)) failure();
+  } else if (value.version_entry_refusal !== null) failure();
   if (value.status === 'unavailable') {
     if (value.versions.length || value.version_count !== 0 || value.family_count !== 0
         || value.file_count !== 0 || value.metadata_snapshot_stable !== false

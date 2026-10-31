@@ -114,7 +114,7 @@ Compact JSON is at most 64 KiB. A complete census returns zero;
 an unavailable census returns two. A failed output channel cannot become a
 passing observation, and CLI errors do not echo private arguments.
 
-Schema `proxy-r19-msvc-redist-census-v1` exposes fixed logical member names,
+The versioned census schema exposes fixed logical member names,
 numeric version literals, regular-file presence/sizes, selected-instance enum
 metadata and the query utility identity. Complete status is
 `observed-not-approved`; failures use `unavailable` and a finite safe reason.
@@ -233,6 +233,31 @@ The selected instance was VS `18.11.12315.225`, enterprise/release, on image
 There are zero published versions, families or files; no partial census or
 vendor-byte observation is admitted. Every redistribution, runtime and
 production permission stays false, with Windows 11 unavailable and no installer.
+
+## Versioned name-only refusal projection
+
+The next source revision uses `proxy-r19-msvc-redist-census-v2` and requires
+`version_entry_refusal`. It is null on success and every other refusal. Only
+`unknown-version-entry` can carry `exact-v14-token`,
+`other-noncanonical-name` or `both`. These labels classify the already bounded
+immediate names, before any child metadata, content, iteration or long-name
+query, including numeric siblings. The exact token is compared
+case-insensitively; other noncanonical spellings share one opaque bucket.
+No name, hash, entry type, directory or rolling-alias meaning is exposed.
+
+The original refusal, empty version list, zero counts, false snapshot stability
+and every closed gate remain unchanged. Invalid or misplaced exception context
+escapes with a fixed failure before a standalone report or bound pair can be
+published. The Node validator requires the exact v2 keys and conditional enum;
+it accepts no generic extension fields. Historical v1 bytes are preserved and
+remain evidence only for their historical source/shape. The independent binding
+schema is unchanged because it binds the exact canonical report bytes.
+
+Source contracts pass 37 Python methods with 138 subtests and eleven Node
+tests, without skips. This projection still needs its own source-bound hosted
+observation; the actual entry refused by the earlier v1 run remains unknown.
+No outcome admits a CRT member, relaxes the layout policy or closes rights,
+source-delivery, ordinary-user Windows 11 or R19 acceptance.
 
 ## Remaining work
 

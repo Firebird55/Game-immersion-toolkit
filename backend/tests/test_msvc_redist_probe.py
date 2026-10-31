@@ -48,8 +48,14 @@ class CensusTests(unittest.TestCase):
         return self.module.observe(**arguments)
 
     def unavailable(self, result, reason):
+        self.assertEqual(result['schema'], 'proxy-r19-msvc-redist-census-v2')
         self.assertEqual((result['status'], result['reason']), ('unavailable', reason))
         self.assertEqual(result['versions'], []); self.assertFalse(result['metadata_snapshot_stable'])
+        self.assertEqual((result['version_count'], result['family_count'], result['file_count']), (0, 0, 0))
+        if reason == 'unknown-version-entry':
+            self.assertIn(result['version_entry_refusal'], {'exact-v14-token', 'other-noncanonical-name', 'both'})
+        else:
+            self.assertIsNone(result['version_entry_refusal'])
         for key in ('source_delivery_approved', 'runtime_collection_allowed', 'production_execution_allowed',
                     'redistribution_approved', 'production_activation',
                     'r19_complete', 'vendor_file_content_read', 'vendor_file_hashes_observed',
@@ -64,6 +70,8 @@ class CensusTests(unittest.TestCase):
             if self.selected in path.parents: self.fail('Candidate CRT content must never be opened.')
             return original(path, *args, **kwargs)
         with patch.object(Path, 'open', refuse_vendor): result = self.observe()
+        self.assertEqual(result['schema'], 'proxy-r19-msvc-redist-census-v2')
+        self.assertIsNone(result['version_entry_refusal'])
         self.assertEqual(result['status'], 'observed-not-approved'); self.assertEqual(result['selection'], 'none')
         self.assertEqual((result['version_count'], result['family_count'], result['file_count']), (2, 3, 12))
         self.assertEqual([x['version'] for x in result['versions']], ['14.50.1', '14.51.36231'])
@@ -116,12 +124,58 @@ class CensusTests(unittest.TestCase):
                     target.write_bytes(original)
 
     def test_unknown_version_preflight_happens_before_descendant_metadata(self):
-        target = self.selected / 'VC/Redist/MSVC'; (target / 'PRIVATE-unknown').mkdir()
-        original = Path.lstat
-        def refuse(path, *args, **kwargs):
-            if target in path.parents: self.fail('Unknown version layout must precede child metadata.')
-            return original(path, *args, **kwargs)
-        with patch.object(Path, 'lstat', refuse): self.unavailable(self.observe(), 'unknown-version-entry')
+        target = self.selected / 'VC/Redist/MSVC'
+        outside = self.base / 'PRIVATE-outside'; outside.write_bytes(b'owned bytes never inspected')
+        originals = {'lstat': Path.lstat, 'stat': Path.stat, 'open': Path.open,
+            'scandir': self.module.os.scandir, 'long': self.module.windows_long_spelling}
+        def guarded(operation):
+            def call(path, *args, **kwargs):
+                if target in Path(path).parents:
+                    self.fail('Root-name refusal must precede every child metadata/content/iteration call.')
+                return originals[operation](path, *args, **kwargs)
+            return call
+        def observed():
+            with patch.object(Path, 'lstat', guarded('lstat')), patch.object(Path, 'stat', guarded('stat')), \
+                    patch.object(Path, 'open', guarded('open')), patch.object(self.module.os, 'scandir', guarded('scandir')), \
+                    patch.object(self.module, 'windows_long_spelling', guarded('long')):
+                return self.observe()
+        cases = [
+            ('literal-directory', [('v14', 'directory')], 'exact-v14-token'),
+            ('literal-file', [('V14', 'file')], 'exact-v14-token'),
+            ('literal-link', [('v14', 'link')], 'exact-v14-token'),
+            ('other', [('PRIVATE-unknown', 'directory')], 'other-noncanonical-name'),
+            ('noncanonical-number', [('14.051', 'file')], 'other-noncanonical-name'),
+            ('mixed', [('v14', 'file'), ('PRIVATE-unknown', 'directory')], 'both'),
+            ('unknown-only', [('v14', 'directory')], 'exact-v14-token')]
+        for label, entries, expected in cases:
+            with self.subTest(case=label):
+                numeric, saved = target/'14.51.36231', self.base/'saved-numeric'
+                if label == 'unknown-only': numeric.rename(saved)
+                for name, kind in entries:
+                    path = target/name
+                    if kind == 'directory': path.mkdir()
+                    elif kind == 'file': path.write_bytes(b'owned unknown bytes')
+                    else: path.symlink_to(outside)
+                try:
+                    # The ordinary numeric sibling sorts before v14/private;
+                    # even its metadata is forbidden once any name is unknown.
+                    result = observed()
+                    self.unavailable(result, 'unknown-version-entry')
+                    self.assertEqual(result['version_entry_refusal'], expected)
+                finally:
+                    for name, kind in entries:
+                        if kind == 'directory': (target/name).rmdir()
+                        else: (target/name).unlink()
+                    if label == 'unknown-only': saved.rename(numeric)
+        class Entries:
+            def __init__(self, values): self.values = values
+            def __enter__(self): return iter(SimpleNamespace(name=name) for name in self.values)
+            def __exit__(self, *_args): pass
+        for values, reason in ((['v14', 'V14'], 'ambiguous-entry'),
+                (['v14', *('PRIVATE-'+str(i) for i in range(16))], 'version-limit')):
+            with self.subTest(refusal=reason):
+                originals['scandir'] = lambda _path: Entries(values)
+                self.unavailable(observed(), reason)
 
     def test_real_parent_link_and_windows_reparse_stop_before_leaf_metadata_or_reads(self):
         parent = self.selected / 'VC/Redist'; original = Path.lstat
@@ -413,6 +467,38 @@ class CensusTests(unittest.TestCase):
         def arbitrary(*_args):
             error = self.module.CensusError('deadline'); error.code = 'PRIVATE ' + str(self.base); raise error
         self.unavailable(self.observe(query=arbitrary), 'observation-failed')
+        class PrivateValue:
+            def __str__(self): raise AssertionError('Private diagnostic attributes must not be formatted.')
+        invalid = [None, True, ['exact-v14-token'], {'path': str(self.base)}, 'PRIVATE raw name',
+            'a'*64, 'v14', PrivateValue()]
+        for reason, values in (('unknown-version-entry', invalid),
+                ('deadline', ['exact-v14-token', 'PRIVATE misplaced context'])):
+            for value in values:
+                with self.subTest(reason=reason, value_kind=type(value).__name__):
+                    error = self.module.CensusError(reason)
+                    error.version_entry_refusal = value
+                    error.args = ('PRIVATE exception text must not be inspected',)
+                    def malformed(*_args): raise error
+                    with self.assertRaises(self.module.CensusError) as caught:
+                        self.observe(query=malformed)
+                    self.assertEqual(caught.exception.code, 'observation-failed')
+                    self.assertNotIn('PRIVATE', str(caught.exception))
+        # The real observe boundary must fail out before a standalone CLI can
+        # write even a negative report with malformed refusal context.
+        actual = self.module.observe
+        def malformed_cli(*args, **kwargs):
+            error = self.module.CensusError('unknown-version-entry')
+            error.version_entry_refusal = 'PRIVATE'
+            def query(*_args): raise error
+            return actual(*args, **kwargs, program_files_provider=lambda: self.program, query=query)
+        arguments = ['observe', '--selected-vs-root', str(self.selected), '--selected-vs-version', self.version,
+            '--vswhere', str(self.utility), '--source-commit', self.source, '--observation-id', 'authored-census',
+            '--output', str(self.base/'must-not-publish.json')]
+        with patch.object(self.module, 'observe', malformed_cli), patch.object(self.module, 'write_report') as writer, \
+                redirect_stderr(io.StringIO()) as stderr:
+            self.assertEqual(self.module.main(arguments), 2)
+        writer.assert_not_called(); self.assertFalse((self.base/'must-not-publish.json').exists())
+        self.assertNotIn('PRIVATE', stderr.getvalue())
 
     def query_json(self, values):
         raw = json.dumps(values).encode()

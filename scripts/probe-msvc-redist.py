@@ -35,6 +35,7 @@ MAPPING_LIMIT = 16
 LOCAL_VOLUME = re.compile(r'\\Device\\HarddiskVolume(?:0|[1-9][0-9]{0,9})', re.IGNORECASE | re.ASCII)
 VERSION = re.compile(r'(?:0|[1-9][0-9]{0,5})(?:\.(?:0|[1-9][0-9]{0,5})){1,3}')
 VS_VERSION = re.compile(r'18(?:\.[0-9]{1,6}){3}')
+VERSION_ENTRY_REFUSALS = frozenset({'exact-v14-token', 'other-noncanonical-name', 'both'})
 DEVICES = frozenset({'CON', 'PRN', 'AUX', 'NUL', 'CONIN$', 'CONOUT$', 'CLOCK$'}
     | {prefix + number for prefix in ('COM', 'LPT') for number in '123456789¹²³'})
 REASONS = frozenset({'none', 'invalid-input', 'platform-unavailable', 'linked-path', 'missing-layout',
@@ -246,8 +247,14 @@ def census(selected_root, budget):
     versions, root_key = names(root, VERSION_LIMIT, 'version-limit', budget)
     if not versions:
         raise CensusError('missing-layout')
-    if any(not VERSION.fullmatch(name) for name in versions):
-        raise CensusError('unknown-version-entry')
+    # Classify only names already returned by the bounded root iterator. No
+    # entry type, link/alias semantics or child metadata is established here.
+    unknown = {name.casefold() == 'v14' for name in versions if not VERSION.fullmatch(name)}
+    if unknown:
+        error = CensusError('unknown-version-entry')
+        error.version_entry_refusal = ('both' if len(unknown) == 2 else
+            'exact-v14-token' if True in unknown else 'other-noncanonical-name')
+        raise error
     rows, private = [], {'redist-root': root_key}
     for version in sorted(versions):
         version_root = root / version
@@ -434,7 +441,8 @@ def serialized(report):
 
 def observe(selected_vs_root, selected_vs_version, vswhere, source_commit, observation_id, *,
             program_files_provider=known_program_files_x86, query=query_instance, clock=time.monotonic, budget=None):
-    report = {'schema': 'proxy-r19-msvc-redist-census-v1', 'status': 'unavailable', 'reason': 'invalid-input',
+    report = {'schema': 'proxy-r19-msvc-redist-census-v2', 'status': 'unavailable', 'reason': 'invalid-input',
+        'version_entry_refusal': None,
         'source_commit_label': None, 'source_binding': 'unverified-caller-label', 'observation_id': None,
         'observation_id_authority': 'binding-only', 'selected_instance': {'version': None, 'edition': 'unknown', 'release_state': 'unknown'},
         'query_utility': None, 'requested_architecture': 'x64', 'selection': 'none', 'versions': [],
@@ -482,7 +490,15 @@ def observe(selected_vs_root, selected_vs_version, vswhere, source_commit, obser
     except Exception as error:
         code = error.__dict__.get('code') if type(error) is CensusError else None
         code = code if type(code) is str and code in REASONS else 'observation-failed'
-        report.update(status='unavailable', reason=code, versions=[], version_count=0, family_count=0, file_count=0, metadata_snapshot_stable=False)
+        refusal = error.__dict__.get('version_entry_refusal') if type(error) is CensusError else None
+        if ((code == 'unknown-version-entry' and
+                (type(refusal) is not str or refusal not in VERSION_ENTRY_REFUSALS))
+                or (code != 'unknown-version-entry' and refusal is not None)):
+            # Invalid exception context must not become even a source-bound
+            # negative pair. Neither its value nor the exception text is read.
+            raise CensusError('observation-failed') from None
+        report.update(status='unavailable', reason=code, version_entry_refusal=refusal,
+            versions=[], version_count=0, family_count=0, file_count=0, metadata_snapshot_stable=False)
     return report
 
 
