@@ -255,6 +255,30 @@ def test_native_scope_requires_actual_python_binding_and_bounded_imports(module,
     with pytest.raises(ValueError): module.validate_native(evidence)
 
 
+@pytest.mark.parametrize('name', ['espeak_Initialize', 'espeak_ng_Synthesize',
+    '__imp_espeak_Initialize', '?phonemize_eSpeak@piper@@YAX', '?phonemize_codepoints@piper@@YAX',
+    'espeak-ng.lib', 'libespeak-ng.dll', '_deps/espeak_ng-build/Release/espeak-ng.lib',
+    'piper_phonemize.lib', 'cmake/piper-phonemize.cmake', 'PiperPhonemizeLexicon',
+    '?PiperPhonemesToIdsVits@sherpa_onnx@@', 'phonemizer'])
+def test_native_tts_predicate_retains_real_api_library_path_and_mangled_name_rejection(module, name):
+    assert module.native_tts_name(name)
+
+
+@pytest.mark.parametrize('name', ['OfflineSpeakerDiarization', 'PybindOfflineSpeakerDiarization',
+    '?PybindOfflineSpeakerDiarization@sherpa_onnx@@YAX', '??_7OfflineSpeakerDiarization@sherpa_onnx@@',
+    'offline-speaker-diarization.cc', 'SpeakerEmbeddingExtractor'])
+def test_native_tts_predicate_preserves_authored_asr_speaker_identifiers(module, name):
+    assert not module.native_tts_name(name)
+
+
+def test_linkmap_shaped_tts_evidence_remains_rejected_without_offline_speaker_false_positive(module):
+    retained = (' 0001:00001234 ?PybindOfflineSpeakerDiarization@sherpa_onnx@@ 0000000180001234 f _sherpa_onnx.obj\n'
+        ' 0002:00000020 ??_7OfflineSpeakerDiarization@sherpa_onnx@@ 0000000180010020 core.lib\n')
+    assert not module.native_tts_name(retained)
+    for native in ('espeak_Initialize', '__imp_espeak_ng_Synthesize', '?phonemize_eSpeak@piper@@YAX'):
+        assert module.native_tts_name(retained + ' 0001:00004567 ' + native + ' 0000000180004567 f espeak-ng.lib\n')
+
+
 def test_toolchain_summary_hides_private_roots_and_detects_changed_bytes(module, tmp_path):
     roots = {}
     for name in ['vc', 'vc-auxiliary', 'msbuild', 'sdk-include', 'sdk-lib', 'sdk-bin', 'cmake', 'python']:
@@ -327,6 +351,58 @@ def test_cmake_observation_never_serializes_raw_version_output_or_unbounded_priv
     assert report['cmake_observation']['observed_version'] is None
     delivered = (output / 'ASR-FAILURE.json').read_text()
     assert str(tmp_path) not in delivered and 'private' not in delivered and 'raw_output' not in delivered
+
+
+@pytest.mark.parametrize('labels', [[], ['v170', 'v180']])
+def test_vc_target_diagnostics_keep_uniqueness_guard_and_collect_parent_categories_before_refusal(module, tmp_path, monkeypatch, labels):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    msbuild = tmp_path / 'msbuild'; msbuild.mkdir()
+    for label in labels:
+        props = msbuild / 'Microsoft/VC' / label / 'Microsoft.Cpp.Default.props'
+        props.parent.mkdir(parents=True); props.write_bytes(('Owned props fixture ' + label).encode())
+    (output.parent / 'Directory.Build.targets').write_bytes(b'owned parent import fixture')
+    with pytest.raises(ValueError): module.review_vc_targets(output, msbuild)
+    assert module._BUILD_PHASE == 'vc-target-selection'
+    report = module.failed_build_receipt(output, module._BUILD_PHASE, ValueError('private failure text'))
+    observation = report['build_environment_observation']
+    assert observation['vc_targets']['candidate_count'] == len(labels)
+    assert [v['label'] for v in observation['vc_targets']['candidates']] == labels
+    assert observation['parent_import_categories'] == ['Directory.Build.targets']
+    for candidate in observation['vc_targets']['candidates']:
+        props = msbuild / 'Microsoft/VC' / candidate['label'] / 'Microsoft.Cpp.Default.props'
+        assert candidate['props'] == module.attributes(props.read_bytes())
+    assert str(tmp_path) not in json.dumps(observation)
+    assert report['status'] == 'failed' and not (output / 'ASR-RECEIPT.json').exists()
+
+
+def test_single_vc_target_does_not_bypass_parent_import_gate(module, tmp_path, monkeypatch):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    msbuild = tmp_path / 'msbuild'
+    props = msbuild / 'Microsoft/VC/v180/Microsoft.Cpp.Default.props'
+    props.parent.mkdir(parents=True); props.write_bytes(b'owned props fixture')
+    (output.parent / 'MSBuild.rsp').write_bytes(b'owned response fixture')
+    assert module.review_vc_targets(output, msbuild) == [props]
+    module.build_phase('parent-import-review')
+    with pytest.raises(ValueError): module.reject_parent_imports(output)
+    report = module.failed_build_receipt(output, module._BUILD_PHASE, ValueError('owned refusal'))
+    assert report['phase'] == 'parent-import-review'
+    assert report['build_environment_observation']['parent_import_categories'] == ['MSBuild.rsp']
+
+
+def test_build_environment_projection_cannot_publish_unknown_labels_paths_or_raw_props(module, tmp_path, monkeypatch):
+    _source, _inputs, output = prepared(module, tmp_path, monkeypatch)
+    monkeypatch.setattr(module, '_BUILD_ENVIRONMENT_OBSERVATION', {'vc_targets': {
+        'candidate_count': 1, 'candidates': [{'label': 'v-private-tenant',
+            'props': {**module.attributes(b'owned props'), 'contents': 'private model text'},
+            'path': str(tmp_path / 'private-props')}]},
+        'parent_import_categories': ['Directory.Build.props', str(tmp_path / 'private-import'),
+            {'unexpected': 'private object'}], 'raw_exception': 'private exception text'})
+    report = module.failed_build_receipt(output, 'vc-target-selection', ValueError('private error'))
+    observation = report['build_environment_observation']
+    assert observation['vc_targets']['candidates'] == [{'label': None, 'props': module.attributes(b'owned props')}]
+    assert observation['parent_import_categories'] == ['Directory.Build.props']
+    delivered = (output / 'ASR-FAILURE.json').read_text()
+    assert str(tmp_path) not in delivered and 'private' not in delivered and 'contents' not in delivered
 
 
 def test_actual_python_tree_must_match_supplier_archive_not_only_version(module, tmp_path, monkeypatch):

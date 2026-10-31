@@ -117,6 +117,14 @@ interpreter-origin, supplier-byte and CMake-version subphases. A failed receipt
 may include only bounded numeric expected/observed CMake versions and the
 executable's byte count/SHA-256; raw version lines, paths, arguments and exception
 text remain private. An observed mismatch does not relax the 4.4.5 constraint.
+VC-target selection, parent-import review and configure-argument/source
+validation have distinct fixed subphases. Before the target uniqueness check,
+diagnostics collect every candidate's bounded numeric `v...` label and props
+byte count/SHA-256, plus fixed parent-import categories. Unrecognized labels and
+raw paths/props contents cannot enter the receipt. No candidate is selected
+when the count differs from one; registry fallback and parent imports remain
+refused. These observations identify a failed early boundary without changing
+the target selection or configuration policy.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC
@@ -133,6 +141,13 @@ and Python user sites cannot choose source inputs. Generated compilation units
 must remain in the prepared/build root. Actual native project/source inputs,
 the binding link map, named exports and normal/delay imports are checked for the
 expected Python/ONNX/system scope and absence of eSpeak/Piper/phonemizer inputs.
+One shared native-name predicate recognizes vendor/API boundaries in actual
+`espeak_`/`espeak_ng_` functions, `espeak-ng`/`piper-phonemize` libraries/paths,
+and native phonemizer identifiers, including MSVC-decorated forms. Retained
+`OfflineSpeakerDiarization`/`PybindOfflineSpeakerDiarization` names contain an
+incidental e+Speaker substring and must not count as eSpeak implementation.
+This keeps diarization enabled; fixed TTS-OFF/configuration, exact source graph
+and structural TTS compilation checks remain independent requirements.
 Dynamic runtime loading in unexercised features is still an exact-output review
 question; a marker search alone is not a broad native-closure approval.
 

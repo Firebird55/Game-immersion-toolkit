@@ -37,6 +37,7 @@ BUILD_PHASES = frozenset({'build-preflight', 'source-validation', 'toolchain-val
     'vs-installation-origin', 'tool-root-schema', 'tool-root-filesystem',
     'python-interpreter-origin', 'python-supplier-bytes', 'cmake-version-review',
     'cmake-pinned-input', 'final-cmake-pinned-input',
+    'vc-target-selection', 'parent-import-review', 'configure-argument-review',
     'toolchain-seal', 'probe-dependency-preparation', 'build-environment', 'cmake-configure',
     'build-graph-review', 'native-build', 'native-output-review', 'candidate-assembly',
     'probe-decode', 'probe-wrong-shape', 'probe-corrupt', 'final-source-review',
@@ -57,6 +58,9 @@ KNOWN_BUILD_CODES = frozenset({'C1001', 'C1010', 'C1083', 'C1189', 'C1900', 'C20
 _BUILD_PHASE = 'build-preflight'
 _BUILD_SOURCE_COMMIT = None
 _BUILD_CMAKE_OBSERVATION = None
+_BUILD_ENVIRONMENT_OBSERVATION = None
+PARENT_IMPORT_NAMES = frozenset({'Directory.Build.props', 'Directory.Build.targets',
+    'Directory.Build.rsp', 'MSBuild.rsp'})
 
 
 def build_phase(value):
@@ -401,6 +405,62 @@ def safe_cmake_observation():
     return result
 
 
+def safe_build_environment_observation():
+    value = _BUILD_ENVIRONMENT_OBSERVATION
+    if not isinstance(value, dict):
+        return None
+    targets = value.get('vc_targets')
+    observed = None
+    if isinstance(targets, dict):
+        count = targets.get('candidate_count')
+        observed = {'candidate_count': count if type(count) is int and 0 <= count <= 4096 else None,
+            'candidates': []}
+        candidates = targets.get('candidates')
+        for candidate in candidates[:4096] if isinstance(candidates, list) else []:
+            if not isinstance(candidate, dict):
+                continue
+            label = candidate.get('label')
+            record = {'label': label if isinstance(label, str) and re.fullmatch(r'v[0-9]{1,4}', label) else None,
+                'props': None}
+            props = candidate.get('props')
+            if (isinstance(props, dict) and type(props.get('bytes')) is int
+                    and 0 <= props['bytes'] <= 16 * 1024 * 1024
+                    and isinstance(props.get('sha256'), str) and re.fullmatch('[0-9a-f]{64}', props['sha256'])):
+                record['props'] = {'bytes': props['bytes'], 'sha256': props['sha256']}
+            observed['candidates'].append(record)
+    categories = value.get('parent_import_categories')
+    return {'vc_targets': observed, 'parent_import_categories': sorted({
+        name for name in categories if isinstance(name, str) and name in PARENT_IMPORT_NAMES}
+        if isinstance(categories, list) else set())}
+
+
+def parent_import_categories(output):
+    return sorted({name for directory in (output, *output.parents) for name in PARENT_IMPORT_NAMES
+        if (directory / name).exists()})
+
+
+def review_vc_targets(output, msbuild):
+    """Observe every matching target and parent-import category before refusal."""
+    global _BUILD_ENVIRONMENT_OBSERVATION
+    build_phase('vc-target-selection')
+    targets = sorted(Path(msbuild).glob('Microsoft/VC/v*/Microsoft.Cpp.Default.props'))
+    candidates = []
+    for path in targets[:4096]:
+        label, props = path.parent.name.lower(), None
+        try:
+            no_links(path)
+            if path.is_file() and path.stat().st_size <= 16 * 1024 * 1024:
+                props = attributes(path.read_bytes())
+        except (OSError, ValueError):
+            pass  # Unavailable props remain explicit; no exception text escapes.
+        candidates.append({'label': label, 'props': props})
+    _BUILD_ENVIRONMENT_OBSERVATION = {'vc_targets': {'candidate_count': len(targets), 'candidates': candidates},
+        'parent_import_categories': parent_import_categories(output)}
+    if len(targets) != 1:
+        raise ValueError('A unique sealed VC target directory is required; do not fall back to registry paths.')
+    return targets
+
+
 def observe_cmake_version(executable, expected):
     global _BUILD_CMAKE_OBSERVATION
     _BUILD_CMAKE_OBSERVATION = {'expected_version': numeric_version(expected),
@@ -559,6 +619,17 @@ def pe_evidence(data):
     return result
 
 
+def native_tts_name(value):
+    """Vendor/API identifiers, not the e+Speaker substring in OfflineSpeaker.
+
+    Real inputs include espeak_/espeak_ng_ APIs, piper namespaces/library names,
+    phonemize_eSpeak and the upstream PiperPhonemizeLexicon/PiperPhonemes names.
+    The phonemiz stem intentionally covers their C++ and C identifier forms.
+    """
+    return bool(re.search(r'(?<![a-z0-9])(?:lib)?(?:espeak|piper)(?=$|[^a-z0-9])|phonemiz', value, re.I)
+        or re.search(r'(?<![A-Za-z0-9])(?:Piper|eSpeak|ESpeak)(?=[A-Z])', value))
+
+
 def validate_native(evidence):
     imports = evidence['imports'] + evidence['delay_imports']
     allowed = {'advapi32.dll', 'kernel32.dll', 'ntdll.dll', 'ole32.dll', 'oleaut32.dll',
@@ -568,7 +639,7 @@ def validate_native(evidence):
             or any(n.casefold() not in allowed and not re.fullmatch(r'api-ms-win-[a-z0-9-]+\.dll', n.casefold()) for n in imports)
             or 'PyInit__sherpa_onnx' not in evidence['exports']
             or any(any(c in n for c in '/\\:') for n in imports + evidence['exports'])
-            or any(re.search(r'espeak|piper|phonemiz', n, re.I) for n in imports + evidence['exports'])):
+            or any(native_tts_name(n) for n in imports + evidence['exports'])):
         raise ValueError('The isolated ASR binding native dependency/export scope differs.')
 
 
@@ -702,6 +773,7 @@ def failed_build_receipt(output, phase, error):
         'status': 'failed', 'phase': phase, 'failure_category': category,
         'diagnostics': known_log_diagnostics(output, phase),
         'cmake_observation': safe_cmake_observation(),
+        'build_environment_observation': safe_build_environment_observation(),
         'source_commit': _BUILD_SOURCE_COMMIT if isinstance(_BUILD_SOURCE_COMMIT, str)
             and re.fullmatch('[0-9a-f]{40}', _BUILD_SOURCE_COMMIT) else None,
         'manifest_sha256': sha((ROOT / MANIFEST).read_bytes()),
@@ -733,17 +805,21 @@ def publish_success_receipt(output, receipt):
 
 
 def reject_parent_imports(output):
-    for directory in (output, *output.parents):
-        for name in ('Directory.Build.props', 'Directory.Build.targets', 'Directory.Build.rsp', 'MSBuild.rsp'):
-            if (directory / name).exists():
-                raise ValueError('An ambient parent MSBuild import/response file would affect the experiment.')
+    global _BUILD_ENVIRONMENT_OBSERVATION
+    categories = parent_import_categories(output)
+    if _BUILD_ENVIRONMENT_OBSERVATION is None:
+        _BUILD_ENVIRONMENT_OBSERVATION = {'vc_targets': None}
+    _BUILD_ENVIRONMENT_OBSERVATION['parent_import_categories'] = categories
+    if categories:
+        raise ValueError('An ambient parent MSBuild import/response file would affect the experiment.')
 
 
 def build(output, tool_roots, vs_root, inputs, cmake_root=None):
-    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
+    _BUILD_ENVIRONMENT_OBSERVATION = None
     try:
         return _build(output, tool_roots, vs_root, inputs, cmake_root)
     except Exception as error:
@@ -811,9 +887,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
         'LOCALAPPDATA': str(output / 'empty-home/AppData/Local')})
     (output / 'empty-home').mkdir()
     user_props = output / 'empty-home/MSBuild'; user_props.mkdir()
-    targets = list(Path(roots['msbuild']).glob('Microsoft/VC/v*/Microsoft.Cpp.Default.props'))
-    if len(targets) != 1:
-        raise ValueError('A unique sealed VC target directory is required; do not fall back to registry paths.')
+    targets = review_vc_targets(output, roots['msbuild'])
     build_properties = {'ImportDirectoryBuildProps': 'false', 'ImportDirectoryBuildTargets': 'false',
         'UserRootDir': user_props.as_posix() + '/', 'MSBuildUserExtensionsPath': user_props.as_posix() + '/',
         'VCTargetsPath': targets[0].parent.as_posix() + '/'}
@@ -822,6 +896,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
             build_properties['ImportUserLocationsByWildcard' + when + 'Microsoft' + kind] = 'false'
     env.update(build_properties)
     env['MSBUILDDISABLENODEREUSE'] = '1'
+    build_phase('parent-import-review')
     reject_parent_imports(output)
     configure = [cmake, '-S', output / 'sources/sherpa-onnx', '-B', build_root,
         '-G', policy['toolchain']['generator'], '-A', 'x64',
@@ -829,6 +904,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
         '-DCMAKE_GENERATOR_INSTANCE=' + str(vs_root),
         '-DCMAKE_SYSTEM_VERSION=' + policy['toolchain']['windows_sdk_version'],
         '--trace-expand', '--trace-format=json-v1', '--trace-redirect=' + str(output / 'PRIVATE-CMAKE-TRACE.jsonl')]
+    build_phase('configure-argument-review')
     configure += cmake_arguments(output, sys.executable)
     configure += ['-DCMAKE_VS_GLOBALS=' + ';'.join(k + '=' + v for k, v in build_properties.items())]
     map_option = '/INCREMENTAL:NO /Brepro /MAP:' + (output / 'PRIVATE-BINDING.map').as_posix()
@@ -850,12 +926,12 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
                 or not compiler or not Path(compiler[1]).resolve().is_relative_to(Path(roots['vc']).resolve())):
             raise ValueError('The observed compiler version or sealed tool origin differs.')
     projects = list(build_root.rglob('*.vcxproj'))
-    if not projects or any(re.search(r'espeak|piper|phonemiz', p.name, re.I) for p in projects):
+    if not projects or any(native_tts_name(p.name) for p in projects):
         raise ValueError('Unexpected TTS/native project in the ASR build graph.')
     compiled = [str((p.parent / html.unescape(v)).resolve()) for p in projects
                 for v in re.findall(r'<ClCompile Include="([^"]+)"', p.read_text(encoding='utf-8-sig'))]
     if (not any(v.endswith('offline-sense-voice-model.cc') for v in compiled)
-            or any(re.search(r'espeak|piper|phonemiz|offline-tts', v, re.I) for v in compiled)):
+            or any(native_tts_name(v) or re.search(r'offline-tts', v, re.I) for v in compiled)):
         raise ValueError('The actual ASR compilation input scope differs.')
     if any(not Path(v).is_relative_to(output) for v in compiled):
         raise ValueError('A compilation unit is outside the prepared/build output.')
@@ -874,7 +950,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
     native = pe_evidence(pyd.read_bytes())
     validate_native(native)
     link_map = (output / 'PRIVATE-BINDING.map').read_text(encoding='utf-8', errors='replace')
-    if not link_map or re.search(r'espeak|piper|phonemiz', link_map, re.I):
+    if not link_map or native_tts_name(link_map):
         raise ValueError('Unexpected phonemizer in the actual binding link map.')
     build_phase('candidate-assembly')
     wheel = make_wheel(output, pyd)
@@ -919,6 +995,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root):
     receipt.update({'status': 'native-reference-probes-passed', 'source_commit': commit,
         'toolchain_constraints': policy['toolchain'], 'toolchain_observed_bytes': toolchain_summary(initial),
         'pinned_cmake': cmake_supplier,
+        'build_environment_observation': safe_build_environment_observation(),
         'source_graph': graph, 'native_binding': native_binding,
         'native_pe': native, 'link_map_sha256': sha((output / 'PRIVATE-BINDING.map').read_bytes()),
         'no_espeak_link_input_observed': True, 'private_wheel': wheel_bytes,
