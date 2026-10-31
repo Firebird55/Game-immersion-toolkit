@@ -1,6 +1,7 @@
 # R19 MSVC REDIST metadata census
 
-Status: authored source contracts only; an actual Windows census remains pending.
+Status: authored source contracts; the first hosted wrapper attempt failed
+before publication. An actual source-bound Windows census remains pending.
 This first observation does not select, collect or approve a CRT component.
 It changes no installer, release, PR #59 or Windows 11 acceptance policy.
 
@@ -164,6 +165,19 @@ with each validated serialized payload. The census SHA-256 binds those exact
 bytes. A third clean-source snapshot after publication is mandatory. Only the
 fixed validated-pair sentinel opens the upload gate for the two exact
 filenames, including a source-bound negative observation.
+
+## First hosted observation
+
+[Run 41204341666](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41204341666)
+attempt 1 at `ed153abbbf29ab9c7cb5a71c8be58158513cf519` failed in the wrapper
+step on image `20261021.278.1`, after six Node contract tests passed. The
+available log proves neither the Python-method count nor the failing observer
+subphase. Upload was skipped and the provider artifact list is empty: there is
+no receipt digest, census, metadata snapshot or source-bound negative result to
+accept. Python 3.12.10 and Node 24.22.1 were the declared/observed build tools.
+The fixed generic failure alone justifies no source, environment or path-policy
+change. Further diagnosis must retain finite phases/codes and privacy; no CRT
+file is admitted by this failure.
 
 ## Remaining work
 

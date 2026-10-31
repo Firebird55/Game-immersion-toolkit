@@ -3,12 +3,42 @@
 This experiment connects the existing synthetic migration coordinator to the
 existing frozen frontend/API process owner. It exercises one authored Chinese
 transcript and favorite write. It does not enable production migration or an
-installer. Native execution of this new case remains pending until an exact
-source-bound Windows receipt is downloaded and independently reviewed.
+installer. Its first frozen Windows execution at `ed153ab` passed; the downloaded
+source-bound receipt was independently reviewed. This closes only the fixed
+authored-copy observation described below.
 
 The existing [completion plan](r19-completion-plan.md) C2/C3/C4 gates remain
 open. The successful historical owned-host, cold-slot and
 [living keeper](r19-frozen-keeper-probe.md) experiments remain separate evidence.
+
+## Verified frozen checkpoint
+
+[Run 41204305394](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41204305394)
+at `ed153abbbf29ab9c7cb5a71c8be58158513cf519` passed 1,018 Windows contracts
+without skips, including the PowerShell reader contracts, then this actual
+frozen case. Image `20261030.294.1` is hosted Server evidence, not Windows 11
+ordinary-user acceptance. Metadata artifact `13044112368` is 1,334,433 bytes,
+SHA-256 `89e3f21dd887c60a72958612f7765562e812018cd065161b2db989d9160988e6`.
+Its ten exact entries contain nine sanitized JSON files and the unchanged
+approved Xiph source kit; no database, transcript or executable was downloaded.
+
+The C3 receipt binds build `runtime-experiment-41204305394-1`, two original-source
+cohorts, four retained writer signals, two authored rows and schema pins
+`[0,0,0]`. Copy verification, source bytes before resume, logical state after
+fresh-source resume, initial pointer preservation, stale-barrier refusal and
+explicit writer/lease/private-tree cleanup pass. Both strict writer drains use
+the existing 30-second runtime/35-second HTTP bounds. Nine actual source-entry
+attempts observe sharing-violation exclusion. The recorded source-operation
+hash `f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e`
+matches this commit's actual Windows-CRLF source bytes.
+
+This run copied **zero WAL and SHM files**. Local WAL regressions remain useful,
+but this receipt proves no native WAL/SHM copy or interrupted-copy recovery.
+External API effects are mocked and SQLite is real. The coordinator remains
+alive; target activation, warm routing, dynamic writer admission, keeper loss,
+credentials, browser continuity and full R19 acceptance remain unavailable or
+false. The [checkpoint ledger](r19-frozen-checkpoint-20261031.json) preserves
+these boundaries and the earlier independent keeper/cold-slot evidence.
 
 ## Ownership and copy order
 
@@ -146,7 +176,8 @@ Targeted checks are `backend/tests/test_runtime_data_copy_probe.py` plus existin
 host/coordinator/migration regressions. Local doubles prove order and actual
 SQLite semantics; they do not prove Win32 process ownership. Pure PowerShell
 contracts are explicitly unavailable where pwsh is missing and must run in
-hosted Windows. The actual fixed frozen case requires a new downloaded receipt.
+hosted Windows. The checkpoint above verifies their actual Windows execution
+and this fixed frozen case; later source changes need their own evidence.
 
 Still open: production global/dynamic writer admission, coordinator/keeper
 death, live user copy, settings-root mapping, DPAPI/accounts and deliberate

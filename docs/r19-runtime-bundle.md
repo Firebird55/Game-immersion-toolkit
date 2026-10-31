@@ -935,6 +935,46 @@ SHA-256 efe36ef86dd853f5ecefff74a6946a6419f3db3df9bb2c9c3f835f8883e8d6ed.
 Source delivery, recipe/component rights, runtime integration and ordinary
 Windows 11 acceptance remain open.
 
+## Verified authored-copy checkpoint at ed153ab
+
+[Integrated run 41204305394](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41204305394)
+at `ed153abbbf29ab9c7cb5a71c8be58158513cf519` passed 1,018 Windows contracts
+without skips on image `20261030.294.1`, then freezing, native/C1/cold-slot,
+living-keeper and the new [authored SQLite-copy](r19-frozen-data-copy-probe.md)
+cases. All downloaded metadata was independently reviewed. Artifact
+`13044112368` has ten exact entries, 1,334,433 bytes and SHA-256
+`89e3f21dd887c60a72958612f7765562e812018cd065161b2db989d9160988e6`.
+Its 1,449-file inventory matches 473 unchanged A2 input/final records and all
+473 P1 identities. The 113 component notice occurrences represent 104 distinct
+hashes for 57 components; every hash is present. Application load hashes and
+the retained original/delivered-source Xiph rebuild outputs match the inventory.
+Native closure and incorporated rights remain unverified.
+
+The authored copy confirms strict drains, four retained writer signals across
+two source cohorts, Chinese/context/favorite preservation, source bytes before
+restart, logical state after restart, unchanged pointer, stale-barrier refusal
+and explicit cleanup. Its nine actual source-entry blocks supplement 29 cold
+and four keeper blocks. All three legacy-operation receipt hashes match the
+same commit's actual Windows-CRLF source bytes. The copy fixture had zero
+WAL/SHM files. It proves no interrupted copy, target activation, global/dynamic
+writer lifetime, keeper loss, warm route, user credential/browser/schema
+continuity or Windows 11 acceptance.
+
+Reference source/rebuild artifact `13043907363` is 1,095,193 bytes, SHA-256
+`ad32e13b8ad2230d914e65c128884a5fb1d31bcd255c387a1654e06ad8a0a626`.
+The unchanged approved `7dd55f62…ab7b9` kit retains six inputs and 907 upstream
+tar entries; original/rebuild nine outputs, authored PCM, faults and origins
+pass. The separate diagnostic and authored-helper workflows also passed on
+this head, with their allowlisted metadata independently checked.
+
+The same head's ASR source run failed during configure. Its eight untruncated
+records identify `CL` with `TypeInitializationException → ArgumentException`;
+the underlying cause, compilation, inference and final tool seals remain
+unproved. The separate read-only MSVC census failed before publishing any
+artifact. Neither failure is a runtime/source/rights acceptance result.
+Doctor exit 2 and all production/R19-complete gates remain unchanged. Exact
+download identities and limits are in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

@@ -43,12 +43,12 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `1c2d931`, 971 Windows contracts, freezing, native/C1/cold-slot and both detached living-keeper cases passed; downloaded metadata and source/rebuild artifacts were independently checked | This bounded Server checkpoint does not prove keeper loss, dynamic writer admission, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation |
+| Extracted runtime | At `ed153ab`, 1,018 Windows contracts, freezing, native/C1/cold-slot, both detached living-keeper cases and the authored SQLite copy with fresh source-cohort restart passed; downloaded metadata/source artifacts were independently checked | This bounded Server checkpoint has zero WAL/SHM files and proves no interrupted copy, target activation, keeper loss, dynamic writer admission, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
 | ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
-| Host/data recovery | Synthetic guard/copy/recovery tests and separate source/Server protected-TEST probes exist; owned router shutdown and selected frozen settings/export-lock roots are corrected; strict writer handoff is explicitly opt-in; guarded cold A/B/rollback and host-crash exclusion passed at `12d0d0e` with the actual source operation blocked throughout | No production global writer barrier, frozen supervising updater or full candidate/browser/credential continuity proof |
+| Host/data recovery | Synthetic guard/copy/recovery tests and source/Server protected-TEST probes exist; guarded cold slots, living-keeper cases and the `ed153ab` authored-copy receipt verify bounded retained-process/continuous-lease behavior with actual source-entry contenders | No production global writer barrier, interrupted frozen copy/recovery, keeper-loss lifetime, warm supervising updater or full candidate/browser/credential/schema continuity proof |
 | Unvoiced export | Actual source and `acc68be` frozen authored Half-Life index/language/mobile-export workers and the portable mobile parser pass for English and Simplified Chinese, with missing-pack rejection and previous-export preservation | Ordinary-user/installed-pack acceptance remains pending; no original speech binding is added |
 | Source original PCM | Source and `acc68be` frozen authored Portal VPK/VCCD/event and selected English/French pack bindings pass actual index/language workers and in-process extraction/PCM validation; truncated PCM preserves prior output | MP3/composite/Bink decoding, voiced mobile export and installed-game/native coverage remain pending |
 
@@ -87,9 +87,11 @@ writer signals and explicit cleanup. The outer keeper remained alive: keeper
 loss and general writer lifetime remain open.
 The [authored frozen data-copy adapter](r19-frozen-data-copy-probe.md) now
 connects that fixed writer cohort to the existing typed migration barrier.
-Its local SQLite/ordering contracts pass, but its new frozen Windows case is
-pending. It restarts the original source with a fresh cohort; it does not
-activate a copied target, warm a candidate or publish a route.
+Its local SQLite/ordering contracts and first frozen Windows case at `ed153ab`
+pass. The downloaded receipt verifies two source cohorts, four retained writer
+signals and nine actual source-operation blocks. No WAL/SHM file was present.
+It restarts the original source with a fresh cohort; it does not activate a
+copied target, warm a candidate, publish a route or prove interrupted recovery.
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source
 experiment](r19-asr-source-experiment.md) is a distinct private binding variant,
@@ -105,12 +107,17 @@ review and the separately proposed six-file recipe license remain pending.
 At that same checkpoint, ASR verified the initial exact CMake module variant
 and selected VS18 `v180` inputs, then failed configure with MSB4018. The isolated
 `ce09ea2` follow-up confirmed canonical imports and a `CL` task
-type-initialization exception; its underlying cause remains unknown. Neither
-run proves compilation or inference. The follow-up changed no tool pins,
+type-initialization exception. At `ed153ab`, eight bounded records additionally
+identify an inner `ArgumentException`; message, parameter, initializer and
+underlying cause remain unknown. These runs prove no compilation or inference.
+The diagnostic changes altered no tool pins,
 compiler flags or full selected-instance identity.
 The [MSVC metadata census](r19-msvc-redist-observation.md) is a separate
 read-only first step, with no component selection, redistribution permission
-or runtime admission. The strict toolchain and source guards remain in force.
+or runtime admission. Its first hosted census at `ed153ab` failed before
+publication, with no artifact or proven Python-contract/census subphase. Fixed
+phase diagnosis is separate work, not permission to alter paths or select CRTs.
+The strict toolchain and source guards remain in force.
 The [immutable frontend retention adapter](r19-frontend-slot-retention.md) now
 binds a fixed current/retired frontend snapshot to independently trusted slot
 manifest hashes. Its authored loopback tests cover old Vite/Next chunks and

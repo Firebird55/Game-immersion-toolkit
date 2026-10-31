@@ -452,6 +452,21 @@ variant/tool-seal checks and a delivered source-cohort receipt were not reached.
 This establishes a task type-initialization failure, not its underlying cause.
 No environment or compiler-policy change is justified by that exception alone.
 
+The subsequent [inner-chain run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41204339894)
+at `ed153abbbf29ab9c7cb5a71c8be58158513cf519` used image `20261021.278.1`
+and VS `18.11.12315.225`. Artifact `13044461089` is 2,760 bytes, SHA-256
+`bb9547d84a21f8c1aaa9f2be32f7633081d9ea2fd50d3026c5ca4be829baf395`;
+its sole failure JSON is 16,255 bytes, SHA-256
+`0fb361b6248631a96dd613aedb731a4aa5c753867b61a97c120aea56b1756cce`.
+Two reviewers checked exact head, CRLF manifest, initial module variant,
+canonical imports and all closed gates. All eight `CL` contexts contain the
+ordered untruncated family chain `type-initialization, argument`, with no
+matched HRESULT/Win32 labels. This identifies `ArgumentException`, not
+`ArgumentNullException`. Message, parameter and initializer identity were not
+delivered, so no environment/flag fix or exact underlying cause is established.
+Configure failed after 6.716 seconds; graph/compile/inference, final tool/variant
+checks and a delivered source-cohort receipt were not reached.
+
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC
