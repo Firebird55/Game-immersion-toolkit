@@ -14,6 +14,7 @@ import pytest
 from backend import desktop_host as host_module
 from backend.desktop_host import DesktopHost, HostControl, HostLog, contact_instance, selected_environment
 from backend.runtime_bundle import discover_layout
+from backend.desktop_gateway import RuntimeRoutes
 
 
 def layout(tmp_path):
@@ -128,15 +129,20 @@ def test_child_restart_publishes_new_route_without_reopening_browser(tmp_path, m
         deadline = time.monotonic() + 5
         while not host.browser_opened and time.monotonic() < deadline:
             time.sleep(.02)
+        routes = RuntimeRoutes(host.route_path)
+        routes.refresh()
         host.services['API'].owner.dead = True
         while counts['API'] < 2 and time.monotonic() < deadline:
             time.sleep(.02)
-        while json.loads(host.route_path.read_text())['active']['apiPort'] != 15002 and time.monotonic() < deadline:
+        # Poll through the production reader, which retains its last valid
+        # route during Windows' brief sharing violation at atomic replacement.
+        while routes.active[0] != 15002 and time.monotonic() < deadline:
+            routes.refresh()
             time.sleep(.02)
         assert counts == {'API': 2, 'Frontend': 1, 'Gateway': 1}
         assert browsers == ['http://127.0.0.1:3000']
         assert events.index(('stop', 'API')) < events.index(('start', 'API', 2))
-        assert json.loads(host.route_path.read_text())['active']['apiPort'] == 15002
+        assert routes.active[0] == 15002
     finally:
         host.stop_requested.set()
         thread.join(timeout=5)
