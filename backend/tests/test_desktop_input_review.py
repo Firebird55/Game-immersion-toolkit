@@ -106,14 +106,15 @@ def test_source_eol_equivalence_does_not_accept_source_edits():
     assert not review.source_matches(b'\0line\n', review.sha(b'\0line\r\n'), 'binary')
 
 
-def test_observation_metadata_is_bound_but_source_mismatch_reported():
+@pytest.mark.parametrize('field', ['build_id', 'helpers', 'python_version'])
+def test_observation_metadata_is_bound_but_source_mismatch_reported(field):
     inputs = {'owned.py': review.sha(b'changed')}
     receipt = {'source_commit': 'a' * 40, 'build_id': 'fixture',
         'source_inputs_sha256': review.sha(json.dumps(inputs, sort_keys=True).encode())}
     observed = {**receipt, 'schema': 'proxy-desktop-observed-build-v1', 'source_inputs': inputs}
     assert review.verify_observation(receipt, observed, SimpleNamespace(files={'owned.py': b'original'})) == ['owned.py']
-    with pytest.raises(ValueError, match='build_id'):
-        review.verify_observation(receipt, {**observed, 'build_id': 'forged'}, SimpleNamespace(files={}))
+    with pytest.raises(ValueError, match=field):
+        review.verify_observation(receipt, {**observed, field: 'forged'}, SimpleNamespace(files={}))
 
 
 def test_source_archive_missing_blocks_notices_and_source(tmp_path):

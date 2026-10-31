@@ -505,7 +505,7 @@ def load_script(name):
 def verify_observation(receipt, observed, snapshot):
     if observed.get('schema') != 'proxy-desktop-observed-build-v1':
         raise ValueError('Expected the actual desktop input observation.')
-    for key in ('source_commit', 'build_id', 'version', 'profile', 'python_supplier', 'components', 'native_resources', 'python_executable_sha256'):
+    for key in ('source_commit', 'build_id', 'version', 'profile', 'python_supplier', 'components', 'native_resources', 'helpers', 'python_version', 'python_executable_sha256'):
         if observed.get(key) != receipt.get(key):
             raise ValueError('Observed input identity differs from the candidate receipt: ' + key)
     inputs = observed.get('source_inputs')
@@ -567,6 +567,9 @@ def review(args):
         'file_inventory_sha256': inventory_digest(receipt), 'approved': all(checks.values()), 'checks': checks,
         'capabilities': capabilities, 'details': result.checks, 'native_inventory': result.native_files,
         'reviewer_sha256': digest(Path(__file__)), 'observed_inputs_sha256': digest(args.observed_inputs),
+        'policy_inputs': {name: digest(args.source_root / name) for name in (
+            'packaging/desktop/native-notices.json', 'packaging/desktop/qt-sources.json',
+            'packaging/frontend-notices/sources.json', 'scripts/dependency-notices.mjs')},
         'scope': 'Exact supplied artifacts, delivered notices and known source adapters. Not independent reproduction of compiled outputs, native execution acceptance or legal certification.'}
 
 
