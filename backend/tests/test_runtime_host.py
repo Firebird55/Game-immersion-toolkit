@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -238,6 +239,364 @@ def test_listener_identity_is_rechecked_before_readiness_is_accepted(owned, monk
         host.close()
 
 
+@pytest.fixture
+def registered(layout, monkeypatch):
+    """Separate fake-native fixture; it does not certify Windows execution."""
+    calls, members, exited = [], {101, 102}, set()
+    class Kernel:
+        def OpenProcess(self, _access, _inherit, pid):
+            calls.append(('observe', pid)); return pid+1000
+        def IsProcessInJob(self, observer, _job, result):
+            result._obj.value = observer-1000 in members
+            return True
+        def WaitForSingleObject(self, handle, _timeout): return 0 if handle in exited else 258
+        def CloseHandle(self, handle): calls.append(('close-observer', handle)); return True
+    class Child:
+        def __init__(self, pid): self.pid, self.process_handle, self.resumed = pid, pid, False
+        def resume_once(self):
+            calls.append(('resume', self.pid)); self.resumed = True
+        def stop_and_wait(self, _deadline):
+            calls.append(('stop', self.pid)); exited.add(self.pid); members.discard(self.pid)
+    class Tree:
+        kernel, handle, _lifecycle = Kernel(), 123, threading.RLock()
+        def create_suspended(self, command, **options):
+            pid = 101+sum(isinstance(call, tuple) and call[0] == 'create' for call in calls)
+            calls.append(('create', pid, command, options)); return Child(pid)
+        def _process_ids(self, _deadline): return sorted(members)
+        def terminate(self, _timeout): pytest.fail('Unknown cohort must never enter generic drain')
+        def close(self):
+            assert exited == {101, 102}
+            calls.append('job-close')
+    monkeypatch.setattr(runtime_host, 'WindowsPreparationProcess', Tree)
+    monkeypatch.setattr(runtime_host, 'same_process_object', lambda observer, creation: observer-1000 == creation)
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda *_: {3000: {101}, 8766: {102}})
+    return runtime_host.FrozenProbeHost(layout), calls, members
+
+
+def test_registered_cohort_is_created_before_any_resume_and_closed_after_signals(registered, layout):
+    host, calls, _ = registered
+    host.start_registered()
+    assert [call[0] for call in calls].count('create') == 2
+    assert not any(call[0] == 'resume' for call in calls)
+    host.resume_registered()
+    creation = [call for call in calls if call[0] == 'create']
+    assert creation[0][2] == layout.child_command('frontend', ['--port', '3000'])
+    assert creation[1][2] == [str(layout.executable), '--runtime-probe', 'api']
+    assert creation[1][3]['env']['PROXY_TRANSCRIPT_STANDBY'] == '1'
+    host.close()
+    assert calls[-3:] == [('stop', 101), ('stop', 102), 'job-close']
+    assert host.closed and host.tree is None
+
+
+def test_registered_unknown_same_image_member_cannot_be_drained_or_adopted(registered):
+    host, calls, members = registered
+    host.start_registered()
+    tree = host.tree
+    members.add(999)
+    with pytest.raises(runtime_host.HostProbeFailure, match='unknown-registered-member'):
+        host.check_registered_members()
+    previous = list(calls)
+    with pytest.raises(runtime_host.HostProbeFailure, match='keeper-recovery-required'): host.close()
+    assert calls == previous and host.tree is tree and host.scratch.exists()
+    assert host.recovery_required and not host.closed
+
+
+def test_registered_listener_must_match_creation_object_and_fixed_role(registered, monkeypatch):
+    host, _, _ = registered
+    host.start_registered(); host.resume_registered()
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda: {3000: {102}, 8766: {101}})
+    with pytest.raises(runtime_host.HostProbeFailure, match='registered-listener-role-mismatch'):
+        with host._listener_scope(): pytest.fail('Swapped roles cannot reach HTTP')
+    assert host.recovery_required
+
+
+def test_registered_http_result_cannot_outlive_listener_identity(registered, monkeypatch):
+    host, _, _ = registered
+    host.start_registered(); host.resume_registered()
+    sequence = iter([{3000: {101}, 8766: {102}}, {3000: {999}, 8766: {102}}])
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda: next(sequence))
+    with pytest.raises(runtime_host.HostProbeFailure, match='registered-listener-changed'):
+        with host._listener_scope() as ready: assert ready
+    assert host.recovery_required
+
+
+@pytest.mark.parametrize('boundary', ['partial-create', 'resume', 'stop', 'job-close', 'observer-close'])
+def test_registered_failures_retain_owner_and_never_report_closed(registered, monkeypatch, boundary):
+    host, calls, _ = registered
+    if boundary == 'partial-create':
+        original = runtime_host.WindowsPreparationProcess.create_suspended
+        def create(tree, command, **options):
+            if command[-1] == 'api': raise OSError('authored creation failure')
+            return original(tree, command, **options)
+        monkeypatch.setattr(runtime_host.WindowsPreparationProcess, 'create_suspended', create)
+        with pytest.raises(OSError): host.start_registered()
+    else:
+        host.start_registered()
+        def fail(*_a, **_k): raise OSError('authored native failure')
+        if boundary == 'resume':
+            monkeypatch.setattr(host.registered['api'], 'resume_once', fail)
+            with pytest.raises(OSError): host.resume_registered()
+        elif boundary == 'observer-close':
+            monkeypatch.setattr(host.tree.kernel, 'CloseHandle', lambda _: False)
+            with pytest.raises(runtime_host.HostProbeFailure, match='registered-observer-close-unconfirmed'):
+                host.check_registered_members()
+        else:
+            monkeypatch.setattr(host.registered['api'] if boundary == 'stop' else host.tree,
+                                'stop_and_wait' if boundary == 'stop' else 'close', fail)
+            with pytest.raises(OSError): host.close()
+    assert host.recovery_required and host.tree is not None and not host.closed
+    assert host.scratch.exists() and 'job-close' not in calls
+    with pytest.raises(runtime_host.HostProbeFailure, match='keeper-recovery-required'): host.close()
+
+
+def test_registered_quiesce_uses_existing_explicit_protocol_with_paused_fixture(registered, monkeypatch):
+    host, _, _ = registered
+    host.start_registered(); host.resume_registered()
+    requests = []
+    class Response:
+        status = 200
+        def __init__(self, body): self.body = body
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+        def read(self, _): return self.body
+    def request(value, **options):
+        requests.append((value, options))
+        if isinstance(value, runtime_host.Request): return Response(b'{"running":false}')
+        if value.endswith('/api/status'):
+            raise runtime_host.HTTPError(value, 503, 'authored closed admission', {}, io.BytesIO(b'{}'))
+        assert value.endswith('/api/health')
+        return Response(b'{"status":"ok"}')
+    monkeypatch.setattr(runtime_host, 'urlopen', request)
+    host.quiesce_registered()
+    assert requests[0][0].full_url.endswith('/api/runtime/quiesce?writers=true')
+    assert requests[0][0].method == 'POST' and requests[0][1]['timeout'] == 35
+    assert requests[0][0].get_header('X-proxy-transcript') == 'update'
+    assert [value for value, _ in requests[1:]] == [runtime_host.API+'/api/status', runtime_host.API+'/api/health']
+    host.close()
+
+
+@pytest.mark.parametrize('status,health', [(200, 'ok'), (502, 'ok'), (503, 'failed'), (503, None)])
+def test_registered_quiesce_rejects_open_admission_or_unavailable_control(registered, monkeypatch, status, health):
+    host, calls, _ = registered
+    host.start_registered(); host.resume_registered()
+    class Response:
+        def __init__(self, code, body): self.status, self.body = code, body
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+        def read(self, _): return self.body
+    def request(value, **_):
+        if isinstance(value, runtime_host.Request): return Response(200, b'{"running":false}')
+        if value.endswith('/api/status'):
+            if status >= 400: raise runtime_host.HTTPError(value, status, 'authored status', {}, io.BytesIO(b'{}'))
+            return Response(status, b'{}')
+        if health is None: raise OSError('authored health transport failure')
+        return Response(200, json.dumps({'status': health}).encode())
+    monkeypatch.setattr(runtime_host, 'urlopen', request)
+    expected = OSError if health is None else runtime_host.HostProbeFailure
+    with pytest.raises(expected): host.quiesce_registered()
+    assert not host.closed and host.tree is not None and 'job-close' not in calls
+
+
+@pytest.mark.parametrize('case', ['keeper-before-resume', 'keeper-after-ready'])
+def test_keeper_loss_drives_drain_but_leases_wait_for_explicit_release(layout, monkeypatch, capsys, case):
+    calls = []
+    keeper = runtime_host._FrozenKeeperProbe(layout, case, io.StringIO(''))
+    class Lease:
+        def acquire(self): calls.append('acquire')
+        def close(self):
+            assert 'writers-signaled' in calls and 'release' in calls
+            calls.append('lease-close')
+    class Host:
+        registered, recovery_required = {}, False
+        def start_registered(self):
+            calls.append('create-two'); self.registered = {role: SimpleNamespace(resumed=False) for role in ('frontend', 'api')}
+        def resume_registered(self):
+            calls.append('resume-two')
+            for child in self.registered.values(): child.resumed = True
+        def wait_services(self): calls.append('ready')
+        def quiesce_registered(self): calls.append('strict-c2')
+        def close(self): calls.append('writers-signaled')
+    def prepare(): keeper.host, keeper.leases = Host(), [Lease(), Lease()]
+    def command(expected): calls.append(expected)
+    def guardian_loss():
+        calls.append('guardian-loss'); keeper.guardian_signaled = True
+    monkeypatch.setattr(keeper, 'prepare', prepare)
+    monkeypatch.setattr(keeper, 'command', command)
+    monkeypatch.setattr(keeper, 'start_guardian', lambda: setattr(keeper, 'guardian', SimpleNamespace(stdout=io.StringIO())))
+    monkeypatch.setattr(keeper, 'check_guardian', lambda: None)
+    monkeypatch.setattr(keeper, 'wait_guardian_loss', guardian_loss)
+    assert keeper.run() == 0
+    assert calls.count('lease-close') == 2 and calls.index('guardian-loss') < calls.index('writers-signaled')
+    assert ('resume-two' in calls) == (case == 'keeper-after-ready')
+    if case == 'keeper-after-ready': assert calls.index('strict-c2') < calls.index('writers-signaled')
+    output = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert output[-2]['phase'] == 'writers-signaled-leases-held'
+    assert output[-1]['status'] == 'passed' and keeper.released
+    assert output[-1]['r19_complete'] is False and output[-1]['census'] == 'observations-only-not-lifetime-proof'
+    assert str(layout.settings_root) not in json.dumps(output)
+
+
+@pytest.mark.parametrize('failure', ['writer-stop', 'unknown-members', 'lease-close'])
+def test_keeper_unconfirmed_cleanup_holds_live_owner_and_leases(layout, monkeypatch, capsys, failure):
+    calls = []
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    class Held(BaseException): pass
+    class Lease:
+        def acquire(self): calls.append('acquire')
+        def close(self):
+            calls.append('lease-close')
+            raise OSError('private-path secret-value must not be emitted')
+    class Host:
+        registered, recovery_required = {}, False
+        def start_registered(self): pass
+        def close(self):
+            if failure != 'lease-close':
+                self.recovery_required = True
+                raise OSError('private-path secret-value must not be emitted')
+    def prepare(): keeper.host, keeper.leases = Host(), [Lease(), Lease()]
+    def loss():
+        keeper.guardian_signaled = True
+        if failure == 'unknown-members':
+            keeper.host.recovery_required = True
+            raise runtime_host.HostProbeFailure('unknown-registered-member')
+    def hold(): calls.append('live-holder'); raise Held()
+    monkeypatch.setattr(keeper, 'prepare', prepare)
+    monkeypatch.setattr(keeper, 'command', lambda *_: None)
+    monkeypatch.setattr(keeper, 'start_guardian', lambda: setattr(keeper, 'guardian', SimpleNamespace(stdout=io.StringIO())))
+    monkeypatch.setattr(keeper, 'wait_guardian_loss', loss)
+    monkeypatch.setattr(runtime_host, 'hold_keeper_recovery', hold)
+    with pytest.raises(Held): keeper.run()
+    assert calls[-1] == 'live-holder' and not keeper.released
+    assert calls.count('lease-close') == (1 if failure == 'lease-close' else 0)
+    output = capsys.readouterr().out
+    assert 'recovery-required' in output and '"status": "passed"' not in output
+    assert 'private-path' not in output and 'secret-value' not in output
+
+
+@pytest.mark.parametrize('pipe_error', [BrokenPipeError, OSError])
+def test_keeper_broken_event_pipe_cannot_bypass_live_recovery_hold(layout, monkeypatch, pipe_error):
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    calls = []
+    class Held(BaseException): pass
+    class Lease:
+        def acquire(self): calls.append('acquire')
+        def close(self): pytest.fail('Broken output cannot release a live writer lease')
+    child = SimpleNamespace(resumed=False, process_handle=object())
+    host = SimpleNamespace(registered={'frontend': child, 'api': child}, recovery_required=False,
+        start_registered=lambda: calls.append('writers-created'),
+        close=lambda: pytest.fail('Event failure cannot invent successful drainage'))
+    def prepare(): keeper.host, keeper.leases = host, [Lease(), Lease()]
+    def emit(*_a, **_k):
+        calls.append('broken-event'); raise pipe_error('authored closed control pipe')
+    def hold(): calls.append('live-holder'); raise Held()
+    monkeypatch.setattr(keeper, 'prepare', prepare)
+    monkeypatch.setattr(keeper, 'command', lambda *_: None)
+    monkeypatch.setattr(keeper, 'start_guardian', lambda: None)
+    monkeypatch.setattr(keeper, 'emit', emit)
+    monkeypatch.setattr(runtime_host, 'hold_keeper_recovery', hold)
+    with pytest.raises(Held): keeper.run()
+    assert calls == ['acquire', 'acquire', 'writers-created', 'broken-event', 'broken-event', 'live-holder']
+    assert keeper.host is host and len(keeper.leases) == 2 and not keeper.released
+
+
+@pytest.mark.parametrize('fault', ['wrong-listener', 'after-http-change', 'descendant', 'tampered-index'])
+def test_guardian_identity_is_bound_to_retained_creation_and_actual_http(layout, monkeypatch, fault):
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    keeper.guardian = SimpleNamespace(pid=301, poll=lambda: None)
+    keeper.guardian_port = 49301
+    body = b'authored closed index'
+    keeper.guardian_index = {'bytes': len(body), 'sha256': runtime_host.hashlib.sha256(body).hexdigest()}
+    observations = iter([{49301: {301}}, {49301: {999}}])
+    monkeypatch.setattr(runtime_host, 'listener_processes',
+        (lambda _: next(observations)) if fault == 'after-http-change' else lambda _: {49301: {999 if fault == 'wrong-listener' else 301}})
+    monkeypatch.setattr(runtime_host, 'guardian_children', lambda _: {444} if fault == 'descendant' else set())
+    class Response:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+        def read(self, _): return b'tampered' if fault == 'tampered-index' else body
+    monkeypatch.setattr(runtime_host, 'urlopen', lambda *_a, **_k: Response())
+    with pytest.raises(runtime_host.HostProbeFailure, match='keeper-guardian-'):
+        keeper.check_guardian()
+
+
+def test_guardian_fault_only_uses_retained_popen_and_loss_is_signaled(layout, monkeypatch):
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO('lose-guardian\n'))
+    calls = []
+    class Guardian:
+        pid, code = 301, None
+        def poll(self): return self.code
+        def kill(self): calls.append('retained-kill'); self.code = 1
+        def wait(self, timeout): calls.append('retained-wait'); return self.code
+    keeper.guardian = Guardian()
+    keeper.host = SimpleNamespace(_alive=lambda: None, check_registered_members=lambda: None)
+    monkeypatch.setattr(keeper, 'check_guardian', lambda: None)
+    monkeypatch.setattr(runtime_host, 'guardian_children', lambda _: set())
+    keeper.wait_guardian_loss()
+    assert calls == ['retained-kill', 'retained-wait'] and keeper.guardian_signaled
+
+
+def test_keeper_roots_are_new_and_target_lease_is_separate_from_writer_state(layout, monkeypatch, capsys):
+    from backend.bundle_host import ExclusiveFileLease
+    keeper = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    keeper.prepare()
+    assert all(isinstance(lease, ExclusiveFileLease) and not lease.held for lease in keeper.leases)
+    assert keeper.leases[0].path == keeper.fixture/'legacy/data/companion-operation.lock'
+    assert keeper.leases[1].path == keeper.fixture/'private-target/host-v1/migration-runtime.lock'
+    assert keeper.writer_layout.state_root == keeper.fixture/'authored-state/host-v1'
+    assert not keeper.leases[1].path.is_relative_to(keeper.writer_layout.settings_root)
+    assert keeper.writer_layout.settings_root != layout.settings_root
+    runtime_host.synthetic_roots(keeper.writer_layout)
+    assert json.loads(capsys.readouterr().out)['phase'] == 'roots-ready'
+    with pytest.raises(FileExistsError): keeper.prepare()
+
+
+def test_keeper_temp_guard_rejects_siblings_but_accepts_authored_children(layout, monkeypatch):
+    from dataclasses import replace
+    selected_temp = layout.settings_root/'empty-host'
+    selected_temp.mkdir()
+    monkeypatch.setattr(runtime_host.tempfile, 'gettempdir', lambda: str(selected_temp))
+    sibling = runtime_host._FrozenKeeperProbe(layout, 'keeper-before-resume', io.StringIO(''))
+    with pytest.raises(runtime_host.HostProbeFailure, match='keeper-fixture-unavailable'): sibling.prepare()
+    assert not sibling.fixture.exists()
+    private = selected_temp/'keeper-before-resume'
+    nested = replace(layout, settings_root=private, data_root=private/'data-v1', cache_root=private/'cache-v1',
+        work_root=private/'cache-v1/work', tool_root=private/'tools-v1', state_root=private/'host-v1',
+        default_export_root=private/'exports')
+    nested.state_root.mkdir(parents=True)
+    (nested.state_root/'synthetic-probe.json').write_text(json.dumps({'build_id': layout.build_id, 'synthetic': True}))
+    keeper = runtime_host._FrozenKeeperProbe(nested, 'keeper-before-resume', io.StringIO(''))
+    keeper.prepare()
+    assert keeper.fixture.is_relative_to(selected_temp)
+    assert keeper.writer_layout.settings_root.is_relative_to(selected_temp)
+
+
+@pytest.mark.parametrize('close_ok', [True, False])
+def test_guardian_census_is_bounded_observation_with_checked_snapshot_close(monkeypatch, close_ok):
+    import ctypes
+    rows = iter([(1, 0), (301, 1), (401, 301), (402, 401), (999, 1)])
+    calls = []
+    class Function:
+        def __init__(self, action): self.action = action
+        def __call__(self, *args): return self.action(*args)
+    def advance(_snapshot, value):
+        try: pid, parent = next(rows)
+        except StopIteration: return False
+        value._obj.pid, value._obj.parent = pid, parent
+        return True
+    def close(handle): calls.append(('snapshot-close', handle)); return close_ok
+    kernel = SimpleNamespace(CreateToolhelp32Snapshot=Function(lambda kind, pid: 7 if (kind, pid) == (2, 0) else None),
+        Process32FirstW=Function(advance), Process32NextW=Function(advance), CloseHandle=Function(close))
+    monkeypatch.setattr(ctypes, 'WinDLL', lambda *_a, **_k: kernel, raising=False)
+    monkeypatch.setattr(ctypes, 'get_last_error', lambda: 18, raising=False)
+    if close_ok:
+        assert runtime_host.guardian_children(301) == {401, 402}
+    else:
+        with pytest.raises(runtime_host.HostProbeFailure, match='guardian-census-close-unconfirmed'):
+            runtime_host.guardian_children(301)
+    assert calls == [('snapshot-close', 7)]
+
+
 def test_native_listener_table_uses_fixed_windows_rows_and_only_canonical_addresses(monkeypatch):
     import ctypes
     import socket
@@ -364,3 +723,61 @@ Write-Output 'host-observer-categories-passed'
         pytest.fail('Observer classifier returned an unexpected control result', pytrace=False)
     if 'PRIVATE' in result.stderr or 'secret-user' in result.stderr:
         pytest.fail('Observer diagnostics exposed private fixture detail', pytrace=False)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows PowerShell keeper harness failure/root contracts')
+def test_keeper_harness_receipt_failure_cannot_bypass_livehold_and_roots_follow_temp(tmp_path):
+    # Only named harness functions and authored fake observers. No candidate,
+    # real writer, lease, user profile or account is opened by this contract.
+    source = Path(__file__).resolve().parents[2]/'scripts/probe-frozen-keeper.ps1'
+    script = tmp_path/'keeper-harness-contract.ps1'
+    script.write_text(r'''param([string]$ProbeScript,[string]$Fixture)
+$ErrorActionPreference='Stop'
+$tokens=$null; $parseErrors=$null
+$ast=[Management.Automation.Language.Parser]::ParseFile($ProbeScript,[ref]$tokens,[ref]$parseErrors)
+if ($parseErrors) { throw 'Keeper harness parsing failed.' }
+foreach ($name in @('Get-KeeperCaseRoots','Complete-KeeperHarness')) {
+    $definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
+    if (-not $definition) { throw 'Missing named keeper contract.' }
+    . ([scriptblock]::Create($definition.Extent.Text))
+}
+$Output=Join-Path $Fixture 'authored-receipt.json'
+$script:events=[Collections.Generic.List[string]]::new()
+$script:breakReceipt=$true
+function Write-KeeperReceipt([string]$Status) {
+    $script:events.Add('receipt-'+$Status)
+    if ($script:breakReceipt) { throw 'authored unavailable receipt destination' }
+}
+function Wait-KeeperHarnessRecovery { $script:events.Add('held'); throw 'expected-live-holder' }
+function Assert-LiveHold([bool]$Failed,$Observer) {
+    $script:events.Clear()
+    $script:owned=@($Observer)
+    try { Complete-KeeperHarness $Failed; throw 'liveholder was bypassed' }
+    catch { if ($_.Exception.Message -cne 'expected-live-holder') { throw 'Keeper receipt failure bypassed recovery.' } }
+    if ($script:events.Count -ne 2 -or $script:events[1] -cne 'held') { throw 'Keeper livehold ordering differs.' }
+}
+Assert-LiveHold $false ([pscustomobject]@{HasExited=$false})
+Assert-LiveHold $true ([pscustomobject]@{HasExited=$false})
+Assert-LiveHold $true ([pscustomobject]@{HasExited=$null})
+$script:breakReceipt=$false
+Assert-LiveHold $true ([pscustomobject]@{HasExited=$false})
+$script:owned=@([pscustomobject]@{HasExited=$true})
+$script:events.Clear()
+Complete-KeeperHarness $false
+if (@($script:events).Count -ne 1 -or $script:events[0] -cne 'receipt-passed') { throw 'Normal keeper receipt behavior differs.' }
+foreach ($case in @('keeper-before-resume','keeper-after-ready')) {
+    $roots=Get-KeeperCaseRoots $Fixture $case
+    $selectedTemp=[IO.Path]::GetFullPath((Join-Path $Fixture 'empty-host'))+[IO.Path]::DirectorySeparatorChar
+    foreach ($path in $roots.Values) {
+        if (-not [IO.Path]::GetFullPath($path).StartsWith($selectedTemp,[StringComparison]::OrdinalIgnoreCase)) { throw 'Keeper root escapes selected TEMP.' }
+    }
+    if ($roots.PROXY_TRANSCRIPT_SETTINGS_ROOT -cne (Join-Path (Join-Path $Fixture 'empty-host') $case)) { throw 'Keeper cases are not nested below selected TEMP.' }
+}
+[Console]::Out.WriteLine('keeper-harness-contracts-passed')
+''', encoding='utf-8')
+    shell = shutil.which('pwsh')
+    assert shell, 'Hosted Windows keeper tests require the workflow PowerShell runtime'
+    result = subprocess.run([shell, '-NoProfile', '-NonInteractive', '-File', str(script),
+        '-ProbeScript', str(source), '-Fixture', str(tmp_path)], capture_output=True, text=True, timeout=30)
+    if result.returncode != 0 or result.stdout.strip() != 'keeper-harness-contracts-passed':
+        pytest.fail('Fixed keeper harness receipt/root contract failed', pytrace=False)

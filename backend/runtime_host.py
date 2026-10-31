@@ -9,6 +9,8 @@ from __future__ import annotations
 from contextlib import contextmanager, ExitStack
 import ctypes
 from ctypes import wintypes
+from dataclasses import replace
+import hashlib
 import json
 from pathlib import Path
 import queue
@@ -19,13 +21,27 @@ import sys
 import tempfile
 import threading
 import time
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 from .runtime_bundle import RuntimeBundleError
 from .runtime_probe_common import developer_environment, synthetic_roots
 from .windows_preparation_process import WindowsPreparationProcess
 
 SCHEMA = 'proxy-r19-owned-host-probe-v1'
+KEEPER_SCHEMA = 'proxy-r19-frozen-keeper-probe-v1'
+KEEPER_FAILURES = frozenset({
+    'registered-host-unconfirmed', 'keeper-control-unavailable', 'keeper-control-invalid',
+    'keeper-guardian-startup', 'keeper-guardian-identity', 'keeper-guardian-descendants',
+    'keeper-fixture-unavailable', 'keeper-lease-release-unconfirmed', 'unexpected-keeper-failure',
+    'guardian-census-unavailable', 'guardian-census-truncated', 'guardian-census-close-unconfirmed',
+    'registered-member-ownership-unconfirmed', 'unknown-registered-member',
+    'registered-cohort-incomplete', 'registered-member-observer-unavailable',
+    'registered-cohort-aliased', 'registered-observer-close-unconfirmed',
+    'registered-listener-unavailable', 'registered-listener-role-mismatch',
+    'registered-listener-changed', 'registered-writer-not-live',
+    'registered-writer-drain-unconfirmed', 'members-remain-after-registered-stop',
+    'readiness-deadline', 'keeper-recovery-required'})
 START_TIMEOUT = 60
 STOP_TIMEOUT = 10
 FRONTEND = 'http://127.0.0.1:3000/'
@@ -43,8 +59,8 @@ class _TcpRow(ctypes.Structure):
         ('state', 'local_address', 'local_port', 'remote_address', 'remote_port', 'pid')]
 
 
-def listener_processes():
-    """Observe IPv4 listeners for the two canonical addresses; never kill by PID."""
+def listener_processes(ports=(3000, 8766)):
+    """Observe selected IPv4 listeners; never authorize termination by PID."""
     library = ctypes.WinDLL('iphlpapi', use_last_error=True)
     query = library.GetExtendedTcpTable
     query.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32), wintypes.BOOL,
@@ -69,10 +85,62 @@ def listener_processes():
         for index in range(count):
             row = _TcpRow.from_buffer_copy(buffer, 4 + index*ctypes.sizeof(_TcpRow))
             port = socket.ntohs(row.local_port & 0xffff)
-            if row.state == 2 and row.local_address in (0, loopback) and port in (3000, 8766):
+            if row.state == 2 and row.local_address in (0, loopback) and port in ports:
                 owners.setdefault(port, set()).add(row.pid)
         return owners
     raise HostProbeFailure('listener-inventory-unavailable')
+
+
+def same_process_object(first, second):
+    library = ctypes.WinDLL('kernelbase', use_last_error=True)
+    compare = library.CompareObjectHandles
+    compare.argtypes, compare.restype = [wintypes.HANDLE, wintypes.HANDLE], wintypes.BOOL
+    return bool(compare(first, second))
+
+
+class _ProcessEntry(ctypes.Structure):
+    _fields_ = [('size', ctypes.c_uint32), ('usage', ctypes.c_uint32), ('pid', ctypes.c_uint32),
+        ('heap', ctypes.c_size_t), ('module', ctypes.c_uint32), ('threads', ctypes.c_uint32),
+        ('parent', ctypes.c_uint32), ('priority', ctypes.c_int32), ('flags', ctypes.c_uint32),
+        ('image', ctypes.c_wchar * 260)]
+
+
+def guardian_children(pid):
+    """A bounded current census, never complete lifetime/admission evidence.
+
+    Only parent/child identifiers are considered privately; no process name,
+    system inventory or PID is published or adopted as termination authority.
+    """
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateToolhelp32Snapshot.argtypes, kernel.CreateToolhelp32Snapshot.restype = [ctypes.c_uint32, ctypes.c_uint32], wintypes.HANDLE
+    for name in ('Process32FirstW', 'Process32NextW'):
+        function = getattr(kernel, name)
+        function.argtypes, function.restype = [wintypes.HANDLE, ctypes.POINTER(_ProcessEntry)], wintypes.BOOL
+    kernel.CloseHandle.argtypes, kernel.CloseHandle.restype = [wintypes.HANDLE], wintypes.BOOL
+    snapshot = kernel.CreateToolhelp32Snapshot(2, 0)  # TH32CS_SNAPPROCESS only.
+    if snapshot in (None, ctypes.c_void_p(-1).value):
+        raise HostProbeFailure('guardian-census-unavailable')
+    try:
+        entry = _ProcessEntry(); entry.size = ctypes.sizeof(entry)
+        if not kernel.Process32FirstW(snapshot, ctypes.byref(entry)):
+            raise HostProbeFailure('guardian-census-unavailable')
+        parents = {}
+        for _ in range(65536):
+            parents[entry.pid] = entry.parent
+            if not kernel.Process32NextW(snapshot, ctypes.byref(entry)):
+                if ctypes.get_last_error() != 18:  # ERROR_NO_MORE_FILES
+                    raise HostProbeFailure('guardian-census-unavailable')
+                break
+        else:
+            raise HostProbeFailure('guardian-census-truncated')
+        pending, descendants = {pid}, set()
+        while pending:
+            children = {child for child, parent in parents.items() if parent in pending} - descendants - {pid}
+            descendants.update(children); pending = children
+        return descendants
+    finally:
+        if not kernel.CloseHandle(snapshot):
+            raise HostProbeFailure('guardian-census-close-unconfirmed')
 
 
 class FrozenProbeHost:
@@ -89,6 +157,9 @@ class FrozenProbeHost:
         self.logs = []
         self.scratch = None
         self.closed = False
+        self.registered_mode = False
+        self.registered = {}
+        self.recovery_required = False
 
     def start(self):
         if self.tree is not None or self.closed:
@@ -108,12 +179,137 @@ class FrozenProbeHost:
                 env=environment, stdin=subprocess.DEVNULL,
                 stdout=output, stderr=output, creationflags=subprocess.CREATE_NO_WINDOW)
 
+    def _recovery(self, code):
+        self.recovery_required = True
+        raise HostProbeFailure(code)
+
+    def start_registered(self):
+        """Create the two fixed actual writers before resuming either of them."""
+        if self.tree is not None or self.closed:
+            raise HostProbeFailure('host-already-started-or-closed')
+        self.registered_mode = True
+        self.layout.work_root.mkdir(parents=True, exist_ok=True)
+        self.scratch = Path(tempfile.mkdtemp(prefix='registered-host-', dir=self.layout.work_root))
+        self.tree = WindowsPreparationProcess()
+        commands = [('frontend', self.layout.child_command('frontend', ['--port', '3000'])),
+                    ('api', [str(self.layout.executable), '--runtime-probe', 'api'])]
+        try:
+            for role, command in commands:
+                environment = self.layout.child_environment(role)
+                environment['PROXY_TRANSCRIPT_STANDBY'] = '1'
+                self.registered[role] = self.tree.create_suspended(command, cwd=self.scratch, env=environment)
+            self.check_registered_members()
+        except BaseException:
+            self.recovery_required = True
+            raise
+
+    def _registered_role(self, observer):
+        kernel = self.tree.kernel
+        member = wintypes.BOOL()
+        if not kernel.IsProcessInJob(observer, self.tree.handle, ctypes.byref(member)) or not member.value:
+            self._recovery('registered-member-ownership-unconfirmed')
+        matches = [role for role, child in self.registered.items()
+                   if same_process_object(observer, child.process_handle)]
+        if len(matches) != 1:
+            self._recovery('unknown-registered-member')
+        return matches[0]
+
+    def check_registered_members(self, require_all=True):
+        if self.recovery_required:
+            raise HostProbeFailure('keeper-recovery-required')
+        if self.tree is None or set(self.registered) != {'frontend', 'api'}:
+            self._recovery('registered-cohort-incomplete')
+        kernel = self.tree.kernel
+        with self.tree._lifecycle:
+            seen = set()
+            for pid in self.tree._process_ids(time.monotonic()+3):
+                observer = kernel.OpenProcess(0x101000, False, pid)
+                if not observer:
+                    self._recovery('registered-member-observer-unavailable')
+                try:
+                    role = self._registered_role(observer)
+                    if role in seen:
+                        self._recovery('registered-cohort-aliased')
+                    seen.add(role)
+                finally:
+                    if not kernel.CloseHandle(observer):
+                        self._recovery('registered-observer-close-unconfirmed')
+            if require_all and seen != {'frontend', 'api'}:
+                self._recovery('registered-cohort-incomplete')
+
+    def resume_registered(self):
+        try:
+            self.check_registered_members()
+            for child in self.registered.values():
+                child.resume_once()
+        except BaseException:
+            self.recovery_required = True
+            raise
+
+    def quiesce_registered(self):
+        """Existing opt-in C2 barrier, only for the paused authored API probe."""
+        if not self.registered_mode:
+            raise HostProbeFailure('registered-cohort-required')
+        with self._registered_listener_scope() as owned:
+            if not owned:
+                self._recovery('registered-listener-unavailable')
+            request = Request(API+'/api/runtime/quiesce?writers=true', data=b'', method='POST',
+                              headers={'X-Proxy-Transcript': 'update'})
+            # The API owns its existing total 30-second deadline; 35 is only
+            # the transport budget. A failure leaves the keeper holding leases.
+            with urlopen(request, timeout=35) as response:
+                handoff = json.loads(response.read(65537))
+                if response.status != 200 or handoff.get('running') is not False:
+                    self._recovery('registered-writer-drain-unconfirmed')
+            try:
+                with urlopen(API+'/api/status', timeout=3) as response:
+                    status = response.status
+                    response.read(1)
+            except HTTPError as response:
+                with response:
+                    status = response.code
+                    response.read(1)
+            if status != 503 or self._json('/api/health', 3).get('status') != 'ok':
+                self._recovery('registered-writer-drain-unconfirmed')
+
+    @contextmanager
+    def _registered_listener_scope(self):
+        self.check_registered_members()
+        owners, kernel = listener_processes(), self.tree.kernel
+        with self.tree._lifecycle:
+            for port, members in owners.items():
+                for pid in members:
+                    observer = kernel.OpenProcess(0x101000, False, pid)
+                    if not observer:
+                        self._recovery('registered-listener-unavailable')
+                    try:
+                        role = self._registered_role(observer)
+                        if role != ('frontend' if port == 3000 else 'api'):
+                            self._recovery('registered-listener-role-mismatch')
+                    finally:
+                        if not kernel.CloseHandle(observer):
+                            self._recovery('registered-observer-close-unconfirmed')
+            ready = set(owners) == {3000, 8766} and all(len(ids) == 1 for ids in owners.values())
+            yield ready
+            if listener_processes() != owners:
+                self._recovery('registered-listener-changed')
+            self._alive()
+            self.check_registered_members()
+
     def _alive(self):
+        if self.registered_mode:
+            for child in self.registered.values():
+                if self.tree.kernel.WaitForSingleObject(child.process_handle, 0) != 258:
+                    self._recovery('registered-writer-not-live')
         if any(process.poll() is not None for process in self.processes.values()):
             raise HostProbeFailure('child-exited')
 
     @contextmanager
     def _listener_scope(self):
+        if self.registered_mode:
+            with self._registered_listener_scope() as ready:
+                yield ready
+            return
         owners = listener_processes()
         kernel = self.tree.kernel
         with ExitStack() as handles:
@@ -221,6 +417,8 @@ class FrozenProbeHost:
     def close(self, timeout=STOP_TIMEOUT):
         if self.closed:
             return
+        if self.registered_mode:
+            return self._close_registered(timeout)
         deadline = time.monotonic()+timeout
         try:
             # Reap every bootstrap before an empty-job observation. A delayed
@@ -244,6 +442,210 @@ class FrozenProbeHost:
             shutil.rmtree(self.scratch)
         self.closed = True
 
+    def _close_registered(self, timeout):
+        if self.recovery_required:
+            raise HostProbeFailure('keeper-recovery-required')
+        deadline = time.monotonic()+timeout
+        try:
+            with self.tree._lifecycle:
+                self.tree._admission_closed = True
+                self.check_registered_members(require_all=False)
+                for child in self.registered.values():
+                    child.stop_and_wait(deadline)
+                # Unknown descendants must never disappear through the legacy
+                # generic drain and become a passing fixed-cohort result.
+                if self.tree._process_ids(deadline):
+                    self._recovery('members-remain-after-registered-stop')
+                self.tree.close()
+                self.tree = None
+            shutil.rmtree(self.scratch)
+            self.closed = True
+        except BaseException:
+            self.recovery_required = True
+            raise
+
+
+def hold_keeper_recovery():
+    # Exiting would close leases before unknown writers were confirmed stopped.
+    # The build-host harness may terminate us only as an unverified failure.
+    while True:
+        time.sleep(5)
+
+
+class _FrozenKeeperProbe:
+    """Fixed probe orchestration around FrozenProbeHost, not a second host."""
+    def __init__(self, layout, case, stream):
+        FrozenProbeHost(layout)  # Same profile/image/synthetic/dev-tool guards.
+        self.layout, self.case = layout, case
+        self.host = self.guardian = None
+        self.leases = []
+        self.fixture = layout.work_root / 'keeper-fixture'
+        self.commands = queue.Queue(maxsize=4)
+        self.guardian_port = None
+        self.guardian_signaled = False
+        self.released = False
+        def read():
+            try:
+                while True:
+                    line = stream.readline(65)
+                    if not line:
+                        self.commands.put(None); return
+                    if len(line) > 64 or not line.endswith('\n'):
+                        self.commands.put('invalid'); return
+                    self.commands.put(line.strip())
+            except BaseException:
+                self.commands.put(None)
+        threading.Thread(target=read, daemon=True, name='fixed-keeper-probe-input').start()
+
+    def emit(self, phase, *, status='observing', failure=None):
+        records = self.host.registered.values() if self.host is not None else ()
+        value = {'schema': KEEPER_SCHEMA, 'kind': 'keeper', 'phase': phase,
+            'case': self.case, 'status': status, 'build_id': self.layout.build_id,
+            'source_commit': self.layout.source_commit, 'writers_created': len(self.host.registered) if self.host else 0,
+            'writers_resumed': sum(child.resumed for child in records),
+            'guardian': 'readonly-frozen-frontend-port-zero', 'guardian_exit': 'signaled' if self.guardian_signaled else 'not-confirmed',
+            'api_external_side_effects': 'mocked', 'native_owned_process_tree': 'real',
+            'census': 'observations-only-not-lifetime-proof', 'keeper_loss': 'unavailable',
+            'dynamic_writer_admission': 'unavailable', 'production_activation': False,
+            'store_copy': False, 'installer': 'not-built', 'r19_complete': False}
+        if failure is not None:
+            # Only fixed code categories, never exception/model/log/path text.
+            value['failure'] = failure if failure in KEEPER_FAILURES else 'unexpected-keeper-failure'
+        print(json.dumps(value), flush=True)
+
+    def command(self, expected, timeout=60):
+        try:
+            value = self.commands.get(timeout=timeout)
+        except queue.Empty as error:
+            raise HostProbeFailure('keeper-control-unavailable') from error
+        if value != expected:
+            raise HostProbeFailure('keeper-control-invalid')
+
+    def prepare(self):
+        from .bundle_host import ExclusiveFileLease, _reject_links
+        temporary = Path(tempfile.gettempdir()).resolve()
+        _reject_links(self.layout.work_root)
+        if not self.layout.work_root.resolve().is_relative_to(temporary):
+            raise HostProbeFailure('keeper-fixture-unavailable')
+        self.fixture.mkdir(parents=True, exist_ok=False)
+        private = self.fixture / 'authored-state'
+        roots = dict(settings_root=private, data_root=private/'data-v1', cache_root=private/'cache-v1',
+            work_root=private/'cache-v1/work', tool_root=private/'tools-v1', state_root=private/'host-v1',
+            default_export_root=private/'exports')
+        roots['state_root'].mkdir(parents=True)
+        (roots['state_root']/'synthetic-probe.json').write_text(json.dumps({'build_id': self.layout.build_id, 'synthetic': True}))
+        self.writer_layout = replace(self.layout, **roots)
+        self.host = FrozenProbeHost(self.writer_layout)
+        paths = (self.fixture/'legacy/data/companion-operation.lock',
+                 self.fixture/'private-target/host-v1/migration-runtime.lock')
+        for path in paths:
+            path.parent.mkdir(parents=True)
+            self.leases.append(ExclusiveFileLease(path))
+        self.emit('roots-ready')
+
+    def start_guardian(self):
+        environment = self.writer_layout.child_environment('frontend')
+        self.guardian = subprocess.Popen(self.writer_layout.child_command('frontend', ['--port', '0']),
+            cwd=self.fixture, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True, encoding='utf-8', creationflags=subprocess.CREATE_NO_WINDOW)
+        line = queue.Queue(maxsize=1)
+        def read():
+            try: line.put(self.guardian.stdout.readline(65537))
+            except BaseException: line.put(None)
+        threading.Thread(target=read, daemon=True, name='readonly-guardian-startup').start()
+        try:
+            ready = json.loads(line.get(timeout=20))
+            manifest = json.loads(self.layout.resource('desktop/desktop-manifest.json').read_bytes())
+            port = ready.get('port')
+            if (ready.get('ready') is not True or type(port) is not int or not 1024 < port < 65536
+                    or port in (3000, 8766) or ready.get('build_id') != manifest['build_id']):
+                raise ValueError('invalid fixed guardian metadata')
+            self.guardian_port, self.guardian_index = port, manifest['files']['index.html']
+        except (ValueError, TypeError, KeyError, queue.Empty) as error:
+            raise HostProbeFailure('keeper-guardian-startup') from error
+        self.check_guardian()
+
+    def check_guardian(self):
+        guardian, port = self.guardian, self.guardian_port
+        if guardian.poll() is not None or listener_processes((port,)) != {port: {guardian.pid}}:
+            raise HostProbeFailure('keeper-guardian-identity')
+        if guardian_children(guardian.pid):
+            raise HostProbeFailure('keeper-guardian-descendants')
+        with urlopen('http://127.0.0.1:'+str(port)+'/', timeout=1) as response:
+            body = response.read(self.guardian_index['bytes']+1)
+            if (response.status != 200 or len(body) != self.guardian_index['bytes']
+                    or hashlib.sha256(body).hexdigest() != self.guardian_index['sha256']):
+                raise HostProbeFailure('keeper-guardian-identity')
+        if (guardian.poll() is not None or listener_processes((port,)) != {port: {guardian.pid}}
+                or guardian_children(guardian.pid)):
+            raise HostProbeFailure('keeper-guardian-identity')
+
+    def wait_guardian_loss(self):
+        deadline, next_census = time.monotonic()+60, 0
+        while self.guardian.poll() is None:
+            if time.monotonic() >= deadline:
+                raise HostProbeFailure('keeper-control-unavailable')
+            self.host._alive()
+            if time.monotonic() >= next_census:
+                self.host.check_registered_members()
+                self.check_guardian()
+                next_census = time.monotonic()+.25
+            try:
+                command = self.commands.get(timeout=.05)
+            except queue.Empty:
+                continue
+            if command != 'lose-guardian':
+                raise HostProbeFailure('keeper-control-invalid')
+            self.guardian.kill()  # Only our retained Popen creation object.
+        self.guardian.wait(timeout=3)
+        self.guardian_signaled = True
+        if guardian_children(self.guardian.pid):
+            raise HostProbeFailure('keeper-guardian-descendants')
+
+    def run(self):
+        try:
+            self.prepare()
+            self.command('start')
+            for lease in self.leases:
+                lease.acquire()
+            self.start_guardian()
+            self.host.start_registered()
+            if self.case == 'keeper-after-ready':
+                self.host.resume_registered()
+                self.host.wait_services()
+                self.check_guardian()
+                self.emit('services-ready')
+            else:
+                self.emit('writers-suspended')
+            self.wait_guardian_loss()
+            # Loss itself drives drainage; there is no separate drain command.
+            if self.case == 'keeper-after-ready':
+                self.host.quiesce_registered()
+            self.host.close()
+            self.guardian.stdout.close()
+            self.emit('writers-signaled-leases-held')
+            self.command('release')  # Probe observation latch, not writer authority.
+            for lease in reversed(self.leases):
+                try: lease.close()
+                except BaseException as error:
+                    raise HostProbeFailure('keeper-lease-release-unconfirmed') from error
+            self.released = True
+            self.emit('released', status='passed')
+            return 0
+        except BaseException as error:
+            category = error.code if isinstance(error, HostProbeFailure) else 'unexpected-keeper-failure'
+            if not isinstance(error, HostProbeFailure) and self.host is not None and self.host.recovery_required:
+                category = 'registered-host-unconfirmed'
+            # No finally/context manager releases leases or exits with live or
+            # unknown writer objects. Even a broken event pipe cannot bypass
+            # the live owner/Job/creation-handle recovery hold.
+            try:
+                self.emit('recovery-required', status='failed', failure=category)
+            except BaseException:
+                pass
+            hold_keeper_recovery()
+            raise AssertionError('Recovery holder must not return.')
+
 
 def main(kind, layout):
     if kind != 'host':
@@ -251,6 +653,8 @@ def main(kind, layout):
     # Fixed authored test controls only. Nothing is accepted by a production
     # child or API; the full runtime profile and source launcher stay unchanged.
     case = sys.stdin.readline().strip()
+    if case in {'keeper-before-resume', 'keeper-after-ready'}:
+        return _FrozenKeeperProbe(layout, case, sys.stdin).run()
     if case not in {'normal', 'unprepared-index'}:
         raise HostProbeFailure('invalid-private-probe-case')
     host = FrozenProbeHost(layout)
