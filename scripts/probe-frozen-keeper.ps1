@@ -82,6 +82,7 @@ function Read-KeeperEvent([string]$Phase, [int]$Resumed, [int]$Timeout=120000) {
         $value.source_commit -ne $proof.source_commit -or $value.writers_resumed -ne $Resumed -or
         $value.api_external_side_effects -ne 'mocked' -or $value.native_owned_process_tree -ne 'real' -or
         $value.guardian -ne 'readonly-frozen-frontend-port-zero' -or $value.census -ne 'observations-only-not-lifetime-proof' -or
+        $value.guardian_console_mode -ne 'detached-process' -or $value.writer_console_mode -ne 'detached-process' -or
         $value.keeper_loss -ne 'unavailable' -or $value.dynamic_writer_admission -ne 'unavailable' -or
         $value.production_activation -ne $false -or $value.store_copy -ne $false -or
         $value.installer -ne 'not-built' -or $value.r19_complete -ne $false) { throw 'Fixed keeper event identity or scope differs.' }
@@ -120,6 +121,7 @@ function Write-KeeperReceipt([string]$Status) {
         legacy_source_operation='existing-enter-operation'; source_operation_blocked_observations=$sourceBlocks;
         target_lease='separate-private-keeper-root'; writer_state='fresh-authored-state';
         authority='two-retained-createprocess-records'; guardian='retained-popen-readonly-frontend-port-zero';
+        guardian_console_mode='detached-process';writer_console_mode='detached-process';
         census='bounded-observations-and-onedir-source-inference-not-lifetime-proof';
         api_external_side_effects='mocked'; strict_writer_runtime_budget_ms=30000; http_transport_timeout_ms=35000;
         cleanup=$(if ($Status -eq 'passed') {'retained-writers-signaled-leases-explicitly-released-private-tree-removed'} else {'unconfirmed-recovery-required'});

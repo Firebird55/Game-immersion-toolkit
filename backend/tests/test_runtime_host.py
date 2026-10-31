@@ -283,9 +283,19 @@ def test_registered_cohort_is_created_before_any_resume_and_closed_after_signals
     assert creation[0][2] == layout.child_command('frontend', ['--port', '3000'])
     assert creation[1][2] == [str(layout.executable), '--runtime-probe', 'api']
     assert creation[1][3]['env']['PROXY_TRANSCRIPT_STANDBY'] == '1'
+    assert all(call[3]['detached_console'] is False for call in creation)
     host.close()
     assert calls[-3:] == [('stop', 101), ('stop', 102), 'job-close']
     assert host.closed and host.tree is None
+
+
+def test_registered_detached_mode_is_explicit_for_both_fixed_writers(registered):
+    host, calls, _ = registered
+    host.start_registered(detached_console=True)
+    creation = [call for call in calls if call[0] == 'create']
+    assert len(creation) == 2 and all(call[3]['detached_console'] is True for call in creation)
+    assert not any(call[0] == 'resume' for call in calls)
+    host.close()
 
 
 def test_registered_unknown_same_image_member_cannot_be_drained_or_adopted(registered):
@@ -408,7 +418,8 @@ def test_keeper_loss_drives_drain_but_leases_wait_for_explicit_release(layout, m
             calls.append('lease-close')
     class Host:
         registered, recovery_required = {}, False
-        def start_registered(self):
+        def start_registered(self, **options):
+            assert options == {'detached_console': True}
             calls.append('create-two'); self.registered = {role: SimpleNamespace(resumed=False) for role in ('frontend', 'api')}
         def resume_registered(self):
             calls.append('resume-two')
@@ -433,6 +444,7 @@ def test_keeper_loss_drives_drain_but_leases_wait_for_explicit_release(layout, m
     assert output[-2]['phase'] == 'writers-signaled-leases-held'
     assert output[-1]['status'] == 'passed' and keeper.released
     assert output[-1]['r19_complete'] is False and output[-1]['census'] == 'observations-only-not-lifetime-proof'
+    assert output[-1]['guardian_console_mode'] == output[-1]['writer_console_mode'] == 'detached-process'
     assert str(layout.settings_root) not in json.dumps(output)
 
 
@@ -448,7 +460,7 @@ def test_keeper_unconfirmed_cleanup_holds_live_owner_and_leases(layout, monkeypa
             raise OSError('private-path secret-value must not be emitted')
     class Host:
         registered, recovery_required = {}, False
-        def start_registered(self): pass
+        def start_registered(self, **options): assert options == {'detached_console': True}
         def close(self):
             if failure != 'lease-close':
                 self.recovery_required = True
@@ -483,7 +495,7 @@ def test_keeper_broken_event_pipe_cannot_bypass_live_recovery_hold(layout, monke
         def close(self): pytest.fail('Broken output cannot release a live writer lease')
     child = SimpleNamespace(resumed=False, process_handle=object())
     host = SimpleNamespace(registered={'frontend': child, 'api': child}, recovery_required=False,
-        start_registered=lambda: calls.append('writers-created'),
+        start_registered=lambda **options: calls.append('writers-created') if options == {'detached_console': True} else pytest.fail('Fixed keeper detached mode missing'),
         close=lambda: pytest.fail('Event failure cannot invent successful drainage'))
     def prepare(): keeper.host, keeper.leases = host, [Lease(), Lease()]
     def emit(*_a, **_k):
@@ -534,6 +546,33 @@ def test_guardian_fault_only_uses_retained_popen_and_loss_is_signaled(layout, mo
     monkeypatch.setattr(runtime_host, 'guardian_children', lambda _: set())
     keeper.wait_guardian_loss()
     assert calls == ['retained-kill', 'retained-wait'] and keeper.guardian_signaled
+
+
+def test_fixed_guardian_detaches_with_only_explicit_popen_stdio(layout, monkeypatch):
+    from dataclasses import replace
+    manifest = layout.resource_root/'desktop/desktop-manifest.json'
+    manifest.parent.mkdir(parents=True)
+    body = json.dumps({'build_id': 'authored-frontend', 'files': {'index.html': {'bytes': 1,
+        'sha256': runtime_host.hashlib.sha256(b'x').hexdigest()}}}).encode()
+    manifest.write_bytes(body)
+    selected = replace(layout, resources={'desktop/desktop-manifest.json': runtime_host.hashlib.sha256(body).hexdigest()})
+    keeper = runtime_host._FrozenKeeperProbe(selected, 'keeper-before-resume', io.StringIO(''))
+    keeper.writer_layout = selected
+    calls = []
+    class Guardian:
+        def __init__(self, command, **options):
+            calls.append((command, options))
+            self.stdout = io.StringIO(json.dumps({'ready': True, 'port': 49301, 'build_id': 'authored-frontend'})+'\n')
+    monkeypatch.setattr(runtime_host.subprocess, 'Popen', Guardian)
+    monkeypatch.setattr(runtime_host.subprocess, 'DETACHED_PROCESS', 8, raising=False)
+    monkeypatch.setattr(keeper, 'check_guardian', lambda: calls.append('owned-readiness-check'))
+    keeper.start_guardian()
+    command, options = calls[0]
+    assert command == selected.child_command('frontend', ['--port', '0'])
+    assert options['creationflags'] == 8 and options['close_fds'] is True
+    assert options['stdin'] == options['stderr'] == subprocess.DEVNULL
+    assert options['stdout'] == subprocess.PIPE and options['encoding'] == 'utf-8'
+    assert calls[1] == 'owned-readiness-check' and isinstance(keeper.guardian, Guardian)
 
 
 def test_keeper_roots_are_new_and_target_lease_is_separate_from_writer_state(layout, monkeypatch, capsys):

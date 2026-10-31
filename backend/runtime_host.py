@@ -327,7 +327,7 @@ class FrozenProbeHost:
         self.recovery_required = True
         raise HostProbeFailure(code)
 
-    def start_registered(self):
+    def start_registered(self, *, detached_console=False):
         """Create the two fixed actual writers before resuming either of them."""
         if self.tree is not None or self.closed:
             raise HostProbeFailure('host-already-started-or-closed')
@@ -341,7 +341,8 @@ class FrozenProbeHost:
             for role, command in commands:
                 environment = self.layout.child_environment(role)
                 environment['PROXY_TRANSCRIPT_STANDBY'] = '1'
-                self.registered[role] = self.tree.create_suspended(command, cwd=self.scratch, env=environment)
+                self.registered[role] = self.tree.create_suspended(command, cwd=self.scratch, env=environment,
+                    detached_console=detached_console)
             self.check_registered_members()
         except BaseException:
             self.recovery_required = True
@@ -650,6 +651,7 @@ class _FrozenKeeperProbe:
             'source_commit': self.layout.source_commit, 'writers_created': len(self.host.registered) if self.host else 0,
             'writers_resumed': sum(child.resumed for child in records),
             'guardian': 'readonly-frozen-frontend-port-zero', 'guardian_exit': 'signaled' if self.guardian_signaled else 'not-confirmed',
+            'guardian_console_mode': 'detached-process', 'writer_console_mode': 'detached-process',
             'api_external_side_effects': 'mocked', 'native_owned_process_tree': 'real',
             'census': 'observations-only-not-lifetime-proof', 'keeper_loss': 'unavailable',
             'dynamic_writer_admission': 'unavailable', 'production_activation': False,
@@ -694,7 +696,8 @@ class _FrozenKeeperProbe:
         environment = self.writer_layout.child_environment('frontend')
         self.guardian = subprocess.Popen(self.writer_layout.child_command('frontend', ['--port', '0']),
             cwd=self.fixture, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL, text=True, encoding='utf-8', creationflags=subprocess.CREATE_NO_WINDOW)
+            stderr=subprocess.DEVNULL, text=True, encoding='utf-8', close_fds=True,
+            creationflags=subprocess.DETACHED_PROCESS)
         line = queue.Queue(maxsize=1)
         def read():
             try: line.put(self.guardian.stdout.readline(65537))
@@ -775,7 +778,7 @@ class _FrozenKeeperProbe:
             for lease in self.leases:
                 lease.acquire()
             self.start_guardian()
-            self.host.start_registered()
+            self.host.start_registered(detached_console=True)
             if self.case == 'keeper-after-ready':
                 self.host.resume_registered()
                 self.host.wait_services()

@@ -276,12 +276,12 @@ class WindowsPreparationProcess:
         with self._lifecycle:
             return tuple(getattr(self, '_created_children', ()))
 
-    def create_suspended(self, command, *, cwd, env):
+    def create_suspended(self, command, *, cwd, env, detached_console=False):
         """Serialize direct suspended creation with resume, drain and close."""
         with self._lifecycle:
-            return self._create_suspended(command, cwd=cwd, env=env)
+            return self._create_suspended(command, cwd=cwd, env=env, detached_console=detached_console)
 
-    def _create_suspended(self, command, *, cwd, env):
+    def _create_suspended(self, command, *, cwd, env, detached_console=False):
         """Opt-in direct creation: the actual writer, not its legacy bootstrap.
 
         Callers supply fixed authored inputs and retain this owner through all
@@ -290,6 +290,8 @@ class WindowsPreparationProcess:
         job = self._require_owned()
         if getattr(self, '_admission_closed', False):
             raise OSError('Suspended writer admission is closed.')
+        if type(detached_console) is not bool:
+            raise ValueError('Detached console selection must be an explicit Boolean.')
         if (not isinstance(command, (list, tuple)) or not command
                 or any(not isinstance(value, str) or '\0' in value for value in command)
                 or not Path(command[0]).is_absolute() or not Path(cwd).is_absolute()
@@ -320,8 +322,11 @@ class WindowsPreparationProcess:
                 self._created_children = []
             self._created_children.append(child)  # Own the same output record before the native call.
             try:
+                # Only the fixed keeper experiment opts in; default/source
+                # behavior stays CREATE_NO_WINDOW. No arbitrary flag mask.
+                flags = 0x00080404 | (0x00000008 if detached_console else 0x08000000)
                 result = kernel.CreateProcessW(command[0], ctypes.create_unicode_buffer(command_line), None, None,
-                    False, 0x08080404, environment, str(cwd), ctypes.byref(startup), ctypes.byref(child._information))
+                    False, flags, environment, str(cwd), ctypes.byref(startup), ctypes.byref(child._information))
             except BaseException:
                 child._poison()
                 raise

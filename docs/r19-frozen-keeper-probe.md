@@ -36,6 +36,36 @@ paused. Its runtime deadline is 30 seconds; the HTTP transport budget is
 35 seconds. Account, game and OCR startup side effects remain mocked by the
 existing API probe.
 
+The fixed keeper guardian and both keeper writers explicitly select
+`DETACHED_PROCESS`. The direct suspended primitive has a strict Boolean
+`detached_console=False` option: its existing default remains
+`CREATE_NO_WINDOW` (`0x08080404` including the other existing creation flags),
+while true selects `0x0008040c`. No raw flag mask is accepted. Ordinary source
+callers and the normal C1/bootstrap route keep their previous behavior.
+The suspended writers still use `bInheritHandles=False`, zero supplied stdhandles
+and the existing frozen missing-stream NUL provision. Their Job List,
+registration-before-creation, lifecycle lock and cleanup ordering do not change.
+
+The guardian instead retains its explicit Popen stdout pipe and stdin/stderr
+DEVNULL streams with `close_fds=True`. Pinned CPython supplies only those stdio
+handles through its explicit Handle List, with native inheritance enabled for
+that list. This guardian stdio mechanism must not be described as false handle
+inheritance. Its genuine Popen object still owns termination and exit waits.
+The two receipt fields `guardian_console_mode` and `writer_console_mode` bind
+the exact `detached-process` variant separately from historical observations.
+
+Microsoft documents different console association for
+[these creation flags](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags):
+`CREATE_NO_WINDOW` is ignored alongside `DETACHED_PROCESS`, so the modes are
+exclusive. Detached applications may allocate a console later; neither flag
+proves helper absence. Explicit stdio remains supported through
+[STARTUPINFOW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-startupinfow)
+and the [pinned CPython implementation](https://github.com/python/cpython/blob/v3.12.16/Lib/subprocess.py#L1477-L1542).
+The change affects console/control-event availability. This fixed probe uses
+retained-object termination and waits, and does not depend on console events.
+Every descendant/helper still causes refusal; no fallback or helper admission
+is added.
+
 Writer authority comes from those two retained creation objects. Job census and
 listener observations are checked against them using `CompareObjectHandles`,
 including before and after HTTP readiness. Unknown or aliased members are never
@@ -152,3 +182,14 @@ transfer, warm private-port routing, retained Vite chunk/browser continuity,
 real credentials/data, production activation, rights approval and installer
 acceptance remain separate open gates. No store is copied and R19 remains
 incomplete.
+
+The earlier `dc62a46` Windows Server run reached the unchanged refusal before
+writer creation: one exact SystemDirectory console host was observed at or
+after guardian creation under the former `CREATE_NO_WINDOW` mode. The external
+five-minute deadline ended that failed recovery hold; it proved no keeper-loss
+containment. Its 735 contracts and separate C1/cold-slot observations do not
+prove this detached variant. Both real authored-leaf cases are now parameterized
+for default and detached modes, with exact leaf-only Job membership checked in
+the detached cases. Those source fixtures still require the separate frozen
+before-resume/after-ready run, actual pipes/readiness/C2/source exclusion and
+downloaded receipt before any native success can be claimed for this variant.

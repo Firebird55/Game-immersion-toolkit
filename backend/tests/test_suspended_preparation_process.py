@@ -21,6 +21,7 @@ class Kernel:
         self.close_errors = {}
         self.timeout = False
         self.processes, self.threads = set(), set()
+        self.expected_flags = 0x08080404
 
     def InitializeProcThreadAttributeList(self, attributes, count, flags, size):
         assert count == 1 and flags == 0
@@ -47,9 +48,11 @@ class Kernel:
         assert information._obj is child._information
         assert not information._obj.process and not information._obj.thread
         assert process_security is None and thread_security is None and inherit is False
-        assert flags == 0x08080404
+        assert flags == self.expected_flags
         assert startup._obj.startup.cb == ctypes.sizeof(module._StartupInfoEx)
         assert startup._obj.attributes == ctypes.addressof(self.attributes)
+        assert startup._obj.startup.flags == 0
+        assert all(getattr(startup._obj.startup, name) is None for name in ('stdin', 'stdout', 'stderr'))
         assert image == sys.executable and command.value.startswith('"' + image + '"' if ' ' in image else image)
         assert 'OWNED=漢字' in ''.join(env) and Path(cwd).is_absolute()
         self.events.append('created-into-registered-record')
@@ -136,6 +139,28 @@ def test_creation_record_and_job_are_retained_before_one_resume_then_signal_befo
     assert not any(isinstance(event, tuple) and event[0] == 'close' for event in kernel.events)
     # Early close freezes further admission. Use a fresh owner for resume below.
     assert not child.closed and owner.handle == 100
+
+
+def test_detached_mode_keeps_registration_job_no_inheritance_and_signal_before_close(owned, tmp_path):
+    owner, kernel = owned
+    kernel.expected_flags = 0x0008040c
+    child = owner.create_suspended([sys.executable, '-I', 'owned writer 漢字.py'], cwd=tmp_path,
+        env={'OWNED': '漢字'}, detached_console=True)
+    assert owner.created_children == (child,) and not child.resumed
+    assert kernel.events[:4] == ['attributes-initialized', 'job-list-set', 'created-into-registered-record', 'membership-checked']
+    child.resume_once()
+    with pytest.raises(OSError, match='exit must be confirmed'): owner.close()
+    assert not any(isinstance(event, tuple) and event[0] == 'close' for event in kernel.events)
+    owner.terminate(timeout=1); owner.close()
+    assert child.resumed and child.exited and child.closed and owner.handle is None
+
+
+@pytest.mark.parametrize('invalid', [None, 0, 1, 'detached', 0x00000008])
+def test_detached_mode_rejects_non_boolean_inputs_before_native_creation(owned, tmp_path, invalid):
+    owner, kernel = owned
+    with pytest.raises(ValueError, match='explicit Boolean'):
+        owner.create_suspended([sys.executable], cwd=tmp_path, env={'OWNED': '漢字'}, detached_console=invalid)
+    assert not owner.created_children and not kernel.events and owner.handle == 100
 
 
 def test_resume_once_and_confirmed_drain_close_keep_same_creation_handles(owned, tmp_path):
@@ -438,7 +463,8 @@ def test_resume_and_drain_have_one_serialized_admission_order(owned, tmp_path, m
 
 @pytest.mark.skipif(os.name != 'nt', reason='Real Windows suspended process/Job/retained-handle contract')
 @pytest.mark.parametrize('guardian_before_resume', [False, True])
-def test_windows_authored_leaf_writer_stays_owned_after_guardian_loss(tmp_path, guardian_before_resume):
+@pytest.mark.parametrize('detached_console', [False, True])
+def test_windows_authored_leaf_writer_stays_owned_after_guardian_loss(tmp_path, guardian_before_resume, detached_console):
     # The test process is the living keeper. No venv redirector, frozen
     # bootloader, hidden-child registration or production writer claim.
     kernel = module._kernel()
@@ -481,18 +507,25 @@ sys.exit(0 if k.CloseHandle(h) else 99)
         guardian = subprocess.Popen([image.value, '-I', '-B', '-c', 'import time; time.sleep(60)'], cwd=tmp_path,
             env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW)
-        child = owner.create_suspended([image.value, '-I', '-B', str(script), str(marker)], cwd=tmp_path, env=env)
+        child = owner.create_suspended([image.value, '-I', '-B', str(script), str(marker)], cwd=tmp_path,
+            env=env, detached_console=detached_console)
         assert child.process_handle and child.thread_handle and not marker.exists()
         assert all(observe(path) == 32 for path in paths)
         member = wintypes.BOOL()
         assert kernel.IsProcessInJob(child.process_handle, owner.handle, ctypes.byref(member)) and member.value
+        if detached_console:
+            assert owner._process_ids(time.monotonic()+3) == [child._information.process_id]
         if not guardian_before_resume:
             child.resume_once()
             deadline = time.monotonic()+5
             while not marker.exists() and time.monotonic() < deadline: time.sleep(.01)
             assert marker.read_text() == 'authored'
+            if detached_console:
+                assert owner._process_ids(time.monotonic()+3) == [child._information.process_id]
         guardian.kill(); guardian.wait(timeout=5)
         assert all(observe(path) == 32 for path in paths)
+        if detached_console:
+            assert owner._process_ids(time.monotonic()+3) == [child._information.process_id]
         owner.terminate(timeout=5)
         assert child.exited and kernel.WaitForSingleObject(child.process_handle, 0) == 0
         assert all(observe(path) == 32 for path in paths)
