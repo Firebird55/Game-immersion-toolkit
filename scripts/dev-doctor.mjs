@@ -7,8 +7,8 @@ import {changedFiles, selectChecks, scenarioPlan} from './check-changed.mjs';
 import {resolvePython} from './python-runtime.mjs';
 
 const allEngines = ['chromium', 'firefox', 'webkit'];
-const threeEngineScenarios = new Set(['local-access-e2e', 'companion-e2e', 'mobile-reader-layout-e2e', 'mobile-capture-e2e', 'mobile-recovery-e2e', 'mobile-vdo-source-e2e', 'mobile-source-e2e', 'mobile-library-e2e', 'mobile-games-e2e', 'mobile-update-e2e']);
-const pythonScenarios = new Set(['ui-state-e2e', 'ui-state-react-e2e', 'local-access-e2e']);
+const threeEngineScenarios = new Set(['desktop-lan-e2e', 'local-access-e2e', 'companion-e2e', 'mobile-reader-layout-e2e', 'mobile-capture-e2e', 'mobile-recovery-e2e', 'mobile-vdo-source-e2e', 'mobile-source-e2e', 'mobile-library-e2e', 'mobile-games-e2e', 'mobile-update-e2e']);
+const pythonScenarios = new Set(['desktop-lan-e2e', 'ui-state-e2e', 'ui-state-react-e2e', 'local-access-e2e']);
 const normalize = name => name.toLowerCase().replace(/[-_.]+/g, '-');
 const safeVersion = value => /^\d+(?:\.\d+)*(?:[a-zA-Z0-9.+-]*)$/.test(String(value)) ? String(value) : 'unknown';
 const json = (read, path) => JSON.parse(read(path, 'utf8'));

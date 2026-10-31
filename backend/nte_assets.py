@@ -57,13 +57,15 @@ def dotnet_sdk() -> Path | None:
 
 
 def ensure_extractor(directory: Path) -> Path:
+    from .runtime_bundle import discover_layout
+    if discover_layout().mode == 'bundle':
+        from .nte_toolchain import resolve
+        return resolve().executable
     sdk = dotnet_sdk()
     if sdk is None:
         raise ValueError("NTE needs the .NET 10 SDK. Install it from https://dotnet.microsoft.com/download/dotnet/10.0, then prepare tools again.")
     upstream = directory / "upstream"
     install_archive(READER_URL, READER_SHA, upstream, ("UEExtractor.dll", "UEExtractor.runtimeconfig.json"))
-    from .wuthering_assets import ensure_unreal_decompression
-    ensure_unreal_decompression(upstream)
     notice = upstream / "UEEXTRACTOR-LICENSE.txt"
     if not notice.is_file():
         data = download(f"https://raw.githubusercontent.com/SolicenTEAM/UEExtractor/{READER_REVISION}/LICENSE")
@@ -119,8 +121,14 @@ def fingerprint(install: Path) -> str:
     values = [f"{p.relative_to(install).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}" for p in sources]
     from .nte_cinematics import CATALOG_REVISION
     reader = Path(__file__).resolve().parents[1] / 'scripts/game-readers'
-    revision = hashlib.sha256(b''.join((reader / name).read_bytes() for name in
-                                      ('NteReader.cs', 'NteReader.csproj'))).hexdigest()
+    from .runtime_bundle import discover_layout
+    layout = discover_layout()
+    if layout.mode == 'bundle':
+        from .prebuilt_readers import reader_source_identity
+        revision = reader_source_identity('nte', layout=layout)
+    else:
+        revision = hashlib.sha256(b''.join((reader / name).read_bytes() for name in
+                                          ('NteReader.cs', 'NteReader.csproj'))).hexdigest()
     return hashlib.sha256((f'reader5|{LANGUAGE_INDEX_VERSION}|{READER_SHA}|{revision}|' +
                           CATALOG_REVISION + '|' + '|'.join(values)).encode()).hexdigest()
 
@@ -149,12 +157,23 @@ def _archive_metadata(install: Path, stamp: str) -> str:
 
 
 def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None) -> None:
-    install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the game installation")
-    sdk = dotnet_sdk()
-    if sdk is None or not executable.is_file():
-        raise ValueError("Prepare NTE tools in Setup before indexing")
+    from .runtime_bundle import discover_layout
+    layout = discover_layout()
+    if layout.mode == 'bundle':
+        from .nte_toolchain import command
+        invocation, environment, working_directory = command(install, destination, mode, layout=layout)
+        if str(executable) != invocation[0]:
+            raise ValueError('The selected archive reader differs from the bundled executable')
+    else:
+        sdk = dotnet_sdk()
+        if sdk is None or not executable.is_file():
+            raise ValueError("Prepare NTE tools in Setup before indexing")
+        working_directory = executable.resolve().parent / 'upstream'
+        invocation = [str(sdk), str(executable.resolve()), mode, str(install.resolve()), str(working_directory), str(destination.resolve())]
+        environment = None
+    install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     stamp = fingerprint(install)
     root = install / "Client/WindowsNoEditor/HT/Content"
     if any(any(part.startswith("~") for part in path.relative_to(root).parts) or
@@ -178,8 +197,8 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
     if cinema_events is not None:
         request['cinema_events'] = cinema_events
     try:
-        result = subprocess.run([str(sdk), str(executable), mode, str(install), str(executable.parent / "upstream"), str(destination)],
-            input=json.dumps(request).encode(), capture_output=True, timeout=600, cwd=executable.parent / "upstream",
+        result = subprocess.run(invocation,
+            input=json.dumps(request).encode(), capture_output=True, timeout=600, cwd=working_directory, env=environment,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except (OSError, subprocess.SubprocessError):
         raise RuntimeError("NTE reader could not complete") from None
@@ -468,6 +487,8 @@ def _voice_language(audio):
 
 def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
     language = _voice_language(audio)
+    from .nte_toolchain import voice_executable
+    executable = voice_executable(executable)
     options = {'voice_language': language} if audio.get('locale') else {}
     run_reader(install, executable, destination, "voice", audio["depot"], **options)
     data = (destination / "voice.wem").read_bytes()
@@ -481,6 +502,8 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
     languages = {_voice_language(audio) for audio in audios}
     if not 1 <= len(depots) <= 8 or len(languages) != 1:
         raise ValueError('NTE batches require one selected original voice language')
+    from .nte_toolchain import voice_executable
+    executable = voice_executable(executable)
     options = {'voice_language': next(iter(languages))} if any(audio.get('locale') for audio in audios) else {}
     run_reader(install, executable, destination, 'voices', depots=depots, **options)
     result = [(destination / f'{i}.wem').read_bytes() for i in range(len(depots))]

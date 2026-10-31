@@ -1,4 +1,6 @@
 'use client';
+import {desktopApiBase} from '../lib/desktop-endpoints';
+
 import {useInterfaceTranslation} from '../lib/interface-language';
 
 import { useEffect, useRef, useState } from 'react';
@@ -29,7 +31,7 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
     const controller = new AbortController();
     setEstimating(true); setEstimateError(''); setEstimate(null);
     const timer = window.setTimeout(() => {
-      void fetch(`http://127.0.0.1:8766/api/setup/games/${game}/mobile-export/preview`, { method: 'POST', signal: controller.signal,
+      void fetch(`${desktopApiBase()}/api/setup/games/${game}/mobile-export/preview`, { method: 'POST', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup',
           ...(status?.scope ? {'X-Proxy-Transcript-Export-Scope':status.scope} : {}) },
         body: JSON.stringify({ include_audio: includeAudio, destination_folder: folder }) })

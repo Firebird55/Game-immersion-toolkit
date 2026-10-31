@@ -44,7 +44,12 @@ Install the chosen original voice through the game's own language settings.
 Prepare only the study language and translation you want. Missing official text
 or audio stays unavailable; another language is never silently substituted.
 
-Endfield needs the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). **Install game tools** downloads pinned, checksum-checked [EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) reader sources and retains their MIT notice in the private tool cache. The toolkit builds its small VFS bridge locally.
+The archive reader is built into the toolkit and needs no SDK, compiler or
+separate .NET installation. **Install game tools** acquires exact, checksum-checked
+numerical format metadata into the private tool cache. Those documents are read
+as data, never compiled or executed. Large voice packages are read by selected
+byte range. See [archive runtime evidence](endfield-runtime.md) for source
+identities and the separate codec/frozen-platform acceptance still required.
 
 ## Dialogue and original voice
 

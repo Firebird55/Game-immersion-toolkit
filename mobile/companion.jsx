@@ -7,6 +7,7 @@ import {createReader,createReadingSession,restoreLocalSettings,ReadingOptionsDia
 import '@firebird55/lexirise-components/styles.css';
 import './companion.css';
 import {createMobileReaderContext} from './reader-context.mjs';
+import {DesktopConnection} from './desktop-connection';
 
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -141,7 +142,7 @@ function App(){
  $('reload-build').onclick=applyUpdate;
  return <>
   <header className="companion-header"><div><p className="eyebrow">{uiText("GAME IMMERSION TOOLKIT")}</p><h1>{uiText("Game immersion toolkit")}</h1><p className="subtitle">{uiText("Stay in the story.")}</p></div><div className={'connection-badge '+(connected?'connected':'')}><span aria-hidden="true">●</span> {uiText(connected?'Connected':'Not connected')}</div></header>
-  <nav className="companion-nav" aria-label={uiText("Companion")}>{['reader','settings'].filter(v=>role!=='sender'||v==='settings').map(v=><button key={v} aria-current={view===v?"page":undefined} onClick={()=>go(v)}>{uiText(v==='reader'?'Play':'Settings')}</button>)}</nav>
+  <nav className="companion-nav" aria-label={uiText("Companion")}>{['reader','settings'].filter(v=>role!=='sender'||v==='settings').map(v=><button key={v} aria-current={view===v?"page":undefined} onClick={()=>go(v)}>{uiText(v==='reader'?'Play':'Settings')}</button>)}<DesktopConnection /></nav>
   {error&&<div className="message error" role="alert">{error}<button onClick={()=>setError('')}>{uiText("Dismiss")}</button></div>}{notice&&<div className="message" role="status">{notice}<button onClick={()=>setNotice('')}>{uiText("Dismiss")}</button></div>}
   {update&&<div className="message" role="status">{uiText("An update is ready. Your library, favorites and calibration will stay on this device.")}<button onClick={applyUpdate} disabled={capture.captureLifecycle.active||library.libraryLifecycle.busy}>{uiText("Update when idle")}</button></div>}
   {createPortal(<div ref={readerPane} className="reader-pane" hidden={view!=='reader'||role!=='receiver'||source==='mobile'&&!rows.length} style={{'--lexirise-font-size':options.fontSize+'px','--translation-font-size':translationFontSize+'px'}}>

@@ -1,7 +1,10 @@
 """First-run setup and local maintenance. No credentials or game assets leave the PC."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
+from .runtime_bundle import child_command, discover_layout, resource_path
 import json
+import logging
 import os
 from pathlib import Path
 import platform
@@ -9,11 +12,13 @@ import shutil
 import subprocess
 import sys
 import threading
+from .owned_process import OwnedProcess
 
 from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install, load_paths
 from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
 from .steam_games import STEAM_GAMES
+from .preparation_errors import PreparationFailure, public_failure
 
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
@@ -36,7 +41,7 @@ VOICE_HINTS = {
     "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
     "starrail": "Install your chosen original voice in the game, then prepare its learning language and translation in Languages.",
     "genshin": "Install your chosen voice pack through the game's language settings, then prepare it in Languages.",
-    "endfield": "Install the matching voice pack and Microsoft .NET 10 SDK, then prepare tools and the selected language.",
+    "endfield": "Install the matching voice pack, then prepare tools and the selected language.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
     "zzz": "Install the selected study language's original voice pack through the launcher, then prepare it in Languages.",
@@ -45,7 +50,7 @@ VOICE_HINTS = {
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
     "wuwa": "Download the selected study language's voice pack in Wuthering Waves, then prepare it in Languages.",
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
-    "nte": "Download the selected study language's original voice pack, then prepare its authored dialogue and cinematic bindings in Languages.",
+    "nte": "Download the selected original voice pack, choose Prepare game tools, then prepare its dialogue and cinematic bindings in Languages.",
 }
 
 
@@ -88,11 +93,16 @@ class InstallationService:
         self.root, self.settings = root, settings
         self.game_state, self.refresh_game = game_state, refresh
         self.account_configured, self.install_lookup = account_configured, install_lookup
-        self.path = Path(os.environ.get("LOCALAPPDATA", root / "data")) / "Proxy Transcript/setup.json"
+        layout = discover_layout()
+        self.path = (layout.settings_root / 'setup.json' if layout.mode == 'bundle' or sys.platform != 'win32' else
+                     Path(os.environ.get("LOCALAPPDATA", runtime_data_root(root))) / "Proxy Transcript/setup.json")
         self._lock = threading.RLock()
         self._jobs: dict[str, dict] = {}
         self._tool_thread: threading.Thread | None = None
         self._native: dict[str, subprocess.Popen] = {}
+        self._native_owners = {}
+        self._native_threads = []
+        self._paused = False
         self.completed = existing_user
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
@@ -102,6 +112,7 @@ class InstallationService:
             pass
 
     def status(self) -> dict:
+        layout = discover_layout()
         saved = load_paths()
         games = []
         for game in GAMES:
@@ -119,22 +130,30 @@ class InstallationService:
                 voice = _voice_state(game, install, state)
             except OSError:
                 voice = "not_checked"
+            voice_hint = VOICE_HINTS[game]
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
-                          "voice_hint": VOICE_HINTS[game], "tools_missing": missing_tools(self.root, game), **state})
+                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
         ocr = Path.home() / ".config/oneocr"
+        from .ocr_engine import portable_models_available
+        from .desktop_capabilities import capture_capability
         requirements = [
-            {"id": "windows", "title": "Windows", "ready": sys.platform == "win32",
-             "help": "Desktop game capture requires Windows. The mobile capture test is a separate browser page."},
-            {"id": "ocr", "title": "Subtitle OCR", "ready": all((ocr / name).is_file() for name in
+            capture_capability(),
+            {"id": "ocr", "title": "Subtitle OCR", "ready": portable_models_available() or all((ocr / name).is_file() for name in
               ("oneocr.dll", "oneocr.onemodel", "onnxruntime.dll")),
-             "help": "Install or update Windows Snipping Tool, then re-run Install.cmd to repair OCR."},
+             "help": "Offline OCR is included. Repair the toolkit installation if its model files are missing."},
             {"id": "audio", "title": "Audio conversion", "ready": bool(ffmpeg_executable()),
-             "help": "Re-run Install.cmd to repair the local audio dependencies."},
-            {"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
-             "help": "Install Node.js 24 with npm, then re-run Install.cmd."},
+             "help": "Repair the toolkit installation if the bundled audio converter is missing."},
         ]
+        if layout.mode == 'bundle':
+            requirements[1]['help'] = "Offline OCR is included. This experimental bundle still needs native capture verification."
+            requirements[2]['help'] = "Audio conversion is unavailable until this bundle's codec and game-tool verification is complete. Keep using your existing toolkit installation."
+            requirements.append({'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
+                'help': "This candidate is awaiting native capture, game-tool and distribution review."})
+        else:
+            requirements.append({"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
+                "help": "Install Node.js 24 with npm, then re-run Install.cmd."})
         try:
             free_gb = round(shutil.disk_usage(self.root).free / 1024 ** 3, 1)
         except OSError:
@@ -147,7 +166,7 @@ class InstallationService:
         return {"completed": self.completed, "games": games, "requirements": requirements, "jobs": jobs,
                 "native": native, "free_gb": free_gb, "lexirise_configured": self.account_configured(),
                 "auto_start": self.settings.get().auto_start if self.completed else False,
-                "version": json.loads((Path(__file__).resolve().parents[1] / "package.json").read_text(encoding="utf-8"))["version"],
+                "version": json.loads(resource_path('package.json').read_text(encoding="utf-8"))["version"],
                 "capture_check": capture_check}
 
     def complete(self, auto_start: bool) -> None:
@@ -166,6 +185,8 @@ class InstallationService:
         if install and self.root.resolve().is_relative_to(install.resolve()):
             raise ValueError("Move the toolkit to a folder outside the game installation before preparing tools")
         with self._lock:
+            if self._paused:
+                return False
             if self._tool_thread and self._tool_thread.is_alive():
                 return False
             self._jobs[game] = {"state": "preparing", "message": "Preparing game tools", "progress": 5}
@@ -182,43 +203,73 @@ class InstallationService:
             prepare_tools(self.root, game, progress)
             missing = missing_tools(self.root, game)
             if missing:
-                raise ValueError("Tools are incomplete")
+                raise PreparationFailure('tools_incomplete',
+                    'Preparation still needs: ' + ', '.join(missing) + '. Retry preparation or repair the toolkit installation.')
             with self._lock:
                 self._jobs[game] = {"state": "ready", "message": "Tools ready; checking game data", "progress": 100}
             if self.install_lookup(game):
                 self.refresh_game(game)
-        except Exception:
+        except Exception as error:
+            logging.getLogger(__name__).exception('Tool preparation failed for %s', game)
+            failure = public_failure(error)
             with self._lock:
-                self._jobs[game] = {"state": "error", "message": "Preparation failed. Check your connection and retry. Re-run Install.cmd if dependencies are missing.", "progress": 100}
+                self._jobs[game] = {"state": "error", "message": failure['message'],
+                                    "code": failure['code'], "progress": 100}
 
     def launch_native(self, kind: str) -> bool:
         if kind not in {"folders", "lexirise", "checks"}:
             raise ValueError("Unsupported setup action")
-        if sys.platform != "win32":
-            raise ValueError("Native setup dialogs require Windows")
         with self._lock:
+            if self._paused:
+                return False
             if any(process.poll() is None for process in self._native.values()):
                 return False
             before = load_paths()
-            source = Path(__file__).resolve().parents[1]
-            if kind == "folders":
-                args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                        str(source / "scripts/select-game-folders.ps1")]
-                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            elif kind == "lexirise":
-                # The hidden-input prompt owns its console. No key is sent to the browser or command line.
-                args = [sys.executable, "-m", "scripts.set_lexirise_key", "--account"]
-                flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+            layout = discover_layout()
+            source = layout.resource_root
+            if kind == 'lexirise':
+                # A password field on the host owns the credential. No key is
+                # sent to the browser, command line or process environment.
+                args = child_command('account-key', ['--account', '--gui'])
             else:
-                args = [sys.executable, str(source / "scripts/check-capture-readiness.py"), "--pause"]
-                flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-            process = subprocess.Popen(args, cwd=source, creationflags=flags)
+                args = child_command('native-setup', [kind])
+            environment = {'env': layout.child_environment()} if layout.mode == 'bundle' else {}
+            owner = OwnedProcess(args, cwd=source, stdin=None, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, **environment)
+            process = owner.process
+            self._native_owners[kind] = owner
             self._native[kind] = process
-            threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True).start()
+            monitor = threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True)
+            self._native_threads.append(monitor)
+            monitor.start()
             return True
+
+    def pause(self):
+        with self._lock:
+            self._paused = True
+            owners = list(self._native_owners.values())
+            threads = [self._tool_thread, *self._native_threads]
+        for owner in owners:
+            owner.stop()
+        for thread in threads:
+            if thread is not None:
+                thread.join(timeout=30)
+                if thread.is_alive():
+                    raise RuntimeError('Game setup is still finishing; runtime handoff is blocked.')
+
+    def resume(self):
+        with self._lock:
+            if self._tool_thread and self._tool_thread.is_alive():
+                raise RuntimeError('Game setup has not finished stopping.')
+            if any(thread.is_alive() for thread in self._native_threads):
+                raise RuntimeError('Setup dialogs have not finished stopping.')
+            self._paused = False
 
     def _native_finished(self, kind, process, before):
         process.wait()
+        owner = self._native_owners[kind]
+        owner.stop()
+        owner.close_streams()
         if kind == "folders":
             after = load_paths()
             for game in GAMES:

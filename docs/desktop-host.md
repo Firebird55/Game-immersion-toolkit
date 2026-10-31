@@ -1,0 +1,129 @@
+# Desktop executable host
+
+The executable opens the user's default browser once the API, verified static
+frontend and LAN gateway are ready. Startup progress, capture status changes,
+child exit codes and bounded restart attempts appear in the visible log window.
+Windows also keeps a console open. Tray/menu-bar actions open the transcript,
+show logs and quit. Desktops without a tray service retain the log window.
+
+Starting the executable again contacts the current owner and opens its reader
+and logs. It does not start another capture stack or terminate a PID from a
+saved file. The owner holds the existing `companion-operation.lock` continuously;
+a legacy launcher or updater cannot enter during the session. An installer can
+use `--request-quit`: success requires the owner to release that lease after
+shutdown, within 45 seconds. An unknown/busy owner is left untouched.
+
+Child services run on OS-assigned private ports. Their readiness messages name
+the socket they actually bound; the stable gateway retains the public origin
+when a child restarts. Confirmed transcript data remains in the user-data store.
+The host resumes capture after an API crash when its last observed state was
+running, with at most five automatic attempts per service in five minutes.
+It does not repeatedly open browser tabs during recovery.
+
+Quit asks the API to drain capture and writers before stopping its services.
+If graceful drain times out, the host stops only its retained owned process
+trees. Windows uses a Job Object joined before the real child starts. POSIX uses
+a parent-liveness watchdog and a retained process-group leader. Failed cleanup
+keeps the operation lease and a visible recovery state; it cannot silently start
+a replacement. The POSIX implementation still requires native platform evidence.
+
+Local logs rotate at 2 MiB with four backups. They contain status and child
+diagnostics, with common credential headers/fields redacted and control codes
+removed. Logs are private local diagnostics and must never be uploaded as public
+CI artifacts. The GUI retains at most 2,000 lines.
+
+## Developer and candidate entrypoints
+
+From a prepared source checkout, build with `npm run desktop:build`, then run
+`python -m backend.desktop_host`. `--frontend-root` selects an already built,
+manifest-verified source frontend. No developer server is started by this host.
+`--headless --no-browser` provides the same supervision without a display.
+
+Frozen launches select platform user-data storage outside the immutable app
+slot: LocalAppData on Windows, Application Support on macOS, and XDG data storage
+on Linux. `--data-root` selects another absolute user-data folder. Source mode
+retains the legacy installation-root interpretation of this option. Child roots
+remain explicit through the fixed runtime layout; working-directory changes do
+not redirect writes into the app.
+
+`--host-check` validates the frontend and imports the GUI runtime without
+starting services, opening a window or preparing user data. It explicitly reports
+native acceptance as not run. A private `runtime-experiment` candidate may test
+this host; that does not enable the production distribution gate or close R19.
+
+Run `python scripts/probe-desktop-host.py --runtime-root <candidate>/runtime/GameImmersionToolkit
+--provenance <candidate>/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json`
+on each candidate's native platform. This starts the actual frozen executable,
+API, frontend and gateway from an unrelated working directory with reduced PATH
+and fresh synthetic user storage. It checks API crash recovery at the same
+public origin, graceful shutdown, host death, retained process/lease cleanup and
+an unchanged closed payload inventory. Automatic release installation is disabled
+in the synthetic preferences. The script never loads the user's toolkit settings
+or account credentials. Temporary synthetic state stays private on the test host.
+
+The public result binds the exact receipt, source commit, build ID and file
+inventory. Only booleans, bounded artifact identifiers and fixed failure codes
+are emitted; local logs and paths remain private. A successful headless result
+does not establish visible window/tray behavior, ordinary browser navigation,
+native capture or the frozen update transaction. Those need separate native
+acceptance evidence for the same candidate.
+
+Add `--ui` to that native probe command for a separate visible host run. It opens
+the real Qt status/log window, observes native tray registration when a system
+tray is available, and invokes the real Show logs, Open transcript and Quit
+actions. It opens the transcript through the default browser handler on startup
+and once through the menu. A missing tray records the supported visible-window
+fallback; an offscreen/minimal Qt backend never counts as native window or tray
+acceptance. A missing native display or browser handler returns exit 2 with
+`status: unavailable`, which is not a full pass.
+
+The underlying `--ui-probe` executable option writes a small, path-free result
+to `state/native-ui-probe.json` and quits through the normal writer drain. The
+outer runner binds it to the same exact artifact receipt. Browser-handler
+acknowledgement is named `default_browser_request`; it does not set
+`browser_open` or establish browser navigation/profile continuity. Final native
+browser checks remain required. The GUI diagnostic does not inspect game pixels
+or personal account data.
+
+## Evidence and remaining work
+
+Windows source checks cover actual API/frontend/gateway startup in disposable
+state, API-bootstrap termination, descendant cleanup, a new private API port,
+retained public origin and graceful shutdown. Separate real-process tests cover
+descendants after parent exit and unexpected owner death. Unit checks cover
+instance reuse, browser-origin rejection on host control, log redaction,
+single-browser startup, restart ordering and retained exclusion after a failed
+cleanup. These are source-host results, not extracted-installer acceptance.
+
+Eligible frozen releases use the [owner-held update transaction](desktop-update-handoff.md).
+Source checkouts and private experimental artifacts keep automatic installation
+unavailable. The source updater cannot be nested inside the continuous operation
+lease. Implemented transaction checks do not close the native acceptance gate
+in [R19 C3](r19-completion-plan.md).
+Game-data preparation continues through the normal shared runtime services.
+Final frozen resource closure, ordinary browser profile continuity, platform
+native capture and installed repair/update/uninstall remain in the
+[desktop delivery plan](desktop-delivery-completion-plan.md).
+See [desktop platforms](desktop-platforms.md) for the implemented discovery
+backends, capture permission requirements and native verification limits.
+
+POSIX service watchdogs retain a session identity; nested owned helpers use
+separate groups inside that session. The outer watchdog stops every group before
+reporting service exit. It also inherits the installation lease descriptor,
+which is excluded from actual commands and retained by the watchdog until
+verified cleanup. Unknown cleanup retains ownership and keeps reporting status.
+This prevents a host crash from releasing the installation while nested writers
+are still exiting. Native Linux/macOS failure acceptance remains required.
+
+Windows top-level services have an outer guardian that inherits the exact
+exclusive installation handle. The application joins its child Job before it
+can spawn helpers; the guardian stays outside that Job and retains the lease
+until all Job members have signaled exit. This closes the interval between host
+death and completion of asynchronous Job termination. An actual source-process
+test kills the host and proves a second owner cannot acquire before the writer
+has exited. Extracted bootloader/installer acceptance remains a separate check.
+
+Atomic route/control publication preserves the previous file and retries short
+Windows sharing conflicts. Shutdown likewise retains ownership while a local
+reader temporarily holds a state file. The local control token is written with
+private permissions before publication.

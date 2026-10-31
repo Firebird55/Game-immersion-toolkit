@@ -12,13 +12,14 @@ import struct
 import subprocess
 import tempfile
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from .runtime_workers import ResumableExecutor
 from typing import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from .textmaps import normalize_english
 from .media_tools import ffmpeg_executable
+from .voice_decoder import VoiceDecoder
 
 
 def voice_hash(path: str) -> int:
@@ -183,13 +184,13 @@ def resolve_links(links: list[dict], prefixes: list[str], entries: dict[int, Voi
     return result
 
 
-class VoiceAssetService:
+class VoiceAssetService(VoiceDecoder):
     """Small persistent manifest; decode only requested lines, off the OCR thread."""
 
     def __init__(
         self,
         manifest: Path,
-        decoder: Path,
+        decoder: Path | None,
         output_dir: Path,
         learned_manifest: Path | None = None,
     ):
@@ -200,7 +201,7 @@ class VoiceAssetService:
         self._entries: dict[str, dict] = {}
         self._learned_entries: dict[str, dict] = {}
         self._manifest_lock = threading.RLock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
+        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
         try:
@@ -216,7 +217,7 @@ class VoiceAssetService:
                 self._entries.update(self._learned_entries)
         except (OSError, ValueError, KeyError) as error:
             self.last_error = str(error)
-        self.ready = bool(self._entries and decoder.is_file() and ffmpeg_executable())
+        self.ready = bool(self._entries and self.decoder_available() and ffmpeg_executable())
 
     def has(self, text_id: str) -> bool:
         return self.has_variant(text_id)
@@ -248,7 +249,7 @@ class VoiceAssetService:
         with self._manifest_lock:
             self.manifest = manifest
             self._entries = {**data["entries"], **self._learned_entries}
-        self.ready = bool(self._entries and self.decoder.is_file() and ffmpeg_executable())
+        self.ready = bool(self._entries and self.decoder_available() and ffmpeg_executable())
         self.last_error = None
 
     def status(self) -> dict:
@@ -291,7 +292,7 @@ class VoiceAssetService:
                 encoding="utf-8",
             )
             temporary.replace(self.learned_manifest)
-        self.ready = bool(self._entries and self.decoder.is_file() and ffmpeg_executable())
+        self.ready = bool(self._entries and self.decoder_available() and ffmpeg_executable())
 
     def close(self) -> None:
         self._executor.shutdown(wait=True)
@@ -329,7 +330,7 @@ class VoiceAssetService:
             wem.write_bytes(data)
             options = {"check": True, "capture_output": True, "timeout": 20,
                        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
-            subprocess.run([str(self.decoder), "-o", str(wav), str(wem)], **options)
+            subprocess.run([str(self.require_decoder()), "-o", str(wav), str(wem)], **options)
             subprocess.run([ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-nostdin",
                             "-i", str(wav), "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
             if mp3.stat().st_size < 100:
@@ -355,7 +356,7 @@ class VoiceAssetService:
             options = {"check": True, "capture_output": True, "timeout": 20 * len(requests),
                        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
             # Vgmstream accepts several inputs and writes <input>.wav for each.
-            subprocess.run([str(self.decoder), *map(str, inputs)], **options)
+            subprocess.run([str(self.require_decoder()), *map(str, inputs)], **options)
             command = [ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-nostdin",
                        "-filter_threads", "1", "-filter_complex_threads", "1"]
             for wem in inputs:

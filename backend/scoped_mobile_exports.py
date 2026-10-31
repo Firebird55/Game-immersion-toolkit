@@ -1,6 +1,7 @@
 """Host export preferences and jobs partitioned by account and learning locale."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
 import hashlib
 import json
 from pathlib import Path
@@ -21,6 +22,7 @@ class ScopedMobileExports:
         self.root, self.accounts, self.languages = Path(root), accounts, languages
         self.lock = threading.RLock()
         self.managers, self.last_games = {}, {}
+        self._paused = False
 
     def context(self, game=None):
         status = self.accounts.status()
@@ -32,7 +34,7 @@ class ScopedMobileExports:
         if locale and locale not in GAME_LOCALES.get(game, ('zh-Hans',)):
             raise ValueError('Select a supported prepared learning language.')
         if not locale:
-            legacy = account == 'legacy' and not (self.root / 'data/languages' / game).is_dir()
+            legacy = account == 'legacy' and not (runtime_data_root(self.root) / 'languages' / game).is_dir()
             locale = 'zh-Hans' if game == 'hito' or legacy else 'unconfigured'
         signature = account_signature(self.accounts)
         generation = self.languages.selection_generation(game, account)
@@ -41,6 +43,8 @@ class ScopedMobileExports:
 
     def _manager(self, game=None):
         with self.accounts.lock, self.lock:
+            if self._paused:
+                raise RuntimeError('Mobile exports are paused for the runtime update.')
             account, locale, game, signature, token = self.context(game)
             self.last_games[account] = game
             for old in self.managers.values():
@@ -72,7 +76,7 @@ class ScopedMobileExports:
         self._require_table(context[0], context[2], context[1])
 
     def _require_table(self, account, game, locale):
-        if self.languages.selected(game, account) and not (self.root / 'data/languages' / game / locale / 'textmap.json').is_file():
+        if self.languages.selected(game, account) and not (runtime_data_root(self.root) / 'languages' / game / locale / 'textmap.json').is_file():
             raise ValueError('The selected language table is unavailable. Rebuild it in Languages before exporting.')
 
     def status(self, game=None):
@@ -112,3 +116,18 @@ class ScopedMobileExports:
             for manager in self.managers.values():
                 manager.cancel()
                 manager.close_picker()
+
+    def drain(self):
+        with self.lock:
+            self._paused = True
+            managers = list(self.managers.values())
+        # Join outside account/manager locks: completion callbacks need them.
+        for manager in managers:
+            manager.drain()
+
+    def resume(self):
+        with self.lock:
+            for manager in self.managers.values():
+                if manager._thread and manager._thread.is_alive():
+                    raise RuntimeError('A mobile export is still stopping.')
+            self._paused = False

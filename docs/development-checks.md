@@ -150,20 +150,20 @@ Playwright's competing signal exits so they cannot interrupt server cleanup.
 If a Windows parent has already exited, its remaining descendants cannot be
 safely identified: cleanup fails explicitly and retains the temporary runtime. Forced OS termination cannot run cleanup.
 
-## Supported targets and proposed CI changes
+## Desktop targets and native evidence
 
-Windows is the supported desktop target. Relevant macOS/WebKit checks provide
-mobile-browser evidence; physical iOS and native Windows checks remain distinct.
-**Do not add Linux product/browser verification.** Linux working incidentally
-does not make it a supported platform or justify extra test jobs.
+The owner has requested Windows, Linux and macOS desktop delivery. This supersedes
+the earlier Windows-only scope. Windows retains the existing source/native
+coverage; new Linux/macOS package construction must gain its own native evidence.
+Relevant macOS/WebKit checks provide mobile-browser evidence, while physical iOS
+and desktop capture remain distinct. A passing package build alone does not prove
+capture, audio, window discovery or desktop permissions work on that platform.
 
-The Online companion workflow currently includes Ubuntu browser checks, and
-earlier evidence includes Linux codec tests. R25 must
-remove or relocate those test jobs to Windows and, where needed, macOS/WebKit,
-preserving useful browser/codec coverage. This documentation does not claim that
-migration has happened. Linux runners used solely for static publishing are
-infrastructure, not Linux compatibility tests; do not remove publication machinery
-just because its runner is Linux.
+Keep useful browser and codec checks on their declared targets. Linux runners
+used solely for static publishing remain infrastructure evidence. Follow the
+[native acceptance plan](desktop-native-acceptance-plan.md) and
+[delivery plan](desktop-delivery-completion-plan.md) for the exact remaining
+platform, package and release gates.
 
 ## Planned test review and pruning
 

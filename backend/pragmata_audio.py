@@ -9,12 +9,13 @@ import tempfile
 import threading
 import uuid
 import wave
-from concurrent.futures import ThreadPoolExecutor
+from .runtime_workers import ResumableExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
 from .media_tools import ffmpeg_executable
+from .voice_decoder import VoiceDecoder
 
 
 ZERO_GUID = "00000000-0000-0000-0000-000000000000"
@@ -493,14 +494,14 @@ def mix_voice_batches(requests):
                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
 
 
-class PragmataVoiceAssetService:
+class PragmataVoiceAssetService(VoiceDecoder):
     """Extract the selected original PRAGMATA voice lazily from installed PAKs."""
 
-    def __init__(self, data_dir: Path, decoder: Path, output_dir: Path, *, tools_dir: Path | None = None):
+    def __init__(self, data_dir: Path, decoder: Path | None, output_dir: Path, *, tools_dir: Path | None = None):
         self.data_dir = data_dir.resolve()
         self.manifest = data_dir / "textmap.json"
         self.manifest = self.manifest.resolve()
-        self.decoder = decoder.resolve()
+        self.decoder = decoder.resolve() if decoder is not None else None
         self.output_dir = output_dir.resolve()
         self.tools = (tools_dir or self.data_dir / 'tools').resolve()
         self.locale = 'zh-Hans'
@@ -509,7 +510,7 @@ class PragmataVoiceAssetService:
         self._fingerprint: str | None = None
         self._lock = threading.RLock()
         self._package_lock = threading.Lock()
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pragmata-original-voice")
+        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="pragmata-original-voice")
         self._slots = threading.BoundedSemaphore(8)
         self.last_error: str | None = None
         self.ready = False
@@ -519,8 +520,7 @@ class PragmataVoiceAssetService:
     def reload(self) -> bool:
         try:
             stat = self.manifest.stat()
-            signature = (stat.st_mtime_ns, stat.st_size, self.decoder.is_file(),
-                         (self.tools / 'REE.Unpacker.exe').is_file(), bool(ffmpeg_executable()))
+            signature = (stat.st_mtime_ns, stat.st_size, self.decoder_available(), bool(ffmpeg_executable()))
             if self._loaded_signature == signature:
                 return self.ready
             payload = json.loads(self.manifest.read_text(encoding="utf-8"))
@@ -564,8 +564,7 @@ class PragmataVoiceAssetService:
                     entries
                     and self._install
                     and self._install.is_dir()
-                    and self.decoder.is_file()
-                    and (self.tools / "REE.Unpacker.exe").is_file()
+                    and self.decoder_available()
                     and ffmpeg_executable()
                 )
                 self.last_error = None
@@ -610,7 +609,7 @@ class PragmataVoiceAssetService:
         cache = self._cache_root()
         for virtual in (entry.streaming, entry.index):
             if virtual:
-                candidate = cache / Path(virtual.replace("/", "\\"))
+                candidate = cache / Path(virtual)
                 if candidate.is_file():
                     try:
                         for media_id in entry.media_ids:
@@ -632,7 +631,7 @@ class PragmataVoiceAssetService:
         finally:
             project.unlink(missing_ok=True)
         for virtual in virtuals:
-            candidate = cache / Path(virtual.replace("/", "\\"))
+            candidate = cache / Path(virtual)
             if candidate.is_file():
                 try:
                     for media_id in entry.media_ids:
@@ -664,7 +663,7 @@ class PragmataVoiceAssetService:
             for media_id in entry.media_ids:
                 wem, wav = scratch / f"{media_id}.wem", scratch / f"{media_id}.wav"
                 wem.write_bytes(read_pck_media(package, media_id))
-                subprocess.run([str(self.decoder), "-o", str(wav), str(wem)], **options)
+                subprocess.run([str(self.require_decoder()), "-o", str(wav), str(wem)], **options)
                 waves[media_id] = wav
             mix_voice_layers(entry, waves, mp3)
             if mp3.stat().st_size < 100:
@@ -719,7 +718,7 @@ class PragmataVoiceAssetService:
                         sources[key] = wem
                     waves[media_id] = Path(str(sources[key]) + '.wav')
                 clips.append((entry, waves, scratch / f'{number}.mp3'))
-            subprocess.run([str(self.decoder), *map(str, sources.values())], check=True, capture_output=True,
+            subprocess.run([str(self.require_decoder()), *map(str, sources.values())], check=True, capture_output=True,
                            timeout=90 * len(requests), creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             mix_voice_batches(clips)
             if any(not path.is_file() or path.stat().st_size < 100 for entry, waves, path in clips):

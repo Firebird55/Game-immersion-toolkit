@@ -4,7 +4,7 @@ import {lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, writeFileS
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const browserNames = ['browser-e2e','setup-e2e','language-account-e2e','ui-state-e2e','ui-state-react-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-vdo-source-e2e','mobile-source-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'];
+const browserNames = ['browser-e2e','desktop-lan-e2e','setup-e2e','language-account-e2e','ui-state-e2e','ui-state-react-e2e','setup-build-e2e','local-access-e2e','companion-e2e','mobile-reader-layout-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-vdo-source-e2e','mobile-source-e2e','mobile-library-e2e','mobile-update-e2e','mobile-layout-e2e','mobile-games-e2e','ocr-packs-e2e'];
 const suiteNames = ['desktop','setup','capture','offline','ocr','all'];
 export const commandIds = new Set(['npm:check','npm:test','npm:test:python','npm:typecheck','npm:build','npm:mobile:build','docs:check','audit:public','release:candidate', ...browserNames.map(name => `browser:${name}`), ...['companion-process-identity-e2e','setup-e2e','update-companion-e2e'].map(name => `windows:${name}`), ...suiteNames.map(name => `suite:${name}`)]);
 const checkNames = new Set(['full','python','desktop','mobile','windows','selector','docs']);

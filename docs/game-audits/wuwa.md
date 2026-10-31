@@ -4,6 +4,13 @@ Audit date: 2026-10-27. Installed resource version: 3.7.0. Adapter schema
 version: 3. This inventories authored content and parser boundaries; it does
 not certify every gameplay scene or capture presentation.
 
+Runtime update, 2026-10-31: the adapter now uses the shared owned managed Unreal
+helper, preserving this audit's authored text/voice joins and patch priority.
+All five study-locale production indexes passed against installed files;
+English/Mandarin originals decoded, while Japanese/Korean packs remain absent.
+See [runtime evidence and platform limits](../wuthering-runtime.md). The earlier
+FModelCLI observations below remain the historical format evidence.
+
 ## Evidence and sources
 
 The installed client was inspected read-only using the toolkit's pinned

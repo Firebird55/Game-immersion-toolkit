@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import threading
+from types import SimpleNamespace
 import zipfile
 
 import pytest
@@ -54,6 +55,42 @@ def test_catalog_only_never_decodes(tmp_path):
     result = export_library("zzz", rows(), tmp_path, include_audio=False)
     assert result["coverage"]["exportedVoices"] == 0
     assert len(list(Path(result["folder"]).glob("*.zip"))) == 1
+
+
+@pytest.mark.parametrize('stage', ['transfer', 'pointer'])
+@pytest.mark.parametrize('cancel_retry', [False, True])
+def test_windows_publication_sharing_retry_preserves_cancellation(tmp_path, monkeypatch, stage, cancel_retry):
+    from backend import atomic_files, mobile_library
+    cancel = threading.Event()
+    attempts = []
+    original = mobile_library.os.replace
+    def transient_lock(source, target):
+        source = Path(source)
+        selected = (source.name.endswith('.transfer.pending') if stage == 'transfer'
+                    else source.name == 'latest.pending')
+        if selected:
+            attempts.append(source)
+            if len(attempts) == 1:
+                error = PermissionError('Synthetic Windows sharing violation')
+                error.winerror = 32
+                raise error
+        return original(source, target)
+    monkeypatch.setattr(mobile_library.os, 'replace', transient_lock)
+    monkeypatch.setattr(atomic_files, 'os', SimpleNamespace(name='nt'))
+    monkeypatch.setattr(atomic_files.time, 'sleep', lambda _: cancel.set() if cancel_retry else None)
+    output = tmp_path / 'export'
+    if cancel_retry:
+        with pytest.raises(ExportCancelled):
+            export_library('zzz', rows(), output, include_audio=False, cancel=cancel)
+        assert len(attempts) == 1
+        assert not (output / 'latest.json').exists()
+    else:
+        result = export_library('zzz', rows(), output, include_audio=False, cancel=cancel)
+        assert len(attempts) == 2
+        pointer = json.loads((output / 'latest.json').read_bytes())
+        assert output / pointer['folder'] / pointer['bundle'] == Path(result['bundle'])
+        with zipfile.ZipFile(result['bundle']) as archive:
+            assert archive.testzip() is None
 
 
 def test_dutch_catalog_preserves_source_and_official_target_without_private_references(tmp_path):

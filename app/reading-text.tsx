@@ -1,4 +1,6 @@
 'use client';
+import {desktopApiBase} from '../lib/desktop-endpoints';
+
 import {createReader, validateAccount, isStudyLanguage, type AccountSettings, type ReadingOptions, type StudyLanguage} from '@firebird55/lexirise-components';
 import type {ComponentProps} from 'react';
 import {useEffect,useMemo,useState} from 'react';
@@ -7,7 +9,7 @@ export type {ReadingOptions,ReadingScope} from '@firebird55/lexirise-components'
 type Context={account:string;settings:AccountSettings};
 let revision=0;
 let contextPromise:Promise<Context>|null=null;
-const API='http://127.0.0.1:8766';
+const API=desktopApiBase();
 function context(){
  return contextPromise??=Promise.all([fetch(API+'/api/lexirise/accounts',{cache:'no-store'}),fetch(API+'/api/lexirise/settings',{cache:'no-store'})]).then(async([a,s])=>{
   if(!s.ok)throw Error('Reload Lexirise account settings.');

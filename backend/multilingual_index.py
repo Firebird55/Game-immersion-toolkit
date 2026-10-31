@@ -28,7 +28,7 @@ def candidates(lines):
 
 
 class MultilingualTextIndex:
-    def __init__(self, game: str, directory: Path):
+    def __init__(self, game: str, directory: Path, *, autoload=True):
         self.game, self.path = game, directory / 'textmap.json'
         self.ready = False
         self.player_voice = 'unconfigured'
@@ -38,6 +38,7 @@ class MultilingualTextIndex:
         self.entry_count = self.audio_count = 0
         self.message, self.state = 'Prepare this game language in Setup', 'not_ready'
         self.lock = threading.RLock()
+        self._load_lock = threading.RLock()
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._capture_channels = {}
         self._unvoiced_lookup = {}
@@ -46,9 +47,31 @@ class MultilingualTextIndex:
         self.dialogue_coverage = {}
         self._signature = None
         self.snapshot_metadata = {}
-        self.load()
+        if autoload:
+            self.load()
+
+    def publish(self, candidate):
+        """Activate the already validated generation without parsing it again."""
+        with self._load_lock, self.lock:
+            candidate.path.replace(self.path)
+            settings = {'game', 'path', 'lock', '_load_lock', 'player_voice',
+                        'target_locale', 'capture_unvoiced'}
+            self.__dict__.update({key: value for key, value in candidate.__dict__.items()
+                                  if key not in settings})
+
+    def voice_snapshot(self, signature):
+        with self.lock:
+            if self.ready and self._signature == signature:
+                return {**self.snapshot_metadata, 'records': self._records}
+        return None
 
     def load(self):
+        # Several status/capture/preparation threads can observe one replacement.
+        # Only one owns JSON decoding and lookup construction for that generation.
+        with self._load_lock:
+            return self._load_snapshot()
+
+    def _load_snapshot(self):
         try:
             info = self.path.stat()
             signature = (info.st_size, info.st_mtime_ns)
@@ -120,8 +143,7 @@ class MultilingualTextIndex:
                 text_only = capabilities.get('voiced') is False and capabilities.get('unvoiced') is True
                 self.state = 'ready' if self.audio_count else 'unvoiced_only' if text_only else 'missing_voice'
                 self.message = payload.get('message', f'{self.entry_count:,} official lines; {self.audio_count:,} original voices')
-                self.snapshot_metadata = {key: payload.get(key) for key in
-                    ('format', 'game', 'source_locale', 'install', 'fingerprint', 'reader_revision', 'targets_requested', 'capture_capabilities')}
+                self.snapshot_metadata = {key: value for key, value in payload.items() if key != 'records'}
                 self._signature = signature
             return True
         except (OSError, ValueError, KeyError, TypeError) as error:

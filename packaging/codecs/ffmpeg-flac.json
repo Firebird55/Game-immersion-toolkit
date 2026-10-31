@@ -1,0 +1,39 @@
+{
+  "schema": "proxy-runtime-codec-inputs-v1",
+  "observed_on": "2026-10-29",
+  "kind": "ffmpeg-flac-experiment",
+  "platform": "win-x64",
+  "version": "7.1",
+  "archive": {
+    "filename": "imageio_ffmpeg-0.6.0-py3-none-win_amd64.whl",
+    "source": "https://files.pythonhosted.org/packages/2c/c6/fa760e12a2483469e2bf5058c5faff664acf66cadb4df2ad6205b016a73d/imageio_ffmpeg-0.6.0-py3-none-win_amd64.whl",
+    "metadata_source": "https://pypi.org/pypi/imageio-ffmpeg/0.6.0/json",
+    "sha256": "02fa47c83703c37df6bfe4896aab339013f62bf02c5ebf2dce6da56af04ffc0a"
+  },
+  "executable": {
+    "member": "imageio_ffmpeg/binaries/ffmpeg-win-x86_64-v7.1.exe",
+    "bytes": 87638016,
+    "sha256": "2ce797a0f88d7f067180338fb227f7b1928ea727bd9a4d7a1d022f7c52af71a3"
+  },
+  "wrapper_notice": {
+    "member": "imageio_ffmpeg-0.6.0.dist-info/LICENSE",
+    "sha256": "eca73421d0c905a92e952a553d4d58919c5a507c2c2c76e3c0cf9ba408c299e4"
+  },
+  "upstream_notices": {
+    "FFMPEG-GPLv3.txt": {
+      "source": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/b08d7969c550a804a59511c7b83f2dd8cc0499b8/COPYING.GPLv3",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    "FFMPEG-LICENSE.md": {
+      "source": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/b08d7969c550a804a59511c7b83f2dd8cc0499b8/LICENSE.md",
+      "sha256": "cb48bf09a11f5fb576cddb0431c8f5ed0a60157a9ec942adffc13907cbe083f2"
+    }
+  },
+  "execution_scope": "bounded FLAC to signed 16-bit mono 16000 Hz PCM in runtime-experiment only",
+  "production_execution_allowed": false,
+  "redistribution_review": "pending-exact-output",
+  "source_delivery_review": "open; matching binary build recipes and incorporated dependencies not established",
+  "servicing_review": "open; observed existing-lock artifact, not an approved maintained production codec",
+  "native_windows_11_acceptance": "unavailable",
+  "r19_complete": false
+}

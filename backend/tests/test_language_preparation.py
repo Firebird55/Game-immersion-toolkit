@@ -168,6 +168,8 @@ def test_local_targets_survive_activation_history_account_switch_and_refresh(tmp
     runtime.account_preferences = lambda: settings
     runtime.lexirise = SimpleNamespace(status=lambda: {'configured': True})
     runtime.capture = SimpleNamespace(_scan_epoch=0)
+    import threading
+    runtime._locale_voice_lock = threading.RLock()
     runtime._locale_indexes, runtime._active_locales = {}, {}
     runtime.game_indexes, runtime.game_voice_assets = {}, {}
     runtime.language_voice_assets = lambda *_: object()

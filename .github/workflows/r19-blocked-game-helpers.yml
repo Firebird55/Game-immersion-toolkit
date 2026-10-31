@@ -1,0 +1,84 @@
+name: R19 private compiler-free game reader preparation
+on:
+  push:
+    branches: [codex/r19-runtime-bundle]
+    paths:
+      - 'scripts/*game*helper*'
+      - 'scripts/*ree*helper*'
+      - 'scripts/game-readers/**'
+      - 'scripts/endfield-reader-sources.json'
+      - 'packaging/game-readers/**'
+      - 'backend/ree_extractor.py'
+      - '.github/workflows/r19-blocked-game-helpers.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r19-private-readers-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  private-reader:
+    runs-on: windows-2025
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [endfield, pragmata]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe source and prerequisites before build preparation
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual target unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0,2)) { throw 'Invalid build preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public audit failed.' }
+      - uses: actions/setup-python@v7
+        with:
+          # Build-host stdlib preparation only; this interpreter is not collected.
+          python-version: '3.12.10'
+      - name: Prepare only pinned selected sources in unpublished quarantine
+        shell: pwsh
+        run: |
+          $evidence = Join-Path $env:RUNNER_TEMP 'r19-blocked-reader-inputs'
+          python -B scripts/prepare-blocked-game-helper.py --kind '${{ matrix.kind }}' --evidence $evidence
+          if ($LASTEXITCODE -ne 0) { throw 'Private pinned source preparation failed.' }
+          "R19_PRIVATE_INPUTS=$evidence" >> $env:GITHUB_ENV
+          python -B scripts/game-helper-fixtures.py --output (Join-Path $env:RUNNER_TEMP 'r19-owned-reader-fixtures')
+          if ($LASTEXITCODE -ne 0) { throw 'Owned fixture preparation failed.' }
+      - name: Precompile actual selected reader on the build host only
+        shell: pwsh
+        run: |
+          if ('${{ matrix.kind }}' -eq 'endfield') {
+            $pin = Get-Content packaging/game-readers/inputs.json -Raw | ConvertFrom-Json
+            $archive = Join-Path $env:R19_PRIVATE_INPUTS $pin.sdk.artifact
+            Invoke-WebRequest $pin.sdk.source -OutFile $archive
+            if ((Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $pin.sdk.sha512) { throw 'Exact SDK input changed.' }
+            $sdk = Join-Path $env:RUNNER_TEMP 'r19-private-endfield-sdk'
+            Expand-Archive -LiteralPath $archive -DestinationPath $sdk
+            ./scripts/build-game-reader-helpers.ps1 -Kind endfield -BlockedQuarantine -PreparedRoot (Join-Path $env:R19_PRIVATE_INPUTS 'endfield') -OutputRoot output/private-endfield-reader -EvidenceRoot $env:R19_PRIVATE_INPUTS -Dotnet (Join-Path $sdk 'dotnet.exe')
+            "R19_PRIVATE_HELPER=$(Join-Path $env:GITHUB_WORKSPACE 'output/private-endfield-reader/endfield')" >> $env:GITHUB_ENV
+          } else {
+            ./scripts/build-blocked-ree-helper.ps1 -PreparedRoot (Join-Path $env:R19_PRIVATE_INPUTS 'pragmata') -OutputRoot output/private-selective-reader
+            "R19_PRIVATE_HELPER=$(Join-Path $env:GITHUB_WORKSPACE 'output/private-selective-reader')" >> $env:GITHUB_ENV
+          }
+      - name: Execute actual prebuilt reader on authored inputs with cleared environment
+        shell: pwsh
+        run: ./scripts/probe-blocked-game-helper.ps1 -Kind '${{ matrix.kind }}' -HelperRoot $env:R19_PRIVATE_HELPER -FixtureRoot (Join-Path $env:RUNNER_TEMP 'r19-owned-reader-fixtures')
+      - name: Upload sanitized probe metadata only
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-blocked-${{ matrix.kind }}-metadata
+          # No selected sources/constants, assemblies, native DLLs, fixtures,
+          # archive caches, private manifests or raw compiler/process logs.
+          path: output/checks/r19-blocked-${{ matrix.kind }}.json
+          if-no-files-found: error
+          retention-days: 7

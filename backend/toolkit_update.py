@@ -17,6 +17,9 @@ import time
 from urllib.request import Request, urlopen
 import zipfile
 
+from .runtime_bundle import RuntimeBundleError, discover_layout
+from . import desktop_control
+
 REPOSITORY = 'Firebird55/Game-immersion-toolkit'
 API = 'https://api.github.com/repos/' + REPOSITORY
 CODE_ROOT = Path(__file__).resolve().parents[1]
@@ -135,6 +138,10 @@ def update_lock(path):
 
 
 def update_once(root, current):
+    if discover_layout().mode == 'bundle':
+        # The source installer acquires another legacy lock and installs build
+        # dependencies. It cannot safely run inside a frozen supervising guard.
+        raise RuntimeBundleError('Frozen updates require the verified supervising host; source ZIP installation is unavailable.')
     root = Path(root).resolve()
     home = root / 'data/toolkit-updates'
     home.mkdir(parents=True, exist_ok=True)
@@ -177,13 +184,33 @@ def update_once(root, current):
 class ToolkitUpdater:
     def __init__(self, root):
         self.root = Path(root)
-        self.current = read_json(CODE_ROOT / 'package.json', {})['version']
+        self.layout = discover_layout()
+        self.current = self.layout.version or read_json(CODE_ROOT / 'package.json', {})['version']
         self.stop = threading.Event()
         self.thread = None
         self.process = None
         self.lock = threading.Lock()
 
+    @property
+    def host_managed(self):
+        return os.environ.get('PROXY_TRANSCRIPT_HOST_MANAGED') == '1'
+
     def status(self):
+        if self.host_managed:
+            try:
+                status = desktop_control.host_status(layout=self.layout)
+                # The private control capability and implementation details must
+                # never be relayed to browsers, including paired LAN readers.
+                value = {key: status[key] for key in ('state', 'message', 'available_version',
+                    'enabled', 'updated_at', 'stage', 'supported') if key in status}
+                value['installed_version'] = self.current
+                return value
+            except desktop_control.HostControlError as error:
+                return {'state': 'error', 'message': str(error), 'installed_version': self.current,
+                    'enabled': False, 'supported': False}
+        if self.layout.mode == 'bundle':
+            return {'state': 'unavailable', 'message': 'Frozen updates require a verified supervising host; the current candidate is retained.',
+                'installed_version': self.current, 'enabled': False}
         value = read_json(self.root / 'data/toolkit-updates/status.json', {})
         if value.get('state') in {'checking', 'downloading', 'verifying', 'installing'}:
             with update_lock(self.root / 'data/toolkit-updates/install.lock') as acquired:
@@ -197,6 +224,11 @@ class ToolkitUpdater:
         return value
 
     def configure(self, enabled):
+        if self.host_managed:
+            desktop_control.configure_updates(enabled, layout=self.layout)
+            return
+        if self.layout.mode == 'bundle':
+            raise RuntimeBundleError('Automatic frozen updates are unavailable until supervised takeover is verified.')
         home = self.root / 'data/toolkit-updates'
         home.mkdir(parents=True, exist_ok=True)
         pending = home / 'preferences.pending'
@@ -206,6 +238,10 @@ class ToolkitUpdater:
             self.request()
 
     def request(self):
+        if self.host_managed:
+            return desktop_control.request_update(layout=self.layout).get('started') is True
+        if self.layout.mode == 'bundle':
+            return False
         with self.lock:
             if self.process and self.process.poll() is None:
                 return False
@@ -215,12 +251,17 @@ class ToolkitUpdater:
             home = self.root / 'data/toolkit-updates'
             home.mkdir(parents=True, exist_ok=True)
             with (home / 'updater.log').open('a', encoding='utf-8') as log:
-                self.process = subprocess.Popen([sys.executable, '-m', 'backend.toolkit_update', '--root', str(self.root),
-                    '--current', self.current, '--detach'], cwd=CODE_ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                self.process = subprocess.Popen(self.layout.child_command('toolkit-update', ['--root', str(self.root),
+                    '--current', self.current, '--detach']), cwd=self.layout.application_root,
+                    env=self.layout.child_environment('toolkit-update'), stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                     creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP)
             return True
 
     def start(self):
+        # The launcher outlives API replacements and owns both the schedule and
+        # the transaction. Starting another monitor here duplicates that work.
+        if self.host_managed:
+            return
         if self.thread and self.thread.is_alive():
             return
         self.stop.clear()
@@ -239,6 +280,8 @@ class ToolkitUpdater:
         self.stop.set()
         if self.thread:
             self.thread.join(timeout=2)
+            if self.thread.is_alive():
+                raise RuntimeError('Toolkit update monitor is still stopping; handoff is blocked.')
 
 
 if __name__ == '__main__':
@@ -248,10 +291,14 @@ if __name__ == '__main__':
     parser.add_argument('--detach', action='store_true')
     args = parser.parse_args()
     if args.detach:
+        layout = discover_layout()
+        if layout.mode == 'bundle':
+            raise RuntimeBundleError('Frozen updater detachment requires the verified supervising host.')
         # A short-lived launcher exits before installation starts. The updater
         # is not in the retiring backend's live child tree during handoff.
-        subprocess.Popen([sys.executable, '-m', 'backend.toolkit_update', '--root', str(args.root),
-                          '--current', args.current], cwd=CODE_ROOT, stdin=subprocess.DEVNULL,
+        subprocess.Popen(layout.child_command('toolkit-update', ['--root', str(args.root),
+                          '--current', args.current]), cwd=layout.application_root,
+                         env=layout.child_environment('toolkit-update'), stdin=subprocess.DEVNULL,
                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0) |
                                        getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0))
     else:

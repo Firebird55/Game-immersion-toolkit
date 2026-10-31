@@ -1,4 +1,6 @@
 'use client';
+import {desktopApiBase} from '../lib/desktop-endpoints';
+
 import {ToolkitUpdates} from './toolkit-updates';
 import {useInterfaceTranslation} from '../lib/interface-language';
 
@@ -12,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import {InterfaceLanguage,useInterfaceLanguage} from '@/lib/interface-language';
 import {LanguageSetup} from './language-setup';
 
-const API = 'http://127.0.0.1:8766';
+const API = desktopApiBase();
 import type {GameId} from '../lib/games';
 type GameSetup = {
   id: GameId; title: string; configured_path: string | null; detected_path: string | null;

@@ -2,6 +2,15 @@
 
 Windows companion for official multilingual game transcripts, local subtitle OCR and Lexirise/Migaku reading. See the [current game and language matrix](docs/languages/en.md) and [per-game dialogue inventories](docs/game-audits/README.md) for supported voices, text-only dialogue and remaining gaps.
 
+Native Windows, Linux and macOS installers are being validated through the
+[desktop delivery acceptance plan](docs/desktop-native-acceptance-plan.md).
+Their executable includes Python and the frontend, opens the transcript browser,
+and keeps a status/log window and tray menu. Windows Setup offers a changeable
+Program Files destination and independent Start menu/Desktop shortcuts. These
+candidate packages are not yet an accepted dependency-free release for every
+game; the source installation below remains the published path until the native
+runtime, helper, codec and redistribution checks pass.
+
 ## Install on a new PC
 
 1. Download the latest release ZIP and SHA256SUMS from [GitHub releases](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest). Check the ZIP's SHA-256 before extracting it to a writable folder outside your game installation.
@@ -19,10 +28,10 @@ Windows companion for official multilingual game transcripts, local subtitle OCR
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
 | Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
-| Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Chinese voices; .NET 10 SDK for the local reader |
+| Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Selected official voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
 | Honkai: Star Rail | Contains StarRail.exe and StarRail_Data | Selected English, Mandarin, Japanese or Korean voice pack |
 | Genshin Impact | Contains GenshinImpact.exe and GenshinImpact_Data (YuanShen clients accepted) | Selected English, Mandarin, Japanese or Korean voice pack |
-| Arknights: Endfield | Contains Endfield.exe and Endfield_Data/StreamingAssets/VFS | Selected voice pack and .NET 10 SDK |
+| Arknights: Endfield | Contains Endfield.exe and Endfield_Data/StreamingAssets/VFS | Selected voice pack; built-in archive reader, no SDK |
 | Spyro Reignited Trilogy | Contains Spyro.exe and Falcon/Content/Paks | All 14 official voice languages; installed original banks are read directly |
 | Detroit: Become Human | Contains DetroitBecomeHuman.exe and BigFile_PC.idx | All 12 official voice languages and 24 text locales; original voices read directly |
 | Persona 5 Royal | Contains P5R.exe and CPK/BASE.CPK | Selected study text CPK and matching English or Japanese original voice pack; verified character metadata is cached on first preparation |
@@ -38,7 +47,7 @@ Windows companion for official multilingual game transcripts, local subtitle OCR
 
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 
-See [NTE support](docs/nte-honkai-support.md) before configuring NTE. Honkai Impact 3rd is archived and unsupported; it is not available in setup or capture. NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+See [NTE support](docs/nte-honkai-support.md) before configuring NTE. Honkai Impact 3rd is archived and unsupported; it is not available in setup or capture. Source development of NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0); the [desktop runtime contract](docs/nte-runtime.md) uses an application-local runtime and dependencies.
 
 Cyberpunk users can include **Phantom Liberty**: install the DLC and its Simplified Chinese voice pack through the game launcher, select the main Cyberpunk folder, then refresh. Setup checks its optional English/Chinese text and Mandarin voice archives; index status reports mapped DLC performances. V voice selection applies to DLC variants too. The base game works without the DLC. Witcher III refresh includes installed DLC localization and Mandarin speech automatically.
 

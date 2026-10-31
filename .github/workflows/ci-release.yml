@@ -107,6 +107,16 @@ jobs:
           # The separate source-audit job checks PR author/history metadata.
           CHECK_SKIP_PUBLIC_AUDIT: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
         run: node scripts/check-changed.mjs ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && '--full' || '' }}
+      - name: Replay supplied game screenshots with bundled offline OCR
+        if: steps.scope.outputs.python == 'true'
+        run: python scripts/check-game-screenshots.py
+      - name: Upload screenshot OCR and resolver evidence
+        if: ${{ always() && hashFiles('output/checks/game-screenshots/rapid.json') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: game-screenshot-regressions
+          path: output/checks/game-screenshots/rapid.json
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         if: steps.scope.outputs.full == 'true'
         with:
@@ -148,11 +158,11 @@ jobs:
       - name: Verify the browser integration commit
         run: node scripts/check-ci-gate.mjs checkout browser
       - uses: actions/setup-python@v7
-        if: matrix.suite == 'setup'
+        if: matrix.suite == 'setup' || matrix.suite == 'desktop'
         with:
           python-version: '3.12'
       - run: python -m pip install -r requirements.lock.txt
-        if: matrix.suite == 'setup'
+        if: matrix.suite == 'setup' || matrix.suite == 'desktop'
       - run: npm ci --ignore-scripts
       - uses: actions/cache@v6
         with:
@@ -207,6 +217,12 @@ jobs:
           name: ci-required-checks
           path: output/checks/ci/required-checks.json
           retention-days: 7
+  native-desktop:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    # Construction can run alongside application/browser checks. Publication
+    # still requires package (and its required-checks gate) plus all targets.
+    needs: source-audit
+    uses: ./.github/workflows/desktop-native.yml
   package:
     # Manual candidate validation produces artifacts without invoking publish.
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
@@ -260,15 +276,29 @@ jobs:
             release/SHA256SUMS
   publish:
     if: (github.event_name == 'push' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)) && github.repository == 'Firebird55/Game-immersion-toolkit' && startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs: [package, native-desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
       - uses: actions/download-artifact@v8
         with:
           name: tested-release-assets
           path: release
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: tested-desktop-*
+          path: native-release
+      - name: Verify and assemble all desktop targets and source assets
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python scripts/assemble-desktop-release.py --source-release release --native-root native-release --output published-release --commit "$GITHUB_SHA" --version "${RELEASE_TAG#v}"
       - name: Publish verified release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -276,7 +306,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" release/* --clobber
+            gh release upload "$RELEASE_TAG" published-release/* --clobber
           else
-            gh release create "$RELEASE_TAG" release/* --verify-tag --title "$RELEASE_TAG" --notes-file release/RELEASE_NOTES.md
+            gh release create "$RELEASE_TAG" published-release/* --verify-tag --title "$RELEASE_TAG" --notes-file published-release/RELEASE_NOTES.md
           fi

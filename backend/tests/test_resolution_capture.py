@@ -59,6 +59,35 @@ def test_windowed_capture_uses_client_origin_without_borders(monkeypatch):
     assert windows._window_bounds(1) == (-1920, 150, 1280, 720)
 
 
+def test_capture_follows_game_between_monitors_and_clears_monitor_when_game_disappears(tmp_path, monkeypatch):
+    from backend import capture as module
+    from backend.games import GAME_PROFILES
+    from backend.windows import MonitorInfo
+    from backend.tests.test_subtitle_capture import fixture_service
+    service, _, _, _ = fixture_service(tmp_path)
+    service.language_setup = lambda _: False  # No OCR/files required for discovery.
+    current = [WindowInfo(9, 'Game', 'ZenlessZoneZero.exe', (120, 60, 1280, 720),
+                          MonitorInfo('Primary', (0, 0, 1920, 1080), True))]
+    monkeypatch.setattr(module, 'find_active_game_window', lambda _: (GAME_PROFILES['zzz'], current[0]) if current[0] else None)
+    try:
+        service._scan_once()
+        assert service.snapshot().monitor_name == 'Primary'
+        # The client straddles displays; preserve its full physical client area.
+        current[0] = WindowInfo(9, 'Game', 'ZenlessZoneZero.exe', (-2000, -180, 2560, 1440),
+                               MonitorInfo('Secondary', (-3840, -240, 3840, 2160)))
+        service._scan_once()
+        snapshot = service.snapshot()
+        assert snapshot.window_bounds == (-2000, -180, 2560, 1440)
+        assert snapshot.monitor_name == 'Secondary'
+        assert snapshot.monitor_bounds == (-3840, -240, 3840, 2160)
+        assert service._region_bounds(current[0], CaptureRegion(left=0, top=0, width=1, height=1)) == snapshot.window_bounds
+        current[0] = None
+        service._scan_once()
+        assert service.snapshot().monitor_name is None and service.snapshot().monitor_bounds is None
+    finally:
+        service._executor.shutdown()
+
+
 @pytest.mark.parametrize("game", ["nte", "starrail", "genshin", "endfield"])
 @pytest.mark.parametrize("size", [(800,600), (1920,1080), (3440,1440), (3840,2160)])
 def test_new_game_default_crops_agree_with_profiles_and_stay_in_client_bounds(game, size):

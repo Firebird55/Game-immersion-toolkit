@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import os
-import json
 import sys
+import json
 import subprocess
 import tempfile
 import threading
+import logging
 from contextlib import asynccontextmanager, contextmanager, nullcontext
 from pathlib import Path
 from subprocess import TimeoutExpired
@@ -37,6 +38,7 @@ from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_handoff import CaptureHandoff
+from .runtime_workers import RequestBarrier, WriterBarrierMiddleware
 from .state_version import StateVersion
 from .lexirise_settings import account_settings, STUDY_LANGUAGES
 from .accounts import AccountStore
@@ -49,10 +51,13 @@ from .scoped_mobile_exports import ScopedMobileExports
 from .automatic_mobile_export import AutomaticMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
+from .runtime_bundle import discover_layout, child_command
 
 
-PROJECT_ROOT = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
-DATA_DIR = PROJECT_ROOT / "data"
+RUNTIME_LAYOUT = discover_layout()
+PROJECT_ROOT = RUNTIME_LAYOUT.legacy_root or RUNTIME_LAYOUT.application_root
+DATA_DIR = RUNTIME_LAYOUT.data_root
+HANDOFF_TIMEOUT_SECONDS = 30
 
 
 class ManualIngest(BaseModel):
@@ -129,13 +134,17 @@ class EventHub:
 class Runtime:
     def __init__(self) -> None:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
+        self.request_barrier = RequestBarrier(paused=self.standby)
+        self._quiesce_task = None
+        self._handoff_state = None
         self._updates_started = False
         self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
         self.repair_task = None
         self.state_version = StateVersion()
         self.hub = EventHub(lambda: self.state_version.publish(self.accounts.generation))
-        local_settings = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT / "data")) / "Proxy Transcript/settings.json"
+        local_settings = (RUNTIME_LAYOUT.settings_root / 'settings.json' if RUNTIME_LAYOUT.mode == 'bundle' or sys.platform != 'win32' else
+            Path(os.environ.get("LOCALAPPDATA", DATA_DIR)) / "Proxy Transcript/settings.json")
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
         self.transcript = TranscriptStore(DATA_DIR / "transcript-v2.db")
@@ -149,7 +158,7 @@ class Runtime:
         self.hito = HitoTextIndex(DATA_DIR / "hito")
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            None,
             DATA_DIR / "audio",
             DATA_DIR / "voice-assets/learned-manifest.json",
         )
@@ -157,14 +166,14 @@ class Runtime:
         self._legacy_zzz_index = self.textmaps
         self.pragmata_voice_assets = PragmataVoiceAssetService(
             DATA_DIR / "pragmata",
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            None,
             DATA_DIR / "audio",
         )
         self._legacy_pragmata_voice = self.pragmata_voice_assets
         self._legacy_pragmata_index = self.pragmata
         self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in LOCAL_GAMES}
         self.game_voice_assets = {game: LocalVoiceAssetService(game, DATA_DIR / game,
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
+            None, DATA_DIR / "audio") for game in self.game_indexes}
         self._legacy_game_voices = tuple(self.game_voice_assets.values())
         self._legacy_game_voice_map = dict(self.game_voice_assets)
         self._legacy_game_indexes = dict(self.game_indexes)
@@ -208,6 +217,7 @@ class Runtime:
             supported=self.reader_locales, cancellable=True,
             rebuild=lambda game, locale, targets, **options: self.build_language(game, locale, targets, force=True, **options))
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
+        self._retired_voices = set()
         self._locale_voice_lock = threading.RLock()
         self.capture.recorded_voice_assets = self.recorded_voice_assets
         self.capture.language_setup = self.capture_language_ready
@@ -234,6 +244,17 @@ class Runtime:
             adapter, _ = asset_adapter(game)
             return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
         return ('zh-Hans',)
+
+    def locale_index(self, game, locale):
+        from .multilingual_index import MultilingualTextIndex
+        # Publish the empty object before loading so concurrent callers share it.
+        with self._locale_voice_lock:
+            key = (game, locale)
+            index = self._locale_indexes.get(key)
+            if index is None:
+                index = self._locale_indexes[key] = MultilingualTextIndex(
+                    game, DATA_DIR / 'languages' / game / locale, autoload=False)
+        return index
 
     def build_language(self, game, locale, targets, *, force=False, job=None):
         from .game_assets import asset_adapter
@@ -285,14 +306,14 @@ class Runtime:
                     if job:
                         job.report('extracting', 'Reading official subtitles and original voice mappings; large games can take several minutes (30-minute limit)')
                     output = Path(temporary) / 'textmap.json'
-                    command = [sys.executable, '-m', 'backend.language_worker', '--game', game,
+                    command = child_command('language', ['--game', game,
                         '--install', str(install), '--directory', str(DATA_DIR / game), '--locale', locale,
-                        '--targets', json.dumps(targets), '--output', str(output)]
+                        '--targets', json.dumps(targets), '--output', str(output)])
                     if job:
-                        returncode = job.run(command, cwd=Path(__file__).resolve().parents[1], timeout=1800,
+                        returncode = job.run(command, cwd=RUNTIME_LAYOUT.resource_root, timeout=1800,
                                              progress_path=output.with_name('progress.json'), **subprocess_options())
                     else:
-                        returncode = subprocess.run(command, cwd=Path(__file__).resolve().parents[1],
+                        returncode = subprocess.run(command, cwd=RUNTIME_LAYOUT.resource_root,
                             capture_output=True, text=True, timeout=1800, **subprocess_options()).returncode
                     if returncode:
                         from .preparation_errors import PreparationFailure, public_failure
@@ -317,7 +338,7 @@ class Runtime:
                     if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
                     with job.publication() if job else nullcontext():
-                        output.replace(path)
+                        cached.publish(candidate)
                 if hasattr(self, 'automatic_exports'):
                     self.automatic_exports.wake.set()
                 return
@@ -337,11 +358,7 @@ class Runtime:
         missing = {'ready': False, 'state': 'not_ready', 'message': 'The selected language table is unavailable; prepare or rebuild it in Languages.',
                    'source_locale': locale, 'entry_count': 0, 'audio_count': 0}
         if (path / 'textmap.json').is_file():
-            from .multilingual_index import MultilingualTextIndex
-            key = (game, locale)
-            index = self._locale_indexes.get(key)
-            if index is None:
-                index = self._locale_indexes[key] = MultilingualTextIndex(game, path)
+            index = self.locale_index(game, locale)
             index.load()
             return index.status() if index.source_locale == locale else missing
         if locale != 'zh-Hans' or path.parent.is_dir():
@@ -362,11 +379,7 @@ class Runtime:
             return False
         directory = DATA_DIR / 'languages' / game / locale
         if (directory / 'textmap.json').is_file():
-            from .multilingual_index import MultilingualTextIndex
-            key = (game, locale)
-            index = self._locale_indexes.get(key)
-            if index is None:
-                index = self._locale_indexes[key] = MultilingualTextIndex(game, directory)
+            index = self.locale_index(game, locale)
             index.load()
             voices = self.language_voice_assets(game, locale)
             if not index.ready or index.source_locale != locale or voices is None:
@@ -414,10 +427,11 @@ class Runtime:
             key = (game, locale)
             voices = self._locale_voices.get(key)
             if voices is None:
-                decoder = DATA_DIR / 'voice-assets/vgmstream/vgmstream-cli.exe'
+                decoder = None  # Resolve the managed codec on demand, including after Setup.
                 voices = (PragmataVoiceAssetService(directory, decoder, DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools')
                           if game == 'pragmata' else LocalVoiceAssetService(game, directory, decoder,
-                              DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools'))
+                              DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools',
+                              snapshot_index=self.locale_index(game, locale)))
                 self._locale_voices[key] = voices
             voices.reload()
             return voices if voices.locale == locale else None
@@ -582,8 +596,11 @@ class Runtime:
         # for the game. Newly discovered comic mappings repair existing rows.
         loop = asyncio.get_running_loop()
         for line in self.transcript.list(limit=50):
+            if not self._updates_started or self.standby:
+                return
             ready = asyncio.Event()
-            if self.capture.repair_recorded_line(line, completed=lambda: loop.call_soon_threadsafe(ready.set)):
+            if await asyncio.to_thread(self.capture.repair_recorded_line, line,
+                                       completed=lambda: loop.call_soon_threadsafe(ready.set)):
                 try:
                     await asyncio.wait_for(ready.wait(), 45)
                 except asyncio.TimeoutError:
@@ -592,27 +609,68 @@ class Runtime:
     async def stop_updates(self) -> None:
         self._updates_started = False
         if hasattr(self, 'toolkit_updater'):
-            self.toolkit_updater.close()
+            await asyncio.to_thread(self.toolkit_updater.close)
         if hasattr(self, 'automatic_exports'):
             await asyncio.to_thread(self.automatic_exports.close)
         await asyncio.to_thread(self.languages.close)
-        if self.repair_task:
-            self.repair_task.cancel()
-            try:
-                await self.repair_task
-            except asyncio.CancelledError:
-                pass
-            self.repair_task = None
-        if self.index_task:
-            self.index_task.cancel()
-            try:
-                await self.index_task
-            except asyncio.CancelledError:
-                pass
-            self.index_task = None
+        # Never cancel a to_thread waiter: the catalog/cache writer would keep
+        # running after its asyncio task claimed to have stopped.
+        for name in ('repair_task', 'index_task', 'map_task'):
+            task = getattr(self, name)
+            if task is not None:
+                await asyncio.shield(task)
+                setattr(self, name, None)
         await asyncio.gather(*(asyncio.to_thread(updater.close) for updater in
             [self.update_manager, self.pragmata_updater, *self.game_updaters.values()]))
         self._updates_started = False
+
+    def worker_pools(self):
+        voices = {self._legacy_zzz_voice, self._legacy_pragmata_voice,
+                  *self._legacy_game_voices, *self.game_voice_assets.values(),
+                  *self._locale_voices.values(), *self._retired_voices}
+        readers = {self.reading, *self._readers.values()}
+        return {self.capture._executor, *(v._executor for v in voices),
+                *(reader.pool for reader in readers)}
+
+    async def quiesce(self):
+        retry = (self._quiesce_task is not None and self._quiesce_task.done()
+                 and not self._quiesce_task.cancelled() and self._quiesce_task.exception() is not None)
+        if self._quiesce_task is None or retry:
+            if self._handoff_state is None:
+                self._handoff_state = self.capture.export_handoff(self.capture.snapshot().running)
+            self._quiesce_task = asyncio.create_task(self._drain_workers(), name='runtime-handoff-drain')
+        await asyncio.shield(self._quiesce_task)
+        # Capture's suppression state can advance while requests finish.
+        return self.capture.export_handoff(self._handoff_state.running)
+
+    async def _drain_workers(self):
+        log = logging.getLogger('toolkit.lifecycle')
+        log.info('Update: waiting for active reader requests to finish')
+        await self.request_barrier.pause()
+        self.standby = True
+        log.info('Update: stopping game refresh and export workers')
+        await asyncio.to_thread(self.installation.pause)
+        await self.stop_updates()
+        await asyncio.to_thread(self.mobile_exports.drain)
+        log.info('Update: finishing capture, original voice and dictionary work')
+        await self.capture.stop()
+        await asyncio.to_thread(self.hito.close)
+        await asyncio.gather(*(asyncio.to_thread(pool.drain) for pool in self.worker_pools()))
+        log.info('Update: all runtime writers stopped; ready to transfer capture')
+
+    def activate_workers(self):
+        if self._quiesce_task is not None:
+            if not self._quiesce_task.done() or self._quiesce_task.cancelled():
+                raise RuntimeError('Previous runtime work is still stopping.')
+            if self._quiesce_task.exception() is not None:
+                raise RuntimeError('A worker could not be stopped; restart the owned runtime before activation.')
+        for pool in self.worker_pools():
+            pool.resume()
+        self.hito.resume()
+        self.installation.resume()
+        self.mobile_exports.resume()
+        self.request_barrier.resume()
+        self._quiesce_task = self._handoff_state = None
 
     async def on_line(self, line: TranscriptLine) -> None:
         # Capture/audio threads can queue this coroutine before a favorite,
@@ -727,23 +785,10 @@ async def lifespan(_app: FastAPI):
                 await runtime.warm_task
             except (Exception, asyncio.CancelledError):
                 pass
-        runtime.mobile_exports.cancel_all()
-        runtime.standby = True
-        await runtime.stop_updates()
+        await runtime.quiesce()
         await runtime.capture.close()
-        await asyncio.to_thread(runtime.hito.close)
-        runtime._legacy_zzz_voice.close()
-        runtime._legacy_pragmata_voice.close()
-        for reader in runtime._readers.values():
-            reader.pool.shutdown(wait=False, cancel_futures=True)
-        for voices in set([*runtime._legacy_game_voices, *runtime.game_voice_assets.values(), *runtime._locale_voices.values()]):
-            voices.close()
-        if runtime.map_task and not runtime.map_task.done():
-            runtime.map_task.cancel()
-            try:
-                await runtime.map_task
-            except asyncio.CancelledError:
-                pass
+        for pool in runtime.worker_pools():
+            pool.shutdown(wait=True)
 
 
 app = FastAPI(title="Proxy Transcript API", version="0.1.0", lifespan=lifespan)
@@ -781,6 +826,8 @@ app.add_middleware(
 )
 # Outermost: reject HTTP/preflight and WebSocket requests before account pinning,
 # endpoint side effects, acceptance, or capture/status snapshots.
+app.add_middleware(WriterBarrierMiddleware,
+    barrier=lambda: getattr(globals().get('runtime'), 'request_barrier', None))
 app.add_middleware(LocalAccessMiddleware)
 
 
@@ -823,12 +870,14 @@ def runtime_ready(game: str | None = None) -> dict:
 @app.post('/api/runtime/quiesce')
 async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default='')) -> dict:
     runtime_access(request, x_proxy_transcript)
-    running = runtime.capture.snapshot().running
-    # Stop resource-heavy refreshes while capture is still serving the old app.
-    await runtime.stop_updates()
-    await runtime.capture.stop()
-    runtime.standby = True
-    return runtime.capture.export_handoff(running).model_dump()
+    try:
+        state = await asyncio.wait_for(runtime.quiesce(), timeout=HANDOFF_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(503, 'Background work is still stopping. Retry the handoff; it has not been cancelled.')
+    except Exception:
+        logging.getLogger('toolkit.lifecycle').exception('Update handoff could not finish')
+        raise HTTPException(503, 'Could not stop every worker. The replacement has not been activated.')
+    return state.model_dump()
 
 
 @app.post('/api/runtime/activate')
@@ -837,6 +886,10 @@ async def runtime_activate(payload: CaptureHandoff, request: Request,
     runtime_access(request, x_proxy_transcript)
     if not runtime_ready()['ready']:
         raise HTTPException(409, 'Replacement OCR is still warming up')
+    try:
+        runtime.activate_workers()
+    except RuntimeError as error:
+        raise HTTPException(409, str(error))
     if runtime.capture.snapshot().running:
         # A failed quiesce may stop updates while leaving capture serving.
         # Rollback resumes that work without replacing its live session.
@@ -945,7 +998,9 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
             result = runtime.language_inventory.cleanup(game, payload.locale, runtime.languages, busy)
             runtime.capture._scan_epoch += 1
             runtime._locale_indexes.pop((game, payload.locale), None)
-            runtime._locale_voices.pop((game, payload.locale), None)
+            voices = runtime._locale_voices.pop((game, payload.locale), None)
+            if voices is not None:
+                runtime._retired_voices.add(voices)
             return result
         if payload.action == 'remove':
             runtime.languages.remove(game, payload.locale)
@@ -1657,12 +1712,22 @@ def toolkit_update_check(x_proxy_transcript: str = Header(default='')):
         raise HTTPException(403, 'Use Setup on this PC to update the toolkit.')
     if runtime.standby:
         raise HTTPException(409, 'The replacement is still preparing.')
-    return {'started': runtime.toolkit_updater.request()}
+    from .desktop_control import HostControlError
+    from .runtime_bundle import RuntimeBundleError
+    try:
+        return {'started': runtime.toolkit_updater.request()}
+    except (HostControlError, RuntimeBundleError) as error:
+        raise HTTPException(503, str(error)) from error
 
 
 @app.post('/api/toolkit-update/preferences')
 def toolkit_update_preferences(payload: ToolkitUpdatePreferences, x_proxy_transcript: str = Header(default='')):
     if x_proxy_transcript != 'setup':
         raise HTTPException(403, 'Use Setup on this PC to change toolkit updates.')
-    runtime.toolkit_updater.configure(payload.enabled)
+    from .desktop_control import HostControlError
+    from .runtime_bundle import RuntimeBundleError
+    try:
+        runtime.toolkit_updater.configure(payload.enabled)
+    except (HostControlError, RuntimeBundleError) as error:
+        raise HTTPException(503, str(error)) from error
     return runtime.toolkit_updater.status()

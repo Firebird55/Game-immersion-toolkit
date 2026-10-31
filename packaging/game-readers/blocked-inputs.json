@@ -1,0 +1,30 @@
+{
+  "schema": "proxy-blocked-game-helper-inputs-v1",
+  "observed_on": "2026-10-29",
+  "runtime_collection_allowed": false,
+  "endfield": {
+    "sources_manifest": "scripts/endfield-reader-sources.json",
+    "license_source": "https://raw.githubusercontent.com/EIHRTeam/EndfieldStudio/48c40a5e6a931b08223384077b74b41b484a540f/LICENSE",
+    "license_sha256": "18e68207defdf52d9bc1b098af4e1620f3b498e76131114ae8d8d3418f5866a7",
+    "gate": "Selected source embeds unreviewed game-derived constants; file-level port provenance/native/game verification remains open",
+    "package": {
+      "name": "System.IO.Hashing",
+      "version": "9.0.0",
+      "artifact": "system.io.hashing.9.0.0.nupkg",
+      "source": "https://api.nuget.org/v3-flatcontainer/system.io.hashing/9.0.0/system.io.hashing.9.0.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2024.11.12.19.01.39/system.io.hashing.9.0.0.json",
+      "sha512_base64": "5xKKYkh3Xmj2InmqtCBo5cWRXmSqw6v4tftGviRuXJ8V3OMRDhPZJnhkzAbYGy81KkVTJFm+HR0zBU5KvM3UAg==",
+      "license_expression": "MIT"
+    }
+  },
+  "pragmata": {
+    "source": "https://codeload.github.com/Ekey/REE.PAK.Tool/zip/d22c15314e84eecd31480acfe692092c48043ac0",
+    "source_sha256": "eb868e19fe42ccc2f374a4c33963d9f2c5bbf996ca27f212b4de226c7d0f1776",
+    "revision": "d22c15314e84eecd31480acfe692092c48043ac0",
+    "runtime": "https://github.com/Ekey/REE.PAK.Tool/releases/download/Latest/REE.Unpacker-x86.zip",
+    "runtime_sha256": "caa20e3ad94a4e9f09d2a53b7aceaa4ca0dc6bdba403904da6b43ceffb510884",
+    "source_count": 17,
+    "architecture": "win-x86",
+    "gate": "No distribution grant established for the selected modified reader and native dependencies; Framework/WOW64/native/game acceptance remains open"
+  }
+}

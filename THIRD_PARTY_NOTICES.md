@@ -1,10 +1,48 @@
 # Third-party notices
 
+## Portable desktop access
+
+Native desktop construction uses pinned python-xlib 0.33 on Linux
+([LGPL-2.1-or-later](https://github.com/python-xlib/python-xlib/blob/master/LICENSE)),
+and PyObjC core/Cocoa/Quartz 13.0 on macOS
+([MIT](https://github.com/ronaldoussoren/pyobjc/blob/main/pyobjc-core/LICENSE.txt)).
+Credential storage selects the host's existing macOS Keychain or Linux Secret
+Service through keyring 25.7.0 (MIT); Linux additionally uses SecretStorage 3.5.0
+(BSD-3-Clause) and jeepney 0.9.0 (MIT). A missing or locked host credential service
+is an explicit unavailable state; these dependencies do not introduce a plaintext
+credential fallback. Windows continues to use the operating system's DPAPI.
+
+The native builder retains the exact installed license/notice files for these
+packages and their locked transitive dependencies, including cryptography's
+Apache-2.0/BSD-3-Clause and its bundled OpenSSL notice. Candidate construction is
+not an assertion that redistribution review of every collected native file is
+complete. Source references: [keyring](https://pypi.org/project/keyring/25.7.0/),
+[SecretStorage](https://pypi.org/project/SecretStorage/3.5.0/),
+[jeepney](https://pypi.org/project/jeepney/0.9.0/),
+[cryptography](https://pypi.org/project/cryptography/50.0.2/).
+
 The Firebird55 license covers original project code only. Dependencies retain their own terms: React/React DOM (Meta, MIT), Base UI (MUI, MIT), Lucide (ISC), TypeScript (Microsoft, Apache-2.0). Package metadata and dependency distributions contain their upstream notices. Builds and consumers must retain notices for dependencies they bundle.
 
 The component uses documented Lexirise interfaces; this repository does not redistribute Lexirise's website bundles, account data or dictionaries. Public upstream bundles inspected by the compatibility watcher remain ignored local review material.
 
 ## Toolkit assets and tools
+
+- Desktop status/tray uses PySide6-Essentials and shiboken6 6.12.0 from Qt.
+  Qt Core, GUI and Widgets are dynamically loaded; the toolkit does not claim
+  ownership of Qt. The applicable Qt/PySide LGPLv3/GPL/commercial terms and
+  selected native plugins must be reviewed against the exact frozen output.
+  Candidate construction retains the wheel's actual notices and metadata;
+  it does not establish an open-source redistribution grant for every collected
+  file. Corresponding source/notice delivery is tracked in
+  [native delivery acceptance](docs/desktop-native-acceptance-plan.md).
+- Selective RE archive decompression uses zstandard 0.25.0 (Gregory Szorc,
+  BSD-3-Clause); its bundled Zstandard implementation retains its own BSD
+  notices. The complete installed distribution notices are retained in each
+  constructed native candidate under THIRD_PARTY/zstandard.
+
+- Local network interface discovery uses psutil 7.2.2 (BSD-3-Clause), copyright
+  2009 Jay Loden, Dave Daeschler and Giampaolo Rodola. The full notice is retained
+  in packaging/licenses/psutil-LICENSE.txt and in the collected Python distribution.
 
 - FireRedVAD ONNX model and CMVN data: FireRedTeam, Apache-2.0. Full license, source revision and file hashes are in assets/fireredvad. These terms remain independent of the project license.
 - Original PT launcher icon and favicon: generated from project-owned geometric shapes. Covered by LICENSE.
@@ -13,6 +51,15 @@ The component uses documented Lexirise interfaces; this repository does not redi
 - oneocr's Python wrapper is MIT. Windows Snipping Tool's proprietary OCR DLL/model files are read from the user's installed software during setup; they are not redistributed here.
 - windows-capture (MIT) supplies Windows Graphics Capture for unfocused games. Its opencv-python dependency uses Apache-2.0 and includes upstream notices in its installed distribution. Both are installed from the locked Python manifest.
 - FFmpeg downloaded through imageio-ffmpeg, FModelCLI (GPL-3.0), WolvenKit and game-extraction dependencies remain separate installed/downloaded tools with their own license notices. They are not included in toolkit source or installer ZIPs; retain their notices when using or distributing them independently.
+
+The private R19 extracted-runtime experiment deliberately collects one pinned
+FFmpeg binary with notices; it is excluded from published source ZIPs and is not
+approved for distribution. Its [exact-artifact review](docs/r19-codec-artifact-review.md)
+identifies the GPLv3 build separately from the imageio wrapper's BSD license and
+rejects the old snapshot for production pending a maintained replacement and
+complete source/notice delivery. The native desktop packaging scripts now
+construct explicitly marked private installer candidates; no production R19
+installer is accepted by this construction step.
 - scripts/extract_voice_links.mjs loads a separately downloaded GalScript reader from simon300000/zenless-voice (MIT, copyright 2024 simon3000). Setup retains its full license beside the pinned reader in the ignored local tool cache. Its ooz-wasm (GPL-3.0-or-later) and xxhash-wasm (MIT) dependencies retain their own notices. Neither game metadata nor the reader is bundled as original project code.
 - vgmstream is downloaded from its official r2117 Windows x64 release with full COPYING and dependency notices retained. The REE unpacker is downloaded separately from Ekey/REE.PAK.Tool; its upstream terms apply, and the project license grants no redistribution rights over that tool. Tool downloads are checksum verified and excluded from source/installer bundles.
 - Game scripts, subtitle catalogs, audio, recordings and extracted archives belong to their respective publishers and remain user-local. The project license grants no rights over game content.
@@ -31,6 +78,24 @@ Endfield game tools download pinned MIT-licensed reader sources from
 notice remains beside the locally built reader. Sources, native binaries,
 archive metadata and game data stay in ignored local tool storage and are not
 bundled in the repository, release ZIP or public mobile preview.
+
+## Offline subtitle OCR
+
+RapidOCR (`rapidocr-onnxruntime` 1.4.4) is Apache-2.0 licensed:
+[source and license](https://github.com/RapidAI/RapidOCR),
+[pinned distribution](https://pypi.org/project/rapidocr-onnxruntime/1.4.4/).
+Its bundled PP-OCRv4 detector/recognizer and PP-OCRv2 classifier originate from
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR), also Apache-2.0 licensed.
+The pinned wheel includes these converted ONNX models; recognition makes no
+network requests. Preserve both upstream licenses in packaged distribution
+notices. Model hashes are recorded in `backend/ocr_engine.py` and must be included
+in frozen runtime closure evidence. The supplied English screenshot corpus
+validates this fallback; it does not establish coverage for every game locale.
+
+RapidOCR depends on Pyclipper (MIT), Shapely (BSD-3-Clause, with GEOS LGPL-2.1
+native libraries), ONNX Runtime (MIT), NumPy (BSD-3-Clause), Pillow (HPND),
+PyYAML (MIT) and OpenCV (Apache-2.0, with bundled dependency notices). Their
+distribution notices and native-library closure belong in packaged artifacts.
 
 ## Additional native game readers
 

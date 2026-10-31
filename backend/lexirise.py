@@ -30,9 +30,13 @@ class LexiriseError(Exception):
 
 
 def _protect(value: bytes, decrypt: bool = False) -> bytes:
-    """Windows DPAPI, bound to this Windows user's credentials."""
+    """Bind credentials to this desktop user's protected host storage."""
     if os.name != "nt":
-        raise LexiriseError("Set LEXIRISE_API_KEY on this non-Windows host.")
+        from .protected_storage import ProtectedBlobs, ProtectedStorageError
+        try:
+            return ProtectedBlobs().protect(value, decrypt=decrypt)
+        except ProtectedStorageError as error:
+            raise LexiriseError(str(error)) from None
 
     class Blob(ctypes.Structure):
         _fields_ = [("size", ctypes.c_ulong), ("data", ctypes.POINTER(ctypes.c_ubyte))]
@@ -51,12 +55,9 @@ def _protect(value: bytes, decrypt: bool = False) -> bytes:
 
 
 def save_api_key(directory: Path, key: str) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
+    from .protected_storage import private_write
     encrypted = _protect(key.strip().encode())
-    path = directory / "key.dpapi"
-    pending = path.with_suffix(".tmp")
-    pending.write_bytes(encrypted)
-    pending.replace(path)
+    private_write(directory / 'key.dpapi', encrypted)
 
 
 class LexiriseService:
@@ -93,11 +94,10 @@ class LexiriseService:
             return key.strip()
         # A synced project can be used on several Windows PCs, but a DPAPI
         # blob can only be decrypted on the PC/user that created it.
-        local_app_data = os.environ.get("LOCALAPPDATA")
-        if os.name == "nt" and local_app_data:
-            local_key = Path(local_app_data) / "Programs" / "Proxy Transcript" / "key.dpapi"
-            if local_key.is_file():
-                return _protect(local_key.read_bytes(), decrypt=True).decode()
+        from .protected_storage import credential_directory
+        local_key = credential_directory() / 'key.dpapi'
+        if local_key.is_file():
+            return _protect(local_key.read_bytes(), decrypt=True).decode()
         try:
             return _protect((self.directory / "key.dpapi").read_bytes(), decrypt=True).decode()
         except OSError:

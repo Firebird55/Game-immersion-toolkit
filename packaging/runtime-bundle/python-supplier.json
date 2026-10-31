@@ -1,0 +1,33 @@
+{
+  "schema": "proxy-runtime-python-supplier-v1",
+  "reviewed_on": "2026-10-31",
+  "version": "3.12.16",
+  "architecture": "win-amd64",
+  "supplier": "astral-sh/python-build-standalone",
+  "release": "20261026",
+  "source_commit": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
+  "github_release_id": 424411241,
+  "immutable_release_observed": true,
+  "archive": "cpython-3.12.16+20261026-x86_64-pc-windows-msvc-install_only.tar.gz",
+  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only.tar.gz",
+  "sha256": "590dfcbe3a34c07301e6332e13e2188b98655cd072b08afa45a7998dc4c22bc5",
+  "release_notes": "https://github.com/astral-sh/python-build-standalone/releases/tag/20261026",
+  "cpython_release": "https://www.python.org/downloads/release/python-31216/",
+  "supplier_acceptance": "observed-experiment-only",
+  "redistribution_review": "pending-exact-output",
+  "native_windows_11_acceptance": "unavailable",
+  "target": "windows-x64",
+  "sys_platform": "win32",
+  "machine_names": [
+    "amd64",
+    "x86_64"
+  ],
+  "github_asset_id": 678575209,
+  "bytes": 47113364,
+  "executable": "python.exe",
+  "required_files": [
+    "python.exe",
+    "python312.dll",
+    "LICENSE.txt"
+  ]
+}

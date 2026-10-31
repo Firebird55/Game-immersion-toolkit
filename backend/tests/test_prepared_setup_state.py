@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 import json
+import threading
 
 import pytest
 
@@ -10,6 +11,8 @@ from backend.installation import _voice_state
 
 def runtime(tmp_path, account='owner', locale='nl'):
     value = api.Runtime.__new__(api.Runtime)
+    value._locale_voice_lock = threading.RLock()
+    value._locale_indexes = {}
     value.accounts = SimpleNamespace(status=lambda: {'active': account})
     value.languages = LanguagePreparation(None, None, None, path=tmp_path / 'languages.json')
     if locale:

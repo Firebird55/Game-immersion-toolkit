@@ -15,9 +15,9 @@ const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const json=(path,value)=>writeFileSync(path,JSON.stringify(value));
 const powershell=process.env.PWSH||'powershell.exe';
 async function ready(url){for(let i=0;i<100;i++){try{if((await fetch(url)).ok)return;}catch{}await wait(50);}throw Error('Fixture did not start');}
-function child(command,args,options={}){const value=spawn(command,args,{stdio:['ignore','pipe','pipe'],...options});children.push(value);return value;}
+function child(command,args,options={}){const value=spawn(command,args,{stdio:['ignore','pipe','pipe'],...options});value.diagnostics='';value.stderr.on('data',chunk=>{value.diagnostics=(value.diagnostics+chunk).slice(-12000);});children.push(value);return value;}
 const psQuote=value=>"'"+String(value).replaceAll("'","''")+"'";
-function shell(command){return execFileSync(powershell,['-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from(command,'utf16le').toString('base64')],{encoding:'utf8'});}
+function shell(command){return execFileSync(powershell,['-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from("$ProgressPreference='SilentlyContinue'; "+command,'utf16le').toString('base64')],{encoding:'utf8'});}
 function identity(child,root){return JSON.parse(shell(`. ${psQuote(join(repository,'scripts/companion-runtime.ps1'))}; New-CompanionProcessRecord (Get-Process -Id ${child.pid}) ${psQuote(root)} | ConvertTo-Json -Compress`));}
 function stopRecorded(root,exceptRouter=false){
  const record=join(root,'data/processes.json');if(!existsSync(record))return;
@@ -32,6 +32,7 @@ try{
   for(const name of ['data','new source/backend','new source/scripts','new source/.openai'])mkdirSync(join(root,name),{recursive:true});
   for(const name of ['companion-runtime.ps1','retire-companion.ps1','companion-router.mjs'])copyFileSync(join(repository,'scripts',name),join(source,'scripts',name));
   copyFileSync(join(repository,'backend/check_environment.py'),join(source,'backend/check_environment.py'));
+  for(const name of ['desktop_gateway.py','local_access.py'])copyFileSync(join(repository,'backend',name),join(source,'backend',name));
   copyFileSync(join(fixture,'backend.py'),join(source,'backend/main.py'));
   for(const [from,to]of [['frontend.mjs','fixture-front.mjs'],['install.mjs','install-fixture.mjs'],['build.mjs','build-fixture.mjs']])copyFileSync(join(fixture,from),join(source,'scripts',to));
   writeFileSync(join(source,'backend/__init__.py'),'');writeFileSync(join(source,'requirements.lock.txt'),'');
@@ -83,6 +84,9 @@ try{
   terminate(router);terminate(old);
   console.log(expectedFailure?resumed?'Capture resumed during preparation stays on its current runtime.':'Failed candidate leaves live translations available.':paused?'Paused update ignores unrelated history and remains paused.':'Prepared replacement preserves availability, capture state and session.');
  }
+}catch(error){
+ for(const process of children)if(process.diagnostics)console.error(process.diagnostics);
+ throw error;
 }finally{
  for(const process of children)terminate(process);
  for(const name of ['running update','paused update','resumed update','resumed-at-quiesce update','failed update']){

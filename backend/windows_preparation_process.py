@@ -11,6 +11,7 @@ from contextlib import ExitStack
 import ctypes
 from ctypes import wintypes
 import math
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -90,6 +91,11 @@ class WindowsPreparationProcess:
         length = _check(self.kernel.GetModuleFileNameW(None, image, len(image)))
         if length >= len(image):
             raise OSError('Windows preparation interpreter path was truncated.')
+        if getattr(sys, 'frozen', False):
+            # A bootloader cannot execute this module's .py path. Dispatch the
+            # stdlib bootstrap in the real executable, retaining join-before-
+            # spawn and all parent-owned Job Object cleanup below.
+            return [image.value, '--runtime-child', 'windows-bootstrap', '--', self.name, *command]
         return [image.value, str(Path(__file__).resolve()), self.name, *command]
 
     def _process_ids(self, deadline):
@@ -181,7 +187,21 @@ def _bootstrap(name, command):
         _check(kernel.CloseHandle(handle))
     # A failed assignment exits before spawning anything. The parent owns the
     # remaining handle, including if cancellation races with this bootstrap.
-    return subprocess.call(command, creationflags=subprocess.CREATE_NO_WINDOW)
+    # Explicit handles survive CREATE_NO_WINDOW and venv redirectors. Leaving
+    # them implicit can give a worker a console input handle instead of the
+    # parent's private request pipe, causing an otherwise healthy child to hang.
+    visible_console = os.environ.pop('PROXY_TRANSCRIPT_CHILD_CONSOLE', '') == '1'
+    show_window = os.environ.pop('PROXY_TRANSCRIPT_CHILD_SHOW_WINDOW', '') == '1'
+    startup = None
+    if show_window:
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 1  # SW_SHOWNORMAL for an explicitly requested native dialog.
+    return subprocess.call(command, stdin=None if visible_console else sys.stdin,
+                           stdout=None if visible_console else sys.stdout,
+                           stderr=None if visible_console else sys.stderr,
+                           creationflags=subprocess.CREATE_NEW_CONSOLE if visible_console else subprocess.CREATE_NO_WINDOW,
+                           startupinfo=startup)
 
 
 if __name__ == '__main__':

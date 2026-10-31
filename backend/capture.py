@@ -6,14 +6,14 @@ import io
 import re
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from .runtime_workers import ResumableExecutor
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import Awaitable, Callable
 from pathlib import Path
 
 import mss
-from oneocr import OcrEngine
+from .ocr_engine import OcrEngine
 from PIL import Image
 
 from .config import SettingsStore
@@ -30,6 +30,8 @@ from .windows import WindowInfo, executable_path_for_window, find_active_game_wi
 from .window_capture import BackgroundCapture
 from .runtime_handoff import CaptureHandoff
 from .voice_assets import VoiceAssetService
+from .zzz_dialogue_context import ZzzDialogueContext
+from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
 
 
 class StableMatchTracker:
@@ -116,7 +118,9 @@ class CaptureService:
         self._tip_tracker = StableMatchTracker()
         self._cinematic_tracker = StableMatchTracker()
         self._event_loop: asyncio.AbstractEventLoop | None = None
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+        self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+        self._retired_executors = []
+        self._stop_task = None
         self._scan_epoch = 0
         self._scan_index = 0
         self._last_emitted_at: dict[str, float] = {}
@@ -132,6 +136,8 @@ class CaptureService:
         self._caption_context_scope = None
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
+        self._zzz_dialogue_context = ZzzDialogueContext()
+        self._zzz_cutscene_context = ZzzCutsceneContext()
         self._unvoiced_scope = None
         self._unvoiced_trackers = {}
 
@@ -150,6 +156,8 @@ class CaptureService:
             self._quantic_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
+            self._zzz_dialogue_context.reset()
+            self._zzz_cutscene_context.reset()
             changes["visible_text_ids"] = []
         with self._snapshot_lock:
             self._snapshot = self._snapshot.model_copy(update=changes)
@@ -190,6 +198,11 @@ class CaptureService:
     def start(self) -> bool:
         if self._task and not self._task.done():
             return False
+        if self._stop_task and not self._stop_task.done():
+            raise RuntimeError('Capture is still finishing its previous scan.')
+        if self._stop_task and (self._stop_task.cancelled() or self._stop_task.exception() is not None):
+            raise RuntimeError('Capture could not finish stopping. Restart the runtime before capturing again.')
+        self._executor.resume()
         self._event_loop = asyncio.get_running_loop()
         self._update_snapshot(running=True, phase="starting", message="Starting subtitle OCR and original game voices")
         self._task = asyncio.create_task(self._run(), name="zzz-capture")
@@ -228,28 +241,36 @@ class CaptureService:
         self._cinematic_panel_text = state.cinematic_panel_text
 
     async def stop(self) -> bool:
-        if not self._task or self._task.done():
-            await asyncio.to_thread(self._background_capture.close)
-            self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
-            return False
-        self._task.cancel()
+        if self._stop_task is None or self._stop_task.done():
+            self._stop_task = asyncio.create_task(self._stop_workers(), name='drain-capture-workers')
+        # Client disconnect/cancellation must not abandon the real native join.
+        return await asyncio.shield(self._stop_task)
+
+    async def _stop_workers(self) -> bool:
+        running = bool(self._task and not self._task.done())
         self._scan_epoch += 1
-        try:
-            await self._task
-        except asyncio.CancelledError:
-            pass
+        if running:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
         self._task = None
         await asyncio.to_thread(self._background_capture.close)
-        # A cancelled asyncio future cannot cancel native OCR. Drain its worker
-        # before exporting state so the retiring runtime cannot emit afterward.
-        await asyncio.wait_for(asyncio.get_running_loop().run_in_executor(self._executor, lambda: None), 15)
+        # Timed-out native workers remain owned until their actual thread exits.
+        # A sentinel in a replacement pool proves nothing about those old scans.
+        await asyncio.to_thread(self._executor.drain)
+        for retired in self._retired_executors:
+            await asyncio.to_thread(retired.shutdown, wait=True)
+        self._retired_executors.clear()
+        self._executor.resume()  # Capture preview remains usable after Stop.
         snapshot = self._update_snapshot(running=False, phase="stopped", message="Capture is stopped")
         await self.on_status(snapshot)
-        return True
+        return running
 
     async def close(self) -> None:
         await self.stop()
-        self._executor.shutdown(wait=False, cancel_futures=True)
+        await asyncio.to_thread(self._executor.shutdown, wait=True)
 
     async def _run(self) -> None:
         loop = asyncio.get_running_loop()
@@ -279,7 +300,8 @@ class CaptureService:
                     # leaving a stale screen classification in the UI forever.
                     self._scan_epoch += 1
                     self._executor.shutdown(wait=False, cancel_futures=True)
-                    self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
+                    self._retired_executors.append(self._executor)
+                    self._executor = ResumableExecutor(max_workers=1, thread_name_prefix="zzz-ocr")
                     self._engine = None
                     self._excluded_screen = None
                     self._tracker.observe(None)
@@ -326,6 +348,8 @@ class CaptureService:
                 active_game=None,
                 window_title=None,
                 window_bounds=None,
+                monitor_name=None,
+                monitor_bounds=None,
                 crop_bounds=None,
                 tip_crop_bounds=None,
                 cinematic_crop_bounds=None,
@@ -336,7 +360,12 @@ class CaptureService:
 
         profile, window = active
         language_setup = getattr(self, 'language_setup', None)
+        monitor = getattr(window, 'monitor', None)
+        self._update_snapshot(monitor_name=monitor.name if monitor else None,
+                              monitor_bounds=monitor.bounds if monitor else None)
         if profile.id != self.snapshot().active_game:
+            self._zzz_cutscene_context.reset()
+            self._zzz_dialogue_context.reset()
             self._quantic_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
@@ -381,7 +410,8 @@ class CaptureService:
         if profile.id == "hito":
             return self._scan_hito(window, engine, epoch, now)
 
-        self.textmaps.player_voice = settings.zzz_proxy_voice
+        self.textmaps.player_voice = (settings.zzz_proxy_voice if settings.zzz_proxy_voice != 'unconfigured'
+                                     else settings.zzz_detected_proxy)
         self.textmaps.capture_unvoiced = settings.capture_unvoiced
 
         crop_bounds = self._region_bounds(window, settings.region)
@@ -392,23 +422,22 @@ class CaptureService:
         layout_probe = self._capture(self._region_bounds(
             window, CaptureRegion(left=0, top=0, width=1, height=.10)))
         self._visual_novel_layout = self._is_visual_novel_layout(layout_probe)
-        if self._scan_index % 4 == 1:
-            # One inexpensive upper-screen signature pass covers the left-side
-            # Story Recap header, centered Knock Knock panel, and the HDD hub.
-            header_bounds = self._region_bounds(
-                window, CaptureRegion(left=0, top=0, width=1, height=0.55)
-            )
-            header_image = self._capture(header_bounds)
-            header_image = self._ocr_image(header_image, window)
-            header_response = engine.recognize_pil(header_image)
-            if epoch != self._scan_epoch:
-                return _ScanOutcome([])
-            header_lines = [
-                line.get("text", "").strip()
-                for line in header_response.get("lines", [])
-                if line.get("text", "").strip()
-            ]
-            self._excluded_screen = self._classify_screen_header(header_lines)
+        # One inexpensive upper-screen signature pass covers the left-side
+        # Story Recap header, centered Knock Knock panel, and the HDD hub.
+        header_bounds = self._region_bounds(
+            window, CaptureRegion(left=0, top=0, width=1, height=0.55)
+        )
+        header_image = self._capture(header_bounds)
+        header_image = self._ocr_image(header_image, window)
+        header_response = engine.recognize_pil(header_image)
+        if epoch != self._scan_epoch:
+            return _ScanOutcome([])
+        header_lines = [
+            line.get("text", "").strip()
+            for line in header_response.get("lines", [])
+            if line.get("text", "").strip()
+        ]
+        self._excluded_screen = self._classify_screen_header(header_lines)
         image = self._capture(crop_bounds)
         self._set_preview(image)
         dialogue_box_layout = self._has_dialogue_box(image)
@@ -440,7 +469,21 @@ class CaptureService:
             return _ScanOutcome([])
 
         phone_screen = self._is_phone_screen(lines) or self._excluded_screen == "phone"
-        excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd"}
+        # The menu's lower navigation may be more legible than its header.
+        self._excluded_screen = self._classify_screen_header([*header_lines, *lines])
+        excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd", "menu"}
+        cutscene_scope = (epoch, window.handle, window.bounds, crop_bounds, self.session_id,
+                          getattr(self.textmaps, '_signature', None),
+                          getattr(self.textmaps, 'source_locale', None), settings.zzz_proxy_voice,
+                          getattr(self, 'context_scope', lambda: None)())
+        if self._zzz_cutscene_context.scope != cutscene_scope:
+            self._zzz_cutscene_context.prepare(self.textmaps, cutscene_scope,
+                self.transcript.list(limit=50), self.session_id)
+        if excluded_screen:
+            self._zzz_cutscene_context.clear_scene()
+            self._tip_tracker.observe(None)
+            self._visible_text_by_channel.clear()
+            self._visible_match_started.clear()
         cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
         cinematic_raw_text = ""
         cinematic_confidence: float | None = None
@@ -448,8 +491,10 @@ class CaptureService:
         # A comic bubble can be added and voiced between two alternating scans.
         # Once the filmstrip layout is visible, inspect it on every pass; retain
         # the cheaper alternating cadence for ordinary gameplay/cutscenes.
-        scan_cinematic = self._visual_novel_layout or self._scan_index % 2 == 1
+        scan_cinematic = (self._visual_novel_layout or self._zzz_cutscene_context.scene is not None
+                          or self._scan_index % 2 == 1)
         cinematic_matches: list[TextMatch] = []
+        cinematic_lines = []
         # Resolve the broad region before publishing narrower crops: a comic
         # bubble can extend into the dialogue crop and expose only its last word.
         if not excluded_screen and scan_cinematic:
@@ -471,11 +516,39 @@ class CaptureService:
                 if self._capturable_match(item)
             ]
 
+            # Movie subtitles have authored CS scene IDs and occupy the lower,
+            # centered subtitle band. Repeated choices elsewhere do not veto
+            # exact captions once that movie and its protagonist are identified.
+            movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size))
+            movie_matches = self._zzz_cutscene_context.match(self.textmaps, movie_groups,
+                cinematic_matches, now=time.monotonic(), stable_frames=settings.stable_frames,
+                configured=self.textmaps.player_voice)
+            cinematic_matches = [hit for hit in cinematic_matches if not cutscene_scene(hit.text_id)] + movie_matches
+
+        # The broad gameplay scan still rejects short HUD labels such as INFO.
+        # Confirmed movie captions and filmstrip comics can contain short lines.
+        if not self._visual_novel_layout:
+            cinematic_matches = [item for item in cinematic_matches
+                if self._zzz_cutscene_context.accepts(item) or len(normalize_subtitle(item.source_ocr)) >=
+                (6 if re.search(r"[\u3400-\u9fff]", item.source_ocr) else 12)]
+
         dialogue_match = (
             None
             if excluded_screen
             else self.textmaps.match_lines(lines, threshold=settings.fuzzy_threshold)
         )
+        # Only the dedicated dialogue panel may use speaker/scene evidence to
+        # resolve a caption that also occurs as a choice elsewhere. Broad HUD,
+        # tip and cinematic scans keep their existing ambiguity guards.
+        dialogue_match = self._zzz_dialogue_context.match(
+            self.textmaps, lines, dialogue_match,
+            enabled=not excluded_screen and (dialogue_box_layout or self._visual_novel_layout),
+            scope=(epoch, window.handle, window.bounds, crop_bounds, self.session_id,
+                   getattr(self.textmaps, '_signature', None),
+                   getattr(self.textmaps, 'source_locale', None),
+                   getattr(self.textmaps, 'target_locale', None),
+                   getattr(self, 'context_scope', lambda: None)()),
+            now=time.monotonic(), stable_frames=settings.stable_frames)
         # Short voiced remarks during free-roam gameplay are rendered as white
         # outlined text directly over the scene. They use OngoingLevel TextMap
         # records rather than the normal GalGame dialogue family. Only consider
@@ -514,11 +587,11 @@ class CaptureService:
             match_score = None
         else:
             key = f"{match.text_id}\0{match.english}"
-            fresh_match = self._is_fresh_match(match_channel, key, monotonic_now)
+            self._observe_match_start(match_channel, key, monotonic_now)
             redundant_visible_match = self._is_redundant_visible_match(
                 match_channel, match.english, raw_text
             )
-            if fresh_match and (
+            if (
                 self._tracker.observe(key)
                 and not redundant_visible_match
                 and self._can_emit(f"{match_channel}\0{key}", monotonic_now)
@@ -542,11 +615,14 @@ class CaptureService:
 
         tip_bounds = self._region_bounds(window, settings.tip_region)
         previous_snapshot = self.snapshot()
-        tip_raw_text = previous_snapshot.last_tip_ocr
-        tip_confidence = previous_snapshot.last_tip_ocr_confidence
+        tip_raw_text = "" if excluded_screen else previous_snapshot.last_tip_ocr
+        tip_confidence = None if excluded_screen else previous_snapshot.last_tip_ocr_confidence
         tip_match = None
         tip_match_score: float | None = None
-        scan_tip = self._scan_index % 4 == 1
+        # Short combat bubbles can disappear before a fourth scan completes.
+        # Give this small independent region a confirmation opportunity each pass.
+        scan_tip = not excluded_screen
+        tip_lines = []
         if scan_tip:
             tip_image = self._capture(tip_bounds)
             tip_image = self._ocr_image(tip_image, window)
@@ -568,15 +644,13 @@ class CaptureService:
                 else ""
             )
             self._observe_visible_matches("tip", [tip_match.text_id] if tip_match else [], monotonic_now)
-            fresh_tip = bool(tip_key) and self._is_fresh_match(
-                "tip", tip_key, monotonic_now
-            )
+            if tip_key:
+                self._observe_match_start("tip", tip_key, monotonic_now)
             if tip_match is None:
                 self._tip_tracker.observe(None if not tip_raw_text else f"unmatched:{tip_raw_text.casefold()}")
             else:
                 if (
-                    fresh_tip
-                    and self._tip_tracker.observe(tip_key)
+                    self._tip_tracker.observe(tip_key)
                     and self._can_emit(tip_key, monotonic_now)
                 ):
                     line, _ = self.transcript.add_or_upgrade_recent(
@@ -592,6 +666,12 @@ class CaptureService:
                 if match is None:
                     phase = "matched"
                     message = "Official top-right tip matched"
+
+        if not excluded_screen:
+            detected = self._zzz_cutscene_context.observe_proxy(self.textmaps,
+                [*lines, *cinematic_lines, *tip_lines], now=monotonic_now, stable_frames=settings.stable_frames)
+            if detected:
+                self.settings.remember_zzz_proxy(detected)
 
         if not excluded_screen and tip_match is None and scan_cinematic:
             self._observe_visible_matches("cinematic", [item.text_id for item in cinematic_matches], monotonic_now)
@@ -656,6 +736,7 @@ class CaptureService:
                 "story_recap": "Story Recap ignored",
                 "hdd": "HDD commission screen ignored",
                 "phone": "Phone screen ignored",
+                "menu": "Account and events menu ignored",
             }
             message = messages.get(self._excluded_screen, "Phone screen ignored")
         elif unvoiced_gameplay_dialogue:
@@ -706,7 +787,8 @@ class CaptureService:
                  getattr(self, 'context_scope', lambda: None)(), settings.capture_unvoiced, voice_enabled)
         silent_enabled = bool(settings.capture_unvoiced and match_lines and index.ready
                               and index.status().get('unvoiced_count', 0))
-        enabled = (silent_enabled or voice_enabled) and epoch == self._scan_epoch
+        enabled = ((silent_enabled or voice_enabled) and epoch == self._scan_epoch
+                   and not getattr(self, '_excluded_screen', None))
         if not enabled or scope != self._unvoiced_scope:
             for key in list(self._unvoiced_trackers):
                 if key.startswith(prefix):
@@ -867,11 +949,10 @@ class CaptureService:
             self._update_snapshot(match_reason='captured' if emitted else 'confirming_or_already_captured')
         else:
             key = f"{game}\0{match.text_id}\0{match.english}"
-            fresh = self._is_fresh_match(game, key, monotonic_now)
+            self._observe_match_start(game, key, monotonic_now)
             # Two equal scans avoid committing typewriter/transition fragments.
             if (
-                fresh
-                and self._tracker.observe(key)
+                self._tracker.observe(key)
                 and self._can_emit(key, monotonic_now)
             ):
                 line, _ = self.transcript.add_or_upgrade_recent(
@@ -971,8 +1052,8 @@ class CaptureService:
             tracker = self._quantic_trackers.setdefault(hit.text_id, StableMatchTracker())
             tracker.configure(self.settings.get().stable_frames)
             channel, key = game + ':' + hit.text_id, f'{game}\0{hit.text_id}\0{hit.english}'
-            fresh = self._is_fresh_match(channel, key, now)
-            if fresh and tracker.observe(key) and self._can_emit(key, now):
+            self._observe_match_start(channel, key, now)
+            if tracker.observe(key) and self._can_emit(key, now):
                 line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=captured_at, channel='dialogue')
                 if line is not None:
                     emitted.append(line)
@@ -1105,10 +1186,13 @@ class CaptureService:
             key = f"{channel}\0{match.text_id}\0{match.english}"
             active_keys.add(key)
             previous = self._local_chatter_trackers.get(key)
-            tracker = previous[0] if previous and monotonic_now - previous[1] <= 3 else StableMatchTracker()
+            # Missing observations remove this tracker below. Slow consecutive
+            # scans must not discard the first confirmation frame.
+            tracker = previous[0] if previous else StableMatchTracker()
             tracker.configure(settings.stable_frames)
             self._local_chatter_trackers[key] = (tracker, monotonic_now)
-            if self._is_fresh_match(key, key, monotonic_now) and tracker.observe(key) and self._can_emit(key, monotonic_now):
+            self._observe_match_start(key, key, monotonic_now)
+            if tracker.observe(key) and self._can_emit(key, monotonic_now):
                 line, _ = self.transcript.add_or_upgrade_recent(match, self.session_id, created_at=now,
                                                                channel="cinematic" if cinematic else "tip" if game == "wuwa" else "gameplay")
                 if line is not None:
@@ -1324,6 +1408,13 @@ class CaptureService:
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
         self._visible_text_by_channel[channel] = (now, text_ids)
+
+    def _is_fresh_match(self, channel: str, key: str, now: float, max_age: float = 3.0) -> bool:
+        previous = self._visible_match_started.get(channel)
+        if previous is None or previous[0] != key:
+            self._visible_match_started[channel] = (key, now)
+            return True
+        return now - previous[1] <= max_age
 
     @staticmethod
     def _spatial_text_groups(response: dict) -> list[str]:
@@ -1582,14 +1673,15 @@ class CaptureService:
             self._last_visible_match_by_channel[channel] = matched
         return redundant
 
-    def _is_fresh_match(
-        self, channel: str, key: str, now: float, max_age: float = 3.0
-    ) -> bool:
+    def _observe_match_start(self, channel: str, key: str, now: float) -> None:
+        # First visibility is audio timing metadata, not a deadline for OCR
+        # confirmation. Every matching scan must reach the stability tracker,
+        # even after a slow scan or an initially unstable typewriter caption.
+        # Tracker emission state, cross-region cooldowns and the transcript
+        # store remain responsible for suppressing duplicates.
         previous = self._visible_match_started.get(channel)
         if previous is None or previous[0] != key:
             self._visible_match_started[channel] = (key, now)
-            return True
-        return now - previous[1] <= max_age
 
     @staticmethod
     def _same_cinematic_panel(previous: str, current: str) -> bool:
@@ -1637,6 +1729,14 @@ class CaptureService:
     def _classify_screen_header(lines: list[str]) -> str | None:
         text = " ".join(lines).casefold()
         chinese = normalize_subtitle(text)
+        # Compound signatures, never NEW or Menu alone: those labels also
+        # accompany real comic dialogue and legitimate short captions.
+        navigation = ('mail', 'options', 'notices', 'achievements', 'inter-knot',
+                      'storage', 'agents', 'signal search')
+        if ((re.search(r'\bevents\b', text) and re.search(r'\blevel\b', text))
+                or sum(bool(re.search(r'(?<!\w)' + re.escape(label) + r'(?!\w)', text)) for label in navigation) >= 3
+                or sum(label in chinese for label in ('邮件', '公告', '成就', '绳网', '仓库', '代理人', '调频')) >= 3):
+            return 'menu'
         if "story recap" in text or any(title in chinese for title in ("前情回顾", "剧情回顾")):
             return "story_recap"
         if "knock knock" in text:

@@ -1,12 +1,14 @@
 """Local destination preferences, honest estimates and interruptible export jobs."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
+from .runtime_paths import default_export_root
+from .runtime_bundle import child_command, discover_layout, resource_path
 import json
 import hashlib
 import os
 from pathlib import Path
 import shutil
-import signal
 import subprocess
 import sys
 import threading
@@ -15,24 +17,9 @@ import uuid
 
 from .game_paths import GAMES, settings_path, discover_install
 from .mobile_export_layout import latest_export
+from .owned_process import OwnedProcess
 
 ACTIVE = {'preparing', 'exporting', 'cancelling'}
-
-
-def stop_export_process(process):
-    """Only terminate the process tree owned by this export, including decoders."""
-    if process.poll() is not None:
-        return
-    if sys.platform == 'win32':
-        subprocess.run(['taskkill.exe', '/PID', str(process.pid), '/T', '/F'],
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15,
-                       creationflags=subprocess.CREATE_NO_WINDOW)
-    else:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-    process.wait(timeout=5)
 
 
 class MobileExportManager:
@@ -43,6 +30,9 @@ class MobileExportManager:
         self._lock = threading.RLock()
         self._cancel = threading.Event()
         self._thread = self._process = self._picker = self._picker_result = None
+        self._owned_process = None
+        self._picker_owner = None
+        self._stop_threads = []
         self._picker_started = 0.0
         self._picker_message = ''
         self._status = {'state': 'idle', 'progress': 0, 'message': 'Ready to export a mobile library'}
@@ -69,7 +59,7 @@ class MobileExportManager:
                 return Path(value)
         except (OSError, ValueError):
             pass
-        return self.root / 'output/mobile-libraries'
+        return default_export_root(self.root)
 
     def _save_destination(self, folder):
         if not self.guard():
@@ -114,6 +104,11 @@ class MobileExportManager:
             self.close_picker()
             self._picker_message = 'Windows did not show the folder browser. Paste a folder path or try Browse again.'
         if self._picker and self._picker.poll() is not None:
+            # Keep the Job Object until all dialog descendants have exited.
+            if self._picker_owner:
+                self._picker_owner.stop()
+                self._picker_owner.close_streams()
+                self._picker_owner = None
             try:
                 value = json.loads(self._picker_result.read_text(encoding='utf-8-sig'))
                 if value.get('folder'):
@@ -134,9 +129,12 @@ class MobileExportManager:
             if not self._picker:
                 return False
             process, result = self._picker, self._picker_result
-            if process.poll() is None:
-                process.terminate()
-                process.wait(timeout=5)
+            if self._picker_owner:
+                self._picker_owner.stop()
+                self._picker_owner.close_streams()
+                self._picker_owner = None
+            elif process.poll() is None:
+                raise RuntimeError('Folder browser ownership is unavailable; handoff is blocked.')
             # Never apply an abandoned selection. Keep the user's saved destination.
             result.unlink(missing_ok=True)
             Path(str(result) + '.ready').unlink(missing_ok=True)
@@ -168,14 +166,12 @@ class MobileExportManager:
             directory = self.preferences_path.parent
             directory.mkdir(parents=True, exist_ok=True)
             result = directory / ('mobile-folder-' + uuid.uuid4().hex + '.json')
-            startup = subprocess.STARTUPINFO()
-            startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startup.wShowWindow = 1  # SW_SHOWNORMAL: do not inherit the hidden companion's show state.
-            self._picker = subprocess.Popen(['powershell.exe', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
-                '-File', str(Path(__file__).resolve().parents[1] / 'scripts/select-export-folder.ps1'),
+            self._picker_owner = OwnedProcess(['powershell.exe', '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass',
+                '-File', str(resource_path('scripts/select-export-folder.ps1')),
                 '-InitialPath', str(initial), '-ResultPath', str(result)],
-                creationflags=subprocess.CREATE_NO_WINDOW, startupinfo=startup,
+                show_window=True, stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._picker = self._picker_owner.process
             self._picker_result = result
             self._picker_started = time.monotonic()
             self._picker_message = ''
@@ -187,7 +183,7 @@ class MobileExportManager:
         if not self.guard():
             raise ValueError('Account or learning language changed; reopen Setup.')
         folder, existing = self._validate_folder(destination_folder or self.destination())
-        data = self.root / 'data'
+        data = runtime_data_root(self.root)
         from .language_preparation import selected_snapshot
         legacy_zzz = game == 'zzz' and not (data / 'languages/zzz').is_dir()
         inputs = ([data / 'voice-assets/manifest.json', data / 'voice-assets/learned-manifest.json']
@@ -241,13 +237,43 @@ class MobileExportManager:
             self._status.update(state='cancelling', message='Stopping export and its decoder…')
             process = self._process
         if process:
-            threading.Thread(target=self._stop, args=(process,), daemon=True).start()
+            stopper = threading.Thread(target=self._stop, args=(process,), daemon=True)
+            with self._lock:
+                self._stop_threads.append(stopper)
+                stopper.start()
         return True
+
+    def drain(self):
+        self.cancel()
+        self.close_picker()
+        with self._lock:
+            worker = self._thread
+        if worker:
+            worker.join(timeout=30)
+            if worker.is_alive():
+                raise RuntimeError('Mobile export is still stopping; handoff is blocked.')
+        for stopper in self._stop_threads:
+            stopper.join(timeout=20)
+            if stopper.is_alive():
+                raise RuntimeError('Export cancellation is still stopping; handoff is blocked.')
+        with self._lock:
+            owned = self._owned_process
+        if owned:
+            owned.stop()
+            owned.close_streams()
+            with self._lock:
+                self._owned_process = None
+        if self._process and self._process.poll() is None:
+            raise RuntimeError('Export process ownership is incomplete; handoff is blocked.')
 
     def _stop(self, process):
         try:
-            stop_export_process(process)
-        except (OSError, subprocess.SubprocessError):
+            owned = self._owned_process
+            if owned is not None and owned.process is process:
+                owned.stop()
+            elif process.poll() is None:
+                raise RuntimeError('Export process ownership is unavailable.')
+        except (OSError, RuntimeError, subprocess.SubprocessError):
             # Do not report cancellation complete until the monitor sees exit.
             with self._lock:
                 self._status['message'] = 'Still stopping the export. Waiting for its process to exit.'
@@ -279,8 +305,8 @@ class MobileExportManager:
             return True
 
     def _worker_args(self, game, include_audio, output):
-        args = [sys.executable, '-u', '-m', 'backend.mobile_export_worker', '--root', str(self.root),
-                '--game', game, '--output', str(output)]
+        args = child_command('mobile-export', ['--root', str(self.root),
+                '--game', game, '--output', str(output)])
         if self.account_signature is not None:
             args += ['--account-signature', self.account_signature, '--source-locale', self.source_locale]
         return args if include_audio else [*args, '--catalog-only']
@@ -294,9 +320,11 @@ class MobileExportManager:
                     self._cancel.set()
                 if self._cancel.is_set():
                     return
-                process = subprocess.Popen(args, cwd=Path(__file__).resolve().parents[1], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                    text=True, encoding='utf-8', creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
-                    start_new_session=sys.platform != 'win32', env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
+                layout = discover_layout()
+                owned = OwnedProcess(args, cwd=layout.resource_root, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    text=True, env={**layout.child_environment('mobile-export'), 'PYTHONIOENCODING': 'utf-8', 'PYTHONUNBUFFERED': '1'})
+                self._owned_process = owned
+                process = owned.process
                 self._process = process
             for line in process.stdout:
                 if not self.guard():
@@ -318,8 +346,13 @@ class MobileExportManager:
                 if not self._cancel.is_set():
                     self._status.update(state='error', message='Could not start export. Check the destination and resume.')
         finally:
-            if process and process.poll() is None:
-                self._stop(process)
+            owned = self._owned_process
+            if owned:
+                # Even a cleanly exited parent can leave a decoder alive.
+                # Keep the retained job/group until every descendant is gone.
+                owned.stop()
+                owned.close_streams()
+                self._owned_process = None
             with self._lock:
                 exited = process is None or process.poll() is not None
                 if exited:

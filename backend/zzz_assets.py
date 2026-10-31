@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -257,8 +258,15 @@ def _tables(directory, revision, locales):
 
 
 def _links(root, directory, revision, progress):
-    project = directory.parent.parent
-    tools = project / 'work/voice-assets'
+    from .prebuilt_node_reader import require_zzz_reader
+    from .runtime_bundle import discover_layout
+    from .runtime_paths import voice_work_root
+    require_zzz_reader()
+    # The standalone source reader still accepts a legacy project/data/zzz
+    # directory. Frozen execution cannot reach this compatibility bridge.
+    project = (discover_layout().legacy_project_root if os.environ.get('PROXY_TRANSCRIPT_PROJECT_ROOT')
+               else directory.parent.parent)
+    tools = voice_work_root(project)
     reader = tools / 'galgame-perform.ts'
     if not reader.is_file() or not shutil.which('node'):
         raise ValueError('Install the ZZZ scene tools in Setup before preparing a language.')
@@ -369,6 +377,11 @@ def _validate_audio(install, audio):
     if entry.offset < 28 or not 0 < entry.size <= 64 * 1024 * 1024 or entry.offset + entry.size > stat.st_size:
         raise ValueError('Invalid ZZZ original voice bounds.')
     return entry
+
+
+def validate_voice_source(install, audio):
+    """A game update does not invalidate offsets in an unchanged voice package."""
+    return _validate_audio(install, audio)
 
 
 def extract_voice(install, audio, _executable, _destination):

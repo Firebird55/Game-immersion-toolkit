@@ -117,7 +117,9 @@ try{
   browser=await engine.launch({headless:true});const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],requests=[];
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
   await page.goto(url);await page.getByRole('heading',{name:'Game immersion toolkit',exact:true}).waitFor();
-  assert.equal(await page.locator('.companion-nav button').allTextContents().then(v=>v.join(',')),'Play,Settings');
+  assert.equal(await page.locator('.companion-nav > button').allTextContents().then(v=>v.join(',')),'Play,Settings');
+  await page.getByText('Connect to desktop',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Open desktop transcript'}).isVisible(),false,'Connection form stays collapsed until requested');
   assert.equal(await page.locator('#frame-source,#preview,#resume-share').count(),0,'Browser screen pairing UI is removed');
   assert(!requests.some(v=>/pc-connection|qr-ui/.test(v)),'PC pairing is not loaded on Play');
   await page.click('#ocr-start');await page.waitForFunction(()=>document.querySelector('#match-status').textContent.includes('Library ZIP first'));

@@ -104,6 +104,7 @@ test('gate CLI fails nonzero and persists only safe failure evidence', () => {
 
 const normalizeWorkflow = source => source.replace(/\r\n/g, '\n');
 const workflow = normalizeWorkflow(readFileSync(new URL('../.github/workflows/ci-release.yml', import.meta.url), 'utf8'));
+const nativeWorkflow = normalizeWorkflow(readFileSync(new URL('../.github/workflows/desktop-native.yml', import.meta.url), 'utf8'));
 function job(name, source = workflow) {
   const text = normalizeWorkflow(source);
   const start = text.indexOf(`\n  ${name}:\n`);
@@ -112,6 +113,22 @@ function job(name, source = workflow) {
   const end = content.slice(1).search(/\n  [a-z][a-z-]*:\n/);
   return end < 0 ? content : content.slice(0, end + 1);
 }
+
+test('publication waits for native construction and rechecks all downloaded artifacts', () => {
+  assert.match(job('publish'), /needs: \[package, native-desktop\]/);
+  assert.match(job('publish'), /pattern: tested-desktop-\*/);
+  assert.match(job('publish'), /python scripts\/assemble-desktop-release\.py --source-release release --native-root native-release/);
+  assert.match(job('publish'), /gh release upload "\$RELEASE_TAG" published-release\/\*/);
+  assert.match(nativeWorkflow, /if: steps\.package\.outputs\.release_eligible == 'true'/);
+  assert.match(nativeWorkflow, /DESKTOP-PROVENANCE-\$\{\{ matrix\.target \}\}\.json/);
+  for (const resource of ['node-resources', 'native-notices', 'managed-reader-resources']) {
+    assert.ok(nativeWorkflow.includes(`'output/${resource}'`));
+  }
+  assert.match(nativeWorkflow, /\$options \+= @\('--resources-root', \$root\)/);
+  assert.match(nativeWorkflow, /--nte-helper-root', 'output\/reader-helper\/nte'/);
+  assert.match(nativeWorkflow, /prepare-desktop-python\.py.*--github-path \$env:GITHUB_PATH/);
+  assert.match(nativeWorkflow, /--python-archive', '\$\{\{ steps\.python_supplier\.outputs\.python_archive \}\}'/);
+});
 
 test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {
   const crlf = workflow.replaceAll('\n', '\r\n');
@@ -153,7 +170,7 @@ test('tag and manual packages validate the extracted artifact before publishing 
   assert.match(published, /github\.repository == 'Firebird55\/Game-immersion-toolkit' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.match(workflow, /release:\n    types: \[published\]/);
   assert.match(published, /gh release upload .*--clobber/);
-  assert.match(published, /needs: package/);
+  assert.match(published, /needs: \[package, native-desktop\]/);
   assert.match(published, /name: tested-release-assets/);
   assert.doesNotMatch(published, /package-release|validate-candidate/);
   assert.match(workflow, /permissions:\n  contents: read/);
@@ -167,7 +184,7 @@ test('evidence uploads stay limited to JSON and survive failed checks', () => {
     assert.match(content, /if: \$\{\{ always\(\) && hashFiles\('output\/checks\//);
     assert.doesNotMatch(content, /path: output\/?\s*$|path: output\/checks\/?\s*$/m);
     for (const line of content.split('\n').filter(line => /^\s+(?:path: )?output\//.test(line)))
-      assert.match(line, /output\/checks\/(?:ci\/[a-z-]+\.json|runs\/\*\.json|latest\.json)$/);
+      assert.match(line, /output\/checks\/(?:ci\/[a-z-]+\.json|runs\/\*\.json|latest\.json|game-screenshots\/rapid\.json)$/);
   }
 });
 

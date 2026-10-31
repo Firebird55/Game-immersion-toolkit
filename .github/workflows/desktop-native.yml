@@ -1,0 +1,185 @@
+name: Native desktop construction
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  construct:
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            target: windows-x64
+            node_target: win-x64
+            dotnet_rid: win-x64
+          - runner: ubuntu-24.04
+            target: linux-x64
+            node_target: linux-x64
+            dotnet_rid: linux-x64
+          - runner: macos-15
+            target: macos-arm64
+            node_target: darwin-arm64
+            dotnet_rid: osx-arm64
+          # ONNX Runtime 1.24.4 publishes macOS arm64 wheels only. Intel
+          # requires a separately verified native build before joining CI.
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock.txt
+            packaging/desktop/build-requirements.lock.txt
+      - run: node scripts/prepare-release-version.mjs
+      - name: Inspect missing build prerequisites before acquisition
+        continue-on-error: true
+        run: npm run dev:doctor -- --full
+      - name: Prepare the exact native CPython supplier
+        id: python_supplier
+        run: python scripts/prepare-desktop-python.py --output output/python-supplier --cache output/python-archive-cache --github-output $env:GITHUB_OUTPUT --github-path $env:GITHUB_PATH
+      - run: npm ci --ignore-scripts
+      - name: Acquire exact native Python wheels
+        run: |
+          python -m pip download --only-binary=:all: --dest output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install --no-index --find-links output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify installed wheel bytes before native construction
+        run: |
+          python -c "import sys; from pathlib import Path; sys.path.insert(0, 'packaging/runtime-bundle'); from record_runtime import verify_wheel; [verify_wheel(wheel) for wheel in sorted(Path('output/wheelhouse').glob('*.whl'))]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: python -m pytest -q backend/tests/test_desktop_packaging.py backend/tests/test_desktop_host.py backend/tests/test_owned_process.py backend/tests/test_desktop_release.py backend/tests/test_native_capture_probe.py
+      - name: Install Linux build-runner display services
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb trayer dbus-x11 libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-shape0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Fail with the actual missing library before Qt aborts without a
+          # useful Python traceback. These are build-runner dependencies;
+          # PyInstaller collects the runtime's native dependency closure.
+          $plugin = python -c "from PySide6.QtCore import QLibraryInfo; print(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath) + '/platforms/libqxcb.so')"
+          $dependencies = ldd $plugin
+          $dependencies | Write-Output
+          if ($LASTEXITCODE -ne 0 -or ($dependencies -match 'not found')) { exit 1 }
+      - name: Probe native desktop discovery and capture
+        run: |
+          if ($IsLinux) { xvfb-run -a python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json }
+          else { python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json }
+          if ($LASTEXITCODE -eq 2) { Write-Output 'Native capture is unavailable on this runner; this is not native acceptance.'; exit 0 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the exact build-host managed-reader SDK
+        id: reader_sdk
+        run: python scripts/prepare-game-reader-sdk.py --rid '${{ matrix.dotnet_rid }}' --output output/reader-sdk --cache output/reader-sdk-inputs --github-output $env:GITHUB_OUTPUT
+      - name: Build the shared self-contained archive reader
+        run: |
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -RuntimeIdentifier '${{ matrix.dotnet_rid }}' -OutputRoot output/reader-helper -EvidenceRoot '${{ steps.reader_sdk.outputs.evidence_root }}' -Dotnet '${{ steps.reader_sdk.outputs.dotnet }}' -ExpectedSdkVersion 10.0.403 -Python (Get-Command python).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/build-nte-toolchain.py --platform '${{ matrix.node_target }}' --output output/managed-reader-resources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/probe-native-unreal.py --helper-root output/reader-helper/nte --resources output/managed-reader-resources --output output/native-unreal-probe.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build and exercise the app-local Cyberpunk reader
+        if: runner.os == 'Windows'
+        run: |
+          python scripts/build-cyberpunk-toolchain.py --platform win-x64 --cache output/cyberpunk-source-cache --output output/cyberpunk-resources --sdk-root '${{ steps.reader_sdk.outputs.sdk_root }}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/probe-native-cyberpunk.py --resources output/cyberpunk-resources --output output/native-cyberpunk-probe.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: npm run desktop:build -- --output-root output/desktop-frontend
+      - name: Collect the pinned app-local grammar runtime
+        run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources
+      - name: Retain pinned Qt sources and full notices
+        run: python scripts/build-qt-resources.py --output output/qt-resources --cache output/qt-source-cache
+      - name: Retain exact OCR, ASR and native library sources and notices
+        run: python scripts/build-native-notices.py --output output/native-notices --cache output/native-source-cache
+      - name: Acquire the verified Windows codec build compiler
+        if: runner.os == 'Windows'
+        run: ./scripts/prepare-codec-compiler.ps1 -OutputRoot output/codec-compiler
+      - name: Build maintained audio tools from retained sources
+        run: |
+          $options = @('--work', (Join-Path $env:RUNNER_TEMP 'toolkit-codec-build'), '--output', 'output/audio-resources', '--cache', 'output/audio-source-cache', '--jobs', '4')
+          if ($IsWindows) {
+            $gitRoot = Split-Path (Split-Path (Get-Command git).Source)
+            $options += @('--shell', (Join-Path $gitRoot 'usr/bin/bash.exe'), '--toolchain', (Resolve-Path 'output/codec-compiler/w64devkit').Path, '--windows-vgmstream')
+          } else { $options += @('--shell', '/bin/sh') }
+          python scripts/build-audio-runtime.py @options
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/probe-native-audio.py --resources output/audio-resources --output output/native-audio-probe.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Freeze the native runtime and isolated ASR child
+        run: |
+          $options = @('--frontend-root', 'output/desktop-frontend', '--output', 'output/native-candidate', '--wheelhouse', 'output/wheelhouse', '--python-archive', '${{ steps.python_supplier.outputs.python_archive }}', '--nte-helper-root', 'output/reader-helper/nte')
+          foreach ($root in @('output/audio-resources', 'output/node-resources', 'output/qt-resources', 'output/native-notices', 'output/managed-reader-resources')) { $options += @('--resources-root', $root) }
+          if ($IsWindows) { $options += @('--resources-root', 'output/cyberpunk-resources') }
+          python scripts/build-desktop-runtime.py @options
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise frozen startup, API crash recovery and owned shutdown
+        run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/GameImmersionToolkit --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
+      - name: Observe native window, tray and mounted transcript navigation
+        run: |
+          $options = @('--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--output', 'output/native-ui-probe.json')
+          if ($IsLinux) { xvfb-run -a dbus-run-session -- python scripts/probe-linux-desktop-ui.py @options }
+          else { python scripts/probe-desktop-host.py --ui @options }
+          if ($LASTEXITCODE -eq 2) { Write-Output 'Native UI unavailable on this runner; acceptance remains incomplete.'; exit 0 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Acquire verified Windows installer compiler
+        if: runner.os == 'Windows'
+        run: ./scripts/prepare-installer-compiler.ps1 -OutputRoot output/installer-compiler
+      - name: Construct the platform installer
+        id: package
+        run: |
+          $receipt = Get-Content output/native-candidate/CANDIDATE-PROVENANCE.json -Raw | ConvertFrom-Json
+          $options = @('--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--target', '${{ matrix.target }}', '--output', 'output/native-distribution')
+          if ($receipt.profile -ne 'runtime' -or $receipt.redistribution_review -ne 'approved' -or $receipt.native_acceptance -ne 'approved') { $options += '--candidate' }
+          if ($IsWindows) { $options += @('--iscc', 'output/installer-compiler/compiler/ISCC.exe') }
+          if ($IsMacOS) { $options += '--dmg' }
+          python scripts/package-desktop.py @options
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $result = Get-Content 'output/native-distribution/DESKTOP-PROVENANCE-${{ matrix.target }}.json' -Raw | ConvertFrom-Json
+          "release_eligible=$($result.release_eligible.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      # Candidate metadata is useful evidence, but never substitutes for a
+      # completed target receipt when the publication job assembles all assets.
+      - name: Upload safe construction metadata only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-construction-${{ matrix.target }}
+          path: |
+            output/native-distribution/DESKTOP-PROVENANCE-${{ matrix.target }}.json
+            output/native-distribution/SHA256SUMS
+            output/native-capture-probe.json
+            output/native-audio-probe.json
+            output/native-host-probe.json
+            output/native-ui-probe.json
+            output/native-cyberpunk-probe.json
+            output/native-unreal-probe.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload verified desktop release assets
+        if: steps.package.outputs.release_eligible == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: tested-desktop-${{ matrix.target }}
+          path: |
+            output/native-distribution/*.zip
+            output/native-distribution/*.tar.gz
+            output/native-distribution/*.dmg
+            output/native-distribution/*.exe
+            output/native-distribution/DESKTOP-PROVENANCE-${{ matrix.target }}.json
+            output/native-distribution/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
