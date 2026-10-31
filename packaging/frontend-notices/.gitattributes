@@ -1,0 +1,2 @@
+# Preserve checksum-pinned supplier notices exactly on every build host.
+*.txt -text whitespace=-blank-at-eol

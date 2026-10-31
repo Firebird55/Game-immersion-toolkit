@@ -7,7 +7,7 @@ import {build} from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/postcss';
 import {sourceCommit} from './build-identity.mjs';
-import {dependencyNotices} from './dependency-notices.mjs';
+import {dependencyNotices, dependencyNoticeAudit} from './dependency-notices.mjs';
 import {ocrAssets} from './mobile-assets.mjs';
 import {previewSources} from './mobile-publication.mjs';
 
@@ -89,18 +89,16 @@ function inputState(publicFiles) {
   for (const [name, bytes] of publicFiles) inputs['public/' + name] = sha256(bytes);
   const tools = {};
   const lock = JSON.parse(readInput('package-lock.json'));
-  // The existing notice generator reads installed package notices. Validate
-  // those files before reading and bind their actual bytes to build reuse.
-  for (const name of Object.keys(lock.packages).filter(name => name.startsWith('node_modules/'))) {
-    const directory = join(repository, name);
-    if (!existsSync(directory)) continue;
-    const actual = realpathSync(directory), local = relative(repository, actual);
-    if (local.startsWith('..' + sep) || isAbsolute(local)) throw Error('An installed dependency notice escapes the source installation.');
-    for (const notice of readdirSync(directory).filter(name => /^(?:licen[cs]e|notice|copying)(?:[.-].*)?$/i.test(name))) {
-      const path = join(actual, notice);
-      rejectLinks(path);
-      if (lstatSync(path).isFile()) inputs[relative(repository, path).split(sep).join('/')] = sha256(readFileSync(path));
-    }
+  // Bind every actual nested/vendor notice, declaration and pinned supplement
+  // consumed by the collector. A root-only scan misses vendored libraries and
+  // would let changed attribution reuse an old desktop build fingerprint.
+  const noticeAudit = dependencyNoticeAudit({root: repository});
+  if (noticeAudit.omissions.length) throw Error('Production dependency notices are incomplete.');
+  for (const path of noticeAudit.inputs) {
+    rejectLinks(path);
+    const name = relative(repository, path).split(sep).join('/');
+    if (name.startsWith('../') || isAbsolute(name)) throw Error('A dependency notice escapes the source installation.');
+    inputs[name] = sha256(readFileSync(path));
   }
   for (const name of ['vite', '@vitejs/plugin-react', '@tailwindcss/postcss', 'tailwindcss', 'react', 'react-dom']) {
     const packagePath = join(repository, 'node_modules', name, 'package.json');
