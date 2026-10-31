@@ -31,6 +31,7 @@ from backend.runtime_payload import digest, no_links, validate
 from backend.desktop_frontend import FrontendBuild, FrontendError
 from python_supplier import archive_plan, mutable_build_file, PIN_FILES
 from macos_replay import MACHO_MAGICS, MAX_BINARY, replay as replay_macho, verify_toolchain
+from cyberpunk_review import inspect as inspect_cyberpunk
 
 CHECKS = ('python_supplier', 'exact_wheels', 'native_inputs', 'complete_notices',
           'corresponding_sources', 'frontend_licenses')
@@ -167,6 +168,8 @@ class Review:
         self.native_files = []
         self.macho_suppliers = {}
         self.python_libraries = None
+        self.archive_members = {}
+        self.native_archive_paths = {}
 
     def block(self, check, code, detail, paths=()):
         item = {'code': code, 'detail': detail}
@@ -288,6 +291,8 @@ class Review:
                 sha512_bytes = hashlib.file_digest(stream, 'sha512').digest()
             if not {value_sha, sha512_bytes.hex(), base64.b64encode(sha512_bytes).decode()} & trusted_hashes:
                 raise ValueError('Additional native archive is not pinned by the recorded source.')
+            self.native_archive_paths[value_sha] = path
+            members = self.archive_members.setdefault(value_sha, {})
             size = 0
             if zipfile.is_zipfile(path):
                 with zipfile.ZipFile(path) as source:
@@ -300,6 +305,9 @@ class Review:
                             raise ValueError('Native archive exceeds review limits.')
                         data = source.read(member)
                         member_sha = sha(data)
+                        if member.filename in members:
+                            raise ValueError('Native archive contains duplicate members.')
+                        members[member.filename] = member_sha
                         supplier = 'Supplier archive ' + value_sha + ': ' + member.filename
                         self.origin(member_sha, supplier)
                         if data[:4] in MACHO_MAGICS:
@@ -317,6 +325,9 @@ class Review:
                         magic = stream.read(4)
                         stream.seek(0)
                         member_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
+                        if member.name in members:
+                            raise ValueError('Native archive contains duplicate members.')
+                        members[member.name] = member_sha
                         supplier = 'Supplier archive ' + value_sha + ': ' + member.name
                         self.origin(member_sha, supplier)
                         if magic in MACHO_MAGICS:
@@ -630,6 +641,7 @@ def review(args):
               ('native_inputs', lambda: result.native_archives(args.native_archive, trusted_archives))]
     stages += [('native_inputs', lambda: result.resources(snapshot)),
                ('native_inputs', lambda: result.helpers(snapshot)),
+               ('native_inputs', lambda: inspect_cyberpunk(result, snapshot, source_matches)),
                ('native_inputs', result.macos_postprocessing),
                ('python_supplier', result.frozen_python),
                ('corresponding_sources', lambda: result.sources(args.source_root)),
@@ -660,6 +672,7 @@ def review(args):
         'reviewer_sha256': digest(Path(__file__)), 'observed_inputs_sha256': digest(args.observed_inputs),
         'policy_inputs': {name: digest(args.source_root / name) for name in (
             'packaging/runtime-bundle/macos_replay.py',
+            'packaging/runtime-bundle/cyberpunk_review.py',
             'packaging/desktop/native-notices.json', 'packaging/desktop/qt-sources.json',
             'packaging/frontend-notices/sources.json', 'scripts/dependency-notices.mjs')},
         'scope': 'Exact supplied artifacts, delivered notices and known source adapters. Not independent reproduction of compiled outputs, native execution acceptance or legal certification.'}

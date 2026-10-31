@@ -19,6 +19,16 @@ binary's origin. `--source-root` identifies the checkout containing the review
 policy, Git history and prepared locked frontend dependencies. `--node` selects
 that build host's Node executable; neither option is a user prerequisite.
 
+When the Windows Cyberpunk reader is included, also supply its exact WolvenKit,
+.NET and upstream source archives, and the component NuGet archives from the
+build cache. The reviewer checks each selected binary, package declaration and
+full notice against the actual pinned archive member. It independently repeats
+the known source selection to compare the delivered WolvenKit source ZIP,
+including its GPL terms and project declarations. The owned wrapper and Kraken
+outputs must match their separate pinned hashes, with their exact source,
+portability patch, compiler runtime terms and rebuild recipes retained. This
+does not execute game readers or compile supplier code during review.
+
 The output must be new and outside the candidate. Exit 0 means the six input
 checks passed, 2 means the report contains concrete blockers, and 1 means the
 candidate/evidence could not be inspected. The report binds the source commit,
@@ -51,7 +61,9 @@ The checks verify:
 - The actual frontend notice text against the complete locked production
   dependency closure, nested notices, exact supplements and font license.
   Absent optional incompatible packages and absent development packages are
-  explicitly identified. License text in a build folder does not count unless
+  explicitly identified. An absent optional descendant is excluded only when
+  every resolved parent is excluded; unexplained omissions still fail. License
+  text in a build folder does not count unless
   retained in the delivered frontend.
 
 These checks establish the stated evidence, not a legal certification or an
