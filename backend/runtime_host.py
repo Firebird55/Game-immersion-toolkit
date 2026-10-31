@@ -822,6 +822,9 @@ def main(kind, layout):
     # Fixed authored test controls only. Nothing is accepted by a production
     # child or API; the full runtime profile and source launcher stay unchanged.
     case = sys.stdin.readline().strip()
+    if case == 'authored-data-copy':
+        from .runtime_data_copy_probe import run as data_copy_probe
+        return data_copy_probe(layout, sys.stdin)
     if case in {'keeper-before-resume', 'keeper-after-ready'}:
         return _FrozenKeeperProbe(layout, case, sys.stdin).run()
     if case not in {'normal', 'unprepared-index'}:
