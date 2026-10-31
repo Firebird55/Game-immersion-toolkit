@@ -81,18 +81,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Freeze the native runtime and isolated ASR child
         run: python scripts/build-desktop-runtime.py --frontend-root output/desktop-frontend --output output/native-candidate --wheelhouse output/wheelhouse --resources-root output/audio-resources --resources-root output/node-resources
-      - name: Check the frozen host with no Python or Node dependency
-        env:
-          QT_QPA_PLATFORM: offscreen
+      - name: Exercise frozen startup, API crash recovery and owned shutdown
+        run: python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/ProxyTranscriptRuntime --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --output output/native-host-probe.json
+      - name: Observe native window, tray and browser handler requests
+        if: runner.os != 'Linux'
         run: |
-          $binary = if ($IsWindows) { 'ProxyTranscriptRuntime.exe' } else { 'ProxyTranscriptRuntime' }
-          $runtime = (Resolve-Path "output/native-candidate/runtime/ProxyTranscriptRuntime/$binary").Path
-          $originalPath = $env:PATH
-          try {
-            $env:PATH = if ($IsWindows) { "$env:SystemRoot\System32;$env:SystemRoot" } else { '/usr/bin:/bin' }
-            & $runtime --host-check
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          } finally { $env:PATH = $originalPath }
+          python scripts/probe-desktop-host.py --runtime-root output/native-candidate/runtime/ProxyTranscriptRuntime --provenance output/native-candidate/CANDIDATE-PROVENANCE.json --ui --output output/native-ui-probe.json
+          if ($LASTEXITCODE -eq 2) { Write-Output 'Native UI unavailable on this runner; acceptance remains incomplete.'; exit 0 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Acquire verified Windows installer compiler
         if: runner.os == 'Windows'
         run: ./scripts/prepare-installer-compiler.ps1 -OutputRoot output/installer-compiler
@@ -119,6 +115,8 @@ jobs:
             output/native-distribution/SHA256SUMS
             output/native-capture-probe.json
             output/native-audio-probe.json
+            output/native-host-probe.json
+            output/native-ui-probe.json
           if-no-files-found: error
           retention-days: 7
       - name: Upload verified desktop release assets
