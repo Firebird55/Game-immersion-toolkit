@@ -7,8 +7,10 @@ import sys
 
 root = Path(SPECPATH).parents[1]
 sys.path.insert(0, str(root))
+sys.path.insert(0, str(Path(SPECPATH)))
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
 from backend.runtime_bundle import CHILD_TARGETS
+from windows_runtime import select_msvc
 
 inputs = json.loads(Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']).read_text(encoding='utf-8'))
 runtime = inputs['profile'] in {'runtime', 'runtime-experiment'}
@@ -74,6 +76,8 @@ main.datas = [entry for entry in main.datas if not entry[0].replace('\\', '/').s
 # of this payload instead of shipping an unrelated native dependency family.
 main.binaries = [entry for entry in main.binaries
                  if Path(entry[0]).name.casefold() != 'opengl32sw.dll']
+if sys.platform == 'win32' and runtime:
+    main.binaries = select_msvc(main.binaries)
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
     name='GameImmersionToolkit', console=True, contents_directory='_internal')
@@ -91,6 +95,8 @@ if runtime:
         excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture',
                   'backend.desktop_host', 'backend.desktop_host_ui', 'PySide6', 'shiboken6',
                   'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
+    if sys.platform == 'win32':
+        asr.binaries = select_msvc(asr.binaries)
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,
         name='GameImmersionToolkitAsr', console=True, contents_directory='_internal')

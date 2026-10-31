@@ -61,6 +61,13 @@ does not match an inspected supplier member. An unmapped native file remains a
 named blocker. New toolchain correspondence adapters must inspect their actual
 source/notice bytes; they cannot inherit another toolchain's approval.
 
+Windows MSVC selection is explicit in `packaging/runtime-bundle/windows_runtime.py`.
+PyInstaller's host-discovered `msvcp140.dll` is replaced in both process trees by
+the locked PySide6 wheel's RECORD-verified copy. An isolated empty-PATH Windows
+probe loaded those exact bytes and exercised actual Qt raster painting and the
+Sherpa native recognizer configuration. This is source-process compatibility
+evidence; the subsequent frozen UI and ASR probes remain necessary.
+
 The separate native reports still need to prove the installed target's startup,
 browser navigation, status window, tray, crash recovery and shutdown. The accepted
 receipt may mark a target distributable while the broader R19 plan remains open.
