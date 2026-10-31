@@ -34,17 +34,40 @@ BUILD_PHASES = ('extract-msys-base', 'extract-make', 'extract-nasm', 'extract-pk
     'check-shell', 'check-make', 'check-nasm', 'check-pkgconf', 'configure-opus',
     'build-opus', 'install-opus', 'configure-ffmpeg', 'clean-ffmpeg', 'build-ffmpeg',
     'install-ffmpeg', 'compile-probe', 'observe-and-package')
-ERROR_CODES = frozenset(('C1083', 'C1189', 'C1900', 'C2039', 'C2059', 'C2061',
+ERROR_CODES = frozenset(('C1001', 'C1083', 'C1189', 'C1900', 'C2039', 'C2059', 'C2061',
     'C2065', 'C2143', 'C2146', 'C2371', 'C2375', 'C2440', 'C2660', 'C2664', 'C3861',
+    'D8016', 'D8021', 'D8022', 'D8027', 'D8036', 'D8037', 'D8045', 'D8048', 'D8049',
     'LNK1104', 'LNK1112', 'LNK1120', 'LNK1169', 'LNK1181', 'LNK2001', 'LNK2005',
     'LNK2019', 'LNK2038', 'MSB1009', 'MSB3073', 'MSB4018', 'MSB6003', 'MSB6006',
     'MSB8020', 'MSB8036', 'MSB8066'))
+ERROR_FAMILIES = {'C': ('compiler-error', 'unclassified-compiler-code'),
+    'D': ('compiler-command-line-error', 'unclassified-command-line-code'),
+    'LNK': ('linker-error', 'unclassified-linker-code'),
+    'MSB': ('msbuild-error', 'unclassified-msbuild-code')}
 CMAKE_CATEGORIES = {
     'cmake-error': r'\bCMake Error\b',
     'cmake-generator-selection': r'could not create named generator|generator[^\r\n]{0,100}does not match',
     'cmake-toolchain-selection': r'could not find any instance of Visual Studio|does not support platform specification',
     'cmake-compiler-check': r'is not able to compile a simple test program',
     'cmake-package-discovery': r'could not find a package configuration file provided by|could NOT find',
+}
+# Format observations only: never copy the matched tool, target or message.
+MAKE_PREFIX = r'^(?:[^\r\n]*[\\/])?make(?:\.exe)?(?:\[[0-9]+\])?:[ \t]+\*\*\*[ \t]+'
+SHELL_PREFIX = r'^(?:[^\r\n]*[\\/])?(?:bash|sh)(?:\.exe)?:[ \t]+(?:line [0-9]+:[ \t]+)?'
+TOOL_CATEGORIES = {
+    'make-fatal-error': MAKE_PREFIX,
+    'make-recipe-error': MAKE_PREFIX + r'\[[^\r\n]+\][ \t]+Error[ \t]+[0-9]+[ \t]*\r?$',
+    'make-no-rule': MAKE_PREFIX + r'No rule to make target[ \t]+[^\r\n]+',
+    'shell-command-not-found': SHELL_PREFIX + r'[^\r\n]+:[ \t]+command not found[ \t]*\r?$',
+    'shell-cannot-execute': SHELL_PREFIX + r'[^\r\n]+:[ \t]+cannot execute(?:[ :][^\r\n]*)?\r?$',
+    'shell-permission-denied': SHELL_PREFIX + r'[^\r\n]+:[ \t]+Permission denied[ \t]*\r?$',
+    'nasm-assembly-error': r'^[^\r\n]+\.asm(?::[0-9]+:|\([0-9]+\)[ \t]*:)[ \t]+(?:fatal|error):[ \t]+[^\r\n]+',
+    'nasm-invocation-error': r'^nasm(?:\.exe)?:[ \t]+(?:fatal|error):[ \t]+[^\r\n]+',
+}
+MAKEDEF_CATEGORIES = {
+    'ffmpeg-makedef-missing-version-script': r'^Version script does not exist\r?$',
+    'ffmpeg-makedef-missing-object': r'^Object does not exist:[ \t]+[^\r\n]+',
+    'ffmpeg-makedef-temporary-library': r'^Could not create temporary library\.\r?$',
 }
 FAILURE_LOG_LIMIT = 2 * 1024 * 1024
 
@@ -220,16 +243,26 @@ def failure(output, phase, exit_code, log, offset):
         start = max(offset, size - FAILURE_LOG_LIMIT)
         stream.seek(start)
         raw = stream.read(size - start)
+    if start > offset:
+        # The byte bound may cut through a diagnostic or its original prefix.
+        # Never turn that fragment into a new line/word boundary for parsing.
+        raw = raw.partition(b'\n')[2]
     text = raw.decode('utf-8', errors='replace')
-    codes = sorted({code.upper() for code in re.findall(
-        r'\b(?:fatal\s+)?error\s+((?:C|LNK|MSB)[0-9]{4})\s*:', text, flags=re.IGNORECASE)} & ERROR_CODES)
+    observed_codes = {code.upper() for code in re.findall(
+        r'\berror[ \t]+((?:C|D|LNK|MSB)[0-9]{4})[ \t]*:', text, flags=re.IGNORECASE)}
+    codes = sorted(observed_codes & ERROR_CODES)
     categories = set()
-    for code in codes:
-        categories.add('compiler-error' if code.startswith('C') else
-                       'linker-error' if code.startswith('LNK') else 'msbuild-error')
+    for code in observed_codes:
+        family = re.match(r'[A-Z]+', code).group()
+        categories.add(ERROR_FAMILIES[family][0 if code in ERROR_CODES else 1])
     if re.search(CMAKE_CATEGORIES['cmake-error'], text, flags=re.IGNORECASE):
         for category, pattern in CMAKE_CATEGORIES.items():
             if re.search(pattern, text, flags=re.IGNORECASE): categories.add(category)
+    for category, pattern in TOOL_CATEGORIES.items():
+        if re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE): categories.add(category)
+    if phase in ('build-ffmpeg', 'install-ffmpeg'):
+        for category, pattern in MAKEDEF_CATEGORIES.items():
+            if re.search(pattern, text, flags=re.MULTILINE): categories.add(category)
     if not categories: categories.add('unclassified-command-failure')
     commit = os.environ.get('GITHUB_SHA', '')
     report = {'schema': 'proxy-r19-game-codec-replay-failure-v1', 'status': 'failed',

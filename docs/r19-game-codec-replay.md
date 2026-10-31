@@ -118,10 +118,33 @@ summary, and source-review.zip contains no CMake executable or tool archive.
 
 On a failed build command, `FAILED-STAGE.json` is a separate failed receipt.
 It preserves the fixed command phase and numeric exit code, with only selected
-compiler/linker/MSBuild error codes and CMake categories from that command's
-bounded private log tail. Unknown diagnostics become a fixed unclassified
-category. Earlier commands, error text, paths, arguments and raw logs are not
-published; this receipt cannot establish a passing replay or change any gate.
+compiler/linker/MSBuild/command-line error codes and fixed categories from that
+command's private log tail, bounded to 2 MiB. The MSVC allowlist includes the
+[documented D command-line errors](https://learn.microsoft.com/en-us/cpp/error-messages/tool-errors/command-line-errors-d8000-through-d9999)
+and [C1001](https://learn.microsoft.com/en-us/cpp/error-messages/compiler-errors-1/fatal-error-c1001).
+An observed C/LNK/MSB/D error code outside that allowlist produces only a fixed
+unclassified family category; its numeric token is never published.
+When the byte bound truncates the command log, classification discards the first
+fragment through its next LF before decoding or matching. With no LF the retained
+classification input is empty. This conservative rule prevents an original line
+or word prefix from disappearing at the cut and creating a false diagnostic;
+it reads no bytes before the command offset and keeps `log_truncated` true.
+
+Other fixed categories recognize fatal GNU make recipe/no-rule diagnostics,
+shell command-not-found/cannot-execute/permission diagnostics, the
+[NASM 3.02 GNU and Visual C diagnostic formats](https://www.nasm.us/doc/nasm02.html#section-2.1.15),
+and three original FFmpeg 9.0.2 `compat/windows/makedef` failure messages.
+Make warnings and ignored recipe failures are excluded from its fatal categories;
+NASM warnings are excluded from its error categories. The makedef categories
+apply only to the FFmpeg build/install phases. These are observations of known
+formats in an untrusted private log, not proof of diagnostic authorship or root
+cause. In particular, [GNU make exit code 2](https://www.gnu.org/software/make/manual/html_node/Running.html)
+identifies an error without identifying the failed child tool. The
+[shell's 126/127 conventions](https://www.gnu.org/s/bash/manual/html_node/Exit-Status.html)
+are not inferred from that enclosing make exit code. Earlier commands, error
+text, matched targets, paths, arguments, source/model strings and raw logs are
+not published. Unknown diagnostics remain a fixed unclassified category. This
+receipt cannot establish a passing replay or change any gate.
 
 A version-gate mismatch uses a separate preflight-failure schema at the same
 failed-receipt filename. It binds the source commit and input-manifest hash to

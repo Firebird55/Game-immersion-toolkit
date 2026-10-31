@@ -149,7 +149,8 @@ class ReplayTrustTests(unittest.TestCase):
         self.assertEqual(report['exit_code'], -1073741515)
         self.assertEqual(report['diagnostic_codes'], ['C1083', 'LNK2019', 'MSB8020'])
         self.assertEqual(report['diagnostic_categories'], ['cmake-error', 'cmake-package-discovery',
-                         'compiler-error', 'linker-error', 'msbuild-error'])
+                         'compiler-error', 'linker-error', 'msbuild-error', 'unclassified-compiler-code'])
+        self.assertEqual(report['source_commit'], 'a'*40)
         serialized = json.dumps(report)
         for marker in (private, str(self.root), 'authored-secret', '--private-argument', 'C9999', 'C2065'):
             self.assertNotIn(marker, serialized)
@@ -161,18 +162,136 @@ class ReplayTrustTests(unittest.TestCase):
 
     def test_failure_diagnosis_excludes_prior_successful_command_and_bounds_private_log(self):
         log = self.root / 'private.log'
-        earlier = b'CMake Error at earlier private path\nfatal error C1083: earlier successful try-compile\n'
+        earlier = (b'CMake Error at earlier private path\nfatal error C1083: earlier successful try-compile\n'
+            b'cl : Command line error D8016: earlier option\nerror C9999: earlier unknown code\n'
+            b'prior.asm:1: error: earlier assembly\nmake: *** [earlier-target] Error 2\n')
         log.write_bytes(earlier + b'error lnk2019: current private symbol\n')
         report = replay.failure(self.root, 'compile-probe', 1, log, len(earlier))
         self.assertEqual(report['diagnostic_codes'], ['LNK2019'])
         self.assertEqual(report['diagnostic_categories'], ['linker-error'])
         self.assertFalse(report['log_truncated'])
-        log.write_bytes(earlier + b'private padding\n'*100 + b'error C2143: current private symbol\n')
+        log.write_bytes(earlier + b'current.asm:65: error: outside retained tail\n'
+            b'error D8016: outside retained tail\nerror LNK9999: outside retained tail\n'
+            + b'private padding\n'*100 + b'error C2143: current private symbol\n')
         with patch.object(replay, 'FAILURE_LOG_LIMIT', 100):
             report = replay.failure(self.root, 'compile-probe', 2, log, len(earlier))
         self.assertTrue(report['log_truncated'])
         self.assertEqual(report['diagnostic_codes'], ['C2143'])
         self.assertEqual(report['diagnostic_categories'], ['compiler-error'])
+
+    def test_actual_two_mib_cut_never_reinterprets_partial_line_or_code_boundary(self):
+        log = self.root / 'private.log'
+        for prefix, fragment in ((b'prefix ', b'Object does not exist: private-marker '),
+                                 (b'prefix t', b'error C1001: private-marker ')):
+            with self.subTest(fragment=fragment):
+                tail = fragment + b'x' * (2 * 1024 * 1024 - len(fragment))
+                log.write_bytes(prefix + tail)
+                with patch.object(replay, 'FAILURE_LOG_LIMIT', len(prefix + tail)):
+                    whole = replay.failure(self.root, 'build-ffmpeg', 2, log, 0)
+                self.assertFalse(whole['log_truncated'])
+                self.assertEqual(whole['diagnostic_categories'], ['unclassified-command-failure'])
+                report = replay.failure(self.root, 'build-ffmpeg', 2, log, 0)
+                self.assertTrue(report['log_truncated'])
+                self.assertEqual(report['diagnostic_codes'], [])
+                self.assertEqual(report['diagnostic_categories'], ['unclassified-command-failure'])
+                self.assertNotIn('private-marker', json.dumps(report))
+
+    def test_truncated_fragment_discards_to_newline_without_reading_prior_phase(self):
+        log = self.root / 'private.log'
+        earlier = b'error C1083: earlier phase\nmake: *** [earlier-target] Error 2\n'
+        current = b'error LNK2019: current private symbol\r\n'
+        # A complete line at the exact command offset is retained without truncation.
+        log.write_bytes(earlier + current)
+        report = replay.failure(self.root, 'build-ffmpeg', 2, log, len(earlier))
+        self.assertFalse(report['log_truncated'])
+        self.assertEqual(report['diagnostic_codes'], ['LNK2019'])
+        self.assertEqual(report['diagnostic_categories'], ['linker-error'])
+        for newline in (b'\n', b'\r\n'):
+            with self.subTest(newline=newline):
+                fragment = b'Object does not exist: private-marker '
+                padding = b'x' * (2 * 1024 * 1024 - len(fragment + newline + current))
+                log.write_bytes(earlier + b'prefix ' + fragment + padding + newline + current)
+                report = replay.failure(self.root, 'build-ffmpeg', 2, log, len(earlier))
+                self.assertTrue(report['log_truncated'])
+                self.assertEqual(report['diagnostic_codes'], ['LNK2019'])
+                self.assertEqual(report['diagnostic_categories'], ['linker-error'])
+                self.assertFalse(report['r19_complete'])
+                self.assertNotIn('private-marker', json.dumps(report))
+        self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
+
+    def test_primary_make_shell_nasm_and_original_makedef_formats_publish_only_fixed_categories(self):
+        private = r'C:\private-profile\source-model-secret --private-argument'
+        cases = (
+            ('make: *** [ffbuild/common.mak:81: ' + private + '] Error 2\n',
+             ['make-fatal-error', 'make-recipe-error']),
+            ('make[1]: *** [private-target] Error 127\r\n', ['make-fatal-error', 'make-recipe-error']),
+            ("make: *** No rule to make target '" + private + "', needed by 'private-target'. Stop.\n",
+             ['make-fatal-error', 'make-no-rule']),
+            ('/bin/sh: line 1: ' + private + ': command not found\n', ['shell-command-not-found']),
+            ('bash: ' + private + ': cannot execute binary file: Exec format error\n', ['shell-cannot-execute']),
+            ('/usr/bin/bash: line 2: ' + private + ': cannot execute: required file not found\n', ['shell-cannot-execute']),
+            ('sh: ' + private + ': Permission denied\n', ['shell-permission-denied']),
+            (private + '.asm:65: error: parser: instruction expected\n', ['nasm-assembly-error']),
+            (private + '.asm(65) : error: parser: instruction expected\r\n', ['nasm-assembly-error']),
+            (private + '.asm:65: fatal: private macro failure\n', ['nasm-assembly-error']),
+            ("nasm: fatal: unable to open input file '" + private + "' No such file or directory\n",
+             ['nasm-invocation-error']),
+            ('nasm: error: unrecognised option private-option\n', ['nasm-invocation-error']),
+            ('Version script does not exist\n', ['ffmpeg-makedef-missing-version-script']),
+            ('Object does not exist: ' + private + '\n', ['ffmpeg-makedef-missing-object']),
+            ('Could not create temporary library.\n', ['ffmpeg-makedef-temporary-library']),
+        )
+        log = self.root / 'private.log'
+        for diagnostic, categories in cases:
+            with self.subTest(categories=categories):
+                log.write_text(diagnostic + 'private source/model text, argv and target remain private\n')
+                report = replay.failure(self.root, 'build-ffmpeg', 2, log, 0)
+                self.assertEqual(report['diagnostic_codes'], [])
+                self.assertEqual(report['diagnostic_categories'], categories)
+                serialized = json.dumps(report)
+                for marker in (private, 'private-profile', 'private-target', 'source-model-secret',
+                               '--private-argument', 'private-option', 'private macro', diagnostic.strip()):
+                    self.assertNotIn(marker, serialized)
+                self.assertFalse(report['raw_log_published']); self.assertFalse(report['r19_complete'])
+                self.assertFalse((self.root / 'REPLAY-RECEIPT.json').exists())
+
+    def test_known_msvc_command_line_codes_and_unknown_families_never_echo_unapproved_tokens(self):
+        log = self.root / 'private.log'
+        known = ('C1001', 'D8016', 'D8021', 'D8022', 'D8027', 'D8036',
+                 'D8037', 'D8045', 'D8048', 'D8049')
+        for code in known:
+            with self.subTest(code=code):
+                log.write_text('cl : Command line error ' + code + ': private-source --secret-argv\n'
+                               if code.startswith('D') else
+                               'private.c(4): fatal error C1001: INTERNAL COMPILER ERROR(private-source, line 1)\n')
+                report = replay.failure(self.root, 'build-ffmpeg', 2, log, 0)
+                self.assertEqual(report['diagnostic_codes'], [code])
+                self.assertEqual(report['diagnostic_categories'], [
+                    'compiler-command-line-error' if code.startswith('D') else 'compiler-error'])
+                self.assertNotIn('private-source', json.dumps(report))
+                self.assertNotIn('--secret-argv', json.dumps(report))
+        log.write_text('private.c: error C9999: model text\nLINK : fatal error LNK9999: private symbol\n'
+            'project : error MSB9999: private target\ncl : Command line error D8999: private argv\n')
+        report = replay.failure(self.root, 'build-ffmpeg', 2, log, 0)
+        self.assertEqual(report['diagnostic_codes'], [])
+        self.assertEqual(report['diagnostic_categories'], ['unclassified-command-line-code',
+            'unclassified-compiler-code', 'unclassified-linker-code', 'unclassified-msbuild-code'])
+        for marker in ('C9999', 'LNK9999', 'MSB9999', 'D8999', 'model text', 'private'):
+            self.assertNotIn(marker, json.dumps(report))
+
+    def test_warning_ignored_make_and_plain_private_text_are_not_error_families(self):
+        log = self.root / 'private.log'
+        log.write_text('own.c(1): warning C1001: private warning\ncl : Command line warning D9025: private option\n'
+            'make: [private-target] Error 2 (ignored)\nprivate.asm:65: warning: private warning\n'
+            'nasm: warning: private warning\nmodel says shell-command-not-found\n'
+            'argv --flag=C1001 --private=unclassified-compiler-code\n'
+            'prefix Object does not exist: private\nprefix make: *** [private] Error 2\n')
+        report = replay.failure(self.root, 'build-ffmpeg', 2, log, 0)
+        self.assertEqual(report['diagnostic_codes'], [])
+        self.assertEqual(report['diagnostic_categories'], ['unclassified-command-failure'])
+        log.write_text('Version script does not exist\nCould not create temporary library.\n')
+        report = replay.failure(self.root, 'build-opus', 2, log, 0)
+        self.assertEqual(report['diagnostic_categories'], ['unclassified-command-failure'])
 
     def test_unknown_failure_is_fixed_category_and_invalid_stage_or_exit_never_writes(self):
         log = self.root / 'private.log'; log.write_text(
@@ -181,7 +300,7 @@ class ReplayTrustTests(unittest.TestCase):
             report = replay.failure(self.root, 'check-shell', 4294967295, log, 0)
         self.assertIsNone(report['source_commit']); self.assertEqual(report['exit_code'], 4294967295)
         self.assertEqual(report['diagnostic_codes'], [])
-        self.assertEqual(report['diagnostic_categories'], ['unclassified-command-failure'])
+        self.assertEqual(report['diagnostic_categories'], ['unclassified-compiler-code'])
         (self.root / 'FAILED-STAGE.json').unlink()
         for phase, code, offset in [('private-phase', 1, 0), ('build-opus', 0, 0),
                 ('build-opus', True, 0), ('build-opus', 2**32, 0), ('build-opus', 1, -1),
