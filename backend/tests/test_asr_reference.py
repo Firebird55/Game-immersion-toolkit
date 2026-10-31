@@ -1,5 +1,6 @@
 """Source/notice/graph boundaries of the distinct ASR experiment, no native pass."""
 import importlib.util
+import difflib
 import io
 import json
 from pathlib import Path
@@ -76,6 +77,9 @@ def prepared(module, tmp_path, monkeypatch, *, with_cmake=False, vc_props=None):
     supplier.write_text(json.dumps({'sha256': '1' * 64, 'supplier_acceptance': 'owned-fixture-pending'}))
     production.update(inputs=[item(module, path)], patch=patch)
     source_files = ('pin.json', 'patch.diff', 'recipe.py', 'patch-license.txt', 'patch-notice.txt')
+    for name in module.CMAKE_VARIANT_FILES:
+        dest=source/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(ROOT/name,dest)
+    source_files += module.CMAKE_VARIANT_FILES
     if with_cmake:
         tool_script = source / 'scripts/pinned-build-cmake.py'
         tool_script.parent.mkdir(parents=True)
@@ -105,6 +109,160 @@ def prepared(module, tmp_path, monkeypatch, *, with_cmake=False, vc_props=None):
     monkeypatch.setattr(module, 'SOURCE_FILES', source_files)
     module.prepare(inputs, output)
     return source, inputs, output
+
+
+def module_variant_fixture(module,tmp_path,monkeypatch):
+    source,inputs,output=prepared(module,tmp_path,monkeypatch,with_cmake=True)
+    policy=module.pin();variant=policy['cmake_module_variant'];tool=module.cmake_tool_module();supplier=tool.policy()
+    original=b'# Authored original module fixture\r\nset(owned "original")\r\n'
+    modified=original.replace(b'"original"',b'"corrected"')
+    patch=''.join(difflib.unified_diff(original.decode().splitlines(keepends=True),modified.decode().splitlines(keepends=True),
+        fromfile='a/'+module.CMAKE_VARIANT_MODULE,tofile='b/'+module.CMAKE_VARIANT_MODULE)).encode()
+    license_bytes=b'Owned tool notice fixture\n'
+    for key,data in (('patch',patch),('license',license_bytes)):
+        (source/variant[key]['path']).write_bytes(data);variant[key].update(module.attributes(data))
+    variant.update(before=module.attributes(original),after=module.attributes(modified))
+    (source/'pin.json').write_text(json.dumps(policy))
+    prefix=supplier['archive']['root']
+    contents={prefix+'/bin/cmake.exe':b'Owned non-executable CMake fixture',
+        prefix+'/doc/cmake/LICENSE.rst':license_bytes,
+        prefix+'/'+module.CMAKE_VARIANT_MODULE:original,prefix+'/share/owned.txt':b'Owned unchanged fixture'}
+    archive=inputs/'variant-tool-fixture.zip'
+    with zipfile.ZipFile(archive,'w') as z:
+        for name,data in contents.items():z.writestr(name,data)
+        z.writestr(prefix+'/share/empty/',b'')
+    supplier['archive'].update(filename=archive.name,**module.attributes(archive.read_bytes()),
+        entries=len(contents)+1,regular_files=len(contents),expanded_bytes=sum(map(len,contents.values())))
+    (source/module.CMAKE_TOOL_POLICY).write_text(json.dumps(supplier))
+    container=tmp_path/'official-fixture-container';tool.prepare(archive,container)
+    monkeypatch.setattr(module.sys,'platform','win32')
+    return source,output,tool,container,tmp_path/'separate-module-variant',original,modified
+
+
+def test_separate_module_variant_preserves_official_tree_and_changes_only_exact_source(module,tmp_path,monkeypatch):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    before=tool.tree(container);payload,summary=module.prepare_cmake_module_variant(container,target)
+    assert tool.tree(container)==before and tool.verify(container)['operation']=='verified'
+    assert (payload/module.CMAKE_VARIANT_MODULE).read_bytes()==modified
+    assert (tool.payload_root(container)/module.CMAKE_VARIANT_MODULE).read_bytes()==original
+    assert (payload/'bin/cmake.exe').read_bytes()==(tool.payload_root(container)/'bin/cmake.exe').read_bytes()
+    assert (payload/'share/empty').is_dir() and not (target/tool.RECEIPT).exists()
+    assert module.verify_cmake_module_variant(container,target)==summary
+    assert summary['identity']==module.CMAKE_VARIANT_IDENTITY and summary['regular_files']==4
+    assert summary['rights_approval'] is False and summary['source_delivery_approved'] is False
+    monkeypatch.setattr(module,'_BUILD_CMAKE_VARIANT',summary)
+    assert module.safe_cmake_variant_observation()==summary
+    assert str(tmp_path) not in json.dumps(summary) and 'Owned non-executable' not in json.dumps(summary)
+
+
+@pytest.mark.parametrize('change',['module','executable','notice','extra','missing','empty-directory',
+    'original-module','original-archive','patch-source','license-source','notice-source'])
+def test_module_variant_refuses_any_payload_supplier_or_bound_source_change(module,tmp_path,monkeypatch,change):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    payload,summary=module.prepare_cmake_module_variant(container,target)
+    if change=='module':(payload/module.CMAKE_VARIANT_MODULE).write_bytes(original)
+    elif change=='executable':(payload/'bin/cmake.exe').write_bytes(b'private changed executable fixture')
+    elif change=='notice':(payload/'doc/cmake/LICENSE.rst').write_bytes(b'private changed notice')
+    elif change=='extra':(target/'private-pretend-receipt.json').write_text(json.dumps(summary))
+    elif change=='missing':(payload/'share/owned.txt').unlink()
+    elif change=='empty-directory':(payload/'share/empty').rmdir()
+    elif change=='original-module':(tool.payload_root(container)/module.CMAKE_VARIANT_MODULE).write_bytes(modified)
+    elif change=='original-archive':(container/'inputs'/tool.policy()['archive']['filename']).write_bytes(b'private changed archive')
+    else:
+        key={'patch-source':'patch','license-source':'license','notice-source':'notice'}[change]
+        (source/module.pin()['cmake_module_variant'][key]['path']).write_bytes(b'private changed recipe fixture')
+    with pytest.raises(ValueError):module.verify_cmake_module_variant(container,target)
+
+
+@pytest.mark.parametrize('change',['patch','original-module','post-pin','license','existing-output','original-descendant'])
+def test_variant_source_refusal_precedes_any_fresh_output_write(module,tmp_path,monkeypatch,change):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    policy=module.pin()
+    if change=='patch':(source/policy['cmake_module_variant']['patch']['path']).write_bytes(b'private wrong patch')
+    elif change=='original-module':(tool.payload_root(container)/module.CMAKE_VARIANT_MODULE).write_bytes(modified)
+    elif change=='post-pin':
+        policy['cmake_module_variant']['after']['sha256']='0'*64;(source/'pin.json').write_text(json.dumps(policy))
+    elif change=='license':(source/policy['cmake_module_variant']['license']['path']).write_bytes(b'private wrong license')
+    elif change=='existing-output':target.mkdir();(target/'owned-sentinel').write_bytes(b'preserved')
+    else:target=container/'private-nested-variant'
+    with pytest.raises(ValueError):module.prepare_cmake_module_variant(container,target)
+    if change=='existing-output':assert (target/'owned-sentinel').read_bytes()==b'preserved'
+    else:assert not target.exists()
+    if change=='original-descendant':assert tool.verify(container)['operation']=='verified'
+
+
+@pytest.mark.parametrize('kind',['source-parent','destination-parent','derived-module-parent'])
+def test_variant_linked_ancestors_refuse_before_descendant_metadata_or_read(module,tmp_path,monkeypatch,kind):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    if kind=='derived-module-parent':
+        payload,_summary=module.prepare_cmake_module_variant(container,target);parent=(payload/module.CMAKE_VARIANT_MODULE).parent
+    elif kind=='source-parent':parent=(source/module.CMAKE_VARIANT_FILES[0]).parent
+    else:parent=tmp_path/'private-output-parent';parent.mkdir();target=parent/'new-variant'
+    real_lstat,real_stat,real_open=Path.lstat,Path.stat,Path.open
+    def reject(path):
+        if path!=parent and parent in path.parents:pytest.fail('Linked variant ancestors must precede all descendant metadata/read.')
+    def lstat_guard(path,*args,**kwargs):
+        reject(path)
+        if path==parent:return SimpleNamespace(st_mode=module.stat.S_IFDIR,st_file_attributes=0x400)
+        return real_lstat(path,*args,**kwargs)
+    def stat_guard(path,*args,**kwargs):reject(path);return real_stat(path,*args,**kwargs)
+    def open_guard(path,*args,**kwargs):reject(path);return real_open(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',lstat_guard);monkeypatch.setattr(Path,'stat',stat_guard);monkeypatch.setattr(Path,'open',open_guard)
+    with pytest.raises(ValueError):
+        if kind=='derived-module-parent':module.verify_cmake_module_variant(container,target)
+        else:module.prepare_cmake_module_variant(container,target)
+
+
+@pytest.mark.parametrize('change',['target','second-hunk','wrong-context'])
+def test_exact_module_patch_cannot_select_another_target_or_unreviewed_hunk(module,tmp_path,monkeypatch,change):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    policy=module.pin();variant=policy['cmake_module_variant'];path=source/variant['patch']['path'];patch=path.read_bytes()
+    if change=='target':patch=patch.replace(module.CMAKE_VARIANT_MODULE.encode(),b'private-other.cmake')
+    elif change=='second-hunk':patch+=b'@@ -1,1 +1,1 @@\n-private\n+private\n'
+    else:patch=patch.replace(b'# Authored original module fixture',b'# private unrelated context')
+    path.write_bytes(patch);variant['patch'].update(module.attributes(patch));(source/'pin.json').write_text(json.dumps(policy))
+    with pytest.raises(ValueError):module.prepare_cmake_module_variant(container,target)
+    assert not target.exists()
+
+
+@pytest.mark.parametrize('change',['path','extra','tree','count-bool','source-pin','policy-extra'])
+def test_variant_public_summary_is_rebuilt_from_bound_fields_and_bounded_scalars(module,tmp_path,monkeypatch,change):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    _payload,summary=module.prepare_cmake_module_variant(container,target)
+    private='private-profile:'+str(tmp_path)
+    if change=='path':summary['module_path']=private
+    elif change=='extra':summary['private-field']=private
+    elif change=='tree':summary['tree_sha256']=private
+    elif change=='count-bool':summary['regular_files']=True
+    elif change=='source-pin':summary['before']={'bytes':1,'sha256':'0'*64}
+    else:
+        policy=module.pin();policy['cmake_module_variant']['patch']['private-field']=private
+        (source/'pin.json').write_text(json.dumps(policy));summary['patch']['private-field']=private
+    monkeypatch.setattr(module,'_BUILD_CMAKE_VARIANT',summary)
+    assert module.safe_cmake_variant_observation() is None
+
+
+def test_variant_cannot_match_another_official_input_with_the_same_module_and_executable(module,tmp_path,monkeypatch):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    module.prepare_cmake_module_variant(container,target)
+    supplier=tool.policy();retained=container/'inputs'/supplier['archive']['filename']
+    with zipfile.ZipFile(retained) as z:entries={info.filename:z.read(info) for info in z.infolist()}
+    entries[supplier['archive']['root']+'/share/owned.txt']=b'Owned different supplier input'
+    different=tmp_path/'different-original.zip'
+    with zipfile.ZipFile(different,'w') as z:
+        for name,data in entries.items():z.writestr(name,data)
+    supplier['archive'].update(filename=different.name,**module.attributes(different.read_bytes()),
+        expanded_bytes=sum(map(len,entries.values())))
+    (source/module.CMAKE_TOOL_POLICY).write_text(json.dumps(supplier))
+    second=tmp_path/'different-original-container';tool.prepare(different,second)
+    with pytest.raises(ValueError):module.verify_cmake_module_variant(second,target)
+
+
+def test_native_variant_materialization_is_unavailable_on_non_windows_hosts(module,tmp_path,monkeypatch):
+    source,output,tool,container,target,original,modified=module_variant_fixture(module,tmp_path,monkeypatch)
+    monkeypatch.setattr(module.sys,'platform','darwin')
+    with pytest.raises(ValueError):module.prepare_cmake_module_variant(container,target)
+    assert not target.exists()
 
 
 def test_asr_recipe_binds_shared_cmake_policy_helper_and_verified_fixture_tree(module, tmp_path, monkeypatch):

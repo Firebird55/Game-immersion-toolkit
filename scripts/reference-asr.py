@@ -28,6 +28,8 @@ MANIFEST = 'packaging/asr/sherpa-reference.json'
 CMAKE_TOOL_POLICY = 'packaging/build-tools/cmake-4.4.5-windows-x64.json'
 SOURCE_FILES = (MANIFEST, 'packaging/asr/tts-off-python-symbols.patch',
                 'packaging/asr/SHERPA-LICENSE.txt', 'packaging/asr/SHERPA-PATCH-NOTICE.txt',
+                'packaging/asr/cmake-compilerid-instance-location.patch',
+                'packaging/asr/CMAKE-LICENSE.rst', 'packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt',
                 'scripts/reference-asr.py', 'scripts/build-reference-asr.ps1',
                 'scripts/probe-reference-asr.py',
                 'packaging/runtime-bundle/python-supplier.json',
@@ -38,6 +40,7 @@ BUILD_PHASES = frozenset({'build-preflight', 'source-validation', 'toolchain-val
     'vs-installation-origin', 'tool-root-schema', 'tool-root-filesystem',
     'python-interpreter-origin', 'python-supplier-bytes', 'cmake-version-review',
     'cmake-pinned-input', 'final-cmake-pinned-input',
+    'cmake-module-variant-preparation', 'final-cmake-module-variant',
     'vc-target-selection', 'parent-import-review', 'configure-argument-review',
     'toolchain-seal', 'probe-dependency-preparation', 'build-environment', 'cmake-configure',
     'build-graph-review', 'native-build', 'native-output-review', 'candidate-assembly',
@@ -65,6 +68,11 @@ _BUILD_TOOL_ROOTS = None  # Private paths; never serialized.
 _BUILD_PROPERTIES = None  # Actual configure properties; never serialized.
 _BUILD_INSTANCE = None  # Actual generator argument/root and observed version, private.
 _BUILD_TOOLCHAIN_SEAL = None  # Initial exact native tool inventory, never serialized here.
+_BUILD_CMAKE_VARIANT = None
+CMAKE_VARIANT_IDENTITY = 'cmake-4.4.5-r19-asr-compilerid-instance.1'
+CMAKE_VARIANT_MODULE = 'share/cmake-4.4/Modules/CMakeDetermineCompilerId.cmake'
+CMAKE_VARIANT_FILES = ('packaging/asr/cmake-compilerid-instance-location.patch',
+    'packaging/asr/CMAKE-LICENSE.rst', 'packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt')
 LOG_TAIL_BYTES = 2 * 1024 * 1024
 NESTED_LOG_TOTAL_BYTES = 4 * 1024 * 1024
 COMPILER_CONTEXT_FILE_BYTES = 256 * 1024
@@ -204,6 +212,7 @@ def inventory(root):
 
 
 def pin():
+    diagnostic_file_info(ROOT / MANIFEST)
     value = read_json(ROOT / MANIFEST)
     if (value['schema'] != 'proxy-r19-asr-source-reference-v1'
             or value.get('cmake_build_tool_policy') != CMAKE_TOOL_POLICY
@@ -303,6 +312,16 @@ def verify_patch_notices(policy):
         raise ValueError('Public patch attribution or complete original Apache license differs.')
 
 
+def source_input_records():
+    values = {}
+    for name in SOURCE_FILES:
+        info = diagnostic_file_info(ROOT / name)
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError('ASR source recipes must be regular unlinked files.')
+        values[name] = attributes((ROOT / name).read_bytes())
+    return values
+
+
 def prepare(inputs, output):
     policy = pin()
     inputs, output = Path(inputs).absolute(), Path(output).absolute()
@@ -310,11 +329,12 @@ def prepare(inputs, output):
     if output.exists():
         raise ValueError('Choose a fresh private ASR experiment directory.')
     verify_patch_notices(policy)
+    cmake_variant_sources(policy)
     prepared = {item['name']: archive_files(inputs / item['filename'], item)
                 for item in policy['inputs']}
     prepared['sherpa-onnx'][policy['patch']['target']] = patched_source(
         prepared['sherpa-onnx'][policy['patch']['target']], policy['patch'])
-    source_inputs = {name: attributes((ROOT / name).read_bytes()) for name in SOURCE_FILES}
+    source_inputs = source_input_records()
     # All source/archive/notice/patch checks finish before the first output write.
     output.mkdir(parents=True)
     for item in policy['inputs']:
@@ -329,8 +349,14 @@ def prepare(inputs, output):
             dest.write_bytes(prepared[item['name']][name])
     for name in SOURCE_FILES:
         dest = output / 'recipes' / name
+        try:
+            diagnostic_file_info(dest.parent)
+        except FileNotFoundError:
+            pass  # The checked ancestor chain ends before the fresh recipe directory.
         dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(ROOT / name, dest)
+        diagnostic_file_info(dest.parent); diagnostic_file_info(ROOT / name)
+        with (ROOT / name).open('rb') as source, dest.open('xb') as target:
+            shutil.copyfileobj(source, target)
     expected = inventory(output / 'sources')
     write_json(output / 'PRIVATE-SOURCE-INVENTORY.json', expected)
     receipt = {'schema': policy['schema'], 'identity': policy['identity'],
@@ -343,6 +369,7 @@ def prepare(inputs, output):
         'python_supplier_pin': read_json(ROOT / policy['python_supplier_manifest']),
         'numpy_probe_dependency_pin': policy['numpy'],
         'cmake_build_tool_policy': policy['cmake_build_tool_policy'],
+        'cmake_module_variant': policy['cmake_module_variant'],
         'status': 'prepared-not-built', 'rights_approval': False}
     write_json(output / 'PREPARED.json', receipt)
     return receipt
@@ -352,12 +379,14 @@ def verify_sources(output):
     policy, output = pin(), Path(output).absolute()
     receipt = read_json(output / 'PREPARED.json')
     verify_patch_notices(policy)
+    cmake_variant_sources(policy)
     expected = read_json(output / 'PRIVATE-SOURCE-INVENTORY.json')
-    source_inputs = {n: attributes((ROOT / n).read_bytes()) for n in SOURCE_FILES}
+    source_inputs = source_input_records()
     if (receipt['manifest_sha256'] != sha((ROOT / MANIFEST).read_bytes())
             or receipt['source_inputs'] != source_inputs
             or inventory(output / 'recipes') != source_inputs
             or receipt.get('cmake_build_tool_policy') != policy['cmake_build_tool_policy']
+            or receipt.get('cmake_module_variant') != policy['cmake_module_variant']
             or receipt['source_inventory_sha256'] != sha(canonical(expected))
             or inventory(output / 'sources') != expected or receipt['gates'] != policy['gates']):
         raise ValueError('Prepared ASR source, recipes or gates changed.')
@@ -643,21 +672,185 @@ def observe_cmake_version(executable, expected):
     return safe_cmake_observation()
 
 
-def verify_pinned_cmake(root, payload):
-    """Reuse the common exact ZIP/tree verifier; no native execution or fallback."""
-    if root is None:
-        raise ValueError('The separate verified CMake container is required.')
+def cmake_tool_module():
+    diagnostic_file_info(ROOT / 'scripts/pinned-build-cmake.py')
     spec = importlib.util.spec_from_file_location('r19_shared_pinned_cmake', ROOT / 'scripts/pinned-build-cmake.py')
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-    if module.POLICY.resolve() != (ROOT / pin()['cmake_build_tool_policy']).resolve():
+    diagnostic_file_info(module.POLICY)
+    if module.POLICY != ROOT / pin()['cmake_build_tool_policy']:
         raise ValueError('The shared CMake verifier policy differs from the ASR source binding.')
     supplier = module.policy()
     if supplier['version'] != pin()['toolchain']['cmake_version']:
         raise ValueError('The pinned build tool differs from the ASR version constraint.')
+    return module
+
+
+def verify_pinned_cmake(root, payload):
+    """Reuse the common exact ZIP/tree verifier; no native execution or fallback."""
+    if root is None:
+        raise ValueError('The separate verified CMake container is required.')
+    module = cmake_tool_module()
     receipt = module.verify(Path(root))
     if Path(payload).resolve() != module.payload_root(root).resolve():
         raise ValueError('The selected CMake payload is outside the verified container.')
     return receipt
+
+
+def cmake_variant_sources(policy=None):
+    value = (policy or pin())['cmake_module_variant']
+    if (value['identity'] != CMAKE_VARIANT_IDENTITY or value['module_path'] != CMAKE_VARIANT_MODULE
+            or value['license']['original_member'] != 'doc/cmake/LICENSE.rst'
+            or any(value[key] is not False for key in ('runtime_collection_allowed', 'source_delivery_approved', 'rights_approval'))):
+        raise ValueError('The separate CMake module variant identity or boundary differs.')
+    sources = {}
+    for key in ('before', 'after'):
+        record = value[key]
+        if (type(record) is not dict or set(record) != {'bytes', 'sha256'}
+                or type(record['bytes']) is not int or not 0 < record['bytes'] <= 65536
+                or not isinstance(record['sha256'], str) or not re.fullmatch('[0-9a-f]{64}', record['sha256'])):
+            raise ValueError('The exact CMake module input/output pin is invalid.')
+    for key, name in zip(('patch', 'license', 'notice'), CMAKE_VARIANT_FILES):
+        record = value[key]
+        fields = {'path', 'bytes', 'sha256'} | ({'original_member'} if key == 'license' else set())
+        if (type(record) is not dict or set(record) != fields or record['path'] != name
+                or type(record['bytes']) is not int or not 0 < record['bytes'] <= 65536
+                or not isinstance(record['sha256'], str) or not re.fullmatch('[0-9a-f]{64}', record['sha256'])):
+            raise ValueError('The CMake module source/notice pin is invalid.')
+        info = diagnostic_file_info(ROOT / name)
+        if not stat.S_ISREG(info.st_mode) or info.st_size != record['bytes']:
+            raise ValueError('The CMake module source/notice size differs.')
+        data = (ROOT / name).read_bytes()
+        if attributes(data) != {field: record[field] for field in ('bytes', 'sha256')}:
+            raise ValueError('The CMake module source/notice bytes differ.')
+        sources[key] = data
+    return value, sources
+
+
+def patched_cmake_module(original, variant, patch):
+    if attributes(original) != variant['before'] or attributes(patch) != {
+            field: variant['patch'][field] for field in ('bytes', 'sha256')}:
+        raise ValueError('The original CMake module or exact patch differs.')
+    lines = patch.splitlines(keepends=True)
+    target = variant['module_path'].encode('ascii')
+    if len(lines) < 4 or lines[:2] != [b'--- a/' + target + b'\n', b'+++ b/' + target + b'\n']:
+        raise ValueError('Only the exact single CMake module patch is accepted.')
+    header = re.fullmatch(rb'@@ -([1-9][0-9]{0,6}),([1-9][0-9]{0,6}) \+([1-9][0-9]{0,6}),([1-9][0-9]{0,6}) @@\n', lines[2])
+    if not header or header[1] != header[3] or any(line[:1] not in (b' ', b'+', b'-') for line in lines[3:]):
+        raise ValueError('The bounded CMake patch hunk differs.')
+    old = [line[1:] for line in lines[3:] if line[:1] in (b' ', b'-')]
+    new = [line[1:] for line in lines[3:] if line[:1] in (b' ', b'+')]
+    source = original.splitlines(keepends=True); start = int(header[1]) - 1
+    if len(old) != int(header[2]) or len(new) != int(header[4]) or source[start:start + len(old)] != old:
+        raise ValueError('The CMake patch does not match its exact original context.')
+    result = b''.join(source[:start] + new + source[start + len(old):])
+    if attributes(result) != variant['after']:
+        raise ValueError('The sole changed CMake module differs from its derived pin.')
+    return result
+
+
+def cmake_variant_plan(archive, tool=None):
+    """Static ZIP/module inspection only; no native extraction or execution."""
+    tool = tool or cmake_tool_module()
+    supplier = tool.policy(); variant, sources = cmake_variant_sources()
+    records, directories = tool.inspect_archive(Path(archive), supplier)
+    member = supplier['archive']['root'] + '/' + variant['module_path']
+    license_member = supplier['archive']['root'] + '/' + variant['license']['original_member']
+    if (records.get(member) != variant['before'] or records.get(license_member) != {
+            field: variant['license'][field] for field in ('bytes', 'sha256')}):
+        raise ValueError('The original ZIP does not supply this module and complete license.')
+    tool.no_links(archive)
+    with zipfile.ZipFile(archive) as zipped:
+        modified = patched_cmake_module(zipped.read(member), variant, sources['patch'])
+        if zipped.read(license_member) != sources['license']:
+            raise ValueError('The delivered original CMake license differs.')
+    expected = dict(records); expected[member] = variant['after']
+    summary = {'schema': 'proxy-r19-asr-cmake-module-variant-v1', 'identity': CMAKE_VARIANT_IDENTITY,
+        'scope': 'ASR-build-host-only; initial-exact-tree; final-required-for-success',
+        'module_path': CMAKE_VARIANT_MODULE, 'before': variant['before'], 'after': variant['after'],
+        'patch': variant['patch'], 'license': variant['license'], 'notice': variant['notice'],
+        'original_archive': {field: supplier['archive'][field] for field in ('bytes', 'sha256')},
+        'unchanged_executable': {field: supplier['executable'][field] for field in ('bytes', 'sha256')},
+        'regular_files': len(expected), 'directories': len(directories),
+        'tree_sha256': sha(canonical({'files': expected, 'directories': sorted(directories)})),
+        'runtime_collection_allowed': False, 'rights_approval': False, 'source_delivery_approved': False}
+    return tool, supplier, expected, directories, member, modified, summary
+
+
+def safe_cmake_variant_observation():
+    value = _BUILD_CMAKE_VARIANT
+    if not isinstance(value, dict):
+        return None
+    try:
+        variant, _sources = cmake_variant_sources()
+    except (ValueError, KeyError, OSError):
+        return None
+    diagnostic_file_info(ROOT / CMAKE_TOOL_POLICY)
+    supplier = read_json(ROOT / CMAKE_TOOL_POLICY)
+    expected = {'schema': 'proxy-r19-asr-cmake-module-variant-v1', 'identity': CMAKE_VARIANT_IDENTITY,
+        'scope': 'ASR-build-host-only; initial-exact-tree; final-required-for-success',
+        'module_path': CMAKE_VARIANT_MODULE, 'before': variant['before'], 'after': variant['after'],
+        'patch': variant['patch'], 'license': variant['license'], 'notice': variant['notice'],
+        'original_archive': {key: supplier['archive'][key] for key in ('bytes', 'sha256')},
+        'unchanged_executable': {key: supplier['executable'][key] for key in ('bytes', 'sha256')},
+        'runtime_collection_allowed': False, 'rights_approval': False, 'source_delivery_approved': False}
+    if set(value) != set(expected) | {'tree_sha256', 'regular_files', 'directories'}:
+        return None
+    if any(value[key] != item for key, item in expected.items()):
+        return None
+    if (not isinstance(value['tree_sha256'], str) or not re.fullmatch('[0-9a-f]{64}', value['tree_sha256'])
+            or any(type(value[key]) is not int or not 0 < value[key] <= 12000 for key in ('regular_files', 'directories'))):
+        return None
+    return {**expected, **{key: value[key] for key in ('tree_sha256', 'regular_files', 'directories')}}
+
+
+def separate_cmake_variant_roots(tool, original_root, variant_root):
+    original_root, variant_root = Path(original_root).absolute(), Path(variant_root).absolute()
+    tool.no_links(original_root); tool.no_links(variant_root)
+    if (original_root == variant_root or original_root in variant_root.parents
+            or variant_root in original_root.parents):
+        raise ValueError('Official and derived CMake containers must be separate trees.')
+    return original_root, variant_root
+
+
+def verify_cmake_module_variant(original_root, variant_root):
+    tool = cmake_tool_module(); supplier = tool.policy()
+    original_root, variant_root = separate_cmake_variant_roots(tool, original_root, variant_root)
+    tool.verify(Path(original_root))
+    archive = Path(original_root) / 'inputs' / supplier['archive']['filename']
+    tool, _supplier, files, directories, _member, _modified, summary = cmake_variant_plan(archive, tool)
+    tool.no_links(variant_root)
+    actual_files, actual_directories = tool.tree(Path(variant_root))
+    if actual_files != files or actual_directories != directories:
+        raise ValueError('The ASR CMake variant is not the exact single-module closed tree.')
+    return summary
+
+
+def prepare_cmake_module_variant(original_root, variant_root):
+    if sys.platform != 'win32' or struct.calcsize('P') != 8:
+        raise ValueError('The native module variant is materialized only on the Windows build host.')
+    tool = cmake_tool_module(); supplier = tool.policy()
+    original_root, variant_root = separate_cmake_variant_roots(tool, original_root, variant_root)
+    tool.verify(Path(original_root))
+    tool.no_links(variant_root)
+    if Path(variant_root).exists():
+        raise ValueError('The ASR CMake module variant requires a fresh private destination.')
+    archive = Path(original_root) / 'inputs' / supplier['archive']['filename']
+    tool, supplier, files, directories, member, modified, summary = cmake_variant_plan(archive, tool)
+    Path(variant_root).mkdir(parents=True)
+    tool.no_links(archive)
+    with zipfile.ZipFile(archive) as zipped:
+        for name in sorted(directories):
+            path = Path(variant_root) / name; tool.no_links(path)
+            path.mkdir(parents=True, exist_ok=True); tool.no_links(path)
+        for name, expected in files.items():
+            path = Path(variant_root) / name; tool.no_links(path)
+            data = modified if name == member else zipped.read(name)
+            if attributes(data) != expected:
+                raise ValueError('CMake variant extraction differs from the exact pinned input.')
+            with path.open('xb') as handle: handle.write(data)
+    if verify_cmake_module_variant(original_root, variant_root) != summary:
+        raise ValueError('The newly materialized CMake module variant differs.')
+    return Path(variant_root) / supplier['archive']['root'], summary
 
 
 def seal_toolchain(roots):
@@ -1343,6 +1536,7 @@ def failed_build_receipt(output, phase, error):
         'status': 'failed', 'phase': phase, 'failure_category': category,
         'diagnostics': known_log_diagnostics(output, phase),
         'cmake_observation': safe_cmake_observation(),
+        'cmake_module_variant_observation': safe_cmake_variant_observation(),
         'visual_studio_instance_version': vs_instance_version(_BUILD_VS_VERSION),
         'compiler_detection_context': compiler_detection_context(output, _BUILD_TOOL_ROOTS)
             if phase == 'cmake-configure' else None,
@@ -1393,7 +1587,7 @@ def reject_parent_imports(output):
 
 
 def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None, vswhere=None):
-    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL
+    global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION, _BUILD_ENVIRONMENT_OBSERVATION, _BUILD_VS_VERSION, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL, _BUILD_CMAKE_VARIANT
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
@@ -1403,6 +1597,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
     _BUILD_PROPERTIES = None
     _BUILD_INSTANCE = None
     _BUILD_TOOLCHAIN_SEAL = None
+    _BUILD_CMAKE_VARIANT = None
     try:
         return _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     except Exception as error:
@@ -1417,7 +1612,7 @@ def build(output, tool_roots, vs_root, inputs, cmake_root=None, vs_version=None,
 
 
 def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere):
-    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL
+    global _BUILD_SOURCE_COMMIT, _BUILD_TOOL_ROOTS, _BUILD_PROPERTIES, _BUILD_INSTANCE, _BUILD_TOOLCHAIN_SEAL, _BUILD_CMAKE_VARIANT
     output, vs_root = Path(output).absolute(), Path(vs_root).absolute()
     build_phase('source-validation')
     receipt, policy = verify_sources(output), pin()
@@ -1448,14 +1643,19 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     for path in roots.values(): no_links(Path(path))
     build_phase('vs-installation-origin')
     vs_initial = verify_vs_selection(vs_root, vs_version, vswhere, roots)
-    cmake = Path(roots['cmake']) / 'bin/cmake.exe'
     build_phase('cmake-pinned-input')
     cmake_supplier = verify_pinned_cmake(cmake_root, roots['cmake'])
+    build_phase('cmake-module-variant-preparation')
+    variant_root = output / 'PRIVATE-CMAKE-MODULE-VARIANT'
+    variant_payload, cmake_variant = prepare_cmake_module_variant(cmake_root, variant_root)
+    _BUILD_CMAKE_VARIANT = cmake_variant
+    cmake = variant_payload / 'bin/cmake.exe'
     build_phase('cmake-version-review')
     observe_cmake_version(cmake, policy['toolchain']['cmake_version'])
     build_phase('toolchain-seal')
     initial = seal_toolchain(roots)
     initial['vswhere-query'] = {'vswhere.exe': vs_initial['vswhere']}
+    initial['cmake-module-variant'] = cmake_tool_module().tree(variant_root)[0]
     _BUILD_TOOLCHAIN_SEAL = initial
     write_json(output / 'PRIVATE-TOOLCHAIN-INVENTORY.json', initial)
     build_phase('probe-dependency-preparation')
@@ -1576,11 +1776,15 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
     vs_final = verify_vs_selection(vs_root, vs_version, vswhere, roots, vs_initial)
     final_tools = seal_toolchain(roots)
     final_tools['vswhere-query'] = {'vswhere.exe': vs_final['vswhere']}
+    final_tools['cmake-module-variant'] = cmake_tool_module().tree(variant_root)[0]
     if final_tools != initial or vs_final != vs_initial:
         raise ValueError('Compiler, SDK, CMake, MSBuild or Python bytes changed during the experiment.')
     build_phase('final-cmake-pinned-input')
     if verify_pinned_cmake(cmake_root, roots['cmake']) != cmake_supplier:
         raise ValueError('The exact CMake input/tree receipt changed during the experiment.')
+    build_phase('final-cmake-module-variant')
+    if verify_cmake_module_variant(cmake_root, variant_root) != cmake_variant:
+        raise ValueError('The separate exact CMake module variant changed during execution.')
     build_phase('source-commit-review')
     commit = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     dirty = subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'], text=True).strip()
@@ -1590,6 +1794,7 @@ def _build(output, tool_roots, vs_root, inputs, cmake_root, vs_version, vswhere)
         'toolchain_constraints': policy['toolchain'], 'toolchain_observed_bytes': toolchain_summary(initial),
         'visual_studio_selection': vs_initial,
         'pinned_cmake': cmake_supplier,
+        'cmake_module_variant_observation': safe_cmake_variant_observation(),
         'build_environment_observation': safe_build_environment_observation(),
         'source_graph': graph, 'native_binding': native_binding,
         'native_pe': native, 'link_map_sha256': sha((output / 'PRIVATE-BINDING.map').read_bytes()),

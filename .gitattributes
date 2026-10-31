@@ -13,3 +13,7 @@ packaging/asr/SHERPA-LICENSE.txt -text whitespace=-blank-at-eol
 packaging/asr/SHERPA-PATCH-NOTICE.txt -text
 # Preserve the exact-byte, separately identified FFmpeg diagnostic patch.
 packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch -text
+# Preserve the exact upstream Windows module patch and its complete notices.
+packaging/asr/cmake-compilerid-instance-location.patch -text whitespace=cr-at-eol
+packaging/asr/CMAKE-LICENSE.rst -text whitespace=cr-at-eol
+packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt -text

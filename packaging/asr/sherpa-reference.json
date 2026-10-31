@@ -378,5 +378,38 @@
       "sha256": "475fb78d29421db814106b80b075f1b05803ff180bfa860d8dd92a86291c5246"
     }
   },
-  "cmake_build_tool_policy": "packaging/build-tools/cmake-4.4.5-windows-x64.json"
+  "cmake_build_tool_policy": "packaging/build-tools/cmake-4.4.5-windows-x64.json",
+  "cmake_module_variant": {
+    "identity": "cmake-4.4.5-r19-asr-compilerid-instance.1",
+    "upstream_commit": "aa4fae824a02a175c4a11653d7a851a948f0c004",
+    "module_path": "share/cmake-4.4/Modules/CMakeDetermineCompilerId.cmake",
+    "before": {
+      "bytes": 62848,
+      "sha256": "dfcd059e686a773e58004608e655278bd5f4d1993b3540b9392549c9499f544a"
+    },
+    "after": {
+      "bytes": 63391,
+      "sha256": "4ef0b318b3f80a02091ae44973dfe573f042fdd3bf6a3c25c5bddfbd2c63f0bc"
+    },
+    "patch": {
+      "path": "packaging/asr/cmake-compilerid-instance-location.patch",
+      "bytes": 1926,
+      "sha256": "d1b339d100492a16e8733dc7c44e2580b1905e09e117a9cf4b585455980fa656"
+    },
+    "license": {
+      "path": "packaging/asr/CMAKE-LICENSE.rst",
+      "original_member": "doc/cmake/LICENSE.rst",
+      "bytes": 1526,
+      "sha256": "cd944d878806fee998ef3f88ca41ec060ae198bd8ba615e284f7d8d90c25593e"
+    },
+    "notice": {
+      "path": "packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt",
+      "bytes": 1415,
+      "sha256": "ab6e4b31bcff5a59eca98a867a90f7ee391f70055034070b96eb2fd48c878a6c"
+    },
+    "scope": "private-ASR-build-host-only; official input retained; exact one-source-module derivative",
+    "runtime_collection_allowed": false,
+    "source_delivery_approved": false,
+    "rights_approval": false
+  }
 }

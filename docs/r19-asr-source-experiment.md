@@ -100,7 +100,7 @@ and [official ZIP policy](../packaging/build-tools/cmake-4.4.5-windows-x64.json)
 After doctor/audit it acquires the exact original ZIP and publisher checksum list,
 prepares a fresh private build-host container, and verifies the complete tool
 tree. The wrapper requires that container explicitly through `CMakeRoot` and
-passes its verified payload to Python. Before any CMake execution and after the
+passes its verified official payload to Python. Before any CMake execution and after the
 build/probes, Python uses the same shared verifier against the original retained
 ZIP, complete file/directory inventory and notices. The observed version must
 still equal 4.4.5, and the payload remains in the complete before/after tool seals.
@@ -112,6 +112,49 @@ tool executables and complete tool tree remain runner-local and never enter
 the ASR source recipes, private variant wheel, runtime or uploaded artifacts.
 The successful ASR receipt retains the verified tool's safe summary only; this
 grants no runtime collection or additional supplier/source approval.
+
+The ASR experiment separately identifies build-tool module variant
+`cmake-4.4.5-r19-asr-compilerid-instance.1`. The official input/container remains
+unchanged; the shared helper, policy and FFmpeg route continue using the original.
+On the Windows build host only, the ASR driver derives a fresh private tree from
+the same original ZIP. All 8,817 files and 163 directories are required, with
+exactly one changed file: `share/cmake-4.4/Modules/CMakeDetermineCompilerId.cmake`.
+The source-bound [patch](../packaging/asr/cmake-compilerid-instance-location.patch)
+changes only its two auxiliary property-path constructions. It derives a local
+directory by removing the trailing four-component version field, then requires
+the complete instance to equal that directory plus
+`version=${CMAKE_VS_VERSION_BUILD_NUMBER}`. A mismatch fails closed. The global
+portable instance, cache identity, generator, toolset and SDK flags are retained.
+CMake's pinned [language initialization](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalGenerator.cxx)
+sets the generator instance before loading language compiler modules. The
+[versioned generator](https://github.com/Kitware/CMake/blob/aa4fae824a02a175c4a11653d7a851a948f0c004/Source/cmGlobalVisualStudioVersionedGenerator.cxx)
+sets `CMAKE_VS_VERSION_BUILD_NUMBER` from that chosen instance at that boundary.
+This preserves portable-instance handling on both reviewed host images and
+adds no installer/root/version fallback. Actual execution of the variant on
+either image still requires its own native result.
+
+The original Windows module's CRLF bytes are pinned at 62,848 bytes / SHA-256
+`dfcd059e686a773e58004608e655278bd5f4d1993b3540b9392549c9499f544a`;
+the derived module is 63,391 bytes /
+`4ef0b318b3f80a02091ae44973dfe573f042fdd3bf6a3c25c5bddfbd2c63f0bc`.
+The exact patch, complete original [license](../packaging/asr/CMAKE-LICENSE.rst)
+and [modification notice](../packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt) are
+retained among the 15 source inputs. Source/notice bytes, original module,
+single patch hunk and resulting module must all match before materialization.
+The variant verifier derives its entire expected file/directory inventory from
+the original pinned ZIP and sole patch; a receipt cannot authorize extra files
+or exemptions. Source files, original archive, fresh destination and every
+member pass root-first no-link/reparse checks before access. The official
+container remains separately closed and verified. Both original and executed
+variant trees enter the complete before/after tool seals and are independently
+reverified before any passing receipt. The executable and every original notice
+remain byte-identical. The expected variant tree SHA-256 is
+`3084625cac5d54bd47f7983ef56b06305c40718d1a0024d10f8de82632b3c022`.
+Sanitized variant identity, patch/module/notice pins and bounded tree summary
+are recorded separately; arbitrary summary fields and private paths are refused.
+No native tool ZIP, executable or derived tree enters recipes, the private ASR
+wheel, runtime or uploaded artifacts. This is a build-host source adaptation,
+not an upstream CMake release or supplier/source/redistribution approval.
 Failed toolchain validation distinguishes fixed root-schema/filesystem,
 interpreter-origin, supplier-byte and CMake-version subphases. A failed receipt
 may include only bounded numeric expected/observed CMake versions and the
@@ -311,6 +354,15 @@ can translate that requested version to a metadata filename alias when the
 metadata content matches. That primary source behavior motivates the mapping
 observation above; it does not prove the unknown filename, malformed target or
 fatal cause in that run. The new relationship still requires native evidence.
+The subsequent [mapping run](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41181127131)
+on image `20261030.294.1` supplied that observation: both generated second
+imports and all eight MSB4019 records matched the auxiliary template containing
+the verified full instance-version field. Exactly one corrected canonical
+metadata/props pair matched its initial tool seal and toolset pin. The other
+three imports per project and all ten Globals matched. Configuration failed
+before the build graph, native binding or inference. This identifies the
+malformed generated import and motivates the separately pinned module variant;
+it is not a native success result for the correction.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC
