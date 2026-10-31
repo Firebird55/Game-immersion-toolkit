@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `eaa42b2`, 1,249 Windows contracts without skips, freezing, native/C1/cold-slot, both living-keeper cases and authored SQLite plain/interrupted-resumed/retained-WAL/populated-grammar cases passed, including the shared SQL-operation helper and Lexirise root/pin owner; root and peer independently checked seven provider-bound source/metadata archives and 57 named Git inputs | This is the latest complete bounded frozen checkpoint. The earlier `31ee4c9` keeper failure remains negative evidence; separate C7 v4 fails its authored engine tests before the mechanism. No target activation, keeper loss, global/dynamic writer admission, physical handle closure, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation is accepted |
+| Extracted runtime | At `973db81`, 1,284 Windows contracts without skips, freezing, native/C1/cold-slot, both living-keeper cases and authored SQLite plain/interrupted-resumed/retained-WAL/populated-grammar cases passed, including Transcript/Lexirise/Reading SQL owners; root and peer independently checked seven provider-bound archives and 59 named Git inputs | This is the latest complete bounded frozen checkpoint. The earlier `31ee4c9` keeper failure remains negative evidence; separate C7 authored engine failures and their later test-only correction supply no mechanism result. No target activation, keeper loss, global/dynamic writer admission, physical handle closure, production rights, real OCR/capture, general voices, ASR inference, full export or ordinary-user Windows 11 operation is accepted |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -160,7 +160,7 @@ artifacts; native/source/CRT, model, rights and Windows11 gates remain open.
 
 The later `eaa42b2` run passed 1,249 contracts without skips and all the same
 keeper/C3–C6 cases with the shared SQL-operation helper and Lexirise root/pins.
-It is now the latest complete bounded checkpoint. Root and peer checked seven
+It was the complete bounded checkpoint before `973db81`. Root and peer checked seven
 archives, seven actual job images and 57 exact named Git inputs. The separate
 C7 v4 run `41238897590` passed 138 tests but failed both authored Windows engine
 cases before the actual mechanism; no artifact or mechanism receipt was produced.
@@ -172,6 +172,18 @@ The later test-only `37b4dd5` run `41240037303` isolates the two authored failur
 to the fixed `record-identity` exit32 with no stderr. Exception identity and later
 acknowledgement/frame checks were not reached, and no mechanism artifact exists.
 The producer remains unchanged; no error-loss or environment cause is inferred.
+
+At `973db81`, the new per-reader SQL scope implementation passed 1,284 Windows
+contracts without skips and all keeper/C3–C6 cases again. Root and peer checked
+seven archives/logs and 59 exact named Git inputs. It is now the latest complete
+bounded checkpoint. Reading's five SQL sites retain their read/transaction
+semantics and the shared close factor retains the earlier two owners. Dynamic
+reader creation/retention and aggregate physical resource fencing remain separate.
+The same head's separate authored C7 run supplied a bare-rethrow comparison:
+both wrappers differ by reference, but all four underlying preservation booleans
+are true within both variants in both test cases. The later test-only predicate
+correction keeps those four hard requirements. No actual mechanism, historical
+grant-conversion cause, new source-ASR replay or rights/Windows gate is accepted.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source

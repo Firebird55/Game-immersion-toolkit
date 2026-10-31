@@ -1203,8 +1203,8 @@ remain open. The production profile stays disabled, `r19_complete=false` and
 ## Verified shared SQL-owner checkpoint at eaa42b2
 
 [Run 41238837233](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41238837233)
-at `eaa42b233694d4bbd2cae7e0127a8223725f6995` is now the latest complete bounded
-frozen checkpoint. It passed 1,249 Windows contracts without skips (one warning,
+at `eaa42b233694d4bbd2cae7e0127a8223725f6995` was the complete bounded
+frozen checkpoint before `973db81` below. It passed 1,249 Windows contracts without skips (one warning,
 148.76 seconds), the native/C1/cold-slot cases, both living-keeper cases and
 C3–C6. This includes the shared SQLite-operation helper and Lexirise root/pin
 owner. Existing factory shapes and the three-store C5 interception remain intact;
@@ -1243,6 +1243,36 @@ Physical resource release, global/dynamic writers, keeper death, detach/reopen,
 usable warm OCR/routing, complete populated data/settings/browser/credential
 continuity, general codecs/helpers, rights/source delivery and ordinary-user
 Windows11 remain open. PR #59 stays intact; no installer is built.
+
+## Verified reading SQL-owner checkpoint at 973db81
+
+[Run 41242293732](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41242293732)
+at `973db810f4a7c9add384133647f96b1674543cde` is now the latest complete bounded
+frozen checkpoint. It passed 1,284 contracts without skips (one warning,
+329.21 seconds), the native/C1/cold-slot probes, both keeper cases and C3–C6.
+The new per-reader SQL owner preserves five existing connection boundaries,
+nontransactional reads, original transaction/close failures and the earlier
+Transcript/Lexirise owners. Pool callbacks and reader creation are separate
+lifetimes; this supplies no reader-retention or global data fence.
+
+Root and peer checked seven provider-bound archives and job logs/images,
+59 exact named Git inputs, 473 A2/P1 records and all 113 notice references
+covering 104 hashes. Inventory: 1,449 files, 642 directories, 620,151,522 bytes.
+Every job used image `20261021.278.1`; the reference receipt records CMake 4.4.4
+and compiler 19.51.36260.0. Xiph source/rebuild/PE/decode/fault/origin checks and
+the separate WAL and grammar contrasts pass again. Exact receipts are in the
+[ledger](r19-frozen-checkpoint-20261031.json). The fifteen ASR recipe inputs
+remain unchanged, without another prepare or source-ASR native replay.
+
+The separate C7 [run 41242358974](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41242358974)
+passed 161 tests and failed both authored Windows engine cases before the
+mechanism. Its closed observation shows wrapper-reference inequality in both
+ordinary bare rethrow and the instrumented variant, with original exception
+reference, category, identifier and finally preserved inside each variant.
+This justified a later internal test-predicate correction; the producer is
+unchanged. No mechanism artifact, actual grant-conversion cause or recovery
+acceptance follows. Physical resources, reader retention, global writers,
+keeper death, warm OCR/routing, rights and ordinary-user Windows11 remain open.
 
 ## Continuation and rollback
 
