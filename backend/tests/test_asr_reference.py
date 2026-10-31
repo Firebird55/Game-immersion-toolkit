@@ -210,6 +210,25 @@ def test_toolchain_summary_hides_private_roots_and_detects_changed_bytes(module,
     assert first != module.seal_toolchain(roots)
 
 
+@pytest.mark.parametrize('invalid', ['array', 'empty-array', 'missing', 'file', 'extra-root'])
+def test_tool_roots_reject_ambiguous_or_unavailable_selection_before_inventory(module, tmp_path, monkeypatch, invalid):
+    roots = {}
+    for name in ['vc', 'vc-auxiliary', 'msbuild', 'sdk-include', 'sdk-lib', 'sdk-bin', 'cmake', 'python']:
+        path = tmp_path / name; path.mkdir()
+        roots[name] = str(path)
+    if invalid == 'array': roots['cmake'] = [roots['cmake'], roots['vc']]
+    if invalid == 'empty-array': roots['cmake'] = []
+    if invalid == 'missing': roots['cmake'] = str(tmp_path / 'missing')
+    if invalid == 'file':
+        file = tmp_path / 'owned-tool.exe'; file.write_bytes(b'owned non-executable fixture')
+        roots['cmake'] = str(file)
+    if invalid == 'extra-root': roots['ambient'] = roots['vc']
+    def no_inventory(_path):
+        pytest.fail('No source/tool bytes may be inventoried before root selection is unambiguous.')
+    monkeypatch.setattr(module, 'inventory', no_inventory)
+    with pytest.raises(ValueError): module.seal_toolchain(roots)
+
+
 def test_actual_python_tree_must_match_supplier_archive_not_only_version(module, tmp_path, monkeypatch):
     source = tmp_path / 'source'; source.mkdir()
     archive_path = tmp_path / 'python.tar.gz'

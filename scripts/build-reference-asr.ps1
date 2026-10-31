@@ -13,8 +13,11 @@ $instances = @((& $vswhere -latest -products '*' -requires Microsoft.VisualStudi
 if ($LASTEXITCODE -ne 0 -or $instances.Count -ne 1) { throw 'An explicit VS2026 build-host toolchain is required.' }
 $vsRoot = $instances[0].installationPath
 if (([version]$instances[0].installationVersion).Major -ne 18) { throw 'The required VS major version is unavailable.' }
-$cmakeExecutable = (Get-Command cmake -CommandType Application).Source
-$cmakeRoot = Split-Path (Split-Path $cmakeExecutable)
+$cmakeRoot = Join-Path $env:ProgramFiles 'CMake'
+$cmakeExecutable = Join-Path $cmakeRoot 'bin/cmake.exe'
+if (-not (Test-Path -LiteralPath $cmakeExecutable -PathType Leaf)) {
+  throw 'The explicit machine-wide CMake executable is required; PATH alternatives are not accepted.'
+}
 $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
 $toolRoots = @{
   vc = Join-Path $vsRoot ('VC/Tools/MSVC/' + $pin.toolchain.vc_tools_version)
@@ -31,8 +34,17 @@ foreach ($entry in @{ 'netfx-include' = (Join-Path $netfx 'Include/um');
                       'netfx-lib' = (Join-Path $netfx 'Lib/um/x64') }.GetEnumerator()) {
   if (Test-Path -LiteralPath $entry.Value -PathType Container) { $toolRoots[$entry.Key] = $entry.Value }
 }
-foreach ($path in $toolRoots.Values) {
-  if (-not (Test-Path -LiteralPath $path -PathType Container)) { throw 'A required explicit tool root is unavailable.' }
+foreach ($label in @($toolRoots.Keys)) {
+  $path = $toolRoots[$label]
+  if ($path -isnot [string] -or [string]::IsNullOrWhiteSpace($path) -or
+      -not (Test-Path -LiteralPath $path -PathType Container)) {
+    throw 'Every explicit tool root must be one existing directory.'
+  }
+  $resolved = @(Resolve-Path -LiteralPath $path)
+  if ($resolved.Count -ne 1 -or $resolved[0].Provider.Name -ne 'FileSystem') {
+    throw 'Every explicit tool root must resolve to one filesystem directory.'
+  }
+  $toolRoots[$label] = $resolved[0].ProviderPath
 }
 # Every executable/tool remains build-host-only. Version constraints are followed
 # by exact per-run file seals, not treated as immutable supplier approval.

@@ -351,11 +351,26 @@ def verify_cache(path, output):
             raise ValueError('The observed ASR source override differs from its exact prepared input.')
 
 
+def validate_tool_roots(roots):
+    required = {'vc', 'vc-auxiliary', 'msbuild', 'sdk-include', 'sdk-lib', 'sdk-bin', 'cmake', 'python'}
+    if (not isinstance(roots, dict) or not required <= set(roots)
+            or set(roots) - required - {'netfx-include', 'netfx-lib'}):
+        raise ValueError('Incomplete explicit toolchain roots.')
+    # Check all JSON value types before constructing even the first Path. A
+    # PowerShell command-discovery array must never become an implicit choice.
+    if any(not isinstance(value, str) or not value.strip()
+           or any(ord(c) < 32 or ord(c) == 127 for c in value) for value in roots.values()):
+        raise ValueError('Every explicit tool root must be one directory string.')
+    for value in roots.values():
+        path = Path(value)
+        no_links(path)
+        if not path.is_absolute() or not path.is_dir():
+            raise ValueError('Every explicit tool root must be one existing absolute directory.')
+
+
 def seal_toolchain(roots):
     """Hash exact bytes under explicitly selected tool roots; keep file list private."""
-    required = {'vc', 'vc-auxiliary', 'msbuild', 'sdk-include', 'sdk-lib', 'sdk-bin', 'cmake', 'python'}
-    if not required <= set(roots) or set(roots) - required - {'netfx-include', 'netfx-lib'}:
-        raise ValueError('Incomplete explicit toolchain roots.')
+    validate_tool_roots(roots)
     values = {name: inventory(Path(path).absolute()) for name, path in sorted(roots.items())}
     if any(not files for files in values.values()):
         raise ValueError('An explicit toolchain root is empty.')
@@ -686,6 +701,7 @@ def _build(output, tool_roots, vs_root, inputs):
     _BUILD_SOURCE_COMMIT = source_commit
     no_links(vs_root)
     roots = read_json(Path(tool_roots))
+    validate_tool_roots(roots)
     if Path(roots['python']).resolve() != Path(sys.prefix).resolve():
         raise ValueError('The sealed Python root is not this interpreter.')
     verify_python(inputs, roots['python'])

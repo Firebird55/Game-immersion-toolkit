@@ -95,6 +95,11 @@ inventories are hashed before configuration and compared after the build/probes;
 only counts and digests leave the host. OS services and the supplier/toolchain
 rights decision remain external to this byte-stability check. It does not
 assert approval of a mutable hosted image.
+The wrapper selects the single machine-wide `ProgramFiles/CMake/bin/cmake.exe`,
+whose observed version must still equal 4.4.5. It does not select from PATH's
+potentially multiple CMake installations. Each declared tool root must resolve
+to one existing filesystem directory and enter Python as a single string;
+arrays, missing roots and additional root labels are rejected before sealing.
 The complete VS/MSBuild and VC/Auxiliary trees and any present named NETFX4.8
 headers/import libraries are included. The OS/.NET execution prerequisites
 remain named, unbound native inputs. A fresh empty profile, explicit sealed VC
