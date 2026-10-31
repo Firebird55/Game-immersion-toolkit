@@ -358,5 +358,6 @@
       "bytes": 1678,
       "sha256": "475fb78d29421db814106b80b075f1b05803ff180bfa860d8dd92a86291c5246"
     }
-  }
+  },
+  "cmake_build_tool_policy": "packaging/build-tools/cmake-4.4.5-windows-x64.json"
 }

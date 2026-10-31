@@ -24,16 +24,19 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = 'packaging/asr/sherpa-reference.json'
+CMAKE_TOOL_POLICY = 'packaging/build-tools/cmake-4.4.5-windows-x64.json'
 SOURCE_FILES = (MANIFEST, 'packaging/asr/tts-off-python-symbols.patch',
                 'packaging/asr/SHERPA-LICENSE.txt', 'packaging/asr/SHERPA-PATCH-NOTICE.txt',
                 'scripts/reference-asr.py', 'scripts/build-reference-asr.ps1',
                 'scripts/probe-reference-asr.py',
                 'packaging/runtime-bundle/python-supplier.json',
+                CMAKE_TOOL_POLICY, 'scripts/pinned-build-cmake.py',
                 'backend/windows_preparation_process.py', 'LICENSE')
 
 BUILD_PHASES = frozenset({'build-preflight', 'source-validation', 'toolchain-validation',
     'vs-installation-origin', 'tool-root-schema', 'tool-root-filesystem',
     'python-interpreter-origin', 'python-supplier-bytes', 'cmake-version-review',
+    'cmake-pinned-input', 'final-cmake-pinned-input',
     'toolchain-seal', 'probe-dependency-preparation', 'build-environment', 'cmake-configure',
     'build-graph-review', 'native-build', 'native-output-review', 'candidate-assembly',
     'probe-decode', 'probe-wrong-shape', 'probe-corrupt', 'final-source-review',
@@ -125,6 +128,7 @@ def inventory(root):
 def pin():
     value = read_json(ROOT / MANIFEST)
     if (value['schema'] != 'proxy-r19-asr-source-reference-v1'
+            or value.get('cmake_build_tool_policy') != CMAKE_TOOL_POLICY
             or value['gates'] != {'production_execution_allowed': False,
                 'runtime_collection_allowed': False, 'redistribution_review': 'pending-exact-output',
                 'native_windows_11_acceptance': 'unavailable',
@@ -260,6 +264,7 @@ def prepare(inputs, output):
         'configuration': policy['cmake'], 'gates': policy['gates'],
         'python_supplier_pin': read_json(ROOT / policy['python_supplier_manifest']),
         'numpy_probe_dependency_pin': policy['numpy'],
+        'cmake_build_tool_policy': policy['cmake_build_tool_policy'],
         'status': 'prepared-not-built', 'rights_approval': False}
     write_json(output / 'PREPARED.json', receipt)
     return receipt
@@ -274,6 +279,7 @@ def verify_sources(output):
     if (receipt['manifest_sha256'] != sha((ROOT / MANIFEST).read_bytes())
             or receipt['source_inputs'] != source_inputs
             or inventory(output / 'recipes') != source_inputs
+            or receipt.get('cmake_build_tool_policy') != policy['cmake_build_tool_policy']
             or receipt['source_inventory_sha256'] != sha(canonical(expected))
             or inventory(output / 'sources') != expected or receipt['gates'] != policy['gates']):
         raise ValueError('Prepared ASR source, recipes or gates changed.')
@@ -414,6 +420,23 @@ def observe_cmake_version(executable, expected):
     if attributes(executable.read_bytes()) != _BUILD_CMAKE_OBSERVATION['executable']:
         raise ValueError('The observed CMake executable changed during its version query.')
     return safe_cmake_observation()
+
+
+def verify_pinned_cmake(root, payload):
+    """Reuse the common exact ZIP/tree verifier; no native execution or fallback."""
+    if root is None:
+        raise ValueError('The separate verified CMake container is required.')
+    spec = importlib.util.spec_from_file_location('r19_shared_pinned_cmake', ROOT / 'scripts/pinned-build-cmake.py')
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    if module.POLICY.resolve() != (ROOT / pin()['cmake_build_tool_policy']).resolve():
+        raise ValueError('The shared CMake verifier policy differs from the ASR source binding.')
+    supplier = module.policy()
+    if supplier['version'] != pin()['toolchain']['cmake_version']:
+        raise ValueError('The pinned build tool differs from the ASR version constraint.')
+    receipt = module.verify(Path(root))
+    if Path(payload).resolve() != module.payload_root(root).resolve():
+        raise ValueError('The selected CMake payload is outside the verified container.')
+    return receipt
 
 
 def seal_toolchain(roots):
@@ -716,13 +739,13 @@ def reject_parent_imports(output):
                 raise ValueError('An ambient parent MSBuild import/response file would affect the experiment.')
 
 
-def build(output, tool_roots, vs_root, inputs):
+def build(output, tool_roots, vs_root, inputs, cmake_root=None):
     global _BUILD_SOURCE_COMMIT, _BUILD_CMAKE_OBSERVATION
     build_phase('build-preflight')
     _BUILD_SOURCE_COMMIT = None
     _BUILD_CMAKE_OBSERVATION = None
     try:
-        return _build(output, tool_roots, vs_root, inputs)
+        return _build(output, tool_roots, vs_root, inputs, cmake_root)
     except Exception as error:
         try:
             failure = failed_build_receipt(output, _BUILD_PHASE, error)
@@ -734,7 +757,7 @@ def build(output, tool_roots, vs_root, inputs):
         raise
 
 
-def _build(output, tool_roots, vs_root, inputs):
+def _build(output, tool_roots, vs_root, inputs, cmake_root):
     global _BUILD_SOURCE_COMMIT
     output, vs_root = Path(output).absolute(), Path(vs_root).absolute()
     build_phase('source-validation')
@@ -764,6 +787,8 @@ def _build(output, tool_roots, vs_root, inputs):
     build_phase('tool-root-filesystem')
     for path in roots.values(): no_links(Path(path))
     cmake = Path(roots['cmake']) / 'bin/cmake.exe'
+    build_phase('cmake-pinned-input')
+    cmake_supplier = verify_pinned_cmake(cmake_root, roots['cmake'])
     build_phase('cmake-version-review')
     observe_cmake_version(cmake, policy['toolchain']['cmake_version'])
     build_phase('toolchain-seal')
@@ -883,6 +908,9 @@ def _build(output, tool_roots, vs_root, inputs):
     build_phase('final-toolchain-review')
     if seal_toolchain(roots) != initial:
         raise ValueError('Compiler, SDK, CMake, MSBuild or Python bytes changed during the experiment.')
+    build_phase('final-cmake-pinned-input')
+    if verify_pinned_cmake(cmake_root, roots['cmake']) != cmake_supplier:
+        raise ValueError('The exact CMake input/tree receipt changed during the experiment.')
     build_phase('source-commit-review')
     commit = subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip()
     dirty = subprocess.check_output(['git', '-C', str(ROOT), 'status', '--porcelain'], text=True).strip()
@@ -890,6 +918,7 @@ def _build(output, tool_roots, vs_root, inputs):
         raise ValueError('A clean candidate source commit is required for the final receipt.')
     receipt.update({'status': 'native-reference-probes-passed', 'source_commit': commit,
         'toolchain_constraints': policy['toolchain'], 'toolchain_observed_bytes': toolchain_summary(initial),
+        'pinned_cmake': cmake_supplier,
         'source_graph': graph, 'native_binding': native_binding,
         'native_pe': native, 'link_map_sha256': sha((output / 'PRIVATE-BINDING.map').read_bytes()),
         'no_espeak_link_input_observed': True, 'private_wheel': wheel_bytes,
@@ -919,6 +948,7 @@ def main():
     native.add_argument('--inputs', type=Path, required=True)
     native.add_argument('--tool-roots', type=Path, required=True)
     native.add_argument('--vs-root', type=Path, required=True)
+    native.add_argument('--cmake-root', type=Path, required=True)
     args = parser.parse_args()
     if args.command == 'prepare':
         prepare(args.inputs, args.output)
@@ -930,7 +960,7 @@ def main():
         prepare_python(args.archive, args.output)
         print('Exact separate Python supplier prepared; supplier rights review remains open.')
     else:
-        build(args.output, args.tool_roots, args.vs_root, args.inputs)
+        build(args.output, args.tool_roots, args.vs_root, args.inputs, args.cmake_root)
 
 
 if __name__ == '__main__':

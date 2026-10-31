@@ -4,7 +4,9 @@ import io
 import json
 from pathlib import Path
 import re
+import shutil
 import tarfile
+import zipfile
 
 import pytest
 
@@ -44,7 +46,7 @@ def item(module, path, *, prefixes=None):
         'notices': {'LICENSE': module.attributes(b'Owned source fixture notice\n')}}
 
 
-def prepared(module, tmp_path, monkeypatch):
+def prepared(module, tmp_path, monkeypatch, *, with_cmake=False):
     source, inputs, output = tmp_path / 'repo', tmp_path / 'inputs', tmp_path / 'private-run'
     source.mkdir(); inputs.mkdir()
     upstream = (b'  /* Define "empty" TTS symbols */\n'
@@ -70,12 +72,69 @@ def prepared(module, tmp_path, monkeypatch):
     supplier.parent.mkdir(parents=True)
     supplier.write_text(json.dumps({'sha256': '1' * 64, 'supplier_acceptance': 'owned-fixture-pending'}))
     production.update(inputs=[item(module, path)], patch=patch)
+    source_files = ('pin.json', 'patch.diff', 'recipe.py', 'patch-license.txt', 'patch-notice.txt')
+    if with_cmake:
+        tool_script = source / 'scripts/pinned-build-cmake.py'
+        tool_script.parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / 'scripts/pinned-build-cmake.py', tool_script)
+        tool_policy = source / module.CMAKE_TOOL_POLICY
+        tool_policy.parent.mkdir(parents=True, exist_ok=True)
+        tool_pin = json.loads((ROOT / module.CMAKE_TOOL_POLICY).read_bytes())
+        root = tool_pin['archive']['root']
+        payload = {root + '/bin/cmake.exe': b'Owned non-executable CMake fixture',
+            root + '/doc/cmake/LICENSE.rst': b'Owned tool notice fixture\n'}
+        tool_archive = inputs / tool_pin['archive']['filename']
+        with zipfile.ZipFile(tool_archive, 'w') as archive_zip:
+            for name, data in payload.items(): archive_zip.writestr(name, data)
+        tool_pin['archive'].update(**module.attributes(tool_archive.read_bytes()),
+            entries=len(payload), regular_files=len(payload), expanded_bytes=sum(map(len, payload.values())))
+        tool_pin['executable'] = {'path': root + '/bin/cmake.exe', **module.attributes(payload[root + '/bin/cmake.exe'])}
+        tool_pin['notices'] = [{'path': root + '/doc/cmake/LICENSE.rst',
+            **module.attributes(payload[root + '/doc/cmake/LICENSE.rst'])}]
+        tool_policy.write_text(json.dumps(tool_pin))
+        tool_spec = importlib.util.spec_from_file_location('owned_cmake_fixture', tool_script)
+        tool_module = importlib.util.module_from_spec(tool_spec); tool_spec.loader.exec_module(tool_module)
+        tool_module.prepare(tool_archive, tmp_path / 'pinned-cmake')
+        source_files += (module.CMAKE_TOOL_POLICY, 'scripts/pinned-build-cmake.py')
     manifest = source / 'pin.json'; manifest.write_text(json.dumps(production))
     monkeypatch.setattr(module, 'ROOT', source)
     monkeypatch.setattr(module, 'MANIFEST', 'pin.json')
-    monkeypatch.setattr(module, 'SOURCE_FILES', ('pin.json', 'patch.diff', 'recipe.py', 'patch-license.txt', 'patch-notice.txt'))
+    monkeypatch.setattr(module, 'SOURCE_FILES', source_files)
     module.prepare(inputs, output)
     return source, inputs, output
+
+
+def test_asr_recipe_binds_shared_cmake_policy_helper_and_verified_fixture_tree(module, tmp_path, monkeypatch):
+    source, _inputs, output = prepared(module, tmp_path, monkeypatch, with_cmake=True)
+    tool_policy = json.loads((source / module.CMAKE_TOOL_POLICY).read_bytes())
+    container = tmp_path / 'pinned-cmake'; payload = container / tool_policy['archive']['root']
+    verified = module.verify_pinned_cmake(container, payload)
+    assert verified['operation'] == 'verified' and verified['version'] == '4.4.5'
+    assert verified['runtime_collection_allowed'] is False
+    assert verified['production_execution_allowed'] is False
+    receipt = module.verify_sources(output)
+    for name in (module.CMAKE_TOOL_POLICY, 'scripts/pinned-build-cmake.py'):
+        assert receipt['source_inputs'][name] == module.attributes((source / name).read_bytes())
+        assert (output / 'recipes' / name).read_bytes() == (source / name).read_bytes()
+    assert not list((output / 'recipes').rglob('*.zip'))
+    assert not list((output / 'recipes').rglob('*.exe'))
+    assert str(tmp_path) not in json.dumps(verified)
+
+
+@pytest.mark.parametrize('changed', ['selected-payload', 'native-bytes', 'retained-zip', 'recipe-policy', 'recipe-helper'])
+def test_asr_rejects_unbound_or_changed_shared_cmake_inputs(module, tmp_path, monkeypatch, changed):
+    source, _inputs, output = prepared(module, tmp_path, monkeypatch, with_cmake=True)
+    tool_policy = json.loads((source / module.CMAKE_TOOL_POLICY).read_bytes())
+    container = tmp_path / 'pinned-cmake'; payload = container / tool_policy['archive']['root']
+    if changed == 'selected-payload': payload = tmp_path / 'ambient-cmake'
+    if changed == 'native-bytes': (container / tool_policy['executable']['path']).write_bytes(b'changed')
+    if changed == 'retained-zip': (container / 'inputs' / tool_policy['archive']['filename']).write_bytes(b'changed')
+    if changed.startswith('recipe-'):
+        name = module.CMAKE_TOOL_POLICY if changed == 'recipe-policy' else 'scripts/pinned-build-cmake.py'
+        (source / name).write_bytes(b'changed')
+        with pytest.raises(ValueError): module.verify_sources(output)
+    else:
+        with pytest.raises(ValueError): module.verify_pinned_cmake(container, payload)
 
 
 def test_exact_preparation_patch_notice_and_pending_gates(module, tmp_path, monkeypatch):

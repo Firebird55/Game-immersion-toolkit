@@ -33,6 +33,19 @@ jobs:
         with:
           # Bootstrap only; the build and native probes use the exact supplier.
           python-version: '3.12.10'
+      - name: Acquire and prepare the exact isolated CMake build tool
+        shell: pwsh
+        run: |
+          $cmakePin = Get-Content packaging/build-tools/cmake-4.4.5-windows-x64.json -Raw | ConvertFrom-Json
+          $cmakeInputs = Join-Path $env:RUNNER_TEMP 'r19-asr-cmake-inputs'
+          $cmakeRoot = Join-Path $env:RUNNER_TEMP 'r19-asr-pinned-cmake'
+          python -I -B scripts/pinned-build-cmake.py acquire --input-root $cmakeInputs
+          if ($LASTEXITCODE -ne 0) { throw 'Exact official CMake acquisition failed.' }
+          python -I -B scripts/pinned-build-cmake.py prepare --archive (Join-Path $cmakeInputs $cmakePin.archive.filename) --output $cmakeRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Exact isolated CMake preparation failed.' }
+          python -I -B scripts/pinned-build-cmake.py verify --root $cmakeRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Exact isolated CMake verification failed.' }
+          "R19_ASR_CMAKE_ROOT=$cmakeRoot" >> $env:GITHUB_ENV
       - name: Acquire exact public build inputs without pretrained ASR weights or ambient packages
         shell: pwsh
         run: |
@@ -57,7 +70,7 @@ jobs:
       - name: Build the distinct private binding and exercise actual native format APIs
         shell: pwsh
         run: |
-          ./scripts/build-reference-asr.ps1 -InputRoot $env:R19_ASR_INPUTS -OutputRoot $env:R19_ASR_OUTPUT -Python $env:R19_ASR_PYTHON
+          ./scripts/build-reference-asr.ps1 -InputRoot $env:R19_ASR_INPUTS -OutputRoot $env:R19_ASR_OUTPUT -Python $env:R19_ASR_PYTHON -CMakeRoot $env:R19_ASR_CMAKE_ROOT
           'Separate TTS-disabled reference only. Owned ONNX/tokens/PCM prove native format/API execution, not speech recognition or model accuracy. ONNX native source/CRT and exact output rights remain pending. Stock runtime/lock/Migaku and every production/Windows11 gate are unchanged.' >> $env:GITHUB_STEP_SUMMARY
       - name: Upload only allowlisted sanitized metadata
         uses: actions/upload-artifact@v7

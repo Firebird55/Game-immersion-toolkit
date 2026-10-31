@@ -88,18 +88,30 @@ No default branch or repository setting is changed. The registered dedicated
 workflow remains directly dispatchable; no successful source-only run can stand
 in for a skipped frozen-runtime job.
 
-The constraints match the observed hosted VS18 2026, MSVC 19.51.36260.0/toolset
-14.51.36231, CMake 4.4.5 and Windows SDK 10.0.26100.0. Version strings are not
+The constraints select hosted VS18 2026, MSVC 19.51.36260.0/toolset
+14.51.36231, isolated CMake 4.4.5 and Windows SDK 10.0.26100.0. Version strings are not
 immutable supplier identities. Exact VC/MSBuild/selected SDK/CMake/Python file
 inventories are hashed before configuration and compared after the build/probes;
 only counts and digests leave the host. OS services and the supplier/toolchain
 rights decision remain external to this byte-stability check. It does not
 assert approval of a mutable hosted image.
-The wrapper selects the single machine-wide `ProgramFiles/CMake/bin/cmake.exe`,
-whose observed version must still equal 4.4.5. It does not select from PATH's
-potentially multiple CMake installations. Each declared tool root must resolve
-to one existing filesystem directory and enter Python as a single string;
-arrays, missing roots and additional root labels are rejected before sealing.
+The workflow uses the shared [pinned CMake helper](../scripts/pinned-build-cmake.py)
+and [official ZIP policy](../packaging/build-tools/cmake-4.4.5-windows-x64.json).
+After doctor/audit it acquires the exact original ZIP and publisher checksum list,
+prepares a fresh private build-host container, and verifies the complete tool
+tree. The wrapper requires that container explicitly through `CMakeRoot` and
+passes its verified payload to Python. Before any CMake execution and after the
+build/probes, Python uses the same shared verifier against the original retained
+ZIP, complete file/directory inventory and notices. The observed version must
+still equal 4.4.5, and the payload remains in the complete before/after tool seals.
+Each declared tool root must resolve to one existing filesystem directory and
+enter Python as a single string; arrays, missing roots and additional root
+labels are rejected before sealing. The source manifest and `SOURCE_FILES` bind
+the shared policy/helper. Source recipes retain those files; the CMake ZIP,
+tool executables and complete tool tree remain runner-local and never enter
+the ASR source recipes, private variant wheel, runtime or uploaded artifacts.
+The successful ASR receipt retains the verified tool's safe summary only; this
+grants no runtime collection or additional supplier/source approval.
 Failed toolchain validation distinguishes fixed root-schema/filesystem,
 interpreter-origin, supplier-byte and CMake-version subphases. A failed receipt
 may include only bounded numeric expected/observed CMake versions and the
