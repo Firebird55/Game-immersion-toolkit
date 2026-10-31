@@ -705,18 +705,14 @@ function CompanionClient() {
     () => lines.filter((line) => line.game === selectedGame).slice(0, HISTORY_LIMIT),
     [lines, selectedGame],
   );
-  const visibleLine = recentLines.find((line) =>
-    line.session_id === status?.session.id
-    && isReadableLine(line)
-    && status?.capture.running
-    && status.capture.visible_text_ids?.includes(line.text_id)
-  ) ?? null;
   const latestSessionLine = recentLines.find((line) =>
     line.session_id === status?.session.id && isReadableLine(line)
   ) ?? null;
-  // Keep confirmed dialogue readable between subtitles, including comics and
-  // unvoiced lines. Session/game filtering prevents carrying it into another game.
-  const latestLine = archivedHistory ? null : visibleLine ?? latestSessionLine;
+  // Only confirmed transcript order advances the reader. Visibility belongs to
+  // independently scanned regions and can briefly retain an earlier caption;
+  // it must not undo a newer line (nor may a delayed audio-ready update).
+  // Keep that line readable between subtitles and isolate games/sessions.
+  const latestLine = archivedHistory ? null : latestSessionLine;
   const activeReadingSource = latestLine?.source_language ?? status?.selected_languages?.[selectedGame]?.source_language ?? 'zh';
   const providerReadingSource = isStudyLanguage(activeReadingSource) ? activeReadingSource : null;
   const openReadingOptions = () => setReaderSettingsOpen(providerReadingSource
@@ -954,7 +950,7 @@ function CompanionClient() {
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
             {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} locale={latestLine.source_locale ?? latestLine.source_language ?? 'zh-Hans'} />}
             <div className="current-actions">
-              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
+              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? voicePlaybackLabel(latestLine) : 'Play voice'}
               </button>}
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>

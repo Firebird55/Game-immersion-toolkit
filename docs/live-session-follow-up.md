@@ -23,6 +23,9 @@ Source checks: commits `019705e` and `edd4ae2` passed 111 focused tests. A priva
 read-only rebuild verified 2,655 separate fallback pages with unchanged full
 recording bindings; the three reported text examples now match exactly. Ordered
 synthetic page capture passes. This does not replace installed capture validation.
+The actual built React reader also passed Chromium/Firefox at 1280px and 390px:
+delayed visibility reports and audio-ready events for an older subtitle do not
+rewind a newer confirmed line. Real OCR replay remains a separate acceptance step.
 
 ## Reading layout
 
