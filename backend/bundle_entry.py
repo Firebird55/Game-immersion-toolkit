@@ -17,14 +17,14 @@ def main(arguments=None):
         return desktop_main(args)
     if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api'}:
         layout = discover_layout()
-        if layout.mode != 'bundle' or layout.profile != 'runtime-experiment':
-            raise RuntimeBundleError('Runtime probes require the quarantined runtime-experiment profile.')
-        asr_image = layout.executable.name.casefold() in {'proxytranscriptasr.exe', 'proxytranscriptasr'}
+        if layout.mode != 'bundle' or layout.profile not in {'runtime', 'runtime-experiment'}:
+            raise RuntimeBundleError('Runtime probes require a complete frozen runtime profile.')
+        asr_image = layout.executable.name.casefold() in {'gameimmersiontoolkitasr.exe', 'gameimmersiontoolkitasr'}
         if asr_image != (args[1] == 'asr'):
             raise RuntimeBundleError('Probe must use its isolated runtime image.')
         # Keep the stdlib diagnostic/frontend and ASR analyses independent of
-        # the main probe's native imports; experimental specs collect these
-        # fixed modules explicitly.
+        # the main probe's native imports. Each probe also requires private
+        # synthetic roots and their build-bound marker before native work.
         probe = import_module('backend.asr_probe' if asr_image else 'backend.runtime_probe')
         return probe.main(args[1], layout)
     if args == ['--runtime-diagnose']:
@@ -47,7 +47,7 @@ def main(arguments=None):
             raise RuntimeBundleError('Windows bootstrap requires a job name and child command.')
         from backend.windows_preparation_process import _bootstrap
         return _bootstrap(child_args[0], child_args[1:])
-    if layout.mode == 'bundle' and kind == 'asr' and layout.executable.name.casefold() not in {'proxytranscriptasr.exe', 'proxytranscriptasr'}:
+    if layout.mode == 'bundle' and kind == 'asr' and layout.executable.name.casefold() not in {'gameimmersiontoolkitasr.exe', 'gameimmersiontoolkitasr'}:
         raise RuntimeBundleError('ASR requires its separate frozen executable and native library tree.')
     target_type, target = CHILD_TARGETS[kind]
     sys.argv = [target, *child_args]

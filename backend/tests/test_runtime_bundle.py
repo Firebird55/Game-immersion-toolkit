@@ -171,6 +171,49 @@ def test_children_use_fixed_dispatch_and_keep_arguments_opaque(tmp_path):
     assert source.child_command('language', args)[1:3] == ['-m', 'backend.language_worker']
 
 
+@pytest.mark.parametrize('image', ['GameImmersionToolkitAsr.exe', 'GameImmersionToolkitAsr'])
+def test_renamed_asr_image_dispatches_but_main_image_cannot_load_asr(tmp_path, monkeypatch, image):
+    # Command construction alone missed the stale name in the frozen entrypoint.
+    layout = frozen_layout(tmp_path, children=('asr',), profile='runtime')
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    calls = []
+    monkeypatch.setattr(bundle_entry.runpy, 'run_module', lambda *a, **kw: calls.append((a, kw)))
+    monkeypatch.setattr(sys, 'argv', [])
+    with pytest.raises(bundle.RuntimeBundleError, match='separate frozen executable'):
+        bundle_entry.main(['--runtime-child', 'asr', '--', '--help'])
+    assert not calls
+    layout = replace(layout, executable=layout.application_root / 'asr' / image)
+    assert bundle_entry.main(['--runtime-child', 'asr', '--', '--help']) == 0
+    assert calls == [((bundle.CHILD_TARGETS['asr'][1],), {'run_name': '__main__', 'alter_sys': True})]
+    assert sys.argv == [bundle.CHILD_TARGETS['asr'][1], '--help']
+
+
+@pytest.mark.parametrize('profile', ['runtime', 'runtime-experiment', 'diagnostic'])
+def test_asr_probe_dispatch_preserves_profile_and_image_isolation(tmp_path, monkeypatch, profile):
+    from types import SimpleNamespace
+    layout = frozen_layout(tmp_path, profile=profile)
+    layout = replace(layout, executable=layout.application_root / 'asr/GameImmersionToolkitAsr.exe')
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    calls = []
+    def probe_import(name):
+        calls.append(name)
+        return SimpleNamespace(main=lambda kind, selected: (kind, selected))
+    monkeypatch.setattr(bundle_entry, 'import_module', probe_import)
+    if profile == 'diagnostic':
+        with pytest.raises(bundle.RuntimeBundleError, match='complete frozen runtime'):
+            bundle_entry.main(['--runtime-probe', 'asr'])
+        assert not calls
+        return
+    assert bundle_entry.main(['--runtime-probe', 'asr']) == ('asr', layout)
+    assert calls == ['backend.asr_probe']
+    with pytest.raises(bundle.RuntimeBundleError, match='isolated runtime image'):
+        bundle_entry.main(['--runtime-probe', 'native'])
+    layout = replace(layout, executable=layout.application_root / 'GameImmersionToolkit.exe')
+    with pytest.raises(bundle.RuntimeBundleError, match='isolated runtime image'):
+        bundle_entry.main(['--runtime-probe', 'asr'])
+    assert calls == ['backend.asr_probe']
+
+
 def test_child_environment_is_copied_and_asr_removes_app_dll_path(tmp_path):
     layout = frozen_layout(tmp_path)
     env = {'PATH': str(layout.resource_root) + bundle.os.pathsep + str(tmp_path / 'system'), 'UNCHANGED': 'value'}
