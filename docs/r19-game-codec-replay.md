@@ -124,7 +124,10 @@ a NETFX SDK version only for a strictly numeric direct child of the declared
 NETFXSDK parent with an exact `Include/um` or `Lib/um/x64` suffix. The public
 fields contain that numeric version and a fixed include/lib role; other paths
 retain null fields and remain rejected. No NETFX version is inferred or newly
-admitted. Paths, path hashes, environment contents, arbitrary object fields and
+admitted. Numeric versions, relative suffixes and source commits use
+[absolute .NET regex anchors](https://learn.microsoft.com/en-us/dotnet/standard/base-types/anchors-in-regular-expressions)
+so a trailing newline cannot pass the fixed projection. Paths, path hashes,
+environment contents, arbitrary object fields and
 exception text are omitted.
 Passing search checks leave source preparation's destination absent; only a
 failure creates the fresh receipt directory. All build/runtime/rights gates stay

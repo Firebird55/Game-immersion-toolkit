@@ -138,7 +138,7 @@ function Get-CompilerSearchObservation(
                             $parent = [IO.Path]::GetFullPath($ComponentRoots['netfx-other']).TrimEnd('\')
                             if ($full.StartsWith($parent + '\', [StringComparison]::OrdinalIgnoreCase)) {
                                 $relative = [IO.Path]::GetRelativePath($parent, $full)
-                                if ($relative -imatch '^([0-9]{1,6}(?:\.[0-9]{1,6}){1,3})\\(Include\\um|Lib\\um\\x64)$') {
+                                if ($relative -imatch '\A([0-9]{1,6}(?:\.[0-9]{1,6}){1,3})\\(Include\\um|Lib\\um\\x64)\z') {
                                     # Only a numeric direct child and exact known suffix are public.
                                     $netfxVersion = $Matches[1]
                                     $netfxRole = if ($Matches[2] -ieq 'Include\um') { 'include-um' } else { 'lib-um-x64' }
@@ -171,7 +171,7 @@ function Write-CompilerSearchFailure([string]$Destination, [string]$InputManifes
     [string]$SourceCommit, [object[]]$Observations) {
     try {
         if (Test-Path -LiteralPath $Destination) { throw 'fresh-output' }
-        if ($SourceCommit -cnotmatch '^[a-f0-9]{40}$' -or $Observations.Count -ne 2) { throw 'identity' }
+        if ($SourceCommit -cnotmatch '\A[a-f0-9]{40}\z' -or $Observations.Count -ne 2) { throw 'identity' }
         $roles = @('unclassified','msvc-include','msvc-atlmfc-include','sdk-include','netfx-include',
             'msvc-lib-x64','msvc-atlmfc-lib-x64','sdk-ucrt-lib-x64','sdk-um-lib-x64',
             'netfx-lib-x64','vc-auxiliary-include','netfx-other','sdk-other','msvc-other')
@@ -198,7 +198,7 @@ function Write-CompilerSearchFailure([string]$Destination, [string]$InputManifes
                     ($null -ne $entry.netfx_sdk_version -and
                         ($entry.component_role -cnotin @('netfx-include','netfx-lib-x64','netfx-other') -or
                          $entry.netfx_sdk_version -isnot [string] -or
-                         $entry.netfx_sdk_version -cnotmatch '^[0-9]{1,6}(?:\.[0-9]{1,6}){1,3}$' -or
+                         $entry.netfx_sdk_version -cnotmatch '\A[0-9]{1,6}(?:\.[0-9]{1,6}){1,3}\z' -or
                          $entry.netfx_search_role -isnot [string] -or
                          $entry.netfx_search_role -cnotin @('include-um','lib-um-x64')))) { throw 'numeric-netfx' }
                 if ($entry.disposition -ne 'accepted') { $failed = $true }

@@ -423,7 +423,7 @@ try {
     }
     foreach ($relative in @('4.8-private/Include/um','4/Include/um','4.8.1.2.3/Include/um',
         '1234567.8/Include/um','4.8.1/Include/um/private-suffix','private-child/4.8.1/Include/um',
-        '../NETFXSDK-sibling/4.8.1/Include/um')) {
+        '../NETFXSDK-sibling/4.8.1/Include/um',"4.8.1/Include/um`n")) {
         $value = Get-CompilerSearchObservation 'INCLUDE' (Join-Path $netfxParent $relative) @($include) $roots
         if ($null -ne $value.entries[0].netfx_sdk_version -or $null -ne $value.entries[0].netfx_search_role -or
             $value.entries[0].disposition -eq 'accepted') { throw 'arbitrary path exposed or admitted' }
@@ -467,17 +467,19 @@ try {
     try { Write-CompilerSearchFailure $destination $ManifestPath ('a' * 40) @($badInclude, $goodLib) }
     catch { if ($_.Exception.Message -eq 'Safe compiler search-path failure receipt could not be recorded.') { $rejected = $true } }
     if (-not $rejected) { throw 'existing receipt overwritten' }
-    foreach ($case in @('matching','source','role','exception','bound','numeric','suffix','missing-pair')) {
+    foreach ($case in @('matching','source','source-lf','role','exception','bound','numeric','numeric-lf','suffix','missing-pair')) {
         $out = Join-Path $FixtureRoot ('invalid-' + $case)
         $source = 'a' * 40; $manifest = $ManifestPath; $item = $badInclude
         if ($case -eq 'matching') { $item = $goodInclude }
         if ($case -eq 'source') { $source = 'private-source-marker' }
+        if ($case -eq 'source-lf') { $source = ('a' * 40) + "`n" }
         if ($case -eq 'role') { $item = Get-CompilerSearchObservation 'INCLUDE' $auxiliary @($include) $roots; $item.entries[0].component_role = 'private-role-marker' }
         if ($case -eq 'exception') { $manifest = Join-Path $FixtureRoot 'private-missing-manifest-marker' }
         if ($case -eq 'bound') { $item = Get-CompilerSearchObservation 'INCLUDE' $auxiliary @($include) $roots; $item.entry_count = 65 }
-        if ($case -in @('numeric','suffix','missing-pair')) {
+        if ($case -in @('numeric','numeric-lf','suffix','missing-pair')) {
             $item = Get-CompilerSearchObservation 'INCLUDE' $netfxInclude @($include) $roots
             if ($case -eq 'numeric') { $item.entries[0].netfx_sdk_version = '4.8.1 private-version-marker' }
+            if ($case -eq 'numeric-lf') { $item.entries[0].netfx_sdk_version = "4.8.1`n" }
             if ($case -eq 'suffix') { $item.entries[0].netfx_search_role = 'private-suffix-marker' }
             if ($case -eq 'missing-pair') { $item.entries[0].netfx_search_role = $null }
         }
