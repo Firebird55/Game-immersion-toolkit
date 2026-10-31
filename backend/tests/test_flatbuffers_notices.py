@@ -12,6 +12,13 @@ import pytest
 from backend.tests.test_runtime_experiment import recorder
 
 
+def notice_only_provenance(_value, _evidence, _output, files, _input_manifest):
+    # Keep this partial notice fixture separate from real native acceptance.
+    assert not any(Path(row['path']).suffix.lower() in {'.exe', '.dll', '.pyd'} for row in files)
+    return {'schema': 'authored-notice-only-provenance-stub-v1', 'status': 'native-not-tested',
+        'production_execution_allowed': False, 'r19_complete': False}
+
+
 def inputs(tmp_path, monkeypatch):
     module = recorder(monkeypatch)
     source = tmp_path / 'source'
@@ -54,8 +61,9 @@ def test_source_notice_binds_all_observed_payloads_and_reaches_central_notices(t
     validate_flatbuffers_notice_delivery(component, source, evidence)
     (source / 'package.json').write_text(json.dumps({'version': '0.0.1'}))
     output = tmp_path / 'candidate'; (output / 'ProxyTranscriptAsr/_internal').mkdir(parents=True)
-    # This test owns notice delivery; actual isolated codec scope has separate disk tests.
+    # This test owns notices; actual codec/provenance scope has separate disk tests.
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
+    monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-source-notices', 'components': [component]}, source, evidence, output)
     for row in records:

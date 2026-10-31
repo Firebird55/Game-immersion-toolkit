@@ -12,6 +12,14 @@ import pytest
 from backend.tests.test_runtime_experiment import recorder
 
 
+def notice_only_provenance(_value, _evidence, _output, files, _input_manifest):
+    # This partial fixture owns notice delivery, not native collection. It must
+    # never silently accept a native output or resemble a real observation.
+    assert not any(Path(row['path']).suffix.lower() in {'.exe', '.dll', '.pyd'} for row in files)
+    return {'schema': 'authored-notice-only-provenance-stub-v1', 'status': 'native-not-tested',
+        'production_execution_allowed': False, 'r19_complete': False}
+
+
 def inputs(tmp_path, monkeypatch):
     module = recorder(monkeypatch)
     repository = Path(__file__).resolve().parents[2]
@@ -83,8 +91,9 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
     value = {'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-test', 'components': [component]}
     from closure import write_candidate
-    # This exercises notice delivery; isolated codec output is tested separately.
+    # Notice delivery is isolated from the separately tested codec/provenance gates.
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
+    monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
     write_candidate(value, source, evidence, output)
     inventory = json.loads((output / 'RUNTIME-INVENTORY.json').read_bytes())
     files = {row['path']: row for row in inventory['files']}
@@ -156,6 +165,7 @@ def test_onnx_notice_binds_wheel_installed_and_final_third_party_bytes(tmp_path,
     output = tmp_path / 'candidate'; (output / 'ProxyTranscriptAsr/_internal').mkdir(parents=True)
     from closure import write_candidate
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
+    monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-onnx', 'components': [component]}, source, evidence, output)
     target = output / 'ProxyTranscriptRuntime/THIRD_PARTY/onnxruntime' / notice['path']
