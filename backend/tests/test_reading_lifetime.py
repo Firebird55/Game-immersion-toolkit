@@ -43,7 +43,25 @@ def reading_state(tmp_path, monkeypatch):
     service = LexiriseService(tmp_path/'owned-reading', api_key='test-key',
         accounts=SimpleNamespace(active_key=forbidden), transport=httpx.MockTransport(forbidden))
 
+    class ObservedCursor(sqlite3.Cursor):
+        def execute(self, sql, parameters=()):
+            self.connection.statements.append(sql)
+            cursor = super().execute(sql, parameters)
+            if state.on_execute is not None:
+                state.on_execute(self.connection, sql, parameters)
+            return cursor
+
+        def close(self):
+            self.close_calls += 1
+            return super().close()
+
     class Observed(sqlite3.Connection):
+        def cursor(self):
+            cursor = super().cursor(factory=ObservedCursor)
+            cursor.close_calls = 0
+            self.cursors.append(cursor)
+            return cursor
+
         def __enter__(self):
             self.enters += 1
             return super().__enter__()
@@ -79,6 +97,7 @@ def reading_state(tmp_path, monkeypatch):
         connection = raw(database, factory=Observed, check_same_thread=False)
         connection.enters = connection.exits = connection.close_calls = 0
         connection.statements = []
+        connection.cursors = []
         connection.closed_cleanly = False
         connection.close_error = state.close_error
         connection.close_entered = connection.close_release = None
@@ -167,6 +186,7 @@ def test_all_five_reading_boundaries_keep_factory_transaction_and_local_grammar_
         writes = any(sql.startswith(('CREATE', 'INSERT')) for sql in db.statements)
         assert db.enters == db.exits == int(writes)
     assert all(db.enters == db.exits and db.close_calls == 1 and db.closed_cleanly for db in state.opened)
+    assert all(cursor.close_calls == 1 for db in state.opened for cursor in db.cursors)
     assert not reader._sql_lifetime.failures
 
 

@@ -132,8 +132,10 @@ class LexiriseReadingService:
             label='Reading connection')
         directory.mkdir(parents=True, exist_ok=True)
         with self._connection_scope(transaction=True) as db:
-            db.execute("CREATE TABLE IF NOT EXISTS cache (kind TEXT, key TEXT, value TEXT, at REAL, PRIMARY KEY(kind,key))")
-            db.execute("CREATE TABLE IF NOT EXISTS grammar_choices (slug TEXT PRIMARY KEY, proficiency INTEGER NOT NULL CHECK(proficiency IN (0,4)))")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("CREATE TABLE IF NOT EXISTS cache (kind TEXT, key TEXT, value TEXT, at REAL, PRIMARY KEY(kind,key))")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("CREATE TABLE IF NOT EXISTS grammar_choices (slug TEXT PRIMARY KEY, proficiency INTEGER NOT NULL CHECK(proficiency IN (0,4)))")
 
     @contextmanager
     def _connection_scope(self, *, transaction=False):
@@ -169,13 +171,15 @@ class LexiriseReadingService:
     def _cached(self, kind: str, key: str, max_age: float):
         kind = self._scope(kind)
         with self.lock, self._connection_scope() as db:
-            row = db.execute("SELECT value,at FROM cache WHERE kind=? AND key=?", (kind, key)).fetchone()
+            with self._sql_lifetime.cursor(db) as statement:
+                row = statement.execute("SELECT value,at FROM cache WHERE kind=? AND key=?", (kind, key)).fetchone()
         return json.loads(row[0]) if row and time.time() - row[1] < max_age else None
 
     def _save(self, kind: str, key: str, value: dict):
         kind = self._scope(kind)
         with self.lock, self._connection_scope(transaction=True) as db:
-            db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (kind, key, json.dumps(value), time.time()))
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (kind, key, json.dumps(value), time.time()))
 
     def _post(self, path: str, payload: dict, timeout: float = 25) -> dict:
         with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
@@ -285,8 +289,9 @@ class LexiriseReadingService:
         for token in tokens:
             token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
         with self.lock, self._connection_scope() as db:
-            grammar_choices = {slug.rsplit(":", 1)[-1]: level for slug, level in db.execute("SELECT slug,proficiency FROM grammar_choices")
-                               if slug.startswith(self.lexirise._scope() + ":" + self.source_language + ":")}
+            with self._sql_lifetime.cursor(db) as statement:
+                grammar_choices = {slug.rsplit(":", 1)[-1]: level for slug, level in statement.execute("SELECT slug,proficiency FROM grammar_choices")
+                                   if slug.startswith(self.lexirise._scope() + ":" + self.source_language + ":")}
         return {"text": text, "tokens": tokens, "pendingMeanings": pending,
                 "analysisPending": bool(result.get("morphoPending")),
                 "grammar": normalize_grammar(text, result, grammar_choices)}
@@ -299,7 +304,8 @@ class LexiriseReadingService:
             return None
         proficiency = 4 if known else 0
         with self.lock, self._connection_scope(transaction=True) as db:
-            db.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (self.lexirise._scope() + ":" + self.source_language + ":" + slug, proficiency))
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (self.lexirise._scope() + ":" + self.source_language + ":" + slug, proficiency))
         return {"slug": slug, "proficiency": proficiency, "localOverride": True}
 
     def lookup(self, text: str, start: int) -> dict | None:

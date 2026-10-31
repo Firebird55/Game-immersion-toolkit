@@ -19,7 +19,16 @@ def operation_connections(tmp_path, monkeypatch):
     raw = sqlite3.connect
     state = SimpleNamespace(opened=[], close_error=None, transaction_errors=[],
                             close_entered=None, close_release=None, threaded=False)
+    class ObservedCursor(sqlite3.Cursor):
+        def close(self):
+            self.close_calls += 1
+            return super().close()
     class Observed(sqlite3.Connection):
+        def cursor(self):
+            cursor = super().cursor(factory=ObservedCursor)
+            cursor.close_calls = 0
+            self.cursors.append(cursor)
+            return cursor
         def __exit__(self, *args):
             try: return super().__exit__(*args)
             except BaseException as error:
@@ -40,6 +49,7 @@ def operation_connections(tmp_path, monkeypatch):
             options['check_same_thread'] = False
         connection = raw(*args, factory=Observed, **options)
         connection.close_calls, connection.closed_cleanly = 0, False
+        connection.cursors = []
         state.opened.append(connection)
         return connection
     monkeypatch.setattr(sqlite3, 'connect', connect)
@@ -83,6 +93,7 @@ def test_real_operation_connections_close_once_on_reads_writes_and_early_returns
     assert not store._connection_failures
     for connection in state.opened:
         assert connection.close_calls == 1 and connection.closed_cleanly
+        assert all(cursor.close_calls == 1 for cursor in connection.cursors)
         with pytest.raises(sqlite3.ProgrammingError, match='closed'): connection.execute('SELECT 1')
 
 

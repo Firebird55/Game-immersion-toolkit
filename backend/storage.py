@@ -96,50 +96,66 @@ class TranscriptStore:
 
     def _initialize(self) -> None:
         with self._connection_scope() as connection:
-            connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute(SCHEMA)
-            columns = {row[1] for row in connection.execute("PRAGMA table_info(transcript_lines)")}
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute("PRAGMA journal_mode=WAL")
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(SCHEMA)
+            with self._sql_lifetime.cursor(connection) as statement:
+                columns = {row[1] for row in statement.execute("PRAGMA table_info(transcript_lines)")}
             if 'language_context' not in columns:
-                connection.execute("ALTER TABLE transcript_lines ADD COLUMN language_context TEXT NOT NULL DEFAULT '{}'")
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute("ALTER TABLE transcript_lines ADD COLUMN language_context TEXT NOT NULL DEFAULT '{}'")
             if "channel" not in columns:
-                connection.execute(
-                    "ALTER TABLE transcript_lines ADD COLUMN channel TEXT NOT NULL DEFAULT 'dialogue'"
-                )
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute(
+                        "ALTER TABLE transcript_lines ADD COLUMN channel TEXT NOT NULL DEFAULT 'dialogue'"
+                    )
             if "game" not in columns:
-                connection.execute(
-                    "ALTER TABLE transcript_lines ADD COLUMN game TEXT NOT NULL DEFAULT 'zzz'"
-                )
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute(
+                        "ALTER TABLE transcript_lines ADD COLUMN game TEXT NOT NULL DEFAULT 'zzz'"
+                    )
             if "voiced" not in columns:
-                connection.execute(
-                    "ALTER TABLE transcript_lines ADD COLUMN voiced INTEGER NOT NULL DEFAULT 0"
-                )
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute(
+                        "ALTER TABLE transcript_lines ADD COLUMN voiced INTEGER NOT NULL DEFAULT 0"
+                    )
             if "audio_path" not in columns:
-                connection.execute("ALTER TABLE transcript_lines ADD COLUMN audio_path TEXT")
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute("ALTER TABLE transcript_lines ADD COLUMN audio_path TEXT")
             if "favorite" not in columns:
-                connection.execute(
-                    "ALTER TABLE transcript_lines ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0"
-                )
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute(
+                        "ALTER TABLE transcript_lines ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0"
+                    )
             if "speaker_english" not in columns:
-                connection.execute("ALTER TABLE transcript_lines ADD COLUMN speaker_english TEXT")
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute("ALTER TABLE transcript_lines ADD COLUMN speaker_english TEXT")
             if "speaker_chinese" not in columns:
-                connection.execute("ALTER TABLE transcript_lines ADD COLUMN speaker_chinese TEXT")
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS idx_transcript_created_at "
-                "ON transcript_lines(created_at DESC)"
-            )
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS idx_transcript_session_id_created_at "
-                "ON transcript_lines(session_id, created_at DESC)"
-            )
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS idx_transcript_favorites_id "
-                "ON transcript_lines(id DESC) WHERE favorite = 1"
-            )
-            connection.execute(
-                "CREATE UNIQUE INDEX IF NOT EXISTS idx_hito_identity "
-                "ON transcript_lines(game, text_id) WHERE game = 'hito'"
-            )
-            connection.execute("PRAGMA optimize")
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.execute("ALTER TABLE transcript_lines ADD COLUMN speaker_chinese TEXT")
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_transcript_created_at "
+                    "ON transcript_lines(created_at DESC)"
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_transcript_session_id_created_at "
+                    "ON transcript_lines(session_id, created_at DESC)"
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_transcript_favorites_id "
+                    "ON transcript_lines(id DESC) WHERE favorite = 1"
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_hito_identity "
+                    "ON transcript_lines(game, text_id) WHERE game = 'hito'"
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute("PRAGMA optimize")
 
     @staticmethod
     def _row_to_line(row: sqlite3.Row) -> TranscriptLine:
@@ -174,40 +190,43 @@ class TranscriptStore:
     ) -> TranscriptLine:
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
         with self._connection_scope() as connection:
-            cursor = connection.execute(
-                """
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    """
                 INSERT INTO transcript_lines (
                     created_at, session_id, game, source_ocr, english, chinese,
                     text_id, score, match_kind, ambiguous, channel, voiced, audio_path,
                     speaker_english, speaker_chinese, favorite, language_context
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    timestamp.isoformat(),
-                    session_id,
-                    match.game,
-                    match.source_ocr,
-                    match.english,
-                    match.chinese,
-                    match.text_id,
-                    match.score,
-                    match.kind,
-                    int(match.ambiguous),
-                    channel,
-                    0,
-                    None,
-                    match.speaker_english,
-                    match.speaker_chinese,
-                    0,
-                    json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
-                        'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
-                        'voice_status', 'dialogue_kind')}, ensure_ascii=False),
-                ),
-            )
-            row = connection.execute(
-                "SELECT * FROM transcript_lines WHERE id = ?",
-                (cursor.lastrowid,),
-            ).fetchone()
+                    (
+                        timestamp.isoformat(),
+                        session_id,
+                        match.game,
+                        match.source_ocr,
+                        match.english,
+                        match.chinese,
+                        match.text_id,
+                        match.score,
+                        match.kind,
+                        int(match.ambiguous),
+                        channel,
+                        0,
+                        None,
+                        match.speaker_english,
+                        match.speaker_chinese,
+                        0,
+                        json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
+                            'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
+                            'voice_status', 'dialogue_kind')}, ensure_ascii=False),
+                    ),
+                )
+                row_id = statement.lastrowid
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT * FROM transcript_lines WHERE id = ?",
+                    (row_id,),
+                ).fetchone()
         return self._row_to_line(row)
 
     @staticmethod
@@ -225,8 +244,9 @@ class TranscriptStore:
             raise ValueError("Hito identity handling requires a Hito match")
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
         with self._connection_scope() as connection:
-            connection.execute(
-                """
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    """
                 INSERT INTO transcript_lines (
                     created_at, session_id, game, source_ocr, english, chinese,
                     text_id, score, match_kind, ambiguous, channel
@@ -238,16 +258,17 @@ class TranscriptStore:
                     match_kind = excluded.match_kind, ambiguous = excluded.ambiguous,
                     channel = excluded.channel
                 """,
-                (
-                    timestamp.isoformat(), session_id, match.source_ocr, match.english,
-                    match.chinese, match.text_id, match.score, match.kind,
-                    int(match.ambiguous), channel,
-                ),
-            )
-            row = connection.execute(
-                "SELECT * FROM transcript_lines WHERE game = 'hito' AND text_id = ?",
-                (match.text_id,),
-            ).fetchone()
+                    (
+                        timestamp.isoformat(), session_id, match.source_ocr, match.english,
+                        match.chinese, match.text_id, match.score, match.kind,
+                        int(match.ambiguous), channel,
+                    ),
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT * FROM transcript_lines WHERE game = 'hito' AND text_id = ?",
+                    (match.text_id,),
+                ).fetchone()
         return self._row_to_line(row)
 
     def add_or_upgrade_recent(
@@ -270,11 +291,12 @@ class TranscriptStore:
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
         if match.source_locale != 'zh-Hans':
             with self._connection_scope() as connection:
-                duplicate = connection.execute("""SELECT 1 FROM transcript_lines
+                with self._sql_lifetime.cursor(connection) as statement:
+                    duplicate = statement.execute("""SELECT 1 FROM transcript_lines
                     WHERE game=? AND text_id=? AND json_extract(language_context, '$.source_locale')=?
                     AND json_extract(language_context, '$.source_text')=? AND datetime(created_at)>=datetime(?) LIMIT 1""",
-                    (match.game, match.text_id, match.source_locale, match.source_text,
-                     (timestamp-timedelta(seconds=max(0.0,cooldown_seconds))).isoformat())).fetchone()
+                        (match.game, match.text_id, match.source_locale, match.source_text,
+                         (timestamp-timedelta(seconds=max(0.0,cooldown_seconds))).isoformat())).fetchone()
             if duplicate:
                 return None, False
             return self.add(match, session_id, created_at=timestamp, channel=channel), False
@@ -282,14 +304,15 @@ class TranscriptStore:
         is_comic = match.game == "zzz" and channel == "cinematic" and is_comic_text_id(match.text_id)
         with self._connection_scope() as connection:
             adjacent_cutoff = timestamp - timedelta(seconds=max(0.0, adjacent_seconds))
-            adjacent = connection.execute(
-                """
+            with self._sql_lifetime.cursor(connection) as statement:
+                adjacent = statement.execute(
+                    """
                 SELECT * FROM transcript_lines
                 WHERE game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 1
                 """,
-                (match.game, adjacent_cutoff.isoformat()),
-            ).fetchone()
+                    (match.game, adjacent_cutoff.isoformat()),
+                ).fetchone()
             if (
                 adjacent
                 and not (is_comic or self._row_to_line(adjacent).is_comic)
@@ -297,28 +320,30 @@ class TranscriptStore:
             ):
                 return None, False
 
-            duplicate = connection.execute(
-                """
+            with self._sql_lifetime.cursor(connection) as statement:
+                duplicate = statement.execute(
+                    """
                 SELECT 1 FROM transcript_lines
                 WHERE text_id = ? AND english = ?
                   AND game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans'
                   AND datetime(created_at) >= datetime(?)
                 LIMIT 1
                 """,
-                (match.text_id, match.english, match.game, cutoff.isoformat()),
-            ).fetchone()
+                    (match.text_id, match.english, match.game, cutoff.isoformat()),
+                ).fetchone()
             if duplicate:
                 return None, False
 
             fragment_cutoff = timestamp - timedelta(seconds=max(0.0, fragment_seconds))
-            recent_rows = connection.execute(
-                """
+            with self._sql_lifetime.cursor(connection) as statement:
+                recent_rows = statement.execute(
+                    """
                 SELECT * FROM transcript_lines
                 WHERE game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 8
                 """,
-                (match.game, fragment_cutoff.isoformat()),
-            ).fetchall()
+                    (match.game, fragment_cutoff.isoformat()),
+                ).fetchall()
             incoming_text = self._prefix_text(match.english)
             for recent in recent_rows:
                 # Each official comic ID is already a complete utterance.
@@ -334,14 +359,15 @@ class TranscriptStore:
                     return None, False
 
             upgrade_cutoff = timestamp - timedelta(seconds=max(0.0, upgrade_seconds))
-            previous = connection.execute(
-                """
+            with self._sql_lifetime.cursor(connection) as statement:
+                previous = statement.execute(
+                    """
                 SELECT * FROM transcript_lines
                 WHERE session_id = ? AND game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
                 ORDER BY id DESC LIMIT 1
                 """,
-                (session_id, match.game, upgrade_cutoff.isoformat()),
-            ).fetchone()
+                    (session_id, match.game, upgrade_cutoff.isoformat()),
+                ).fetchone()
             if previous and not (is_comic or self._row_to_line(previous).is_comic):
                 previous_text = self._prefix_text(previous["english"])
                 complete_text = self._prefix_text(match.english)
@@ -351,8 +377,9 @@ class TranscriptStore:
                     and previous_text in complete_text
                 )
                 if is_completion:
-                    connection.execute(
-                        """
+                    with self._sql_lifetime.cursor(connection) as statement:
+                        statement.execute(
+                            """
                         UPDATE transcript_lines
                         SET source_ocr = ?, english = ?, chinese = ?, text_id = ?,
                             score = ?, match_kind = ?, ambiguous = ?, channel = ?,
@@ -360,57 +387,63 @@ class TranscriptStore:
                             voiced = 0, audio_path = NULL, language_context = ?
                         WHERE id = ?
                         """,
-                        (
-                            match.source_ocr,
-                            match.english,
-                            match.chinese,
-                            match.text_id,
-                            match.score,
-                            match.kind,
-                            int(match.ambiguous),
-                            channel,
-                            match.speaker_english,
-                            match.speaker_chinese,
-                            json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
-                                'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
-                                'voice_status', 'dialogue_kind')}, ensure_ascii=False),
-                            previous["id"],
-                        ),
-                    )
-                    row = connection.execute(
-                        "SELECT * FROM transcript_lines WHERE id = ?", (previous["id"],)
-                    ).fetchone()
+                            (
+                                match.source_ocr,
+                                match.english,
+                                match.chinese,
+                                match.text_id,
+                                match.score,
+                                match.kind,
+                                int(match.ambiguous),
+                                channel,
+                                match.speaker_english,
+                                match.speaker_chinese,
+                                json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
+                                    'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
+                                    'voice_status', 'dialogue_kind')}, ensure_ascii=False),
+                                previous["id"],
+                            ),
+                        )
+                    with self._sql_lifetime.cursor(connection) as statement:
+                        row = statement.execute(
+                            "SELECT * FROM transcript_lines WHERE id = ?", (previous["id"],)
+                        ).fetchone()
                     return self._row_to_line(row), True
 
         return self.add(match, session_id, created_at=timestamp, channel=channel), False
 
     def get(self, line_id: int) -> TranscriptLine | None:
         with self._connection_scope() as connection:
-            row = connection.execute(
-                "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
-            ).fetchone()
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
+                ).fetchone()
         return self._row_to_line(row) if row else None
 
     def update_audio(self, line_id: int, audio_path: str | None, voiced: bool) -> TranscriptLine | None:
         with self._connection_scope() as connection:
-            connection.execute(
-                "UPDATE transcript_lines SET audio_path = ?, voiced = ? WHERE id = ?",
-                (audio_path, int(voiced), line_id),
-            )
-            row = connection.execute(
-                "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
-            ).fetchone()
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    "UPDATE transcript_lines SET audio_path = ?, voiced = ? WHERE id = ?",
+                    (audio_path, int(voiced), line_id),
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
+                ).fetchone()
         return self._row_to_line(row) if row else None
 
     def set_favorite(self, line_id: int, favorite: bool) -> TranscriptLine | None:
         with self._connection_scope() as connection:
-            connection.execute(
-                "UPDATE transcript_lines SET favorite = ? WHERE id = ?",
-                (int(favorite), line_id),
-            )
-            row = connection.execute(
-                "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
-            ).fetchone()
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    "UPDATE transcript_lines SET favorite = ? WHERE id = ?",
+                    (int(favorite), line_id),
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
+                ).fetchone()
         return self._row_to_line(row) if row else None
 
     def update_speaker(
@@ -420,21 +453,25 @@ class TranscriptStore:
         speaker_chinese: str | None,
     ) -> TranscriptLine | None:
         with self._connection_scope() as connection:
-            connection.execute(
-                "UPDATE transcript_lines SET speaker_english = ?, speaker_chinese = ? WHERE id = ?",
-                (speaker_english, speaker_chinese, line_id),
-            )
-            row = connection.execute(
-                "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
-            ).fetchone()
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute(
+                    "UPDATE transcript_lines SET speaker_english = ?, speaker_chinese = ? WHERE id = ?",
+                    (speaker_english, speaker_chinese, line_id),
+                )
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT * FROM transcript_lines WHERE id = ?", (line_id,)
+                ).fetchone()
         return self._row_to_line(row) if row else None
 
     def delete(self, line_id: int) -> str | None:
         with self._connection_scope() as connection:
-            row = connection.execute(
-                "SELECT audio_path FROM transcript_lines WHERE id = ?", (line_id,)
-            ).fetchone()
-            connection.execute("DELETE FROM transcript_lines WHERE id = ?", (line_id,))
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT audio_path FROM transcript_lines WHERE id = ?", (line_id,)
+                ).fetchone()
+            with self._sql_lifetime.cursor(connection) as statement:
+                statement.execute("DELETE FROM transcript_lines WHERE id = ?", (line_id,))
         return str(row["audio_path"]) if row and row["audio_path"] else None
 
     def prune(self, keep_nonfavorite: int = 50) -> list[tuple[int, str | None]]:
@@ -442,23 +479,26 @@ class TranscriptStore:
         keep_nonfavorite = max(0, keep_nonfavorite)
         with self._connection_scope() as connection:
             rows = []
-            games = [row[0] for row in connection.execute("SELECT DISTINCT game FROM transcript_lines")]
+            with self._sql_lifetime.cursor(connection) as statement:
+                games = [row[0] for row in statement.execute("SELECT DISTINCT game FROM transcript_lines")]
             for game in games:
                 if game == "hito":
                     continue
-                rows.extend(connection.execute(
-                    """
+                with self._sql_lifetime.cursor(connection) as statement:
+                    rows.extend(statement.execute(
+                        """
                     SELECT id, audio_path FROM transcript_lines
                     WHERE favorite = 0 AND game = ?
                     ORDER BY id DESC LIMIT -1 OFFSET ?
                     """,
-                    (game, keep_nonfavorite),
-                ).fetchall())
+                        (game, keep_nonfavorite),
+                    ).fetchall())
             if rows:
-                connection.executemany(
-                    "DELETE FROM transcript_lines WHERE id = ?",
-                    [(row["id"],) for row in rows],
-                )
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.executemany(
+                        "DELETE FROM transcript_lines WHERE id = ?",
+                        [(row["id"],) for row in rows],
+                    )
         return [
             (int(row["id"]), str(row["audio_path"]) if row["audio_path"] else None)
             for row in rows
@@ -467,19 +507,21 @@ class TranscriptStore:
     def purge_unvoiced(self) -> list[tuple[int, str | None]]:
         """Keep favorites, confirmed voices and certified unvoiced dialogue."""
         with self._connection_scope() as connection:
-            rows = connection.execute(
-                """
+            with self._sql_lifetime.cursor(connection) as statement:
+                rows = statement.execute(
+                    """
                 SELECT * FROM transcript_lines
                 WHERE game <> 'hito' AND voiced = 0 AND favorite = 0
                 """
-            ).fetchall()
+                ).fetchall()
             rows = [row for row in rows if not (self._row_to_line(row).is_comic
                                                or self._row_to_line(row).voice_status == 'unvoiced')]
             if rows:
-                connection.executemany(
-                    "DELETE FROM transcript_lines WHERE id = ?",
-                    [(row["id"],) for row in rows],
-                )
+                with self._sql_lifetime.cursor(connection) as statement:
+                    statement.executemany(
+                        "DELETE FROM transcript_lines WHERE id = ?",
+                        [(row["id"],) for row in rows],
+                    )
         return [
             (int(row["id"]), str(row["audio_path"]) if row["audio_path"] else None)
             for row in rows
@@ -487,9 +529,10 @@ class TranscriptStore:
 
     def audio_path(self, line_id: int) -> str | None:
         with self._connection_scope() as connection:
-            row = connection.execute(
-                "SELECT audio_path FROM transcript_lines WHERE id = ?", (line_id,)
-            ).fetchone()
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(
+                    "SELECT audio_path FROM transcript_lines WHERE id = ?", (line_id,)
+                ).fetchone()
         return str(row["audio_path"]) if row and row["audio_path"] else None
 
     def list(
@@ -510,7 +553,8 @@ class TranscriptStore:
         query += " ORDER BY julianday(created_at) DESC, id DESC LIMIT ?"
         parameters.append(limit)
         with self._connection_scope() as connection:
-            rows = connection.execute(query, parameters).fetchall()
+            with self._sql_lifetime.cursor(connection) as statement:
+                rows = statement.execute(query, parameters).fetchall()
         return [self._row_to_line(row) for row in rows]
 
     def list_favorites(self, game: str | None = None) -> list[TranscriptLine]:
@@ -522,7 +566,8 @@ class TranscriptStore:
                 query += " AND game = ?"
                 parameters.append(game)
             query += " ORDER BY julianday(created_at) DESC, id DESC"
-            rows = connection.execute(query, parameters).fetchall()
+            with self._sql_lifetime.cursor(connection) as statement:
+                rows = statement.execute(query, parameters).fetchall()
         return [self._row_to_line(row) for row in rows]
 
     def count(self, session_id: str | None = None, game: str | None = None) -> int:
@@ -538,5 +583,6 @@ class TranscriptStore:
                 parameters.append(game)
             if conditions:
                 query += " WHERE " + " AND ".join(conditions)
-            row = connection.execute(query, parameters).fetchone()
+            with self._sql_lifetime.cursor(connection) as statement:
+                row = statement.execute(query, parameters).fetchone()
         return int(row["total"])

@@ -63,7 +63,9 @@ reopening or retrying close. These are private cleanup errors, not a retryable
 remote `LexiriseError`; their objects/tracebacks/credentials are never serialized.
 
 Ledger reads and public return values materialize SQL rows/dictionaries rather
-than returning SQL cursors. HTTP `_items` pagination is separate from SQL cursor
+than returning SQL cursors. Its explicit statement scopes close SELECT cursors
+before HTTP work and close write cursors before the existing intermediate
+commits. HTTP `_items` pagination is separate from SQL cursor
 lifetime. The SQL fence does not cover an entire send with several SQL scopes,
 work queued before `_lock`, HTTP-only settings/deck requests, key selection or
 file/client lifetimes outside its SQL scopes. It supplies no queue-retirement
@@ -134,6 +136,53 @@ described below. Its retained records replace the earlier cache-only inventory
 and coalesce concurrent same-key construction. SQL admission is still separate:
 the registry does not freeze these SQL owners or cover settings/file resources.
 
+## Owned statement cursors
+
+Normal SQL sites in TranscriptStore, the Lexirise ledger and Reading now use the
+existing lifetime helper's narrow `cursor(connection)` context. It obtains and
+owns the actual cursor **before** execute, fetch or iteration can fail, and
+closes it exactly once after its statement result is consumed. Known cursor
+close finishes before transaction exit and connection close; operation admission
+remains active through all cleanup and failed-object publication. There is no
+connection proxy, replacement factory, successful cursor registry or enumeration
+of arbitrary Python/SQLite objects.
+
+SQL, schema, parameters, materialized results and connection arguments stay the
+same. Transcript insertion copies the cursor's lastrowid scalar before closing
+that cursor, then performs its existing SELECT. Multirow queries and grammar
+comprehensions are consumed inside their cursor scope. Reading reads still use
+no connection transaction enter/exit, commit or rollback. No cursor scope is
+extended across an existing ledger HTTP request merely to hold its resources.
+The raw `_connect` hook, exact C5 constructor interception and intermediate
+ledger commits remain intact.
+
+A failed cursor close creates a fixed-text private `_SqliteCursorCloseError`
+retaining the actual owner, connection, cursor and original body/close errors.
+The owner records it before operation leave. Its existing configured poison
+wrapper refuses later SQL/freeze/resume without another connection or cursor;
+even an attempt at another owned cursor on that still-open connection refuses.
+Unknown cleanup remains poisoned even if an independent lock happens to be
+available. Actual failed cursor/connection objects are not replaced or retried.
+
+When body, cursor close, transaction exit and connection close fail together,
+the original body, actual transaction error and actual connection-close error
+retain their existing connection-failure fields and identities. The cursor
+failure retains its actual cursor-close error and any actual transaction error.
+Only the exact cursor-failure object issued and retained by this owner, with
+this actual owner/connection binding, may be unwrapped to its original body for
+that bookkeeping. Matching class, fields, message or equality is insufficient.
+The actual escaped exception is kept distinct from its original body so a
+rollback/commit error is not mistaken for that body. Falsey exceptions remain
+errors; selection uses explicit None/identity checks.
+
+If cursor creation raises before handing over an object, the helper does not
+invent ownership of an unseen cursor. The connection still follows its existing
+transaction/close path. Body/transaction errors propagate unchanged when both
+known cursor and connection close succeed. These private cleanup failures are
+not remote retry instructions and are never serialized. Their exception graphs
+and failed objects remain process-local ownership, not an external recovery or
+physical-resource certificate.
+
 ## Timeout and failure handling
 
 Use one finite, non-boolean int/float timeout between zero and Python's native
@@ -158,27 +207,32 @@ drain. Existing close failures keep their actual connection and original body,
 transaction and close exceptions; subsequent calls raise fresh poison wrappers
 without retrying that close or reopening the store. A zero active-call count
 alone cannot create or resume a fence after failed close. The implementation
-does not keep a registry of successful connections or inspect GC/weakrefs.
+does not keep a registry of successful connections/cursors or inspect GC/weakrefs.
 
 ## Exact proof limit
 
 Each token certifies that the issuing owner's **admitted connection-operation
 scopes have drained** and their close calls returned without a recorded failure.
-It does not certify physical SQLite/OS handle closure. CPython uses
-`sqlite3_close_v2`; a retained unfinished cursor/statement can keep SQLite
-resources alive after a successful close return. See the
+Ordinary service statements additionally close their known explicitly owned
+cursors within those scopes. The token still does not certify physical SQLite/
+OS handle closure. CPython uses `sqlite3_close_v2`; an unfinished cursor created
+through a raw/private bypass can keep SQLite resources alive after a successful
+connection close return. See the
 [SQLite close contract](https://www.sqlite.org/c3ref/close.html),
 [CPython 3.12 connection implementation](https://raw.githubusercontent.com/python/cpython/v3.12.13/Modules/_sqlite/connection.c)
 and [cursor implementation](https://raw.githubusercontent.com/python/cpython/v3.12.13/Modules/_sqlite/cursor.c).
-No GC, cursor registry, pointer inspection or rename success is substituted for
+No GC, successful-resource registry, pointer inspection or rename success is substituted for
 that missing resource-lifetime boundary.
 
 Ordinary TranscriptStore methods return materialized rows/models/scalars,
 consume multirow queries, and do not expose a cursor. Its private connection
 factory/scope is not a containment boundary against arbitrary Python code.
-Exception tracebacks or an explicitly retained private cursor can retain
-resources; explicit cursor/resource lifetime remains a separate prerequisite
-before physical store detach. A method with multiple connection scopes may be
+An owned cursor is already explicitly closed even if its Python reference or
+body traceback remains retained. Raw/private `connection.execute/cursor` clients
+can bypass that statement mechanism; their tracebacks or escaped cursors remain
+outside the known-cursor claim. Future blob/backup or other resource types need
+explicit lifetime rather than inheriting a cursor guarantee. Physical Windows
+store detach remains separately unverified. A method with multiple connection scopes may be
 between them when freeze succeeds; its next scope is refused. The fence does
 not certify that every outer public method invocation has returned. The same
 private-cursor/traceback limitation applies to Lexirise SQL scopes, pins and
@@ -268,6 +322,8 @@ live, with no token and admission still closed.
 An actual SQLite negative case retains an unfinished private cursor and shows
 that a valid token can coexist with an independent exclusive-lock refusal;
 fixture disposal is not used as product resource-release evidence.
+That raw-private negative remains alongside the new positive owned-statement
+case; it is not evidence of an ordinary public API race.
 The existing Chinese/Hito/body/transaction/early-return tests remain applicable.
 The [Lexirise lifetime tests](../backend/tests/test_lexirise_lifetime.py) exercise
 real deferred transaction and close faults, original exception retention,
@@ -297,4 +353,16 @@ cached worker/callback shutdown. Existing handoff, cancellation and update-start
 fixtures explicitly provide this producer; production has no missing-registry
 fallback. A cancelled handoff test keeps the actual creation thread and drain
 task owned. Source tests also preserve the exact three-store C5 factory boundary.
+The [owned statement tests](../backend/tests/test_sqlite_operation_resources.py)
+retain actual cursors and body tracebacks while independently checking local
+SQLite locks, and hold cursor-close calls on Events before connection close.
+They exercise execute failure before a result is handed over, failure before
+cursor-factory handover, actual deferred commit and denied rollback, both cleanup
+faults together, falsey exceptions and repeated poison without close retry.
+A same-class/equal-fields imitation error is deliberately equal to an issued
+failure but cannot authorize body-error unwrapping. Root/pin poison is shared;
+Reading read contexts remain nontransactional. Strict mock HTTP checks that
+ledger cursors close before network work and intermediate commits remain.
+Failed fixture disposal happens only after assertions and is not product
+cleanup/retry evidence. Native Windows physical release remains unverified.
 These are local source regressions, not native Windows or full R19 acceptance.

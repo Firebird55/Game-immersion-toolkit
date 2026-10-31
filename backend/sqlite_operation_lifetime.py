@@ -9,6 +9,15 @@ import time
 from .runtime_writers import RuntimeWriterGate
 
 
+class _SqliteCursorCloseError(RuntimeError):
+    """Actual failed statement ownership; never a physical-detach capability."""
+    def __init__(self, owner, connection, cursor, body_error, close_error):
+        super().__init__('SQLite statement cleanup is unconfirmed.')
+        self.owner, self.connection, self.cursor = owner, connection, cursor
+        self.body_error, self.close_error = body_error, close_error
+        self.transaction_error = None
+
+
 class SqliteOperationLifetime:
     """One owner group; retain failed objects only, never successful connections."""
     def __init__(self, subject, *, close_error, poisoned_error, fence_type, label):
@@ -47,18 +56,22 @@ class SqliteOperationLifetime:
 
     @contextmanager
     def transaction(self, connection):
-        body_error = transaction_error = None
+        body_error = escaped_error = transaction_error = cursor_failure = None
         try:
             try:
                 with connection:
                     try:
                         yield connection
                     except BaseException as error:
-                        body_error = error
+                        escaped_error = error
+                        cursor_failure = self._retained_cursor_failure(error, connection)
+                        body_error = cursor_failure.body_error if cursor_failure is not None else error
                         raise
             except BaseException as error:
-                if error is not body_error:
+                if error is not escaped_error:
                     transaction_error = error
+                    if cursor_failure is not None:
+                        cursor_failure.transaction_error = error
                 raise
         finally:
             self._close_connection(connection, body_error, transaction_error)
@@ -71,10 +84,42 @@ class SqliteOperationLifetime:
             try:
                 yield connection
             except BaseException as error:
-                body_error = error
+                failure = self._retained_cursor_failure(error, connection)
+                body_error = failure.body_error if failure is not None else error
                 raise
         finally:
             self._close_connection(connection, body_error, None)
+
+    @contextmanager
+    def cursor(self, connection):
+        """Own an actual statement before execute, close once after consumption."""
+        self.require_clean()
+        cursor = connection.cursor()
+        body_error = None
+        try:
+            try:
+                yield cursor
+            except BaseException as error:
+                body_error = error
+                raise
+        finally:
+            try:
+                cursor.close()
+            except BaseException as close_error:
+                failure = _SqliteCursorCloseError(self, connection, cursor, body_error, close_error)
+                with self.failure_lock:
+                    self.failures.append(failure)
+                raise failure from body_error if body_error is not None else close_error
+
+    def _retained_cursor_failure(self, error, connection):
+        # A body can construct an error with matching class/fields. Unwrap only
+        # this owner's actual issued/retained object, never an equality match.
+        if type(error) is _SqliteCursorCloseError:
+            with self.failure_lock:
+                if (error.owner is self and error.connection is connection
+                        and any(failure is error for failure in self.failures)):
+                    return error
+        return None
 
     def _close_connection(self, connection, body_error, transaction_error):
         try:
