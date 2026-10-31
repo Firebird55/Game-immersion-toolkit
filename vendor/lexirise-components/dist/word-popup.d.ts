@@ -12,6 +12,20 @@ export type WordPopupSettings = {
     definition: PopupItem<DefinitionSection>[];
     openOn: 'first' | 'last';
 };
+export declare const WORD_POPUP_OPEN_MODES: readonly ["click", "hover", "shift-hover"];
+export type WordPopupOpenMode = typeof WORD_POPUP_OPEN_MODES[number];
+type Modifiers = {
+    shiftKey: boolean;
+    ctrlKey: boolean;
+    metaKey: boolean;
+    altKey: boolean;
+};
+export declare function isShiftOnly(event: Modifiers): boolean;
+export declare function popupOpensOnPointerEnter(mode: WordPopupOpenMode, event: Modifiers): boolean;
+export declare function popupTogglesOnShift(mode: WordPopupOpenMode, event: Modifiers & {
+    key: string;
+    repeat: boolean;
+}): boolean;
 export declare function normalizeWordPopupSettings(value: unknown): WordPopupSettings;
 export declare function validateWordPopupPatch(value: unknown): void;
 export declare function orderWordPopupTabs(settings: WordPopupSettings, available: readonly WordTab[]): WordTab[];
@@ -20,5 +34,7 @@ export declare function resolveInitialWordPopupTab(tabs: readonly WordTab[], set
 export declare function popupPreferences(account: AccountSettings | null, language: string): {
     layout: WordPopupSettings;
     disabled: boolean;
+    openMode: "click" | "hover" | "shift-hover";
     hover: boolean;
 };
+export {};

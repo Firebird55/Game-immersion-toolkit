@@ -1,5 +1,6 @@
 export const interfaceMessages:Record<string,[string,string,string]>={
  'Reading options':['Leesopties','阅读选项','閱讀選項'],
+ 'shift-hover':['Shift + aanwijzen','按住 Shift 悬停','按住 Shift 懸停'],
  'Lexirise reading options':['Lexirise-leesopties','Lexirise 阅读选项','Lexirise 閱讀選項'],
  'Lexirise account settings':['Lexirise-accountinstellingen','Lexirise 账户设置','Lexirise 帳戶設定'],
  'Close Lexirise settings':['Lexirise-instellingen sluiten','关闭 Lexirise 设置','關閉 Lexirise 設定'],
@@ -93,7 +94,7 @@ export const interfaceMessages:Record<string,[string,string,string]>={
  'Detailed analysis is still running.':['Gedetailleerde analyse loopt nog.','详细分析仍在进行。','詳細分析仍在進行。'],
  'No grammar rules were returned for this sentence.':['Geen grammaticaregels voor deze zin ontvangen.','未返回此句的语法规则。','未傳回此句的文法規則。'],
  'Check again':['Opnieuw controleren','再次检查','再次檢查'],
- 'Status changes are saved on this browser. Lexirise\'s API currently provides read-only grammar states; use the rule links to read more or update them on Lexirise.':['Statuswijzigingen worden lokaal opgeslagen. Grammatica via de API is alleen-lezen; gebruik de links om deze op Lexirise te wijzigen.','状态更改保存在此浏览器中。Lexirise API 的语法状态为只读；请通过规则链接在 Lexirise 查看或更新。','狀態變更儲存在此瀏覽器中。Lexirise API 的文法狀態為唯讀；請透過規則連結在 Lexirise 查看或更新。'],
+ 'These status changes are saved locally. Use the rule links to read more or change your grammar status on Lexirise.':['Deze statuswijzigingen worden lokaal opgeslagen. Gebruik de links voor uitleg of om je grammaticastatus op Lexirise te wijzigen.','这些状态更改保存在本地。请通过规则链接了解更多内容或在 Lexirise 更改语法状态。','這些狀態變更儲存在本機。請透過規則連結瞭解更多內容或在 Lexirise 變更文法狀態。'],
  'Popup preferences unavailable. Using the default layout; reload Lexirise settings to retry.':['Woordvenstervoorkeuren niet beschikbaar. Standaardindeling actief; laad Lexirise-instellingen opnieuw.','弹窗偏好不可用，正在使用默认布局。重新加载 Lexirise 设置以重试。','彈窗偏好無法使用，正在使用預設版面。重新載入 Lexirise 設定以重試。'],
  'Lexirise vocabulary status':['Lexirise-woordstatus','Lexirise 词汇状态','Lexirise 詞彙狀態'],
  'Words containing':['Woorden met','包含此字的词','包含此字的詞'],

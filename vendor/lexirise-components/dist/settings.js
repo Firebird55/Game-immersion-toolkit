@@ -6,7 +6,7 @@ import { capabilities, studyLanguages, translationLanguages } from './capabiliti
 import { accountToneColorPresets, globalFields, languageFields, settingsPatch, validateAccount } from './account.js';
 import { DEFAULT_TONE_PALETTE, restoreReadingOptions } from './reader.js';
 import { restoreTranslationLimit } from './translation-visibility.js';
-import { normalizeWordPopupSettings } from './word-popup.js';
+import { normalizeWordPopupSettings, WORD_POPUP_OPEN_MODES } from './word-popup.js';
 export function restoreLocalSettings(value) {
     const saved = value;
     return { ...restoreReadingOptions(value), fontSize: typeof saved?.fontSize === 'number' && saved.fontSize >= 18 && saved.fontSize <= 48 ? saved.fontSize : 27,
@@ -14,7 +14,7 @@ export function restoreLocalSettings(value) {
         translationLanguage: translationLanguages.includes(saved?.translationLanguage) ? saved.translationLanguage : 'en' };
 }
 const labels = { pinyin: 'Pronunciation readings', zhuyin: 'Zhuyin', toneMarks: 'Separate tone marks', meanings: 'Inline glosses', toneColors: 'Tone colors' };
-const choices = { interfaceLanguage: ['translation', 'device', ...translationLanguages], translationLanguage: translationLanguages, wordPopupOpenMode: ['click', 'hover'], inlineGlossMode: ['off', 'unknown', 'all'], coloringMode: ['learning_state', 'tone'], toneColorPreset: accountToneColorPresets, wordSpacing: ['none', 'sm', 'md', 'lg'], fontSize: ['sm', 'md', 'lg'], script: ['simplified', 'traditional'] };
+const choices = { interfaceLanguage: ['translation', 'device', ...translationLanguages], translationLanguage: translationLanguages, wordPopupOpenMode: WORD_POPUP_OPEN_MODES, inlineGlossMode: ['off', 'unknown', 'all'], coloringMode: ['learning_state', 'tone'], toneColorPreset: accountToneColorPresets, wordSpacing: ['none', 'sm', 'md', 'lg'], fontSize: ['sm', 'md', 'lg'], script: ['simplified', 'traditional'] };
 export function WordPopupControls({ value, onChange }) {
     const uiText = useInterfaceTranslation();
     const popup = normalizeWordPopupSettings(value);

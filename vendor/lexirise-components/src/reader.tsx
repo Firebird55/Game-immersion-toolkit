@@ -7,7 +7,7 @@ import { Popover } from '@base-ui/react/popover';
 import { Bookmark, Play, Volume2, X } from 'lucide-react';
 import { countUnknownWords, restoreTranslationLimit, type ReadingSummary, type TranslationLimit } from './translation-visibility.js';
 import { appliesToWord, unknownWordGrammar, grammarUrl, type GrammarRule } from './grammar-rules.js';
-import { popupPreferences, orderWordPopupTabs, orderWordPopupDefinitionSections, resolveInitialWordPopupTab, type WordTab, type DefinitionSection } from './word-popup.js';
+import { popupPreferences, popupOpensOnPointerEnter, popupTogglesOnShift, orderWordPopupTabs, orderWordPopupDefinitionSections, resolveInitialWordPopupTab, type WordTab, type DefinitionSection } from './word-popup.js';
 import type { AccountSettings } from './account.js';
 
 export type ReadingScope = 'unknown' | 'all' | 'off';
@@ -211,7 +211,7 @@ function DefinitionComponents({ character, hint, strokeCount, components, option
   </section>;
 }
 
-function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation }: {
+function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation, onPointerEnter, onPointerLeave }: {
   id: number; text: string; token: Token; lookup?: Lookup; lookupError: boolean;
   anchor: HTMLElement; keyboard: boolean;
   options: ReadingOptions; onClose: () => void; onProficiency: (level: number) => void; onRetry: () => void;
@@ -219,6 +219,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
   onGrammarChange: (rule: { slug: string; proficiency: number; localOverride: boolean }) => void;
   onGrammarRetry: () => void;
   preferences: ReturnType<typeof usePopupPreferences>; sentenceTranslation?: string;
+  onPointerEnter?: () => void; onPointerLeave?: () => void;
 }) {
  const uiText=useInterfaceTranslation();
   const available: WordTab[] = ['definition', 'context', 'translation', ...(capability.characters ? ['components' as const] : []), 'examples', 'similar', ...(lookup?.topWords?.length ? ['words' as const] : []), ...(token.savedExpressionId ? ['notes' as const] : []), ...(capability.grammar ? ['grammar' as const] : [])];
@@ -384,7 +385,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
     <Popover.Positioner anchor={anchor} side="bottom" sideOffset={8} align="start" positionMethod="fixed"
       collisionPadding={12} collisionAvoidance={{ side: 'flip', align: 'shift', fallbackAxisSide: 'none' }}
       className="word-sheet-positioner">
-    <Popover.Popup className="word-sheet" initialFocus={keyboard} finalFocus={keyboard ? () => anchor : false}>
+    <Popover.Popup className="word-sheet" initialFocus={keyboard} finalFocus={keyboard ? () => anchor : false} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
       <Popover.Close className="word-sheet-close" aria-label={uiText("Close word lookup")}><X size={17} /></Popover.Close>
       <div className="word-sheet-top">
         <div className="word-sheet-identity">
@@ -444,7 +445,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
                 {savingGrammar === rule.slug ? 'Saving…' : rule.proficiency >= 4 ? 'Mark unknown' : 'Mark known'}</button></div>
           </article>)}
           {grammarSaveError && <p className="word-sheet-error" role="alert">{grammarSaveError}</p>}
-          <small className="word-grammar-note">{uiText("Status changes are saved on this browser. Lexirise's API currently provides read-only grammar states; use the rule links to read more or update them on Lexirise.")}</small>
+          <small className="word-grammar-note">{uiText("These status changes are saved locally. Use the rule links to read more or change your grammar status on Lexirise.")}</small>
         </div>}
         {!lookup && !lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
           <p>{token.meaning || 'Looking up word details…'}<small className="word-loading-note">{uiText("Loading dictionary details…")}</small></p>}
@@ -566,6 +567,8 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
   const preferences = usePopupPreferences();
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelHover = () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); hoverTimer.current = null; };
+  const hoveredWord = useRef<{ index: number; target: HTMLElement } | null>(null);
+  const hoverOpened = useRef(false);
   useEffect(() => () => cancelHover(), []);
   const [reading, setReading] = useState<Reading | null>(cachedReading(id, text));
   const [open, setOpen] = useState<number | null>(null);
@@ -574,8 +577,27 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
   const [lookup, setLookup] = useState<{ index: number; value?: Lookup; error?: boolean } | null>(null);
   const [lookupAttempt, setLookupAttempt] = useState(0);
   const [error, setError] = useState(false);
+  const leavePopup = () => {
+    cancelHover();
+    if (preferences.openMode === 'shift-hover' && hoverOpened.current) hoverTimer.current = setTimeout(() => setOpen(null), 100);
+  };
   const refreshReading = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => { if (preferences.disabled) { cancelHover(); setOpen(null); } }, [preferences.disabled]);
+  useEffect(() => {
+    const shift = (event: KeyboardEvent) => {
+      if (preferences.disabled || !hoveredWord.current || !popupTogglesOnShift(preferences.openMode, event)) return;
+      // composedPath also sees inputs inside a consumer's Shadow DOM.
+      if (event.composedPath().some(node => node instanceof HTMLElement && (node.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(node.tagName)))) return;
+      cancelHover();
+      const { index, target } = hoveredWord.current;
+      if (!target.isConnected) return;
+      hoverOpened.current = true;
+      notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false);
+      setOpen(previous => previous === index ? null : index);
+    };
+    window.addEventListener('keydown', shift, true);
+    return () => { window.removeEventListener('keydown', shift, true); cancelHover(); };
+  }, [preferences.openMode, preferences.disabled, id, text]);
   useEffect(() => {
     const dismiss = (event: Event) => {
       const path = event.composedPath();
@@ -583,7 +605,7 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
       setOpen(null);
     };
     const otherWord = (event: Event) => { if ((event as CustomEvent).detail !== id) setOpen(null); };
-    const escape = (event: KeyboardEvent) => { if(event.key === 'Escape') setOpen(null); };
+    const escape = (event: KeyboardEvent) => { if(event.key === 'Escape') { cancelHover(); setOpen(null); } };
     window.addEventListener('click', dismiss, true);
     window.addEventListener('lexirise-open-word', otherWord);
     window.addEventListener('keydown', escape, true);
@@ -598,6 +620,7 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
     let refreshCount = 0;
     const refreshDelays = [800, 1200, 1800, 2600, 3800, 5600, 8000, 12000, 16000, 20000];
     setOpen(null);
+    cancelHover(); hoveredWord.current = null;
     const saved = cachedReading(id, text);
     setReading(saved);
     async function refresh() {
@@ -673,10 +696,15 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
       {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true">{token.zhuyin}</span>}
       <span className="reading-hanzi" role="button" tabIndex={0}
         aria-haspopup={preferences.disabled ? undefined : 'dialog'} aria-expanded={open === index}
-        onPointerEnter={event => { if (!preferences.hover || preferences.disabled || event.pointerType !== 'mouse' || !window.matchMedia('(hover: hover)').matches) return; cancelHover(); const target = event.currentTarget; hoverTimer.current = setTimeout(() => { notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false); setOpen(index); }, 180); }}
-        onPointerLeave={cancelHover}
-        onClick={event => { cancelHover(); if (preferences.disabled) return; event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }}
-        onKeyDown={event => { if (!preferences.disabled && (event.key === 'Enter' || event.key === ' ')) { cancelHover(); event.preventDefault(); event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(true); setOpen(open === index ? null : index); } }}
+        onPointerEnter={event => {
+          if (preferences.disabled || event.pointerType !== 'mouse' || !window.matchMedia('(hover: hover)').matches) return;
+          cancelHover(); const target = event.currentTarget; hoveredWord.current = { index, target };
+          if (event.buttons || !popupOpensOnPointerEnter(preferences.openMode, event)) return;
+          hoverTimer.current = setTimeout(() => { hoverOpened.current = true; notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false); setOpen(index); }, preferences.openMode === 'shift-hover' ? 0 : 180);
+        }}
+        onPointerLeave={() => { hoveredWord.current = null; leavePopup(); }}
+        onClick={event => { cancelHover(); hoverOpened.current = false; if (preferences.disabled) return; event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }}
+        onKeyDown={event => { if (!preferences.disabled && (event.key === 'Enter' || event.key === ' ')) { cancelHover(); hoverOpened.current = false; event.preventDefault(); event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(true); setOpen(open === index ? null : index); } }}
         style={colorStyle} title={token.meaning || 'Tap for word details'}>{wordText}</span>
       {enabled(options.meanings, unknown) && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
     </span>);
@@ -690,6 +718,7 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
       onGrammarRetry={() => void refreshReading.current?.()}
       lookup={lookup?.index === open ? lookup.value : undefined} lookupError={lookup?.index === open && !!lookup.error}
       onClose={() => setOpen(null)} onProficiency={onProficiency}
+      onPointerEnter={cancelHover} onPointerLeave={leavePopup}
       onRetry={() => { setLookup(null); setLookupAttempt(value => value + 1); }} />}</>;
 });
 

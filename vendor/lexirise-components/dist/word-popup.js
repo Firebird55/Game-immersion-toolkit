@@ -1,5 +1,15 @@
 export const WORD_POPUP_TABS = ['definition', 'translation', 'context', 'components', 'examples', 'similar', 'words', 'notes', 'grammar'];
 export const WORD_POPUP_SECTIONS = ['senses', 'breakdown', 'dictionaries', 'frequency'];
+export const WORD_POPUP_OPEN_MODES = ['click', 'hover', 'shift-hover'];
+export function isShiftOnly(event) {
+    return event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+}
+export function popupOpensOnPointerEnter(mode, event) {
+    return mode === 'hover' || mode === 'shift-hover' && isShiftOnly(event);
+}
+export function popupTogglesOnShift(mode, event) {
+    return mode === 'shift-hover' && event.key === 'Shift' && !event.repeat && isShiftOnly(event);
+}
 // Reviewed against Lexirise's public settings/lookup modules, 2026-10-11.
 // Definition stays enabled; missing items retain the website's defaults.
 export function normalizeWordPopupSettings(value) {
@@ -59,6 +69,8 @@ export function resolveInitialWordPopupTab(tabs, settings, last) {
     return settings.openOn === 'last' && last && tabs.includes(last) ? last : tabs[0] ?? null;
 }
 export function popupPreferences(account, language) {
+    const saved = account?.global.wordPopupOpenMode;
+    const openMode = WORD_POPUP_OPEN_MODES.includes(saved) ? saved : 'click';
     return { layout: normalizeWordPopupSettings(account?.languageSettings[language]?.wordPopup), disabled: account?.global.disableWordPopups === true,
-        hover: account?.global.wordPopupOpenMode === 'hover' };
+        openMode, hover: openMode === 'hover' };
 }
