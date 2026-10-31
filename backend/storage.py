@@ -96,6 +96,8 @@ class TranscriptStore:
         # mislabel their cached audio as one page after upgrading the reader.
         if row['game'] == 'beyond' and row['text_id'].endswith(':complete') and row['voiced']:
             context.setdefault('audio_scope', 'paragraph')
+        if row['voiced'] and (context.get('dialogue_kind') or '').endswith('_full_track'):
+            context['audio_scope'] = 'paragraph'
         return TranscriptLine(
             id=row["id"],
             created_at=datetime.fromisoformat(row["created_at"]),

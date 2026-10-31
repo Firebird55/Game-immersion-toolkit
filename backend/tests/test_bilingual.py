@@ -1,8 +1,29 @@
 import json
 
+import pytest
+
 from backend.bilingual import normalize_chinese, subtitle_candidates
 from backend.pragmata import PragmataTextIndex
 from backend.tests.test_textmaps import make_index
+
+
+@pytest.mark.parametrize('observed', ['Please wait here.', '请在这里等候。'])
+def test_shared_voice_cannot_choose_between_differently_translated_pages(tmp_path, observed):
+    from backend.local_game import LocalGameTextIndex
+    rows = [{'text_id': 'honkai3:1', 'english': 'Please wait here.', 'chinese': '请在这里等候。',
+             'audio': {'voice': 'original-paragraph'}, 'audio_scope': 'paragraph'},
+            {'text_id': 'honkai3:2', 'english': 'Please wait here.', 'chinese': '先在这里等一下。',
+             'audio': {'voice': 'original-paragraph'}, 'audio_scope': 'paragraph'}]
+    if observed == '请在这里等候。':
+        rows[1].update(english='Wait here for the courier.', chinese=observed)
+    (tmp_path/'textmap.json').write_text(json.dumps({'records': rows}), encoding='utf-8')
+    index = LocalGameTextIndex('honkai3', tmp_path)
+    assert index.ready and index.match_lines([observed]) is None
+    rows[1].update(english='An independent later page.', chinese='独立的下一页。')
+    (tmp_path/'textmap.json').write_text(json.dumps({'records': rows}), encoding='utf-8')
+    index = LocalGameTextIndex('honkai3', tmp_path)
+    assert index.match_lines([observed]).text_id == 'honkai3:1'
+    assert index.match_lines(['An independent later page.']).audio_scope == 'paragraph'
 
 
 def test_chinese_normalization_keeps_dialogue_and_latin_names():

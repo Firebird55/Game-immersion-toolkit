@@ -1,5 +1,12 @@
 # Portal language and dialogue audit
 
+Subtitle boundary correction, 2026-10-31: reader revision 2 emits each authored
+`<delay:...>` page independently. Localized pages require the same delay layout;
+equal page counts alone do not establish a translation. Repeated pages keep
+their separate identities. Each page retains the unchanged complete original
+recording with paragraph scope; display delays are not guessed audio cuts.
+Synthetic archive tests verify both page text and original recording bytes.
+
 Reviewed 2026-10-28. Game ID `portal`; Steam application `400`; Windows process
 `hl2.exe`, disambiguated by the installed `portal/gameinfo.txt` and Portal VPK.
 This is partial native dialogue coverage, with unresolved and absent recordings

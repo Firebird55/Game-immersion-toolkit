@@ -58,6 +58,17 @@ def test_old_complete_recording_in_history_retains_its_whole_paragraph_label(tmp
     assert restored.audio_scope == 'paragraph' and restored.has_audio
 
 
+@pytest.mark.parametrize('game,kind', [('deathstranding', 'cinematic_full_track'),
+                                    ('mgsvtpp', 'cassette_tape_full_track'),
+                                    ('portal', 'song_full_track')])
+def test_legacy_authored_full_track_history_has_shared_paragraph_label(tmp_path, game, kind):
+    store = TranscriptStore(tmp_path/'transcript.db')
+    created = store.add(TextMatch(game=game, text_id=game+':page', english='A visible page.', chinese='',
+        source_ocr='A visible page.', score=100, kind='exact', dialogue_kind=kind), 'session')
+    store.update_audio(created.id, 'synthetic-original.mp3', voiced=True)
+    assert TranscriptStore(store.path).get(created.id).audio_scope == 'paragraph'
+
+
 def test_game_histories_are_partitioned(tmp_path) -> None:
     store = TranscriptStore(tmp_path / "transcript.db")
     zzz = TextMatch(

@@ -5,6 +5,20 @@ import pytest
 from backend.multilingual_index import MultilingualTextIndex
 
 
+@pytest.mark.parametrize('scope', [None, 'line', 'paragraph'])
+def test_authored_full_track_always_has_paragraph_scope_in_all_indexes(tmp_path, scope):
+    from backend.local_game import LocalDialogue
+    row = {'text_id': 'test:page', 'source_locale': 'en', 'audio_locale': 'en',
+           'source_text': 'An individual visible page.', 'texts': {'en': 'An individual visible page.'},
+           'english': 'An individual visible page.', 'chinese': '',
+           'audio': {'voice': 'original-track', 'playback_scope': 'full_track'}}
+    if scope is not None:
+        row['audio_scope'] = scope
+    assert LocalDialogue(**row).audio_scope == 'paragraph'
+    hit = index(tmp_path, 'en', [row]).match_lines([row['source_text']])
+    assert hit and hit.audio_scope == 'paragraph' and hit.source_text == row['source_text']
+
+
 def test_chinese_voice_pack_identity_is_game_specific(tmp_path):
     # Tomb Raider ships separate packs. Endfield explicitly shares Mandarin.
     for game, voice in [('shadowofthetombraider', 'zh-Hant'), ('riseofthetombraider', 'zh-Hant'), ('endfield', 'zh-Hans')]:

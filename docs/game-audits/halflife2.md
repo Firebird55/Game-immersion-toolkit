@@ -1,5 +1,11 @@
 # Half-Life 2 language and dialogue audit
 
+Subtitle boundary correction, 2026-10-31: reader revision 2 retains repeated
+delayed-caption pages and requires identical authored delay layouts before
+attaching a localized page. Page count alone is insufficient. Shared original
+recordings retain paragraph scope; no new recording cuts are inferred. The
+same rule applies to the base game and supported episode namespaces.
+
 Reviewed 2026-10-28. Game ID `halflife2`; Steam application `220`; Windows
 process `hl2.exe`, disambiguated by `hl2/gameinfo.txt` and the HL2 VPKs.
 This is partial native dialogue coverage for Half-Life 2 and its installed

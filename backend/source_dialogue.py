@@ -1,5 +1,6 @@
 """Shared Source caption/sound bindings without cross-language voice fallback."""
 from collections import defaultdict
+from decimal import Decimal, InvalidOperation
 import hashlib
 import io
 import json
@@ -166,7 +167,31 @@ def clean_caption(value):
 
 
 def caption_pages(value):
-    return list(dict.fromkeys(clean_caption(part) for part in re.split(r'<delay:[^>]+>', value, flags=re.I) if clean_caption(part)))
+    return [clean_caption(part) for part in re.split(r'<delay:[^>]+>', value, flags=re.I) if clean_caption(part)]
+
+
+def localized_caption_pages(values, source):
+    """Separate authored delay pages and join only identical boundary layouts.
+
+    These markers establish display boundaries, not original-recording cuts.
+    Matching only page counts would silently align differently paged locales.
+    """
+    layouts = {}
+    for locale, raw in values.items():
+        parts = re.split(r'<delay:([^>]+)>', raw, flags=re.I)
+        try:
+            boundaries = tuple(Decimal(value.strip()) for value in parts[1::2])
+        except InvalidOperation:
+            raise invalid('Invalid Source caption page delay.') from None
+        if any(not value.is_finite() or not 0 <= value <= 1800 for value in boundaries):
+            raise invalid('Invalid Source caption page delay.')
+        layouts[locale] = (boundaries, [clean_caption(value) for value in parts[::2]])
+    if source not in layouts:
+        return []
+    boundaries, pages = layouts[source]
+    return [(number, {locale: translated[number] for locale, (other, translated) in layouts.items()
+                      if other == boundaries and len(translated) == len(pages) and translated[number]})
+            for number, text in enumerate(pages) if text]
 
 
 def resolve_sequence(token, events, sequences):

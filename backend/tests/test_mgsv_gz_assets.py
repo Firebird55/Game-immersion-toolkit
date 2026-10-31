@@ -271,9 +271,28 @@ def test_cassette_requires_its_exact_original_path_and_subtitle_id(tmp_path, loc
     files[gz.path_hash('/Assets/tpp/sound/external/tape/' + name + '.wem')] = wem('complete_tape')
     gzs(tmp_path, files)
     result = assets.index_language(tmp_path, tmp_path, locale, [])
-    row = next(row for row in result['records'] if row['dialogue_kind'] == 'cassette_tape_full_track')
-    assert len(row['ocr_texts'][locale]) == 2
-    assert assets.extract_voice(tmp_path, row['audio'], Path(), tmp_path) == wem('complete_tape')
+    rows = [row for row in result['records'] if row['dialogue_kind'] == 'cassette_tape_full_track']
+    assert [row['source_text'] for row in rows] == ['First tape page.', 'Second tape page.']
+    assert len({row['text_id'] for row in rows}) == 2
+    assert all(row['ocr_texts'][locale] == [row['source_text']] for row in rows)
+    assert all(row['audio_scope'] == 'paragraph' for row in rows)
+    assert rows[0]['audio'] == rows[1]['audio']
+    assert assets.extract_voice(tmp_path, rows[0]['audio'], Path(), tmp_path) == wem('complete_tape')
+
+
+def test_subp_pages_align_only_unique_authored_intervals():
+    audio = {'original': 'whole-performance'}
+    localized = {
+        'en': {'pages': ['First page.', 'Second page.'], 'timings': [(0, 30), (30, 60)]},
+        'ja': {'pages': ['後の字幕。'], 'timings': [(30, 60)]},
+        'fr': {'pages': ['Première.', 'Deuxième.'], 'timings': [(0, 20), (20, 60)]},
+        'de': {'pages': ['Eins.', 'Zwei.'], 'timings': [(30, 60), (30, 60)]},
+    }
+    first, second = assets._page_records('test', localized, 'en', audio, 'dialogue')
+    assert first['texts'] == {'en': 'First page.'}
+    assert second['texts'] == {'en': 'Second page.', 'ja': '後の字幕。'}
+    assert first['audio'] == second['audio'] == audio
+    assert first['audio_scope'] == second['audio_scope'] == 'paragraph'
 
 
 def test_standalone_labeled_media_still_requires_original_sab_relation(tmp_path):

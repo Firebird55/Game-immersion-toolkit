@@ -254,6 +254,21 @@ def test_invalid_authored_times_use_full_track_without_future_caption_text(tmp_p
     assert 'Second' not in rows[0]['source_text']
 
 
+def test_translation_pages_require_unique_matching_authored_intervals():
+    localized = {locale: game.captions(text) for locale, text in {
+        'en': 'First.//(0.4)\\Second.//(0.8)\\Third.',
+        'fr': 'Première.//(0.4)\\Deuxième.//(0.8)\\Troisième.',
+        'de': 'Eins.//(0.6)\\Zwei.//(0.8)\\Drei.',
+        'it': 'Uno.//(0.4)\\Due.//(0.4)\\Tre.',
+        'es-ES': 'A complete unsplit translation.',
+    }.items()}
+    texts = [game._page_texts(page, 'en', localized) for page in localized['en']]
+    assert texts == [{'en': 'First.', 'fr': 'Première.', 'it': 'Uno.'},
+                     {'en': 'Second.', 'fr': 'Deuxième.'},
+                     {'en': 'Third.', 'fr': 'Troisième.', 'de': 'Drei.'}]
+    assert game._page_texts(localized['it'][1], 'it', localized) == {'it': 'Due.'}
+
+
 def test_extraction_revalidates_original_sound_binding(tmp_path):
     install(tmp_path)
     payload = game.index_language(tmp_path, tmp_path, 'en', [])

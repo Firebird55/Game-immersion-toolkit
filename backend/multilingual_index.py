@@ -10,7 +10,7 @@ from rapidfuzz import fuzz, process
 
 from .languages import audio_locale, normalize_text, resolve_locale, study_language
 from .models import TextMatch
-from .local_game import dialogue_voice_status, dialogue_capture_channels, DEFAULT_CAPTURE_CHANNELS
+from .local_game import dialogue_voice_status, dialogue_audio_scope, dialogue_capture_channels, DEFAULT_CAPTURE_CHANNELS
 from .textmaps import display_text
 
 
@@ -97,8 +97,7 @@ class MultilingualTextIndex:
                 row['voice_status'] = dialogue_voice_status(row.get('audio'), row.get('voice_status'))
                 row.setdefault('audio_scope', 'paragraph' if self.game == 'beyond'
                                and row['text_id'].endswith(':complete') and row.get('audio') else 'line')
-                if row['audio_scope'] not in {'line', 'paragraph'}:
-                    raise ValueError('Invalid original voice scope')
+                row['audio_scope'] = dialogue_audio_scope(row.get('audio'), row['audio_scope'])
                 voice_counts[row['voice_status']] += 1
                 category = row.get('dialogue_kind') or 'uncategorized'
                 if not isinstance(category, str):
