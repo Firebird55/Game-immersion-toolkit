@@ -14,13 +14,28 @@ It supplies no new copy pass. The later `f43cec7` run passed keeper and all four
 copy cases again. The subsequent `eaa42b2` shared SQL-owner run also passed them
 with the earlier SQL helper. The later `973db81` reading SQL-owner checkpoint
 passed all four cases. The subsequent `d329027` reading-registry checkpoint
-passes them again and is now the latest complete bounded checkpoint; its seven
-source/metadata archives and 81 named Git inputs were independently reviewed by
-root and peer. Its source contracts pass 1,319 cases without skips. The registry
-does not freeze SQL or certify a physical/global fence; copied-target activation,
-keeper loss and warm routing remain open. The separate C7 mechanism still fails
+passed them again; its seven source/metadata archives and 81 named Git inputs
+were independently reviewed by root and peer. Its source contracts passed
+1,319 cases without skips. The registry does not freeze SQL or certify a physical/global fence; copied-target activation,
+keeper loss and warm routing remain open. Its separate C7 mechanism failed
 after `grantread` with null conversion context and unconfirmed cleanup; it
 supplies no legacy attribute or copy authority.
+
+The later `ac5b767` HTTP-worker checkpoint passes all four copy cases again and
+is now the latest complete bounded checkpoint: 1,337 Windows contracts, no skips,
+one warning, 197.25 seconds, seven archives/28 entries and 83 named Git inputs
+independently verified. Inventory is 1,449 files, 642 directories and 620,160,029
+bytes, SHA256 `43b63fc3dea0fdfe4cca852d00a31262da1dc7d3bd2063ba2d7a8812aeb01a64`.
+Its main runtime job used image `20261030.294.1`; six auxiliary jobs used
+image `20261021.278.1`. Runtime/SQL/registry ASTs retain the d329 boundary; the two
+HTTP worker changes do not certify a physical/global fence or warm session.
+The separate ac5 C7 paired contract fails before mechanism/upload (203 passed,
+one failed, no skips), with zero artifacts. The single duplicated pair reports
+inherited `parsed`/null context/stderr present and Attempt `unavailable`/null
+context/no stderr. No timeout, causal stage, absence-of-operation or cleanup
+result is inferred. Later local parent-labelled controls and SQL cursor/resource
+work are outside ac5. Hosted Windows Server evidence does not close ordinary
+user Windows 11, rights, keeper-loss, target-activation or full R19 gates.
 
 The existing [completion plan](r19-completion-plan.md) C2/C3/C4 gates remain
 open. The successful historical owned-host, cold-slot and

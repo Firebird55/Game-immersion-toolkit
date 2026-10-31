@@ -1277,9 +1277,9 @@ keeper death, warm OCR/routing, rights and ordinary-user Windows11 remain open.
 ## Verified reading-registry checkpoint at d329027
 
 [Run 41245764306](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41245764306)
-at `d329027b850ebd7fc01ad6db6d366ec3a3ee9bf9` is the latest complete bounded
-frozen checkpoint. It passed 1,319 Windows contracts without skips (one warning,
-179.85 seconds), native/C1/cold-slot, both living-keeper cases and C3–C6.
+at `d329027b850ebd7fc01ad6db6d366ec3a3ee9bf9` was the latest complete bounded
+frozen checkpoint before `ac5b767` below. It passed 1,319 Windows contracts
+without skips (one warning, 179.85 seconds), native/C1/cold-slot, both living-keeper cases and C3–C6.
 The reading registry now retains default, cached, in-flight and failed
 constructor objects, closes creation before strict C2 request drain and keeps
 pool recovery within the existing lifecycle. The source race/failure contracts
@@ -1308,6 +1308,48 @@ receipt are independently hash/schema/source/publisher verified in the
 the actual conversion cause, legacy attribute mechanism and keeper-loss result
 remain unproved. No global/physical/warm, rights, ordinary-user Windows11 or
 R19 acceptance gate is upgraded.
+
+## Verified HTTP-worker checkpoint at ac5b767
+
+[Run 41247755052](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41247755052)
+at `ac5b7670da9fd613892f6d054e1b96ff51371d7c` is the latest complete bounded
+frozen checkpoint. It passed 1,337 Windows contracts without skips (one warning,
+197.25 seconds), native/C1/cold-slot, both living-keeper cases and C3–C6.
+All Runtime methods and SQL/reading-registry owners retain their d329 ASTs;
+only the two explicit HTTP worker handlers change. Regional preview and manual
+match workers now enter their captured gate/ticket inside the actual thread and
+leave in `finally`. Cancelled HTTP waiters cannot release that active worker,
+and a queued old ticket cannot start resource access after stop/resume. Cached
+preview bytes and ingest's coroutine SQL/publication/session timing are preserved.
+Windows source cancellation/race contracts and extracted paused-API checks are
+distinct; this does not assert every race inside the frozen executable or real
+capture/account side effects.
+
+Root and peer independently verified seven provider-bound archives (28 entries),
+83 named exact Git inputs, 473 A2/P1 records and 113 notice references covering
+104 hashes. Inventory: 1,449 files, 642 directories and 620,160,029 bytes; SHA256
+`43b63fc3dea0fdfe4cca852d00a31262da1dc7d3bd2063ba2d7a8812aeb01a64`.
+The **main extracted-runtime job** used image `20261030.294.1`; its **six auxiliary
+jobs** used `20261021.278.1`. Each actual job identity is retained in the
+[ledger](r19-frozen-checkpoint-20261031.json). Reference CMake remains 4.4.4 and
+compiler 19.51.36260.0. The fifteen ASR inputs are unchanged, without new prepare
+or source replay. These hosted Windows Server images do not establish ordinary
+user Windows 11 acceptance. Later SQL cursor/resource changes and the subsequent
+six-file FFmpeg recipe BSD integration are outside this source head.
+
+The separate same-head C7 [run 41247805821](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41247805821)
+on image `20261030.294.1` failed during authored contracts: **203 passed, one
+failed, no skips, 13.69 seconds**. Both earlier Windows engine cases pass, but the
+new paired real-conversion control fails. Its single pair is printed twice in
+pytest output: inherited reports `parsed`, null context and stderr present;
+Attempt reports `unavailable`, null context and no stderr. Stderr presence is no
+error classification, and unavailable identifies no timeout or causal boundary.
+The actual mechanism and metadata upload were skipped; there are zero artifacts.
+No absence-of-operation, conversion cause, cleanup or keeper-loss result follows.
+Later parent-labelled controls at local `259dfe4` passed 212 source cases with
+three platform skips; they are outside ac5 and are not a native rerun. Historical
+d329 and earlier C7 negatives remain unchanged. Physical/global/warm, exact-output
+rights, ordinary-user Windows 11 and full R19 acceptance remain open.
 
 ## Continuation and rollback
 
