@@ -584,6 +584,75 @@ def test_authored_engine_failure_context_never_echoes_private_or_unknown_process
         assert 'private-' not in json.dumps(value)
 
 
+def authored_rethrow_comparison(output, *, success=False, writer_fails=True):
+    def unique(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value: raise ValueError('Duplicate authored observation key')
+            value[key] = item
+        return value
+    try:
+        if type(output) is not bytes or type(success) is not bool or type(writer_fails) is not bool:
+            return 'unavailable'
+        lines = output.splitlines()
+        if len(lines) != (1 if not success else 2 if writer_fails else 3): return 'unavailable'
+        frame = json.loads(lines[0], object_pairs_hook=unique)
+        keys = ('record_equal', 'exception_equal', 'category_equal', 'identifier_equal', 'finally_observed')
+        if (type(frame) is not dict or set(frame) != {'kind', 'baseline', 'instrumented'}
+                or type(frame['kind']) is not str or frame['kind'] != 'authored-rethrow-comparison'):
+            return 'unavailable'
+        for variant in ('baseline', 'instrumented'):
+            item = frame[variant]
+            if type(item) is not dict or set(item) != set(keys) or any(type(item[key]) is not bool for key in keys):
+                return 'unavailable'
+        if success:
+            if lines[1] != b'owned-catch-ok': return 'unavailable'
+            if not writer_fails and json.loads(lines[2], object_pairs_hook=unique) != conversion_frame(exceptions=['argument']):
+                return 'unavailable'
+        return {variant: {key: frame[variant][key] for key in keys} for variant in ('baseline', 'instrumented')}
+    except (ValueError, UnicodeError, TypeError):
+        return 'unavailable'
+
+
+def authored_comparison_frame():
+    values = dict.fromkeys(('record_equal', 'exception_equal', 'category_equal', 'identifier_equal', 'finally_observed'), True)
+    values['record_equal'] = False
+    return {'kind': 'authored-rethrow-comparison', 'baseline': dict(values), 'instrumented': dict(values)}
+
+
+def test_authored_rethrow_comparison_keeps_only_complete_typed_boolean_variants():
+    frame = authored_comparison_frame()
+    frame['instrumented']['category_equal'] = False
+    raw = json.dumps(frame).encode('ascii')
+    expected = {key: frame[key] for key in ('baseline', 'instrumented')}
+    assert authored_rethrow_comparison(raw) == expected
+    assert authored_rethrow_comparison(raw+b'\nowned-catch-ok\n', success=True) == expected
+    tail = json.dumps(conversion_frame(exceptions=['argument'])).encode('ascii')
+    assert authored_rethrow_comparison(raw+b'\nowned-catch-ok\n'+tail+b'\n', success=True, writer_fails=False) == expected
+
+
+@pytest.mark.parametrize('mutation', ['absent', 'partial', 'duplicate-frame', 'duplicate-kind',
+    'duplicate-nested', 'extra-key', 'missing-variant', 'missing-bool', 'numeric-bool',
+    'private-value', 'private-kind', 'extra-variant', 'unknown-tail'])
+def test_authored_rethrow_comparison_refuses_malformed_or_private_data_without_echo(mutation):
+    frame = authored_comparison_frame()
+    if mutation == 'extra-key': frame['raw'] = 'private-path-message'
+    if mutation == 'missing-variant': frame.pop('baseline')
+    if mutation == 'missing-bool': frame['instrumented'].pop('exception_equal')
+    if mutation == 'numeric-bool': frame['baseline']['record_equal'] = 0
+    if mutation == 'private-value': frame['baseline']['record_equal'] = 'private-id'
+    if mutation == 'private-kind': frame['kind'] = 'private-type'
+    if mutation == 'extra-variant': frame['private-variant'] = frame['baseline']
+    raw = json.dumps(frame, separators=(',', ':')).encode('ascii')
+    if mutation == 'absent': raw = b''
+    if mutation == 'partial': raw = raw[:-1]
+    if mutation == 'duplicate-frame': raw += b'\n'+raw
+    if mutation == 'duplicate-kind': raw = raw.replace(b'{"kind":', b'{"kind":"private-type","kind":', 1)
+    if mutation == 'duplicate-nested': raw = raw.replace(b'"record_equal":false', b'"record_equal":false,"record_equal":true', 1)
+    if mutation == 'unknown-tail': raw += b'\nprivate-stdout-stderr-trace'
+    assert authored_rethrow_comparison(raw) == 'unavailable'
+
+
 @pytest.mark.skipif(sys.platform != 'win32', reason='Authored Windows PowerShell engine semantics unavailable locally')
 @pytest.mark.parametrize('writer_fails', [False, True])
 def test_authored_powershell_rethrows_original_record_and_exception_when_diagnostic_writer_fails(writer_fails):
@@ -594,6 +663,32 @@ def test_authored_powershell_rethrows_original_record_and_exception_when_diagnos
     if not executable.is_file(): pytest.fail('Authored engine host unavailable')
     prefix = r'''
 $ErrorActionPreference='Stop'
+$line='authored-private-line'
+function ConvertFrom-Json { throw $script:original }
+'''
+    fresh_error = r'''
+$script:original=[Management.Automation.ErrorRecord]::new(
+    [ArgumentException]::new('authored-private-error'),'authored-private-id',
+    [Management.Automation.ErrorCategory]::InvalidArgument,$null)
+'''
+    baseline = r'''
+$baselineInner=$null; $baselineCaught=$null; $baselineFinally=$false
+try {
+    try { $grant=$line|ConvertFrom-Json }
+    catch {
+        $baselineInner=$_
+        try { } catch { }
+        throw
+    }
+} catch { $baselineCaught=$_ } finally { $baselineFinally=$true }
+$baselinePresent=($null -ne $baselineInner -and $null -ne $baselineCaught)
+$baselineRecordEqual=($baselinePresent -and [Object]::ReferenceEquals($baselineCaught,$baselineInner))
+$baselineExceptionEqual=($baselinePresent -and [Object]::ReferenceEquals($baselineCaught.Exception,$baselineInner.Exception))
+$baselineCategoryEqual=($baselinePresent -and $baselineCaught.CategoryInfo.Category -eq $baselineInner.CategoryInfo.Category)
+$baselineIdentifierEqual=($baselinePresent -and $baselineCaught.FullyQualifiedErrorId -ceq $baselineInner.FullyQualifiedErrorId)
+$baselineFinallyObserved=[bool]$baselineFinally
+'''
+    instrumented = r'''
 class C7AuthoredWriter {
     [bool]$Fail
     [string]$Frame=''
@@ -604,15 +699,26 @@ class C7AuthoredWriter {
 }
 $writer=[C7AuthoredWriter]::new()
 $writer.Fail=__FAIL__
-$line='authored-private-line'
-$script:original=[Management.Automation.ErrorRecord]::new(
-    [ArgumentException]::new('authored-private-error'),'authored-private-id',
-    [Management.Automation.ErrorCategory]::InvalidArgument,$null)
-function ConvertFrom-Json { throw $script:original }
-$caught=$null; $finallyObserved=$false
+$caught=$null; $conversionError=$null; $finallyObserved=$false
 '''.replace('__FAIL__', '$true' if writer_fails else '$false')
-    script = prefix + module.CONVERSION_PROJECTOR + '\ntry {\n' + module.CONVERSION_CALL + r'''
+    script = prefix + fresh_error + baseline + instrumented + fresh_error + module.CONVERSION_PROJECTOR + '\ntry {\n' + module.CONVERSION_CALL + r'''
 } catch { $caught=$_ } finally { $finallyObserved=$true }
+$instrumentedPresent=($null -ne $conversionError -and $null -ne $caught)
+$instrumentedRecordEqual=($instrumentedPresent -and [Object]::ReferenceEquals($caught,$conversionError))
+$instrumentedExceptionEqual=($instrumentedPresent -and [Object]::ReferenceEquals($caught.Exception,$conversionError.Exception))
+$instrumentedCategoryEqual=($instrumentedPresent -and $caught.CategoryInfo.Category -eq $conversionError.CategoryInfo.Category)
+$instrumentedIdentifierEqual=($instrumentedPresent -and $caught.FullyQualifiedErrorId -ceq $conversionError.FullyQualifiedErrorId)
+$instrumentedFinallyObserved=[bool]$finallyObserved
+function Get-C7AuthoredComparison([bool]$RecordEqual,[bool]$ExceptionEqual,[bool]$CategoryEqual,[bool]$IdentifierEqual,[bool]$FinallyObserved) {
+    return '{"record_equal":'+$RecordEqual.ToString().ToLowerInvariant()+
+        ',"exception_equal":'+$ExceptionEqual.ToString().ToLowerInvariant()+
+        ',"category_equal":'+$CategoryEqual.ToString().ToLowerInvariant()+
+        ',"identifier_equal":'+$IdentifierEqual.ToString().ToLowerInvariant()+
+        ',"finally_observed":'+$FinallyObserved.ToString().ToLowerInvariant()+'}'
+}
+[Console]::Out.WriteLine('{"kind":"authored-rethrow-comparison","baseline":'+
+    (Get-C7AuthoredComparison $baselineRecordEqual $baselineExceptionEqual $baselineCategoryEqual $baselineIdentifierEqual $baselineFinallyObserved)+
+    ',"instrumented":'+(Get-C7AuthoredComparison $instrumentedRecordEqual $instrumentedExceptionEqual $instrumentedCategoryEqual $instrumentedIdentifierEqual $instrumentedFinallyObserved)+'}')
 if (-not $finallyObserved -or $null -eq $caught) { exit 31 }
 if (-not [Object]::ReferenceEquals($caught,$conversionError)) { exit 32 }
 if (-not [Object]::ReferenceEquals($caught.Exception,$conversionError.Exception)) { exit 33 }
@@ -652,10 +758,14 @@ if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
         for reader in readers: reader.join(timeout=1)
     if failed or any(reader.is_alive() for reader in readers) or any(len(v) > 8192 for v in captured.values()):
         pytest.fail('Authored engine output boundary failed')
+    comparison = authored_rethrow_comparison(captured.get('out', b''), success=code == 0, writer_fails=writer_fails)
     if code != 0 or captured.get('err'):
+        context = authored_engine_failure_context(code, captured.get('err', b''))
+        context['rethrow_comparison'] = comparison
         pytest.fail('Authored engine original-error/finally contract failed: ' + json.dumps(
-            authored_engine_failure_context(code, captured.get('err', b'')), sort_keys=True, separators=(',', ':')))
-    lines = captured.get('out', b'').splitlines()
+            context, sort_keys=True, separators=(',', ':')))
+    if comparison == 'unavailable': pytest.fail('Authored engine rethrow comparison unavailable')
+    lines = captured.get('out', b'').splitlines()[1:]
     if not lines or lines[0] != b'owned-catch-ok' or len(lines) != (1 if writer_fails else 2):
         pytest.fail('Authored engine acknowledgement differs')
     if not writer_fails:
