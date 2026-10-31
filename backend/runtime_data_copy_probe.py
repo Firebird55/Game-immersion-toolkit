@@ -4,10 +4,12 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import queue
 import shutil
 import sqlite3
+import stat
 import tempfile
 import threading
 import uuid
@@ -22,13 +24,18 @@ from .storage import TranscriptStore
 
 SCHEMA = 'proxy-r19-frozen-data-copy-probe-v1'
 CASE = 'authored-data-copy'
+RESUME_CASE = 'authored-data-copy-resume'
+RESUME_SCHEMA = 'proxy-r19-frozen-data-copy-resume-probe-v1'
+RESUME_SCOPE = 'authored-transcript-interrupted-copy-resume-with-living-coordinator'
 PHASES = ('setup-closed', 'favorite-written', 'strict-drain-complete', 'writers-signaled',
           'copy-progress', 'copy-verified', 'source-resumed', 'final-strict-drain-complete',
           'final-writers-signaled', 'released')
+RESUME_PHASES = (*PHASES[:5], 'copy-interrupted', *PHASES[5:])
 FAILURES = frozenset({'fixture-unavailable', 'setup-close-unconfirmed', 'setup-still-open',
     'cohort-unconfirmed', 'owned-host-unconfirmed', 'copy-refused', 'copy-result-unconfirmed',
     'schema-unconfirmed', 'authored-rows-differ', 'pointer-changed', 'source-changed',
-    'control-unavailable', 'control-invalid', 'lease-release-unconfirmed', 'unexpected-data-copy-failure'})
+    'control-unavailable', 'control-invalid', 'lease-release-unconfirmed', 'interrupted-copy-unconfirmed',
+    'unexpected-data-copy-failure'})
 DATABASE_VERSIONS = {'data/transcript-v2.db': 0, 'data/lexirise/exports-v2.db': 0,
                      'data/lexirise/reading-cache-v2.db': 0}
 TABLE_COLUMNS = {
@@ -48,12 +55,124 @@ ROW_FIELDS = ('id', 'game', 'text_id', 'english', 'chinese', 'source_ocr', 'sour
     'source_locale', 'source_text', 'translation_locale', 'translation_text', 'audio_locale',
     'texts', 'voice_status', 'dialogue_kind', 'favorite', 'voiced', 'has_audio')
 STOPPED = WriterStopProof(True, True, True, True, True)
+INSPECTION_ENTRIES = 4096
+INSPECTION_DEPTH = 32
+INSPECTION_BYTES = 64 * 1024 * 1024
 
 
 class DataCopyFailure(RuntimeError):
     def __init__(self, code):
         self.code = code if code in FAILURES else 'unexpected-data-copy-failure'
         super().__init__('Authored frozen data copy failed: '+self.code)
+
+
+class _AuthoredCopyInterruption(RuntimeError):
+    """Only one exact private instance from the fixed callback permits resume."""
+
+
+def _guard_path(path, kind=None, *, missing=False):
+    """Raw root-first metadata; never inspect a descendant through a link."""
+    path = Path(path)
+    if not path.is_absolute() or '..' in path.parts:
+        raise DataCopyFailure('interrupted-copy-unconfirmed')
+    for item in (*reversed(path.parents), path):
+        try:
+            info = item.lstat()
+        except FileNotFoundError:
+            if missing:
+                return None
+            raise DataCopyFailure('interrupted-copy-unconfirmed') from None
+        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+            raise DataCopyFailure('interrupted-copy-unconfirmed')
+        if item != path and not stat.S_ISDIR(info.st_mode):
+            raise DataCopyFailure('interrupted-copy-unconfirmed')
+    if ((kind == 'directory' and not stat.S_ISDIR(info.st_mode))
+            or (kind == 'file' and not stat.S_ISREG(info.st_mode))
+            or not (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode))):
+        raise DataCopyFailure('interrupted-copy-unconfirmed')
+    return info
+
+
+def _guard_tree(root, *, missing=False, files=None, directories=None, sizes=None):
+    """Bounded top-down census. Unknown partial names are refused before stat."""
+    if _guard_path(root, 'directory', missing=missing) is None:
+        return
+    pending, inspected, total_bytes = [Path(root)], 0, 0
+    while pending:
+        directory = pending.pop()
+        _guard_path(directory, 'directory')
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                inspected += 1
+                child = directory/entry.name
+                relative = child.relative_to(root)
+                if inspected > INSPECTION_ENTRIES or len(relative.parts) > INSPECTION_DEPTH:
+                    raise DataCopyFailure('interrupted-copy-unconfirmed')
+                name = relative.as_posix()
+                if files is not None:
+                    if name in files:
+                        kind = 'file'
+                    elif name in directories:
+                        kind = 'directory'
+                    else:
+                        raise DataCopyFailure('interrupted-copy-unconfirmed')
+                else:
+                    kind = None
+                info = _guard_path(child, kind)
+                if stat.S_ISDIR(info.st_mode):
+                    pending.append(child)
+                else:
+                    total_bytes += info.st_size
+                    if (total_bytes > INSPECTION_BYTES or sizes is not None and name in sizes
+                            and info.st_size != sizes[name]):
+                        raise DataCopyFailure('interrupted-copy-unconfirmed')
+
+
+def _guard_snapshot(snapshot, files, directories):
+    allowed = set(directories)
+    for name in (*directories, *(item['name'] for item in files)):
+        allowed.update(parent.as_posix() for parent in Path(name).parents if parent != Path('.'))
+    _guard_tree(snapshot, files={item['name'] for item in files}, directories=allowed,
+                sizes={item['name']: item['size'] for item in files})
+
+
+class _ProbeCoordinator(SyntheticHostCoordinator):
+    """Same lease owner/operations; guard fixed filesystem entrypoints only."""
+    def _failed_entry(self):
+        self._recovery_required = True
+        for runtime in self._owned:
+            runtime.poisoned = True
+
+    def _require_owner(self, owner, *, closing=False):
+        try:
+            for root in (self.legacy.path, self.state.path):
+                _guard_path(root, 'directory')
+                if _guard_path(root/'.r19-synthetic-fixture.json', 'file').st_size > 4096:
+                    raise DataCopyFailure('cohort-unconfirmed')
+            return super()._require_owner(owner, closing=closing)
+        except BaseException:
+            self._failed_entry()
+            raise
+
+    def _record(self, stage, **details):
+        if stage == 'recovery-required':
+            self._recovery_required = True  # Preserve core's flag-before-I/O order.
+        try:
+            _guard_path(self.journal_path.parent, 'directory')
+            _guard_path(self.journal_path, 'file', missing=True)
+            return super()._record(stage, **details)
+        except BaseException:
+            self._failed_entry()
+            raise
+
+    def _publish_pointer(self, runtime):
+        try:
+            _guard_path(self.pointer_path.parent, 'directory')
+            _guard_path(self.pointer_path, 'file', missing=True)
+            return super()._publish_pointer(runtime)
+        except BaseException:
+            self._failed_entry()
+            raise
 
 
 def _row(value):
@@ -244,15 +363,21 @@ class _FrozenAuthoredDataRuntime:
 
 
 class _DataCopyProbe:
-    def __init__(self, layout, stream):
+    def __init__(self, layout, stream, *, case=CASE):
+        if type(case) is not str or case not in {CASE, RESUME_CASE}:
+            raise DataCopyFailure('control-invalid')
         FrozenProbeHost(layout)  # Existing exact-image/profile/private-root/dev-tool guards.
         self.outer, self.stream = layout, stream
+        self.case = case
         self.adapter = self.coordinator = None
         self.enter_attempted = self.entered = self.released = self.release_attempted = False
         self.phase = 'prepare'
         self.copy_verified = self.source_preserved = self.logical_preserved = False
         self.old_barrier_refused = False
         self.wal_files = self.shm_files = 0
+        self.copy_attempts = self.authored_interruptions = self.partial_revalidations = 0
+        self.partial_completed_files = 0
+        self.same_plan_barrier_generation = self.copy_resumed = False
         self.commands = queue.Queue(maxsize=1)
         def read():
             try:
@@ -268,7 +393,8 @@ class _DataCopyProbe:
     def emit(self, phase, *, failure='none'):
         adapter = self.adapter
         children = [child for host in adapter.cohorts for child in host.registered.values()] if adapter else []
-        value = {'schema': SCHEMA, 'kind': 'data-copy', 'case': CASE, 'phase': phase,
+        value = {'schema': RESUME_SCHEMA if self.case == RESUME_CASE else SCHEMA,
+            'kind': 'data-copy', 'case': self.case, 'phase': phase,
             'status': 'failed' if failure != 'none' else 'passed' if phase == 'released' else 'observing',
             'failure': failure, 'source_commit': self.outer.source_commit, 'build_id': self.outer.build_id,
             'generation': adapter.generation if adapter else 0,
@@ -286,10 +412,18 @@ class _DataCopyProbe:
             'production_activation': False, 'target_activation': False, 'r19_complete': False,
             'keeper_loss': 'unavailable', 'dynamic_writer_admission': 'unavailable',
             'warm_routing': 'unavailable', 'credentials': 'not-accessed', 'browser': 'not-run', 'installer': 'not-built'}
+        if self.case == RESUME_CASE:
+            value.update(scope=RESUME_SCOPE, copy_attempts=self.copy_attempts,
+                authored_interruptions=self.authored_interruptions,
+                partial_completed_files=self.partial_completed_files,
+                partial_revalidations=self.partial_revalidations,
+                same_plan_barrier_generation=self.same_plan_barrier_generation,
+                copy_resumed=self.copy_resumed)
         print(json.dumps(value, separators=(',', ':')), flush=True)
 
     def observe(self, phase):
-        if phase not in PHASES or phase == 'released':
+        phases = RESUME_PHASES if self.case == RESUME_CASE else PHASES
+        if phase not in phases or phase == 'released':
             raise DataCopyFailure('control-invalid')
         self.phase = phase
         self._pointer_unchanged()
@@ -302,7 +436,10 @@ class _DataCopyProbe:
             raise DataCopyFailure('control-invalid')
 
     def _pointer_unchanged(self):
-        if self.coordinator.pointer_path.read_bytes() != self.pointer:
+        _guard_path(self.coordinator.pointer_path, 'file')
+        with self.coordinator.pointer_path.open('rb') as stream:
+            actual = stream.read(len(self.pointer)+1)
+        if actual != self.pointer:
             raise DataCopyFailure('pointer-changed')
 
     def prepare(self):
@@ -310,7 +447,7 @@ class _DataCopyProbe:
         temporary = Path(tempfile.gettempdir()).resolve()
         if work == temporary or not work.is_relative_to(temporary):
             raise DataCopyFailure('fixture-unavailable')
-        self.fixture = work/'authored-data-copy'
+        self.fixture = work/self.case
         self.fixture.mkdir(parents=True, exist_ok=False)
         self.source = create_synthetic_root(self.fixture/'legacy')
         self.target = create_synthetic_root(self.fixture/'private-target', installation_id=self.source.installation_id)
@@ -322,7 +459,7 @@ class _DataCopyProbe:
         (layout.state_root/'synthetic-probe.json').write_text(
             json.dumps({'build_id': layout.build_id, 'synthetic': True}), encoding='utf-8')
         self.adapter = _FrozenAuthoredDataRuntime(layout, self.source.installation_id, self.observe)
-        self.coordinator = SyntheticHostCoordinator(self.source, self.target, self.adapter)
+        self.coordinator = _ProbeCoordinator(self.source, self.target, self.adapter)
         self.enter_attempted = True
         self.coordinator.__enter__()
         self.entered = True
@@ -339,6 +476,128 @@ class _DataCopyProbe:
             self.adapter.setup_open = False
         self.observe('setup-closed')
 
+    def _guard_source_groups(self, baseline=None):
+        for group in ('data', 'host-settings', 'work/voice-assets'):
+            files = directories = sizes = None
+            if baseline is not None:
+                prefix = group+'/'
+                files = {item['name'][len(prefix):] for item in baseline[0] if item['name'].startswith(prefix)}
+                directories = {name[len(prefix):] for name in baseline[1] if name.startswith(prefix)}
+                sizes = {item['name'][len(prefix):]: item['size'] for item in baseline[0] if item['name'].startswith(prefix)}
+                if group == 'data':
+                    files.add('companion-operation.lock')  # Metadata only; the core inventory skips the held lease.
+            _guard_tree(self.source.path/group, missing=True, files=files, directories=directories, sizes=sizes)
+
+    def _confirm_source_authority(self, plan, barrier, baseline, generation, leases):
+        """Recheck actual authority on failure, never infer cause from a core code."""
+        try:
+            if self.adapter.poisoned:
+                raise DataCopyFailure('cohort-unconfirmed')
+            for root in (self.source.path, self.target.path):
+                _guard_path(root, 'directory')
+                if _guard_path(root/'.r19-synthetic-fixture.json', 'file').st_size > 4096:
+                    raise DataCopyFailure('cohort-unconfirmed')
+            self._guard_source_groups(baseline)
+            _guard_path(self.source.path/'data/companion-operation.lock', 'file')
+            _guard_path(self.target.path/'host-v1/migration-runtime.lock', 'file')
+            barrier.check(self.source)
+            barrier.check_target(self.target)
+            if (self.adapter.write_generation() != generation or self.adapter.capture_running()
+                    or leases != (self.coordinator._legacy_lease, self.coordinator._target_lease)
+                    or self.coordinator.current is not self.adapter):
+                raise DataCopyFailure('cohort-unconfirmed')
+            if migration._source_inventory(plan) != baseline:
+                raise DataCopyFailure('source-changed')
+            self._pointer_unchanged()
+        except BaseException:
+            self.adapter.poisoned = True
+            raise
+
+    def _invoke_copy(self, plan, barrier, baseline, generation, leases, **options):
+        try:
+            return migration.copy_and_verify_synthetic(plan, barrier, **options)
+        except BaseException:
+            # Includes the exact planned sentinel. A target binding mismatch
+            # can share a core error code with source change; inspect real state.
+            self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+            raise
+
+    def _validate_interrupted_copy(self, plan, barrier, baseline, generation, leases, first_name):
+        """The trusted in-process plan/source grant authority, never manifest roots."""
+        self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+        path = self.target.path/'migrations'/plan.migration_id/'manifest.json'
+        _guard_path(path, 'file')
+        def unique(items):
+            value = {}
+            for key, item in items:
+                if key in value:
+                    raise DataCopyFailure('interrupted-copy-unconfirmed')
+                value[key] = item
+            return value
+        with path.open('rb') as stream:
+            raw = stream.read(1024*1024+1)
+        if len(raw) > 1024*1024:
+            raise DataCopyFailure('interrupted-copy-unconfirmed')
+        manifest = json.loads(raw, object_pairs_hook=unique)
+        binding = {'source_fixture_id': self.source.fixture_id, 'target_fixture_id': self.target.fixture_id,
+            'inventory_sha256': migration._fingerprint(*baseline), 'database_versions': dict(DATABASE_VERSIONS),
+            'external_inventory': [], 'named_account_store': 'unverified'}
+        if (type(manifest) is not dict or manifest.get('schema') != 'proxy-storage-migration-v1'
+                or manifest.get('migration_id') != plan.migration_id or manifest.get('binding') != binding
+                or manifest.get('roots') != {'source': str(self.source.path), 'target': str(self.target.path)}
+                or manifest.get('state') != 'failed' or manifest.get('activation_allowed') is not False
+                or manifest.get('completed_files') != [first_name] or manifest.get('last_checkpoint') != first_name
+                or manifest.get('failure') != _AuthoredCopyInterruption.__name__
+                or manifest.get('inventory') != baseline[0]):
+            raise DataCopyFailure('interrupted-copy-unconfirmed')
+        completed = [item for item in baseline[0] if item['name'] == first_name]
+        if len(completed) != 1:
+            raise DataCopyFailure('interrupted-copy-unconfirmed')
+        # Stricter than the core resume helper: this case refuses modified
+        # partial bytes before retry rather than exercising its repair route.
+        snapshot = self.target.path/'staging'/plan.migration_id
+        _guard_snapshot(snapshot, completed, baseline[1])
+        migration._verify_snapshot(snapshot, completed, baseline[1])
+        self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+        self.partial_completed_files = 1
+        self.partial_revalidations += 1
+        self.same_plan_barrier_generation = True
+
+    def _copy(self, plan, barrier, baseline):
+        progress = False
+        interrupted = self.case == RESUME_CASE
+        sentinel = _AuthoredCopyInterruption()
+        generation = self.adapter.write_generation()
+        leases = (self.coordinator._legacy_lease, self.coordinator._target_lease)
+        first_name = baseline[0][0]['name']
+        def checkpoint(stage, name):
+            nonlocal progress
+            if stage == 'file-copied' and not progress:
+                if interrupted and name != first_name:
+                    raise DataCopyFailure('interrupted-copy-unconfirmed')
+                progress = True
+                self.observe('copy-progress')
+                if interrupted:
+                    raise sentinel
+        self.copy_attempts += 1
+        try:
+            result = self._invoke_copy(plan, barrier, baseline, generation, leases, checkpoint=checkpoint)
+        except _AuthoredCopyInterruption as error:
+            if not interrupted or error is not sentinel or not progress:
+                raise
+            self.authored_interruptions = 1
+            self._validate_interrupted_copy(plan, barrier, baseline, generation, leases, first_name)
+            self.observe('copy-interrupted')
+            # The independent source contender runs during this handshake;
+            # revalidate again afterward, immediately before the second call.
+            self._validate_interrupted_copy(plan, barrier, baseline, generation, leases, first_name)
+            self.copy_attempts += 1
+            result = self._invoke_copy(plan, barrier, baseline, generation, leases)
+            self.copy_resumed = True
+        if interrupted and not self.copy_resumed:
+            raise DataCopyFailure('interrupted-copy-unconfirmed')
+        return result, progress
+
     def exercise(self):
         self.adapter.start()
         first = self.expected[0]
@@ -350,27 +609,43 @@ class _DataCopyProbe:
         self.observe('favorite-written')
         plan = migration.SyntheticMigrationPlan(self.source, self.target, str(uuid.uuid4()),
             database_versions=DATABASE_VERSIONS)
-        with self.coordinator.stopped_writers(self.coordinator.owner) as barrier:
-            baseline = migration._source_inventory(plan)
-            progress = False
-            def checkpoint(stage, _name):
-                nonlocal progress
-                if stage == 'file-copied' and not progress:
-                    progress = True
-                    self.observe('copy-progress')
-            result = migration.copy_and_verify_synthetic(plan, barrier, checkpoint=checkpoint)
-            if (result.get('state') != 'verified' or result.get('activation_allowed') is not False
-                    or result.get('migration_acceptance') != 'incomplete' or not progress):
-                raise DataCopyFailure('copy-result-unconfirmed')
-            snapshot = self.target.path/'staging'/plan.migration_id
-            verify_authored_snapshot(snapshot, self.target.path, self.expected)
-            if migration._source_inventory(plan) != baseline:
-                raise DataCopyFailure('source-changed')
-            migration._verify_snapshot(snapshot, *baseline)
-            self.wal_files = sum((snapshot/name).with_name(Path(name).name+'-wal').is_file() for name in DATABASE_VERSIONS)
-            self.shm_files = sum((snapshot/name).with_name(Path(name).name+'-shm').is_file() for name in DATABASE_VERSIONS)
-            self.copy_verified = self.source_preserved = True
-            self.observe('copy-verified')
+        failure_source_confirmed = False
+        try:
+            with self.coordinator.stopped_writers(self.coordinator.owner) as barrier:
+                try:
+                    self._guard_source_groups()
+                    baseline = migration._source_inventory(plan)
+                except BaseException:
+                    self.adapter.poisoned = True
+                    raise
+                generation = self.adapter.write_generation()
+                leases = (self.coordinator._legacy_lease, self.coordinator._target_lease)
+                try:
+                    result, progress = self._copy(plan, barrier, baseline)
+                    if (result.get('state') != 'verified' or result.get('activation_allowed') is not False
+                            or result.get('migration_acceptance') != 'incomplete' or not progress):
+                        raise DataCopyFailure('copy-result-unconfirmed')
+                    snapshot = self.target.path/'staging'/plan.migration_id
+                    _guard_snapshot(snapshot, *baseline)
+                    verify_authored_snapshot(snapshot, self.target.path, self.expected)
+                    self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+                    migration._verify_snapshot(snapshot, *baseline)
+                    self.wal_files = sum((snapshot/name).with_name(Path(name).name+'-wal').is_file() for name in DATABASE_VERSIONS)
+                    self.shm_files = sum((snapshot/name).with_name(Path(name).name+'-shm').is_file() for name in DATABASE_VERSIONS)
+                    self.copy_verified = self.source_preserved = True
+                    self.observe('copy-verified')
+                    self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+                except BaseException:
+                    if not self.adapter.poisoned:
+                        self._confirm_source_authority(plan, barrier, baseline, generation, leases)
+                        failure_source_confirmed = True
+                    raise
+        except BaseException:
+            if not failure_source_confirmed:
+                # Includes context exit/entry errors outside the guarded copy
+                # body. A cleared barrier is not authority to close exclusion.
+                self.adapter.poisoned = True
+            raise
         try:
             barrier.check(self.source)
         except HostProbeError as error:
@@ -417,10 +692,17 @@ class _DataCopyProbe:
                 code = 'unexpected-data-copy-failure'
             if self.entered and not self.release_attempted:
                 try:
-                    _atomic_json(self.target.path/'host-v1/data-copy-failure.json', {
-                        'schema': SCHEMA, 'status': 'failed', 'failure': code, 'phase': self.phase,
+                    failure = {
+                        'schema': RESUME_SCHEMA if self.case == RESUME_CASE else SCHEMA,
+                        'status': 'failed', 'failure': code, 'phase': self.phase,
                         'source_commit': self.outer.source_commit, 'build_id': self.outer.build_id,
-                        'target_activation': False, 'r19_complete': False})
+                        'target_activation': False, 'r19_complete': False}
+                    if self.case == RESUME_CASE:
+                        failure.update(case=self.case, scope=RESUME_SCOPE)
+                    failure_path = self.target.path/'host-v1/data-copy-failure.json'
+                    _guard_path(failure_path.parent, 'directory')
+                    _guard_path(failure_path, 'file', missing=True)
+                    _atomic_json(failure_path, failure)
                 except BaseException:
                     hold = True
             if self.entered and not self.released and not hold:
@@ -443,5 +725,5 @@ class _DataCopyProbe:
             return 2
 
 
-def run(layout, stream):
-    return _DataCopyProbe(layout, stream).run()
+def run(layout, stream, *, case=CASE):
+    return _DataCopyProbe(layout, stream, case=case).run()

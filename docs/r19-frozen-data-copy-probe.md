@@ -132,7 +132,7 @@ A deterministic copy/schema refusal after every writer has confirmed stopped
 preserves both fixture trees and recovery checkpoint. It can explicitly close
 the coordinator only after its closing writer validation passes. It cannot
 automatically activate/resume the failed copy. Resume/recovery after native
-copy interruption is a later experiment.
+copy interruption remains a separate, unverified case described below.
 
 The build-host harness reuses the existing actual Enter-CompanionOperation
 contender and native lease observer. Nine fixed checkpoints require both leases
@@ -186,3 +186,85 @@ index warmup, capture transfer, warm routing/retained chunks/WebSockets,
 schema-safe rollback, general native closure, rights and clean Windows 11.
 Synthetic path guards are not an adversarial concurrent link-substitution
 proof. PR #59 stays intact; no installer is built.
+
+## Fixed interruption/resume case: native evidence pending
+
+The additional fixed stdin case `authored-data-copy-resume` uses the same real
+store setup, owned detached writers, strict C2 and retained-process-signaled
+barrier. Its control schema is `proxy-r19-frozen-data-copy-resume-probe-v1`;
+its separate receipt is `proxy-r19-frozen-data-copy-resume-receipt-v1`, scoped to
+authored interrupted copy with a living coordinator. It does not change the
+original positive case or that case's nine-block receipt. The verified ed153
+checkpoint above predates this addition and proves no execution of this case.
+
+After the first actual `file-copied` checkpoint, the probe raises one private
+exception instance. The existing helper has already recorded the completed
+file, writes its failed manifest and rethrows that same object. Only that exact
+instance permits this case to continue. An unrelated exception, another
+instance of the same type, or an absent checkpoint cannot authorize resume.
+
+While the same coordinator, both leases, plan/UUID, generation and typed
+barrier remain live, the probe requires the helper's failed manifest, exact
+binding/current source inventory, initial pointer and one trusted completed
+file/hash subset. Manifest roots are checked against the in-process plan and
+never supply authority. One extra independent actual source-entry/native lease
+checkpoint observes exclusion here. All partial checks repeat after that
+handshake immediately before the second helper call.
+
+This probe deliberately refuses altered completed bytes in its own precheck.
+The core helper's existing resume behavior can re-copy altered owned staging
+bytes from the trusted unchanged source; that repair behavior is unchanged.
+Source, binding, generation or pointer changes also refuse this fixed case.
+Source/generation/owner-barrier uncertainty poisons the adapter and keeps its
+lease owner alive. A deterministic partial-target refusal can use the existing
+explicit close only after its known writer-stop proof still passes.
+Every copy-helper exception also rechecks actual source inventory, typed
+barrier, generation, retained owner and lease objects against the trusted
+baseline, including changes after the second precheck or during a helper call.
+The core source-or-plan-changed error alone does not identify its cause: a
+target binding mismatch can produce the same label. Unreadable or changed
+source/authority keeps the live owner held, even if failure output also fails.
+
+Probe-local raw guards walk ancestors from root to leaf before marker/barrier,
+manifest, source-inventory and snapshot inspections. Directory iteration does
+not follow links; partial names must match the trusted completed-file/directory
+set before leaf metadata. These authored inspections are limited to 4096 entries,
+32 relative levels and 64 MiB per inspected tree; partial manifests are limited
+to 1 MiB. Pointer comparisons read only the expected pointer length plus one.
+A local coordinator subclass adds the same filesystem entry guards before
+delegating owner checks, journal writes and initial pointer writes to the
+existing coordinator. It owns no second lease/operation stack and preserves
+recovery-required-before-I/O semantics; guard/journal failure poisons instead
+of being swallowed. Static links/reparse points are refused before outside
+descendant metadata or content. This is not a concurrent replacement proof,
+and these authored-probe bounds are not production migration limits.
+No lease release/reacquisition, new cohort, activation or copied-owner adoption
+occurs between attempts. The resumed helper performs its ordinary byte and
+SQLite checks, followed by the probe's current-schema and semantic checks.
+Only verified completion reaches the normal
+fresh **source** cohort, old-barrier refusal, logical Chinese/favorite check and
+final strict cleanup.
+
+The new passing receipt requires two copy attempts, one authored interruption,
+one completed file before resume, two partial revalidations, ten actual blocked
+source-entry observations and the original two-cohort/four-signal cleanup.
+It models an authored post-file exception, not power failure, disk exhaustion,
+native retained-WAL copying or coordinator death. Unknown ownership/cleanup and
+failed metadata channels keep the existing fail-closed/living-hold behavior.
+Source bytes are checked before restart; logical state is checked afterward.
+All target/production/R19 gates remain false, and the other acceptance limits
+above remain open.
+
+The separate build-host invocation, after exact candidate verification, is:
+
+```powershell
+pwsh -NoProfile -File scripts/probe-frozen-data-copy.ps1 `
+  -RuntimeRoot <extracted-runtime> -Provenance <candidate-json> `
+  -ProbeCase authored-data-copy-resume `
+  -Output output/checks/r19-frozen-data-copy-resume.json
+```
+
+Its default output also has that distinct basename when ProbeCase selects
+resume. The bounded stdout/stderr and explicit living-owner failure policy are
+unchanged. A new exact-source Windows execution and independently downloaded
+receipt are required; local ordering/SQLite fixtures are not that proof.

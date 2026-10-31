@@ -61,9 +61,10 @@ def fixture(tmp_path, monkeypatch):
             self.closed, self.tree = True, None
     monkeypatch.setattr(probe, 'FrozenProbeHost', FakeHost)
     instances = []
-    def make():
-        stream = io.StringIO(''.join('observed '+phase+'\n' for phase in probe.PHASES[:-1]))
-        value = probe._DataCopyProbe(layout, stream)
+    def make(case=probe.CASE):
+        phases = probe.RESUME_PHASES if case == probe.RESUME_CASE else probe.PHASES
+        stream = io.StringIO(''.join('observed '+phase+'\n' for phase in phases[:-1]))
+        value = probe._DataCopyProbe(layout, stream, case=case)
         instances.append(value)
         return value
     def response(request, timeout):
@@ -120,6 +121,310 @@ def test_actual_sql_copy_and_chinese_context_with_fresh_cohort_order(fixture, ca
     assert '这是' not in serialized and str(value.source.path) not in serialized
     assert value.source.fixture_id not in serialized and 'job_members' not in serialized
     assert all(event['r19_complete'] is False and event['target_activation'] is False for event in events)
+    assert all(event['schema'] == probe.SCHEMA and event['case'] == probe.CASE for event in events)
+    assert not ({'scope', 'copy_attempts', 'authored_interruptions', 'partial_revalidations'} & set(events[-1]))
+
+
+def test_interrupted_copy_resumes_same_live_plan_barrier_generation_and_leases(fixture, monkeypatch, capsys):
+    value = fixture.make(probe.RESUME_CASE)
+    original = probe.migration.copy_and_verify_synthetic
+    attempts = []
+    closes = []
+    prepare = value.prepare
+    def prepared():
+        prepare()
+        for name in ('_legacy_lease', '_target_lease'):
+            lease = getattr(value.coordinator, name)
+            close = lease.close
+            def watched(close=close, name=name):
+                closes.append(name)
+                return close()
+            monkeypatch.setattr(lease, 'close', watched)
+    monkeypatch.setattr(value, 'prepare', prepared)
+    def copy(plan, barrier, **options):
+        barrier.check(value.source)
+        attempts.append((plan, barrier, value.adapter.generation, value.coordinator._legacy_lease,
+                         value.coordinator._target_lease, len(value.adapter.cohorts)))
+        assert value.coordinator._leases_held() and not value.adapter.capture_running()
+        assert not closes
+        if len(attempts) == 2:
+            manifest = json.loads((value.target.path/'migrations'/plan.migration_id/'manifest.json').read_text())
+            assert manifest['state'] == 'failed' and len(manifest['completed_files']) == 1
+            assert manifest['failure'] == probe._AuthoredCopyInterruption.__name__
+            assert manifest['activation_allowed'] is False
+        return original(plan, barrier, **options)
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', copy)
+    assert value.run() == 0
+    assert len(attempts) == 2 and attempts[0] == attempts[1] and attempts[0][2] == attempts[0][5] == 1
+    assert all(attempts[0][index] is attempts[1][index] for index in (0, 1, 3, 4))
+    assert closes == ['_target_lease', '_legacy_lease']
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert tuple(event['phase'] for event in events) == probe.RESUME_PHASES
+    partial = next(event for event in events if event['phase'] == 'copy-interrupted')
+    assert partial['generation'] == 1 and partial['writers_signaled'] == 2
+    assert partial['copy_attempts'] == partial['authored_interruptions'] == partial['partial_revalidations'] == 1
+    assert partial['same_plan_barrier_generation'] is True and partial['copy_resumed'] is False
+    final = events[-1]
+    assert final['schema'] == probe.RESUME_SCHEMA and final['scope'] == probe.RESUME_SCOPE
+    assert final['copy_attempts'] == final['partial_revalidations'] == 2 and final['authored_interruptions'] == 1
+    assert final['copy_resumed'] is True and final['old_barrier_refused'] is True
+    assert final['generation'] == 2 and final['writers_signaled'] == 4 and value.released
+
+
+@pytest.mark.parametrize('wrong', ['different-instance', 'unrelated-error', 'missing-callback'])
+def test_only_the_exact_intended_interruption_instance_can_authorize_resume(fixture, monkeypatch, capsys, wrong):
+    value = fixture.make(probe.RESUME_CASE)
+    original = probe.migration.copy_and_verify_synthetic
+    attempts = []
+    def wrong_sentinel(plan, barrier, **options):
+        attempts.append(True)
+        if wrong == 'missing-callback':
+            return original(plan, barrier)
+        try:
+            return original(plan, barrier, **options)
+        except probe._AuthoredCopyInterruption:
+            if wrong == 'unrelated-error':
+                raise OSError('authored different copy failure') from None
+            raise probe._AuthoredCopyInterruption() from None
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', wrong_sentinel)
+    assert value.run() == 2 and attempts == [True]
+    assert value.adapter.generation == 1 and not value.copy_resumed and value.authored_interruptions == 0
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])['status'] == 'failed'
+
+
+@pytest.mark.parametrize('mutation', ['source', 'completed-bytes', 'binding', 'generation', 'roots'])
+def test_interruption_checkpoint_mutation_refuses_resume_without_changing_core_repair_semantics(fixture, monkeypatch, mutation):
+    value = fixture.make(probe.RESUME_CASE)
+    observe = value.observe
+    copied = probe.migration.copy_and_verify_synthetic
+    attempts = []
+    def copy(*args, **options):
+        attempts.append(True)
+        return copied(*args, **options)
+    def checkpoint(phase):
+        observe(phase)
+        if phase != 'copy-interrupted': return
+        manifest_path = next((value.target.path/'migrations').glob('*/manifest.json'))
+        manifest = json.loads(manifest_path.read_text())
+        if mutation == 'source':
+            (value.source.path/'data/authored-payload.bin').write_bytes(b'authored source changed')
+        elif mutation == 'completed-bytes':
+            (value.target.path/'staging'/manifest['migration_id']/manifest['completed_files'][0]).write_bytes(b'authored target changed')
+        elif mutation == 'binding':
+            manifest['binding']['database_versions']['data/transcript-v2.db'] = 1
+            manifest_path.write_text(json.dumps(manifest))
+        elif mutation == 'roots':
+            manifest['roots'] = {'source': 'untrusted-manifest-source', 'target': 'untrusted-manifest-target'}
+            manifest_path.write_text(json.dumps(manifest))
+        else:
+            value.adapter.generation += 1
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', copy)
+    monkeypatch.setattr(value, 'observe', checkpoint)
+    # The adapter stores its phase callback at construction during prepare.
+    if mutation in {'source', 'generation'}:
+        def hold():
+            assert value.coordinator._leases_held() and value.adapter.poisoned
+            raise HeldRecovery()
+        monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+        with pytest.raises(HeldRecovery): value.run()
+        assert not value.released
+    else:
+        assert value.run() == 2 and value.released
+    assert attempts == [True] and not value.copy_resumed and not value.adapter.active
+
+
+def test_resume_case_unconfirmed_fresh_cohort_and_broken_failure_output_keep_live_hold(fixture, monkeypatch):
+    value = fixture.make(probe.RESUME_CASE)
+    start = fixture.hosts.start_registered
+    def partial(host, **options):
+        if len(value.adapter.cohorts) == 2:
+            raise OSError('authored unconfirmed second-cohort startup')
+        return start(host, **options)
+    monkeypatch.setattr(fixture.hosts, 'start_registered', partial)
+    emit = value.emit
+    def broken(phase, **options):
+        if phase == 'recovery-required': raise BrokenPipeError('authored failed failure event')
+        return emit(phase, **options)
+    monkeypatch.setattr(value, 'emit', broken)
+    def hold():
+        assert value.coordinator._leases_held() and value.adapter.poisoned
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    with pytest.raises(HeldRecovery): value.run()
+    assert value.copy_resumed and value.adapter.generation == 2 and not value.released
+
+
+@pytest.mark.parametrize('fault', ['source-after-precheck', 'source-during-resume', 'source-during-first-copy',
+    'barrier-lost', 'source-read-failure', 'owner-changed'])
+def test_copy_failure_rechecks_real_source_authority_after_prechecks_and_during_helper(fixture, monkeypatch, fault):
+    value = fixture.make(probe.RESUME_CASE)
+    original = probe.migration.copy_and_verify_synthetic
+    attempts = []
+    def copy(plan, barrier, **options):
+        attempts.append(True)
+        number = len(attempts)
+        if number == 2 and fault == 'source-after-precheck':
+            (value.source.path/'data/authored-payload.bin').write_bytes(b'authored post-precheck mutation')
+        if number == 2 and fault == 'barrier-lost': barrier.invalidate()
+        if number == 2 and fault == 'owner-changed':
+            value.coordinator.current = SimpleNamespace(runtime_id='authored-unconfirmed-owner')
+        if number == 2 and fault == 'source-read-failure':
+            def unreadable(*_args): raise OSError('authored source inventory unavailable')
+            monkeypatch.setattr(probe.migration, '_source_inventory', unreadable)
+        if ((number == 2 and fault == 'source-during-resume')
+                or (number == 1 and fault == 'source-during-first-copy')):
+            previous = options.get('checkpoint')
+            def checkpoint(stage, name):
+                if stage == 'file-copied':
+                    (value.source.path/'data/authored-payload.bin').write_bytes(b'authored mutation during helper')
+                if previous: previous(stage, name)
+            options['checkpoint'] = checkpoint
+        return original(plan, barrier, **options)
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', copy)
+    def hold():
+        assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    with pytest.raises(HeldRecovery): value.run()
+    assert len(attempts) == (1 if fault == 'source-during-first-copy' else 2)
+
+
+@pytest.mark.parametrize('changed', ['source', 'target-binding'])
+def test_identical_core_binding_error_is_classified_by_actual_source_not_error_label(fixture, monkeypatch, changed):
+    value = fixture.make(probe.RESUME_CASE)
+    original = probe.migration.copy_and_verify_synthetic
+    attempts, codes = [], []
+    def copy(plan, barrier, **options):
+        attempts.append(True)
+        if len(attempts) == 2:
+            if changed == 'source':
+                (value.source.path/'data/authored-payload.bin').write_bytes(b'authored source differs')
+            else:
+                path = value.target.path/'migrations'/plan.migration_id/'manifest.json'
+                manifest = json.loads(path.read_text())
+                manifest['binding']['named_account_store'] = 'unreadable'
+                path.write_text(json.dumps(manifest))
+        try:
+            return original(plan, barrier, **options)
+        except HostProbeError as error:
+            codes.append(error.code)
+            raise
+    monkeypatch.setattr(probe.migration, 'copy_and_verify_synthetic', copy)
+    if changed == 'source':
+        emit = value.emit
+        def broken(phase, **options):
+            if phase == 'recovery-required': raise BrokenPipeError('authored failed failure output')
+            return emit(phase, **options)
+        monkeypatch.setattr(value, 'emit', broken)
+        def hold():
+            assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+            raise HeldRecovery()
+        monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+        with pytest.raises(HeldRecovery): value.run()
+    else:
+        assert value.run() == 2 and value.released and not value.adapter.poisoned
+    assert codes == ['source-or-plan-changed'] and len(attempts) == 2 and not value.copy_resumed
+
+
+@pytest.mark.parametrize('where', ['manifest', 'staging'])
+@pytest.mark.parametrize('kind', ['parent-link', 'windows-reparse'])
+def test_partial_static_parent_links_refuse_before_outside_descendant_metadata(fixture, monkeypatch, where, kind):
+    value = fixture.make(probe.RESUME_CASE)
+    observe = value.observe
+    original_lstat, original_stat, original_open = Path.lstat, Path.stat, Path.open
+    touched, restored = [], []
+    def checkpoint(phase):
+        observe(phase)
+        if phase != 'copy-interrupted': return
+        manifest = next((value.target.path/'migrations').glob('*/manifest.json'))
+        migration_id = manifest.parent.name
+        link = manifest.parent if where == 'manifest' else value.target.path/'staging'/migration_id/'data'
+        outside = value.fixture/('authored-outside-'+where)
+        if kind == 'parent-link':
+            link.rename(outside)
+            link.symlink_to(outside, target_is_directory=True)
+            restored.append((link, outside))
+        def lstat(path, *args, **options):
+            if link in path.parents:
+                touched.append('lstat');raise AssertionError('Outside descendant metadata is forbidden.')
+            info = original_lstat(path, *args, **options)
+            if kind == 'windows-reparse' and path == link:
+                return SimpleNamespace(st_mode=info.st_mode, st_file_attributes=0x400)
+            return info
+        def stat(path, *args, **options):
+            if link in path.parents:
+                touched.append('stat');raise AssertionError('Outside descendant metadata is forbidden.')
+            return original_stat(path, *args, **options)
+        def open_file(path, *args, **options):
+            if link in path.parents or path == outside or outside in path.parents:
+                touched.append('open');raise AssertionError('Outside content is forbidden.')
+            return original_open(path, *args, **options)
+        monkeypatch.setattr(Path, 'lstat', lstat)
+        monkeypatch.setattr(Path, 'stat', stat)
+        monkeypatch.setattr(Path, 'open', open_file)
+    monkeypatch.setattr(value, 'observe', checkpoint)
+    try:
+        assert value.run() == 2 and not value.copy_resumed and value.released
+        assert not touched and not value.adapter.poisoned
+    finally:
+        monkeypatch.setattr(Path, 'lstat', original_lstat)
+        monkeypatch.setattr(Path, 'stat', original_stat)
+        monkeypatch.setattr(Path, 'open', original_open)
+        for link, outside in restored:
+            link.unlink();outside.rename(link)
+
+
+@pytest.mark.parametrize('which', ['source', 'target'])
+def test_authority_root_link_is_guarded_before_barrier_marker_and_failure_journal_reads(fixture, monkeypatch, which):
+    value = fixture.make(probe.RESUME_CASE)
+    observe = value.observe
+    originals = {'lstat': Path.lstat, 'stat': Path.stat, 'open': Path.open}
+    touched, restored = [], []
+    def checkpoint(phase):
+        observe(phase)
+        if phase != 'copy-interrupted': return
+        link = getattr(value, which).path
+        outside = value.fixture/('authored-outside-'+which)
+        link.rename(outside);link.symlink_to(outside, target_is_directory=True)
+        restored.append((link, outside))
+        for name, original in originals.items():
+            def guarded(path, *args, original=original, name=name, **options):
+                if link in path.parents:
+                    touched.append(name);raise AssertionError('Untrusted root descendant metadata/read is forbidden.')
+                return original(path, *args, **options)
+            monkeypatch.setattr(Path, name, guarded)
+    monkeypatch.setattr(value, 'observe', checkpoint)
+    def hold():
+        assert value.adapter.poisoned and not value.released and value.coordinator._leases_held()
+        assert value.coordinator._recovery_required
+        raise HeldRecovery()
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', hold)
+    try:
+        with pytest.raises(HeldRecovery): value.run()
+        assert not touched
+    finally:
+        for name, original in originals.items(): monkeypatch.setattr(Path, name, original)
+        for link, outside in restored:
+            link.unlink();outside.rename(link)
+
+
+def test_local_tree_guard_bounds_entries_and_bytes_before_content_reads(tmp_path, monkeypatch):
+    root = tmp_path/'authored-tree';root.mkdir()
+    (root/'first').write_bytes(b'ab');(root/'second').write_bytes(b'c')
+    monkeypatch.setattr(probe, 'INSPECTION_BYTES', 1)
+    with pytest.raises(probe.DataCopyFailure): probe._guard_tree(root)
+    monkeypatch.setattr(probe, 'INSPECTION_BYTES', 64)
+    monkeypatch.setattr(probe, 'INSPECTION_ENTRIES', 1)
+    class Entries:
+        def __enter__(self): return iter([SimpleNamespace(name='first'), SimpleNamespace(name='second')])
+        def __exit__(self, *_args): pass
+    monkeypatch.setattr(probe.os, 'scandir', lambda _root: Entries())
+    original = Path.lstat
+    def no_second(path, *args, **options):
+        assert path != root/'second', 'Overbound child must be refused before leaf metadata.'
+        return original(path, *args, **options)
+    monkeypatch.setattr(Path, 'lstat', no_second)
+    with pytest.raises(probe.DataCopyFailure): probe._guard_tree(root)
 
 
 def test_setup_connections_include_constructor_and_are_explicitly_closed(tmp_path, monkeypatch):
@@ -351,6 +656,7 @@ def _powershell_contract(script, functions, body, payload=None):
     for function in functions:
         text += "$definition=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq '"+function+"'},$true)\n"
         text += "if (-not $definition) { throw 'Missing fixed data-copy function.' };. ([scriptblock]::Create($definition.Extent.Text))\n"
+    text += "$script:ProbeCase='authored-data-copy'\n"
     text += body
     with tempfile.TemporaryDirectory(prefix='r19-data-copy-contract-') as temporary:
         driver = Path(temporary)/'contract.ps1'
@@ -483,4 +789,77 @@ $Output=Join-Path ([IO.Path]::GetTempPath()) ('r19-unused-'+[guid]::NewGuid().To
 try { Complete-DataCopyHarness $true } catch {}
 if (-not $script:held) { throw 'Control overflow/receipt failure bypassed live owner hold.' }
 $stream.Dispose()
+''')
+
+
+def test_powershell_resume_protocol_is_distinct_and_requires_exact_partial_revalidation(fixture, capsys):
+    value = fixture.make(probe.RESUME_CASE)
+    assert value.run() == 0
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    cases = [{'probe_case': probe.RESUME_CASE, 'phase': event['phase'], 'event': event, 'accept': True} for event in events]
+    partial = next(event for event in events if event['phase'] == 'copy-interrupted')
+    for field, changed in [('schema', probe.SCHEMA), ('generation', 2), ('copy_attempts', 2),
+            ('authored_interruptions', 2), ('partial_completed_files', 2), ('partial_revalidations', 0),
+            ('same_plan_barrier_generation', False), ('copy_resumed', True), ('copy_attempts', True)]:
+        cases.append({'probe_case': probe.RESUME_CASE, 'phase': 'copy-interrupted',
+                      'event': {**partial, field: changed}, 'accept': False})
+    cases.append({'probe_case': probe.CASE, 'phase': 'setup-closed',
+        'event': {**events[0], 'schema': probe.SCHEMA, 'case': probe.CASE}, 'accept': False})
+    verified = next(event for event in events if event['phase'] == 'copy-verified')
+    cases.append({'probe_case': probe.RESUME_CASE, 'phase': 'copy-verified',
+                  'event': {**verified, 'partial_revalidations': 1}, 'accept': False})
+    script = Path(__file__).resolve().parents[2]/'scripts/probe-frozen-data-copy.ps1'
+    _powershell_contract(script, ['New-DataCopyControlReader','Read-DataCopyControlLine','Read-DataCopyEvent'], r'''
+$proof=[pscustomobject]@{source_commit=('a'*40);build_id='authored-data-copy-fixture'}
+$cases=[Console]::In.ReadToEnd() | ConvertFrom-Json
+$index=0
+foreach ($case in $cases) {
+    $script:ProbeCase=$case.probe_case
+    $bytes=[Text.UTF8Encoding]::new($false,$true).GetBytes(($case.event | ConvertTo-Json -Depth 8 -Compress)+"`n")
+    $stream=[IO.MemoryStream]::new($bytes,$false)
+    $script:controlReader=New-DataCopyControlReader $stream ([Threading.Tasks.Task]::CompletedTask)
+    $accepted=$true
+    try { Read-DataCopyEvent $case.phase } catch { $accepted=$false }
+    if ($accepted -ne $case.accept) {
+        [Console]::Out.WriteLine((@{schema='proxy-r19-data-copy-contract-failure-v1';case_index=$index;
+            expected=[bool]$case.accept;actual=[bool]$accepted} | ConvertTo-Json -Compress))
+        exit 2
+    }
+    $stream.Dispose();$index++
+}
+''', cases)
+
+
+def test_powershell_resume_receipt_cannot_relabel_positive_case_or_omit_extra_source_block():
+    script = Path(__file__).resolve().parents[2]/'scripts/probe-frozen-data-copy.ps1'
+    _powershell_contract(script, ['Write-DataCopyReceipt'], r'''
+$private=Join-Path ([IO.Path]::GetTempPath()) ('r19-authored-receipt-'+[guid]::NewGuid().ToString('N'))
+$null=New-Item -ItemType Directory -Path $private
+$slotSourceOperation=Join-Path $private 'source-fixture.ps1'
+[IO.File]::WriteAllText($slotSourceOperation,'authored source-operation fixture')
+$proof=[pscustomobject]@{source_commit=('a'*40);build_id='authored-data-copy-fixture'}
+$sourceBlocks=9;$walFiles=0;$shmFiles=0;$stage='release';$failureCategory='none'
+try {
+    $script:ProbeCase='authored-data-copy';$Output=Join-Path $private 'positive.json'
+    Write-DataCopyReceipt 'passed'
+    $positive=Get-Content -LiteralPath $Output -Raw | ConvertFrom-Json
+    if ($positive.schema -cne 'proxy-r19-frozen-data-copy-receipt-v1' -or $positive.case -cne 'authored-data-copy' -or
+        $positive.scope -cne 'authored-transcript-copy-with-living-coordinator' -or
+        $positive.source_operation_blocked_observations -ne 9 -or $null -ne $positive.PSObject.Properties['fault_model']) {
+        throw 'The existing positive receipt changed meaning.'
+    }
+    $script:ProbeCase='authored-data-copy-resume';$Output=Join-Path $private 'resume.json'
+    $accepted=$true
+    try { Write-DataCopyReceipt 'passed' } catch { $accepted=$false }
+    if ($accepted -or (Test-Path -LiteralPath $Output)) { throw 'Resume receipt omitted the extra actual source block.' }
+    $sourceBlocks=10;Write-DataCopyReceipt 'passed'
+    $resume=Get-Content -LiteralPath $Output -Raw | ConvertFrom-Json
+    if ($resume.schema -cne 'proxy-r19-frozen-data-copy-resume-receipt-v1' -or $resume.case -cne 'authored-data-copy-resume' -or
+        $resume.scope -cne 'authored-transcript-interrupted-copy-resume-with-living-coordinator' -or
+        $resume.copy_attempts -ne 2 -or $resume.authored_interruptions -ne 1 -or $resume.partial_completed_files -ne 1 -or
+        $resume.partial_revalidations -ne 2 -or $resume.resume_authority -cne 'same-live-owner-plan-barrier-generation-leases' -or
+        $resume.target_activation -isnot [bool] -or $resume.target_activation -or $resume.production_activation -or $resume.r19_complete) {
+        throw 'Fixed resume receipt scope or gates differ.'
+    }
+} finally { Remove-Item -LiteralPath $private -Recurse -Force }
 ''')

@@ -1,7 +1,12 @@
 param([Parameter(Mandatory=$true)][string]$RuntimeRoot,
       [Parameter(Mandatory=$true)][string]$Provenance,
+      [ValidateSet('authored-data-copy','authored-data-copy-resume')][string]$ProbeCase='authored-data-copy',
       [string]$Output=(Join-Path $PSScriptRoot '../output/checks/r19-frozen-data-copy.json'))
 $ErrorActionPreference='Stop'
+if ($ProbeCase -cnotin @('authored-data-copy','authored-data-copy-resume')) { throw 'Unknown fixed authored data-copy case.' }
+if ($ProbeCase -ceq 'authored-data-copy-resume' -and -not $PSBoundParameters.ContainsKey('Output')) {
+    $Output=Join-Path $PSScriptRoot '../output/checks/r19-frozen-data-copy-resume.json'
+}
 Remove-Item -LiteralPath $Output -Force -ErrorAction SilentlyContinue
 if ($PSVersionTable.PSEdition -ne 'Core' -or -not $IsWindows) { throw 'The authored data-copy harness requires Windows PowerShell 7 on the build host.' }
 . (Join-Path $PSScriptRoot 'r19-runtime-inventory.ps1')
@@ -44,7 +49,7 @@ function Start-DataCopyOwner {
     # are retained or published. Never read through the text wrappers as well.
     $script:stderrDiscard=$process.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null,4096)
     $script:controlReader=New-DataCopyControlReader $process.StandardOutput.BaseStream $script:stderrDiscard
-    $process.StandardInput.WriteLine('authored-data-copy');$process.StandardInput.Flush()
+    $process.StandardInput.WriteLine($ProbeCase);$process.StandardInput.Flush()
     return $process
 }
 function New-DataCopyControlReader([IO.Stream]$Stream, [Threading.Tasks.Task]$Discard) {
@@ -92,8 +97,8 @@ function Read-DataCopyControlLine($Reader, [int]$TimeoutMilliseconds=120000, [bo
     }
 }
 
-function Get-DataCopyRoots([string]$TemporaryRoot) {
-    $private=Join-Path (Join-Path $TemporaryRoot 'empty-host') 'authored-data-copy'
+function Get-DataCopyRoots([string]$TemporaryRoot, [ValidateSet('authored-data-copy','authored-data-copy-resume')][string]$Case='authored-data-copy') {
+    $private=Join-Path (Join-Path $TemporaryRoot 'empty-host') $Case
     return @{PROXY_TRANSCRIPT_SETTINGS_ROOT=$private;PROXY_TRANSCRIPT_DATA_ROOT=(Join-Path $private 'data-v1');
         PROXY_TRANSCRIPT_CACHE_ROOT=(Join-Path $private 'cache-v1');PROXY_TRANSCRIPT_WORK_ROOT=(Join-Path $private 'cache-v1/work');
         PROXY_TRANSCRIPT_TOOL_ROOT=(Join-Path $private 'tools-v1');PROXY_TRANSCRIPT_STATE_ROOT=(Join-Path $private 'host-v1');
@@ -113,6 +118,9 @@ function Assert-DataCopyLeases([ValidateSet('open','blocked')][string]$Expected)
     if ($Expected -eq 'blocked') { $script:sourceBlocks++ }
 }
 function Read-DataCopyEvent([string]$Phase) {
+    if ($script:ProbeCase -cnotin @('authored-data-copy','authored-data-copy-resume')) { throw 'Unknown fixed authored data-copy case.' }
+    $resumeCase=$script:ProbeCase -ceq 'authored-data-copy-resume'
+    if ($Phase -ceq 'copy-interrupted' -and -not $resumeCase) { throw 'Only the fixed resume case can observe an interruption.' }
     $line=Read-DataCopyControlLine $script:controlReader
     if (-not $line) { throw 'Authored data-copy event is unavailable.' }
     $value=$line | ConvertFrom-Json
@@ -121,9 +129,12 @@ function Read-DataCopyEvent([string]$Phase) {
         'source_logical','wal_files','shm_files','old_barrier_refused','api_external_side_effects','sqlite',
         'native_owned_process_tree','writer_console_mode','authority','production_activation','target_activation',
         'r19_complete','keeper_loss','dynamic_writer_admission','warm_routing','credentials','browser','installer')
+    if ($resumeCase) { $keys+=@('scope','copy_attempts','authored_interruptions','partial_completed_files',
+        'partial_revalidations','same_plan_barrier_generation','copy_resumed') }
+    $schema=if ($resumeCase) {'proxy-r19-frozen-data-copy-resume-probe-v1'} else {'proxy-r19-frozen-data-copy-probe-v1'}
     if ($null -eq $value -or @(Compare-Object $keys @($value.PSObject.Properties.Name) -CaseSensitive).Count -or
-        $value.schema -cne 'proxy-r19-frozen-data-copy-probe-v1' -or $value.kind -cne 'data-copy' -or
-        $value.case -cne 'authored-data-copy' -or $value.source_commit -cne $proof.source_commit -or
+        $value.schema -cne $schema -or $value.kind -cne 'data-copy' -or
+        $value.case -cne $script:ProbeCase -or $value.source_commit -cne $proof.source_commit -or
         $value.build_id -cne $proof.build_id -or $value.api_external_side_effects -cne 'mocked' -or
         $value.sqlite -cne 'real' -or $value.native_owned_process_tree -cne 'real' -or
         $value.writer_console_mode -cne 'detached-process' -or
@@ -153,9 +164,22 @@ function Read-DataCopyEvent([string]$Phase) {
         $value.copy_verification -cnotin @('not-run','passed') -or
         $value.source_bytes -cnotin @('not-run','preserved-before-resume') -or
         $value.source_logical -cnotin @('not-run','passed')) { throw 'Authored data-copy result differs.' }
+    if ($resumeCase) {
+        if ($value.scope -isnot [string] -or $value.scope -cne 'authored-transcript-interrupted-copy-resume-with-living-coordinator' -or
+            $value.same_plan_barrier_generation -isnot [bool] -or $value.copy_resumed -isnot [bool]) {
+            throw 'Authored copy-resume scope differs.'
+        }
+        foreach ($name in @('copy_attempts','authored_interruptions','partial_completed_files','partial_revalidations')) {
+            if (($value.$name -isnot [int] -and $value.$name -isnot [long]) -or $value.$name -lt 0 -or $value.$name -gt 2) {
+                throw 'Authored copy-resume count differs.'
+            }
+        }
+        if ($value.authored_interruptions -gt 1 -or $value.partial_completed_files -gt 1) { throw 'Authored interruption count differs.' }
+    }
     $failures=@('fixture-unavailable','setup-close-unconfirmed','setup-still-open','cohort-unconfirmed',
         'owned-host-unconfirmed','copy-refused','copy-result-unconfirmed','schema-unconfirmed','authored-rows-differ',
-        'pointer-changed','source-changed','control-unavailable','control-invalid','lease-release-unconfirmed','unexpected-data-copy-failure')
+        'pointer-changed','source-changed','control-unavailable','control-invalid','lease-release-unconfirmed',
+        'interrupted-copy-unconfirmed','unexpected-data-copy-failure')
     if ($value.phase -ceq 'recovery-required' -and $value.status -ceq 'failed' -and $value.failure -cin $failures) {
         $script:failureCategory=$value.failure
         throw 'Authored data-copy owner requires recovery.'
@@ -167,6 +191,7 @@ function Read-DataCopyEvent([string]$Phase) {
         'strict-drain-complete' { @(1,2,2,0,1) }
         'writers-signaled' { @(1,2,2,2,1) }
         'copy-progress' { @(1,2,2,2,1) }
+        'copy-interrupted' { @(1,2,2,2,1) }
         'copy-verified' { @(1,2,2,2,1) }
         'source-resumed' { @(2,4,4,2,1) }
         'final-strict-drain-complete' { @(2,4,4,2,2) }
@@ -185,6 +210,16 @@ function Read-DataCopyEvent([string]$Phase) {
         $value.source_logical -cne $(if ($resumed) {'passed'} else {'not-run'}) -or
         $value.old_barrier_refused -ne $resumed -or (-not $verified -and ($value.wal_files -ne 0 -or $value.shm_files -ne 0))) {
         throw 'Authored data-copy verification order differs.'
+    }
+    if ($resumeCase) {
+        $partial=$Phase -ceq 'copy-interrupted' -or $verified
+        $attempts=if ($verified) {2} elseif ($partial -or $Phase -ceq 'copy-progress') {1} else {0}
+        $revalidations=if ($verified) {2} elseif ($partial) {1} else {0}
+        if ($value.copy_attempts -ne $attempts -or $value.authored_interruptions -ne [int]$partial -or
+            $value.partial_completed_files -ne [int]$partial -or $value.partial_revalidations -ne $revalidations -or
+            $value.same_plan_barrier_generation -ne $partial -or $value.copy_resumed -ne $verified) {
+            throw 'Authored copy-resume verification order differs.'
+        }
     }
     if ($Phase -eq 'released') { $script:walFiles=$value.wal_files; $script:shmFiles=$value.shm_files }
 }
@@ -209,6 +244,18 @@ function Write-DataCopyReceipt([string]$Status) {
         keeper_loss='unavailable';dynamic_writer_admission='unavailable';warm_routing='unavailable';
         credentials='not-accessed';browser='not-run';target_activation=$false;production_activation=$false;
         installer='not-built';r19_complete=$false}
+    if ($script:ProbeCase -ceq 'authored-data-copy-resume') {
+        if ($Status -ceq 'passed' -and $sourceBlocks -ne 10) { throw 'Authored copy-resume source exclusion is incomplete.' }
+        $receipt.schema='proxy-r19-frozen-data-copy-resume-receipt-v1'
+        $receipt.case='authored-data-copy-resume'
+        $receipt.scope='authored-transcript-interrupted-copy-resume-with-living-coordinator'
+        $receipt['fault_model']='one-authored-post-file-checkpoint-exception'
+        $receipt['copy_attempts']=$(if ($Status -ceq 'passed') {2} else {0})
+        $receipt['authored_interruptions']=$(if ($Status -ceq 'passed') {1} else {0})
+        $receipt['partial_completed_files']=$(if ($Status -ceq 'passed') {1} else {0})
+        $receipt['partial_revalidations']=$(if ($Status -ceq 'passed') {2} else {0})
+        $receipt['resume_authority']=$(if ($Status -ceq 'passed') {'same-live-owner-plan-barrier-generation-leases'} else {'not-approved'})
+    }
     New-Item -ItemType Directory -Path (Split-Path $Output) -Force | Out-Null
     $receipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $Output -Encoding utf8NoBOM
 }
@@ -238,17 +285,19 @@ Assert-SlotInventory $RuntimeRoot $proof
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('R19 data copy space 漢字 '+[guid]::NewGuid().ToString('N'))
 $owned=[Collections.Generic.List[Diagnostics.Process]]::new();$controlReader=$null;$stderrDiscard=$null
 $ownerExitConfirmed=$false;$sourceBlocks=0;$walFiles=0;$shmFiles=0;$stage='prepare';$failureCategory='harness-unconfirmed';$failed=$false
-$roots=Get-DataCopyRoots $temporary
+$roots=Get-DataCopyRoots $temporary $ProbeCase
 New-Item -ItemType Directory -Path (Join-Path $temporary 'empty-host'),$roots.PROXY_TRANSCRIPT_STATE_ROOT -Force | Out-Null
 @{build_id=$proof.build_id;synthetic=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $roots.PROXY_TRANSCRIPT_STATE_ROOT 'synthetic-probe.json') -Encoding utf8NoBOM
-$fixture=Join-Path $roots.PROXY_TRANSCRIPT_WORK_ROOT 'authored-data-copy'
+$fixture=Join-Path $roots.PROXY_TRANSCRIPT_WORK_ROOT $ProbeCase
 $legacyRoot=Join-Path $fixture 'legacy'
 $leasePaths=@((Join-Path $legacyRoot 'data/companion-operation.lock'),(Join-Path $fixture 'private-target/host-v1/migration-runtime.lock'))
 try {
     Assert-DataCopyPortsFree
     $process=Start-DataCopyOwner
-    foreach ($phase in @('setup-closed','favorite-written','strict-drain-complete','writers-signaled',
-        'copy-progress','copy-verified','source-resumed','final-strict-drain-complete','final-writers-signaled')) {
+    $phases=@('setup-closed','favorite-written','strict-drain-complete','writers-signaled','copy-progress')
+    if ($ProbeCase -ceq 'authored-data-copy-resume') { $phases+=@('copy-interrupted') }
+    $phases+=@('copy-verified','source-resumed','final-strict-drain-complete','final-writers-signaled')
+    foreach ($phase in $phases) {
         $stage=$phase
         Read-DataCopyEvent $phase
         Assert-DataCopyLeases 'blocked'

@@ -317,6 +317,22 @@ jobs:
           path: output/checks/r19-frozen-data-copy.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Interrupt and resume an authored copy under the same live owner
+        # A planned callback exception proves only this living-owner recovery
+        # case. Unknown cleanup retains exclusion; timeout is a failed probe.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-data-copy.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -ProbeCase authored-data-copy-resume -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-data-copy-resume.json')
+      - name: Retain only sanitized interrupted-copy failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-data-copy-resume-failure-observations
+          path: output/checks/r19-frozen-data-copy-resume.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Retain only sanitized native collection refusal
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -360,6 +376,7 @@ jobs:
             output/checks/r19-guarded-slots.json
             output/checks/r19-frozen-keeper.json
             output/checks/r19-frozen-data-copy.json
+            output/checks/r19-frozen-data-copy-resume.json
             output/runtime-bundle/build-check.json
             output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
             output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json
