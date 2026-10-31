@@ -16,6 +16,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
 from .mobile_bundle import write_bundle
+from .atomic_files import sharing_retry
 from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions, archive_previous_exports, hide_work_metadata
 
 FORMAT = "proxy-mobile-library-v1"
@@ -285,13 +286,21 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     if not reused:
         if destination.exists():
             destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
-        transfer.replace(destination)
+        def publish_transfer():
+            guard()
+            getattr(check, "force", check)()
+            transfer.replace(destination)
+        sharing_retry(publish_transfer)
     bundle = destination / bundle.name
     pointer = output / "latest.pending"
     pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": bundle.name, "bundle": bundle.name, "coverage": coverage}))
     guard()
     getattr(check, "force", check)()
-    os.replace(pointer, output / "latest.json")
+    def publish_pointer():
+        guard()
+        getattr(check, "force", check)()
+        os.replace(pointer, output / "latest.json")
+    sharing_retry(publish_pointer)
     hide_work_metadata(output / 'latest.json')
     # Tidying is optional once publication succeeded; failures must not turn a
     # valid completed export into an error or discard the previous library.
