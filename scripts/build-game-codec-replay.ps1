@@ -1,7 +1,23 @@
 param([Parameter(Mandatory=$true)][string]$InputRoot,
       [string]$OutputRoot = 'C:\r19-game-codec-replay',
-      [string]$Python = 'python')
+      [Parameter(Mandatory=$true)][string]$Python)
 $ErrorActionPreference = 'Stop'
+function Get-ReplayExecutables([string]$ProgramFilesRoot, [string]$PythonPath) {
+    if (-not [IO.Path]::IsPathFullyQualified($ProgramFilesRoot) -or
+        -not [IO.Path]::IsPathFullyQualified($PythonPath)) {
+        throw 'Explicit absolute build-tool paths are required; ambient lookup is disabled.'
+    }
+    $selected = [ordered]@{CMake=(Join-Path $ProgramFilesRoot 'CMake/bin/cmake.exe'); Python=$PythonPath}
+    foreach ($name in @('CMake','Python')) {
+        $item = Get-Item -LiteralPath ($selected[$name]) -ErrorAction Stop
+        if ($item.PSIsContainer -or $item.Extension -ne '.exe' -or
+            ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw 'A single regular explicit build-tool executable is required.'
+        }
+        $selected[$name] = $item.FullName
+    }
+    return [pscustomobject]$selected
+}
 $root = Split-Path $PSScriptRoot
 $pin = Get-Content (Join-Path $root 'packaging/codecs/ffmpeg-opus-replay.json') -Raw | ConvertFrom-Json
 # This is build-host orchestration under the project LICENSE, not one of the
@@ -19,8 +35,9 @@ $instance = $instances[0]
 $toolset = Join-Path $instance.installationPath ('VC/Tools/MSVC/' + $pin.host.toolset_directory)
 $sdk = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10'
 $compiler = Join-Path $toolset 'bin/Hostx64/x64/cl.exe'
-$cmake = (Get-Command cmake -CommandType Application).Source
-$pythonExe = (Get-Command $Python -CommandType Application).Source
+$executables = Get-ReplayExecutables -ProgramFilesRoot $env:ProgramFiles -PythonPath $Python
+$cmake = $executables.CMake
+$pythonExe = $executables.Python
 $tar = Join-Path $env:SystemRoot 'System32/tar.exe'
 $cmakeVersion = (& $cmake --version | Select-Object -First 1)
 if ($cmakeVersion -ne ('cmake version ' + $pin.host.cmake_version) -or
@@ -202,6 +219,7 @@ Invoke-Build 'configure-opus' $cmake @('-S', $opusSource, '-B', $opusBuild, '-G'
     ('-DCMAKE_GENERATOR_INSTANCE=' + $instance.installationPath), ('-DCMAKE_SYSTEM_VERSION=' + $pin.host.sdk_version),
     '-DOPUS_STATIC_RUNTIME=ON', ('-DCMAKE_INSTALL_PREFIX=' + $opusPrefix.Replace('\','/')),
     ('-DCMAKE_VS_GLOBALS=' + $globals),
+    '-DCMAKE_DISABLE_FIND_PACKAGE_Git=TRUE',
     '-DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF', '-DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF')
 Invoke-Build 'build-opus' $cmake @('--build', $opusBuild, '--config', 'Release', '--parallel', '2')
 Invoke-Build 'install-opus' $cmake @('--install', $opusBuild, '--config', 'Release')

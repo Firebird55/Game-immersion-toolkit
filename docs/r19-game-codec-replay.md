@@ -44,7 +44,12 @@ exact pinned inputs. It invokes
 requires hosted image version 20261021.278.1, Visual Studio 18 2026, toolset
 14.51.36231, compiler 19.51.36260.0, CMake 4.4.5 and SDK 10.0.26100.0. A changed
 or unavailable host tuple fails; there is no substitute image or rolling
-package installation. The declared NETFX 4.8 headers/libraries are bound when
+package installation. CMake comes only from ProgramFiles/CMake/bin/cmake.exe;
+the workflow passes the absolute python.exe selected by setup-python 3.12.10.
+Other PATH matches are not candidates. Optional Git discovery is disabled:
+the original Opus cmake/OpusPackageVersion.cmake selects its unchanged
+package_version file when Git is unavailable. The declared NETFX 4.8
+headers/libraries are bound when
 present. Windows/.NET runtime implementation and independent compiler supplier
 source/rights recovery remain explicitly unbound prerequisites.
 

@@ -43,7 +43,7 @@ jobs:
       - name: Build and probe the distinct quarantined dependency identity
         shell: pwsh
         run: |
-          ./scripts/build-game-codec-replay.ps1 -InputRoot $env:R19_GAME_CODEC_INPUTS
+          ./scripts/build-game-codec-replay.ps1 -InputRoot $env:R19_GAME_CODEC_INPUTS -Python (Join-Path $env:pythonLocation 'python.exe')
           'Quarantined FFmpeg9.0.2/Opus1.6.1 source replay only; no upstream binary equivalence, rights/source-delivery approval, runtime integration, full game acceptance or Windows11 native acceptance.' >> $env:GITHUB_STEP_SUMMARY
       - name: Upload only sanitized receipt and explicitly unapproved source review kit
         uses: actions/upload-artifact@v7
