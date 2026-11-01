@@ -25,15 +25,20 @@ class Contracts(unittest.TestCase):
    bad=copy.deepcopy(p);change(bad)
    with patch.object(m.base,'recipe_json',return_value=bad),self.assertRaises(ValueError):m.policy()
  def test_ordinary_crlf_checkout_preserves_exact_canonical_helper_and_profile_binding(self):
-  with tempfile.TemporaryDirectory() as name:
-   root=Path(name).resolve()
-   raw_preserved={m.base.BSD_GRANT,m.base.VARIANT_PATCH,m.MP3_GRANT,m.policy()['lame_variant']['patch']['path']}
-   for n in m.PROJECT_INPUTS:
-    b=(O/n).read_bytes();dest=root/n;dest.parent.mkdir(parents=True,exist_ok=True)
-    dest.write_bytes(b if n in raw_preserved else b.replace(b'\n',b'\r\n'))
-   spec=importlib.util.spec_from_file_location('owned_crlf_draft',root/'scripts/replay-mp3-codec.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-   self.assertEqual(module.policy()['audio_cli_overrides'],m.OVERRIDES)
-   self.assertNotEqual((root/'scripts/replay-game-codec.py').read_bytes(),(O/'scripts/replay-game-codec.py').read_bytes())
+  # Explicit LF and already-CRLF source forms must produce one identical CRLF fixture.
+  raw_preserved={m.base.BSD_GRANT,m.base.VARIANT_PATCH,m.MP3_GRANT,m.policy()['lame_variant']['patch']['path']}
+  for source_is_crlf in (False,True):
+   with self.subTest(source_is_crlf=source_is_crlf),tempfile.TemporaryDirectory() as name:
+    root=Path(name).resolve()
+    for n in m.PROJECT_INPUTS:
+     original=(O/n).read_bytes();lf=original.replace(b'\r\n',b'\n')
+     source=original if n in raw_preserved else (lf.replace(b'\n',b'\r\n') if source_is_crlf else lf)
+     data=source if n in raw_preserved else source.replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')
+     dest=root/n;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(data)
+    spec=importlib.util.spec_from_file_location('owned_crlf_draft',root/'scripts/replay-mp3-codec.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    self.assertEqual(module.policy()['audio_cli_overrides'],m.OVERRIDES)
+    helper=(root/'scripts/replay-game-codec.py').read_bytes();lf=(O/'scripts/replay-game-codec.py').read_bytes().replace(b'\r\n',b'\n')
+    self.assertEqual(helper,lf.replace(b'\n',b'\r\n'));self.assertEqual(helper.replace(b'\r\n',b'\n'),lf);self.assertIn(b'\r\n',helper);self.assertNotIn(b'\r\r\n',helper)
  def test_real_lame_guard_patch_changes_only_the_two_original_conditions(self):
   p=copy.deepcopy(m.policy());archive=os.environ.get('R19_MP3_ARCHIVE')
   if archive:
@@ -193,7 +198,7 @@ class Grant(unittest.TestCase):
   profile=copy.deepcopy(m.policy());profile.pop('build_recipe_license');profile.pop('scope');profile['adaptations'].pop();profile['licensing_boundary'].pop('project_orchestration');profile['cli_child']['owned_primitive'].pop('license');self.assertEqual(m.sha(m.canonical(profile)),ORIGINAL_FUNCTIONAL_PROFILE)
   for name in m.DEPENDENCY_INPUTS+(m.base.BSD_GRANT,m.policy()['lame_variant']['patch']['path']):self.assertIn(BASELINE['files'].get(name,{'bytes':1295,'sha256':'018f5857359aee56d54fa84e0e87118d15c56b2e4e19f44389bafc6ea7d4f293'}),(m.record((R/name).read_bytes()),m.record((R/name).read_bytes().replace(b'\r\n',b'\n'))))
  def test_final_copy_inventory_separates_raw_and_LF_without_expanding_grant(self):
-  files=m.project_bytes();a=m.mp3_copy_inventory(files,m.policy());win={n:b if n in (m.MP3_GRANT,m.base.BSD_GRANT,m.base.VARIANT_PATCH,m.policy()['lame_variant']['patch']['path']) else b.replace(b'\n',b'\r\n') for n,b in files.items()};b=m.mp3_copy_inventory(win,m.policy());self.assertEqual(set(a['copies']),set(m.MP3_APPROVED_BASELINES));self.assertEqual(a['approved_baselines'],m.MP3_APPROVED_BASELINES)
+  files={n:b.replace(b'\r\n',b'\n') for n,b in m.project_bytes().items()};a=m.mp3_copy_inventory(files,m.policy());win={n:b if n in (m.MP3_GRANT,m.base.BSD_GRANT,m.base.VARIANT_PATCH,m.policy()['lame_variant']['patch']['path']) else b.replace(b'\n',b'\r\n') for n,b in files.items()};b=m.mp3_copy_inventory(win,m.policy());self.assertEqual(set(a['copies']),set(m.MP3_APPROVED_BASELINES));self.assertEqual(a['approved_baselines'],m.MP3_APPROVED_BASELINES)
   for n in a['copies']:
    with self.subTest(path=n):self.assertEqual(a['copies'][n]['canonical_lf'],b['copies'][n]['canonical_lf']);self.assertNotEqual(a['copies'][n]['raw'],b['copies'][n]['raw'])
   for name in ('source_delivery_approved','runtime_collection_allowed','production_execution_allowed','r19_complete'):self.assertIs(a[name],False)

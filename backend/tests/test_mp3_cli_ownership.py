@@ -1,5 +1,6 @@
 """Portable source/profile and owned lifecycle fixtures; no native execution."""
 import ast, copy, ctypes as c, difflib, hashlib, importlib.util, io, json, os, shutil, stat, struct, sys, tarfile, tempfile, types, unittest, xml.etree.ElementTree as ET
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 R=Path(__file__).resolve().parents[2];O=R
@@ -179,19 +180,35 @@ class CliContracts(unittest.TestCase):
    with patch.object(Path,'lstat',side_effect=AssertionError('Unknown metadata')),patch.object(Path,'stat',side_effect=AssertionError('Unknown stat')),patch.object(Path,'open',side_effect=AssertionError('Unknown content')),self.assertRaises(ValueError):o.project(((7,str(unknown)),))
  def test_origins_actual_owned_files_retained_and_replaced_hash_link_or_unknown_refused(self):
   with tempfile.TemporaryDirectory() as name:
-   root=Path(name).resolve();candidate=root/'candidate';system=root/'system';candidate.mkdir();system.mkdir();app=candidate/'ffmpeg.exe';app.write_bytes(b'authored executable bytes NOT executable');dll=system/'kernel32.dll';dll.write_bytes(b'authored system-role bytes NOT executable');expected={'ffmpeg.exe':m.record(app.read_bytes())};rows=((1,str(app)),(2,str(dll)));o=m.CliOrigins(candidate,expected,system,{'kernel32.dll'})
-   first=o.project(rows);self.assertEqual(first,o.project(rows));self.assertEqual({r['origin'] for r in first},{'application','windows-system-observed'})
-   replacement=candidate/'new';replacement.write_bytes(app.read_bytes());replacement.replace(app)
-   with self.assertRaises(ValueError):o.project(rows)
-   o.close();o=m.CliOrigins(candidate,expected,system,{'kernel32.dll'});app.write_bytes(b'changed')
-   with self.assertRaises(ValueError):o.project(rows)
-   o.close();app.write_bytes(b'authored executable bytes NOT executable');outside=root/'outside';outside.mkdir();(outside/'kernel32.dll').write_bytes(b'private');system.rmdir() if not tuple(system.iterdir()) else None;dll.unlink();system.rmdir();system.symlink_to(outside,target_is_directory=True);linked=system/'kernel32.dll';old=Path.lstat
+   root=Path(name).resolve();candidate=root/'candidate';system=root/'system';candidate.mkdir();system.mkdir();app=candidate/'ffmpeg.exe';original=b'authored executable bytes NOT executable';app.write_bytes(original);dll=system/'kernel32.dll';dll.write_bytes(b'authored system-role bytes NOT executable');expected={'ffmpeg.exe':m.record(app.read_bytes())};rows=((1,str(app)),(2,str(dll)))
+   with closing(m.CliOrigins(candidate,expected,system,{'kernel32.dll'})) as o:
+    first=o.project(rows);self.assertEqual(first,o.project(rows));self.assertEqual({r['origin'] for r in first},{'application','windows-system-observed'})
+    held=o.files[app];before=os.fstat(held.fileno());held_identity=(before.st_dev,before.st_ino);replacement=candidate/'new';replacement.write_bytes(original)
+    try:replacement.replace(app)
+    except PermissionError as error:
+     # A retained ordinary stream prevents replacement on the actual Windows host.
+     self.assertEqual(os.name,'nt');self.assertIn(error.winerror,(5,32,33));self.assertEqual(app.read_bytes(),original);self.assertEqual(replacement.read_bytes(),original)
+     held.seek(0);self.assertEqual(held.read(),original);after=os.fstat(held.fileno());self.assertEqual((after.st_dev,after.st_ino),held_identity);self.assertIs(o.files[app],held);self.assertEqual(o.project(rows),first)
+    else:
+     with self.assertRaises(ValueError):o.project(rows)
+   self.assertTrue(held.closed)
+   # An unexpected replacement exception must also close this fixture owner once.
+   o=m.CliOrigins(candidate,expected,system,{'kernel32.dll'});failure=RuntimeError('authored unexpected replacement failure');retained=[]
+   with patch.object(o,'close',wraps=o.close) as close,patch.object(Path,'replace',side_effect=failure):
+    with self.assertRaises(RuntimeError) as caught:
+     with closing(o):
+      o.project(rows);retained=list(o.files.values());replacement.replace(app)
+    self.assertIs(caught.exception,failure);close.assert_called_once_with()
+   self.assertTrue(retained);self.assertTrue(all(stream.closed for stream in retained))
+   with closing(m.CliOrigins(candidate,expected,system,{'kernel32.dll'})) as o:
+    app.write_bytes(b'changed')
+    with self.assertRaises(ValueError):o.project(rows)
+   app.write_bytes(original);outside=root/'outside';outside.mkdir();(outside/'kernel32.dll').write_bytes(b'private');dll.unlink();system.rmdir();system.symlink_to(outside,target_is_directory=True);linked=system/'kernel32.dll';old=Path.lstat
    def guard(path,*a,**kw):
     if path==linked:raise AssertionError('Linked descendant metadata')
     return old(path,*a,**kw)
-   o=m.CliOrigins(candidate,expected,system,{'kernel32.dll'})
-   with patch.object(Path,'lstat',guard),self.assertRaises(ValueError):o.project(((1,str(linked)),))
-   o.close()
+   with closing(m.CliOrigins(candidate,expected,system,{'kernel32.dll'})) as o:
+    with patch.object(Path,'lstat',guard),self.assertRaises(ValueError):o.project(((1,str(linked)),))
  def test_private_progress_rejects_parentlink_before_descendant_metadata_and_cumulative_oversize(self):
   with tempfile.TemporaryDirectory() as name:
    root=Path(name).resolve();outside=root/'outside';outside.mkdir();(outside/'progress').write_bytes(frame());link=root/'linked';link.symlink_to(outside,target_is_directory=True);leaf=link/'progress';old=Path.lstat

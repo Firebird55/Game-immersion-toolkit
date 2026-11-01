@@ -8,6 +8,7 @@ import builtins
 import os
 import sqlite3
 import subprocess
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -602,7 +603,8 @@ def test_fixed_mock_transport_has_no_catch_all_account_write_or_foreign_response
     assert not policy.items and not policy.members
 
 
-def test_real_public_mobile_importer_reads_current_previous_and_preserved_chinese(populated):
+@pytest.mark.parametrize('legacy_default', [False, True], ids=['ordinary-default', 'cp1252-default'])
+def test_real_public_mobile_importer_reads_current_previous_and_preserved_chinese(populated, monkeypatch, legacy_default):
     # Buildhost compatibility only. Runtime adapter gains no Node/PATH caller.
     script = r"""
 import {readFileSync} from 'node:fs';
@@ -622,8 +624,30 @@ console.log(JSON.stringify(result));
     value.copy()
     command = ['node', '--input-type=module', '-e', script,
         str(value.fixture.current_bundle), str(value.fixture.previous_bundle)]
+    defaults = []
+    if legacy_default:
+        def cp1252_default():
+            defaults.append('cp1252')
+            return 'cp1252'
+        monkeypatch.setattr(subprocess, '_text_encoding', cp1252_default)
+        errors = []
+        # Windows communicate() decodes in joined reader threads; POSIX reads
+        # here. Observe that exact old failure without leaking a thread warning.
+        with monkeypatch.context() as legacy:
+            legacy.setattr(threading, 'excepthook', lambda info: errors.append(info.exc_value))
+            try:
+                old = subprocess.run(command, cwd=Path(__file__).resolve().parents[2],
+                    capture_output=True, text=True, check=True, timeout=20)
+            except UnicodeDecodeError as error:
+                errors.append(error)
+            else:
+                assert old.stdout is None
+        assert len(errors) == 1 and isinstance(errors[0], UnicodeDecodeError)
+        assert errors[0].encoding == 'charmap' and errors[0].object[errors[0].start] == 0x8f
+        assert defaults == ['cp1252']
     completed = subprocess.run(command, cwd=Path(__file__).resolve().parents[2],
-        capture_output=True, text=True, check=True, timeout=20)
+        capture_output=True, text=True, encoding='utf-8', errors='strict', check=True, timeout=20)
+    assert defaults == (['cp1252'] if legacy_default else [])
     rows = json.loads(completed.stdout)
     assert [(row['source'], row['target']) for row in rows] == [('zh-Hans', 'en'), ('en', 'zh-Hans')]
     assert rows[0]['sourceText'] == rows[1]['translation'] == '自制屏幕消息'
