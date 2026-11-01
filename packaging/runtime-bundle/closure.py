@@ -15,6 +15,8 @@ import re
 import subprocess
 import sys
 
+from packaging.requirements import InvalidRequirement, Requirement
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from backend.runtime_bundle import CHILD_TARGETS, EXPERIMENT_CHILDREN, MANIFEST_SCHEMA, relative_resource
@@ -51,6 +53,41 @@ def checked_file(root, entry):
 
 def normalized(name):
     return re.sub(r'[-_.]+', '-', name).lower()
+
+
+def windows_runtime_requirements(path):
+    """Select the current lock policy for the already required CPython/Win64 target.
+
+    This gate also runs off-host. Unknown marker policies must be reviewed,
+    never evaluated using the review machine's OS/release or Python version.
+    """
+    result = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        try:
+            item = Requirement(line)
+        except InvalidRequirement as error:
+            raise ClosureError('Unsupported Python lock syntax.') from error
+        pins = list(item.specifier)
+        if (item.url or item.extras or len(pins) != 1 or pins[0].operator != '=='
+                or '*' in pins[0].version):
+            raise ClosureError('Runtime dependencies must use exact version pins without extras or URLs.')
+        if item.marker:
+            marker = re.fullmatch(r'sys_platform (==|!=) "(win32|linux|darwin)"', str(item.marker))
+            if not marker:
+                raise ClosureError('Unsupported runtime target marker policy.')
+            selected = marker[2] == 'win32'
+            if marker[1] == '!=':
+                selected = not selected
+            if not selected:
+                continue
+        name = normalized(item.name)
+        if name in result:
+            raise ClosureError('Duplicate selected Python lock requirement.')
+        result[name] = pins[0].version
+    return result
 
 
 def validate_python_notice_delivery(component, source, evidence):
@@ -143,16 +180,9 @@ def validate_inputs(value, source, evidence, *, check_host=True):
         gates = value.get('gates', {})
         if value['profile'] == 'runtime' and any(gates.get(name) != 'approved' for name in GATES):
             raise ClosureError('Full runtime closure remains incomplete; use an explicitly diagnostic candidate.')
-        lock_names = set()
-        for line in (source / 'requirements.lock.txt').read_text().splitlines():
-            if line.strip() and not line.startswith('#'):
-                match = re.fullmatch(r'([^=]+)==([^; ]+)(?:; .*)?', line)
-                if not match:
-                    raise ClosureError('Unsupported Python lock syntax.')
-                name, version = normalized(match[1]), match[2]
-                lock_names.add(name)
-                if not any(normalized(item['name']) == name and item['version'] == version for item in components):
-                    raise ClosureError('Runtime wheel/version evidence is missing: ' + name)
+        for name, version in windows_runtime_requirements(source / 'requirements.lock.txt').items():
+            if not any(normalized(item['name']) == name and item['version'] == version for item in components):
+                raise ClosureError('Runtime wheel/version evidence is missing: ' + name)
         # Test packages remain build-only; their evidence still identifies the
         # exact provisioned environment, without collecting them in the spec.
     resources = value.get('resources', [])
