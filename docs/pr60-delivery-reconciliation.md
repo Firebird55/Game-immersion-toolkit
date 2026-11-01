@@ -45,3 +45,23 @@ the ordinary two-argument path retains the closed v2 failure. Module retention
 must survive diagnostic return and collection without turning metadata into
 cleanup or activation authority. New tests cover that compatibility boundary;
 neither the old Windows negatives nor the original tag are rewritten.
+
+That target integration is committed as `0898c1b`. Its stable local core/build,
+documentation and public audit passed; 19 browser scenarios were delegated and
+three Windows checks unavailable, leaving the branch report incomplete. The
+actual Windows runtime build progressed past the earlier lock-marker refusal,
+then its relocated native probe refused at the binary capture-worker argument
+check. Both separate C7 controls identified the protected system-home base and
+stopped before the actual mechanism. Their small source corrections need a new
+exact-head native run. Downloaded frontend/helper/TEST-DPAPI metadata is bounded
+positive evidence, with authored inputs and the original acceptance limitations.
+
+The owner separately authorized the exact MP3 import-library alias revision and
+necessary notice/source wiring. Commit `974c49d` preserves the original four
+approved baselines, v145 decision and full prior notice while binding that new
+grant separately from the final copies. It changes only the private build-host
+import-library alias behavior; no runtime DLL is renamed or newly collected.
+The strict C7 guard correction is separately committed as `989b033`. Neither
+source change upgrades rights, ordinary-user Windows11, global/physical writer
+closure, keeper loss, usable warm routing or complete R19 acceptance. No
+installer, release, live migration, tag or PR #59 action follows.

@@ -5,8 +5,10 @@ Status: **planned remaining work; no acceptance gate is closed by this plan**.
 Current PR #60 task boundary (2026-11-01): the ongoing integration with `main`
 at `0ec5f5f74a19a9de4fbc119ba3f5a283f01674ce` preserves its production desktop
 host, current credential layout and shared component pin. Focused source reviews
-passed; joint branch checks and native acceptance require their own evidence for
-the combined commit. Older frozen receipts do not verify that combined source.
+passed. At combined commit `0898c1b`, the stable local branch check passed its
+core, build, documentation and public audit; its status remains incomplete for
+19 delegated browser scenarios and three unavailable Windows checks. Later source
+repairs require a new combined check. Older frozen receipts do not verify them.
 This task has no authorization to build an installer, publish a release
 or perform a live migration. PR #59 was merged externally with its protected
 head unchanged; this task did not change or merge it. Rights/source delivery,
@@ -66,6 +68,27 @@ PR #59 remains unchanged. No installer, release/tag, Pages publication, installe
 shortcut transaction or live migration is authorized by this plan.
 
 ## Historical starting point
+
+The subsequent `0898c1b` Windows attempt passed 1,810 selected contracts and built
+the isolated executable trees, then refused the relocated native probe at the
+binary capture-worker entrypoint. Its actual child exit code is not exposed.
+Source inspection found that this worker rejects `--help` with exactly status 2,
+while the generic CLI sweep required 0. The bounded probe correction retains
+that exact refusal and does not claim actual capture or a new frozen result.
+Later slot, keeper and copy probes did not run. Both separate C7 controls now
+identify `guard-base-system-home`; their actual lock mechanism remains unrun.
+The strict source correction uses that single protected system-home expectation,
+preserving the other module/origin/permission guards and command limits.
+
+Downloaded `0898c1b` frontend metadata verifies Chromium/Firefox source/static
+comparison, authored storage after browser restart, zoom, worker/WASM assets,
+retained chunks and frozen serving without developer PATH. Separate helper and
+DPAPI receipts verify only their authored tests. The NTE bridge uses authored
+reflected stand-ins; private Endfield/PRAGMATA receipts supply no replayable
+private build cohort or redistribution approval. These bounded results and the
+new runtime/C7 negatives are appended separately to the
+[checkpoint ledger](r19-frozen-checkpoint-20261031.json), preserving all older
+values. The latest complete bounded frozen checkpoint remains `8449d81`.
 
 The combined `1b4366f` attempt is a subsequent negative checkpoint, recorded
 separately in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).

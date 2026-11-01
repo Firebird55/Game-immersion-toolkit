@@ -12448,5 +12448,272 @@
     "native_windows_11_acceptance": "unavailable",
     "installer": "not-built",
     "raw_private_logs_saved": false
+  },
+  "failed_runtime_capture_entrypoint_0898c1b": {
+    "source_commit": "0898c1b431b77a5e6fc69c2a80f111e933496603",
+    "run": 41344422354,
+    "job": 124961114108,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41344422354",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "selected_contracts": {
+      "passed": 1810,
+      "skipped": 0,
+      "warnings": 1,
+      "subtests": 118,
+      "seconds": 548.32
+    },
+    "isolated_executable_build": "provider step completed successfully",
+    "relocated_probe": {
+      "type": "RuntimeBundleError",
+      "contract": "Frozen synthetic worker failed: window-capture",
+      "actual_child_exit_status": "not exposed",
+      "raw_child_output": "private; not retained"
+    },
+    "later_slots_keeper_and_copy_steps": "not-run",
+    "runtime_metadata_artifact": false,
+    "source_finding": "Binary capture worker rejects --help with2 before native capture; prior sweep required0. This source mismatch does not establish the failed frozen child exit code or underlying cause.",
+    "latest_complete_bounded_checkpoint": "8449d81",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "failed_C7_system_home_role_0898c1b": {
+    "source_commit": "0898c1b431b77a5e6fc69c2a80f111e933496603",
+    "run": 41344420480,
+    "job": 124961112803,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41344420480",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261030.294.1"
+    },
+    "selected_contracts": {
+      "failed": 1,
+      "passed": 705,
+      "seconds": 5.22,
+      "skipped": 0
+    },
+    "controls": {
+      "managed-io": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "protocol-refused",
+          "stderr_prefix": "empty"
+        },
+        "fixture": "removed-after-confirmed-cleanup",
+        "observation": {
+          "bootstrap_error": "guard-base-system-home",
+          "bootstrap_phase": "module",
+          "last_marker": "fixture-validated",
+          "state": "unavailable",
+          "stderr_present": false
+        }
+      },
+      "prefix": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "protocol-refused",
+          "stderr_prefix": "empty"
+        },
+        "fixture": "removed-after-confirmed-cleanup",
+        "observation": {
+          "bootstrap_error": "guard-base-system-home",
+          "bootstrap_phase": "module",
+          "last_marker": "fixture-validated",
+          "state": "unavailable",
+          "stderr_present": false
+        }
+      }
+    },
+    "actual_mechanism": "not-run; prerequisite control gate failed",
+    "metadata_publisher": "skipped",
+    "artifacts": [],
+    "scope": "Both genuine exception records independently show the protected system-home ModuleBase role. No later assembly/origin or lock-mechanism result follows.",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "verified_frontend_metadata_0898c1b": {
+    "source_commit": "0898c1b431b77a5e6fc69c2a80f111e933496603",
+    "run": 41344422338,
+    "job": 124961086872,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41344422338",
+    "hosted_image_version": "20261021.278.1",
+    "archive": {
+      "id": 13098886248,
+      "bytes": 3227,
+      "sha256": "f04626d63c705775de41073e44529d711aedf9aa42697f5d32c9710366f963ce"
+    },
+    "metadata": {
+      "checks/r19-frozen-frontend.json": {
+        "bytes": 575,
+        "sha256": "615b2e7d3a945aec9bb5fe218706e42332750f383bafae7a7469ec1d2b2fcebb"
+      },
+      "checks/r19-frontend-equivalence.json": {
+        "bytes": 13959,
+        "sha256": "7952335d9448b22dd9c36b4be7f5097f8c622e725201e4dc188c55414c0862b7"
+      },
+      "checks/r19-hosted-diagnostic.json": {
+        "bytes": 737,
+        "sha256": "0d050b45ff715b5cb6d6ad4ca6d170a3ba36f61ddefd96facaa5fddc5b514ad0"
+      },
+      "runtime-bundle/build-check.json": {
+        "bytes": 126,
+        "sha256": "7180897ba0f42e1019bcb64abc2b391d6b595ad1fe02c3292bebfe6e2c803869"
+      }
+    },
+    "browsers": {
+      "chromium": {
+        "browser_version": "156.0.8078.4",
+        "source_static_storage_zoom_pixels_assets": "passed",
+        "source_native_audio_error_baseline": "preserved; not repaired",
+        "mock_API_writes": 4,
+        "remote_account_writes": 0
+      },
+      "firefox": {
+        "browser_version": "157.0",
+        "source_static_storage_zoom_pixels_assets": "passed",
+        "source_native_audio_error_baseline": "preserved; not repaired",
+        "mock_API_writes": 4,
+        "remote_account_writes": 0
+      }
+    },
+    "relocated_frozen_frontend": "passed with developer PATH removed; served manifest hashes and owned cleanup passed",
+    "supplier_scope": "CPython3.12.10 diagnostic only; serviced complete runtime remains separate",
+    "real_user_profile": "not-accessed",
+    "extension_compatibility": "unavailable",
+    "service_worker": "blocked in authored test context",
+    "real_account_writes": 0,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "verified_helper_and_private_metadata_0898c1b": {
+    "source_commit": "0898c1b431b77a5e6fc69c2a80f111e933496603",
+    "runs": {
+      "helpers": 41344422195,
+      "private_readers": 41344422370,
+      "diagnostic_and_DPAPI": 41344422338
+    },
+    "entries": {
+      "r19-blocked-endfield.json": {
+        "artifact": 13098995561,
+        "bytes": 1351,
+        "sha256": "32ec68117ad6551d15f8c61bd6297fe633994f21fe7077cf97c1fdee493ab052"
+      },
+      "r19-blocked-pragmata.json": {
+        "artifact": 13098925748,
+        "bytes": 1009,
+        "sha256": "31f604a4c40e0904fe016955806b4753b80acaf52b626d337c0380c837a26bcf"
+      },
+      "r19-node-helper.json": {
+        "artifact": 13098860949,
+        "bytes": 980,
+        "sha256": "5cf63c2533e3f964fb542ae388b7395985c139eb11d951953190a9d41abcbb36"
+      },
+      "r19-managed-helper.json": {
+        "artifact": 13098696667,
+        "bytes": 945,
+        "sha256": "0689268f7de69480c6d1fad48d7841a85cfec89bc4a653b2df287ec16af6d84b"
+      },
+      "r19-nte-bridge.json": {
+        "artifact": 13098696667,
+        "bytes": 1757,
+        "sha256": "3bc4eb5fe1aa4181570cc3d6d21da86f21dced130d8908a42872b71881a78ad1"
+      },
+      "r19-protected-test-state.json": {
+        "artifact": 13098573029,
+        "bytes": 635,
+        "sha256": "d7c518fa97c9b3fa52ed729722541ae7cc42aba4b2a215bd09015335b01e1c27"
+      },
+      "checks/r19-hosted-diagnostic.json": {
+        "artifact": 13098524050,
+        "bytes": 728,
+        "sha256": "4e013242df9bcfc65b4c85686c37f66319ba5817ef82b86f0fc12e685326ce6a"
+      },
+      "runtime-bundle/build-check.json": {
+        "artifact": 13098524050,
+        "bytes": 125,
+        "sha256": "66f7a0b3d6425fb2f2f88c44d97420d3b2fe77fb7d2de3831263785678cf4ac7"
+      }
+    },
+    "results": {
+      "node": "authored worker/WASM/Chinese JSON",
+      "managed": "app-local authored malformed/missing/readonly checks",
+      "NTE": "real owned bridge and authored reflected stand-ins,4voice/5text locales; no actual game dependency",
+      "DPAPI": "one same-user authored TEST copy; no live migration",
+      "private_readers": "two metadata-only authored native probes; rights and game acceptance unestablished",
+      "diagnostic": "relocated stdlib-only CPython3.12.10, no full toolchain acceptance"
+    },
+    "authored_fixture_bindings": {
+      "CueFixture.cs": {
+        "git_bytes": 5961,
+        "git_sha256": "362efd6e3effc2ca2e64d4a5b9ccf229568e3df1533f4f3bc97ddebf271fb0b8",
+        "observed_exact_CRLF_bytes": 6087,
+        "observed_exact_CRLF_sha256": "2e474014983a884b5c0a8ab8b9d509760ce7cfd1f17928f6a2aaa6c6c7d57e09"
+      },
+      "CueFixture.csproj": {
+        "git_bytes": 374,
+        "git_sha256": "d49a5cd9a6956627817f4c8b445a3c67dfe482da7307cc7ff86c949f26c3c23a",
+        "observed_exact_CRLF_bytes": 384,
+        "observed_exact_CRLF_sha256": "aaec72d41dad70dbd922d7ae44240b428197d28eca8db81395c308a3ba73ba8f"
+      },
+      "UnrealFixture.cs": {
+        "git_bytes": 484,
+        "git_sha256": "00fa1d6f110bfe20171ac75dd2eac2c161ed84762887fb9271050576656c5987",
+        "observed_exact_CRLF_bytes": 495,
+        "observed_exact_CRLF_sha256": "e68f134477e94be63f84b1f64c97becd2896c6b61024a2e57b57709a030b135b"
+      },
+      "UnrealFixture.csproj": {
+        "git_bytes": 477,
+        "git_sha256": "4b310506b6d285c9b2bebf55909c70f35dd8909740966eb68cdf7b87010a0b5b",
+        "observed_exact_CRLF_bytes": 490,
+        "observed_exact_CRLF_sha256": "04dd7b1ab06eb10086be8920c9e0bddf83c6e1196ca803d4b388eb5f69982448"
+      }
+    },
+    "private_build_cohort_replay": "unavailable; no private source-input map or compiled binary inventory downloaded",
+    "native_binary_downloads": 0,
+    "metadata_scope": "Eight JSON reports from six exact-digest regular-file ZIP archives; no whole private binary source-cohort acceptance",
+    "rights_review": "not-established for private readers; pending exact output for authored helpers",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
   }
 }
