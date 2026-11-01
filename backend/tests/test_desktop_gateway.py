@@ -1,5 +1,8 @@
 """The LAN boundary must never turn loopback APIs into anonymous network APIs."""
 import json
+import asyncio
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -10,6 +13,44 @@ from backend.desktop_gateway import DesktopGateway, Pairing, RuntimeRoutes, allo
 
 ADDRESS = '192.168.1.20'
 BASE = f'http://{ADDRESS}:3000'
+
+
+def test_peer_disconnect_during_final_close_releases_gateway_socket(gateway, monkeypatch):
+    """A browser can disappear between bridge completion and its final close."""
+    from backend import desktop_gateway as module
+    instance, _ = gateway
+    instance.routes.refresh()
+    monkeypatch.setattr(module, 'allowed_request', lambda *_: True)
+    monkeypatch.setattr(instance, 'trusted', lambda _: True)
+
+    class Upstream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+    @asynccontextmanager
+    async def connect(*_, **__):
+        yield Upstream()
+
+    monkeypatch.setattr(module, 'connect', connect)
+
+    class Socket:
+        scope = {'path': '/api/ws'}
+        url = SimpleNamespace(path='/api/ws')
+
+        async def accept(self):
+            pass
+
+        async def receive(self):
+            return {'type': 'websocket.disconnect'}
+
+        async def close(self, **_):
+            raise WebSocketDisconnect(code=1006)
+
+    asyncio.run(instance.websocket(Socket()))
+    assert not instance.routes.websockets
 
 
 @pytest.fixture

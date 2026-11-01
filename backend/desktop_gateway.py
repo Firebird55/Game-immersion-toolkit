@@ -399,7 +399,7 @@ class DesktopGateway:
             self.routes.websockets.discard(socket)
             try:
                 await socket.close(code=1012)
-            except (RuntimeError, OSError):
+            except (RuntimeError, OSError, WebSocketDisconnect):
                 pass
 
 
