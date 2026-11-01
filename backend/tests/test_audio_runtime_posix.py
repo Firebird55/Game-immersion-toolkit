@@ -101,3 +101,23 @@ def test_actual_celt_defined_exports_must_not_collide_with_opus(prefix):
             build.validate_celt_symbols(text + '000000003 T ' + prefix + name + '\n')
         with pytest.raises(ValueError, match='missing'):
             build.validate_celt_symbols(text.replace(name + '_0110', 'different_export'))
+
+
+def test_source_document_layout_preserves_required_guide_and_dependency_notices(tmp_path):
+    source, output = tmp_path / 'source', tmp_path / 'output'
+    output.mkdir()
+    authored = {'COPYING': b'upstream license', 'README.md': b'upstream README',
+        'doc/USAGE.md': b'upstream usage', 'ext_libs/licenses/codec/LICENSE': b'codec terms'}
+    for name, data in authored.items():
+        path = source / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    build.retain_vgmstream_documents(source, output)
+    assert (output / 'USAGE.md').read_bytes() == authored['doc/USAGE.md']
+    assert (output / 'COPYING').read_bytes() == authored['COPYING']
+    assert (output / 'README.md').read_bytes() == authored['README.md']
+    assert (output / 'vgmstream-licenses/codec/LICENSE').read_bytes() == authored['ext_libs/licenses/codec/LICENSE']
+    (source / 'COPYING').unlink()
+    missing = tmp_path / 'missing'; missing.mkdir()
+    with pytest.raises(FileNotFoundError):
+        build.retain_vgmstream_documents(source, missing)

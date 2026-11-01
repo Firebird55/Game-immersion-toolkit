@@ -251,7 +251,13 @@ def build_vgmstream(source, paths, prefix, work, root, sources, env, jobs, run):
         'All codec libraries link statically into the separate CLI, with only base OS libraries dynamic.\n'
         'To rebuild/relink with modified libraries, modify their sources and update the source hash pins\n'
         'in your source checkout. A modified local build is not the original verified distribution.\n', encoding='utf-8')
-    for name in ('COPYING', 'README.md', 'USAGE.md'):
-        shutil.copyfile(source / name, root / name)
-    shutil.copytree(source / 'ext_libs/licenses', root / 'vgmstream-licenses')
+    retain_vgmstream_documents(source, root)
     return retained
+
+
+def retain_vgmstream_documents(source, root):
+    # The pinned source tarball keeps the guide under doc/; only the Windows
+    # binary distribution flattens it alongside COPYING and README.md.
+    for relative in ('COPYING', 'README.md', 'doc/USAGE.md'):
+        shutil.copyfile(source / relative, root / Path(relative).name)
+    shutil.copytree(source / 'ext_libs/licenses', root / 'vgmstream-licenses')
