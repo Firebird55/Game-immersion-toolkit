@@ -1,8 +1,8 @@
-"""One real frozen process owner, restricted to the existing private host probe.
+"""Frozen process ownership, with separate private probes and an internal owner.
 
-The frontend is real. The API is the existing fixed API probe, with its external
-account/game/OCR startup side effects mocked. This is not an installed launcher,
-router, updater, migration coordinator or writer-stop/store-copy capability.
+Fixed probes keep their original mocked API-side-effect scope. The normal
+standby building block has no launcher/updater caller or candidate-admission
+authority. Neither is a routing, migration or writer-stop/store-copy capability.
 """
 from __future__ import annotations
 
@@ -12,11 +12,15 @@ from ctypes import wintypes
 from dataclasses import replace
 import hashlib
 import json
+import math
 import ntpath
+import os
 from pathlib import Path
 import queue
+import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -53,6 +57,446 @@ class HostProbeFailure(RuntimeBundleError):
     def __init__(self, code):
         self.code = code
         super().__init__('Owned frozen host probe failed: ' + code)
+
+
+class OwnedStandbySlotError(RuntimeBundleError):
+    """The retained owner holds the original errors and uncertain resources."""
+    def __init__(self, owner):
+        self.owner = owner
+        super().__init__('The experimental normal standby owner requires review; it cannot be reused.')
+
+
+def _standby_path(path, directory):
+    for item in (*reversed(path.parents), path):
+        info = item.lstat()
+        if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
+            raise RuntimeBundleError('Standby inputs cannot traverse links or reparse points.')
+        if item != path and not stat.S_ISDIR(info.st_mode):
+            raise RuntimeBundleError('Standby input ancestor is not a directory.')
+    if not (stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)):
+        raise RuntimeBundleError('Standby input has an unsupported file type.')
+    return info
+
+
+def _standby_system_environment():
+    """Authoritative OS roots only; no inherited keys, proxy or Python settings."""
+    kernel = preparation_kernel()
+    roots = []
+    for name in ('GetSystemDirectoryW', 'GetSystemWindowsDirectoryW'):
+        function = getattr(kernel, name)
+        function.argtypes, function.restype = [wintypes.LPWSTR, wintypes.UINT], wintypes.UINT
+        buffer = ctypes.create_unicode_buffer(32768)
+        length = function(buffer, len(buffer))
+        if not 0 < length < len(buffer):
+            raise RuntimeBundleError('Authoritative Windows directories are unavailable.')
+        path = Path(buffer.value)
+        if not path.is_absolute():
+            raise RuntimeBundleError('Authoritative Windows directory is invalid.')
+        _standby_path(path, True)
+        roots.append(str(path))
+    return {'SystemRoot':roots[1], 'WINDIR':roots[1], 'PATH':os.pathsep.join(roots)}
+
+
+class OwnedStandbySlot:
+    """Internal, gated normal-process building block, NOT candidate admission.
+
+    The caller supplies independently reviewed full inventory pins and a fresh
+    disposable root. These pins confer no source, rights or slot eligibility.
+    There is deliberately no ordinary launcher/updater/CLI caller.
+    """
+    def __init__(self, layout, *, disposable, inventory_files, inventory_directories,
+                 trusted_manifest_sha256, api_port, frontend_port):
+        from .runtime_bundle import RuntimeLayout, relative_resource, EXPERIMENT_CHILDREN
+        from .bundle_host import SyntheticRoot
+        if (sys.platform != 'win32' or type(layout) is not RuntimeLayout
+                or layout.mode != 'bundle' or layout.profile != 'runtime-experiment'
+                or layout.resource_root != layout.application_root/'_internal'
+                or layout.executable != layout.application_root/'ProxyTranscriptRuntime.exe'
+                or layout.children != EXPERIMENT_CHILDREN or layout.legacy_root is not None
+                or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',layout.version)
+                or not re.fullmatch(r'[a-f0-9]{40}',layout.source_commit)
+                or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,79}',layout.build_id)
+                or type(disposable) is not SyntheticRoot
+                or type(trusted_manifest_sha256) is not str or not re.fullmatch('[a-f0-9]{64}', trusted_manifest_sha256)
+                or any(type(port) is not int or not 1024 < port < 65536 or port in (3000,8766)
+                       for port in (api_port, frontend_port)) or api_port == frontend_port):
+            raise RuntimeBundleError('Need an experimental normal slot, explicit private ports and disposable state.')
+        if (type(inventory_files) not in (list,tuple) or type(inventory_directories) not in (list,tuple)
+                or not 1 <= len(inventory_files) <= 16384 or len(inventory_directories) > 16384):
+            raise RuntimeBundleError('Complete standby inventory is unavailable.')
+        files, aliases, total = {}, set(), 0
+        def name(value):
+            if type(value) is not str or len(value)>1024:
+                raise RuntimeBundleError('Unsupported standby inventory name.')
+            relative_resource(value)
+            if len(value.encode('utf-8')) > 1024 or len(Path(value).parts) > 64 or any(ord(c) < 32 for c in value):
+                raise RuntimeBundleError('Unsupported standby inventory name.')
+            if value.casefold() in aliases:
+                raise RuntimeBundleError('Aliased standby inventory entry.')
+            aliases.add(value.casefold())
+            return value
+        for entry in inventory_files:
+            if (type(entry) is not dict or set(entry) != {'path','bytes','sha256'}
+                    or type(entry['bytes']) is not int or not 0 <= entry['bytes'] <= 512*1024**2
+                    or type(entry['sha256']) is not str or not re.fullmatch('[a-f0-9]{64}', entry['sha256'])):
+                raise RuntimeBundleError('Unsupported standby inventory identity.')
+            files[name(entry['path'])] = (entry['bytes'], entry['sha256'])
+            total += entry['bytes']
+        directories = tuple(name(value) for value in inventory_directories)
+        if (total > 2*1024**3 or files.get('_internal/runtime-manifest.json', (None,None))[1] != trusted_manifest_sha256
+                or 'ProxyTranscriptRuntime.exe' not in files):
+            raise RuntimeBundleError('Standby inventory does not bind its executable and manifest.')
+        self.layout, self.disposable, self.manifest_pin = layout, disposable, trusted_manifest_sha256
+        self._files, self._directories = files, frozenset(directories)
+        self.api_port, self.frontend_port = api_port, frontend_port
+        self.api_origin, self.frontend_origin = f'http://127.0.0.1:{api_port}', f'http://127.0.0.1:{frontend_port}'
+        self.tree, self.scratch, self.frontend = None, None, None
+        self.children, self.errors, self.unconfirmed_observers, self.unconfirmed_http = {}, [], [], []
+        self._abort = threading.Event()
+        self.ready = self.closed = self.recovery_required = self.cleanup_confirmed = False
+        self._started = self._close_attempted = self._ambiguous_creation = False
+        self._membership_unconfirmed = False
+        self._validation_failed = False
+        self._tree_constructed = False
+        self._operation = threading.RLock()
+        self._validate_disposable()
+
+    @staticmethod
+    def _deadline(timeout):
+        if type(timeout) not in (float,int) or not 0 < timeout <= 300 or not math.isfinite(timeout):
+            raise ValueError('Need a finite positive standby timeout at most 300 seconds.')
+        return time.monotonic()+timeout
+
+    @property
+    def ready(self):
+        return self._ready and not self._abort.is_set()
+
+    @ready.setter
+    def ready(self,value):
+        self._ready=value
+
+    def _remaining(self,deadline):
+        if self._abort.is_set():
+            raise self._failed()
+        remaining = deadline-time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('The absolute standby deadline expired.')
+        return remaining
+
+    def _remember(self, stage, error):
+        self._abort.set()
+        if not any(current is error for _stage,current in self.errors):
+            self.errors.append((stage,error))
+        self.recovery_required, self.ready = True, False
+
+    def _failed(self):
+        return OwnedStandbySlotError(self)
+
+    def _validate_disposable(self):
+        root = self.disposable.path
+        _standby_path(root, True)
+        if _standby_path(root/'.r19-synthetic-fixture.json', False).st_size>4096:
+            raise RuntimeBundleError('Disposable standby marker exceeds its bound.')
+        self.disposable.verify()
+        with os.scandir(root) as entries:
+            if any(entry.name != '.r19-synthetic-fixture.json' for entry in entries):
+                raise RuntimeBundleError('Normal standby state must start marker-only.')
+        for name in ('settings_root','data_root','cache_root','work_root','tool_root','state_root','default_export_root'):
+            path = getattr(self.layout,name)
+            if (path == root or not path.is_relative_to(root)
+                    or any(path.is_relative_to(root/name) or (root/name).is_relative_to(path)
+                           for name in ('host-profile','host-temp'))):
+                raise RuntimeBundleError('Every standby writable root must be separate from the private profile.')
+
+    def _verify_slot(self, deadline):
+        try:
+            return self._verify_slot_bytes(deadline)
+        except BaseException:
+            # Existing readers retain their actual stream in the original
+            # traceback on close failure. Do not infer full cleanup from an
+            # empty process set after any uncertain input verification.
+            self._validation_failed = True
+            raise
+
+    def _verify_slot_bytes(self, deadline):
+        from .desktop_frontend import _experimental_slot_frontend
+        root = self.layout.application_root
+        _standby_path(root, True)
+        seen_files, seen_directories, pending = set(), set(), [root]
+        while pending:
+            directory = pending.pop()
+            _standby_path(directory, True)
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    self._remaining(deadline)
+                    path = directory/entry.name
+                    name = path.relative_to(root).as_posix()
+                    if name in self._directories:
+                        _standby_path(path, True); seen_directories.add(name); pending.append(path)
+                    elif name in self._files:
+                        info = _standby_path(path, False)
+                        size, expected = self._files[name]
+                        if info.st_size != size or info.st_nlink != 1:
+                            raise RuntimeBundleError('Standby file size or single-file identity differs.')
+                        digest, count = hashlib.sha256(), 0
+                        with path.open('rb') as stream:
+                            while True:
+                                self._remaining(deadline)
+                                chunk = stream.read(min(1024**2,size-count+1))
+                                if not chunk: break
+                                count += len(chunk); digest.update(chunk)
+                                if count > size: raise RuntimeBundleError('Standby file grew outside its pin.')
+                        if count != size or digest.hexdigest() != expected:
+                            raise RuntimeBundleError('Standby file checksum differs.')
+                        seen_files.add(name)
+                    else:
+                        raise RuntimeBundleError('Standby tree has an unknown inventory entry.')
+        if seen_files != set(self._files) or seen_directories != self._directories:
+            raise RuntimeBundleError('Standby tree is missing an inventory entry.')
+        for name, digest in self.layout.resources.items():
+            if self._files.get('_internal/'+name, (None,None))[1] != digest:
+                raise RuntimeBundleError('Standby resources differ from the complete inventory.')
+        self.frontend = _experimental_slot_frontend(self.layout, self.manifest_pin)
+        self._remaining(deadline)
+
+    @contextmanager
+    def _job(self, deadline):
+        lock = self.tree._lifecycle
+        if not lock.acquire(timeout=max(0,deadline-time.monotonic())):
+            raise TimeoutError('Standby native control is still busy.')
+        try: yield
+        finally: lock.release()
+
+    def _live(self):
+        if any(self.tree.kernel.WaitForSingleObject(child.process_handle,0) != 258 for child in self.children.values()):
+            raise RuntimeBundleError('A retained standby process is not live.')
+
+    def _observe(self, pid):
+        kernel = self.tree.kernel
+        handle = kernel.OpenProcess(0x101000,False,pid)
+        if not handle: raise RuntimeBundleError('Standby observation is unavailable.')
+        primary = None
+        try:
+            member = wintypes.BOOL()
+            if not kernel.IsProcessInJob(handle,self.tree.handle,ctypes.byref(member)) or not member.value:
+                raise RuntimeBundleError('Standby listener/member belongs to another Job.')
+            matches = [role for role,child in self.children.items() if child.created and not child.closed
+                       and same_process_object(handle,child.process_handle)]
+            if len(matches) != 1 or kernel.WaitForSingleObject(handle,0) != 258:
+                raise RuntimeBundleError('Standby observation is not one live genuine creation object.')
+            return matches[0]
+        except BaseException as error:
+            primary = error
+            self._remember('observation',error)
+            raise
+        finally:
+            try:
+                if not kernel.CloseHandle(handle):
+                    error = OSError('Standby observer close is unconfirmed.')
+                    error.winerror = ctypes.get_last_error()
+                    raise error
+            except BaseException as error:
+                self.unconfirmed_observers.append(handle)  # Never query, close or retry this raw value again.
+                self._remember('observer-close',error)
+                if primary is None: raise
+
+    def _census(self, deadline, *, complete):
+        try:
+            members = self.tree._process_ids(deadline)
+            if (len(members) > 2 or len(set(members)) != len(members)
+                    or any(type(pid) is not int or pid <= 0 for pid in members)):
+                raise RuntimeBundleError('Standby Job membership is unknown or aliased.')
+            roles = [self._observe(pid) for pid in members]
+            if len(set(roles)) != len(roles) or complete and set(roles) != {'api','frontend'}:
+                raise RuntimeBundleError('Standby Job membership is incomplete or aliased.')
+        except BaseException:
+            self._membership_unconfirmed = True
+            raise
+
+    @contextmanager
+    def _listeners(self, deadline):
+        self._census(deadline,complete=True); self._live()
+        expected = {self.api_port:'api',self.frontend_port:'frontend'}
+        observed = listener_processes(tuple(expected))
+        for port,members in observed.items():
+            if port not in expected or len(members) != 1 or self._observe(next(iter(members))) != expected[port]:
+                raise RuntimeBundleError('Standby listener is not its retained role.')
+        complete = set(observed) == set(expected)
+        yield complete
+        after = listener_processes(tuple(expected))
+        for port,members in after.items():
+            if port not in expected or len(members) != 1 or self._observe(next(iter(members))) != expected[port]:
+                raise RuntimeBundleError('Standby listener is not its retained role.')
+        if complete and after != observed:
+            raise RuntimeBundleError('Standby listener identity changed during HTTP.')
+        self._census(deadline,complete=True); self._live()
+
+    def _http(self, port, path, limit, deadline):
+        """Fixed loopback HTTP/1.x, bounded bytes and one deadline through every recv."""
+        connection = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        primary = None
+        try:
+            connection.settimeout(self._remaining(deadline)); connection.connect(('127.0.0.1',port))
+            connection.settimeout(self._remaining(deadline))
+            connection.sendall(f'GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n'.encode('ascii'))
+            raw = bytearray()
+            while b'\r\n\r\n' not in raw:
+                connection.settimeout(self._remaining(deadline)); data = connection.recv(4096)
+                if not data: raise RuntimeBundleError('Standby HTTP headers ended early.')
+                raw.extend(data)
+                if len(raw) > 65536+limit: raise RuntimeBundleError('Standby HTTP exceeded its bound.')
+                if b'\r\n\r\n' not in raw and len(raw) > 65536:
+                    raise RuntimeBundleError('Standby HTTP headers exceed their bound.')
+            head, body = bytes(raw).split(b'\r\n\r\n',1)
+            lines, headers = head.split(b'\r\n'), {}
+            if len(head) > 65536 or len(lines) > 100 or not re.fullmatch(rb'HTTP/1\.[01] 200 [^\r\n]*',lines[0]):
+                raise RuntimeBundleError('Standby HTTP status/headers differ.')
+            for line in lines[1:]:
+                key, separator, value = line.partition(b':')
+                key = key.lower()
+                if not separator or not re.fullmatch(rb'[a-z0-9-]+',key) or key in headers:
+                    raise RuntimeBundleError('Standby HTTP header is duplicate or malformed.')
+                headers[key] = value.strip()
+            length = headers.get(b'content-length',b'')
+            if not re.fullmatch(rb'[0-9]{1,10}',length) or b'transfer-encoding' in headers or int(length)>limit or len(body)>int(length):
+                raise RuntimeBundleError('Standby HTTP framing exceeds the fixed response contract.')
+            body = bytearray(body)
+            while len(body) < int(length):
+                connection.settimeout(self._remaining(deadline)); data = connection.recv(min(65536,int(length)-len(body)))
+                if not data: raise RuntimeBundleError('Standby HTTP body ended early.')
+                body.extend(data)
+            self._remaining(deadline)
+            return bytes(body),headers
+        except BaseException as error:
+            primary = error
+            raise
+        finally:
+            try: connection.close()
+            except BaseException as error:
+                self.unconfirmed_http.append(connection); self._remember('http-close',error)
+                if primary is None: raise
+
+    def start(self, timeout=START_TIMEOUT):
+        deadline = self._deadline(timeout)
+        if not self._operation.acquire(timeout=self._remaining(deadline)):
+            error=TimeoutError('Standby owner control is busy; retain its actual owner.')
+            self._remember('control-lock',error)
+            raise self._failed() from error
+        try:
+            if self._started or self.recovery_required or self.closed: raise self._failed()
+            self._started = True
+            try:
+                self._validate_disposable(); self._verify_slot(deadline)
+                root = self.disposable.path
+                profile, temporary = root/'host-profile',root/'host-temp'
+                profile.mkdir(); temporary.mkdir()
+                base = _standby_system_environment()
+                base.update({name:str(profile) for name in ('LOCALAPPDATA','APPDATA','USERPROFILE','HOME')})
+                base.update(TEMP=str(temporary),TMP=str(temporary))
+                self.layout.work_root.mkdir(parents=True)
+                self.scratch = Path(tempfile.mkdtemp(prefix='normal-standby-',dir=self.layout.work_root))
+                self._remaining(deadline)
+                # Keep the actual owner before its native constructor can
+                # acquire a Job and then fail its own close. No factory or
+                # traceback-derived adoption supplies this ownership record.
+                self.tree = WindowsPreparationProcess.__new__(WindowsPreparationProcess)
+                WindowsPreparationProcess.__init__(self.tree)
+                self._tree_constructed = True
+                with self._job(deadline):
+                    for role,args in (('frontend',['--port',str(self.frontend_port)]),('api',['--port',str(self.api_port),'--standby'])):
+                        self._remaining(deadline)
+                        before = tuple(self.tree.created_children)
+                        try:
+                            child = self.tree.create_suspended(self.layout.child_command(role,args),cwd=self.scratch,
+                                env=self.layout.child_environment(role,environ=base),detached_console=True)
+                        finally:
+                            added = self.tree.created_children[len(before):]
+                            if len(added) == 1: self.children[role] = added[0]
+                            elif added: self._ambiguous_creation = True
+                        if role not in self.children or child is not self.children[role] or child.owner is not self.tree:
+                            self._ambiguous_creation = True
+                            raise RuntimeBundleError('Standby creation output is not its retained native registry record.')
+                        self._remaining(deadline)
+                    from .windows_preparation_process import _SuspendedChild
+                    values = tuple(self.children.values())
+                    if (any(not isinstance(child,_SuspendedChild) or not child.created or child.closed for child in values)
+                            or len({id(child) for child in values}) != 2
+                            or same_process_object(values[0].process_handle,values[1].process_handle)):
+                        self._ambiguous_creation = True
+                        raise RuntimeBundleError('Standby role creations have an ambiguous lifetime identity.')
+                    self._census(deadline,complete=True)
+                    for child in self.children.values():
+                        self._remaining(deadline); child.resume_once(); self._remaining(deadline)
+                    while True:
+                        self._remaining(deadline)
+                        with self._listeners(deadline) as listening:
+                            if listening:
+                                body,_ = self._http(self.api_port,'/api/runtime/ready',65536,deadline)
+                                from .desktop_frontend import _unique_object
+                                result = json.loads(body,object_pairs_hook=_unique_object)
+                                index = self.frontend.files['index.html']
+                                body,headers = self._http(self.frontend_port,'/',index['bytes'],deadline)
+                                if (len(body) != index['bytes'] or hashlib.sha256(body).hexdigest() != index['sha256']
+                                        or headers.get(b'etag') != ('"'+index['sha256']+'"').encode('ascii')
+                                        or headers.get(b'content-type') != index['mime'].encode('ascii')):
+                                    raise RuntimeBundleError('Normal standby frontend identity differs.')
+                                if (type(result) is not dict or set(result)!={'ready','standby'}
+                                        or type(result.get('ready')) is not bool or result.get('standby') is not True):
+                                    raise RuntimeBundleError('Normal standby readiness response differs.')
+                                if result['ready']:
+                                    self._verify_slot(deadline); self.ready = True; self._remaining(deadline); return self
+                        time.sleep(min(.05,self._remaining(deadline)))
+            except BaseException as error:
+                self._remember('start',error)
+                self._cleanup(deadline)
+                raise self._failed() from error
+        finally: self._operation.release()
+
+    def _cleanup(self, deadline):
+        self._close_attempted, self.ready = True, False
+        errors_before = len(self.errors)
+        try:
+            if self.tree is not None:
+                if not self._tree_constructed or getattr(self.tree,'_ownership_unconfirmed',False):
+                    raise RuntimeBundleError('Standby native-owner initialization/ownership is unconfirmed.')
+                with self._job(deadline):
+                    self.tree._admission_closed = True
+                    if not self._ambiguous_creation:
+                        try: self._census(deadline,complete=False)
+                        except BaseException as error: self._remember('pre-stop-census',error)
+                    for child in (() if self._ambiguous_creation else self.tree.created_children):
+                        if child.closed: continue
+                        try: child.stop_and_wait(deadline)
+                        except BaseException as error: self._remember('writer-stop',error)
+                        if child.exited and not child.closed:
+                            try: child.close_after_exit()
+                            except BaseException as error: self._remember('writer-close',error)
+                    if not self._ambiguous_creation and not self._membership_unconfirmed and all(child.closed for child in self.tree.created_children):
+                        if self.tree._process_ids(deadline): raise RuntimeBundleError('Unknown standby members remain after retained writer stop.')
+                        self.tree.close()
+                    else:
+                        raise RuntimeBundleError('Standby creation cleanup is unconfirmed.')
+            self.cleanup_confirmed = (len(self.errors) == errors_before and not self._validation_failed
+                and not self.unconfirmed_observers and not self.unconfirmed_http)
+            if self.cleanup_confirmed and not self.recovery_required:
+                if self.scratch is not None: shutil.rmtree(self.scratch)
+                self.closed = True
+        except BaseException as error:
+            self.cleanup_confirmed = False
+            self._remember('cleanup',error)
+
+    def close(self, timeout=STOP_TIMEOUT):
+        deadline = self._deadline(timeout)
+        if not self._operation.acquire(timeout=self._remaining(deadline)):
+            error=TimeoutError('Standby owner control is busy; retain its actual owner.')
+            self._remember('control-lock',error)
+            raise self._failed() from error
+        try:
+            if self.closed: return
+            if self._close_attempted: raise self._failed()
+            self._cleanup(deadline)
+            if not self.closed: raise self._failed() from (self.errors[0][1] if self.errors else None)
+        finally: self._operation.release()
 
 
 class _TcpRow(ctypes.Structure):

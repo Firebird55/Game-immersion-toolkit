@@ -121,3 +121,80 @@ keep old static chunks available during a frozen route swap. App-local router
 closure, Vite chunk retention and equivalent browser reconnect/update behavior
 remain required. Component rights, durable source delivery, native Windows
 acceptance and the full runtime gate remain separate and open.
+
+## Internal normal standby owner: source building block only
+
+`runtime_host.OwnedStandbySlot` is a separate programmatic building block. It
+starts the ordinary frozen `api` and `frontend` children, rather than a probe
+API. There is no CLI dispatch, launcher, updater, router or production caller.
+The existing cold probe and its historical receipts keep their original scope.
+
+Inputs are restricted to the main-image `runtime-experiment` layout, its full
+child inventory, two explicit distinct private ports, an owner-supplied complete
+file/directory inventory and runtime-manifest digest, and a fresh marker-only
+`SyntheticRoot`. All seven writable roots must be below that disposable root
+and separate from the newly selected private host-profile and temporary folders.
+The owner verifies every file's regular type, single-link identity, size and hash,
+rejects extra/missing entries and case aliases, and checks root ancestors before
+descendant metadata or reads. The bound inventory is limited to 16,384 files,
+16,384 directories, 512 MiB per file and 2 GiB total. It includes the executable,
+manifest and the whole resource/native tree. The existing frontend verifier
+additionally checks its closed public build and manifest binding.
+
+These supplied hashes are integrity pins, not slot ownership, complete source,
+native dependency, rights or production-activation eligibility. Their independent
+provenance remains a caller prerequisite. Verification is a bounded filesystem
+snapshot before creation and again before readiness is accepted; it does not
+provide continuous filesystem protection or a concurrent replacement proof.
+
+Both exact native creation records are retained in the existing Windows Job
+before either resumes. Commands are fixed normal `api --port … --standby` and
+`frontend --port …` entrypoints. Their environment comes from
+`layout.child_environment` with an explicit minimal OS environment: authoritative
+Windows directories and fresh disposable profile/temp locations. Parent keys,
+proxy configuration, Python paths and host account locations are not inherited.
+There is no mock API, account-store constructor hook or OCR replacement in this
+class. Missing ordinary Runtime prerequisites must actually keep it unready or
+fail startup. Marker-only state supplies no prepared-game or usable-OCR evidence.
+
+Readiness checks the ordinary API response and exact frontend index bytes, MIME
+type and ETag, with live Job membership and listener-to-creation identity before
+and after the HTTP work. PIDs from TCP/Job queries are used only to obtain and
+close read-only observations; they never become termination authority. HTTP starts
+only when both currently owned listeners are present. A missing-to-present transition before any
+HTTP work is normal startup progress; foreign bindings, Job membership changes
+and process death still refuse readiness. The HTTP reader uses fixed loopback
+requests, explicit content lengths and bounded raw
+headers/body. It follows no redirects or proxies and reapplies the same absolute
+deadline to each receive. One start deadline also covers control-lock waits,
+creation, resume, validation and attempted failure cleanup; cleanup receives no
+fresh timeout budget.
+
+Failures retain original exception objects and real ownership records. The actual
+Job owner is retained before its native constructor begins. Incomplete construction
+or poisoned native ownership cannot become successful empty-process cleanup and
+is never queried, closed or retried by this owner. Known children are stopped/closed
+independently, while ambiguous creation identity or
+unknown membership prevents closing the Job as a successful cleanup shortcut.
+The pre-stop census cannot turn into lifetime proof: an observed unknown member
+still blocks success if it disappears when a known parent is stopped.
+Failed observer values are never queried, closed or retried again. A later
+`close()` cannot retry or erase an earlier cleanup failure. Unconfirmed records,
+sockets and work directories remain with the failed owner; the caller must retain
+that owner while recovery is unresolved. No process-exit/lease-lifetime proof is
+introduced. Successful close removes only the owner's scratch directory; the
+disposable state remains the caller's responsibility.
+
+Portable tests use typed creation doubles and actual loopback HTTP/frontend
+fixtures. They verify fixed commands/environment, creation-before-resume,
+partial creation, changed inventory, root links, foreign/reused listener identity,
+child exit, deadline expiry and independent sticky cleanup failures. They are
+source behavior evidence, not Win32 or normal frozen startup acceptance.
+
+`--standby` currently leaves ordinary request/capture admission open. A private
+port or a successful readiness result therefore does **not** make this a safe
+candidate for an A/B transaction or establish single-capture ownership. Candidate
+admission, coherent final-copy/store rebind, retained OCR warmth, stable routing,
+WS/chunk continuity, keeper-loss/global-writer closure, recovery, source/rights
+eligibility and Win11 remain open. No installer, migration, activation, capture
+start, ordinary updater change or PR59 change is part of this building block.
