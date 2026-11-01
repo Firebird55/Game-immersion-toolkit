@@ -4,7 +4,10 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
+import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -18,6 +21,70 @@ def wait_for(predicate, timeout=5):
     while not predicate() and time.monotonic() < deadline:
         time.sleep(.01)
     assert predicate()
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows inherited active control-pipe boundary')
+def test_windows_preparation_does_not_inherit_active_control_input(tmp_path):
+    # Change only an isolated parent's Win32 standard handle. The actual API
+    # has a thread blocked on this same kind of shutdown-control pipe.
+    script = textwrap.dedent('''
+        import ctypes, msvcrt, os, subprocess, sys, threading, time
+        from pathlib import Path
+        from types import SimpleNamespace
+        from backend.preparation_worker import PreparationJob
+
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.GetStdHandle.argtypes = [ctypes.c_uint32]
+        kernel.GetStdHandle.restype = ctypes.c_void_p
+        kernel.SetStdHandle.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+        kernel.SetStdHandle.restype = ctypes.c_bool
+        original = kernel.GetStdHandle(0xfffffff6)
+        read_fd, write_fd = os.pipe()
+        assert kernel.SetStdHandle(0xfffffff6, msvcrt.get_osfhandle(read_fd))
+        reading = threading.Event()
+        def read_control():
+            reading.set()
+            os.read(read_fd, 1)
+        control = threading.Thread(target=read_control, daemon=True)
+        control.start()
+        assert reading.wait(2)
+        time.sleep(.05)
+        try:
+            cancelled = threading.Event()
+            owner = SimpleNamespace(stop_event=cancelled, _publication_lock=threading.RLock())
+            command = [sys.executable, '-c',
+                'import pathlib,sys; pathlib.Path(sys.argv[1]).write_text("started")',
+                sys.argv[1]]
+            assert PreparationJob(owner, cancelled).run(command,
+                cwd=Path(sys.argv[1]).parent, timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW) == 0
+            assert control.is_alive(), 'The independent shutdown reader must stay active'
+        finally:
+            assert kernel.SetStdHandle(0xfffffff6, original)
+            os.close(write_fd)
+            control.join(timeout=2)
+            os.close(read_fd)
+        assert not control.is_alive()
+    ''')
+    marker = tmp_path/'input.txt'
+    result = subprocess.run([sys.executable, '-c', script, str(marker)],
+        cwd=Path(__file__).resolve().parents[2], stdin=subprocess.DEVNULL,
+        capture_output=True, text=True, timeout=25)
+    assert result.returncode == 0, result.stderr
+    assert marker.read_text() == 'started'
+
+
+def test_preparation_preserves_explicit_input(tmp_path):
+    cancelled = threading.Event()
+    owner = SimpleNamespace(stop_event=cancelled, _publication_lock=threading.RLock())
+    supplied, received = tmp_path/'request.txt', tmp_path/'received.txt'
+    supplied.write_text('authored request')
+    command = [sys.executable, '-c',
+        'import pathlib,sys; pathlib.Path(sys.argv[1]).write_text(sys.stdin.read())', str(received)]
+    with supplied.open('rb') as request:
+        assert worker.PreparationJob(owner, cancelled).run(command, cwd=tmp_path,
+            timeout=10, stdin=request) == 0
+    assert received.read_text() == 'authored request'
 
 
 @pytest.mark.parametrize('failure_stage', ['drain', 'close'])
