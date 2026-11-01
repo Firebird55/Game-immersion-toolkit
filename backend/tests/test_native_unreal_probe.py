@@ -78,7 +78,19 @@ def test_probe_rejects_stale_or_changed_collection_evidence_before_execution(tmp
         monkeypatch.setattr(probe.subprocess, 'check_output', lambda command, **kw: ' M changed' if command[1] == 'status' else 'a' * 40)
     else: (resources / 'toolchains/nte/UEExtractor.dll').write_bytes(b'changed')
     path.write_text(json.dumps(receipt))
-    with pytest.raises(ValueError): probe._layout(helper, resources, tmp_path / 'probe')
+    observation = {}
+    with pytest.raises(ValueError) as caught:
+        probe._layout(helper, resources, tmp_path / 'probe', observation)
+    expected = {
+        'dirty': ('dependency-source-identity', 'source-receipt-dirty'),
+        'commit': ('dependency-source-identity', 'source-receipt-commit'),
+        'source': ('dependency-source-identity', 'source-input-hash'),
+        'dependency-bytes': ('dependency-inventory', 'dependency-inventory-bytes'),
+        'checkout-dirty': ('checkout-cleanliness', 'source-checkout-dirty'),
+    }
+    report = probe.failure_report(caught.value, observation)
+    assert (report['phase'], report['reason']) == expected[fault]
+    assert report['passed'] is False
 
 
 @pytest.mark.parametrize('fault', [None, 'runtime', 'payload'])
@@ -111,3 +123,54 @@ def test_native_probe_asserts_child_results_and_authored_bytes(tmp_path, monkeyp
     else:
         checks = probe.run_checks(layout, reader, tmp_path / 'probe')
         assert len(checks) == 7 and all(checks.values())
+
+
+@pytest.mark.parametrize('error,reason', [
+    (FileNotFoundError('private/missing.dll'), 'missing-file'),
+    (PermissionError('private/denied.dll'), 'permission-denied'),
+    (json.JSONDecodeError('private document', 'private data', 0), 'invalid-json'),
+    (ValueError('private validation detail'), 'validation-error'),
+    (RuntimeError('private child output'), 'unexpected-error'),
+])
+def test_public_failure_diagnostics_never_copy_exception_text_or_unknown_phases(error, reason):
+    probe = module()
+    report = probe.failure_report(error, {'phase': 'private/path', 'stderr': 'private child stderr'})
+    assert report['phase'] == 'initializing'
+    assert report['reason'] == reason
+    assert report['passed'] is False
+    assert 'private' not in json.dumps(report)
+    assert set(report) == {'schema', 'platform', 'passed', 'error', 'phase', 'reason'}
+
+
+def test_probe_diagnostic_reasons_are_fixed_not_caller_controlled():
+    probe = module()
+    with pytest.raises(ValueError, match='Unknown native reader diagnostic code'):
+        probe.ProbeFailure('private failure message')
+    error = probe.ProbeFailure('source-receipt-dirty')
+    error.code = 'private mutation'
+    report = probe.failure_report(error, {'phase': 'dependency-source-identity'})
+    assert report['reason'] == 'validation-error'
+    assert 'private' not in json.dumps(report)
+
+
+def test_probe_distinguishes_missing_receipt_from_dirty_checkout(tmp_path, monkeypatch):
+    probe = module()
+    monkeypatch.setattr(probe.subprocess, 'check_output', lambda command, **kw: '' if command[1] == 'status' else 'a' * 40)
+    observation = {}
+    with pytest.raises(FileNotFoundError) as caught:
+        probe._layout(tmp_path / 'helper', tmp_path / 'resources', tmp_path / 'work', observation)
+    report = probe.failure_report(caught.value, observation)
+    assert (report['phase'], report['reason']) == ('dependency-receipt-json', 'missing-file')
+
+
+def test_dirty_checkout_diagnostics_only_name_allowlisted_release_metadata():
+    probe = module()
+    observation = {'phase': 'checkout-cleanliness', **probe.checkout_diagnostic(
+        ' M package.json\n M VERSION\n?? private/account.json\n M scripts/changed.py\n')}
+    report = probe.failure_report(probe.ProbeFailure('source-checkout-dirty'), observation)
+    assert report['changed_release_metadata'] == ['VERSION', 'package.json']
+    assert report['other_changed'] is True
+    assert 'private' not in json.dumps(report) and 'scripts/' not in json.dumps(report)
+    observation['changed_release_metadata'].append('private/added-later')
+    assert probe.failure_report(probe.ProbeFailure('source-checkout-dirty'), observation) == report
+    assert probe.checkout_diagnostic(' M release-version.json\n')['other_changed'] is False
