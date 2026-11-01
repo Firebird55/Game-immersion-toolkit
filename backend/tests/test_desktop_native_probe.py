@@ -56,6 +56,22 @@ def test_inventory_hash_binds_exact_file_and_directory_lists():
     assert probe.inventory_identity(value) != before
 
 
+@pytest.mark.parametrize('error', ['native-ui-timeout', 'private-account-key'])
+def test_ui_report_keeps_only_fixed_failure_codes(tmp_path, error):
+    state = tmp_path / 'state'
+    state.mkdir()
+    (state / 'native-ui-probe.json').write_text(json.dumps({
+        'schema': 'toolkit-desktop-ui-observation-v1', 'mode': 'bundle',
+        'status': 'failed', 'passed': False, 'checks': {'default_browser_request': True},
+        'error': error,
+    }))
+    host = SimpleNamespace(user=tmp_path, process=SimpleNamespace(returncode=1),
+        wait=lambda *_a, **_k: None, verify_stopped=lambda _timeout: None)
+    value = probe.check_ui(host, 15)
+    assert value['passed'] is False and value['browser_navigation'] == 'unverified'
+    assert value.get('error') == ('native-ui-timeout' if error == 'native-ui-timeout' else None)
+
+
 def test_public_identity_rejects_path_shaped_build_id():
     with pytest.raises(probe.ProbeFailure, match='invalid-artifact-identity'):
         probe.public_identity({'profile': 'runtime', 'build_id': '/private/account-key'})

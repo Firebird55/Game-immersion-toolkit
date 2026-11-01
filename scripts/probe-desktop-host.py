@@ -240,11 +240,17 @@ def check_ui(host, timeout):
                'browser_open', 'open_transcript_navigation',
                'tray_unavailable_window_fallback', 'show_logs_action', 'open_transcript_action',
                'quit_action', 'owned_shutdown'}
-    return {'status': value['status'], 'passed': value['passed'],
+    result = {'status': value['status'], 'passed': value['passed'],
         'checks': {key: item for key, item in value['checks'].items() if key in allowed},
         'native_tray': 'available' if value.get('native_tray') == 'available' else 'unavailable',
         'browser_navigation': 'mounted-reader-observed' if value['checks'].get('browser_open') is True else 'unverified',
         'ordinary_browser_profile': 'not-run', 'native_game_capture': 'not-run'}
+    # Keep the fixed diagnostic code: dropping it turns browser/startup failures
+    # into indistinguishable missing booleans. Never copy raw host diagnostics.
+    if value.get('error') in {'native-ui-timeout', 'host-startup-failed',
+            'native-display-unavailable', 'default-browser-handler-unavailable'}:
+        result['error'] = value['error']
+    return result
 
 
 def probe(runtime, provenance, output, timeout, *, ui=False):
