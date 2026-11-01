@@ -189,3 +189,8 @@ tests and 25 Python tests successfully. The supplemental pass subsequently ran
 message/choice separation, reactions and missing/ambiguous voices. Native Windows capture bounds, DPI,
 desktop/mobile layout, Firefox/Chromium and all four installed audio languages
 were not exercised by these parser checks; they remain separate acceptance work.
+
+The [2026-11-01 packaged-reader verification](../zzz-runtime-acceptance-2026-11-01.md)
+records the compiler-free production resource contract, Windows native checks
+and a private installed-file comparison preserving all observed scene/cinematic
+bindings. Other platform and final installer gates remain separate.

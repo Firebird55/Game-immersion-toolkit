@@ -18,6 +18,9 @@ MAX_EXPANDED = 128 * 1024 * 1024
 
 
 def no_links(path: Path) -> None:
+    # Callers may canonicalize a trusted OS-created temporary root before
+    # appending inputs. Never resolve supplier/cache paths here: that would
+    # conceal a redirected archive or an internal directory link.
     for item in (path, *path.parents):
         if item.is_symlink() or (item.exists() and getattr(item.lstat(), 'st_file_attributes', 0) & 0x400):
             raise ValueError('ZZZ input paths cannot traverse links or reparse points.')
@@ -49,9 +52,9 @@ def verified(path: Path, pin: dict) -> bytes:
 def acquire_inputs(cache: Path, pins: dict | None = None) -> dict[str, Path]:
     """Acquire hash-locked archives with bounded retry and atomic cache writes."""
     pins = pins or read_pins()
-    cache = Path(cache)
-    cache.mkdir(parents=True, exist_ok=True)
+    cache = Path(cache).absolute()
     no_links(cache)
+    cache.mkdir(parents=True, exist_ok=True)
     result = {}
     for pin in pins['archives']:
         filename = pin['archive']

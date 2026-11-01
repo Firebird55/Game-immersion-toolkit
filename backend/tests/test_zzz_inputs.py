@@ -18,7 +18,9 @@ class ZzzInputsTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # macOS returns /var/folders here; its trusted OS root is an alias of
+        # /private/var. Normalize that root before adding supplier filenames.
+        self.root = Path(self.temp.name).resolve()
 
     def archive(self, items):
         path = self.root / 'input.tgz'
@@ -67,6 +69,24 @@ class ZzzInputsTest(unittest.TestCase):
         with patch.object(inputs.urllib.request, 'urlopen') as download, self.assertRaisesRegex(ValueError, 'archive differs'):
             inputs.acquire_inputs(self.root, {'archives': [pin]})
         download.assert_not_called()
+
+    def test_archive_or_internal_parent_link_is_not_canonicalized_away(self):
+        path, pin = self.archive([('package/a', b'a')])
+        for linked in (path, self.root):
+            with self.subTest(linked=linked.name):
+                with patch.object(Path, 'is_symlink', lambda candidate: candidate == linked), \
+                        patch.object(Path, 'read_bytes') as read, \
+                        self.assertRaisesRegex(ValueError, 'cannot traverse links'):
+                    inputs.verified(path, pin)
+                read.assert_not_called()
+
+    def test_linked_cache_is_rejected_before_creating_directories(self):
+        cache = self.root / 'redirected' / 'new-cache'
+        with patch.object(Path, 'is_symlink', lambda candidate: candidate == cache.parent), \
+                patch.object(Path, 'mkdir') as mkdir, \
+                self.assertRaisesRegex(ValueError, 'cannot traverse links'):
+            inputs.acquire_inputs(cache, {'archives': []})
+        mkdir.assert_not_called()
 
     def test_pins_preserve_gpl_and_exact_runtime_terms(self):
         pins = inputs.read_pins()
