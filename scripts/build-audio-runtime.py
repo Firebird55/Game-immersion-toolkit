@@ -47,9 +47,17 @@ def acquire(pin, cache):
         if digest(path) != pin['sha256']:
             raise ValueError('Source archive checksum differs: ' + pin['archive'])
         return path
+    # A reviewed alternate location supplies the identical pinned archive. A
+    # digest failure is never a transport retry or permission to change source.
+    mirrors = pin.get('mirrors', [])
+    if (not isinstance(mirrors, list) or len(mirrors) > 2
+            or any(not isinstance(url, str) or not url.startswith('https://') for url in mirrors)):
+        raise ValueError('Invalid reviewed source mirrors')
+    locations = [pin['url'], *mirrors]
     for attempt in range(3):
         temporary = cache / (pin['archive'] + '.partial-' + uuid.uuid4().hex)
-        request = urllib.request.Request(pin['url'], headers={'User-Agent': 'GameImmersionToolkit-build/1', 'Accept': 'application/octet-stream'})
+        url = locations[min(attempt, len(locations) - 1)]
+        request = urllib.request.Request(url, headers={'User-Agent': 'GameImmersionToolkit-build/1', 'Accept': 'application/octet-stream'})
         try:
             print(f"Downloading {pin['archive']} (attempt {attempt + 1}/3)", flush=True)
             with urllib.request.urlopen(request, context=ssl.create_default_context(cafile=certifi.where()), timeout=60) as response, temporary.open('xb') as target:

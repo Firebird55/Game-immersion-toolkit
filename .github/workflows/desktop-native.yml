@@ -141,7 +141,20 @@ jobs:
         run: python scripts/build-qt-resources.py --output output/qt-resources --cache output/qt-source-cache
       - name: Retain exact OCR, ASR and native library sources and notices
         run: python scripts/build-native-notices.py --output output/native-notices --cache output/native-source-cache
+      - name: Restore pinned audio source archives
+        id: audio_source_cache
+        uses: actions/cache/restore@v6
+        with:
+          # Source tarballs only: no compiler output, native ZIPs or game files.
+          # acquire() hashes every restored archive against this exact policy.
+          path: |
+            output/audio-source-cache/*.tar.xz
+            output/audio-source-cache/*.tar.gz
+            output/audio-source-cache/*.tar.bz2
+          key: audio-sources-v1-${{ hashFiles('packaging/codecs/audio-runtime.json') }}
+          enableCrossOsArchive: true
       - name: Build maintained audio tools from retained sources
+        id: audio_build
         run: |
           $options = @('--work', (Join-Path $env:RUNNER_TEMP 'toolkit-codec-build'), '--output', 'output/audio-resources', '--cache', 'output/audio-source-cache', '--jobs', '4')
           if ($IsWindows) {
@@ -152,6 +165,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/probe-native-audio.py --resources output/audio-resources --output output/native-audio-probe.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Save verified audio source archives
+        if: steps.audio_build.outcome == 'success' && steps.audio_source_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            output/audio-source-cache/*.tar.xz
+            output/audio-source-cache/*.tar.gz
+            output/audio-source-cache/*.tar.bz2
+          key: ${{ steps.audio_source_cache.outputs.cache-primary-key }}
+          enableCrossOsArchive: true
       - name: Freeze the native runtime and isolated ASR child
         run: |
           $options = @('--frontend-root', 'output/desktop-frontend', '--output', 'output/native-candidate', '--wheelhouse', 'output/wheelhouse', '--python-archive', '${{ steps.python_supplier.outputs.python_archive }}', '--nte-helper-root', 'output/reader-helper/nte')

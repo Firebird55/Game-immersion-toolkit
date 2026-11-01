@@ -169,6 +169,30 @@ test('Linux system evidence is acquired before native builds and included in the
   assert.match(nativeWorkflow, /backend\/tests\/test_linux_system_resources\.py/);
 });
 
+test('audio cache retains only policy-keyed source archives before later native checks', () => {
+  const restoreAt = nativeWorkflow.indexOf('name: Restore pinned audio source archives');
+  const buildAt = nativeWorkflow.indexOf('name: Build maintained audio tools from retained sources');
+  const saveAt = nativeWorkflow.indexOf('name: Save verified audio source archives');
+  const freezeAt = nativeWorkflow.indexOf('name: Freeze the native runtime and isolated ASR child');
+  assert.ok(restoreAt > 0 && buildAt > restoreAt && saveAt > buildAt && freezeAt > saveAt);
+  const restore = nativeWorkflow.slice(restoreAt, buildAt), save = nativeWorkflow.slice(saveAt, freezeAt);
+  assert.match(restore, /uses: actions\/cache\/restore@v6/);
+  assert.match(restore, /key: audio-sources-v1-\$\{\{ hashFiles\('packaging\/codecs\/audio-runtime\.json'\) \}\}/);
+  assert.doesNotMatch(restore, /restore-keys:/);
+  assert.match(save, /uses: actions\/cache\/save@v6/);
+  assert.match(save, /steps\.audio_build\.outcome == 'success'/);
+  assert.match(save, /key: \$\{\{ steps\.audio_source_cache\.outputs\.cache-primary-key \}\}/);
+  for (const section of [restore, save]) {
+    const paths = section.match(/path: \|\n([\s\S]*?)\n          key:/)?.[1].trim().split('\n').map(line => line.trim());
+    assert.deepEqual(paths, ['output/audio-source-cache/*.tar.xz', 'output/audio-source-cache/*.tar.gz', 'output/audio-source-cache/*.tar.bz2']);
+    assert.match(section, /enableCrossOsArchive: true/);
+  }
+  const policy = JSON.parse(readFileSync(new URL('../packaging/codecs/audio-runtime.json', import.meta.url), 'utf8'));
+  for (const source of [policy.ffmpeg, policy.lame, policy.vgmstream, ...policy.vgmstream.dependency_sources])
+    assert.match(source.archive, /^[^/\\]+\.tar\.(?:xz|gz|bz2)$/);
+  assert.ok(!/\.tar\.(?:xz|gz|bz2)$/.test(policy.vgmstream.windows_artifact.archive), 'The prebuilt native ZIP must never be included in the source-only cache');
+});
+
 test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {
   const crlf = workflow.replaceAll('\n', '\r\n');
   assert.ok(crlf.includes('\r\n  source-audit:\r\n'));

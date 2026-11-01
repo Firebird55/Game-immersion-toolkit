@@ -62,6 +62,50 @@ def test_bad_existing_cache_is_never_silently_replaced(tmp_path, monkeypatch):
     assert existing.read_bytes() == b'corrupt cached source'
 
 
+def test_valid_restored_source_cache_is_rehashed_without_network(tmp_path, monkeypatch):
+    existing = tmp_path / pin()['archive']
+    existing.write_bytes(b'authored source')
+    monkeypatch.setattr(builder.urllib.request, 'urlopen', lambda *_args, **_kwargs: pytest.fail('Unexpected network'))
+    assert builder.acquire(pin(), tmp_path) == existing
+    existing.write_bytes(b'changed after restore')
+    with pytest.raises(ValueError, match='checksum'):
+        builder.acquire(pin(), tmp_path)
+
+
+@pytest.mark.parametrize('mirror_result', ['valid', 'checksum', 'reset'])
+def test_official_alternate_location_after_primary_reset_keeps_exact_digest(tmp_path, monkeypatch, mirror_result):
+    policy = {**pin(), 'mirrors': ['https://mirror.example.invalid/source']}
+    calls = []
+    def download(request, **_kwargs):
+        calls.append(request.full_url)
+        if len(calls) == 1 or mirror_result == 'reset':
+            raise urllib.error.URLError(ConnectionResetError('Authored TLS reset'))
+        return io.BytesIO(b'authored source' if mirror_result == 'valid' else b'wrong source')
+    monkeypatch.setattr(builder.urllib.request, 'urlopen', download)
+    monkeypatch.setattr(builder.time, 'sleep', lambda _: None)
+    if mirror_result == 'valid':
+        result = builder.acquire(policy, tmp_path)
+        assert result.read_bytes() == b'authored source'
+        assert list(tmp_path.iterdir()) == [result]
+    else:
+        with pytest.raises(ValueError if mirror_result == 'checksum' else urllib.error.URLError):
+            builder.acquire(policy, tmp_path)
+        assert not list(tmp_path.iterdir())
+    assert calls == [policy['url'], *policy['mirrors']] + (policy['mirrors'] if mirror_result == 'reset' else [])
+
+
+def test_bad_primary_digest_does_not_try_alternate_location(tmp_path, monkeypatch):
+    calls = []
+    def download(request, **_kwargs):
+        calls.append(request.full_url)
+        return io.BytesIO(b'wrong source')
+    monkeypatch.setattr(builder.urllib.request, 'urlopen', download)
+    policy = {**pin(), 'mirrors': ['https://mirror.example.invalid/source']}
+    with pytest.raises(ValueError, match='checksum'):
+        builder.acquire(policy, tmp_path)
+    assert calls == [policy['url']] and not list(tmp_path.iterdir())
+
+
 def test_failed_build_emits_bounded_compiler_reason_without_workspace_prefix(tmp_path, monkeypatch, capsys):
     log = tmp_path / 'codec-build.log'
     def failed(_args, **options):
