@@ -134,8 +134,12 @@ def fingerprint(install: Path) -> str:
 
 
 def _metadata_path(install: Path, stamp: str) -> Path:
+    from .runtime_bundle import discover_layout
+    layout = discover_layout()
+    root = (layout.settings_root if layout.mode == 'bundle' else
+            Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local/share")) / "Proxy Transcript")
     identity = hashlib.sha256((str(install.resolve()) + stamp).encode()).hexdigest()
-    return Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local/share")) / "Proxy Transcript/nte-archive" / (identity + ".dpapi")
+    return root / "nte-archive" / (identity + ".dpapi")
 
 
 @lru_cache(maxsize=2)

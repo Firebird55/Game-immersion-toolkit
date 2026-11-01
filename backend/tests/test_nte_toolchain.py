@@ -1,5 +1,6 @@
 """Actual dependency resolution contracts with authored bytes; no game assets."""
 from dataclasses import replace
+import hashlib
 import importlib.util
 import io
 import json
@@ -120,6 +121,81 @@ def test_normal_frozen_nte_adapter_never_calls_sdk_or_downloads_executables(tmp_
         assert 'private-authored-metadata' not in str(args)
         assert json.loads(kwargs['input'])['archive_metadata'] == 'private-authored-metadata'
         assert kwargs['env']['DOTNET_MULTILEVEL_LOOKUP'] == '0'
+
+
+@pytest.mark.parametrize('local_app_data', [False, True], ids=['home-fallback', 'local-app-data'])
+def test_source_metadata_path_preserves_existing_cache_without_writes(tmp_path, monkeypatch, local_app_data):
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', lambda: SimpleNamespace(
+        mode='source', settings_root=tmp_path / 'unused-layout-settings'))
+    home = tmp_path / 'authored-home'
+    monkeypatch.setattr(Path, 'home', lambda: home)
+    if local_app_data:
+        base = tmp_path / 'authored-local-app-data'
+        monkeypatch.setenv('LOCALAPPDATA', str(base))
+    else:
+        monkeypatch.delenv('LOCALAPPDATA', raising=False)
+        base = home / '.local/share'
+    install = tmp_path / 'game'
+    identity = hashlib.sha256((str(install.resolve()) + 'authored-stamp').encode()).hexdigest()
+    assert nte_assets._metadata_path(install, 'authored-stamp') == (
+        base / 'Proxy Transcript/nte-archive' / (identity + '.dpapi'))
+    assert not base.exists(), 'Finding the cache must not create or migrate files'
+
+
+@pytest.mark.parametrize('platform', ['win-x64', 'linux-x64', 'darwin-arm64'])
+def test_frozen_metadata_reads_only_explicit_settings_root(tmp_path, monkeypatch, platform):
+    from backend import lexirise
+    layout, _ = fixture(tmp_path, monkeypatch, platform)
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', lambda: layout)
+    legacy = tmp_path / 'unrelated-local-app-data'
+    monkeypatch.setenv('LOCALAPPDATA', str(legacy))
+    install = tmp_path / 'authored-game'
+    path = nte_assets._metadata_path(install, 'authored-stamp')
+    assert path.parent == layout.settings_root / 'nte-archive'
+    assert not path.parent.exists()
+    old = legacy / 'Proxy Transcript/nte-archive' / path.name
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b'old-source-protected-metadata')
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b'native-protected-metadata')
+    value = '0x' + 'a' * 64
+    def unprotect(content, *, decrypt=False):
+        assert decrypt and content == b'native-protected-metadata'
+        return value.encode()
+    monkeypatch.setattr(lexirise, '_protect', unprotect)
+    monkeypatch.setattr(nte_assets, 'download', lambda *_: pytest.fail('Cached metadata must not require a network request'))
+    nte_assets._archive_metadata.cache_clear()
+    try:
+        assert nte_assets._archive_metadata(install, 'authored-stamp') == value
+        assert old.read_bytes() == b'old-source-protected-metadata'
+    finally:
+        nte_assets._archive_metadata.cache_clear()
+
+
+@pytest.mark.skipif(nte_assets.os.name != 'nt', reason='The NTE reader persists DPAPI metadata on Windows')
+def test_frozen_reader_persists_metadata_in_explicit_settings_root(tmp_path, monkeypatch):
+    from backend import lexirise
+    layout, _ = fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(chain, 'discover_layout', lambda: layout)
+    legacy = tmp_path / 'unrelated-local-app-data'
+    monkeypatch.setenv('LOCALAPPDATA', str(legacy))
+    monkeypatch.setattr(nte_assets, 'fingerprint', lambda *_: 'authored-stamp')
+    value = '0x' + 'b' * 64
+    monkeypatch.setattr(nte_assets, '_archive_metadata', lambda *_: value)
+    def protect(content):
+        assert content == value.encode()
+        return b'authored-protected-metadata'
+    monkeypatch.setattr(lexirise, '_protect', protect)
+    monkeypatch.setattr(nte_assets.subprocess, 'run', lambda *_a, **_k: SimpleNamespace(returncode=0))
+    install = tmp_path / 'authored-game'; install.mkdir()
+    executable = nte_assets.ensure_extractor(layout.tool_root / 'nte')
+    nte_assets.run_reader(install, executable, layout.work_root / 'index', 'index')
+    path = nte_assets._metadata_path(install, 'authored-stamp')
+    assert path.parent == layout.settings_root / 'nte-archive'
+    assert path.read_bytes() == b'authored-protected-metadata'
+    assert not path.with_suffix('.pending').exists()
+    assert not legacy.exists(), 'The frozen reader must not create the legacy source cache'
 
 
 def test_build_collector_rejects_duplicate_or_oversized_selected_members():
