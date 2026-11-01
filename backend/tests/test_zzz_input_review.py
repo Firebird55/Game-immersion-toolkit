@@ -71,7 +71,7 @@ def closure(tmp_path, monkeypatch):
     monkeypatch.setattr(adapter, 'ROOT', source_root)
     compiled = b'// authored transpiled output'
     monkeypatch.setattr(adapter, 'transpile', lambda *args: compiled)
-    monkeypatch.setattr(adapter, 'inspect_ooz_build', lambda *args: None)
+    monkeypatch.setattr(adapter, 'inspect_ooz_build', lambda *args: set())
     monkeypatch.setattr(adapter, 'validate_runtime', lambda *args: None)
     files = adapter.zzz_inputs.retained_members(policy, archives)
     prefix = adapter.zzz_inputs.PREFIX
@@ -79,6 +79,7 @@ def closure(tmp_path, monkeypatch):
     files[prefix + 'sources/transpile.cjs'] = (source_root / adapter.RECIPE).read_bytes()
     files[prefix + 'TOOLKIT-LICENSE'] = (source_root / 'LICENSE').read_bytes()
     files[prefix + 'inputs.json'] = (json.dumps(policy, indent=2) + '\n').encode()
+    files[prefix + 'runtime.json'] = b'{}'  # Runtime contract has its own focused tests.
     for name in ZZZ_SCRIPTS:
         files[prefix + 'scripts/' + name] = (source_root / 'scripts' / name).read_bytes()
     files[prefix + 'BUILD-RECIPE.json'] = json.dumps({'schema': 'toolkit-zzz-build-recipe-v1',
@@ -105,13 +106,18 @@ def test_exact_archive_and_authored_recipe_closure(closure):
     assert review.checks['complete_notices']['evidence'][-1]['compiler_shipped'] is False
 
 
-@pytest.mark.parametrize('change', ['notice', 'preferred_source', 'compiled_output', 'source_recipe', 'archive', 'record'])
+@pytest.mark.parametrize('change', ['notice', 'preferred_source', 'compiled_output', 'source_recipe', 'archive', 'record', 'extra_source'])
 def test_rehashed_or_declared_evidence_cannot_replace_exact_inputs(closure, change):
     review, snapshot = closure
     if change == 'archive':
         review.native_archive_paths.clear()
     elif change == 'source_recipe':
         snapshot.files[adapter.RECIPE] = b'// arbitrary replacement'
+    elif change == 'extra_source':
+        name = adapter.PREFIX + 'sources/unreviewed-library.js'
+        data = b'// an unreviewed addition, consistently inventoried'
+        (review.root / name).write_bytes(data)
+        review.inventory[name] = {'bytes': len(data), 'sha256': sha(data)}
     else:
         paths = {'notice': 'dependencies/ooz/LICENSE', 'preferred_source': 'upstream/galgame-perform.ts',
                  'compiled_output': 'upstream/galgame-perform.mjs', 'record': 'BUILD-RECIPE.json'}

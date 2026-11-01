@@ -107,7 +107,14 @@ def inspect_selection(review, snapshot, source_matches, *, node):
 
     # A supplier-source snapshot does not prove the npm generated WASM. The
     # production collector supplies a separately verified source-build receipt.
-    inspect_ooz_build(review, snapshot, source_matches)
+    build_files = inspect_ooz_build(review, snapshot, source_matches)
+    selected = {'_internal/' + name for name in expected} | set(build_files)
+    selected.update(PREFIX + name for name in (
+        'runtime.json', 'BUILD-RECIPE.json', 'inputs.json', 'TOOLKIT-LICENSE',
+        'sources/transpile.cjs', 'upstream/galgame-perform.mjs',
+        *('scripts/' + name for name in ZZZ_SCRIPTS)))
+    if {name for name in review.inventory if name.startswith(PREFIX)} != selected:
+        raise ValueError('ZZZ selection contains resources outside the exact inspected closure.')
     review.evidence('native_inputs', zzz_transpilation='exact-byte-replay', compiler_archive_sha256=compiler_pin['sha256'],
                     reader_output_sha256=sha(compiled), exact_dependency_members=len(expected))
     review.evidence('complete_notices', zzz_dependency_notices='exact-source-and-package-members', compiler_shipped=False)
@@ -150,3 +157,4 @@ def inspect_ooz_build(review, snapshot, source_matches):
     review.evidence('corresponding_sources', zzz_decompressor_source=receipt['source']['sha256'],
                     emscripten_runtime_source=receipt['emscripten_source']['sha256'],
                     basis='Exact preferred source, full terms and build recipe retained; independently pinned generated output, not a claim to reproduce the undocumented npm build.')
+    return {PREFIX + 'sources/ooz-build/' + name for name in (*receipt['files'], 'ooz-build.json')}
