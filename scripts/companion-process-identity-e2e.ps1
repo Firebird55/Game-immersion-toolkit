@@ -112,7 +112,7 @@ function Test-LauncherRecovery {
         Copy-Item (Join-Path $repository ('scripts\'+$name)) (Join-Path $recoveryScripts $name)
     }
     New-Item -ItemType Directory -Path (Join-Path $recoveryRoot 'backend') -Force | Out-Null
-    foreach ($name in @('__init__.py','desktop_gateway.py','local_access.py')) {
+    foreach ($name in @('__init__.py','desktop_gateway.py','gateway_loop.py','local_access.py')) {
         Copy-Item (Join-Path $repository ('backend\'+$name)) (Join-Path $recoveryRoot ('backend\'+$name))
     }
     Save-CompanionJson (Join-Path $recoveryData 'fixture-python.json') @{python=$gatewayPython}

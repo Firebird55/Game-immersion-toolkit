@@ -32,7 +32,7 @@ try{
   for(const name of ['data','new source/backend','new source/scripts','new source/.openai'])mkdirSync(join(root,name),{recursive:true});
   for(const name of ['companion-runtime.ps1','retire-companion.ps1','companion-router.mjs'])copyFileSync(join(repository,'scripts',name),join(source,'scripts',name));
   copyFileSync(join(repository,'backend/check_environment.py'),join(source,'backend/check_environment.py'));
-  for(const name of ['desktop_gateway.py','local_access.py'])copyFileSync(join(repository,'backend',name),join(source,'backend',name));
+  for(const name of ['desktop_gateway.py','gateway_loop.py','local_access.py'])copyFileSync(join(repository,'backend',name),join(source,'backend',name));
   copyFileSync(join(fixture,'backend.py'),join(source,'backend/main.py'));
   for(const [from,to]of [['frontend.mjs','fixture-front.mjs'],['install.mjs','install-fixture.mjs'],['build.mjs','build-fixture.mjs']])copyFileSync(join(fixture,from),join(source,'scripts',to));
   writeFileSync(join(source,'backend/__init__.py'),'');writeFileSync(join(source,'requirements.lock.txt'),'');
