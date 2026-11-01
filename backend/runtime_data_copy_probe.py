@@ -328,8 +328,25 @@ class _FrozenAuthoredDataRuntime:
         self.cohorts = []
 
     def _require_owned(self):
+        expected = getattr(self, '_populated_layout', None)
+        if expected is not None and self.layout is not expected:
+            self.poisoned = True
+            self._populated_coordinator._recovery_required = True
         if self.poisoned:
             raise DataCopyFailure('cohort-unconfirmed')
+
+    def _pin_populated_layout(self, layout, coordinator):
+        """Opt-in actual object identity, never a serialized copy permission."""
+        from .runtime_bundle import RuntimeLayout
+        previous = getattr(self, '_populated_layout', None)
+        owner = getattr(self, '_populated_coordinator', None)
+        if (type(layout) is not RuntimeLayout or previous is not None and previous is not layout
+                or owner is not None and owner is not coordinator or coordinator.current is not self):
+            self.poisoned = True
+            raise DataCopyFailure('cohort-unconfirmed')
+        self._populated_layout = layout
+        self._populated_coordinator = coordinator
+        self._require_owned()
 
     def prepare(self):
         raise DataCopyFailure('cohort-unconfirmed')  # No warm-candidate preparation in this case.
@@ -1025,3 +1042,385 @@ class _DataCopyProbe:
 
 def run(layout, stream, *, case=CASE):
     return _DataCopyProbe(layout, stream, case=case).run()
+
+
+class PopulatedStateCopy:
+    """Programmatic authored P2 unit; no dispatcher or production caller.
+
+    The existing coordinator retains the two leases and mints the only copy
+    barrier. Setup SQL fences do not stand in for that process/cohort boundary.
+    Every error retains its original exception and any verification owners.
+    """
+    def __init__(self, source, target, layout, export_root, host_root):
+        for root in (source, target, export_root, host_root):
+            _guard_path(root.path, 'directory')
+            root.verify()
+        migration.SyntheticMigrationPlan(source, target, external_destinations=(export_root, host_root)).verify()
+        self.source, self.target, self.layout = source, target, layout
+        self.export_root, self.host_root = export_root, host_root
+        self.owners, self.verification_ownership = [], []
+        self.failure = self.bindings = self.manifest = None
+        self._plan = None
+        self.expected = {}
+        self.seeded = False
+
+    @staticmethod
+    def _own(record, kind, *args, **kwargs):
+        # Retain the actual partial object before constructor entry, including
+        # a constructor which fails while closing its first SQL connection.
+        owner = kind.__new__(kind)
+        record.append(owner)
+        kind.__init__(owner, *args, **kwargs)
+        return owner
+
+    @staticmethod
+    def _settle(owners):
+        from .reading import LexiriseReadingService
+        from .lexirise import LexiriseService
+        from .language_preparation import LanguagePreparation
+        from .automatic_mobile_export import AutomaticMobileExports
+        from .mobile_export_controls import MobileExportManager
+        fences = []
+        for owner in owners:
+            if type(owner) is LexiriseReadingService:
+                owner.quiesce(5)
+            if type(owner) in (TranscriptStore, LexiriseService, LexiriseReadingService):
+                fences.append((owner, owner.freeze_connections(5)))
+            elif type(owner) is LanguagePreparation:
+                owner.close(5)
+            elif type(owner) is AutomaticMobileExports:
+                owner.picker.quiesce()
+                owner.close()
+            elif type(owner) is MobileExportManager:
+                owner.quiesce()
+        return tuple(fences)
+
+    def seed(self):
+        from .accounts import AccountStore, accounts_path
+        from .automatic_mobile_export import AutomaticMobileExports, publish
+        from .config import SettingsStore
+        from .installation import InstallationService
+        from .language_preparation import LanguagePreparation
+        from .language_worker import build
+        from .lexirise import LexiriseService
+        from .mobile_export_controls import MobileExportManager
+        from .mobile_export_layout import work_folder
+        from .mobile_library import export_library, prepare_source, ExportCancelled
+        from .models import AppSettings, CaptureRegion
+        from .reading import LexiriseReadingService
+        from .runtime_probe import (AuthoredPopulatedTransport, POPULATED_KEY, POPULATED_OTHER_KEY,
+                                    POPULATED_RULES, authored_populated_layout)
+        from .unvoiced_export_probe import authored_install
+        if self.seeded or self.failure is not None:
+            raise DataCopyFailure('cohort-unconfirmed')
+        for root in (self.source, self.target, self.export_root, self.host_root):
+            _guard_path(root.path, 'directory')
+            root.verify()
+        for root in (self.source, self.target, self.export_root, self.host_root):
+            if any(entry.name != '.r19-synthetic-fixture.json' for entry in root.path.iterdir()):
+                raise DataCopyFailure('fixture-unavailable')
+        layout = self.layout
+        if (layout.mode != 'bundle' or not layout.data_root.is_relative_to(self.source.path)
+                or not layout.settings_root.is_relative_to(self.source.path)
+                or not layout.work_root.is_relative_to(self.source.path)):
+            raise DataCopyFailure('fixture-unavailable')
+        try:
+            for path in (layout.data_root, layout.settings_root, layout.work_root):
+                _guard_path(path, 'directory', missing=True)
+                path.mkdir(parents=True, exist_ok=True)
+            self.transport = AuthoredPopulatedTransport()
+            with authored_populated_layout(layout, self.host_root):
+                # The TEST envelope is deliberately not DPAPI and never goes
+                # through a host fallback. All account HTTP uses MockTransport.
+                def protect(data, *, decrypt=False):
+                    if decrypt:
+                        if not data.startswith(b'R19-TEST\x00'):
+                            raise ValueError('Unknown authored account envelope.')
+                        return data[9:]
+                    return b'R19-TEST\x00'+data
+                self.protect = protect
+                self.accounts = self._own(self.owners, AccountStore, accounts_path(),
+                    protect=protect, transport=self.transport.transport)
+                first = self.accounts.add(POPULATED_KEY, 'Authored first profile')['id']
+                second = self.accounts.add(POPULATED_OTHER_KEY, 'Authored second profile')['id']
+                self.accounts.select(first)
+                self.expected['accounts'] = self.accounts.status()
+                host_key = self.accounts.path.with_name('key.dpapi')
+                host_key.write_bytes(b'opaque authored host TEST fallback; never decrypted')
+                (layout.data_root/'lexirise').mkdir(exist_ok=True)
+                (layout.data_root/'lexirise/key.dpapi').write_bytes(b'opaque authored data TEST fallback; never decrypted')
+                legacy_settings = self._own(self.owners, SettingsStore, layout.data_root/'settings.json')
+                legacy_settings.save(AppSettings(capture_unvoiced=False, scan_interval_ms=900))
+                self.settings = self._own(self.owners, SettingsStore, layout.settings_root/'settings.json',
+                    legacy_path=legacy_settings.path)
+                self.settings.save(AppSettings(capture_unvoiced=True, preferred_game='halflife',
+                    scan_interval_ms=450, hito_auto_regions=False,
+                    hito_region=CaptureRegion(left=.20, top=.70, width=.65, height=.22)))
+                self.installation = self._own(self.owners, InstallationService, layout.application_root,
+                    settings=self.settings, game_state=lambda *_: {}, refresh=lambda *_: None,
+                    account_configured=lambda: False, install_lookup=lambda *_: None)
+                self.installation.complete(False)
+                self.expected['settings'] = self.settings.get().model_dump(mode='json')
+                self.transcript = self._own(self.owners, TranscriptStore, layout.data_root/'transcript-v2.db')
+                for index, (game, chinese) in enumerate((('hito', GRAMMAR_TEXT), ('zzz', '第二条中文历史。')), 1):
+                    self.transcript.add(TextMatch(game=game, text_id=f'populated-{index}', english='Authored history',
+                        chinese=chinese, source_ocr=chinese, score=1, kind='exact', source_language='zh',
+                        source_locale='zh-Hans', source_text=chinese, translation_locale='en',
+                        translation_text='Authored history', audio_locale='zh-Hans',
+                        texts={'zh-Hans': chinese, 'en': 'Authored history'}, voice_status='unvoiced',
+                        dialogue_kind='ordinary-conversation'),
+                        'authored-history', created_at=datetime(2026, 1, 1, tzinfo=timezone.utc))
+                self.transcript.set_favorite(1, True)
+                self.expected['lines'] = [line.model_dump(mode='json') for line in self.transcript.list()]
+                self.old = self._own(self.owners, TranscriptStore, layout.data_root/'transcript.db')
+                self.old.add(TextMatch(game='hito', text_id='retained-old-file', english='Older file',
+                    chinese='旧历史仍然保留。', source_ocr='旧历史仍然保留。', score=1, kind='exact',
+                    source_language='zh', source_locale='zh-Hans', source_text='旧历史仍然保留。',
+                    translation_locale='en', translation_text='Older file', audio_locale='zh-Hans',
+                    texts={'zh-Hans': '旧历史仍然保留。', 'en': 'Older file'}, voice_status='unvoiced',
+                    dialogue_kind='ordinary-conversation'), 'older-authored')
+                self.expected['old_lines'] = [line.model_dump(mode='json') for line in self.old.list()]
+                self.ledger = self._own(self.owners, LexiriseService, layout.data_root/'lexirise',
+                    api_key=POPULATED_KEY, transport=self.transport.transport)
+                self.ledger.configure_game_deck('zzz', 1901)
+                send = dict(game='zzz', chinese=GRAMMAR_TEXT, english='Authored history', speaker='', audio=None)
+                if not self.ledger.send(ref='authored-line:1', **send)['sent']:
+                    raise DataCopyFailure('authored-rows-differ')
+                if not self.ledger.send(ref='authored-line:2', **send)['already_sent']:
+                    raise DataCopyFailure('authored-rows-differ')
+                self.expected['ledger'] = self.ledger.status()
+                self.reading = self._own(self.owners, LexiriseReadingService, layout.data_root/'lexirise', self.ledger)
+                for slug, known in zip(POPULATED_RULES, (True, False)):
+                    if self.reading.set_grammar_known(GRAMMAR_TEXT, slug, known) is None:
+                        raise DataCopyFailure('grammar-choice-unconfirmed')
+                self.expected['grammar'] = self.reading.analyze(GRAMMAR_TEXT)['grammar']
+                self.install = authored_install(self.export_root.path/'authored-install')
+                from .game_paths import save_install, load_paths
+                save_install('halflife', self.install)
+                self.expected['game_paths'] = load_paths()
+                def language_build(game, locale, targets):
+                    if 'fr' in targets:
+                        raise ValueError('Authored pending request; translation not prepared.')
+                    directory = layout.data_root/'languages'/game/locale
+                    directory.mkdir(parents=True, exist_ok=True)
+                    build(game, self.install, directory, locale, targets, directory/'textmap.json')
+                self.languages = self._own(self.owners, LanguagePreparation, language_build, lambda *_: None,
+                    lambda *_: {'ready': True, 'audio_count': 0}, path=layout.settings_root/'languages.json',
+                    supported=lambda _: ('en', 'zh-Hans'))
+                def request(locale, target, account):
+                    if not self.languages.request('halflife', locale, target, account):
+                        raise DataCopyFailure('fixture-unavailable')
+                    with self.languages.lock:
+                        workers = tuple(self.languages._workers)
+                    for worker in workers:
+                        worker.join(5)
+                        if worker.is_alive():
+                            raise DataCopyFailure('setup-still-open')
+                request('en', 'zh-Hans', first)
+                request('zh-Hans', 'en', second)
+                request('en', 'fr', first)
+                reconstructed = self._own(self.owners, LanguagePreparation, None, None, None,
+                    path=self.languages.path)
+                self.expected['languages'] = json.loads(json.dumps(reconstructed.data))
+                self.output = self.export_root.path/'transfer/halflife'
+                self.manual = tuple(self._own(self.owners, MobileExportManager, layout.application_root,
+                    scope=scope) for scope in (None, (first, 'en'), (second, 'zh-Hans')))
+                for manager in self.manual:
+                    manager._save_destination(self.export_root.path/'transfer')
+                self.expected['manual'] = [manager.destination() for manager in self.manual]
+                self.automatic = self._own(self.owners, AutomaticMobileExports, layout.application_root,
+                    home=self.export_root.path/'automatic', install_lookup=lambda *_: None)
+                self.automatic.configure('halflife', True, str(self.export_root.path/'transfer'), {'en': 'zh-Hans'})
+                self.automatic._set('halflife', 'en', state='waiting', message='Authored pending export', attempt='authored')
+                self.expected['automatic'] = json.loads(json.dumps(self.automatic.data))
+                rows = []
+                for source, target in (('en', 'zh-Hans'), ('zh-Hans', 'en')):
+                    rows, voice, check, service = prepare_source(layout.application_root, 'halflife',
+                        self.output/'unused-unvoiced-decode',
+                        source_path=layout.data_root/'languages/halflife'/source/'textmap.json',
+                        expected_source_locale=source, translation_locale=target)
+                    if service is not None:
+                        raise DataCopyFailure('fixture-unavailable')
+                    export_library('halflife', rows, self.output, voice=voice, check=check, include_audio=True)
+                # Capture the actual work identity only as part of ordinary
+                # export preparation. Inventory/plan/readback never call it.
+                self.export_work = work_folder(self.output)
+                self.current_bundle = next((path for path in self.output.rglob('*Mobile Library.zip')), None)
+                self.previous_bundle = next((self.export_work/'previous-libraries').rglob('*Mobile Library.zip'))
+                self.expected['latest'] = (self.output/'latest.json').read_bytes()
+                cancel = threading.Event()
+                changed = [{**rows[0], 'translationText': 'Authored interrupted next revision'}]
+                try:
+                    export_library('halflife', changed, self.output, include_audio=True,
+                        cancel=cancel, progress=lambda _: cancel.set())
+                except ExportCancelled:
+                    pass
+                else:
+                    raise DataCopyFailure('fixture-unavailable')
+                destination = self.export_root.path/'published/library.zip'
+                destination.parent.mkdir()
+                recovery = self.automatic.home/'recovery/halflife/library.zip'
+                publish(self.previous_bundle, destination, recovery)
+                publish(self.current_bundle, destination, recovery)
+                def interrupted(): raise InterruptedError('Authored publication interruption.')
+                try:
+                    publish(self.previous_bundle, destination, recovery, interrupted)
+                except InterruptedError:
+                    pass
+                if (self.output/'latest.json').read_bytes() != self.expected['latest']:
+                    raise DataCopyFailure('pointer-changed')
+                self.expected['protected'] = self.accounts.path.read_bytes()
+                (layout.work_root/'reviewed-authored-work.json').write_text('{"state":"pending","fixture":"authored"}')
+                fences = self._settle(self.owners)
+                self.bindings = migration.SyntheticStateBindings(self.source, layout, self.settings,
+                    self.languages, self.installation, self.manual, self.automatic, self.accounts,
+                    self.export_root, self.host_root, self.output, self.export_work, fences,
+                    verification_ownership=self.verification_ownership)
+                self.seeded = True
+                return self
+        except BaseException as error:
+            self.failure = error
+            raise
+
+    def plan(self):
+        if not self.seeded or self.failure is not None:
+            raise DataCopyFailure('cohort-unconfirmed')
+        if self._plan is None:
+            self._plan = migration.SyntheticMigrationPlan(self.source, self.target,
+                external_destinations=(self.export_root, self.host_root), state_bindings=self.bindings,
+                database_versions={**DATABASE_VERSIONS, 'data/transcript.db': 0})
+        return self._plan
+
+    def copy_and_verify(self, coordinator, barrier, *, checkpoint=None):
+        adapter = coordinator.current
+        try:
+            if (type(adapter) is not _FrozenAuthoredDataRuntime
+                    or coordinator.legacy is not self.source or coordinator.state is not self.target
+                    or self.bindings is None or self.layout is not self.bindings.layout):
+                raise DataCopyFailure('cohort-unconfirmed')
+            adapter._pin_populated_layout(self.bindings.layout, coordinator)
+            coordinator._require_owner(coordinator.owner)
+            plan = self.plan()
+            barrier.check(self.source)
+            before = migration._source_inventory(plan)
+            for root in (self.export_root, self.host_root):
+                _guard_tree(root.path)
+            pointer = coordinator.pointer_path.read_bytes()
+            self.manifest = migration.copy_and_verify_synthetic(plan, barrier, checkpoint=checkpoint)
+            snapshot = self.target.path/'staging'/plan.migration_id
+            _guard_snapshot(snapshot, *before)
+            self._readback(snapshot)
+            migration._verify_snapshot(snapshot, *before)
+            if before != migration._source_inventory(plan) or coordinator.pointer_path.read_bytes() != pointer:
+                raise DataCopyFailure('source-changed')
+            for root, expected in zip(plan.external_destinations, self.manifest['external_destinations']):
+                actual, directories = migration._inventory(root.path, skip_marker=True)
+                if actual != expected['files'] or directories != expected['directories']:
+                    raise DataCopyFailure('source-changed')
+            barrier.check(self.source)
+            if coordinator.current is not adapter:
+                raise DataCopyFailure('cohort-unconfirmed')
+            adapter._require_owned()
+            return self.manifest
+        except BaseException as error:
+            # All core/schema/semantic/close/cleanup errors are conservative.
+            # The original traceback also retains unknown core verifier owners.
+            self.failure = error
+            if type(adapter) is _FrozenAuthoredDataRuntime:
+                adapter.poisoned = True
+            if type(coordinator.current) is _FrozenAuthoredDataRuntime:
+                coordinator.current.poisoned = True
+            coordinator._recovery_required = True
+            raise
+
+    def _readback(self, snapshot):
+        from .accounts import AccountStore
+        from .automatic_mobile_export import AutomaticMobileExports
+        from .config import SettingsStore
+        from .installation import InstallationService
+        from .language_preparation import LanguagePreparation
+        from .lexirise import LexiriseService
+        from .mobile_export_controls import MobileExportManager
+        from .reading import LexiriseReadingService
+        from .runtime_probe import AuthoredPopulatedTransport, POPULATED_KEY, authored_populated_layout
+        from .unvoiced_export_probe import read_export
+        record = {'root': Path(tempfile.mkdtemp(prefix='authored-populated-', dir=self.target.path)), 'owners': []}
+        self.verification_ownership.append(record)
+        clone = record['root']/'clone'
+        _guard_tree(snapshot)
+        _guard_path(clone, 'directory', missing=True)
+        shutil.copytree(snapshot, clone)
+        _guard_tree(clone)
+        # Validate the exact owned schema before constructors can initialize or
+        # migrate anything. All reads here target disposable copies only.
+        for name in (*TABLE_COLUMNS, 'data/transcript.db'):
+            expected = self.expected['old_lines' if name.endswith('/transcript.db') else 'lines']
+            with _verification_scope(self.target.path, self.verification_ownership) as checked:
+                database = checked['root']/'store.db'
+                migration._state_path(database, directory=False, missing=True)
+                migration._state_path(clone/name, directory=False)
+                shutil.copy2(clone/name, database)
+                for suffix in ('-wal', '-shm'):
+                    sidecar = clone/(name+suffix)
+                    if migration._state_path(sidecar, directory=False, missing=True) is not None:
+                        destination = database.with_name(database.name+suffix)
+                        migration._state_path(destination, directory=False, missing=True)
+                        migration._state_path(sidecar, directory=False)
+                        shutil.copy2(sidecar, destination)
+                checked['connection'] = sqlite3.connect(database.as_uri()+'?mode=ro', uri=True)
+                checked['connection'].row_factory = sqlite3.Row
+                _verify_store(checked['connection'], 'data/transcript-v2.db' if name.endswith('/transcript.db') else name,
+                    sorted((_row(line) for line in expected), key=lambda line: line['id']))
+        layout = replace(self.layout, data_root=clone/'data', settings_root=clone/'host-settings',
+            work_root=clone/'work/voice-assets', cache_root=clone/'disposable-cache',
+            tool_root=clone/'tools', state_root=clone/'state', default_export_root=clone/'exports')
+        transport = AuthoredPopulatedTransport(writes=False)
+        with authored_populated_layout(layout, self.host_root):
+            own = lambda kind, *args, **kwargs: self._own(record['owners'], kind, *args, **kwargs)
+            store = own(TranscriptStore, layout.data_root/'transcript-v2.db')
+            old = own(TranscriptStore, layout.data_root/'transcript.db')
+            if ([line.model_dump(mode='json') for line in store.list()] != self.expected['lines']
+                    or [line.id for line in store.list_favorites()] != [1]
+                    or [line.model_dump(mode='json') for line in old.list()] != self.expected['old_lines']):
+                raise DataCopyFailure('authored-rows-differ')
+            ledger = own(LexiriseService, layout.data_root/'lexirise', api_key=POPULATED_KEY, transport=transport.transport)
+            if ledger.status() != self.expected['ledger']:
+                raise DataCopyFailure('authored-rows-differ')
+            result = ledger.send(ref='authored-readback-new-ref', game='zzz', chinese=GRAMMAR_TEXT,
+                english='Authored history', speaker='', audio=None)
+            if not result.get('already_sent') or transport.calls:
+                raise DataCopyFailure('authored-rows-differ')
+            reader = own(LexiriseReadingService, layout.data_root/'lexirise', ledger)
+            if reader.analyze(GRAMMAR_TEXT)['grammar'] != self.expected['grammar']:
+                raise DataCopyFailure('grammar-choice-unconfirmed')
+            settings = own(SettingsStore, layout.settings_root/'settings.json', legacy_path=layout.data_root/'settings.json')
+            if settings.get().model_dump(mode='json') != self.expected['settings']:
+                raise DataCopyFailure('authored-rows-differ')
+            from .game_paths import load_paths
+            if load_paths() != self.expected['game_paths']:
+                raise DataCopyFailure('authored-rows-differ')
+            languages = own(LanguagePreparation, None, None, None, path=layout.settings_root/'languages.json')
+            if languages.data != self.expected['languages']:
+                raise DataCopyFailure('authored-rows-differ')
+            setup = own(InstallationService, layout.application_root, settings=settings, game_state=lambda *_: {},
+                refresh=lambda *_: None, account_configured=lambda: False, install_lookup=lambda *_: None)
+            if not setup.completed:
+                raise DataCopyFailure('authored-rows-differ')
+            for manager, expected in zip(self.manual, self.expected['manual']):
+                restored = own(MobileExportManager, layout.application_root, scope=manager.scope)
+                if restored.destination() != expected:
+                    raise DataCopyFailure('authored-rows-differ')
+            automatic = own(AutomaticMobileExports, layout.application_root, home=self.automatic.home,
+                install_lookup=lambda *_: None)
+            if automatic.data != self.expected['automatic']:
+                raise DataCopyFailure('authored-rows-differ')
+            account = own(AccountStore, self.accounts.path, protect=self.protect, transport=transport.transport)
+            # Runtime generation is intentionally not persisted by AccountStore.
+            if ({key:value for key,value in account.status().items() if key != 'generation'} !=
+                    {key:value for key,value in self.expected['accounts'].items() if key != 'generation'}
+                    or account.path.read_bytes() != self.expected['protected']):
+                raise DataCopyFailure('authored-rows-differ')
+            read_export(self.output, 'zh-Hans', 'en')
+            self._settle(record['owners'])
+        shutil.rmtree(record['root'])
+        self.verification_ownership.remove(record)

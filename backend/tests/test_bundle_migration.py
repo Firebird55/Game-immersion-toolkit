@@ -46,6 +46,14 @@ def hashes(root):
 
 
 class BundleMigrationTests(unittest.TestCase):
+    def test_serialized_paths_cannot_supply_programmatic_state_owners(self):
+        plan = self.plan(state_bindings={'data': 'outside-root', 'settings': 'copied-json-authority'})
+        before = hashes(self.source.path)
+        with self.assertRaises(HostProbeError) as refused:
+            plan.verify()
+        self.assertEqual(refused.exception.code, 'invalid-state-binding')
+        self.assertEqual(hashes(self.source.path), before)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='r19-migration-')
         self.addCleanup(self.temporary.cleanup)

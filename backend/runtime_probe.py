@@ -23,6 +23,94 @@ GRAMMAR_ABSENT_SLUG = 'r19-absent-rule'
 GRAMMAR_KEY = 'r19-grammar-fixture-not-a-credential'
 GRAMMAR_CHOICE_KEY = hashlib.sha256(GRAMMAR_KEY.encode()).hexdigest()+':zh:'+GRAMMAR_SLUG
 
+POPULATED_KEY = 'lx_r19_authored_profile_one_only'
+POPULATED_OTHER_KEY = 'lx_r19_authored_profile_two_only'
+POPULATED_RULES = ('r19-populated-known', 'r19-populated-learning')
+
+
+class AuthoredPopulatedTransport:
+    """Finite normal-service mock; no real credentials or catch-all responses."""
+    def __init__(self, *, writes=True):
+        import httpx
+        if type(writes) is not bool:
+            raise RuntimeBundleError('Authored populated transport policy differs.')
+        self.writes, self.calls, self.items, self.members = writes, [], [], []
+        self.transport = httpx.MockTransport(self.reply)
+
+    def reply(self, request):
+        import httpx
+        if (len(self.calls) >= 128 or request.url.scheme != 'https'
+                or request.url.host != 'api.lexirise.app' or request.url.port not in {None, 443}
+                or request.url.fragment or len(request.content) > 8192):
+            raise RuntimeBundleError('Authored populated transport identity differs.')
+        key = request.headers.get('Authorization')
+        if key not in {'Bearer '+POPULATED_KEY, 'Bearer '+POPULATED_OTHER_KEY}:
+            raise RuntimeBundleError('Authored populated credential differs.')
+        method, path = request.method, request.url.path
+        self.calls.append((method, path))
+        if method == 'GET' and path == '/v1/me' and not request.url.query and not request.content:
+            return httpx.Response(200, json={'user': {'id': 'r19-one' if key.endswith(POPULATED_KEY) else 'r19-two'}})
+        if key != 'Bearer '+POPULATED_KEY:
+            raise RuntimeBundleError('Authored second profile permits identity verification only.')
+        if method == 'GET' and path == '/v1/settings' and not request.url.query and not request.content:
+            return httpx.Response(200, json={'languages': ['zh'], 'global': {'effectiveTranslationLanguage': 'en'},
+                'languageSettings': {'zh': {'effectiveTranslationLanguage': 'en'}}})
+        if method == 'POST' and path == '/v1/analyze/text' and not request.url.query:
+            if json.loads(request.content) != {'text': GRAMMAR_TEXT, 'language': 'zh', 'fast': False}:
+                raise RuntimeBundleError('Authored populated analysis differs.')
+            return httpx.Response(200, json={'occurrences': [{'charStart': 0, 'charEnd': 1, 'word': '这',
+                    'isWordLike': True, 'entryId': 1}], 'entryMetaById': {'1': {'gloss': 'authored demonstrative'}},
+                'stateByEntryId': {'1': {'proficiency': 4}},
+                'morphoPending': False, 'grammar': [{'slug': slug, 'title': 'Authored rule', 'indices': [0]}
+                    for slug in POPULATED_RULES],
+                'grammarStates': dict(zip(POPULATED_RULES, (0, 4)))})
+        query = dict(request.url.params)
+        unique_query = len(request.url.params.multi_items()) == len(query)
+        if (method == 'GET' and path == '/v1/decks/1901' and unique_query
+                and query in ({'limit': '1'}, {'limit': '100', 'offset': '0'}) and not request.content):
+            return httpx.Response(200, json={'deck': {'owner_user_id': 'r19-one', 'lang': 'zh',
+                'unit_type': 'sentence', 'deck_type': 'snapshot', 'title': 'Authored deck'},
+                'items': self.members, 'hasMore': False})
+        if (method == 'GET' and path == '/v1/vocabulary' and unique_query and query == {
+                'language': 'zh', 'mode': 'sentences', 'search': GRAMMAR_TEXT, 'limit': '100', 'offset': '0'}
+                and not request.content):
+            return httpx.Response(200, json={'items': self.items, 'nextOffset': None})
+        if not self.writes:
+            raise RuntimeBundleError('Copied export ledger attempted a remote write.')
+        if method == 'POST' and path == '/v1/vocabulary' and not request.url.query:
+            body = json.loads(request.content)
+            if (set(body) != {'language', 'text', 'mode', 'notes', 'tags', 'audioUrls', 'translation'}
+                    or body['text'] != GRAMMAR_TEXT or body['language'] != 'zh'
+                    or body['mode'] != 'sentence' or body['tags'] != ['zzz'] or body['audioUrls'] != []):
+                raise RuntimeBundleError('Authored populated export differs.')
+            item = {'id': 777, 'expression_text': GRAMMAR_TEXT, 'audio_urls': []}
+            self.items.append(item)
+            return httpx.Response(200, json={'item': item})
+        if method == 'POST' and path == '/v1/decks/1901/items' and not request.url.query:
+            if json.loads(request.content) != {'saved_expression_selection': {'mode': 'explicit', 'ids': [777]}} or len(self.items) != 1:
+                raise RuntimeBundleError('Authored populated membership differs.')
+            self.members = list(self.items)
+            return httpx.Response(200, json={'success': True, 'added_count': 1})
+        raise RuntimeBundleError('Unknown authored populated transport request.')
+
+
+@contextmanager
+def authored_populated_layout(layout, host_root):
+    """Fixed authored service wiring only; never an ordinary Runtime entrypoint."""
+    from contextlib import ExitStack
+    from unittest.mock import patch
+    from . import automatic_mobile_export, installation, mobile_export_controls, runtime_bundle, runtime_paths
+    from .runtime_data_copy_probe import _guard_path
+    _guard_path(host_root.path, 'directory')
+    host_root.verify()
+    with ExitStack() as stack:
+        stack.enter_context(patch.dict('os.environ', {'LOCALAPPDATA': str(host_root.path)}))
+        for module in (runtime_bundle, installation, runtime_paths):
+            stack.enter_context(patch.object(module, 'discover_layout', lambda: layout))
+        stack.enter_context(patch.object(mobile_export_controls, 'discover_install', lambda *_: None))
+        stack.enter_context(patch.object(automatic_mobile_export, 'resource_path', layout.resource))
+        yield
+
 
 class _AuthoredGrammarService:
     """Actual service/SQL; only fixed external settings and analysis are mocked."""

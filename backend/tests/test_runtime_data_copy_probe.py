@@ -184,6 +184,12 @@ def test_actual_sql_copy_and_chinese_context_with_fresh_cohort_order(fixture, ca
     assert not ({'scope', 'copy_attempts', 'authored_interruptions', 'partial_revalidations'} & set(events[-1]))
 
 
+def test_populated_programmatic_unit_is_not_an_added_frozen_case(fixture):
+    with pytest.raises(probe.DataCopyFailure) as refused:
+        fixture.make('authored-populated-state-copy')
+    assert refused.value.code == 'control-invalid'
+
+
 def test_populated_grammar_uses_real_setter_copy_and_fresh_source_readback(fixture, monkeypatch, capsys):
     value = fixture.make(probe.GRAMMAR_CASE)
     choices = []
