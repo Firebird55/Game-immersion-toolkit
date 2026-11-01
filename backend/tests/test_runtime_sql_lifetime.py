@@ -22,6 +22,7 @@ from backend.reading import LexiriseReadingService
 from backend.runtime_handoff import CaptureHandoff
 from backend.runtime_readers import RuntimeReadingRegistry
 from backend.runtime_writers import QuiesceableExecutor, RuntimeWriterGate, WritersQuiescing
+from backend import sqlite_operation_lifetime
 from backend.sqlite_operation_lifetime import _SqliteCursorCloseError
 from backend.storage import TranscriptStore
 
@@ -258,6 +259,7 @@ def test_partial_sql_freeze_timeout_keeps_same_cohort_tokens_and_epoch_until_rea
     spy(value, monkeypatch)
     reader = value.readers[-1]
     entered, release = threading.Event(), threading.Event()
+    last_stopped, expire = threading.Event(), threading.Event()
     value.releases.append(release)
 
     def sql():
@@ -265,23 +267,70 @@ def test_partial_sql_freeze_timeout_keeps_same_cohort_tokens_and_epoch_until_rea
             with reader._sql_lifetime.cursor(db) as cursor:
                 cursor.execute('SELECT COUNT(*) FROM cache').fetchone()
                 entered.set()
-                assert release.wait(5)
+                assert release.wait(30)
 
     actual = worker(value, sql)
     assert entered.wait(2)
 
     async def run():
-        with pytest.raises(TimeoutError):
-            await runtime.quiesce_writers(timeout=.06)
-        await asyncio.gather(*runtime._handoff_drains, return_exceptions=True)
-        record = runtime._sql_handoff
+        # Bootstrap speed does not establish that partial SQL freeze was
+        # reached. Only expire the actual helper's received deadline after its
+        # last admission stop, with the real SQL scope and retained task live.
+        # Separate cases exercise Runtime's total monotonic timeout budget.
+        real_clock = sqlite_operation_lifetime.time
+        deadlines, actual_errors = [], []
+        freeze, stop = reader._sql_lifetime._freeze_until, reader._sql_lifetime.gate.stop_admission
+
+        def phase_clock():
+            return deadlines[0]+1 if expire.is_set() and deadlines else real_clock.monotonic()
+
+        def last_freeze(deadline, epoch, controller):
+            deadlines.append(deadline)
+            try:
+                return freeze(deadline, epoch, controller)
+            except BaseException as error:
+                actual_errors.append(error)
+                raise
+
+        def observed_stop():
+            stop()
+            last_stopped.set()
+            assert expire.wait(10), 'Partial SQL test did not release its observed stop.'
+
+        with monkeypatch.context() as phase:
+            phase.setattr(sqlite_operation_lifetime, 'time', SimpleNamespace(monotonic=phase_clock, sleep=real_clock.sleep))
+            phase.setattr(reader._sql_lifetime, '_freeze_until', last_freeze)
+            phase.setattr(reader._sql_lifetime.gate, 'stop_admission', observed_stop)
+            task = asyncio.create_task(runtime.quiesce_writers())
+            try:
+                assert await asyncio.to_thread(last_stopped.wait, 10), 'Last owned SQL stop was not reached.'
+                record = runtime._sql_handoff
+                assert record is not None and record.readings is runtime._reading_registry._sql_set
+                assert all(member.reserved for member in members(record))
+                assert all(member.token is not None for member in members(record)[:-1])
+                assert members(record)[-1].token is None and not reader._sql_lifetime.gate._accepting
+                sql_step = runtime._handoff_drains[-1]
+                assert not task.done() and not sql_step.done()
+                assert actual.thread.is_alive() and not actual.done.is_set()
+                assert len({deadline for _, deadline, _ in value.freeze_calls}) == len(deadlines) == 1
+                expire.set()
+                with pytest.raises(TimeoutError) as refused: await task
+                assert sql_step.done() and not sql_step.cancelled() and sql_step.exception() is refused.value
+                # Executor transport may normalize TimeoutError; the retained
+                # owner/member must keep the actual worker's original object.
+                assert len(actual_errors) == 1 and type(actual_errors[0]) is TimeoutError
+                assert record.error is members(record)[-1].error is actual_errors[0]
+                assert refused.value.args == actual_errors[0].args
+            finally:
+                expire.set()
+                await asyncio.gather(task, *runtime._handoff_drains, return_exceptions=True)
         tokens, epoch = [member.token for member in members(record)], record.readings.epoch
         assert all(token is not None for token in tokens[:-1]) and tokens[-1] is None
         assert not runtime.request_writers._accepting and not runtime._reading_registry._accepting
         assert actual.thread.is_alive() and record.error is not None
         release.set()
-        assert await asyncio.to_thread(actual.done.wait, 2) and actual.error is None
-        assert await runtime.quiesce_writers(timeout=2) is record.payload
+        assert await asyncio.to_thread(actual.done.wait, 5) and actual.error is None
+        assert await runtime.quiesce_writers() is record.payload
         assert runtime._sql_handoff is record and runtime._reading_registry._epoch is epoch
         assert all(member.token is token for member, token in zip(members(record)[:-1], tokens[:-1]))
         assert value.calls.count('publications-finished') == 1

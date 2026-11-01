@@ -457,6 +457,13 @@ scope, late metadata contention, a retired constructor and cancelled handoff
 waiters. Tests cover partial freeze/resume, lost transition results, final
 activation retry, canonical/foreign tokens, unexpected post-resume epochs,
 omitted members/defaults, poison/no close retry and a fresh second cohort.
+The partial-freeze retry case waits for the real last owner's admission stop
+while its SQLite scope and retained handoff task remain live, then uses a
+test-only module-local helper clock to expire the received absolute deadline.
+The shared time module and asyncio clock remain real. It does not
+infer that phase from a short whole-Runtime timeout; separate metadata/lifecycle
+tests cover the total timeout budget. Production deadlines are unchanged; this
+controlled source test adds no native or measured default-30-second evidence.
 Controller regressions cover a different public timed-out stop, a lost actual
 reservation result, an already-queued public call delayed through Runtime
 activation, and a concurrent public freeze at the final admission boundary.
