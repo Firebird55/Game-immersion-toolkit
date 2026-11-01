@@ -100,6 +100,90 @@ def test_control_duplicate_fields_and_ambiguous_sources_fail():
     assert lib.source_identity({'Package': 'libx', 'Version': '2+b1', 'Source': 'x (2)'}) == ('x', '2')
 
 
+def copyright_patch(content=b'Exact copyright\nComplete license terms\n', member='debian/copyright'):
+    count = len(content.splitlines())
+    return (f'--- fixture.orig/{member}\n+++ fixture/{member}\n'.encode()
+            + f'@@ -0,0 +1,{count} @@\n'.encode()
+            + b''.join(b'+' + line for line in content.splitlines(keepends=True)))
+
+
+def test_source_format_one_complete_copyright_is_read_without_executing_patch(tmp_path):
+    content = b'Exact copyright\nComplete license terms\n'
+    patch = write(tmp_path, 'fixture.diff.gz', gzip.compress(
+        b'--- fixture.orig/debian/rules\n+++ fixture/debian/rules\n@@ -0,0 +1 @@\n+DO NOT EXECUTE\n'
+        + copyright_patch(content)
+        + b'--- fixture.orig/debian/control\n+++ fixture/debian/control\n@@ -0,0 +1 @@\n+Metadata\n'))
+    signature = write(tmp_path, 'fixture.orig.tar.gz.asc', b'Detached signature, not a tar archive')
+    source = write(tmp_path, 'fixture.orig.tar.xz', tar_bytes({'preferred-source.c': b'Original source'}))
+    assert lib.copyright_notices([source, signature, patch]) == {
+        'fixture.diff.gz/fixture/debian/copyright': content}
+    assert not (tmp_path / 'fixture').exists()
+
+
+def test_detached_source_archive_signature_is_retained_but_not_parsed_as_tar(tmp_path):
+    signature = write(tmp_path, 'a.orig.tar.gz.asc', b'Detached archive signature')
+    source = write(tmp_path, 'fixture.tar.xz', tar_bytes({'fixture/debian/copyright': b'Full original notice'}))
+    assert list(lib.copyright_notices([signature, source]).values()) == [b'Full original notice']
+
+
+@pytest.mark.parametrize('mutation', ['partial', 'truncated', 'context', 'extra-lines',
+    'extra-hunk', 'duplicate', 'traversal', 'empty', 'oversized'])
+def test_copyright_patch_refuses_incomplete_or_ambiguous_notice(tmp_path, monkeypatch, mutation):
+    patch = copyright_patch()
+    if mutation == 'partial':
+        patch = patch.replace(b'-0,0', b'-1,2')
+    elif mutation == 'truncated':
+        patch = patch.rsplit(b'\n+', 1)[0] + b'\n'
+    elif mutation == 'context':
+        patch = patch.replace(b'+Exact copyright', b' Exact copyright')
+    elif mutation == 'extra-lines':
+        patch += b'+Hidden extra terms\n'
+    elif mutation == 'extra-hunk':
+        patch += b'@@ -0,0 +3 @@\n+More content\n'
+    elif mutation == 'duplicate':
+        patch += patch
+    elif mutation == 'traversal':
+        patch = patch.replace(b'+++ fixture/debian/copyright', b'+++ ../debian/copyright')
+    elif mutation == 'empty':
+        patch = copyright_patch(b'')
+    else:
+        monkeypatch.setattr(lib, 'MAX_NOTICE', 16)
+    with pytest.raises(ValueError, match='copyright|path'):
+        lib.copyright_notices([write(tmp_path, 'fixture.diff.gz', gzip.compress(patch))])
+
+
+def test_copyright_patch_preserves_explicit_absent_terminal_newline(tmp_path):
+    patch = copyright_patch(b'Full single line notice\n') + b'\\ No newline at end of file\n'
+    result = lib.copyright_notices([write(tmp_path, 'fixture.diff.gz', gzip.compress(patch))])
+    assert list(result.values()) == [b'Full single line notice']
+
+
+GENERATED_SPEC = {'inputs': ['debian/copyright.debian', 'COPYING'],
+    'recipe': 'override_dh_installdocs: debian/copyright.debian COPYING\n\tcat $+ > debian/copyright\n\tdh_installdocs\n'}
+
+
+@pytest.mark.parametrize('mutation', ['none', 'changed-recipe', 'missing-source', 'duplicate-source'])
+def test_reviewed_source_concatenation_is_replayed_without_running_rules(tmp_path, mutation):
+    rules = GENERATED_SPEC['recipe'].encode()
+    if mutation == 'changed-recipe':
+        rules = rules.replace(b'cat $+', b'cat other-input')
+    patch = write(tmp_path, 'fixture.diff.gz', gzip.compress(
+        copyright_patch(b'Exact package attribution\n', 'debian/copyright.debian')
+        + copyright_patch(rules, 'debian/rules')))
+    files = {'fixture/COPYING': b'Complete upstream terms\n'} if mutation != 'missing-source' else {'fixture/source.c': b'Source'}
+    archives = [patch, write(tmp_path, 'fixture.orig.tar.xz', tar_bytes(files))]
+    if mutation == 'duplicate-source':
+        archives.append(write(tmp_path, 'other.tar.xz', tar_bytes(files)))
+    if mutation == 'none':
+        notices = lib.copyright_notices(archives, generated=GENERATED_SPEC)
+        assert notices['generated/debian/copyright'] == b'Exact package attribution\nComplete upstream terms\n'
+        assert len(notices) == 3
+        assert not (tmp_path / 'fixture').exists()
+    else:
+        with pytest.raises(ValueError, match='generated copyright|generated Ubuntu copyright'):
+            lib.copyright_notices(archives, generated=GENERATED_SPEC)
+
+
 def test_signature_requires_exact_allowed_primary_key_and_success(tmp_path, monkeypatch):
     key = write(tmp_path, 'key.gpg', b'authored key fixture')
     signed = write(tmp_path, 'InRelease', b'authored signed release')
@@ -143,12 +227,16 @@ def test_metadata_reads_only_indexes_bound_to_signed_release(tmp_path, monkeypat
         lib.metadata(tmp_path, policy, {'libfixture'})
 
 
-def fixture_closure(tmp_path, monkeypatch):
+def fixture_closure(tmp_path, monkeypatch, *, generated=False):
     policy = {'source_packages': ['fixture', 'base-files']}
+    if generated:
+        policy['generated_copyright'] = {'fixture': GENERATED_SPEC}
     selected, binaries, sources = [], {}, {}
     for package, source in [('libfixture', 'fixture'), ('base-files', 'base-files')]:
         files = {'usr/lib/' + package + '.so': b'\x7fELF' + package.encode(),
                  'usr/share/doc/' + package + '/copyright': b'Exact binary copyright'}
+        if generated and source == 'fixture':
+            files['usr/share/doc/' + package + '/copyright'] = b'Exact package attribution\nComplete upstream terms\n'
         if package == 'base-files':
             files.update({'usr/share/common-licenses/GPL-3': b'Complete authored GPL fixture',
                           'usr/share/common-licenses/LGPL-2.1': b'Complete authored LGPL fixture'})
@@ -161,6 +249,12 @@ def fixture_closure(tmp_path, monkeypatch):
         source_files = {source + '.dsc': b'Exact source recipe',
             source + '.orig.tar.xz': tar_bytes({'preferred-source.c': b'preferred source'}),
             source + '.debian.tar.xz': tar_bytes({'debian/copyright': b'Complete source copyright', 'debian/rules': b'Exact build recipe'})}
+        if generated and source == 'fixture':
+            del source_files[source + '.debian.tar.xz']
+            source_files[source + '.orig.tar.xz'] = tar_bytes({'fixture/COPYING': b'Complete upstream terms\n', 'fixture/source.c': b'Original source'})
+            source_files[source + '.diff.gz'] = gzip.compress(
+                copyright_patch(b'Exact package attribution\n', 'debian/copyright.debian')
+                + copyright_patch(GENERATED_SPEC['recipe'].encode(), 'debian/rules'))
         checksums = ''
         for name, value in source_files.items():
             write(tmp_path, 'source/pool/' + name, value)
@@ -178,6 +272,18 @@ def test_complete_exact_binary_source_and_full_terms(tmp_path, monkeypatch):
     result = lib.verify_closure(tmp_path, policy)
     assert (result['packages'], result['sources'], result['archives']) == (2, 2, 8)
     assert result['origins'][lib.sha(b'\x7fELFlibfixture')][0]['member'] == 'usr/lib/libfixture.so'
+
+
+def test_generated_source_notice_must_match_authenticated_actual_binary_notice(tmp_path, monkeypatch):
+    policy, binaries, _ = fixture_closure(tmp_path, monkeypatch, generated=True)
+    assert lib.verify_closure(tmp_path, policy)['sources'] == 2
+    row = binaries['libfixture', '1.2-3']
+    altered = deb_bytes(control_record('libfixture', source='fixture'),
+        {'usr/lib/libfixture.so': b'\x7fELFlibfixture', 'usr/share/doc/libfixture/copyright': b'Different attribution'})
+    write(tmp_path, 'binary/' + row['Filename'], altered)
+    row.update(SHA256=lib.sha(altered), Size=str(len(altered)))
+    with pytest.raises(ValueError, match='differs from its actual binary package'):
+        lib.verify_closure(tmp_path, policy)
 
 
 @pytest.mark.parametrize('mutation', ['binary', 'source', 'copyright', 'attribution', 'extra-archive', 'wrong-source-version', 'wrong-binary-control'])

@@ -179,6 +179,12 @@
     "xz-utils",
     "zlib"
   ],
+  "generated_copyright": {
+    "libxcb": {
+      "inputs": ["debian/copyright.debian", "COPYING"],
+      "recipe": "override_dh_installdocs: debian/copyright.debian COPYING\n\tcat $+ > debian/copyright\n\tdh_installdocs\n"
+    }
+  },
   "scope": "Unmodified Ubuntu Noble shared libraries from the explicitly selected source packages. Authenticate each exact binary and corresponding full preferred source plus Debian patches with Ubuntu archive signatures. Retain package copyright and common full license terms; no declaration substitutes for byte evidence.",
   "references": [
     "https://documentation.ubuntu.com/security/docs/software-integrity/archive-verification/",

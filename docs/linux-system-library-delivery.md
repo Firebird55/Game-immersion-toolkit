@@ -31,6 +31,15 @@ The collection retains and verifies this chain:
    terms from the independently authenticated `base-files` package. The notice
    index identifies the exact supplier archive member for each retained text.
 
+Debian source format 1.0 carries packaging files in a `.diff.gz`. Its copyright
+reader accepts only a complete new-file hunk with exact line counts; it never
+executes a patch or accepts a partial notice. Detached archive signatures remain
+authenticated source-record files and are not interpreted as tar streams.
+For libxcb, the policy records the upstream packaging rule that concatenates
+`debian/copyright.debian` and `COPYING`. Review retains both inputs, checks the
+exact rule, reproduces only that concatenation and requires byte equality with
+the copyright shipped in the authenticated binary package.
+
 The resource manifest binds the collector, verifier and policy to the candidate
 source. The independent final-payload reviewer rechecks archive signatures,
 indexes, binary members, corresponding source and notice bytes. Only then can an
@@ -60,6 +69,13 @@ source/binary archives. Its Expat ELF matches the previously observed Linux
 candidate. The complete installed-library set requires the hosted Linux
 collection and final input review; those results are not inferred from the
 representative probe.
+
+A further read-only audit checked the authenticated owners of all 89 selected
+library names and their 95 available source versions across the three pockets.
+All 95 source copyright checks passed, including libxcb's exact generated
+copyright comparison against its binary package. This tests supplier formats and
+policy coverage; the runner's actual installed bytes and final payload still
+require the hosted collection and independent inventory review.
 
 References: [Ubuntu archive integrity](https://documentation.ubuntu.com/security/docs/software-integrity/archive-verification/),
 [official archive keyring](https://archive.ubuntu.com/ubuntu/project/ubuntu-archive-keyring.gpg),

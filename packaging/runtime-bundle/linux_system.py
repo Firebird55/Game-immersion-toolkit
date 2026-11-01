@@ -271,10 +271,117 @@ def deb_evidence(path):
     return info, files, notices
 
 
-def copyright_notices(archives):
-    """Return exact Debian copyright, preferentially from the packaging tar."""
-    for path in sorted(archives, key=lambda p: ('.debian.tar.' not in p.name, p.name)):
-        if '.tar.' not in path.name:
+def patch_copyright(path, member='debian/copyright'):
+    """Read a complete added copyright file from Debian source format 1.0.
+
+    Do not execute patch or reconstruct an arbitrary partially modified file.
+    Debian's diff contains a full new-file hunk for its packaging copyright;
+    require that exact shape and retain the authenticated patch as its origin.
+    """
+    with gzip.open(path, 'rb') as stream:
+        data = stream.read(MAX_MEMBER + 1)
+    if len(data) > MAX_MEMBER:
+        raise ValueError('Ubuntu source patch exceeds bounded review size.')
+    wanted = PurePosixPath(relative(member)).parts
+    lines, found, position = data.splitlines(keepends=True), {}, 0
+    while position + 1 < len(lines):
+        before, after = lines[position:position + 2]
+        position += 1
+        if not before.startswith(b'--- ') or not after.startswith(b'+++ '):
+            continue
+        name = after[4:].split(b'\t', 1)[0].rstrip(b'\r\n').decode('utf-8')
+        parts = PurePosixPath(name).parts
+        if len(parts) not in {len(wanted), len(wanted) + 1} or parts[-len(wanted):] != wanted:
+            continue
+        relative(name)
+        original = before[4:].split(b'\t', 1)[0].rstrip(b'\r\n').decode('utf-8')
+        if original != '/dev/null':
+            relative(original)
+            if PurePosixPath(original).parts[-len(wanted):] != wanted:
+                raise ValueError('Ubuntu copyright patch has a different original path.')
+        position += 1
+        hunk = re.fullmatch(rb'@@ -0,0 \+1(?:,([0-9]+))? @@[^\r\n]*\r?\n',
+                            lines[position] if position < len(lines) else b'')
+        if not hunk or found:
+            raise ValueError('Ubuntu copyright patch is not one complete new file.')
+        count = int(hunk[1] or b'1')
+        if not 0 < count <= MAX_NOTICE:
+            raise ValueError('Ubuntu copyright patch has an invalid line count.')
+        position += 1
+        content = bytearray()
+        for _ in range(count):
+            if position >= len(lines) or not lines[position].startswith(b'+'):
+                raise ValueError('Ubuntu copyright patch has truncated or non-added lines.')
+            content.extend(lines[position][1:])
+            position += 1
+            if len(content) > MAX_NOTICE:
+                raise ValueError('Ubuntu copyright patch exceeds bounded notice size.')
+        if position < len(lines) and lines[position] == b'\\ No newline at end of file\n':
+            if not content.endswith(b'\n'):
+                raise ValueError('Ubuntu copyright patch has an invalid newline marker.')
+            del content[-1:]
+            position += 1
+        if (position < len(lines) and lines[position][:1] in {b'+', b'-', b' ', b'@'}
+                and not lines[position].startswith(b'--- ')):
+            raise ValueError('Ubuntu copyright patch has additional or conflicting hunks.')
+        if not content:
+            raise ValueError('Ubuntu copyright patch contains an empty notice.')
+        found[name] = bytes(content)
+    return {path.name + '/' + key: value for key, value in found.items()}
+
+
+def generated_copyright(archives, specification):
+    """Replay an explicitly reviewed source concatenation, never a build rule."""
+    members = (*specification['inputs'], 'debian/rules')
+    found = {}
+    for path in archives:
+        if path.name.endswith('.diff.gz'):
+            for member in members:
+                for origin, data in patch_copyright(path, member).items():
+                    if member in found:
+                        raise ValueError('Ambiguous generated Ubuntu copyright input.')
+                    found[member] = (origin, data)
+        elif path.name.endswith(('.tar.gz', '.tar.xz', '.tar.bz2', '.tar.lzma', '.tar')):
+            with tarfile.open(path, mode='r|*') as archive:
+                for count, entry in enumerate(archive):
+                    if count > 1_000_000:
+                        raise ValueError('Ubuntu source archive has too many members.')
+                    name = entry.name.removeprefix('./')
+                    parts = PurePosixPath(name).parts
+                    member = next((m for m in members
+                        if len(parts) in {len(PurePosixPath(m).parts), len(PurePosixPath(m).parts) + 1}
+                        and parts[-len(PurePosixPath(m).parts):] == PurePosixPath(m).parts), None)
+                    if member is None:
+                        continue
+                    relative(name)
+                    if member in found or not entry.isfile() or not 0 < entry.size <= MAX_NOTICE:
+                        raise ValueError('Invalid generated Ubuntu copyright input.')
+                    found[member] = (path.name + '/' + name, archive.extractfile(entry).read())
+    if set(found) != set(members) or specification['recipe'].encode() not in found['debian/rules'][1]:
+        raise ValueError('Ubuntu generated copyright differs from the reviewed source recipe.')
+    notices = {found[name][0]: found[name][1] for name in specification['inputs']}
+    notices['generated/debian/copyright'] = b''.join(found[name][1] for name in specification['inputs'])
+    if len(notices['generated/debian/copyright']) > MAX_NOTICE:
+        raise ValueError('Generated Ubuntu copyright exceeds bounded notice size.')
+    return notices
+
+
+def copyright_notices(archives, *, generated=None):
+    """Return exact Debian copyright from its packaging tar or added patch."""
+    if generated is not None:
+        return generated_copyright(archives, generated)
+    def priority(path):
+        return (0 if '.debian.tar.' in path.name else 1 if path.name.endswith('.diff.gz') else 2, path.name)
+
+    for path in sorted(archives, key=priority):
+        if path.name.endswith('.diff.gz'):
+            found = patch_copyright(path)
+            if found:
+                return found
+            continue
+        # Detached .orig.tar.gz.asc signatures are retained and verified as
+        # source-record files, but are not themselves tar streams.
+        if not path.name.endswith(('.tar.gz', '.tar.xz', '.tar.bz2', '.tar.lzma', '.tar')):
             continue
         found = {}
         with tarfile.open(path, mode='r|*') as archive:
@@ -315,7 +422,7 @@ def verify_closure(root, policy, *, gpgv='gpgv', retain_notices=False):
     if not selected or len(selected) > 160 or len({item['package'] for item in selected}) != len(selected):
         raise ValueError('Ubuntu package selection is empty, duplicated or oversized.')
     binaries, sources = metadata(root, policy, {item['package'] for item in selected}, gpgv=gpgv)
-    origins, all_notices, source_versions, exact_files = {}, {}, {}, set()
+    origins, all_notices, source_versions, exact_files, binary_copyrights = {}, {}, {}, set(), {}
     for item in selected:
         key = (item['package'], item['version'])
         record = binaries.get(key)
@@ -334,6 +441,8 @@ def verify_closure(root, policy, *, gpgv='gpgv', retain_notices=False):
             origins.setdefault(value, []).append({'package': key[0], 'version': key[1], 'archive_sha256': record['SHA256'], 'member': member})
         for member, data in notices.items():
             all_notices['binary/' + key[0] + '/' + member] = data
+            if member.endswith('/copyright'):
+                binary_copyrights.setdefault(source, []).append(data)
         source_versions[source] = sources[source]
     for key, record in source_versions.items():
         files = checksums(record['Checksums-Sha256'])
@@ -346,7 +455,11 @@ def verify_closure(root, policy, *, gpgv='gpgv', retain_notices=False):
             name = 'source/' + relative(record['Directory']) + '/' + filename
             archives.append(checked(root / name, item['sha256'], item['bytes']))
             exact_files.add(name)
-        for member, data in copyright_notices(archives).items():
+        generated = policy.get('generated_copyright', {}).get(key[0])
+        notices = copyright_notices(archives, generated=generated)
+        if generated and notices['generated/debian/copyright'] not in binary_copyrights.get(key, []):
+            raise ValueError('Generated Ubuntu source copyright differs from its actual binary package.')
+        for member, data in notices.items():
             all_notices['source/' + key[0] + '/' + member] = data
     # Full common GPL/LGPL/etc terms are supplied by authenticated base-files,
     # not copied from unverified host paths or reduced to SPDX labels.
