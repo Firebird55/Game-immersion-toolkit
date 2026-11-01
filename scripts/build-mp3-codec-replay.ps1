@@ -469,7 +469,7 @@ $lameProjectContext = Join-Path $OutputRoot 'lame-project/vc_solution'
 New-Item -ItemType Directory -Path $lameProjectContext -Force | Out-Null
 $lameProject = Join-Path $lameSource 'vc_solution/vs2019_libmp3lame_dll.vcxproj'
 Invoke-Build 'build-lame' $msbuild @($lameProject, '/nologo', '/m:2', '/t:Build',
-    '/p:Configuration=Release', '/p:Platform=x64', '/p:PlatformToolset=v180',
+    '/p:Configuration=Release', '/p:Platform=x64', '/p:PlatformToolset=v145',
     ('/p:VCToolsVersion=' + $pin.host.toolset_directory), ('/p:WindowsTargetPlatformVersion=' + $pin.host.sdk_version),
     '/p:HaveMpg123=false', ('/p:UserRootDir=' + $env:UserRootDir),
     '/p:ImportDirectoryBuildProps=false', '/p:ImportDirectoryBuildTargets=false',

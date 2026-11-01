@@ -40,3 +40,32 @@ Redistribution and use in source and binary forms, with or without modification,
 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+SUPPLEMENTAL OWNER DECISION: ONE EXACT CORRECTED MP3 RECIPE
+Owner decision effective 2026-11-01
+
+The copyright holder explicitly approved PROPOSED-SUPPLEMENTAL-LICENSE.txt (3932 LF bytes, SHA256 02c220c6a8c1808cec6baefc91c416c33dbd09613193da908edd481c90167938). This static section applies that decision. The preceding 4588 bytes retain the original four-revision notice exactly; none of those grants or historical revisions is overwritten.
+
+For original Firebird55-controlled portions in only the following corrected baseline, the copyright holder additionally permits use under the complete standard BSD-3-Clause terms repeated below. Necessary bounded notice and source-delivery wiring applying this decision is included. The ordinary repository LICENSE remains an alternative. No extra visible-credit or link condition is imposed beyond the standard BSD terms.
+
+scripts/build-mp3-codec-replay.ps1
+  Supplemental approved baseline LF bytes: 35311
+  Supplemental approved baseline SHA256: 1b0cc7746a84d6152ddc0bb48c6857213d05c7cad68f05b2a537e0346a0ceb64
+
+The only functional correction from the previously approved original a0d6f92af1bf7e7377b6eafba902f1c16e120bbee7edd770dcfc76e46676d638 is /p:PlatformToolset=v180 becoming /p:PlatformToolset=v145. This is a separate exact revision, not an amendment granting arbitrary future functional changes. The current notice-wired script and all four final raw/canonical-LF copies are bound separately in MP3-BSD-COPIES.json; those bindings grant no rights of their own and do not pin themselves circularly.
+
+This supplement includes no helper, other original project file, upstream LAME/FFmpeg/Opus/recipe or derived-patch copyright, FFT or patent right, or later functional edit. General project and third-party terms remain intact. Complete source/relinking compatibility, durable delivery, maintenance, exact native output, runtime/distribution/production, Windows11, physical/global ownership, warm routing and R19 gates remain open. It authorizes no installer, release, merge or PR59 change.
+
+STANDARD BSD-3-CLAUSE TERMS
+
+Copyright (c) 2026 Firebird55
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
