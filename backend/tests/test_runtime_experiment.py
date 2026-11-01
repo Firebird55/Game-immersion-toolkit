@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 import marshal
+import os
 from pathlib import Path
 import sys
 import tarfile
@@ -19,6 +20,42 @@ import pytest
 
 from backend import bundle_entry, runtime_bundle, runtime_probe
 from backend.tests.test_runtime_bundle import frozen_layout
+
+
+@pytest.mark.parametrize('kind,substitute_status,substitute_output,accepted', [
+    ('window-capture', None, None, True), ('window-capture', 0, None, False),
+    ('window-capture', 1, None, False), ('language', None, None, False),
+    ('window-capture', 2, 'stdout', False), ('window-capture', 2, 'stderr', False),
+])
+def test_entrypoint_probe_requires_capture_argument_refusal_and_keeps_other_cli_success(
+        tmp_path, monkeypatch, kind, substitute_status, substitute_output, accepted):
+    # This real source subprocess exercises the binary worker's argument check,
+    # which the frozen --help sweep previously mistook for an argparse CLI.
+    # Native construction is forbidden; this is no capture/hardware proof.
+    code = """import sys
+from backend import window_capture_worker as target
+def forbidden(*args, **kwargs):
+    raise AssertionError('An argument probe opened native capture')
+target.NativeCapture = forbidden
+sys.platform = 'win32'
+raise SystemExit(target.main(['--help']))
+""" if substitute_status is None else f'raise SystemExit({substitute_status})'
+    if substitute_output:
+        code = f"import sys; print('Authored dispatcher refusal', file=sys.{substitute_output}); " + code
+    calls = []
+    def command(selected, arguments):
+        calls.append((selected, arguments))
+        return [sys.executable, '-c', code]
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[2]))
+    layout = SimpleNamespace(work_root=tmp_path, child_command=command,
+                             child_environment=lambda _: env)
+    monkeypatch.setattr(runtime_probe, 'EXPERIMENT_CHILDREN', (kind,))
+    if accepted:
+        assert runtime_probe.worker_entrypoints(layout) == [kind]
+    else:
+        with pytest.raises(runtime_bundle.RuntimeBundleError, match='Frozen synthetic worker failed: ' + kind):
+            runtime_probe.worker_entrypoints(layout)
+    assert calls == [(kind, ['--help'])]
 
 
 def recorder(monkeypatch):

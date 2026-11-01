@@ -1802,3 +1802,25 @@ before any live migration activation.
 
 The branch is reversible independently of R18. No live user data, credentials,
 source installation, R18 branch or dependency PR is changed by these probes.
+
+### Binary capture-worker argument probe
+
+The integrated Windows run [41344422354](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41344422354)
+at `0898c1b431b77a5e6fc69c2a80f111e933496603` built its isolated executable trees,
+then refused the first relocated native probe with the closed contract
+`Frozen synthetic worker failed: window-capture`. The public observation does
+not include the child exit code or its private output. Later frozen slot, keeper
+and copy probes did not run; no integrated runtime metadata artifact was produced.
+
+Source inspection independently found a probe contract mismatch. The capture
+worker uses a fixed five-number binary frame protocol, has no argparse help CLI,
+and rejects `--help` with exactly exit status 2 before constructing native capture.
+The entrypoint sweep now requires that exact refusal with empty stdout and stderr
+only for `window-capture`; all its other CLI probes continue to require status 0.
+Unexpected status 0 or 1, or a status-2 dispatcher refusal that emits a diagnostic,
+still fails the capture argument probe. The worker, dispatcher, frame protocol,
+native imports and the existing `native_ocr_capture=not-run` scope stay intact.
+Portable source subprocess tests verify this argument refusal with native
+construction forbidden. They do not establish the failed frozen child's precise
+cause or a new frozen result. Real Windows11 capture, DPI, permission, rights and
+complete R19 acceptance remain separate open gates. No installer is built.

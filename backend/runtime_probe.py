@@ -390,6 +390,21 @@ def worker(layout, kind, arguments, *, expected_status=0):
     return result
 
 
+def worker_entrypoints(layout):
+    checked = []
+    for kind in EXPERIMENT_CHILDREN:
+        if kind not in {'frontend', 'windows-bootstrap', 'asr', 'capture-readiness', 'update-voice'}:
+            # The binary capture worker has no help CLI. Invalid arguments must
+            # refuse before opening a capture session, with its exact status2.
+            result = worker(layout, kind, ['--help'], expected_status=2 if kind == 'window-capture' else 0)
+            if kind == 'window-capture' and (result.stdout != b'' or result.stderr != b''):
+                # Dispatcher refusals also use2 but emit a diagnostic. Never
+                # promote those, or private child output, to an entrypoint pass.
+                raise RuntimeBundleError('Frozen synthetic worker failed: ' + kind)
+            checked.append(kind)
+    return checked
+
+
 def native(layout):
     import numpy as np
     # These imports exercise native loaders in the extracted process, including
@@ -417,9 +432,7 @@ def native(layout):
         raise RuntimeBundleError('The collected NTE bridge did not use its own exact runtime.')
     from .codec_probe import probe as codec_probe
     codec = codec_probe(layout)
-    for kind in EXPERIMENT_CHILDREN:
-        if kind not in {'frontend', 'windows-bootstrap', 'asr', 'capture-readiness', 'update-voice'}:
-            worker(layout, kind, ['--help'])
+    entrypoints = worker_entrypoints(layout)
     from .unvoiced_export_probe import probe as export_probe
     unvoiced_export = export_probe(layout, lambda kind, arguments, **options: worker(layout, kind, arguments, **options))
     from .source_pcm_probe import probe as source_pcm_probe
@@ -428,8 +441,7 @@ def native(layout):
         'codec': codec, 'source_pcm': source_pcm,
         'game_index_worker': 'authored-format-passed', 'language_worker': 'authored-format-passed',
         'export': 'authored-unvoiced-worker-roundtrip; voiced-export-not-verified', 'unvoiced_export': unvoiced_export,
-        'worker_entrypoints': [kind for kind in EXPERIMENT_CHILDREN if kind not in
-            {'frontend', 'windows-bootstrap', 'asr', 'capture-readiness', 'update-voice'}],
+        'worker_entrypoints': entrypoints,
         'native_ocr_capture': 'not-run; proprietary files and Windows 11 required',
         'voice_refresh': 'not-run; game helper rights gate open', 'loaded_native': loaded_native(layout)}
 
