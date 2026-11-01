@@ -14,7 +14,7 @@ on:
       source_replay:
         description: Run one separate quarantined R19 experiment only
         type: choice
-        options: [none, ffmpeg-opus, sherpa-asr, msvc-redist-census, legacy-lock-attribute]
+        options: [none, ffmpeg-opus, ffmpeg-mp3, sherpa-asr, msvc-redist-census, legacy-lock-attribute]
         default: none
       observer_contract_only:
         description: Run only PowerShell observer and guardian contracts (no runtime build)
@@ -41,7 +41,7 @@ jobs:
           R19_CODEC_ONLY: ${{ inputs.codec_source_only && 'true' || 'false' }}
         run: |
           set -euo pipefail
-          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|sherpa-asr|msvc-redist-census|legacy-lock-attribute) ;; *) exit 1 ;; esac
+          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|ffmpeg-mp3|sherpa-asr|msvc-redist-census|legacy-lock-attribute) ;; *) exit 1 ;; esac
           selected=0
           if [[ "$R19_SOURCE_REPLAY" != none ]]; then selected=$((selected+1)); fi
           if [[ "$R19_OBSERVER_ONLY" == true ]]; then selected=$((selected+1)); fi
@@ -54,6 +54,10 @@ jobs:
     needs: validate-selection
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'ffmpeg-opus' }}
     uses: ./.github/workflows/r19-game-codec-replay.yml
+  mp3-codec-source-observation:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'ffmpeg-mp3' }}
+    uses: ./.github/workflows/r19-mp3-codec-replay.yml
   asr-source-replay:
     needs: validate-selection
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'sherpa-asr' }}
@@ -202,7 +206,7 @@ jobs:
             const after = captureSourceSnapshot();
             if (after.sourceStatus !== 'available' || before.head !== after.head || before.sourceHash !== after.sourceHash || !clean() || child.error || child.signal || ![0,2].includes(child.status)) refuse();
             let value; try {value=JSON.parse(child.stdout);} catch {refuse();}
-            const fixed={schema:'proxy-r19-legacy-lock-attribute-mechanism-v4',scope:'authored-local-ntfs-no-writers-mechanism',candidate_data_writers:0,production_allowed:false,keeper_loss_acceptance:false,rights_approval:false,native_windows_11_acceptance:'unavailable',r19_complete:false};
+            const fixed={schema:'proxy-r19-legacy-lock-attribute-mechanism-v5',scope:'authored-local-ntfs-no-writers-mechanism',candidate_data_writers:0,production_allowed:false,keeper_loss_acceptance:false,rights_approval:false,native_windows_11_acceptance:'unavailable',r19_complete:false};
             const keys=[...Object.keys(fixed),'status','phase','failure','legacy_source_sha256','observed','timestamp_equalities','cleanup','baseline_checkpoint','grant_conversion_failure'].sort();
             if (!value || typeof value !== 'object' || Array.isArray(value) || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys)) refuse();
             for (const [key,expected] of Object.entries(fixed)) if (value[key] !== expected) refuse();
@@ -223,17 +227,9 @@ jobs:
             for (const [key,allowed] of Object.entries(checkpointValues)) if (typeof checkpoint[key] !== 'string' || !allowed.includes(checkpoint[key])) refuse();
             const passed=value.status === 'mechanism-observed';
             if (child.status !== (passed ? 0 : 2)) refuse();
-            const conversion=value.grant_conversion_failure;
-            if (conversion !== null) {
-              const conversionKeys=['category','chain_end','exceptions','line'];
-              const families=['command-not-found','parameter-binding','cmdlet-invocation','type-initialization','argument-null','argument','unknown'];
-              const categories=['NotSpecified','OpenError','CloseError','DeviceError','DeadlockDetected','InvalidArgument','InvalidData','InvalidOperation','InvalidResult','InvalidType','MetadataError','NotImplemented','NotInstalled','ObjectNotFound','OperationStopped','OperationTimeout','SyntaxError','ParserError','PermissionDenied','ResourceBusy','ResourceExists','ResourceUnavailable','ReadError','WriteError','FromStdErr','SecurityError','ProtocolError','ConnectionError','AuthenticationError','LimitsExceeded','QuotaExceeded','NotEnabled','unknown'];
-              if (!conversion || typeof conversion !== 'object' || Array.isArray(conversion) || JSON.stringify(Object.keys(conversion).sort()) !== JSON.stringify(conversionKeys)) refuse();
-              if (!['null','empty','nonempty'].includes(conversion.line) || !['complete','truncated','unknown'].includes(conversion.chain_end) || !categories.includes(conversion.category)) refuse();
-              if (!Array.isArray(conversion.exceptions) || conversion.exceptions.length > 8 || conversion.exceptions.some(item=>typeof item !== 'string' || !families.includes(item))) refuse();
-              if ((conversion.chain_end === 'complete' && conversion.exceptions.length === 0) || (conversion.chain_end === 'truncated' && conversion.exceptions.length !== 8)) refuse();
-              if (passed || value.phase !== 'legacy-baseline' || checkpoint.parent_step !== 'receive-script-progress' || checkpoint.script_step !== 'grantread' || value.observed.length !== 0 || Object.keys(equalities).length !== 0 || !hashes.includes(value.legacy_source_sha256) || !['protocol-refused','owned-cleanup-unconfirmed'].includes(value.failure) || value.cleanup !== 'unconfirmed-fixture-retained') refuse();
-            }
+            // V5 has no JSON grant conversion. Historical v4 contexts cannot
+            // be relabelled as evidence from the canonical-frame producer.
+            if (value.grant_conversion_failure !== null) refuse();
             if (passed && (value.phase !== 'complete' || value.failure !== 'none' || value.cleanup !== 'owned-handles-closed-fixture-retained' || !hashes.includes(value.legacy_source_sha256) || value.observed.length !== observations.length || Object.keys(equalities).length !== times.length || Object.values(equalities).some(item=>!item.creation_equal || !item.write_equal))) refuse();
             const binding={schema:'proxy-r19-legacy-lock-attribute-ci-binding-v1',source_commit:before.head,source_before_sha256:before.sourceHash,source_after_sha256:after.sourceHash,source_clean:true,build_host_python:'3.12.10',mechanism:value};
             for (const directory of ['output','output/checks']) {
@@ -407,7 +403,8 @@ jobs:
             'bundle_host', 'bundle_migration', 'runtime_data_copy_probe', 'storage',
             'hito_storage', 'lexirise_lifetime', 'reading_lifetime',
             'runtime_readers', 'game_update_schedule', 'threaded_http_producers',
-            'sqlite_operation_resources', 'runtime_sql_lifetime'
+            'sqlite_operation_resources', 'runtime_sql_lifetime', 'populated_state_copy',
+            'mp3_codec_replay', 'mp3_cli_ownership'
           ) | ForEach-Object { "backend/tests/test_$_.py" }
           & $env:PYTHON -B -m pytest -q @contracts
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }

@@ -1,0 +1,42 @@
+Additional BSD-3-Clause option for four original MP3 build-recipe revisions
+Owner decision effective 2026-11-01
+
+The copyright holder authorized the exact proposal PROPOSED-ADDITIONAL-LICENSE.txt (3840 LF bytes, SHA256 3adc6e4775f8bb5f53e2d63ec031eec8222c80c319fc0c268906d1533b80601c). This static notice records that decision; the historical proposal remains unchanged.
+
+For original Firebird55-controlled portions in the following four baseline revisions, the copyright holder additionally permits use under the complete BSD-3-Clause terms below. Necessary bounded notice and source-delivery wiring applying this option is included. The ordinary repository LICENSE remains an alternative. No additional visible-credit or link condition is imposed by this BSD option beyond the standard terms.
+
+packaging/codecs/ffmpeg-mp3-replay.json
+  Approved baseline LF bytes: 15933
+  Approved baseline SHA256: 8274d8842d05596f49f644f313dd0f885b19b37240fa21dc877fd3b3ff36f4e4
+scripts/replay-mp3-codec.py
+  Approved baseline LF bytes: 48280
+  Approved baseline SHA256: 615ea978748aa692381bb592628743fbf4b9a4c9ad449be51d929c796a3f4db7
+scripts/build-mp3-codec-replay.ps1
+  Approved baseline LF bytes: 35311
+  Approved baseline SHA256: a0d6f92af1bf7e7377b6eafba902f1c16e120bbee7edd770dcfc76e46676d638
+scripts/fixtures/mp3-codec-origin.c
+  Approved baseline LF bytes: 1571
+  Approved baseline SHA256: c26d6d6c5285c73934fbe214d528b8efea2d5596a65cb8ab57578eb93f1853c3
+
+Scope boundaries:
+- Only the identified original portions and necessary notice/source-delivery wiring receive this additional option. Future functional edits are not automatically included.
+- Final distributed raw and canonical-LF copies are recorded separately in MP3-BSD-COPIES.json. That inventory binds bytes; it is not an independent grant or a circular self-hash pin.
+- The unchanged Windows preparation-process helper is outside this option. backend/windows_preparation_process.py (25651 LF bytes, SHA256 24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0) retains the complete Firebird55 Attribution License version1.0 in LICENSE (1492 LF bytes, SHA256 1d2f36f13b16b401e4bbf81e955ea185d50c6b5de281d89915e240138b7bb396), including its existing conditions.
+- The old six-file FFMPEG-BUILD-RECIPES-LICENSE.txt and the separate Xiph grant remain unchanged. No additional rights are inferred for their code or future versions.
+- Upstream FFmpeg, Opus, LAME, original vgmstream recipes, the derived LAME property patch and all other third-party material retain their own terms. This notice grants no upstream or patent rights. The LAME FFT provenance question remains unresolved, without an automatic GPL classification.
+- Tests, reviews, .gitattributes, runtime adapters and other project files are outside these four original portions. The ordinary repository LICENSE remains applicable to them.
+- This option is not approval of complete corresponding-source/relinking compatibility, hosting, servicing, exact native output, runtime/production execution, distribution, Windows11, global ownership, warm routing or R19 completion.
+
+STANDARD BSD-3-CLAUSE TERMS
+
+Copyright (c) 2026 Firebird55
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

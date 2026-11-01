@@ -1,0 +1,393 @@
+{
+  "schema": "proxy-r19-mp3-functional-draft-inputs-v1",
+  "reviewed_on": "2026-10-31",
+  "scope": "Ignored MP3 recipe with an additional BSD-3-Clause option only for the four approved original revisions and necessary license/source wiring. No clean0f/native/runtime/complete-source approval.",
+  "sources": [
+    {
+      "component": "ffmpeg",
+      "version": "9.0.2",
+      "filename": "ffmpeg-9.0.2.tar.xz",
+      "source": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+      "bytes": 12040788,
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+      "root": "ffmpeg-9.0.2"
+    },
+    {
+      "component": "opus",
+      "version": "1.6.1",
+      "filename": "opus-1.6.1.tar.gz",
+      "source": "https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz",
+      "bytes": 10472813,
+      "sha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1",
+      "root": "opus-1.6.1"
+    },
+    {
+      "component": "lame",
+      "version": "4.0",
+      "filename": "lame-4.0.tar.gz",
+      "source": "https://downloads.sourceforge.net/project/lame/lame/4.0/lame-4.0.tar.gz",
+      "bytes": 1496810,
+      "sha256": "3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb",
+      "root": "lame-4.0"
+    }
+  ],
+  "original_recipes": [
+    {
+      "path": "COPYING",
+      "bytes": 1314,
+      "sha256": "fcc26d35c4c4365e31f21734f846e4ee362ff0b57ba696085605a7b4768d8763",
+      "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/COPYING",
+      "filename": "vgmstream-COPYING",
+      "download": "https://raw.githubusercontent.com/vgmstream/vgmstream/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/COPYING"
+    },
+    {
+      "path": "doc/BUILD-LIB.md",
+      "bytes": 33923,
+      "sha256": "05e5fe5707eb6301c1c57815479621d432f1aaf16ebdb4eca0a28af5509a3f4c",
+      "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/doc/BUILD-LIB.md",
+      "filename": "vgmstream-BUILD-LIB.md",
+      "download": "https://raw.githubusercontent.com/vgmstream/vgmstream/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/doc/BUILD-LIB.md"
+    },
+    {
+      "path": "ext_libs/extra/ffmpeg_options.txt",
+      "bytes": 5530,
+      "sha256": "ebf1a9897af02234c27ae4cc4b3d50e728f8ed6d772f047ac468c13c195f525e",
+      "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/extra/ffmpeg_options.txt",
+      "filename": "vgmstream-ffmpeg_options.txt",
+      "download": "https://raw.githubusercontent.com/vgmstream/vgmstream/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/extra/ffmpeg_options.txt"
+    }
+  ],
+  "notices": [
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.LGPLv2.1",
+      "bytes": 26517,
+      "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.GPLv2",
+      "bytes": 18092,
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.LGPLv3",
+      "bytes": 7651,
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "COPYING.GPLv3",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "LICENSE.md",
+      "bytes": 4346,
+      "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+    },
+    {
+      "component": "ffmpeg",
+      "path": "README.md",
+      "bytes": 1798,
+      "sha256": "7e30f809d40454ebc467cf473a063d7306f5eb836dca6b80668c4427d8845914"
+    },
+    {
+      "component": "opus",
+      "path": "COPYING",
+      "bytes": 1945,
+      "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+    },
+    {
+      "component": "opus",
+      "path": "AUTHORS",
+      "bytes": 239,
+      "sha256": "f9fd849e652219ce98e008303370b352d37663d0ffb27b8dc514ad93c9c7438b"
+    },
+    {
+      "component": "opus",
+      "path": "README",
+      "bytes": 7198,
+      "sha256": "9bdf02594da8c33af8b7bdb7a2ac98f6fdc6abc71d5fb198e7b186286a681dca"
+    },
+    {
+      "component": "lame",
+      "path": "COPYING",
+      "bytes": 25281,
+      "sha256": "e64f9c5a18f56828c10a575df13ade641aa3af4512a7afe6c411256943b57aaf"
+    },
+    {
+      "component": "lame",
+      "path": "LICENSE",
+      "bytes": 503,
+      "sha256": "5c1f8d44f1eacbea3e1c31ff6ee11a4e1690ccbed4ee4af16de3b6eb61dc69a8"
+    },
+    {
+      "component": "lame",
+      "path": "README",
+      "bytes": 1621,
+      "sha256": "e47a4cf08fc823fda8337bd80fcf494a5bfc2b98a26f8c94d5787017afcac044"
+    }
+  ],
+  "build_tools": [
+    {
+      "filename": "msys2-base-x86_64-20260927.tar.xz",
+      "source": "https://github.com/msys2/msys2-installer/releases/download/2026-09-27/msys2-base-x86_64-20260927.tar.xz",
+      "sha256": "ea2f31a0b6ade63914ce441ffb022f0f6aa96982bfefa2326460a26d5fb01322",
+      "digest_authority": "GitHub official release asset digest; not a source/signature verification"
+    },
+    {
+      "filename": "make-4.4.1-3-x86_64.pkg.tar.zst",
+      "source": "https://mirror.msys2.org/msys/x86_64/make-4.4.1-3-x86_64.pkg.tar.zst",
+      "sha256": "af0bdba17f06fe037f0194069adaa31a8fe45f1a11381501896aea1fae37bd5d",
+      "digest_authority": "https://packages.msys2.org/packages/make?repo=msys&variant=x86_64"
+    },
+    {
+      "filename": "nasm-3.02-1-x86_64.pkg.tar.zst",
+      "source": "https://mirror.msys2.org/msys/x86_64/nasm-3.02-1-x86_64.pkg.tar.zst",
+      "sha256": "1ab3d9d7f86f57a66cc506799648527b9215c3eb1b7bd404d886d59b503a05b7",
+      "digest_authority": "https://packages.msys2.org/packages/nasm?repo=msys&variant=x86_64"
+    },
+    {
+      "filename": "pkgconf-3.0.9-1-x86_64.pkg.tar.zst",
+      "source": "https://mirror.msys2.org/msys/x86_64/pkgconf-3.0.9-1-x86_64.pkg.tar.zst",
+      "sha256": "4a19d76ae6104ca0ec3876036dab2986caf516eb8fb9261e46cbee9f08934f01",
+      "digest_authority": "https://packages.msys2.org/packages/pkgconf?repo=msys&variant=x86_64"
+    }
+  ],
+  "host": {
+    "image": "windows-2025-vs2026",
+    "generator": "Visual Studio 18 2026",
+    "toolset_directory": "14.51.36231",
+    "compiler_version": "19.51.36260.0",
+    "cmake_version": "4.4.5",
+    "sdk_version": "10.0.26100.0",
+    "evidence_run": 41144087092,
+    "evidence_jobs": [
+      124364966367,
+      124364965922
+    ],
+    "policy": "Exact observed host tuple required; changed/unavailable tools fail before building. Hash selected tool/header/library trees before and after. The hosted image is not an independently recoverable toolchain source kit. This is observed experiment input binding, not complete immutable compiler supplier/source closure.",
+    "netfx_sdk_headers": "4.8.1",
+    "unbound_prerequisites": [
+      "Windows OS/loader/system DLL implementation and registry",
+      "Host .NET runtime/framework/GAC used by MSBuild",
+      "Hosted image/service infrastructure and independent complete toolchain source/rights recovery"
+    ],
+    "cmake_supplier_policy": "packaging/build-tools/cmake-4.4.5-windows-x64.json",
+    "image_versions": [
+      "20261021.278.1",
+      "20261030.294.1"
+    ],
+    "image_rollout_review": {
+      "review_date": "2026-10-31",
+      "observed_new_image_run": 41163848164,
+      "observed_new_image_job": 124427062503,
+      "observed_old_image_run": 41163849991,
+      "observed_old_image_job": 124427065645,
+      "release_id": 429218209,
+      "release_tag": "win25-vs2026/20261030.294",
+      "source_commit": "0dfe95c53f998c186f26977422790b191450df29",
+      "software_readme": "https://github.com/actions/runner-images/blob/0dfe95c53f998c186f26977422790b191450df29/images/windows/Windows2025-VS2026-Readme.md",
+      "manifest_asset": {
+        "id": 692604610,
+        "name": "internal.win25-vs2026.json",
+        "bytes": 49285,
+        "sha256": "7770133c6cbdf6e2e189b7a346d23749996886fed07f7fcafe52d291617c310b"
+      },
+      "scope": "Two exact contemporaneous GitHub image versions are admitted to preflight. Compiler/toolset/SDK/CMake checks and complete per-run tool seals remain unchanged. Public catalog metadata is not proof of actual compiler bytes, reproducible host source, runtime rights or Windows 11 acceptance."
+    },
+    "netfx_sdk_review": {
+      "source_commit": "a57cc6c67049701ef31f64fcedcc372386757a45",
+      "workflow_run": 41167086271,
+      "workflow_job": 124436892474,
+      "failure_artifact": 13029314482,
+      "failure_artifact_bytes": 833,
+      "failure_artifact_sha256": "7253217c0f12a619ecca190196a264246fb28cc08fc294984f92cb9cc74e7731",
+      "observed_image_version": "20261030.294.1",
+      "previous_manifest_windows_sha256": "90552cd5c1b85366f2320663fecab64734ef38888446ec399a7627f618d51d38",
+      "observed_version": "4.8.1",
+      "observed_existing_roles": [
+        "include-um",
+        "lib-um-x64"
+      ],
+      "scope": "Exact activated INCLUDE/LIB entries under the declared NETFXSDK parent were independently verified from the fixed numeric/suffix projection. Only this exact version is selected and its complete declared header/library trees must be sealed before and after building. No runtime prerequisite, source-delivery or redistribution approval follows."
+    }
+  },
+  "adaptations": [
+    "Retain the original36-option dependency recipe and old profile byte-for-byte. Apply only the separate fixed audio CLI override list for this new identity.",
+    "Use fixed C:/r19-mp3-codec-replay paths, the exact existing VS2026 instance/toolset/SDK and the shared CMake4.4.5 supplier. No moving tool fallback.",
+    "Use original unmodified FFmpeg makedef for this profile. The old four-role diagnostic variant is preserved only in the unchanged dependency profile.",
+    "Build LAME encoder-only Release|x64 with the original shared-library project and static dependency. Add only the two fixed HaveMpg123 prelink guards.",
+    "Keep all original supplier trees immutable. The LAME owned working copy permits only the one declared property patch and exact config.h generated from configMS.h.",
+    "Keep tool archives, private logs, native payloads and generated source configuration private. A later source-kit export requires separate review.",
+    "Use existing atomic creation/Job primitive unchanged with process limit1. Real encode/decode CLI children consume held named input and produce bounded progress before two creation-handle module censuses. The observer remains supplementary.",
+    "The separate static MP3 grant covers only four approved original revisions and necessary notice/source wiring. The Windows helper stays under ordinary LICENSE; old BSD6, Xiph, upstream and future-functional scopes remain separate."
+  ],
+  "licensing_boundary": {
+    "original_upstream_recipes": "Retained byte-for-byte with vgmstream COPYING; dependency original recipes/notices remain in exact source archives.",
+    "project_orchestration": "Additional BSD-3-Clause option for exactly four approved original MP3 revisions and required notice/source wiring. Final raw/LF copies are separately bound. Windows helper stays under ordinary LICENSE; no upstream, future-functional or source-delivery approval.",
+    "xiph_flac_scoped_grant_applies": false,
+    "rights_review": "LAME FFT provenance scope remains unresolved. Exact LGPL combination, relinking, hosting, servicing and runtime adoption need review."
+  },
+  "production_execution_allowed": false,
+  "runtime_collection_allowed": false,
+  "source_delivery_approved": false,
+  "native_windows_11_acceptance": "unavailable",
+  "installer": "not-built",
+  "r19_complete": false,
+  "original_dependency_profile": {
+    "path": "packaging/codecs/ffmpeg-opus-replay.json",
+    "bytes": 12450,
+    "sha256": "3baa0a0d1e30a5e149213ddf1eb071d776fbe687f9302ff834fdeaee3a55ed99",
+    "original_options_count": 36,
+    "unchanged": true
+  },
+  "helper_binding": {
+    "path": "scripts/replay-game-codec.py",
+    "sha256": "41a578f87ff9fccc776a5807dfc1e292c5356d523052aa203947458c61099d6a"
+  },
+  "lame_variant": {
+    "source_member": "lame-4.0/vc_solution/vs2019_libmpg123_config.props",
+    "preimage": {
+      "bytes": 2030,
+      "sha256": "a01598937b9b8b266e4c09cd06108c54579fa7bdf8c9caf94bf804ac0e09d020"
+    },
+    "postimage": {
+      "bytes": 2090,
+      "sha256": "ebd1059f72cea7b524fc01f646599f8b7311bdd1a66471b9ad4296134609bf94"
+    },
+    "patch": {
+      "path": "packaging/codecs/patches/lame-4.0-mpg123-prelink-guard.patch",
+      "bytes": 1295,
+      "sha256": "018f5857359aee56d54fa84e0e87118d15c56b2e4e19f44389bafc6ea7d4f293"
+    },
+    "scope": "The two existing PreLinkEvent conditions also require HaveMpg123=true. Encoder code and compiler settings are unchanged."
+  },
+  "audio_cli_overrides": [
+    "--build-suffix=-r19-audio-lame",
+    "--enable-ffmpeg",
+    "--disable-ffplay",
+    "--disable-ffprobe",
+    "--enable-w32threads",
+    "--enable-avfilter",
+    "--enable-libmp3lame",
+    "--enable-encoder=libmp3lame,pcm_s16le",
+    "--enable-demuxer=s16le",
+    "--enable-muxer=mp3,wav,s16le",
+    "--enable-protocol=file",
+    "--enable-filter=aresample,aformat,anull,atrim,adelay,amix,pan,volume"
+  ],
+  "original_source_tree": {
+    "files": 11197,
+    "sha256": "2ef22ddb6027e39ca1caf25db6c815705ee748b08a505e29ff16cf8130574bb1"
+  },
+  "lame_working_source_tree": {
+    "files": 316,
+    "sha256": "c1841d68b809f535248bdf85903a40dd1c0cc31f65c830cb9814c41a533d2e35"
+  },
+  "cli_child": {
+    "owned_primitive": {
+      "path": "backend/windows_preparation_process.py",
+      "canonical_lf_sha256": "24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0",
+      "license": "ordinary project LICENSE; outside the approved four-file option",
+      "license_record": {
+        "path": "LICENSE",
+        "bytes": 1492,
+        "canonical_lf_sha256": "1d2f36f13b16b401e4bbf81e955ea185d50c6b5de281d89915e240138b7bb396"
+      }
+    },
+    "job_active_process_limit": 1,
+    "operation_deadline_seconds": 20,
+    "cleanup_wait_seconds": 5,
+    "input_bytes_cap": 262144,
+    "progress_bytes_cap": 32768,
+    "progress_records_cap": 128,
+    "progress_period_seconds": "0.1",
+    "analyze_duration_us": 100000,
+    "probe_bytes": 4096,
+    "system_module_allowlist": [
+      "advapi32.dll",
+      "amsi.dll",
+      "apphelp.dll",
+      "bcrypt.dll",
+      "bcryptprimitives.dll",
+      "cfgmgr32.dll",
+      "clbcatq.dll",
+      "combase.dll",
+      "comctl32.dll",
+      "comdlg32.dll",
+      "coremessaging.dll",
+      "crypt32.dll",
+      "d3d11.dll",
+      "dbghelp.dll",
+      "devobj.dll",
+      "directxdatabasehelper.dll",
+      "dwmapi.dll",
+      "dxcore.dll",
+      "dxgi.dll",
+      "gdi32.dll",
+      "gdi32full.dll",
+      "imm32.dll",
+      "iphlpapi.dll",
+      "kernel.appcore.dll",
+      "kernel32.dll",
+      "kernelbase.dll",
+      "mf.dll",
+      "mfcore.dll",
+      "mfplat.dll",
+      "mfreadwrite.dll",
+      "msasn1.dll",
+      "msvcp_win.dll",
+      "msvcrt.dll",
+      "mswsock.dll",
+      "ntdll.dll",
+      "ntmarta.dll",
+      "ole32.dll",
+      "oleaut32.dll",
+      "powrprof.dll",
+      "profapi.dll",
+      "propsys.dll",
+      "rpcrt4.dll",
+      "rtworkq.dll",
+      "sechost.dll",
+      "setupapi.dll",
+      "shcore.dll",
+      "shell32.dll",
+      "shlwapi.dll",
+      "ucrtbase.dll",
+      "umpdc.dll",
+      "user32.dll",
+      "userenv.dll",
+      "uxtheme.dll",
+      "vcruntime140.dll",
+      "version.dll",
+      "win32u.dll",
+      "winmm.dll",
+      "wintrust.dll",
+      "wintypes.dll",
+      "ws2_32.dll",
+      "wsock32.dll"
+    ],
+    "system_name_visibility_provenance": {
+      "source_commit": "973db810f4a7c9add384133647f96b1674543cde",
+      "receipt_sha256": "ea13737ee466ffcbecb17012d162670fe03851afe046f602bdf83386b9674d49",
+      "scope": "names only from previously verified public build-host observations; current path/file bytes must be observed again; no runtime/redistribution approval"
+    },
+    "scope": "four real authored encode/decode children, retained creation handles, positive progress before suffix/EOF release; no PID lookup"
+  },
+  "build_recipe_license": {
+    "schema": "proxy-r19-mp3-recipe-additional-license-v1",
+    "identifier": "BSD-3-Clause",
+    "scope": "four-approved-original-project-revisions-and-necessary-notice-source-delivery-wiring",
+    "approved_on": "2026-11-01",
+    "approval_proposal_sha256": "3adc6e4775f8bb5f53e2d63ec031eec8222c80c319fc0c268906d1533b80601c",
+    "grant": {
+      "path": "packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt",
+      "bytes": 4588,
+      "sha256": "f470deb41e0feea5f564b739e79c1378e457d6a7a6512f4c71a9e39958c476d1"
+    }
+  }
+}

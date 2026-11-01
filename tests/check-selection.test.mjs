@@ -176,3 +176,7 @@ for(const phase of ['unstaged','staged','committed']) {
   assert.ok(scenarioPlan(files).browser.includes('local-access-e2e'));
  });
 }
+test('the separate MP3 recipe and publisher retain the comprehensive source gate',()=>{
+ for(const file of ['packaging/codecs/ffmpeg-mp3-replay.json','packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt','packaging/codecs/patches/lame-4.0-mpg123-prelink-guard.patch','scripts/replay-mp3-codec.py','scripts/build-mp3-codec-replay.ps1','scripts/fixtures/mp3-codec-origin.c','scripts/mp3-codec-observation.py','scripts/run-mp3-codec-observation.mjs','.github/workflows/r19-mp3-codec-replay.yml'])assert.deepEqual(selectChecks([file]),['full'],file);
+ for(const file of ['backend/tests/test_mp3_codec_replay.py','backend/tests/test_mp3_cli_ownership.py'])assert.deepEqual(selectChecks([file]),['python'],file);
+});

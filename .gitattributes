@@ -21,3 +21,6 @@ packaging/asr/CMAKE-LICENSE.rst -text whitespace=cr-at-eol
 packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt -text
 # Keep the owner-approved scoped additional BSD notice byte-exact.
 packaging/codecs/FFMPEG-BUILD-RECIPES-LICENSE.txt -text
+
+packaging/codecs/patches/lame-4.0-mpg123-prelink-guard.patch -text
+packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt -text
