@@ -60,6 +60,27 @@ not descendants or the actual mechanism. No causal environment, stderr-error
 or no-operation conclusion is added. Keeper loss, global/physical/warm authority,
 rights and ordinary-user Windows 11 gates remain open.
 
+The later `0f93531` attempt supplies no new frozen copy evidence. The main
+contract step failed (1,419 passed, one failed, no skips, one warning, 171.26
+seconds), before EXE/COLLECT and C1–C6; no integrated archive, inventory or A2/P1
+was produced. Its six positive reference/helper/diagnostic archives contain
+fifteen entries; 98 immutable Git inputs and the Phase B source freeze were
+reviewed separately. Frontend used image `20261030.294.1`, the other six jobs
+`20261021.278.1`. The `NoneType` member traceback proves no particular elapsed,
+product or cleanup cause. Local 622-pass/nine-skip source checks and seven extra
+peer SQLite/Event cases are not a frozen SQL composition or physical fence.
+**a2e1fb6 remains the latest complete bounded copy checkpoint.**
+
+The separate 0f C7 paired control also failed before mechanism/upload: 216
+passed, one failed, no skips, 15.32 seconds, zero artifacts. Inherited reports
+`parsed`/null/no stderr/refusal `none`; Attempt reports
+`unavailable`/null/no stderr/`wait-deadline`. Both direct control child/reader
+cleanups are confirmed, without descendant, actual-mechanism or copy authority.
+No individual elapsed time or environment/search-path cause follows. Later
+local test fixes, C7 search-path controls and ExportLock work do not repair this
+published evidence. Keeper-loss, target activation, physical/global/warm,
+rights, ordinary-user Windows 11 and full R19 gates remain open.
+
 The existing [completion plan](r19-completion-plan.md) C2/C3/C4 gates remain
 open. The successful historical owned-host, cold-slot and
 [living keeper](r19-frozen-keeper-probe.md) experiments remain separate evidence.

@@ -1403,6 +1403,42 @@ with zero artifacts. All physical/global/warm, keeper-loss, exact-output rights,
 ordinary-user Windows 11 and full R19 gates remain open. No installer is built;
 PR #59 remains unchanged.
 
+## Negative Runtime SQL composition attempt at 0f93531
+
+[Run 41254832105](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41254832105)
+at `0f9353137bdc8c57adbe275b4d245a6a1f136796` failed before runtime packaging:
+**1,419 passed, one failed, no skips, one warning, 171.26 seconds**. The failure
+is the partial-SQL-freeze contract in `test_runtime_sql_lifetime.py`:
+`AttributeError` at `record.readings.members` after a quiesce call with a 60 ms
+budget. The source can retain a partial record before reading reservation; this
+trace identifies no specific elapsed, scheduling or product cause. It proves
+no cleanup result. EXE/COLLECT, candidate/native/C1/cold-slot, keeper and C3–C6
+steps were skipped, with no integrated archive, inventory or A2/P1 result.
+
+The reference job, helpers and diagnostics passed independently. Root and peer
+verified six exact source/metadata archives with fifteen entries and 98 named
+immutable Git inputs. The main/reference/Node/managed/protected-TEST/diagnostic
+jobs used image `20261021.278.1`; frontend used `20261030.294.1`. These positive
+subset observations do not supply the missing integrated result. Phase B's ten
+frozen source files, eleven root source records, local 622 passes/nine existing
+PowerShell skips and seven additional peer SQLite/Event cases remain separate
+source evidence. Retained controllers, issued tokens and the bounded request
+stop/drain are source-reviewed; this run supplies no frozen composition pass.
+The latest complete bounded checkpoint remains **a2e1fb6**.
+
+The separate same-head C7 [run 41254860334](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41254860334),
+job `124695772565` on image `20261021.278.1`, failed the authored paired control:
+**216 passed, one failed, no skips, 15.32 seconds**. Inherited reports `parsed`,
+null context, no stderr and refusal `none`; Attempt reports `unavailable`, null
+context, no stderr and `wait-deadline`. Both report
+`child-exit-and-readers-finished` for direct control cleanup only. Mechanism and
+upload were skipped, with zero artifacts. These labels establish no individual
+elapsed time, causal variable/search path, absent operation, descendant cleanup
+or actual C7 result. Later deterministic test changes, extra C7 search-path
+controls and ExportLock work are not retroactive evidence for this head.
+Physical/global/warm, keeper-loss, exact-output rights, ordinary-user Windows 11
+and full R19 gates remain open; no installer or PR #59 change follows.
+
 ## Continuation and rollback
 
 Use the integrated workflow for the extracted runtime/native/ASR observations,

@@ -8154,5 +8154,325 @@
       "native_result_available": false,
       "scope": "later tested source only; not a2e evidence"
     }
+  },
+  "negative_runtime_sql_composition_contract_0f93531": {
+    "source_commit": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+    "run": 41254832105,
+    "job": 124695689372,
+    "attempt": 1,
+    "event": "push",
+    "workflow": "failure",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41254832105",
+    "status": "negative-before-runtime-build",
+    "failed_step": {
+      "number": 6,
+      "name": "Build static frontend and run affected contracts"
+    },
+    "contracts": {
+      "passed": 1419,
+      "failed": 1,
+      "skipped": 0,
+      "warnings": 1,
+      "duration_seconds": 171.26
+    },
+    "failed_test": "backend/tests/test_runtime_sql_lifetime.py::test_partial_sql_freeze_timeout_keeps_same_cohort_tokens_and_epoch_until_real_scope_finishes",
+    "fixed_failure_context": {
+      "exception": "AttributeError",
+      "subcategory": "NoneType-members",
+      "public_source_expression": "record.readings.members",
+      "specific_elapsed_or_product_cause": "not-established"
+    },
+    "source_analysis_limit": "The test enumerates readings.members after quiesce_writers(timeout=.06); source retains a partial record before reading reservation. A NoneType trace identifies no specific scheduling/product cause and proves no cleanup or runtime outcome.",
+    "runtime_build": "not-run",
+    "EXE_COLLECT": "not-run",
+    "native_C1_cold_keeper_C3_C6": "not-run",
+    "integrated_runtime_artifact": null,
+    "runtime_inventory": null,
+    "A2_P1": null,
+    "positive_reference_and_auxiliary_artifacts": [
+      {
+        "bytes": 1095192,
+        "head_sha": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+        "id": 13062359588,
+        "name": "r19-reference-codec-source-and-metadata",
+        "sha256": "bac28395b91e4afb10546a257f714d19f162915e74799ea94c0f65811bf85864",
+        "run_id": 41254832105
+      },
+      {
+        "bytes": 1689,
+        "head_sha": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+        "id": 13062713183,
+        "name": "r19-managed-helper-metadata",
+        "sha256": "c873a5b088ffec316bfe3c7b4a8508663c4a9b2c5edd11bc3172620b99415ec8",
+        "run_id": 41254832210
+      },
+      {
+        "bytes": 675,
+        "head_sha": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+        "id": 13061879198,
+        "name": "r19-node-helper-metadata",
+        "sha256": "640d9be112493f65e1cfb7ed71be6e7dcb2586995db2edfebc39fed98f278292",
+        "run_id": 41254832210
+      },
+      {
+        "bytes": 537,
+        "head_sha": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+        "id": 13062369173,
+        "name": "r19-protected-test-state",
+        "sha256": "f310322663a06af1751e2ee8d969c798e3fc6ac6ddb43277714142cdd79b6659",
+        "run_id": 41254831905
+      },
+      {
+        "bytes": 871,
+        "head_sha": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+        "id": 13062174992,
+        "name": "r19-diagnostic-metadata",
+        "sha256": "366330d837a4aa970834ef10a6540648bffa60ba829551e8150e46bd64157bd0",
+        "run_id": 41254831905
+      },
+      {
+        "bytes": 3214,
+        "head_sha": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+        "id": 13062044168,
+        "name": "r19-frontend-experiment-metadata",
+        "sha256": "4ede75f3fab634781af397392443f712af374e29120dea74acc73c5550abddb5",
+        "run_id": 41254831905
+      }
+    ],
+    "positive_artifact_count": 6,
+    "provider_archive_entry_count": 15,
+    "job_images": [
+      {
+        "job": "extracted-runtime",
+        "id": 124695689372,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1"
+      },
+      {
+        "job": "reference-codec-source",
+        "id": 124695689378,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1"
+      },
+      {
+        "job": "node-probe",
+        "id": 124695670438,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1"
+      },
+      {
+        "job": "managed-probe",
+        "id": 124695670159,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1"
+      },
+      {
+        "job": "protected-test-state",
+        "id": 124695669308,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1"
+      },
+      {
+        "job": "diagnostic (diagnostic)",
+        "id": 124695669274,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1"
+      },
+      {
+        "job": "diagnostic (frontend-experiment)",
+        "id": 124695669244,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261030.294.1"
+      }
+    ],
+    "mixed_runner_image_versions_recorded_per_job": true,
+    "related_runs": [
+      {
+        "run": 41254832105,
+        "attempt": 1,
+        "conclusion": "failure"
+      },
+      {
+        "run": 41254832210,
+        "attempt": 1,
+        "conclusion": "success"
+      },
+      {
+        "run": 41254831905,
+        "attempt": 1,
+        "conclusion": "success"
+      }
+    ],
+    "named_git_blobs_verified": 98,
+    "source_PhaseB_only": {
+      "frozen_source_files": 10,
+      "root_source_manifest_entries": 11,
+      "source_freeze_sha256": "6ecb856f928c6594090447d8afbd8ab147613895ea9599030d2b1e6873b6e70c",
+      "source_10_git_blob_records": {
+        "backend/sqlite_operation_lifetime.py": {
+          "bytes": 14270,
+          "sha256": "08a8e07a7804f77cd75ca3f62f027e4d45a1f2cef2a0657e1222ec4343baaccd"
+        },
+        "backend/runtime_readers.py": {
+          "bytes": 21587,
+          "sha256": "6a4c64f93b96c6b13d436e9f81cfe39951fff145eb7136e88d8c05f59234988e"
+        },
+        "backend/api.py": {
+          "bytes": 105035,
+          "sha256": "601ce31eea2c1f97d4e817befb26ce1187412c58de934c717e4776ed66ca16b8"
+        },
+        "backend/tests/test_runtime_readers.py": {
+          "bytes": 36059,
+          "sha256": "89ac1a84924c9bbe340bb693f3e6ef381a5b6a5456a597006ac32dc80350427e"
+        },
+        "backend/tests/test_runtime_writers.py": {
+          "bytes": 16246,
+          "sha256": "983fe9c130b4b08192672ed57930e612083bbcc544c51ba6d57179ad482d1c24"
+        },
+        "backend/tests/test_runtime_handoff.py": {
+          "bytes": 11475,
+          "sha256": "4e36ec5cd488d1989734b1f39e6c662c276473ce80f15dcc6d46d4dcb7d59105"
+        },
+        "backend/tests/test_preparation_cancellation.py": {
+          "bytes": 21038,
+          "sha256": "22b08d8ee7b0ba883fc41bcb02aa66d8ea70d1641d4098d55f8eb29f30444a82"
+        },
+        "backend/tests/test_runtime_sql_lifetime.py": {
+          "bytes": 40861,
+          "sha256": "f6c645798dc17c7ef7e43bc25aebde1240bb50981f8681800195527116ea5bbc"
+        },
+        "docs/r19-mutable-store-lifetime.md": {
+          "bytes": 31574,
+          "sha256": "52b50bc2ee3815a395d720f572675eb301c7437e190c4000340ba1fa8d5d5489"
+        },
+        "docs/r19-writer-quiesce.md": {
+          "bytes": 15037,
+          "sha256": "91a0899efb75760366f06778e1f98a34e67c2302d4928c6484da839beb76c199"
+        }
+      },
+      "local_contracts": {
+        "author_passed": 622,
+        "root_passed": 622,
+        "peer_passed": 622,
+        "PowerShell_platform_skips": 9,
+        "warnings": 1
+      },
+      "peer_additional_actual_SQLite_Event_cases": 7,
+      "raw_SQL_three_services_and_cleanup_methods_unchanged": true,
+      "HTTP_WS_default_capture_AST_unchanged": true,
+      "bounded_request_stop_wait_and_retained_controller_review": "source only; first native integrated attempt failed before build",
+      "source_evidence_is_frozen_runtime_acceptance": false
+    },
+    "independent_source_and_artifact_review": {
+      "bytes": 38856,
+      "sha256": "c68c748e08fe5cbc19709852af28c9d67186f045af71c1234fe804777f071369",
+      "scope": "six positive archives/15 entries and 98 immutable Git sources; no integrated receipt"
+    },
+    "latest_complete_bounded_checkpoint": "a2e1fb6aa2162a843581b7e90135a53c83b65c6f",
+    "later_local_testfix_C7_searchpath_controls_ExportLock_work": "not evidence for 0f93531; requires new exact-source review and execution",
+    "rights_review": "pending-exact-output",
+    "raw_logs_saved": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built"
+  },
+  "negative_c7_labelled_conversion_control_0f93531": {
+    "source_commit": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+    "run": 41254860334,
+    "job": 124695772565,
+    "attempt": 1,
+    "event": "workflow_dispatch",
+    "workflow": "failure",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41254860334",
+    "status": "negative-authored-pair-before-mechanism",
+    "image": "windows-2025-vs2026",
+    "image_version": "20261021.278.1",
+    "contracts": {
+      "passed": 216,
+      "failed": 1,
+      "skipped": 0,
+      "duration_seconds": 15.32
+    },
+    "paired_control": {
+      "attempt": {
+        "context": null,
+        "state": "unavailable",
+        "stderr_present": false
+      },
+      "inherited": {
+        "context": null,
+        "state": "parsed",
+        "stderr_present": false
+      }
+    },
+    "parent_boundary": {
+      "attempt": {
+        "cleanup": "child-exit-and-readers-finished",
+        "refusal": "wait-deadline",
+        "stderr_prefix": "empty"
+      },
+      "inherited": {
+        "cleanup": "child-exit-and-readers-finished",
+        "refusal": "none",
+        "stderr_prefix": "empty"
+      }
+    },
+    "direct_control_cleanup": "both child-exit-and-readers-finished; direct children/readers only",
+    "direct_control_cleanup_is_descendant_or_mechanism_proof": false,
+    "both_existing_Windows_engine_cases": "passed; paired real-conversion contract failed",
+    "native_mechanism_step": "skipped",
+    "publisher_step": "skipped",
+    "artifacts": [],
+    "artifact_count": 0,
+    "cause": "not-established",
+    "proof_limit": "Inherited parses with null context and no stderr/refusal none. Attempt is unavailable with null context/no stderr and fixed parent wait-deadline. No individual elapsed time, causal environment/search-path variable, stderr error, absent operation, descendant cleanup or actual C7 mechanism result follows.",
+    "provider_review_sha256": "09b609b7cbc49e4ac912dc734cc8c2f1f9067b61d4f17c09ff714900052b005c",
+    "later_extra_searchpath_controls": "local/unexecuted successor source only; not retroactive evidence",
+    "rights_approval": false,
+    "raw_logs_saved": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "source_7_git_blob_records": {
+      ".github/workflows/r19-runtime-experiment.yml": {
+        "bytes": 43108,
+        "sha256": "76876a14bd1550ef6fcdc9743f5733666e0d01ca7ee17b85cb016e9fb547eb9d"
+      },
+      "backend/runtime_lock_attribute_probe.py": {
+        "bytes": 42407,
+        "sha256": "e55ae6c407d7449b52b27286364eaf4fc11b13f495cf754737e55d1992e89b3f"
+      },
+      "backend/tests/test_runtime_lock_attribute_probe.py": {
+        "bytes": 78137,
+        "sha256": "cecfcf85287c34576fad87f51343765b66a56d674630195d84ec333b6bcae0e0"
+      },
+      "backend/windows_preparation_process.py": {
+        "bytes": 25651,
+        "sha256": "24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0"
+      },
+      "docs/r19-legacy-lock-attribute-experiment.md": {
+        "bytes": 29387,
+        "sha256": "ea92385772e232560b67b2996e0807fa550d2d90eb6a9b25e0a6372399d5272c"
+      },
+      "scripts/check-evidence.mjs": {
+        "bytes": 15421,
+        "sha256": "11165611299c46a660dc6b34b01dd78ed133c50951503ecaae23f18a7c7555e6"
+      },
+      "scripts/companion-runtime.ps1": {
+        "bytes": 28780,
+        "sha256": "c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef"
+      }
+    },
+    "producer_sha256": "e55ae6c407d7449b52b27286364eaf4fc11b13f495cf754737e55d1992e89b3f"
   }
 }

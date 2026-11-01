@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `a2e1fb6`, 1,379 Windows contracts without skips, native/C1/cold-slot, both living-keeper cases and C3–C6 passed, including SQL Phase A's 66 known statement sites; independent reviews bind seven archives/28 entries and 96 exact Git inputs | Latest complete bounded frozen checkpoint; main/reference/frontend image `20261021.278.1`, other four jobs image `20261030.294.1`. Same-head FFmpeg/BSD source replay is separate and supplies no runtime/MP3/CCS-rights approval. C7 fails its authored paired control before mechanism/upload, with zero artifacts. Historical negatives remain; later Phase B/C7 environment work is excluded. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
+| Extracted runtime | At `a2e1fb6`, 1,379 Windows contracts without skips, native/C1/cold-slot, both living-keeper cases and C3–C6 passed, including SQL Phase A's 66 known statement sites; independent reviews bind seven archives/28 entries and 96 exact Git inputs | Latest complete bounded frozen checkpoint; subsequent 0f93531 fails an affected contract before EXE/C1–C6 and has no integrated archive. Its six positive archives and failed C7 pair do not supersede a2e. Main/reference/frontend image `20261021.278.1`, other four jobs image `20261030.294.1`. Same-head FFmpeg/BSD source replay is separate and supplies no runtime/MP3/CCS-rights approval. C7 fails its authored paired control before mechanism/upload, with zero artifacts. Historical negatives remain; later Phase B/C7 environment work is excluded. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -249,6 +249,27 @@ control children and readers report `child-exit-and-readers-finished`; this
 does not prove descendant or actual-mechanism cleanup. The single duplicate record
 is not two runs. No causal environment/stderr interpretation or absent-operation
 claim follows; keeper-loss/global/physical/warm, rights and Windows 11 gates stay open.
+
+The subsequent published `0f93531` Phase B attempt is negative before runtime
+packaging: 1,419 passed, one failed, no skips, one warning, 171.26 seconds. Its
+partial-freeze test reaches `AttributeError` at `record.readings.members`; no
+specific elapsed or product cause follows. EXE/COLLECT and all frozen C1–C6
+steps were skipped, and no integrated archive/inventory/A2/P1 was produced.
+Six reference/helper/diagnostic archives, fifteen entries and 98 immutable Git
+inputs were independently verified. Frontend used image `20261030.294.1`;
+other six jobs used `20261021.278.1`. Local Phase B source checks (622 passes,
+nine PowerShell skips and seven extra peer SQLite/Event cases) remain source
+only. **a2e1fb6 remains the latest complete bounded frozen checkpoint.**
+
+The separate 0f C7 manual run failed its authored pair before mechanism/upload:
+216 passed, one failed, no skips, 15.32 seconds, image `20261021.278.1`, zero
+artifacts. Inherited is `parsed`/null/no stderr/refusal `none`; Attempt is
+`unavailable`/null/no stderr/`wait-deadline`. Direct child/reader cleanup is
+confirmed for both controls, without descendant or actual-mechanism proof.
+No individual elapsed time or environment/search-path cause is inferred. Later
+local deterministic test fixes, extra C7 search-path controls and ExportLock
+work are outside that run. All physical/global/warm, keeper-loss, exact-output
+rights, ordinary-user Windows 11 and R19 gates remain open.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source
