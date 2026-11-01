@@ -190,6 +190,16 @@ that exact source archive. None of these three native targets is yet accepted.
 Native UI reports now retain fixed failure codes without exposing raw logs,
 paths, tokens or account diagnostics.
 
+A Windows source-host reproduction then identified a setup-readiness request
+holding the account lock during all-game inspection and native Endfield imports.
+The first reader could mount while later snapshots stalled. Setup now performs
+that inspection outside the account lock, rejects results after an account
+generation change, and defers the native imports until extraction. The corrected
+source host passed the actual visible status/log window, tray, both browser
+navigation acknowledgements and owned shutdown checks. The 294 focused backend
+checks also passed. This is source-host evidence; the frozen candidate must
+still execute the same checks on each shipping platform.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),
