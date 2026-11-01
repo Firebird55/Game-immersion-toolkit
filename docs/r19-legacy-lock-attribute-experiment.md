@@ -161,7 +161,8 @@ and an explicit leading-BOM check preserve exact Unicode strings without
 normalization or fallback. The fixed PSCustomObject then enters the same
 three-name/string-type checks, source read/hash, exact AST selection and actual
 legacy operation. No grant JSON parser, module import, cmdlet, authored class,
-new environment trial or fallback is involved. The Python lease child's
+new environment trial or fallback participates in that decoder. The later
+explicit OS-module prerequisite is separate and described below. The Python lease child's
 root/nonce JSON and all fixed child-response JSON remain unchanged.
 
 This framing is not authentication or encryption. The same private pipe,
@@ -599,7 +600,7 @@ The producer, public mechanism schema/publisher, environment policy and deadline
 remain unchanged. The initial native refusal above remains intact; rights,
 ordinary-user Windows 11, keeper-loss and R19 gates remain open.
 
-## Actual v5 baseline refusal and next test-only observations
+## Raw controls following the actual v5 baseline refusal
 
 Exact `d35cd89fb31afa35cf4675709591860f99969e19`
 [run 41308862562](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41308862562),
@@ -646,9 +647,10 @@ non-link metadata, directory identity and exact nonce bytes are rechecked before
 launch and deletion. The encoded command/arguments contain no fixture, source
 or profile path; managed CurrentDirectory supplies the root. The child checks
 the directory and non-reparse marker and reads only its exact bounded nonce
-before any diagnostic action. No real grant, repository/data root, attributes,
-account, import, module discovery command, environment addition or warm-up is
-supplied. There is no automatic READONLY clearing.
+before any diagnostic action. At that raw-control revision, no real grant,
+repository/data root, attributes, account, import, module discovery command,
+environment addition or warm-up was supplied. The later candidate below adds
+one explicit OS-module prerequisite. There is no automatic READONLY clearing.
 
 The existing runner retains its default decoder behavior. Only these controls
 use its optional cwd and closed marker observer. Each still has a ten-second
@@ -669,8 +671,97 @@ may retain only the last complete admitted marker; even a complete final marker
 with a timeout remains unavailable. Marker absence is not evidence an action
 did not occur. Direct Popen/stdout controls do not recreate the mechanism's
 named pipe, Job or retained creation authority and cannot identify its cause.
-Both new controls are **native pending**; the producer, schema, original Enter
-bytes, actual mechanism criteria and all rights/Win11/R18/R19 gates are unchanged.
+At that source checkpoint both new controls were **native pending**; the later
+589 result below records their actual raw outcomes. The producer schema, original
+Enter bytes, actual mechanism criteria and rights/Win11/R18/R19 gates stayed
+unchanged.
+
+## 589 negative and explicit OS-module prerequisite candidate
+
+Exact `589362e7dc2e73da899751c042adbeb260ba5e56`
+[run 41311326652](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311326652),
+job 124862187054, attempt 1, image `20261030.294.1`, passed 261 Windows contracts
+and failed the operation-control case, with zero skips in 13.99 seconds. The raw
+prefix's last complete marker was `before-join-data`; it hit the ten-second wait
+deadline, with no stderr, confirmed direct-child/readers cleanup and removed
+fixture. The separate raw managed-IO child reached `complete` with no stderr,
+confirmed cleanup and removed fixture. The actual mechanism was not run because
+the authored-contract gate failed; no artifacts were uploaded. The missing next
+marker establishes neither a loading cause nor absence of a physical action.
+This negative and the earlier d35 baseline refusal remain unchanged evidence.
+
+The current source candidate adds one shared `LEGACY_SYSTEM_MODULE` inline
+prerequisite between `definitionbound` and `operationentered`, and the identical
+fragment before the two operation-control bodies after their private fixture
+validation. The decoder-only children remain module-free. This is one explicit
+OS-module selection, with no import fallback, environment repair, extra native
+variant or replacement legacy function. The protected image, 15-name Attempt
+environment, script mode, checkpoints, schema and all deadlines remain unchanged.
+
+[Microsoft documents fully qualified imports](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/import-module?view=powershell-5.1).
+The fragment binds Desktop Windows PowerShell 5.1/x64, the actual current-process
+image and `PSHOME` to the OS System directory's `WindowsPowerShell/v1.0` install.
+It forms only that install's absolute
+`Modules/Microsoft.PowerShell.Management/Microsoft.PowerShell.Management.psd1`.
+The manifest is bounded by file length and, like the image and actual assembly
+locations, receives canonical root-first directory/non-reparse metadata checks.
+Independent source review caught an earlier leaf-first metadata walk. The
+corrected guard first collects bounded ancestor strings without file queries,
+then checks the volume root through each directory before querying the leaf.
+The original candidate review and its finding remain historical; the correction
+has portable source/order and capacity checks, with actual Windows execution
+still pending.
+No harness-owned manifest stream is created. The temporary current-process
+wrapper is retained before reading its image and disposed once in finally;
+unknown close retains that actual wrapper and original error privately, throws
+fixed refusal text and never retries. Existing actual Attempt/Job close failures
+retain their original private owners under the unchanged cleanup policy.
+
+Only the current Core ImportModuleCommand in the running SMA assembly may import
+the absolute manifest, locally with NoClobber and the two required cmdlet names;
+no functions, aliases or variables are selected. One actual module must match the
+chosen manifest path and directory. Its Join-Path/New-Item exports and actual
+visible commands must be the documented JoinPathCommand/NewItemCommand types in
+one Management assembly. Out-Null must remain the Core OutNullCommand in SMA.
+The Core command used to inspect these bindings is also tied to that actual SMA
+assembly. Its [ListImported lookup](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/get-command?view=powershell-5.1)
+examines only loaded PowerShell command types, with no PATH or available-module
+scan. There is no new PSModulePath, PATH, profile, utility module or discovery
+repair.
+
+The loaded assembly origin check uses
+[ImplementingType](https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.cmdletinfo.implementingtype?view=powershellsdk-7.4.0),
+file-backed [Assembly.Location](https://learn.microsoft.com/en-us/dotnet/api/system.reflection.assembly.location?view=netframework-4.8.1)
+and .NET Framework GAC status. The actual SMA GAC family must be exactly the
+OS Windows directory's `Microsoft.NET/assembly/GAC_MSIL`; Management must occupy
+the same family, with its exact assembly directory/file/simple name, matching
+nonempty SMA public-key token and on-disk/loaded assembly identity. All ancestors
+are checked before trust. The candidate does not guess a version directory or
+require a Windows PowerShell 5.1 GAC DLL to reside in PSHOME. A differing layout
+refuses; no alternate GAC root is adopted from failure. These are checks within
+the existing protected OS-installation trust base, not a new Microsoft signature,
+ACL, exact OS-module-byte provenance or sandbox claim. Import-Module executes
+that trusted OS manifest; post-import checks cannot sandbox an untrusted one or
+prove the engine never consults its own internal metadata caches.
+
+The readable shared fragment is capped at 6,000 ASCII characters. Portable
+contracts check the actual legacy command builder and both control commands
+using Windows quoting and UTF-16 code units, including the terminating NUL,
+against 32,767 units. The Windows controls repeat the check with the actual
+protected image path. No file-based script or different grant transport is
+introduced. The existing process helper independently refuses an oversized
+actual CreateProcess command. Overflow checks count surrogate pairs correctly;
+a Python character count alone is insufficient.
+
+All original Enter bytes, source hash/AST checks, grant decoder, ordered progress,
+operation result/classification, native ABI/attributes/identity/times,
+retained-creation owner-loss sequence and cleanup predicates remain unchanged.
+Portable tests and source-preservation comparisons establish only these source
+properties. The two shared-bootstrap controls and original actual mechanism
+remain **native pending**. A later successful bootstrapped observation would
+belong to this candidate, not relabel the raw 589 attempt or prove its cause.
+Production, keeper-loss and rights approvals remain false; ordinary-user Windows
+11 remains unavailable. R18 and R19 completion remain unestablished.
 
 ## Current source validation
 
@@ -687,8 +778,8 @@ StringReader inputs in both actual environment sets. It performs no C7 fixture,
 source file, native file API or legacy operation. It is explicitly skipped on
 other hosts and cannot substitute for the actual mechanism. The old v4 engine
 and literal-control tests remain historical, not active v5 gates. A separate
-Windows-only case covers the two authored prefix/managed-IO observations above;
-portable regressions cover strict markers, private cwd/nonce admission,
+Windows-only case covers the two authored prefix/managed-IO observations with
+the identical OS bootstrap above; portable regressions cover strict markers, private cwd/nonce admission,
 malformed/partial output, two-slot ordering, and actual retained marker streams
 on injected close failure. Neither local skip establishes Windows behavior. Run
 `python -B -m pytest --noconftest -q backend/tests/test_runtime_lock_attribute_probe.py`

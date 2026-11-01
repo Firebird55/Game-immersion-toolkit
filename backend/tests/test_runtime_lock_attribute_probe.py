@@ -1158,6 +1158,7 @@ def test_actual_c7g5_decoder_under_inherited_and_exact_attempt_environment():
     try: executable = module.Windows().powershell()
     except Exception: executable = None
     script = grant_codec_script()
+    if executable is not None: assert_windows_command_capacity(executable, script)
     def run(environment, boundary):
         if executable is None: return {'state': 'unavailable', 'stderr_present': False}
         return run_grant_codec_control(executable, script, environment, diagnostic=boundary)
@@ -1300,7 +1301,7 @@ try {
     if ($source.ReadByte() -ne -1) { throw 'Authored fixture refused.' }
 } finally { $source.Dispose() }
 [Console]::Out.WriteLine('C7O|fixture-validated')
-'''.replace('__NONCE__', nonce)
+'''.replace('__NONCE__', nonce) + module.LEGACY_SYSTEM_MODULE
     if kind == 'prefix':
         script += r'''[Console]::Out.WriteLine('C7O|before-join-data')
 $data = Join-Path $Root 'data'
@@ -1370,6 +1371,9 @@ def require_operation_controls(results):
 def test_actual_preopen_prefix_and_separate_managed_io_under_attempt_environment():
     try: executable = module.Windows().powershell()
     except Exception: pytest.fail('Authored operation executable unavailable.')
+    assert_windows_command_capacity(executable, module.LEGACY_SCRIPT.replace('__PIPE__', 'r19-lock-attribute-'+'a'*32))
+    for kind in OPERATION_MARKERS:
+        assert_windows_command_capacity(executable, operation_control_script(kind, 'a'*32))
     require_operation_controls(measure_operation_controls(executable, dict(os.environ)))
 
 
@@ -1552,3 +1556,102 @@ def test_operation_fixture_retains_actual_stream_on_unconfirmed_marker_close(tmp
     streams[0].stream.close(); fixture.streams.clear()
     monkeypatch.setattr(Path, 'open', original)
     fixture.remove_after_confirmed_cleanup()
+
+
+def assert_windows_command_capacity(executable, script):
+    # Match WindowsPreparationProcess/CreateProcess quoting and UTF-16/NUL cap.
+    command = [executable, '-NoProfile', '-NonInteractive', '-EncodedCommand',
+        base64.b64encode(script.encode('utf-16le')).decode('ascii')]
+    units = len(subprocess.list2cmdline(command).encode('utf-16le'))//2+1
+    assert units <= 32767, 'Authored C7 command exceeds the Windows command-line cap.'
+    return command
+
+
+def test_shared_os_bootstrap_is_compact_and_leaves_legacy_operation_protocol_bytes_exact():
+    fragment = module.LEGACY_SYSTEM_MODULE
+    assert 0 < len(fragment) <= 6000 and fragment.isascii()
+    assert module.LEGACY_SCRIPT.count(fragment) == 1
+    before, after = module.LEGACY_SCRIPT.split(fragment)
+    assert before.endswith("    Write-C7Checkpoint 'definitionbound'\n")
+    assert after.startswith("    $state='unclassified-refusal'; $file=$null\n    Write-C7Checkpoint 'operationentered'")
+    import hashlib
+    assert hashlib.sha256((before+after).encode('utf-8')).hexdigest() == (
+        '1369b4058e30cb7e56653fccc256301bece35d19d4613318f87fd8b71df09c2c')
+    assert fragment not in grant_codec_script()
+    for kind in OPERATION_MARKERS:
+        script = operation_control_script(kind, 'a'*32)
+        assert script.count(fragment) == 1
+        assert script.index("C7O|fixture-validated") < script.index(fragment)
+        assert script.index(fragment)+len(fragment) <= script.index('C7O|before-')
+        assert 'Enter-CompanionOperation' not in script
+
+
+def test_os_bootstrap_requires_real_core_manifest_cmdlet_and_same_protected_gac_origins():
+    fragment = module.LEGACY_SYSTEM_MODULE
+    required = (
+        "[Environment+SpecialFolder]::System", "[Environment+SpecialFolder]::Windows",
+        '$current.MainModule.FileName', '$current.Dispose()', '$C7ModuleOwners.Add($current)',
+        '[void]$C7ModuleOwners.Remove($current)', "$C7ModuleErrors.Add($_)",
+        'Modules\\Microsoft.PowerShell.Management\\Microsoft.PowerShell.Management.psd1',
+        '[IO.Path]::GetFullPath($Path)', '[IO.File]::GetAttributes($paths[$index])', '-band 1088',
+        '$Assembly.IsDynamic', '$Assembly.GlobalAssemblyCache', '$Assembly.Location',
+        '[Reflection.AssemblyName]::GetAssemblyName($path).FullName -cne $Assembly.FullName',
+        'Microsoft.NET\\assembly\\GAC_MSIL', 'GetPublicKeyToken()',
+        "'Microsoft.PowerShell.Core\\Import-Module'", "'Microsoft.PowerShell.Core\\Get-Command'",
+        "'ImportModuleCommand'", "'GetCommandCommand'", '[object]::ReferenceEquals',
+        '-Name $manifest -PassThru -Scope Local -NoClobber -Cmdlet Join-Path,New-Item',
+        '-Function @() -Alias @() -Variable @()', '$loaded[0].Path', '$loaded[0].ModuleBase',
+        '$loaded[0].ExportedCmdlets', "'JoinPathCommand'", "'NewItemCommand'", "'OutNullCommand'",
+        '-ListImported -All -CommandType Alias,Function,Filter,Cmdlet',
+        '[Management.Automation.CmdletInfo]', '[Management.Automation.PSModuleInfo]',
+    )
+    assert all(item in fragment for item in required)
+    guard = fragment.split('function Assert-C7SystemPath', 1)[1].split('function Get-C7AssemblyPath', 1)[0]
+    reverse_walk = guard.index('for ($index=$paths.Count-1; $index -ge 0; $index--)')
+    assert 'GetAttributes' not in guard[:reverse_walk]
+    assert guard.index('$paths.Add($item)') < reverse_walk
+    assert '$requiredDirectory=($index -ne 0 -or $Directory)' in guard[reverse_walk:]
+    assert fragment.index('Assert-C7SystemPath $manifest $false') < fragment.index('$loaded=@(& $import')
+    assert fragment.index('$current.Dispose()') < fragment.index('[void]$C7ModuleOwners.Remove($current)')
+    for forbidden in ('$env:', 'PSModulePath', '-ListAvailable', '-Force', 'Import-PSSession',
+            'Add-Type', 'Get-AuthenticodeSignature', '\nJoin-Path ', '\nNew-Item ', 'WriteLine', 'Write-C7Checkpoint'):
+        assert forbidden not in fragment
+    # These are source contracts. Only actual Windows controls execute PS guards.
+    assert fragment.count('.Dispose()') == 1
+    assert fragment.count('$loaded=@(& $import') == 1
+
+
+@pytest.mark.parametrize('image', [
+    r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
+    r'S:\Authored OS with space\WindowsPowerShell\v1.0\powershell.exe',
+    'S:\\'+'界'*2200+r'\WindowsPowerShell\v1.0\powershell.exe',
+])
+def test_actual_legacy_and_control_command_builders_fit_windows_utf16_cap(monkeypatch, tmp_path, image):
+    commands, closes = [], []
+    class Attempt:
+        def __init__(self, _api, command, _root, *, checkpoint_value=None):
+            commands.append(command('r19-lock-attribute-'+'a'*32))
+        def script_exchange(self, _value): return {'state': 'open'}
+        def close(self): closes.append('close')
+    monkeypatch.setattr(module, 'Attempt', Attempt)
+    source_hash = module.source_bytes(module.SOURCE, module.SOURCE_HASHES)
+    module.legacy(SimpleNamespace(powershell=lambda: image), tmp_path, source_hash, 'open')
+    assert closes == ['close'] and len(commands) == 1
+    scripts = [module.LEGACY_SCRIPT.replace('__PIPE__', 'r19-lock-attribute-'+'a'*32),
+        *(operation_control_script(kind, 'a'*32) for kind in OPERATION_MARKERS)]
+    assert commands[0] == assert_windows_command_capacity(image, scripts[0])
+    for script in scripts:
+        command = assert_windows_command_capacity(image, script)
+        assert command[0] == image and command[1:4] == ['-NoProfile', '-NonInteractive', '-EncodedCommand']
+        assert base64.b64decode(command[4]).decode('utf-16le') == script
+
+
+def test_command_capacity_contract_counts_quoted_utf16_units_including_terminator():
+    script = module.LEGACY_SCRIPT.replace('__PIPE__', 'r19-lock-attribute-'+'a'*32)
+    image = 'S:\\'+'😀'*1500+r'\powershell.exe'
+    command = [image, '-NoProfile', '-NonInteractive', '-EncodedCommand',
+        base64.b64encode(script.encode('utf-16le')).decode('ascii')]
+    assert len(subprocess.list2cmdline(command))+1 < 32767
+    assert len(subprocess.list2cmdline(command).encode('utf-16le'))//2+1 > 32767
+    with pytest.raises(AssertionError, match='Authored C7 command exceeds'):
+        assert_windows_command_capacity(image, script)

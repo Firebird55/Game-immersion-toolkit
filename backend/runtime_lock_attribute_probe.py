@@ -529,6 +529,90 @@ LEGACY_GRANT_DECODER = r'''
 '''
 
 
+# Fixed OS module prerequisite; never a path-search or lock implementation fallback.
+LEGACY_SYSTEM_MODULE = r'''
+$C7ModuleOwners=[Collections.Generic.List[object]]::new()
+$C7ModuleErrors=[Collections.Generic.List[object]]::new()
+function Assert-C7SystemPath([string]$Path,[bool]$Directory) {
+    if ([string]::IsNullOrEmpty($Path) -or -not [IO.Path]::IsPathRooted($Path) -or
+        -not [string]::Equals([IO.Path]::GetFullPath($Path),$Path,[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+    $paths=[Collections.Generic.List[string]]::new()
+    $item=$Path
+    for ($depth=0; $depth -lt 64; $depth++) {
+        $paths.Add($item)
+        $item=[IO.Path]::GetDirectoryName($item)
+        if ([string]::IsNullOrEmpty($item)) { break }
+    }
+    if (-not [string]::IsNullOrEmpty($item)) { throw 'System module refused.' }
+    for ($index=$paths.Count-1; $index -ge 0; $index--) {
+        $attributes=[int][IO.File]::GetAttributes($paths[$index])
+        $requiredDirectory=($index -ne 0 -or $Directory)
+        if (($attributes -band 1088) -ne 0 -or (($attributes -band 16) -ne 0) -ne $requiredDirectory) { throw 'System module refused.' }
+    }
+}
+function Get-C7AssemblyPath($Assembly,[string]$Name) {
+    if ($null -eq $Assembly -or $Assembly.IsDynamic -or -not $Assembly.GlobalAssemblyCache -or
+        $Assembly.GetName().Name -cne $Name) { throw 'System module refused.' }
+    $path=$Assembly.Location
+    Assert-C7SystemPath $path $false
+    $family=[IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($path))
+    if ([IO.Path]::GetFileName($family) -cne $Name -or [IO.Path]::GetFileName($path) -cne ($Name+'.dll') -or
+        [Reflection.AssemblyName]::GetAssemblyName($path).FullName -cne $Assembly.FullName) { throw 'System module refused.' }
+    return $path
+}
+if (-not [Environment]::Is64BitProcess -or $PSVersionTable.PSEdition -cne 'Desktop' -or
+    $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'System module refused.' }
+$systemHome=[IO.Path]::Combine([Environment]::GetFolderPath([Environment+SpecialFolder]::System),'WindowsPowerShell\v1.0')
+$current=[Diagnostics.Process]::GetCurrentProcess()
+$C7ModuleOwners.Add($current)
+try { $image=$current.MainModule.FileName }
+finally {
+    try { $current.Dispose(); [void]$C7ModuleOwners.Remove($current) }
+    catch { $C7ModuleErrors.Add($_); throw 'System module close unconfirmed.' }
+}
+if (-not [string]::Equals($PSHOME,$systemHome,[StringComparison]::OrdinalIgnoreCase) -or
+    -not [string]::Equals($image,[IO.Path]::Combine($systemHome,'powershell.exe'),[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+Assert-C7SystemPath $image $false
+$manifest=[IO.Path]::Combine($systemHome,'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')
+Assert-C7SystemPath $manifest $false
+if ([IO.FileInfo]::new($manifest).Length -gt 131072) { throw 'System module refused.' }
+$sma=[Management.Automation.PSObject].Assembly
+$smaPath=Get-C7AssemblyPath $sma 'System.Management.Automation'
+$gac=[IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($smaPath)))
+$osGac=[IO.Path]::Combine([Environment]::GetFolderPath([Environment+SpecialFolder]::Windows),'Microsoft.NET\assembly\GAC_MSIL')
+if (-not [string]::Equals($gac,$osGac,[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+$commands=$ExecutionContext.InvokeCommand
+$import=$commands.GetCommand('Microsoft.PowerShell.Core\Import-Module',[Management.Automation.CommandTypes]::Cmdlet)
+$get=$commands.GetCommand('Microsoft.PowerShell.Core\Get-Command',[Management.Automation.CommandTypes]::Cmdlet)
+foreach ($pair in @(@($import,'ImportModuleCommand'),@($get,'GetCommandCommand'))) {
+    if ($pair[0] -isnot [Management.Automation.CmdletInfo] -or
+        $pair[0].ImplementingType.FullName -cne ('Microsoft.PowerShell.Commands.'+$pair[1]) -or
+        -not [object]::ReferenceEquals($pair[0].ImplementingType.Assembly,$sma)) { throw 'System module refused.' }
+}
+$loaded=@(& $import -Name $manifest -PassThru -Scope Local -NoClobber -Cmdlet Join-Path,New-Item -Function @() -Alias @() -Variable @() -ErrorAction Stop)
+if ($loaded.Count -ne 1 -or $loaded[0] -isnot [Management.Automation.PSModuleInfo] -or
+    $loaded[0].Name -cne 'Microsoft.PowerShell.Management' -or
+    -not [string]::Equals($loaded[0].Path,$manifest,[StringComparison]::OrdinalIgnoreCase) -or
+    -not [string]::Equals($loaded[0].ModuleBase,[IO.Path]::GetDirectoryName($manifest),[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+$management=$loaded[0].ExportedCmdlets['Join-Path'].ImplementingType.Assembly
+$managementPath=Get-C7AssemblyPath $management 'Microsoft.PowerShell.Commands.Management'
+$managementGac=[IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($managementPath)))
+$token=[BitConverter]::ToString($sma.GetName().GetPublicKeyToken())
+if ([string]::IsNullOrEmpty($token) -or $token -cne [BitConverter]::ToString($management.GetName().GetPublicKeyToken()) -or
+    -not [string]::Equals($gac,$managementGac,[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+foreach ($pair in @(@('Join-Path','JoinPathCommand'),@('New-Item','NewItemCommand'),@('Out-Null','OutNullCommand'))) {
+    $visible=@(& $get -Name $pair[0] -ListImported -All -CommandType Alias,Function,Filter,Cmdlet -ErrorAction Stop)
+    $assembly=$management
+    if ($pair[0] -ceq 'Out-Null') { $assembly=$sma }
+    elseif ($loaded[0].ExportedCmdlets[$pair[0]] -isnot [Management.Automation.CmdletInfo] -or
+        $loaded[0].ExportedCmdlets[$pair[0]].ImplementingType -ne $assembly.GetType(('Microsoft.PowerShell.Commands.'+$pair[1]),$true)) { throw 'System module refused.' }
+    if ($visible.Count -ne 1 -or $visible[0] -isnot [Management.Automation.CmdletInfo] -or
+        $visible[0].ImplementingType.FullName -cne ('Microsoft.PowerShell.Commands.'+$pair[1]) -or
+        -not [object]::ReferenceEquals($visible[0].ImplementingType.Assembly,$assembly)) { throw 'System module refused.' }
+}
+'''
+
+
 LEGACY_SCRIPT = r'''
 $ErrorActionPreference='Stop'
 $pipe=[IO.Pipes.NamedPipeClientStream]::new('.', '__PIPE__', [IO.Pipes.PipeDirection]::InOut)
@@ -572,7 +656,7 @@ try {
     if ($errors -or $defs.Count -ne 1) { throw 'Source definition differs.' }
     . ([scriptblock]::Create($defs[0].Extent.Text))
     Write-C7Checkpoint 'definitionbound'
-    $state='unclassified-refusal'; $file=$null
+''' + LEGACY_SYSTEM_MODULE + r'''    $state='unclassified-refusal'; $file=$null
     Write-C7Checkpoint 'operationentered'
     try { $file=Enter-CompanionOperation ([string]$grant.root) -TimeoutSeconds 0 }
     catch {
