@@ -20,6 +20,8 @@ REVIEWED_MERGE_INPUTS={
  'packaging/runtime-bundle/python-supplier.json':{'bytes':1276,'sha256':'2455b4fd7f94e66a33117beec4ffba580f9759965261aecc88d0705973652d72'},
  'backend/tests/test_game_codec_replay.py':{'bytes':95531,'sha256':'2738c235f582cf72643ad46a57dc6d59e77ff44d7b71d5a4d3a5975a8fb7fe56'},
 }
+IMPORT_ALIAS_BASELINES={'scripts/replay-mp3-codec.py': {'bytes': 52560, 'sha256': '08dfaa2fbfe30857276b9e9dd467ec9e62d6cd800a96758e708b15da2d26c3ee'}}
+IMPORT_ALIAS_FUNCTION_AST={'install_lame': '4208d8ef81928259386804f002bb2d1ff435fb8207d119d3970f1373f3bef55f', 'verify_lame_install': '5c3e6bf429fa12b8e555cce8ea2e18420ee4749ca7408e49664baa6908d4118e'}
 class Contracts(unittest.TestCase):
  def test_original_baselines_stay_historical_with_only_exact_reviewed_merge_inputs(self):
   d=BASELINE;self.assertEqual(len(d['FF_inputs']),10);self.assertEqual(len(d['ASR_inputs']),15)
@@ -86,7 +88,9 @@ class Contracts(unittest.TestCase):
     (w/file).write_bytes(old)
    (w/'unknown').write_bytes(b'private')
    with self.assertRaises(ValueError):m.verify_lame_work(r,p,True)
-   installed=r/'out/lame';installed.mkdir(parents=True);(installed/'owned.lib').write_bytes(b'authored library control fixture');m.write(r/'LAME-INSTALLED.json',m.base.inventory(installed));m.verify_lame_install(r)
+   installed=r/'out/lame';(installed/'bin').mkdir(parents=True);(installed/'owned.lib').write_bytes(b'authored library control fixture')
+   for name in ('libmp3lame.lib','mp3lame.lib'):(installed/'bin'/name).write_bytes(b'authored identical import pair')
+   m.write(r/'LAME-INSTALLED.json',m.base.inventory(installed));m.verify_lame_install(r)
    (installed/'owned.lib').write_bytes(b'tampered')
    with self.assertRaises(ValueError):m.verify_lame_install(r)
 
@@ -195,20 +199,23 @@ class Contracts(unittest.TestCase):
 class Grant(unittest.TestCase):
  def test_effective_notice_retains_exact_approved_baselines_and_complete_standard_terms(self):
   proposal=APPROVED_PROPOSAL;self.assertEqual(m.record(proposal),{'bytes':3840,'sha256':'3adc6e4775f8bb5f53e2d63ec031eec8222c80c319fc0c268906d1533b80601c'});notice=(O/m.MP3_GRANT).read_bytes();self.assertEqual(m.record(notice),{k:m.MP3_PROJECT_LICENSE['grant'][k] for k in ('bytes','sha256')});prefix=notice[:4588];self.assertEqual(m.record(prefix),{'bytes':4588,'sha256':'f470deb41e0feea5f564b739e79c1378e457d6a7a6512f4c71a9e39958c476d1'});self.assertEqual(prefix.split(b'STANDARD BSD-3-CLAUSE TERMS\n\n')[1],proposal.split(b'STANDARD BSD-3-CLAUSE TERMS\n\n')[1]);self.assertNotIn(b'extra visible credit',notice)
-  supplemental=notice[4588:];self.assertEqual(m.record(SUPPLEMENTAL_PROPOSAL),{'bytes':3932,'sha256':'02c220c6a8c1808cec6baefc91c416c33dbd09613193da908edd481c90167938'});self.assertEqual(supplemental.split(b'STANDARD BSD-3-CLAUSE TERMS\n\n')[1],SUPPLEMENTAL_PROPOSAL.split(b'STANDARD BSD-3-CLAUSE TERMS\n\n')[1]);self.assertEqual(m.MP3_SUPPLEMENTAL_BASELINES,SUPPLEMENTAL_BASELINES);self.assertEqual(m.MP3_PROJECT_LICENSE['schema'],'proxy-r19-mp3-recipe-additional-license-v2');self.assertEqual(m.MP3_PROJECT_LICENSE['supplemental_approval']['approved_baselines'],SUPPLEMENTAL_BASELINES);self.assertIn(b'1b0cc7746a84d6152ddc0bb48c6857213d05c7cad68f05b2a537e0346a0ceb64',supplemental)
+  supplemental=notice[4588:8120];self.assertEqual(m.record(SUPPLEMENTAL_PROPOSAL),{'bytes':3932,'sha256':'02c220c6a8c1808cec6baefc91c416c33dbd09613193da908edd481c90167938'});self.assertEqual(supplemental.split(b'STANDARD BSD-3-CLAUSE TERMS\n\n')[1],SUPPLEMENTAL_PROPOSAL.split(b'STANDARD BSD-3-CLAUSE TERMS\n\n')[1]);self.assertEqual(m.MP3_SUPPLEMENTAL_BASELINES,SUPPLEMENTAL_BASELINES);self.assertEqual(m.MP3_PROJECT_LICENSE['schema'],'proxy-r19-mp3-recipe-additional-license-v3');self.assertEqual(m.MP3_PROJECT_LICENSE['supplemental_approval']['approved_baselines'],SUPPLEMENTAL_BASELINES);self.assertIn(b'1b0cc7746a84d6152ddc0bb48c6857213d05c7cad68f05b2a537e0346a0ceb64',supplemental)
   for n,row in m.MP3_APPROVED_BASELINES.items():
    with self.subTest(path=n):self.assertEqual(APPROVED_BASELINES[n],row);self.assertIn(row['sha256'].encode(),notice)
+  self.assertEqual(m.record(notice[:8120]),{'bytes':8120,'sha256':'e0eabbbaccf84de645bdf251ef433c2a243ea0f5b55181b53c063d4b101553b6'})
+  alias=m.MP3_PROJECT_LICENSE['import_alias_approval'];self.assertEqual(alias['approval_proposal'],{'bytes':5206,'sha256':'9d3f7a990e0c5c304fbeddad68a1ece2f82301a8dce1d9f0971f9464a96f94f8'});self.assertEqual(alias['approved_baselines'],IMPORT_ALIAS_BASELINES);self.assertEqual(alias['prior_notice_prefix'],m.record(notice[:8120]));self.assertIn(alias['approval_proposal']['sha256'].encode(),notice[8120:]);self.assertIn(IMPORT_ALIAS_BASELINES['scripts/replay-mp3-codec.py']['sha256'].encode(),notice[8120:]);self.assertIn(b'STANDARD BSD-3-CLAUSE TERMS',notice[8120:])
   self.assertEqual(len(m.MP3_APPROVED_BASELINES),4);self.assertNotIn('backend/windows_preparation_process.py',m.MP3_APPROVED_BASELINES);self.assertEqual(m.record((R/m.base.BSD_GRANT).read_bytes()),BASELINE['files'][m.base.BSD_GRANT])
  def test_all_functional_AST_flags_process_controller_and_upstream_bytes_are_preserved(self):
   tree=ast.parse((R/'scripts/replay-mp3-codec.py').read_bytes());dump=lambda n:ast.dump(n,include_attributes=False);digest=lambda n:m.sha(dump(n).encode());functions={n.name:digest(n) for n in tree.body if isinstance(n,ast.FunctionDef)}
-  for name,value in ORIGINAL_FUNCTION_AST.items():self.assertEqual(functions[name],value,name)
+  self.assertEqual(set(IMPORT_ALIAS_FUNCTION_AST),{'install_lame','verify_lame_install'})
+  for name,value in ORIGINAL_FUNCTION_AST.items():self.assertEqual(functions[name],IMPORT_ALIAS_FUNCTION_AST.get(name,value),name)
   self.assertEqual([digest(n) for n in tree.body if isinstance(n,ast.ClassDef)],ORIGINAL_CLASS_AST)
   body=(R/'scripts/build-mp3-codec-replay.ps1').read_bytes().replace(b'\r\n',b'\n');self.assertEqual(m.record(body),{'bytes':35342,'sha256':'195f7ebb732729382478660a15de94cff14b630778925629e7ccdb820110cb69'});self.assertEqual(body.count(b'/p:PlatformToolset=v145'),1);self.assertEqual(m.record(body.replace(b'/p:PlatformToolset=v145',b'/p:PlatformToolset=v180').split(b'\n',1)[1]),ORIGINAL_PS_BODY)
   self.assertEqual(m.record((R/'scripts/fixtures/mp3-codec-origin.c').read_bytes().replace(b'\r\n',b'\n').split(b'#include',1)[1]),ORIGINAL_C_BODY)
   profile=copy.deepcopy(m.policy());profile.pop('build_recipe_license');profile.pop('scope');profile['adaptations'].pop();profile['licensing_boundary'].pop('project_orchestration');profile['cli_child']['owned_primitive'].pop('license');self.assertEqual(profile['cli_child']['owned_primitive']['canonical_lf_sha256'],REVIEWED_MERGE_INPUTS['backend/windows_preparation_process.py']['sha256']);profile['cli_child']['owned_primitive']['canonical_lf_sha256']=BASELINE['files']['backend/windows_preparation_process.py']['sha256'];self.assertEqual(m.sha(m.canonical(profile)),ORIGINAL_FUNCTIONAL_PROFILE)
   for name in m.DEPENDENCY_INPUTS+(m.base.BSD_GRANT,m.policy()['lame_variant']['patch']['path']):self.assertIn(REVIEWED_MERGE_INPUTS.get(name,BASELINE['files'].get(name,{'bytes':1295,'sha256':'018f5857359aee56d54fa84e0e87118d15c56b2e4e19f44389bafc6ea7d4f293'})),(m.record((R/name).read_bytes()),m.record((R/name).read_bytes().replace(b'\r\n',b'\n'))))
  def test_final_copy_inventory_separates_raw_and_LF_without_expanding_grant(self):
-  files={n:b.replace(b'\r\n',b'\n') for n,b in m.project_bytes().items()};a=m.mp3_copy_inventory(files,m.policy());win={n:b if n in (m.MP3_GRANT,m.base.BSD_GRANT,m.base.VARIANT_PATCH,m.policy()['lame_variant']['patch']['path']) else b.replace(b'\n',b'\r\n') for n,b in files.items()};b=m.mp3_copy_inventory(win,m.policy());self.assertEqual(set(a['copies']),set(m.MP3_APPROVED_BASELINES));self.assertEqual(a['approved_baselines'],m.MP3_APPROVED_BASELINES);self.assertEqual(a['supplemental_approved_baselines'],SUPPLEMENTAL_BASELINES);self.assertEqual(a['schema'],'proxy-r19-mp3-final-bsd-copies-v2')
+  files={n:b.replace(b'\r\n',b'\n') for n,b in m.project_bytes().items()};a=m.mp3_copy_inventory(files,m.policy());win={n:b if n in (m.MP3_GRANT,m.base.BSD_GRANT,m.base.VARIANT_PATCH,m.policy()['lame_variant']['patch']['path']) else b.replace(b'\n',b'\r\n') for n,b in files.items()};b=m.mp3_copy_inventory(win,m.policy());self.assertEqual(set(a['copies']),set(m.MP3_APPROVED_BASELINES));self.assertEqual(a['approved_baselines'],m.MP3_APPROVED_BASELINES);self.assertEqual(a['supplemental_approved_baselines'],SUPPLEMENTAL_BASELINES);self.assertEqual(a['schema'],'proxy-r19-mp3-final-bsd-copies-v3')
   for n in a['copies']:
    with self.subTest(path=n):self.assertEqual(a['copies'][n]['canonical_lf'],b['copies'][n]['canonical_lf']);self.assertNotEqual(a['copies'][n]['raw'],b['copies'][n]['raw'])
   for name in ('source_delivery_approved','runtime_collection_allowed','production_execution_allowed','r19_complete'):self.assertIs(a[name],False)
@@ -237,5 +244,89 @@ class Grant(unittest.TestCase):
     if path==unknown:raise AssertionError('Unknown member contents read')
     return op(path,*a,**kw)
    with patch.object(Path,'lstat',no_stat),patch.object(Path,'open',no_open),self.assertRaises(ValueError):m.verify_source_kit(kit,p,files)
+
+class ImportAliasContracts(unittest.TestCase):
+ def fixture(self,root):
+  directory=root/'out/lame/bin';directory.mkdir(parents=True)
+  for name,raw in {'libmp3lame.dll':b'authored inert DLL','libmp3lame.lib':b'authored import\x00libmp3lame.dll','libmp3lame-static.lib':b'authored inert static library'}.items():(directory/name).write_bytes(raw)
+  header=root/'upstream/lame-4.0/include/lame.h';header.parent.mkdir(parents=True);header.write_bytes(b'authored header')
+  return directory
+ def install(self,root):
+  with patch.object(m,'verify_sources',return_value={}):m.install_lame(root)
+ def test_fresh_alias_is_exact_import_copy_with_original_names_and_receipt(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary).resolve();directory=self.fixture(root);before=m.base.inventory(directory)
+   self.install(root);installed=m.verify_lame_install(root)
+   self.assertEqual(installed['bin/mp3lame.lib'],installed['bin/libmp3lame.lib'])
+   self.assertEqual((directory/'mp3lame.lib').read_bytes(),(directory/'libmp3lame.lib').read_bytes())
+   self.assertEqual({name:m.base.inventory(directory)[name] for name in before},before)
+   self.assertEqual(set(installed),{'bin/libmp3lame.dll','bin/libmp3lame.lib','bin/libmp3lame-static.lib','bin/mp3lame.lib','include/lame/lame.h'})
+ def test_existing_alias_is_never_overwritten_even_when_identical(self):
+  for raw in (b'',b'authored import\x00libmp3lame.dll'):
+   with self.subTest(raw=bool(raw)),tempfile.TemporaryDirectory() as temporary:
+    root=Path(temporary).resolve();directory=self.fixture(root);alias=directory/'mp3lame.lib';alias.write_bytes(raw)
+    with self.assertRaisesRegex(ValueError,'Fresh staged'):self.install(root)
+    self.assertEqual(alias.read_bytes(),raw);self.assertFalse((root/'LAME-INSTALLED.json').exists());self.assertFalse((root/'out/lame/include').exists())
+ def test_linked_parent_refuses_before_leaf_metadata_or_contents(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary).resolve();directory=self.fixture(root);outside=root/'owned-outside';directory.rename(outside);directory.symlink_to(outside,target_is_directory=True)
+   original_lstat,original_stat,original_open=Path.lstat,Path.stat,Path.open
+   def guarded(method):
+    def call(path,*args,**kwargs):
+     if directory in path.parents:raise AssertionError('Descendant metadata/content traversed the link')
+     return method(path,*args,**kwargs)
+    return call
+   with patch.object(Path,'lstat',guarded(original_lstat)),patch.object(Path,'stat',guarded(original_stat)),patch.object(Path,'open',guarded(original_open)),self.assertRaisesRegex(ValueError,'Links and reparse'):self.install(root)
+   self.assertFalse((outside/'mp3lame.lib').exists());self.assertFalse((root/'LAME-INSTALLED.json').exists())
+ def test_source_and_alias_leaf_links_refuse_without_reading_link_targets(self):
+  for name in ('libmp3lame.lib','mp3lame.lib'):
+   with self.subTest(name=name),tempfile.TemporaryDirectory() as temporary:
+    root=Path(temporary).resolve();directory=self.fixture(root);leaf=directory/name;target=root/'owned-target';target.write_bytes(b'never traverse this fixture target')
+    if leaf.exists():leaf.unlink()
+    leaf.symlink_to(target);original_open=Path.open
+    def op(path,*args,**kwargs):
+     if path in (leaf,target):raise AssertionError('Linked content opened')
+     return original_open(path,*args,**kwargs)
+    with patch.object(Path,'open',op),self.assertRaisesRegex(ValueError,'Links and reparse'):self.install(root)
+    self.assertEqual(target.read_bytes(),b'never traverse this fixture target');self.assertFalse((root/'LAME-INSTALLED.json').exists())
+ def test_simulated_reparse_parent_refuses_before_descendant_metadata(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary).resolve();directory=self.fixture(root);original_lstat=Path.lstat
+   def ls(path,*args,**kwargs):
+    if directory in path.parents:raise AssertionError('Descendant metadata after reparse')
+    if path==directory:return types.SimpleNamespace(st_mode=stat.S_IFDIR|0o755,st_file_attributes=0x400)
+    return original_lstat(path,*args,**kwargs)
+   with patch.object(Path,'lstat',ls),self.assertRaisesRegex(ValueError,'Links and reparse'):self.install(root)
+   self.assertFalse((root/'LAME-INSTALLED.json').exists())
+ def test_corrupted_copy_refuses_before_install_receipt(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary).resolve();directory=self.fixture(root);original=m.shutil.copyfile
+   def corrupt(source,target,*args,**kwargs):
+    result=original(source,target,*args,**kwargs)
+    if target.name=='mp3lame.lib':target.write_bytes(b'authored changed copy')
+    return result
+   with patch.object(m.shutil,'copyfile',corrupt),self.assertRaisesRegex(ValueError,'alias differs'):self.install(root)
+   self.assertFalse((root/'LAME-INSTALLED.json').exists())
+ def test_alias_tamper_is_refused_even_with_rewritten_private_inventory(self):
+  with tempfile.TemporaryDirectory() as temporary:
+   root=Path(temporary).resolve();directory=self.fixture(root);self.install(root);(directory/'mp3lame.lib').write_bytes(b'authored tamper')
+   for rewrite in (False,True):
+    if rewrite:m.write(root/'LAME-INSTALLED.json',m.base.inventory(root/'out/lame'))
+    with self.subTest(rewrite=rewrite),self.assertRaisesRegex(ValueError,'changed'):m.verify_lame_install(root)
+ def test_missing_pair_is_refused_even_with_matching_private_inventory(self):
+  for name in ('libmp3lame.lib','mp3lame.lib'):
+   with self.subTest(name=name),tempfile.TemporaryDirectory() as temporary:
+    root=Path(temporary).resolve();directory=self.fixture(root);self.install(root);(directory/name).unlink();m.write(root/'LAME-INSTALLED.json',m.base.inventory(root/'out/lame'))
+    with self.assertRaisesRegex(ValueError,'changed'):m.verify_lame_install(root)
+ def test_source_closure_cardinality_and_existing_license_notices_remain_separate(self):
+  self.assertEqual(len(m.project_names()),17);self.assertEqual(len(m.source_kit_names(m.policy())),26)
+  self.assertEqual(m.DLLS[-1],'libmp3lame.dll');self.assertFalse(m.FLAGS['source_delivery_approved']);self.assertFalse(m.FLAGS['runtime_collection_allowed'])
+  self.assertEqual(m.MP3_PROJECT_LICENSE['import_alias_approval']['approved_baselines'],IMPORT_ALIAS_BASELINES);self.assertEqual(m.MP3_SUPPLEMENTAL_BASELINES,SUPPLEMENTAL_BASELINES)
+ def test_closed_alias_approval_and_copy_fields_cannot_become_future_grants(self):
+  pin=m.policy();copies=m.mp3_copy_inventory(m.project_bytes(),pin)
+  self.assertEqual(copies['schema'],'proxy-r19-mp3-final-bsd-copies-v3');self.assertEqual(copies['import_alias_approved_baselines'],IMPORT_ALIAS_BASELINES);self.assertEqual(copies['supplemental_approved_baselines'],SUPPLEMENTAL_BASELINES)
+  for change in (lambda p:p['build_recipe_license']['import_alias_approval'].update(future=True),lambda p:p['build_recipe_license']['import_alias_approval']['approved_baselines'].update({'scripts/future.py':{'bytes':1,'sha256':'0'*64}}),lambda p:p['build_recipe_license']['import_alias_approval']['approval_proposal'].update(sha256='0'*64)):
+   bad=copy.deepcopy(pin);change(bad)
+   with patch.object(m.base,'recipe_json',return_value=bad),self.assertRaises(ValueError):m.policy()
 
 if __name__=='__main__':unittest.main()

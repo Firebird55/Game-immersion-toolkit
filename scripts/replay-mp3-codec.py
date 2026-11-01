@@ -42,7 +42,8 @@ DEPENDENCY_INPUTS=('backend/windows_preparation_process.py',)
 MP3_GRANT='packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt'
 MP3_APPROVED_BASELINES={'packaging/codecs/ffmpeg-mp3-replay.json': {'bytes': 15933, 'sha256': '8274d8842d05596f49f644f313dd0f885b19b37240fa21dc877fd3b3ff36f4e4'}, 'scripts/replay-mp3-codec.py': {'bytes': 48280, 'sha256': '615ea978748aa692381bb592628743fbf4b9a4c9ad449be51d929c796a3f4db7'}, 'scripts/build-mp3-codec-replay.ps1': {'bytes': 35311, 'sha256': 'a0d6f92af1bf7e7377b6eafba902f1c16e120bbee7edd770dcfc76e46676d638'}, 'scripts/fixtures/mp3-codec-origin.c': {'bytes': 1571, 'sha256': 'c26d6d6c5285c73934fbe214d528b8efea2d5596a65cb8ab57578eb93f1853c3'}}
 MP3_SUPPLEMENTAL_BASELINES={'scripts/build-mp3-codec-replay.ps1': {'bytes': 35311, 'sha256': '1b0cc7746a84d6152ddc0bb48c6857213d05c7cad68f05b2a537e0346a0ceb64'}}
-MP3_PROJECT_LICENSE={'schema': 'proxy-r19-mp3-recipe-additional-license-v2', 'identifier': 'BSD-3-Clause', 'scope': 'four-approved-original-project-revisions-and-one-approved-toolset-revision-with-necessary-notice-source-delivery-wiring', 'approved_on': '2026-11-01', 'approval_proposal_sha256': '3adc6e4775f8bb5f53e2d63ec031eec8222c80c319fc0c268906d1533b80601c', 'grant': {'path': 'packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt', 'bytes': 8120, 'sha256': 'e0eabbbaccf84de645bdf251ef433c2a243ea0f5b55181b53c063d4b101553b6'}, 'original_notice_prefix': {'bytes': 4588, 'sha256': 'f470deb41e0feea5f564b739e79c1378e457d6a7a6512f4c71a9e39958c476d1'}, 'supplemental_approval': {'schema': 'proxy-r19-mp3-toolset-supplement-v1', 'approved_on': '2026-11-01', 'approval_proposal': {'bytes': 3932, 'sha256': '02c220c6a8c1808cec6baefc91c416c33dbd09613193da908edd481c90167938'}, 'approved_baselines': {'scripts/build-mp3-codec-replay.ps1': {'bytes': 35311, 'sha256': '1b0cc7746a84d6152ddc0bb48c6857213d05c7cad68f05b2a537e0346a0ceb64'}}, 'scope': 'one-exact-toolset-revision-and-necessary-notice-source-delivery-wiring'}}
+MP3_IMPORT_ALIAS_BASELINES={'scripts/replay-mp3-codec.py': {'bytes': 52560, 'sha256': '08dfaa2fbfe30857276b9e9dd467ec9e62d6cd800a96758e708b15da2d26c3ee'}}
+MP3_PROJECT_LICENSE={'schema': 'proxy-r19-mp3-recipe-additional-license-v3', 'identifier': 'BSD-3-Clause', 'scope': 'four-approved-original-project-revisions-and-approved-toolset-and-import-alias-revisions-with-necessary-notice-source-delivery-wiring', 'approved_on': '2026-11-01', 'approval_proposal_sha256': '3adc6e4775f8bb5f53e2d63ec031eec8222c80c319fc0c268906d1533b80601c', 'grant': {'path': 'packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt', 'bytes': 11978, 'sha256': '011cccd64fe949708b7e554df8a54089edaffcadd2ae500d4299178310ecbbc7'}, 'original_notice_prefix': {'bytes': 4588, 'sha256': 'f470deb41e0feea5f564b739e79c1378e457d6a7a6512f4c71a9e39958c476d1'}, 'supplemental_approval': {'schema': 'proxy-r19-mp3-toolset-supplement-v1', 'approved_on': '2026-11-01', 'approval_proposal': {'bytes': 3932, 'sha256': '02c220c6a8c1808cec6baefc91c416c33dbd09613193da908edd481c90167938'}, 'approved_baselines': {'scripts/build-mp3-codec-replay.ps1': {'bytes': 35311, 'sha256': '1b0cc7746a84d6152ddc0bb48c6857213d05c7cad68f05b2a537e0346a0ceb64'}}, 'scope': 'one-exact-toolset-revision-and-necessary-notice-source-delivery-wiring'}, 'import_alias_approval': {'schema': 'proxy-r19-mp3-import-alias-supplement-v1', 'approved_on': '2026-11-01', 'approval_proposal': {'bytes': 5206, 'sha256': '9d3f7a990e0c5c304fbeddad68a1ece2f82301a8dce1d9f0971f9464a96f94f8'}, 'approved_baselines': {'scripts/replay-mp3-codec.py': {'bytes': 52560, 'sha256': '08dfaa2fbfe30857276b9e9dd467ec9e62d6cd800a96758e708b15da2d26c3ee'}}, 'prior_notice_prefix': {'bytes': 8120, 'sha256': 'e0eabbbaccf84de645bdf251ef433c2a243ea0f5b55181b53c063d4b101553b6'}, 'scope': 'one-exact-import-alias-driver-revision-and-necessary-notice-source-delivery-wiring'}}
 PROJECT_INPUTS=base.PROJECT_INPUTS+FUNCTIONAL_INPUTS+DEPENDENCY_INPUTS+(MP3_GRANT,)
 OVERRIDES=['--build-suffix=-r19-audio-lame','--enable-ffmpeg','--disable-ffplay',
  '--disable-ffprobe','--enable-w32threads','--enable-avfilter','--enable-libmp3lame',
@@ -152,7 +153,7 @@ def validate_inputs(input_root,tools=True):
 def license_boundary():
     return {'original_unchanged_base_grant':base.PROJECT_LICENSE,
         'new_functional_inputs':list(FUNCTIONAL_INPUTS),'ordinary_dependency_inputs':list(DEPENDENCY_INPUTS),
-        'ordinary_dependency_license':{'path':'LICENSE',**record(base.recipe_bytes(ROOT/'LICENSE'))},'new_functional_license':'Additional BSD-3-Clause option only for four approved original portions, one separately approved toolset revision and necessary notice/source wiring; ordinary LICENSE remains an alternative','additional_original_mp3_grant':MP3_PROJECT_LICENSE,
+        'ordinary_dependency_license':{'path':'LICENSE',**record(base.recipe_bytes(ROOT/'LICENSE'))},'new_functional_license':'Additional BSD-3-Clause option only for four approved original portions, one separately approved toolset revision, one separately approved import-alias revision and necessary notice/source wiring; ordinary LICENSE remains an alternative','additional_original_mp3_grant':MP3_PROJECT_LICENSE,
         'derived_upstream_patch':'LAME project-wide license scope; no Firebird grant of upstream rights',
         'fft_provenance':'unresolved; no automatic GPL conclusion',**FLAGS}
 
@@ -166,8 +167,9 @@ def mp3_copy_inventory(files,p):
         raw=files[name];lf=raw.replace(b'\r\n',b'\n')
         if b'\r' in lf or b'\0' in lf:raise ValueError('Unsupported final MP3 text transform.')
         copies[name]={'raw':record(raw),'canonical_lf':record(lf)}
-    return {'schema':'proxy-r19-mp3-final-bsd-copies-v2','license':MP3_PROJECT_LICENSE,
-        'approved_baselines':MP3_APPROVED_BASELINES,'supplemental_approved_baselines':MP3_SUPPLEMENTAL_BASELINES,'copies':copies,
+    return {'schema':'proxy-r19-mp3-final-bsd-copies-v3','license':MP3_PROJECT_LICENSE,
+        'approved_baselines':MP3_APPROVED_BASELINES,'supplemental_approved_baselines':MP3_SUPPLEMENTAL_BASELINES,
+        'import_alias_approved_baselines':MP3_IMPORT_ALIAS_BASELINES,'copies':copies,
         'scope':'Byte bindings only; no future-functional, helper, upstream or complete-source approval',**FLAGS}
 
 def verify_source_kit(kit,p,files):
@@ -236,12 +238,18 @@ def copy_regular(source,target):
 def install_lame(root):
     root=Path(root);verify_sources(root,True);out=root/'out/lame'
     for n in ('libmp3lame.dll','libmp3lame.lib','libmp3lame-static.lib'):base.regular_file(out/'bin'/n)
+    copy_regular(out/'bin/libmp3lame.lib',out/'bin/mp3lame.lib')
     copy_regular(root/'upstream/lame-4.0/include/lame.h',out/'include/lame/lame.h')
-    write(root/'LAME-INSTALLED.json',base.inventory(out))
+    installed=base.inventory(out)
+    if installed['bin/mp3lame.lib']!=installed['bin/libmp3lame.lib']:
+        raise ValueError('Selected LAME import alias differs from its original library.')
+    write(root/'LAME-INSTALLED.json',installed)
 
 def verify_lame_install(root):
     observed=base.inventory(root/'out/lame')
-    if observed!=base.recipe_json(root/'LAME-INSTALLED.json'):
+    if (observed!=base.recipe_json(root/'LAME-INSTALLED.json')
+        or not {'bin/libmp3lame.lib','bin/mp3lame.lib'}<=observed.keys()
+        or observed['bin/mp3lame.lib']!=observed['bin/libmp3lame.lib']):
         raise ValueError('Selected LAME header/import/library output changed.')
     return observed
 

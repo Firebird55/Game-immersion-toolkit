@@ -69,3 +69,32 @@ Redistribution and use in source and binary forms, with or without modification,
 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+SUPPLEMENTAL OWNER DECISION: ONE EXACT MP3 IMPORT-LIBRARY ALIAS REVISION
+Owner decision effective 2026-11-01
+
+The copyright holder explicitly approved PROPOSED-ADDITIONAL-LICENSE.txt (5206 LF bytes, SHA256 9d3f7a990e0c5c304fbeddad68a1ece2f82301a8dce1d9f0971f9464a96f94f8). This static section applies that decision. The preceding 8120 bytes retain the original four-revision notice and separate v145 toolset supplement exactly; no earlier grant or historical revision is overwritten.
+
+For original Firebird55-controlled portions in only the following exact driver revision, the copyright holder additionally permits use under the complete standard BSD-3-Clause terms repeated below. Necessary bounded notice and source-delivery wiring applying this decision is included. The ordinary repository LICENSE remains an alternative. No extra visible-credit or link condition is imposed beyond the standard BSD terms.
+
+scripts/replay-mp3-codec.py
+  Supplemental approved baseline LF bytes: 52560
+  Supplemental approved baseline SHA256: 08dfaa2fbfe30857276b9e9dd467ec9e62d6cd800a96758e708b15da2d26c3ee
+
+The complete functional correction from 52165-byte SHA256 2d1813daa25c62f1e601be733679394d0150865a3ba230fd2c621bd1c45d80b8 changes only install_lame and verify_lame_install. It creates a fresh private build-host mp3lame.lib as an exact byte copy of libmp3lame.lib, requires both import-library records to match during installation and subsequent verification, and refuses existing, missing or changed copies. The original library and DLL names remain unchanged; the alias is not staged into the runtime candidate. This is a separate exact revision, not a grant over arbitrary future functionality. The final notice-wired raw/canonical-LF copies are bound separately in MP3-BSD-COPIES.json; those bindings grant no rights and do not pin themselves circularly.
+
+No helper, other newly functional project file, upstream FFmpeg/LAME/Opus/recipe/patch copyright, FFT or patent right, or later functional edit is included. General project and third-party terms remain intact. Legal clearance, complete corresponding-source/relinking compatibility, durable hosting, servicing, exact native output, runtime/distribution/production, Windows11, physical/global ownership, warm routing and R19 gates remain open. This decision authorizes no installer, release, merge or PR59 change.
+
+STANDARD BSD-3-CLAUSE TERMS
+
+Copyright (c) 2026 Firebird55
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

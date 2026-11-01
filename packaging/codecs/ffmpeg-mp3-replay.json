@@ -1,7 +1,7 @@
 {
   "schema": "proxy-r19-mp3-functional-draft-inputs-v1",
   "reviewed_on": "2026-10-31",
-  "scope": "Ignored MP3 recipe with an additional BSD-3-Clause option only for the four approved original revisions and necessary license/source wiring. No clean0f/native/runtime/complete-source approval.",
+  "scope": "Isolated MP3 recipe with additional BSD-3-Clause options only for the four approved original revisions, separate exact toolset and import-alias revisions and necessary license/source wiring. No clean0f/native/runtime/complete-source approval.",
   "sources": [
     {
       "component": "ffmpeg",
@@ -224,11 +224,11 @@
     "Keep all original supplier trees immutable. The LAME owned working copy permits only the one declared property patch and exact config.h generated from configMS.h.",
     "Keep tool archives, private logs, native payloads and generated source configuration private. A later source-kit export requires separate review.",
     "Use existing atomic creation/Job primitive unchanged with process limit1. Real encode/decode CLI children consume held named input and produce bounded progress before two creation-handle module censuses. The observer remains supplementary.",
-    "The separate static MP3 grant covers only four approved original revisions and one separately approved toolset correction and necessary notice/source wiring. The Windows helper stays under ordinary LICENSE; old BSD6, Xiph, upstream and future-functional scopes remain separate."
+    "The static MP3 grant covers only four approved original revisions, separate exact toolset/import-alias corrections and necessary notice/source wiring. The Windows helper stays under ordinary LICENSE; old BSD6, Xiph, upstream and future-functional scopes remain separate."
   ],
   "licensing_boundary": {
     "original_upstream_recipes": "Retained byte-for-byte with vgmstream COPYING; dependency original recipes/notices remain in exact source archives.",
-    "project_orchestration": "Additional BSD-3-Clause option for exactly four approved original MP3 revisions and one separately approved toolset correction and required notice/source wiring. Final raw/LF copies are separately bound. Windows helper stays under ordinary LICENSE; no upstream, future-functional or source-delivery approval.",
+    "project_orchestration": "Additional BSD-3-Clause options for exactly four approved original MP3 revisions, one separately approved toolset correction, one separately approved import-alias driver revision and required notice/source wiring. Final raw/LF copies are separately bound. Windows helper stays under ordinary LICENSE; no upstream, future-functional or source-delivery approval.",
     "xiph_flac_scoped_grant_applies": false,
     "rights_review": "LAME FFT provenance scope remains unresolved. Exact LGPL combination, relinking, hosting, servicing and runtime adoption need review."
   },
@@ -379,15 +379,15 @@
     "scope": "four real authored encode/decode children, retained creation handles, positive progress before suffix/EOF release; no PID lookup"
   },
   "build_recipe_license": {
-    "schema": "proxy-r19-mp3-recipe-additional-license-v2",
+    "schema": "proxy-r19-mp3-recipe-additional-license-v3",
     "identifier": "BSD-3-Clause",
-    "scope": "four-approved-original-project-revisions-and-one-approved-toolset-revision-with-necessary-notice-source-delivery-wiring",
+    "scope": "four-approved-original-project-revisions-and-approved-toolset-and-import-alias-revisions-with-necessary-notice-source-delivery-wiring",
     "approved_on": "2026-11-01",
     "approval_proposal_sha256": "3adc6e4775f8bb5f53e2d63ec031eec8222c80c319fc0c268906d1533b80601c",
     "grant": {
       "path": "packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt",
-      "bytes": 8120,
-      "sha256": "e0eabbbaccf84de645bdf251ef433c2a243ea0f5b55181b53c063d4b101553b6"
+      "bytes": 11978,
+      "sha256": "011cccd64fe949708b7e554df8a54089edaffcadd2ae500d4299178310ecbbc7"
     },
     "original_notice_prefix": {
       "bytes": 4588,
@@ -407,6 +407,25 @@
         }
       },
       "scope": "one-exact-toolset-revision-and-necessary-notice-source-delivery-wiring"
+    },
+    "import_alias_approval": {
+      "schema": "proxy-r19-mp3-import-alias-supplement-v1",
+      "approved_on": "2026-11-01",
+      "approval_proposal": {
+        "bytes": 5206,
+        "sha256": "9d3f7a990e0c5c304fbeddad68a1ece2f82301a8dce1d9f0971f9464a96f94f8"
+      },
+      "approved_baselines": {
+        "scripts/replay-mp3-codec.py": {
+          "bytes": 52560,
+          "sha256": "08dfaa2fbfe30857276b9e9dd467ec9e62d6cd800a96758e708b15da2d26c3ee"
+        }
+      },
+      "prior_notice_prefix": {
+        "bytes": 8120,
+        "sha256": "e0eabbbaccf84de645bdf251ef433c2a243ea0f5b55181b53c063d4b101553b6"
+      },
+      "scope": "one-exact-import-alias-driver-revision-and-necessary-notice-source-delivery-wiring"
     }
   }
 }
