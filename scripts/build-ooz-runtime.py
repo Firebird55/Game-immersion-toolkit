@@ -249,6 +249,15 @@ def build_environment(config):
     return env
 
 
+def verify_compiled_output(compiled, expected, target):
+    observed = {'sha256': digest(compiled), 'bytes': compiled.stat().st_size}
+    if observed != {'sha256': expected['sha256'], 'bytes': expected['bytes']}:
+        # A failed hosted build must expose enough evidence to investigate it,
+        # without printing compiler logs, source contents or local paths.
+        raise ValueError('Compiler output differs from the fixed decoder pin: '
+                         + json.dumps({'target': target, **observed}, sort_keys=True))
+
+
 def probe(node, source, env, work, log):
     # A six-byte authored Kraken fill quantum expands to 4096 bytes. This
     # exercises compressed framing/expansion without game or supplier fixtures.
@@ -296,8 +305,7 @@ def build(output, work, cache, node):
     command = [sys.executable, compiler / 'emscripten/em++.py', *pins['sources'], *pins['arguments'], '-o', 'build/ooz.js']
     run(command, source, env, log)
     compiled = source / 'build/ooz.js'
-    if digest(compiled) != pins['output']['sha256'] or compiled.stat().st_size != pins['output']['bytes']:
-        raise ValueError('This compiler produced a different decoder; review the output before changing its pin.')
+    verify_compiled_output(compiled, pins['output'], target)
     probe(node, source, env, work, log)
     archives = {pins['source']['archive']: source_archive, pins['emscripten_source']['archive']: emscripten_archive}
     (stage / 'build').mkdir()

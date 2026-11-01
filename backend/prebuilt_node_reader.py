@@ -179,7 +179,7 @@ ZZZ_DEPENDENCIES = {
     'ooz/package.json': '44a8f84d67fe48d832560bdb0d6d1b853092cb2b20dff5683fb7b904b4501be1',
     'ooz/index.js': '042a89949156d960ccb4ab67026edb35fd9f116b78852d44c7d92889685f4562',
     # Owned Emscripten 6.0.13 build from the retained GPL preferred source.
-    'ooz/build/ooz.js': 'b49c334cb0ecfeb632ae3696744eef794200b953218e69066f11b216e9c9bf83',
+    'ooz/build/ooz.js': 'fda7d49be8ee8f45cf7de2c7411b36627b6c5f358397f86900744f79964aca27',
     'ooz/LICENSE': '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986',
     'xxhash/package.json': 'f2c48d47dbdef2f9a3e0fb1025a1394726a1028ddee21f5c38452de50d00bcf2',
     'xxhash/esm/xxhash-wasm.js': 'e3be9143c10d60a015448de1ceef383b8f2ea1fd2773a5a5c69973ed52d8325a',

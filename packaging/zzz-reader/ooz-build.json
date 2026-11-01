@@ -60,6 +60,8 @@
     "lib/lzna.cpp"
   ],
   "arguments": [
+    "--output-eol",
+    "linux",
     "-msimd128",
     "-msse2",
     "-O3",
@@ -77,8 +79,8 @@
   ],
   "output": {
     "path": "build/ooz.js",
-    "sha256": "b49c334cb0ecfeb632ae3696744eef794200b953218e69066f11b216e9c9bf83",
-    "bytes": 111488
+    "sha256": "fda7d49be8ee8f45cf7de2c7411b36627b6c5f358397f86900744f79964aca27",
+    "bytes": 111486
   },
   "notices": [
     {

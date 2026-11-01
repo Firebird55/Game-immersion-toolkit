@@ -38,7 +38,9 @@ runtime dependencies.
 [ooz-build.json](ooz-build.json) records the Emscripten 6.0.13 supplier archives,
 source revision, compiler arguments and independently observed generated output.
 The build runs the exact compiler with explicit configuration and a verified
-Node executable. An authored compressed Kraken fill quantum must expand
+Node executable. The compiler's `--output-eol linux` option fixes generated JS
+line endings to LF on every host; output bytes must match the same exact pin.
+An authored compressed Kraken fill quantum must expand
 correctly; malformed input must fail. No proprietary Oodle DLL is selected.
 This is our source build, not a claim to reproduce the npm supplier's
 undocumented generated WASM. The complete retained recipe allows rebuilding it.

@@ -216,6 +216,28 @@ def test_production_recipe_uses_relative_inputs_embedded_wasm_and_supported_targ
     assert '-sSINGLE_FILE=1' in pins['arguments']
     assert '-sEXPORT_ES6=1' in pins['arguments']
     assert '-sEXPORTED_RUNTIME_METHODS=["HEAPU8"]' in pins['arguments']
+    # Emscripten defaults to os.linesep; its documented compiler option makes
+    # the same generated JS byte-identical on Windows, Linux and macOS.
+    index = pins['arguments'].index('--output-eol')
+    assert pins['arguments'][index + 1] == 'linux'
     assert pins['source']['revision'] in pins['source']['url']
     assert pins['emscripten_source']['revision'] in pins['emscripten_source']['url']
     assert all(pins['toolchain']['release_revision'] in p['url'] for p in pins['toolchain']['archives'].values())
+
+
+def test_compiler_mismatch_reports_only_safe_identity_metadata(tmp_path):
+    compiled = tmp_path / 'private-output.js'
+    data = b'authored changed output containing private diagnostic text'
+    compiled.write_bytes(data)
+    with pytest.raises(ValueError, match='fixed decoder pin') as error:
+        builder.verify_compiled_output(compiled, {'sha256': 'a' * 64, 'bytes': 1}, 'linux-x64')
+    message = str(error.value)
+    assert sha(data) in message and str(len(data)) in message and 'linux-x64' in message
+    assert str(tmp_path) not in message
+    assert data.decode() not in message
+    builder.verify_compiled_output(compiled, {'sha256': sha(data), 'bytes': len(data)}, 'linux-x64')
+
+
+def test_runtime_decoder_pin_matches_fixed_compiler_output():
+    from backend.prebuilt_node_reader import ZZZ_DEPENDENCIES
+    assert ZZZ_DEPENDENCIES['ooz/build/ooz.js'] == builder.read_policy()['output']['sha256']
