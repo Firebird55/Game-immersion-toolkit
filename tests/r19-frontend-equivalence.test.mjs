@@ -4,7 +4,48 @@ import {mkdtempSync, mkdirSync, writeFileSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {dirname, join} from 'node:path';
 import test from 'node:test';
-import {ORIGIN, readDesktopManifest, assertStorageContinuity, assertLayoutBounds, assertPixelComparison} from '../scripts/r19-frontend-equivalence.mjs';
+import {ORIGIN, API, WS, FRONTEND_WS, fixture, installFixture, readDesktopManifest, assertStorageContinuity, assertLayoutBounds, assertPixelComparison} from '../scripts/r19-frontend-equivalence.mjs';
+
+test('authored API fixture covers source and same-origin desktop transports without forwarding unknown API requests', async () => {
+  const state = fixture();
+  const request = async (url, method = 'GET') => {
+    const outcome = {};
+    await state.serve({request: () => ({url: () => url, method: () => method}),
+      continue: async () => { outcome.kind = 'asset'; },
+      fulfill: async response => { outcome.kind = 'authored'; outcome.response = response; },
+      abort: async reason => { outcome.kind = 'blocked'; outcome.reason = reason; }});
+    return outcome;
+  };
+  const source = await request(API + '/api/snapshot');
+  const desktop = await request(ORIGIN + '/api/snapshot');
+  assert.equal(source.kind, 'authored'); assert.equal(source.response.status, 200);
+  assert.deepEqual(desktop, source);
+  assert.equal(desktop.response.json.lines[0].source_text, '你好，旅行者。欢迎来到这里。');
+  assert.equal((await request(ORIGIN + '/assets/owned-test.js')).kind, 'asset');
+  for (const origin of [API, ORIGIN]) {
+    const connection = await request(origin + '/api/connection');
+    assert.equal(connection.kind, 'authored'); assert.equal(connection.response.status, 503);
+    assert.equal(connection.response.json.urls, undefined);
+    assert.equal(connection.response.json.code, undefined);
+    const unknownRead = await request(origin + '/api/unexpected-authored-read');
+    assert.equal(unknownRead.kind, 'authored'); assert.equal(unknownRead.response.status, 500);
+    const unknownWrite = await request(origin + '/api/unexpected-authored-write', 'POST');
+    assert.equal(unknownWrite.kind, 'authored'); assert.equal(unknownWrite.response.status, 500);
+  }
+  assert.deepEqual(await request('http://127.0.0.1:8767/api/snapshot'), {kind: 'blocked', reason: 'blockedbyclient'});
+});
+
+test('both fixed WebSocket transports share the same authored connection producer', async () => {
+  const routes = new Map();
+  const state = fixture();
+  await installFixture({addInitScript: async () => {}, route: async (_pattern, callback) => {
+    assert.equal(callback, state.serve);
+  }, routeWebSocket: async (address, callback) => routes.set(address, callback)}, state);
+  assert.deepEqual([...routes.keys()], [WS, FRONTEND_WS]);
+  const sourceSocket = {}, desktopSocket = {};
+  routes.get(WS)(sourceSocket); routes.get(FRONTEND_WS)(desktopSocket);
+  assert.deepEqual(state.sockets, [sourceSocket, desktopSocket]);
+});
 
 // These acceptance-gate negatives are cheaper than rerunning two browser engines
 // just to prove that the comparison cannot report missing state/assets as green.

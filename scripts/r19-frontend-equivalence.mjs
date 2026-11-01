@@ -14,6 +14,7 @@ import {TONE} from '../tests/mobile-media-fixtures.mjs';
 export const ORIGIN = 'http://127.0.0.1:3000';
 export const API = 'http://127.0.0.1:8766';
 export const WS = 'ws://127.0.0.1:8766/api/ws';
+export const FRONTEND_WS = 'ws://127.0.0.1:3000/api/ws';
 // Fixed before observing CSR screenshots. Pixel comparisons supplement authored
 // viewport/overlap/wrapping bounds; they do not make the source an error oracle.
 export const PIXEL_LIMITS = Object.freeze({channelDelta: 16, changedRatio: .018, meanDelta: 1.5});
@@ -88,7 +89,7 @@ export function assertPixelComparison(result, limits = PIXEL_LIMITS) {
   assert(result.meanDelta <= limits.meanDelta, 'Source/static mean pixel difference exceeds the fixed limit');
 }
 
-function fixture() {
+export function fixture() {
   let revision = 0, failedAudioLine = false;
   const context = () => ({runtime_id: 'r19-authored-fixture', state_version: revision, account_generation: 0});
   const region = {left: .1, top: .6, width: .8, height: .25};
@@ -116,8 +117,8 @@ function fixture() {
   const audio = {broken: false, expectedErrors: 0};
   const serve = async route => {
     const request = route.request(), url = new URL(request.url());
-    if (url.origin === ORIGIN) return route.continue();
-    if (url.origin !== API) {
+    if (url.origin === ORIGIN && !url.pathname.startsWith('/api/')) return route.continue();
+    if (url.origin !== API && url.origin !== ORIGIN) {
       unexpected.push('External network: ' + url.origin);
       return route.abort('blockedbyclient');
     }
@@ -136,6 +137,9 @@ function fixture() {
       }
     }
     if (path === '/api/snapshot') return respond({context: context(), status: status(), lines: [line()], lexirise: {configured: true, account: 'authored-account', sent: {}, decks: {}}});
+    // The comparison owns no native pairing gateway. Preserve its unavailable
+    // UI path without forwarding this fixed request to a real local service.
+    if (path === '/api/connection' && method === 'GET') return respond({detail: 'Authored comparison has no pairing gateway.'}, 503);
     if (path === '/api/status') return respond(status());
     if (path === '/api/setup') return respond(setup);
     if (path === '/api/lexirise') return respond({configured: true, account: 'authored-account', sent: {}, decks: {}});
@@ -174,7 +178,7 @@ function fixture() {
     resetCaption() { failedAudioLine = false; revision++; sockets.at(-1).send(JSON.stringify({type: 'line_deleted', context: context(), line_id: 2})); this.publish(); }};
 }
 
-async function installFixture(context, state) {
+export async function installFixture(context, state) {
   await context.addInitScript(() => {
     const nativePlay = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function(...args) {
@@ -183,7 +187,7 @@ async function installFixture(context, state) {
     };
   });
   await context.route('**/*', state.serve);
-  await context.routeWebSocket(WS, socket => state.connect(socket));
+  for (const address of [WS, FRONTEND_WS]) await context.routeWebSocket(address, socket => state.connect(socket));
 }
 
 async function seedStorage(page) {
