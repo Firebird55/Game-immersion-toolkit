@@ -13,6 +13,7 @@ import wave
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import uvicorn
 from backend.models import AppSettings, CaptureSnapshot
+from backend.runtime_writers import RuntimeWriterGate
 
 if baseline := os.environ.get('TOOLKIT_ACCESS_BASELINE'):
     spec = importlib.util.spec_from_file_location('backend._access_baseline', baseline)
@@ -42,6 +43,7 @@ with tempfile.TemporaryDirectory(prefix='toolkit-access-data-') as temporary:
         audio.setframerate(8000)
         audio.writeframes(b'\0' * 1600)
     api.runtime = SimpleNamespace(
+        request_writers=RuntimeWriterGate(),
         capture=SimpleNamespace(start=lambda: record('start', True), stop=stop,
             snapshot=lambda: record('capture_snapshot', CaptureSnapshot())),
         settings=SimpleNamespace(get=AppSettings, save=lambda settings: record('save', settings)),
