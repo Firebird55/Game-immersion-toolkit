@@ -2,6 +2,7 @@
 from importlib.util import module_from_spec, spec_from_file_location
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -41,3 +42,42 @@ def test_native_library_search_excludes_unrelated_developer_tools(monkeypatch, p
     assert str(Path(builder.sys.executable).parent) in env['PATH'].split(os.pathsep)
     assert env['PROXY_RUNTIME_BUILD_INPUTS'] == 'inputs.json'
     assert env['PYTHONNOUSERSITE'] == '1'
+
+
+def test_real_collect_preserves_immutable_resource_bytes_and_executable_mode(tmp_path):
+    from PyInstaller.building.api import COLLECT
+    from PyInstaller.config import CONF
+    evidence = tmp_path / 'evidence'
+    source = evidence / 'codecs/authored-decoder'
+    source.parent.mkdir(parents=True)
+    # Authored magic ensures this would be identified as native, without claiming
+    # native execution. Actual platform probes execute the real resource tools.
+    source.write_bytes(b'\xcf\xfa\xed\xfeauthored standalone resource')
+    source.chmod(0o755)
+    output = tmp_path / 'dist/runtime'
+    original = dict(CONF)
+    try:
+        CONF.update(distpath=str(tmp_path / 'dist'), workpath=str(tmp_path / 'work'),
+            specpath=str(tmp_path / 'spec'), noconfirm=True)
+        collector = SimpleNamespace(name=str(output), tocbasename='authored-collect',
+            contents_directory='_internal', toc=[('codecs/authored-decoder', str(source), 'DATA')])
+        COLLECT.assemble(collector)
+    finally:
+        CONF.clear()
+        CONF.update(original)
+    resources = [{'path': 'codecs/authored-decoder', 'sha256': builder.digest(source)}]
+    builder.verify_collected_resources(output / '_internal', evidence, resources)
+    delivered = output / '_internal/codecs/authored-decoder'
+    assert delivered.read_bytes() == source.read_bytes()
+    if os.name != 'nt':
+        assert delivered.stat().st_mode & 0o111
+        delivered.chmod(0o644)
+        with pytest.raises(ValueError, match='permissions'):
+            builder.verify_collected_resources(output / '_internal', evidence, resources)
+        delivered.chmod(0o755)
+    delivered.write_bytes(source.read_bytes() + b'changed')
+    with pytest.raises(ValueError, match='immutable resource'):
+        builder.verify_collected_resources(output / '_internal', evidence, resources)
+    delivered.unlink()
+    with pytest.raises(ValueError, match='immutable resource'):
+        builder.verify_collected_resources(output / '_internal', evidence, resources)

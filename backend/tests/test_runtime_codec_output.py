@@ -67,8 +67,11 @@ def test_expected_codec_output_requires_exact_path_and_native_bytes(tmp_path, mo
     with pytest.raises(ClosureError): validate_codec_output(value, source, evidence, output)
 
 
-def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_explicit_data(tmp_path, monkeypatch):
+@pytest.mark.parametrize('modern', [False, True])
+def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_explicit_data(tmp_path, monkeypatch, modern):
     _module, value, _source, evidence, _output, _target = codec_output(tmp_path, monkeypatch)
+    if modern:
+        value['schema'] = 'proxy-desktop-observed-build-v1'
     repository = Path(__file__).resolve().parents[2]
     inputs = tmp_path / 'inputs.json'; inputs.write_text(json.dumps(value))
     monkeypatch.setenv('PROXY_RUNTIME_BUILD_INPUTS', str(inputs))
@@ -100,3 +103,6 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
         member = 'codecs/xiph-flac/' + name
         assert actual[member] == (str(evidence / member), 'DATA')
     assert 'codecs/xiph-flac/notices/COPYING.GPL' in actual
+    if modern:
+        assert not any(rows for rows in analyses), 'Immutable resource distributions must not enter Analysis.'
+        assert set(actual) == {item['path'] for item in value['resources']}

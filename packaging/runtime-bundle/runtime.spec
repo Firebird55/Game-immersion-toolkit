@@ -31,11 +31,18 @@ if runtime and legacy:
 # PE data as binaries and flattens dependencies outside site-packages, which
 # otherwise adds an unintended root FLAC.dll. Deliver only these verified files
 # as explicit DATA after Analysis; never scan them as Python-host dependencies.
-codec_native = {'codecs/xiph-flac/flac.exe', 'codecs/xiph-flac/FLAC.dll'} if runtime and legacy else set()
-isolated_codec_data = [(item['path'], str(resource_root / item['path']), 'DATA')
-    for item in inputs['resources'] if item['path'] in codec_native]
+isolated_paths = ({'codecs/xiph-flac/flac.exe', 'codecs/xiph-flac/FLAC.dll'} if legacy
+    else {item['path'] for item in inputs['resources']}) if runtime else set()
+# Modern resources are already closed, independently validated subprocess
+# distributions (Node, codecs and managed readers) or immutable static data.
+# Analysis must not flatten their dependencies, rewrite Mach-O install names or
+# re-sign their executables: that invalidates the nested runtime receipts and
+# can break the subprocess's own relative library lookup. Python-host libraries
+# still pass through ordinary Analysis and native post-processing below.
+isolated_resource_data = [(item['path'], str(resource_root / item['path']), 'DATA')
+    for item in inputs['resources'] if item['path'] in isolated_paths]
 data = [(str(resource_root / item['path']), str(Path(item['path']).parent))
-    for item in inputs['resources'] if item['path'] not in codec_native]
+    for item in inputs['resources'] if item['path'] not in isolated_paths]
 hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experiment' else []
 binaries = []
 
@@ -98,7 +105,7 @@ main.binaries = [entry for entry in main.binaries
                  if Path(entry[0]).name.casefold() != 'opengl32sw.dll']
 if sys.platform == 'win32' and runtime:
     main.binaries = select_msvc(main.binaries)
-main.datas += isolated_codec_data
+main.datas += isolated_resource_data
 if native_observer:
     native_observer.observe_analysis('main', main.binaries,
         [row for row in main.datas if row[0].replace('\\', '/').startswith(('helpers/nte/', 'codecs/xiph-flac/'))])

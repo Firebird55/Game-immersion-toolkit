@@ -117,6 +117,20 @@ def extra_resources(root, destination):
     return manifest
 
 
+def verify_collected_resources(internal, evidence, resources):
+    """Reject mutation of standalone resource distributions during freezing."""
+    internal = internal.resolve(strict=True)
+    for item in resources:
+        name = relative_resource(item['path'])
+        path = internal / name
+        if (any(p.is_symlink() or (p.exists() and getattr(p.lstat(), 'st_file_attributes', 0) & 0x400)
+                for p in (path, *path.parents) if p != internal and internal in p.parents)
+                or not path.is_file() or digest(path) != item['sha256']):
+            raise ValueError('Freezing changed an immutable resource: ' + name)
+        if os.name != 'nt' and os.access(evidence / name, os.X_OK) and not os.access(path, os.X_OK):
+            raise ValueError('Freezing removed resource executable permissions: ' + name)
+
+
 def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profile='runtime', python_archive=None, nte_helper_root=None):
     if sys.version_info[:2] != (3, 12):
         raise ValueError('Desktop candidates require Python 3.12.')
@@ -206,6 +220,7 @@ def build(frontend_root, output, wheelhouse=None, resources_root=None, *, profil
     if source_inputs() != before:
         raise ValueError('Source changed during the candidate build; retained output is invalid and must not be packaged.')
     runtime = output / 'runtime/GameImmersionToolkit'
+    verify_collected_resources(runtime / '_internal', evidence, resources)
     manifest = {'schema': MANIFEST_SCHEMA, **identity, 'resources': {item['path']: item['sha256'] for item in resources},
         'children': list(EXPERIMENT_CHILDREN), 'r19_complete': False, 'storage_epoch': 1, 'host_protocol': 1}
     (runtime / '_internal/runtime-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
