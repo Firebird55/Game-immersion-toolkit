@@ -4,7 +4,7 @@ import http from 'node:http';
 import net from 'node:net';
 import {createHash} from 'node:crypto';
 import {once} from 'node:events';
-import {mkdtempSync,writeFileSync,renameSync,mkdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,renameSync,mkdirSync,rmSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve,sep} from 'node:path';
 import {startRouter} from '../scripts/companion-router.mjs';
@@ -47,20 +47,23 @@ for(const finishDuringDrain of [true,false])test(`router shutdown ${finishDuring
   backend.closeAllConnections();await close(backend);rmSync(directory,{recursive:true,force:true});
  }
 });
-test('prepared runtime switches without interrupting active responses or losing old interface assets',async()=>{
+async function preparedRuntimeSwitch(beforeSwitch=()=>{}){
  const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json'),assets=join(directory,'assets');
  mkdirSync(assets);writeFileSync(join(assets,'old-reader.js'),'old interface asset');
  let finish,started;const pending=new Promise(resolve=>started=resolve);
- const old=http.createServer((request,response)=>{if(request.url==='/slow'){started();finish=()=>response.end('old answer completed');}else response.end('old runtime');});
+ const old=http.createServer((request,response)=>{if(request.url==='/slow'){started();finish=()=>{if(!response.writableEnded)response.end('old answer completed');};}else response.end('old runtime');});
  const fresh=http.createServer((_request,response)=>response.end('new runtime'));
- let router;
+ let router,answer,failure;
  try{
   const a=await listen(old),b=await listen(fresh);
   writeFileSync(statePath,JSON.stringify({active:{apiPort:a,frontendPort:a}}));
   router=await startRouter({statePath,assetDirectory:assets,apiPort:0,frontendPort:0});
   const base='http://127.0.0.1:'+router.apiPort;
   assert.equal(await(await fetch(base)).text(),'old runtime');
-  const answer=fetch(base+'/slow').then(async response=>({text:await response.text(),port:response.headers.get('x-proxy-transcript-upstream-port')}));await pending;
+  answer=fetch(base+'/slow').then(async response=>({text:await response.text(),port:response.headers.get('x-proxy-transcript-upstream-port')}));
+  // Retain a rejected response until cleanup can report it alongside the primary failure.
+  void answer.catch(()=>{});await pending;
+  beforeSwitch({old,fresh,router,directory});
   const temporary=statePath+'.pending';writeFileSync(temporary,JSON.stringify({active:{apiPort:b,frontendPort:b}}));renameSync(temporary,statePath);
   const until=Date.now()+2000;while(await(await fetch(base)).text()!=='new runtime'&&Date.now()<until)await new Promise(resolve=>setTimeout(resolve,25));
   const switched=await fetch(base);assert.equal(await switched.text(),'new runtime');
@@ -69,7 +72,35 @@ test('prepared runtime switches without interrupting active responses or losing 
   assert.equal(await(await fetch('http://127.0.0.1:'+router.frontendPort+'/_next/static/old-reader.js')).text(),'old interface asset');
   writeFileSync(statePath,'{incomplete');
   assert.equal(await(await fetch(base)).text(),'new runtime','A broken candidate cannot replace the working route');
- }finally{await router?.close();await Promise.all([close(old),close(fresh)]);assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));rmSync(directory,{recursive:true,force:true});}
+ }catch(error){failure=error;}finally{
+  // An assertion or filesystem error before the switch must not leave this
+  // authored response blocking the real gateway's graceful shutdown deadline.
+  // The dedicated stalled-response test above still requires that deadline to fail.
+  const cleanupErrors=[];
+  try{finish?.();}catch(error){cleanupErrors.push(error);}
+  try{await answer;}catch(error){cleanupErrors.push(error);}
+  try{await router?.close();}catch(error){cleanupErrors.push(error);}
+  old.closeAllConnections();fresh.closeAllConnections();
+  for(const result of await Promise.allSettled([close(old),close(fresh)]))if(result.status==='rejected')cleanupErrors.push(result.reason);
+  try{
+   assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));
+   rmSync(directory,{recursive:true,force:true});
+  }catch(error){cleanupErrors.push(error);}
+  if(cleanupErrors.length)throw new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Prepared runtime fixture cleanup failed',{cause:failure});
+ }
+ if(failure)throw failure;
+}
+
+test('prepared runtime switches without interrupting active responses or losing old interface assets',async()=>{
+ await preparedRuntimeSwitch();
+});
+
+test('a failed runtime switch preserves its primary error and closes the pending fixture response',async()=>{
+ const primary=Error('Authored switch publication failure');let observed;
+ await assert.rejects(preparedRuntimeSwitch(state=>{observed=state;throw primary;}),error=>error===primary);
+ assert.equal(observed.old.listening,false);assert.equal(observed.fresh.listening,false);
+ assert.equal(existsSync(observed.directory),false);
+ await assert.rejects(fetch('http://127.0.0.1:'+observed.router.apiPort,{signal:AbortSignal.timeout(1000)}));
 });
 
 test('open readers reconnect their WebSocket to the prepared runtime',async()=>{
