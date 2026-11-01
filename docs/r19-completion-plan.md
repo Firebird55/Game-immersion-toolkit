@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `11bf1ec`, 1,436 Windows contracts without skips, one warning and 197.70 seconds, then native/C1/cold-slot, both bounded living-keeper cases and C3–C6 passed; seven archives/28 entries and 106 named immutable Git inputs independently verified | Latest complete bounded frozen checkpoint. Historical 0f contract failure and b598 C6 failure remain negative. Main image `20261030.294.1`, other six jobs `20261021.278.1`. Separate same-head C7 controls fail before mechanism/upload with zero artifacts; class and StringWriter are not distinguished. Later SQL file-replacement/P2 and MP3/source-license work is excluded. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
+| Extracted runtime | At `589362e`, 1,541 Windows contracts without skips, one warning, 118 subtests and 232.20 seconds, then native/C1/cold-slot, both bounded living-keeper cases and C3–C6 passed; seven artifacts/28 entries and 125 named immutable Git inputs independently verified | Latest complete bounded frozen checkpoint. Historical d35/0f/b598 failures remain negative. Main/managed/Node/protected-TEST image `20261021.278.1`; reference and both diagnostic-build jobs `20261030.294.1`. P2 source/contracts are included, but the new populated native case did not run. Separate C7 prefix control fails before mechanism/upload; MP3 attempt1 fails acquisition and attempt2 fails build-lame/MSB8020. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -288,7 +288,7 @@ Inherited is parsed/null/no stderr. Direct child/readers cleanup supplies no
 descendant, causal environment or actual-mechanism proof.
 
 The subsequent `11bf1ec` [run 41297097507](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41297097507)
-is now the latest complete bounded checkpoint: 1,436 passed, no skips, one
+was then the latest complete bounded checkpoint: 1,436 passed, no skips, one
 warning, 197.70 seconds, followed by C1/cold/both bounded living-keeper/C3–C6
 passes. The historical a2e/0f cutoff statements above retain their chronological
 meaning; neither 0f nor b598 is reclassified. Seven archives/28 entries and 106
@@ -314,6 +314,53 @@ Mechanism/upload are skipped, with zero artifacts. The [ledger](r19-frozen-check
 retains all 96 historical records unchanged plus these four new results.
 Physical/global/warm, keeper-loss, complete source/rights, Windows 11 and full
 R19 gates remain open; no installer or PR #59 change follows.
+
+## Current bounded checkpoint and separate failures at 589362e
+
+The intervening d35 main contract failure (1,536 passed/four failed/two
+warnings/112 subtests/254.52 seconds) preceded EXE/COLLECT and all frozen
+runtime probes. Its separate MP3 lane failed three of 45 authored cases before
+acquisition. The actual d35 C7 decoder controls passed 216 cases, but mechanism
+v5 refused the legacy baseline after last delivered `operationentered`, with
+empty observations and unconfirmed fixture-retained cleanup. These are three
+separate negative ledger records; later source fixes do not erase them.
+
+At `589362e`, [run 41311314317](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311314317)
+passed 1,541 Windows contracts/zero skips/one warning/118 subtests in 232.20
+seconds, both executable trees and all selected C1/cold/living-keeper/C3–C6
+cases. Root and peer independently verified seven artifacts/28 entries and 125
+immutable Git inputs. Inventory is 1,449 files/642 directories/620,211,229 bytes,
+SHA-256 `b0a60401e23f687e04b46f5c85d5706b027aff2b7e74583bc8eec5c4f5c2bba2`.
+All 473 extension-selected A2/P1 records, 57 components/113 notice references/
+104 hashes, 20 supplier texts, the six-entry Xiph source kit and 907-member
+upstream archive/rebuild were rebound. Actual reference tools here were CMake
+4.4.5/compiler 19.51.36260.0. Main/managed/Node/protected-TEST image was
+`20261021.278.1`; reference and both diagnostic-build jobs used
+`20261030.294.1`. Earlier image/tool results remain historical.
+
+This is the latest complete bounded checkpoint. It includes the P2 producer
+source/contracts and test-only fixture corrections; the new populated native
+case did not run. The existing C3–C6 receipts still cover their original authored
+fixtures, not complete mutable-state migration or physical/global authority.
+The separate 589 C7 authored prefix control failed before mechanism/upload:
+261 passed/one failed, prefix last delivered `before-join-data`, separate
+managed-I/O control passed, direct cleanups confirmed, no cause or absent-
+operation inference. Later `227bb` bootstrap/source work is not a native pass.
+
+Separate MP3 run 41311329210 failed attempt 1 during acquisition with network
+Windows 10060 and zero artifacts. Attempt 2 reached `build-lame` and failed
+MSB8020/exit 1 after 45 unittest/12 Node/four bootstrap passes. Its two-file,
+2,771-byte failure artifact is source-bound to 589 and 17 project copies; no
+encode/decode result, runtime collection, full source cohosting or compiled
+rights approval follows. The attempts remain separate from the runtime pass
+and from the approved four-recipe BSD scope.
+
+The [runtime checkpoint](r19-runtime-bundle.md#verified-bounded-checkpoint-at-589362e)
+and [ledger](r19-frozen-checkpoint-20261031.json) preserve 100 historical records
+plus seven new outcomes. C2/C3/C4, continuous keeper-loss exclusion, copied-
+target activation, physical/global/dynamic fencing, warm usable OCR/routing,
+full corresponding-source/rights, ordinary Windows 11 and full R19 remain open.
+No production activation, installer, PR #59 change or new ASR replay is implied.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source

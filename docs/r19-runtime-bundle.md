@@ -15,8 +15,8 @@ game/language choices. R14 onboarding, an OCR rewrite, R20 installation and live
 data migration are outside this task. No release, tag or Pages publication is
 authorized. Engineering evidence below distinguishes source contracts,
 synthetic probes, a diagnostic executable and the accepted product candidate.
-The latest complete **bounded** frozen checkpoint is now `11bf1ec`, described
-[below](#verified-runtime-sql-composition-checkpoint-at-11bf1ec). Historical
+The latest complete **bounded** frozen checkpoint is now `589362e`, described
+[below](#verified-bounded-checkpoint-at-589362e). Historical
 negative checkpoints remain negative; this is not full R19 acceptance.
 
 ## R02b method fixed before optimization
@@ -1491,8 +1491,8 @@ operation conclusion follows.
 job `124820125909`, at `11bf1ece6f510faa2a7610f4172601fa67e1e2be` passed
 **1,436 Windows contracts, no skips, one warning, 197.70 seconds**, then all
 selected frozen observations: native/C1, guarded cold slots, both bounded
-living-keeper cases and C3/C4/C5/C6. It supersedes a2e as the latest complete
-bounded checkpoint; the 0f and b598 failures retain their historical meanings.
+living-keeper cases and C3/C4/C5/C6. It superseded a2e as the latest complete
+bounded checkpoint at that historical cutoff; the 0f and b598 failures retain their historical meanings.
 It is not final R19, physical/global fencing or usable warm-cutover acceptance.
 
 The verified seven archives/28 entries and 106 named immutable Git inputs bind
@@ -1544,6 +1544,114 @@ corresponding-source/exact-output rights, named-store repair, physical/global
 data fencing, copied-target activation, keeper loss, warm OCR/routing and
 ordinary-user Windows 11 gates remain open. No installer is built; PR #59 is
 unchanged.
+
+## Verified bounded checkpoint at 589362e
+
+The intervening `d35cd89fb31afa35cf4675709591860f99969e19` main
+[run 41308832696](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41308832696),
+job `124854776672`, failed before EXE/COLLECT: **1,536 passed, four failed,
+two warnings, 112 subtests, 254.52 seconds**, image `20261021.278.1`.
+Three MP3 authored fixture errors and a separate mobile-importer decoding
+contract failed; no integrated runtime archive or C1–C6 result was produced.
+Later test-only corrections do not reclassify this head as a native pass.
+The separate d35 [MP3 run 41308864426](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41308864426)
+ran 45 authored tests with three errors in 0.841 seconds on the same image,
+before source/tool acquisition or native build, with zero artifacts.
+
+At `589362e7dc2e73da899751c042adbeb260ba5e56`,
+[run 41311314317](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311314317),
+job `124862144131`, passed **1,541 Windows contracts, no skips, one warning,
+118 subtests, 232.20 seconds**, both EXE/COLLECT trees, relocation/native/C1,
+cold slots, both bounded living-keeper cases and C3/C4/C5/C6. This supersedes
+11bf as the latest complete bounded checkpoint. The earlier d35, 0f and b598
+failures retain their original meanings.
+
+Root and peer independently bound seven artifacts/28 entries and **125 named
+immutable Git inputs**. Integrated artifact **13086475609** is 1,337,528 bytes,
+SHA-256 `3e107aff3c5e3b971a8670d5148932c248e74a48aa7c21898aef0720d1f9f18d`;
+reference artifact **13085204062** is 1,095,193 bytes, SHA-256
+`c9a751a6c188edd8b642e108e2e73bfdb69f6bc26efe5b2c2e1d1af8d7aeb400`.
+The 661,687-byte inventory, SHA-256
+`b0a60401e23f687e04b46f5c85d5706b027aff2b7e74583bc8eec5c4f5c2bba2`,
+binds **1,449 files, 642 directories and 620,211,229 bytes**. Main, managed,
+Node and protected-TEST jobs used image `20261021.278.1`; reference-codec and
+both diagnostic/frontend-build jobs used `20261030.294.1`. Each is hosted Server
+evidence, not ordinary-user Windows 11 acceptance.
+
+All 473 extension-selected A2/P1 records bind input snapshot, output inventory
+and header metadata: 431 main/42 ASR, 392 x64/81 IL-only AnyCPU observations,
+173 CLR headers, 2,708 normal and six delay-import module identities. These are
+not descriptor totals, dynamic loading/PInvoke compatibility or a scan for PE
+bytes under other extensions/inside containers. Supplier ownership remains
+462 exact/seven ambiguous/two generated/two unmatched; the latter two are
+observed System32 STL inputs, not redistribution approval. All 113 notice
+references/104 hashes across 57 components, twenty Python supplier texts and
+provenance, and exact cached wheel notices were rebound. Xiph's unchanged
+six-entry kit and 907-member upstream source, independent byte-identical
+rebuild, decode/fault/cleanup/DLL-origin observations passed. Its actual tools
+here were **CMake 4.4.5 and compiler 19.51.36260.0**; older tool observations
+are preserved. Fifteen ASR source inputs remain unchanged without another replay.
+
+C1/cold slots record 29 source-operation blocks; C3–C6 record 9/10/10/10,
+two source cohorts and four retained writer signals each. C5 preserves the
+16,512-byte WAL/32,768-byte SHM main-only/full-set contrast; C6 preserves one
+local grammar choice at 4 against fixed mocked remote state 0 and fresh source
+readback 4. The populated P2 producer and its contracts are in this source;
+the new populated native fixedcase was not dispatched or delivered. Later P2
+harness and C7 bootstrap work is outside this checkpoint's native evidence.
+
+### Separate C7 negatives
+
+The d35 [C7 run 41308862562](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41308862562),
+job `124854867354`, passed 216 authored contracts without skips in 4.31 seconds
+on image `20261030.294.1`, including actual decoder controls under both fixed
+environments. The actual v5 mechanism then refused `legacy-baseline` with
+`protocol-refused`: last checkpoint `receive-result`/`operationentered`, child
+`not-signaled`, observations empty and conversion context null. Artifact
+**13084263393** is 763 bytes, SHA-256
+`6018d662dbbf1142977f75f99cecc7185c7f53b7eb5aef94543416df8c942b4e`.
+Cleanup is `unconfirmed-fixture-retained`; no returned legacy operation,
+attribute/owner-loss observation, cause or absence of operations is proved.
+
+The 589 [C7 run 41311326652](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311326652),
+job `124862187054`, failed its authored preopen-prefix control: **261 passed,
+one failed, no skips, 13.99 seconds**, image `20261030.294.1`. Prefix last
+delivered `before-join-data`, unavailable/no stderr/`wait-deadline`; the separate
+managed-I/O control completed. Both direct child/readers cleanups are confirmed
+and their fixtures removed. Mechanism/upload were not run; zero artifacts.
+This neither proves that Join-Path did not execute nor identifies a system-module
+cause, descendant cleanup or keeper-loss solution.
+
+### Separate MP3 attempts at the same 589 source
+
+[Run 41311329210](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311329210)
+is separate from the seven-artifact runtime checkpoint. Attempt 1, job
+`124862194462`, passed 45 unittest/12 Node/four Windows bootstrap contracts,
+then failed acquisition with `URLError`/timeout/Windows 10060 on image
+`20261021.278.1`. The finite observation identifies no particular remote/input;
+no native build or artifact was produced.
+
+Attempt 2, job `124863373859`, passed 45 unittest cases in 1.448 seconds, 12 Node
+cases without skips and four bootstrap cases in 2.831 seconds on that image,
+then failed at **`build-lame`/`MSB8020`/exit 1**. Artifact **13086460554** is
+2,771 bytes, SHA-256
+`b0889c34faeb007a1bec02318e7bfe9aaf3aa453f0454bad09c99b9d29f5c8f9`.
+Its exact two entries are `MP3-FAILURE.json` (580 bytes, SHA-256
+`a63baba8390805db9e0dc72178cbdf46095e79eafcbf4b6fdf724596ab7cecab`)
+and `MP3-CI-BINDING.json` (5,027 bytes, SHA-256
+`5d752d0db1579bfe4682f98796b9ebe7c6ac626da952809348a4faf8eaef5395`).
+The binding records equal clean source, exact Git/raw-checkout/canonical-LF
+correspondence for 17 project copies and no published private original receipt
+hash. Actual encode/decode did not run; cleanup acceptance is not supplied by
+this finite failure projection. The recipe-owner grant is not compiled-output,
+complete corresponding-source, runtime or distribution approval. Attempt 2 does
+not erase attempt 1's network failure or the earlier d35 contract failure.
+
+The [ledger](r19-frozen-checkpoint-20261031.json) retains all 100 old values and
+their raw source prefix and appends seven distinct results. Production/profile
+activation, physical/global/dynamic fencing, copied-target activation, keeper
+loss, warm OCR/routing, exact-output rights, ordinary-user Windows 11 and full
+R19 remain false/unavailable. No installer, release or PR #59 change follows.
 
 ## Continuation and rollback
 

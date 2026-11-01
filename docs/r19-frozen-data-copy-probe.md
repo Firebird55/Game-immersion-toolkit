@@ -112,8 +112,8 @@ seconds), with zero artifacts. No new lock/copy authority follows.
 At `11bf1ece6f510faa2a7610f4172601fa67e1e2be`,
 [run 41297097507](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41297097507)
 passed **1,436 Windows contracts, no skips, one warning, 197.70 seconds**, then
-native/C1/cold slots, both bounded living-keeper cases and C3/C4/C5/C6. This is
-the latest complete bounded checkpoint; earlier a2e/0f statements describe their
+native/C1/cold slots, both bounded living-keeper cases and C3/C4/C5/C6. This was
+the latest complete bounded checkpoint at that cutoff; earlier a2e/0f statements describe their
 historical cutoff and neither 0f nor b598 is reclassified. Integrated artifact
 **13079978526**, 1,337,501 bytes, SHA-256
 `e8ec284c353946153cbb8dcfd19e73c40ab4f45c423d8ded8cb79dcfa8e9b41d`,
@@ -149,6 +149,57 @@ The [ledger](r19-frozen-checkpoint-20261031.json) preserves the 96 historical
 records and appends these four outcomes. Physical/global/dynamic fencing,
 copied-target activation, keeper loss, warm OCR/routing, named-account repair,
 rights and ordinary-user Windows 11/full R19 acceptance remain open.
+
+## Current bounded copy checkpoint at 589362e
+
+The intervening d35 main contract step failed before EXE/COLLECT and copy
+probes: 1,536 passed/four failed/two warnings/112 subtests/254.52 seconds.
+No integrated archive or new C3–C6 evidence was produced. Its separate C7 v5
+legacy baseline refused after last delivered `operationentered`, with no approved
+observations and `unconfirmed-fixture-retained` cleanup. Later fixture/source
+corrections do not repair those negative results retroactively.
+
+At `589362e7dc2e73da899751c042adbeb260ba5e56`,
+[run 41311314317](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311314317)
+passed 1,541 Windows contracts without skips (one warning, 118 subtests, 232.20
+seconds), both executable trees, relocation/native/C1, cold slots, both living-
+keeper cases and C3/C4/C5/C6. It is the latest complete bounded checkpoint.
+Seven artifacts/28 entries and 125 named immutable Git inputs were independently
+checked. Integrated artifact 13086475609 is 1,337,528 bytes, SHA-256
+`3e107aff3c5e3b971a8670d5148932c248e74a48aa7c21898aef0720d1f9f18d`.
+Inventory is 1,449 files/642 directories/620,211,229 bytes, SHA-256
+`b0a60401e23f687e04b46f5c85d5706b027aff2b7e74583bc8eec5c4f5c2bba2`.
+
+The actual copy scopes remain C3 plain, C4 one injected post-file interruption
+resumed by the same living owner, C5 stopped real WAL/SHM and C6 one local scoped
+grammar override. They record 9/10/10/10 source-operation blocks, two source
+cohorts/four retained signals each, unchanged pointer/stale-barrier refusal and
+explicit writer/lease/private-tree cleanup. C5 again distinguishes main-only
+favorite 0/full-set favorite 1 with 16,512-byte WAL/32,768-byte SHM. C6 preserves
+local 0→4/copied 4/fresh-source 4 against fixed mocked remote 0; real accounts were
+not used. This does not extend the receipts to every populated user store.
+
+The new [populated copy unit](r19-populated-state-copy.md) is present as source
+and contracts, but its separately planned native fixedcase is absent from 589's
+dispatcher/workflow/results. Current later P2 harness changes are not evidence
+from this candidate. The ordinary API/language/SQL-owner/registry/host paths
+retain 11bf bytes; the old verification TemporaryDirectory AST is preserved and
+the new mapped object pin is default-inert. These source predicates do not
+create a physical/global writer proof or authorize copied-target activation.
+
+Main/managed/Node/protected-TEST jobs used image `20261021.278.1`; reference-codec
+and both diagnostic-build jobs used `20261030.294.1`. The separate 589 C7 prefix
+control timed out after `before-join-data`, while its managed-I/O control passed;
+both direct cleanups are confirmed. No actual mechanism ran. The separate MP3
+attempt 1 acquisition timeout and attempt 2 build-lame/MSB8020 failure also supply
+no copy authority or encode/decode pass. Exact identities/attempts and 100
+unchanged historical records plus seven new rows are in the
+[ledger](r19-frozen-checkpoint-20261031.json).
+
+Physical/global/dynamic writer closure, keeper loss, warm OCR/routing,
+copied-target activation, protected-store repair, full corresponding-source/
+rights, ordinary-user Windows 11 and complete R19 remain false/unavailable.
+No installer or production/profile activation is added; PR #59 remains intact.
 
 ## Verified frozen checkpoint
 
