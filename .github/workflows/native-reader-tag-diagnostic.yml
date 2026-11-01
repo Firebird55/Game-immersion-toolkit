@@ -101,9 +101,12 @@ jobs:
         run: python ../reporter/scripts/diagnose-native-reader-tag.py --source-root . --helper-root output/reader-helper/nte --resources output/managed-reader-resources --output output/native-reader-tag-original.json
       - name: Require the observed four-file failure and replay corrected preparation
         run: python ../reporter/scripts/diagnose-native-reader-tag.py --source-root . --repair-metadata-from-original output/native-reader-tag-original.json --output output/native-reader-tag-correction.json
+      - name: Expand a fresh verified SDK for the corrected build
+        id: reader_sdk_corrected
+        run: python scripts/prepare-game-reader-sdk.py --rid win-x64 --output output/reader-sdk-corrected --cache output/reader-sdk-inputs --github-output $env:GITHUB_OUTPUT
       - name: Rebuild original helper and dependency receipts from the restored clean tag
         run: |
-          ./scripts/build-game-reader-helpers.ps1 -Kind nte -RuntimeIdentifier win-x64 -OutputRoot output/reader-helper-corrected -EvidenceRoot '${{ steps.reader_sdk.outputs.evidence_root }}' -Dotnet '${{ steps.reader_sdk.outputs.dotnet }}' -ExpectedSdkVersion 10.0.403 -Python (Get-Command python).Source
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -RuntimeIdentifier win-x64 -OutputRoot output/reader-helper-corrected -EvidenceRoot '${{ steps.reader_sdk_corrected.outputs.evidence_root }}' -Dotnet '${{ steps.reader_sdk_corrected.outputs.dotnet }}' -ExpectedSdkVersion 10.0.403 -Python (Get-Command python).Source
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/build-nte-toolchain.py --platform win-x64 --output output/managed-reader-resources-corrected
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
