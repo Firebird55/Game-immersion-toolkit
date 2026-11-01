@@ -184,3 +184,32 @@ def test_browser_ack_cannot_replace_unobserved_show_logs_action(tmp_path):
     assert len(opened) == 1 and not host.stop_requested.is_set()
     code, value = finish(probe, host, tmp_path)
     assert code == 1 and not value['passed']
+
+
+@pytest.mark.parametrize('owner_finished,lease_held', [(False, True), (False, False), (True, True)])
+def test_qt_early_quit_keeps_incomplete_evidence(tmp_path, owner_finished, lease_held):
+    probe, host, _opened = fixture(tmp_path)
+    if owner_finished:
+        host.finished.set()
+    host.lease.held = lease_held
+    probe.about_to_quit()
+    value = json.loads((tmp_path / 'native-ui-probe.json').read_text())
+    assert not value['complete'] and not value['passed']
+    assert 'owned_shutdown' not in value['checks']
+
+
+def test_qt_quit_preserves_final_observation_after_actual_owned_shutdown(tmp_path):
+    probe, host, _opened = fixture(tmp_path)
+    host.open_browser('http://127.0.0.1:12345')
+    probe.browser_result.write_text('{"stages":[1,2]}')
+    for _ in range(3):
+        probe.tick()
+    assert host.stop_requested.is_set()
+    host.finished.set()
+    host.lease.held = False
+    probe.about_to_quit()
+    path = tmp_path / 'native-ui-probe.json'
+    value = json.loads(path.read_text())
+    assert value['complete'] and value['passed'] and value['checks']['owned_shutdown']
+    probe.tick()
+    assert json.loads(path.read_text()) == value

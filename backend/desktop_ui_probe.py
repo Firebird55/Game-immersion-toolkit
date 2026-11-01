@@ -45,6 +45,7 @@ class DesktopUiProbe:
             return accepted
         host.open_browser = observe_open
         self._last_observation = None
+        self._finished = False
         self.checkpoint()
 
     def browser_observed(self, stage):
@@ -153,13 +154,25 @@ class DesktopUiProbe:
         return value
 
     def checkpoint(self):
+        if self._finished:
+            return
         value = self.observation(complete=False)
         if value != self._last_observation:
             _atomic_json(self.host.layout.state_root / 'native-ui-probe.json', value)
             self._last_observation = value
 
+    def about_to_quit(self):
+        # Qt can terminate its native event loop without returning to the code
+        # after exec(). Publish final evidence only after the actual owner has
+        # stopped its services and released the installation lease.
+        if self.host.finished.is_set() and not self.host.lease.held:
+            self.finish()
+        else:
+            self.checkpoint()
+
     def finish(self):
         self.checks['owned_shutdown'] = self.host.finished.is_set() and not self.host.lease.held
         value = self.observation(complete=True)
         _atomic_json(self.host.layout.state_root / 'native-ui-probe.json', value)
+        self._finished = True
         return {'passed': 0, 'unavailable': 2}.get(value['status'], 1)

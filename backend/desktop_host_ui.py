@@ -136,6 +136,7 @@ def run_ui(host, *, probe=False):
         from .desktop_ui_probe import DesktopUiProbe
         observer = DesktopUiProbe(host, application, window, status, logs, tray,
             {'open': open_action, 'logs': logs_action, 'quit': quit_action}, tray_available=tray_available)
+        application.aboutToQuit.connect(observer.about_to_quit)
     worker = threading.Thread(target=host.run, name='desktop-supervisor', daemon=False)
     worker.start()
     timer = QTimer()
