@@ -47,13 +47,51 @@ def test_native_browser_evidence_requires_opt_in_local_origin_and_challenge(gate
         assert client.post(path, json={**body, 'reader_ready': False}, headers=origin).status_code == 403
         assert client.post(path, json={**body, 'stage': True}, headers=origin).status_code == 403
         assert client.post(path, content=b'x' * 257, headers=origin).status_code == 413
-        assert not instance.browser_probe_result.exists()
+        assert json.loads(instance.browser_probe_result.read_text())['stages'] == []
         assert client.post(path, json=body, headers=origin).status_code == 204
         assert client.post(path, json={**body, 'stage': 2}, headers=origin).status_code == 204
-        assert json.loads(instance.browser_probe_result.read_text()) == {'stages': [1, 2]}
+        observed = json.loads(instance.browser_probe_result.read_text())
+        assert observed['stages'] == [1, 2]
+        assert observed['diagnostics']['browser'] == {'1': 'acknowledged', '2': 'acknowledged'}
     with client_for(instance) as remote:
         assert remote.post(path, json=body, headers={'Origin': BASE}).status_code == 404
     assert calls == []
+
+
+def test_browser_phase_reports_never_grant_mounted_acceptance(gateway, tmp_path):
+    instance, _calls = gateway
+    instance.browser_probe_token = 'a' * 64
+    instance.browser_probe_result = tmp_path / 'browser-result.json'
+    with client_for(instance, local=True) as client:
+        body = {'token': 'a' * 64, 'stage': 1, 'phase': 'animation-frame-pending', 'visibility': 'hidden'}
+        origin = {'Origin': 'http://127.0.0.1:3000'}
+        assert client.post('/api/native-browser-probe', json=body, headers=origin).status_code == 204
+        observed = json.loads(instance.browser_probe_result.read_text())
+        assert observed['stages'] == []
+        assert observed['diagnostics']['browser'] == {'1': 'animation-frame-pending'}
+        assert observed['diagnostics']['visibility'] == {'1': 'hidden'}
+        # Concurrent diagnostic requests may complete in a different order.
+        client.post('/api/native-browser-probe', json={**body, 'phase': 'client-loaded'}, headers=origin)
+        assert json.loads(instance.browser_probe_result.read_text())['diagnostics']['browser']['1'] == 'animation-frame-pending'
+        for phase in ('acknowledged', 'private-path', [], {}):
+            assert client.post('/api/native-browser-probe', json={**body, 'phase': phase}, headers=origin).status_code == 403
+        assert json.loads(instance.browser_probe_result.read_text())['stages'] == []
+
+
+def test_native_http_diagnostics_record_only_bounded_categories(gateway, tmp_path):
+    instance, _calls = gateway
+    instance.browser_probe_token = 'a' * 64
+    instance.browser_probe_result = tmp_path / 'browser-result.json'
+    with client_for(instance, local=True) as client:
+        for path in ('/', '/assets/owned.js', '/api/snapshot', '/api/setup?game=synthetic'):
+            assert client.get(path).status_code == 206
+        before = instance.browser_probe_result.read_text()
+        assert client.get('/api/private-account-key').status_code == 206
+        assert instance.browser_probe_result.read_text() == before
+        observed = json.loads(before)
+        assert observed['stages'] == []
+        assert observed['diagnostics']['http'] == {'document': 206, 'script': 206, 'snapshot': 206, 'setup': 206}
+        assert 'synthetic' not in before and 'owned.js' not in before
 
 
 def test_phone_pairing_shares_reader_audio_and_favorites_without_revealing_code(gateway):

@@ -183,6 +183,7 @@ class DesktopGateway:
         self.browser_probe_token = browser_probe_token
         self.browser_probe_result = browser_probe_result
         self.browser_probe_stages = set()
+        self.browser_probe_diagnostics = {}
         application = Starlette(routes=[Route('/{path:path}', self.http, methods=['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS']),
                                         WebSocketRoute('/{path:path}', self.websocket)], lifespan=self.lifespan)
         # Installed readers retain their original localhost origins. LAN readers
@@ -221,7 +222,43 @@ class DesktopGateway:
         nominated = {part.strip().lower() for part in headers.get('connection', '').split(',')}
         return [(name, value) for name, value in headers.items() if name.lower() not in excluded | nominated]
 
+    def browser_diagnostic(self, category, key, value):
+        from .native_browser_probe import BROWSER_PHASES
+        values = self.browser_probe_diagnostics.setdefault(category, {})
+        previous = values.get(key)
+        if category == 'browser' and previous in BROWSER_PHASES and BROWSER_PHASES.index(previous) > BROWSER_PHASES.index(value):
+            return
+        if previous == value:
+            return
+        values[key] = value
+        self.save_browser_observation()
+
+    def save_browser_observation(self):
+        from .bundle_host import _atomic_json
+        _atomic_json(Path(self.browser_probe_result), {'stages': sorted(self.browser_probe_stages),
+            'diagnostics': self.browser_probe_diagnostics})
+
     async def http(self, request):
+        key = None
+        if self.browser_probe_token and self.browser_probe_result and is_local(request.scope):
+            path = request.url.path
+            key = {'/': 'document', '/api/snapshot': 'snapshot', '/api/setup': 'setup',
+                   '/api/native-browser-probe': 'ack'}.get(path)
+            if path.startswith(('/assets/', '/_next/static/')) and path.endswith('.js'):
+                key = 'script'
+        if key:
+            self.browser_diagnostic('http', key, 'pending')
+        try:
+            response = await self._http(request)
+        except Exception:
+            if key:
+                self.browser_diagnostic('http', key, 500)
+            raise
+        if key:
+            self.browser_diagnostic('http', key, response.status_code)
+        return response
+
+    async def _http(self, request):
         if not allowed_request(request.scope, self.addresses()):
             return JSONResponse({'detail': 'Open the desktop address directly.'}, status_code=403)
         local, path = is_local(request.scope), request.url.path
@@ -238,18 +275,24 @@ class DesktopGateway:
                 if len(body) > 256:
                     return Response(status_code=413)
             try:
+                from .native_browser_probe import BROWSER_PHASES
                 value = json.loads(body)
                 valid = (isinstance(value, dict) and isinstance(value.get('token'), str)
                     and secrets.compare_digest(value['token'], self.browser_probe_token)
                     and type(value.get('stage')) is int and value['stage'] in {1, 2}
-                    and value.get('reader_ready') is True)
+                    and (value.get('reader_ready') is True or
+                         value.get('phase') in BROWSER_PHASES[:-1] and 'reader_ready' not in value))
             except ValueError:
                 valid = False
             if not valid:
                 return Response(status_code=403)
-            from .bundle_host import _atomic_json
-            self.browser_probe_stages.add(value['stage'])
-            _atomic_json(Path(self.browser_probe_result), {'stages': sorted(self.browser_probe_stages)})
+            if value.get('reader_ready') is True:
+                self.browser_probe_stages.add(value['stage'])
+                self.browser_diagnostic('browser', str(value['stage']), 'acknowledged')
+            else:
+                self.browser_diagnostic('browser', str(value['stage']), value['phase'])
+            if value.get('visibility') in ('visible', 'hidden'):
+                self.browser_diagnostic('visibility', str(value['stage']), value['visibility'])
             return Response(status_code=204, headers={'Cache-Control': 'no-store'})
         if path == '/api/connection':
             if request.method != 'GET':
