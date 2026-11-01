@@ -108,6 +108,7 @@ def test_cleanup_failure_cannot_hide_original_probe_failure_or_report(monkeypatc
     monkeypatch.setattr(probe, 'validate', lambda *_a, **_k: None)
     monkeypatch.setattr(probe, 'executable_target', lambda _p: 'windows-x64')
     monkeypatch.setattr(probe, 'digest', lambda _p: 'b' * 64)
+    monkeypatch.setattr(probe, 'check_preparation', lambda *_a: None)
     monkeypatch.setattr(probe.subprocess, 'run', lambda *_a, **_k: SimpleNamespace(returncode=0, stdout='{"mode":"bundle"}'))
     class FailedHost:
         def __init__(self, *_a):
@@ -126,6 +127,43 @@ def test_cleanup_failure_cannot_hide_original_probe_failure_or_report(monkeypatc
     assert value['passed'] is False and 'private cleanup diagnostics' not in capsys.readouterr().out
     assert value['observation_error'] == 'host-observation-unavailable'
     assert 'private observation diagnostics' not in output.read_text()
+
+
+@pytest.mark.parametrize('failure', [None, 'early-eof', 'child-failed', 'unfrozen', 'missing-check', 'non-boolean', 'no-shutdown'])
+def test_frozen_preparation_handshake_requires_both_stages_and_drains_owner(monkeypatch, tmp_path, failure):
+    prepared = {'schema': 'toolkit-frozen-preparation-probe-v1', 'mode': 'bundle', 'stage': 'prepared',
+        'checks': {'preparation_completed': True, 'parent_control_retained': True, 'preparation_tree_drained': True}}
+    complete = {'schema': 'toolkit-frozen-preparation-probe-v1', 'mode': 'bundle', 'stage': 'complete',
+        'checks': {'control_shutdown': True}}
+    if failure == 'unfrozen':
+        prepared['mode'] = 'source'
+    if failure == 'missing-check':
+        del prepared['checks']['preparation_tree_drained']
+    if failure == 'non-boolean':
+        prepared['checks']['preparation_tree_drained'] = 1
+    values = [] if failure == 'early-eof' else [prepared]
+    if failure != 'no-shutdown':
+        values.append(complete)
+    process = SimpleNamespace(stdout=io.StringIO(''.join(json.dumps(value)+'\n' for value in values)),
+        stdin=io.StringIO(), wait=lambda **_: 1 if failure == 'child-failed' else 0)
+    calls, cleanup = [], []
+    def own(command, **options):
+        calls.append((command, options))
+        return SimpleNamespace(process=process, stop=lambda **_: cleanup.append('drained'),
+            close_streams=lambda: cleanup.append('closed'))
+    monkeypatch.setattr(probe, 'OwnedProcess', own)
+    executable = tmp_path/'GameImmersionToolkit'
+    if failure:
+        with pytest.raises(probe.ProbeFailure):
+            probe.check_preparation(executable, tmp_path, {}, 15)
+    else:
+        probe.check_preparation(executable, tmp_path, {}, 15)
+        assert process.stdin.getvalue() == 'shutdown\n'
+    assert cleanup == ['drained', 'closed']
+    command, options = calls[0]
+    assert command == [str(executable), '--runtime-child', 'api', '--', '--preparation-probe', '--shutdown-stdin']
+    assert options['stdin'] == probe.subprocess.PIPE
+    assert Path(options['env']['PROXY_TRANSCRIPT_DATA_ROOT']).parent == tmp_path
 
 
 def test_ui_missing_observation_has_a_fixed_public_failure_code(tmp_path):
